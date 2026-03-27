@@ -437,7 +437,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(request.analysis_state).toBeUndefined()
   })
 
-  it('includes analysis_state on conversation turns when analysis is complete and graph is fresh', async () => {
+  it('R11: omits analysis_state on conversation turns even when analysis is complete and graph is fresh', async () => {
     // Canvas store holds status + hash + rawV2Response (set by resultsComplete)
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-abc' } as any,
@@ -472,13 +472,9 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
       await result.current.sendMessage('What does the analysis show?')
     })
 
+    // R11: analysis_state is no longer included on conversation turns
     const request = mockStreamTurn.mock.calls[0][0]
-    expect(request.analysis_state).toBeDefined()
-    expect(request.analysis_state.analysis_status).toBe('completed')
-    expect(request.analysis_state.meta.response_hash).toBe('hash-abc')
-    // CEE reads V2 fields at the TOP LEVEL of analysis_state (not nested in results)
-    expect(Array.isArray(request.analysis_state.option_comparison)).toBe(true)
-    expect(request.analysis_state.option_comparison).toHaveLength(1)
+    expect(request.analysis_state).toBeUndefined()
   })
 
   it('omits analysis_state when graph has been edited since last analysis (stale guard)', async () => {
@@ -520,7 +516,7 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(request.analysis_state).toBeUndefined()
   })
 
-  it('includes analysis_state with computed status and non-empty option_comparison after V2 analysis completes', async () => {
+  it('R11: omits analysis_state on conversation turns even after V2 analysis completes', async () => {
     // Simulate post-analysis state: canvas store has complete results + rawV2Response,
     // resultsStore has assembled summary with options (as set by useV2Run).
     useCanvasStore.setState({
@@ -571,33 +567,24 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
       await result.current.sendMessage('explain the results')
     })
 
+    // R11: conversation turns never include analysis_state
     const request = mockStreamTurn.mock.calls[0][0]
-    expect(request.analysis_state).toBeDefined()
-    expect(request.analysis_state.analysis_status).toBe('completed')
-    expect(request.analysis_state.meta.response_hash).toBe('resp-hash-123')
-    // V2 fields are at the TOP LEVEL of analysis_state (not nested in results)
-    const state = request.analysis_state as any
-    expect(Array.isArray(state.option_comparison)).toBe(true)
-    expect(state.option_comparison).toHaveLength(2)
-    expect(state.option_comparison[0].win_probability).toBe(0.65)
-    expect(state.robustness.recommendation_stability).toBe(0.55)
-    // compact_summary is attached at top level when analysisSummary is available
-    expect(state.compact_summary.contract_version).toBe('1.0.0')
+    expect(request.analysis_state).toBeUndefined()
   })
 
-  it('coerces null/non-array rawV2 fields to empty arrays in analysis_state.results', async () => {
+  it('R11: omits analysis_state on conversation turns even with malformed rawV2 fields', async () => {
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-malformed' } as any,
       graphEditedSinceLastRun: false,
       rawV2Response: {
         analysis_status: 'computed',
         option_comparison_status: 'computed',
-        option_comparison: null,        // should coerce to []
+        option_comparison: null,
         robustness_status: 'unavailable',
         robustness: null,
         drivers_status: 'computed',
-        drivers: 'not-an-array',        // should coerce to []
-        edge_sensitivity: undefined,    // should coerce to []
+        drivers: 'not-an-array',
+        edge_sensitivity: undefined,
         meta: null,
       } as any,
     })
@@ -612,17 +599,9 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
       await result.current.sendMessage('What happened?')
     })
 
+    // R11: conversation turns never include analysis_state
     const request = mockStreamTurn.mock.calls[0][0]
-    expect(request.analysis_state).toBeDefined()
-    // Coerced fields are at the top level of analysis_state
-    const state = request.analysis_state as any
-    expect(Array.isArray(state.option_comparison)).toBe(true)
-    expect(state.option_comparison).toHaveLength(0)
-    expect(Array.isArray(state.drivers)).toBe(true)
-    expect(state.drivers).toHaveLength(0)
-    expect(Array.isArray(state.edge_sensitivity)).toBe(true)
-    expect(state.edge_sensitivity).toHaveLength(0)
-    expect(state.robustness).toBeNull()
+    expect(request.analysis_state).toBeUndefined()
   })
 
   it('omits analysis_state when rawV2Response is null (no analysis run)', async () => {

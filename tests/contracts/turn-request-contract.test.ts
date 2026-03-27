@@ -222,19 +222,16 @@ describe('Turn request contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('post-analysis conversation turn with option_comparison validates', () => {
+  test('R11: post-analysis conversation turn omits analysis_state', () => {
     const request = wirePayload(buildConversationTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
       message: 'Why is Option A better?',
       graph_state: graphState,
-      analysis_state: analysisState,
     }))
 
-    expect(request).toHaveProperty('analysis_state')
-    // analysis_state.results has option_comparison (not the old 'results' shape)
-    expect((request as Record<string, unknown>).analysis_state).toHaveProperty('results')
-    expect(((request as Record<string, unknown>).analysis_state as Record<string, unknown>).results).toHaveProperty('option_comparison')
+    // R11: conversation turns no longer include analysis_state
+    expect(request).not.toHaveProperty('analysis_state')
 
     const valid = validateTurnRequest(request)
     if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
@@ -255,17 +252,16 @@ describe('Turn request contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('explicit_generate with analysis_state validates', () => {
+  test('R11: explicit_generate omits analysis_state', () => {
     const request = wirePayload(buildExplicitGenerateTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
       message: 'Regenerate the model with updated factors',
       graph_state: graphState,
-      analysis_state: analysisState,
     }))
 
     expect(request).toHaveProperty('generate_model', true)
-    expect(request).toHaveProperty('analysis_state')
+    expect(request).not.toHaveProperty('analysis_state')
     const valid = validateTurnRequest(request)
     if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
     expect(valid).toBe(true)
@@ -316,18 +312,17 @@ describe('Turn request contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('system_event turn with analysis_state validates', () => {
+  test('R11: system_event turn omits analysis_state', () => {
     const request = wirePayload(buildSystemEventTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
       message: '[system] Feedback',
       graph_state: graphState,
       system_event: { type: 'feedback_submitted', payload: { rating: 'positive' } },
-      analysis_state: analysisState,
     }))
 
     expect(request).toHaveProperty('system_event')
-    expect(request).toHaveProperty('analysis_state')
+    expect(request).not.toHaveProperty('analysis_state')
     const valid = validateTurnRequest(request)
     if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
     expect(valid).toBe(true)

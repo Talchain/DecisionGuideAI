@@ -119,11 +119,14 @@ export type TurnRequestPayload =
   | ExplainTurnRequest
   | ClarificationResponseTurnRequest
 
+// R11: analysis_state is only allowed on turn types where the user explicitly
+// references results (explain, patch_followup). Omitted from conversation,
+// explicit_generate, and system_event to avoid CEE boundary warnings.
 const TURN_ALLOW_LIST: Record<TurnType, readonly string[]> = {
-  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'analysis_state', '_turn_type'],
-  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', 'analysis_state', '_turn_type'],
+  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', '_turn_type'],
+  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', '_turn_type'],
   run_analysis: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_inputs', '_turn_type'],
-  system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', 'analysis_state', '_turn_type'],
+  system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', '_turn_type'],
   patch_followup: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_state', '_turn_type'],
   explain: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'analysis_state', '_turn_type'],
   clarification_response: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', '_turn_type'],
@@ -181,16 +184,16 @@ export function isValidExplainAnalysisState(value: unknown): value is ExplainAna
   return state.results !== undefined && state.results !== null
 }
 
+// R11: analysis_state removed from conversation turns — only allowed on
+// explain/patch_followup where the user explicitly references results.
 export function buildConversationTurnRequest(input: {
   scenario_id: string
   conversation_history: ConversationTurnPair[]
   message: string
   graph_state: GraphStatePayload
   selected_elements?: SelectedElementsPayload
-  analysis_state?: unknown
   client_turn_id?: string
 }): ConversationTurnRequest {
-  const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
   return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
@@ -198,19 +201,17 @@ export function buildConversationTurnRequest(input: {
     message: input.message,
     graph_state: input.graph_state,
     ...(input.selected_elements ? { selected_elements: input.selected_elements } : {}),
-    ...(validAnalysisState ? { analysis_state: validAnalysisState } : {}),
   }, 'conversation')
 }
 
+// R11: analysis_state removed from explicit_generate turns.
 export function buildExplicitGenerateTurnRequest(input: {
   scenario_id: string
   conversation_history: ConversationTurnPair[]
   message: string
   graph_state: GraphStatePayload
-  analysis_state?: unknown
   client_turn_id?: string
 }): ExplicitGenerateTurnRequest {
-  const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
   return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
@@ -218,7 +219,6 @@ export function buildExplicitGenerateTurnRequest(input: {
     message: input.message,
     graph_state: input.graph_state,
     generate_model: true,
-    ...(validAnalysisState ? { analysis_state: validAnalysisState } : {}),
   }, 'explicit_generate')
 }
 
@@ -238,16 +238,15 @@ export function buildRunAnalysisTurnRequest(input: {
   }, 'run_analysis')
 }
 
+// R11: analysis_state removed from system_event turns.
 export function buildSystemEventTurnRequest(input: {
   scenario_id: string
   conversation_history: ConversationTurnPair[]
   message: string
   graph_state: GraphStatePayload
   system_event: WireSystemEvent
-  analysis_state?: unknown
   client_turn_id?: string
 }): SystemEventTurnRequest {
-  const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
   return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
@@ -255,7 +254,6 @@ export function buildSystemEventTurnRequest(input: {
     message: input.message,
     graph_state: input.graph_state,
     system_event: input.system_event,
-    ...(validAnalysisState ? { analysis_state: validAnalysisState } : {}),
   }, 'system_event')
 }
 

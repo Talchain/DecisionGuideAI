@@ -1040,6 +1040,20 @@ describe('determineWinnerSelection', () => {
     expect(result.determinedBy).toBe('win_probability')
     expect(result.recommendedId).toBe('b')
   })
+
+  it('R13: uses expected_outcome path when win_probability is absent (no false coverage)', () => {
+    // winProbability is undefined — should NOT be treated as complete coverage
+    const options = [
+      { id: 'a', expected: 0.9, goalProbability: 0.9 },
+      { id: 'b', expected: 0.4, goalProbability: 0.4 },
+    ] as any
+
+    const result = determineWinnerSelection(options, null)
+
+    // No win_probability → determinedBy must be expected_outcome, not win_probability
+    expect(result.determinedBy).toBe('expected_outcome')
+    expect(result.recommendedId).toBe('a') // highest expected wins
+  })
 })
 
 // =============================================================================

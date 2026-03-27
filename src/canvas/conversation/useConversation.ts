@@ -1221,7 +1221,7 @@ export function useConversation(): UseConversationReturn {
           conversation_history: conversationHistory,
           message: opts.text,
           graph_state: graphState,
-          analysis_state: analysisState,
+          // R11: analysis_state omitted — system events (graph edits) don't need it
           client_turn_id: opts.clientTurnId,
           system_event: opts.systemEventWire ?? { type: 'direct_graph_edit', payload: {} },
         })
@@ -1233,7 +1233,7 @@ export function useConversation(): UseConversationReturn {
           conversation_history: conversationHistory,
           message: opts.text,
           graph_state: graphState,
-          analysis_state: analysisState,
+          // R11: analysis_state omitted — draft generation doesn't need it
           client_turn_id: opts.clientTurnId,
         })
       }
@@ -1249,7 +1249,7 @@ export function useConversation(): UseConversationReturn {
             message: opts.text,
             graph_state: graphState,
             selected_elements: selectedElements,
-            analysis_state: analysisState,
+            // R11: analysis_state omitted — run_analysis fallback is a conversation turn
             client_turn_id: opts.clientTurnId,
           })
         }
@@ -1293,13 +1293,14 @@ export function useConversation(): UseConversationReturn {
         })
       }
 
+      // R11: analysis_state omitted on pure conversation turns — only included
+      // on explain/patch_followup turns where the user references results
       return buildConversationTurnRequest({
         scenario_id: scenarioId,
         conversation_history: conversationHistory,
         message: opts.text,
         graph_state: graphState,
         selected_elements: selectedElements,
-        analysis_state: analysisState,
         client_turn_id: opts.clientTurnId,
       })
     },

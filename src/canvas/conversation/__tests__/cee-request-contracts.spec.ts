@@ -285,16 +285,15 @@ describe('T3 — Alternatives question (pure conversation, no analysis)', () => 
     expect(req.conversation_history.length).toBeGreaterThan(0)
   })
 
-  it('analysis_state is absent even when invalid (malformed) state is passed', () => {
-    // Passing a malformed analysis_state — builder should silently drop it
-    const reqBad = buildConversationTurnRequest({
+  it('R11: analysis_state is structurally absent from conversation builder', () => {
+    // R11: conversation builder no longer accepts analysis_state parameter
+    const req = buildConversationTurnRequest({
       scenario_id: SCENARIO_ID,
       conversation_history: [],
       message: 'What alternatives exist?',
       graph_state: EMPTY_GRAPH,
-      analysis_state: { bad_shape: true, no_status: 'missing' },
     })
-    expect(reqBad.analysis_state).toBeUndefined()
+    expect(req.analysis_state).toBeUndefined()
   })
 })
 

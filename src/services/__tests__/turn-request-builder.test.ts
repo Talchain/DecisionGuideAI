@@ -139,69 +139,39 @@ describe('turn request builders', () => {
     expect(req).not.toHaveProperty('system_event')
   })
 
-  it('conversation request includes analysis_state when valid', () => {
+  it('R11: conversation builder does not accept analysis_state parameter', () => {
     const req = buildConversationTurnRequest({
       scenario_id: 's5b',
       conversation_history: [...history],
       message: 'what does the analysis show?',
       graph_state: graphState,
-      analysis_state: validAnalysisState,
-    })
-
-    expect(req).toHaveProperty('analysis_state')
-    expect(req.analysis_state).toMatchObject({
-      analysis_status: 'complete',
-      meta: { response_hash: 'hash-1' },
-    })
-  })
-
-  it('conversation request omits analysis_state when invalid', () => {
-    const req = buildConversationTurnRequest({
-      scenario_id: 's5c',
-      conversation_history: [...history],
-      message: 'hello',
-      graph_state: graphState,
-      analysis_state: { analysis_status: 'complete', meta: {} } as unknown,
     })
 
     expect(req).not.toHaveProperty('analysis_state')
   })
 
-  it('conversation request omits analysis_state when undefined', () => {
-    const req = buildConversationTurnRequest({
-      scenario_id: 's5d',
-      conversation_history: [...history],
-      message: 'hello',
-      graph_state: graphState,
-    })
-
-    expect(req).not.toHaveProperty('analysis_state')
-  })
-
-  it('explicit_generate request includes analysis_state when valid', () => {
+  it('R11: explicit_generate builder does not accept analysis_state parameter', () => {
     const req = buildExplicitGenerateTurnRequest({
       scenario_id: 's5e',
       conversation_history: [...history],
       message: 'generate',
       graph_state: graphState,
-      analysis_state: validAnalysisState,
     })
 
-    expect(req).toHaveProperty('analysis_state')
+    expect(req).not.toHaveProperty('analysis_state')
     expect(req).toHaveProperty('generate_model', true)
   })
 
-  it('system_event request includes analysis_state when valid', () => {
+  it('R11: system_event builder does not accept analysis_state parameter', () => {
     const req = buildSystemEventTurnRequest({
       scenario_id: 's5f',
       conversation_history: [...history],
       message: '[system]',
       graph_state: graphState,
       system_event: { type: 'direct_graph_edit', payload: {} },
-      analysis_state: validAnalysisState,
     })
 
-    expect(req).toHaveProperty('analysis_state')
+    expect(req).not.toHaveProperty('analysis_state')
     expect(req).toHaveProperty('system_event')
   })
 
@@ -406,11 +376,28 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
     )
   })
 
-  it('accepts valid analysis_state on conversation turns (no violation)', () => {
-    const req = buildConversationTurnRequest({
+  it('R11: flags analysis_state as forbidden on conversation turns', () => {
+    const base = buildConversationTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...history],
       message: 'hello',
+      graph_state: graphState,
+    })
+    // Simulate accidental injection from a rogue call site
+    const req = { ...base, analysis_state: validAnalysisState } as any
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[BOUNDARY]',
+      expect.objectContaining({ field: 'analysis_state', violation: 'forbidden_field' }),
+    )
+  })
+
+  it('accepts valid analysis_state on explain turns (no violation)', () => {
+    const req = buildExplainTurnRequest({
+      scenario_id: VALID_UUID,
+      conversation_history: [...history],
+      message: 'explain why',
       graph_state: graphState,
       analysis_state: validAnalysisState,
     })
@@ -419,12 +406,12 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
     expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
-  it('logs structural violation when analysis_state is malformed on any turn type', () => {
+  it('logs structural violation when analysis_state is malformed on explain turn', () => {
     const req = {
-      ...buildConversationTurnRequest({
+      ...buildExplainTurnRequest({
         scenario_id: 's12c',
         conversation_history: [...history],
-        message: 'hello',
+        message: 'explain',
         graph_state: graphState,
       }),
       analysis_state: { analysis_status: 'complete', meta: {} },
@@ -592,5 +579,51 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
 
     validateTurnRequestBoundary(req)
     expect(mockTrackEvent).not.toHaveBeenCalled()
+  })
+
+  it('R11: flags analysis_state as forbidden on system_event turns (injected via spread)', () => {
+    const base = buildSystemEventTurnRequest({
+      scenario_id: VALID_UUID,
+      conversation_history: [...history],
+      message: '[system]',
+      graph_state: graphState,
+      system_event: { type: 'direct_graph_edit', payload: {} },
+    })
+    // Simulate accidental injection from a rogue call site
+    const req = { ...base, analysis_state: validAnalysisState } as any
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[BOUNDARY]',
+      expect.objectContaining({ field: 'analysis_state', violation: 'forbidden_field' }),
+    )
+  })
+
+  it('R11: flags analysis_state as forbidden on explicit_generate turns (injected via spread)', () => {
+    const base = buildExplicitGenerateTurnRequest({
+      scenario_id: VALID_UUID,
+      conversation_history: [...history],
+      message: 'generate',
+      graph_state: graphState,
+    })
+    const req = { ...base, analysis_state: validAnalysisState } as any
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      '[BOUNDARY]',
+      expect.objectContaining({ field: 'analysis_state', violation: 'forbidden_field' }),
+    )
+  })
+
+  it('R11: accepts analysis_state on patch_followup turns', () => {
+    const req = buildPatchFollowupTurnRequest({
+      scenario_id: VALID_UUID,
+      conversation_history: [...history],
+      graph_state: graphState,
+      analysis_state: validAnalysisState,
+    })
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 })

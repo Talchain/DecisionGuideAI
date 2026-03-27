@@ -203,6 +203,56 @@ describe('OptionCards', () => {
       expect(screen.getByText('Option B')).toBeInTheDocument()
     })
 
+    it('R13: sorts by expected value when all win_probability values are null', () => {
+      // Option B has higher expected (200) but lower winProbability (undefined)
+      // Option A has lower expected (50) but also no winProbability
+      const noWinProb: OptionResult[] = [
+        { ...mockOptions[1], expected: 200, winProbability: undefined },
+        { ...mockOptions[0], expected: 50, winProbability: undefined },
+      ]
+      const { container } = render(
+        <OptionCards options={noWinProb} winnerId="option-2" />
+      )
+
+      const cards = container.querySelectorAll('[data-option-id]')
+      // Should sort by expected value descending: option-2 (200) before option-1 (50)
+      expect(cards[0].getAttribute('data-option-id')).toBe('option-2')
+      expect(cards[1].getAttribute('data-option-id')).toBe('option-1')
+    })
+
+    it('R13: sorts by win_probability when ALL options have it, ignoring expected value', () => {
+      // Option A has lower expected but higher win_probability
+      const mixedOrder: OptionResult[] = [
+        { ...mockOptions[1], expected: 200, winProbability: 0.3 },
+        { ...mockOptions[0], expected: 50, winProbability: 0.7 },
+      ]
+      const { container } = render(
+        <OptionCards options={mixedOrder} winnerId="option-1" />
+      )
+
+      const cards = container.querySelectorAll('[data-option-id]')
+      // Should sort by win_probability descending: option-1 (0.7) before option-2 (0.3)
+      expect(cards[0].getAttribute('data-option-id')).toBe('option-1')
+      expect(cards[1].getAttribute('data-option-id')).toBe('option-2')
+    })
+
+    it('R13: mixed coverage — falls back to expected when only some have win_probability', () => {
+      // Option A has winProbability=0.3, option B has none but higher expected
+      // Mixed coverage should NOT use winProbability (would treat null as 0)
+      const mixed: OptionResult[] = [
+        { ...mockOptions[0], expected: 50, winProbability: 0.3 },
+        { ...mockOptions[1], expected: 200, winProbability: undefined },
+      ]
+      const { container } = render(
+        <OptionCards options={mixed} winnerId="option-2" />
+      )
+
+      const cards = container.querySelectorAll('[data-option-id]')
+      // Falls back to expected: option-2 (200) before option-1 (50)
+      expect(cards[0].getAttribute('data-option-id')).toBe('option-2')
+      expect(cards[1].getAttribute('data-option-id')).toBe('option-1')
+    })
+
     it('handles options without goal probability when target set', () => {
       const noGoalProb = mockOptions.map(o => ({ ...o, goalProbability: undefined }))
       render(

@@ -402,8 +402,12 @@ export function OptionCards({
   const showHitsTarget = hasGoalThreshold && allGoalProbability
 
   // V14.2: Sort by win probability descending (same order as WinGauge segments)
+  // Only use winProbability when ALL options have it — mixed coverage would
+  // treat missing values as 0, producing false rankings. Fall back to expected.
+  const allHaveWinProb = options.length > 0 && options.every(o => o.winProbability != null)
   const sorted = [...options].sort((a, b) => {
-    return (b.winProbability ?? 0) - (a.winProbability ?? 0)
+    if (allHaveWinProb) return (b.winProbability ?? 0) - (a.winProbability ?? 0)
+    return (b.expected ?? b.goalProbability ?? -Infinity) - (a.expected ?? a.goalProbability ?? -Infinity)
   })
 
   // Range bar global scale: shared [globalMin, globalMax] across all options
