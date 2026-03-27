@@ -139,4 +139,14 @@ describe('stripDiagnostics', () => {
     const input = 'Use <response> tags for XML formatting.'
     expect(stripDiagnostics(input)).toBe('Use <response> tags for XML formatting.')
   })
+
+  it('suppresses bare <response> tag before <assistant_text> arrives during streaming', () => {
+    expect(stripDiagnostics('<response>')).toBe('')
+    expect(stripDiagnostics('  <response>  ')).toBe('')
+  })
+
+  it('tolerates attributes on <response> tag', () => {
+    const input = '<response id="abc"><assistant_text>Content'
+    expect(stripDiagnostics(input)).toBe('Content')
+  })
 })

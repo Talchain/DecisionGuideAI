@@ -264,11 +264,15 @@ export function stripDiagnostics(text: string): string {
   } else {
     // Partial envelope during streaming: opening tags present but closing tags haven't arrived.
     // Extract content after <assistant_text> and strip any trailing incomplete XML.
-    const partialMatch = cleaned.match(/^\s*<response>\s*<assistant_text>([\s\S]*)$/i)
+    const partialMatch = cleaned.match(/^\s*<response[^>]*>\s*<assistant_text>([\s\S]*)$/i)
     if (partialMatch) {
       cleaned = partialMatch[1]
       // If a closing </assistant_text> has arrived but </response> hasn't yet, strip it
       cleaned = cleaned.replace(/<\/assistant_text>[\s\S]*$/i, '')
+    } else if (/^\s*<response[^>]*>\s*$/i.test(cleaned)) {
+      // <response> tag arrived but <assistant_text> hasn't yet — suppress entirely
+      // to prevent raw XML flashing for one RAF frame during streaming.
+      cleaned = ''
     }
   }
 
@@ -1736,14 +1740,19 @@ export function useConversation(): UseConversationReturn {
       // Suppress stock acknowledgement phrases that duplicate patch card status.
       // Orchestrator sometimes responds to patch_accepted/patch_dismissed system events
       // with a bare "Changes applied." or similar — the graph_patch card already shows this.
-      const STOCK_ACK_PATTERNS = [
-        /^\s*changes\s+applied\.?\s*$/i,
-        /^\s*got\s+it[.!]?\s*$/i,
-        /^\s*understood[.!]?\s*$/i,
-        /^\s*noted[.!]?\s*$/i,
-      ]
-      if (STOCK_ACK_PATTERNS.some((p) => p.test(assistantText))) {
-        assistantText = ''
+      // Only suppress when the same turn includes a graph_patch block, so standalone
+      // "Noted." responses to user questions are preserved.
+      const hasGraphPatch = orderedBlocks.some((b) => b.type === 'graph_patch')
+      if (hasGraphPatch) {
+        const STOCK_ACK_PATTERNS = [
+          /^\s*changes\s+applied\.?\s*$/i,
+          /^\s*got\s+it[.!]?\s*$/i,
+          /^\s*understood[.!]?\s*$/i,
+          /^\s*noted[.!]?\s*$/i,
+        ]
+        if (STOCK_ACK_PATTERNS.some((p) => p.test(assistantText))) {
+          assistantText = ''
+        }
       }
 
       // Guard: skip empty assistant messages (no visible content and no blocks)
