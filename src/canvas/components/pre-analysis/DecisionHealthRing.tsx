@@ -5,7 +5,7 @@
  * threshold colours (DS v5 §11.6). A 4th dimension (verified) is averaged into the
  * overall score but not drawn as a ring to keep the visualisation clean.
  *
- * Centre: numeric score + "ready" label.
+ * Centre: numeric score + configurable label (default "ready").
  *
  * Evaluative thresholds (§11.6):
  *   0–39% → danger, 40–69% → warning, ≥70% → success
@@ -26,6 +26,8 @@ interface DecisionHealthRingProps {
   dimensions: DecisionHealthRingDimensions
   /** Ring diameter in px (default 54) */
   size?: number
+  /** Centre label below the score (default "ready") */
+  centerLabel?: string
 }
 
 // Arc geometry: 270 degree arc
@@ -60,6 +62,7 @@ interface ArcConfig {
 export const DecisionHealthRing = memo(function DecisionHealthRing({
   dimensions,
   size = DEFAULT_SIZE,
+  centerLabel = 'ready',
 }: DecisionHealthRingProps) {
   const clamp = (v: number) => Math.max(0, Math.min(1, v))
   const s = clamp(dimensions.structure)
@@ -91,7 +94,7 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
-      aria-label={`Decision readiness: ${overallScore}%`}
+      aria-label={`Decision ${centerLabel}: ${overallScore}%`}
       className="flex-shrink-0"
     >
       {arcs.map((arc) => {
@@ -139,7 +142,7 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
         className="fill-text-light"
         style={{ fontSize: `${labelFontSize}px`, fontFamily: 'Inter, sans-serif' }}
       >
-        ready
+        {centerLabel}
       </text>
     </svg>
   )

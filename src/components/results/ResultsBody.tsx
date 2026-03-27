@@ -33,6 +33,7 @@ import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBounda
 import { ProgressBar } from './ProgressBar'
 import { CoachingPrompt } from './CoachingPrompt'
 import { ResultsFooter } from './ResultsFooter'
+import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -125,6 +126,14 @@ export const ResultsBody = memo(function ResultsBody({
 
   return (
     <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
+
+      {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
+      <SectionErrorBoundary section="Decision confidence">
+        <DecisionConfidencePanel
+          data={resultsSectionData}
+          onFocusNode={onFocusNode}
+        />
+      </SectionErrorBoundary>
 
       {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
       {/* P0.1: Humanised critique items — coaching tone, no raw field names */}
