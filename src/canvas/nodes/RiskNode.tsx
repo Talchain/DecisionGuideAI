@@ -10,6 +10,7 @@ import { FileText, Cpu } from 'lucide-react'
 import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
+import { CoachingCard } from '../components/CoachingCard'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -26,6 +27,7 @@ export const RiskNode = memo((props: NodeProps) => {
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  const viewMode = useCanvasStore(state => state.viewMode)
 
   // Provenance pill: show when source is a meaningful attribution (not user-set or unknown)
   const provenanceLabel = useMemo(() => {
@@ -50,6 +52,22 @@ export const RiskNode = memo((props: NodeProps) => {
     }
   }, [edges, nodes, props.id])
 
+  // Phase 4: "Driven by" — top 2 factors by inbound edge weight (Model view, post-analysis)
+  const drivenBy = useMemo(() => {
+    if (viewMode !== 'model' || resultsStatus !== 'complete') return null
+    const inbound = edges
+      .filter(e => e.target === props.id)
+      .map(e => {
+        const sourceNode = nodes.find(n => n.id === e.source)
+        const w = (e.data as any)?.weight as number | undefined
+        return { label: (sourceNode?.data?.label as string | undefined) ?? null, weight: w ?? 0 }
+      })
+      .filter(e => e.label)
+      .sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight))
+      .slice(0, 2)
+    return inbound.length > 0 ? inbound.map(e => e.label!).join(', ') : null
+  }, [viewMode, resultsStatus, edges, nodes, props.id])
+
   return (
     <BaseNode {...props} data={cleanedData} nodeType="risk" icon={metadata.icon}>
       {severity && (
@@ -61,7 +79,7 @@ export const RiskNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* T9: Bridge edge data — contribution % + direction, neutral colours */}
+      {/* T9: Bridge edge data — contribution % (both views) + direction (Model only) */}
       {resultsStatus === 'complete' && bridgeEdgeData && (bridgeEdgeData.contributionPct != null || bridgeEdgeData.signedMean !== null) && (
         <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
           {bridgeEdgeData.contributionPct != null && (
@@ -69,7 +87,7 @@ export const RiskNode = memo((props: NodeProps) => {
               {bridgeEdgeData.contributionPct}% contribution to goal
             </div>
           )}
-          {bridgeEdgeData.signedMean !== null && (
+          {viewMode === 'model' && bridgeEdgeData.signedMean !== null && (
             <InfluenceIndicator
               strength={bridgeEdgeData.signedMean}
               variant="canvas"
@@ -79,8 +97,8 @@ export const RiskNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* Pre-analysis: bridge edge influence indicator */}
-      {resultsStatus !== 'complete' && bridgeEdgeData && bridgeEdgeData.signedMean !== null && (
+      {/* Pre-analysis: bridge edge influence indicator (Model view only) */}
+      {viewMode === 'model' && resultsStatus !== 'complete' && bridgeEdgeData && bridgeEdgeData.signedMean !== null && (
         <div className={`${typography.nodeLabel} mt-2 text-text-light`}>
           <InfluenceIndicator
             strength={bridgeEdgeData.signedMean}
@@ -90,7 +108,7 @@ export const RiskNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {provenanceLabel && (
+      {viewMode === 'model' && provenanceLabel && (
         <div className="flex justify-end mt-1.5">
           {provenanceLabel.includes('Olumi') ? (
             <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
@@ -98,6 +116,22 @@ export const RiskNode = memo((props: NodeProps) => {
             <FileText size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
           )}
         </div>
+      )}
+
+      {/* "Driven by" line (Model view, post-analysis) */}
+      {drivenBy && (
+        <div className={`${typography.nodeLabel} text-text-light mt-1`}>
+          Driven by: {drivenBy}
+        </div>
+      )}
+
+      {/* Coaching: risk reduction chip (Model view, post-analysis) */}
+      {viewMode === 'model' && resultsStatus === 'complete' && (
+        <CoachingCard
+          severity="info"
+          message=""
+          chips={[{ label: 'What reduces this risk?', message: `What factors or actions could reduce ${cleanedLabel || 'this risk'}?` }]}
+        />
       )}
 
       {typeof props.data?.description === 'string' && props.data.description && (

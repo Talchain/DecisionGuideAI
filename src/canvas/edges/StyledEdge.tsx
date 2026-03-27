@@ -69,13 +69,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [])
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
-  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge } = useCanvasStore(
+  const { updateEdgeData, ceeReview, resultsStatus, report, isHighlightedEdge, viewMode } = useCanvasStore(
     useShallow(s => ({
       updateEdgeData: s.updateEdgeData,
       ceeReview: s.runMeta.ceeReview,
       resultsStatus: s.results.status,
       report: s.results.report,
       isHighlightedEdge: s.highlightedEdges.has(id),
+      viewMode: s.viewMode,
     })),
   )
   const isResultsMode = resultsStatus === 'complete'
@@ -266,9 +267,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const beliefExists = edgeData?.beliefExists ??
                        (edgeData as any)?.belief_exists ??
                        (edgeData as any)?.exists_probability
+  // Decision view: all edges render solid (simplified). Model view: existence certainty styling.
   const existenceCertaintyDash = useMemo(() =>
-    existenceCertaintyToLineStyle(beliefExists),
-    [beliefExists]
+    viewMode === 'model' ? existenceCertaintyToLineStyle(beliefExists) : null,
+    [beliefExists, viewMode]
   )
 
   // Contested edge styling — dashed info-colour stroke scaled by max_divergence

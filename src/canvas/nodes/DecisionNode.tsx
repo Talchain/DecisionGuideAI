@@ -10,12 +10,14 @@ import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { getStabilityClassification } from '../../lib/stability'
+import { CoachingCard } from '../components/CoachingCard'
 
 export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNodeData>) => {
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
+  const viewMode = useCanvasStore(state => state.viewMode)
 
   const optionCount = useMemo(() => {
     const outgoingEdges = edges.filter(e => e.source === id)
@@ -72,6 +74,25 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           {optionCount} option{optionCount !== 1 ? 's' : ''} compared
         </div>
       ) : null}
+
+      {/* Coaching: narrow framing warning (Model view, <3 options) */}
+      {viewMode === 'model' && optionCount > 0 && optionCount < 3 && (
+        <CoachingCard
+          severity="warning"
+          message={`Only ${optionCount} option${optionCount !== 1 ? 's' : ''} may mean a yes/no frame.`}
+          linkLabel="Explore a third path"
+          linkMessage="Suggest a third option I haven't considered for this decision"
+        />
+      )}
+
+      {/* Post-analysis chip (both views) */}
+      {resultsStatus === 'complete' && (
+        <CoachingCard
+          severity="info"
+          message=""
+          chips={[{ label: 'Explore more options', message: 'What other options should I consider?' }]}
+        />
+      )}
     </BaseNode>
   )
 })

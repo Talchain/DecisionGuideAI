@@ -25,6 +25,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   goalThreshold: null,
   goalConstraints: [],
   setHoveredOption: vi.fn(),
+  viewMode: 'model',
   ...overrides,
 })
 

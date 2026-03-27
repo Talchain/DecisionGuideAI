@@ -13,6 +13,7 @@ import { RiskNode } from './RiskNode'
 import { OutcomeNode } from './OutcomeNode'
 import { ActionNode } from './ActionNode'
 import { ConstraintNode } from './ConstraintNode'
+import { GhostOptionNode } from './GhostOptionNode'
 
 /**
  * React Flow node types registry
@@ -30,4 +31,5 @@ export const nodeTypes: NodeTypes = {
   // This entry prevents a ReactFlow "unknown node type" warning if stale data arrives.
   // Constraints render as GoalNode badge data, not as standalone nodes. See NodeTypeEnum JSDoc.
   constraint: ConstraintNode,
+  'ghost-option': GhostOptionNode,
 }

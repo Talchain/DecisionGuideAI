@@ -417,6 +417,9 @@ interface CanvasState {
   // Set via URL param ?rawCee=1 or Debug Panel checkbox
   debugRawCeeOutput: boolean
   setDebugRawCeeOutput: (value: boolean) => void
+  // Canvas view mode: 'decision' (clean summary) vs 'model' (full detail)
+  viewMode: 'decision' | 'model'
+  setViewMode: (mode: 'decision' | 'model') => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => LimitExceeded | null
   /** Create a new node with an edge connecting it to an existing node. Returns the new node ID. */
@@ -1056,6 +1059,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   clarifierSession: null,
   clarifierPreviewNodeIds: [],
   clarifierPreviewEdgeIds: [],
+  // Canvas view mode: default to 'decision' (clean summary)
+  viewMode: ((): 'decision' | 'model' => {
+    try { const v = sessionStorage.getItem('canvas.viewMode'); if (v === 'decision' || v === 'model') return v } catch { /* noop */ }
+    return 'decision'
+  })(),
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: false,
   // Track 3: Hydrated thread/events (transient, consumed once)
@@ -3437,6 +3445,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ debugRawCeeOutput: value })
   },
 
+  // Canvas view mode setter (persists to sessionStorage)
+  setViewMode: (mode: 'decision' | 'model') => {
+    set({ viewMode: mode })
+    try { sessionStorage.setItem('canvas.viewMode', mode) } catch { /* noop */ }
+  },
+
   // Week 3: AI Clarifier actions
   setShowAIClarifier: (show: boolean) => {
     set({ showAIClarifier: show })
@@ -3861,3 +3875,9 @@ export const selectPreviousReport = (state: CanvasState): PreviousReportSnapshot
 export type LensMode = 'full' | 'option' | 'sensitivity' | 'fragile' | 'causal' | 'evidence' | 'robustness'
 export const selectLensMode = (state: CanvasState): LensMode => state.lens.active
 export const selectLensOptionId = (state: CanvasState): string | null => state.lens.selectedOptionId
+
+/**
+ * Canvas view mode selector
+ */
+export type ViewMode = 'decision' | 'model'
+export const selectViewMode = (state: CanvasState): ViewMode => state.viewMode

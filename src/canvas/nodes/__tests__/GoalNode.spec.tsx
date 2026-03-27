@@ -20,6 +20,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   goalThreshold: null,
   goalConstraints: [],
   edges: [],
+  viewMode: 'model',
   ...overrides,
 })
 

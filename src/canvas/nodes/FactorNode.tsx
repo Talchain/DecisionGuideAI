@@ -15,6 +15,7 @@ import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud, Search, FileText, Cpu } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
+import { CoachingCard } from '../components/CoachingCard'
 
 interface ObservedState {
   value?: number
@@ -54,6 +55,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  const viewMode = useCanvasStore(state => state.viewMode)
 
   // Derive controllability from graph structure or CEE category
   const nodeCategory = props.data?.category as string | undefined
@@ -211,6 +213,31 @@ export const FactorNode = memo((props: NodeProps) => {
     return source === 'default' || (!source && !observedState.extractionType)
   }, [isInferred, provenanceLabel, observedState])
 
+  // Phase 4: Anchoring detection — pre-analysis, if 3+ options and all intervention values
+  // within 20% of baseline, the factor may be anchored
+  const anchoringMessage = useMemo(() => {
+    if (viewMode !== 'model' || resultsStatus === 'complete') return null
+    const options = ceeAnalysisReady?.options
+    if (!options || options.length < 3) return null
+    const vals: number[] = []
+    for (const opt of options) {
+      const rv = opt.interventions?.[props.id]
+      if (rv == null) continue
+      const v = typeof rv === 'number' ? rv :
+        (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : null
+      if (v != null) vals.push(v)
+    }
+    if (vals.length < 3) return null
+    const min = Math.min(...vals)
+    const max = Math.max(...vals)
+    const baseline = observedState?.value ?? min
+    const spread = max - min
+    if (Math.max(Math.abs(baseline), 0.01) > 0 && spread / Math.max(Math.abs(baseline), 0.01) < 0.2) {
+      return valueDisplay ?? String(baseline)
+    }
+    return null
+  }, [viewMode, resultsStatus, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
+
   return (
     <div style={{ position: 'relative' }}>
       {showEvidenceGapBadge && <EvidenceGapBadge label={cleanedLabel} escalation={gapEscalation} />}
@@ -266,7 +293,9 @@ export const FactorNode = memo((props: NodeProps) => {
         {(valueDisplay !== null || (observedState != null && observedState.value === undefined) || (!observedState && nodeCategory === 'external')) && (
           <div className={`${typography.nodeLabel} mt-1.5`}>
             <div>
-              {valueDisplay !== null ? (
+              {viewMode === 'decision' && nodeCategory === 'external' ? (
+                <span className="text-text-light">Variable</span>
+              ) : valueDisplay !== null ? (
                 <span className="font-semibold text-text-body">{valueDisplay}</span>
               ) : priorRangeDisplay ? (
                 <span className="text-text-light">{priorRangeDisplay}</span>
@@ -279,21 +308,34 @@ export const FactorNode = memo((props: NodeProps) => {
                 <span className="italic text-text-light">No baseline</span>
               )}
             </div>
-            {isInferred && !provenanceLabel && (
-              <div className="mt-1">
-                <span
-                  className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}
-                  title="Value inferred by the model from your brief"
-                >
-                  estimated
+            {viewMode === 'model' && isInferred && !provenanceLabel && (
+              <div className="mt-1 flex items-center gap-1 flex-wrap">
+                <Cpu size={12} className="text-warning shrink-0" aria-hidden="true" />
+                <span className={`${typography.nodeLabel} text-text-light`}>
+                  Olumi estimated{valueDisplay ? `: ${valueDisplay}` : ''}
                 </span>
+                <button
+                  type="button"
+                  className={`${typography.nodeLabel} text-info underline cursor-pointer nodrag nopan`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    useCanvasStore.getState().setShowInspectorPanel(true)
+                  }}
+                >
+                  Confirm or edit
+                </button>
               </div>
             )}
-            {isAssumed && (
+            {viewMode === 'model' && !isInferred && observedState?.extractionType === 'explicit' && valueDisplay && (
+              <div className={`${typography.nodeLabel} text-text-light mt-0.5`}>
+                From your brief
+              </div>
+            )}
+            {viewMode === 'model' && isAssumed && (
               <div className="mt-1">
                 <span
                   className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5`}
-                  title="Default value assumed by the model — verify or update with your own estimate"
+                  title="Default value assumed by the model. Verify or update with your own estimate."
                 >
                   assumed
                 </span>
@@ -302,8 +344,8 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* A14/A15: Provenance icon — source attribution when meaningful */}
-        {provenanceLabel && (
+        {/* A14/A15: Provenance icon — source attribution when meaningful (Model view only) */}
+        {viewMode === 'model' && provenanceLabel && (
           <div className="flex justify-end mt-1">
             {provenanceLabel.includes('Olumi') ? (
               <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
@@ -313,8 +355,8 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* T6: Sensitivity & Evidence bars (Results mode) — renamed from Influence/Confidence */}
-        {displayMetadata.isResultsMode && (
+        {/* T6: Sensitivity & Evidence bars (Results mode, Model view only) */}
+        {viewMode === 'model' && displayMetadata.isResultsMode && (
           (displayMetadata.influence !== null && displayMetadata.influence > 0.001) ||
           (displayMetadata.confidence !== null && displayMetadata.confidence > 0.001)
         ) && (
@@ -348,6 +390,46 @@ export const FactorNode = memo((props: NodeProps) => {
               </div>
             )}
           </div>
+        )}
+
+        {/* Coaching: top influence factor (Model view, post-analysis, rank 1 or 2) */}
+        {viewMode === 'model' && displayMetadata.isResultsMode && typeof displayMetadata.sensitivityRank === 'number' && displayMetadata.sensitivityRank <= 2 && (
+          <CoachingCard
+            severity="info"
+            message="Most influential assumption."
+            linkLabel="What evidence supports this?"
+            linkMessage={`What evidence supports my assumption about ${cleanedLabel}?`}
+          />
+        )}
+
+        {/* Coaching: external factor with high influence (Model view, post-analysis, top 3) */}
+        {viewMode === 'model' && displayMetadata.isResultsMode && nodeCategory === 'external' && typeof displayMetadata.sensitivityRank === 'number' && displayMetadata.sensitivityRank <= 3 && (
+          <CoachingCard
+            severity="info"
+            message="High influence but outside your control."
+            linkLabel="Consider scenario planning"
+            linkMessage={`How should I plan for different scenarios of ${cleanedLabel}?`}
+          />
+        )}
+
+        {/* Coaching: anchoring detection (Model view, pre-analysis) */}
+        {anchoringMessage && (
+          <CoachingCard
+            severity="warning"
+            message={`All options within 20% of ${anchoringMessage}. Anchored?`}
+            linkLabel="Explore a wider range"
+            linkMessage={`My options seem anchored around ${anchoringMessage}. What wider range should I consider for ${cleanedLabel}?`}
+          />
+        )}
+
+        {/* Coaching: EVPI (Model view, post-analysis) */}
+        {viewMode === 'model' && displayMetadata.isResultsMode && displayMetadata.valueOfInformation != null && displayMetadata.valueOfInformation > 0 && (
+          <CoachingCard
+            severity="info"
+            message={`Worth investigating: resolving this could improve confidence by ${Math.round(displayMetadata.valueOfInformation * 100)}pp.`}
+            linkLabel="How to gather evidence"
+            linkMessage={`How can I gather better evidence about ${cleanedLabel}?`}
+          />
         )}
 
         {typeof props.data?.description === 'string' && props.data.description && (

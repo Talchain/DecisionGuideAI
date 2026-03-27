@@ -1,8 +1,9 @@
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
-import { FileText, Cpu } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { NODE_REGISTRY } from '../domain/nodes'
+import { CoachingCard } from '../components/CoachingCard'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
@@ -48,6 +49,7 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [displayMetadata.isResultsMode, displayMetadata.winRate, nodes, resultsReport])
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
+  const viewMode = useCanvasStore(state => state.viewMode)
 
   // T8: Readable intervention chips with cleaned labels and formatted values
   const interventionChips = useMemo<InterventionChip[]>(() => {
@@ -101,6 +103,17 @@ export const OptionNode = memo((props: NodeProps) => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     return !!(ceeOption?.interventions && Object.keys(ceeOption.interventions).length > 0)
   }, [ceeAnalysisReady, props.id])
+
+  // Decision view pre-analysis: brief summary of what changes
+  const decisionViewSummary = useMemo(() => {
+    if (viewMode !== 'decision' || interventionChips.length === 0) return null
+    const changed = interventionChips.filter(c => {
+      // Show factors that differ from baseline (non-zero for binary, non-trivial otherwise)
+      return true // all top-3 chips are meaningful
+    })
+    if (changed.length === 0) return null
+    return changed.map(c => c.label).join(', ')
+  }, [viewMode, interventionChips])
 
   // T: Detect if this option is the baseline (status quo). Baseline options show
   // absolute values; non-baseline options show "baseline → target (+X%)" deltas.
@@ -215,8 +228,15 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* T8: Readable intervention chips with delta for non-baseline options */}
-        {interventionChips.length > 0 && (() => {
+        {/* Decision view pre-analysis: brief intervention summary */}
+        {viewMode === 'decision' && !displayMetadata.isResultsMode && decisionViewSummary && (
+          <div className={`${typography.nodeLabel} mt-1 text-text-light`}>
+            Changes: {decisionViewSummary}
+          </div>
+        )}
+
+        {/* T8: Readable intervention chips with delta for non-baseline options (Model view only) */}
+        {viewMode === 'model' && interventionChips.length > 0 && (() => {
           // Determine which chips represent no change (baseline = intervention).
           // A chip is "no change" when its value matches the baseline value within tolerance.
           const chipsWithMeta = interventionChips.map(chip => {
@@ -306,10 +326,43 @@ export const OptionNode = memo((props: NodeProps) => {
           )
         })()}
 
-        {isOptionFromCee && (
+        {viewMode === 'model' && isOptionFromCee && (
           <div className="flex justify-end mt-1">
             <FileText size={14} className="text-text-light" aria-hidden="true" title="Values from your brief" />
           </div>
+        )}
+
+        {/* Coaching: winner chips (post-analysis) */}
+        {displayMetadata.isResultsMode && isRecommended && (
+          <CoachingCard
+            severity="info"
+            message=""
+            chips={[
+              { label: "What's the biggest threat?", message: `What's the biggest risk to ${(props.data?.label as string) ?? 'this option'}?` },
+              { label: 'Why does this win?', message: `Why does ${(props.data?.label as string) ?? 'this option'} win over the other options?` },
+            ]}
+          />
+        )}
+
+        {/* Coaching: non-winner chip (post-analysis) */}
+        {displayMetadata.isResultsMode && !isRecommended && displayMetadata.winRate !== null && (
+          <CoachingCard
+            severity="info"
+            message=""
+            chips={[
+              { label: 'What would make this win?', message: `What would need to change for ${(props.data?.label as string) ?? 'this option'} to win?` },
+            ]}
+          />
+        )}
+
+        {/* Coaching: status quo warning (Model view, baseline with all interventions at baseline) */}
+        {viewMode === 'model' && isBaselineOption && resultsReport && (
+          <CoachingCard
+            severity="warning"
+            message="Status quo assumes nothing changes."
+            linkLabel="What could go wrong with inaction?"
+            linkMessage="What are the risks of choosing the status quo?"
+          />
         )}
 
         {typeof props.data?.description === 'string' && props.data.description && (

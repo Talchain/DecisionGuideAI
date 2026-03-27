@@ -28,6 +28,7 @@ vi.mock('../../store', () => ({
       dimmedNodeIds: new Set(),
       goalThreshold: null,
       goalConstraints: [],
+      viewMode: 'model',
     })
   ),
 }))
@@ -272,23 +273,23 @@ describe('FactorNode', () => {
     expect(screen.getByText('No baseline')).toBeDefined()
   })
 
-  // T5: "estimated" pill
-  it('shows "estimated" pill for inferred extraction type', () => {
+  // T5: "estimated" provenance display for inferred extraction type
+  it('shows "Olumi estimated" provenance for inferred extraction type', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
-    expect(screen.getByText('estimated')).toBeDefined()
+    expect(screen.getByText(/Olumi estimated/)).toBeDefined()
   })
 
-  it('does not show "estimated" pill for explicit extraction type', () => {
+  it('does not show "Olumi estimated" for explicit extraction type', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'explicit' },
     })
-    expect(screen.queryByText('estimated')).toBeNull()
+    expect(screen.queryByText(/Olumi estimated/)).toBeNull()
   })
 
   // Provenance combinations — brief acceptance criteria
@@ -302,17 +303,17 @@ describe('FactorNode', () => {
     })
     // Provenance is now an icon with title attribute, not visible text
     expect(screen.getByTitle('Generated from your brief')).toBeDefined()
-    expect(screen.queryByText('estimated')).toBeNull()
+    expect(screen.queryByText(/Olumi estimated/)).toBeNull()
   })
 
-  // Combination 2: extractionType='inferred' + no source → "estimated" pill shows
-  it('shows estimated pill when extractionType=inferred and no source', () => {
+  // Combination 2: extractionType='inferred' + no source → "Olumi estimated" provenance shows
+  it('shows "Olumi estimated" provenance when extractionType=inferred and no source', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
-    expect(screen.getByText('estimated')).toBeDefined()
+    expect(screen.getByText(/Olumi estimated/)).toBeDefined()
     expect(screen.queryByTitle('Generated from your brief')).toBeNull()
   })
 
@@ -487,19 +488,15 @@ describe('FactorNode', () => {
     expect(container.querySelector('.bg-factor')).toBeNull()
   })
 
-  // P5: Estimated badge is outlined pill (bg-panel + border-warning/30 + text-text-body, not filled orange)
-  it('estimated badge uses outlined pill style (P5)', () => {
+  // P5: Inferred factor shows "Olumi estimated" provenance with "Confirm or edit" link
+  it('inferred factor shows "Olumi estimated" provenance and "Confirm or edit" link (P5)', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
-    const badge = screen.getByText('estimated')
-    expect(badge.className).toContain('text-text-body')
-    expect(badge.className).not.toContain('text-warning')
-    expect(badge.className).toContain('bg-panel')
-    expect(badge.className).not.toContain('bg-warning-light')
-    expect(badge.className).not.toContain('bg-panel-hover')
+    expect(screen.getByText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByText('Confirm or edit')).toBeDefined()
   })
 
   // V1: Incomplete factor (no value) must use factor stone border, not goal yellow
@@ -512,10 +509,11 @@ describe('FactorNode', () => {
     })
     const nodeEl = container.querySelector('[role="group"]')
     expect(nodeEl?.className).not.toContain('border-goal')
-    expect(nodeEl?.className).toContain('border-factor')
+    // Phase 2: incomplete nodes now use border-warning (amber) instead of entity colour
+    expect(nodeEl?.className).toContain('border-warning')
   })
 
-  it('uses border-factor for any factor with no observed value (controllable)', () => {
+  it('uses border-warning for any factor with no observed value (controllable)', () => {
     const { container } = renderFactor({
       label: 'Hiring rate',
       type: 'factor',
@@ -524,6 +522,7 @@ describe('FactorNode', () => {
     })
     const nodeEl = container.querySelector('[role="group"]')
     expect(nodeEl?.className).not.toContain('border-goal')
+    expect(nodeEl?.className).toContain('border-warning')
   })
 
   // P0 (feedback): binary factor_type + value=0 must show "Not used", not "Very low"
@@ -713,17 +712,10 @@ describe('FactorNode — QA Brief A-series', () => {
     })
     // "Not used" (value display) must appear
     expect(screen.getByText('Not used')).toBeDefined()
-    // "estimated" pill must appear (extractionType='inferred')
-    expect(screen.getByText('estimated')).toBeDefined()
-    // "Generated from your brief" / "Estimated by Olumi" provenance icon must NOT appear
-    // (source='inferred' is suppressed to avoid double-pill with the "estimated" badge)
-    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
-    expect(screen.queryByTitle('Generated from your brief')).toBeNull()
-    // Value text and estimated pill must be in separate container elements
-    const valueEl = screen.getByText('Not used')
-    const pillEl = screen.getByText('estimated')
-    expect(valueEl.parentElement).not.toBe(pillEl.parentElement)
-    expect(pillEl.closest('div')).not.toBe(valueEl.closest('div'))
+    // "Olumi estimated" provenance must appear (extractionType='inferred')
+    expect(screen.getByText(/Olumi estimated/)).toBeDefined()
+    // "Confirm or edit" link must appear
+    expect(screen.getByText('Confirm or edit')).toBeDefined()
   })
 
   // A18: Tier label thresholds — verify exact boundaries (0-0.2, 0.2-0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0)

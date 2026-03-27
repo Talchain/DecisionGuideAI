@@ -69,6 +69,7 @@ import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
+import { CoachingStrip } from './components/CoachingStrip'
 import { OutputsDock } from './components/OutputsDock'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
@@ -305,6 +306,34 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // M6: Scenario Comparison Mode
   const comparisonModeActive = useCanvasStore(s => s.comparisonMode.active)
+  const viewMode = useCanvasStore(s => s.viewMode)
+
+  // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
+  const nodesWithGhost = useMemo(() => {
+    // Pre-analysis: always show. Post-analysis: Model view only
+    const isPostAnalysis = resultsStatus === 'complete'
+    if (isPostAnalysis && viewMode !== 'model') return nodes
+
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+    if (optionNodes.length === 0) return nodes
+
+    // Find rightmost option position
+    const maxX = Math.max(...optionNodes.map(n => n.position?.x ?? 0))
+    const sameY = optionNodes.find(n => (n.position?.x ?? 0) === maxX)
+    const ghostY = sameY?.position?.y ?? 0
+
+    const ghostNode = {
+      id: '__ghost-option__',
+      type: 'ghost-option' as const,
+      position: { x: maxX + 240, y: ghostY },
+      data: {},
+      selectable: false,
+      draggable: false,
+      connectable: false,
+    }
+
+    return [...nodes, ghostNode]
+  }, [nodes, resultsStatus, viewMode])
 
   // Week 3: AI Coaching moved to GuidancePanel in OutputsDock
 
@@ -386,7 +415,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // CEE may return duplicate node IDs - keep first occurrence
   const memoizedNodes = useMemo(() => {
     const seen = new Set<string>()
-    return nodes.filter((node) => {
+    return nodesWithGhost.filter((node) => {
       if (seen.has(node.id)) {
         if (import.meta.env.DEV) {
           console.warn(`[ReactFlowGraph] Duplicate node ID filtered: ${node.id}`)
@@ -396,7 +425,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       seen.add(node.id)
       return true
     })
-  }, [nodes])
+  }, [nodesWithGhost])
   // Deduplicate edges by ID similarly
   const memoizedEdges = useMemo(() => {
     const seen = new Set<string>()
@@ -2179,6 +2208,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         currentNodes={nodes.length}
         currentEdges={edges.length}
       />
+
+      {/* Coaching strip — fixed bottom overlay (Decision view only) */}
+      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 w-[min(90vw,720px)]">
+        <CoachingStrip />
+      </div>
 
       {/* R1: Draft My Model chat loop (bottom overlay above toolbar) */}
       <PanelErrorBoundary panel="Draft Chat">

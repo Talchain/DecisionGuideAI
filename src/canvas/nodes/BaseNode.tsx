@@ -29,6 +29,16 @@ import { isGoalDefined } from '../../utils/isGoalDefined'
 import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NODE_REGISTRY } from '../domain/nodes'
+import Tooltip from '../../components/Tooltip'
+
+const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
+  decision: 'The choice you\'re making',
+  option: 'One possible course of action',
+  factor: 'A variable that influences your decision',
+  outcome: 'A positive result this decision affects',
+  risk: 'A negative result this decision affects',
+  goal: 'What you\'re trying to achieve',
+}
 
 interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
@@ -91,6 +101,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   // so the rendered node matches ELK's sizing assumptions.
   const layoutNodeWidth = useLayoutStore(s => s.layoutNodeWidth)
 
+  // Canvas view mode: 'decision' (clean) vs 'model' (full detail)
+  const viewMode = useCanvasStore(s => s.viewMode)
+
   // Decision Graph Display v2: Get Results-mode display metadata
   const displayMetadata = useNodeDisplayMetadata(id, nodeType)
 
@@ -137,10 +150,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const goalConstraints = useCanvasStore(s => s.goalConstraints)
   const edges = useCanvasStore(s => s.edges)
   const isPreRunMode = resultsStatus !== 'complete'
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const isIncomplete = (() => {
     if (!isPreRunMode) return false
     if (nodeType === 'factor') {
       const obs = data?.observedState as { value?: number } | undefined
+      const prior = data?.prior as { range_min?: number; range_max?: number } | undefined
+      // External factors with prior range are not incomplete
+      if (prior?.range_min != null && prior?.range_max != null) return false
       return obs?.value === undefined
     }
     if (nodeType === 'goal') {
@@ -149,6 +166,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     if (nodeType === 'decision') {
       const hasOptions = edges.some(e => e.source === id)
       return !hasOptions
+    }
+    if (nodeType === 'option') {
+      // Option missing interventions
+      const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === id)
+      return !ceeOption?.interventions || Object.keys(ceeOption.interventions).length === 0
     }
     return false
   })()
@@ -225,12 +247,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       className={`
         relative rounded-lg ${isCausalLens ? 'border' : borderWidth} shadow-1
-        ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? (nodeType === 'goal' ? 'border-goal border-dashed' : `${colors.border} border-dashed`) : borderClassOverride ?? `${colors.border} ${borderStyle}`}
+        ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
         ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
         ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
-        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : ''}
+        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : viewMode === 'decision' && nodeType === 'factor' && (typeof displayMetadata.sensitivityRank !== 'number' || displayMetadata.sensitivityRank > 3) ? 'opacity-40' : ''}
       `}
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',
@@ -268,6 +290,16 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         >
           ?
         </div>
+      )}
+
+      {/* Phase 2: "Needs input" badge for incomplete nodes */}
+      {isIncomplete && (
+        <span
+          className={`absolute -top-2 left-2 z-10 bg-panel border border-warning/30 text-warning ${typography.nodeLabel} font-medium px-1.5 py-0.5 rounded-md`}
+          data-testid="needs-input-badge"
+        >
+          Needs input
+        </span>
       )}
 
       {/* Connection handles */}
@@ -322,11 +354,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       >
         {/* T1: Shape indicator (Design System v4 §10.1) + sentence-case type label */}
         <NodeShapeIndicator nodeKind={nodeType} size={12} />
-        <span
-          className={`${typography.nodeLabel} ${colors.text} font-semibold leading-none`}
-        >
-          {NODE_REGISTRY[nodeType]?.label ?? nodeType}
-        </span>
+        <Tooltip content={NODE_TYPE_DESCRIPTIONS[nodeType] ?? ''} delay={300}>
+          <span
+            className={`${typography.nodeLabel} ${colors.text} font-semibold leading-none`}
+          >
+            {NODE_REGISTRY[nodeType]?.label ?? nodeType}
+          </span>
+        </Tooltip>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}
         {Boolean(data?.unknownKind) && typeof data?.originalKind === 'string' && (

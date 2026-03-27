@@ -29,6 +29,7 @@ vi.mock('../../store', () => ({
       goalThreshold: null,
       goalConstraints: [],
       edges: [],
+      viewMode: 'model',
     })
   ),
 }))

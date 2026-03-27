@@ -11,6 +11,7 @@ import { FileText, Cpu } from 'lucide-react'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit } from '../utils/labelUtils'
+import { CoachingCard } from '../components/CoachingCard'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 export const GoalNode = memo((props: NodeProps) => {
@@ -20,6 +21,7 @@ export const GoalNode = memo((props: NodeProps) => {
   // T10: Robustness level + stability from report
   const report = useCanvasStore(state => state.results.report)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  const viewMode = useCanvasStore(state => state.viewMode)
 
   const robustnessData = useMemo(() => {
     if (resultsStatus !== 'complete' || !report) return null
@@ -54,6 +56,14 @@ export const GoalNode = memo((props: NodeProps) => {
 
   // Prefer report-level stability over displayMetadata fallback
   const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
+
+  const nodes = useCanvasStore(state => state.nodes)
+
+  // Phase 4: Check if graph has any risk nodes
+  const hasRiskNodes = useMemo(() =>
+    nodes.some(n => n.type === 'risk' || n.data?.type === 'risk'),
+    [nodes]
+  )
 
   // T5: Constraint badges — pre-analysis from goalConstraints store, post-analysis from report
   const preAnalysisConstraints = useCanvasStore(state => state.goalConstraints)
@@ -124,8 +134,8 @@ export const GoalNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* T10: Stability bar + UI-SEM-048 Marginal badge (canonical level low/very_low) */}
-      {stabilityValue !== null && (
+      {/* T10: Stability bar + UI-SEM-048 Marginal badge (Model view only) */}
+      {viewMode === 'model' && stabilityValue !== null && (
         <div className="mt-2 mb-1">
           <div className="flex items-center gap-1.5 mb-1 flex-wrap">
             <span className={`${typography.nodeLabel} text-text-light`}>Decision stability</span>
@@ -178,8 +188,8 @@ export const GoalNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* T5: Constraint badges — pre-analysis preview + post-analysis probability */}
-      {activeConstraints && activeConstraints.length > 0 && (
+      {/* T5: Constraint badges (Model view only) */}
+      {viewMode === 'model' && activeConstraints && activeConstraints.length > 0 && (
         <div className="mt-1.5 flex flex-col gap-0.5">
           {activeConstraints.map((c, i) => {
             const prob = typeof c.probability === 'number' ? c.probability : null
@@ -204,7 +214,7 @@ export const GoalNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {provenanceLabel && (
+      {viewMode === 'model' && provenanceLabel && (
         <div className="flex justify-end mt-1.5">
           {provenanceLabel.includes('Olumi') ? (
             <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
@@ -212,6 +222,26 @@ export const GoalNode = memo((props: NodeProps) => {
             <FileText size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
           )}
         </div>
+      )}
+
+      {/* Coaching: no risks modelled (both views) */}
+      {!hasRiskNodes && (
+        <CoachingCard
+          severity="danger"
+          message="No risks modelled. What could prevent you reaching this goal?"
+          linkLabel="Identify risks"
+          linkMessage="What risks could prevent me from reaching my goal?"
+        />
+      )}
+
+      {/* Coaching: CONSTRAINT_NODE_DEFAULT_BASE warning (Model view) */}
+      {viewMode === 'model' && hasConstraintDefaultWarning && (
+        <CoachingCard
+          severity="warning"
+          message="Some model inputs are missing. Goal probability may be less reliable."
+          linkLabel="Why is this happening?"
+          linkMessage="Why is the goal probability unreliable in this analysis?"
+        />
       )}
 
       {props.data?.description && (
