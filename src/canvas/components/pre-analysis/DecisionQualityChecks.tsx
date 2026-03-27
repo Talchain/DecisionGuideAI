@@ -1,12 +1,11 @@
 /**
- * DecisionQualityChecks — Collapsible section showing client-side decision quality heuristics.
+ * DecisionQualityChecks — "Sharpen your thinking" collapsed section.
  *
- * Renders checks: no_risks, no_baseline, goal_baseline_missing, all_positive_edges,
- * same_levers, zero_external_factors, many_ai_estimates, no_target.
- * Each has a one-sentence nudge, a pill tag
- * (Framing or Verify), and a CTA button.
+ * Shows cognitive/methodological quality checks (bias, option concentration, evidence gaps).
+ * Structural/binary checks (no_risks, no_baseline, all_positive_edges, no_target,
+ * goal_baseline_missing) are filtered out — they surface as triage footer flags instead.
  *
- * Hidden when 0 checks triggered. Max 3 visible; remainder under "N more" toggle.
+ * Max 3 visible; remainder under "N more" toggle.
  *
  * Data source: usePreAnalysisData().qualityChecks
  */
@@ -217,14 +216,24 @@ function CheckRow({
   )
 }
 
+/** Structural/binary checks that surface as triage footer flags instead of here */
+export const STRUCTURAL_CHECK_IDS = new Set([
+  'no_risks',
+  'no_baseline',
+  'all_positive_edges',
+  'no_target',
+  'goal_baseline_missing',
+])
+
 export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBaselineSlot, totalCheckCount, assumptionsLedger }: DecisionQualityChecksProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
   const [showAll, setShowAll] = useState(false)
 
-  // Filter out goal_baseline_missing when slot replaces it
-  const filteredChecks = goalBaselineSlot
-    ? checks.filter(c => c.id !== 'goal_baseline_missing')
-    : checks
+  // Filter out structural/binary checks (surfaced as triage footer flags)
+  // and goal_baseline_missing when slot replaces it
+  const filteredChecks = checks.filter(c =>
+    !STRUCTURAL_CHECK_IDS.has(c.id) && !(goalBaselineSlot && c.id === 'goal_baseline_missing'),
+  )
 
   // Use totalCheckCount for the header pill when provided (accounts for replaced checks)
   const displayCount = totalCheckCount ?? filteredChecks.length
@@ -232,6 +241,9 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
   const maxVisible = 3
   const visibleChecks = showAll ? filteredChecks : filteredChecks.slice(0, maxVisible)
   const hiddenCount = filteredChecks.length - maxVisible
+
+  // Nothing to show — no cognitive/methodological checks and no goal baseline slot
+  if (filteredChecks.length === 0 && !goalBaselineSlot) return null
 
   return (
     <div className="rounded-lg border border-panel-border" data-testid="model-quality-checks">
@@ -242,8 +254,8 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
         className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
       >
         <div className="flex items-center gap-2">
-          <span className={`${typography.panelHeader} text-text-body`}>Model quality</span>
-          <Tooltip delay={300} content="Structural checks that improve the reliability of your analysis. Addressing these leads to more trustworthy results.">
+          <span className={`${typography.panelHeader} text-text-body`}>Sharpen your thinking</span>
+          <Tooltip delay={300} content="Cognitive checks and exercises that help you avoid common decision-making biases.">
             <Info size={14} className="text-text-light" />
           </Tooltip>
         </div>

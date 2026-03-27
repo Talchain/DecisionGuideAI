@@ -46,6 +46,8 @@ export function KeyRelationshipsSubgroup({
   onHoverLeave,
 }: KeyRelationshipsSubgroupProps) {
   const [expanded, setExpanded] = useState(false)
+  const [showAll, setShowAll] = useState(false)
+  const INITIAL_CAP = 5
   if (items.length === 0) return null
 
   // Strongest influence context (top item when sorted by influence)
@@ -76,7 +78,7 @@ export function KeyRelationshipsSubgroup({
           )}
         </div>
       )}
-      {expanded && items.slice(0, 10).map(rel => {
+      {expanded && items.slice(0, showAll ? items.length : INITIAL_CAP).map(rel => {
         const strengthLabel = getStrengthLabel(rel.weight, rel.direction)
         const confBand = getConfidenceBand(rel.std)
         const existsPct = rel.beliefExists != null ? Math.round(rel.beliefExists * 100) : null
@@ -138,6 +140,15 @@ export function KeyRelationshipsSubgroup({
           </div>
         )
       })}
+      {expanded && items.length > INITIAL_CAP && (
+        <button
+          type="button"
+          onClick={() => setShowAll(prev => !prev)}
+          className={`${typography.panelMeta} text-info hover:bg-panel-hover rounded px-1.5 py-0.5 cursor-pointer`}
+        >
+          {showAll ? 'Show fewer' : `Show ${items.length - INITIAL_CAP} more`}
+        </button>
+      )}
     </div>
   )
 }

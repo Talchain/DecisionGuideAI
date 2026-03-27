@@ -13,6 +13,11 @@ function makeCheck(overrides: Partial<QualityCheck> & Pick<QualityCheck, 'id'>):
   }
 }
 
+/** Expand the "Sharpen your thinking" section (defaults to collapsed) */
+function expandSection() {
+  fireEvent.click(screen.getByText('Sharpen your thinking'))
+}
+
 describe('DecisionQualityChecks — max visible cards', () => {
   it('shows all checks when count ≤ 3', () => {
     const checks = [
@@ -22,6 +27,7 @@ describe('DecisionQualityChecks — max visible cards', () => {
     ]
 
     render(<DecisionQualityChecks checks={checks} />)
+    expandSection()
 
     expect(screen.getByText('Message for check_1')).toBeInTheDocument()
     expect(screen.getByText('Message for check_2')).toBeInTheDocument()
@@ -39,6 +45,7 @@ describe('DecisionQualityChecks — max visible cards', () => {
     ]
 
     render(<DecisionQualityChecks checks={checks} />)
+    expandSection()
 
     // First 3 visible
     expect(screen.getByText('Message for check_1')).toBeInTheDocument()
@@ -62,6 +69,7 @@ describe('DecisionQualityChecks — max visible cards', () => {
     ]
 
     render(<DecisionQualityChecks checks={checks} />)
+    expandSection()
 
     // Click "1 more"
     fireEvent.click(screen.getByText('1 more'))
@@ -82,6 +90,7 @@ describe('DecisionQualityChecks — max visible cards', () => {
     ]
 
     render(<DecisionQualityChecks checks={checks} />)
+    expandSection()
 
     fireEvent.click(screen.getByText('1 more'))
     expect(screen.getByText('Message for check_4')).toBeInTheDocument()
@@ -95,32 +104,58 @@ describe('DecisionQualityChecks — max visible cards', () => {
     const { container } = render(<DecisionQualityChecks checks={[]} />)
     expect(container.firstChild).toBeNull()
   })
+
+  it('filters out structural checks (surfaced as triage footer flags)', () => {
+    const checks = [
+      makeCheck({ id: 'no_risks' }),
+      makeCheck({ id: 'same_levers' }),
+      makeCheck({ id: 'all_positive_edges' }),
+    ]
+
+    render(<DecisionQualityChecks checks={checks} />)
+
+    // Header shows count = 1 (only same_levers passes filter)
+    expect(screen.getByTestId('model-quality-checks')).toBeInTheDocument()
+
+    // Expand the section
+    expandSection()
+
+    // Structural checks filtered out (their action titles should NOT appear)
+    expect(screen.queryByText('Add risks to capture what could go wrong')).not.toBeInTheDocument()
+    expect(screen.queryByText('Add trade-offs to capture real-world costs')).not.toBeInTheDocument()
+    // Non-structural check remains (same_levers has action title override)
+    expect(screen.getByText('Consider whether your options represent genuinely different strategies')).toBeInTheDocument()
+  })
 })
 
 describe('DecisionQualityChecks — direct add CTA', () => {
-  it('shows "Add a risk" button for no_risks check when onDirectAdd provided', () => {
+  // zero_external_factors has a direct-add action and is NOT filtered by STRUCTURAL_CHECK_IDS
+  it('shows "Add a factor" button for zero_external_factors check when onDirectAdd provided', () => {
     const onDirectAdd = vi.fn()
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} onDirectAdd={onDirectAdd} />)
-    expect(screen.getByText('Add a risk')).toBeInTheDocument()
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} onDirectAdd={onDirectAdd} />)
+    expandSection()
+    expect(screen.getByText('Add a factor')).toBeInTheDocument()
   })
 
-  it('calls onDirectAdd with risk kind on submit', () => {
+  it('calls onDirectAdd with factor kind on submit', () => {
     const onDirectAdd = vi.fn()
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} onDirectAdd={onDirectAdd} />)
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} onDirectAdd={onDirectAdd} />)
+    expandSection()
 
-    fireEvent.click(screen.getByText('Add a risk'))
-    const input = screen.getByPlaceholderText(/churn/)
-    fireEvent.change(input, { target: { value: 'Supply chain disruption' } })
+    fireEvent.click(screen.getByText('Add a factor'))
+    const input = screen.getByPlaceholderText(/acquisition/)
+    fireEvent.change(input, { target: { value: 'Market conditions' } })
     fireEvent.click(screen.getByText('Add'))
 
-    expect(onDirectAdd).toHaveBeenCalledWith('risk', 'Supply chain disruption')
+    expect(onDirectAdd).toHaveBeenCalledWith('factor', 'Market conditions')
   })
 
   it('shows validation error on empty submit', () => {
     const onDirectAdd = vi.fn()
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} onDirectAdd={onDirectAdd} />)
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} onDirectAdd={onDirectAdd} />)
+    expandSection()
 
-    fireEvent.click(screen.getByText('Add a risk'))
+    fireEvent.click(screen.getByText('Add a factor'))
     fireEvent.click(screen.getByText('Add'))
 
     expect(screen.getByText('Enter a name')).toBeInTheDocument()
@@ -128,19 +163,21 @@ describe('DecisionQualityChecks — direct add CTA', () => {
   })
 
   it('Cancel closes input and clears validation', () => {
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} onDirectAdd={vi.fn()} />)
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} onDirectAdd={vi.fn()} />)
+    expandSection()
 
-    fireEvent.click(screen.getByText('Add a risk'))
+    fireEvent.click(screen.getByText('Add a factor'))
     fireEvent.click(screen.getByText('Add')) // trigger validation
     expect(screen.getByText('Enter a name')).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Cancel'))
     expect(screen.queryByText('Enter a name')).not.toBeInTheDocument()
-    expect(screen.getByText('Add a risk')).toBeInTheDocument()
+    expect(screen.getByText('Add a factor')).toBeInTheDocument()
   })
 
   it('does not show direct add button when onDirectAdd is not provided', () => {
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'no_risks' })]} />)
-    expect(screen.queryByText('Add a risk')).not.toBeInTheDocument()
+    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} />)
+    expandSection()
+    expect(screen.queryByText('Add a factor')).not.toBeInTheDocument()
   })
 })

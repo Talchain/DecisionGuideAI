@@ -15,7 +15,7 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useCallback, useRef, useMemo, useState } from 'react'
+import { useCallback, useRef, useMemo } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
@@ -24,7 +24,6 @@ import { OptionPreview } from './OptionPreview'
 import { DecisionQualityChecks } from './DecisionQualityChecks'
 import { GoalBaselineInput } from './GoalBaselineInput'
 import { YourExpertise } from './expertise'
-import { ModelSnapshot } from './ModelSnapshot'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { getObservedState, withObservedStateUpdate } from '../../utils/observedStateHelpers'
@@ -33,60 +32,39 @@ import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, ChevronDown, ChevronRight, AlertTriangle } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Info } from 'lucide-react'
+import { TriageCard } from '@/components/shared/TriageCard'
+import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
+import { STRUCTURAL_CHECK_IDS } from './DecisionQualityChecks'
 import { typography } from '@/styles/typography'
-import { isPreAnalysisEnrichedEnabled } from '../../../flags'
-import { formatRepairs } from '../../adapters/modelCardAdapter'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
-import { DraftNotes } from './DraftNotes'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
-/** Collapsible pre-mortem section from PLoT m1_review */
-function PreMortemSection({ preMortem }: { preMortem: { failure_scenario: string; warning_signs: string[]; mitigation: string } }) {
-  const [isExpanded, setIsExpanded] = useState(false)
-
+/** Binary pass/fail row for triage check rows */
+function TriageCheckRow({ label, pass }: { label: string; pass: boolean }) {
   return (
-    <div className="rounded-lg border border-panel-border border-t-[3px] border-t-warning">
-      <button
-        type="button"
-        onClick={() => setIsExpanded(prev => !prev)}
-        className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
-      >
-        <span className={`${typography.panelHeader} text-text-body`}>Pre-mortem</span>
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-text-light" />
-        ) : (
-          <ChevronRight className="w-4 h-4 text-text-light" />
-        )}
-      </button>
-      {isExpanded && (
-        <div className={`px-3 pb-3 space-y-2 ${typography.panelBody} text-text-body`}>
-          <div>
-            <div className={`${typography.panelHeader} text-text-header mb-1`}>Failure scenario</div>
-            <p>{preMortem.failure_scenario}</p>
-          </div>
-          {preMortem.warning_signs.length > 0 && (
-            <div>
-              <div className={`${typography.panelHeader} text-text-header mb-1`}>Warning signs</div>
-              <ul className="list-disc pl-4 space-y-0.5">
-                {preMortem.warning_signs.map((sign, i) => (
-                  <li key={i}>{sign}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <div>
-            <div className={`${typography.panelHeader} text-text-header mb-1`}>Mitigation</div>
-            <p>{preMortem.mitigation}</p>
-          </div>
-        </div>
-      )}
+    <div className="flex items-center gap-2">
+      {pass
+        ? <Check className="w-3.5 h-3.5 text-success flex-shrink-0" aria-hidden="true" />
+        : <X className="w-3.5 h-3.5 text-danger flex-shrink-0" aria-hidden="true" />}
+      <span className={`${typography.panelBody} ${pass ? 'text-text-body' : 'text-text-light'}`}>{label}</span>
     </div>
   )
 }
+
+/** Labels for structural quality checks shown as triage footer flags */
+const STRUCTURAL_FLAG_LABELS: Record<string, string> = {
+  no_risks: 'No risks added',
+  all_positive_edges: 'No trade-offs',
+  no_baseline: 'No status quo',
+  no_target: 'No target set',
+}
+
+/** Quality check IDs that can serve as science nudges */
+const NUDGE_CHECK_IDS = new Set(['same_levers', 'zero_external_factors', 'many_ai_estimates'])
 
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
@@ -133,19 +111,6 @@ export function PreAnalysisPanel({
     [ceeAnalysisReady],
   )
 
-  // Phase 2B: Post-run repairs from store (populated in resultsComplete)
-  const repairsApplied = useCanvasStore(s => s.repairsApplied)
-  const postRunRepairs = useMemo(
-    () => isPreAnalysisEnrichedEnabled() && repairsApplied ? formatRepairs(repairsApplied, nodes) : [],
-    [repairsApplied, nodes],
-  )
-
-  // Phase 2B: Intervention coverage for ModelSnapshot enrichment
-  const interventionCoverage = useMemo(() => {
-    if (!isPreAnalysisEnrichedEnabled() || data.optionPreviews.length === 0) return null
-    const mapped = data.optionPreviews.filter(op => op.interventions.length > 0).length
-    return { mapped, total: data.optionPreviews.length }
-  }, [data.optionPreviews])
 
   // Phase 2B: One-click fix — "Set value" opens the inspector for a factor (non-destructive)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
@@ -738,11 +703,43 @@ export function PreAnalysisPanel({
     return null
   }
 
+  // === TRIAGE CONTENT ===
+
+  // Map improvement items to TriageCard props
+  const triageCards = data.triageActions.map(item =>
+    mapImprovementToTriageCard(item, factorInfluenceMap?.get(item.focus?.id ?? '')),
+  )
+  const triageTop3 = triageCards.slice(0, 3)
+  const triageQuickFix = triageCards.slice(3, 6)
+
+  // Narrative text: CEE coaching_summary → computed fallback → generic
+  const triageNarrative = (() => {
+    if (data.isLoading || triageCards.length === 0) return null
+    if (data.coachingSummary) return data.coachingSummary
+    // Compute influence coverage for fallback narrative
+    const totalInfluence = triageCards.reduce((sum, c) => sum + (c.influence ?? 0), 0)
+    if (totalInfluence > 0) {
+      const pct = Math.round(totalInfluence * 100)
+      return `These ${triageCards.length} items cover ${pct}% of what matters most:`
+    }
+    return `${triageCards.length} item${triageCards.length !== 1 ? 's' : ''} would improve your analysis:`
+  })()
+
+  // Science nudges: cognitive/methodological quality checks (max 2)
+  const scienceNudges = data.qualityChecks
+    .filter(c => NUDGE_CHECK_IDS.has(c.id) || c.category === 'bias')
+    .slice(0, 2)
+
+  // Structural flags for triage footer
+  const structuralFlags = data.qualityChecks
+    .filter(c => STRUCTURAL_CHECK_IDS.has(c.id) && STRUCTURAL_FLAG_LABELS[c.id])
+    .map(c => ({ id: c.id, label: STRUCTURAL_FLAG_LABELS[c.id] }))
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
       {/* Scrollable content area */}
       <div className="olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-2 py-3 space-y-4">
-        {/* 1. Model Health Card (v6 wireframe) */}
+        {/* 1. Decision readiness triage panel (v4: ring + checks + action cards + nudges + footer flags) */}
         <SectionErrorBoundary section="Model health">
           <ModelHealthCard
             completeness={data.ceeQuality
@@ -758,7 +755,116 @@ export function PreAnalysisPanel({
             coachingSummary={data.coachingSummary}
             isLoading={data.isLoading}
             hasGoalNode={data.nodesByKind.goal.length > 0}
-          />
+          >
+            {/* Check rows — binary pass/fail */}
+            {!data.isLoading && (
+              <div className="space-y-1 px-3" data-testid="triage-check-rows">
+                <TriageCheckRow
+                  label="Goal target set"
+                  pass={data.successThreshold != null}
+                />
+                <TriageCheckRow
+                  label="Status quo identified"
+                  pass={!data.qualityChecks.some(c => c.id === 'no_baseline')}
+                />
+                <TriageCheckRow
+                  label="2+ distinct options"
+                  pass={data.optionPreviews.length >= 2}
+                />
+              </div>
+            )}
+
+            {/* Narrative */}
+            {triageNarrative && (
+              <p className={`${typography.panelMeta} text-text-light px-3`} data-testid="triage-narrative">
+                {triageNarrative}
+              </p>
+            )}
+
+            {/* Top 3 action cards */}
+            {triageTop3.length > 0 && (
+              <div className="space-y-2 px-1" data-testid="triage-top-actions">
+                {triageTop3.map((card, i) => (
+                  <TriageCard
+                    key={card.key}
+                    cardKey={card.key}
+                    ordinal={i + 1}
+                    title={card.title}
+                    detail={card.detail}
+                    category={card.category}
+                    influence={card.influence}
+                    action={card.action}
+                    sourcePill={card.sourcePill}
+                    onConfirm={handleConfirm}
+                    onEdit={handleSetValueForGap}
+                    onSendMessage={onSendMessage}
+                    onHoverEnter={handleHoverElement}
+                    onHoverLeave={handleHoverClear}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Quick-fix rows (items 4-6) */}
+            {triageQuickFix.length > 0 && (
+              <div className="space-y-1 px-1" data-testid="triage-quick-fix">
+                <p className={`${typography.panelMeta} text-text-light px-2`}>Also consider</p>
+                {triageQuickFix.map((card, i) => (
+                  <TriageCard
+                    key={card.key}
+                    cardKey={card.key}
+                    ordinal={i + 4}
+                    title={card.title}
+                    detail={card.detail}
+                    category={card.category}
+                    influence={card.influence}
+                    variant="compact"
+                    action={card.action}
+                    onHoverEnter={handleHoverElement}
+                    onHoverLeave={handleHoverClear}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Science nudges (max 2) */}
+            {scienceNudges.length > 0 && (
+              <div className="space-y-1.5 px-3" data-testid="triage-nudges">
+                {scienceNudges.map(nudge => (
+                  <div
+                    key={nudge.id}
+                    className="flex items-start gap-2 px-3 py-2 bg-panel border border-info/30 rounded-md"
+                  >
+                    <Info className="w-3.5 h-3.5 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
+                    <div className="flex-1 min-w-0">
+                      <p className={`${typography.panelBody} text-text-body`}>{nudge.message}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Footer flags — structural quality checks as pills */}
+            {structuralFlags.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2 border-t border-panel-border" data-testid="triage-footer-flags">
+                {structuralFlags.map(flag => (
+                  <span
+                    key={flag.id}
+                    className={`${typography.panelMeta} border border-warning/30 rounded-full px-2 py-0.5 bg-transparent text-text-body`}
+                  >
+                    {flag.label}
+                  </span>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => onSendMessage?.('What else should I consider in my model?')}
+                  className={`${typography.panelMeta} text-info hover:bg-panel-hover rounded px-1.5 py-0.5 cursor-pointer`}
+                >
+                  Something missing?
+                </button>
+              </div>
+            )}
+          </ModelHealthCard>
         </SectionErrorBoundary>
 
         {/* Task P.3.2: Minimal graph coaching (pre-run guidance, not blocker) */}
@@ -948,38 +1054,6 @@ export function PreAnalysisPanel({
         {/* "What's missing?" prompt */}
         <MissingKnowledgePrompt onSendMessage={onSendMessage} />
 
-        {/* Draft notes — constraints, auto-fixes, repairs */}
-        <DraftNotes
-          modelAdjustments={data.modelAdjustments}
-          repairActions={data.repairActions}
-          postRunRepairs={postRunRepairs}
-          goalConstraints={ceeAnalysisReady?.goal_constraints}
-          onSendMessage={onSendMessage}
-        />
-
-        {/* EdgeSummarySection removed in v6 alignment. Relationship count in Model snapshot,
-            influence ranking in Your expertise (Key relationships subgroup shows "Strongest influence" hint). */}
-
-        {/* Pre-mortem section (collapsible, from PLoT m1_review) */}
-        {data.preMortem && (
-          <PreMortemSection preMortem={data.preMortem} />
-        )}
-
-        {/* 6. Model Snapshot accordion */}
-        <SectionErrorBoundary section="Model snapshot">
-          <ModelSnapshot
-            nodesByKind={data.nodesByKind}
-            edgeCount={data.edgeCount}
-            onFocusNode={handleFocusNode}
-            onHoverNode={handleHoverElement}
-            onHoverClear={handleHoverClear}
-            ceeQuality={data.ceeQuality}
-            interventionCoverage={isPreAnalysisEnrichedEnabled() ? interventionCoverage : null}
-            goalLabel={isPreAnalysisEnrichedEnabled() ? (data.goalNode?.data as { label?: string })?.label ?? null : null}
-            goalMeasurable={isPreAnalysisEnrichedEnabled() ? (data.successThreshold != null) : undefined}
-          />
-        </SectionErrorBoundary>
-
         {/* Goal selector now lives in SuccessTarget hero — AnalysisSettings removed */}
       </div>
 
@@ -993,8 +1067,8 @@ export function PreAnalysisPanel({
         blockedReason={blockedReason}
         isLoading={data.isLoading}
         isRetrying={isRetrying}
-        reviewedCount={data.reviewedFactorsCount}
-        totalReviewableCount={data.totalReviewableFactorsCount}
+        reviewedCount={data.addressedActionableCount}
+        totalReviewableCount={data.actionableCount}
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}
         evidenceTotalCount={data.evidenceQuality.totalCount}
         weightedInfluenceReviewed={weightedInfluenceReviewed}

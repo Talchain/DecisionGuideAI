@@ -21,6 +21,8 @@ interface ModelHealthCardProps {
   coachingSummary: string | null
   isLoading: boolean
   hasGoalNode: boolean
+  /** Triage content rendered inside the Decision readiness card below the health header */
+  children?: React.ReactNode
 }
 
 const PRE_ANALYSIS_DIMENSIONS: Omit<TriageDimension, 'value'>[] = [
@@ -40,6 +42,7 @@ export const ModelHealthCard = memo(function ModelHealthCard({
   coachingSummary,
   isLoading,
   hasGoalNode,
+  children,
 }: ModelHealthCardProps) {
   const ringDimensions: DecisionHealthRingDimensions = useMemo(() => ({
     structure: completeness,
@@ -74,15 +77,18 @@ export const ModelHealthCard = memo(function ModelHealthCard({
     : null
 
   return (
-    <TriageHealthHeader
-      title="Decision readiness"
-      ringLabel="ready"
-      ringDimensions={ringDimensions}
-      dimensions={dimensions}
-      headline={headline}
-      coaching={coaching}
-      testId="model-health-card"
-    />
+    <div className="space-y-3" data-testid="decision-readiness-card">
+      <TriageHealthHeader
+        title="Decision readiness"
+        ringLabel="ready"
+        ringDimensions={ringDimensions}
+        dimensions={dimensions}
+        headline={headline}
+        coaching={coaching}
+        testId="model-health-card"
+      />
+      {children}
+    </div>
   )
 })
 

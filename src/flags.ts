@@ -305,6 +305,11 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_JOURNEY_TAB',
     storageKey: 'feature.journeyTab',
   },
+  // Compare tab in OutputsDock (disabled by default — v4 removes it from tab bar)
+  compareTab: {
+    envKey: 'VITE_FEATURE_COMPARE_TAB',
+    storageKey: 'feature.compareTab',
+  },
   // Orchestrator streaming: SSE progressive rendering of turn responses
   // When ON, POST /orchestrate/v1/turn/stream is used instead of /turn.
   // Text deltas render incrementally; stores commit only on turn_complete.
@@ -442,6 +447,7 @@ const flags = {
   orchestratorStreaming: makeFlag(FLAGS_CONFIG.orchestratorStreaming),
   contextMenu: makeFlag(FLAGS_CONFIG.contextMenu),
   journeyTab: makeFlag(FLAGS_CONFIG.journeyTab),
+  compareTab: makeFlag(FLAGS_CONFIG.compareTab),
   threadPersist: makeFlag(FLAGS_CONFIG.threadPersist),
   threadHydrate: makeFlag(FLAGS_CONFIG.threadHydrate),
   bil: makeFlag(FLAGS_CONFIG.bil),
@@ -519,6 +525,7 @@ export const isOrchestratorStreamingEnabled = flags.orchestratorStreaming
 export const diagnoseOrchestratorStreaming = () => diagnoseFlagState(FLAGS_CONFIG.orchestratorStreaming)
 export const isContextMenuEnabled = flags.contextMenu
 export const isJourneyTabEnabled = flags.journeyTab
+export const isCompareTabEnabled = flags.compareTab
 export const isThreadPersistEnabled = flags.threadPersist
 export const isThreadHydrateEnabled = flags.threadHydrate
 export const isBilPreviewEnabled = flags.bil

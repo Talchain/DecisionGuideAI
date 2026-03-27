@@ -37,6 +37,8 @@ import { getObservedState } from '../../../utils/observedStateHelpers'
 import type { CeeQualityDimensions } from '../../../store'
 // Import validation types for contested edge support
 import type { ValidationMetadata } from '../../../domain/validation'
+// Import expertise groups for actionableCount computation
+import { deriveExpertiseGroups } from './deriveExpertiseGroups'
 
 // ============================================================================
 // ISL inference warning labels (Task 8)
@@ -232,6 +234,12 @@ export interface PreAnalysisData {
   reviewedFactorsCount: number
   /** Total count of factors with observed_state (reviewable) */
   totalReviewableFactorsCount: number
+  /** Top 6 prioritised actions for triage card rendering */
+  triageActions: ImprovementItem[]
+  /** Count of actionable items (contested + AI-estimated + missing-data) */
+  actionableCount: number
+  /** Count of actionable items user has addressed (confirmed/resolved) */
+  addressedActionableCount: number
   /** Enriched blockers from usePreRunValidation, sorted by priority */
   enrichedBlockers: EnrichedBlocker[]
   /** Informational (non-blocking) items like constraint_dropped — shown but don't prevent run */
@@ -1002,6 +1010,58 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // Already in priority order due to iteration order
     return allItems.slice(0, 3)
   }, [improvementsByCategory])
+
+  // Top 6 prioritised actions for triage card rendering (top 3 + quick-fix 4-6)
+  const triageActions = useMemo(() => {
+    const allItems: ImprovementItem[] = []
+    for (const category of ['fix', 'verify', 'add_evidence', 'strengthen'] as ImprovementCategory[]) {
+      allItems.push(...improvementsByCategory[category])
+    }
+    return allItems.slice(0, 6)
+  }, [improvementsByCategory])
+
+  // Expertise groups + actionable count for footer alignment
+  const factorInfluenceMap = useMemo(() => {
+    const fi = preAnalysisSensitivity?.factor_influence
+    return fi ? new Map(Object.entries(fi)) : undefined
+  }, [preAnalysisSensitivity?.factor_influence])
+
+  const edgeInfluenceMap = useMemo(() => {
+    const ei = preAnalysisSensitivity?.edge_influence
+    return ei ? new Map(Object.entries(ei)) : undefined
+  }, [preAnalysisSensitivity?.edge_influence])
+
+  const { actionableCount, addressedActionableCount } = useMemo(() => {
+    const groups = deriveExpertiseGroups(
+      improvementsByCategory,
+      contestedEdges,
+      nodes,
+      edges,
+      factorInfluenceMap,
+      edgeInfluenceMap,
+    )
+    // Count addressed actionable items:
+    // - AI-estimated/missing-data factors: addressed when source is user_confirmed/user_assumption/user_override
+    // - Contested edges: addressed when user_action is set on validation metadata
+    let addressed = 0
+    for (const item of groups.aiEstimated) {
+      if (item.focus?.type === 'node') {
+        const node = nodes.find(n => n.id === item.focus!.id)
+        if (node && isReviewedByUser(node)) addressed++
+      }
+    }
+    for (const item of groups.missingData) {
+      if (item.focus?.type === 'node') {
+        const node = nodes.find(n => n.id === item.focus!.id)
+        if (node && isReviewedByUser(node)) addressed++
+      }
+    }
+    for (const ce of contestedEdges) {
+      const val = ce.validation as ValidationMetadata | undefined
+      if (val?.user_action) addressed++
+    }
+    return { actionableCount: groups.actionableCount, addressedActionableCount: addressed }
+  }, [improvementsByCategory, contestedEdges, nodes, edges, factorInfluenceMap, edgeInfluenceMap])
 
   // Input confidence (formerly evidence quality)
   // Formula: nonAiFactors / totalFactors
@@ -1806,6 +1866,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     isLoading,
     reviewedFactorsCount,
     totalReviewableFactorsCount,
+    triageActions,
+    actionableCount,
+    addressedActionableCount,
     enrichedBlockers,
     informationalBlockers,
     modelAdjustments,

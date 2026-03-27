@@ -42,7 +42,7 @@ import {
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
 import { DeltaInterpretation } from './DeltaInterpretation'
-import { isJourneyTabEnabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled } from '../../flags'
 import { ModelHealthBadge } from './ModelHealthSection'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
@@ -127,7 +127,7 @@ const SHOW_VERDICT_FEATURES = import.meta.env.VITE_SHOW_VERDICT_CARD === 'true'
 
 const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   { id: 'results', label: 'Analysis' },
-  { id: 'compare', label: 'Compare' },
+  ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
   { id: 'diagnostics', label: 'Model' },
   ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
 ]
@@ -140,9 +140,12 @@ export function OutputsDock() {
   })
   const { sendMessage } = useConversation()
 
-  // Journey tab guard: if persisted tab is 'journey' but flag is off, reset to 'results'
+  // Tab guards: if persisted tab references a disabled flag, reset to 'results'
   useEffect(() => {
     if (state.activeTab === 'journey' && !isJourneyTabEnabled()) {
+      setState(prev => ({ ...prev, activeTab: 'results' }))
+    }
+    if (state.activeTab === 'compare' && !isCompareTabEnabled()) {
       setState(prev => ({ ...prev, activeTab: 'results' }))
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
@@ -153,9 +156,14 @@ export function OutputsDock() {
   useEffect(() => {
     if (externalTab !== prevExternalTabRef.current) {
       prevExternalTabRef.current = externalTab
+      // Validate the requested tab is enabled before navigating
+      const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
+        || (externalTab === 'journey' && !isJourneyTabEnabled())
+        ? 'results'
+        : externalTab
       setState(prev => {
-        if (prev.activeTab === externalTab && prev.isOpen) return prev
-        return { ...prev, isOpen: true, activeTab: externalTab as OutputsDockTab }
+        if (prev.activeTab === resolvedTab && prev.isOpen) return prev
+        return { ...prev, isOpen: true, activeTab: resolvedTab as OutputsDockTab }
       })
     }
   }, [externalTab, setState])

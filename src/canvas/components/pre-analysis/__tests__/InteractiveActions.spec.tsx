@@ -125,6 +125,9 @@ describe('Interactive Actions Hardening', () => {
       contestedEdges: [],
       balanceScore: 0.5,
       assumptionsLedger: null,
+      triageActions: [],
+      actionableCount: 0,
+      addressedActionableCount: 0,
       ...overrides,
     }
   }
@@ -187,6 +190,9 @@ describe('Interactive Actions Hardening', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
+      // Expand "Sharpen your thinking" section (defaults to collapsed)
+      fireEvent.click(screen.getByText('Sharpen your thinking'))
+
       // Find and click the "Add" CTA button from the quality check
       const addButton = screen.getByRole('button', { name: 'Add' })
       fireEvent.click(addButton)
@@ -229,6 +235,9 @@ describe('Interactive Actions Hardening', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Expand "Sharpen your thinking" section (defaults to collapsed)
+      fireEvent.click(screen.getByText('Sharpen your thinking'))
 
       // Find and click the "Add" CTA button from the quality check
       const addButton = screen.getByRole('button', { name: 'Add' })
@@ -546,6 +555,9 @@ describe('Interactive Actions Hardening', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
+      // Expand "Sharpen your thinking" section (defaults to collapsed)
+      fireEvent.click(screen.getByText('Sharpen your thinking'))
+
       // GoalBaselineInput renders in pill state — click "Set current value"
       const setCta = screen.getByTestId('goal-baseline-set-cta')
       fireEvent.click(setCta)
@@ -580,6 +592,9 @@ describe('Interactive Actions Hardening', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
+      // Expand "Sharpen your thinking" section (defaults to collapsed)
+      fireEvent.click(screen.getByText('Sharpen your thinking'))
+
       // Display state visible — edit and confirm a new value
       fireEvent.click(screen.getByTestId('goal-baseline-edit'))
       fireEvent.change(screen.getByTestId('goal-baseline-number-input'), { target: { value: '200' } })
@@ -606,6 +621,9 @@ describe('Interactive Actions Hardening', () => {
       }))
 
       const { rerender } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Expand "Sharpen your thinking" section (defaults to collapsed)
+      fireEvent.click(screen.getByText('Sharpen your thinking'))
 
       // Set a value (previousValue inside GoalBaselineInput will be null)
       fireEvent.click(screen.getByTestId('goal-baseline-set-cta'))
@@ -641,6 +659,9 @@ describe('Interactive Actions Hardening', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Expand "Sharpen your thinking" section (defaults to collapsed)
+      fireEvent.click(screen.getByText('Sharpen your thinking'))
 
       fireEvent.click(screen.getByTestId('goal-baseline-set-cta'))
       expect(mockSetHighlightedNodes).toHaveBeenCalledWith(['g1'])

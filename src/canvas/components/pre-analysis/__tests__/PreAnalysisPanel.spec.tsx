@@ -169,6 +169,9 @@ describe('PreAnalysisPanel', () => {
       balanceScore: 0.5,
       thresholdSourceBadge: null,
       assumptionsLedger: null,
+      triageActions: [],
+      actionableCount: 0,
+      addressedActionableCount: 0,
       ...overrides,
     }
   }
@@ -313,13 +316,6 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
     })
 
-    it('renders Model Snapshot accordion', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData())
-
-      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByTestId('model-snapshot-accordion')).toBeInTheDocument()
-    })
-
     it('shows your expertise section with items', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         totalImprovements: 5,
@@ -354,22 +350,22 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Evidence Quality Display', () => {
-    it('shows reviewed count in footer when totalReviewableFactorsCount > 0', () => {
+    it('shows reviewed count in footer when actionableCount > 0', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         evidenceQuality: { level: 'low', ratio: 0.2, nonAiCount: 0, totalCount: 5 },
-        reviewedFactorsCount: 0,
-        totalReviewableFactorsCount: 5,
+        addressedActionableCount: 0,
+        actionableCount: 5,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expect(screen.getByText('0/5 addressed')).toBeInTheDocument()
     })
 
-    it('shows "All reviewed" in footer when all factors reviewed', () => {
+    it('shows "All addressed" in footer when all actionable items addressed', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         evidenceQuality: { level: 'high', ratio: 1, nonAiCount: 5, totalCount: 5 },
-        reviewedFactorsCount: 5,
-        totalReviewableFactorsCount: 5,
+        addressedActionableCount: 5,
+        actionableCount: 5,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
@@ -420,18 +416,18 @@ describe('PreAnalysisPanel', () => {
       const panel = container.querySelector('[data-testid="pre-analysis-panel"]')
       expect(panel).toBeInTheDocument()
 
-      // Verify key sections exist (v6 wireframe: ModelHealthCard replaces Header)
+      // Verify key sections exist (v4: Decision readiness card + expertise)
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
-      expect(screen.getByTestId('model-snapshot-accordion')).toBeInTheDocument()
+      expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
 
       // Verify order by comparing positions in the DOM
       const scrollableContent = panel?.querySelector('.overflow-y-auto')
       const html = scrollableContent?.innerHTML ?? ''
 
       const healthPos = html.indexOf('model-health-card')
-      const modelSnapshotPos = html.indexOf('model-snapshot-accordion')
+      const expertisePos = html.indexOf('your-expertise-section')
 
-      expect(healthPos).toBeLessThan(modelSnapshotPos)
+      expect(healthPos).toBeLessThan(expertisePos)
     })
 
     it('sticky footer uses flex layout for pinning', () => {
@@ -644,8 +640,8 @@ describe('PreAnalysisPanel', () => {
       it('shows reviewed count in footer, no evidence tier label', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
-          reviewedFactorsCount: 2,
-          totalReviewableFactorsCount: 4,
+          addressedActionableCount: 2,
+          actionableCount: 4,
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
@@ -847,34 +843,6 @@ describe('PreAnalysisPanel', () => {
     })
   })
 
-  describe('Draft Notes', () => {
-    it('renders draft-notes section when adjustments are present', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({
-        modelAdjustments: [
-          { code: 'factor_reclassified', reason: 'Reclassified from controllable to external' },
-          { code: 'edge_added', reason: 'Added edge' },
-        ],
-      }))
-
-      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
-      expect(screen.getByTestId('draft-notes')).toBeInTheDocument()
-      expect(screen.getByText(/Draft notes · 2 items/)).toBeInTheDocument()
-    })
-
-    it('shows empty state when no adjustments', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({
-        modelAdjustments: [],
-        repairActions: [],
-      }))
-
-      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
-      expect(screen.getByTestId('draft-notes')).toBeInTheDocument()
-      expect(screen.getByText(/No draft notes for this model/)).toBeInTheDocument()
-    })
-  })
-
   describe('Informational Blockers', () => {
     it('renders informational blockers with info styling when ready', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
@@ -933,15 +901,20 @@ describe('PreAnalysisPanel', () => {
     it('renders Framing pill with border class and no bg-option-light', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         qualityChecks: [{
-          id: 'no_risks',
-          message: 'No risks in your model',
-          cta: 'Add risk',
-          ctaAction: 'add_risk',
+          id: 'zero_external_factors',
+          message: 'No external factors in your model',
+          cta: 'Add factor',
+          ctaAction: 'add_factor',
           pill: 'framing' as const,
+          category: 'structure',
         }],
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // Expand "Sharpen your thinking" section to reveal check pills
+      const sectionHeader = screen.getByText('Sharpen your thinking')
+      fireEvent.click(sectionHeader)
 
       const pills = screen.getAllByText('Framing')
       expect(pills.length).toBeGreaterThanOrEqual(1)
@@ -1047,10 +1020,10 @@ describe('PreAnalysisPanel', () => {
       expect(screen.queryByText('Model assumptions')).not.toBeInTheDocument()
     })
 
-    it('renders "Model quality" NOT "Decision quality"', () => {
+    it('renders "Sharpen your thinking" NOT "Decision quality"', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expect(screen.queryByText('Decision quality')).not.toBeInTheDocument()
-      expect(screen.getByText('Model quality')).toBeInTheDocument()
+      expect(screen.getByText('Sharpen your thinking')).toBeInTheDocument()
     })
   })
 })
