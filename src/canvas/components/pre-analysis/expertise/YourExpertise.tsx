@@ -70,7 +70,7 @@ export function YourExpertise({
   onHoverEnter,
   onHoverLeave,
 }: YourExpertiseProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   // Denominator is derived from groups.actionableCount after groups are computed below
 

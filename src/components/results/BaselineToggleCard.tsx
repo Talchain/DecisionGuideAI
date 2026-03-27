@@ -101,7 +101,7 @@ export function BaselineToggleCard({
           <select
             value={selectedOptionId}
             onChange={(e) => setSelectedOptionId(e.target.value)}
-            className={`${typography.panelMeta} w-[min(180px,45vw)] bg-panel border border-panel-border rounded-lg px-2 py-1 text-text-body focus:outline-none focus:border-info`}
+            className={`${typography.panelMeta} w-[min(180px,45vw)] bg-panel border border-panel-border rounded-lg px-2 py-1 text-text-body focus-visible:outline-none focus-visible:border-info`}
             disabled={isRunning}
             autoFocus
           >

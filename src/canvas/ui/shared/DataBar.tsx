@@ -14,6 +14,7 @@
 
 import { useMemo } from 'react'
 import { typography } from '../../../styles/typography'
+import { evaluativeToken } from '../../../styles/evaluative'
 
 export type DataBarColour = 'success' | 'warning' | 'danger' | 'info' | 'goal'
 
@@ -52,12 +53,8 @@ const COLOUR_CLASS: Record<DataBarColour, string> = {
   goal:    'bg-goal',
 }
 
-/** DS v5 §11.6 evaluative thresholds */
-function evaluativeColour(value: number): DataBarColour {
-  if (value >= 0.7) return 'success'
-  if (value >= 0.4) return 'warning'
-  return 'danger'
-}
+/** DS v5 §11.6 evaluative thresholds — delegates to shared utility */
+const evaluativeColour = evaluativeToken as (value: number) => DataBarColour
 
 /**
  * Accessible progress bar following DS v5 §11.6.

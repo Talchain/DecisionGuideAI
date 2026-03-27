@@ -3,6 +3,7 @@
  * Factor name (clickable), value (inline edit), "Estimated" pill, influence bar, confirm/query/edit.
  */
 
+import { Check } from 'lucide-react'
 import { Pill } from '../primitives'
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import { typography } from '@/styles/typography'
@@ -78,7 +79,7 @@ export function AiEstimated({
                 className={`${typography.panelMeta} text-success border border-success/30 rounded-full px-1.5 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
                 title="Confirm value"
               >
-                ✓
+                <Check className="w-3 h-3" aria-hidden="true" />
               </button>
               {onSendMessage && (
                 <button

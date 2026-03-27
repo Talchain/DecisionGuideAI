@@ -177,7 +177,7 @@ export function SuccessTarget({
         value={goalNode?.id ?? ''}
         onChange={(e) => onGoalChange(e.target.value)}
         title={goalLabel}
-        className={`${typography.panelHeader} text-text-header bg-transparent border-none p-0 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 truncate max-w-full`}
+        className={`${typography.panelHeader} text-text-header bg-transparent border-none p-0 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 truncate max-w-full`}
       >
         {goalNodes.map(g => (
           <option key={g.id} value={g.id}>{getNodeLabel(g)}</option>
@@ -257,7 +257,7 @@ export function SuccessTarget({
                   }
                   onThresholdEdit?.()
                 }}
-                className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
+                className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               />
               <button
                 type="button"
@@ -311,7 +311,7 @@ export function SuccessTarget({
                     setInputValue('')
                   }
                 }}
-                className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
+                className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
               />
               <button
                 type="button"
@@ -421,7 +421,7 @@ export function SuccessTarget({
                 }
               }}
               autoFocus
-              className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
+              className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             />
             <button
               type="button"
@@ -468,7 +468,7 @@ export function SuccessTarget({
                   setConstraintInput('')
                 }
               }}
-              className={`flex-1 min-w-0 px-2 py-1 ${typography.panelMeta} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-2 focus:ring-info`}
+              className={`flex-1 min-w-0 px-2 py-1 ${typography.panelMeta} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             />
             <button
               type="button"

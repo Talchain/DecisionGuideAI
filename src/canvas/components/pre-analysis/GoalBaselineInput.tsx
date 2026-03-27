@@ -165,7 +165,7 @@ export function GoalBaselineInput({
               placeholder={unit ? `Value (${unit})` : 'Enter value'}
               className={`flex-1 min-w-0 min-h-[44px] px-3 py-2 ${typography.panelBody} bg-panel border ${
                 error ? 'border-danger' : 'border-panel-border'
-              } rounded-lg text-text-body focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1`}
+              } rounded-lg text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
               data-testid="goal-baseline-number-input"
             />
             <button

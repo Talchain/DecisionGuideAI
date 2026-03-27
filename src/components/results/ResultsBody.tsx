@@ -17,7 +17,7 @@ import { GuidanceActionItemRow } from './GuidanceActionItemRow'
 import type { GuidanceItem } from '../../canvas/stores/guidanceStore'
 import { RecommendationSection } from './RecommendationSection'
 import { DriversSection } from './DriversSection'
-import type { TornadoRow } from './TornadoChart'
+import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { ConfidenceSection } from './ConfidenceSection'
 import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
@@ -74,6 +74,10 @@ export interface ResultsBodyProps {
   guidanceItems?: GuidanceItem[]
   /** Callback to activate a guidance item (sets activeGuidanceItemId in store) */
   onActivateGuidanceItem?: (itemId: string) => void
+  /** Transition bridge: count of items user verified pre-analysis */
+  verifiedCount?: number
+  /** Transition bridge: weighted influence fraction user covered */
+  influenceCoverage?: number
 }
 
 export const ResultsBody = memo(function ResultsBody({
@@ -99,6 +103,8 @@ export const ResultsBody = memo(function ResultsBody({
   goalDirection,
   guidanceItems,
   onActivateGuidanceItem,
+  verifiedCount,
+  influenceCoverage,
 }: ResultsBodyProps) {
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
@@ -132,6 +138,8 @@ export const ResultsBody = memo(function ResultsBody({
         <DecisionConfidencePanel
           data={resultsSectionData}
           onFocusNode={onFocusNode}
+          verifiedCount={verifiedCount}
+          influenceCoverage={influenceCoverage}
         />
       </SectionErrorBoundary>
 
@@ -186,7 +194,7 @@ export const ResultsBody = memo(function ResultsBody({
         <SectionErrorBoundary section="Options comparison">
           <div className="space-y-2">
             <SectionHeader
-              title="How the options compare"
+              title="Your options"
               testId="section-header-options"
               icon="option"
             />
@@ -229,14 +237,13 @@ export const ResultsBody = memo(function ResultsBody({
       )}
 
       {/* ── SECTION 3: DRIVERS ──────────────────────────────────── */}
-      {/* Always visible — no accordion wrapper. Driver cards + TornadoChart. */}
-      <div>
-        <SectionHeader
-          title="What's driving this"
-          count={resultsSectionData.drivers.totalCount}
-          badgeState={resultsSectionData.drivers.totalCount > 0 ? 'unresolved' : undefined}
-          testId="section-header-drivers"
-        />
+      <Accordion
+        title="What's driving this"
+        defaultExpanded={false}
+        count={resultsSectionData.drivers.totalCount}
+        badgeState={resultsSectionData.drivers.totalCount > 0 ? 'unresolved' : undefined}
+        testId="accordion-drivers"
+      >
         <SectionErrorBoundary section="Drivers">
           <DriversSection
             data={resultsSectionData.drivers}
@@ -244,16 +251,34 @@ export const ResultsBody = memo(function ResultsBody({
             goalLabel={resultsSectionData.goalLabel}
             highlightedDriverId={highlightedDriverId}
             registerDriverRef={registerDriverRef}
-            expectedOutcome={tornadoData.expectedOutcome}
-            tornadoRows={tornadoData.rows}
             outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
             outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
             isNormalised={resultsSectionData.recommendation.isNormalised}
-            goalDirection={goalDirection}
-            flipThresholds={resultsSectionData.recommendation.flipThresholds}
           />
         </SectionErrorBoundary>
-      </div>
+      </Accordion>
+
+      {/* ── SECTION 3b: WHAT COULD CHANGE THE RESULT ──────────── */}
+      {tornadoData.rows.length > 0 && tornadoData.expectedOutcome != null && (
+        <Accordion
+          title="What could change the result"
+          defaultExpanded={false}
+          testId="accordion-tornado"
+        >
+          <SectionErrorBoundary section="Tornado">
+            <TornadoChart
+              rows={tornadoData.rows}
+              expectedOutcome={tornadoData.expectedOutcome}
+              outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
+              outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
+              onFocusNode={onFocusNode}
+              isNormalised={resultsSectionData.recommendation.isNormalised}
+              goalDirection={goalDirection}
+              flipThresholds={resultsSectionData.recommendation.flipThresholds}
+            />
+          </SectionErrorBoundary>
+        </Accordion>
+      )}
 
       {/* ── SECTION 4: YOUR NEXT STEPS ──────────────────────────── */}
       {/* V11: Collapse behaviour driven by decisionState, not robustness level */}
@@ -410,7 +435,7 @@ export const ResultsBody = memo(function ResultsBody({
               return (
               <div>
                 <Accordion
-                  title="Before you commit"
+                  title="Stress-test your decision"
                   defaultExpanded={false}
                   testId="accordion-before-commit"
                   badgeCount={challengeTotal}

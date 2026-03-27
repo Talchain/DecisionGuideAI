@@ -418,9 +418,9 @@ describe('HeroSection', () => {
       // V9.2: Stability summary rows
       expect(screen.getByText('Stability')).toBeInTheDocument()
       expect(screen.getByText('90%')).toBeInTheDocument()
-      expect(screen.getByText('Fragile edges')).toBeInTheDocument()
+      expect(screen.getByText('Sensitive assumptions')).toBeInTheDocument()
       expect(screen.getByText('3')).toBeInTheDocument()
-      expect(screen.getByText('Convergence')).toBeInTheDocument()
+      expect(screen.getByText('Simulation quality')).toBeInTheDocument()
       expect(screen.getByText(/10,000 simulations/)).toBeInTheDocument()
     })
 
@@ -457,7 +457,7 @@ describe('HeroSection', () => {
       const collapseButton = screen.getByRole('button', { name: /Hide/i })
       fireEvent.click(collapseButton)
 
-      expect(screen.queryByText('Convergence')).not.toBeInTheDocument()
+      expect(screen.queryByText('Simulation quality')).not.toBeInTheDocument()
     })
 
     it('does not show "Technical detail" (moved to Advanced in Phase 4)', () => {

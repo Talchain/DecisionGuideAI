@@ -1011,7 +1011,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
               value={editValue}
               onChange={(e) => setEditValue(e.target.value)}
               placeholder={item.rawValue != null ? String(item.rawValue) : 'Enter value'}
-              className={`flex-1 px-2 py-1 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info max-w-[120px]`}
+              className={`flex-1 px-2 py-1 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info max-w-[120px]`}
               autoFocus
               onKeyDown={(e) => {
                 if (e.key === 'Enter') handleValueSave()
@@ -1101,7 +1101,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
             onChange={(e) => setEvidenceValue(e.target.value)}
             placeholder="Enter evidence source (URL or description)"
             maxLength={500}
-            className={`flex-1 px-2 py-1 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info`}
+            className={`flex-1 px-2 py-1 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
             autoFocus
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleEvidenceSubmit()

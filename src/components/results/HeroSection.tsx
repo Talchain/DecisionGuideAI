@@ -701,7 +701,7 @@ export function HeroSection({
                   <button
                     type="button"
                     onClick={() => focusNodeById(goalNodeId)}
-                    className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
+                    className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus-visible:outline-none text-left`}
                   >
                     {goalLabel || 'your goal'}
                   </button>
@@ -731,7 +731,7 @@ export function HeroSection({
                   <button
                     type="button"
                     onClick={() => focusNodeById(goalNodeId)}
-                    className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
+                    className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus-visible:outline-none text-left`}
                   >
                     {goalLabel || 'your goal'}
                   </button>
@@ -922,7 +922,7 @@ export function HeroSection({
               <button
                 type="button"
                 onClick={() => focusNodeById(goalNodeId)}
-                className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus:outline-none text-left`}
+                className={`${typography.panelHeader} text-info cursor-pointer hover:underline focus-visible:outline-none text-left`}
               >
                 {goalLabel || 'your goal'}
               </button>
@@ -1072,13 +1072,13 @@ export function HeroSection({
               )}
               {fragileEdgeCount != null && (
                 <>
-                  <dt className="text-text-light">Fragile edges</dt>
+                  <dt className="text-text-light">Sensitive assumptions</dt>
                   <dd className="text-text-header">{fragileEdgeCount}</dd>
                 </>
               )}
               {nSamples != null && (
                 <>
-                  <dt className="text-text-light">Convergence</dt>
+                  <dt className="text-text-light">Simulation quality</dt>
                   <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
                 </>
               )}

@@ -9,6 +9,7 @@
  */
 
 import { typography } from '../../styles/typography'
+import { evaluativeVar } from '../../styles/evaluative'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import Tooltip from '../Tooltip'
 
@@ -17,16 +18,6 @@ export interface TargetProbabilityBarsProps {
   constraintAnalysis?: ConstraintAnalysis | null
   /** Whether a goal threshold is set (gates entire display) */
   goalThreshold?: number | null
-}
-
-/**
- * Map constraint probability to a CSS colour for bar fill.
- * Uses the same semantic thresholds as constraint confidence colours.
- */
-function getBarColour(probability: number): string {
-  if (probability >= 0.70) return 'var(--success)'
-  if (probability >= 0.40) return 'var(--warning)'
-  return 'var(--danger)'
 }
 
 export function TargetProbabilityBars({
@@ -65,7 +56,7 @@ export function TargetProbabilityBars({
                   className="h-full rounded-sm"
                   style={{
                     width: `${Math.max(2, pct)}%`,
-                    background: getBarColour(c.prob_satisfied),
+                    background: evaluativeVar(c.prob_satisfied),
                   }}
                 />
               </div>

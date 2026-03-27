@@ -10,7 +10,6 @@ export { PreAnalysisPanel } from './PreAnalysisPanel'
 
 // Sub-components
 export { Header } from './Header'
-export { M1TopActions } from './M1TopActions'
 export { AllImprovements } from './AllImprovements'
 export { ModelSnapshot } from './ModelSnapshot'
 export { AnalysisSettings } from './AnalysisSettings'

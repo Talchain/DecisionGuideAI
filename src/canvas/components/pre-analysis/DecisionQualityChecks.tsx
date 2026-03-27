@@ -186,7 +186,7 @@ function CheckRow({
                 value={inputValue}
                 onChange={(e) => { setInputValue(e.target.value); setValidationError(false) }}
                 placeholder={directAction?.placeholder}
-                className={`flex-1 px-2 py-1 ${typography.panelBody} border ${validationError ? 'border-danger' : 'border-panel-border'} rounded-lg bg-panel text-text-body focus:outline-none focus:ring-1 focus:ring-info`}
+                className={`flex-1 px-2 py-1 ${typography.panelBody} border ${validationError ? 'border-danger' : 'border-panel-border'} rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
                 autoFocus
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleDirectSubmit()

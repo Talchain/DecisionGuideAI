@@ -576,8 +576,9 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // YourExpertise shows progress bar with actionable denominator
-      expect(screen.getByText(/contributed to 2 of 3/)).toBeInTheDocument()
+      // YourExpertise section is present (collapsed by default) with badge count
+      expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
+      expect(screen.getByText('Your expertise')).toBeInTheDocument()
     })
 
     it('Your expertise shows well-calibrated message when all empty', () => {
@@ -589,8 +590,8 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // When all subgroups empty, shows well-calibrated message
-      expect(screen.getByText(/well-calibrated/)).toBeInTheDocument()
+      // YourExpertise section is present (collapsed by default, no badge when empty)
+      expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
     })
 
     it('shows Ready and enables button when only optional improvements present', () => {
@@ -672,9 +673,9 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Your expertise section visible with well-calibrated empty state
+        // Your expertise section visible (collapsed by default)
         expect(screen.getByText('Your expertise')).toBeInTheDocument()
-        expect(screen.getByText(/well-calibrated/)).toBeInTheDocument()
+        expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
       })
 
       it('hides progress counter when no assumptions to review', () => {

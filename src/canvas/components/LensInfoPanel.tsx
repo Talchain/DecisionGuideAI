@@ -195,7 +195,7 @@ function RobustnessPanel() {
         {stability !== null && (
           <>Recommendation stability: {stability}%. </>
         )}
-        Fragile edges: {fragileEdgeIds.size}.
+        Sensitive assumptions: {fragileEdgeIds.size}.
       </div>
       {/* Ranked fragile edge list */}
       {fragileList.length > 0 && (

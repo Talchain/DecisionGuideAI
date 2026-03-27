@@ -85,7 +85,7 @@ export function GraphLink({
     <button
       type="button"
       onClick={handleClick}
-      className={`text-info hover:text-info-hover hover:underline cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-2 rounded ${className}`}
+      className={`text-info hover:text-info-hover hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2 rounded ${className}`}
       aria-label={`Focus on ${label ?? 'element'} in model`}
       title={label}
     >

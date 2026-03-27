@@ -23,7 +23,7 @@ import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
-import { AlertTriangle, Lightbulb, Search, ArrowLeftRight, GitBranch } from 'lucide-react'
+import { AlertTriangle, Check, Lightbulb, Search, ArrowLeftRight, GitBranch } from 'lucide-react'
 
 /**
  * Expandable "Why this matters" section for action items with whatCouldHappen / whatToDo data.
@@ -287,7 +287,7 @@ function UncertaintyRow({
   return (
     <div
       className={`p-3 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded-lg transition-all ${
-        isClickable ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-info/50' : ''
+        isClickable ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50' : ''
       }`}
       onClick={cardClickHandler}
       role={isClickable ? 'button' : undefined}
@@ -518,7 +518,7 @@ export function ConfidenceSection({
       {isFullyReady && (
         <div className="p-4 border border-success/30 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-lg">✓</span>
+            <Check className="w-4 h-4 text-success flex-shrink-0" aria-hidden="true" />
             <span className={`${typography.panelHeader} text-success`}>
               Good foundation
             </span>
@@ -533,7 +533,7 @@ export function ConfidenceSection({
       {showLowRobustnessWarning && (
         <div className="p-4 bg-panel border border-warning rounded-lg">
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-lg">⚠</span>
+            <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
             <span className={`${typography.panelHeader} text-text-header`}>
               Low confidence
             </span>
@@ -552,7 +552,7 @@ export function ConfidenceSection({
       {tier.tier === 'strong' && !isFullyReady && !showLowRobustnessWarning && !readinessBlocks && (
         <div className="p-3 border border-success/30 rounded-lg">
           <div className="flex items-center gap-2">
-            <span className="text-success">✓</span>
+            <Check className="w-3.5 h-3.5 text-success flex-shrink-0" aria-hidden="true" />
             <p className={`${typography.panelBody} text-text-body`}>
               Good foundation, a few items to consider below
             </p>
@@ -813,7 +813,7 @@ export function ConfidenceSection({
                                   <button
                                     type="button"
                                     onClick={handleFocus}
-                                    className={`${typography.panelHeader} text-info hover:text-info-hover hover:underline text-left focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+                                    className={`${typography.panelHeader} text-info hover:text-info-hover hover:underline text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded`}
                                     aria-label={`Focus on ${actionItem.title} in model`}
                                   >
                                     {actionItem.title}
@@ -976,7 +976,7 @@ export function ConfidenceSection({
                             tabIndex={0}
                             onClick={handleFocus}
                             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } }}
-                            className={`${severityConfig.textColor} cursor-pointer hover:underline focus:outline-none focus:ring-2 focus:ring-info-500 focus:ring-offset-1 rounded`}
+                            className={`${severityConfig.textColor} cursor-pointer hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info-500 focus-visible:ring-offset-1 rounded`}
                             aria-label={`Focus on assumption in model`}
                           >
                             {assumption.message}

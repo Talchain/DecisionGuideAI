@@ -15,7 +15,7 @@
 
 import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
 import { ShieldCheck, ShieldAlert, AlertTriangle as TriangleAlert } from 'lucide-react'
-import type { DriversSectionData, DriverItem, FlipThreshold } from './types'
+import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { useUIStore } from '../../stores/uiStore'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -23,7 +23,6 @@ import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
 import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabel'
-import { TornadoChart, type TornadoRow } from './TornadoChart'
 import { typography } from '../../styles/typography'
 import { formatPercent } from '../../utils/formatPercent'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
@@ -39,20 +38,12 @@ interface DriversSectionProps {
   highlightedDriverId?: string | null
   /** Graph Interaction P1: Ref callback to register driver row elements for scroll sync */
   registerDriverRef?: (factorKey: string, element: HTMLDivElement | null) => void
-  /** Tornado chart: expected outcome (mean) for centre line */
-  expectedOutcome?: number | null
-  /** Tornado chart: p10/p90 outcome bounds per factor */
-  tornadoRows?: TornadoRow[]
-  /** Tornado chart: outcome unit type */
+  /** Outcome unit type (used for driver display formatting) */
   outcomeUnit?: 'currency' | 'percent' | 'count'
-  /** Tornado chart: outcome unit symbol */
+  /** Outcome unit symbol */
   outcomeUnitSymbol?: string
   /** v7: When true, values are normalised model scores */
   isNormalised?: boolean
-  /** Goal direction for tornado bar colouring — maximize means higher outcome = good */
-  goalDirection?: 'maximize' | 'minimize'
-  /** A4: Flip threshold data for tornado chart markers */
-  flipThresholds?: FlipThreshold[]
 }
 
 // Bar colors — use design system tokens, no hex literals
@@ -272,7 +263,7 @@ function ExpandedDetails({
       {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
       {showQualityHint && (
         <p className={`${typography.panelBody} text-text-light flex items-center gap-1`}>
-          <span aria-hidden="true">⚠️</span>
+          <TriangleAlert className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
           Could benefit from more evidence
         </p>
       )}
@@ -482,7 +473,7 @@ function DriverRow({
       {/* Quality hint */}
       {showQualityHint && (
         <p className="flex items-center gap-1">
-          <span aria-hidden="true">⚠️</span>
+          <TriangleAlert className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
           Could benefit from more evidence
         </p>
       )}
@@ -524,7 +515,7 @@ function DriverRow({
             <button
               type="button"
               onClick={handleFocusClick}
-              className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded text-left line-clamp-2`}
+              className={`${typography.panelBody} text-info hover:text-info-hover hover:underline break-words leading-snug cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded text-left line-clamp-2`}
               aria-label={`Focus on ${cleanedLabel} in model`}
               title={cleanedLabel}
             >
@@ -714,13 +705,9 @@ export function DriversSection({
   goalLabel,
   highlightedDriverId,
   registerDriverRef,
-  expectedOutcome,
-  tornadoRows,
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
-  goalDirection,
-  flipThresholds,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
@@ -870,37 +857,7 @@ export function DriversSection({
         </p>
       )}
 
-      {/* v7.10 T8: Tornado chart — collapsed by default, toggle to expand */}
-      {tornadoRows && tornadoRows.length > 0 && expectedOutcome != null && (() => {
-        // v7.5 T3 Fix: Filter tornado rows to match visibleDrivers only
-        const visibleFactorKeys = new Set(visibleDrivers.map(d => d.factorKey))
-        const filteredTornadoRows = tornadoRows.filter(row => visibleFactorKeys.has(row.factorKey))
-
-        return filteredTornadoRows.length > 0 && (
-          <details className="group" open>
-            <summary className={`${typography.panelHeader} text-text-header cursor-pointer select-none list-none flex items-center justify-between`}>
-              <span>What could change the result</span>
-              <span className={`${typography.panelBody} text-info group-open:hidden`}>Show ˅</span>
-              <span className={`${typography.panelBody} text-info hidden group-open:inline`}>Hide ˄</span>
-            </summary>
-            <div className="mt-2">
-              <TornadoChart
-                rows={filteredTornadoRows}
-                expectedOutcome={expectedOutcome}
-                outcomeUnit={outcomeUnit}
-                outcomeUnitSymbol={outcomeUnitSymbol}
-                onFocusNode={onFocusNode}
-                isNormalised={isNormalised}
-                goalDirection={goalDirection}
-                flipThresholds={flipThresholds}
-                contestedFactorIds={visibleDrivers
-                  .filter(d => d.flipRiskCategory === 'isolated' || d.flipRiskCategory === 'correlated')
-                  .map(d => d.factorKey)}
-              />
-            </div>
-          </details>
-        )
-      })()}
+      {/* Tornado chart moved to standalone "What could change the result" accordion in ResultsBody */}
     </div>
   )
 }

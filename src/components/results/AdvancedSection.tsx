@@ -230,13 +230,13 @@ export function AdvancedSection({
             )}
             {nSamples != null && (
               <>
-                <dt className="text-text-light">Convergence</dt>
+                <dt className="text-text-light">Simulation quality</dt>
                 <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>
               </>
             )}
             {fragileEdgeCount != null && (
               <>
-                <dt className="text-text-light">Fragile edges</dt>
+                <dt className="text-text-light">Sensitive assumptions</dt>
                 <dd className="text-text-header">{fragileEdgeCount}</dd>
               </>
             )}

@@ -46,7 +46,7 @@ describe('AdvancedSection', () => {
     render(<AdvancedSection nSamples={10000} />)
     fireEvent.click(screen.getByText('Advanced'))
 
-    expect(screen.getByText('Convergence')).toBeInTheDocument()
+    expect(screen.getByText('Simulation quality')).toBeInTheDocument()
     expect(screen.getByText('10,000 simulations')).toBeInTheDocument()
   })
 
@@ -54,7 +54,7 @@ describe('AdvancedSection', () => {
     render(<AdvancedSection fragileEdgeCount={3} robustEdgeCount={12} />)
     fireEvent.click(screen.getByText('Advanced'))
 
-    expect(screen.getByText('Fragile edges')).toBeInTheDocument()
+    expect(screen.getByText('Sensitive assumptions')).toBeInTheDocument()
     expect(screen.getByText('3')).toBeInTheDocument()
     expect(screen.getByText('Stable edges')).toBeInTheDocument()
     expect(screen.getByText('12')).toBeInTheDocument()
@@ -105,7 +105,7 @@ describe('AdvancedSection', () => {
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.queryByText('Stability')).not.toBeInTheDocument()
-    expect(screen.queryByText('Convergence')).not.toBeInTheDocument()
+    expect(screen.queryByText('Simulation quality')).not.toBeInTheDocument()
     expect(screen.queryByText('Hash')).not.toBeInTheDocument()
   })
 

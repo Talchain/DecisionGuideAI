@@ -229,7 +229,7 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
 
           {/* Fragile edges */}
           <LensMenuItem
-            label="Fragile edges"
+            label="Sensitive assumptions"
             isActive={lensMode === 'fragile'}
             onClick={() => handleSelect('fragile')}
             disabled={!hasResults}

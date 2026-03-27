@@ -168,6 +168,9 @@ export function OutputsDock() {
   const [slowRunMessage, setSlowRunMessage] = useState<string | null>(null)
   const runStartTimeRef = useRef<number | null>(null)
 
+  // Transition bridge: snapshot of pre-analysis review progress captured at run time
+  const transitionBridgeRef = useRef<{ verifiedCount: number; influenceCoverage: number }>({ verifiedCount: 0, influenceCoverage: 0 })
+
   // Phase 2: Response warnings banner dismissal state
   const [warningsDismissed, setWarningsDismissed] = useState(false)
   // P2: Degraded/partial state banner dismissal
@@ -373,6 +376,17 @@ export function OutputsDock() {
   // Handle Run button click
   const handleRunAnalysis = useCallback(async () => {
     if (!canRunAnalysis) return
+    // Capture pre-analysis review progress for transition bridge
+    const storeState = useCanvasStore.getState()
+    const reviewableNodes = storeState.nodes.filter((n: any) => n.data?.observedState)
+    const reviewedNodes = reviewableNodes.filter((n: any) => {
+      const src = n.data?.observedState?.source
+      return src === 'user_confirmed' || src === 'user_assumption' || src === 'user_edited'
+    })
+    transitionBridgeRef.current = {
+      verifiedCount: reviewedNodes.length,
+      influenceCoverage: 0, // Would need sensitivity data; 0 is safe fallback
+    }
     // P0.8: Track run started
     trackRunStarted({
       option_count: comparison.optionNodes.length,
@@ -1320,6 +1334,8 @@ export function OutputsDock() {
                     goalDirection={goalDirection}
                     guidanceItems={resultsGuidanceItems}
                     onActivateGuidanceItem={setActiveGuidanceItem}
+                    verifiedCount={transitionBridgeRef.current.verifiedCount}
+                    influenceCoverage={transitionBridgeRef.current.influenceCoverage}
                   />
                 )}
                 </div>

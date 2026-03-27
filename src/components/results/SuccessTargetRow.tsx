@@ -213,7 +213,7 @@ export function SuccessTargetRow({
               onKeyDown={handleKeyDown}
               onBlur={handleRevert}
               disabled={isRunning}
-              className={`w-[100px] px-2 py-1 ${typography.panelBody} border border-info rounded focus:outline-none focus:ring-2 focus:ring-info tabular-nums`}
+              className={`w-[100px] px-2 py-1 ${typography.panelBody} border border-info rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info tabular-nums`}
               aria-label="Edit success target value"
             />
             <button

@@ -50,7 +50,7 @@ function BannerItem({
           <button
             type="button"
             onClick={handleFocus}
-            className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+            className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded`}
           >
             {item.suggestion}
           </button>
@@ -115,7 +115,7 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
                   if (onFocusNode) onFocusNode(safeItems[0].factorId!)
                   else focusNodeById(safeItems[0].factorId!)
                 }}
-                className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+                className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded`}
               >
                 {safeItems[0].suggestion}
               </button>
@@ -192,7 +192,7 @@ export function AttentionBanner({ items, onFocusNode }: AttentionBannerProps) {
                 if (onFocusNode) onFocusNode(first.factorId!)
                 else focusNodeById(first.factorId!)
               }}
-              className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded`}
+              className={`${typography.panelMeta} text-info hover:underline mt-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded`}
             >
               {first.suggestion}
             </button>

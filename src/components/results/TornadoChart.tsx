@@ -445,7 +445,7 @@ export function TornadoChart({
                 <div
                   className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-warning"
                   style={{ border: '1.5px solid var(--bg-panel)' }}
-                  aria-label="Contested estimate"
+                  aria-label="Needs your judgement"
                 />
               )}
               {/* Label */}
@@ -454,7 +454,7 @@ export function TornadoChart({
                   <button
                     type="button"
                     onClick={handleClick}
-                    className={`${typography.panelMeta} text-info hover:underline focus:outline-none focus:ring-2 focus:ring-info focus:ring-offset-1 rounded truncate max-w-full text-right`}
+                    className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded truncate max-w-full text-right`}
                     title={cleanLabel}
                   >
                     {cleanLabel}

@@ -136,7 +136,7 @@ export function Accordion({
         onClick={handleToggle}
         aria-expanded={isExpanded}
         aria-controls={contentId}
-        className="w-full px-3 py-2 bg-panel border-b border-panel-border flex items-center justify-between hover:bg-panel-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset"
+        className="w-full px-3 py-2 bg-panel border-b border-panel-border flex items-center justify-between hover:bg-panel-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset"
       >
         <div className="flex items-center gap-2 flex-1">
           <ChevronRight

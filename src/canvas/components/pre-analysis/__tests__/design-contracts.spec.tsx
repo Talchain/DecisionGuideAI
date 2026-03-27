@@ -10,7 +10,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AllImprovements } from '../AllImprovements'
-import M1TopActions from '../M1TopActions'
 import { ModelAdjustments } from '../ModelAdjustments'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
 
@@ -118,39 +117,6 @@ describe('Design contract: no non-exempt left borders in pre-analysis content', 
     expect(hasNonExemptLeftBorder(classNames)).toBe(false)
   })
 
-  it('M1TopActions renders action cards with full borders only', () => {
-    const { container } = render(
-      <M1TopActions
-        topActions={[
-          fixItem({ key: 'a1', category: 'fix' }),
-          verifyItem({ key: 'a2' }),
-        ]}
-        onConfirm={vi.fn()}
-        onAssumption={vi.fn()}
-        onEdit={vi.fn()}
-      />
-    )
-
-    const classNames = getAllClassNames(container)
-    expect(hasNonExemptLeftBorder(classNames)).toBe(false)
-  })
-
-  it('M1TopActions reviewed-state expanded row has no left border', () => {
-    const { container, rerender } = render(
-      <M1TopActions
-        topActions={[verifyItem({ key: 'v1' })]}
-        onConfirm={vi.fn()}
-        onAssumption={vi.fn()}
-      />
-    )
-    // Confirm the item so it enters reviewed state
-    const confirmBtn = container.querySelector('[aria-label*="onfirm"], [title*="onfirm"]') as HTMLElement | null
-    if (confirmBtn) fireEvent.click(confirmBtn)
-
-    const classNames = getAllClassNames(container)
-    expect(hasNonExemptLeftBorder(classNames)).toBe(false)
-  })
-
   it('ModelAdjustments technical detail panel has no left border', () => {
     const { container } = render(
       <ModelAdjustments
@@ -188,19 +154,6 @@ describe('Design contract: no em dashes in pre-analysis rendered text', () => {
     )
 
     // Check all tooltip attributes (title, aria-label, data-tooltip)
-    const allText = container.innerHTML
-    expect(allText).not.toContain('\u2014')
-    expect(allText).not.toContain('&mdash;')
-  })
-
-  it('M1TopActions tooltip strings contain no em dash', () => {
-    const { container } = render(
-      <M1TopActions
-        topActions={[verifyItem({ key: 'v1' })]}
-        onAssumption={vi.fn()}
-      />
-    )
-
     const allText = container.innerHTML
     expect(allText).not.toContain('\u2014')
     expect(allText).not.toContain('&mdash;')
