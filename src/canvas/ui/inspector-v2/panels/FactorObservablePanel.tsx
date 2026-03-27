@@ -9,8 +9,7 @@ import { Link } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
-import { IntelligenceSection } from '../shared/IntelligenceSection'
-import { isNodeIntelligenceEnabled } from '../../../../flags'
+import { useNodeConnectivity } from '../shared/IntelligenceSection'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
@@ -38,6 +37,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   const isResultsMode = resultsStatus === 'complete'
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
+  const connectivity = useNodeConnectivity(nodeId ?? '')
   const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
@@ -177,16 +177,12 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
 
       <InspectorGuidanceSection elementId={nodeId} />
 
-      {/* Intelligence (Phase 3A) */}
-      {isNodeIntelligenceEnabled() && (
-        <IntelligenceSection nodeId={nodeId} />
-      )}
-
       <TechnicalDisclosure visible={techMode}>
         <div>System: node_id: {nodeId}</div>
         <div>System: kind: factor (observable)</div>
         {value != null && <div>System: observed_state.value: {value}</div>}
         <RangeDerivationPill source={obs?.range_derivation_source as string | undefined} />
+        <div>System: influences: {connectivity.outgoing} out / {connectivity.incoming} in</div>
       </TechnicalDisclosure>
     </div>
   )

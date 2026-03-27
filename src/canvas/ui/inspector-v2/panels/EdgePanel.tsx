@@ -26,7 +26,6 @@ import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { UncertaintyBand } from '../shared/UncertaintyBand'
 import type { InspectorPanelProps } from '../types'
-import { isCausalClaimsEnabled } from '../../../../flags'
 import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
 import { trackGuidance } from '../../../../telemetry/guidanceEvents'
 import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
@@ -114,9 +113,6 @@ function thresholdTrackVar(v: number): string {
   return 'var(--danger)'
 }
 
-// Graph Editing Experience Task 9e: localStorage key for one-time edge education
-const EDGE_EDUCATION_DISMISSED_KEY = 'olumi:edge-education-dismissed'
-
 export const EdgePanel = memo(function EdgePanel({
   edgeId,
   techMode,
@@ -169,15 +165,6 @@ export const EdgePanel = memo(function EdgePanel({
       robustness.fragile_edges as import('../../../utils/fragileEdgeMatch').FragileEdgeCandidate[],
     )
   }, [robustness, edgeId, edge?.source, edge?.target])
-
-  // Graph Editing Experience Task 9e: First-interaction edge education
-  const [showEdgeEducation, setShowEdgeEducation] = useState(() => {
-    try { return localStorage.getItem(EDGE_EDUCATION_DISMISSED_KEY) !== 'true' } catch { return true }
-  })
-  const dismissEdgeEducation = useCallback(() => {
-    setShowEdgeEducation(false)
-    try { localStorage.setItem(EDGE_EDUCATION_DISMISSED_KEY, 'true') } catch { /* noop */ }
-  }, [])
 
   // E-value for this edge from ISL edge_e_values (gated on field presence)
   const edgeEValue = useMemo(() => {
@@ -256,14 +243,6 @@ export const EdgePanel = memo(function EdgePanel({
         </div>
       ) : (
         <>
-          {/* Graph Editing Experience Task 9e: First-interaction edge education */}
-          {showEdgeEducation && (
-            <CoachingCard
-              text={`Three numbers control this relationship:\n\u2022 Strength \u2014 how much ${sourceLabel} affects ${targetLabel}\n\u2022 Confidence \u2014 how sure you are this connection exists\n\u2022 Uncertainty \u2014 how precisely you know the strength\n\nAdjusting these changes your simulation results.`}
-              action={{ label: 'Got it', onClick: dismissEdgeEducation }}
-            />
-          )}
-
           {/* §10.2 How strong is this effect */}
           <SectionTitle icon={SECTION_TITLES.howStrong.icon} label={SECTION_TITLES.howStrong.label} />
           <div className="px-1">
@@ -271,15 +250,13 @@ export const EdgePanel = memo(function EdgePanel({
             <StrengthBandButtons value={localStrength} onChange={handleStrengthChange} />
             <div className="relative mb-2">
               <UncertaintyBand strength={localStrength} std={localStd} />
-              <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} />
+              <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={techMode} />
             </div>
-            <div className="flex justify-between mt-1">
-              {techMode ? (
-                <><span className={`${typography.panelMeta} text-text-light`}>{'\u22121.0'}</span><span className={`${typography.panelMeta} text-text-light`}>0</span><span className={`${typography.panelMeta} text-text-light`}>+1.0</span></>
-              ) : (
-                <><span className={`${typography.panelMeta} text-text-light`}>Strong negative</span><span className={`${typography.panelMeta} text-text-light`}>No effect</span><span className={`${typography.panelMeta} text-text-light`}>Strong positive</span></>
-              )}
-            </div>
+            {techMode && (
+              <div className="flex justify-between mt-1">
+                <span className={`${typography.panelMeta} text-text-light`}>{'\u22121.0'}</span><span className={`${typography.panelMeta} text-text-light`}>0</span><span className={`${typography.panelMeta} text-text-light`}>+1.0</span>
+              </div>
+            )}
             <div className="flex justify-between items-center mt-2">
               <span
                 className={`${typography.panelMeta} font-medium inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
@@ -419,11 +396,6 @@ export const EdgePanel = memo(function EdgePanel({
             )
           })()}
 
-          {/* §10.5b Scientific basis — causal claims from pipeline */}
-          {isCausalClaimsEnabled() && (
-            <CausalClaimsSection edgeId={edge.id} edgeData={edge.data as Record<string, unknown>} />
-          )}
-
           {/* §10.6 Fragility — only when edge in robustness.fragile_edges */}
           {isFragile && isResultsMode && (
             <>
@@ -474,6 +446,11 @@ export const EdgePanel = memo(function EdgePanel({
         <div>System: strength.mean: {localStrength.toFixed(2)} \u00B7 strength.std: {localStd.toFixed(2)}</div>
         <div>System: exists_probability: {localBelief.toFixed(2)}</div>
         {provenance && <div>System: provenance: {provenance}</div>}
+        {(() => {
+          const claims = extractCausalClaims(edge.data as Record<string, unknown>)
+          if (claims.length === 0) return null
+          return <div>System: causal_claims: {claims.length} ({claims.map(c => c.claim_type).join(', ')})</div>
+        })()}
       </TechnicalDisclosure>
 
       {/* Live region for announcements */}

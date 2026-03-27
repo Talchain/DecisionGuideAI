@@ -6,7 +6,7 @@
  * Adapter's computeSignedMean() reconstructs signed strength from weight + direction.
  *
  * Track fill: var(--success) for positive, var(--danger) for negative
- * Endpoints: "Hurts" (left), "Helps" (right), "Neutral" at centre
+ * Endpoints: "Strong negative" (left), "Strong positive" (right), "No effect" at centre
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
@@ -26,6 +26,8 @@ interface SignedStrengthSliderProps {
   std?: number
   /** Graph Editing Experience Task 5: Called on slider release/blur to clear impact preview */
   onBlur?: () => void
+  /** Show decimal values alongside the label (default true for backwards compat) */
+  techMode?: boolean
 }
 
 export function SignedStrengthSlider({
@@ -35,6 +37,7 @@ export function SignedStrengthSlider({
   disabled = false,
   std,
   onBlur,
+  techMode = true,
 }: SignedStrengthSliderProps) {
   const [localValue, setLocalValue] = useState(value)
   const timerRef = useRef<ReturnType<typeof setTimeout>>()
@@ -64,7 +67,7 @@ export function SignedStrengthSlider({
   const isNegative = localValue < 0
   const absValue = Math.abs(localValue)
   const displayColor = isNegative ? 'text-danger' : localValue > 0 ? 'text-success' : 'text-text-light'
-  const directionLabel = isNegative ? 'Hurts' : localValue > 0 ? 'Helps' : 'Neutral'
+  const directionLabel = isNegative ? 'Negative' : localValue > 0 ? 'Positive' : 'No effect'
 
   // D.2: Effect size coaching nudge from local state for instant feedback
   const effectCoaching = getEffectSizeCoaching(absValue)
@@ -79,9 +82,9 @@ export function SignedStrengthSlider({
     <div>
       {/* Endpoint labels */}
       <div className="flex items-center justify-between mb-1">
-        <span className={`${typography.panelMeta} text-danger`}>Hurts</span>
-        <span className={`${typography.panelMeta} text-text-light`}>Neutral</span>
-        <span className={`${typography.panelMeta} text-success`}>Helps</span>
+        <span className={`${typography.panelMeta} text-danger`}>Strong negative</span>
+        <span className={`${typography.panelMeta} text-text-light`}>No effect</span>
+        <span className={`${typography.panelMeta} text-success`}>Strong positive</span>
       </div>
 
       {/* Slider with custom track fill */}
@@ -150,9 +153,11 @@ export function SignedStrengthSlider({
         <span className={`${typography.panelMeta} ${displayColor}`}>
           {directionLabel}
         </span>
-        <span className={`${typography.panelBody} ${displayColor} tabular-nums`}>
-          {localValue >= 0 ? '+' : ''}{localValue.toFixed(2)}
-        </span>
+        {techMode && (
+          <span className={`${typography.panelBody} ${displayColor} tabular-nums`}>
+            {localValue >= 0 ? '+' : ''}{localValue.toFixed(2)}
+          </span>
+        )}
       </div>
 
       {/* D.2: Effect size coaching nudge */}

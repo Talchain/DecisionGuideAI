@@ -7,8 +7,7 @@ import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorGuidanceSection } from '../../inspector/InspectorGuidanceSection'
-import { IntelligenceSection } from '../shared/IntelligenceSection'
-import { isNodeIntelligenceEnabled } from '../../../../flags'
+import { useNodeConnectivity } from '../shared/IntelligenceSection'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
@@ -46,6 +45,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const isResultsMode = resultsStatus === 'complete'
 
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
+  const connectivity = useNodeConnectivity(nodeId ?? '')
   const mutations = useNodeMutations(nodeId ?? '')
   const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
@@ -272,17 +272,13 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
       <InspectorGuidanceSection elementId={nodeId} />
 
-      {/* Intelligence (Phase 3A) */}
-      {isNodeIntelligenceEnabled() && (
-        <IntelligenceSection nodeId={nodeId} />
-      )}
-
       <TechnicalDisclosure visible={techMode}>
         <div>System: node_id: {nodeId}</div>
         <div>System: kind: factor (external)</div>
         {rangeMin != null && <div>System: prior.range_min: {rangeMin}</div>}
         {rangeMax != null && <div>System: prior.range_max: {rangeMax}</div>}
         <RangeDerivationPill source={((node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined)?.range_derivation_source as string | undefined} />
+        <div>System: influences: {connectivity.outgoing} out / {connectivity.incoming} in</div>
       </TechnicalDisclosure>
     </div>
   )

@@ -23,8 +23,8 @@ export function CoachingCard({ text, action }: CoachingCardProps) {
 
   return (
     <div
-      className="mt-3 bg-panel rounded-r-lg shadow-1"
-      style={{ borderLeft: '3px solid var(--color-info, #2B7FA2)' }}
+      className="mt-3 bg-panel rounded-lg shadow-1"
+      style={{ border: '1px solid rgba(99,173,207,0.30)' }}
     >
       <div className="p-2.5 pr-2">
         <div className="flex justify-between items-start gap-2">

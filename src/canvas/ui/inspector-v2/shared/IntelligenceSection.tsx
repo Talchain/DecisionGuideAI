@@ -30,7 +30,7 @@ interface NodeConnectivity {
  * Derives outgoing and incoming edge counts for a node in a single memoised pass.
  * Avoids two separate filter subscriptions per render.
  */
-function useNodeConnectivity(nodeId: string): NodeConnectivity {
+export function useNodeConnectivity(nodeId: string): NodeConnectivity {
   const edges = useCanvasStore(s => s.edges)
   return useMemo(() => {
     let outgoing = 0
