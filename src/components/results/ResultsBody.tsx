@@ -24,6 +24,7 @@ import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
 import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
+import { AttentionBanner } from './AttentionBanner'
 import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
@@ -80,6 +81,8 @@ export interface ResultsBodyProps {
   driversExpanded?: boolean
   /** Callback when Drivers accordion expansion changes */
   onDriversExpandChange?: (expanded: boolean) => void
+  /** Handler for sending a message to the conversation panel */
+  onSendMessage?: (text: string) => void
 }
 
 export const ResultsBody = memo(function ResultsBody({
@@ -109,6 +112,7 @@ export const ResultsBody = memo(function ResultsBody({
   influenceCoverage,
   driversExpanded,
   onDriversExpandChange,
+  onSendMessage,
 }: ResultsBodyProps) {
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
@@ -144,10 +148,21 @@ export const ResultsBody = memo(function ResultsBody({
           onFocusNode={onFocusNode}
           verifiedCount={verifiedCount}
           influenceCoverage={influenceCoverage}
+          onSendMessage={onSendMessage}
         />
       </SectionErrorBoundary>
 
-      {/* Old hero suppressed — DecisionConfidencePanel replaces it (v4 spec) */}
+      {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}
+
+      {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
+      <SectionErrorBoundary section="Attention banner">
+        <AttentionBanner
+          items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(
+            c => c.displayText != null && c.suggestion != null && c.factorId != null
+          )}
+          onFocusNode={onFocusNode}
+        />
+      </SectionErrorBoundary>
 
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
       {!resultsSectionData.recommendation.isSingleOption &&

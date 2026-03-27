@@ -312,7 +312,8 @@ function StatusDot({ passed, label }: { passed: boolean; label: string }) {
 // ── Transition bridge banner ────────────────────────────────────────────────
 
 function TransitionBridge({ verifiedCount, influenceCoverage }: { verifiedCount?: number; influenceCoverage?: number }) {
-  if (!verifiedCount && !influenceCoverage) return null
+  // Only render when user actually verified items pre-analysis
+  if (!verifiedCount || verifiedCount <= 0) return null
 
   const parts: string[] = []
   if (verifiedCount != null && verifiedCount > 0) {

@@ -1355,6 +1355,7 @@ export function OutputsDock() {
                     influenceCoverage={transitionBridgeRef.current.influenceCoverage}
                     driversExpanded={driversExpanded}
                     onDriversExpandChange={setDriversExpanded}
+                    onSendMessage={sendMessage}
                   />
                 )}
                 </div>
@@ -1369,16 +1370,10 @@ export function OutputsDock() {
                       // Placeholder: decision brief generation endpoint not yet available
                       window.alert('Decision confirmed. Decision brief coming soon.') // eslint-disable-line no-alert
                     }}
-                    actionDisabled={(() => {
-                      const stability = resultsSectionData?.recommendation?.recommendationStability ?? 0
-                      return stability < 0.4 && transitionBridgeRef.current.verifiedCount === 0
-                    })()}
-                    actionTitle={(() => {
-                      const stability = resultsSectionData?.recommendation?.recommendationStability ?? 0
-                      return stability < 0.4 && transitionBridgeRef.current.verifiedCount === 0
-                        ? 'Address at least one item before confirming'
-                        : undefined
-                    })()}
+                    actionDisabled={(resultsSectionData?.recommendation?.recommendationStability ?? 0) < 0.4}
+                    actionTitle={(resultsSectionData?.recommendation?.recommendationStability ?? 0) < 0.4
+                      ? 'Trust score is below 40% — address items to improve confidence'
+                      : undefined}
                     actionAriaLabel="Confirm decision"
                     secondaryActionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
                     secondaryOnAction={handleRunAnalysis}
