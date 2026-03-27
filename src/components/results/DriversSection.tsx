@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
-import { ShieldCheck, ShieldAlert, AlertTriangle as TriangleAlert } from 'lucide-react'
+import { ShieldCheck, ShieldAlert, AlertTriangle as TriangleAlert, Check, HelpCircle, Minus } from 'lucide-react'
 import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { useUIStore } from '../../stores/uiStore'
@@ -582,19 +582,19 @@ function DriverRow({
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
 
-        {/* Icons column: confidence glyph + default-estimate indicator */}
+        {/* Icons column: confidence icon + default-estimate indicator */}
         <div className="flex items-center gap-1 justify-start">
           {confidenceValue !== null && (() => {
-            const glyph = confidenceValue >= 0.7 ? '✓' : confidenceValue >= 0.4 ? '~' : '?'
+            const IconComponent = confidenceValue >= 0.7 ? Check : confidenceValue >= 0.4 ? Minus : HelpCircle
             const cls = confidenceValue >= 0.7 ? 'text-success' : confidenceValue >= 0.4 ? 'text-info' : 'text-factor'
             const label = confidenceValue >= 0.7 ? 'High confidence' : confidenceValue >= 0.4 ? 'Moderate confidence' : 'Low confidence'
             return (
               <span
-                className={`text-[10px] font-medium flex-shrink-0 w-3 text-center ${cls}`}
+                className={`flex-shrink-0 w-3 flex items-center justify-center ${cls}`}
                 title={label}
                 data-testid={`confidence-glyph-${driver.factorKey}`}
               >
-                {glyph}
+                <IconComponent className="w-3 h-3" aria-hidden="true" />
               </span>
             )
           })()}

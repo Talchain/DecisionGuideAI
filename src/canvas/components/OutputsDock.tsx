@@ -348,11 +348,11 @@ export function OutputsDock() {
   }, [resultsSectionData?.recommendation, resultsSectionData?.drivers])
 
   // Graph Interaction P1: Canvas → Results sync for DriversSection
-  // v7 layout: Drivers are always visible (no accordion), so isAccordionExpanded is always true
+  const [driversExpanded, setDriversExpanded] = useState(false)
   const { highlightedDriverId, registerDriverRef } = useCanvasResultsSync({
     drivers: resultsSectionData.drivers.drivers,
-    isAccordionExpanded: true,
-    onExpandAccordion: () => { /* no-op: drivers always visible in v7 layout */ },
+    isAccordionExpanded: driversExpanded,
+    onExpandAccordion: () => setDriversExpanded(true),
   })
 
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
@@ -378,15 +378,32 @@ export function OutputsDock() {
     if (!canRunAnalysis) return
     // Capture pre-analysis review progress for transition bridge
     const storeState = useCanvasStore.getState()
-    const reviewableNodes = storeState.nodes.filter((n: any) => n.data?.observedState)
-    const reviewedNodes = reviewableNodes.filter((n: any) => {
-      const src = n.data?.observedState?.source
-      return src === 'user_confirmed' || src === 'user_assumption' || src === 'user_edited'
-    })
-    transitionBridgeRef.current = {
-      verifiedCount: reviewedNodes.length,
-      influenceCoverage: 0, // Would need sensitivity data; 0 is safe fallback
+    const storeNodes = storeState.nodes
+    const reviewedIds = new Set<string>()
+    let verifiedCount = 0
+    for (const node of storeNodes) {
+      const nd = node.data as Record<string, unknown>
+      if (nd.kind !== 'factor' && node.type !== 'factor') continue
+      const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
+      const source = os?.source as string | undefined
+      if (source === 'user_confirmed' || source === 'user_assumption' || source === 'user_override' || source === 'user_edited') {
+        reviewedIds.add(node.id)
+        verifiedCount++
+      }
     }
+    // Compute influence coverage from pre-analysis sensitivity data
+    let influenceCoverage = 0
+    const sensitivity = storeState.preAnalysisSensitivity as { factor_influence?: Record<string, number> } | null
+    if (sensitivity?.factor_influence) {
+      let reviewedSum = 0
+      let totalSum = 0
+      for (const [id, influence] of Object.entries(sensitivity.factor_influence)) {
+        totalSum += influence
+        if (reviewedIds.has(id)) reviewedSum += influence
+      }
+      influenceCoverage = totalSum > 0 ? reviewedSum / totalSum : 0
+    }
+    transitionBridgeRef.current = { verifiedCount, influenceCoverage }
     // P0.8: Track run started
     trackRunStarted({
       option_count: comparison.optionNodes.length,
@@ -1336,6 +1353,8 @@ export function OutputsDock() {
                     onActivateGuidanceItem={setActiveGuidanceItem}
                     verifiedCount={transitionBridgeRef.current.verifiedCount}
                     influenceCoverage={transitionBridgeRef.current.influenceCoverage}
+                    driversExpanded={driversExpanded}
+                    onDriversExpandChange={setDriversExpanded}
                   />
                 )}
                 </div>

@@ -78,6 +78,10 @@ export interface ResultsBodyProps {
   verifiedCount?: number
   /** Transition bridge: weighted influence fraction user covered */
   influenceCoverage?: number
+  /** Controlled expansion state for Drivers accordion (for canvas sync) */
+  driversExpanded?: boolean
+  /** Callback when Drivers accordion expansion changes */
+  onDriversExpandChange?: (expanded: boolean) => void
 }
 
 export const ResultsBody = memo(function ResultsBody({
@@ -105,6 +109,8 @@ export const ResultsBody = memo(function ResultsBody({
   onActivateGuidanceItem,
   verifiedCount,
   influenceCoverage,
+  driversExpanded,
+  onDriversExpandChange,
 }: ResultsBodyProps) {
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
@@ -240,6 +246,8 @@ export const ResultsBody = memo(function ResultsBody({
       <Accordion
         title="What's driving this"
         defaultExpanded={false}
+        isExpanded={driversExpanded}
+        onExpandChange={onDriversExpandChange}
         count={resultsSectionData.drivers.totalCount}
         badgeState={resultsSectionData.drivers.totalCount > 0 ? 'unresolved' : undefined}
         testId="accordion-drivers"

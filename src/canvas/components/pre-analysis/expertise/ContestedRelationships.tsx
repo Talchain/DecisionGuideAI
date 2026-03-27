@@ -71,7 +71,7 @@ export function ContestedRelationships({
 
   return (
     <div className="space-y-2">
-      <SubgroupDivider label={`Contested relationships (${contestedEdges.length})`} />
+      <SubgroupDivider label={`Needs your judgement (${contestedEdges.length})`} />
       {visible.map(({ edge, validation: rawVal }) => {
         const val = rawVal as ValidationMetadata | undefined
         const sourceLabel = getLabel(edge.source)
@@ -212,7 +212,7 @@ export function ContestedRelationships({
           onClick={() => setShowAll(true)}
           className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
         >
-          +{hiddenCount} more contested
+          +{hiddenCount} more to review
         </button>
       )}
     </div>

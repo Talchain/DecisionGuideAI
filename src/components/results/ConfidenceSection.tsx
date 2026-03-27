@@ -23,7 +23,7 @@ import { typography } from '../../styles/typography'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
-import { AlertTriangle, Check, Lightbulb, Search, ArrowLeftRight, GitBranch } from 'lucide-react'
+import { AlertTriangle, Check, X as XIcon, Info, Lightbulb, Search, ArrowLeftRight, GitBranch, ShieldAlert } from 'lucide-react'
 
 /**
  * Expandable "Why this matters" section for action items with whatCouldHappen / whatToDo data.
@@ -88,40 +88,40 @@ interface ConfidenceSectionProps {
 }
 
 const SEVERITY_CONFIG: Record<CritiqueSeverity, {
-  icon: string
+  Icon: typeof AlertTriangle
   bgColor: string
   borderColor: string
   textColor: string
   label?: string
 }> = {
   blocker: {
-    icon: '⛔',
+    Icon: ShieldAlert,
     bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
-    label: 'Blocks analysis',  // Reserved for genuine pre-run validation blockers
+    label: 'Blocks analysis',
   },
   critical: {
-    icon: '⚠',
+    Icon: AlertTriangle,
     bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
-    label: 'Critical assumption',  // For high-severity fragile edges
+    label: 'Critical assumption',
   },
   error: {
-    icon: '✕',
+    Icon: XIcon,
     bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
   },
   warning: {
-    icon: '⚠',
+    Icon: AlertTriangle,
     bgColor: 'bg-panel',
     borderColor: 'border-warning/30',
     textColor: 'text-warning',
   },
   info: {
-    icon: 'ℹ',
+    Icon: Info,
     bgColor: 'bg-panel',
     borderColor: 'border-panel-border',
     textColor: 'text-text-body',
@@ -129,7 +129,7 @@ const SEVERITY_CONFIG: Record<CritiqueSeverity, {
 }
 
 const TIER_CONFIG: Record<ConfidenceTier, {
-  icon: string
+  Icon: typeof AlertTriangle
   bgColor: string
   borderColor: string
   textColor: string
@@ -138,7 +138,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
   descriptionWithoutItems: string
 }> = {
   strong: {
-    icon: '✓',
+    Icon: Check,
     bgColor: 'bg-panel',
     borderColor: 'border-success/30',
     textColor: 'text-success',
@@ -147,7 +147,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
     descriptionWithoutItems: 'Your model captures this decision well.',
   },
   fair: {
-    icon: '⚠',
+    Icon: AlertTriangle,
     bgColor: 'bg-panel',
     borderColor: 'border-warning/30',
     textColor: 'text-warning',
@@ -156,7 +156,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
     descriptionWithoutItems: 'Your model covers the basics but could use more detail.',
   },
   needs_work: {
-    icon: '⚠',
+    Icon: AlertTriangle,
     bgColor: 'bg-panel',
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
@@ -165,7 +165,7 @@ const TIER_CONFIG: Record<ConfidenceTier, {
     descriptionWithoutItems: 'Add more factors and connections before relying on the recommendation.',
   },
   unknown: {
-    icon: '?',
+    Icon: Info,
     bgColor: 'bg-panel',
     borderColor: 'border-panel-border',
     textColor: 'text-text-body',
@@ -302,7 +302,7 @@ function UncertaintyRow({
             {groupType === 'high-risk' ? (
               <AlertTriangle className={`w-4 h-4 ${severityConfig.textColor} flex-shrink-0 mt-0.5`} />
             ) : (
-              <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0 mt-0.5`}>{severityConfig.icon}</span>
+              <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0 mt-0.5`}><severityConfig.Icon className="w-3.5 h-3.5" aria-hidden="true" /></span>
             )}
             <span
               className={`${typography.panelHeader} text-text-header flex-1 min-w-0 break-words leading-snug`}
@@ -334,7 +334,7 @@ function UncertaintyRow({
             {groupType === 'high-risk' ? (
               <AlertTriangle className={`w-4 h-4 ${severityConfig.textColor} flex-shrink-0 mt-0.5`} />
             ) : (
-              <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0`}>{severityConfig.icon}</span>
+              <span className={`${severityConfig.textColor} ${typography.panelBody} flex-shrink-0`}><severityConfig.Icon className="w-3.5 h-3.5" aria-hidden="true" /></span>
             )}
             <div className="flex-1 min-w-0">
               <div className="flex items-start justify-between gap-2">
@@ -944,11 +944,10 @@ export function ConfidenceSection({
             <div className="space-y-2 mt-2">
               {assumptions.map((assumption, index) => {
                 const severityConfig = {
-                  // §8.5 semantic filled: light bg + text-text-body (main-on-light fails contrast)
-                  high: { icon: '⚠', bgColor: 'bg-panel', borderColor: 'border-danger/30', textColor: 'text-text-body' },
-                  medium: { icon: '⚠', bgColor: 'bg-panel', borderColor: 'border-warning/30', textColor: 'text-text-body' },
-                  low: { icon: 'ℹ', bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' },
-                }[assumption.severity] ?? { icon: 'ℹ', bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' }
+                  high: { Icon: AlertTriangle, bgColor: 'bg-panel', borderColor: 'border-danger/30', textColor: 'text-text-body' },
+                  medium: { Icon: AlertTriangle, bgColor: 'bg-panel', borderColor: 'border-warning/30', textColor: 'text-text-body' },
+                  low: { Icon: Info, bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' },
+                }[assumption.severity] ?? { Icon: Info, bgColor: 'bg-panel', borderColor: 'border-panel-border', textColor: 'text-text-body' }
 
                 const handleFocus = () => {
                   if (assumption.target) {
@@ -967,7 +966,7 @@ export function ConfidenceSection({
                     className={`p-2 bg-panel border border-panel-border rounded ${typography.panelBody}`}
                   >
                     <div className="flex items-start gap-2">
-                      <span className={severityConfig.textColor}>{severityConfig.icon}</span>
+                      <span className={severityConfig.textColor}><severityConfig.Icon className="w-3.5 h-3.5" aria-hidden="true" /></span>
                       <div className="flex-1">
                         {/* Task 2: Assumption message is clickable if target exists */}
                         {assumption.target ? (
