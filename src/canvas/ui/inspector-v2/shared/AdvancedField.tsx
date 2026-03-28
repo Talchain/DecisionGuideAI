@@ -103,20 +103,26 @@ export function AdvancedField({
     focus:border-primary focus:outline-none
     transition-colors`
 
+  // Readonly fields use inline two-column layout; editable fields use vertical stack
+  if (type === 'readonly') {
+    return (
+      <div className="flex items-center justify-between gap-2 min-h-[28px]">
+        <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
+        <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{String(value ?? '—')}</span>
+      </div>
+    )
+  }
+
   return (
-    <div className="grid grid-cols-[1fr_auto] items-start gap-2 min-h-[32px]">
+    <div>
       {/* Label */}
-      <div className="flex items-center h-8">
+      <div className="mb-1">
         <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
       </div>
 
-      {/* Input */}
-      <div className="w-[140px]">
-        {type === 'readonly' ? (
-          <div className={`${typography.panelMeta} text-text-light h-8 flex items-center justify-end tabular-nums`}>
-            {String(value ?? '—')}
-          </div>
-        ) : type === 'select' ? (
+      {/* Input — full width */}
+      <div>
+        {type === 'select' ? (
           <select
             ref={inputRef as React.RefObject<HTMLSelectElement>}
             value={localValue}

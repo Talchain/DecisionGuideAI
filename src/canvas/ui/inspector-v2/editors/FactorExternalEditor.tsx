@@ -54,7 +54,7 @@ export function FactorExternalEditor({ nodeId }: FactorExternalEditorProps) {
           step={0.01}
         />
         <p className={`${typography.panelMeta} text-text-light mt-1`}>
-          ISL converts to Normal({'\u03BC'}={mu}, {'\u03C3'}={sigma})
+          ISL converts to Normal(μ={mu}, σ={sigma})
         </p>
       </AdvancedFieldGroup>
 

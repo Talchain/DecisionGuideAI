@@ -195,30 +195,28 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
       {/* Investigation value (post-analysis, VoI) */}
       {isResultsMode && displayMetadata.valueOfInformation !== null && (
-        <div className="mt-2">
-          <div className={`${typography.panelMeta} text-text-light mb-1`}>Investigation value</div>
-          <div className="flex items-center gap-2">
-            <div className="flex-1">
-              <DataBar
-                value={displayMetadata.valueOfInformation}
-                label="Investigation value"
-                colour="info"
-                trailingLabel={
-                  displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                  : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                  : 'Low'
-                }
-              />
-            </div>
+        <>
+          <SectionTitle icon={SECTION_TITLES.investigationValue.icon} label={SECTION_TITLES.investigationValue.label} />
+          <div className="bg-panel border border-panel-border rounded-lg p-2.5">
+            <DataBar
+              value={displayMetadata.valueOfInformation}
+              label="Investigation value"
+              colour="info"
+              trailingLabel={
+                displayMetadata.valueOfInformation >= 0.7 ? 'High'
+                : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
+                : 'Low'
+              }
+            />
+            <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
+              {displayMetadata.valueOfInformation >= 0.7
+                ? 'Gathering more evidence here could significantly improve confidence.'
+                : displayMetadata.valueOfInformation >= 0.4
+                ? 'Additional evidence here would moderately sharpen the analysis.'
+                : 'Further investigation here is unlikely to change the outcome.'}
+            </p>
           </div>
-          <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-            {displayMetadata.valueOfInformation >= 0.7
-              ? 'Gathering more evidence here could significantly improve confidence.'
-              : displayMetadata.valueOfInformation >= 0.4
-              ? 'Additional evidence here would moderately sharpen the analysis.'
-              : 'Further investigation here is unlikely to change the outcome.'}
-          </p>
-        </div>
+        </>
       )}
 
       {/* §7.5 Connections */}

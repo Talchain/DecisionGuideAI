@@ -328,7 +328,7 @@ export const EdgePanel = memo(function EdgePanel({
               </div>
               {techMode && (
                 <span className={`${typography.panelMeta} text-text-light min-w-[40px] text-right`}>
-                  std: {localStd.toFixed(2)}
+                  System: strength.std: {localStd.toFixed(2)}
                 </span>
               )}
             </div>

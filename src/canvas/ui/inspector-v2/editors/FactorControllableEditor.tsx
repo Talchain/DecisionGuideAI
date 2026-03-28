@@ -105,7 +105,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
           placeholder="Reference value"
         />
         <AdvancedField
-          label="Observation uncertainty (\u03C3)"
+          label="Observation uncertainty (σ)"
           value={obs?.std as number | undefined}
           onChange={v => mutations.setObservedStd(v as number)}
           type="number"

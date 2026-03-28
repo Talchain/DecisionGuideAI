@@ -10,18 +10,14 @@ interface AdvancedFieldGroupProps {
 
 export function AdvancedFieldGroup({ title, children }: AdvancedFieldGroupProps) {
   return (
-    <div className="mt-3 first:mt-0">
-      <div className="flex items-center gap-2 mb-2">
-        <hr className="flex-1 border-panel-border" />
-        <span
-          className="text-[10px] font-semibold text-text-light uppercase flex-shrink-0"
-          style={{ letterSpacing: '0.6px' }}
-        >
-          {title}
-        </span>
-        <hr className="flex-1 border-panel-border" />
+    <div className="mb-2 first:mt-0 mt-2 bg-panel border border-panel-border rounded-lg p-3">
+      <div
+        className="text-[10px] font-semibold text-text-light uppercase mb-2 pb-1.5 border-b border-panel-border"
+        style={{ letterSpacing: '0.6px' }}
+      >
+        {title}
       </div>
-      <div className="space-y-1">
+      <div className="space-y-2">
         {children}
       </div>
     </div>

@@ -46,7 +46,7 @@ export function EdgeAdvancedEditor({ edgeId }: EdgeAdvancedEditorProps) {
     <div className="space-y-1">
       <AdvancedFieldGroup title="Effect parameters">
         <AdvancedField
-          label="Effect coefficient (\u03B2)"
+          label="Effect coefficient (β)"
           value={Number(signedMean.toFixed(4))}
           onChange={v => mutations.setStrength(v as number)}
           type="number"
@@ -56,7 +56,7 @@ export function EdgeAdvancedEditor({ edgeId }: EdgeAdvancedEditorProps) {
           helperText="Signed causal effect size. Positive = same direction."
         />
         <AdvancedField
-          label="Epistemic uncertainty (\u03C3)"
+          label="Epistemic uncertainty (σ)"
           value={Number(std.toFixed(4))}
           onChange={v => mutations.setStd(v as number)}
           type="number"

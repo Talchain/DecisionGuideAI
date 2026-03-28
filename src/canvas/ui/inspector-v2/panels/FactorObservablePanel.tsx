@@ -129,9 +129,9 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
 
       {/* Investigation value (post-analysis, VoI) */}
       {isResultsMode && displayMetadata.valueOfInformation !== null && (
-        <div className="mt-2">
-          <div className={`${typography.panelMeta} text-text-light mb-1`}>Investigation value</div>
-          <div className="flex-1">
+        <>
+          <SectionTitle icon={SECTION_TITLES.investigationValue.icon} label={SECTION_TITLES.investigationValue.label} />
+          <div className="bg-panel border border-panel-border rounded-lg p-2.5">
             <DataBar
               value={displayMetadata.valueOfInformation}
               label="Investigation value"
@@ -142,15 +142,15 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
                 : 'Low'
               }
             />
+            <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
+              {displayMetadata.valueOfInformation >= 0.7
+                ? 'Updating this measurement could significantly improve the analysis.'
+                : displayMetadata.valueOfInformation >= 0.4
+                ? 'More recent data here would moderately sharpen the analysis.'
+                : 'Further investigation here is unlikely to change the outcome.'}
+            </p>
           </div>
-          <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-            {displayMetadata.valueOfInformation >= 0.7
-              ? 'Updating this measurement could significantly improve the analysis.'
-              : displayMetadata.valueOfInformation >= 0.4
-              ? 'More recent data here would moderately sharpen the analysis.'
-              : 'Further investigation here is unlikely to change the outcome.'}
-          </p>
-        </div>
+        </>
       )}
 
       {/* Influences */}

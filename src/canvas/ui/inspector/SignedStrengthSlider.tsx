@@ -148,22 +148,7 @@ export function SignedStrengthSlider({
         />
       </div>
 
-      {/* Value display */}
-      <div className="flex items-center justify-between mt-1">
-        <span className={`${typography.panelMeta} ${displayColor}`}>
-          {directionLabel}
-        </span>
-        {techMode && (
-          <span className={`${typography.panelBody} ${displayColor} tabular-nums`}>
-            {localValue >= 0 ? '+' : ''}{localValue.toFixed(2)}
-          </span>
-        )}
-      </div>
-
-      {/* D.2: Effect size coaching nudge */}
-      <p className={`${typography.panelMeta} ${effectCoaching.colorClass} mt-1`}>
-        {effectCoaching.text}
-      </p>
+      {/* Value display and coaching nudge removed — EdgePanel renders the strength pill instead */}
     </div>
   )
 }
