@@ -26,7 +26,14 @@ import type {
   ProposalReviewItem,
   RelatedElementRef,
 } from './types'
-import { isPreAnalysisEnrichedEnabled } from '../../flags'
+import { isPreAnalysisEnrichedEnabled, isDeterministicCeeEnabled } from '../../flags'
+import type {
+  ComparisonBlock as ComparisonBlockType,
+  PremortemBlock as PremortemBlockType,
+  FlipAnalysisBlock as FlipAnalysisBlockType,
+  ProposalBlock as ProposalBlockType,
+  ExerciseBlock as ExerciseBlockType,
+} from './types'
 import { ModelReceiptBlock } from './ModelReceiptBlock'
 import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/ArtefactBlock'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -58,6 +65,11 @@ function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
     case 'fact': return styles.blockBadgeDotSuccess
     case 'framing': return styles.blockBadgeDotInfo
     case 'commentary': return null // no dot per DS v5 §21.2
+    case 'comparison': return styles.blockBadgeDotInfo
+    case 'premortem': return styles.blockBadgeDotDanger
+    case 'flip_analysis': return styles.blockBadgeDotDanger
+    case 'proposal': return styles.blockBadgeDotGoal
+    case 'exercise': return styles.blockBadgeDotInfo
     default: return null
   }
 }
@@ -242,6 +254,27 @@ function BlockRenderer({
           onSendMessage={onArtefactMessage ?? artefactNoop}
         />
       )
+
+    // Deterministic CEE block types — gated behind deterministicCee flag
+    case 'comparison':
+      if (!isDeterministicCeeEnabled()) return null
+      return <ComparisonBlockRenderer block={block as ComparisonBlockType} />
+
+    case 'premortem':
+      if (!isDeterministicCeeEnabled()) return null
+      return <PremortemBlockRenderer block={block as PremortemBlockType} />
+
+    case 'flip_analysis':
+      if (!isDeterministicCeeEnabled()) return null
+      return <FlipAnalysisBlockRenderer block={block as FlipAnalysisBlockType} />
+
+    case 'proposal':
+      if (!isDeterministicCeeEnabled()) return null
+      return <ProposalBlockRenderer block={block as ProposalBlockType} />
+
+    case 'exercise':
+      if (!isDeterministicCeeEnabled()) return null
+      return <ExerciseBlockRenderer block={block as ExerciseBlockType} />
 
     default: {
       // Unknown block type — suppress from user view, log for dev diagnostics
@@ -1221,6 +1254,167 @@ function GraphPatchBlockRenderer({
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic CEE block renderers
+// ---------------------------------------------------------------------------
+
+function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
+  return (
+    <div className={styles.comparisonBlock} data-testid="block-comparison">
+      {block.narrative && (
+        <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
+      )}
+      {block.options.map((opt, i) => (
+        <div key={i} className={styles.comparisonItem}>
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+            <span className={typography.panelHeader}>{opt.label}</span>
+            {opt.probability != null && (
+              <span className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+                {Math.round(opt.probability * 100)}% probability
+                {opt.rank != null && ` · Rank ${opt.rank}`}
+              </span>
+            )}
+            {opt.strengths && opt.strengths.length > 0 && (
+              <div className={typography.panelBody} style={{ color: 'var(--success)' }}>
+                {opt.strengths.map((s, j) => <div key={j}>+ {s}</div>)}
+              </div>
+            )}
+            {opt.weaknesses && opt.weaknesses.length > 0 && (
+              <div className={typography.panelBody} style={{ color: 'var(--danger)' }}>
+                {opt.weaknesses.map((w, j) => <div key={j}>- {w}</div>)}
+              </div>
+            )}
+            {opt.differentiators && opt.differentiators.length > 0 && (
+              <div className={typography.panelMeta} style={{ color: 'var(--text-light)', fontStyle: 'italic' }}>
+                {opt.differentiators.join('; ')}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function PremortemBlockRenderer({ block }: { block: PremortemBlockType }) {
+  return (
+    <div className={styles.premortemBlock} data-testid="block-premortem">
+      {block.target_option && (
+        <span className={typography.panelHeader}>Pre-mortem: {block.target_option}</span>
+      )}
+      {block.narrative && (
+        <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
+      )}
+      {block.risk_paths.map((rp, i) => (
+        <div key={i} className={styles.failureMode}>
+          <span className={typography.panelBody}>{rp.description}</span>
+          <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            {rp.likelihood && (
+              <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{rp.likelihood}</span>
+            )}
+            {rp.mitigation && (
+              <span className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+                Mitigation: {rp.mitigation}
+              </span>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) {
+  return (
+    <div className={styles.flipAnalysisBlock} data-testid="block-flip-analysis">
+      {block.current_winner && (
+        <span className={typography.panelHeader}>
+          What could flip the result from {block.current_winner}
+        </span>
+      )}
+      {block.narrative && (
+        <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
+      )}
+      {block.flip_conditions.map((fc, i) => (
+        <div key={i} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
+          <span className={typography.panelBody} style={{ fontWeight: 600 }}>{fc.factor_label}</span>
+          <div className={typography.panelMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
+            {fc.direction} past {fc.threshold}
+            {fc.impact && ` — ${fc.impact}`}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function ProposalBlockRenderer({ block }: { block: ProposalBlockType }) {
+  const [state, setState] = useState<'pending' | 'accepted' | 'cancelled'>('pending')
+
+  return (
+    <div className={styles.proposalBlock} data-testid="block-proposal">
+      <span className={`${typography.panelMeta} ${styles.graphPatchProposalEyebrow}`}>
+        {state === 'accepted' ? 'Applied' : state === 'cancelled' ? 'Cancelled' : 'Proposed change'}
+      </span>
+      <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.description}</p>
+      {block.changes.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {block.changes.map((c, i) => (
+            <div key={i} className={styles.graphPatchProposalItem}>
+              <span className={typography.panelBody}>{c.change_description}</span>
+              {c.element_label && (
+                <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.element_label}</span>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      {block.consequences && block.consequences.length > 0 && (
+        <div className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+          {block.consequences.map((c, i) => <div key={i}>· {c}</div>)}
+        </div>
+      )}
+      {state === 'pending' && (
+        <div className={styles.graphPatchActions}>
+          <button
+            type="button"
+            className={styles.graphPatchAccept}
+            onClick={() => setState('accepted')}
+            data-testid="proposal-apply"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            className={styles.graphPatchDismiss}
+            onClick={() => setState('cancelled')}
+            data-testid="proposal-cancel"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {state !== 'pending' && (
+        <span className={`${typography.panelBody} ${state === 'accepted' ? styles.graphPatchStatusApplied : styles.graphPatchStatusDismissed}`} style={{ fontWeight: 500 }}>
+          {state === 'accepted' ? 'Applied' : 'Cancelled'}
+        </span>
+      )}
+    </div>
+  )
+}
+
+function ExerciseBlockRenderer({ block }: { block: ExerciseBlockType }) {
+  return (
+    <div className={styles.exerciseBlock} data-testid="block-exercise">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className={typography.panelHeader}>{block.title}</span>
+        <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{block.exercise_type}</span>
+      </div>
+      <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.instructions}</p>
     </div>
   )
 }

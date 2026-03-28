@@ -141,8 +141,8 @@ describe('validateResponse', () => {
     expect(repairs).toHaveLength(0)
     expect(cleaned.suggested_actions).toHaveLength(1)
     expect(cleaned.suggested_actions![0].message).toBe('Help me calibrate')
-    // prompt field should not leak through to ActionChip
-    expect((cleaned.suggested_actions![0] as Record<string, unknown>).prompt).toBeUndefined()
+    // prompt field preserved on ActionChip for deterministic routing metadata
+    expect(cleaned.suggested_actions![0].prompt).toBe('Help me calibrate')
     expect(mockTrackEvent).not.toHaveBeenCalled()
   })
 

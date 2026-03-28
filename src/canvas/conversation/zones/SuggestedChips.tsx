@@ -67,7 +67,7 @@ export function SuggestedChips({
 
   // Render-level filter: never show a chip that can't dispatch
   // v2: up to 4 chips. Legacy: cap at 2.
-  const visible = chips.filter(c => !!c.message).slice(0, v2 ? 4 : 2)
+  const visible = chips.filter(c => !!(c.message || c.prompt)).slice(0, v2 ? 4 : 2)
   if (visible.length === 0) return null
 
   // Auto-dismiss chip error after 5s

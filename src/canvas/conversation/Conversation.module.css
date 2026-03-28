@@ -1498,3 +1498,133 @@
     opacity: 0.8;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * § 8 — Deterministic CEE block types
+ * ---------------------------------------------------------------------------*/
+
+.comparisonBlock {
+  border-top: 3px solid var(--info, #63ADCF);
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.comparisonItem {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-default, #EEE6D8);
+}
+.comparisonItem:last-child {
+  border-bottom: none;
+}
+
+.premortemBlock {
+  border-top: 3px solid var(--warning, #FFA656);
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.failureMode {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-default, #EEE6D8);
+}
+.failureMode:last-child {
+  border-bottom: none;
+}
+
+.flipAnalysisBlock {
+  border-top: 3px solid var(--danger, #EA7B4B);
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.proposalBlock {
+  border-top: 3px solid var(--goal, #F5C433);
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.exerciseBlock {
+  border-top: 3px solid var(--info, #63ADCF);
+  background: var(--bg-panel, #FEFEFE);
+  border-radius: 8px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* Outlined pill — reused across deterministic blocks */
+.outlinedPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--info, #63ADCF) 30%, transparent);
+  color: var(--text-body, #3F3F3E);
+  background: transparent;
+}
+
+/* Insight strip — rendered between assistant_text and chips */
+.insightStrip {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.insightItem {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border-default, #EEE6D8);
+  background: var(--bg-panel, #FEFEFE);
+}
+
+.insightItemWarning {
+  border-color: var(--warning, #FFA656);
+  border-left-width: 3px;
+}
+
+.insightItemImportant {
+  border-color: var(--danger, #EA7B4B);
+  border-left-width: 3px;
+}
+
+.insightItemInfo {
+  border-color: var(--info, #63ADCF);
+  border-left-width: 3px;
+}
+
+.scienceConceptBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--info, #63ADCF) 30%, transparent);
+  color: var(--text-body, #3F3F3E);
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}

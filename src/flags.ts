@@ -376,6 +376,13 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ORCHESTRATOR_RENDERING_V2',
     storageKey: 'feature.orchestratorRenderingV2',
   },
+  // Deterministic CEE: typed JSON responses, new block types, insights
+  // When ON: new block renderers (comparison, premortem, flip_analysis, proposal, exercise) + insights strip
+  // When OFF: new block types suppressed, insights not rendered
+  deterministicCee: {
+    envKey: 'VITE_FEATURE_DETERMINISTIC_CEE',
+    storageKey: 'feature.deterministicCee',
+  },
 } as const
 
 // ============================================================================
@@ -459,6 +466,7 @@ const flags = {
   crossHighlight: makeFlag(FLAGS_CONFIG.crossHighlight),
   graphLens: makeFlag(FLAGS_CONFIG.graphLens),
   orchestratorRenderingV2: makeFlag(FLAGS_CONFIG.orchestratorRenderingV2),
+  deterministicCee: makeFlag(FLAGS_CONFIG.deterministicCee),
 }
 
 // Export with original naming convention for backward compatibility
@@ -537,6 +545,7 @@ export const isNodeIntelligenceEnabled = flags.nodeIntelligence
 export const isCrossHighlightEnabled = flags.crossHighlight
 export const isGraphLensEnabled = flags.graphLens
 export const isOrchestratorRenderingV2Enabled = flags.orchestratorRenderingV2
+export const isDeterministicCeeEnabled = flags.deterministicCee
 
 
 // ============================================================================

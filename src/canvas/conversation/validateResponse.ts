@@ -91,8 +91,8 @@ export function validateResponse(
   const cleanedChips = rawChips.map((c) => {
     const wire = c as ActionChip & { prompt?: string }
     if (!wire.message && wire.prompt) {
-      const { prompt: _prompt, ...rest } = wire
-      return { ...rest, message: wire.prompt } as ActionChip
+      // Map prompt → message but preserve prompt on the chip for deterministic routing
+      return { ...wire, message: wire.prompt } as ActionChip
     }
     return c
   }).filter((c) => {

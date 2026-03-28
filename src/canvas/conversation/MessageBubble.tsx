@@ -18,9 +18,9 @@ import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
 import { ActionChipRow } from './ActionChipRow'
 import { FeedbackRow } from './FeedbackRow'
-import { isOrchestratorRenderingV2Enabled } from '../../flags'
+import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled } from '../../flags'
 import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
-import type { ConversationMessage, ActionChip, GraphPatchBlock } from './types'
+import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import styles from './Conversation.module.css'
 
@@ -130,6 +130,9 @@ export const MessageBubble = memo(function MessageBubble({
           {expanded ? 'Show less' : 'Show more'}
         </button>
       )}
+      {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
+        <InsightsStrip insights={message.insights} />
+      )}
       {message.blocks && message.blocks.length > 0 && (
         <InlineBlocks
           blocks={message.blocks}
@@ -151,3 +154,29 @@ export const MessageBubble = memo(function MessageBubble({
     </div>
   )
 })
+
+/** Deterministic CEE insights — rendered between assistant_text and blocks */
+function InsightsStrip({ insights }: { insights: Insight[] }) {
+  return (
+    <div className={styles.insightStrip} data-testid="insights-strip">
+      {insights.map((insight, i) => {
+        const severityClass =
+          insight.severity === 'important' ? styles.insightItemImportant
+          : insight.severity === 'warning' ? styles.insightItemWarning
+          : styles.insightItemInfo
+        return (
+          <div key={i} className={`${styles.insightItem} ${severityClass}`}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
+              <span className={typography.panelBody} style={{ color: 'var(--text-body)' }}>
+                {insight.description}
+              </span>
+              {insight.science_concept && (
+                <span className={styles.scienceConceptBadge}>{insight.science_concept}</span>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}

@@ -714,6 +714,78 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           query: String(dataObj.query ?? ''),
         }
 
+      // Deterministic CEE block types (architecture v3)
+      case 'comparison':
+        return {
+          type: 'comparison',
+          narrative: dataObj.narrative != null ? String(dataObj.narrative) : undefined,
+          options: Array.isArray(dataObj.options)
+            ? dataObj.options.map((o: any) => ({
+                label: String(o?.label ?? ''),
+                probability: typeof o?.probability === 'number' ? o.probability : undefined,
+                rank: typeof o?.rank === 'number' ? o.rank : undefined,
+                strengths: Array.isArray(o?.strengths) ? o.strengths.map(String) : undefined,
+                weaknesses: Array.isArray(o?.weaknesses) ? o.weaknesses.map(String) : undefined,
+                differentiators: Array.isArray(o?.differentiators) ? o.differentiators.map(String) : undefined,
+              }))
+            : [],
+        } as ConversationBlock
+
+      case 'premortem':
+        return {
+          type: 'premortem',
+          target_option: dataObj.target_option != null ? String(dataObj.target_option) : undefined,
+          narrative: dataObj.narrative != null ? String(dataObj.narrative) : undefined,
+          risk_paths: Array.isArray(dataObj.risk_paths)
+            ? dataObj.risk_paths.map((rp: any) => ({
+                description: String(rp?.description ?? ''),
+                influence: typeof rp?.influence === 'number' ? rp.influence : undefined,
+                likelihood: rp?.likelihood != null ? String(rp.likelihood) : undefined,
+                mitigation: rp?.mitigation != null ? String(rp.mitigation) : undefined,
+              }))
+            : [],
+        } as ConversationBlock
+
+      case 'flip_analysis':
+        return {
+          type: 'flip_analysis',
+          current_winner: dataObj.current_winner != null ? String(dataObj.current_winner) : undefined,
+          narrative: dataObj.narrative != null ? String(dataObj.narrative) : undefined,
+          flip_conditions: Array.isArray(dataObj.flip_conditions)
+            ? dataObj.flip_conditions.map((fc: any) => ({
+                factor_label: String(fc?.factor_label ?? ''),
+                threshold: String(fc?.threshold ?? ''),
+                direction: String(fc?.direction ?? ''),
+                impact: fc?.impact != null ? String(fc.impact) : undefined,
+              }))
+            : [],
+        } as ConversationBlock
+
+      case 'proposal':
+        return {
+          type: 'proposal',
+          action_type: String(dataObj.action_type ?? ''),
+          description: String(dataObj.description ?? ''),
+          proposal_id: String(dataObj.proposal_id ?? block_id ?? ''),
+          changes: Array.isArray(dataObj.changes)
+            ? dataObj.changes.map((c: any) => ({
+                element_label: String(c?.element_label ?? ''),
+                change_description: String(c?.change_description ?? ''),
+              }))
+            : [],
+          consequences: Array.isArray(dataObj.consequences) ? dataObj.consequences.map(String) : undefined,
+          confirmation_required: dataObj.confirmation_required === true ? true : undefined,
+        } as ConversationBlock
+
+      case 'exercise':
+        return {
+          type: 'exercise',
+          exercise_type: String(dataObj.exercise_type ?? ''),
+          title: String(dataObj.title ?? ''),
+          instructions: String(dataObj.instructions ?? ''),
+          content: dataObj.content != null ? String(dataObj.content) : undefined,
+        } as ConversationBlock
+
       default:
         // Unknown block_type — pass raw type through for InlineBlocks fallback.
         // The type string is outside the ConversationBlock union but InlineBlocks
@@ -997,6 +1069,8 @@ export function useConversation(): UseConversationReturn {
   const rafIdRef = useRef<number | null>(null)
   /** Tracks the analysis hash for which array-coercion was last reported — deduplicates telemetry */
   const coercionWarnedHashRef = useRef<string | null>(null)
+  /** Deterministic CEE: routing mode from turn_start — skips XML stripping when 'deterministic' */
+  const streamRoutingRef = useRef<'deterministic' | 'llm' | null>(null)
 
   /** Flush accumulated text_delta tokens to the streaming message */
   const flushStreamFrame = useCallback(() => {
@@ -1006,8 +1080,13 @@ export function useConversation(): UseConversationReturn {
     if (!buf.length || !msgId) return
     frameBufRef.current = []
     streamTextRef.current += buf.join('')
-    // Strip diagnostics and repair logs during streaming so internal text never flashes in the bubble
-    updateMessage(msgId, { content: stripRepairLogLines(stripDiagnostics(streamTextRef.current)) })
+    // Strip diagnostics and repair logs during streaming so internal text never flashes in the bubble.
+    // Deterministic routing: skip XML stripping (text is always plain text).
+    const raw = streamTextRef.current
+    const cleaned = streamRoutingRef.current === 'deterministic'
+      ? stripRepairLogLines(raw)
+      : stripRepairLogLines(stripDiagnostics(raw))
+    updateMessage(msgId, { content: cleaned })
   }, [updateMessage])
 
   /** Schedule a RAF-batched flush (prevents duplicate scheduling) */
@@ -1032,6 +1111,7 @@ export function useConversation(): UseConversationReturn {
     streamTextRef.current = ''
     streamBlocksRef.current = []
     frameBufRef.current = []
+    streamRoutingRef.current = null
   }, [])
 
   const buildRequest = useCallback(
@@ -1337,7 +1417,7 @@ export function useConversation(): UseConversationReturn {
       const renderableCount = (envelope.assistant_text?.trim().length ?? 0) > 0 || cleanedBlocks.length > 0 ? 1 : 0
       const rawUnknownBlockTypes = rawBlocks.flatMap((block) => {
         const type = extractRawBlockType(block)
-        return type && !['commentary', 'review_card', 'fact', 'graph_patch', 'framing', 'brief', 'model_receipt', 'evidence'].includes(type)
+        return type && !['commentary', 'review_card', 'fact', 'graph_patch', 'framing', 'brief', 'model_receipt', 'evidence', 'artefact', 'comparison', 'premortem', 'flip_analysis', 'proposal', 'exercise'].includes(type)
           ? [type]
           : []
       })
@@ -1673,7 +1753,12 @@ export function useConversation(): UseConversationReturn {
       // diagnostics preamble ("Mode: …") that CEE should have removed server-side.
       // Protects against LLM output variance where diagnostics leak into assistant_text.
       let assistantText = envelope.assistant_text ?? ''
-      assistantText = stripDiagnostics(assistantText)
+      // Deterministic format (response_version >= 2): plain text, no XML stripping needed
+      const isV2Format = typeof rawEnvelope.response_version === 'number'
+        && rawEnvelope.response_version >= 2
+      if (!isV2Format) {
+        assistantText = stripDiagnostics(assistantText)
+      }
 
       // Strip trailing text lines that duplicate chip labels or messages (LLM sometimes
       // echoes suggested actions — either the display label or the raw prompt — as plain
@@ -1755,6 +1840,11 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
+      // Extract deterministic CEE insights from V2 envelopes
+      const insights = isV2Format && Array.isArray(rawEnvelope.insights)
+        ? rawEnvelope.insights as import('./types').Insight[]
+        : undefined
+
       // Guard: skip empty assistant messages (no visible content and no blocks)
       const hasContent = assistantText.trim().length > 0
       const hasBlocks = orderedBlocks.length > 0
@@ -1767,6 +1857,7 @@ export function useConversation(): UseConversationReturn {
           content: assistantText,
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
+          insights,
           isStreaming: false,
           isProvisional: false,
           toolLoadingState: null,
@@ -1778,6 +1869,7 @@ export function useConversation(): UseConversationReturn {
           content: assistantText,
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
+          insights,
           timestamp: new Date(),
           clientTurnId: envelope.client_turn_id,
         }
@@ -1826,6 +1918,8 @@ export function useConversation(): UseConversationReturn {
       initiatedBy?: 'user' | 'automatic'
       rightPanelAccidentallySubmittedComposerContent?: boolean
       turnType?: Exclude<TurnType, 'system_event'>
+      /** Deterministic chip metadata forwarded for CEE action routing */
+      chipMeta?: { action_type?: string; parameters?: Record<string, unknown> }
     }) => {
       const {
         message,
@@ -2049,6 +2143,8 @@ export function useConversation(): UseConversationReturn {
           for await (const event of streamOrchestratorTurn(request, controller.signal)) {
             switch (event.type) {
               case 'turn_start':
+                // Capture routing mode for deterministic CEE format detection
+                streamRoutingRef.current = event.routing ?? null
                 // Stream is live — stop the elapsed-time counter but keep the
                 // current hint visible so the status label doesn't flash to
                 // generic "Thinking…" before text_delta arrives.
@@ -2373,18 +2469,24 @@ export function useConversation(): UseConversationReturn {
         return
       }
 
-      if (chip.message) {
+      const messageToSend = chip.message || chip.prompt
+      if (messageToSend) {
         recordUserAction({
           actionType: 'clicked chip',
-          payloadSummary: { chip_label: chip.label, intent: chip.intent },
+          payloadSummary: { chip_label: chip.label, intent: chip.intent, action_type: chip.action_type },
         })
         // Show chip.label in conversation bubble, send chip.message to orchestrator
         await sendTurn({
-          message: chip.message,
+          message: messageToSend,
           displayText: chip.label,
           mode: 'user',
           source: 'chip_click',
           turnType: inferChipTurnType(chip),
+          // Forward deterministic chip metadata for CEE action routing
+          chipMeta: (chip.action_type || chip.parameters) ? {
+            action_type: chip.action_type,
+            parameters: chip.parameters,
+          } : undefined,
         })
       } else {
         // Chip has no message and is not an undo — this should not happen in practice

@@ -42,6 +42,8 @@ export interface ConversationMessage {
   isProvisional?: boolean
   /** Inline status text shown during tool execution (e.g. "Running simulations...") */
   toolLoadingState?: string | null
+  /** Deterministic CEE insights — rendered between assistant_text and chips */
+  insights?: Insight[]
 }
 
 // ---------------------------------------------------------------------------
@@ -75,6 +77,11 @@ export type ConversationBlock =
   | ModelReceiptBlockType
   | EvidenceBlock
   | ArtefactBlock
+  | ComparisonBlock
+  | PremortemBlock
+  | FlipAnalysisBlock
+  | ProposalBlock
+  | ExerciseBlock
 
 // ---------------------------------------------------------------------------
 // Citation marker (optional on CommentaryBlock)
@@ -267,6 +274,77 @@ export interface ModelReceiptBlockType {
 }
 
 // ---------------------------------------------------------------------------
+// Deterministic CEE block types (architecture v3)
+// ---------------------------------------------------------------------------
+
+export interface ComparisonBlock {
+  type: 'comparison'
+  narrative?: string
+  options: Array<{
+    label: string
+    probability?: number
+    rank?: number
+    strengths?: string[]
+    weaknesses?: string[]
+    differentiators?: string[]
+  }>
+}
+
+export interface PremortemBlock {
+  type: 'premortem'
+  target_option?: string
+  narrative?: string
+  risk_paths: Array<{
+    description: string
+    influence?: number
+    likelihood?: string
+    mitigation?: string
+  }>
+}
+
+export interface FlipAnalysisBlock {
+  type: 'flip_analysis'
+  current_winner?: string
+  narrative?: string
+  flip_conditions: Array<{
+    factor_label: string
+    threshold: string
+    direction: string
+    impact?: string
+  }>
+}
+
+export interface ProposalBlock {
+  type: 'proposal'
+  action_type: string
+  description: string
+  proposal_id: string
+  changes: Array<{ element_label: string; change_description: string }>
+  consequences?: string[]
+  confirmation_required?: boolean
+}
+
+export interface ExerciseBlock {
+  type: 'exercise'
+  exercise_type: string
+  title: string
+  instructions: string
+  content?: string
+}
+
+// ---------------------------------------------------------------------------
+// Deterministic CEE insights
+// ---------------------------------------------------------------------------
+
+export interface Insight {
+  type: string
+  description: string
+  severity?: 'info' | 'warning' | 'important'
+  target_id?: string
+  science_concept?: string
+}
+
+// ---------------------------------------------------------------------------
 // § 3 — Action chips
 // ---------------------------------------------------------------------------
 
@@ -282,6 +360,12 @@ export interface ActionChip {
    * Missing or unrecognised values render chip without a dot (graceful fallback).
    */
   role?: 'facilitator' | 'challenger' | 'scientist' | string
+  /** Prompt text (deterministic format — mapped to message in validateResponse) */
+  prompt?: string
+  /** Action classification for deterministic routing */
+  action_type?: string
+  /** Structured parameters for action execution */
+  parameters?: Record<string, unknown>
 }
 
 /** Max chips per assistant turn (coaching + suggested actions combined) */
@@ -402,8 +486,12 @@ export type StageIndicatorWire =
   | { stage: ScenarioStage; confidence?: string; source?: string }
 
 export interface OrchestratorResponseEnvelopeV2 {
+  /** Response format version. 2 = deterministic (plain text, typed blocks). Absent = legacy XML path. */
+  response_version?: number
   /** Main response text. Null on graph-only responses (e.g. initial draft). */
   assistant_text: string | null
+  /** Deterministic CEE insights — supplementary observations */
+  insights?: Insight[]
   blocks?: ConversationBlock[]
   proposed_changes?: unknown[]
   suggested_actions?: ActionChip[]
