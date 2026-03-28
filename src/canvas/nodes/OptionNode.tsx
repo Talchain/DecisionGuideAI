@@ -186,7 +186,8 @@ export const OptionNode = memo((props: NodeProps) => {
       const shortVal = isBinary
         ? (c.value === 1 ? 'on' : c.value === 0 ? 'off' : formatInterventionValue(c.value, c.unit, c.factorType, c.cap, c.observedValue, c.observedRawValue))
         : formatInterventionValue(c.value, c.unit, c.factorType, c.cap, c.observedValue, c.observedRawValue)
-      return `${c.label} ${shortVal}`
+      const shortLabel = c.label.length > 25 ? `${c.label.slice(0, 22)}...` : c.label
+      return `${shortLabel} ${shortVal}`
     }).join(', ')
   }, [viewMode, interventionChips, baselineOptionInterventions, binaryFactorIds])
 
@@ -240,22 +241,31 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Decision view pre-analysis: brief intervention summary */}
         {viewMode === 'decision' && !displayMetadata.isResultsMode && decisionViewSummary && (
-          <div className={`${typography.nodeLabel} mt-1 text-text-light`}>
-            Changes: {decisionViewSummary}
+          <div className={`${typography.nodeLabel} mt-1 text-text-light line-clamp-2`}>
+            {decisionViewSummary}
           </div>
         )}
 
         {/* T8: Readable intervention chips with delta for non-baseline options (Model view only) */}
         {viewMode === 'model' && interventionChips.length > 0 && (() => {
+          // Baseline option: all interventions ARE the baseline, show message directly
+          if (isBaselineOption) {
+            return (
+              <div className={`${typography.nodeLabel} mt-1 text-text-light`}>
+                No changes from current state
+              </div>
+            )
+          }
+
           // Determine which chips represent no change (baseline = intervention).
           // A chip is "no change" when its value matches the baseline value within tolerance.
           const chipsWithMeta = interventionChips.map(chip => {
             const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
-            const isNoChange = !isBaselineOption && baselineNorm !== undefined &&
+            const isNoChange = baselineNorm !== undefined &&
               Math.abs(chip.value - baselineNorm) < 1e-6
             return { chip, isNoChange }
           })
-          // Guard: if hiding no-change chips would remove ALL chips, keep them all dimmed instead
+          // Guard: if hiding no-change chips would remove ALL chips, show message instead
           const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
 
           if (allNoChange) {
@@ -323,8 +333,8 @@ export const OptionNode = memo((props: NodeProps) => {
                     key={idx}
                     className="inline-flex items-baseline gap-1 flex-wrap text-text-body"
                   >
-                    <span className="text-text-light truncate" style={{ maxWidth: '150px' }} title={chip.label}>
-                      {chip.label}:
+                    <span className="text-text-light shrink-0" title={chip.label}>
+                      {chip.label.length > 25 ? `${chip.label.slice(0, 22)}...` : chip.label}:
                     </span>
                     <span className="font-semibold shrink-0">
                       {deltaDisplay ?? targetFormatted}

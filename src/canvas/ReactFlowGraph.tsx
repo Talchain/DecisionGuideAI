@@ -317,15 +317,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
     if (optionNodes.length === 0) return nodes
 
-    // Find rightmost option position
+    // Find rightmost option position, accounting for node width
     const maxX = Math.max(...optionNodes.map(n => n.position?.x ?? 0))
     const sameY = optionNodes.find(n => (n.position?.x ?? 0) === maxX)
     const ghostY = sameY?.position?.y ?? 0
+    // Measure: node width (from ELK) + node spacing (60 default)
+    const measuredW = (sameY as any)?.measured?.width ?? (sameY as any)?.width ?? 200
+    const ghostGap = measuredW + 60
 
     const ghostNode = {
       id: '__ghost-option__',
       type: 'ghost-option' as const,
-      position: { x: maxX + 240, y: ghostY },
+      position: { x: maxX + ghostGap, y: ghostY },
       data: {},
       selectable: false,
       draggable: false,
@@ -2209,9 +2212,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         currentEdges={edges.length}
       />
 
-      {/* Coaching strip — fixed bottom overlay (Decision view only) */}
-      <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-30 w-[min(90vw,720px)]">
-        <CoachingStrip />
+      {/* Coaching strip — fixed overlay above DraftChat (Decision view only) */}
+      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[2001] w-[min(90vw,720px)] pointer-events-none">
+        <div className="pointer-events-auto">
+          <CoachingStrip />
+        </div>
       </div>
 
       {/* R1: Draft My Model chat loop (bottom overlay above toolbar) */}

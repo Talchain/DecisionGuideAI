@@ -639,8 +639,8 @@ describe('OptionNode — QA Brief C-series', () => {
     )
   })
 
-  // C2: Baseline option shows absolute value, no delta
-  it('C2: baseline option (is_baseline=true) shows absolute value without delta arrow', () => {
+  // C2: Baseline option shows "No changes from current state" (all interventions match baseline)
+  it('C2: baseline option (is_baseline=true) shows no-changes message', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
@@ -656,10 +656,10 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Keep current price', is_baseline: true })
-    // For baseline, no delta arrow should be shown
+    // Baseline option should show "No changes from current state"
+    expect(screen.getByText('No changes from current state')).toBeDefined()
+    // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
-    // Absolute value should be shown
-    expect(screen.getByText('£49')).toBeDefined()
   })
 
   // C3: Baseline detection by keyword — "Status Quo" treated as baseline

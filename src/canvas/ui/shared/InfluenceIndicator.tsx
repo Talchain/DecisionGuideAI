@@ -33,13 +33,13 @@ export function InfluenceIndicator({
   // Resolve magnitude and direction from either calling convention
   const magnitude = strength !== undefined ? Math.abs(strength) : (weight ?? 0)
   const isPositive = strength !== undefined ? strength >= 0 : direction !== 'negative'
-  const dirSymbol = isPositive ? '+' : '\u2212'
+  const dirWord = isPositive ? 'positive' : 'negative'
   const label = getStrengthLabel(magnitude)
 
   if (variant === 'canvas') {
     return (
       <span className={className}>
-        {label} {dirSymbol}
+        {label} {dirWord}
       </span>
     )
   }
@@ -47,7 +47,7 @@ export function InfluenceIndicator({
   // Inspector variant
   return (
     <span className={`${typography.panelMeta} ${className}`}>
-      {label} {dirSymbol}
+      {label} {dirWord}
     </span>
   )
 }
