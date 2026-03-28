@@ -1362,7 +1362,7 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
         <div key={`${fc.assumption}-${i}`} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
           <span className={typography.panelBody} style={{ fontWeight: 600 }}>{fc.assumption}</span>
           <div className={typography.panelMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
-            {fc.direction} past {fc.flip_threshold}
+            {fc.current_value && `Currently ${fc.current_value} · `}{fc.direction} past {fc.flip_threshold}
             {fc.alternative_winner && ` → ${fc.alternative_winner}`}
           </div>
         </div>

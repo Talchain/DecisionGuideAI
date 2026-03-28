@@ -795,7 +795,7 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
               }))
             : [],
           consequences: Array.isArray(dataObj.consequences) ? dataObj.consequences.map(String) : undefined,
-          confirmation_required: dataObj.confirmation_required === true ? true : undefined,
+          confirmation_required: typeof dataObj.confirmation_required === 'boolean' ? dataObj.confirmation_required : undefined,
         } as ConversationBlock
 
       case 'exercise':
