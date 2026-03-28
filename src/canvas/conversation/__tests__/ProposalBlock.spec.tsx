@@ -39,7 +39,7 @@ function makeProposal(overrides: Partial<ProposalBlock> = {}): ProposalBlock {
     description: 'Add Regulatory Risk as a new factor',
     proposal_id: 'abc-123',
     changes: [
-      { element_label: 'Regulatory Risk', change_description: 'New factor node' },
+      { operation: 'add', target: 'Regulatory Risk', detail: 'New factor node' },
     ],
     consequences: ['May increase model complexity'],
     ...overrides,
@@ -144,6 +144,7 @@ describe('ProposalBlockRenderer', () => {
     )
     expect(screen.getByText('Add Regulatory Risk as a new factor')).toBeInTheDocument()
     expect(screen.getByText('New factor node')).toBeInTheDocument()
+    expect(screen.getByText('add')).toBeInTheDocument()
     expect(screen.getByText('Regulatory Risk')).toBeInTheDocument()
     expect(screen.getByText(/May increase model complexity/)).toBeInTheDocument()
   })

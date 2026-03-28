@@ -290,20 +290,22 @@ export interface ComparisonBlock {
   type: 'comparison'
   narrative?: string
   options: Array<{
+    id?: string
     label: string
     probability?: number
     rank?: number
     strengths?: string[]
     weaknesses?: string[]
-    differentiators?: string[]
+    key_differentiators?: string[]
   }>
 }
 
 export interface PremortemBlock {
   type: 'premortem'
-  target_option?: string
+  target_option?: { id: string; label: string }
   narrative?: string
   risk_paths: Array<{
+    path?: string[]
     description: string
     influence?: number
     likelihood?: string
@@ -313,13 +315,14 @@ export interface PremortemBlock {
 
 export interface FlipAnalysisBlock {
   type: 'flip_analysis'
-  current_winner?: string
+  current_winner?: { id: string; label: string; probability?: number }
   narrative?: string
   flip_conditions: Array<{
-    factor_label: string
-    threshold: string
+    assumption: string
+    current_value?: string
+    flip_threshold: string
     direction: string
-    impact?: string
+    alternative_winner?: string
   }>
 }
 
@@ -328,7 +331,7 @@ export interface ProposalBlock {
   action_type: string
   description: string
   proposal_id: string
-  changes: Array<{ element_label: string; change_description: string }>
+  changes: Array<{ operation: string; target: string; detail: string }>
   consequences?: string[]
   confirmation_required?: boolean
 }

@@ -1280,7 +1280,7 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
         <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.options.map((opt, i) => (
-        <div key={`${opt.label}-${i}`} className={styles.comparisonItem}>
+        <div key={opt.id || `${opt.label}-${i}`} className={styles.comparisonItem}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span className={typography.panelHeader}>{opt.label}</span>
             {opt.probability != null && (
@@ -1299,9 +1299,9 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
                 {opt.weaknesses.map((w) => <div key={w}>- {w}</div>)}
               </div>
             )}
-            {opt.differentiators && opt.differentiators.length > 0 && (
+            {opt.key_differentiators && opt.key_differentiators.length > 0 && (
               <div className={typography.panelMeta} style={{ color: 'var(--text-light)', fontStyle: 'italic' }}>
-                {opt.differentiators.join('; ')}
+                {opt.key_differentiators.join('; ')}
               </div>
             )}
           </div>
@@ -1315,7 +1315,7 @@ function PremortemBlockRenderer({ block }: { block: PremortemBlockType }) {
   return (
     <div className={styles.premortemBlock} data-testid="block-premortem">
       {block.target_option && (
-        <span className={typography.panelHeader}>Pre-mortem: {block.target_option}</span>
+        <span className={typography.panelHeader}>Pre-mortem: {block.target_option.label}</span>
       )}
       {block.narrative && (
         <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
@@ -1323,7 +1323,15 @@ function PremortemBlockRenderer({ block }: { block: PremortemBlockType }) {
       {block.risk_paths.map((rp, i) => (
         <div key={`${rp.description}-${i}`} className={styles.failureMode}>
           <span className={typography.panelBody}>{rp.description}</span>
+          {rp.path && rp.path.length > 0 && (
+            <span className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+              {rp.path.join(' → ')}
+            </span>
+          )}
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
+            {rp.influence != null && (
+              <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>Influence: {Math.round(rp.influence * 100)}%</span>
+            )}
             {rp.likelihood && (
               <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{rp.likelihood}</span>
             )}
@@ -1344,18 +1352,18 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
     <div className={styles.flipAnalysisBlock} data-testid="block-flip-analysis">
       {block.current_winner && (
         <span className={typography.panelHeader}>
-          What could flip the result from {block.current_winner}
+          What could flip the result from {block.current_winner.label}
         </span>
       )}
       {block.narrative && (
         <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.flip_conditions.map((fc, i) => (
-        <div key={`${fc.factor_label}-${i}`} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
-          <span className={typography.panelBody} style={{ fontWeight: 600 }}>{fc.factor_label}</span>
+        <div key={`${fc.assumption}-${i}`} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
+          <span className={typography.panelBody} style={{ fontWeight: 600 }}>{fc.assumption}</span>
           <div className={typography.panelMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
-            {fc.direction} past {fc.threshold}
-            {fc.impact && ` — ${fc.impact}`}
+            {fc.direction} past {fc.flip_threshold}
+            {fc.alternative_winner && ` → ${fc.alternative_winner}`}
           </div>
         </div>
       ))}
@@ -1383,12 +1391,17 @@ function ProposalBlockRenderer({ block, onProposalConfirm }: { block: ProposalBl
       <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.description}</p>
       {block.changes.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {block.changes.map((c) => (
-            <div key={`${c.element_label}-${c.change_description}`} className={styles.graphPatchProposalItem}>
-              <span className={typography.panelBody}>{c.change_description}</span>
-              {c.element_label && (
-                <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.element_label}</span>
-              )}
+          {block.changes.map((c, i) => (
+            <div key={`${c.target}-${i}`} className={styles.graphPatchProposalItem}>
+              <span className={typography.panelBody}>{c.detail}</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {c.operation && (
+                  <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{c.operation}</span>
+                )}
+                {c.target && (
+                  <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.target}</span>
+                )}
+              </div>
             </div>
           ))}
         </div>

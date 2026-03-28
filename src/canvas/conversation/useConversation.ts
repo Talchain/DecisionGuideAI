@@ -728,12 +728,13 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           narrative: dataObj.narrative != null ? String(dataObj.narrative) : undefined,
           options: Array.isArray(dataObj.options)
             ? dataObj.options.map((o: any) => ({
+                id: o?.id != null ? String(o.id) : undefined,
                 label: String(o?.label ?? ''),
                 probability: typeof o?.probability === 'number' ? o.probability : undefined,
                 rank: typeof o?.rank === 'number' ? o.rank : undefined,
                 strengths: Array.isArray(o?.strengths) ? o.strengths.map(String) : undefined,
                 weaknesses: Array.isArray(o?.weaknesses) ? o.weaknesses.map(String) : undefined,
-                differentiators: Array.isArray(o?.differentiators) ? o.differentiators.map(String) : undefined,
+                key_differentiators: Array.isArray(o?.key_differentiators) ? o.key_differentiators.map(String) : undefined,
               }))
             : [],
         } as ConversationBlock
@@ -741,10 +742,13 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
       case 'premortem':
         return {
           type: 'premortem',
-          target_option: dataObj.target_option != null ? String(dataObj.target_option) : undefined,
+          target_option: dataObj.target_option != null && typeof dataObj.target_option === 'object'
+            ? { id: String((dataObj.target_option as any).id ?? ''), label: String((dataObj.target_option as any).label ?? '') }
+            : undefined,
           narrative: dataObj.narrative != null ? String(dataObj.narrative) : undefined,
           risk_paths: Array.isArray(dataObj.risk_paths)
             ? dataObj.risk_paths.map((rp: any) => ({
+                path: Array.isArray(rp?.path) ? rp.path.map(String) : undefined,
                 description: String(rp?.description ?? ''),
                 influence: typeof rp?.influence === 'number' ? rp.influence : undefined,
                 likelihood: rp?.likelihood != null ? String(rp.likelihood) : undefined,
@@ -756,14 +760,23 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
       case 'flip_analysis':
         return {
           type: 'flip_analysis',
-          current_winner: dataObj.current_winner != null ? String(dataObj.current_winner) : undefined,
+          current_winner: dataObj.current_winner != null && typeof dataObj.current_winner === 'object'
+            ? {
+                id: String((dataObj.current_winner as any).id ?? ''),
+                label: String((dataObj.current_winner as any).label ?? ''),
+                ...(typeof (dataObj.current_winner as any).probability === 'number'
+                  ? { probability: (dataObj.current_winner as any).probability }
+                  : {}),
+              }
+            : undefined,
           narrative: dataObj.narrative != null ? String(dataObj.narrative) : undefined,
           flip_conditions: Array.isArray(dataObj.flip_conditions)
             ? dataObj.flip_conditions.map((fc: any) => ({
-                factor_label: String(fc?.factor_label ?? ''),
-                threshold: String(fc?.threshold ?? ''),
+                assumption: String(fc?.assumption ?? ''),
+                current_value: fc?.current_value != null ? String(fc.current_value) : undefined,
+                flip_threshold: String(fc?.flip_threshold ?? ''),
                 direction: String(fc?.direction ?? ''),
-                impact: fc?.impact != null ? String(fc.impact) : undefined,
+                alternative_winner: fc?.alternative_winner != null ? String(fc.alternative_winner) : undefined,
               }))
             : [],
         } as ConversationBlock
@@ -776,8 +789,9 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           proposal_id: String(dataObj.proposal_id ?? block_id ?? ''),
           changes: Array.isArray(dataObj.changes)
             ? dataObj.changes.map((c: any) => ({
-                element_label: String(c?.element_label ?? ''),
-                change_description: String(c?.change_description ?? ''),
+                operation: String(c?.operation ?? ''),
+                target: String(c?.target ?? ''),
+                detail: String(c?.detail ?? ''),
               }))
             : [],
           consequences: Array.isArray(dataObj.consequences) ? dataObj.consequences.map(String) : undefined,
