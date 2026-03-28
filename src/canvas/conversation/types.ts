@@ -94,6 +94,13 @@ export interface CitationRef {
   source: string
 }
 
+/** Deterministic CEE structured section within a commentary block */
+export interface CommentarySection {
+  heading?: string
+  content?: string
+  items?: string[]
+}
+
 export interface CommentaryBlock {
   type: 'commentary'
   text: string
@@ -102,6 +109,8 @@ export interface CommentaryBlock {
   title?: string
   /** Optional citation markers; rendered as numbered legend below text */
   citations?: CitationRef[]
+  /** Deterministic CEE: structured sections (heading + content + bullet items) */
+  sections?: CommentarySection[]
 }
 
 export interface ReviewCardBlock {

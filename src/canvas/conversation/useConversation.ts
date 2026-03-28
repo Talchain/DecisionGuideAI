@@ -676,6 +676,13 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           text: String(dataObj.narrative ?? dataObj.text ?? ''),
           title: dataObj.title != null ? String(dataObj.title) : undefined,
           citations: Array.isArray(dataObj.citations) ? dataObj.citations as any : undefined,
+          sections: Array.isArray(dataObj.sections)
+            ? dataObj.sections.map((s: any) => ({
+                heading: s?.heading != null ? String(s.heading) : undefined,
+                content: s?.content != null ? String(s.content) : undefined,
+                items: Array.isArray(s?.items) ? s.items.map(String) : undefined,
+              }))
+            : undefined,
         }
 
       case 'review_card': {

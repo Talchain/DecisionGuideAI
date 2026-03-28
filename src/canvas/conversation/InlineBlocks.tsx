@@ -336,6 +336,8 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
 
   const contentHtml = safeRichText(block.text)
 
+  const hasSections = block.sections && block.sections.length > 0
+
   if (!renderingV2) {
     // Flag OFF — current behaviour unchanged
     return (
@@ -345,6 +347,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
           // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
           dangerouslySetInnerHTML={{ __html: contentHtml }}
         />
+        {hasSections && <CommentarySections sections={block.sections!} />}
         {block.citations && block.citations.length > 0 && (
           <CitationLegend citations={block.citations} onCitationClick={handleCitationClick} />
         )}
@@ -385,6 +388,7 @@ const CommentaryBlockRenderer = memo(function CommentaryBlockRenderer({
             // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
             dangerouslySetInnerHTML={{ __html: contentHtml }}
           />
+          {hasSections && <CommentarySections sections={block.sections!} />}
           {block.citations && block.citations.length > 0 && (
             <CitationLegend citations={block.citations} onCitationClick={handleCitationClick} />
           )}
@@ -1415,6 +1419,48 @@ function ExerciseBlockRenderer({ block }: { block: ExerciseBlockType }) {
         <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{block.exercise_type}</span>
       </div>
       <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.instructions}</p>
+      {block.content && (
+        <div style={{ marginTop: 4, maxHeight: 400, overflow: 'auto', borderRadius: 6, border: '1px solid var(--border-default, #EEE6D8)' }}>
+          <iframe
+            srcDoc={block.content}
+            sandbox="allow-scripts"
+            title={block.title}
+            style={{ width: '100%', height: 300, border: 'none' }}
+            data-testid="exercise-content-iframe"
+          />
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Render structured sections from deterministic CEE commentary blocks */
+function CommentarySections({ sections }: { sections: import('./types').CommentarySection[] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 8 }}>
+      {sections.map((section, i) => (
+        <div key={i}>
+          {section.heading && (
+            <strong className={typography.panelHeader} style={{ display: 'block', marginBottom: 4 }}>
+              {section.heading}
+            </strong>
+          )}
+          {section.content && (
+            <p className={typography.panelBody} style={{ color: 'var(--text-body)', margin: 0 }}>
+              {section.content}
+            </p>
+          )}
+          {section.items && section.items.length > 0 && (
+            <ul style={{ margin: '4px 0 0', paddingLeft: 20 }}>
+              {section.items.map((item, j) => (
+                <li key={j} className={typography.panelBody} style={{ color: 'var(--text-body)', marginBottom: 2 }}>
+                  {item}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ))}
     </div>
   )
 }
