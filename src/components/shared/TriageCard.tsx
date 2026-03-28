@@ -1,12 +1,12 @@
 /**
  * TriageCard — Shared action card for pre-analysis and post-analysis triage panels.
  *
- * Displays: ordinal badge, title, detail text, action buttons, influence bar,
+ * Displays: ordinal badge, title, subtitle, action buttons, influence bar,
  * and optional inline ScientificEditor for progressive disclosure editing.
  *
  * Variants:
- * - 'default': Standard card with actions
- * - 'compact': Quick-fix row (single-line, rank 4-6 items)
+ * - 'default': Standard card with actions (p-2.5, rounded-[10px], influence bar absolute)
+ * - 'compact': Quick-fix row (borderless, single-line, rank 4-6 items)
  */
 
 import { useState, useCallback } from 'react'
@@ -36,6 +36,8 @@ export interface TriageCardProps {
   title: string
   /** Detail/explanation text */
   detail: string
+  /** Action-oriented subtitle (one line, shown below title) */
+  subtitle?: string
   /** Category for badge colour */
   category: TriageCardCategory
   /** Optional influence score 0-1 for influence bar */
@@ -70,12 +72,12 @@ const BADGE_COLORS: Record<TriageCardCategory, string> = {
 
 // ── Compact variant (quick-fix rows, ranks 4-6) ─────────────────────────────
 
-function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, onHoverEnter, onHoverLeave, action }: TriageCardProps) {
+function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit }: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
 
   return (
     <div
-      className="flex items-center gap-2 px-3 min-h-[44px] rounded-lg border border-panel-border hover:bg-panel-hover cursor-pointer"
+      className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-panel-hover cursor-pointer"
       onMouseEnter={() => {
         if (action?.targetId && onHoverEnter) {
           onHoverEnter(action.targetType ?? 'node', action.targetId)
@@ -83,10 +85,10 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      <span className={`flex-shrink-0 w-4 h-4 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
+      <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
         {ordinal}
       </span>
-      <span className={`flex-1 min-w-0 truncate ${typography.panelBody} text-text-body`}>{title}</span>
+      <span className={`flex-1 min-w-0 truncate ${typography.panelMeta} text-info font-medium`}>{title}</span>
       {evoiImpact != null && (
         <span className={`shrink-0 ${typography.panelMeta} text-text-light`}>
           {evoiImpact.toFixed(1)}pp
@@ -103,6 +105,20 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
           <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
         </div>
       )}
+      {action && (
+        <div className="flex gap-1 shrink-0">
+          {action.kind === 'confirm' && onConfirm && action.targetId && (
+            <button type="button" onClick={() => onConfirm(action.targetId!)} className="py-0.5 px-2 text-[10px] rounded-full border border-success/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer">
+              Confirm
+            </button>
+          )}
+          {(action.kind === 'edit' || action.kind === 'set_value') && onEdit && action.targetId && (
+            <button type="button" onClick={() => onEdit(action.targetId!)} className="py-0.5 px-2 text-[10px] rounded-full border border-info/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer">
+              {action.kind === 'set_value' ? 'Set' : 'Edit'}
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -115,6 +131,7 @@ export function TriageCard(props: TriageCardProps) {
     ordinal,
     title,
     detail,
+    subtitle,
     category,
     influence,
     evoiImpact,
@@ -140,10 +157,13 @@ export function TriageCard(props: TriageCardProps) {
     setIsEditing(false)
   }, [])
 
+  // Display text: prefer subtitle over detail for the one-line description
+  const displaySubtitle = subtitle || detail
+
   return (
     <div
       key={cardKey}
-      className={`relative flex flex-col gap-2 p-3 rounded-lg border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
+      className={`relative flex flex-col gap-1.5 p-2.5 rounded-[10px] border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
       onMouseEnter={() => {
         if (action?.targetId && onHoverEnter) {
           onHoverEnter(action.targetType ?? 'node', action.targetId)
@@ -152,13 +172,13 @@ export function TriageCard(props: TriageCardProps) {
       onMouseLeave={() => onHoverLeave?.()}
     >
       {/* Top row: ordinal + title */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start gap-2.5">
         <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center`}>
           {ordinal}
         </span>
         <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <p className={`${typography.panelHeader} text-text-header truncate`}>{title}</p>
+            <p className={`${typography.panelBody} font-semibold text-text-header truncate`}>{title}</p>
             {sourcePill && (
               <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
                 {sourcePill.label}
@@ -173,8 +193,8 @@ export function TriageCard(props: TriageCardProps) {
         </div>
       </div>
 
-      {/* Body content */}
-      <p className={`${typography.panelBody} text-text-light`}>{detail}</p>
+      {/* Subtitle / detail — one line, truncated */}
+      <p className={`${typography.panelMeta} text-text-light truncate`} title={displaySubtitle}>{displaySubtitle}</p>
 
       {/* Inline editor */}
       {isEditing && editorConfig && (
@@ -195,7 +215,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => onConfirm(action.targetId!)}
-              className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
+              className={`py-1 px-2.5 rounded-full ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
             >
               <span className="flex items-center gap-1"><Check size={12} /> Confirm</span>
             </button>
@@ -204,7 +224,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => onEdit(action.targetId!)}
-              className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+              className={`py-1 px-2.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               <span className="flex items-center gap-1"><Pencil size={12} /> Edit</span>
             </button>
@@ -213,7 +233,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+              className={`py-1 px-2.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               Set value
             </button>
@@ -222,7 +242,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-              className={`min-h-[44px] px-3 rounded ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+              className={`py-1 px-2.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               Ask AI to research
             </button>
@@ -230,10 +250,10 @@ export function TriageCard(props: TriageCardProps) {
         </div>
       )}
 
-      {/* Influence bar — separate row, right-aligned */}
+      {/* Influence bar — absolute, bottom-right of card */}
       {influencePct != null && (
-        <div className="flex items-center justify-end gap-1.5">
-          <div className="w-12 h-[4px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
+        <div className="absolute bottom-2 right-2.5 flex items-center gap-1">
+          <div className="w-[28px] h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
             <div
               className="h-full rounded-sm"
               style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}

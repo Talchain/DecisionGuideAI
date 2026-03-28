@@ -169,7 +169,7 @@ describe('PreAnalysisPanel', () => {
       balanceScore: 0.5,
       thresholdSourceBadge: null,
       assumptionsLedger: null,
-      triageActions: [],
+      triageActions: { top3: [], quickFix: [] },
       actionableCount: 0,
       addressedActionableCount: 0,
       ...overrides,
@@ -240,11 +240,26 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Sticky Footer', () => {
-    it('shows "Analyse Now" button when ready', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, hasBlockers: false }))
+    it('shows "Analyse Now" button when ready and readiness >= 60', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        isReady: true,
+        hasBlockers: false,
+        evidenceQuality: { level: 'high', ratio: 0.8, nonAiCount: 4, totalCount: 5 },
+        balanceScore: 0.7,
+        reviewedFactorsCount: 3,
+        totalReviewableFactorsCount: 5,
+        ceeQuality: { structure: 8 },
+      }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse now')
+    })
+
+    it('shows "Analyse anyway" when ready but readiness < 60', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, hasBlockers: false }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse anyway')
     })
 
     it('shows "Analyse now" CTA (disabled, aria-label signals blockers) when has blockers', () => {
@@ -628,9 +643,9 @@ describe('PreAnalysisPanel', () => {
       // ModelHealthCard renders — status moved to footer
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
 
-      // Button should be enabled with "Analyse Now"
+      // Button should be enabled (CTA adapts to readiness: "Analyse now" or "Analyse anyway")
       const button = screen.getByRole('button', { name: /run analysis/i })
-      expect(button).toHaveTextContent('Analyse now')
+      expect(button).toHaveTextContent(/Analyse (now|anyway)/)
       expect(button).not.toBeDisabled()
     })
   })
@@ -891,9 +906,9 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Footer should show "Ready" not "Blocked"
+      // Footer should show "Ready" not "Blocked" — CTA adapts to readiness
       const footer = screen.getByTestId('sticky-footer')
-      expect(footer).toHaveTextContent('Analyse now')
+      expect(footer).toHaveTextContent(/Analyse (now|anyway)/)
     })
   })
 

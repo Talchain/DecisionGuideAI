@@ -35,6 +35,7 @@ import { copyTextToClipboard } from '../../../utils/clipboard'
 import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X } from 'lucide-react'
 import { TriageCard } from '@/components/shared/TriageCard'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
+import { buildTriageNarrative } from './utils/buildTriageNarrative'
 import { STRUCTURAL_CHECK_IDS } from './DecisionQualityChecks'
 import { typography } from '@/styles/typography'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
@@ -42,6 +43,8 @@ import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
+
+const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
 
 /** Binary pass/fail row for triage check rows — failed rows show optional action link */
 function TriageCheckRow({ label, pass, actionLabel, onAction }: {
@@ -717,31 +720,39 @@ export function PreAnalysisPanel({
     return null
   }
 
+  // === READINESS SCORE (for adaptive footer CTA) ===
+  const completeness = data.ceeQuality
+    ? (data.ceeQuality.structure ?? 5) / 10
+    : (['goal', 'option', 'factor'] as const).filter(k => data.nodesByKind[k].length > 0).length / 3
+  const evidence = data.evidenceQuality.ratio
+  const balance = data.balanceScore
+  const calibration = data.totalReviewableFactorsCount > 0
+    ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
+    : 0
+  const readinessScore = Math.round(
+    (clamp01(completeness) + clamp01(evidence) + clamp01(balance) + clamp01(calibration)) / 4 * 100,
+  )
+
   // === TRIAGE CONTENT ===
 
-  // Map improvement items to TriageCard props
-  // Use factorInfluenceMap for node items, edgeInfluenceMap for edge items
-  const triageCards = data.triageActions.map(item => {
+  // Map improvement items to TriageCard props (diversified top3 + quickFix)
+  const mapItem = (item: typeof data.triageActions.top3[number]) => {
     const influence = item.focus?.type === 'edge'
       ? edgeInfluenceMap?.get(item.focus.id)
       : factorInfluenceMap?.get(item.focus?.id ?? '')
     return mapImprovementToTriageCard(item, influence)
-  })
-  const triageTop3 = triageCards.slice(0, 3)
-  const triageQuickFix = triageCards.slice(3, 6)
+  }
+  const triageTop3 = data.triageActions.top3.map(mapItem)
+  const triageQuickFix = data.triageActions.quickFix.map(mapItem)
+  const triageCards = [...triageTop3, ...triageQuickFix]
 
-  // Narrative text: CEE coaching_summary → computed fallback → generic
-  const triageNarrative = (() => {
-    if (data.isLoading || triageCards.length === 0) return null
-    if (data.coachingSummary) return data.coachingSummary
-    // Compute influence coverage for fallback narrative
-    const totalInfluence = triageCards.reduce((sum, c) => sum + (c.influence ?? 0), 0)
-    if (totalInfluence > 0) {
-      const pct = Math.round(totalInfluence * 100)
-      return `These ${triageCards.length} items cover ${pct}% of what matters most:`
-    }
-    return `${triageCards.length} item${triageCards.length !== 1 ? 's' : ''} would improve your analysis:`
-  })()
+  // Narrative text: CEE coaching_summary → category-specific fallback
+  const triageNarrative = buildTriageNarrative(
+    triageCards,
+    data.successThreshold != null,
+    data.coachingSummary,
+    data.isLoading,
+  )
 
   // Science nudges: cognitive/methodological quality checks (max 2)
   const scienceNudges = data.qualityChecks
@@ -760,14 +771,10 @@ export function PreAnalysisPanel({
         {/* 1. Decision readiness triage panel (v4: ring + checks + action cards + nudges + footer flags) */}
         <SectionErrorBoundary section="Model health">
           <ModelHealthCard
-            completeness={data.ceeQuality
-              ? (data.ceeQuality.structure ?? 5) / 10
-              : (['goal', 'option', 'factor'] as const).filter(k => data.nodesByKind[k].length > 0).length / 3}
-            evidence={data.evidenceQuality.ratio}
-            balance={data.balanceScore}
-            calibration={data.totalReviewableFactorsCount > 0
-              ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
-              : 0}
+            completeness={completeness}
+            evidence={evidence}
+            balance={balance}
+            calibration={calibration}
             optionCount={data.optionPreviews.length}
             goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
             coachingSummary={data.coachingSummary}
@@ -813,7 +820,7 @@ export function PreAnalysisPanel({
 
             {/* LAYER 4: Top 3 action cards */}
             {triageTop3.length > 0 && (
-              <div className="space-y-2 px-1" data-testid="triage-top-actions">
+              <div className="flex flex-col gap-1.5 px-1" data-testid="triage-top-actions">
                 {triageTop3.map((card, i) => (
                   <TriageCard
                     key={card.key}
@@ -821,6 +828,7 @@ export function PreAnalysisPanel({
                     ordinal={i + 1}
                     title={card.title}
                     detail={card.detail}
+                    subtitle={card.subtitle}
                     category={card.category}
                     influence={card.influence}
                     action={card.action}
@@ -839,7 +847,7 @@ export function PreAnalysisPanel({
             {triageQuickFix.length > 0 && (
               <>
                 <div className="h-px bg-panel-border mx-3" />
-                <div className="space-y-1 px-1" data-testid="triage-quick-fix">
+                <div className="flex flex-col gap-1.5 px-1" data-testid="triage-quick-fix">
                   <p className={`${typography.panelMeta} text-text-light font-semibold px-2`}>Also consider</p>
                   {triageQuickFix.map((card, i) => (
                     <TriageCard
@@ -852,6 +860,8 @@ export function PreAnalysisPanel({
                       influence={card.influence}
                       variant="compact"
                       action={card.action}
+                      onConfirm={handleConfirm}
+                      onEdit={handleSetValueForGap}
                       onHoverEnter={handleHoverElement}
                       onHoverLeave={handleHoverClear}
                     />
@@ -1120,6 +1130,7 @@ export function PreAnalysisPanel({
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}
         evidenceTotalCount={data.evidenceQuality.totalCount}
         weightedInfluenceReviewed={weightedInfluenceReviewed}
+        readinessScore={readinessScore}
       />
     </div>
   )

@@ -125,7 +125,7 @@ describe('Interactive Actions Hardening', () => {
       contestedEdges: [],
       balanceScore: 0.5,
       assumptionsLedger: null,
-      triageActions: [],
+      triageActions: { top3: [], quickFix: [] },
       actionableCount: 0,
       addressedActionableCount: 0,
       ...overrides,

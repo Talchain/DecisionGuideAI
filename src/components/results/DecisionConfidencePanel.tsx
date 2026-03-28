@@ -106,6 +106,7 @@ interface MappedActionItem {
   key: string
   title: string
   detail: string
+  subtitle: string | undefined
   category: TriageCardCategory
   influence: number | null
   evoiImpact: number | null
@@ -129,10 +130,16 @@ function mapEvidenceGapsToActions(
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   return gaps.map((gap, i) => {
     const targetId = gap.targetNodeId ?? gap.factorId
+    const subtitle = gap.confidence <= 0
+      ? 'No value set. Even a rough estimate helps.'
+      : gap.confidence < 40
+        ? 'Confirm or edit the AI estimate'
+        : undefined
     return {
       key: `gap-${gap.factorId}-${i}`,
       title: gap.factorLabel,
       detail: gap.suggestion || `This factor has ${gap.confidence}% confidence \u2014 improving it could change the recommendation`,
+      subtitle,
       category: 'add_evidence' as const,
       influence: gap.voi > 0 ? gap.voi : null,
       evoiImpact: gap.evpiPp ?? null,
@@ -162,6 +169,7 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
     key: `action-${i}`,
     title: action.action,
     detail: action.rationale,
+    subtitle: undefined,
     category: 'strengthen' as const,
     influence: null,
     evoiImpact: null,
@@ -400,7 +408,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
 
       {/* 4. Top 3 action cards */}
       {top3.length > 0 && (
-        <div className="space-y-2">
+        <div className="flex flex-col gap-1.5">
           {top3.map((item, i) => (
             <TriageCard
               key={item.key}
@@ -408,6 +416,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
               ordinal={i + 1}
               title={item.title}
               detail={item.detail}
+              subtitle={item.subtitle}
               category={item.category}
               influence={item.influence}
               evoiImpact={item.evoiImpact}
@@ -426,8 +435,8 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
 
       {/* 5. Quick-fix rows (items 4-6) */}
       {quickFix.length > 0 && (
-        <div className="space-y-1">
-          <p className={`${typography.panelMeta} text-text-light mb-1`}>Also consider</p>
+        <div className="flex flex-col gap-1.5">
+          <p className={`${typography.panelMeta} text-text-light`}>Also consider</p>
           {quickFix.map((item, i) => (
             <TriageCard
               key={item.key}

@@ -59,6 +59,8 @@ interface StickyFooterProps {
   evidenceTotalCount?: number
   /** Fraction (0–1) of total factor influence covered by user-reviewed factors */
   weightedInfluenceReviewed?: number
+  /** Readiness score 0-100 (average of 4 health dimensions) */
+  readinessScore?: number
 }
 
 export function StickyFooter({
@@ -75,6 +77,7 @@ export function StickyFooter({
   evidenceNonAiCount,
   evidenceTotalCount,
   weightedInfluenceReviewed,
+  readinessScore,
 }: StickyFooterProps) {
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
 
@@ -116,6 +119,9 @@ export function StickyFooter({
     statusText = 'Not ready'
   }
 
+  const READINESS_THRESHOLD = 60
+  const isLowReadiness = readinessScore != null && readinessScore < READINESS_THRESHOLD && isReady
+
   const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
     (reviewedCount ?? 0) >= totalReviewableCount
 
@@ -140,13 +146,25 @@ export function StickyFooter({
     </>
   ) : hasBlockers ? `${blockerCount} to address` : undefined
 
+  // Compose consequence hint when readiness is low
+  const composedMeta = isLowReadiness
+    ? <>{metaText}{metaText ? ' · ' : ''}Results will be provisional</>
+    : metaText
+
+  // CTA label adapts to readiness
+  const ctaLabel = isAnalysing
+    ? 'Analysing...'
+    : isLowReadiness
+      ? 'Analyse anyway'
+      : 'Analyse now'
+
   return (
     <AnalysisFooter
       statusIcon={StatusIcon}
       statusIconClassName={statusIconColor}
       statusText={statusText}
-      metaText={metaText}
-      actionLabel={isAnalysing ? 'Analysing...' : 'Analyse now'}
+      metaText={composedMeta}
+      actionLabel={ctaLabel}
       onAction={onAnalyse}
       actionDisabled={isDisabled}
       actionLoading={isAnalysing || isRetrying}

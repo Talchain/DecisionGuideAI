@@ -37,6 +37,9 @@ import { getObservedState } from '../../../utils/observedStateHelpers'
 import type { CeeQualityDimensions } from '../../../store'
 // Import validation types for contested edge support
 import type { ValidationMetadata } from '../../../domain/validation'
+// Import diversity dedup for triage top-3
+import { diversifyTriageItems } from '../utils/diversifyTriageItems'
+import type { DiversifiedTriage } from '../utils/diversifyTriageItems'
 // Import expertise groups for actionableCount computation
 import { deriveExpertiseGroups } from './deriveExpertiseGroups'
 
@@ -234,8 +237,8 @@ export interface PreAnalysisData {
   reviewedFactorsCount: number
   /** Total count of factors with observed_state (reviewable) */
   totalReviewableFactorsCount: number
-  /** Top 6 prioritised actions for triage card rendering */
-  triageActions: ImprovementItem[]
+  /** Diversified triage actions: top 3 from unique source factors + quick-fix overflow */
+  triageActions: DiversifiedTriage
   /** Count of actionable items (contested + AI-estimated + missing-data) */
   actionableCount: number
   /** Count of actionable items user has addressed (confirmed/resolved) */
@@ -1032,20 +1035,20 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     return allItems.slice(0, 3)
   }, [improvementsByCategory])
 
-  // Top 6 prioritised actions for triage card rendering (top 3 + quick-fix 4-6)
+  // Factor influence map — needed by both triageActions (diversity dedup) and expertise groups
+  const factorInfluenceMap = useMemo(() => {
+    const fi = preAnalysisSensitivity?.factor_influence
+    return fi ? new Map(Object.entries(fi)) : undefined
+  }, [preAnalysisSensitivity?.factor_influence])
+
+  // Diversified triage actions: top 3 from unique source factors + quick-fix overflow
   const triageActions = useMemo(() => {
     const allItems: ImprovementItem[] = []
     for (const category of ['fix', 'verify', 'add_evidence', 'strengthen'] as ImprovementCategory[]) {
       allItems.push(...improvementsByCategory[category])
     }
-    return allItems.slice(0, 6)
-  }, [improvementsByCategory])
-
-  // Expertise groups + actionable count for footer alignment
-  const factorInfluenceMap = useMemo(() => {
-    const fi = preAnalysisSensitivity?.factor_influence
-    return fi ? new Map(Object.entries(fi)) : undefined
-  }, [preAnalysisSensitivity?.factor_influence])
+    return diversifyTriageItems(allItems, edges, factorInfluenceMap)
+  }, [improvementsByCategory, edges, factorInfluenceMap])
 
   const edgeInfluenceMap = useMemo(() => {
     const ei = preAnalysisSensitivity?.edge_influence
