@@ -11,17 +11,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { GuidanceActionItemRow } from '../GuidanceActionItemRow'
-import { ResultsBody } from '../ResultsBody'
 import type { GuidanceItem } from '../../../canvas/stores/guidanceStore'
-import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-import type {
-  RecommendationSectionData,
-  DriversSectionData,
-  ConfidenceSectionData,
-  ImprovementsSectionData,
-  OptionResult,
-  NextActionItem,
-} from '../types'
 
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
   focusNodeById: vi.fn(),
@@ -32,61 +22,6 @@ vi.mock('../../../canvas/utils/focusHelpers', () => ({
 // ---------------------------------------------------------------------------
 // Fixtures
 // ---------------------------------------------------------------------------
-
-const OPTIONS: OptionResult[] = [
-  {
-    id: 'opt_a',
-    label: 'Option A',
-    expected: 200,
-    outcome: { mean: 200, p10: 150, p50: 195, p90: 260 },
-    p10: 150, p50: 195, p90: 260,
-    isRecommended: true,
-    winProbability: 0.55,
-  },
-]
-
-function makeResultsData(nextActions?: NextActionItem[]): ResultsSectionDataReturn {
-  const recommendation: RecommendationSectionData = {
-    recommendedOption: OPTIONS[0],
-    allOptions: OPTIONS,
-    goalLabel: 'Maximise revenue',
-    isSingleOption: true,
-    analysisStatus: 'computed',
-    recommendationStability: 0.72,
-    robustnessLevel: 'moderate',
-  }
-  const drivers: DriversSectionData = {
-    drivers: [],
-    driversStatus: 'computed',
-    topDrivers: [],
-    totalCount: 0,
-    hasMagnitudeData: false,
-  }
-  const confidence: ConfidenceSectionData = {
-    tier: { tier: 'fair', icon: 'Info', label: 'Fair', description: 'Needs attention' },
-    qualityScore: 55,
-    uncertainties: [],
-    topUncertainties: [],
-    improvements: [],
-    topImprovements: [],
-    nextActions: nextActions ?? [],
-    topNextActions: nextActions?.slice(0, 3) ?? [],
-  }
-  const improvements: ImprovementsSectionData = {
-    improvements: [],
-    count: 0,
-    hasHighPriority: false,
-  }
-  return {
-    recommendation,
-    drivers,
-    confidence,
-    improvements,
-    isLoading: false,
-    isError: false,
-    goalLabel: 'Revenue',
-  }
-}
 
 function makeGuidanceItem(overrides: Partial<GuidanceItem> = {}): GuidanceItem {
   return {
@@ -149,81 +84,8 @@ describe('GuidanceActionItemRow', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// ResultsBody — guidance integration
-// ---------------------------------------------------------------------------
-
-describe('ResultsBody — guidance integration', () => {
-  it('renders GuidanceActionItemRow when guidanceItems are present', () => {
-    const items: GuidanceItem[] = [
-      makeGuidanceItem({ item_id: 'g-1', title: 'Add evidence for this factor' }),
-      makeGuidanceItem({ item_id: 'g-2', title: 'Clarify option scope' }),
-    ]
-    render(
-      <ResultsBody
-        resultsSectionData={makeResultsData()}
-        tornadoData={{ rows: [], expectedOutcome: null }}
-        guidanceItems={items}
-        onActivateGuidanceItem={vi.fn()}
-      />
-    )
-    const rows = screen.getAllByTestId('guidance-action-item-row')
-    expect(rows).toHaveLength(2)
-    expect(screen.getByText('Add evidence for this factor')).toBeInTheDocument()
-    expect(screen.getByText('Clarify option scope')).toBeInTheDocument()
-  })
-
-  it('renders guidance action items container when guidance items present', () => {
-    const items: GuidanceItem[] = [
-      makeGuidanceItem({ item_id: 'g-1', title: 'Check this connection' }),
-    ]
-    render(
-      <ResultsBody
-        resultsSectionData={makeResultsData()}
-        tornadoData={{ rows: [], expectedOutcome: null }}
-        guidanceItems={items}
-      />
-    )
-    expect(screen.getByTestId('guidance-action-items')).toBeInTheDocument()
-  })
-
-  it('does not render guidance-action-items when guidanceItems is empty', () => {
-    render(
-      <ResultsBody
-        resultsSectionData={makeResultsData()}
-        tornadoData={{ rows: [], expectedOutcome: null }}
-        guidanceItems={[]}
-      />
-    )
-    expect(screen.queryByTestId('guidance-action-items')).not.toBeInTheDocument()
-  })
-
-  it('does not render guidance-action-items when guidanceItems is undefined (NextActionItem fallback)', () => {
-    const nextActions: NextActionItem[] = [
-      { action: 'Gather evidence', rationale: 'Improve confidence', priority: 1 },
-    ]
-    render(
-      <ResultsBody
-        resultsSectionData={makeResultsData(nextActions)}
-        tornadoData={{ rows: [], expectedOutcome: null }}
-      />
-    )
-    expect(screen.queryByTestId('guidance-action-items')).not.toBeInTheDocument()
-  })
-
-  it('does not render guidance-action-items for node-targeted items (filtered by caller)', () => {
-    // The caller (OutputsDock) filters node/edge items before passing to ResultsBody.
-    // Here we verify that if we pass empty array, no container renders.
-    render(
-      <ResultsBody
-        resultsSectionData={makeResultsData()}
-        tornadoData={{ rows: [], expectedOutcome: null }}
-        guidanceItems={[]}
-      />
-    )
-    expect(screen.queryByTestId('guidance-action-items')).not.toBeInTheDocument()
-  })
-})
+// ResultsBody — guidance integration tests removed:
+// "Your next steps" section suppressed in v4 — triage panel (DecisionConfidencePanel) absorbs guidance items.
 
 // ---------------------------------------------------------------------------
 // OutputsDock guidance filter — unit coverage

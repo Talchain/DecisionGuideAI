@@ -13,11 +13,9 @@ import { useRef, useCallback, useMemo, memo } from 'react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
-import { GuidanceActionItemRow } from './GuidanceActionItemRow'
 import type { GuidanceItem } from '../../canvas/stores/guidanceStore'
 import { DriversSection } from './DriversSection'
 import { TornadoChart, type TornadoRow } from './TornadoChart'
-import { ConfidenceSection } from './ConfidenceSection'
 import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
@@ -29,7 +27,6 @@ import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
-import { ProgressBar } from './ProgressBar'
 import { CoachingPrompt } from './CoachingPrompt'
 import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
@@ -107,7 +104,6 @@ export const ResultsBody = memo(function ResultsBody({
   identifiability,
   goalDirection,
   guidanceItems,
-  onActivateGuidanceItem,
   verifiedCount,
   influenceCoverage,
   driversExpanded,
@@ -262,68 +258,7 @@ export const ResultsBody = memo(function ResultsBody({
       {/* V11: Collapse behaviour driven by decisionState, not robustness level */}
       <SectionErrorBoundary section="Your next steps">
       {(() => {
-        // V12.5: Badge count mirrors ConfidenceSection's rendered item count
-        // Uses groupActionItems for dedup parity — badge can never diverge from content.
-        const hingeNodeId = vm.hinge?.nodeId
-        const hingeExcludeIds = hingeNodeId ? [hingeNodeId] : undefined
-
-        // Replicate ConfidenceSection's fragile-edge preparation (top 3 by severity)
-        const sevOrder: Record<string, number> = { blocker: 4, critical: 3, error: 2, warning: 1 }
-        const fragileEdgesTop3 = resultsSectionData.confidence.uncertainties
-          .filter(u => u.code === 'SENSITIVE_ASSUMPTION')
-          .sort((a, b) => (sevOrder[b.severity || 'warning'] || 0) - (sevOrder[a.severity || 'warning'] || 0))
-          .slice(0, 3)
-
-        // Visible fragile edges after hinge exclusion
-        const visibleFragileCount = hingeNodeId
-          ? fragileEdgesTop3.filter(u => u.affectedNodes?.[0] !== hingeNodeId).length
-          : fragileEdgesTop3.length
-
-        // Hinge-filter nextActions (same as ConfidenceSection)
-        const filteredNextActions = hingeNodeId
-          ? (resultsSectionData.confidence.nextActions ?? []).filter(a => a.targetId !== hingeNodeId)
-          : (resultsSectionData.confidence.nextActions ?? [])
-
-        // Run groupActionItems for deduped evidence gaps + next-action items
-        const actionGroups = groupActionItems({
-          fragileEdges: fragileEdgesTop3,
-          evidenceGaps: resultsSectionData.confidence.evidenceGaps ?? [],
-          constraintAnalysis: resultsSectionData.recommendation.recommendedOption?.constraintAnalysis,
-          excludeFactorIds: hingeExcludeIds,
-          nextActions: filteredNextActions.length > 0 ? filteredNextActions : undefined,
-        })
-
-        // Next-action items from Group 1 (rendered separately from fragile edges)
-        // V14.2: Only count items with specific targets — exclude generic preamble cards
-        const nextActionCount = actionGroups[0].items.filter(i => i.id.startsWith('next-') && i.targetId).length
-
-        // worthRefining: non-SENSITIVE_ASSUMPTION uncertainties, minus internal leaks
-        // Must match ConfidenceSection's INTERNAL_PATTERN + humanised-override exemption
-        const BADGE_INTERNAL_PATTERN = /constraint_|observed_state|intercept=|node_id=|edge_id=|fac_[a-z_]+|opt_[a-z_]+|goal_[a-z_]+|blocks_analysis/i
-        // Build humanised lookup keys (same logic as ConfidenceSection)
-        const humanisedKeys = new Set<string>()
-        const plotCritiques = resultsSectionData.confidence.uncertainties.filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
-        const humanisedCritiques = resultsSectionData.confidence.humanisedCritiques
-        if (humanisedCritiques) {
-          plotCritiques.forEach((item, idx) => {
-            if (humanisedCritiques[idx]) {
-              humanisedKeys.add(`${item.code}::${item.affectedNodes?.[0] ?? ''}`)
-            }
-          })
-        }
-        const worthRefiningCount = resultsSectionData.confidence.uncertainties.filter(u => {
-          if (u.code === 'SENSITIVE_ASSUMPTION') return false
-          if (!BADGE_INTERNAL_PATTERN.test(u.message)) return true
-          const key = `${u.code}::${u.affectedNodes?.[0] ?? ''}`
-          return humanisedKeys.has(key)
-        }).length
-
-        // V16.2: VOI block visible for all decision states when hinge exists
-        const voiBlockVisible = vm.decisionState != null && vm.hinge != null
-
-        // Total badge = rendered items across all groups + VOI
-        let badgeCount = visibleFragileCount + nextActionCount + actionGroups[1].items.length + worthRefiningCount
-        if (voiBlockVisible) badgeCount += 1
+        // "Your next steps" suppressed — triage panel (DecisionConfidencePanel) absorbs this function
 
         // V12 B5: ChallengeSection only visible when review_status === 'complete'
         const reviewComplete = resultsSectionData.confidence.reviewStatus === 'complete'
@@ -342,67 +277,7 @@ export const ResultsBody = memo(function ResultsBody({
 
         return (
           <>
-            <div>
-              <Accordion
-                title="Your next steps"
-                defaultExpanded={
-                  vm.decisionState === 'sensitive' || vm.decisionState === 'indeterminate'
-                  || (vm.decisionState === 'robust' && badgeCount > 0)
-                }
-                testId="accordion-next-steps"
-                badgeCount={hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount}
-                badgeState={
-                  vm.decisionState === 'indeterminate'
-                    ? 'critical'
-                    : (hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount) > 0
-                      ? 'unresolved'
-                      : 'resolved'
-                }
-              >
-                {/* Guidance items from orchestrator — replaces NextActionItem list when present */}
-                {hasGuidanceItems ? (
-                  <div className="flex flex-col gap-2 mb-3" data-testid="guidance-action-items">
-                    {guidanceItems!.map((item) => (
-                      <GuidanceActionItemRow
-                        key={item.item_id}
-                        item={item}
-                        onActivate={onActivateGuidanceItem ?? (() => {})}
-                      />
-                    ))}
-                  </div>
-                ) : null}
-                <ProgressBar resolved={0} total={hasGuidanceItems ? (guidanceItems?.length ?? 0) : badgeCount} />
-                <ConfidenceSection
-                  data={hasGuidanceItems
-                    ? { ...resultsSectionData.confidence, nextActions: undefined, topNextActions: undefined }
-                    : resultsSectionData.confidence}
-                  onFocusNode={onFocusNode}
-                  topDriverLabel={resultsSectionData.drivers.topDrivers[0]?.factorLabel}
-                  topDriverId={resultsSectionData.drivers.topDrivers[0]?.factorKey}
-                  visibleDriverCount={resultsSectionData.drivers.totalCount}
-                  winnerConstraintAnalysis={resultsSectionData.recommendation.recommendedOption?.constraintAnalysis}
-                  hinge={vm.hinge}
-                  decisionState={vm.decisionState}
-                  topAction={vm.topAction}
-                  excludeFactorIds={hingeExcludeIds}
-                  coachingReadiness={resultsSectionData.recommendation.coachingReadiness}
-                  hasWinnerAbove50={resultsSectionData.recommendation.allOptions.some(o => (o.winProbability ?? 0) > 0.5)}
-                  flipThresholds={resultsSectionData.recommendation.flipThresholds}
-                />
-              </Accordion>
-              {/* V11: Robust compact VOI affordance — below collapsed accordion */}
-              {/* V16.2: Only show when there are genuinely zero action items */}
-              {vm.decisionState === 'robust' && vm.hinge && badgeCount === 0 && (
-                <p
-                  className={`${typography.panelMeta} text-text-light mt-1.5 px-3`}
-                  data-testid="robust-voi-compact"
-                >
-                  If you want extra confidence: validate {vm.hinge.label}
-                </p>
-              )}
-            </div>
-
-            {/* ── SECTION 4b: BEFORE YOU COMMIT (M2) ──────────────── */}
+            {/* ── SECTION 4b: STRESS-TEST YOUR DECISION (M2) ────── */}
             {(() => {
               // Merged fragile cards: capped at 3 (matches ChallengeSection logic)
               const mergedFragileCount = Math.min(3, (resultsSectionData.confidence.challengeFragileEdges ?? []).length)

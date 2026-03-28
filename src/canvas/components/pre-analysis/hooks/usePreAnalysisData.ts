@@ -368,6 +368,17 @@ function isControllableFactor(node: Node): boolean {
 }
 
 /**
+ * Check if an edge is structural (decision→option or option→factor).
+ * These are organisational links, not causal relationships — users cannot meaningfully edit them.
+ * Accepts a pre-built nodeMap to avoid repeated Map construction in loops.
+ */
+function isStructuralEdge(edge: Edge, nodeMap: Map<string, Node>): boolean {
+  const sKind = (nodeMap.get(edge.source)?.data as Record<string, unknown>)?.kind as string | undefined
+  const tKind = (nodeMap.get(edge.target)?.data as Record<string, unknown>)?.kind as string | undefined
+  return (sKind === 'decision' && tKind === 'option') || (sKind === 'option' && tKind === 'factor')
+}
+
+/**
  * CEE option type for intervention lookup
  */
 interface CEEOptionWithInterventions {
@@ -652,6 +663,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       strengthen: [],
     }
 
+    // Node map for structural edge detection (built once, used in add_evidence + verify loops)
+    const nodeMap = new Map(nodes.map(n => [n.id, n]))
+
     // === FIX CATEGORY ===
     const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
     const hasBaseline = optionNodes.some(n => {
@@ -787,7 +801,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     const lowConfidenceEdges = ceeAnalysisReady?.low_confidence_edges ?? []
     for (const edgeItem of lowConfidenceEdges.slice(0, 3)) {
       const edge = edges.find(e => e.id === edgeItem.edge_id)
-      if (edge) {
+      if (edge && !isStructuralEdge(edge, nodeMap)) {
         const sourceNode = nodes.find(n => n.id === edge.source)
         const targetNode = nodes.find(n => n.id === edge.target)
         const sourceLabel = sourceNode ? cleanFactorLabel(getNodeLabel(sourceNode)).label : edge.source
@@ -886,7 +900,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     // === ADD EVIDENCE CATEGORY ===
     // Edges with no evidence metadata
     for (const edge of edges) {
-      if (!hasEvidence(edge)) {
+      if (!hasEvidence(edge) && !isStructuralEdge(edge, nodeMap)) {
         const sourceNode = nodes.find(n => n.id === edge.source)
         const targetNode = nodes.find(n => n.id === edge.target)
         // Apply cleanFactorLabel to strip encoding notation from factor labels

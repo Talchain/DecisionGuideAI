@@ -706,9 +706,13 @@ export function PreAnalysisPanel({
   // === TRIAGE CONTENT ===
 
   // Map improvement items to TriageCard props
-  const triageCards = data.triageActions.map(item =>
-    mapImprovementToTriageCard(item, factorInfluenceMap?.get(item.focus?.id ?? '')),
-  )
+  // Use factorInfluenceMap for node items, edgeInfluenceMap for edge items
+  const triageCards = data.triageActions.map(item => {
+    const influence = item.focus?.type === 'edge'
+      ? edgeInfluenceMap?.get(item.focus.id)
+      : factorInfluenceMap?.get(item.focus?.id ?? '')
+    return mapImprovementToTriageCard(item, influence)
+  })
   const triageTop3 = triageCards.slice(0, 3)
   const triageQuickFix = triageCards.slice(3, 6)
 
