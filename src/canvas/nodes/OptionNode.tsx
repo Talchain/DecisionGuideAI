@@ -248,19 +248,12 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* T8: Readable intervention chips with delta for non-baseline options (Model view only) */}
         {viewMode === 'model' && interventionChips.length > 0 && (() => {
-          // Baseline option: all interventions ARE the baseline, show message directly
-          if (isBaselineOption) {
-            return (
-              <div className={`${typography.nodeLabel} mt-1 text-text-light`}>
-                No changes from current state
-              </div>
-            )
-          }
-
           // Determine which chips represent no change (baseline = intervention).
-          // A chip is "no change" when its value matches the baseline value within tolerance.
+          // For baseline options, compare against observed factor values directly.
           const chipsWithMeta = interventionChips.map(chip => {
-            const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
+            const baselineNorm = isBaselineOption
+              ? chip.observedValue  // baseline compares against observed state
+              : (baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue)
             const isNoChange = baselineNorm !== undefined &&
               Math.abs(chip.value - baselineNorm) < 1e-6
             return { chip, isNoChange }
@@ -333,7 +326,7 @@ export const OptionNode = memo((props: NodeProps) => {
                     key={idx}
                     className="inline-flex items-baseline gap-1 flex-wrap text-text-body"
                   >
-                    <span className="text-text-light shrink-0" title={chip.label}>
+                    <span className="text-text-light" title={chip.label}>
                       {chip.label.length > 25 ? `${chip.label.slice(0, 22)}...` : chip.label}:
                     </span>
                     <span className="font-semibold shrink-0">
