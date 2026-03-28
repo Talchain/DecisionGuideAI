@@ -42,11 +42,14 @@ export function mapImprovementToTriageCard(
       }
     : undefined
 
+  // Source pill: AI estimate, From brief, or No data (for fix items without a source badge)
   const sourcePill = item.sourceBadge === 'ai'
     ? { label: 'AI estimate', borderClass: 'border-info/30' }
     : item.sourceBadge === 'brief'
       ? { label: 'From brief', borderClass: 'border-success/30' }
-      : null
+      : (item.category === 'fix' || item.detail === 'No observed data' || item.detail === 'No evidence')
+        ? { label: 'No data', borderClass: 'border-danger/30' }
+        : null
 
   return {
     key: item.key,

@@ -32,7 +32,7 @@ import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Info } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X } from 'lucide-react'
 import { TriageCard } from '@/components/shared/TriageCard'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
 import { STRUCTURAL_CHECK_IDS } from './DecisionQualityChecks'
@@ -43,14 +43,28 @@ import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
-/** Binary pass/fail row for triage check rows */
-function TriageCheckRow({ label, pass }: { label: string; pass: boolean }) {
+/** Binary pass/fail row for triage check rows — failed rows show optional action link */
+function TriageCheckRow({ label, pass, actionLabel, onAction }: {
+  label: string
+  pass: boolean
+  actionLabel?: string
+  onAction?: () => void
+}) {
   return (
     <div className="flex items-center gap-2">
       {pass
         ? <Check className="w-3.5 h-3.5 text-success flex-shrink-0" aria-hidden="true" />
         : <X className="w-3.5 h-3.5 text-danger flex-shrink-0" aria-hidden="true" />}
-      <span className={`${typography.panelBody} ${pass ? 'text-text-body' : 'text-text-light'}`}>{label}</span>
+      <span className={`${typography.panelBody} ${pass ? 'text-text-body' : 'text-text-light'} flex-1`}>{label}</span>
+      {!pass && actionLabel && onAction && (
+        <button
+          type="button"
+          onClick={onAction}
+          className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+        >
+          {actionLabel}
+        </button>
+      )}
     </div>
   )
 }
@@ -760,32 +774,44 @@ export function PreAnalysisPanel({
             isLoading={data.isLoading}
             hasGoalNode={data.nodesByKind.goal.length > 0}
           >
-            {/* Check rows — binary pass/fail */}
+            {/* LAYER 2: Check rows — binary pass/fail with action links */}
             {!data.isLoading && (
-              <div className="space-y-1 px-3" data-testid="triage-check-rows">
-                <TriageCheckRow
-                  label="Goal target set"
-                  pass={data.successThreshold != null}
-                />
-                <TriageCheckRow
-                  label="Status quo identified"
-                  pass={!data.qualityChecks.some(c => c.id === 'no_baseline')}
-                />
-                <TriageCheckRow
-                  label="2+ distinct options"
-                  pass={data.optionPreviews.length >= 2}
-                />
-              </div>
+              <>
+                <div className="h-px bg-panel-border mx-3" />
+                <div className="space-y-1 px-3" data-testid="triage-check-rows">
+                  <TriageCheckRow
+                    label="Goal target set"
+                    pass={data.successThreshold != null}
+                    actionLabel="Set target"
+                    onAction={() => handleFocusNode(data.goalNode?.id ?? '')}
+                  />
+                  <TriageCheckRow
+                    label="Status quo identified"
+                    pass={!data.qualityChecks.some(c => c.id === 'no_baseline')}
+                    actionLabel="Add baseline"
+                    onAction={() => onSendMessage?.('Add a status quo option to compare against')}
+                  />
+                  <TriageCheckRow
+                    label="2+ distinct options"
+                    pass={data.optionPreviews.length >= 2}
+                    actionLabel="Add option"
+                    onAction={() => onSendMessage?.('Add another option to compare')}
+                  />
+                </div>
+              </>
             )}
 
-            {/* Narrative */}
+            {/* LAYER 3: Narrative */}
             {triageNarrative && (
-              <p className={`${typography.panelMeta} text-text-light px-3`} data-testid="triage-narrative">
-                {triageNarrative}
-              </p>
+              <>
+                <div className="h-px bg-panel-border mx-3" />
+                <p className={`${typography.panelMeta} text-text-light px-3`} data-testid="triage-narrative">
+                  {triageNarrative}
+                </p>
+              </>
             )}
 
-            {/* Top 3 action cards */}
+            {/* LAYER 4: Top 3 action cards */}
             {triageTop3.length > 0 && (
               <div className="space-y-2 px-1" data-testid="triage-top-actions">
                 {triageTop3.map((card, i) => (
@@ -809,65 +835,83 @@ export function PreAnalysisPanel({
               </div>
             )}
 
-            {/* Quick-fix rows (items 4-6) */}
+            {/* LAYER 5: Quick-fix rows (items 4-6) */}
             {triageQuickFix.length > 0 && (
-              <div className="space-y-1 px-1" data-testid="triage-quick-fix">
-                <p className={`${typography.panelMeta} text-text-light px-2`}>Also consider</p>
-                {triageQuickFix.map((card, i) => (
-                  <TriageCard
-                    key={card.key}
-                    cardKey={card.key}
-                    ordinal={i + 4}
-                    title={card.title}
-                    detail={card.detail}
-                    category={card.category}
-                    influence={card.influence}
-                    variant="compact"
-                    action={card.action}
-                    onHoverEnter={handleHoverElement}
-                    onHoverLeave={handleHoverClear}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="h-px bg-panel-border mx-3" />
+                <div className="space-y-1 px-1" data-testid="triage-quick-fix">
+                  <p className={`${typography.panelMeta} text-text-light font-semibold px-2`}>Also consider</p>
+                  {triageQuickFix.map((card, i) => (
+                    <TriageCard
+                      key={card.key}
+                      cardKey={card.key}
+                      ordinal={i + 4}
+                      title={card.title}
+                      detail={card.detail}
+                      category={card.category}
+                      influence={card.influence}
+                      variant="compact"
+                      action={card.action}
+                      onHoverEnter={handleHoverElement}
+                      onHoverLeave={handleHoverClear}
+                    />
+                  ))}
+                </div>
+              </>
             )}
 
-            {/* Science nudges (max 2) */}
+            {/* LAYER 6: Science nudges (max 2) */}
             {scienceNudges.length > 0 && (
-              <div className="space-y-1.5 px-3" data-testid="triage-nudges">
-                {scienceNudges.map(nudge => (
-                  <div
-                    key={nudge.id}
-                    className="flex items-start gap-2 px-3 py-2 bg-panel border border-info/30 rounded-md"
-                  >
-                    <Info className="w-3.5 h-3.5 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
-                    <div className="flex-1 min-w-0">
-                      <p className={`${typography.panelBody} text-text-body`}>{nudge.message}</p>
+              <>
+                <div className="h-px bg-panel-border mx-3" />
+                <div className="space-y-1.5 px-3" data-testid="triage-nudges">
+                  {scienceNudges.map(nudge => (
+                    <div
+                      key={nudge.id}
+                      className="flex items-start gap-2 px-3 py-2 border border-panel-border rounded-lg hover:bg-panel-hover"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+                      <span className={`${typography.panelBody} text-text-body flex-1`}>{nudge.message}</span>
+                      <button
+                        type="button"
+                        onClick={() => onSendMessage?.(`Tell me more about: ${nudge.message}`)}
+                        className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer shrink-0`}
+                      >
+                        Explore
+                      </button>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
+              </>
             )}
 
-            {/* Footer flags — structural quality checks as pills */}
-            {structuralFlags.length > 0 && (
-              <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2 border-t border-panel-border" data-testid="triage-footer-flags">
-                {structuralFlags.map(flag => (
-                  <span
-                    key={flag.id}
-                    className={`${typography.panelMeta} border border-warning/30 rounded-full px-2 py-0.5 bg-transparent text-text-body`}
-                  >
-                    {flag.label}
-                  </span>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => onSendMessage?.('What else should I consider in my model?')}
-                  className={`${typography.panelMeta} text-info hover:bg-panel-hover rounded px-1.5 py-0.5 cursor-pointer`}
-                >
-                  Something missing?
-                </button>
-              </div>
-            )}
+            {/* LAYER 7: Footer checks — verified count + structural flags + missing link */}
+            <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2 border-t border-panel-border" data-testid="triage-footer-flags">
+              <span className={`${typography.panelMeta} text-text-light`}>
+                {data.addressedActionableCount}/{data.actionableCount} verified
+              </span>
+              {structuralFlags.length > 0 && (
+                <>
+                  <span className="text-panel-border">·</span>
+                  {structuralFlags.map(flag => (
+                    <span
+                      key={flag.id}
+                      className={`inline-flex items-center gap-1 ${typography.panelMeta} text-danger`}
+                    >
+                      <X className="w-2.5 h-2.5" aria-hidden="true" />
+                      {flag.label}
+                    </span>
+                  ))}
+                </>
+              )}
+              <button
+                type="button"
+                onClick={() => onSendMessage?.('What else should I consider in my model?')}
+                className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
+              >
+                Something missing?
+              </button>
+            </div>
           </ModelHealthCard>
         </SectionErrorBoundary>
 

@@ -143,7 +143,7 @@ export function TriageCard(props: TriageCardProps) {
   return (
     <div
       key={cardKey}
-      className="relative flex flex-col gap-2 p-3 rounded-lg border border-panel-border hover:bg-panel-hover"
+      className={`relative flex flex-col gap-2 p-3 rounded-lg border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
       onMouseEnter={() => {
         if (action?.targetId && onHoverEnter) {
           onHoverEnter(action.targetType ?? 'node', action.targetId)
