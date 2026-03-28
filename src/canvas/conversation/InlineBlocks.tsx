@@ -52,6 +52,9 @@ import styles from './Conversation.module.css'
 
 const artefactNoop = () => { /* intentionally empty */ }
 
+/** Dedup guard: fire unknown-block telemetry once per block_type per session */
+const _trackedUnknownBlockTypes = new Set<string>()
+
 /**
  * DS v5 §21.2: resolve block type badge dot CSS class. Returns null for types with no dot.
  * Only the five block types explicitly listed in Brief A Task 6 get dots.
@@ -288,7 +291,10 @@ function BlockRenderer({
       if (import.meta.env.DEV) {
         console.warn('[InlineBlocks] Suppressed unknown block type:', rawType, block)
       }
-      trackEvent('unknown_block_type_suppressed', { block_type: rawType })
+      if (!_trackedUnknownBlockTypes.has(rawType)) {
+        _trackedUnknownBlockTypes.add(rawType)
+        trackEvent('unknown_block_type_suppressed', { block_type: rawType })
+      }
       return null
     }
   }
