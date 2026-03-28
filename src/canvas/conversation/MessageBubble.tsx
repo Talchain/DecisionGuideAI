@@ -40,6 +40,7 @@ interface MessageBubbleProps {
   onPatchDismiss?: (patchId: string) => void
   onFeedback?: (turnId: string, rating: 'up' | 'down') => void
   onArtefactMessage?: (message: string) => void
+  onProposalConfirm?: (proposalId: string) => void
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -53,6 +54,7 @@ export const MessageBubble = memo(function MessageBubble({
   onPatchDismiss,
   onFeedback,
   onArtefactMessage,
+  onProposalConfirm,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
 
@@ -142,6 +144,7 @@ export const MessageBubble = memo(function MessageBubble({
           onPatchAccept={onPatchAccept}
           onPatchDismiss={onPatchDismiss}
           onArtefactMessage={onArtefactMessage}
+          onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={message.content.trim().split(/\s+/).filter(Boolean).length}
         />
       )}

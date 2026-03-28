@@ -27,6 +27,7 @@ import type {
   RelatedElementRef,
 } from './types'
 import { isPreAnalysisEnrichedEnabled, isDeterministicCeeEnabled } from '../../flags'
+import { trackEvent } from '../../lib/posthog'
 import type {
   ComparisonBlock as ComparisonBlockType,
   PremortemBlock as PremortemBlockType,
@@ -121,6 +122,7 @@ interface InlineBlocksProps {
   onPatchAccept?: (patchId: string, block: GraphPatchBlockType) => void
   onPatchDismiss?: (patchId: string) => void
   onArtefactMessage?: (message: string) => void
+  onProposalConfirm?: (proposalId: string) => void
   /** Word count of the turn's assistant_text — used by commentary collapse default logic */
   assistantTextWordCount?: number
 }
@@ -133,6 +135,7 @@ export const InlineBlocks = memo(function InlineBlocks({
   onPatchAccept,
   onPatchDismiss,
   onArtefactMessage,
+  onProposalConfirm,
   assistantTextWordCount = 0,
 }: InlineBlocksProps) {
   const [showAll, setShowAll] = useState(false)
@@ -164,6 +167,7 @@ export const InlineBlocks = memo(function InlineBlocks({
               onPatchAccept={onPatchAccept}
               onPatchDismiss={onPatchDismiss}
               onArtefactMessage={onArtefactMessage}
+              onProposalConfirm={onProposalConfirm}
               assistantTextWordCount={assistantTextWordCount}
             />
           </div>
@@ -194,6 +198,7 @@ interface BlockRendererProps {
   onPatchAccept?: (patchId: string, block: GraphPatchBlockType) => void
   onPatchDismiss?: (patchId: string) => void
   onArtefactMessage?: (message: string) => void
+  onProposalConfirm?: (proposalId: string) => void
   assistantTextWordCount?: number
 }
 
@@ -205,6 +210,7 @@ function BlockRenderer({
   onPatchAccept,
   onPatchDismiss,
   onArtefactMessage,
+  onProposalConfirm,
   assistantTextWordCount = 0,
 }: BlockRendererProps) {
   switch (block.type) {
@@ -270,18 +276,19 @@ function BlockRenderer({
 
     case 'proposal':
       if (!isDeterministicCeeEnabled()) return null
-      return <ProposalBlockRenderer block={block as ProposalBlockType} />
+      return <ProposalBlockRenderer block={block as ProposalBlockType} onProposalConfirm={onProposalConfirm} />
 
     case 'exercise':
       if (!isDeterministicCeeEnabled()) return null
       return <ExerciseBlockRenderer block={block as ExerciseBlockType} />
 
     default: {
-      // Unknown block type — suppress from user view, log for dev diagnostics
+      // Unknown block type — suppress from user view, log for diagnostics
       const rawType = (block as { type: string }).type
       if (import.meta.env.DEV) {
         console.warn('[InlineBlocks] Suppressed unknown block type:', rawType, block)
       }
+      trackEvent('unknown_block_type_suppressed', { block_type: rawType })
       return null
     }
   }
@@ -1273,7 +1280,7 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
         <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.options.map((opt, i) => (
-        <div key={i} className={styles.comparisonItem}>
+        <div key={`${opt.label}-${i}`} className={styles.comparisonItem}>
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
             <span className={typography.panelHeader}>{opt.label}</span>
             {opt.probability != null && (
@@ -1284,12 +1291,12 @@ function ComparisonBlockRenderer({ block }: { block: ComparisonBlockType }) {
             )}
             {opt.strengths && opt.strengths.length > 0 && (
               <div className={typography.panelBody} style={{ color: 'var(--success)' }}>
-                {opt.strengths.map((s, j) => <div key={j}>+ {s}</div>)}
+                {opt.strengths.map((s) => <div key={s}>+ {s}</div>)}
               </div>
             )}
             {opt.weaknesses && opt.weaknesses.length > 0 && (
               <div className={typography.panelBody} style={{ color: 'var(--danger)' }}>
-                {opt.weaknesses.map((w, j) => <div key={j}>- {w}</div>)}
+                {opt.weaknesses.map((w) => <div key={w}>- {w}</div>)}
               </div>
             )}
             {opt.differentiators && opt.differentiators.length > 0 && (
@@ -1314,7 +1321,7 @@ function PremortemBlockRenderer({ block }: { block: PremortemBlockType }) {
         <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.risk_paths.map((rp, i) => (
-        <div key={i} className={styles.failureMode}>
+        <div key={`${rp.description}-${i}`} className={styles.failureMode}>
           <span className={typography.panelBody}>{rp.description}</span>
           <div style={{ display: 'flex', gap: 8, marginTop: 4 }}>
             {rp.likelihood && (
@@ -1344,7 +1351,7 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
         <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.narrative}</p>
       )}
       {block.flip_conditions.map((fc, i) => (
-        <div key={i} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
+        <div key={`${fc.factor_label}-${i}`} style={{ padding: '6px 0', borderBottom: i < block.flip_conditions.length - 1 ? '1px solid var(--border-default)' : 'none' }}>
           <span className={typography.panelBody} style={{ fontWeight: 600 }}>{fc.factor_label}</span>
           <div className={typography.panelMeta} style={{ color: 'var(--text-light)', marginTop: 2 }}>
             {fc.direction} past {fc.threshold}
@@ -1356,8 +1363,17 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
   )
 }
 
-function ProposalBlockRenderer({ block }: { block: ProposalBlockType }) {
-  const [state, setState] = useState<'pending' | 'accepted' | 'cancelled'>('pending')
+function ProposalBlockRenderer({ block, onProposalConfirm }: { block: ProposalBlockType; onProposalConfirm?: (proposalId: string) => void }) {
+  const [state, setState] = useState<'pending' | 'accepted' | 'cancelled'>(
+    // Auto-apply when confirmation is not required (false or absent)
+    block.confirmation_required === true ? 'pending' : 'accepted',
+  )
+  const needsButtons = block.confirmation_required === true && state === 'pending'
+
+  const handleApply = useCallback(() => {
+    setState('accepted')
+    onProposalConfirm?.(block.proposal_id)
+  }, [block.proposal_id, onProposalConfirm])
 
   return (
     <div className={styles.proposalBlock} data-testid="block-proposal">
@@ -1367,8 +1383,8 @@ function ProposalBlockRenderer({ block }: { block: ProposalBlockType }) {
       <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.description}</p>
       {block.changes.length > 0 && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {block.changes.map((c, i) => (
-            <div key={i} className={styles.graphPatchProposalItem}>
+          {block.changes.map((c) => (
+            <div key={`${c.element_label}-${c.change_description}`} className={styles.graphPatchProposalItem}>
               <span className={typography.panelBody}>{c.change_description}</span>
               {c.element_label && (
                 <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.element_label}</span>
@@ -1379,15 +1395,16 @@ function ProposalBlockRenderer({ block }: { block: ProposalBlockType }) {
       )}
       {block.consequences && block.consequences.length > 0 && (
         <div className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
-          {block.consequences.map((c, i) => <div key={i}>· {c}</div>)}
+          {block.consequences.map((c) => <div key={c}>· {c}</div>)}
         </div>
       )}
-      {state === 'pending' && (
+      {needsButtons && (
         <div className={styles.graphPatchActions}>
           <button
             type="button"
             className={styles.graphPatchAccept}
-            onClick={() => setState('accepted')}
+            onClick={handleApply}
+            aria-label="Apply proposed changes"
             data-testid="proposal-apply"
           >
             Apply
@@ -1396,6 +1413,7 @@ function ProposalBlockRenderer({ block }: { block: ProposalBlockType }) {
             type="button"
             className={styles.graphPatchDismiss}
             onClick={() => setState('cancelled')}
+            aria-label="Dismiss proposed changes"
             data-testid="proposal-cancel"
           >
             Cancel
@@ -1411,7 +1429,12 @@ function ProposalBlockRenderer({ block }: { block: ProposalBlockType }) {
   )
 }
 
+/** CSP meta tag injected into exercise srcDoc to restrict script/resource capabilities */
+const EXERCISE_CSP = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; img-src data:;">'
+
 function ExerciseBlockRenderer({ block }: { block: ExerciseBlockType }) {
+  const secureSrcDoc = block.content ? `${EXERCISE_CSP}${block.content}` : undefined
+
   return (
     <div className={styles.exerciseBlock} data-testid="block-exercise">
       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -1419,11 +1442,11 @@ function ExerciseBlockRenderer({ block }: { block: ExerciseBlockType }) {
         <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{block.exercise_type}</span>
       </div>
       <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.instructions}</p>
-      {block.content && (
-        <div style={{ marginTop: 4, maxHeight: 400, overflow: 'auto', borderRadius: 6, border: '1px solid var(--border-default, #EEE6D8)' }}>
+      {secureSrcDoc && (
+        <div style={{ marginTop: 4, maxHeight: 400, overflow: 'auto', borderRadius: 6, border: '1px solid var(--border-default)' }}>
           <iframe
-            srcDoc={block.content}
-            sandbox="allow-scripts"
+            srcDoc={secureSrcDoc}
+            sandbox=""
             title={block.title}
             style={{ width: '100%', height: 300, border: 'none' }}
             data-testid="exercise-content-iframe"

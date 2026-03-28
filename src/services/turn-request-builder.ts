@@ -68,11 +68,17 @@ type TurnBase = {
   _turn_type?: TurnType
 }
 
+export type ChipMetadata = {
+  action_type: string
+  parameters?: Record<string, unknown>
+}
+
 export type ConversationTurnRequest = TurnBase & {
   message: string
   graph_state: GraphStatePayload
   selected_elements?: SelectedElementsPayload
   analysis_state?: ExplainAnalysisStatePayload
+  chip_metadata?: ChipMetadata
 }
 
 export type ExplicitGenerateTurnRequest = TurnBase & {
@@ -123,7 +129,7 @@ export type TurnRequestPayload =
 // references results (explain, patch_followup). Omitted from conversation,
 // explicit_generate, and system_event to avoid CEE boundary warnings.
 const TURN_ALLOW_LIST: Record<TurnType, readonly string[]> = {
-  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', '_turn_type'],
+  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'chip_metadata', '_turn_type'],
   explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', '_turn_type'],
   run_analysis: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_inputs', '_turn_type'],
   system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', '_turn_type'],
@@ -192,6 +198,7 @@ export function buildConversationTurnRequest(input: {
   message: string
   graph_state: GraphStatePayload
   selected_elements?: SelectedElementsPayload
+  chip_metadata?: ChipMetadata
   client_turn_id?: string
 }): ConversationTurnRequest {
   return withTurnType({
@@ -201,6 +208,7 @@ export function buildConversationTurnRequest(input: {
     message: input.message,
     graph_state: input.graph_state,
     ...(input.selected_elements ? { selected_elements: input.selected_elements } : {}),
+    ...(input.chip_metadata ? { chip_metadata: input.chip_metadata } : {}),
   }, 'conversation')
 }
 

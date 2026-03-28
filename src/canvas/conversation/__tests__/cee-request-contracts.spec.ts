@@ -803,3 +803,49 @@ describe('Cross-turn invariants', () => {
     expect((explain as Record<string, unknown>).generate_model).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// T7 — Chip metadata transport (conversation turn with chip_metadata)
+// ---------------------------------------------------------------------------
+
+describe('T7 — Chip metadata transport', () => {
+  it('includes chip_metadata on conversation turn when provided', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: SCENARIO_ID,
+      conversation_history: CONVERSATION_HISTORY,
+      message: 'Set churn to 4%',
+      graph_state: POPULATED_GRAPH,
+      chip_metadata: { action_type: 'set_factor_value', parameters: { target_id: 'fac_churn', value: 0.04 } },
+    })
+    const wire = stripTurnType(req) as Record<string, unknown>
+    expect(wire.chip_metadata).toEqual({
+      action_type: 'set_factor_value',
+      parameters: { target_id: 'fac_churn', value: 0.04 },
+    })
+  })
+
+  it('omits chip_metadata when not provided (free-text message)', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: SCENARIO_ID,
+      conversation_history: CONVERSATION_HISTORY,
+      message: 'What about the churn rate?',
+      graph_state: POPULATED_GRAPH,
+    })
+    const wire = stripTurnType(req)
+    expect('chip_metadata' in wire).toBe(false)
+    const parsed = JSON.parse(JSON.stringify(wire))
+    expect(parsed.chip_metadata).toBeUndefined()
+  })
+
+  it('chip_metadata is in the conversation turn allowlist', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: SCENARIO_ID,
+      conversation_history: [],
+      message: 'Run analysis',
+      graph_state: EMPTY_GRAPH,
+      chip_metadata: { action_type: 'run_analysis' },
+    })
+    // Should not throw — validateTurnRequestBoundary would strip unknown fields
+    expect(req.chip_metadata).toEqual({ action_type: 'run_analysis' })
+  })
+})

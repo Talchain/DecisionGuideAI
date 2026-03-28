@@ -1127,6 +1127,7 @@ export function useConversation(): UseConversationReturn {
       clientTurnId?: string
       turnType: TurnType
       systemEventWire?: WireSystemEvent
+      chipMeta?: { action_type: string; parameters?: Record<string, unknown> }
     }): TurnRequestPayload => {
       const store = useCanvasStore.getState()
       const { nodeIds, edgeIds } = store.selection
@@ -1351,6 +1352,7 @@ export function useConversation(): UseConversationReturn {
             message: opts.text,
             graph_state: graphState,
             selected_elements: selectedElements,
+            chip_metadata: opts.chipMeta,
             // R11: analysis_state omitted — run_analysis fallback is a conversation turn
             client_turn_id: opts.clientTurnId,
           })
@@ -1403,6 +1405,7 @@ export function useConversation(): UseConversationReturn {
         message: opts.text,
         graph_state: graphState,
         selected_elements: selectedElements,
+        chip_metadata: opts.chipMeta,
         client_turn_id: opts.clientTurnId,
       })
     },
@@ -1926,7 +1929,7 @@ export function useConversation(): UseConversationReturn {
       rightPanelAccidentallySubmittedComposerContent?: boolean
       turnType?: Exclude<TurnType, 'system_event'>
       /** Deterministic chip metadata forwarded for CEE action routing */
-      chipMeta?: { action_type?: string; parameters?: Record<string, unknown> }
+      chipMeta?: { action_type: string; parameters?: Record<string, unknown> }
     }) => {
       const {
         message,
@@ -1942,6 +1945,7 @@ export function useConversation(): UseConversationReturn {
         initiatedBy,
         rightPanelAccidentallySubmittedComposerContent,
         turnType,
+        chipMeta,
       } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
@@ -2093,6 +2097,7 @@ export function useConversation(): UseConversationReturn {
           clientTurnId: turnClientId,
           turnType: resolvedTurnType,
           systemEventWire: systemEventWire ?? undefined,
+          chipMeta,
         })
         const payloadSummary = summariseRequestPayload(request, triggerSurface, hidden === true, systemEvent?.type)
         bindRequestToInteraction(turnClientId, {
@@ -2490,9 +2495,9 @@ export function useConversation(): UseConversationReturn {
           source: 'chip_click',
           turnType: inferChipTurnType(chip),
           // Forward deterministic chip metadata for CEE action routing
-          chipMeta: (chip.action_type || chip.parameters) ? {
+          chipMeta: chip.action_type ? {
             action_type: chip.action_type,
-            parameters: chip.parameters,
+            ...(chip.parameters ? { parameters: chip.parameters } : {}),
           } : undefined,
         })
       } else {

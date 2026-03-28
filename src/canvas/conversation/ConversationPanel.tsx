@@ -113,6 +113,17 @@ export const ConversationPanel = memo(function ConversationPanel({
     [sendMessage],
   )
 
+  // ── Proposal confirm handler ──────────────────────────────────────
+  const handleProposalConfirm = useCallback(
+    (proposalId: string) => {
+      void sendMessage(`confirm:${proposalId}`, {
+        debugSource: 'proposal_confirm',
+        debugVisibleText: 'Apply proposed changes',
+      })
+    },
+    [sendMessage],
+  )
+
   // ── Patch handlers (unchanged from previous version) ──────────────────
   const handlePatchAccept = useCallback(
     async (stateKey: string, block: GraphPatchBlock) => {
@@ -469,6 +480,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onFeedback={handleFeedback}
         onRetry={retryLast}
         onArtefactMessage={handleArtefactMessage}
+        onProposalConfirm={handleProposalConfirm}
       />
 
       <ChatComposer
