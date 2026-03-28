@@ -373,9 +373,16 @@ function isControllableFactor(node: Node): boolean {
  * Accepts a pre-built nodeMap to avoid repeated Map construction in loops.
  */
 function isStructuralEdge(edge: Edge, nodeMap: Map<string, Node>): boolean {
+  // Primary: node kind pattern (decision→option or option→factor)
   const sKind = (nodeMap.get(edge.source)?.data as Record<string, unknown>)?.kind as string | undefined
   const tKind = (nodeMap.get(edge.target)?.data as Record<string, unknown>)?.kind as string | undefined
-  return (sKind === 'decision' && tKind === 'option') || (sKind === 'option' && tKind === 'factor')
+  if ((sKind === 'decision' && tKind === 'option') || (sKind === 'option' && tKind === 'factor')) return true
+  // Secondary: fixed-strength signature (mean≈1.0, std≤0.01) — belt-and-suspenders for edges with missing kind
+  const d = edge.data as Record<string, unknown> | undefined
+  const mean = d?.weight as number | undefined ?? d?.strength_mean as number | undefined
+  const std = d?.strengthStd as number | undefined ?? d?.strength_std as number | undefined
+  if (mean != null && std != null && Math.abs(mean - 1.0) < 0.001 && std <= 0.01) return true
+  return false
 }
 
 /**

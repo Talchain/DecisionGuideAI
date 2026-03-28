@@ -251,7 +251,7 @@ export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBasel
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
+        className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
       >
         <div className="flex items-center gap-2">
           <span className={`${typography.panelHeader} text-text-body`}>Sharpen your thinking</span>
@@ -372,7 +372,7 @@ function AssumptionsLedgerRow({ assumptions }: { assumptions: AssumptionLedgerIt
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 py-1 cursor-pointer hover:bg-black/[0.02] rounded"
+        className="w-full flex items-center gap-2 py-1 cursor-pointer hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded"
       >
         <Pill size="small" variant="default">Verify</Pill>
         <span className={`${typography.panelBody} text-text-body flex-1 text-left`}>

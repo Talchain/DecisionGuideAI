@@ -15,7 +15,7 @@
  */
 
 import { useMemo, memo } from 'react'
-import { AlertTriangle, Lightbulb } from 'lucide-react'
+import { AlertTriangle, Check, Lightbulb, X } from 'lucide-react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { TriageDimension } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
@@ -289,23 +289,22 @@ function FooterChecks({ data }: { data: ResultsSectionDataReturn }) {
   const hasEvidence = (rec.coachingReadinessDimensions?.evidence ?? 0) >= 0.5
 
   return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 rounded border border-panel-border">
-      <StatusDot passed={hasWinner} label={hasWinner ? 'Winner identified' : 'No clear winner'} />
-      <StatusDot passed={isRobust} label={isRobust ? 'Robust result' : 'Sensitive to inputs'} />
-      <StatusDot passed={hasEvidence} label={hasEvidence ? 'Evidence adequate' : 'Evidence gaps remain'} />
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
+      <FooterFlag passed={hasWinner} passLabel="Winner" failLabel="No clear winner" />
+      <FooterFlag passed={isRobust} passLabel="Robust" failLabel="Sensitive to inputs" />
+      <FooterFlag passed={hasEvidence} passLabel="Evidence" failLabel="Evidence gaps" />
     </div>
   )
 }
 
-function StatusDot({ passed, label }: { passed: boolean; label: string }) {
+function FooterFlag({ passed, passLabel, failLabel }: { passed: boolean; passLabel: string; failLabel: string }) {
   return (
-    <div className="flex items-center gap-1.5">
-      <span
-        className="w-2 h-2 rounded-full flex-shrink-0"
-        style={{ backgroundColor: passed ? 'var(--success)' : 'var(--danger)' }}
-      />
-      <span className={`${typography.panelMeta} text-text-light`}>{label}</span>
-    </div>
+    <span className={`inline-flex items-center gap-1 ${typography.panelMeta} ${passed ? 'text-success' : 'text-danger'}`}>
+      {passed
+        ? <Check className="w-2.5 h-2.5" aria-hidden="true" />
+        : <X className="w-2.5 h-2.5" aria-hidden="true" />}
+      {passed ? passLabel : failLabel}
+    </span>
   )
 }
 

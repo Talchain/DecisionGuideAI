@@ -60,7 +60,7 @@ function TriageCheckRow({ label, pass, actionLabel, onAction }: {
         <button
           type="button"
           onClick={onAction}
-          className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+          className={`${typography.panelMeta} text-info hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
         >
           {actionLabel}
         </button>
@@ -786,7 +786,7 @@ export function PreAnalysisPanel({
                     onAction={() => handleFocusNode(data.goalNode?.id ?? '')}
                   />
                   <TriageCheckRow
-                    label="Status quo identified"
+                    label={data.qualityChecks.some(c => c.id === 'no_baseline') ? 'No baseline set' : 'Status quo identified'}
                     pass={!data.qualityChecks.some(c => c.id === 'no_baseline')}
                     actionLabel="Add baseline"
                     onAction={() => onSendMessage?.('Add a status quo option to compare against')}
