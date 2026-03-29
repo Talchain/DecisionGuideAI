@@ -650,19 +650,23 @@ function DriverRow({
                 Moderate
               </span>
             )}
-            {onSendMessage && (
-              <button
-                type="button"
-                onClick={() => onSendMessage(
-                  isHighImpactLowEvidence
-                    ? `How can I improve the evidence for "${driver.factorLabel}"? It has high impact but low confidence.`
-                    : `Tell me more about how "${driver.factorLabel}" affects the outcome.`
-                )}
-                className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
-              >
-                {isHighImpactLowEvidence ? 'Improve' : 'Edit'}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                if (onSendMessage) {
+                  onSendMessage(
+                    isHighImpactLowEvidence
+                      ? `How can I improve the evidence for "${driver.factorLabel}"? It has high impact but low confidence.`
+                      : `Tell me more about how "${driver.factorLabel}" affects the outcome.`,
+                  )
+                } else if (onFocus && driver.matchedNodeId) {
+                  onFocus(driver.matchedNodeId)
+                }
+              }}
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
+            >
+              {isHighImpactLowEvidence ? 'Improve' : 'Edit'}
+            </button>
           </div>
         )
       })()}
