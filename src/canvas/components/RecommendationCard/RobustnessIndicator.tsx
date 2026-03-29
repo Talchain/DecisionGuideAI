@@ -4,7 +4,7 @@
  * Task 3.1: Displays how stable the recommendation is across scenarios.
  * - "High robustness" — top option stable
  * - "Sensitive" — close race or sensitive to assumptions
- * - "Fragile" — ranking changes under perturbation
+ * - "Sensitive" — ranking changes under perturbation
  */
 
 import { Shield, ShieldCheck, ShieldAlert, Info } from 'lucide-react'

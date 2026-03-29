@@ -118,7 +118,7 @@ const robustnessConfig: Record<RobustnessLabel, {
     textColor: 'text-carrot-700',
     iconColor: 'text-carrot-600',
     borderColor: 'border-carrot-200',
-    label: 'Fragile',
+    label: 'Sensitive',
     description: 'Recommendation is sensitive to small changes in key parameters',
     meterFill: 1,
   },

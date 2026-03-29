@@ -384,7 +384,7 @@ export const TopBar = ({
                 <ShieldAlert size={12} aria-hidden="true" />
               )}
               <span className={styles.metadataLabel}>
-                {analysisMetadata.stability === 'stable' ? 'Stable' : 'Fragile'}
+                {analysisMetadata.stability === 'stable' ? 'Stable' : 'Sensitive'}
               </span>
             </div>
           </Tooltip>

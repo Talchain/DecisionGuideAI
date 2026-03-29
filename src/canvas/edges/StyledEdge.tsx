@@ -125,10 +125,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       const toId = (fe.to_id ?? fe.toId ?? fe.target) as string | undefined
       if (feEdgeId === id || (fromId === source && toId === target)) {
         const altLabel = (fe.alternative_winner_label ?? fe.alternativeWinnerLabel) as string | undefined
-        return altLabel ? `If wrong → ${altLabel}` : 'Fragile'
+        return altLabel ? `If wrong → ${altLabel}` : 'Sensitive'
       }
     }
-    return 'Fragile'
+    return 'Sensitive'
   }, [isLensFragile, report, id, source, target])
 
   // Check if this edge is fragile (switch_probability > 0.3)
@@ -648,7 +648,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           >
             <AlertTriangle size={12} />
             <span style={{ fontSize: '10px', fontWeight: 600 }}>
-              Fragile{fragileEdgeSwitchProb !== null ? ` · ${Math.round(fragileEdgeSwitchProb * 100)}%` : ''}
+              Sensitive{fragileEdgeSwitchProb !== null ? ` · ${Math.round(fragileEdgeSwitchProb * 100)}%` : ''}
             </span>
           </div>
         </EdgeLabelRenderer>
@@ -840,7 +840,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               {isFragileEdge && (
                 <div className={`${typography.panelMeta} text-warning flex items-center gap-1`}>
                   <AlertTriangle size={10} />
-                  Fragile{fragileEdgeSwitchProb !== null ? ` — ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ' — sensitive to change'}
+                  Sensitive{fragileEdgeSwitchProb !== null ? ` — ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ' — sensitive to change'}
                 </div>
               )}
             </div>

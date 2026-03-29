@@ -14,8 +14,8 @@ export const ROBUSTNESS_LEVEL_LABELS = {
   high: 'Robust',
   medium: 'Moderate',
   moderate: 'Moderate',
-  low: 'Fragile',
-  very_low: 'Very Fragile',
+  low: 'Sensitive',
+  very_low: 'Highly sensitive',
 } as const
 
 /** Robustness level colors for badges */

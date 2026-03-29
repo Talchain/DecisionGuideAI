@@ -27,8 +27,9 @@ function confidencePill(label: string | null): { text: string; className: string
       return { text: 'Robust', className: 'text-success border border-success/30 bg-transparent px-1.5 py-0.5 rounded-full' }
     case 'Moderate':
       return { text: 'Moderate', className: 'text-warning border border-warning/30 bg-transparent px-1.5 py-0.5 rounded-full' }
-    case 'Fragile':
-      return { text: 'Fragile', className: 'text-danger border border-danger/30 bg-transparent px-1.5 py-0.5 rounded-full' }
+    case 'Low':
+    case 'Sensitive':
+      return { text: label, className: 'text-danger border border-danger/30 bg-transparent px-1.5 py-0.5 rounded-full' }
     default:
       return { text: label, className: 'text-text-light' }
   }
