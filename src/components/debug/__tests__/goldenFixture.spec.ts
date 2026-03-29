@@ -38,6 +38,14 @@ function makeDebugDataFromFixture(): DebugData {
       cee_degraded: false,
       llm_raw_available: false,
       llm_raw_path_found: null,
+      e_values_present: false,
+      evpi_present: false,
+      confidence_differentiated: false,
+      confidence_source_bootstrap: false,
+      intercept_populated: false,
+      epsilon_std_present: false,
+      response_hash_present: false,
+      mca_computed: false,
     },
     ceeTrace: null,
     corrections: [],
@@ -333,6 +341,128 @@ describe('debug bundle observability diagnostics', () => {
     expect(bundle.isl_diagnostic.isl_raw_fields.stability_thresholds).toEqual({ low: 0.2, medium: 0.5, high: 0.8 })
     expect(bundle.isl_diagnostic.isl_raw_fields.factor_sensitivity_3c_fields).toHaveLength(1)
     expect(bundle.isl_diagnostic.isl_raw_fields.confounding_sensitivity).toEqual({ score: 0.1 })
+  })
+
+  it('captures new ISL raw fields (edge_e_values, factor_evpi, inference_warnings, _full)', () => {
+    const data = makeDebugDataFromFixture()
+    data.payloads.isl_response = {
+      stability_thresholds: { low: 0.2 },
+      factor_sensitivity_3c_fields: [],
+      confounding_sensitivity: null,
+      edge_e_values: [{ edge_id: 'e1', e_value: 1.5 }],
+      factor_evpi: [{ factor_id: 'f1', evpi: 0.03 }],
+      conditional_winners: [],
+      inference_warnings: [{ code: 'WARN_LOW_SAMPLE' }],
+      auto_noise_applied: true,
+      stability_penalty_factor: 0.85,
+      defaulted_root_node_ids: ['node_1'],
+      options: [{ id: 'opt1', samples: [1, 2, 3], mean: 0.7 }],
+    }
+
+    const bundle = buildDebugBundle(data)
+    const raw = bundle.isl_diagnostic.isl_raw_fields
+
+    expect(raw.edge_e_values).toEqual([{ edge_id: 'e1', e_value: 1.5 }])
+    expect(raw.factor_evpi).toEqual([{ factor_id: 'f1', evpi: 0.03 }])
+    expect(raw.conditional_winners).toEqual([])
+    expect(raw.inference_warnings).toEqual([{ code: 'WARN_LOW_SAMPLE' }])
+    expect(raw.auto_noise_applied).toBe(true)
+    expect(raw.stability_penalty_factor).toBe(0.85)
+    expect(raw.defaulted_root_node_ids).toEqual(['node_1'])
+
+    // _full passthrough strips options[].samples
+    expect(raw._full).toBeDefined()
+    expect(raw._full!.stability_thresholds).toEqual({ low: 0.2 })
+    const fullOpts = raw._full!.options as Array<Record<string, unknown>>
+    expect(fullOpts[0].mean).toBe(0.7)
+    expect(fullOpts[0].samples).toBeUndefined()
+  })
+
+  it('returns null for new ISL fields when ISL response is null', () => {
+    const data = makeDebugDataFromFixture()
+    data.payloads.isl_response = null
+
+    const bundle = buildDebugBundle(data)
+    const raw = bundle.isl_diagnostic.isl_raw_fields
+
+    expect(raw.edge_e_values).toBeNull()
+    expect(raw.factor_evpi).toBeNull()
+    expect(raw._full).toBeNull()
+  })
+
+  it('extracts plot_enrichment from PLoT response', () => {
+    const data = makeDebugDataFromFixture()
+    data.payloads.plot_response = {
+      ...data.payloads.plot_response as Record<string, unknown>,
+      factor_sensitivity: [
+        { factor_id: 'f1', confidence: 0.42, confidence_source: 'bootstrap_sampling' },
+        { factor_id: 'f2', confidence: 0.71, confidence_source: 'graph' },
+      ],
+      conditional_probabilities: [{ pair: ['o1', 'o2'], value: 0.6 }],
+      m1_coaching: {
+        readiness: 'ready',
+        headline_type: 'clear_winner',
+        evidence_gaps: [],
+        story_headlines: ['Option A wins clearly'],
+      },
+      robustness: {
+        fragile_edges: [],
+        robust_edges: [],
+        edge_e_values: [{ edge_id: 'e1', e_value: 2.1, from_label: 'A', to_label: 'B' }],
+        near_tie: false,
+        flip_thresholds: [{ factor_id: 'f1', flip_value: 0.3 }],
+      },
+      decision_brief: {
+        headline: 'Choose Option A',
+        top_drivers: ['Factor 1'],
+        robustness: 'high',
+      },
+    }
+
+    const bundle = buildDebugBundle(data)
+    const pe = bundle.plot_enrichment!
+
+    expect(pe.factor_sensitivity).toHaveLength(2)
+    expect(pe.conditional_probabilities).toHaveLength(1)
+    expect(pe.m1_coaching).toEqual({
+      readiness: 'ready',
+      headline_type: 'clear_winner',
+      evidence_gaps: [],
+      story_headlines: ['Option A wins clearly'],
+    })
+    expect(pe.edge_e_values).toHaveLength(1)
+    expect(pe.near_tie).toBe(false)
+    expect(pe.flip_thresholds).toHaveLength(1)
+    expect(pe.decision_brief).toEqual({
+      headline: 'Choose Option A',
+      top_drivers: ['Factor 1'],
+      robustness: 'high',
+    })
+  })
+
+  it('returns null plot_enrichment when PLoT response is null', () => {
+    const data = makeDebugDataFromFixture()
+    data.payloads.plot_response = null
+
+    const bundle = buildDebugBundle(data)
+    expect(bundle.plot_enrichment).toBeNull()
+  })
+
+  it('diagnostic_checks passes through new pipeline checks from diagnostics', () => {
+    const data = makeDebugDataFromFixture()
+    data.diagnostics = {
+      ...data.diagnostics,
+      confidence_differentiated: true,
+      response_hash_present: true,
+      e_values_present: true,
+      confidence_source_bootstrap: true,
+    }
+
+    const bundle = buildDebugBundle(data)
+    expect(bundle.diagnostic_checks.confidence_differentiated).toBe(true)
+    expect(bundle.diagnostic_checks.response_hash_present).toBe(true)
+    expect(bundle.diagnostic_checks.e_values_present).toBe(true)
+    expect(bundle.diagnostic_checks.confidence_source_bootstrap).toBe(true)
   })
 
   it('keeps typical debug bundle payload under 500KB', () => {

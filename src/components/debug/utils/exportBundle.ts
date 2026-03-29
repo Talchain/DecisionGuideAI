@@ -87,18 +87,129 @@ function toWarningsList(value: unknown): string[] {
     .filter((v): v is string => typeof v === 'string')
 }
 
+/**
+ * Strip raw MC sample arrays from options to keep export size under control.
+ * Everything else passes through verbatim.
+ */
+function stripOptionSamples(options: unknown): unknown {
+  if (!Array.isArray(options)) return options
+  return options.map((opt) => {
+    if (!opt || typeof opt !== 'object') return opt
+    const { samples, ...rest } = opt as Record<string, unknown>
+    return rest
+  })
+}
+
 function extractIslRawFields(islResponse: unknown) {
   const isl = asRecord(islResponse)
-  const factorSensitivity = Array.isArray(isl?.factor_sensitivity_3c_fields)
+  if (!isl) {
+    return {
+      stability_thresholds: null,
+      factor_sensitivity_3c_fields: [],
+      confounding_sensitivity: null,
+      edge_e_values: null,
+      factor_evpi: null,
+      conditional_winners: null,
+      inference_warnings: null,
+      auto_noise_applied: null,
+      stability_penalty_factor: null,
+      defaulted_root_node_ids: null,
+      _full: null,
+    }
+  }
+
+  // Capture the full ISL response, excluding options[].samples (raw MC arrays).
+  // Cap top-level arrays at 100 items (consistent with redaction config) to control size.
+  const full: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(isl)) {
+    if (key === 'options') {
+      const stripped = stripOptionSamples(value)
+      full[key] = Array.isArray(stripped) ? stripped.slice(0, 100) : stripped
+    } else if (Array.isArray(value)) {
+      full[key] = value.slice(0, 100)
+    } else {
+      full[key] = value
+    }
+  }
+
+  // Legacy fields (always present for backwards compat)
+  const factorSensitivity = Array.isArray(isl.factor_sensitivity_3c_fields)
     ? isl.factor_sensitivity_3c_fields
     : []
 
   return {
-    stability_thresholds: asRecord(isl?.stability_thresholds),
+    // Legacy named fields — preserved for existing consumers
+    stability_thresholds: asRecord(isl.stability_thresholds),
     factor_sensitivity_3c_fields: factorSensitivity.filter(
       (item): item is Record<string, unknown> => !!item && typeof item === 'object'
     ),
-    confounding_sensitivity: asRecord(isl?.confounding_sensitivity),
+    confounding_sensitivity: asRecord(isl.confounding_sensitivity),
+
+    // New fields — explicit extraction for diagnostic visibility
+    edge_e_values: Array.isArray(isl.edge_e_values) ? isl.edge_e_values : null,
+    factor_evpi: Array.isArray(isl.factor_evpi) ? isl.factor_evpi : null,
+    conditional_winners: Array.isArray(isl.conditional_winners) ? isl.conditional_winners : null,
+    inference_warnings: Array.isArray(isl.inference_warnings) ? isl.inference_warnings : null,
+    auto_noise_applied: typeof isl.auto_noise_applied === 'boolean' ? isl.auto_noise_applied : null,
+    stability_penalty_factor: typeof isl.stability_penalty_factor === 'number' ? isl.stability_penalty_factor : null,
+    defaulted_root_node_ids: Array.isArray(isl.defaulted_root_node_ids) ? isl.defaulted_root_node_ids : null,
+
+    // Full ISL response passthrough (minus options[].samples)
+    _full: full,
+  }
+}
+
+interface PlotEnrichment {
+  factor_sensitivity: unknown[] | null
+  range_derivation_sources: unknown | null
+  conditional_probabilities: unknown[] | null
+  m1_coaching: {
+    evidence_gaps: unknown | null
+    story_headlines: unknown | null
+    readiness: unknown | null
+    headline_type: unknown | null
+  } | null
+  edge_e_values: unknown[] | null
+  near_tie: unknown | null
+  flip_thresholds: unknown[] | null
+  decision_brief: {
+    headline: unknown | null
+    top_drivers: unknown | null
+    robustness: unknown | null
+  } | null
+}
+
+/**
+ * Extract PLoT enriched fields — the values the UI actually renders after PLoT
+ * confidence merge, label enrichment, and robustness decoration.
+ */
+function extractPlotEnrichment(plotResponse: unknown): PlotEnrichment | null {
+  const plot = asRecord(plotResponse)
+  if (!plot) return null
+
+  const meta = asRecord(plot._meta ?? plot.meta)
+  const robustness = asRecord(plot.robustness)
+  const m1Coaching = asRecord(plot.m1_coaching)
+  const decisionBrief = asRecord(plot.decision_brief)
+
+  return {
+    factor_sensitivity: Array.isArray(plot.factor_sensitivity) ? plot.factor_sensitivity : null,
+    range_derivation_sources: meta?.range_derivation_sources ?? null,
+    conditional_probabilities: Array.isArray(plot.conditional_probabilities) ? plot.conditional_probabilities : null,
+    m1_coaching: m1Coaching ? {
+      evidence_gaps: m1Coaching.evidence_gaps ?? null,
+      story_headlines: m1Coaching.story_headlines ?? null,
+      readiness: m1Coaching.readiness ?? null,
+      headline_type: m1Coaching.headline_type ?? null,
+    } : null,
+    edge_e_values: robustness && Array.isArray(robustness.edge_e_values) ? robustness.edge_e_values : null,
+    near_tie: robustness?.near_tie ?? null,
+    flip_thresholds: Array.isArray(robustness?.flip_thresholds) ? robustness.flip_thresholds : null,
+    decision_brief: decisionBrief ? {
+      headline: decisionBrief.headline ?? null,
+      top_drivers: decisionBrief.top_drivers ?? null,
+      robustness: decisionBrief.robustness ?? null,
+    } : null,
   }
 }
 
@@ -391,8 +502,18 @@ interface DebugBundle {
       stability_thresholds: Record<string, unknown> | null
       factor_sensitivity_3c_fields: Array<Record<string, unknown>>
       confounding_sensitivity: Record<string, unknown> | null
+      edge_e_values: unknown[] | null
+      factor_evpi: unknown[] | null
+      conditional_winners: unknown[] | null
+      inference_warnings: unknown[] | null
+      auto_noise_applied: boolean | null
+      stability_penalty_factor: number | null
+      defaulted_root_node_ids: unknown[] | null
+      _full: Record<string, unknown> | null
     }
   }
+  /** PLoT enriched fields — post-merge values the UI actually renders */
+  plot_enrichment: PlotEnrichment | null
   /** Gate statuses */
   gates: Array<{ name: string; status: string; message?: string }>
   /** Graph validation issues (ISL critiques + UI-side checks) */
@@ -1273,6 +1394,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const pipelineQuickFields = extractCeePipelineQuickFields(data)
   const causalClaimsDiagnostic = extractCausalClaimsDiagnostic(data.payloads.cee_response)
   const islRawFields = extractIslRawFields(data.payloads.isl_response)
+  const plotEnrichment = extractPlotEnrichment(data.payloads.plot_response)
 
   // Extract envelope-level fields from cee_response (the orchestrator envelope).
   // These are top-level fields on the envelope that the debug bundle surfaces directly.
@@ -1403,6 +1525,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       error: data.services.isl?.error ?? null,
       isl_raw_fields: islRawFields,
     },
+    plot_enrichment: plotEnrichment,
     gates,
     validation: {
       summary: {

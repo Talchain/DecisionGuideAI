@@ -269,6 +269,24 @@ export interface DiagnosticChecks {
   llm_raw_available: boolean
   /** Path where llm_raw was found */
   llm_raw_path_found: string | null
+
+  // Pipeline field presence checks
+  /** edge_e_values array is non-empty */
+  e_values_present: boolean
+  /** factor_evpi array is non-empty */
+  evpi_present: boolean
+  /** factor_sensitivity confidence values have > 1 unique value */
+  confidence_differentiated: boolean
+  /** Any factor has confidence_source === "bootstrap_sampling" */
+  confidence_source_bootstrap: boolean
+  /** Any inference node has intercept > 0 */
+  intercept_populated: boolean
+  /** epsilon_std field exists on any node */
+  epsilon_std_present: boolean
+  /** response_hash is non-empty */
+  response_hash_present: boolean
+  /** conditional_probabilities present and non-empty */
+  mca_computed: boolean
 }
 
 export interface CeeTraceData {
@@ -1466,10 +1484,12 @@ function findLlmRawPath(ceeResponse: unknown): string | null {
 function extractDiagnosticChecks(
   plotResponse: unknown,
   ceeResponse: unknown,
+  islResponse: unknown,
   islDataSource: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none'
 ): DiagnosticChecks {
-  const plot = plotResponse as Record<string, unknown> | undefined
-  const cee = ceeResponse as Record<string, unknown> | undefined
+  const plot = plotResponse as Record<string, unknown> | null | undefined
+  const cee = ceeResponse as Record<string, unknown> | null | undefined
+  const isl = islResponse as Record<string, unknown> | null | undefined
 
   const hasDownstreamCalls = findDownstreamCallsPath(plotResponse) !== null
 
@@ -1478,6 +1498,36 @@ function extractDiagnosticChecks(
     ?? (cee?.meta as Record<string, unknown>)?.trace as Record<string, unknown>
 
   const llmRawPath = findLlmRawPath(ceeResponse)
+
+  // New pipeline field presence checks
+  const islEdgeEValues = Array.isArray(isl?.edge_e_values) ? isl.edge_e_values as unknown[] : []
+  const islFactorEvpi = Array.isArray(isl?.factor_evpi) ? isl.factor_evpi as unknown[] : []
+
+  // Checked from PLoT factor_sensitivity only (post-merge values the UI renders)
+  const plotFactorSensitivity = Array.isArray(plot?.factor_sensitivity) ? plot.factor_sensitivity as Record<string, unknown>[] : []
+  const confidenceValues = plotFactorSensitivity
+    .map((f) => typeof f.confidence === 'number' ? f.confidence : null)
+    .filter((v): v is number => v !== null)
+  const uniqueConfidence = new Set(confidenceValues)
+
+  const hasBootstrapSource = plotFactorSensitivity.some(
+    (f) => f.confidence_source === 'bootstrap_sampling'
+  )
+
+  // ISL options may have intercept/epsilon_std — guard against null array elements
+  const islOptionsRaw = Array.isArray(isl?.options) ? isl.options as unknown[] : []
+  const islOptions = islOptionsRaw.filter(
+    (opt): opt is Record<string, unknown> => !!opt && typeof opt === 'object'
+  )
+  const hasIntercept = islOptions.some(
+    (opt) => typeof opt.intercept === 'number' && opt.intercept > 0
+  )
+  const hasEpsilonStd = islOptions.some(
+    (opt) => typeof opt.epsilon_std === 'number'
+  )
+
+  const responseHash = typeof plot?.response_hash === 'string' ? plot.response_hash : ''
+  const conditionalProbs = Array.isArray(plot?.conditional_probabilities) ? plot.conditional_probabilities as unknown[] : []
 
   return {
     plot_has_downstream_calls: hasDownstreamCalls,
@@ -1489,6 +1539,16 @@ function extractDiagnosticChecks(
     cee_degraded_reason: ceeTrace?.reason as string | undefined,
     llm_raw_available: llmRawPath !== null,
     llm_raw_path_found: llmRawPath,
+
+    // Pipeline field presence checks
+    e_values_present: islEdgeEValues.length > 0,
+    evpi_present: islFactorEvpi.length > 0,
+    confidence_differentiated: uniqueConfidence.size > 1,
+    confidence_source_bootstrap: hasBootstrapSource,
+    intercept_populated: hasIntercept,
+    epsilon_std_present: hasEpsilonStd,
+    response_hash_present: responseHash.length > 0,
+    mca_computed: conditionalProbs.length > 0,
   }
 }
 
@@ -3228,6 +3288,7 @@ export function useDebugData(): DebugData {
     const diagnostics = extractDiagnosticChecks(
       payloadBundle.plot_response,
       payloadBundle.cee_response,
+      payloadBundle.isl_response,
       islDataSource
     )
 
