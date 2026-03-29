@@ -304,14 +304,14 @@ describe('GoalNode', () => {
   })
 
   // P0.3: Provenance icon renders for brief_extraction source
-  it('shows provenance label for brief_extraction source', () => {
+  it('shows provenance icon for brief_extraction source', () => {
     renderGoal({ observedState: { source: 'brief_extraction' } })
-    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    expect(screen.getByTitle('From your brief')).toBeDefined()
   })
 
-  it('does not show provenance label for user source', () => {
+  it('does not show provenance icon for user source', () => {
     renderGoal({ observedState: { source: 'user' } })
-    expect(screen.queryByText('Generated from your brief')).toBeNull()
+    expect(screen.queryByTitle('From your brief')).toBeNull()
   })
 
   it('does not show provenance icon when observedState is absent', () => {

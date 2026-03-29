@@ -127,8 +127,7 @@ describe('OutcomeNode', () => {
       }) as any)
     )
     renderOutcome()
-    expect(screen.getByText('75% contribution to goal')).toBeDefined()
-    expect(screen.getByText(/Very strong/)).toBeDefined()
+    expect(screen.getByText(/Responsible for 75% of your goal/)).toBeDefined()
   })
 
   it('does not show certainty even when beliefExists is present', () => {
@@ -195,6 +194,6 @@ describe('OutcomeNode', () => {
       isResultsMode: true,
     })
     renderOutcome()
-    expect(screen.getByText('68% chance')).toBeDefined()
+    expect(screen.getByText('Achievement: 68%')).toBeDefined()
   })
 })

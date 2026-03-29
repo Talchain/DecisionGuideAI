@@ -274,57 +274,59 @@ describe('FactorNode', () => {
   })
 
   // T5: "estimated" provenance display for inferred extraction type
-  it('shows "Olumi estimated" provenance for inferred extraction type', () => {
+  // Provenance is now icon-only with title attribute, not visible text
+  it('shows "Estimated by Olumi" icon for inferred extraction type', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
-    expect(screen.getByText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
   })
 
-  it('does not show "Olumi estimated" for explicit extraction type', () => {
+  it('does not show "Estimated by Olumi" icon for explicit extraction type', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'explicit' },
     })
     expect(screen.queryByText(/Olumi estimated/)).toBeNull()
+    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
   })
 
   // Provenance combinations — brief acceptance criteria
   // Combination 1: extractionType='inferred' + source='brief_extraction'
-  //   → source pill "Generated from your brief" shows; "estimated" pill suppressed
-  it('shows provenance label (not estimated) when extractionType=inferred and source=brief_extraction', () => {
+  //   → source icon "From your brief" shows; "estimated" icon suppressed
+  it('shows provenance icon (not estimated) when extractionType=inferred and source=brief_extraction', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred', source: 'brief_extraction' },
     })
-    // Provenance is shown as text inside expert overlay
-    expect(screen.getByText('Generated from your brief')).toBeDefined()
-    expect(screen.queryByText(/Olumi estimated/)).toBeNull()
+    // Provenance is shown as icon with title attribute
+    expect(screen.getByTitle('From your brief')).toBeDefined()
+    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
   })
 
-  // Combination 2: extractionType='inferred' + no source → "Olumi estimated" provenance shows
-  it('shows "Olumi estimated" provenance when extractionType=inferred and no source', () => {
+  // Combination 2: extractionType='inferred' + no source → "Estimated by Olumi" icon shows
+  it('shows "Estimated by Olumi" icon when extractionType=inferred and no source', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
-    expect(screen.getByText(/Olumi estimated/)).toBeDefined()
-    expect(screen.queryByTitle('Generated from your brief')).toBeNull()
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
+    expect(screen.queryByTitle('From your brief')).toBeNull()
   })
 
-  // Combination 3: source='cee_inference' → "Estimated by Olumi" label shows; "estimated" pill suppressed
-  it('shows "Estimated by Olumi" label (not estimated) when source=cee_inference', () => {
+  // Combination 3: source='cee_inference' → "Estimated by Olumi" icon shows; "estimated" pill suppressed
+  it('shows "Estimated by Olumi" icon (not estimated text) when source=cee_inference', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred', source: 'cee_inference' },
     })
-    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
   })
 
   // T6: Influence/Confidence tiers (results mode)
@@ -487,14 +489,14 @@ describe('FactorNode', () => {
     expect(container.querySelector('.bg-factor')).toBeNull()
   })
 
-  // P5: Inferred factor shows "Olumi estimated" provenance with confirm action
-  it('inferred factor shows "Olumi estimated" provenance and confirm action icon (P5)', () => {
+  // P5: Inferred factor shows "Estimated by Olumi" icon with confirm action
+  it('inferred factor shows "Estimated by Olumi" icon and confirm action icon (P5)', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
-    expect(screen.getByText(/Olumi estimated/)).toBeDefined()
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
     // "Confirm or edit" link replaced by ActionIcons confirm button
     expect(screen.getByTitle('Confirm value')).toBeDefined()
   })
@@ -645,27 +647,26 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('CHF500')).toBeDefined()
   })
 
-  // A14: source='cee_inference' → provenance text shows "Estimated by Olumi" (AI inference, not brief extraction)
-  it('A14: source="cee_inference" renders provenance text "Estimated by Olumi"', () => {
+  // A14: source='cee_inference' → provenance icon "Estimated by Olumi"
+  it('A14: source="cee_inference" renders provenance icon "Estimated by Olumi"', () => {
     renderFactor({
       label: 'Market rate',
       type: 'factor',
       observedState: { value: 0.5, source: 'cee_inference' },
     })
-    // Provenance label now rendered as text inside ExpertOverlay, not as icon with title
-    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
+    // Provenance rendered as icon with title attribute
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
   })
 
-  // A15: source='brief_extraction' → provenance text "Generated from your brief"
-  it('A15: source="brief_extraction" renders provenance text', () => {
+  // A15: source='brief_extraction' → provenance icon "From your brief"
+  it('A15: source="brief_extraction" renders provenance icon', () => {
     renderFactor({
       label: 'Revenue',
       type: 'factor',
       observedState: { value: 0.6, source: 'brief_extraction' },
     })
-    // getProvenanceLabel('brief_extraction') = 'Generated from your brief'
-    // Provenance label now rendered as text inside ExpertOverlay, not as icon with title
-    expect(screen.getByText('Generated from your brief')).toBeDefined()
+    // Provenance rendered as icon with title attribute
+    expect(screen.getByTitle('From your brief')).toBeDefined()
   })
 
   // A16: source='user' → no provenance icon
@@ -680,33 +681,25 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByText('Set by you')).toBeNull()
   })
 
-  // A17: "Not used" value + provenance text rendered on separate lines (not merged as phrase)
-  it('A17: "Not used" and provenance text are separate elements (not "Not used Estimated" phrase)', () => {
+  // A17: "Not used" value + provenance icon rendered separately (not merged as phrase)
+  it('A17: "Not used" value and provenance icon are separate elements', () => {
     renderFactor({
       label: 'Item',
       type: 'factor',
       observedState: { value: 0, source: 'cee_inference' },
     })
-    // Both elements should exist — provenance now rendered as text in ExpertOverlay
+    // Value text exists
     expect(screen.getByText('Not used')).toBeDefined()
-    expect(screen.getByText('Estimated by Olumi')).toBeDefined()
-    // Should not appear as a joined phrase
+    // Provenance rendered as icon with title attribute (not visible text)
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
+    // Should not appear as a joined phrase in any text content
     expect(screen.queryByText(/Not used.*estimated/i)).toBeNull()
-    expect(screen.queryByText(/Not usedEstimated/)).toBeNull()
-    // Value text and provenance text must be in separate container elements
-    const valueEl = screen.getByText('Not used')
-    const provenanceEl = screen.getByText('Estimated by Olumi')
-    // They must not share the same parent element
-    expect(valueEl.parentElement).not.toBe(provenanceEl.parentElement)
-    // The provenance span must be in a different div from the value div
-    expect(provenanceEl.closest('div')).not.toBe(valueEl.closest('div'))
   })
 
-  // A17b: "Not used" + "estimated" text — inferred source (extractionType='inferred')
-  // Shows "Olumi estimated" text in ExpertOverlay (source='inferred' is suppressed for provenance,
-  // but extractionType='inferred' triggers the Olumi estimated line).
-  // Both "Not used" text and "Olumi estimated" text must be in separate container elements.
-  it('A17b: value=0 + extractionType=inferred shows "Not used" and "Olumi estimated" text, plus confirm action', () => {
+  // A17b: "Not used" + estimated icon — inferred source (extractionType='inferred')
+  // Shows "Estimated by Olumi" icon inline (source='inferred' is suppressed for provenance,
+  // but extractionType='inferred' triggers the OlumiSparkle icon).
+  it('A17b: value=0 + extractionType=inferred shows "Not used" and "Estimated by Olumi" icon, plus confirm action', () => {
     renderFactor({
       label: 'Item',
       type: 'factor',
@@ -714,8 +707,8 @@ describe('FactorNode — QA Brief A-series', () => {
     })
     // "Not used" (value display) must appear
     expect(screen.getByText('Not used')).toBeDefined()
-    // "Olumi estimated" provenance must appear (extractionType='inferred') in ExpertOverlay
-    expect(screen.getByText(/Olumi estimated/)).toBeDefined()
+    // Provenance rendered as icon with title attribute
+    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
     // "Confirm or edit" link replaced by ActionIcons confirm button
     expect(screen.getByTitle('Confirm value')).toBeDefined()
   })

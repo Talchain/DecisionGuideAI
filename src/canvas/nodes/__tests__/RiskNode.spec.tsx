@@ -134,8 +134,7 @@ describe('RiskNode', () => {
       }) as any)
     )
     renderRisk()
-    expect(screen.getByText('60% contribution to goal')).toBeDefined()
-    expect(screen.getByText(/Strong negative/)).toBeDefined()
+    expect(screen.getByText(/Responsible for 60% of your goal \(negative\)/)).toBeDefined()
   })
 
   it('does not show certainty even when beliefExists is present', () => {

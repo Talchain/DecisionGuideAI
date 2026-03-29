@@ -220,13 +220,12 @@ export const GoalNode = memo((props: NodeProps) => {
           </div>
         )}
         {provenanceLabel && (
-          <div className="flex items-center gap-1 mt-0.5">
+          <div className="mt-0.5">
             {provenanceLabel.includes('Olumi') ? (
-              <Cpu size={10} className="text-text-light" aria-hidden="true" />
+              <Cpu size={10} className="text-text-light" title="Estimated by Olumi" />
             ) : (
-              <FileText size={10} className="text-text-light" aria-hidden="true" />
+              <FileText size={10} className="text-text-light" title="From your brief" />
             )}
-            <span className={`${typography.edgeLabel} text-text-light`}>{provenanceLabel}</span>
           </div>
         )}
         {hasConstraintDefaultWarning && (

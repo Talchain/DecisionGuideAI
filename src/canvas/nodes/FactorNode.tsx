@@ -12,12 +12,12 @@ import { hasObservedData } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, formatInterventionValue, isCurrencyUnit, formatFactorValue, QUALITATIVE_FACTOR_TYPES, isSuppressedUnit } from '../utils/labelUtils'
 import { isGraphBadgesEnabled } from '../../flags'
-import { SlidersHorizontal, Eye, Cloud, Search, FileText, Cpu } from 'lucide-react'
+import { SlidersHorizontal, Eye, Cloud, Search } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
-import { ConnRow, Sep, NodeChip, ActionIcons, BiasIcon, OlumiSparkle, ExpertOverlay } from './shared'
+import { ConnRow, Sep, NodeChip, ActionIcons, BiasIcon, OlumiSparkle, BriefIcon, ExpertOverlay } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 interface ObservedState {
@@ -283,16 +283,20 @@ export const FactorNode = memo((props: NodeProps) => {
           <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Variable. Outside your control.</p>
         )}
 
-        {/* Value display + OlumiSparkle */}
+        {/* Value display + provenance icon */}
         {!needsInput && valueDisplay !== null && (
           <div className={`${typography.nodeLabel} mt-1 flex items-center gap-1`}>
             <span className="font-semibold text-text-body">{valueDisplay}</span>
-            {isInferred && <OlumiSparkle />}
+            {observedState?.source === 'brief_extraction' ? (
+              <div><BriefIcon /></div>
+            ) : (isInferred || observedState?.source === 'cee_inference') ? (
+              <div><OlumiSparkle /></div>
+            ) : null}
           </div>
         )}
 
-        {/* Value display fallbacks when no main valueDisplay */}
-        {!needsInput && valueDisplay === null && nodeCategory === 'external' && priorRangeDisplay && (
+        {/* Value display fallbacks: prior range with units (skip bare "Variable" — already in sentence above) */}
+        {!needsInput && valueDisplay === null && nodeCategory === 'external' && priorRangeDisplay && priorRangeDisplay !== 'Variable' && (
           <div className={`${typography.nodeLabel} mt-1 text-text-light`}>{priorRangeDisplay}</div>
         )}
 
@@ -388,23 +392,8 @@ export const FactorNode = memo((props: NodeProps) => {
 
         {/* Expert overlay */}
         <ExpertOverlay>
-          {isInferred && !provenanceLabel && (
-            <p className={`${typography.edgeLabel} text-text-body m-0`}>
-              Olumi estimated{valueDisplay ? `: ${valueDisplay}` : ''}
-            </p>
-          )}
           {isAssumed && (
             <p className={`${typography.edgeLabel} text-warning m-0`}>Assumed (default value)</p>
-          )}
-          {provenanceLabel && (
-            <div className="flex items-center gap-1">
-              {provenanceLabel.includes('Olumi') ? (
-                <Cpu size={10} className="text-text-light" aria-hidden="true" />
-              ) : (
-                <FileText size={10} className="text-text-light" aria-hidden="true" />
-              )}
-              <span className={`${typography.edgeLabel} text-text-light`}>{provenanceLabel}</span>
-            </div>
           )}
           {displayMetadata.valueOfInformation != null && displayMetadata.valueOfInformation > 0 && (
             <p className={`${typography.edgeLabel} text-text-body m-0`}>

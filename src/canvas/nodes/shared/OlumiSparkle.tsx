@@ -8,7 +8,7 @@ import Tooltip from '../../../components/Tooltip'
 export function OlumiSparkle() {
   return (
     <Tooltip content="Estimated by Olumi" delay={200}>
-      <span className="inline-flex cursor-help">
+      <span className="inline-flex cursor-help" title="Estimated by Olumi">
         <Sparkles size={10} className="text-text-light" aria-hidden="true" />
       </span>
     </Tooltip>

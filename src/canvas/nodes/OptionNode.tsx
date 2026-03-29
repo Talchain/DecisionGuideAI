@@ -152,7 +152,7 @@ export const OptionNode = memo((props: NodeProps) => {
       const shortVal = isBinary
         ? (c.value === 1 ? 'on' : c.value === 0 ? 'off' : formatInterventionValue(c.value, c.unit, c.factorType, c.cap, c.observedValue, c.observedRawValue))
         : formatInterventionValue(c.value, c.unit, c.factorType, c.cap, c.observedValue, c.observedRawValue)
-      const shortLabel = c.label.length > 25 ? `${c.label.slice(0, 22)}...` : c.label
+      const shortLabel = c.label.length > 28 ? `${c.label.slice(0, 28)}...` : c.label
       return `${shortLabel} ${shortVal}`
     }).join(', ')
   }, [viewMode, interventionChips, baselineOptionInterventions, binaryFactorIds])
@@ -372,7 +372,7 @@ export const OptionNode = memo((props: NodeProps) => {
                   }
                   return (
                     <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                      <span className="text-text-light">{chip.label.length > 22 ? `${chip.label.slice(0, 22)}...` : chip.label}:</span>{' '}
+                      <span className="text-text-light">{chip.label.length > 28 ? `${chip.label.slice(0, 28)}...` : chip.label}:</span>{' '}
                       <span className="font-medium">{deltaDisplay ?? targetFormatted}</span>
                     </div>
                   )
@@ -381,9 +381,8 @@ export const OptionNode = memo((props: NodeProps) => {
             )
           })()}
           {isOptionFromCee && (
-            <div className="flex items-center gap-1 mt-0.5">
-              <FileText size={10} className="text-text-light" aria-hidden="true" />
-              <span className={`${typography.edgeLabel} text-text-light`}>Values from your brief</span>
+            <div className="mt-0.5">
+              <FileText size={10} className="text-text-light" title="From your brief" />
             </div>
           )}
         </ExpertOverlay>

@@ -99,34 +99,35 @@ export const RiskNode = memo((props: NodeProps) => {
         </>
       )}
 
-      {/* Expert overlay */}
-      <ExpertOverlay>
-        {severity && (
-          <div
-            className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
-            style={{ textAlign: 'center' }}
-          >
-            {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
-          </div>
-        )}
-        {bridgeEdgeData?.signedMean !== null && bridgeEdgeData?.signedMean !== undefined && (
-          <InfluenceIndicator
-            strength={bridgeEdgeData.signedMean}
-            variant="canvas"
-            className={`${typography.edgeLabel} text-text-light`}
-          />
-        )}
-        {provenanceLabel && (
-          <div className="flex items-center gap-1 mt-0.5">
-            {provenanceLabel.includes('Olumi') ? (
-              <Cpu size={10} className="text-text-light" aria-hidden="true" />
-            ) : (
-              <FileText size={10} className="text-text-light" aria-hidden="true" />
-            )}
-            <span className={`${typography.edgeLabel} text-text-light`}>{provenanceLabel}</span>
-          </div>
-        )}
-      </ExpertOverlay>
+      {/* Expert overlay (only when there's data to show) */}
+      {(severity || (isPostAnalysis && bridgeEdgeData?.signedMean != null) || provenanceLabel) && (
+        <ExpertOverlay>
+          {severity && (
+            <div
+              className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
+              style={{ textAlign: 'center' }}
+            >
+              {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
+            </div>
+          )}
+          {isPostAnalysis && bridgeEdgeData?.signedMean !== null && bridgeEdgeData?.signedMean !== undefined && (
+            <InfluenceIndicator
+              strength={bridgeEdgeData.signedMean}
+              variant="canvas"
+              className={`${typography.edgeLabel} text-text-light`}
+            />
+          )}
+          {provenanceLabel && (
+            <div className="mt-0.5">
+              {provenanceLabel.includes('Olumi') ? (
+                <Cpu size={10} className="text-text-light" title="Estimated by Olumi" />
+              ) : (
+                <FileText size={10} className="text-text-light" title="From your brief" />
+              )}
+            </div>
+          )}
+        </ExpertOverlay>
+      )}
 
       {typeof props.data?.description === 'string' && props.data.description && (
         <div className={`${typography.nodeLabel} opacity-70 mt-1`}>

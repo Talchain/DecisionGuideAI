@@ -108,31 +108,32 @@ export const OutcomeNode = memo((props: NodeProps) => {
         </>
       )}
 
-      {/* Expert overlay */}
-      <ExpertOverlay>
-        {displayMetadata.achievementProbability !== null && (
-          <p className={`${typography.edgeLabel} text-text-body m-0`}>
-            Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%
-          </p>
-        )}
-        {bridgeEdgeData?.signedMean !== null && bridgeEdgeData?.signedMean !== undefined && (
-          <InfluenceIndicator
-            strength={bridgeEdgeData.signedMean}
-            variant="canvas"
-            className={`${typography.edgeLabel} text-text-light`}
-          />
-        )}
-        {provenanceLabel && (
-          <div className="flex items-center gap-1 mt-0.5">
-            {provenanceLabel.includes('Olumi') ? (
-              <Cpu size={10} className="text-text-light" aria-hidden="true" />
-            ) : (
-              <FileText size={10} className="text-text-light" aria-hidden="true" />
-            )}
-            <span className={`${typography.edgeLabel} text-text-light`}>{provenanceLabel}</span>
-          </div>
-        )}
-      </ExpertOverlay>
+      {/* Expert overlay (only when there's data to show) */}
+      {(displayMetadata.achievementProbability !== null || (isPostAnalysis && bridgeEdgeData?.signedMean != null) || provenanceLabel) && (
+        <ExpertOverlay>
+          {displayMetadata.achievementProbability !== null && (
+            <p className={`${typography.edgeLabel} text-text-body m-0`}>
+              Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%
+            </p>
+          )}
+          {isPostAnalysis && bridgeEdgeData?.signedMean !== null && bridgeEdgeData?.signedMean !== undefined && (
+            <InfluenceIndicator
+              strength={bridgeEdgeData.signedMean}
+              variant="canvas"
+              className={`${typography.edgeLabel} text-text-light`}
+            />
+          )}
+          {provenanceLabel && (
+            <div className="mt-0.5">
+              {provenanceLabel.includes('Olumi') ? (
+                <Cpu size={10} className="text-text-light" title="Estimated by Olumi" />
+              ) : (
+                <FileText size={10} className="text-text-light" title="From your brief" />
+              )}
+            </div>
+          )}
+        </ExpertOverlay>
+      )}
     </BaseNode>
   )
 })

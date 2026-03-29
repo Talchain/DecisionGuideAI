@@ -133,19 +133,21 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         </>
       ) : null}
 
-      {/* Expert overlay */}
-      <ExpertOverlay>
-        {headline?.winProb != null && (
-          <p className={`${typography.edgeLabel} text-text-body m-0`}>
-            Win probability: {Math.round(headline.winProb * 100)}%
-          </p>
-        )}
-        {headline?.stabilityTier && (
-          <p className={`${typography.edgeLabel} text-text-body m-0`}>
-            Stability: {headline.stabilityTier}{headline.stability != null ? ` (${Math.round(headline.stability * 100)}%)` : ''}
-          </p>
-        )}
-      </ExpertOverlay>
+      {/* Expert overlay (only when there's data to show) */}
+      {headline && (
+        <ExpertOverlay>
+          {headline.winProb != null && (
+            <p className={`${typography.edgeLabel} text-text-body m-0`}>
+              Win probability: {Math.round(headline.winProb * 100)}%
+            </p>
+          )}
+          {headline.stabilityTier && (
+            <p className={`${typography.edgeLabel} text-text-body m-0`}>
+              Stability: {headline.stabilityTier}{headline.stability != null ? ` (${Math.round(headline.stability * 100)}%)` : ''}
+            </p>
+          )}
+        </ExpertOverlay>
+      )}
     </BaseNode>
   )
 })
