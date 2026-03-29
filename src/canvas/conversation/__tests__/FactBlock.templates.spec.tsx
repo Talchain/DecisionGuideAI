@@ -157,9 +157,9 @@ describe('FactBlock — robustness template', () => {
     expect(screen.getByText('Moderate')).toBeInTheDocument()
   })
 
-  it('shows "Fragile" label for fragile/low value', () => {
+  it('shows "Sensitive" label for fragile/low value', () => {
     render(<InlineBlocks blocks={[makeFactBlock({ value: 'fragile', fact_type: 'robustness' })]} />)
-    expect(screen.getByText('Fragile')).toBeInTheDocument()
+    expect(screen.getByText('Sensitive')).toBeInTheDocument()
   })
 })
 

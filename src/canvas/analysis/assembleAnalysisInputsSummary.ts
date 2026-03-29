@@ -164,9 +164,10 @@ function buildRobustness(
   // If neither is present, return null rather than fabricating 0.
   const stability = robustness.recommendation_stability ?? robustness.ranking_stability
   if (stability == null) return null
+  // Science UX Architecture v2 §4.2 thresholds
   let level: 'robust' | 'moderate' | 'fragile'
-  if (stability >= 0.7) level = 'robust'
-  else if (stability >= 0.4) level = 'moderate'
+  if (stability >= 0.85) level = 'robust'
+  else if (stability >= 0.70) level = 'moderate'
   else level = 'fragile'
   return { level, recommendation_stability: stability }
 }

@@ -29,7 +29,7 @@ describe('RobustnessIndicator', () => {
     it('renders low robustness badge', () => {
       render(<RobustnessIndicator level="low" compact />)
 
-      expect(screen.getByText('Fragile')).toBeInTheDocument()
+      expect(screen.getByText('Sensitive')).toBeInTheDocument()
     })
 
     it('includes switching scenarios in tooltip', () => {

@@ -458,7 +458,7 @@ describe('ContestedEdgeCard', () => {
       </DetailToggleContext.Provider>
     )
     const robustness = screen.getByTestId('contested-robustness-e1')
-    expect(robustness).toHaveTextContent('Fragile')
+    expect(robustness).toHaveTextContent('Sensitive')
   })
 
   it('shows Stable robustness status when not fragile + hasRobustnessData', () => {

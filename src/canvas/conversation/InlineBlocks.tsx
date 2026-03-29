@@ -606,7 +606,7 @@ function RobustnessIndicator({ value }: { value: string }) {
   // Normalise: 'fragile'/'low' → 1, 'moderate'/'medium' → 2, 'robust'/'high' → 3
   const v = value.toLowerCase()
   const level = v === 'robust' || v === 'high' ? 3 : v === 'moderate' || v === 'medium' ? 2 : 1
-  const label = level === 3 ? 'Robust' : level === 2 ? 'Moderate' : 'Fragile'
+  const label = level === 3 ? 'Robust' : level === 2 ? 'Moderate' : 'Sensitive'
 
   return (
     <div data-testid="fact-robustness">

@@ -76,7 +76,7 @@ export function getStabilityClassification(
   if (stability >= 0.40) {
     return {
       level: 'low',
-      badgeLabel: 'Fragile',
+      badgeLabel: 'Sensitive',
       heroLabel: 'Sensitive to assumptions',
       heroShortText: 'Review key inputs',
       heroExpandedText: 'Result changes under different assumptions. Review key inputs.',
@@ -88,7 +88,7 @@ export function getStabilityClassification(
 
   return {
     level: 'very_low',
-    badgeLabel: 'Very Fragile',
+    badgeLabel: 'Highly sensitive',
     heroLabel: 'Highly sensitive',
     heroShortText: 'Treat as directional',
     heroExpandedText: 'Small changes in assumptions change the result. Treat as directional.',

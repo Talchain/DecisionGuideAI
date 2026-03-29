@@ -42,7 +42,7 @@ describe('getStabilityClassification', () => {
       const c = getStabilityClassification(v)!
       expect(c.level).toBe('low')
       expect(c.heroLabel).toBe('Sensitive to assumptions')
-      expect(c.badgeLabel).toBe('Fragile')
+      expect(c.badgeLabel).toBe('Sensitive')
     }
   })
 
@@ -51,7 +51,7 @@ describe('getStabilityClassification', () => {
       const c = getStabilityClassification(v)!
       expect(c.level).toBe('very_low')
       expect(c.heroLabel).toBe('Highly sensitive')
-      expect(c.badgeLabel).toBe('Very Fragile')
+      expect(c.badgeLabel).toBe('Highly sensitive')
     }
   })
 
@@ -63,6 +63,15 @@ describe('getStabilityClassification', () => {
     expect(c.badgeLabel).toBe('Moderate')
     expect(c.colorClass).toBe('text-success')
     expect(c.borderClass).toBe('border-info/30')
+  })
+
+  // Regression: stability=0.818 must resolve to moderate (not robust)
+  // Science UX Architecture v2 §4.2: robust threshold is 0.85
+  it('stability=0.818 resolves to moderate, not robust', () => {
+    const c = getStabilityClassification(0.818)!
+    expect(c.level).toBe('moderate')
+    expect(c.badgeLabel).toBe('Moderate')
+    expect(c.heroLabel).toBe('Mostly stable')
   })
 })
 

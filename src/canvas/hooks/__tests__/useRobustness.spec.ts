@@ -199,7 +199,7 @@ describe('useRobustness', () => {
 
     it('derives robustness label from overall_robustness numeric score', async () => {
       mockStoreState.results.enrichment = makeEnrichment({
-        overall_robustness: 0.8, // >= 0.7 → 'robust'
+        overall_robustness: 0.9, // >= 0.85 → 'robust' (Science UX Architecture v2 §4.2)
       })
       mockStoreState.results.report = makeReport()
 

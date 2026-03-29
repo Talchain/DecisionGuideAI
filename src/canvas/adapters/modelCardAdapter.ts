@@ -181,10 +181,10 @@ export function deriveConfidenceLabel(
   if (!robustness) return null
   const stability = robustness.recommendation_stability ?? robustness.ranking_stability
   if (stability == null) return null
-  // UI-SEM-016 thresholds (from adapters/plot/enrichment.ts)
-  if (stability >= 0.7) return 'Robust'
-  if (stability >= 0.4) return 'Moderate'
-  return 'Fragile'
+  // Science UX Architecture v2 §4.2 thresholds
+  if (stability >= 0.85) return 'Robust'
+  if (stability >= 0.70) return 'Moderate'
+  return 'Low'
 }
 
 // ---------------------------------------------------------------------------

@@ -410,7 +410,7 @@ describe('PLoT Enrichment Adapters', () => {
       const result = extractRobustnessFromEnrichment(response)
 
       expect(result).not.toBe(null)
-      expect(result!.robustness_label).toBe('robust') // 0.75 overall_robustness
+      expect(result!.robustness_label).toBe('moderate') // 0.75 overall_robustness (< 0.85 threshold)
       // 3 factors + 2 edges = 5 total sensitivity items (factors sorted first, then edges)
       expect(result!.sensitivity).toHaveLength(5)
       // Factors come first (sorted by sensitivity score), then edges
@@ -420,27 +420,27 @@ describe('PLoT Enrichment Adapters', () => {
       expect(result!.sensitivity[2].node_id).toBe('complexity') // factor: 0.45
       expect(result!.sensitivity[3].sensitivity).toBe(0.8) // edge: highest
       expect(result!.sensitivity[4].sensitivity).toBe(0.4) // edge: second
-      expect(result!.narrative).toContain('robust')
+      expect(result!.narrative).toContain('moderate sensitivity')
       expect(result!.narrative).toContain('3 factors') // narrative includes factor count
     })
 
     it('derives correct robustness labels from scores', () => {
       vi.mocked(isPlotEnrichmentEnabled).mockReturnValue(true)
 
-      // High robustness (>= 0.7)
+      // High robustness (>= 0.85)
       const highResponse = createResponseWithEnrichment({
         sensitivity_analysis: {
-          overall_robustness: 0.8,
+          overall_robustness: 0.9,
           edges: [{ edge_id: 'e1', from: 'a', to: 'b', sensitivity_score: 0.2 }],
         },
         metadata: { isl_enabled: true, detail_level: 'deep' },
       })
       expect(extractRobustnessFromEnrichment(highResponse)!.robustness_label).toBe('robust')
 
-      // Medium robustness (0.4 - 0.7)
+      // Medium robustness (0.70 - 0.84)
       const medResponse = createResponseWithEnrichment({
         sensitivity_analysis: {
-          overall_robustness: 0.5,
+          overall_robustness: 0.75,
           edges: [{ edge_id: 'e1', from: 'a', to: 'b', sensitivity_score: 0.5 }],
         },
         metadata: { isl_enabled: true, detail_level: 'deep' },
@@ -547,7 +547,7 @@ describe('PLoT Enrichment Adapters', () => {
 
       expect(fetchFromISL).not.toHaveBeenCalled()
       expect(result).not.toBe(null)
-      expect(result!.robustness_label).toBe('robust')
+      expect(result!.robustness_label).toBe('moderate') // 0.75 >= 0.70 but < 0.85
     })
 
     it('falls back to ISL when enrichment is not available', async () => {

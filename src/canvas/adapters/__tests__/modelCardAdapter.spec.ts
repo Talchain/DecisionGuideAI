@@ -141,16 +141,16 @@ describe('formatNodeCounts', () => {
 // ---------------------------------------------------------------------------
 
 describe('deriveConfidenceLabel', () => {
-  it('returns "Robust" for stability >= 0.7', () => {
-    expect(deriveConfidenceLabel({ recommendation_stability: 0.85 })).toBe('Robust')
+  it('returns "Robust" for stability >= 0.85', () => {
+    expect(deriveConfidenceLabel({ recommendation_stability: 0.90 })).toBe('Robust')
   })
 
-  it('returns "Moderate" for stability >= 0.4', () => {
-    expect(deriveConfidenceLabel({ recommendation_stability: 0.55 })).toBe('Moderate')
+  it('returns "Moderate" for stability >= 0.70', () => {
+    expect(deriveConfidenceLabel({ recommendation_stability: 0.75 })).toBe('Moderate')
   })
 
-  it('returns "Fragile" for stability < 0.4', () => {
-    expect(deriveConfidenceLabel({ recommendation_stability: 0.2 })).toBe('Fragile')
+  it('returns "Low" for stability < 0.70', () => {
+    expect(deriveConfidenceLabel({ recommendation_stability: 0.55 })).toBe('Low')
   })
 
   it('returns null for null robustness', () => {
@@ -159,7 +159,7 @@ describe('deriveConfidenceLabel', () => {
   })
 
   it('falls back to ranking_stability when recommendation_stability is missing', () => {
-    expect(deriveConfidenceLabel({ ranking_stability: 0.8 })).toBe('Robust')
+    expect(deriveConfidenceLabel({ ranking_stability: 0.9 })).toBe('Robust')
   })
 })
 
@@ -201,7 +201,7 @@ describe('selectModelCardData', () => {
       lastAnalysisSeed: 42,
       lastQualityMode: 'deep',
       repairsApplied: [{ code: 'FLOOR_STD', field_path: 'edges[0].strength_std', before: 0, after: 0.01 }],
-      results: { status: 'complete', report: { robustness: { recommendation_stability: 0.75 } } },
+      results: { status: 'complete', report: { robustness: { recommendation_stability: 0.90 } } },
       hasCompletedFirstRun: true,
     })
     expect(data.seed).toBe(42)

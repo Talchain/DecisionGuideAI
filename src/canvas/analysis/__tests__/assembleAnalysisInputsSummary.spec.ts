@@ -67,7 +67,7 @@ describe('assembleAnalysisInputsSummary', () => {
     expect(result!.recommendation.win_probability).toBe(0.65)
     expect(result!.options).toHaveLength(2)
     expect(result!.top_drivers).toHaveLength(3) // capped at 3
-    expect(result!.robustness!.level).toBe('robust') // 0.82 >= 0.7
+    expect(result!.robustness!.level).toBe('moderate') // 0.82 >= 0.70 but < 0.85
     expect(result!.robustness!.recommendation_stability).toBe(0.82)
   })
 
@@ -158,12 +158,12 @@ describe('assembleAnalysisInputsSummary', () => {
     expect(result!.sensitivity_concentration).toBe(0.45)
   })
 
-  it('derives moderate robustness for stability between 0.4 and 0.7', () => {
+  it('derives moderate robustness for stability between 0.70 and 0.85', () => {
     const response = makeValidResponse({
       robustness: {
         fragile_edges: [],
         robust_edges: [],
-        recommendation_stability: 0.55,
+        recommendation_stability: 0.75,
       },
     })
     const result = assembleAnalysisInputsSummary(response)
@@ -171,12 +171,12 @@ describe('assembleAnalysisInputsSummary', () => {
     expect(result!.robustness!.level).toBe('moderate')
   })
 
-  it('derives fragile robustness for stability below 0.4', () => {
+  it('derives fragile robustness for stability below 0.70', () => {
     const response = makeValidResponse({
       robustness: {
         fragile_edges: ['e1', 'e2'],
         robust_edges: [],
-        recommendation_stability: 0.25,
+        recommendation_stability: 0.55,
       },
     })
     const result = assembleAnalysisInputsSummary(response)
@@ -328,6 +328,6 @@ describe('assembleAnalysisInputsSummary', () => {
     const result = assembleAnalysisInputsSummary(response)
     expect(result).not.toBeNull()
     expect(result!.robustness!.recommendation_stability).toBe(0.75)
-    expect(result!.robustness!.level).toBe('robust')
+    expect(result!.robustness!.level).toBe('moderate') // 0.75 >= 0.70 but < 0.85
   })
 })

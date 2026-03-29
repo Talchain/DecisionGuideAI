@@ -56,8 +56,8 @@ const robustnessConfig: Record<RobustnessLevel, {
     bgColor: 'bg-carrot-50',
     textColor: 'text-carrot-700',
     iconColor: 'text-carrot-600',
-    label: 'Fragile',
-    shortLabel: 'Fragile',
+    label: 'Sensitive',
+    shortLabel: 'Sensitive',
     description: 'Ranking changes under perturbation',
   },
 }

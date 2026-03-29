@@ -35,6 +35,14 @@ vi.mock('../turnService', () => ({
   },
 }))
 
+vi.mock('../../../flags', () => ({
+  isOrchestratorV2Enabled: () => true,
+  isOrchestratorStreamingEnabled: () => false,
+  isThreadHydrateEnabled: () => false,
+  isThreadPersistEnabled: () => false,
+  isOrchestratorRenderingV2Enabled: () => false,
+}))
+
 // ---------------------------------------------------------------------------
 // Test data
 // ---------------------------------------------------------------------------

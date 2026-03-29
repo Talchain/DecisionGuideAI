@@ -69,8 +69,8 @@ export const ROBUSTNESS_LEVEL_DISPLAY: Record<string, RobustnessDisplayConfig> =
   high: { label: 'Robust', colour: 'green' },
   moderate: { label: 'Moderate', colour: 'amber' },
   medium: { label: 'Moderate', colour: 'amber' }, // Alias for moderate
-  low: { label: 'Fragile', colour: 'orange' },
-  very_low: { label: 'Very Fragile', colour: 'red' },
+  low: { label: 'Sensitive', colour: 'orange' },
+  very_low: { label: 'Highly sensitive', colour: 'red' },
 } as const
 
 // =============================================================================

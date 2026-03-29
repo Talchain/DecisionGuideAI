@@ -540,7 +540,7 @@ describe('RecommendationSection', () => {
       // Old badges should not appear
       expect(screen.queryByText('Robust')).not.toBeInTheDocument()
       expect(screen.queryByText('Moderate')).not.toBeInTheDocument()
-      expect(screen.queryByText('Fragile')).not.toBeInTheDocument()
+      expect(screen.queryByText('Sensitive')).not.toBeInTheDocument()
       // New stability badge should appear
       expect(screen.getByText('Stable result')).toBeInTheDocument()
     })

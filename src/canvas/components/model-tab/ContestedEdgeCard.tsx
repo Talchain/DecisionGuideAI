@@ -392,7 +392,7 @@ export function ContestedEdgeCard({
                   className={`${typography.panelMeta} text-right ${isFragile ? 'text-warning' : 'text-success'}`}
                   data-testid={`contested-robustness-${edgeId}`}
                 >
-                  {isFragile ? 'Fragile' : 'Stable'}
+                  {isFragile ? 'Sensitive' : 'Stable'}
                 </span>
               </>
             )}

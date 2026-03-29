@@ -227,8 +227,8 @@ describe('GraphTextView', () => {
       />
     )
 
-    // Fragile badge should be visible
-    expect(screen.getByText('Fragile')).toBeInTheDocument()
+    // Sensitive badge should be visible
+    expect(screen.getByText('Sensitive')).toBeInTheDocument()
   })
 
   it('displays robust badge for robust edges', () => {

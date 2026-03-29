@@ -276,13 +276,14 @@ export function supportsValidation(
 // =============================================================================
 
 /**
- * UI-SEM-016: Robustness label from numeric score (>=0.7 robust, >=0.4 moderate, else fragile).
+ * UI-SEM-016: Robustness label from numeric score.
+ * Science UX Architecture v2 §4.2: >=0.85 robust, >=0.70 moderate, else fragile.
  * Estimated — PLoT does not always provide a categorical robustness label.
  */
 function deriveRobustnessLabel(score: number | undefined): RobustnessLabel {
   if (score === undefined) return 'moderate'
-  if (score >= 0.7) return 'robust'
-  if (score >= 0.4) return 'moderate'
+  if (score >= 0.85) return 'robust'
+  if (score >= 0.70) return 'moderate'
   return 'fragile'
 }
 

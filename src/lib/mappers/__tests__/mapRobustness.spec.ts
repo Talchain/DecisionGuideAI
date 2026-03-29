@@ -475,15 +475,15 @@ describe('getRobustnessDisplay', () => {
       expect(result.colour).toBe('amber')
     })
 
-    it('returns "Fragile" with orange colour for low', () => {
+    it('returns "Sensitive" with orange colour for low', () => {
       const result = getRobustnessDisplay('low')
-      expect(result.label).toBe('Fragile')
+      expect(result.label).toBe('Sensitive')
       expect(result.colour).toBe('orange')
     })
 
-    it('returns "Very Fragile" with red colour for very_low', () => {
+    it('returns "Highly sensitive" with red colour for very_low', () => {
       const result = getRobustnessDisplay('very_low')
-      expect(result.label).toBe('Very Fragile')
+      expect(result.label).toBe('Highly sensitive')
       expect(result.colour).toBe('red')
     })
   })
@@ -518,15 +518,15 @@ describe('getRobustnessDisplay', () => {
   describe('badge derivation contract', () => {
     it('badge must derive from robustness.level, NOT recommendation_stability', () => {
       // This test documents the critical contract:
-      // When level = "low", badge must show "Fragile" (orange)
+      // When level = "low", badge must show "Sensitive" (orange)
       // NOT "Moderate" (derived from recommendation_stability threshold)
 
       const level: RobustnessLevel = 'low'
       const result = getRobustnessDisplay(level)
 
       // Even if recommendation_stability were 0.553 (which would be "Moderate" by threshold),
-      // the badge must show "Fragile" because level = "low"
-      expect(result.label).toBe('Fragile')
+      // the badge must show "Sensitive" because level = "low"
+      expect(result.label).toBe('Sensitive')
       expect(result.colour).toBe('orange')
     })
   })

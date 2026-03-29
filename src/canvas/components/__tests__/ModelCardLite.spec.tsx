@@ -106,12 +106,12 @@ describe('ModelCardLite', () => {
 
   it('shows confidence pill with colour indication AND text label', () => {
     render(
-      <ModelCardLite data={{ ...baseData, confidenceLabel: 'Fragile', hasResults: true }} />,
+      <ModelCardLite data={{ ...baseData, confidenceLabel: 'Sensitive', hasResults: true }} />,
     )
-    const pill = screen.getByText('Fragile')
+    const pill = screen.getByText('Sensitive')
     expect(pill).toBeInTheDocument()
     // Has text content (not colour-only)
-    expect(pill.textContent).toBe('Fragile')
+    expect(pill.textContent).toBe('Sensitive')
   })
 
   it('renders copy button with correct aria-label', () => {
