@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState } from 'react'
 import { TrendingUp, ChevronDown, ChevronRight } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, ResponsiveContainer, ReferenceLine,
