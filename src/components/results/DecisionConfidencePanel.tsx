@@ -44,6 +44,8 @@ interface DecisionConfidencePanelProps {
   onConfirm?: (nodeId: string) => void
   /** Handler for sending a message to the conversation panel */
   onSendMessage?: (text: string) => void
+  /** Show influence/EVOI metrics on triage cards */
+  expertMode?: boolean
 }
 
 // ── Dimension computation (same 4 labels as pre-analysis) ───────────────────
@@ -351,6 +353,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onSetValue,
   onConfirm,
   onSendMessage,
+  expertMode,
 }: DecisionConfidencePanelProps) {
   const { ringDimensions, dimensionBars } = useMemo(
     () => computePostAnalysisDimensions(data),
