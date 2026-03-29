@@ -20,7 +20,7 @@ export const SECTION_TITLES = {
   doesExist:           { label: 'Does this connection exist',    icon: 'ShieldQuestion' },
   howUncertain:        { label: 'How uncertain is the strength', icon: 'Maximize2'      },
   evidence:            { label: 'Evidence',                      icon: 'FileSearch'     },
-  fragility:           { label: 'Fragility',                     icon: 'AlertTriangle'  },
+  fragility:           { label: 'Sensitive assumptions',           icon: 'AlertTriangle'  },
   connections:         { label: 'Connections',                   icon: 'GitBranch'      },
   predictedRange:      { label: 'Predicted range by option',     icon: 'BarChart3'      },
   riskExposure:        { label: 'Risk exposure by option',       icon: 'BarChart3'      },

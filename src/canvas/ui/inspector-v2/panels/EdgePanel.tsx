@@ -350,7 +350,7 @@ export const EdgePanel = memo(function EdgePanel({
             )}
           </div>
 
-          {/* §10.5a Calibration — contested edge validation (L2 parity) */}
+          {/* §10.5a Calibration — needs your judgement (L2 parity) */}
           {(() => {
             const validation = (edge?.data as Record<string, unknown>)?.validation as
               import('../../../../canvas/domain/validation').ValidationMetadata | undefined
@@ -361,7 +361,7 @@ export const EdgePanel = memo(function EdgePanel({
                 <div className="bg-panel border border-warning/30 rounded-lg p-2.5">
                   <div className={`${typography.panelBody} font-medium text-warning flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-warning" />
-                    Contested
+                    Needs your judgement
                   </div>
                   {validation.contested_reasons?.length > 0 && (
                     <p className={`${typography.panelMeta} text-text-light mt-1`}>
@@ -397,7 +397,7 @@ export const EdgePanel = memo(function EdgePanel({
             )
           })()}
 
-          {/* §10.6 Fragility — only when edge in robustness.fragile_edges */}
+          {/* §10.6 Sensitive assumptions — only when edge in robustness.fragile_edges */}
           {isFragile && isResultsMode && (
             <>
               <SectionTitle icon={SECTION_TITLES.fragility.icon} label={SECTION_TITLES.fragility.label} />
@@ -405,7 +405,7 @@ export const EdgePanel = memo(function EdgePanel({
                 <div className="bg-panel border border-danger/30 p-2.5 rounded-lg">
                   <div className={`${typography.panelBody} font-medium text-danger flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-danger" />
-                    Fragile connection
+                    Sensitive assumption
                     {/* T7: Switch probability */}
                     {fragileEdgeSwitchProb !== null && (
                       <span className={`${typography.panelMeta} ml-1 text-warning font-mono`}>

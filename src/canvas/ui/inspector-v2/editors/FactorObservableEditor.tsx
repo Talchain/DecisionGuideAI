@@ -52,7 +52,7 @@ export function FactorObservableEditor({ nodeId }: FactorObservableEditorProps) 
           value={(obs?.unit as string) ?? ''}
           onChange={v => mutations.setObservedUnit(v as string)}
           type="text"
-          placeholder="\u00A3, %, users\u2026"
+          placeholder="£, %, users…"
         />
         <AdvancedField
           label="Scale cap"

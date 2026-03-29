@@ -7,6 +7,7 @@ import { useState, useCallback } from 'react'
 import { X, Plus } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import { useNodeMutations } from '../useInspectorMutations'
+import { getProvenanceLabel } from '../inspectorStrings'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
@@ -87,7 +88,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
           value={(obs?.unit as string) ?? ''}
           onChange={v => mutations.setObservedUnit(v as string)}
           type="text"
-          placeholder="\u00A3, %, users\u2026"
+          placeholder="£, %, users…"
         />
         <AdvancedField
           label="Scale cap"
@@ -118,6 +119,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
           onChange={v => mutations.setObservedSource(v as string)}
           type="text"
           placeholder="e.g. Q3 report"
+          helperText={obs?.source ? `Displays as: ${getProvenanceLabel(obs.source as string)}` : undefined}
         />
       </AdvancedFieldGroup>
 
@@ -182,7 +184,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
               value={newDriver}
               onChange={e => setNewDriver(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') handleAddDriver() }}
-              placeholder="Add driver\u2026"
+              placeholder="Add driver…"
               className={`${typography.panelMeta} flex-1 h-7 px-2 rounded bg-transparent border border-panel-border focus:border-primary focus:outline-none transition-colors`}
             />
             <button

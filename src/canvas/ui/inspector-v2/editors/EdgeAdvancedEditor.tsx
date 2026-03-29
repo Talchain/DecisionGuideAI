@@ -93,7 +93,7 @@ export function EdgeAdvancedEditor({ edgeId }: EdgeAdvancedEditorProps) {
       <AdvancedFieldGroup title="Metadata">
         <AdvancedField
           label="Edge key"
-          value={`${edge.source}\u2192${edge.target}`}
+          value={`${edge.source}→${edge.target}`}
           type="readonly"
         />
         <AdvancedField

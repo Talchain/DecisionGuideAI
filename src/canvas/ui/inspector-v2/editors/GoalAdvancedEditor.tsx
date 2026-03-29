@@ -71,7 +71,7 @@ export function GoalAdvancedEditor({ nodeId }: GoalAdvancedEditorProps) {
             {constraints.map((c, i) => (
               <div key={i} className={`${typography.panelMeta} text-text-body flex items-center gap-1`}>
                 <span className="truncate flex-1">{String(c.label ?? c.node_id ?? `#${i + 1}`)}</span>
-                <span className="text-text-light">{String(c.operator ?? '\u2265')}</span>
+                <span className="text-text-light">{String(c.operator ?? '≥')}</span>
                 <span className="tabular-nums">{String(c.value ?? '—')}</span>
               </div>
             ))}
