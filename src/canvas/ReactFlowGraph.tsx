@@ -2018,9 +2018,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         interactionMode={interactionMode}
         onModeChange={setInteractionMode}
         onTemplatesClick={handleEmptyStateTemplate}
-        onRunClick={handleRunSimulation}
-        onCompareClick={handleOpenCompare}
-        onEvidenceClick={() => setShowProvenanceHub(true)}
         onFitClick={() => fitViewRef.current({ padding: 0.2, duration: 300 })}
         // Canvas control actions
         onUndoClick={undo}

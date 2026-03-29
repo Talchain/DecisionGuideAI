@@ -1,9 +1,6 @@
 import {
   Plus,
   PanelsTopLeft,
-  Play,
-  BarChart3,
-  Layers,
   Maximize2,
   Undo2,
   Redo2,
@@ -27,9 +24,6 @@ interface LeftSidebarProps {
   // Node/canvas actions
   onAddNodeClick?: () => void
   onTemplatesClick?: () => void
-  onRunClick?: () => void
-  onCompareClick?: () => void
-  onEvidenceClick?: () => void
   onFitClick?: () => void
   // Canvas control actions
   onUndoClick?: () => void
@@ -50,9 +44,6 @@ export function LeftSidebar({
   onModeChange,
   onAddNodeClick,
   onTemplatesClick,
-  onRunClick,
-  onCompareClick,
-  onEvidenceClick,
   onFitClick,
   // Canvas controls
   onUndoClick,
@@ -73,8 +64,6 @@ export function LeftSidebar({
   const handleEdgeLabelToggle = () => {
     setEdgeLabelMode(isNumericMode ? 'human' : 'numeric')
   }
-
-  // View mode toggle removed — now in TopBar dropdown + context menu
 
   return (
     <nav
@@ -122,7 +111,7 @@ export function LeftSidebar({
         </Tooltip>
       </div>
 
-      {/* Canvas Controls Group (New) */}
+      {/* Canvas Controls Group */}
       <div className={styles.group}>
         <Tooltip content="Undo (⌘Z)">
           <button
@@ -171,41 +160,8 @@ export function LeftSidebar({
         </Tooltip>
       </div>
 
-      {/* Run & Analysis Group */}
+      {/* Display Group */}
       <div className={styles.group}>
-        <Tooltip content="Run analysis (⌘⏎)">
-          <button
-            type="button"
-            className={styles.iconButtonPrimary}
-            aria-label="Run analysis"
-            onClick={onRunClick}
-          >
-            <Play className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Compare runs">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Open compare view"
-            onClick={onCompareClick}
-          >
-            <BarChart3 className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Evidence & provenance">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Open evidence panel"
-            onClick={onEvidenceClick}
-          >
-            <Layers className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
         <Tooltip content={isNumericMode ? 'Switch to human-readable labels' : 'Switch to numeric labels'}>
           <button
             type="button"
@@ -220,8 +176,6 @@ export function LeftSidebar({
             )}
           </button>
         </Tooltip>
-
-        {/* View mode toggle removed — now in TopBar dropdown + context menu */}
       </div>
 
       {/* View Controls Group */}
