@@ -284,7 +284,7 @@ function OptionCard({
         {rank != null && totalOptions > 1 && (
           <Tooltip content={`Win probability ranking across ${totalOptions} scenarios`}>
             <span
-              className="text-[12px] font-semibold text-text-light flex-shrink-0"
+              className={`${typography.panelBody} font-semibold text-text-light flex-shrink-0`}
               data-testid={`rank-badge-${option.id}`}
             >
               {neutralised && option.winProbability != null
@@ -310,7 +310,7 @@ function OptionCard({
         {option.winProbability != null && (
           <Tooltip content={`Wins in ${Math.round(option.winProbability * 100)}% of simulated scenarios`}>
             <span
-              className="text-[14px] font-semibold text-text-header tabular-nums flex-shrink-0"
+              className={`${typography.panelHeader} text-text-header tabular-nums flex-shrink-0`}
               data-testid={`win-pct-${option.id}`}
             >
               {formatPct(option.winProbability, { fromDecimal: true })}

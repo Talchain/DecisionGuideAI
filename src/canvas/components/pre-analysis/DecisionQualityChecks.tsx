@@ -216,13 +216,20 @@ function CheckRow({
   )
 }
 
-/** Structural/binary checks that surface as triage footer flags instead of here */
+/** Checks excluded from "Sharpen your thinking" — they surface elsewhere:
+ *  - Structural flags: triage footer flags (no_risks, no_baseline, etc.)
+ *  - Nudge checks: triage panel science nudges (same_levers, zero_external_factors, many_ai_estimates)
+ */
 export const STRUCTURAL_CHECK_IDS = new Set([
   'no_risks',
   'no_baseline',
   'all_positive_edges',
   'no_target',
   'goal_baseline_missing',
+  // Nudge checks — shown as triage panel science nudges, not here
+  'same_levers',
+  'zero_external_factors',
+  'many_ai_estimates',
 ])
 
 export function DecisionQualityChecks({ checks, onAction, onDirectAdd, goalBaselineSlot, totalCheckCount, assumptionsLedger }: DecisionQualityChecksProps) {
