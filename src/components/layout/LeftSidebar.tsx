@@ -15,13 +15,10 @@ import {
   Binary,
   MousePointer2,
   Hand,
-  Eye,
-  Wrench,
 } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './LeftSidebar.module.css'
 import { useEdgeLabelMode } from '../../canvas/store/edgeLabelMode'
-import { useCanvasStore } from '../../canvas/store'
 
 interface LeftSidebarProps {
   // Interaction mode (select vs hand/pan)
@@ -77,14 +74,7 @@ export function LeftSidebar({
     setEdgeLabelMode(isNumericMode ? 'human' : 'numeric')
   }
 
-  // View mode toggle (Decision / Model)
-  const viewMode = useCanvasStore(state => state.viewMode)
-  const setViewMode = useCanvasStore(state => state.setViewMode)
-  const isDecisionView = viewMode === 'decision'
-
-  const handleViewModeToggle = () => {
-    setViewMode(isDecisionView ? 'model' : 'decision')
-  }
+  // View mode toggle removed — now in TopBar dropdown + context menu
 
   return (
     <nav
@@ -231,20 +221,7 @@ export function LeftSidebar({
           </button>
         </Tooltip>
 
-        <Tooltip content={isDecisionView ? 'Switch to Model view (full detail)' : 'Switch to Decision view (summary)'}>
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label={`View: ${isDecisionView ? 'Decision' : 'Model'}. Click to toggle.`}
-            onClick={handleViewModeToggle}
-          >
-            {isDecisionView ? (
-              <Eye className={styles.icon} aria-hidden="true" />
-            ) : (
-              <Wrench className={styles.icon} aria-hidden="true" />
-            )}
-          </button>
-        </Tooltip>
+        {/* View mode toggle removed — now in TopBar dropdown + context menu */}
       </div>
 
       {/* View Controls Group */}

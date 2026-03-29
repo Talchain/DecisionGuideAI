@@ -114,11 +114,8 @@ export function existenceCertaintyToLineStyle(
     return undefined // Solid (default)
   }
 
-  if (existsProbability >= 0.4) {
-    return '6,4' // Dashed (medium confidence)
-  }
-
-  return '2,4' // Dotted (low confidence)
+  // Single dashed style for all confidence < 0.7
+  return '6,4'
 }
 
 /**

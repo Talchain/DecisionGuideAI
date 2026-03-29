@@ -267,10 +267,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   const beliefExists = edgeData?.beliefExists ??
                        (edgeData as any)?.belief_exists ??
                        (edgeData as any)?.exists_probability
-  // Decision view: all edges render solid (simplified). Model view: existence certainty styling.
+  // Both views: dashed when exists_probability < 0.7 (existence certainty styling)
   const existenceCertaintyDash = useMemo(() =>
-    viewMode === 'model' ? existenceCertaintyToLineStyle(beliefExists) : null,
-    [beliefExists, viewMode]
+    existenceCertaintyToLineStyle(beliefExists),
+    [beliefExists]
   )
 
   // Contested edge styling — dashed info-colour stroke scaled by max_divergence
@@ -457,7 +457,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // C1: Only show causal label when selected, hovered, has suggestion, is first edge with hint, or is top-strength edge
   // Structural edges (decision→option) never show causal labels
   // Decision view: no labels (Phase 1 — edges show colour only)
-  const showLabel = viewMode !== 'decision' && !isNonCausalEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
+  const showLabel = viewMode !== 'standard' && !isNonCausalEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -472,7 +472,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         strokeWidth={20}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        style={{ pointerEvents: 'stroke' }}
+        style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
         {...(isPreRunIncompleteEdge ? { 'data-testid': 'overlay-missing-confidence' } : {})}
       />
       <BaseEdge
@@ -499,6 +499,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             }
             // Graph Lens: fragile mode thickens fragile edges
             if (isLensFragile) return 3
+            // Hover thickening: 2px to 3px on hover
+            if (isHovered) return Math.max(edgeStrokeWidth, 3)
             return isHighlightedEdge ? Math.max(edgeStrokeWidth, 3) : edgeStrokeWidth
           })(),
           // Fix 1: Use existence certainty for line style, fallback to visual props
@@ -603,7 +605,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
       {/* Decision Graph Display v2 Task 3 + Task D: Direction sign indicator (single, near target) */}
       {/* Decision view: hidden — direction conveyed by edge colour only (Phase 1) */}
-      {viewMode !== 'decision' && direction && lensMode !== 'causal' && (
+      {viewMode !== 'standard' && direction && lensMode !== 'causal' && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -626,7 +628,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
       {/* Decision Graph Display v2 Task 4: Fragile edge warning badge (Results mode, Model view only) */}
       {/* Decision view: no fragile badges (Phase 1) */}
-      {viewMode !== 'decision' && isFragileEdge && (
+      {viewMode !== 'standard' && isFragileEdge && (
         <EdgeLabelRenderer>
           <div
             style={{

@@ -28,7 +28,7 @@ export const GhostOptionNode = memo((_props: NodeProps) => {
         background: 'var(--bg-panel, #FEFEFE)',
         minHeight: '56px',
         minWidth: '140px',
-        maxWidth: '200px',
+        maxWidth: '160px',
         padding: '12px',
       }}
       onClick={handleClick}
@@ -39,9 +39,9 @@ export const GhostOptionNode = memo((_props: NodeProps) => {
       <Handle type="source" position={Position.Bottom} style={{ opacity: 0, pointerEvents: 'none' }} />
 
       <div className="flex items-center gap-1.5">
-        <Plus size={14} className="text-text-tertiary" />
-        <span className={`${typography.nodeLabel} text-text-tertiary`}>
-          Explore another option
+        <Plus size={14} className="text-text-light" />
+        <span className={`${typography.edgeLabel} text-text-light`}>
+          + Explore another option
         </span>
       </div>
     </div>

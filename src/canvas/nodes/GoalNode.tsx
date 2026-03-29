@@ -11,34 +11,32 @@ import { FileText, Cpu } from 'lucide-react'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit } from '../utils/labelUtils'
-import { CoachingCard } from '../components/CoachingCard'
+import { NodeChip, ExpertOverlay } from './shared'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 export const GoalNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.goal
   const displayMetadata = useNodeDisplayMetadata(props.id, 'goal')
 
-  // T10: Robustness level + stability from report
   const report = useCanvasStore(state => state.results.report)
   const resultsStatus = useCanvasStore(state => state.results.status)
-  const viewMode = useCanvasStore(state => state.viewMode)
+  const isPostAnalysis = resultsStatus === 'complete'
 
   const robustnessData = useMemo(() => {
-    if (resultsStatus !== 'complete' || !report) return null
+    if (!isPostAnalysis || !report) return null
     const robustness = (report as any)?.robustness
     if (!robustness) return null
     const stability: number | null = typeof (robustness.recommendation_stability ?? robustness.recommendationStability) === 'number'
-      ? (robustness.recommendation_stability ?? robustness.recommendationStability)
-      : null
+      ? (robustness.recommendation_stability ?? robustness.recommendationStability) : null
     const level: string | null = robustness.level ?? robustness.robustness_level ?? null
     return { stability, level }
-  }, [report, resultsStatus])
+  }, [report, isPostAnalysis])
 
-  // T10: Threshold context from node data
   const thresholdRaw = props.data?.goal_threshold_raw as string | number | null | undefined
   const thresholdUnit = props.data?.goal_threshold_unit as string | undefined
+  const hasThreshold = thresholdRaw != null && String(thresholdRaw).trim() !== ''
 
-  // T10: Stability bar colour from robustness level (or canonical derivation)
   const stabilityClassification = useMemo(() =>
     getStabilityClassification(robustnessData?.stability),
     [robustnessData?.stability]
@@ -46,35 +44,28 @@ export const GoalNode = memo((props: NodeProps) => {
   const stabilityBarColour = useMemo((): DataBarColour => {
     const level = robustnessData?.level ?? stabilityClassification?.level
     switch (level) {
-      case 'high':     return 'success'
+      case 'high': return 'success'
       case 'moderate': return 'goal'
-      case 'low':
-      case 'very_low': return 'warning'
-      default:         return 'goal'
+      case 'low': case 'very_low': return 'warning'
+      default: return 'goal'
     }
   }, [robustnessData, stabilityClassification])
 
-  // Prefer report-level stability over displayMetadata fallback
   const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
-
   const nodes = useCanvasStore(state => state.nodes)
 
-  // Phase 4: Check if graph has any risk nodes
   const hasRiskNodes = useMemo(() =>
     nodes.some(n => n.type === 'risk' || n.data?.type === 'risk'),
     [nodes]
   )
 
-  // T5: Constraint badges — pre-analysis from goalConstraints store, post-analysis from report
   const preAnalysisConstraints = useCanvasStore(state => state.goalConstraints)
   const postAnalysisConstraints = useCanvasStore(state =>
     (state.results?.report as any)?.goal_constraints as Array<CEEGoalConstraint & { probability?: number }> | null | undefined
   )
-  // Prefer post-analysis (has probability) over pre-analysis (preview only)
   const activeConstraints: Array<CEEGoalConstraint & { probability?: number }> | null =
-    resultsStatus === 'complete' ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
+    isPostAnalysis ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
 
-  // P0.3: Provenance pill — show when goal node has a meaningful source attribution
   const provenanceLabel = useMemo(() => {
     const source = (props.data?.observedState as any)?.source as string | undefined
     if (!source || source === 'user' || source === 'user_calibration' || source === 'default') return null
@@ -82,40 +73,66 @@ export const GoalNode = memo((props: NodeProps) => {
     return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
   }, [props.data?.observedState])
 
-  // T6 fix: Check for CONSTRAINT_NODE_DEFAULT_BASE inference warning — goal probability unreliable
   const hasConstraintDefaultWarning = useMemo(() => {
-    if (resultsStatus !== 'complete' || !report) return false
+    if (!isPostAnalysis || !report) return false
     const warnings = (report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings
     if (!Array.isArray(warnings)) return false
     return warnings.some((w: any) => w.code === 'CONSTRAINT_NODE_DEFAULT_BASE')
-  }, [report, resultsStatus])
+  }, [report, isPostAnalysis])
 
-  // §11.3: Goal node border reflects confidence/stability level (post-analysis only)
-  // high → solid goal (default, no override), moderate → info dashed, low → danger dashed
+  // Border: dashed warning for no target, dashed by stability for post-analysis
   const goalBorderOverride = useMemo(() => {
+    if (!hasThreshold) return 'border-warning border-dashed'
     if (!robustnessData) return undefined
     switch (robustnessData.level) {
       case 'moderate': return 'border-info border-dashed'
-      case 'low':      return 'border-danger border-dashed'
-      default:         return undefined // high or unknown → entity colour, solid
+      case 'low': return 'border-danger border-dashed'
+      default: return undefined
     }
-  }, [robustnessData])
+  }, [hasThreshold, robustnessData])
+
+  // Format threshold display
+  const thresholdDisplay = useMemo(() => {
+    if (!hasThreshold) return null
+    const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
+    if (Number.isNaN(raw)) return String(thresholdRaw)
+    const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
+    if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(Math.round(raw), 'percent')
+    if (u === 'count' || u === '') return formatTargetValue(raw)
+    if (thresholdUnit && isCurrencyUnit(thresholdUnit)) return formatTargetValue(raw, 'currency', thresholdUnit)
+    return `${raw.toLocaleString()} ${thresholdUnit}`
+  }, [hasThreshold, thresholdRaw, thresholdUnit])
 
   return (
-    <BaseNode {...props} nodeType="goal" icon={metadata.icon} borderClassOverride={goalBorderOverride}>
-      {/* Achievement probability — evaluative colour per §11.6: >=0.70 success, >=0.40 warning, <0.40 danger */}
-      {displayMetadata.achievementProbability !== null && (
-        <div className={`${typography.nodeTitle} mb-1 flex items-center gap-1 ${
-          displayMetadata.achievementProbability >= 0.70 ? 'text-success'
-          : displayMetadata.achievementProbability >= 0.40 ? 'text-warning'
-          : 'text-danger'
+    <BaseNode {...props} nodeType="goal" icon={metadata.icon} maxWidth={300} borderClassOverride={goalBorderOverride ?? undefined}>
+      {/* No target: guided action */}
+      {!hasThreshold && !isPostAnalysis && (
+        <>
+          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>What does success look like for you?</p>
+          <div className="mt-1.5">
+            <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+          </div>
+        </>
+      )}
+
+      {/* With target: display it */}
+      {hasThreshold && (
+        <div className={`${typography.nodeLabel} text-text-light mt-1`}>
+          Target: {thresholdDisplay}
+        </div>
+      )}
+
+      {/* Post-analysis: achievement probability */}
+      {displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
+        <div className={`${typography.nodeLabel} mt-1 ${
+          displayMetadata.achievementProbability < 0.10 ? 'text-danger' : 'text-text-body'
         }`}>
           {displayMetadata.achievementProbability > 0 && displayMetadata.achievementProbability < 0.01
             ? '< 1'
-            : Math.round(displayMetadata.achievementProbability * 100)}% chance of target
+            : Math.round(displayMetadata.achievementProbability * 100)}% chance of reaching target
           {hasConstraintDefaultWarning && (
             <span
-              className={`${typography.nodeLabel} bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0`}
+              className={`${typography.edgeLabel} ml-1 bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 inline-flex items-center justify-center`}
               title="Some model inputs are missing. Goal probability may be less reliable."
             >
               ?
@@ -123,134 +140,101 @@ export const GoalNode = memo((props: NodeProps) => {
           )}
         </div>
       )}
-      {/* T6 P1-4: Show "?" badge independently when probability is null but warning exists */}
-      {displayMetadata.achievementProbability === null && hasConstraintDefaultWarning && (
-        <div className={`${typography.nodeTitle} mb-1 flex items-center gap-1 text-warning`}>
-          <span
-            className={`${typography.nodeLabel} bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 flex items-center justify-center flex-shrink-0`}
-            title="Some model inputs are missing. Goal probability may be less reliable."
+
+      {/* Actionable guidance for low probability */}
+      {isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+        <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
+          Target may be ambitious.{' '}
+          <button
+            type="button"
+            className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
+            onClick={(e) => {
+              e.stopPropagation()
+              useCanvasStore.getState().setShowInspectorPanel(true)
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
           >
-            ?
-          </span>
-          <span className={`${typography.nodeLabel} text-text-light`}>Target probability unavailable</span>
+            Adjust target
+          </button>
+          {' '}or{' '}
+          <button
+            type="button"
+            className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
+            onClick={(e) => {
+              e.stopPropagation()
+              useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors to improve my chance of reaching the goal?')
+            }}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            strengthen key factors
+          </button>
+        </p>
+      )}
+
+      {/* Low probability chip */}
+      {isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+        <div className="mt-1.5">
+          <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
         </div>
       )}
 
-      {/* T10: Stability bar + UI-SEM-048 Marginal badge (Model view only) */}
-      {viewMode === 'model' && stabilityValue !== null && (
-        <div className="mt-2 mb-1">
-          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className={`${typography.nodeLabel} text-text-light`}>Decision stability</span>
-            <span className={`${typography.nodeLabel} text-text-body`}>
-              {Math.round(stabilityValue * 100)}%
-            </span>
-            {/* UI-SEM-048: Marginal badge shown when canonical level is low/very_low (stability < 0.55) */}
-            {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
-              <span className={`${typography.nodeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1.5 py-0.5 ml-auto`}>
-                Marginal
-              </span>
-            )}
-          </div>
-          <DataBar
-            value={stabilityValue}
-            label="Stability"
-            colour={stabilityBarColour}
-            size="standard"
-          />
-        </div>
-      )}
-
-      {/* Fallback: "Recommended in X% of scenarios" only when no stability bar shown */}
-      {displayMetadata.achievementProbability === null && stabilityValue === null && displayMetadata.stabilityPercentage !== null && (
-        <div className={`${typography.nodeTitle} mb-1 text-info`}>
-          Winner in {Math.round(displayMetadata.stabilityPercentage * 100)}% of scenarios
-        </div>
-      )}
-
-      {/* T10: Threshold context — show "Target: >= X" or "No target set" coaching prompt */}
-      {thresholdRaw != null && String(thresholdRaw).trim() !== '' ? (
-        <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-          Target:{'\u00a0'}{(() => {
-            const raw = typeof thresholdRaw === 'number' ? thresholdRaw : Number(thresholdRaw)
-            if (Number.isNaN(raw)) return String(thresholdRaw)
-            const u = typeof thresholdUnit === 'string' ? thresholdUnit.toLowerCase() : ''
-            if (u === '%' || u === 'percent' || u === 'percentage') return formatTargetValue(Math.round(raw), 'percent')
-            if (u === 'count' || u === '') return formatTargetValue(raw)
-            if (thresholdUnit && isCurrencyUnit(thresholdUnit)) {
-              // Currency symbol — prefix (e.g. "≥ £20,000")
-              return formatTargetValue(raw, 'currency', thresholdUnit)
-            }
-            // Non-currency unit — suffix (e.g. "≥ 200 customers")
-            return `${raw.toLocaleString()} ${thresholdUnit}`
-          })()}
-        </div>
-      ) : resultsStatus !== 'complete' && (
-        <div className={`${typography.nodeLabel} italic text-text-light mt-1`}>
-          Set a success target to enable probability calculations
-        </div>
-      )}
-
-      {/* T5: Constraint badges (Model view only) */}
-      {viewMode === 'model' && activeConstraints && activeConstraints.length > 0 && (
-        <div className="mt-1.5 flex flex-col gap-0.5">
-          {activeConstraints.map((c, i) => {
-            const prob = typeof c.probability === 'number' ? c.probability : null
-            // Post-analysis colour: ≥0.7 success, ≥0.4 warning, else danger
-            const colourClass = prob === null
-              ? 'border-info/30 text-text-body'
-              : prob >= 0.7 ? 'border-success/40 text-success'
-              : prob >= 0.4 ? 'border-warning/40 text-warning'
-              : 'border-danger/40 text-danger'
-            const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
-            return (
-              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
-                <span className={`${typography.nodeLabel} truncate`} title={c.label}>
-                  {c.operator} {c.label}
-                </span>
-                {prob !== null && (
-                  <span className={`${typography.nodeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>
-                )}
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {viewMode === 'model' && provenanceLabel && (
-        <div className="flex justify-end mt-1.5">
-          {provenanceLabel.includes('Olumi') ? (
-            <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
-          ) : (
-            <FileText size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
-          )}
-        </div>
-      )}
-
-      {/* Coaching: no risks modelled (both views) */}
+      {/* No risks coaching (both views) */}
       {!hasRiskNodes && (
-        <CoachingCard
-          severity="danger"
-          message="No risks modelled. What could prevent you reaching this goal?"
-          linkLabel="Identify risks"
-          linkMessage="What risks could prevent me from reaching my goal?"
-        />
-      )}
-
-      {/* Coaching: CONSTRAINT_NODE_DEFAULT_BASE warning (Model view) */}
-      {viewMode === 'model' && hasConstraintDefaultWarning && (
-        <CoachingCard
-          severity="warning"
-          message="Some model inputs are missing. Goal probability may be less reliable."
-          linkLabel="Why is this happening?"
-          linkMessage="Why is the goal probability unreliable in this analysis?"
-        />
-      )}
-
-      {props.data?.description && (
-        <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
-          {props.data.description}
+        <div className="mt-1.5">
+          <NodeChip label="Identify risks" message="What risks could prevent me from reaching my goal?" />
         </div>
       )}
+
+      {/* Expert overlay: stability, constraints, provenance */}
+      <ExpertOverlay>
+        {stabilityValue !== null && (
+          <div className="mb-1">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
+              <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
+              {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
+                <span className={`${typography.edgeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1 py-0`}>
+                  Marginal
+                </span>
+              )}
+            </div>
+            <DataBar value={stabilityValue} label="Stability" colour={stabilityBarColour} size="standard" />
+          </div>
+        )}
+        {activeConstraints && activeConstraints.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            {activeConstraints.map((c, i) => {
+              const prob = typeof c.probability === 'number' ? c.probability : null
+              const colourClass = prob === null ? 'border-info/30 text-text-body'
+                : prob >= 0.7 ? 'border-success/40 text-success'
+                : prob >= 0.4 ? 'border-warning/40 text-warning'
+                : 'border-danger/40 text-danger'
+              const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
+              return (
+                <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
+                  <span className={`${typography.edgeLabel} truncate`}>{c.operator} {c.label}</span>
+                  {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        {provenanceLabel && (
+          <div className="flex items-center gap-1 mt-0.5">
+            {provenanceLabel.includes('Olumi') ? (
+              <Cpu size={10} className="text-text-light" aria-hidden="true" />
+            ) : (
+              <FileText size={10} className="text-text-light" aria-hidden="true" />
+            )}
+            <span className={`${typography.edgeLabel} text-text-light`}>{provenanceLabel}</span>
+          </div>
+        )}
+        {hasConstraintDefaultWarning && (
+          <p className={`${typography.edgeLabel} text-warning m-0 mt-0.5`}>
+            Some model inputs missing. Goal probability may be less reliable.
+          </p>
+        )}
+      </ExpertOverlay>
     </BaseNode>
   )
 })

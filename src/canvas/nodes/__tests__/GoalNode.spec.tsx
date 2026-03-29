@@ -22,7 +22,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   nodes: [],
   edges: [],
   ceeAnalysisReady: null,
-  viewMode: 'model',
+  viewMode: 'expert',
   ...overrides,
 })
 
@@ -112,7 +112,7 @@ describe('GoalNode', () => {
       isResultsMode: true,
     })
     renderGoal()
-    expect(screen.getByText(/73.*% chance of target/)).toBeDefined()
+    expect(screen.getByText(/73.*% chance of reaching target/)).toBeDefined()
   })
 
   // T10: Stability bar
@@ -242,7 +242,7 @@ describe('GoalNode', () => {
     renderGoal()
     // No threshold display, shows coaching prompt instead
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Set a success target/)).toBeDefined()
+    expect(screen.getByText(/What does success look like/)).toBeDefined()
   })
 
   it('shows threshold without unit when goal_threshold_unit is absent', () => {
@@ -288,30 +288,30 @@ describe('GoalNode', () => {
   it('shows coaching prompt when goal_threshold_raw is null', () => {
     renderGoal({ goal_threshold_raw: null })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Set a success target/)).toBeDefined()
+    expect(screen.getByText(/What does success look like/)).toBeDefined()
   })
 
   it('shows coaching prompt when goal_threshold_raw is empty string', () => {
     renderGoal({ goal_threshold_raw: '' })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Set a success target/)).toBeDefined()
+    expect(screen.getByText(/What does success look like/)).toBeDefined()
   })
 
   it('shows coaching prompt when goal_threshold_raw is whitespace-only', () => {
     renderGoal({ goal_threshold_raw: '   ' })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/Set a success target/)).toBeDefined()
+    expect(screen.getByText(/What does success look like/)).toBeDefined()
   })
 
   // P0.3: Provenance icon renders for brief_extraction source
-  it('shows provenance icon for brief_extraction source', () => {
+  it('shows provenance label for brief_extraction source', () => {
     renderGoal({ observedState: { source: 'brief_extraction' } })
-    expect(screen.getByTitle('Generated from your brief')).toBeDefined()
+    expect(screen.getByText('Generated from your brief')).toBeDefined()
   })
 
-  it('does not show provenance icon for user source', () => {
+  it('does not show provenance label for user source', () => {
     renderGoal({ observedState: { source: 'user' } })
-    expect(screen.queryByTitle('Generated from your brief')).toBeNull()
+    expect(screen.queryByText('Generated from your brief')).toBeNull()
   })
 
   it('does not show provenance icon when observedState is absent', () => {
@@ -600,11 +600,11 @@ describe('GoalNode', () => {
   // B5/B6: null and empty string both show coaching prompt
   it('B5: threshold_raw=null → coaching prompt (already covered, regression guard)', () => {
     renderGoal({ goal_threshold_raw: null })
-    expect(screen.getByText(/Set a success target/)).toBeDefined()
+    expect(screen.getByText(/What does success look like/)).toBeDefined()
   })
 
   it('B6: threshold_raw="" → coaching prompt', () => {
     renderGoal({ goal_threshold_raw: '' })
-    expect(screen.getByText(/Set a success target/)).toBeDefined()
+    expect(screen.getByText(/What does success look like/)).toBeDefined()
   })
 })

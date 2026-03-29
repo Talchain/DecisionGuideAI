@@ -417,9 +417,9 @@ interface CanvasState {
   // Set via URL param ?rawCee=1 or Debug Panel checkbox
   debugRawCeeOutput: boolean
   setDebugRawCeeOutput: (value: boolean) => void
-  // Canvas view mode: 'decision' (clean summary) vs 'model' (full detail)
-  viewMode: 'decision' | 'model'
-  setViewMode: (mode: 'decision' | 'model') => void
+  // Canvas view mode: 'standard' (actionable guidance) vs 'expert' (+ numeric overlays)
+  viewMode: 'standard' | 'expert'
+  setViewMode: (mode: 'standard' | 'expert') => void
   updateScenarioFraming: (partial: ScenarioFraming) => void
   addNode: (pos?: { x: number; y: number }, type?: NodeType) => LimitExceeded | null
   /** Create a new node with an edge connecting it to an existing node. Returns the new node ID. */
@@ -1059,10 +1059,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   clarifierSession: null,
   clarifierPreviewNodeIds: [],
   clarifierPreviewEdgeIds: [],
-  // Canvas view mode: default to 'decision' (clean summary)
-  viewMode: ((): 'decision' | 'model' => {
-    try { const v = sessionStorage.getItem('canvas.viewMode'); if (v === 'decision' || v === 'model') return v } catch { /* noop */ }
-    return 'decision'
+  // Canvas view mode: default to 'standard' (actionable guidance)
+  viewMode: ((): 'standard' | 'expert' => {
+    try {
+      const v = sessionStorage.getItem('canvas.viewMode')
+      if (v === 'standard' || v === 'expert') return v
+      // Backward compat: migrate old values
+      if (v === 'decision') return 'standard'
+      if (v === 'model') return 'expert'
+    } catch { /* noop */ }
+    return 'standard'
   })(),
   // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
   pendingFitView: false,
@@ -3446,7 +3452,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   // Canvas view mode setter (persists to sessionStorage)
-  setViewMode: (mode: 'decision' | 'model') => {
+  setViewMode: (mode: 'standard' | 'expert') => {
     set({ viewMode: mode })
     try { sessionStorage.setItem('canvas.viewMode', mode) } catch { /* noop */ }
   },
@@ -3879,5 +3885,5 @@ export const selectLensOptionId = (state: CanvasState): string | null => state.l
 /**
  * Canvas view mode selector
  */
-export type ViewMode = 'decision' | 'model'
+export type ViewMode = 'standard' | 'expert'
 export const selectViewMode = (state: CanvasState): ViewMode => state.viewMode

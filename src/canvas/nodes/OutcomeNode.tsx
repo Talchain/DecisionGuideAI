@@ -1,4 +1,4 @@
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
@@ -9,18 +9,20 @@ import { FileText, Cpu } from 'lucide-react'
 import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
+import { useNodeConnections } from '../hooks/useNodeConnections'
+import { ConnRow, Sep, ExpertOverlay } from './shared'
+import { useGuidanceStore } from '../stores/guidanceStore'
 
 export const OutcomeNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.outcome
   const displayMetadata = useNodeDisplayMetadata(props.id, 'outcome')
 
-  // T9: Bridge edge data — find edge from this node to goal node
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
-  const viewMode = useCanvasStore(state => state.viewMode)
+  const isPostAnalysis = resultsStatus === 'complete'
 
-  // Provenance pill: show when source is a meaningful attribution (not user-set or unknown)
+  // Provenance pill (expert overlay only)
   const provenanceLabel = useMemo(() => {
     const source = (props.data?.observedState as any)?.source as string | undefined
     if (!source || source === 'user' || source === 'user_calibration' || source === 'default') return null
@@ -28,14 +30,12 @@ export const OutcomeNode = memo((props: NodeProps) => {
     return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
   }, [props.data?.observedState])
 
+  // Bridge edge to goal — contribution %
   const bridgeEdgeData = useMemo(() => {
-    // Find the goal node
     const goalNode = nodes.find(n => n.data?.type === 'goal' || n.type === 'goal')
     if (!goalNode) return null
-    // Find edge from this node to goal
     const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
     if (!edge) return null
-
     const weight = (edge.data as any)?.weight as number | undefined
     const hasStrength = typeof (edge.data as any)?.strength_mean === 'number' || weight != null
     const signedMean = hasStrength ? computeSignedMean(edge.data as Record<string, unknown> | undefined) : null
@@ -45,103 +45,94 @@ export const OutcomeNode = memo((props: NodeProps) => {
     }
   }, [edges, nodes, props.id])
 
-  const report = useCanvasStore(state => state.results.report)
+  // ConnRow data: "Depends on:" — inbound edges from factors
+  const inboundConnections = useNodeConnections(props.id, 'inbound')
 
-  // Phase 4: "Driven by" — top 2 factors by inbound edge weight (Model view, post-analysis)
-  // Include sensitivity rank when available, e.g. "Feature release (#1), Pro price (#2)"
-  const drivenBy = useMemo(() => {
-    if (viewMode !== 'model' || resultsStatus !== 'complete') return null
-    // Build rank lookup from factor_sensitivity (aligned with useNodeDisplayMetadata ranking)
-    const sensitivity = (report as any)?.enrichment?.sensitivity_analysis?.factors
-      ?? (report as any)?.factor_sensitivity ?? []
-    const rankById = new Map<string, number>()
-    if (Array.isArray(sensitivity)) {
-      const sorted = [...sensitivity]
-        .map((f: any) => ({
-          id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
-          elasticity: Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0),
-        }))
-        .sort((a, b) => b.elasticity !== a.elasticity
-          ? b.elasticity - a.elasticity
-          : (a.id ?? '').localeCompare(b.id ?? ''))
-      sorted.forEach((f, i) => { if (f.id) rankById.set(f.id, i + 1) })
-    }
-    const inbound = edges
-      .filter(e => e.target === props.id)
-      .map(e => {
-        const sourceNode = nodes.find(n => n.id === e.source)
-        const w = (e.data as any)?.weight as number | undefined
-        const rank = rankById.get(e.source)
-        return { label: (sourceNode?.data?.label as string | undefined) ?? null, weight: w ?? 0, rank }
-      })
-      .filter(e => e.label)
-      .sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight))
-      .slice(0, 2)
-    return inbound.length > 0
-      ? inbound.map(e => e.rank ? `${e.label} (#${e.rank})` : e.label!).join(', ')
-      : null
-  }, [viewMode, resultsStatus, edges, nodes, props.id, report])
+  // Top factor for actionable guidance
+  const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
+
+  const handleFactorLink = useCallback(() => {
+    if (!topFactor) return
+    const send = useGuidanceStore.getState()._sendMessage
+    if (send) send(`How can I validate my assumption about ${topFactor.connectedNodeLabel}?`)
+  }, [topFactor])
 
   return (
-    <BaseNode {...props} nodeType="outcome" icon={metadata.icon}>
-      {/* Achievement probability (Model view only — Decision view shows name + contribution % only) */}
-      {viewMode === 'model' && displayMetadata.achievementProbability !== null && (
-        <div className={`${typography.nodeTitle} mb-1 text-text-body`}>
-          {Math.round(displayMetadata.achievementProbability * 100)}% chance
+    <BaseNode {...props} nodeType="outcome" icon={metadata.icon} maxWidth={220}>
+      {/* Post-analysis: "Responsible for X% of your goal" */}
+      {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
+        <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
+          Responsible for {bridgeEdgeData.contributionPct}% of your goal
         </div>
       )}
 
-      {/* Post-analysis: contribution % (both views) + direction indicator (Model only) */}
-      {resultsStatus === 'complete' && bridgeEdgeData && (bridgeEdgeData.contributionPct != null || bridgeEdgeData.signedMean !== null) && (
-        <div className={`${typography.nodeLabel} mt-1.5 text-text-body`}>
-          {bridgeEdgeData.contributionPct != null && (
-            <div>
-              {bridgeEdgeData.contributionPct}% contribution to goal
-            </div>
-          )}
-          {viewMode === 'model' && bridgeEdgeData.signedMean !== null && (
-            <InfluenceIndicator
-              strength={bridgeEdgeData.signedMean}
-              variant="canvas"
-              className={`${typography.nodeLabel} text-text-light`}
+      {/* Pre-analysis: qualitative */}
+      {!isPostAnalysis && bridgeEdgeData?.signedMean != null && (
+        <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
+          {bridgeEdgeData.signedMean > 0 ? 'Strong positive' : bridgeEdgeData.signedMean < -0.3 ? 'Negative' : 'Moderate'} influence on goal
+        </div>
+      )}
+
+      {/* Post-analysis: "Depends on:" ConnRows */}
+      {isPostAnalysis && inboundConnections.length > 0 && (
+        <>
+          <Sep />
+          <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
+          {inboundConnections.map(conn => (
+            <ConnRow
+              key={conn.edgeId}
+              edgeId={conn.edgeId}
+              nodeKind={conn.connectedNodeKind}
+              label={conn.connectedNodeLabel}
+              confidencePct={conn.confidencePct}
             />
-          )}
-        </div>
+          ))}
+        </>
       )}
 
-      {/* Pre-analysis: bridge edge influence indicator (Model view only) */}
-      {viewMode === 'model' && resultsStatus !== 'complete' && bridgeEdgeData && bridgeEdgeData.signedMean !== null && (
-        <div className={`${typography.nodeLabel} mt-2 text-text-light`}>
+      {/* Actionable guidance */}
+      {isPostAnalysis && topFactor && (
+        <>
+          <Sep />
+          <p className={`${typography.edgeLabel} text-text-body m-0`}>
+            Strengthen this:{' '}
+            <button
+              type="button"
+              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
+              onClick={handleFactorLink}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              validate {topFactor.connectedNodeLabel.length > 22 ? `${topFactor.connectedNodeLabel.slice(0, 22)}...` : topFactor.connectedNodeLabel}
+            </button>
+          </p>
+        </>
+      )}
+
+      {/* Expert overlay */}
+      <ExpertOverlay>
+        {displayMetadata.achievementProbability !== null && (
+          <p className={`${typography.edgeLabel} text-text-body m-0`}>
+            Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%
+          </p>
+        )}
+        {bridgeEdgeData?.signedMean !== null && bridgeEdgeData?.signedMean !== undefined && (
           <InfluenceIndicator
             strength={bridgeEdgeData.signedMean}
             variant="canvas"
-            className={`${typography.nodeLabel} text-text-light`}
+            className={`${typography.edgeLabel} text-text-light`}
           />
-        </div>
-      )}
-
-      {viewMode === 'model' && provenanceLabel && (
-        <div className="flex justify-end mt-1.5">
-          {provenanceLabel.includes('Olumi') ? (
-            <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
-          ) : (
-            <FileText size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
-          )}
-        </div>
-      )}
-
-      {/* "Driven by" line (Model view, post-analysis) */}
-      {drivenBy && (
-        <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-          Driven by: {drivenBy}
-        </div>
-      )}
-
-      {typeof props.data?.description === 'string' && props.data.description && (
-        <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
-          {props.data.description}
-        </div>
-      )}
+        )}
+        {provenanceLabel && (
+          <div className="flex items-center gap-1 mt-0.5">
+            {provenanceLabel.includes('Olumi') ? (
+              <Cpu size={10} className="text-text-light" aria-hidden="true" />
+            ) : (
+              <FileText size={10} className="text-text-light" aria-hidden="true" />
+            )}
+            <span className={`${typography.edgeLabel} text-text-light`}>{provenanceLabel}</span>
+          </div>
+        )}
+      </ExpertOverlay>
     </BaseNode>
   )
 })

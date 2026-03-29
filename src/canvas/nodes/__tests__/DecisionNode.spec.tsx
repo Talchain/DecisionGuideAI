@@ -20,7 +20,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   dimmedNodeIds: new Set(),
   goalThreshold: null,
   goalConstraints: [],
-  viewMode: 'model',
+  viewMode: 'expert',
   ...overrides,
 })
 

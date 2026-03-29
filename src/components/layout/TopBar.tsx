@@ -20,6 +20,60 @@ export const HELP_EVENTS = {
   SHOW_INFLUENCE_EXPLAINER: 'topbar:show-influence-explainer',
 } as const
 
+/**
+ * ViewModeDropdown — Standard / Detailed toggle in the top bar.
+ * Internal type: 'standard' | 'expert'. User-facing labels: "Standard" / "Detailed".
+ */
+function ViewModeDropdown() {
+  const viewMode = useCanvasStore(s => s.viewMode)
+  const setViewMode = useCanvasStore(s => s.setViewMode)
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement | null>(null)
+
+  // Close on outside click
+  useEffect(() => {
+    if (!open) return
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [open])
+
+  const label = viewMode === 'expert' ? 'Detailed' : 'Standard'
+
+  return (
+    <div ref={ref} className="relative">
+      <Tooltip content="Switch canvas detail level">
+        <button
+          type="button"
+          className={styles.metadataChip}
+          onClick={() => setOpen(v => !v)}
+          aria-label={`View: ${label}. Click to change.`}
+        >
+          <Settings size={12} aria-hidden="true" />
+          <span className={styles.metadataLabel}>{label}</span>
+        </button>
+      </Tooltip>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-50 bg-panel border border-panel-border rounded-lg shadow-2 py-1 min-w-[120px]">
+          {(['standard', 'expert'] as const).map(mode => (
+            <button
+              key={mode}
+              type="button"
+              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-panel-hover transition-colors ${viewMode === mode ? 'font-semibold text-text-header' : 'text-text-body'}`}
+              onClick={() => { setViewMode(mode); setOpen(false) }}
+            >
+              {mode === 'expert' ? 'Detailed' : 'Standard'}
+              {viewMode === mode && <Check size={12} className="inline ml-1.5 text-info" />}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface TopBarProps {
   scenarioTitle: string
   onTitleChange: (title: string) => void
@@ -356,6 +410,9 @@ export const TopBar = ({
             onToggle={() => setLensOpen(v => !v)}
           />
         )}
+
+        {/* View mode dropdown: Standard / Detailed */}
+        <ViewModeDropdown />
       </div>
 
       {/* Right section */}

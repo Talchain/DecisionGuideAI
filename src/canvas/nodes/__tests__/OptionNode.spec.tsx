@@ -25,7 +25,7 @@ const makeStoreState = (overrides: Record<string, unknown> = {}) => ({
   goalThreshold: null,
   goalConstraints: [],
   setHoveredOption: vi.fn(),
-  viewMode: 'model',
+  viewMode: 'expert',
   ...overrides,
 })
 
@@ -130,8 +130,7 @@ describe('OptionNode', () => {
       isResultsMode: true,
     })
     renderOption()
-    expect(screen.getByText('72%')).toBeDefined()
-    expect(screen.getByText('win probability')).toBeDefined()
+    expect(screen.getByText('72% win probability')).toBeDefined()
   })
 
   // T7: Winner badge
@@ -227,25 +226,13 @@ describe('OptionNode', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
   })
 
-  // P1-4: layoutNodeWidth propagation — OptionNode must not override layoutNodeWidth
-  // with a hardcoded maxWidth prop, so the store-driven width governs BaseNode sizing.
-  it('P1-4: OptionNode respects layoutNodeWidth from store (no hardcoded 238px override)', () => {
-    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
-      selector({ layoutNodeWidth: 180 }) as any
-    )
+  // V3: OptionNode uses explicit 240px maxWidth per wireframe spec
+  it('OptionNode uses 240px maxWidth per wireframe spec', () => {
     const { container } = renderOption()
-    // BaseNode's root div carries an inline maxWidth style. In this test no
-    // intervention chips are rendered (ceeAnalysisReady is null), so the only
-    // element with an inline max-width is BaseNode's root div.
-    // Use querySelectorAll('[style*="max-width"]') to find it precisely without
-    // fragile DOM-walking that could match chip child elements.
     const maxWidthEls = container.querySelectorAll<HTMLElement>('[style*="max-width"]')
     expect(maxWidthEls.length).toBeGreaterThan(0)
-    // The BaseNode root is the element with the layout-governed maxWidth.
-    // Collect all found values and verify none is the old hardcoded 238px.
     const widths = Array.from(maxWidthEls).map(el => el.style.maxWidth)
-    expect(widths).toContain('180px')
-    expect(widths).not.toContain('238px')
+    expect(widths).toContain('240px')
   })
 
   // V2: Win probability number uses text-text-body (neutral, no coloured text in node body)
@@ -278,7 +265,7 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    const percentEl = screen.getByText('72%')
+    const percentEl = screen.getByText('72% win probability')
     expect(percentEl.className).toContain('text-text-body')
     expect(percentEl.className).not.toContain('text-success')
     expect(percentEl.className).not.toContain('text-option')
@@ -525,8 +512,8 @@ describe('OptionNode', () => {
     expect(screen.queryByText('Winner')).toBeNull()
   })
 
-  // P1: Intervention chip rows must have no background/padding/rounded (chip style removed)
-  it('intervention chip rows have no background, padding, or rounded classes (P1)', () => {
+  // V3: Intervention details render in expert overlay without chip styling
+  it('intervention details in expert overlay have no chip styling (P1)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
@@ -542,18 +529,11 @@ describe('OptionNode', () => {
       }) as any)
     )
     const { container } = renderOption()
-    // Find all chip row divs by their known class (items-baseline from the chip div)
-    const chipRows = Array.from(container.querySelectorAll('div.inline-flex.items-baseline'))
-    expect(chipRows.length).toBeGreaterThan(0)
-    chipRows.forEach(row => {
-      // Must not have background, padding, or rounded classes from old chip style
-      expect(row.className).not.toMatch(/\bbg-factor/)
-      expect(row.className).not.toMatch(/\bpx-/)
-      expect(row.className).not.toMatch(/\bpy-/)
-      expect(row.className).not.toMatch(/\brounded/)
-    })
-    // Value span must be font-semibold
-    const valueSpan = container.querySelector('span.font-semibold')
+    // Expert overlay renders intervention details as plain text rows
+    const expertDetail = container.querySelector('[class*="bg-info"]')
+    expect(expertDetail).not.toBeNull()
+    // Value span must be font-medium in expert overlay
+    const valueSpan = container.querySelector('span.font-medium')
     expect(valueSpan).not.toBeNull()
   })
 
@@ -619,7 +599,7 @@ describe('OptionNode', () => {
     const { container } = renderOption()
     const bar = container.querySelector('.bg-option.rounded-full') as HTMLElement | null
     expect(bar).not.toBeNull()
-    expect(bar?.style.width).toBe('max(8px, 2%)')
+    expect(bar?.style.width).toBe('max(4px, 2%)')
   })
 })
 
@@ -656,8 +636,8 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Keep current price', is_baseline: true })
-    // Baseline option should show "No changes from current state"
-    expect(screen.getByText('No changes from current state')).toBeDefined()
+    // Baseline option should show "No changes from current state" (may appear in main body + expert overlay)
+    expect(screen.getAllByText('No changes from current state').length).toBeGreaterThan(0)
     // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
   })

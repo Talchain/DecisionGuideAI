@@ -1,23 +1,24 @@
 /**
- * Decision node component
- * Uses BaseNode for consistent structure and schema types
+ * Decision node component — v3 wireframe
+ * Pre-analysis: name, option count, "Explore more options" chip, narrow-framing bias icon
+ * Post-analysis: winner sentence, biggest risk link, coaching chips
  */
-import { memo, useMemo } from 'react'
+import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
 import { Crosshair } from 'lucide-react'
 import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
+import { NodeChip, BiasIcon, ExpertOverlay } from './shared'
 import { getStabilityClassification } from '../../lib/stability'
-import { CoachingCard } from '../components/CoachingCard'
 
 export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNodeData>) => {
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
   const report = useCanvasStore(state => state.results.report)
-  const viewMode = useCanvasStore(state => state.viewMode)
+  const isPostAnalysis = resultsStatus === 'complete'
 
   const optionCount = useMemo(() => {
     const outgoingEdges = edges.filter(e => e.source === id)
@@ -27,9 +28,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     }).length
   }, [edges, nodes, id])
 
-  // Post-analysis: extract winner name, win probability, stability tier
+  // Post-analysis headline: winner name + win probability
   const headline = useMemo(() => {
-    if (resultsStatus !== 'complete' || !report) return null
+    if (!isPostAnalysis || !report) return null
     const robustness = (report as any)?.robustness
     const recommendedId = robustness?.recommended_option_id ?? robustness?.recommendedOptionId
     if (!recommendedId) return null
@@ -46,8 +47,41 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       ? getStabilityClassification(stability)?.badgeLabel ?? null
       : null
 
-    return { winnerLabel, winProb, stabilityTier }
-  }, [resultsStatus, report, nodes])
+    return { winnerLabel, winProb, stabilityTier, stability }
+  }, [isPostAnalysis, report, nodes])
+
+  // Biggest risk: risk node with highest bridge edge weight to goal
+  const biggestRisk = useMemo(() => {
+    if (!isPostAnalysis) return null
+    const goalNode = nodes.find(n => n.type === 'goal' || n.data?.type === 'goal')
+    if (!goalNode) return null
+
+    const riskNodes = nodes.filter(n => n.type === 'risk' || n.data?.type === 'risk')
+    let best: { nodeId: string; label: string; weight: number } | null = null
+
+    for (const risk of riskNodes) {
+      const edge = edges.find(e => e.source === risk.id && e.target === goalNode.id)
+      if (!edge) continue
+      const weight = (edge.data as any)?.weight as number | undefined
+      if (weight != null && (best === null || weight > best.weight)) {
+        best = {
+          nodeId: risk.id,
+          label: (risk.data?.label as string) ?? 'Unknown risk',
+          weight,
+        }
+      }
+    }
+    return best
+  }, [isPostAnalysis, nodes, edges])
+
+  const handleRiskClick = useCallback(() => {
+    if (!biggestRisk) return
+    const store = useCanvasStore.getState()
+    store.setHighlightedNodes([biggestRisk.nodeId])
+    store.onSelectionChange({ nodes: [{ id: biggestRisk.nodeId } as any], edges: [] })
+    store.setShowInspectorPanel(true)
+    setTimeout(() => store.setHighlightedNodes([]), 3000)
+  }, [biggestRisk])
 
   return (
     <BaseNode
@@ -56,43 +90,62 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       id={id}
       data={data}
       selected={selected}
+      maxWidth={320}
     >
-      {/* Post-analysis: headline result */}
+      {/* Post-analysis: winner sentence */}
       {headline ? (
         <div className="mt-1">
-          <div className={`${typography.nodeLabel} text-text-body font-semibold truncate`} title={headline.winnerLabel}>
-            Winner: {headline.winnerLabel}
+          <div className={`${typography.nodeLabel} text-text-body`}>
+            {headline.winnerLabel} wins {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios
           </div>
-          <div className={`${typography.nodeLabel} text-text-light mt-0.5`}>
-            {headline.winProb != null && <>{Math.round(headline.winProb * 100)}% win probability</>}
-            {headline.winProb != null && headline.stabilityTier && ' · '}
-            {headline.stabilityTier && <>{headline.stabilityTier} stability</>}
+          {/* Biggest risk link */}
+          {biggestRisk && (
+            <div className={`${typography.edgeLabel} text-text-light mt-0.5`}>
+              Biggest risk:{' '}
+              <button
+                type="button"
+                className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
+                onClick={handleRiskClick}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {biggestRisk.label.length > 22 ? `${biggestRisk.label.slice(0, 22)}...` : biggestRisk.label}
+              </button>
+            </div>
+          )}
+          {/* Post-analysis chips */}
+          <div className="flex gap-1 flex-wrap mt-1.5">
+            <NodeChip label="Challenge this result" message="What assumptions would need to change for a different option to win?" />
+            <NodeChip label="Explore more options" message="What other options should I consider?" />
           </div>
         </div>
       ) : optionCount > 0 ? (
-        <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-          {optionCount} option{optionCount !== 1 ? 's' : ''} compared
-        </div>
+        <>
+          {/* Pre-analysis: option count + chips */}
+          <div className={`${typography.nodeLabel} text-text-light mt-1`}>
+            {optionCount} option{optionCount !== 1 ? 's' : ''} compared
+          </div>
+          <div className="flex items-center gap-1.5 mt-1.5">
+            <NodeChip label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
+            {optionCount < 3 && (
+              <BiasIcon bias="narrow-framing" tip={`Only ${optionCount} option${optionCount !== 1 ? 's' : ''}. Decisions improve with more alternatives.`} linkLabel="Explore a third path" linkMessage="Suggest a third option I haven't considered for this decision" />
+            )}
+          </div>
+        </>
       ) : null}
 
-      {/* Coaching: narrow framing warning (Model view, <3 options) */}
-      {viewMode === 'model' && optionCount > 0 && optionCount < 3 && (
-        <CoachingCard
-          severity="warning"
-          message={`Only ${optionCount} option${optionCount !== 1 ? 's' : ''} may mean a yes/no frame.`}
-          linkLabel="Explore a third path"
-          linkMessage="Suggest a third option I haven't considered for this decision"
-        />
-      )}
-
-      {/* Post-analysis chip (both views) */}
-      {resultsStatus === 'complete' && (
-        <CoachingCard
-          severity="info"
-          message=""
-          chips={[{ label: 'Explore more options', message: 'What other options should I consider?' }]}
-        />
-      )}
+      {/* Expert overlay */}
+      <ExpertOverlay>
+        {headline?.winProb != null && (
+          <p className={`${typography.edgeLabel} text-text-body m-0`}>
+            Win probability: {Math.round(headline.winProb * 100)}%
+          </p>
+        )}
+        {headline?.stabilityTier && (
+          <p className={`${typography.edgeLabel} text-text-body m-0`}>
+            Stability: {headline.stabilityTier}{headline.stability != null ? ` (${Math.round(headline.stability * 100)}%)` : ''}
+          </p>
+        )}
+      </ExpertOverlay>
     </BaseNode>
   )
 })

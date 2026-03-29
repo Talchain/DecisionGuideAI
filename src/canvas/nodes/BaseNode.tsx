@@ -246,13 +246,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
       className={`
-        relative rounded-lg ${isCausalLens ? 'border' : borderWidth} shadow-1
+        relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
         ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
         transition-all duration-200
         cursor-default
         ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
         ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
-        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : viewMode === 'decision' && nodeType === 'factor' && ((data?.category as string) === 'external' || typeof displayMetadata.sensitivityRank !== 'number' || displayMetadata.sensitivityRank > 3) ? 'opacity-40' : ''}
+        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-40' : viewMode === 'standard' && nodeType === 'factor' && ((data?.category as string) === 'external' || typeof displayMetadata.sensitivityRank !== 'number' || displayMetadata.sensitivityRank > 3) ? 'opacity-40' : ''}
       `}
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',
@@ -295,7 +295,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {/* Phase 2: "Needs input" badge for incomplete nodes */}
       {isIncomplete && (
         <span
-          className={`absolute -top-2 left-2 z-10 bg-panel border border-warning/30 text-warning ${typography.nodeLabel} font-medium px-1.5 py-0.5 rounded-md`}
+          className={`absolute -top-2 right-2 z-10 bg-panel border border-warning/30 text-warning ${typography.nodeLabel} font-medium px-1.5 py-0.5 rounded-md`}
           data-testid="needs-input-badge"
         >
           Needs input

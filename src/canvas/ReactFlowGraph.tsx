@@ -69,7 +69,6 @@ import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
-import { CoachingStrip } from './components/CoachingStrip'
 import { OutputsDock } from './components/OutputsDock'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
@@ -310,9 +309,9 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
   const nodesWithGhost = useMemo(() => {
-    // Pre-analysis: always show. Post-analysis: Model view only
+    // Pre-analysis: always show. Post-analysis: Expert view only
     const isPostAnalysis = resultsStatus === 'complete'
-    if (isPostAnalysis && viewMode !== 'model') return nodes
+    if (isPostAnalysis && viewMode !== 'expert') return nodes
 
     const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
     if (optionNodes.length === 0) return nodes
@@ -2211,13 +2210,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         currentNodes={nodes.length}
         currentEdges={edges.length}
       />
-
-      {/* Coaching strip — fixed overlay above DraftChat (Decision view only) */}
-      <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[2001] w-[min(90vw,720px)] pointer-events-none">
-        <div className="pointer-events-auto">
-          <CoachingStrip />
-        </div>
-      </div>
 
       {/* R1: Draft My Model chat loop (bottom overlay above toolbar) */}
       <PanelErrorBoundary panel="Draft Chat">

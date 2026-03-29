@@ -185,19 +185,19 @@ describe('graphDisplayCalculations', () => {
       expect(lineStyle).toBe('6,4')
     })
 
-    it('returns "2,4" (dotted) for <40% certainty', () => {
+    it('returns "6,4" (dashed) for <40% certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0.39)
-      expect(lineStyle).toBe('2,4')
+      expect(lineStyle).toBe('6,4')
     })
 
-    it('returns "2,4" (dotted) for very low certainty', () => {
+    it('returns "6,4" (dashed) for very low certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0.05)
-      expect(lineStyle).toBe('2,4')
+      expect(lineStyle).toBe('6,4')
     })
 
-    it('returns "2,4" (dotted) for 0% certainty', () => {
+    it('returns "6,4" (dashed) for 0% certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0)
-      expect(lineStyle).toBe('2,4')
+      expect(lineStyle).toBe('6,4')
     })
   })
 

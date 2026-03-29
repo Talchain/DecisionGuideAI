@@ -9,7 +9,7 @@ import { useMemo } from 'react'
 import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   RotateCcw, Pencil, Plus, Flag, Scissors, Copy, ClipboardPaste, CopyPlus,
-  Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight,
+  Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -164,6 +164,18 @@ function buildPaneMenu(
         },
       ],
       action: () => {},
+    },
+    DIV,
+    {
+      id: 'toggle-view-mode',
+      label: useCanvasStore.getState().viewMode === 'expert' ? 'Switch to Standard' : 'Switch to Detailed',
+      icon: Eye,
+      tooltip: 'Toggle between Standard and Detailed canvas view',
+      enabled: true,
+      action: wrap(() => {
+        const store = useCanvasStore.getState()
+        store.setViewMode(store.viewMode === 'expert' ? 'standard' : 'expert')
+      }),
     },
     DIV,
     {

@@ -10,7 +10,8 @@ import { FileText, Cpu } from 'lucide-react'
 import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
-import { CoachingCard } from '../components/CoachingCard'
+import { useNodeConnections } from '../hooks/useNodeConnections'
+import { ConnRow, Sep, NodeChip, ExpertOverlay } from './shared'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -23,13 +24,12 @@ export const RiskNode = memo((props: NodeProps) => {
   const cleanedLabel = cleanDisplayLabel(props.data?.label as string | undefined)
   const cleanedData = { ...props.data, label: cleanedLabel || props.data?.label }
 
-  // T9: Bridge edge data — find edge from this risk node to goal node
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
-  const viewMode = useCanvasStore(state => state.viewMode)
+  const isPostAnalysis = resultsStatus === 'complete'
 
-  // Provenance pill: show when source is a meaningful attribution (not user-set or unknown)
+  // Provenance (expert overlay)
   const provenanceLabel = useMemo(() => {
     const source = (props.data?.observedState as any)?.source as string | undefined
     if (!source || source === 'user' || source === 'user_calibration' || source === 'default') return null
@@ -37,12 +37,12 @@ export const RiskNode = memo((props: NodeProps) => {
     return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
   }, [props.data?.observedState])
 
+  // Bridge edge to goal — contribution %
   const bridgeEdgeData = useMemo(() => {
     const goalNode = nodes.find(n => n.data?.type === 'goal' || n.type === 'goal')
     if (!goalNode) return null
     const edge = edges.find(e => e.source === props.id && e.target === goalNode.id)
     if (!edge) return null
-
     const weight = (edge.data as any)?.weight as number | undefined
     const hasStrength = typeof (edge.data as any)?.strength_mean === 'number' || weight != null
     const signedMean = hasStrength ? computeSignedMean(edge.data as Record<string, unknown> | undefined) : null
@@ -52,109 +52,81 @@ export const RiskNode = memo((props: NodeProps) => {
     }
   }, [edges, nodes, props.id])
 
-  const report = useCanvasStore(state => state.results.report)
-
-  // Phase 4: "Driven by" — top 2 factors by inbound edge weight (Model view, post-analysis)
-  // Include sensitivity rank when available, e.g. "Feature release (#1), Pro price (#2)"
-  const drivenBy = useMemo(() => {
-    if (viewMode !== 'model' || resultsStatus !== 'complete') return null
-    // Build rank lookup from factor_sensitivity (aligned with useNodeDisplayMetadata ranking)
-    const sensitivity = (report as any)?.enrichment?.sensitivity_analysis?.factors
-      ?? (report as any)?.factor_sensitivity ?? []
-    const rankById = new Map<string, number>()
-    if (Array.isArray(sensitivity)) {
-      const sorted = [...sensitivity]
-        .map((f: any) => ({
-          id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
-          elasticity: Math.abs(f.elasticity ?? f.sensitivity_score ?? f.importance_score ?? 0),
-        }))
-        .sort((a, b) => b.elasticity !== a.elasticity
-          ? b.elasticity - a.elasticity
-          : (a.id ?? '').localeCompare(b.id ?? ''))
-      sorted.forEach((f, i) => { if (f.id) rankById.set(f.id, i + 1) })
-    }
-    const inbound = edges
-      .filter(e => e.target === props.id)
-      .map(e => {
-        const sourceNode = nodes.find(n => n.id === e.source)
-        const w = (e.data as any)?.weight as number | undefined
-        const rank = rankById.get(e.source)
-        return { label: (sourceNode?.data?.label as string | undefined) ?? null, weight: w ?? 0, rank }
-      })
-      .filter(e => e.label)
-      .sort((a, b) => Math.abs(b.weight) - Math.abs(a.weight))
-      .slice(0, 2)
-    return inbound.length > 0
-      ? inbound.map(e => e.rank ? `${e.label} (#${e.rank})` : e.label!).join(', ')
-      : null
-  }, [viewMode, resultsStatus, edges, nodes, props.id, report])
+  // ConnRow data: "Depends on:" — inbound edges from factors
+  const inboundConnections = useNodeConnections(props.id, 'inbound')
 
   return (
-    <BaseNode {...props} data={cleanedData} nodeType="risk" icon={metadata.icon}>
-      {/* Severity pill (Model view only — Decision view shows name + contribution % only) */}
-      {viewMode === 'model' && severity && (
-        <div
-          className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-2 py-1 ${typography.nodeTitle} mb-2`}
-          style={{ textAlign: 'center' }}
-        >
-          {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
-        </div>
-      )}
-
-      {/* T9: Bridge edge data — contribution % (both views) + direction (Model only) */}
-      {resultsStatus === 'complete' && bridgeEdgeData && (bridgeEdgeData.contributionPct != null || bridgeEdgeData.signedMean !== null) && (
+    <BaseNode {...props} data={cleanedData} nodeType="risk" icon={metadata.icon} maxWidth={220}>
+      {/* Post-analysis: "Responsible for X% of your goal (negative)" */}
+      {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
         <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
-          {bridgeEdgeData.contributionPct != null && (
-            <div>
-              {bridgeEdgeData.contributionPct}% contribution to goal
-            </div>
-          )}
-          {viewMode === 'model' && bridgeEdgeData.signedMean !== null && (
-            <InfluenceIndicator
-              strength={bridgeEdgeData.signedMean}
-              variant="canvas"
-              className={`${typography.nodeLabel} text-text-light`}
-            />
-          )}
+          Responsible for {bridgeEdgeData.contributionPct}% of your goal (negative)
         </div>
       )}
 
-      {/* Pre-analysis: bridge edge influence indicator (Model view only) */}
-      {viewMode === 'model' && resultsStatus !== 'complete' && bridgeEdgeData && bridgeEdgeData.signedMean !== null && (
-        <div className={`${typography.nodeLabel} mt-2 text-text-light`}>
+      {/* Pre-analysis: qualitative */}
+      {!isPostAnalysis && bridgeEdgeData?.signedMean != null && (
+        <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
+          {Math.abs(bridgeEdgeData.signedMean) > 0.5 ? 'Strong' : 'Moderate'} negative influence on goal
+        </div>
+      )}
+
+      {/* Post-analysis: "Depends on:" ConnRows */}
+      {isPostAnalysis && inboundConnections.length > 0 && (
+        <>
+          <Sep />
+          <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
+          {inboundConnections.map(conn => (
+            <ConnRow
+              key={conn.edgeId}
+              edgeId={conn.edgeId}
+              nodeKind={conn.connectedNodeKind}
+              label={conn.connectedNodeLabel}
+              confidencePct={conn.confidencePct}
+            />
+          ))}
+        </>
+      )}
+
+      {/* Coaching chips (both views, post-analysis) */}
+      {isPostAnalysis && (
+        <>
+          <Sep />
+          <div className="flex gap-1 flex-wrap mt-0.5">
+            <NodeChip label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
+            <NodeChip label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
+          </div>
+        </>
+      )}
+
+      {/* Expert overlay */}
+      <ExpertOverlay>
+        {severity && (
+          <div
+            className={`${severityColors.bg} ${severityColors.border} ${severityColors.text} border rounded px-1.5 py-0.5 ${typography.edgeLabel} mb-1`}
+            style={{ textAlign: 'center' }}
+          >
+            {severity.charAt(0).toUpperCase() + severity.slice(1)} Risk
+          </div>
+        )}
+        {bridgeEdgeData?.signedMean !== null && bridgeEdgeData?.signedMean !== undefined && (
           <InfluenceIndicator
             strength={bridgeEdgeData.signedMean}
             variant="canvas"
-            className={`${typography.nodeLabel} text-text-light`}
+            className={`${typography.edgeLabel} text-text-light`}
           />
-        </div>
-      )}
-
-      {viewMode === 'model' && provenanceLabel && (
-        <div className="flex justify-end mt-1.5">
-          {provenanceLabel.includes('Olumi') ? (
-            <Cpu size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
-          ) : (
-            <FileText size={14} className="text-text-light" aria-hidden="true" title={provenanceLabel} />
-          )}
-        </div>
-      )}
-
-      {/* "Driven by" line (Model view, post-analysis) */}
-      {drivenBy && (
-        <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-          Driven by: {drivenBy}
-        </div>
-      )}
-
-      {/* Coaching: risk reduction chip (Model view, post-analysis) */}
-      {viewMode === 'model' && resultsStatus === 'complete' && (
-        <CoachingCard
-          severity="info"
-          message=""
-          chips={[{ label: 'What reduces this risk?', message: `What factors or actions could reduce ${cleanedLabel || 'this risk'}?` }]}
-        />
-      )}
+        )}
+        {provenanceLabel && (
+          <div className="flex items-center gap-1 mt-0.5">
+            {provenanceLabel.includes('Olumi') ? (
+              <Cpu size={10} className="text-text-light" aria-hidden="true" />
+            ) : (
+              <FileText size={10} className="text-text-light" aria-hidden="true" />
+            )}
+            <span className={`${typography.edgeLabel} text-text-light`}>{provenanceLabel}</span>
+          </div>
+        )}
+      </ExpertOverlay>
 
       {typeof props.data?.description === 'string' && props.data.description && (
         <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
