@@ -7,7 +7,8 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, QUALITATIVE_FACTOR_TYPES } from '../utils/labelUtils'
 import { detectBaseline } from '../utils/baselineDetection'
-import { NodeChip, ActionIcons, BiasIcon, BriefIcon, ExpertOverlay } from './shared'
+import { usePopoverHover } from '../hooks/usePopoverHover'
+import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover } from './shared'
 
 interface InterventionChip {
   factorId: string
@@ -48,6 +49,7 @@ export const OptionNode = memo((props: NodeProps) => {
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const setHoveredOption = useCanvasStore(state => state.setHoveredOption)
   const viewMode = useCanvasStore(state => state.viewMode)
+  const isDetailed = viewMode === 'expert'
 
   const interventionChips = useMemo<InterventionChip[]>(() => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
@@ -168,7 +170,7 @@ export const OptionNode = memo((props: NodeProps) => {
     ceeAnalysisReady?.options?.some(opt => opt.id === props.id) ?? false,
   [ceeAnalysisReady, props.id])
 
-  // "Wins via" — top-ranked sensitivity factor that this option intervenes on
+  // "Wins via" -- top-ranked sensitivity factor that this option intervenes on
   const winsVia = useMemo(() => {
     if (!isPostAnalysis || !isRecommended || !resultsReport) return null
     const report = resultsReport as any
@@ -209,6 +211,75 @@ export const OptionNode = memo((props: NodeProps) => {
     return typeof optionProbs?.goal_probability === 'number' ? optionProbs.goal_probability : null
   }, [isPostAnalysis, resultsReport, props.id])
 
+  // "Behind:" reason for non-winner options (including status quo)
+  const behindReason = useMemo<string | null>(() => {
+    if (!isPostAnalysis || isRecommended) return null
+    // Status quo: always "no changes from current state"
+    if (isBaselineOption) return 'no changes from current state'
+    const report = resultsReport as any
+    if (!report) return null
+
+    // 1. Find the recommended option's ID
+    const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
+    if (!recommendedOptionId) return null
+
+    // 2. Get the #1 sensitivity factor (sorted by importance_score descending)
+    const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
+    if (!Array.isArray(sensitivity) || sensitivity.length === 0) return 'fewer key changes'
+
+    const rankedFactors = [...sensitivity]
+      .map((f: any) => ({
+        id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
+        label: (f.label ?? f.node_label) as string | undefined,
+        score: Math.abs(f.importance_score ?? f.elasticity ?? f.sensitivity_score ?? 0),
+      }))
+      .sort((a, b) => b.score - a.score)
+
+    const topFactor = rankedFactors[0]
+    if (!topFactor?.id) return 'fewer key changes'
+
+    // Resolve a display label -- prefer sensitivity label, fallback to canvas node label
+    const factorNode = nodes.find(n => n.id === topFactor.id)
+    const factorLabel = topFactor.label
+      ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
+      ?? null
+
+    if (!factorLabel) return 'fewer key changes'
+
+    // 3. Compare: does the winner intervene on this factor while this option doesn't?
+    const winnerCee = ceeAnalysisReady?.options?.find(opt => opt.id === recommendedOptionId)
+    const thisCee = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
+
+    const winnerInterventions = winnerCee?.interventions ?? {}
+    const thisInterventions = thisCee?.interventions ?? {}
+
+    const winnerHasFactor = topFactor.id in winnerInterventions
+    const thisHasFactor = topFactor.id in thisInterventions
+
+    if (winnerHasFactor && !thisHasFactor) {
+      return `no ${factorLabel.toLowerCase()} added`
+    }
+
+    if (winnerHasFactor && thisHasFactor) {
+      // Both intervene but potentially different levels
+      const winnerVal = (() => {
+        const rv = winnerInterventions[topFactor.id]
+        return typeof rv === 'number' ? rv :
+          (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : 0
+      })()
+      const thisVal = (() => {
+        const rv = thisInterventions[topFactor.id]
+        return typeof rv === 'number' ? rv :
+          (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : 0
+      })()
+      if (Math.abs(winnerVal - thisVal) >= 1e-6) {
+        return `${factorLabel.toLowerCase()} lower`
+      }
+    }
+
+    return 'fewer key changes'
+  }, [isPostAnalysis, isRecommended, isBaselineOption, resultsReport, ceeAnalysisReady, props.id, nodes])
+
   const handleWinsViaClick = useCallback(() => {
     if (!winsVia) return
     const store = useCanvasStore.getState()
@@ -225,19 +296,131 @@ export const OptionNode = memo((props: NodeProps) => {
     }
   }, [])
 
+  // "View parameters" handler (Detailed view)
+  const handleViewParams = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    const store = useCanvasStore.getState()
+    store.onSelectionChange({ nodes: [{ id: props.id } as any], edges: [] })
+    store.setShowInspectorPanel(true)
+  }, [props.id])
+
+  // Popover hover
+  const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
+
+  // Whether to show Layer 2 content inline (Detailed view)
+  const showLayer2Inline = isDetailed
+
+  // ----- Layer 2 content (shared between popover and Detailed inline) -----
+  const layer2Content = (
+    <>
+      {/* Goal probability warning (< 10%) — moved from Layer 1, post-analysis only */}
+      {isPostAnalysis && goalProbability !== null && goalProbability < 0.10 && (
+        <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
+          {'< '}
+          {goalProbability < 0.01 ? '1' : Math.round(goalProbability * 100)}% chance of target.{' '}
+          <button
+            type="button"
+            className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
+            onClick={handleGoalReviewClick}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            Review
+          </button>
+        </p>
+      )}
+
+      {/* "What this option changes:" intervention list */}
+      {interventionChips.length > 0 && (() => {
+        const chipsWithMeta = interventionChips.map(chip => {
+          const baselineNorm = isBaselineOption
+            ? chip.observedValue
+            : (baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue)
+          const isNoChange = baselineNorm !== undefined && Math.abs(chip.value - baselineNorm) < 1e-6
+          return { chip, isNoChange }
+        })
+        const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
+        if (allNoChange) return <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
+
+        return (
+          <>
+            <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>What this option changes:</p>
+            <div className="flex flex-col gap-0.5">
+              {chipsWithMeta.map(({ chip, isNoChange }) => {
+                if (isNoChange) return null
+                const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : undefined
+                const ft = chip.factorType?.toLowerCase().trim()
+                const isQualitativeFactor = !effectiveUnit && chip.cap == null && (!ft || QUALITATIVE_FACTOR_TYPES.has(ft))
+                const isBinary = isQualitativeFactor && binaryFactorIds.has(chip.factorId)
+                let targetFormatted: string
+                if (isBinary) {
+                  targetFormatted = chip.value === 1 ? 'On' : chip.value === 0 ? 'Off' : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+                } else {
+                  targetFormatted = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+                }
+                let deltaDisplay: string | null = null
+                if (!isBaselineOption) {
+                  const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
+                  if (baselineNorm !== undefined) {
+                    const scaleBase = inferInterventionScaleBase(chip.cap, chip.observedValue, chip.observedRawValue)
+                    const hasUnit = !!chip.unit && chip.unit !== 'fraction' && chip.unit !== 'proportion'
+                    const isQualitative = !chip.factorType || ['quality', 'demand', 'other'].includes(chip.factorType.toLowerCase())
+                    if ((hasUnit || !isQualitative) && scaleBase != null) {
+                      const denormedBaseline = denormaliseInterventionValue(baselineNorm, chip.cap, chip.observedValue, chip.observedRawValue)
+                      const denormedTarget = denormaliseInterventionValue(chip.value, chip.cap, chip.observedValue, chip.observedRawValue)
+                      if (Math.abs(denormedBaseline) > 0.01) {
+                        const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
+                        const sign = pct >= 0 ? '+' : ''
+                        const baselineFormatted = isBinary
+                          ? (baselineNorm === 1 ? 'On' : baselineNorm === 0 ? 'Off' : formatInterventionValue(baselineNorm, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue))
+                          : formatInterventionValue(baselineNorm, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+                        deltaDisplay = `${baselineFormatted} \u2192 ${targetFormatted} (${sign}${pct.toFixed(1)}%)`
+                      }
+                    }
+                  }
+                }
+                return (
+                  <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
+                    <span className="text-text-light">{chip.label.length > 28 ? `${chip.label.slice(0, 28)}...` : chip.label}:</span>{' '}
+                    <span className="font-medium">{deltaDisplay ?? targetFormatted}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )
+      })()}
+
+
+      {isOptionFromCee && (
+        <div className="mt-0.5">
+          <BriefIcon />
+        </div>
+      )}
+    </>
+  )
+
   return (
     <div
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      ref={nodeElRef as React.Ref<HTMLDivElement>}
+      onMouseEnter={() => {
+        handleMouseEnter()
+        nodeHandlers.onMouseEnter()
+      }}
+      onMouseLeave={() => {
+        handleMouseLeave()
+        nodeHandlers.onMouseLeave()
+      }}
       style={{ height: '100%', width: '100%', position: 'relative' }}
     >
-      {/* Winner badge — top-right */}
+      {/* Winner badge -- top-right */}
       {isRecommended && (
         <span className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}>
           Winner
         </span>
       )}
       <BaseNode {...props} nodeType="option" icon={metadata.icon} maxWidth={240}>
+        {/* ===== LAYER 1: Standard body (always visible) ===== */}
+
         {/* Win probability bar (post-analysis, both views) */}
         {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
           <div className="mt-1.5 mb-1">
@@ -269,19 +452,10 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Goal probability warning (< 10%) */}
-        {isPostAnalysis && goalProbability !== null && goalProbability < 0.10 && (
+        {/* "Behind:" reason (non-winner, post-analysis — includes status quo) */}
+        {isPostAnalysis && !isRecommended && behindReason && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            {'< '}
-            {goalProbability < 0.01 ? '1' : Math.round(goalProbability * 100)}% chance of target.{' '}
-            <button
-              type="button"
-              className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
-              onClick={handleGoalReviewClick}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              Review
-            </button>
+            Behind: {behindReason}
           </p>
         )}
 
@@ -299,15 +473,17 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Post-analysis: status quo "No changes" + bias icon */}
+        {/* Post-analysis: status quo bias — MetricPills with EyeOff bias */}
         {isPostAnalysis && isBaselineOption && (
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className={`${typography.edgeLabel} text-text-light`}>No changes from current state</span>
-            <BiasIcon bias="status-quo" tip="Status quo bias: inaction risks often underestimated." linkLabel="Explore risks of inaction" linkMessage="What are the risks of choosing to do nothing?" />
-          </div>
+          <MetricPills
+            biasType="status-quo"
+            biasTip="Status quo bias: inaction risks often underestimated."
+            biasLinkLabel="Explore risks of inaction"
+            biasLinkMessage="What are the risks of choosing to do nothing?"
+          />
         )}
 
-        {/* Coaching chips (both views, post-analysis) */}
+        {/* Coaching chips (winner, post-analysis) */}
         {isPostAnalysis && isRecommended && (
           <div className="flex gap-1 flex-wrap mt-1.5">
             <NodeChip label="Biggest threat?" message={`What's the biggest risk to ${(props.data?.label as string) ?? 'this option'}?`} />
@@ -315,80 +491,43 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* Coaching chip (non-winner, non-baseline, post-analysis) */}
         {isPostAnalysis && !isRecommended && !isBaselineOption && displayMetadata.winRate !== null && (
           <div className="flex gap-1 flex-wrap mt-1.5">
             <NodeChip label="What would make this win?" message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to win?`} />
           </div>
         )}
 
-        {/* Expert overlay: full intervention delta table */}
-        <ExpertOverlay>
-          {interventionChips.length > 0 && (() => {
-            const chipsWithMeta = interventionChips.map(chip => {
-              const baselineNorm = isBaselineOption
-                ? chip.observedValue
-                : (baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue)
-              const isNoChange = baselineNorm !== undefined && Math.abs(chip.value - baselineNorm) < 1e-6
-              return { chip, isNoChange }
-            })
-            const allNoChange = chipsWithMeta.length > 0 && chipsWithMeta.every(c => c.isNoChange)
-            if (allNoChange) return <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
+        {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
+        {showLayer2Inline && layer2Content}
 
-            return (
-              <div className="flex flex-col gap-0.5">
-                {chipsWithMeta.map(({ chip, isNoChange }, idx) => {
-                  if (isNoChange) return null
-                  const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : undefined
-                  const ft = chip.factorType?.toLowerCase().trim()
-                  const isQualitativeFactor = !effectiveUnit && chip.cap == null && (!ft || QUALITATIVE_FACTOR_TYPES.has(ft))
-                  const isBinary = isQualitativeFactor && binaryFactorIds.has(chip.factorId)
-                  let targetFormatted: string
-                  if (isBinary) {
-                    targetFormatted = chip.value === 1 ? 'On' : chip.value === 0 ? 'Off' : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-                  } else {
-                    targetFormatted = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-                  }
-                  let deltaDisplay: string | null = null
-                  if (!isBaselineOption) {
-                    const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
-                    if (baselineNorm !== undefined) {
-                      const scaleBase = inferInterventionScaleBase(chip.cap, chip.observedValue, chip.observedRawValue)
-                      const hasUnit = !!chip.unit && chip.unit !== 'fraction' && chip.unit !== 'proportion'
-                      const isQualitative = !chip.factorType || ['quality', 'demand', 'other'].includes(chip.factorType.toLowerCase())
-                      if ((hasUnit || !isQualitative) && scaleBase != null) {
-                        const denormedBaseline = denormaliseInterventionValue(baselineNorm, chip.cap, chip.observedValue, chip.observedRawValue)
-                        const denormedTarget = denormaliseInterventionValue(chip.value, chip.cap, chip.observedValue, chip.observedRawValue)
-                        if (Math.abs(denormedBaseline) > 0.01) {
-                          const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
-                          const sign = pct >= 0 ? '+' : ''
-                          const baselineFormatted = isBinary
-                            ? (baselineNorm === 1 ? 'On' : baselineNorm === 0 ? 'Off' : formatInterventionValue(baselineNorm, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue))
-                            : formatInterventionValue(baselineNorm, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-                          deltaDisplay = `${baselineFormatted} \u2192 ${targetFormatted} (${sign}${pct.toFixed(1)}%)`
-                        }
-                      }
-                    }
-                  }
-                  return (
-                    <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                      <span className="text-text-light">{chip.label.length > 28 ? `${chip.label.slice(0, 28)}...` : chip.label}:</span>{' '}
-                      <span className="font-medium">{deltaDisplay ?? targetFormatted}</span>
-                    </div>
-                  )
-                })}
-              </div>
-            )
-          })()}
-          {isOptionFromCee && (
-            <div className="mt-0.5">
-              <BriefIcon />
-            </div>
-          )}
-        </ExpertOverlay>
+        {/* "View parameters" link (Detailed, post-analysis) */}
+        {isDetailed && isPostAnalysis && (
+          <button
+            type="button"
+            className={`${typography.edgeLabel} text-info underline cursor-pointer mt-1.5 nodrag nopan`}
+            onClick={handleViewParams}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            View parameters
+          </button>
+        )}
 
         {/* Action icons: edit (bottom-right) */}
         <ActionIcons nodeId={props.id} showEdit />
       </BaseNode>
+
+      {/* ===== LAYER 2: Popover (Standard view, post-analysis, desktop hover) ===== */}
+      {!isDetailed && isPostAnalysis && (
+        <NodePopover
+          visible={showPopover}
+          width={260}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+        >
+          {layer2Content}
+        </NodePopover>
+      )}
     </div>
   )
 })

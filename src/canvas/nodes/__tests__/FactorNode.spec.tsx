@@ -196,13 +196,13 @@ describe('FactorNode', () => {
     expect(screen.getByText('85')).toBeDefined()
   })
 
-  it('falls back to Not used for binary 0 without raw_value (qualitative factor — no unit, no cap)', () => {
+  it('falls back to Not active for binary 0 without raw_value (qualitative factor — no unit, no cap)', () => {
     renderFactor({
       label: 'Hired',
       type: 'factor',
       observedState: { value: 0 },
     })
-    expect(screen.getByText('Not used')).toBeDefined()
+    expect(screen.getByText('Not active')).toBeDefined()
   })
 
   // Task 4: factor_type descriptor must never appear as a display unit
@@ -214,7 +214,7 @@ describe('FactorNode', () => {
     })
     // Should show qualitative tier (no unit), not "0 binary"
     expect(screen.queryByText(/binary/)).toBeNull()
-    expect(screen.getByText('Not used')).toBeDefined()
+    expect(screen.getByText('Not active')).toBeDefined()
   })
 
   it('does not show "normalized" as unit when unit field contains "normalized"', () => {
@@ -228,7 +228,7 @@ describe('FactorNode', () => {
     expect(screen.getByText('Low')).toBeDefined()
   })
 
-  // P1.5: value===0 with a unit must NOT show 'Not used' — it means 0% or 0 units
+  // P1.5: value===0 with a unit must NOT show 'Not active' — it means 0% or 0 units
   it('shows "0%" for value===0 when unit is "%"', () => {
     renderFactor({
       label: 'Churn rate',
@@ -236,17 +236,17 @@ describe('FactorNode', () => {
       observedState: { value: 0, unit: '%' },
     })
     expect(screen.getByText('0%')).toBeDefined()
-    expect(screen.queryByText('Not used')).toBeNull()
+    expect(screen.queryByText('Not active')).toBeNull()
   })
 
-  // P1.5: qualitative factor_type + no unit — still shows 'Not used'
-  it('shows "Not used" for value===0 with qualitative factor_type and no unit', () => {
+  // P1.5: qualitative factor_type + no unit — still shows 'Not active'
+  it('shows "Not active" for value===0 with qualitative factor_type and no unit', () => {
     renderFactor({
       label: 'Product fit',
       type: 'factor',
       observedState: { value: 0, factor_type: 'quality' },
     })
-    expect(screen.getByText('Not used')).toBeDefined()
+    expect(screen.getByText('Not active')).toBeDefined()
   })
 
   it('falls back to Very high for binary 1 without raw_value', () => {
@@ -258,10 +258,10 @@ describe('FactorNode', () => {
     expect(screen.getByText('Very high')).toBeDefined()
   })
 
-  // T4: External factor with no observedState shows "Variable. Outside your control."
-  it('shows "Variable. Outside your control." for external factor with no observedState', () => {
+  // T4: External factor with no observedState shows "Outside your control."
+  it('shows "Outside your control." for external factor with no observedState', () => {
     renderFactor({ label: 'Market', type: 'factor', category: 'external' })
-    expect(screen.getByText('Variable. Outside your control.')).toBeDefined()
+    expect(screen.getByText('Outside your control.')).toBeDefined()
   })
 
   it('shows "Missing value" for factor with observedState but no value', () => {
@@ -331,6 +331,20 @@ describe('FactorNode', () => {
 
   // T6: Influence/Confidence tiers (results mode)
   it('shows Influence and Confidence tiers in results mode', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: null,
+        nodes: [],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'complete', report: null },
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'expert',
+      })
+    )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
@@ -341,7 +355,7 @@ describe('FactorNode', () => {
       winRate: null,
       isResultsMode: true,
     })
-    renderFactor({ label: 'Salary', type: 'factor' })
+    renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
     expect(screen.getByText('Influence')).toBeDefined()
     expect(screen.getByText('80%')).toBeDefined()
     expect(screen.getByText('Confidence')).toBeDefined()
@@ -472,6 +486,20 @@ describe('FactorNode', () => {
 
   // P4: Evidence bar uses bg-info (not bg-factor)
   it('evidence bar uses bg-info class (P4)', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: null,
+        nodes: [],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'complete', report: null },
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'expert',
+      })
+    )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
@@ -482,7 +510,7 @@ describe('FactorNode', () => {
       winRate: null,
       isResultsMode: true,
     })
-    const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
+    const { container } = renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     const bars = container.querySelectorAll('.bg-info')
     // Both sensitivity and evidence bars should be bg-info
     expect(bars.length).toBeGreaterThanOrEqual(2)
@@ -527,14 +555,14 @@ describe('FactorNode', () => {
     expect(nodeEl?.className).toContain('border-warning')
   })
 
-  // P0 (feedback): binary factor_type + value=0 must show "Not used", not "Very low"
-  it('shows "Not used" for value===0 with factor_type "binary" and no unit', () => {
+  // P0 (feedback): binary factor_type + value=0 must show "Not active", not "Very low"
+  it('shows "Not active" for value===0 with factor_type "binary" and no unit', () => {
     renderFactor({
       label: 'Hire decision',
       type: 'factor',
       observedState: { value: 0, factor_type: 'binary' },
     })
-    expect(screen.getByText('Not used')).toBeDefined()
+    expect(screen.getByText('Not active')).toBeDefined()
     expect(screen.queryByText('Very low')).toBeNull()
   })
 
@@ -549,6 +577,20 @@ describe('FactorNode', () => {
 
   // P1.3 (feedback): compact DataBar progressbar elements must be present in results mode
   it('renders progressbar elements for Influence and Confidence bars in results mode', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: null,
+        nodes: [],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'complete', report: null },
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'expert',
+      })
+    )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: 0.8,
@@ -559,7 +601,7 @@ describe('FactorNode', () => {
       winRate: null,
       isResultsMode: true,
     })
-    const { container } = renderFactor({ label: 'Revenue', type: 'factor' })
+    const { container } = renderFactor({ label: 'Revenue', type: 'factor', observedState: { value: 0.5 } })
     const progressbars = container.querySelectorAll('[role="progressbar"]')
     // Two bars: Influence + Confidence
     expect(progressbars.length).toBeGreaterThanOrEqual(2)
@@ -613,17 +655,17 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('Very high')).toBeDefined()
   })
 
-  // A6: value=0, factor_type="binary", no unit → "Not used"
-  it('A6: binary factor value=0 without unit renders "Not used"', () => {
+  // A6: value=0, factor_type="binary", no unit → "Not active"
+  it('A6: binary factor value=0 without unit renders "Not active"', () => {
     renderFactor({ label: 'Hired', type: 'factor', observedState: { value: 0, factor_type: 'binary' } })
-    expect(screen.getByText('Not used')).toBeDefined()
+    expect(screen.getByText('Not active')).toBeDefined()
   })
 
-  // A7: value=0, unit="%", raw_value=0 → "0%" (not "Not used")
-  it('A7: value=0 with unit="%" renders "0%" not "Not used"', () => {
+  // A7: value=0, unit="%", raw_value=0 → "0%" (not "Not active")
+  it('A7: value=0 with unit="%" renders "0%" not "Not active"', () => {
     renderFactor({ label: 'Churn', type: 'factor', observedState: { value: 0, unit: '%', raw_value: 0 } })
     expect(screen.getByText('0%')).toBeDefined()
-    expect(screen.queryByText('Not used')).toBeNull()
+    expect(screen.queryByText('Not active')).toBeNull()
   })
 
   // A8: factor_type="normalized", no unit → no "normalized" suffix
@@ -681,32 +723,32 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByText('Set by you')).toBeNull()
   })
 
-  // A17: "Not used" value + provenance icon rendered separately (not merged as phrase)
-  it('A17: "Not used" value and provenance icon are separate elements', () => {
+  // A17: "Not active" value + provenance icon rendered separately (not merged as phrase)
+  it('A17: "Not active" value and provenance icon are separate elements', () => {
     renderFactor({
       label: 'Item',
       type: 'factor',
       observedState: { value: 0, source: 'cee_inference' },
     })
     // Value text exists
-    expect(screen.getByText('Not used')).toBeDefined()
+    expect(screen.getByText('Not active')).toBeDefined()
     // Provenance rendered as icon with title attribute (not visible text)
     expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
     // Should not appear as a joined phrase in any text content
-    expect(screen.queryByText(/Not used.*estimated/i)).toBeNull()
+    expect(screen.queryByText(/Not active.*estimated/i)).toBeNull()
   })
 
-  // A17b: "Not used" + estimated icon — inferred source (extractionType='inferred')
+  // A17b: "Not active" + estimated icon — inferred source (extractionType='inferred')
   // Shows "Estimated by Olumi" icon inline (source='inferred' is suppressed for provenance,
   // but extractionType='inferred' triggers the OlumiSparkle icon).
-  it('A17b: value=0 + extractionType=inferred shows "Not used" and "Estimated by Olumi" icon, plus confirm action', () => {
+  it('A17b: value=0 + extractionType=inferred shows "Not active" and "Estimated by Olumi" icon, plus confirm action', () => {
     renderFactor({
       label: 'Item',
       type: 'factor',
       observedState: { value: 0, source: 'inferred', extractionType: 'inferred' },
     })
-    // "Not used" (value display) must appear
-    expect(screen.getByText('Not used')).toBeDefined()
+    // "Not active" (value display) must appear
+    expect(screen.getByText('Not active')).toBeDefined()
     // Provenance rendered as icon with title attribute
     expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
     // "Confirm or edit" link replaced by ActionIcons confirm button

@@ -17,7 +17,8 @@ import { DataBar } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
-import { ConnRow, Sep, NodeChip, ActionIcons, BiasIcon, OlumiSparkle, BriefIcon, ExpertOverlay } from './shared'
+import { usePopoverHover } from '../hooks/usePopoverHover'
+import { ConnRow, Sep, NodeChip, ActionIcons, OlumiSparkle, BriefIcon, MetricPills, NodePopover } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 interface ObservedState {
@@ -58,6 +59,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const resultsStatus = useCanvasStore(state => state.results.status)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
+  const isDetailed = viewMode === 'expert'
 
   const nodeCategory = props.data?.category as string | undefined
   const controllability = useMemo(() => {
@@ -101,6 +103,7 @@ export const FactorNode = memo((props: NodeProps) => {
     return vals.length > 0 && vals.every(v => v === 0 || v === 1)
   }, [ceeAnalysisReady, props.id])
 
+  // Fix: "Not used" → "Not active", remove standalone "Very high"
   const valueDisplay = useMemo(() => {
     if (!observedState) return null
     const { value } = observedState
@@ -114,25 +117,25 @@ export const FactorNode = memo((props: NodeProps) => {
           if (value === 0) return 'Off'
           if (value === 1) return 'On'
         } else {
-          if (value === 0) return 'Not used'
-          if (value === 1) return 'Very high'
+          if (value === 0) return 'Not active'
         }
       }
     }
     return formatFactorValue(observedState)
   }, [observedState, isTrulyBinary])
 
+  // Prior range: only show range values (ban standalone "Variable")
   const priorRangeDisplay = useMemo(() => {
     const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
     const min = prior?.range_min
     const max = prior?.range_max
     if (nodeCategory !== 'external' || min == null || max == null) return null
     const hasUnit = observedState?.unit && !isSuppressedUnit(observedState.unit)
-    if (!hasUnit) return 'Variable'
+    if (!hasUnit) return null
     const cap = observedState?.cap
     const denormMin = cap != null && cap > 1 ? min * cap : min
     const denormMax = cap != null && cap > 1 ? max * cap : max
-    return `Variable: ${formatPriorRangeValue(denormMin, observedState?.unit)}–${formatPriorRangeValue(denormMax, observedState?.unit)}`
+    return `${formatPriorRangeValue(denormMin, observedState?.unit)}–${formatPriorRangeValue(denormMax, observedState?.unit)}`
   }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior])
 
   const isInferred = observedState?.extractionType === 'inferred'
@@ -176,9 +179,9 @@ export const FactorNode = memo((props: NodeProps) => {
     return source === 'default' || (!source && !observedState.extractionType)
   }, [isInferred, provenanceLabel, observedState])
 
-  // Anchoring detection (expert, pre-analysis)
+  // Anchoring detection (Detailed, pre-analysis)
   const anchoringMessage = useMemo(() => {
-    if (viewMode !== 'expert' || isPostAnalysis) return null
+    if (!isDetailed || isPostAnalysis) return null
     const options = ceeAnalysisReady?.options
     if (!options || options.length < 3) return null
     const vals: number[] = []
@@ -198,15 +201,11 @@ export const FactorNode = memo((props: NodeProps) => {
       return valueDisplay ?? String(baseline)
     }
     return null
-  }, [viewMode, isPostAnalysis, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
+  }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
 
-  // ConnRow: "Influences:" — outbound edges to outcomes/risks
   const outboundConnections = useNodeConnections(props.id, 'outbound')
-
-  // Needs input state
   const needsInput = !isPostAnalysis && observedState?.value === undefined && observedState?.raw_value == null && nodeCategory !== 'external'
 
-  // Confirm action: mark extractionType as 'explicit'
   const handleConfirm = useCallback(() => {
     if (!observedState) return
     const store = useCanvasStore.getState()
@@ -217,12 +216,76 @@ export const FactorNode = memo((props: NodeProps) => {
     })
   }, [props.id, observedState])
 
-  // Influence/confidence bar values
   const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
   const confidencePct = displayMetadata.confidence != null ? Math.round(displayMetadata.confidence * 100) : null
 
+  const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
+
+  const handleViewParams = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    const store = useCanvasStore.getState()
+    store.onSelectionChange({ nodes: [{ id: props.id } as any], edges: [] })
+    store.setShowInspectorPanel(true)
+  }, [props.id])
+
+  // ----- Layer 2 content (shared between popover and Detailed inline) -----
+  const layer2Content = isPostAnalysis ? (
+    <>
+      {(influencePct != null && influencePct > 0 || confidencePct != null && confidencePct > 0) && (
+        <div className="space-y-1.5 mb-1">
+          {influencePct != null && influencePct > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Influence</span>
+              <div className="flex-1 min-w-0">
+                <DataBar value={influencePct / 100} label="Influence" colour="info" />
+              </div>
+              <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
+            </div>
+          )}
+          {confidencePct != null && confidencePct > 0 && (
+            <div className="flex items-center gap-1.5">
+              <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
+              <div className="flex-1 min-w-0">
+                <DataBar value={confidencePct / 100} label="Confidence" colour="info" />
+              </div>
+              <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
+            </div>
+          )}
+        </div>
+      )}
+      {outboundConnections.length > 0 && (
+        <>
+          <Sep />
+          <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Influences:</p>
+          {outboundConnections.slice(0, 3).map(conn => (
+            <ConnRow
+              key={conn.edgeId}
+              edgeId={conn.edgeId}
+              nodeKind={conn.connectedNodeKind}
+              label={conn.connectedNodeLabel}
+              confidencePct={conn.confidencePct}
+            />
+          ))}
+        </>
+      )}
+      {displayMetadata.sensitivityRank === 1 && isInferred && (
+        <>
+          <Sep />
+          <div className="flex items-center gap-1 py-0.5 px-1.5 bg-warning/10 rounded">
+            <span className={`${typography.edgeLabel} text-text-body`}>Key assumption unvalidated. Your result depends on this.</span>
+          </div>
+        </>
+      )}
+    </>
+  ) : null
+
   return (
-    <div style={{ position: 'relative' }}>
+    <div
+      ref={nodeElRef as React.Ref<HTMLDivElement>}
+      style={{ position: 'relative' }}
+      onMouseEnter={nodeHandlers.onMouseEnter}
+      onMouseLeave={nodeHandlers.onMouseLeave}
+    >
       {showEvidenceGapBadge && <EvidenceGapBadge label={cleanedLabel} escalation={gapEscalation} />}
       {constraintTooltip && <ConstraintBadge tooltip={constraintTooltip} />}
       {isAffectedByHover && (
@@ -268,7 +331,8 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Needs input state */}
+        {/* ===== LAYER 1: Standard body ===== */}
+
         {needsInput && (
           <>
             <p className={`${typography.edgeLabel} text-text-light mt-1 m-0`}>Missing value. Weakens analysis.</p>
@@ -278,9 +342,9 @@ export const FactorNode = memo((props: NodeProps) => {
           </>
         )}
 
-        {/* External factor: "Variable. Outside your control." */}
+        {/* External factor: "Outside your control." (no "Variable" prefix) */}
         {!needsInput && nodeCategory === 'external' && !isPostAnalysis && (
-          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Variable. Outside your control.</p>
+          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Outside your control.</p>
         )}
 
         {/* Value display + provenance icon */}
@@ -288,129 +352,91 @@ export const FactorNode = memo((props: NodeProps) => {
           <div className={`${typography.nodeLabel} mt-1 flex items-center gap-1`}>
             <span className="font-semibold text-text-body">{valueDisplay}</span>
             {observedState?.source === 'brief_extraction' ? (
-              <div><BriefIcon /></div>
+              <BriefIcon />
             ) : (isInferred || observedState?.source === 'cee_inference') ? (
-              <div><OlumiSparkle /></div>
+              <OlumiSparkle />
             ) : null}
           </div>
         )}
 
-        {/* Value display fallbacks: prior range with units (skip bare "Variable" — already in sentence above) */}
+        {/* Prior range with units (post-analysis external factors only) */}
         {!needsInput && valueDisplay === null && nodeCategory === 'external' && isPostAnalysis && priorRangeDisplay && (
           <div className={`${typography.nodeLabel} mt-1 text-text-light`}>{priorRangeDisplay}</div>
         )}
 
-        {/* Influence & Confidence bars (both views, post-analysis) — numeric % only */}
-        {displayMetadata.isResultsMode && (influencePct != null && influencePct > 0 || confidencePct != null && confidencePct > 0) && (
-          <div className="mt-2 mb-1 space-y-1.5">
-            {influencePct != null && influencePct > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Influence</span>
-                <div className="flex-1 min-w-0">
-                  <DataBar value={influencePct / 100} label="Influence" colour="info" />
-                </div>
-                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{influencePct}%</span>
-              </div>
-            )}
-            {confidencePct != null && confidencePct > 0 && (
-              <div className="flex items-center gap-1.5">
-                <span className={`${typography.edgeLabel} text-text-light w-14 shrink-0`}>Confidence</span>
-                <div className="flex-1 min-w-0">
-                  <DataBar value={confidencePct / 100} label="Confidence" colour="info" />
-                </div>
-                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{confidencePct}%</span>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* "Influences:" ConnRows (post-analysis, both views) */}
-        {isPostAnalysis && outboundConnections.length > 0 && (
-          <>
-            <Sep />
-            <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Influences:</p>
-            {outboundConnections.map(conn => (
-              <ConnRow
-                key={conn.edgeId}
-                edgeId={conn.edgeId}
-                nodeKind={conn.connectedNodeKind}
-                label={conn.connectedNodeLabel}
-                confidencePct={conn.confidencePct}
-              />
-            ))}
-          </>
-        )}
-
-        {/* Actionable guidance (post-analysis, both views) */}
+        {/* Actionable sentence (Layer 1) */}
         {isPostAnalysis && influencePct != null && influencePct > 50 && confidencePct != null && confidencePct < 50 && (
-          <>
-            <Sep />
-            <p className={`${typography.edgeLabel} text-text-body m-0`}>
-              High influence, low confidence.{' '}
-              <button
-                type="button"
-                className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  useGuidanceStore.getState()._sendMessage?.(`How can I gather better evidence about ${cleanedLabel}?`)
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                Gather evidence
-              </button>
-            </p>
-          </>
+          <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
+            High influence, low confidence.{' '}
+            <button
+              type="button"
+              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
+              onClick={(e) => {
+                e.stopPropagation()
+                useGuidanceStore.getState()._sendMessage?.(`How can I gather better evidence about ${cleanedLabel}?`)
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              Gather evidence
+            </button>
+          </p>
         )}
 
-        {/* External factor guidance (post-analysis) */}
+        {/* External factor guidance (Layer 1) */}
         {isPostAnalysis && nodeCategory === 'external' && (
-          <>
-            <Sep />
-            <p className={`${typography.edgeLabel} text-text-body m-0`}>
-              Can't control, but can plan.{' '}
-              <button
-                type="button"
-                className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-                onClick={(e) => {
-                  e.stopPropagation()
-                  useGuidanceStore.getState()._sendMessage?.(`How should I plan for different scenarios of ${cleanedLabel}?`)
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                Scenario planning
-              </button>
-            </p>
-          </>
+          <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
+            <button
+              type="button"
+              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
+              onClick={(e) => {
+                e.stopPropagation()
+                useGuidanceStore.getState()._sendMessage?.(`What if ${cleanedLabel} worsens? How should I plan for that scenario?`)
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              What if {cleanedLabel.toLowerCase()} worsens?
+            </button>
+          </p>
         )}
 
-        {/* Bias icon: overconfidence (top factor unconfirmed) */}
-        {isPostAnalysis && displayMetadata.sensitivityRank === 1 && isInferred && (
-          <div className="mt-1">
-            <BiasIcon bias="overconfidence" tip="Key assumption unvalidated. Your result depends on this." linkLabel="Gather evidence" linkMessage={`How can I gather better evidence about ${cleanedLabel}?`} />
-          </div>
+        {/* MetricPills (Layer 1, post-analysis) */}
+        {isPostAnalysis && (
+          <MetricPills
+            influencePct={influencePct}
+            confidencePct={confidencePct}
+            biasType={displayMetadata.sensitivityRank === 1 && isInferred ? 'overconfidence' : undefined}
+            biasTip={displayMetadata.sensitivityRank === 1 && isInferred ? 'Key assumption unvalidated. Your result depends on this.' : undefined}
+            biasLinkLabel="Gather evidence"
+            biasLinkMessage={`How can I gather better evidence about ${cleanedLabel}?`}
+          />
         )}
 
-        {/* Expert overlay */}
-        <ExpertOverlay>
-          {isAssumed && (
-            <p className={`${typography.edgeLabel} text-warning m-0`}>Assumed (default value)</p>
-          )}
-          {displayMetadata.valueOfInformation != null && displayMetadata.valueOfInformation > 0 && (
-            <p className={`${typography.edgeLabel} text-text-body m-0`}>
-              EVPI: {Math.round(displayMetadata.valueOfInformation * 100)}pp
-            </p>
-          )}
-          {anchoringMessage && (
-            <CoachingCard
-              severity="warning"
-              message={`All options within 20% of ${anchoringMessage}. Anchored?`}
-              linkLabel="Explore a wider range"
-              linkMessage={`My options seem anchored around ${anchoringMessage}. What wider range should I consider for ${cleanedLabel}?`}
-            />
-          )}
-        </ExpertOverlay>
+        {/* ===== LAYER 2: Detailed inline ===== */}
+        {isDetailed && layer2Content}
 
-        {/* Action icons: confirm + edit (bottom-right) */}
+        {/* Anchoring coaching (Detailed, pre-analysis) */}
+        {anchoringMessage && (
+          <CoachingCard
+            severity="warning"
+            message={`All options within 20% of ${anchoringMessage}. Anchored?`}
+            linkLabel="Explore a wider range"
+            linkMessage={`My options seem anchored around ${anchoringMessage}. What wider range should I consider for ${cleanedLabel}?`}
+          />
+        )}
+
+        {/* "View parameters" link (Detailed, post-analysis) */}
+        {isDetailed && isPostAnalysis && (
+          <button
+            type="button"
+            className={`${typography.edgeLabel} text-info underline cursor-pointer mt-1.5 nodrag nopan`}
+            onClick={handleViewParams}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            View parameters
+          </button>
+        )}
+
+        {/* Action icons */}
         <ActionIcons
           nodeId={props.id}
           showConfirm={isInferred && valueDisplay !== null}
@@ -418,6 +444,18 @@ export const FactorNode = memo((props: NodeProps) => {
           onConfirm={handleConfirm}
         />
       </BaseNode>
+
+      {/* ===== LAYER 2: Popover (Standard, post-analysis) ===== */}
+      {!isDetailed && isPostAnalysis && (
+        <NodePopover
+          visible={showPopover}
+          width={240}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+        >
+          {layer2Content}
+        </NodePopover>
+      )}
     </div>
   )
 })

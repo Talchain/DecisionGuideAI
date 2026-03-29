@@ -1,7 +1,8 @@
 /**
  * Decision node component — v3 wireframe
  * Pre-analysis: name, option count, "Explore more options" chip, narrow-framing bias icon
- * Post-analysis: winner sentence, biggest risk link, coaching chips
+ * Post-analysis: compound winner + risk sentence, coaching chips
+ * Self-sufficient — no popover, no MetricPills, no ExpertOverlay.
  */
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -10,8 +11,7 @@ import { Crosshair } from 'lucide-react'
 import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { NodeChip, BiasIcon, ExpertOverlay } from './shared'
-import { getStabilityClassification } from '../../lib/stability'
+import { NodeChip, BiasIcon } from './shared'
 
 export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNodeData>) => {
   const edges = useCanvasStore(state => state.edges)
@@ -42,12 +42,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     const optionProbs = (report as any)?.option_probabilities ?? {}
     const winProb = optionProbs[recommendedId]?.win_probability as number | undefined
 
-    const stability = robustness?.recommendation_stability ?? robustness?.recommendationStability
-    const stabilityTier = typeof stability === 'number'
-      ? getStabilityClassification(stability)?.badgeLabel ?? null
-      : null
-
-    return { winnerLabel, winProb, stabilityTier, stability }
+    return { winnerLabel, winProb }
   }, [isPostAnalysis, report, nodes])
 
   // Biggest risk: risk node with highest bridge edge weight to goal
@@ -66,7 +61,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       if (weight != null && (best === null || weight > best.weight)) {
         best = {
           nodeId: risk.id,
-          label: (risk.data?.label as string) ?? 'Unknown risk',
+          label: (risk.data?.label as string) ?? '',
           weight,
         }
       }
@@ -83,6 +78,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     setTimeout(() => store.setHighlightedNodes([]), 3000)
   }, [biggestRisk])
 
+  // Truncate risk label for inline display
+  const truncatedRiskLabel = biggestRisk
+    ? (biggestRisk.label.length > 22 ? `${biggestRisk.label.slice(0, 22)}...` : biggestRisk.label)
+    : null
+
   return (
     <BaseNode
       nodeType="decision"
@@ -92,26 +92,24 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
       selected={selected}
       maxWidth={320}
     >
-      {/* Post-analysis: winner sentence */}
+      {/* Post-analysis: compound winner + risk sentence */}
       {headline ? (
         <div className="mt-1">
           <div className={`${typography.nodeLabel} text-text-body`}>
-            {headline.winnerLabel} wins {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios
+            {headline.winnerLabel} wins {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
+              <>
+                , but sensitive to{' '}
+                <button
+                  type="button"
+                  className={`${typography.nodeLabel} text-info underline cursor-pointer nodrag nopan`}
+                  onClick={handleRiskClick}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  {truncatedRiskLabel}
+                </button>
+              </>
+            ) : null}
           </div>
-          {/* Biggest risk link */}
-          {biggestRisk && (
-            <div className={`${typography.edgeLabel} text-text-light mt-0.5`}>
-              Biggest risk:{' '}
-              <button
-                type="button"
-                className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-                onClick={handleRiskClick}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                {biggestRisk.label.length > 22 ? `${biggestRisk.label.slice(0, 22)}...` : biggestRisk.label}
-              </button>
-            </div>
-          )}
           {/* Post-analysis chips */}
           <div className="flex gap-1 flex-wrap mt-1.5">
             <NodeChip label="Challenge this result" message="What assumptions would need to change for a different option to win?" />
@@ -132,22 +130,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           </div>
         </>
       ) : null}
-
-      {/* Expert overlay (only when there's data to show) */}
-      {headline && (
-        <ExpertOverlay>
-          {headline.winProb != null && (
-            <p className={`${typography.edgeLabel} text-text-body m-0`}>
-              Win probability: {Math.round(headline.winProb * 100)}%
-            </p>
-          )}
-          {headline.stabilityTier && (
-            <p className={`${typography.edgeLabel} text-text-body m-0`}>
-              Stability: {headline.stabilityTier}{headline.stability != null ? ` (${Math.round(headline.stability * 100)}%)` : ''}
-            </p>
-          )}
-        </ExpertOverlay>
-      )}
     </BaseNode>
   )
 })

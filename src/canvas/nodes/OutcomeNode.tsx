@@ -7,9 +7,10 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
-import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
+
 import { useNodeConnections } from '../hooks/useNodeConnections'
-import { ConnRow, Sep, OlumiSparkle, BriefIcon, ExpertOverlay } from './shared'
+import { usePopoverHover } from '../hooks/usePopoverHover'
+import { ConnRow, Sep, OlumiSparkle, BriefIcon, NodePopover } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 export const OutcomeNode = memo((props: NodeProps) => {
@@ -19,9 +20,14 @@ export const OutcomeNode = memo((props: NodeProps) => {
   const edges = useCanvasStore(state => state.edges)
   const nodes = useCanvasStore(state => state.nodes)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
+  const isDetailed = viewMode === 'expert'
 
-  // Provenance pill (expert overlay only)
+  // Popover hover
+  const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
+
+  // Provenance
   const provenanceLabel = useMemo(() => {
     const source = (props.data?.observedState as any)?.source as string | undefined
     if (!source || source === 'user' || source === 'user_calibration' || source === 'default') return null
@@ -58,30 +64,23 @@ export const OutcomeNode = memo((props: NodeProps) => {
     if (send) send(`How can I validate my assumption about ${topFactor.connectedNodeLabel}?`)
   }, [topFactor])
 
-  return (
-    <BaseNode {...props} nodeType="outcome" icon={metadata.icon} maxWidth={220}>
-      {/* Post-analysis: "Responsible for X% of your goal" */}
-      {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
-        <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-center gap-1`}>
-          Responsible for {bridgeEdgeData.contributionPct}% of your goal
-          {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
-        </div>
-      )}
+  // "View parameters" handler (Detailed view)
+  const handleViewParams = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    const store = useCanvasStore.getState()
+    store.onSelectionChange({ nodes: [{ id: props.id } as any], edges: [] })
+    store.setShowInspectorPanel(true)
+  }, [props.id])
 
-      {/* Pre-analysis: qualitative */}
-      {!isPostAnalysis && bridgeEdgeData?.signedMean != null && (
-        <div className={`${typography.edgeLabel} mt-1 text-text-light inline-flex items-center gap-1`}>
-          {bridgeEdgeData.signedMean > 0 ? 'Strong positive' : bridgeEdgeData.signedMean < -0.3 ? 'Negative' : 'Moderate'} influence on goal
-          {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
-        </div>
-      )}
-
-      {/* Post-analysis: "Depends on:" ConnRows */}
-      {isPostAnalysis && inboundConnections.length > 0 && (
+  // ----- Layer 2 content (shared between popover and Detailed inline) -----
+  const layer2Content = isPostAnalysis ? (
+    <>
+      {/* "Depends on:" ConnRows (max 3) */}
+      {inboundConnections.length > 0 && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
-          {inboundConnections.map(conn => (
+          {inboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}
@@ -94,7 +93,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
       )}
 
       {/* Actionable guidance */}
-      {isPostAnalysis && topFactor && (
+      {topFactor && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} text-text-body m-0`}>
@@ -111,24 +110,74 @@ export const OutcomeNode = memo((props: NodeProps) => {
         </>
       )}
 
-      {/* Expert overlay (only when there's data to show) */}
-      {(displayMetadata.achievementProbability !== null || (isPostAnalysis && bridgeEdgeData?.signedMean != null)) && (
-        <ExpertOverlay>
-          {displayMetadata.achievementProbability !== null && (
-            <p className={`${typography.edgeLabel} text-text-body m-0`}>
-              Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%
-            </p>
-          )}
-          {isPostAnalysis && bridgeEdgeData?.signedMean !== null && bridgeEdgeData?.signedMean !== undefined && (
-            <InfluenceIndicator
-              strength={bridgeEdgeData.signedMean}
-              variant="canvas"
-              className={`${typography.edgeLabel} text-text-light`}
-            />
-          )}
-        </ExpertOverlay>
+    </>
+  ) : null
+
+  // Achievement metric (Detailed view, independent of isPostAnalysis — comes from displayMetadata)
+  const detailedMetrics = displayMetadata.achievementProbability !== null ? (
+    <>
+      <Sep />
+      <p className={`${typography.edgeLabel} text-text-body m-0`}>
+        Achievement: {Math.round(displayMetadata.achievementProbability * 100)}%
+      </p>
+    </>
+  ) : null
+
+  return (
+    <div
+      ref={nodeElRef as React.Ref<HTMLDivElement>}
+      style={{ position: 'relative' }}
+      onMouseEnter={nodeHandlers.onMouseEnter}
+      onMouseLeave={nodeHandlers.onMouseLeave}
+    >
+      <BaseNode {...props} nodeType="outcome" icon={metadata.icon} maxWidth={220}>
+        {/* ===== LAYER 1: Standard body (always visible) ===== */}
+
+        {/* Post-analysis: "Responsible for X% of your goal" */}
+        {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
+          <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-center gap-1`}>
+            Responsible for {bridgeEdgeData.contributionPct}% of your goal
+            {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
+          </div>
+        )}
+
+        {/* Pre-analysis: qualitative */}
+        {!isPostAnalysis && bridgeEdgeData?.signedMean != null && (
+          <div className={`${typography.edgeLabel} mt-1 text-text-light inline-flex items-center gap-1`}>
+            {bridgeEdgeData.signedMean > 0 ? 'Strong positive' : bridgeEdgeData.signedMean < -0.3 ? 'Negative' : 'Moderate'} influence on goal
+            {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
+          </div>
+        )}
+
+        {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
+        {isDetailed && layer2Content}
+        {isDetailed && detailedMetrics}
+
+        {/* "View parameters" link (Detailed, post-analysis) */}
+        {isDetailed && isPostAnalysis && (
+          <button
+            type="button"
+            className={`${typography.edgeLabel} text-info underline cursor-pointer mt-1.5 nodrag nopan`}
+            onClick={handleViewParams}
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            View parameters
+          </button>
+        )}
+      </BaseNode>
+
+      {/* ===== LAYER 2: Popover (Standard view, post-analysis, desktop hover) ===== */}
+      {!isDetailed && isPostAnalysis && (
+        <NodePopover
+          visible={showPopover}
+          width={240}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+        >
+          {layer2Content}
+        </NodePopover>
       )}
-    </BaseNode>
+    </div>
   )
 })
 

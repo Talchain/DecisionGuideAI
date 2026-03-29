@@ -454,10 +454,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     return { dx: 0, dy: 0 }
   }, [isTopStrengthEdge, source, target, getNode, labelX, labelY, sourceX, sourceY, targetX, targetY])
 
-  // C1: Only show causal label when selected, hovered, has suggestion, is first edge with hint, or is top-strength edge
+  // C1: Edge labels only in Detailed view, post-analysis
   // Structural edges (decision→option) never show causal labels
-  // Decision view: no labels (Phase 1 — edges show colour only)
-  const showLabel = viewMode !== 'standard' && !isNonCausalEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
+  const showLabel = viewMode !== 'standard' && isResultsMode && !isNonCausalEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
@@ -603,9 +602,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Decision Graph Display v2 Task 3 + Task D: Direction sign indicator (single, near target) */}
-      {/* Decision view: hidden — direction conveyed by edge colour only (Phase 1) */}
-      {viewMode !== 'standard' && direction && lensMode !== 'causal' && (
+      {/* Direction sign indicator: Detailed view, post-analysis only */}
+      {viewMode !== 'standard' && isResultsMode && direction && lensMode !== 'causal' && (
         <EdgeLabelRenderer>
           <div
             style={{

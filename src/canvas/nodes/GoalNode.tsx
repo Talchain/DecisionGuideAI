@@ -1,3 +1,20 @@
+/**
+ * Goal node component — v3 wireframe
+ *
+ * Layer 1 (always visible):
+ *  - No threshold pre-analysis: "What does success look like for you?" + chip
+ *  - No threshold post-analysis: "Analysis complete. Set a target to see your chances." + chip
+ *  - With threshold: "Target: [value]" + provenance icon
+ *  - Post-analysis with threshold: achievement probability (danger if <10%), actionable guidance
+ *  - No risks chip (always)
+ *
+ * Layer 2 (popover in Standard / inline in Detailed):
+ *  - Stability bar + percentage
+ *  - Constraint badges (if any)
+ *  - Chips: "Why is this so low?", "Is my target realistic?"
+ *
+ * No ExpertOverlay. No MetricPills.
+ */
 import { memo, useMemo } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
@@ -10,8 +27,9 @@ import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit } from '../utils/labelUtils'
-import { NodeChip, OlumiSparkle, BriefIcon, ExpertOverlay } from './shared'
+import { NodeChip, OlumiSparkle, BriefIcon, NodePopover } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { usePopoverHover } from '../hooks/usePopoverHover'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 export const GoalNode = memo((props: NodeProps) => {
@@ -20,7 +38,9 @@ export const GoalNode = memo((props: NodeProps) => {
 
   const report = useCanvasStore(state => state.results.report)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
+  const isDetailed = viewMode === 'expert'
 
   const robustnessData = useMemo(() => {
     if (!isPostAnalysis || !report) return null
@@ -102,142 +122,184 @@ export const GoalNode = memo((props: NodeProps) => {
     return `${raw.toLocaleString()} ${thresholdUnit}`
   }, [hasThreshold, thresholdRaw, thresholdUnit])
 
-  return (
-    <BaseNode {...props} nodeType="goal" icon={metadata.icon} maxWidth={300} borderClassOverride={goalBorderOverride ?? undefined}>
-      {/* No target, post-analysis: analysis done but no threshold to evaluate */}
-      {!hasThreshold && isPostAnalysis && (
-        <>
-          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Analysis complete. Set a target to see your chances.</p>
-          <div className="mt-1.5">
-            <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-          </div>
-        </>
-      )}
+  // Popover hover
+  const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
 
-      {/* No target, pre-analysis: guided action */}
-      {!hasThreshold && !isPostAnalysis && (
-        <>
-          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>What does success look like for you?</p>
-          <div className="mt-1.5">
-            <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-          </div>
-        </>
-      )}
+  // Whether to show Layer 2 inline (Detailed view)
+  const showLayer2Inline = isDetailed
 
-      {/* With target: display it */}
-      {hasThreshold && (
-        <div className={`${typography.nodeLabel} text-text-light mt-1 inline-flex items-center gap-1`}>
-          Target: {thresholdDisplay}
-          {provenanceLabel && (provenanceLabel.includes('Olumi') ? <OlumiSparkle /> : <BriefIcon />)}
+  // Layer 2 content exists when there's anything to show (stability, constraints, warning)
+  const hasLayer2 = (
+    stabilityValue !== null ||
+    (activeConstraints && activeConstraints.length > 0) ||
+    hasConstraintDefaultWarning
+  )
+
+  // Popover trigger: only for goals with threshold, post-analysis
+  const showPopoverTrigger = hasThreshold && isPostAnalysis && hasLayer2
+
+  // ----- Layer 2 content (shared between popover and Detailed inline) -----
+  const layer2Content = hasLayer2 ? (
+    <>
+      {/* Stability bar */}
+      {stabilityValue !== null && (
+        <div className="mb-1">
+          <div className="flex items-center gap-1.5 mb-0.5">
+            <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
+            <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
+            {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
+              <span className={`${typography.edgeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1 py-0`}>
+                Marginal
+              </span>
+            )}
+          </div>
+          <DataBar value={stabilityValue} label="Stability" colour={stabilityBarColour} size="standard" />
         </div>
       )}
 
-      {/* Post-analysis: achievement probability */}
-      {displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
-        <div className={`${typography.nodeLabel} mt-1 ${
-          displayMetadata.achievementProbability < 0.10 ? 'text-danger' : 'text-text-body'
-        }`}>
-          {displayMetadata.achievementProbability > 0 && displayMetadata.achievementProbability < 0.01
-            ? '< 1'
-            : Math.round(displayMetadata.achievementProbability * 100)}% chance of reaching target
-          {hasConstraintDefaultWarning && (
-            <span
-              className={`${typography.edgeLabel} ml-1 bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 inline-flex items-center justify-center`}
-              title="Some model inputs are missing. Goal probability may be less reliable."
-            >
-              ?
-            </span>
-          )}
+      {/* Constraint badges */}
+      {activeConstraints && activeConstraints.length > 0 && (
+        <div className="flex flex-col gap-0.5">
+          {activeConstraints.map((c, i) => {
+            const prob = typeof c.probability === 'number' ? c.probability : null
+            const colourClass = prob === null ? 'border-info/30 text-text-body'
+              : prob >= 0.7 ? 'border-success/40 text-success'
+              : prob >= 0.4 ? 'border-warning/40 text-warning'
+              : 'border-danger/40 text-danger'
+            const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
+            return (
+              <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
+                <span className={`${typography.edgeLabel} truncate`}>{c.operator} {c.label}</span>
+                {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* Actionable guidance for low probability */}
-      {isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
-        <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
-          Target may be ambitious.{' '}
-          <button
-            type="button"
-            className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
-            onClick={(e) => {
-              e.stopPropagation()
-              useCanvasStore.getState().setShowInspectorPanel(true)
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            Adjust target
-          </button>
-          {' '}or{' '}
-          <button
-            type="button"
-            className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
-            onClick={(e) => {
-              e.stopPropagation()
-              useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors to improve my chance of reaching the goal?')
-            }}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            strengthen key factors
-          </button>
+      {/* Constraint default warning */}
+      {hasConstraintDefaultWarning && (
+        <p className={`${typography.edgeLabel} text-warning m-0 mt-0.5`}>
+          Some model inputs missing. Goal probability may be less reliable.
         </p>
       )}
 
-      {/* Low probability chip */}
-      {isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
-        <div className="mt-1.5">
-          <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
-        </div>
-      )}
+      {/* Layer 2 chips */}
+      <div className="flex gap-1 flex-wrap mt-1.5">
+        <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
+        <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
+      </div>
+    </>
+  ) : null
 
-      {/* No risks coaching (both views) */}
-      {!hasRiskNodes && (
-        <div className="mt-1.5">
-          <NodeChip label="Identify risks" message="What risks could prevent me from reaching my goal?" />
-        </div>
-      )}
+  return (
+    <div
+      ref={nodeElRef as React.Ref<HTMLDivElement>}
+      style={{ position: 'relative' }}
+      onMouseEnter={nodeHandlers.onMouseEnter}
+      onMouseLeave={nodeHandlers.onMouseLeave}
+    >
+      <BaseNode {...props} nodeType="goal" icon={metadata.icon} maxWidth={300} borderClassOverride={goalBorderOverride ?? undefined}>
+        {/* No target, post-analysis: analysis done but no threshold to evaluate */}
+        {!hasThreshold && isPostAnalysis && (
+          <>
+            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Analysis complete. Set a target to see your chances.</p>
+            <div className="mt-1.5">
+              <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+            </div>
+          </>
+        )}
 
-      {/* Expert overlay: stability, constraints */}
-      {(stabilityValue !== null || (activeConstraints && activeConstraints.length > 0) || hasConstraintDefaultWarning) && (
-        <ExpertOverlay>
-          {stabilityValue !== null && (
-            <div className="mb-1">
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
-                <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
-                {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
-                  <span className={`${typography.edgeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1 py-0`}>
-                    Marginal
-                  </span>
-                )}
-              </div>
-              <DataBar value={stabilityValue} label="Stability" colour={stabilityBarColour} size="standard" />
+        {/* No target, pre-analysis: guided action */}
+        {!hasThreshold && !isPostAnalysis && (
+          <>
+            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>What does success look like for you?</p>
+            <div className="mt-1.5">
+              <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
             </div>
-          )}
-          {activeConstraints && activeConstraints.length > 0 && (
-            <div className="flex flex-col gap-0.5">
-              {activeConstraints.map((c, i) => {
-                const prob = typeof c.probability === 'number' ? c.probability : null
-                const colourClass = prob === null ? 'border-info/30 text-text-body'
-                  : prob >= 0.7 ? 'border-success/40 text-success'
-                  : prob >= 0.4 ? 'border-warning/40 text-warning'
-                  : 'border-danger/40 text-danger'
-                const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
-                return (
-                  <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
-                    <span className={`${typography.edgeLabel} truncate`}>{c.operator} {c.label}</span>
-                    {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
-                  </div>
-                )
-              })}
-            </div>
-          )}
-          {hasConstraintDefaultWarning && (
-            <p className={`${typography.edgeLabel} text-warning m-0 mt-0.5`}>
-              Some model inputs missing. Goal probability may be less reliable.
-            </p>
-          )}
-        </ExpertOverlay>
+          </>
+        )}
+
+        {/* With target: display it */}
+        {hasThreshold && (
+          <div className={`${typography.nodeLabel} text-text-light mt-1 inline-flex items-center gap-1`}>
+            Target: {thresholdDisplay}
+            {provenanceLabel && (provenanceLabel.includes('Olumi') ? <OlumiSparkle /> : <BriefIcon />)}
+          </div>
+        )}
+
+        {/* Post-analysis: achievement probability */}
+        {displayMetadata.isResultsMode && displayMetadata.achievementProbability !== null && (
+          <div className={`${typography.nodeLabel} mt-1 ${
+            displayMetadata.achievementProbability < 0.10 ? 'text-danger' : 'text-text-body'
+          }`}>
+            {displayMetadata.achievementProbability > 0 && displayMetadata.achievementProbability < 0.01
+              ? '< 1'
+              : Math.round(displayMetadata.achievementProbability * 100)}% chance of reaching target
+            {hasConstraintDefaultWarning && (
+              <span
+                className={`${typography.edgeLabel} ml-1 bg-panel border border-factor/30 text-text-body rounded-full w-4 h-4 inline-flex items-center justify-center`}
+                title="Some model inputs are missing. Goal probability may be less reliable."
+              >
+                ?
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Actionable guidance for low probability */}
+        {isPostAnalysis && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+          <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
+            Target may be ambitious.{' '}
+            <button
+              type="button"
+              className={`${typography.edgeLabel} text-danger underline cursor-pointer nodrag nopan`}
+              onClick={(e) => {
+                e.stopPropagation()
+                useCanvasStore.getState().setShowInspectorPanel(true)
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              Adjust target
+            </button>
+            {' '}or{' '}
+            <button
+              type="button"
+              className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
+              onClick={(e) => {
+                e.stopPropagation()
+                useGuidanceStore.getState()._sendMessage?.('How can I strengthen the key factors to improve my chance of reaching the goal?')
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              strengthen key factors
+            </button>
+          </p>
+        )}
+
+        {/* No risks coaching (both views) */}
+        {!hasRiskNodes && (
+          <div className="mt-1.5">
+            <NodeChip label="Identify risks" message="What risks could prevent me from reaching my goal?" />
+          </div>
+        )}
+
+        {/* Layer 2: inline in Detailed view */}
+        {showLayer2Inline && layer2Content}
+      </BaseNode>
+
+      {/* Layer 2: popover in Standard view (only for goals with threshold, post-analysis) */}
+      {!isDetailed && showPopoverTrigger && (
+        <NodePopover
+          visible={showPopover}
+          width={280}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+        >
+          {layer2Content}
+        </NodePopover>
       )}
-    </BaseNode>
+    </div>
   )
 })
 
