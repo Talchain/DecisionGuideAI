@@ -18,7 +18,7 @@ export function ExpertOverlay({ children }: ExpertOverlayProps) {
   if (!hasContent) return null
 
   return (
-    <div className="bg-info/[0.08] border border-info/20 rounded-lg mt-1.5" style={{ padding: '6px 8px' }}>
+    <div className="bg-info/[0.08] border border-info/20 rounded-lg mt-1.5 overflow-y-auto" style={{ padding: '6px 8px', maxHeight: '120px' }}>
       {children}
     </div>
   )

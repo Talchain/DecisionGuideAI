@@ -181,7 +181,7 @@ const fixtureNoGoalThreshold: RecommendationSectionData = {
   isSingleOption: false,
   analysisStatus: 'computed',
   outcomeUnit: 'percent',
-  recommendationStability: 0.55,
+  recommendationStability: 0.75,
   // Fix C: Include dirty story headlines that PLoT generates
   storyHeadlines: {
     'option-1': 'Option A leads, but Factor X (0/1) → Outcome Y could swing the outcome to Option B',

@@ -8,10 +8,10 @@
  * (stability tier + border), buildResultsVM (DecisionState), GoalNode (badge).
  *
  * Thresholds align with ISL robustness protocol:
- *   >= 0.80  high      — "Stable result"
- *   >= 0.55  moderate  — "Mostly stable"
- *   >= 0.30  low       — "Sensitive to assumptions"
- *   <  0.30  very_low  — "Highly sensitive"
+ *   >= 0.85  high      — "Stable result"
+ *   >= 0.70  moderate  — "Mostly stable"
+ *   >= 0.40  low       — "Sensitive to assumptions"
+ *   <  0.40  very_low  — "Highly sensitive"
  */
 
 import type { RobustnessLevel } from './mappers/types'
@@ -46,7 +46,8 @@ export function getStabilityClassification(
 ): StabilityClassification | null {
   if (stability == null) return null
 
-  if (stability >= 0.80) {
+  // Science UX Architecture v2 Section 4.2 thresholds
+  if (stability >= 0.85) {
     return {
       level: 'high',
       badgeLabel: 'Robust',
@@ -59,7 +60,7 @@ export function getStabilityClassification(
     }
   }
 
-  if (stability >= 0.55) {
+  if (stability >= 0.70) {
     return {
       level: 'moderate',
       badgeLabel: 'Moderate',
@@ -72,7 +73,7 @@ export function getStabilityClassification(
     }
   }
 
-  if (stability >= 0.30) {
+  if (stability >= 0.40) {
     return {
       level: 'low',
       badgeLabel: 'Fragile',

@@ -18,8 +18,8 @@ describe('getStabilityClassification', () => {
     expect(getStabilityClassification(null)).toBeNull()
   })
 
-  it('classifies >= 0.80 as high / "Stable result"', () => {
-    const c = getStabilityClassification(0.80)!
+  it('classifies >= 0.85 as high / "Stable result"', () => {
+    const c = getStabilityClassification(0.85)!
     expect(c.level).toBe('high')
     expect(c.heroLabel).toBe('Stable result')
     expect(c.badgeLabel).toBe('Robust')
@@ -28,8 +28,8 @@ describe('getStabilityClassification', () => {
     expect(c.coaching).toBeNull()
   })
 
-  it('classifies 0.55–0.79 as moderate / "Mostly stable"', () => {
-    for (const v of [0.55, 0.65, 0.72, 0.79]) {
+  it('classifies 0.70–0.84 as moderate / "Mostly stable"', () => {
+    for (const v of [0.70, 0.75, 0.80, 0.84]) {
       const c = getStabilityClassification(v)!
       expect(c.level).toBe('moderate')
       expect(c.heroLabel).toBe('Mostly stable')
@@ -37,8 +37,8 @@ describe('getStabilityClassification', () => {
     }
   })
 
-  it('classifies 0.30–0.54 as low / "Sensitive to assumptions"', () => {
-    for (const v of [0.30, 0.40, 0.54]) {
+  it('classifies 0.40–0.69 as low / "Sensitive to assumptions"', () => {
+    for (const v of [0.40, 0.50, 0.69]) {
       const c = getStabilityClassification(v)!
       expect(c.level).toBe('low')
       expect(c.heroLabel).toBe('Sensitive to assumptions')
@@ -46,8 +46,8 @@ describe('getStabilityClassification', () => {
     }
   })
 
-  it('classifies < 0.30 as very_low / "Highly sensitive"', () => {
-    for (const v of [0.0, 0.15, 0.29]) {
+  it('classifies < 0.40 as very_low / "Highly sensitive"', () => {
+    for (const v of [0.0, 0.15, 0.39]) {
       const c = getStabilityClassification(v)!
       expect(c.level).toBe('very_low')
       expect(c.heroLabel).toBe('Highly sensitive')
@@ -72,7 +72,7 @@ describe('deriveStabilityLevel', () => {
   })
 
   it('returns the same level as getStabilityClassification', () => {
-    for (const v of [0.0, 0.29, 0.30, 0.54, 0.55, 0.79, 0.80, 1.0]) {
+    for (const v of [0.0, 0.39, 0.40, 0.69, 0.70, 0.84, 0.85, 1.0]) {
       expect(deriveStabilityLevel(v)).toBe(
         getStabilityClassification(v)!.level
       )
@@ -89,9 +89,9 @@ describe('getStabilityBorderClass', () => {
   })
 
   it('falls back to numeric stability when level missing', () => {
-    expect(getStabilityBorderClass(undefined, 0.85)).toBe('border-success/30')
-    expect(getStabilityBorderClass(undefined, 0.60)).toBe('border-info/30')
-    expect(getStabilityBorderClass(undefined, 0.35)).toBe('border-factor/30')
+    expect(getStabilityBorderClass(undefined, 0.90)).toBe('border-success/30')
+    expect(getStabilityBorderClass(undefined, 0.75)).toBe('border-info/30')
+    expect(getStabilityBorderClass(undefined, 0.50)).toBe('border-factor/30')
     expect(getStabilityBorderClass(undefined, 0.10)).toBe('border-factor/30')
   })
 

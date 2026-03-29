@@ -367,29 +367,29 @@ describe('RecommendationSection', () => {
       expect(screen.getByText('Stable result')).toBeInTheDocument()
     })
 
-    it('shows "Mostly stable" label for moderate stability (0.65)', () => {
+    it('shows "Mostly stable" label for moderate stability (0.75)', () => {
       const mediumStabilityData: RecommendationSectionData = {
         ...mockData,
-        recommendationStability: 0.65,
+        recommendationStability: 0.75,
         robustnessLevel: 'moderate',
       }
 
       render(<RecommendationSection data={mediumStabilityData} />)
 
-      // 0.65 is >= 0.55 but < 0.80, so "Mostly stable" (consolidated thresholds)
+      // 0.75 is >= 0.70 but < 0.85, so "Mostly stable" (Science UX Architecture v2 §4.2)
       expect(screen.getByText('Mostly stable')).toBeInTheDocument()
     })
 
-    it('shows "Sensitive to assumptions" label for low stability (0.35)', () => {
+    it('shows "Sensitive to assumptions" label for low stability (0.50)', () => {
       const lowStabilityData: RecommendationSectionData = {
         ...mockData,
-        recommendationStability: 0.35,
+        recommendationStability: 0.50,
         robustnessLevel: 'low',
       }
 
       render(<RecommendationSection data={lowStabilityData} />)
 
-      // 0.35 is >= 0.30 but < 0.55, so "Sensitive to assumptions" (consolidated thresholds)
+      // 0.50 is >= 0.40 but < 0.70, so "Sensitive to assumptions" (Science UX Architecture v2 §4.2)
       expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
     })
 
@@ -740,18 +740,17 @@ describe('RecommendationSection', () => {
   // =========================================================================
 
   describe('Conditional Stability/Win Display', () => {
-    it('shows only inline stability when stability = 0.60 and win = 0.60 (same value)', () => {
+    it('shows only inline stability when stability = 0.75 and win = 0.75 (same value)', () => {
       const sameValueData: RecommendationSectionData = {
         ...mockData,
-        recommendationStability: 0.60,
-        winProbability: 0.60,
+        recommendationStability: 0.75,
+        winProbability: 0.75,
         robustnessLevel: 'moderate',  // Required for inline stability
       }
 
       render(<RecommendationSection data={sameValueData} />)
 
-      // P1: Stability now shows in HeroSection
-      // 0.60 is >= 0.55 && < 0.80 → "Mostly stable" (consolidated thresholds)
+      // 0.75 is >= 0.70 && < 0.85 → "Mostly stable" (Science UX Architecture v2 §4.2)
       expect(screen.getByText('Mostly stable')).toBeInTheDocument()
       // "scenarios" is banned language - should not appear
       expect(screen.queryByText(/scenarios tested/)).not.toBeInTheDocument()
@@ -925,7 +924,7 @@ describe('RecommendationSection', () => {
     })
 
     it('shows No clear winner when stability is low (replaces Too close to call)', () => {
-      // Low stability (< 0.55) triggers "No clear winner" headline in HeroSection
+      // Low stability (< 0.70) triggers "No clear winner" headline in HeroSection
       const lowStabilityData: RecommendationSectionData = {
         ...mockData,
         nearTie: undefined,

@@ -41,7 +41,7 @@ describe('HeroSection', () => {
       expect(screen.getByText(/Some analysis steps did not complete/)).toBeInTheDocument()
     })
 
-    it('shows "no clear winner" when stability < 0.55 (rule 2)', () => {
+    it('shows "no clear winner" when stability < 0.70 (rule 2)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -130,7 +130,7 @@ describe('HeroSection', () => {
       expect(screen.getByText('Custom M2 headline')).toBeInTheDocument()
     })
 
-    it('keeps M1 headline when stability < 0.55 even if M2 is available', () => {
+    it('keeps M1 headline when stability < 0.70 even if M2 is available', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -345,7 +345,7 @@ describe('HeroSection', () => {
   })
 
   describe('Stability Label', () => {
-    it('shows "Stable result" for stability >= 0.80', () => {
+    it('shows "Stable result" for stability >= 0.85', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -356,29 +356,29 @@ describe('HeroSection', () => {
       expect(screen.getByText('Stable result')).toBeInTheDocument()
     })
 
-    it('shows "Mostly stable" for stability >= 0.55', () => {
+    it('shows "Mostly stable" for stability >= 0.70', () => {
       render(
         <HeroSection
           {...baseProps}
-          recommendationStability={0.60}
+          recommendationStability={0.75}
         />
       )
 
       expect(screen.getByText('Mostly stable')).toBeInTheDocument()
     })
 
-    it('shows "Sensitive to assumptions" for stability >= 0.30', () => {
+    it('shows "Sensitive to assumptions" for stability >= 0.40', () => {
       render(
         <HeroSection
           {...baseProps}
-          recommendationStability={0.40}
+          recommendationStability={0.50}
         />
       )
 
       expect(screen.getByText('Sensitive to assumptions')).toBeInTheDocument()
     })
 
-    it('shows "Highly sensitive" for stability < 0.30', () => {
+    it('shows "Highly sensitive" for stability < 0.40', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -1049,31 +1049,31 @@ describe('HeroSection', () => {
       expect(trustEl.textContent).toContain('Stable result')
     })
 
-    it('preserves "Mostly stable" in trust-one-liner for sensitive state (stability=0.60)', () => {
+    it('preserves "Mostly stable" in trust-one-liner for sensitive state (stability=0.75)', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
-          recommendationStability={0.60}
+          recommendationStability={0.75}
         />
       )
 
-      // stability=0.60 is >= 0.55, < 0.80 → "Mostly stable" (canonical thresholds)
+      // stability=0.75 is >= 0.70, < 0.85 → "Mostly stable" (canonical thresholds)
       const trustEl = screen.getByTestId('trust-one-liner')
       expect(trustEl.textContent).toContain('Mostly stable')
     })
 
-    it('trust-one-liner shows "Sensitive to assumptions" for indeterminate (stability=0.40)', () => {
+    it('trust-one-liner shows "Highly sensitive" for indeterminate (stability=0.35)', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="indeterminate"
-          recommendationStability={0.40}
+          recommendationStability={0.35}
         />
       )
 
       const trustEl = screen.getByTestId('trust-one-liner')
-      expect(trustEl.textContent).toContain('Sensitive to assumptions')
+      expect(trustEl.textContent).toContain('Highly sensitive')
       // decision-state-pill is removed from V16 path
       expect(screen.queryByTestId('decision-state-pill')).not.toBeInTheDocument()
     })
@@ -1119,16 +1119,16 @@ describe('HeroSection', () => {
       expect(screen.queryByTestId('decision-state-pill')).not.toBeInTheDocument()
     })
 
-    it('trust-one-liner shows "Mostly stable" for stability=0.60 (natural tier)', () => {
+    it('trust-one-liner shows "Mostly stable" for stability=0.75 (natural tier)', () => {
       render(
         <HeroSection
           {...baseProps}
           decisionState="sensitive"
-          recommendationStability={0.60}
+          recommendationStability={0.75}
         />
       )
 
-      // stability=0.60 is >= 0.55, < 0.80 → "Mostly stable" (canonical thresholds)
+      // stability=0.75 is >= 0.70, < 0.85 → "Mostly stable" (canonical thresholds)
       const trustEl = screen.getByTestId('trust-one-liner')
       expect(trustEl.textContent).toContain('Mostly stable')
     })
@@ -1370,7 +1370,7 @@ describe('HeroSection', () => {
         />
       )
 
-      // stability=0.50 is >= 0.30, < 0.55 → "Sensitive to assumptions" (canonical thresholds)
+      // stability=0.50 is >= 0.40, < 0.70 → "Sensitive to assumptions" (canonical thresholds)
       const trust = screen.getByTestId('trust-one-liner')
       expect(trust.textContent).toContain('Sensitive to assumptions')
     })

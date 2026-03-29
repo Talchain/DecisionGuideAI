@@ -104,7 +104,17 @@ export const GoalNode = memo((props: NodeProps) => {
 
   return (
     <BaseNode {...props} nodeType="goal" icon={metadata.icon} maxWidth={300} borderClassOverride={goalBorderOverride ?? undefined}>
-      {/* No target: guided action */}
+      {/* No target, post-analysis: analysis done but no threshold to evaluate */}
+      {!hasThreshold && isPostAnalysis && (
+        <>
+          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Analysis complete. Set a target to see your chances.</p>
+          <div className="mt-1.5">
+            <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+          </div>
+        </>
+      )}
+
+      {/* No target, pre-analysis: guided action */}
       {!hasThreshold && !isPostAnalysis && (
         <>
           <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>What does success look like for you?</p>

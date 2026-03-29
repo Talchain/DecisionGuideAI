@@ -341,8 +341,8 @@ export function HeroSection({
       return { main: 'Some analysis steps did not complete', sub: 'Results are partial' }
     }
 
-    // Precedence 2: Low stability (< 0.55) — no clear winner
-    if (recommendationStability != null && recommendationStability < 0.55) {
+    // Precedence 2: Low stability (< 0.70) — no clear winner
+    if (recommendationStability != null && recommendationStability < 0.70) {
       return {
         main: `no clear winner, the result is sensitive to your estimates`,
         sub: `${winnerLabel} wins slightly more often`,
@@ -364,9 +364,9 @@ export function HeroSection({
     }
   }, [analysisStatus, recommendationStability, winnerLabel, optionCount])
 
-  // M2 headline override (only when stability >= 0.55)
+  // M2 headline override (only when stability >= 0.70)
   const headline = useMemo<StructuredHeadline>(() => {
-    if (m2Headline && (recommendationStability == null || recommendationStability >= 0.55)) {
+    if (m2Headline && (recommendationStability == null || recommendationStability >= 0.70)) {
       return { main: m2Headline, sub: m1Headline.sub }
     }
     return m1Headline
@@ -932,7 +932,7 @@ export function HeroSection({
           </div>
           <div className="flex items-baseline gap-1.5 flex-wrap">
             <span className={`${typography.panelMeta} text-text-light flex-shrink-0`}>Result</span>
-            <span className={`${typography.panelHeader} ${recommendationStability != null && recommendationStability < 0.55 ? 'text-text-header' : 'text-success'}`}>{headline.main}</span>
+            <span className={`${typography.panelHeader} ${recommendationStability != null && recommendationStability < 0.70 ? 'text-text-header' : 'text-success'}`}>{headline.main}</span>
           </div>
         </div>
         {headline.sub && (
