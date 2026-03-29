@@ -127,7 +127,7 @@ describe('RobustnessBlock', () => {
     it('displays fragile label with correct styling', () => {
       const fragileData = { ...mockRobustness, robustness_label: 'fragile' as const }
       render(<RobustnessBlock robustness={fragileData} />)
-      expect(screen.getByText('Robustness: Fragile')).toBeInTheDocument()
+      expect(screen.getByText('Robustness: Sensitive')).toBeInTheDocument()
     })
 
     it('shows 5-segment meter', () => {

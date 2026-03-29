@@ -35,6 +35,12 @@ vi.mock('../../../lib/posthog', () => ({
   trackEvent: (...args: unknown[]) => mockTrackEvent(...args),
 }))
 
+// Force non-streaming code path so callOrchestratorTurn mock is hit
+vi.mock('../../../flags', async () => {
+  const actual = await vi.importActual('../../../flags') as Record<string, unknown>
+  return { ...actual, isOrchestratorStreamingEnabled: () => false }
+})
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
@@ -194,11 +200,11 @@ describe('Scenario 5: timeout progression', () => {
       result.current.sendMessage('a long request')
     })
 
-    // Immediately after send: thinking state
+    // Immediately after send: thinking state with immediate hint
     expect(result.current.isThinking).toBe(true)
-    expect(result.current.longRunningHint).toBeNull()
+    expect(result.current.longRunningHint).toBe('Thinking\u2026')
 
-    // At 30s: elapsed time indicator (replaces "Still working…")
+    // At 30s: elapsed time counter appended to hint
     act(() => { vi.advanceTimersByTime(30_000) })
     expect(result.current.longRunningHint).toBe('Thinking... 30s')
 

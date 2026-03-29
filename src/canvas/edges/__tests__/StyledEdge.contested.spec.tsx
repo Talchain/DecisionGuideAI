@@ -153,16 +153,16 @@ describe('StyledEdge — contested visual styling', () => {
     capturedStyle = undefined
   })
 
-  it('pending contested edge with max_divergence renders dashed info stroke', () => {
+  it('pending contested edge with max_divergence renders dashed warning stroke', () => {
     const style = renderEdge({
       weight: 0.5,
       direction: 'positive',
       validation: makeValidation({ max_divergence: 0.6 }),
     })
 
-    // Stroke should be the 70% mixed info colour (not full info)
+    // Stroke should be the 70% mixed warning colour (contested = needs attention)
     expect(style.stroke).toContain('color-mix')
-    expect(style.stroke).toContain('--semantic-info')
+    expect(style.stroke).toContain('--semantic-warning')
 
     // Dash array should be divergence-scaled: width = 1.5 + 0.6*1.5 = 2.4, gap = 4 + 0.6*4 = 6
     expect(style.strokeDasharray).toBe('2.4 6')
@@ -181,8 +181,8 @@ describe('StyledEdge — contested visual styling', () => {
       }),
     })
 
-    // Full info colour for needs_user_input
-    expect(style.stroke).toBe('var(--semantic-info)')
+    // Full warning colour for needs_user_input (contested = needs attention)
+    expect(style.stroke).toBe('var(--semantic-warning)')
 
     // Tight dash: gap = 3 regardless of divergence; width = 1.5 + 0.8*1.5 = 2.7
     expect(style.strokeDasharray).toBe('2.7 3')

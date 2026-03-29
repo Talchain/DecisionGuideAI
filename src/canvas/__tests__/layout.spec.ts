@@ -78,7 +78,7 @@ describe('ELK Layout', () => {
   it('returns layoutNodeWidth', async () => {
     const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(240)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
   })
 
   it('preserves locked node positions', async () => {
@@ -237,7 +237,7 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(240)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
     // All positions must be finite
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)

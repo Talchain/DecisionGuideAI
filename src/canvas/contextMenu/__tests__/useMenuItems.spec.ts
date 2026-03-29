@@ -95,7 +95,7 @@ describe('pane menu', () => {
       useMenuItems({ target, showToast, screenToFlowPosition, onClose }),
     )
     const addNode = findItem(result.current, 'add-node')
-    expect(addNode?.submenuItems).toHaveLength(5)
+    expect(addNode?.submenuItems).toHaveLength(6)
   })
 })
 
