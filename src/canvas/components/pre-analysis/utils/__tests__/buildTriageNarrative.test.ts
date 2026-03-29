@@ -11,12 +11,18 @@ describe('buildTriageNarrative', () => {
     expect(buildTriageNarrative([item('fix')], true, null, true)).toBeNull()
   })
 
-  it('returns null when items is empty', () => {
-    expect(buildTriageNarrative([], true, null, false)).toBeNull()
+  it('prefers computed narrative over coachingSummary when items exist', () => {
+    const result = buildTriageNarrative([item('fix')], true, 'CEE says hello', false)
+    expect(result).toContain('1 factor has no data')
+    expect(result).not.toBe('CEE says hello')
   })
 
-  it('returns coachingSummary when present', () => {
-    expect(buildTriageNarrative([item('fix')], true, 'CEE says hello', false)).toBe('CEE says hello')
+  it('falls back to coachingSummary when items is empty', () => {
+    expect(buildTriageNarrative([], true, 'CEE says hello', false)).toBe('CEE says hello')
+  })
+
+  it('returns null when items is empty and no coachingSummary', () => {
+    expect(buildTriageNarrative([], true, null, false)).toBeNull()
   })
 
   it('describes all-fix items', () => {

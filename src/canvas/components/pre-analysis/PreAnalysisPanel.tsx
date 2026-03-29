@@ -1131,6 +1131,7 @@ export function PreAnalysisPanel({
         evidenceTotalCount={data.evidenceQuality.totalCount}
         weightedInfluenceReviewed={weightedInfluenceReviewed}
         readinessScore={readinessScore}
+        hasGoalTarget={data.successThreshold != null}
       />
     </div>
   )

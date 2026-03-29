@@ -239,7 +239,7 @@ export function GoalBaselineInput({
     <div className="flex items-start gap-2 py-1.5" data-testid="goal-baseline-pill">
       <div className="flex-1 min-w-0 space-y-1">
         <p className={`${typography.panelBody} text-text-body`}>
-          No current baseline set. Analysis will show target reach likelihood, not improvement from today
+          No baseline value set on the goal. Without one, analysis shows absolute probability, not improvement from today.
         </p>
         <div className="flex items-center gap-2">
           <span className={`inline-flex items-center rounded-full px-2 py-0.5 ${typography.panelMeta} border border-option/30 text-text-body bg-transparent`}>

@@ -240,7 +240,7 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Sticky Footer', () => {
-    it('shows "Analyse Now" button when ready and readiness >= 60', () => {
+    it('shows "Analyse Now" button when ready, readiness >= 60, target set, and items addressed', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         hasBlockers: false,
@@ -249,6 +249,9 @@ describe('PreAnalysisPanel', () => {
         reviewedFactorsCount: 3,
         totalReviewableFactorsCount: 5,
         ceeQuality: { structure: 8 },
+        successThreshold: 0.7,
+        addressedActionableCount: 2,
+        actionableCount: 3,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)

@@ -17,7 +17,7 @@ interface NarrativeItem {
  *
  * @param items   - All triage items (top3 + quickFix combined)
  * @param hasGoalTarget - Whether a success threshold is set
- * @param coachingSummary - CEE coaching summary (takes priority when present)
+ * @param coachingSummary - CEE coaching summary (fallback when zero items)
  * @param isLoading - Whether data is still loading
  */
 export function buildTriageNarrative(
@@ -26,8 +26,8 @@ export function buildTriageNarrative(
   coachingSummary: string | null,
   isLoading: boolean,
 ): string | null {
-  if (isLoading || items.length === 0) return null
-  if (coachingSummary) return coachingSummary
+  if (isLoading) return null
+  if (items.length === 0) return coachingSummary
 
   const missingData = items.filter(a => a.category === 'fix').length
   const estimates = items.filter(a => a.category === 'verify').length

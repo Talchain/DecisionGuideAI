@@ -61,6 +61,8 @@ interface StickyFooterProps {
   weightedInfluenceReviewed?: number
   /** Readiness score 0-100 (average of 4 health dimensions) */
   readinessScore?: number
+  /** Whether a goal success threshold is set */
+  hasGoalTarget?: boolean
 }
 
 export function StickyFooter({
@@ -78,6 +80,7 @@ export function StickyFooter({
   evidenceTotalCount,
   weightedInfluenceReviewed,
   readinessScore,
+  hasGoalTarget,
 }: StickyFooterProps) {
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
 
@@ -120,7 +123,12 @@ export function StickyFooter({
   }
 
   const READINESS_THRESHOLD = 60
-  const isLowReadiness = readinessScore != null && readinessScore < READINESS_THRESHOLD && isReady
+  const addressedCount = reviewedCount ?? 0
+  const isProvisional = isReady && (
+    (readinessScore != null && readinessScore < READINESS_THRESHOLD)
+    || hasGoalTarget === false
+    || addressedCount === 0
+  )
 
   const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
     (reviewedCount ?? 0) >= totalReviewableCount
@@ -147,14 +155,14 @@ export function StickyFooter({
   ) : hasBlockers ? `${blockerCount} to address` : undefined
 
   // Compose consequence hint when readiness is low
-  const composedMeta = isLowReadiness
+  const composedMeta = isProvisional
     ? <>{metaText}{metaText ? ' · ' : ''}Results will be provisional</>
     : metaText
 
   // CTA label adapts to readiness
   const ctaLabel = isAnalysing
     ? 'Analysing...'
-    : isLowReadiness
+    : isProvisional
       ? 'Analyse anyway'
       : 'Analyse now'
 

@@ -163,7 +163,7 @@ export function TriageCard(props: TriageCardProps) {
   return (
     <div
       key={cardKey}
-      className={`relative flex flex-col gap-1.5 p-2.5 rounded-[10px] border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
+      className={`relative flex flex-col p-2.5 rounded-[10px] border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
       onMouseEnter={() => {
         if (action?.targetId && onHoverEnter) {
           onHoverEnter(action.targetType ?? 'node', action.targetId)
@@ -171,8 +171,8 @@ export function TriageCard(props: TriageCardProps) {
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      {/* Top row: ordinal + title */}
-      <div className="flex items-start gap-2.5">
+      {/* Top row: ordinal + title — mb-0.5 (2px) gap to subtitle */}
+      <div className="flex items-start gap-2.5 mb-0.5">
         <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center`}>
           {ordinal}
         </span>
@@ -208,9 +208,9 @@ export function TriageCard(props: TriageCardProps) {
         />
       )}
 
-      {/* Action buttons row */}
+      {/* Action buttons row — mt-1.5 (6px) gap from subtitle */}
       {!isEditing && (
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 mt-1.5">
           {action?.kind === 'confirm' && onConfirm && action.targetId && (
             <button
               type="button"
