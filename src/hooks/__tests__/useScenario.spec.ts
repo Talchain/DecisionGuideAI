@@ -95,6 +95,8 @@ vi.mock('../../canvas/store', () => ({
     {
       getState: () => mockGetState(),
       setState: (partial: Record<string, unknown>) => mockSetState(partial),
+      // subscribe mock — returns an unsubscribe function (no-op for tests)
+      subscribe: vi.fn(() => vi.fn()),
     },
   ),
 }))

@@ -76,12 +76,12 @@ export function useScenario(): UseScenarioReturn {
   // Persistence is active only for real Supabase users, not guest mode
   const isPersistenceActive = authenticated && !!user && user.id !== 'guest'
 
-  // Canvas store selectors
+  // Canvas store selectors — only scalars/functions that don't create new
+  // references on every ReactFlow tick.  nodes/edges/framing are read via
+  // getState() inside a store subscription (see below) to avoid subscribing
+  // the calling component to high-frequency ReactFlow position/measurement
+  // updates, which previously caused an infinite render loop in CanvasMVP.
   const currentScenarioId = useCanvasStore((s) => s.currentScenarioId)
-  const nodes = useCanvasStore((s) => s.nodes)
-  const edges = useCanvasStore((s) => s.edges)
-  const framing = useCanvasStore((s) => s.currentScenarioFraming)
-  const resultsStatus = useCanvasStore((s) => s.results.status)
 
   // Save state
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('saved')
@@ -112,107 +112,133 @@ export function useScenario(): UseScenarioReturn {
   const scenarioIdRef = useRef(currentScenarioId)
   scenarioIdRef.current = currentScenarioId
 
+  // Keep isPersistenceActive in a ref so the subscription callback can read it
+  const isPersistenceActiveRef = useRef(isPersistenceActive)
+  isPersistenceActiveRef.current = isPersistenceActive
+
   // -----------------------------------------------------------------------
-  // Auto-save graph (debounced 1500ms)
+  // Auto-save graph (subscription-based, debounced 1500ms)
+  // Uses useCanvasStore.subscribe to avoid subscribing the component to
+  // nodes/edges, which change on every ReactFlow measurement tick.
   // -----------------------------------------------------------------------
 
   useEffect(() => {
-    if (!isPersistenceActive || !currentScenarioId) return
+    const unsubscribe = useCanvasStore.subscribe((state, prevState) => {
+      // Only react to nodes/edges changes
+      if (state.nodes === prevState.nodes && state.edges === prevState.edges) return
 
-    const graphSnapshot = JSON.stringify({ nodes, edges })
-    if (graphSnapshot === lastSavedGraphRef.current) return
-
-    // Mark results as stale when graph changes after a completed analysis
-    if (resultsStatus === 'complete') {
-      setAnalysisStale(true)
-    }
-
-    if (graphSaveTimerRef.current) clearTimeout(graphSaveTimerRef.current)
-
-    graphSaveTimerRef.current = setTimeout(async () => {
-      // Capture the scenario ID at debounce-fire time
       const sid = scenarioIdRef.current
-      if (!sid || !mountedRef.current) return
+      if (!isPersistenceActiveRef.current || !sid) return
+      if (!mountedRef.current) return
 
-      if (mountedRef.current) setSaveStatus('saving')
+      const { nodes, edges } = state
+      const graphSnapshot = JSON.stringify({ nodes, edges })
+      if (graphSnapshot === lastSavedGraphRef.current) return
 
-      try {
-        await scenarioService.saveGraph(sid, { nodes, edges })
-        lastSavedGraphRef.current = graphSnapshot
-        if (mountedRef.current) {
-          const now = Date.now()
-          setSaveStatus('saved')
-          setLastSavedAt(now)
-          setSaveError(null)
-          useCanvasStore.getState().markClean()
-          useCanvasStore.setState({ lastSavedAt: now })
-        }
-      } catch (err) {
-        if (mountedRef.current) {
-          setSaveStatus('error')
-          setSaveError(err instanceof Error ? err.message : 'Save failed')
-        }
-        // Retry once after 3 seconds
-        retryTimerRef.current = setTimeout(async () => {
-          const retrySid = scenarioIdRef.current
-          if (!retrySid || !mountedRef.current) return
-          try {
-            await scenarioService.saveGraph(retrySid, { nodes, edges })
-            lastSavedGraphRef.current = graphSnapshot
-            if (mountedRef.current) {
-              const now = Date.now()
-              setSaveStatus('saved')
-              setLastSavedAt(now)
-              setSaveError(null)
-              useCanvasStore.getState().markClean()
-              useCanvasStore.setState({ lastSavedAt: now })
-            }
-          } catch (retryErr) {
-            // Retry failed — keep error indicator visible; log for observability
-            console.error('[useScenario] save retry failed:', retryErr)
-          }
-        }, RETRY_DELAY_MS)
+      // Mark results as stale when graph changes after a completed analysis
+      if (state.results.status === 'complete') {
+        setAnalysisStale(true)
       }
-    }, GRAPH_DEBOUNCE_MS)
+
+      if (graphSaveTimerRef.current) clearTimeout(graphSaveTimerRef.current)
+
+      graphSaveTimerRef.current = setTimeout(async () => {
+        const saveSid = scenarioIdRef.current
+        if (!saveSid || !mountedRef.current) return
+
+        if (mountedRef.current) setSaveStatus('saving')
+
+        try {
+          const currentState = useCanvasStore.getState()
+          await scenarioService.saveGraph(saveSid, { nodes: currentState.nodes, edges: currentState.edges })
+          lastSavedGraphRef.current = JSON.stringify({ nodes: currentState.nodes, edges: currentState.edges })
+          if (mountedRef.current) {
+            const now = Date.now()
+            setSaveStatus('saved')
+            setLastSavedAt(now)
+            setSaveError(null)
+            useCanvasStore.getState().markClean()
+            useCanvasStore.setState({ lastSavedAt: now })
+          }
+        } catch (err) {
+          if (mountedRef.current) {
+            setSaveStatus('error')
+            setSaveError(err instanceof Error ? err.message : 'Save failed')
+          }
+          // Retry once after 3 seconds
+          retryTimerRef.current = setTimeout(async () => {
+            const retrySid = scenarioIdRef.current
+            if (!retrySid || !mountedRef.current) return
+            try {
+              const retryState = useCanvasStore.getState()
+              await scenarioService.saveGraph(retrySid, { nodes: retryState.nodes, edges: retryState.edges })
+              lastSavedGraphRef.current = JSON.stringify({ nodes: retryState.nodes, edges: retryState.edges })
+              if (mountedRef.current) {
+                const now = Date.now()
+                setSaveStatus('saved')
+                setLastSavedAt(now)
+                setSaveError(null)
+                useCanvasStore.getState().markClean()
+                useCanvasStore.setState({ lastSavedAt: now })
+              }
+            } catch (retryErr) {
+              console.error('[useScenario] save retry failed:', retryErr)
+            }
+          }, RETRY_DELAY_MS)
+        }
+      }, GRAPH_DEBOUNCE_MS)
+    })
 
     return () => {
+      unsubscribe()
       if (graphSaveTimerRef.current) clearTimeout(graphSaveTimerRef.current)
       if (retryTimerRef.current) clearTimeout(retryTimerRef.current)
     }
-  }, [nodes, edges, currentScenarioId, isPersistenceActive, resultsStatus])
+  }, [])
 
   // -----------------------------------------------------------------------
-  // Auto-save framing (debounced 1500ms)
+  // Auto-save framing (subscription-based, debounced 1500ms)
   // -----------------------------------------------------------------------
 
   useEffect(() => {
-    if (!isPersistenceActive || !currentScenarioId || !framing) return
+    const unsubscribe = useCanvasStore.subscribe((state, prevState) => {
+      if (state.currentScenarioFraming === prevState.currentScenarioFraming) return
 
-    const framingSnapshot = JSON.stringify(framing)
-    if (framingSnapshot === lastSavedFramingRef.current) return
-
-    if (framingSaveTimerRef.current) clearTimeout(framingSaveTimerRef.current)
-
-    framingSaveTimerRef.current = setTimeout(async () => {
       const sid = scenarioIdRef.current
-      if (!sid || !mountedRef.current) return
+      if (!isPersistenceActiveRef.current || !sid) return
+      if (!mountedRef.current) return
 
-      try {
-        await scenarioService.saveFraming(sid, framing)
-        lastSavedFramingRef.current = framingSnapshot
-        // Framing save is secondary — only update status if not already saving graph
-      } catch {
-        // Framing save failure is non-critical; graph save status takes precedence
-        if (import.meta.env.DEV) {
-          console.warn('[useScenario] Framing save failed')
+      const framing = state.currentScenarioFraming
+      if (!framing) return
+
+      const framingSnapshot = JSON.stringify(framing)
+      if (framingSnapshot === lastSavedFramingRef.current) return
+
+      if (framingSaveTimerRef.current) clearTimeout(framingSaveTimerRef.current)
+
+      framingSaveTimerRef.current = setTimeout(async () => {
+        const saveSid = scenarioIdRef.current
+        if (!saveSid || !mountedRef.current) return
+
+        try {
+          const currentFraming = useCanvasStore.getState().currentScenarioFraming
+          if (currentFraming) {
+            await scenarioService.saveFraming(saveSid, currentFraming)
+            lastSavedFramingRef.current = JSON.stringify(currentFraming)
+          }
+        } catch {
+          if (import.meta.env.DEV) {
+            console.warn('[useScenario] Framing save failed')
+          }
         }
-      }
-    }, FRAMING_DEBOUNCE_MS)
+      }, FRAMING_DEBOUNCE_MS)
+    })
 
     return () => {
+      unsubscribe()
       if (framingSaveTimerRef.current) clearTimeout(framingSaveTimerRef.current)
     }
-  }, [framing, currentScenarioId, isPersistenceActive])
+  }, [])
 
   // -----------------------------------------------------------------------
   // Cleanup all timers on unmount + best-effort flush of pending saves
@@ -254,33 +280,45 @@ export function useScenario(): UseScenarioReturn {
   const titleAutoSetForScenarioRef = useRef<string | null>(null)
 
   useEffect(() => {
-    if (!isPersistenceActive || !currentScenarioId) return
-    // Only auto-set once per loaded scenario
-    if (titleAutoSetForScenarioRef.current === currentScenarioId) return
+    // Check on mount and subscribe for changes
+    const tryAutoTitle = () => {
+      const sid = scenarioIdRef.current
+      if (!isPersistenceActiveRef.current || !sid) return
+      if (titleAutoSetForScenarioRef.current === sid) return
 
-    const framingObj = framing as Record<string, unknown> | null
+      const framingObj = useCanvasStore.getState().currentScenarioFraming as Record<string, unknown> | null
 
-    // Don't overwrite an existing user-set title
-    const existingTitle = framingObj?.title
-    if (existingTitle && typeof existingTitle === 'string' && existingTitle.trim().length > 0) {
-      // Mark as handled so we don't re-check on every framing change
-      titleAutoSetForScenarioRef.current = currentScenarioId
-      return
+      const existingTitle = framingObj?.title
+      if (existingTitle && typeof existingTitle === 'string' && existingTitle.trim().length > 0) {
+        titleAutoSetForScenarioRef.current = sid
+        return
+      }
+
+      const goal = framingObj?.goal
+      if (!goal || typeof goal !== 'string') return
+
+      const autoTitle = goal.length > 60
+        ? goal.substring(0, 57) + '...'
+        : goal
+
+      titleAutoSetForScenarioRef.current = sid
+      scenarioService.saveTitle(sid, autoTitle).catch((err) => {
+        console.error('[useScenario] Auto-title save failed:', err)
+      })
     }
 
-    const goal = framingObj?.goal
-    if (!goal || typeof goal !== 'string') return
+    tryAutoTitle()
 
-    const autoTitle = goal.length > 60
-      ? goal.substring(0, 57) + '...'
-      : goal
-
-    titleAutoSetForScenarioRef.current = currentScenarioId
-    scenarioService.saveTitle(currentScenarioId, autoTitle).catch((err) => {
-      // Non-critical — title remains untitled
-      console.error('[useScenario] Auto-title save failed:', err)
+    const unsubscribe = useCanvasStore.subscribe((state, prevState) => {
+      if (
+        state.currentScenarioFraming === prevState.currentScenarioFraming &&
+        state.currentScenarioId === prevState.currentScenarioId
+      ) return
+      tryAutoTitle()
     })
-  }, [framing, currentScenarioId, isPersistenceActive])
+
+    return unsubscribe
+  }, [])
 
   // -----------------------------------------------------------------------
   // Navigation guard — beforeunload (C.1b Task 11)
@@ -350,6 +388,15 @@ export function useScenario(): UseScenarioReturn {
         },
       }))
 
+      // Update local refs BEFORE hydrating the store to prevent the
+      // subscription callbacks from scheduling a redundant re-save when
+      // hydrateGraphSlice fires synchronous store updates.
+      lastSavedGraphRef.current = JSON.stringify({
+        nodes: graphNodes,
+        edges: graphEdges,
+      })
+      lastSavedFramingRef.current = JSON.stringify(row.framing ?? null)
+
       // Hydrate graph slice (resets history, selection, reseeds IDs)
       useCanvasStore.getState().hydrateGraphSlice({
         nodes: graphNodes,
@@ -364,13 +411,6 @@ export function useScenario(): UseScenarioReturn {
         isDirty: false,
         lastSavedAt: new Date(row.updated_at).getTime(),
       })
-
-      // Update local refs to prevent immediate re-save of the just-loaded state
-      lastSavedGraphRef.current = JSON.stringify({
-        nodes: graphNodes,
-        edges: graphEdges,
-      })
-      lastSavedFramingRef.current = JSON.stringify(row.framing ?? null)
 
       if (mountedRef.current) {
         setLastSavedAt(new Date(row.updated_at).getTime())
