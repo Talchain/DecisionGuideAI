@@ -8,32 +8,32 @@ describe('LeftSidebar', () => {
 
     expect(screen.getByRole('navigation', { name: /canvas tools/i })).toBeInTheDocument()
 
-    // Core buttons in the current component
     expect(screen.getByRole('button', { name: /add node to canvas/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /open templates panel/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /edge labels/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /templates are coming soon/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /templates are coming soon/i })).toBeDisabled()
     expect(screen.getByRole('button', { name: /fit all nodes in view/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /auto-arrange layout/i })).toBeInTheDocument()
   })
 
   it('invokes callbacks when buttons are clicked', () => {
     const onAddNodeClick = vi.fn()
-    const onTemplatesClick = vi.fn()
     const onFitClick = vi.fn()
+    const onAutoArrangeClick = vi.fn()
 
     render(
       <LeftSidebar
         onAddNodeClick={onAddNodeClick}
-        onTemplatesClick={onTemplatesClick}
         onFitClick={onFitClick}
+        onAutoArrangeClick={onAutoArrangeClick}
       />,
     )
 
     fireEvent.click(screen.getByRole('button', { name: /add node to canvas/i }))
-    fireEvent.click(screen.getByRole('button', { name: /open templates panel/i }))
     fireEvent.click(screen.getByRole('button', { name: /fit all nodes in view/i }))
+    fireEvent.click(screen.getByRole('button', { name: /auto-arrange layout/i }))
 
     expect(onAddNodeClick).toHaveBeenCalledTimes(1)
-    expect(onTemplatesClick).toHaveBeenCalledTimes(1)
     expect(onFitClick).toHaveBeenCalledTimes(1)
+    expect(onAutoArrangeClick).toHaveBeenCalledTimes(1)
   })
 })

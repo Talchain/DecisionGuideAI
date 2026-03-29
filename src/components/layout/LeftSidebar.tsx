@@ -8,14 +8,11 @@ import {
   ZoomIn,
   ZoomOut,
   LayoutGrid,
-  Type,
-  Binary,
   MousePointer2,
   Hand,
 } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './LeftSidebar.module.css'
-import { useEdgeLabelMode } from '../../canvas/store/edgeLabelMode'
 
 interface LeftSidebarProps {
   // Interaction mode (select vs hand/pan)
@@ -23,7 +20,6 @@ interface LeftSidebarProps {
   onModeChange?: (mode: 'select' | 'hand') => void
   // Node/canvas actions
   onAddNodeClick?: () => void
-  onTemplatesClick?: () => void
   onFitClick?: () => void
   // Canvas control actions
   onUndoClick?: () => void
@@ -43,7 +39,6 @@ export function LeftSidebar({
   interactionMode = 'select',
   onModeChange,
   onAddNodeClick,
-  onTemplatesClick,
   onFitClick,
   // Canvas controls
   onUndoClick,
@@ -56,15 +51,6 @@ export function LeftSidebar({
   canRedo = true,
   leftOffset,
 }: LeftSidebarProps) {
-  // Edge label mode toggle
-  const edgeLabelMode = useEdgeLabelMode(state => state.mode)
-  const setEdgeLabelMode = useEdgeLabelMode(state => state.setMode)
-  const isNumericMode = edgeLabelMode === 'numeric'
-
-  const handleEdgeLabelToggle = () => {
-    setEdgeLabelMode(isNumericMode ? 'human' : 'numeric')
-  }
-
   return (
     <nav
       className={styles.sidebar}
@@ -99,12 +85,12 @@ export function LeftSidebar({
           </button>
         </Tooltip>
 
-        <Tooltip content="Browse templates (T)">
+        <Tooltip content="Templates are Coming Soon">
           <button
             type="button"
             className={styles.iconButton}
-            aria-label="Open templates panel"
-            onClick={onTemplatesClick}
+            aria-label="Templates are Coming Soon"
+            disabled
           >
             <PanelsTopLeft className={styles.icon} aria-hidden="true" />
           </button>
@@ -147,35 +133,6 @@ export function LeftSidebar({
             <RotateCcw className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
-
-        <Tooltip content="Auto-arrange layout">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Auto-arrange layout"
-            onClick={onAutoArrangeClick}
-          >
-            <LayoutGrid className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-      </div>
-
-      {/* Display Group */}
-      <div className={styles.group}>
-        <Tooltip content={isNumericMode ? 'Switch to human-readable labels' : 'Switch to numeric labels'}>
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label={`Edge labels: ${isNumericMode ? 'Numeric' : 'Human-readable'}. Click to toggle.`}
-            onClick={handleEdgeLabelToggle}
-          >
-            {isNumericMode ? (
-              <Binary className={styles.icon} aria-hidden="true" />
-            ) : (
-              <Type className={styles.icon} aria-hidden="true" />
-            )}
-          </button>
-        </Tooltip>
       </div>
 
       {/* View Controls Group */}
@@ -210,6 +167,20 @@ export function LeftSidebar({
             onClick={onFitClick}
           >
             <Maximize2 className={styles.icon} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </div>
+
+      {/* Layout Group */}
+      <div className={styles.group}>
+        <Tooltip content="Auto-arrange layout">
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Auto-arrange layout"
+            onClick={onAutoArrangeClick}
+          >
+            <LayoutGrid className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
       </div>

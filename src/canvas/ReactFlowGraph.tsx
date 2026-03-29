@@ -2017,7 +2017,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       <LeftSidebar
         interactionMode={interactionMode}
         onModeChange={setInteractionMode}
-        onTemplatesClick={handleEmptyStateTemplate}
         onFitClick={() => fitViewRef.current({ padding: 0.2, duration: 300 })}
         // Canvas control actions
         onUndoClick={undo}
