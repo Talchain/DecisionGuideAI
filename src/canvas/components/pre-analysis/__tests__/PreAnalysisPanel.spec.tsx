@@ -402,14 +402,14 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Wiring Fixes Regression', () => {
-    it('renders exactly one Goal selector in the DOM', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData())
+    it('renders Goal selector when success threshold is set', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        successThreshold: 0.7,
+      }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Goal selector now lives in the SuccessTarget hero section
-      // With a single goal, it renders as static text (no dropdown)
-      // Verify goal label is present (appears in SuccessTarget + ModelSnapshot)
+      // Goal selector lives in SuccessTarget hero (shown when threshold is set)
       const goalTexts = screen.getAllByText('Goal')
       expect(goalTexts.length).toBeGreaterThanOrEqual(1)
     })

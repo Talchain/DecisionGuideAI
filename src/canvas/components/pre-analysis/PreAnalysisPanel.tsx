@@ -803,28 +803,35 @@ export function PreAnalysisPanel({
             hasGoalNode={data.nodesByKind.goal.length > 0}
           >
             {/* LAYER 2: Check rows — binary pass/fail with action links */}
-            {!data.isLoading && (
+            {/* LAYER 2: Check rows — only show failures (passing checks hidden) */}
+            {!data.isLoading && (data.successThreshold == null || data.qualityChecks.some(c => c.id === 'no_baseline') || data.optionPreviews.length < 2) && (
               <>
                 <div className="h-px bg-panel-border mx-3" />
                 <div className="space-y-1 px-3" data-testid="triage-check-rows">
-                  <TriageCheckRow
-                    label="Goal target set"
-                    pass={data.successThreshold != null}
-                    actionLabel="Set target"
-                    onAction={() => handleFocusNode(data.goalNode?.id ?? '')}
-                  />
-                  <TriageCheckRow
-                    label={data.qualityChecks.some(c => c.id === 'no_baseline') ? 'No baseline set' : 'Status quo identified'}
-                    pass={!data.qualityChecks.some(c => c.id === 'no_baseline')}
-                    actionLabel="Add baseline"
-                    onAction={() => onSendMessage?.('Add a status quo option to compare against')}
-                  />
-                  <TriageCheckRow
-                    label="2+ distinct options"
-                    pass={data.optionPreviews.length >= 2}
-                    actionLabel="Add option"
-                    onAction={() => onSendMessage?.('Add another option to compare')}
-                  />
+                  {data.successThreshold == null && (
+                    <TriageCheckRow
+                      label="Goal target not set"
+                      pass={false}
+                      actionLabel="Set target"
+                      onAction={() => handleFocusNode(data.goalNode?.id ?? '')}
+                    />
+                  )}
+                  {data.qualityChecks.some(c => c.id === 'no_baseline') && (
+                    <TriageCheckRow
+                      label="No baseline set"
+                      pass={false}
+                      actionLabel="Add baseline"
+                      onAction={() => onSendMessage?.('Add a status quo option to compare against')}
+                    />
+                  )}
+                  {data.optionPreviews.length < 2 && (
+                    <TriageCheckRow
+                      label="Fewer than 2 options"
+                      pass={false}
+                      actionLabel="Add option"
+                      onAction={() => onSendMessage?.('Add another option to compare')}
+                    />
+                  )}
                 </div>
               </>
             )}
@@ -962,8 +969,9 @@ export function PreAnalysisPanel({
           </div>
         )}
 
-        {/* 2. Success Target / Hero inputs section */}
-        <SuccessTarget
+        {/* 2. Success Target / Hero inputs section — suppressed when target is
+               missing (check row "Set target" handles that state) */}
+        {data.successThreshold != null && <SuccessTarget
           goalNode={data.goalNode}
           goalNodes={data.nodesByKind.goal}
           successThreshold={data.successThreshold}
@@ -983,7 +991,7 @@ export function PreAnalysisPanel({
           constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
           goalConstraints={ceeAnalysisReady?.goal_constraints}
           onSendMessage={onSendMessage}
-        />
+        />}
 
         {/* Draft error card */}
         {lastDraftError && (

@@ -44,6 +44,8 @@ export interface OptionCardsProps {
   hinge?: HingeInfo | null
   /** V11: Runner-up option ID for hinge-aware descriptions */
   runnerId?: string
+  /** Handler for sending a message to the conversation panel */
+  onSendMessage?: (text: string) => void
 }
 
 /** Fallback description when no story headline is available */
@@ -228,6 +230,7 @@ function OptionCard({
   onClick,
   globalMin = 0,
   globalMax = 1,
+  onSendMessage,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -376,6 +379,27 @@ function OptionCard({
           {Math.round(option.constraintAnalysis.joint_probability * 100)}%
         </p>
       )}
+
+      {/* Action CTAs */}
+      {onSendMessage && (
+        <div className="flex items-center gap-1 pt-1.5">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              const prompt = isWinner
+                ? `What makes "${option.label}" the winning option? What are its key advantages?`
+                : option.isBaseline
+                  ? `Why does the status quo "${option.label}" lose? What would need to change?`
+                  : `What would make "${option.label}" win instead? What changes would be needed?`
+              onSendMessage(prompt)
+            }}
+            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
+          >
+            {isWinner ? 'What makes this win?' : option.isBaseline ? 'Why does this lose?' : 'What would make this win?'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -389,6 +413,7 @@ export function OptionCards({
   decisionState,
   hinge,
   runnerId,
+  onSendMessage,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -487,6 +512,7 @@ export function OptionCards({
                 currentMap.delete(option.id)
               }
             }}
+            onSendMessage={onSendMessage}
           />
         )
       })}

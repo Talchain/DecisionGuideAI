@@ -62,6 +62,7 @@ import { focusNodeById } from '../utils/focusHelpers'
 import { withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
+import { CompareTabBody as CompareTabBodyV2 } from '../compare-tab/CompareTabBody'
 // Results Panel Redesign: v7 four-section layout components
 import { useResultsSectionData } from '../../components/results/useResultsSectionData'
 import type { TornadoRow } from '../../components/results/TornadoChart'
@@ -358,6 +359,7 @@ export function OutputsDock() {
 
   // Graph Interaction P1: Canvas → Results sync for DriversSection
   const [driversExpanded, setDriversExpanded] = useState(false)
+  const [expertMode, setExpertMode] = useState(false)
   const { highlightedDriverId, registerDriverRef } = useCanvasResultsSync({
     drivers: resultsSectionData.drivers.drivers,
     isAccordionExpanded: driversExpanded,
@@ -1048,6 +1050,20 @@ export function OutputsDock() {
             </nav>
             <button
               type="button"
+              onClick={() => setExpertMode(prev => !prev)}
+              className={`${typography.panelMeta} px-2 py-0.5 rounded-full border shrink-0 cursor-pointer transition-colors ${
+                expertMode
+                  ? 'text-info border-info'
+                  : 'text-text-light border-panel-border hover:border-info hover:text-info'
+              }`}
+              aria-label={expertMode ? 'Disable expert mode' : 'Enable expert mode'}
+              aria-pressed={expertMode}
+              title="Toggle expert mode"
+            >
+              {'</>'}
+            </button>
+            <button
+              type="button"
               onClick={toggleOpen}
               className={`inline-flex items-center justify-center w-6 h-6 rounded border border-sand-200 ${typography.caption} text-ink-900/70 hover:bg-paper-50`}
               aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
@@ -1406,6 +1422,7 @@ export function OutputsDock() {
                     onSendMessage={sendMessage}
                     onConfirmFactor={handleTriageConfirm}
                     onSetFactorValue={handleTriageSetValue}
+                    expertMode={expertMode}
                   />
                 )}
                 </div>
@@ -1437,7 +1454,7 @@ export function OutputsDock() {
               </div>
             )}
             {state.activeTab === 'compare' && (
-              <CompareTabBody />
+              <CompareTabBodyV2 onRunAnalysis={handleRunAnalysis} />
             )}
             {state.activeTab === 'diagnostics' && (
               <ModelTabBody

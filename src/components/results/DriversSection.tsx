@@ -44,6 +44,10 @@ interface DriversSectionProps {
   outcomeUnitSymbol?: string
   /** v7: When true, values are normalised model scores */
   isNormalised?: boolean
+  /** Handler for sending a message to the conversation panel */
+  onSendMessage?: (text: string) => void
+  /** Whether expert mode is active (shows technical details) */
+  expertMode?: boolean
 }
 
 // Bar colors — use design system tokens, no hex literals
@@ -377,6 +381,8 @@ function DriverRow({
   isHighlighted,
   registerRef,
   microlineLabel,
+  onSendMessage,
+  expertMode,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
@@ -388,6 +394,8 @@ function DriverRow({
   registerRef?: (element: HTMLDivElement | null) => void
   /** V12.2: Microline overtake warning label (only for first driver) */
   microlineLabel?: string
+  onSendMessage?: (text: string) => void
+  expertMode?: boolean
 }) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
@@ -619,6 +627,55 @@ function DriverRow({
         </div>
       </div>
 
+      {/* Composite label + action link */}
+      {(() => {
+        const influence = driver.influenceScore ?? driver.normalisedInfluence ?? 0
+        const conf = typeof driver.confidence === 'number' ? driver.confidence : 0.5
+        const isHighImpactLowEvidence = influence >= 0.7 && conf < 0.4
+        const isImportantStable = influence >= 0.7 && conf >= 0.4
+        return (
+          <div className="flex items-center gap-1.5 px-3 pb-1">
+            {isHighImpactLowEvidence && (
+              <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full border border-danger/30 text-danger bg-transparent`}>
+                High impact, low evidence
+              </span>
+            )}
+            {isImportantStable && (
+              <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full border border-success/30 text-success bg-transparent`}>
+                Important and stable
+              </span>
+            )}
+            {!isHighImpactLowEvidence && !isImportantStable && (
+              <span className={`${typography.panelMeta} px-1.5 py-0.5 rounded-full border border-panel-border text-text-light bg-transparent`}>
+                Moderate
+              </span>
+            )}
+            {onSendMessage && (
+              <button
+                type="button"
+                onClick={() => onSendMessage(
+                  isHighImpactLowEvidence
+                    ? `How can I improve the evidence for "${driver.factorLabel}"? It has high impact but low confidence.`
+                    : `Tell me more about how "${driver.factorLabel}" affects the outcome.`
+                )}
+                className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
+              >
+                {isHighImpactLowEvidence ? 'Improve' : 'Edit'}
+              </button>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* Expert mode: raw ISL values */}
+      {expertMode && (
+        <div className={`${typography.panelMeta} text-text-light px-3 pb-1 flex gap-3`}>
+          <span>elasticity: {typeof driver.rawElasticity === 'number' ? driver.rawElasticity.toFixed(3) : '-'}</span>
+          <span>stability: {driver.attributionStability ?? '-'}</span>
+          <span>influence: {typeof (driver.influenceScore ?? driver.normalisedInfluence) === 'number' ? ((driver.influenceScore ?? driver.normalisedInfluence)! * 100).toFixed(1) + '%' : '-'}</span>
+        </div>
+      )}
+
       {/* V12.2: Microline overtake warning inside card */}
       {microlineLabel && (
         <p
@@ -708,6 +765,8 @@ export function DriversSection({
   outcomeUnit,
   outcomeUnitSymbol,
   isNormalised,
+  onSendMessage,
+  expertMode,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
   const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
@@ -830,6 +889,8 @@ export function DriversSection({
                 : undefined
               }
               microlineLabel={showMicroline ? driver.fragileEdgeInfo!.alternativeWinnerLabel : undefined}
+              onSendMessage={onSendMessage}
+              expertMode={expertMode}
             />
           )
         })}

@@ -84,6 +84,8 @@ export interface ResultsBodyProps {
   onConfirmFactor?: (nodeId: string) => void
   /** Handler for setting a factor value via inline editor (triage cards) */
   onSetFactorValue?: (nodeId: string, rawValue: number) => void
+  /** Whether expert mode is active (shows technical details) */
+  expertMode?: boolean
 }
 
 export const ResultsBody = memo(function ResultsBody({
@@ -115,6 +117,7 @@ export const ResultsBody = memo(function ResultsBody({
   onSendMessage,
   onConfirmFactor,
   onSetFactorValue,
+  expertMode,
 }: ResultsBodyProps) {
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
@@ -193,6 +196,7 @@ export const ResultsBody = memo(function ResultsBody({
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
               winnerId={resultsSectionData.recommendation.recommendedOption?.id}
+              onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
               storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
               cardRefMap={optionCardRefs}
@@ -230,6 +234,8 @@ export const ResultsBody = memo(function ResultsBody({
           <DriversSection
             data={resultsSectionData.drivers}
             onFocusNode={onFocusNode}
+            onSendMessage={onSendMessage}
+            expertMode={expertMode}
             goalLabel={resultsSectionData.goalLabel}
             highlightedDriverId={highlightedDriverId}
             registerDriverRef={registerDriverRef}
