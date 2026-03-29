@@ -529,7 +529,7 @@ describe('golden fixture — contract validation integration', () => {
     expect(adapted.analysis_ready).toBeUndefined()
   })
 
-  it('CEE analysis_ready with empty interventions triggers synthesis fallback', () => {
+  it('CEE analysis_ready with empty interventions is accepted (baseline/status quo)', () => {
     const block = JSON.parse(JSON.stringify(rawFixture.blocks[0]))
     block.data.analysis_ready = {
       status: 'ready',
@@ -539,13 +539,14 @@ describe('golden fixture — contract validation integration', () => {
           id: 'opt_keep_price',
           label: 'Keep Price',
           status: 'ready',
-          interventions: {},  // empty — contract validator rejects
+          interventions: {},  // empty — valid for baseline/status quo options
         },
       ],
     }
 
     const adapted = adaptCEEBlock(block) as GraphPatchBlock
-    expect(adapted.analysis_ready).toBeUndefined()
+    expect(adapted.analysis_ready).toBeDefined()
+    expect(adapted.analysis_ready!.options).toHaveLength(1)
   })
 
   it('unknown option status blocks analysis in usePreRunValidation', () => {

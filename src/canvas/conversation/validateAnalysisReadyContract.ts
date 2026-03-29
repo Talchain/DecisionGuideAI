@@ -69,12 +69,10 @@ export function validateAnalysisReadyContract(mapped: unknown): CEEAnalysisReady
     if (opt.status !== 'ready') {
       missing.push(`status (got "${opt.status}", expected "ready")`)
     }
-    if (
-      opt.interventions == null ||
-      typeof opt.interventions !== 'object' ||
-      Object.keys(opt.interventions as object).length === 0
-    ) {
-      missing.push('interventions (non-empty object)')
+    // interventions must be an object but MAY be empty — baseline/status quo
+    // options legitimately have {} interventions ("do nothing" = change nothing).
+    if (opt.interventions == null || typeof opt.interventions !== 'object') {
+      missing.push('interventions (object)')
     }
 
     if (missing.length > 0) {

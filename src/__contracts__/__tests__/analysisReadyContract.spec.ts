@@ -153,30 +153,34 @@ describe('analysisReadyContract', () => {
     expect(spy).toHaveBeenCalled()
   })
 
-  it('rejects when any option has empty interventions', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('accepts options with empty interventions (baseline/status quo)', () => {
     const result = validateAnalysisReadyContract(
       makeValidPayload({ options: [makeOption({ interventions: {} })] })
     )
-    expect(result).toBeUndefined()
-    expect(spy).toHaveBeenCalled()
+    expect(result).toBeDefined()
+    expect(result!.options).toHaveLength(1)
   })
 
-  it('rejects entire payload when one option of many is malformed (all-or-nothing)', () => {
-    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+  it('accepts payload when one option has empty interventions (baseline mixed with active)', () => {
     const result = validateAnalysisReadyContract(
       makeValidPayload({
         options: [
-          makeOption({ id: 'opt_good' }),
-          makeOption({ id: 'opt_bad', interventions: {} }),
+          makeOption({ id: 'opt_active' }),
+          makeOption({ id: 'opt_baseline', interventions: {} }),
         ],
       })
     )
-    expect(result).toBeUndefined()
-    expect(spy).toHaveBeenCalledWith(
-      '[validateAnalysisReadyContract] CEE payload rejected',
-      expect.objectContaining({ failing_option_indices: [1] })
+    expect(result).toBeDefined()
+    expect(result!.options).toHaveLength(2)
+  })
+
+  it('rejects when interventions is null or not an object', () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const result = validateAnalysisReadyContract(
+      makeValidPayload({ options: [makeOption({ interventions: null as any })] })
     )
+    expect(result).toBeUndefined()
+    expect(spy).toHaveBeenCalled()
   })
 
   // =========================================================================
