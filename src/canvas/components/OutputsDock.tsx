@@ -59,6 +59,7 @@ import { mapConfidenceToReadiness } from '../utils/mapConfidenceToReadiness'
 import { useV2Run, type V2RunPersistence } from '../hooks/useV2Run'
 import { useScenario } from '../../hooks/useScenario'
 import { focusNodeById } from '../utils/focusHelpers'
+import { withObservedStateUpdate } from '../utils/observedStateHelpers'
 import { ModelTabBody } from './ModelTabBody'
 import { JourneyTabBody } from '../journey/JourneyTabBody'
 // Results Panel Redesign: v7 four-section layout components
@@ -610,6 +611,34 @@ export function OutputsDock() {
   const postRunMetaText = recommendationStability != null
     ? <><StabilityGauge value={recommendationStability} />{' '}<DeltaIndicator currentValue={recommendationStability} previousValue={previousReport?.rankingStability} format="percent" /></>
     : null
+
+  // Triage card action handlers — same pattern as pre-analysis expertise (uses withObservedStateUpdate)
+  const handleTriageConfirm = useCallback((nodeId: string) => {
+    const { nodes, updateNode } = useCanvasStore.getState()
+    const node = nodes.find((n: { id: string }) => n.id === nodeId)
+    if (!node) return
+    updateNode(nodeId, {
+      data: withObservedStateUpdate(node.data, { source: 'user_confirmed' }),
+    })
+  }, [])
+
+  const handleTriageSetValue = useCallback((nodeId: string, rawValue: number) => {
+    const { nodes, updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
+    const node = nodes.find((n: { id: string }) => n.id === nodeId)
+    if (!node) return
+    const nd = node.data as Record<string, unknown>
+    const existing = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
+    const cap = (existing.cap as number | null) ?? null
+    const normalised = cap != null && cap > 0 ? rawValue / cap : rawValue
+    updateNode(nodeId, {
+      data: withObservedStateUpdate(node.data, {
+        raw_value: rawValue,
+        value: normalised,
+        source: 'user_override',
+      }),
+    })
+    setCeeAnalysisReady(null)
+  }, [])
 
   // Confirm decision button: provisional when low stability or evidence gaps remain
   const confirmStability = resultsSectionData?.recommendation?.recommendationStability ?? 0
@@ -1375,6 +1404,8 @@ export function OutputsDock() {
                     driversExpanded={driversExpanded}
                     onDriversExpandChange={setDriversExpanded}
                     onSendMessage={sendMessage}
+                    onConfirmFactor={handleTriageConfirm}
+                    onSetFactorValue={handleTriageSetValue}
                   />
                 )}
                 </div>

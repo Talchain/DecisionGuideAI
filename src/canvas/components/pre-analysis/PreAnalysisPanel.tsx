@@ -34,7 +34,9 @@ import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
 import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X } from 'lucide-react'
 import { TriageCard } from '@/components/shared/TriageCard'
+import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
+import type { TriageCardItem } from './mapImprovementToTriageCard'
 import { buildTriageNarrative } from './utils/buildTriageNarrative'
 import { STRUCTURAL_CHECK_IDS } from './DecisionQualityChecks'
 import { typography } from '@/styles/typography'
@@ -736,11 +738,30 @@ export function PreAnalysisPanel({
   // === TRIAGE CONTENT ===
 
   // Map improvement items to TriageCard props (diversified top3 + quickFix)
-  const mapItem = (item: typeof data.triageActions.top3[number]) => {
+  // Build editorConfig for factor items that need "Set value" inline editing
+  type MappedCard = TriageCardItem & { editorConfig?: ScientificEditorProps | null }
+  const mapItem = (item: typeof data.triageActions.top3[number]): MappedCard => {
     const influence = item.focus?.type === 'edge'
       ? edgeInfluenceMap?.get(item.focus.id)
       : factorInfluenceMap?.get(item.focus?.id ?? '')
-    return mapImprovementToTriageCard(item, influence)
+    const mapped = mapImprovementToTriageCard(item, influence)
+
+    // Attach editorConfig for factor items with set_value action
+    const targetId = item.action?.targetId
+    if (targetId && item.focus?.type === 'node' && mapped.action?.kind === 'set_value') {
+      return {
+        ...mapped,
+        editorConfig: {
+          kind: 'factor' as const,
+          rawValue: item.rawValue ?? null,
+          cap: item.cap ?? null,
+          unit: item.unit ?? null,
+          onSave: (rawValue: number) => handleInlineEditValue(targetId, rawValue, item.cap ?? null),
+          onCancel: () => {},
+        },
+      }
+    }
+    return mapped
   }
   const triageTop3 = data.triageActions.top3.map(mapItem)
   const triageQuickFix = data.triageActions.quickFix.map(mapItem)
@@ -833,6 +854,7 @@ export function PreAnalysisPanel({
                     category={card.category}
                     influence={card.influence}
                     action={card.action}
+                    editorConfig={card.editorConfig ?? null}
                     sourcePill={card.sourcePill}
                     onConfirm={handleConfirm}
                     onEdit={handleSetValueForGap}

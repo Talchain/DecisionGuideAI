@@ -80,6 +80,10 @@ export interface ResultsBodyProps {
   onDriversExpandChange?: (expanded: boolean) => void
   /** Handler for sending a message to the conversation panel */
   onSendMessage?: (text: string) => void
+  /** Handler for confirming a factor value (triage cards) */
+  onConfirmFactor?: (nodeId: string) => void
+  /** Handler for setting a factor value via inline editor (triage cards) */
+  onSetFactorValue?: (nodeId: string, rawValue: number) => void
 }
 
 export const ResultsBody = memo(function ResultsBody({
@@ -109,6 +113,8 @@ export const ResultsBody = memo(function ResultsBody({
   driversExpanded,
   onDriversExpandChange,
   onSendMessage,
+  onConfirmFactor,
+  onSetFactorValue,
 }: ResultsBodyProps) {
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
@@ -145,6 +151,8 @@ export const ResultsBody = memo(function ResultsBody({
           verifiedCount={verifiedCount}
           influenceCoverage={influenceCoverage}
           onSendMessage={onSendMessage}
+          onConfirm={onConfirmFactor}
+          onSetValue={onSetFactorValue}
         />
       </SectionErrorBoundary>
 
