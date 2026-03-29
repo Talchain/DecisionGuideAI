@@ -21,6 +21,11 @@ describe('buildTriageNarrative', () => {
     expect(buildTriageNarrative([], true, 'CEE says hello', false)).toBe('CEE says hello')
   })
 
+  it('prepends goal-target warning to coachingSummary fallback', () => {
+    const result = buildTriageNarrative([], false, 'CEE says hello', false)
+    expect(result).toBe("No success target set, so analysis can't show probability of success. CEE says hello")
+  })
+
   it('returns null when items is empty and no coachingSummary', () => {
     expect(buildTriageNarrative([], true, null, false)).toBeNull()
   })

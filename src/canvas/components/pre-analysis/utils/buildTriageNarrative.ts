@@ -27,7 +27,12 @@ export function buildTriageNarrative(
   isLoading: boolean,
 ): string | null {
   if (isLoading) return null
-  if (items.length === 0) return coachingSummary
+  if (items.length === 0) {
+    if (!coachingSummary) return null
+    return !hasGoalTarget
+      ? "No success target set, so analysis can't show probability of success. " + coachingSummary
+      : coachingSummary
+  }
 
   const missingData = items.filter(a => a.category === 'fix').length
   const estimates = items.filter(a => a.category === 'verify').length
