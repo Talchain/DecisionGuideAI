@@ -46,6 +46,8 @@ export interface OptionCardsProps {
   runnerId?: string
   /** Handler for sending a message to the conversation panel */
   onSendMessage?: (text: string) => void
+  /** Handler for focusing a node on the canvas */
+  onFocusNode?: (nodeId: string) => void
 }
 
 /** Fallback description when no story headline is available */
@@ -231,6 +233,7 @@ function OptionCard({
   globalMin = 0,
   globalMax = 1,
   onSendMessage,
+  onFocusNode,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -249,6 +252,8 @@ function OptionCard({
   globalMin?: number
   /** Global max p90 across all options for shared range bar scale */
   globalMax?: number
+  onSendMessage?: (text: string) => void
+  onFocusNode?: (nodeId: string) => void
 }) {
   const borderClass = neutralised
     ? 'border-panel-border'
@@ -381,23 +386,37 @@ function OptionCard({
       )}
 
       {/* Action CTAs */}
-      {onSendMessage && (
+      {(onSendMessage || onFocusNode) && (
         <div className="flex items-center gap-1 pt-1.5">
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              const prompt = isWinner
-                ? `What makes "${option.label}" the winning option? What are its key advantages?`
-                : option.isBaseline
-                  ? `Why does the status quo "${option.label}" lose? What would need to change?`
-                  : `What would make "${option.label}" win instead? What changes would be needed?`
-              onSendMessage(prompt)
-            }}
-            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
-          >
-            {isWinner ? 'What makes this win?' : option.isBaseline ? 'Why does this lose?' : 'What would make this win?'}
-          </button>
+          {onSendMessage && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                const prompt = isWinner
+                  ? `What makes "${option.label}" the winning option? What are its key advantages?`
+                  : option.isBaseline
+                    ? `Why does the status quo "${option.label}" lose? What would need to change?`
+                    : `What would make "${option.label}" win instead? What changes would be needed?`
+                onSendMessage(prompt)
+              }}
+              className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
+            >
+              {isWinner ? 'What makes this win?' : option.isBaseline ? 'Why does this lose?' : 'What would make this win?'}
+            </button>
+          )}
+          {!option.isBaseline && onFocusNode && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onFocusNode(option.id)
+              }}
+              className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
+            >
+              Edit interventions
+            </button>
+          )}
         </div>
       )}
     </div>
@@ -414,6 +433,7 @@ export function OptionCards({
   hinge,
   runnerId,
   onSendMessage,
+  onFocusNode,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -513,6 +533,7 @@ export function OptionCards({
               }
             }}
             onSendMessage={onSendMessage}
+            onFocusNode={onFocusNode}
           />
         )
       })}

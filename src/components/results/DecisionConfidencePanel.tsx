@@ -411,25 +411,33 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         <div className="flex flex-col gap-1.5">
           <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much better data would improve confidence</p>
           {top3.map((item, i) => (
-            <TriageCard
-              key={item.key}
-              cardKey={item.key}
-              ordinal={i + 1}
-              title={item.title}
-              detail={item.detail}
-              subtitle={item.subtitle}
-              category={item.category}
-              influence={item.influence}
-              evoiImpact={item.evoiImpact}
-              action={item.action}
-              editorConfig={item.editorConfig}
-              sourcePill={item.sourcePill}
-              onConfirm={onConfirm}
-              onEdit={onFocusNode}
-              onSendMessage={onSendMessage}
-              onHoverEnter={onHoverEnter}
-              onHoverLeave={onHoverLeave}
-            />
+            <div key={item.key}>
+              <TriageCard
+                cardKey={item.key}
+                ordinal={i + 1}
+                title={item.title}
+                detail={item.detail}
+                subtitle={item.subtitle}
+                category={item.category}
+                influence={item.influence}
+                evoiImpact={item.evoiImpact}
+                action={item.action}
+                editorConfig={item.editorConfig}
+                sourcePill={item.sourcePill}
+                onConfirm={onConfirm}
+                onEdit={onFocusNode}
+                onSendMessage={onSendMessage}
+                onHoverEnter={onHoverEnter}
+                onHoverLeave={onHoverLeave}
+              />
+              {expertMode && (item.influence != null || item.evoiImpact != null) && (
+                <p className={`${typography.panelMeta} text-text-light px-2.5 pt-0.5`}>
+                  {item.evoiImpact != null && `VOI: ${item.evoiImpact.toFixed(1)}pp`}
+                  {item.evoiImpact != null && item.influence != null && ' · '}
+                  {item.influence != null && `influence: ${Math.round(item.influence * 100)}%`}
+                </p>
+              )}
+            </div>
           ))}
         </div>
       )}

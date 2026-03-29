@@ -156,6 +156,7 @@ export const ResultsBody = memo(function ResultsBody({
           onSendMessage={onSendMessage}
           onConfirm={onConfirmFactor}
           onSetValue={onSetFactorValue}
+          expertMode={expertMode}
         />
       </SectionErrorBoundary>
 
