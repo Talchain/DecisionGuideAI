@@ -6,12 +6,11 @@ import type { RiskImpact } from '../domain/nodes'
 import { calculateRiskSeverity, getRiskSeverityColors, cleanDisplayLabel } from '../utils/graphDisplayCalculations'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { FileText, Cpu } from 'lucide-react'
 import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
 import { useNodeConnections } from '../hooks/useNodeConnections'
-import { ConnRow, Sep, NodeChip, ExpertOverlay } from './shared'
+import { ConnRow, Sep, NodeChip, OlumiSparkle, BriefIcon, ExpertOverlay } from './shared'
 
 export const RiskNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.risk
@@ -37,6 +36,8 @@ export const RiskNode = memo((props: NodeProps) => {
     return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
   }, [props.data?.observedState])
 
+  const isOlumiProvenance = provenanceLabel?.includes('Olumi') ?? false
+
   // Bridge edge to goal — contribution %
   const bridgeEdgeData = useMemo(() => {
     const goalNode = nodes.find(n => n.data?.type === 'goal' || n.type === 'goal')
@@ -59,15 +60,17 @@ export const RiskNode = memo((props: NodeProps) => {
     <BaseNode {...props} data={cleanedData} nodeType="risk" icon={metadata.icon} maxWidth={220}>
       {/* Post-analysis: "Responsible for X% of your goal (negative)" */}
       {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
-        <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
+        <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-center gap-1`}>
           Responsible for {bridgeEdgeData.contributionPct}% of your goal (negative)
+          {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
         </div>
       )}
 
       {/* Pre-analysis: qualitative */}
       {!isPostAnalysis && bridgeEdgeData?.signedMean != null && (
-        <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
+        <div className={`${typography.edgeLabel} mt-1 text-text-light inline-flex items-center gap-1`}>
           {Math.abs(bridgeEdgeData.signedMean) > 0.5 ? 'Strong' : 'Moderate'} negative influence on goal
+          {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
         </div>
       )}
 
@@ -100,7 +103,7 @@ export const RiskNode = memo((props: NodeProps) => {
       )}
 
       {/* Expert overlay (only when there's data to show) */}
-      {(severity || (isPostAnalysis && bridgeEdgeData?.signedMean != null) || provenanceLabel) && (
+      {(severity || (isPostAnalysis && bridgeEdgeData?.signedMean != null)) && (
         <ExpertOverlay>
           {severity && (
             <div
@@ -116,15 +119,6 @@ export const RiskNode = memo((props: NodeProps) => {
               variant="canvas"
               className={`${typography.edgeLabel} text-text-light`}
             />
-          )}
-          {provenanceLabel && (
-            <div className="mt-0.5">
-              {provenanceLabel.includes('Olumi') ? (
-                <Cpu size={10} className="text-text-light" title="Estimated by Olumi" />
-              ) : (
-                <FileText size={10} className="text-text-light" title="From your brief" />
-              )}
-            </div>
           )}
         </ExpertOverlay>
       )}

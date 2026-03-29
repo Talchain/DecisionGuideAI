@@ -7,11 +7,10 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
-import { FileText, Cpu } from 'lucide-react'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit } from '../utils/labelUtils'
-import { NodeChip, ExpertOverlay } from './shared'
+import { NodeChip, OlumiSparkle, BriefIcon, ExpertOverlay } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
@@ -117,8 +116,9 @@ export const GoalNode = memo((props: NodeProps) => {
 
       {/* With target: display it */}
       {hasThreshold && (
-        <div className={`${typography.nodeLabel} text-text-light mt-1`}>
+        <div className={`${typography.nodeLabel} text-text-light mt-1 inline-flex items-center gap-1`}>
           Target: {thresholdDisplay}
+          {provenanceLabel && (provenanceLabel.includes('Olumi') ? <OlumiSparkle /> : <BriefIcon />)}
         </div>
       )}
 
@@ -185,55 +185,48 @@ export const GoalNode = memo((props: NodeProps) => {
         </div>
       )}
 
-      {/* Expert overlay: stability, constraints, provenance */}
-      <ExpertOverlay>
-        {stabilityValue !== null && (
-          <div className="mb-1">
-            <div className="flex items-center gap-1.5 mb-0.5">
-              <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
-              <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
-              {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
-                <span className={`${typography.edgeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1 py-0`}>
-                  Marginal
-                </span>
-              )}
+      {/* Expert overlay: stability, constraints */}
+      {(stabilityValue !== null || (activeConstraints && activeConstraints.length > 0) || hasConstraintDefaultWarning) && (
+        <ExpertOverlay>
+          {stabilityValue !== null && (
+            <div className="mb-1">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <span className={`${typography.edgeLabel} text-text-light`}>Decision stability</span>
+                <span className={`${typography.edgeLabel} text-text-body`}>{Math.round(stabilityValue * 100)}%</span>
+                {(stabilityClassification?.level === 'low' || stabilityClassification?.level === 'very_low') && (
+                  <span className={`${typography.edgeLabel} bg-panel border border-warning/30 text-text-body rounded-full px-1 py-0`}>
+                    Marginal
+                  </span>
+                )}
+              </div>
+              <DataBar value={stabilityValue} label="Stability" colour={stabilityBarColour} size="standard" />
             </div>
-            <DataBar value={stabilityValue} label="Stability" colour={stabilityBarColour} size="standard" />
-          </div>
-        )}
-        {activeConstraints && activeConstraints.length > 0 && (
-          <div className="flex flex-col gap-0.5">
-            {activeConstraints.map((c, i) => {
-              const prob = typeof c.probability === 'number' ? c.probability : null
-              const colourClass = prob === null ? 'border-info/30 text-text-body'
-                : prob >= 0.7 ? 'border-success/40 text-success'
-                : prob >= 0.4 ? 'border-warning/40 text-warning'
-                : 'border-danger/40 text-danger'
-              const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
-              return (
-                <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
-                  <span className={`${typography.edgeLabel} truncate`}>{c.operator} {c.label}</span>
-                  {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
-                </div>
-              )
-            })}
-          </div>
-        )}
-        {provenanceLabel && (
-          <div className="mt-0.5">
-            {provenanceLabel.includes('Olumi') ? (
-              <Cpu size={10} className="text-text-light" title="Estimated by Olumi" />
-            ) : (
-              <FileText size={10} className="text-text-light" title="From your brief" />
-            )}
-          </div>
-        )}
-        {hasConstraintDefaultWarning && (
-          <p className={`${typography.edgeLabel} text-warning m-0 mt-0.5`}>
-            Some model inputs missing. Goal probability may be less reliable.
-          </p>
-        )}
-      </ExpertOverlay>
+          )}
+          {activeConstraints && activeConstraints.length > 0 && (
+            <div className="flex flex-col gap-0.5">
+              {activeConstraints.map((c, i) => {
+                const prob = typeof c.probability === 'number' ? c.probability : null
+                const colourClass = prob === null ? 'border-info/30 text-text-body'
+                  : prob >= 0.7 ? 'border-success/40 text-success'
+                  : prob >= 0.4 ? 'border-warning/40 text-warning'
+                  : 'border-danger/40 text-danger'
+                const badgeAriaLabel = `Constraint: ${c.operator} ${c.label}${prob !== null ? `, ${Math.round(prob * 100)}% probability` : ''}`
+                return (
+                  <div key={c.id ?? i} className={`flex items-center justify-between gap-1 px-1.5 py-0.5 bg-panel border rounded-full ${colourClass}`} aria-label={badgeAriaLabel}>
+                    <span className={`${typography.edgeLabel} truncate`}>{c.operator} {c.label}</span>
+                    {prob !== null && <span className={`${typography.edgeLabel} font-mono shrink-0`}>{Math.round(prob * 100)}%</span>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          {hasConstraintDefaultWarning && (
+            <p className={`${typography.edgeLabel} text-warning m-0 mt-0.5`}>
+              Some model inputs missing. Goal probability may be less reliable.
+            </p>
+          )}
+        </ExpertOverlay>
+      )}
     </BaseNode>
   )
 })

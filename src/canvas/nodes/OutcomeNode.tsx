@@ -5,12 +5,11 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { FileText, Cpu } from 'lucide-react'
 import { computeSignedMean } from '../domain/edges'
 import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { InfluenceIndicator } from '../ui/shared/InfluenceIndicator'
 import { useNodeConnections } from '../hooks/useNodeConnections'
-import { ConnRow, Sep, ExpertOverlay } from './shared'
+import { ConnRow, Sep, OlumiSparkle, BriefIcon, ExpertOverlay } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 export const OutcomeNode = memo((props: NodeProps) => {
@@ -29,6 +28,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
     const label = getProvenanceLabel(source)
     return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
   }, [props.data?.observedState])
+
+  const isOlumiProvenance = provenanceLabel?.includes('Olumi') ?? false
 
   // Bridge edge to goal — contribution %
   const bridgeEdgeData = useMemo(() => {
@@ -61,15 +62,17 @@ export const OutcomeNode = memo((props: NodeProps) => {
     <BaseNode {...props} nodeType="outcome" icon={metadata.icon} maxWidth={220}>
       {/* Post-analysis: "Responsible for X% of your goal" */}
       {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
-        <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
+        <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-center gap-1`}>
           Responsible for {bridgeEdgeData.contributionPct}% of your goal
+          {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
         </div>
       )}
 
       {/* Pre-analysis: qualitative */}
       {!isPostAnalysis && bridgeEdgeData?.signedMean != null && (
-        <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
+        <div className={`${typography.edgeLabel} mt-1 text-text-light inline-flex items-center gap-1`}>
           {bridgeEdgeData.signedMean > 0 ? 'Strong positive' : bridgeEdgeData.signedMean < -0.3 ? 'Negative' : 'Moderate'} influence on goal
+          {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
         </div>
       )}
 
@@ -109,7 +112,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
       )}
 
       {/* Expert overlay (only when there's data to show) */}
-      {(displayMetadata.achievementProbability !== null || (isPostAnalysis && bridgeEdgeData?.signedMean != null) || provenanceLabel) && (
+      {(displayMetadata.achievementProbability !== null || (isPostAnalysis && bridgeEdgeData?.signedMean != null)) && (
         <ExpertOverlay>
           {displayMetadata.achievementProbability !== null && (
             <p className={`${typography.edgeLabel} text-text-body m-0`}>
@@ -122,15 +125,6 @@ export const OutcomeNode = memo((props: NodeProps) => {
               variant="canvas"
               className={`${typography.edgeLabel} text-text-light`}
             />
-          )}
-          {provenanceLabel && (
-            <div className="mt-0.5">
-              {provenanceLabel.includes('Olumi') ? (
-                <Cpu size={10} className="text-text-light" title="Estimated by Olumi" />
-              ) : (
-                <FileText size={10} className="text-text-light" title="From your brief" />
-              )}
-            </div>
           )}
         </ExpertOverlay>
       )}

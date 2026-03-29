@@ -1,14 +1,13 @@
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
 import { BaseNode } from './BaseNode'
-import { FileText } from 'lucide-react'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, QUALITATIVE_FACTOR_TYPES } from '../utils/labelUtils'
 import { detectBaseline } from '../utils/baselineDetection'
-import { NodeChip, ActionIcons, BiasIcon, ExpertOverlay } from './shared'
+import { NodeChip, ActionIcons, BiasIcon, BriefIcon, ExpertOverlay } from './shared'
 
 interface InterventionChip {
   factorId: string
@@ -382,7 +381,7 @@ export const OptionNode = memo((props: NodeProps) => {
           })()}
           {isOptionFromCee && (
             <div className="mt-0.5">
-              <FileText size={10} className="text-text-light" title="From your brief" />
+              <BriefIcon />
             </div>
           )}
         </ExpertOverlay>

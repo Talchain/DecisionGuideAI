@@ -303,9 +303,9 @@ describe('GoalNode', () => {
     expect(screen.getByText(/What does success look like/)).toBeDefined()
   })
 
-  // P0.3: Provenance icon renders for brief_extraction source
+  // P0.3: Provenance icon renders for brief_extraction source (inline on target display)
   it('shows provenance icon for brief_extraction source', () => {
-    renderGoal({ observedState: { source: 'brief_extraction' } })
+    renderGoal({ observedState: { source: 'brief_extraction' }, goal_threshold_raw: 100, goal_threshold_unit: '%' })
     expect(screen.getByTitle('From your brief')).toBeDefined()
   })
 

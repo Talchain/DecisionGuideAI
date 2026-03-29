@@ -296,7 +296,7 @@ export const FactorNode = memo((props: NodeProps) => {
         )}
 
         {/* Value display fallbacks: prior range with units (skip bare "Variable" — already in sentence above) */}
-        {!needsInput && valueDisplay === null && nodeCategory === 'external' && priorRangeDisplay && priorRangeDisplay !== 'Variable' && (
+        {!needsInput && valueDisplay === null && nodeCategory === 'external' && isPostAnalysis && priorRangeDisplay && (
           <div className={`${typography.nodeLabel} mt-1 text-text-light`}>{priorRangeDisplay}</div>
         )}
 
