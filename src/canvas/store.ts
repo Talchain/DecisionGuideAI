@@ -33,8 +33,11 @@ import type {
   PreAnalysisSensitivity,
 } from '../adapters/cee/types'
 import type { LimitsV1 } from '../adapters/plot/types'
-import type { ScenarioStage } from '../types/scenario'
+import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
 import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
+import { isCompareTabEnabled } from '../flags'
+import { useAnalysisSnapshotStore } from './stores/analysisSnapshotStore'
+import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
@@ -2291,6 +2294,29 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         }
       }))
     }
+
+    // Refinement Journey: capture analysis snapshot for Compare tab
+    if (isCompareTabEnabled() && rawV2Response && report) {
+      try {
+        const snapshotStore = useAnalysisSnapshotStore.getState()
+        const capturedEvents = (get()._hydratedEvents ?? []) as ScenarioEvent[]
+        const prevTimestamp = snapshotStore.getLatest()?.timestamp ?? null
+        const snapshot = buildAnalysisSnapshot({
+          rawV2Response,
+          report,
+          nodes,
+          edges,
+          runNumber: snapshotStore.getRunCount() + 1,
+          events: capturedEvents,
+          previousSnapshotTimestamp: prevTimestamp,
+        })
+        snapshotStore.addSnapshot(snapshot)
+      } catch (err) {
+        if (import.meta.env.DEV) {
+          console.warn('[resultsComplete] Snapshot capture failed', err)
+        }
+      }
+    }
   },
 
   resultsError: ({ code, message, retryAfter, request_id, canRetry }) => {
@@ -2532,6 +2558,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
 
     scenarios.setCurrentScenarioId(id)
+
+    // Clear analysis snapshots — old snapshots are stale for the new scenario
+    useAnalysisSnapshotStore.getState().clearSnapshots()
 
     // Validate and restore ceeAnalysisReady if present
     if (scenario.ceeAnalysisReady) {

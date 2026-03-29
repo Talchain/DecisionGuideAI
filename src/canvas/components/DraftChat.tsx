@@ -4,6 +4,7 @@ import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { useCanvasStore } from '../store'
+import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
 import { useLayoutStore } from '../layoutStore'
 import { typography } from '../../styles/typography'
 import { CEEError } from '../../adapters/cee/client'
@@ -261,6 +262,8 @@ export function DraftChat() {
       // Auto-apply the draft to canvas immediately
       if (result?.nodes?.length) {
         applyDraftToCanvas(result)
+        // Clear analysis snapshots — old graph replaced with draft
+        useAnalysisSnapshotStore.getState().clearSnapshots()
         setIsMinimized(true)
         // Clear UI input state (brief stays in store for /v2/run)
         setDescription('')
