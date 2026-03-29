@@ -821,6 +821,7 @@ export function PreAnalysisPanel({
             {/* LAYER 4: Top 3 action cards */}
             {triageTop3.length > 0 && (
               <div className="flex flex-col gap-1.5 px-1" data-testid="triage-top-actions">
+                <p className={`${typography.panelMeta} text-text-light px-2`}>Ranked by impact on the decision</p>
                 {triageTop3.map((card, i) => (
                   <TriageCard
                     key={card.key}

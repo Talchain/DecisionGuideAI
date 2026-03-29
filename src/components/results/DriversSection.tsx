@@ -771,6 +771,8 @@ export function DriversSection({
   // Clamp to [0,1] before converting to percentage to handle out-of-range values
   return (
     <div className="space-y-4">
+      {/* Ranking explainer */}
+      <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
       {/* Column headers - right-aligned above bars only */}
       {/* NOTE: Panel title rendered by parent (OutputsDock section header) */}
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>

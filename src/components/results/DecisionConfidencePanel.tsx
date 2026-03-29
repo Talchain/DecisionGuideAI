@@ -409,6 +409,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       {/* 4. Top 3 action cards */}
       {top3.length > 0 && (
         <div className="flex flex-col gap-1.5">
+          <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much better data would improve confidence</p>
           {top3.map((item, i) => (
             <TriageCard
               key={item.key}

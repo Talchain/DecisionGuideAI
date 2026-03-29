@@ -611,6 +611,17 @@ export function OutputsDock() {
     ? <><StabilityGauge value={recommendationStability} />{' '}<DeltaIndicator currentValue={recommendationStability} previousValue={previousReport?.rankingStability} format="percent" /></>
     : null
 
+  // Confirm decision button: provisional when low stability or evidence gaps remain
+  const confirmStability = resultsSectionData?.recommendation?.recommendationStability ?? 0
+  const confirmGapCount = resultsSectionData?.confidence?.evidenceGaps?.length ?? 0
+  const isConfirmProvisional = confirmStability < 0.4 || confirmGapCount > 0
+  const confirmLabel = isConfirmProvisional ? 'Confirm anyway' : 'Confirm decision'
+  const confirmTitle = confirmStability < 0.4
+    ? 'Trust score is below 40% — address items to improve confidence'
+    : confirmGapCount > 0
+      ? `${confirmGapCount} evidence gap${confirmGapCount === 1 ? '' : 's'} remain`
+      : undefined
+
   verboseDebug('[TrustSignals] OutputsDock', {
     isPreRun,
     hasReport: !!report,
@@ -1373,16 +1384,18 @@ export function OutputsDock() {
                     statusIconClassName={postRunFooter.iconClass}
                     statusText={postRunFooter.label}
                     metaText={postRunMetaText}
-                    actionLabel="Confirm decision"
+                    actionLabel={confirmLabel}
                     onAction={() => {
                       // Placeholder: decision brief generation endpoint not yet available
                       window.alert('Decision confirmed. Decision brief coming soon.') // eslint-disable-line no-alert
                     }}
-                    actionDisabled={(resultsSectionData?.recommendation?.recommendationStability ?? 0) < 0.4}
-                    actionTitle={(resultsSectionData?.recommendation?.recommendationStability ?? 0) < 0.4
-                      ? 'Trust score is below 40% — address items to improve confidence'
-                      : undefined}
-                    actionAriaLabel="Confirm decision"
+                    actionDisabled={false}
+                    actionTitle={confirmTitle}
+                    actionAriaLabel={isConfirmProvisional
+                      ? confirmGapCount > 0
+                        ? `Confirm anyway — ${confirmGapCount} evidence gap${confirmGapCount === 1 ? '' : 's'} remain`
+                        : 'Confirm anyway — trust score is low'
+                      : 'Confirm decision'}
                     secondaryActionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
                     secondaryOnAction={handleRunAnalysis}
                     secondaryDisabled={isRunning || !canRunAnalysis}
