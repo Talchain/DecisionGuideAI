@@ -90,7 +90,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
       </span>
       <span className={`min-w-0 truncate ${typography.panelMeta} text-info font-medium`} title={title}>{title}</span>
       {sourcePill && (
-        <span className={`shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} text-[9px] text-text-body bg-transparent leading-none`}>
+        <span className={`shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
           {sourcePill.label}
         </span>
       )}
