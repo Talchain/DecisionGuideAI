@@ -1,6 +1,7 @@
 /**
  * DecisionNode render tests
  * T11: Option count line
+ * Health pills, science icons, popover, chips
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
@@ -83,9 +84,9 @@ describe('DecisionNode', () => {
     expect(screen.getByText('Should we hire?')).toBeDefined()
   })
 
-  it('shows type label as "Decision" (sentence-case)', () => {
+  it('has accessible name containing "decision"', () => {
     renderDecision()
-    expect(screen.getByText('Decision')).toBeDefined()
+    expect(screen.getByRole('group', { name: /decision/i })).toBeDefined()
   })
 
   // T11: Option count — no options connected
@@ -191,7 +192,7 @@ describe('DecisionNode', () => {
       }) as any)
     )
     renderDecision()
-    // targetNode is undefined → filter returns false → optionCount = 0
+    // targetNode is undefined -> filter returns false -> optionCount = 0
     expect(screen.queryByText(/options? compared/)).toBeNull()
   })
 
@@ -217,5 +218,75 @@ describe('DecisionNode', () => {
     expect(screen.getByText('Mid-Market Expansion Strategy')).toBeDefined()
     // Option label must NOT bleed into the decision node
     expect(screen.queryByText('Acquire Smaller Competitor')).toBeNull()
+  })
+
+  // Health pills: gaps shown when factors have null observedState.value
+  it('shows gap pill when factors have missing values', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        edges: [{ id: 'e1', source: 'decision-1', target: 'option-1' }],
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'factor-1', type: 'factor', data: { type: 'factor', observedState: { value: null } } },
+          { id: 'factor-2', type: 'factor', data: { type: 'factor', observedState: { value: 42 } } },
+        ],
+      }) as any)
+    )
+    renderDecision()
+    expect(screen.getByText('1 gap')).toBeDefined()
+  })
+
+  // Health pills: estimates shown when factors have extractionType 'inferred'
+  it('shows estimate pill when factors are inferred', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        edges: [{ id: 'e1', source: 'decision-1', target: 'option-1' }],
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'factor-1', type: 'factor', data: { type: 'factor', observedState: { value: 10, extractionType: 'inferred' } } },
+          { id: 'factor-2', type: 'factor', data: { type: 'factor', observedState: { value: 20, extractionType: 'inferred' } } },
+        ],
+      }) as any)
+    )
+    renderDecision()
+    expect(screen.getByText('2 estimates')).toBeDefined()
+  })
+
+  // Chips: pre-analysis shows "Explore more options" and "What could go wrong?"
+  it('shows coaching chips in pre-analysis', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        edges: [{ id: 'e1', source: 'decision-1', target: 'option-1' }],
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderDecision()
+    expect(screen.getByText('Explore more options')).toBeDefined()
+    expect(screen.getByText('What could go wrong?')).toBeDefined()
+  })
+
+  // Post-analysis chips: "Challenge this result" and "Compare options"
+  it('shows post-analysis chips', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: {
+            option_probabilities: {
+              'option-1': { win_probability: 0.65 },
+            },
+            robustness: { recommended_option_id: 'option-1', recommendation_stability: 0.8 },
+          },
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+        ],
+      }) as any)
+    )
+    renderDecision()
+    expect(screen.getByText('Challenge this result')).toBeDefined()
+    expect(screen.getByText('Compare options')).toBeDefined()
   })
 })

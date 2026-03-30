@@ -6,11 +6,11 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { computeSignedMean } from '../domain/edges'
-import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { ConnRow, Sep, OlumiSparkle, BriefIcon, NodePopover } from './shared'
+import { useScienceIcons } from '../hooks/useScienceIcons'
+import { ConnRow, Sep, NodeChip, NodePopover, ScienceIcon } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 export const OutcomeNode = memo((props: NodeProps) => {
@@ -27,15 +27,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
   // Popover hover
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
 
-  // Provenance
-  const provenanceLabel = useMemo(() => {
-    const source = (props.data?.observedState as any)?.source as string | undefined
-    if (!source || source === 'user' || source === 'user_calibration' || source === 'default') return null
-    const label = getProvenanceLabel(source)
-    return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
-  }, [props.data?.observedState])
-
-  const isOlumiProvenance = provenanceLabel?.includes('Olumi') ?? false
+  // Science icons (spec Section 4.1)
+  const scienceIcons = useScienceIcons(props.id, 'outcome')
 
   // Bridge edge to goal — contribution %
   const bridgeEdgeData = useMemo(() => {
@@ -48,12 +41,29 @@ export const OutcomeNode = memo((props: NodeProps) => {
     const signedMean = hasStrength ? computeSignedMean(edge.data as Record<string, unknown> | undefined) : null
     return {
       signedMean,
+      bridgeStrengthPct: signedMean != null ? Math.round(Math.abs(signedMean) * 100) : null,
       contributionPct: weight != null ? Math.round(weight * 100) : null,
     }
   }, [edges, nodes, props.id])
 
-  // ConnRow data: "Depends on:" — inbound edges from factors
+  // ConnRow data: "Depends on:" — inbound edges from factors (post-analysis only)
   const inboundConnections = useNodeConnections(props.id, 'inbound')
+
+  // Pre-analysis inbound edges with strengths (for popover)
+  const preAnalysisInbound = useMemo(() => {
+    if (isPostAnalysis) return []
+    const inbound = edges.filter(e => e.target === props.id)
+    const items: { nodeLabel: string; strengthPct: number }[] = []
+    for (const edge of inbound) {
+      const sourceNode = nodes.find(n => n.id === edge.source)
+      if (!sourceNode) continue
+      const label = (sourceNode.data?.label as string) ?? 'Untitled'
+      const sm = computeSignedMean(edge.data as Record<string, unknown> | undefined)
+      items.push({ nodeLabel: label, strengthPct: Math.round(Math.abs(sm) * 100) })
+    }
+    items.sort((a, b) => b.strengthPct - a.strengthPct)
+    return items
+  }, [edges, nodes, props.id, isPostAnalysis])
 
   // Top factor for actionable guidance
   const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
@@ -72,8 +82,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
     store.setShowInspectorPanel(true)
   }, [props.id])
 
-  // ----- Layer 2 content (shared between popover and Detailed inline) -----
-  const layer2Content = isPostAnalysis ? (
+  // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
+  const layer2ContentPost = isPostAnalysis ? (
     <>
       {/* "Depends on:" ConnRows (max 3) */}
       {inboundConnections.length > 0 && (
@@ -109,7 +119,25 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </p>
         </>
       )}
+    </>
+  ) : null
 
+  // ----- Layer 2 content: pre-analysis popover -----
+  const preAnalysisPopoverContent = !isPostAnalysis && preAnalysisInbound.length > 0 ? (
+    <>
+      <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
+        Driven by {preAnalysisInbound.length} factor{preAnalysisInbound.length !== 1 ? 's' : ''}.
+        {preAnalysisInbound[0] && (
+          <> Strongest: {preAnalysisInbound[0].nodeLabel} at {preAnalysisInbound[0].strengthPct}%.</>
+        )}
+      </p>
+      {preAnalysisInbound.slice(0, 5).map((item, i) => (
+        <p key={i} className={`${typography.edgeLabel} text-text-light m-0`}>
+          {item.nodeLabel} — {item.strengthPct}%
+        </p>
+      ))}
+      <Sep />
+      <NodeChip label="Are there other outcomes that matter?" message="Are there other outcomes or consequences I should consider for this decision?" />
     </>
   ) : null
 
@@ -130,28 +158,53 @@ export const OutcomeNode = memo((props: NodeProps) => {
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
     >
-      <BaseNode {...props} nodeType="outcome" icon={metadata.icon} maxWidth={220}>
+      <BaseNode
+        {...props}
+        nodeType="outcome"
+        icon={metadata.icon}
+        maxWidth={220}
+        headerSlot={scienceIcons.length > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            {scienceIcons.map(si => (
+              <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
+            ))}
+          </span>
+        ) : undefined}
+      >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Post-analysis: "Responsible for X% of your goal" */}
+        {/* Post-analysis: "55%" (bold entity colour) + "of your goal" (meta) */}
         {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
-          <div className={`${typography.nodeLabel} mt-1 text-text-body inline-flex items-center gap-1`}>
-            Responsible for {bridgeEdgeData.contributionPct}% of your goal
-            {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
+          <div className="mt-1 inline-flex items-center gap-1">
+            <span className={`${typography.nodeTitle} text-success`}>{bridgeEdgeData.contributionPct}%</span>
+            <span className={`${typography.edgeLabel} text-text-light`}>of your goal</span>
           </div>
         )}
 
-        {/* Pre-analysis: qualitative */}
-        {!isPostAnalysis && bridgeEdgeData?.signedMean != null && (
-          <div className={`${typography.edgeLabel} mt-1 text-text-light inline-flex items-center gap-1`}>
-            {bridgeEdgeData.signedMean > 0 ? 'Strong positive' : bridgeEdgeData.signedMean < -0.3 ? 'Negative' : 'Moderate'} influence on goal
-            {provenanceLabel && (isOlumiProvenance ? <OlumiSparkle /> : <BriefIcon />)}
+        {/* Pre-analysis: bridge strength percentage */}
+        {!isPostAnalysis && bridgeEdgeData?.bridgeStrengthPct != null && (
+          <div className="mt-1 inline-flex items-center gap-1">
+            <span className={`${typography.nodeTitle} text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
+            <span className={`${typography.edgeLabel} text-text-light`}>bridge strength</span>
           </div>
         )}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
-        {isDetailed && layer2Content}
+        {isDetailed && layer2ContentPost}
         {isDetailed && detailedMetrics}
+
+        {/* Detailed pre-analysis: full inbound factor list (max 5) */}
+        {isDetailed && !isPostAnalysis && preAnalysisInbound.length > 0 && (
+          <>
+            <Sep />
+            <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Driven by:</p>
+            {preAnalysisInbound.slice(0, 5).map((item, i) => (
+              <p key={i} className={`${typography.edgeLabel} text-text-light m-0`}>
+                {item.nodeLabel} — {item.strengthPct}%
+              </p>
+            ))}
+          </>
+        )}
 
         {/* "View parameters" link (Detailed, post-analysis) */}
         {isDetailed && isPostAnalysis && (
@@ -174,7 +227,19 @@ export const OutcomeNode = memo((props: NodeProps) => {
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
         >
-          {layer2Content}
+          {layer2ContentPost}
+        </NodePopover>
+      )}
+
+      {/* ===== LAYER 2: Popover (Standard view, pre-analysis, desktop hover) ===== */}
+      {!isDetailed && !isPostAnalysis && preAnalysisInbound.length > 0 && (
+        <NodePopover
+          visible={showPopover}
+          width={240}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+        >
+          {preAnalysisPopoverContent}
         </NodePopover>
       )}
     </div>

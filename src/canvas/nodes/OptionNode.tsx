@@ -1,14 +1,16 @@
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
+import { ArrowUp, ArrowDown } from 'lucide-react'
 import { BaseNode } from './BaseNode'
 import { NODE_REGISTRY } from '../domain/nodes'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, QUALITATIVE_FACTOR_TYPES } from '../utils/labelUtils'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover } from './shared'
+import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
 
 interface InterventionChip {
   factorId: string
@@ -21,9 +23,19 @@ interface InterventionChip {
   observedRawValue?: string | number
 }
 
+/** Structured delta for spec Section 13 pre-analysis display. */
+interface StructuredDelta {
+  factorId: string
+  label: string
+  direction: 'up' | 'down' | 'equal'
+  /** Formatted numeric delta (e.g. "+2") or null for non-numeric changes */
+  numericDelta?: string
+}
+
 export const OptionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.option
   const displayMetadata = useNodeDisplayMetadata(props.id, 'option')
+  const scienceIcons = useScienceIcons(props.id, 'option')
 
   const nodes = useCanvasStore(state => state.nodes)
   const resultsReport = useCanvasStore(state => state.results.report)
@@ -52,10 +64,24 @@ export const OptionNode = memo((props: NodeProps) => {
   const isDetailed = viewMode === 'expert'
 
   const interventionChips = useMemo<InterventionChip[]>(() => {
+    // Primary: ceeAnalysisReady.options[optionId].interventions
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
-    const interventions = ceeOption?.interventions
-    if (!interventions || typeof interventions !== 'object') return []
-    return Object.entries(interventions)
+    let interventionEntries: [string, unknown][] = []
+
+    if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
+      interventionEntries = Object.entries(ceeOption.interventions)
+    } else {
+      // Fallback: option node data.interventions (pre-CEE state)
+      const optionNode = nodes.find(n => n.id === props.id)
+      const nodeInterventions = (optionNode?.data as any)?.interventions
+      if (nodeInterventions && typeof nodeInterventions === 'object') {
+        interventionEntries = Object.entries(nodeInterventions)
+      }
+    }
+
+    if (interventionEntries.length === 0) return []
+
+    return interventionEntries
       .map(([factorId, rawValue]) => {
         const value = typeof rawValue === 'number' ? rawValue :
                      (rawValue && typeof rawValue === 'object' && 'value' in rawValue) ?
@@ -85,8 +111,26 @@ export const OptionNode = memo((props: NodeProps) => {
 
   const hasInterventions = useMemo(() => {
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
-    return !!(ceeOption?.interventions && Object.keys(ceeOption.interventions).length > 0)
-  }, [ceeAnalysisReady, props.id])
+    if (ceeOption?.interventions && Object.keys(ceeOption.interventions).length > 0) return true
+    // Fallback: option node data.interventions
+    const optionNode = nodes.find(n => n.id === props.id)
+    const nodeInterventions = (optionNode?.data as any)?.interventions
+    return !!(nodeInterventions && typeof nodeInterventions === 'object' && Object.keys(nodeInterventions).length > 0)
+  }, [ceeAnalysisReady, props.id, nodes])
+
+  /** Total intervention count (all factors, not capped at 3). */
+  const totalInterventionCount = useMemo(() => {
+    const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
+    if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
+      return Object.keys(ceeOption.interventions).length
+    }
+    const optionNode = nodes.find(n => n.id === props.id)
+    const nodeInterventions = (optionNode?.data as any)?.interventions
+    if (nodeInterventions && typeof nodeInterventions === 'object') {
+      return Object.keys(nodeInterventions).length
+    }
+    return 0
+  }, [ceeAnalysisReady, props.id, nodes])
 
   const isBaselineOption = useMemo(() => {
     if ((props.data as any)?.is_baseline === true) return true
@@ -139,24 +183,45 @@ export const OptionNode = memo((props: NodeProps) => {
     return result
   }, [ceeAnalysisReady])
 
-  // Standard pre-analysis: brief summary of what changes
-  const decisionViewSummary = useMemo(() => {
-    if (viewMode !== 'standard' || interventionChips.length === 0) return null
-    const changed = interventionChips.filter(c => {
-      const baselineVal = baselineOptionInterventions?.[c.factorId] ?? c.observedValue
-      if (baselineVal === undefined) return true
-      return Math.abs(c.value - baselineVal) >= 1e-6
-    })
-    if (changed.length === 0) return null
-    return changed.map(c => {
-      const isBinary = binaryFactorIds.has(c.factorId)
-      const shortVal = isBinary
-        ? (c.value === 1 ? 'on' : c.value === 0 ? 'off' : formatInterventionValue(c.value, c.unit, c.factorType, c.cap, c.observedValue, c.observedRawValue))
-        : formatInterventionValue(c.value, c.unit, c.factorType, c.cap, c.observedValue, c.observedRawValue)
-      const shortLabel = c.label.length > 28 ? `${c.label.slice(0, 28)}...` : c.label
-      return `${shortLabel} ${shortVal}`
-    }).join(', ')
-  }, [viewMode, interventionChips, baselineOptionInterventions, binaryFactorIds])
+  // Structured deltas per spec Section 13
+  const structuredDeltas = useMemo<StructuredDelta[]>(() => {
+    if (interventionChips.length === 0) return []
+    return interventionChips
+      .map(c => {
+        const baseline = baselineOptionInterventions?.[c.factorId] ?? c.observedValue
+        const shortLabel = c.label.length > 20 ? c.label.slice(0, 20).trimEnd() : c.label
+
+        if (baseline === undefined) {
+          // No baseline to compare — show as "up" (intervention exists)
+          return { factorId: c.factorId, label: shortLabel, direction: 'up' as const }
+        }
+
+        const diff = c.value - baseline
+        if (Math.abs(diff) < 1e-6) return null // no change
+
+        const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down'
+
+        // For quantitative factors with units, show numeric delta
+        const hasUnit = !!c.unit && !isSuppressedUnit(c.unit)
+        let numericDelta: string | undefined
+        if (hasUnit) {
+          const scaleBase = inferInterventionScaleBase(c.cap, c.observedValue, c.observedRawValue)
+          if (scaleBase != null) {
+            const denormedBaseline = denormaliseInterventionValue(baseline, c.cap, c.observedValue, c.observedRawValue)
+            const denormedTarget = denormaliseInterventionValue(c.value, c.cap, c.observedValue, c.observedRawValue)
+            const rawDelta = denormedTarget - denormedBaseline
+            const sign = rawDelta >= 0 ? '+' : ''
+            const formatted = Math.abs(rawDelta) >= 100
+              ? Math.round(rawDelta).toString()
+              : rawDelta.toFixed(1)
+            numericDelta = `${sign}${formatted}`
+          }
+        }
+
+        return { factorId: c.factorId, label: shortLabel, direction, numericDelta }
+      })
+      .filter((d): d is StructuredDelta => d !== null)
+  }, [interventionChips, baselineOptionInterventions])
 
   const handleMouseEnter = useMemo(() => () => {
     if (hasInterventions) setHoveredOption(props.id)
@@ -177,7 +242,6 @@ export const OptionNode = memo((props: NodeProps) => {
     const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
     if (!Array.isArray(sensitivity) || sensitivity.length === 0) return null
 
-    // Build ranked factor IDs
     const rankedFactors = [...sensitivity]
       .map((f: any) => ({
         id: (f.factor_id || f.factorId || f.node_id || f.nodeId) as string | undefined,
@@ -185,7 +249,6 @@ export const OptionNode = memo((props: NodeProps) => {
       }))
       .sort((a, b) => b.score - a.score)
 
-    // Cross-reference with this option's intervention keys
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
     const interventionKeys = new Set(Object.keys(ceeOption?.interventions ?? {}))
 
@@ -214,16 +277,13 @@ export const OptionNode = memo((props: NodeProps) => {
   // "Behind:" reason for non-winner options (including status quo)
   const behindReason = useMemo<string | null>(() => {
     if (!isPostAnalysis || isRecommended) return null
-    // Status quo: always "no changes from current state"
     if (isBaselineOption) return 'no changes from current state'
     const report = resultsReport as any
     if (!report) return null
 
-    // 1. Find the recommended option's ID
     const recommendedOptionId = report?.robustness?.recommended_option_id as string | undefined
     if (!recommendedOptionId) return null
 
-    // 2. Get the #1 sensitivity factor (sorted by importance_score descending)
     const sensitivity = report?.enrichment?.sensitivity_analysis?.factors ?? report?.factor_sensitivity ?? []
     if (!Array.isArray(sensitivity) || sensitivity.length === 0) return 'fewer key changes'
 
@@ -238,7 +298,6 @@ export const OptionNode = memo((props: NodeProps) => {
     const topFactor = rankedFactors[0]
     if (!topFactor?.id) return 'fewer key changes'
 
-    // Resolve a display label -- prefer sensitivity label, fallback to canvas node label
     const factorNode = nodes.find(n => n.id === topFactor.id)
     const factorLabel = topFactor.label
       ?? (factorNode ? (cleanFactorLabel((factorNode.data?.label as string) ?? '') || (factorNode.data?.label as string)) : null)
@@ -246,7 +305,6 @@ export const OptionNode = memo((props: NodeProps) => {
 
     if (!factorLabel) return 'fewer key changes'
 
-    // 3. Compare: does the winner intervene on this factor while this option doesn't?
     const winnerCee = ceeAnalysisReady?.options?.find(opt => opt.id === recommendedOptionId)
     const thisCee = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
 
@@ -261,7 +319,6 @@ export const OptionNode = memo((props: NodeProps) => {
     }
 
     if (winnerHasFactor && thisHasFactor) {
-      // Both intervene but potentially different levels
       const winnerVal = (() => {
         const rv = winnerInterventions[topFactor.id]
         return typeof rv === 'number' ? rv :
@@ -310,10 +367,15 @@ export const OptionNode = memo((props: NodeProps) => {
   // Whether to show Layer 2 content inline (Detailed view)
   const showLayer2Inline = isDetailed
 
+  // Total factor count for completeness assessment (Detailed pre-analysis)
+  const totalFactorCount = useMemo(() => {
+    return nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor').length
+  }, [nodes])
+
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
-  const layer2Content = (
+  const layer2Content = useMemo(() => (
     <>
-      {/* Goal probability warning (< 10%) — moved from Layer 1, post-analysis only */}
+      {/* Goal probability warning (< 10%) -- post-analysis only */}
       {isPostAnalysis && goalProbability !== null && goalProbability < 0.10 && (
         <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
           {'< '}
@@ -390,14 +452,55 @@ export const OptionNode = memo((props: NodeProps) => {
         )
       })()}
 
-
       {isOptionFromCee && (
         <div className="mt-0.5">
           <BriefIcon />
         </div>
       )}
     </>
-  )
+  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, binaryFactorIds, isOptionFromCee])
+
+  // ----- Pre-analysis popover content -----
+  const preAnalysisPopoverContent = useMemo(() => {
+    if (isPostAnalysis) return null
+    if (isBaselineOption) return (
+      <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
+    )
+    if (totalInterventionCount === 0) return null
+
+    return (
+      <>
+        <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>
+          This option changes {totalInterventionCount} factor{totalInterventionCount !== 1 ? 's' : ''}.
+        </p>
+        {interventionChips.length > 0 && (
+          <div className="flex flex-col gap-0.5">
+            {interventionChips.map(chip => {
+              const isBinary = binaryFactorIds.has(chip.factorId)
+              const targetFormatted = isBinary
+                ? (chip.value === 1 ? 'On' : chip.value === 0 ? 'Off' : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue))
+                : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+              return (
+                <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
+                  <span className="text-text-light">{chip.label.length > 28 ? `${chip.label.slice(0, 28)}...` : chip.label}:</span>{' '}
+                  <span className="font-medium">{targetFormatted}</span>
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <div className="mt-1">
+          <NodeChip label="Is this option complete?" message={`Is ${(props.data?.label as string) ?? 'this option'} fully specified? Are there any missing interventions?`} />
+        </div>
+      </>
+    )
+  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, binaryFactorIds, props.data])
+
+  // Completeness assessment for Detailed pre-analysis view
+  const completenessText = useMemo(() => {
+    if (isPostAnalysis || totalInterventionCount === 0 || totalFactorCount === 0) return null
+    return `[${totalInterventionCount} of ${totalFactorCount}] factors specified`
+  }, [isPostAnalysis, totalInterventionCount, totalFactorCount])
 
   return (
     <div
@@ -418,7 +521,19 @@ export const OptionNode = memo((props: NodeProps) => {
           Winner
         </span>
       )}
-      <BaseNode {...props} nodeType="option" icon={metadata.icon} maxWidth={240}>
+      <BaseNode
+        {...props}
+        nodeType="option"
+        icon={metadata.icon}
+        maxWidth={240}
+        headerSlot={scienceIcons.length > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            {scienceIcons.map(si => (
+              <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
+            ))}
+          </span>
+        ) : undefined}
+      >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
         {/* Win probability bar (post-analysis, both views) */}
@@ -452,28 +567,39 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* "Behind:" reason (non-winner, post-analysis — includes status quo) */}
+        {/* "Behind:" reason (non-winner, post-analysis -- includes status quo) */}
         {isPostAnalysis && !isRecommended && behindReason && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
             Behind: {behindReason}
           </p>
         )}
 
-        {/* Pre-analysis: brief intervention summary */}
-        {!isPostAnalysis && decisionViewSummary && (
-          <div className={`${typography.edgeLabel} mt-1 text-text-light line-clamp-2`}>
-            {decisionViewSummary}
+        {/* Pre-analysis: structured deltas (spec Section 13) */}
+        {!isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0 && (
+          <div className="flex flex-col gap-0.5 mt-1">
+            {structuredDeltas.map(d => (
+              <div key={d.factorId} className={`${typography.edgeLabel} inline-flex items-center gap-1`}>
+                {d.direction === 'up' ? (
+                  <ArrowUp size={12} className="text-success flex-shrink-0" />
+                ) : (
+                  <ArrowDown size={12} className="text-danger flex-shrink-0" />
+                )}
+                <span className="text-text-body">
+                  {d.numericDelta ? `${d.numericDelta} ` : ''}{d.label}
+                </span>
+              </div>
+            ))}
           </div>
         )}
 
         {/* Pre-analysis: status quo "No changes" */}
         {!isPostAnalysis && isBaselineOption && (
           <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
-            No changes from current state
+            No changes
           </div>
         )}
 
-        {/* Post-analysis: status quo bias — MetricPills with EyeOff bias */}
+        {/* Post-analysis: status quo bias -- MetricPills with EyeOff bias */}
         {isPostAnalysis && isBaselineOption && (
           <MetricPills
             biasType="status-quo"
@@ -486,7 +612,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {/* Coaching chips (winner, post-analysis) */}
         {isPostAnalysis && isRecommended && (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip label="Biggest threat?" message={`What's the biggest risk to ${(props.data?.label as string) ?? 'this option'}?`} />
+            <NodeChip label="What would change this?" message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to no longer be the best choice?`} />
             <NodeChip label="Why does this win?" message={`Why does ${(props.data?.label as string) ?? 'this option'} win over the other options?`} />
           </div>
         )}
@@ -498,8 +624,43 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* Pre-analysis: coaching chip for all options */}
+        {!isPostAnalysis && !isBaselineOption && (
+          <div className="flex gap-1 flex-wrap mt-1.5">
+            <NodeChip label="What could go wrong?" message={`What could go wrong if we choose ${(props.data?.label as string) ?? 'this option'}?`} />
+          </div>
+        )}
+
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
-        {showLayer2Inline && layer2Content}
+        {showLayer2Inline && !isPostAnalysis && (
+          <>
+            {/* Detailed pre-analysis: full intervention list + completeness */}
+            {interventionChips.length > 0 && (
+              <>
+                <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>Interventions:</p>
+                <div className="flex flex-col gap-0.5">
+                  {interventionChips.map(chip => {
+                    const isBinary = binaryFactorIds.has(chip.factorId)
+                    const targetFormatted = isBinary
+                      ? (chip.value === 1 ? 'On' : chip.value === 0 ? 'Off' : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue))
+                      : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+                    return (
+                      <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
+                        <span className="text-text-light">{chip.label.length > 28 ? `${chip.label.slice(0, 28)}...` : chip.label}:</span>{' '}
+                        <span className="font-medium">{targetFormatted}</span>
+                      </div>
+                    )
+                  })}
+                </div>
+              </>
+            )}
+            {completenessText && (
+              <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>{completenessText}</p>
+            )}
+          </>
+        )}
+
+        {showLayer2Inline && isPostAnalysis && layer2Content}
 
         {/* "View parameters" link (Detailed, post-analysis) */}
         {isDetailed && isPostAnalysis && (
@@ -517,7 +678,7 @@ export const OptionNode = memo((props: NodeProps) => {
         <ActionIcons nodeId={props.id} showEdit />
       </BaseNode>
 
-      {/* ===== LAYER 2: Popover (Standard view, post-analysis, desktop hover) ===== */}
+      {/* ===== LAYER 2: Popover (Standard view, hover) ===== */}
       {!isDetailed && isPostAnalysis && (
         <NodePopover
           visible={showPopover}
@@ -526,6 +687,18 @@ export const OptionNode = memo((props: NodeProps) => {
           onMouseLeave={popoverHandlers.onMouseLeave}
         >
           {layer2Content}
+        </NodePopover>
+      )}
+
+      {/* Pre-analysis popover (Standard view, hover) */}
+      {!isDetailed && !isPostAnalysis && preAnalysisPopoverContent && (
+        <NodePopover
+          visible={showPopover}
+          width={260}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+        >
+          {preAnalysisPopoverContent}
         </NodePopover>
       )}
     </div>

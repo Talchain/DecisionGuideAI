@@ -24,10 +24,10 @@ import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 import { DataBar, type DataBarColour } from '../ui/shared/DataBar'
-import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { getStabilityClassification } from '../../lib/stability'
 import { isCurrencyUnit } from '../utils/labelUtils'
-import { NodeChip, OlumiSparkle, BriefIcon, NodePopover } from './shared'
+import { NodeChip, NodePopover, ScienceIcon } from './shared'
+import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
@@ -85,13 +85,6 @@ export const GoalNode = memo((props: NodeProps) => {
   const activeConstraints: Array<CEEGoalConstraint & { probability?: number }> | null =
     isPostAnalysis ? (postAnalysisConstraints ?? preAnalysisConstraints) : preAnalysisConstraints
 
-  const provenanceLabel = useMemo(() => {
-    const source = (props.data?.observedState as any)?.source as string | undefined
-    if (!source || source === 'user' || source === 'user_calibration' || source === 'default') return null
-    const label = getProvenanceLabel(source)
-    return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
-  }, [props.data?.observedState])
-
   const hasConstraintDefaultWarning = useMemo(() => {
     if (!isPostAnalysis || !report) return false
     const warnings = (report as any)?.inference_warnings ?? (report as any)?.robustness?.inference_warnings
@@ -121,6 +114,9 @@ export const GoalNode = memo((props: NodeProps) => {
     if (thresholdUnit && isCurrencyUnit(thresholdUnit)) return formatTargetValue(raw, 'currency', thresholdUnit)
     return `${raw.toLocaleString()} ${thresholdUnit}`
   }, [hasThreshold, thresholdRaw, thresholdUnit])
+
+  // Science icons (spec Section 4.1)
+  const scienceIcons = useScienceIcons(props.id, 'goal')
 
   // Popover hover
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
@@ -199,7 +195,20 @@ export const GoalNode = memo((props: NodeProps) => {
       onMouseEnter={nodeHandlers.onMouseEnter}
       onMouseLeave={nodeHandlers.onMouseLeave}
     >
-      <BaseNode {...props} nodeType="goal" icon={metadata.icon} maxWidth={300} borderClassOverride={goalBorderOverride ?? undefined}>
+      <BaseNode
+        {...props}
+        nodeType="goal"
+        icon={metadata.icon}
+        maxWidth={300}
+        borderClassOverride={goalBorderOverride ?? undefined}
+        headerSlot={scienceIcons.length > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            {scienceIcons.map(si => (
+              <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
+            ))}
+          </span>
+        ) : undefined}
+      >
         {/* No target, post-analysis: analysis done but no threshold to evaluate */}
         {!hasThreshold && isPostAnalysis && (
           <>
@@ -210,21 +219,17 @@ export const GoalNode = memo((props: NodeProps) => {
           </>
         )}
 
-        {/* No target, pre-analysis: guided action */}
+        {/* No target, pre-analysis: chip only (spec says no body text for incomplete goals) */}
         {!hasThreshold && !isPostAnalysis && (
-          <>
-            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>What does success look like for you?</p>
-            <div className="mt-1.5">
-              <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
-            </div>
-          </>
+          <div className="mt-1.5">
+            <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
+          </div>
         )}
 
         {/* With target: display it */}
         {hasThreshold && (
-          <div className={`${typography.nodeLabel} text-text-light mt-1 inline-flex items-center gap-1`}>
+          <div className={`${typography.nodeLabel} text-text-light mt-1`}>
             Target: {thresholdDisplay}
-            {provenanceLabel && (provenanceLabel.includes('Olumi') ? <OlumiSparkle /> : <BriefIcon />)}
           </div>
         )}
 
