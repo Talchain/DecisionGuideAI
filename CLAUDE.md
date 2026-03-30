@@ -155,7 +155,7 @@ npm run build
 | UI-SEM-008 | `src/lib/format.ts:61` | Probability cap at 99% | Keep — display formatting (legitimate) |
 | UI-SEM-009 | `src/canvas/components/DecisionSummary.tsx:239` | p15/p85 confidence band fabrication (interpolated from p10/p50/p90) | Remove — request from PLoT or delete |
 | UI-SEM-010 | `src/types/constraints.ts:38` | Constraint confidence colour thresholds (HIGH≥0.70, LOW≥0.40) | Keep — display formatting (legitimate) |
-| UI-SEM-011 | `src/canvas/hooks/useGraphReadiness.ts:323` | Default belief injection (0.7) for CEE coaching | Keep — pre-analysis default (low risk) |
+| UI-SEM-011 | `src/canvas/hooks/useGraphReadiness.ts:323` | Default belief injection (0.8) for CEE coaching | Keep — pre-analysis default (low risk) |
 | UI-SEM-012 | `src/components/results/useResultsSectionData.ts:1913` | Edge severity from switch_probability (>0.7 critical, >0.5 error) | Remove when PLoT provides severity |
 | UI-SEM-013 | `src/components/results/useResultsSectionData.ts:1630` | Fragile edge filter threshold (0.3) | Remove when PLoT provides visibility gate |
 | UI-SEM-014 | `src/components/results/DriversSection.tsx:259` | VOI evidence threshold (>0.05 shows hint) | Remove when PLoT provides visibility gate |
@@ -174,7 +174,7 @@ npm run build
 | UI-SEM-027 | `src/adapters/cee/client.ts:261` | CEE edge belief clamped to [0, 1] | Keep — normalisation (CIL 0.2) |
 | UI-SEM-028 | `src/adapters/cee/client.ts:307` | CEE belief_exists clamped to [0, 1] | Keep — normalisation (CIL 0.2) |
 | UI-SEM-029 | `src/canvas/ui/inspector-v2/panels/EdgePanel.tsx:121` | Edge weight/direction display defaults (0.5 / 'positive') | Keep — display-only fallback |
-| UI-SEM-030 | `src/canvas/hooks/useGraphReadiness.ts:382` | Edge defaults for CEE coaching (weight 0.5, belief 0.7, direction 'positive') | Keep — pre-analysis defaults (same class as UI-SEM-011) |
+| UI-SEM-030 | `src/canvas/hooks/useGraphReadiness.ts:382` | Edge defaults for CEE coaching (weight 0.5, belief 0.8, direction 'positive') | Keep — pre-analysis defaults (same class as UI-SEM-011) |
 | UI-SEM-031 | `src/adapters/plot/v2/adapter.ts:597` | Default exists_probability (0.8) for std computation | Keep — adapter concern (same class as UI-SEM-002) |
 | UI-SEM-032 | `src/canvas/adapters/islRequestAdapter.ts:169` | Default exists_probability (0.8) for std computation — mirrors UI-SEM-031 | Keep — adapter concern |
 | UI-SEM-033 | `src/canvas/components/ModelTabBody.tsx:683` | Edge display defaults (weight 0.5, direction 'positive', belief 0.7) | Keep — display-only fallback |

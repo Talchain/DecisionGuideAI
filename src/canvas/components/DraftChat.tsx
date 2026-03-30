@@ -575,7 +575,7 @@ export function DraftChat() {
           extracted_strengthStd: strengthStd,
           canvas_beliefExists: canvasBelief,
           canvas_strengthStd: strengthStd,
-          DEFAULT_beliefExists: 0.7, // For reference
+          DEFAULT_beliefExists: 0.8, // For reference (aligned with PLoT DEFAULT_EXISTS_PROBABILITY)
         })
       }
 
