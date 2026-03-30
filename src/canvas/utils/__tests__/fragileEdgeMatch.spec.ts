@@ -8,8 +8,8 @@ import { describe, it, expect } from 'vitest'
 import { isEdgeFragile, getFragileEdgeSwitchProbability, type FragileEdgeCandidate } from '../fragileEdgeMatch'
 
 const ABOVE = 0.42
-const AT_THRESHOLD = 0.3
-const BELOW = 0.29
+const AT_THRESHOLD = 0.15 // Spec Section 6.3: threshold = 0.15
+const BELOW = 0.14
 
 describe('isEdgeFragile', () => {
   it('matches by edge_id when above threshold', () => {
@@ -83,23 +83,23 @@ describe('getFragileEdgeSwitchProbability', () => {
 // ---------------------------------------------------------------------------
 
 describe('fragileEdgeMatch — QA Brief G-series boundary cases', () => {
-  // G5: switch_probability=0.3 → NOT fragile (strictly >0.3)
-  it('G5: switch_probability=0.3 is NOT treated as fragile (boundary)', () => {
-    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.3 }]
+  // G5: switch_probability=0.15 → NOT fragile (strictly >0.15, spec Section 6.3)
+  it('G5: switch_probability=0.15 is NOT treated as fragile (boundary)', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.15 }]
     expect(isEdgeFragile('e1', 'a', 'b', fragile)).toBe(false)
     expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeNull()
   })
 
-  // G6: switch_probability=0.31 → fragile
-  it('G6: switch_probability=0.31 IS treated as fragile', () => {
-    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.31 }]
+  // G6: switch_probability=0.16 → fragile
+  it('G6: switch_probability=0.16 IS treated as fragile', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.16 }]
     expect(isEdgeFragile('e1', 'a', 'b', fragile)).toBe(true)
-    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeCloseTo(0.31)
+    expect(getFragileEdgeSwitchProbability('e1', 'a', 'b', fragile)).toBeCloseTo(0.16)
   })
 
   // G4: Non-fragile edge (below threshold) — not treated as fragile
-  it('G4: switch_probability=0.2 is not fragile', () => {
-    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.2 }]
+  it('G4: switch_probability=0.1 is not fragile', () => {
+    const fragile: FragileEdgeCandidate[] = [{ edge_id: 'e1', switch_probability: 0.1 }]
     expect(isEdgeFragile('e1', 'a', 'b', fragile)).toBe(false)
   })
 

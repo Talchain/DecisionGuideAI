@@ -54,6 +54,10 @@ vi.mock('../../../hooks/useISLValidation', () => ({
   useISLValidation: vi.fn(() => ({ data: null })),
 }))
 
+vi.mock('../../hooks/useScienceIcons', () => ({
+  useScienceIcons: vi.fn(() => []),
+}))
+
 // Default: graph badges OFF, lens OFF. Individual tests override as needed.
 vi.mock('../../../flags', () => ({
   isGraphBadgesEnabled: vi.fn(() => false),
@@ -65,7 +69,9 @@ vi.mock('../../../flags', () => ({
 
 import { useCanvasStore } from '../../store'
 import { useNodeDisplayMetadata } from '../../hooks/useNodeDisplayMetadata'
+import { useScienceIcons } from '../../hooks/useScienceIcons'
 import { isGraphBadgesEnabled } from '../../../flags'
+import { Sparkles } from 'lucide-react'
 
 const baseProps = {
   id: 'factor-1',
@@ -90,13 +96,11 @@ describe('FactorNode', () => {
   beforeEach(() => vi.clearAllMocks())
 
   // T1: No all-caps text
-  it('renders label without all-caps', () => {
+  it('renders label', () => {
     renderFactor({ label: 'Hiring rate', type: 'factor' })
     const label = screen.getByText('Hiring rate')
-    // CSS uppercase is not checked here — this is a render test
     expect(label).toBeDefined()
-    // The type label from registry should be sentence-case (not all-caps)
-    expect(screen.getByText('Factor')).toBeDefined()
+    // Type label removed — shape icon + tooltip only (spec Section 3.2)
   })
 
   // T2: Strip normalisation metadata
@@ -111,26 +115,23 @@ describe('FactorNode', () => {
     expect(screen.getByText('Hired')).toBeDefined()
   })
 
-  // F2: Category icon (tooltip via title attribute)
-  it('renders controllable icon with correct tooltip', () => {
+  // F2: Category icons removed — science icons replace them (spec Section 3.2)
+  it('does not render old category icon tooltips (controllable)', () => {
     const { container } = renderFactor({ label: 'Budget', type: 'factor', category: 'controllable' })
-    const icon = container.querySelector('[title="You control this factor"]')
-    expect(icon).not.toBeNull()
+    expect(container.querySelector('[title="You control this factor"]')).toBeNull()
   })
 
-  it('renders observable icon with correct tooltip', () => {
+  it('does not render old category icon tooltips (observable)', () => {
     const { container } = renderFactor({ label: 'Revenue', type: 'factor', category: 'observable' })
-    const icon = container.querySelector('[title="You can measure this"]')
-    expect(icon).not.toBeNull()
+    expect(container.querySelector('[title="You can measure this"]')).toBeNull()
   })
 
-  it('renders external icon with correct tooltip', () => {
+  it('does not render old category icon tooltips (external)', () => {
     const { container } = renderFactor({ label: 'Market rate', type: 'factor', category: 'external' })
-    const icon = container.querySelector('[title="Outside your control"]')
-    expect(icon).not.toBeNull()
+    expect(container.querySelector('[title="Outside your control"]')).toBeNull()
   })
 
-  it('omits category icon when category is absent', () => {
+  it('omits old category icon tooltips when category is absent', () => {
     const { container } = renderFactor({ label: 'Unknown', type: 'factor' })
     expect(container.querySelector('[title="You control this factor"]')).toBeNull()
     expect(container.querySelector('[title="You can measure this"]')).toBeNull()
@@ -178,13 +179,14 @@ describe('FactorNode', () => {
     expect(screen.queryByText('£1200')).toBeNull()
   })
 
-  it('renders non-numeric currency raw_value as plain prefix (£approx 50)', () => {
+  it('renders non-numeric currency raw_value as suffix (approx 50 £)', () => {
     renderFactor({
       label: 'Cost',
       type: 'factor',
       observedState: { raw_value: 'approx 50', unit: '£' },
     })
-    expect(screen.getByText('£approx 50')).toBeDefined()
+    // Non-numeric raw_value uses suffix format in formatFactorDisplayValue
+    expect(screen.getByText('approx 50 £')).toBeDefined()
   })
 
   it('shows raw_value alone when no unit', () => {
@@ -196,13 +198,14 @@ describe('FactorNode', () => {
     expect(screen.getByText('85')).toBeDefined()
   })
 
-  it('falls back to Not active for binary 0 without raw_value (qualitative factor — no unit, no cap)', () => {
+  it('falls back to contextual text for binary 0 without raw_value (qualitative factor — no unit, no cap)', () => {
     renderFactor({
       label: 'Hired',
       type: 'factor',
       observedState: { value: 0 },
     })
-    expect(screen.getByText('Not active')).toBeDefined()
+    // formatFactorDisplayValue returns contextual text like "No hired in place"
+    expect(screen.getByText('No hired in place')).toBeDefined()
   })
 
   // Task 4: factor_type descriptor must never appear as a display unit
@@ -212,9 +215,9 @@ describe('FactorNode', () => {
       type: 'factor',
       observedState: { value: 0, unit: 'binary' },
     })
-    // Should show qualitative tier (no unit), not "0 binary"
+    // "binary" suppressed by isSuppressedUnit → contextual value text
     expect(screen.queryByText(/binary/)).toBeNull()
-    expect(screen.getByText('Not active')).toBeDefined()
+    expect(screen.getByText('No hire decision in place')).toBeDefined()
   })
 
   it('does not show "normalized" as unit when unit field contains "normalized"', () => {
@@ -223,114 +226,135 @@ describe('FactorNode', () => {
       type: 'factor',
       observedState: { value: 0.3, unit: 'normalized' },
     })
-    // Should show qualitative tier (no unit), not "0.3 normalized"
+    // "normalized" suppressed by isSuppressedUnit; non-binary value without raw_value → no display
     expect(screen.queryByText(/normalized/)).toBeNull()
-    expect(screen.getByText('Low')).toBeDefined()
+    expect(screen.queryByText('Low')).toBeNull()
+    expect(screen.queryByText('0.3')).toBeNull()
   })
 
-  // P1.5: value===0 with a unit must NOT show 'Not active' — it means 0% or 0 units
-  it('shows "0%" for value===0 when unit is "%"', () => {
+  // P1.5: value===0 with unit but no raw_value → contextual text (formatFactorDisplayValue)
+  it('shows contextual text for value===0 when unit is "%" but no raw_value', () => {
     renderFactor({
       label: 'Churn rate',
       type: 'factor',
       observedState: { value: 0, unit: '%' },
     })
-    expect(screen.getByText('0%')).toBeDefined()
-    expect(screen.queryByText('Not active')).toBeNull()
+    // No raw_value → value-only path → "No churn in place" (suffix "Rate" stripped)
+    expect(screen.getByText('No churn in place')).toBeDefined()
   })
 
-  // P1.5: qualitative factor_type + no unit — still shows 'Not active'
-  it('shows "Not active" for value===0 with qualitative factor_type and no unit', () => {
+  // P1.5: qualitative factor_type + no unit — contextual text
+  it('shows contextual text for value===0 with qualitative factor_type and no unit', () => {
     renderFactor({
       label: 'Product fit',
       type: 'factor',
       observedState: { value: 0, factor_type: 'quality' },
     })
-    expect(screen.getByText('Not active')).toBeDefined()
+    expect(screen.getByText('No product fit in place')).toBeDefined()
   })
 
-  it('falls back to Very high for binary 1 without raw_value', () => {
+  it('falls back to contextual text for binary 1 without raw_value', () => {
     renderFactor({
       label: 'Hired',
       type: 'factor',
       observedState: { value: 1 },
     })
-    expect(screen.getByText('Very high')).toBeDefined()
+    // formatFactorDisplayValue returns "{Label} active" for value=1
+    expect(screen.getByText('Hired active')).toBeDefined()
   })
 
-  // T4: External factor with no observedState shows "Outside your control."
-  it('shows "Outside your control." for external factor with no observedState', () => {
+  // T4: External factor with no observedState — dashed border only, no body text
+  it('renders external factor with no observedState without body text', () => {
     renderFactor({ label: 'Market', type: 'factor', category: 'external' })
-    expect(screen.getByText('Outside your control.')).toBeDefined()
+    // "Outside your control." text removed — dashed border is the visual signal
+    expect(screen.queryByText('Outside your control.')).toBeNull()
   })
 
-  it('shows "Missing value" for factor with observedState but no value', () => {
+  it('shows "Help me estimate this" chip for factor with observedState but no value', () => {
     renderFactor({
       label: 'Metric',
       type: 'factor',
       observedState: { unit: 'k' },
     })
-    expect(screen.getByText('Missing value. Weakens analysis.')).toBeDefined()
+    // "Missing value. Weakens analysis." text removed — chip only
+    expect(screen.queryByText('Missing value. Weakens analysis.')).toBeNull()
+    expect(screen.getByText('Help me estimate this')).toBeDefined()
   })
 
-  // T5: "estimated" provenance display for inferred extraction type
-  // Provenance is now icon-only with title attribute, not visible text
-  it('shows "Estimated by Olumi" icon for inferred extraction type', () => {
+  // T5: Provenance now handled by science icons (useScienceIcons hook)
+  // Science icons use aria-label, not title attribute
+  it('shows science icon for inferred extraction type (via aria-label)', () => {
+    vi.mocked(useScienceIcons).mockReturnValue([{
+      id: 'olumi-estimate', icon: Sparkles,
+      tooltip: 'Olumi estimated this value. May not match reality.',
+      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
+    }])
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
-    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
+    // Science icon: "Olumi estimated this value. May not match reality."
+    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
   })
 
-  it('does not show "Estimated by Olumi" icon for explicit extraction type', () => {
+  it('does not show Olumi estimate icon for explicit extraction type', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'explicit' },
     })
-    expect(screen.queryByText(/Olumi estimated/)).toBeNull()
-    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
+    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
   })
 
-  // Provenance combinations — brief acceptance criteria
-  // Combination 1: extractionType='inferred' + source='brief_extraction'
-  //   → source icon "From your brief" shows; "estimated" icon suppressed
-  it('shows provenance icon (not estimated) when extractionType=inferred and source=brief_extraction', () => {
+  // Provenance combinations — science icons replaced old provenance icons
+  // Combination 1: extractionType='inferred' + source='brief_extraction' → science icon still shows (based on extractionType)
+  it('shows science icon when extractionType=inferred and source=brief_extraction', () => {
+    vi.mocked(useScienceIcons).mockReturnValue([{
+      id: 'olumi-estimate', icon: Sparkles,
+      tooltip: 'Olumi estimated this value. May not match reality.',
+      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
+    }])
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred', source: 'brief_extraction' },
     })
-    // Provenance is shown as icon with title attribute
-    expect(screen.getByTitle('From your brief')).toBeDefined()
-    expect(screen.queryByTitle('Estimated by Olumi')).toBeNull()
+    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
   })
 
-  // Combination 2: extractionType='inferred' + no source → "Estimated by Olumi" icon shows
-  it('shows "Estimated by Olumi" icon when extractionType=inferred and no source', () => {
+  // Combination 2: extractionType='inferred' + no source → science icon shows
+  it('shows science icon when extractionType=inferred and no source', () => {
+    vi.mocked(useScienceIcons).mockReturnValue([{
+      id: 'olumi-estimate', icon: Sparkles,
+      tooltip: 'Olumi estimated this value. May not match reality.',
+      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
+    }])
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred' },
     })
-    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
-    expect(screen.queryByTitle('From your brief')).toBeNull()
+    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
   })
 
-  // Combination 3: source='cee_inference' → "Estimated by Olumi" icon shows; "estimated" pill suppressed
-  it('shows "Estimated by Olumi" icon (not estimated text) when source=cee_inference', () => {
+  // Combination 3: source='cee_inference' + extractionType='inferred' → science icon shows
+  it('shows science icon when source=cee_inference and extractionType=inferred', () => {
+    vi.mocked(useScienceIcons).mockReturnValue([{
+      id: 'olumi-estimate', icon: Sparkles,
+      tooltip: 'Olumi estimated this value. May not match reality.',
+      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
+    }])
     renderFactor({
       label: 'Salary',
       type: 'factor',
       observedState: { value: 0.5, extractionType: 'inferred', source: 'cee_inference' },
     })
-    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
+    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
   })
 
-  // T6: Influence/Confidence tiers (results mode)
-  it('shows Influence and Confidence tiers in results mode', () => {
+  // T6: Influence/Confidence bars in results mode — only in Layer 2 (Detailed view)
+  it('shows Influence and Confidence bars in Detailed results mode', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -342,7 +366,7 @@ describe('FactorNode', () => {
         dimmedNodeIds: new Set(),
         goalThreshold: null,
         goalConstraints: [],
-        viewMode: 'expert',
+        viewMode: 'expert', // Detailed mode → Layer 2 inline
       })
     )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
@@ -356,6 +380,7 @@ describe('FactorNode', () => {
       isResultsMode: true,
     })
     renderFactor({ label: 'Salary', type: 'factor', observedState: { value: 0.5 } })
+    // In Detailed mode, Layer 2 is inline so bars appear
     expect(screen.getByText('Influence')).toBeDefined()
     expect(screen.getByText('80%')).toBeDefined()
     expect(screen.getByText('Confidence')).toBeDefined()
@@ -391,9 +416,10 @@ describe('FactorNode', () => {
     expect(() => renderFactor({ label: 'X', type: 'factor' })).not.toThrow()
   })
 
-  it('shows "Missing value" when observedState has only unit (no value)', () => {
+  it('shows "Help me estimate this" chip when observedState has only unit (no value)', () => {
     renderFactor({ label: 'X', type: 'factor', observedState: { unit: 'k' } })
-    expect(screen.getByText('Missing value. Weakens analysis.')).toBeDefined()
+    expect(screen.queryByText('Missing value. Weakens analysis.')).toBeNull()
+    expect(screen.getByText('Help me estimate this')).toBeDefined()
   })
 
   it('does not show Influence/Confidence bars in results mode when both influence and confidence are null', () => {
@@ -433,8 +459,8 @@ describe('FactorNode', () => {
     expect(screen.queryByText('Measurable')).toBeNull()
   })
 
-  // P3: Rank badge in header row — DOM order and category icon co-existence
-  it('rank badge renders inline in header row: shape → badge → label, with category icon right-aligned (P3)', () => {
+  // P3: Rank badge in header row
+  it('rank badge renders with absolute positioning (P3)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: 1,
       influence: null,
@@ -445,7 +471,7 @@ describe('FactorNode', () => {
       winRate: null,
       isResultsMode: false,
     })
-    const { container } = renderFactor({
+    renderFactor({
       label: 'Revenue',
       type: 'factor',
       category: 'controllable',
@@ -457,20 +483,18 @@ describe('FactorNode', () => {
     expect(badge.className).toContain('absolute')
     expect(badge.className).toContain('-top-2')
     expect(badge.className).toContain('-right-2')
-    // Category icon still present
-    const icon = container.querySelector('[title="You control this factor"]')
-    expect(icon).not.toBeNull()
+    // Category icons removed — science icons replace them
   })
 
-  // P2: Qualitative value display — no raw_value, no unit → tier label
-  it('shows tier label (Medium) for factor with no raw_value and no unit (P2)', () => {
+  // P2: Non-binary value with no raw_value, no unit → no display (formatFactorDisplayValue returns null)
+  it('shows no value text for factor with non-binary value, no raw_value and no unit (P2)', () => {
     renderFactor({
       label: 'Product-market fit',
       type: 'factor',
       observedState: { value: 0.5 },
     })
-    expect(screen.getByText('Medium')).toBeDefined()
-    // Must not show raw float
+    // Non-binary values without raw_value return null — no body text displayed
+    expect(screen.queryByText('Medium')).toBeNull()
     expect(screen.queryByText('0.5')).toBeNull()
   })
 
@@ -484,8 +508,8 @@ describe('FactorNode', () => {
     expect(screen.queryByText('Medium')).toBeNull()
   })
 
-  // P4: Evidence bar uses bg-info (not bg-factor)
-  it('evidence bar uses bg-info class (P4)', () => {
+  // P4: Evidence bar uses bg-info (not bg-factor) — Detailed results mode
+  it('evidence bar uses bg-info class in Detailed results mode (P4)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -497,7 +521,7 @@ describe('FactorNode', () => {
         dimmedNodeIds: new Set(),
         goalThreshold: null,
         goalConstraints: [],
-        viewMode: 'expert',
+        viewMode: 'expert', // Detailed mode → Layer 2 inline
       })
     )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
@@ -517,15 +541,22 @@ describe('FactorNode', () => {
     expect(container.querySelector('.bg-factor')).toBeNull()
   })
 
-  // P5: Inferred factor shows "Estimated by Olumi" icon with confirm action
-  it('inferred factor shows "Estimated by Olumi" icon and confirm action icon (P5)', () => {
+  // P5: Inferred factor shows science icon + confirm action (needs non-null valueDisplay)
+  it('inferred factor shows science icon and confirm action icon (P5)', () => {
+    vi.mocked(useScienceIcons).mockReturnValue([{
+      id: 'olumi-estimate', icon: Sparkles,
+      tooltip: 'Olumi estimated this value. May not match reality.',
+      action: 'Confirm or adjust the value for Salary', colour: 'text-text-light', priority: 3,
+    }])
     renderFactor({
       label: 'Salary',
       type: 'factor',
-      observedState: { value: 0.5, extractionType: 'inferred' },
+      // value=0 produces non-null valueDisplay ("No salary in place"), enabling confirm button
+      observedState: { value: 0, extractionType: 'inferred' },
     })
-    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
-    // "Confirm or edit" link replaced by ActionIcons confirm button
+    // Science icon uses aria-label
+    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
+    // ActionIcons confirm button uses title (requires valueDisplay !== null)
     expect(screen.getByTitle('Confirm value')).toBeDefined()
   })
 
@@ -555,28 +586,29 @@ describe('FactorNode', () => {
     expect(nodeEl?.className).toContain('border-warning')
   })
 
-  // P0 (feedback): binary factor_type + value=0 must show "Not active", not "Very low"
-  it('shows "Not active" for value===0 with factor_type "binary" and no unit', () => {
+  // P0 (feedback): binary factor_type + value=0 → contextual text
+  it('shows contextual text for value===0 with factor_type "binary" and no unit', () => {
     renderFactor({
       label: 'Hire decision',
       type: 'factor',
       observedState: { value: 0, factor_type: 'binary' },
     })
-    expect(screen.getByText('Not active')).toBeDefined()
+    // factor_type "binary" is suppressed by isSuppressedUnit, value-only path
+    expect(screen.getByText('No hire decision in place')).toBeDefined()
     expect(screen.queryByText('Very low')).toBeNull()
   })
 
-  it('shows "Very high" for value===1 with factor_type "binary" and no unit', () => {
+  it('shows contextual text for value===1 with factor_type "binary" and no unit', () => {
     renderFactor({
       label: 'Hire decision',
       type: 'factor',
       observedState: { value: 1, factor_type: 'binary' },
     })
-    expect(screen.getByText('Very high')).toBeDefined()
+    expect(screen.getByText('Hire decision active')).toBeDefined()
   })
 
-  // P1.3 (feedback): compact DataBar progressbar elements must be present in results mode
-  it('renders progressbar elements for Influence and Confidence bars in results mode', () => {
+  // P1.3 (feedback): compact DataBar progressbar elements in Detailed results mode
+  it('renders progressbar elements for Influence and Confidence bars in Detailed results mode', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
       selector({
         hoveredOptionId: null,
@@ -588,7 +620,7 @@ describe('FactorNode', () => {
         dimmedNodeIds: new Set(),
         goalThreshold: null,
         goalConstraints: [],
-        viewMode: 'expert',
+        viewMode: 'expert', // Detailed → Layer 2 inline
       })
     )
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
@@ -643,22 +675,23 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.getByText('4.5 months')).toBeDefined()
   })
 
-  // A4: value=0.5, no raw_value, cap=100, unit="£" → "£50" (denormalised)
-  it('A4: value=0.5 with cap=100 and unit="£" renders "£50"', () => {
+  // A4: value=0.5, no raw_value, cap=100, unit="£" → no display (formatFactorDisplayValue returns null for value-only)
+  it('A4: value=0.5 with cap=100 and unit="£" but no raw_value renders no value text', () => {
     renderFactor({ label: 'Price', type: 'factor', observedState: { value: 0.5, cap: 100, unit: '£' } })
-    expect(screen.getByText('£50')).toBeDefined()
+    // No raw_value → value-only path, non-binary → null
+    expect(screen.queryByText('£50')).toBeNull()
   })
 
-  // A5: value=1.0, no raw_value, no cap, no unit → "Very high"
-  it('A5: value=1.0 with no raw_value, cap, or unit renders "Very high"', () => {
+  // A5: value=1.0, no raw_value, no cap, no unit → contextual "{Label} active"
+  it('A5: value=1.0 with no raw_value, cap, or unit renders contextual text', () => {
     renderFactor({ label: 'Quality', type: 'factor', observedState: { value: 1.0 } })
-    expect(screen.getByText('Very high')).toBeDefined()
+    expect(screen.getByText('Quality active')).toBeDefined()
   })
 
-  // A6: value=0, factor_type="binary", no unit → "Not active"
-  it('A6: binary factor value=0 without unit renders "Not active"', () => {
+  // A6: value=0, factor_type="binary", no unit → contextual text
+  it('A6: binary factor value=0 without unit renders contextual text', () => {
     renderFactor({ label: 'Hired', type: 'factor', observedState: { value: 0, factor_type: 'binary' } })
-    expect(screen.getByText('Not active')).toBeDefined()
+    expect(screen.getByText('No hired in place')).toBeDefined()
   })
 
   // A7: value=0, unit="%", raw_value=0 → "0%" (not "Not active")
@@ -668,13 +701,13 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByText('Not active')).toBeNull()
   })
 
-  // A8: factor_type="normalized", no unit → no "normalized" suffix
-  it('A8: factor_type="normalized" with no unit shows value without type suffix', () => {
+  // A8: factor_type="normalized", no unit → no display (non-binary value without raw_value)
+  it('A8: factor_type="normalized" with no unit shows no value text', () => {
     renderFactor({ label: 'Score', type: 'factor', observedState: { value: 0.3, factor_type: 'normalized' } })
     // "normalized" must not appear in rendered output
     expect(screen.queryByText(/normalized/i)).toBeNull()
-    // Should show qualitative tier (no unit, normalised treated as no-unit qualitative)
-    expect(screen.getByText('Low')).toBeDefined()
+    // Non-binary value without raw_value → null (no display)
+    expect(screen.queryByText('Low')).toBeNull()
   })
 
   // A9: factor_type="binary", no unit → no "binary" suffix in value display
@@ -683,32 +716,34 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByText(/binary/i)).toBeNull()
   })
 
-  // A10: unit="CHF", raw_value=500 → "CHF500" (multi-char currency prefix, no space)
-  it('A10: unit="CHF" with raw_value=500 renders "CHF500"', () => {
+  // A10: unit="CHF", raw_value=500 → "500 CHF" (CHF not in single-char currency prefix set)
+  it('A10: unit="CHF" with raw_value=500 renders "500 CHF"', () => {
     renderFactor({ label: 'Cost', type: 'factor', observedState: { raw_value: '500', unit: 'CHF' } })
-    expect(screen.getByText('CHF500')).toBeDefined()
+    expect(screen.getByText('500 CHF')).toBeDefined()
   })
 
-  // A14: source='cee_inference' → provenance icon "Estimated by Olumi"
-  it('A14: source="cee_inference" renders provenance icon "Estimated by Olumi"', () => {
+  // A14: source='cee_inference' — provenance icons removed, science icons handle this
+  // The science icon triggers on extractionType='inferred', not source alone
+  it('A14: source="cee_inference" without extractionType=inferred does not render science icon', () => {
     renderFactor({
       label: 'Market rate',
       type: 'factor',
       observedState: { value: 0.5, source: 'cee_inference' },
     })
-    // Provenance rendered as icon with title attribute
-    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
+    // No extractionType='inferred' → no Olumi estimate science icon
+    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
   })
 
-  // A15: source='brief_extraction' → provenance icon "From your brief"
-  it('A15: source="brief_extraction" renders provenance icon', () => {
+  // A15: source='brief_extraction' — old provenance icon removed, science icons based on extractionType
+  it('A15: source="brief_extraction" without extractionType=inferred does not render science icon', () => {
     renderFactor({
       label: 'Revenue',
       type: 'factor',
       observedState: { value: 0.6, source: 'brief_extraction' },
     })
-    // Provenance rendered as icon with title attribute
-    expect(screen.getByTitle('From your brief')).toBeDefined()
+    // No extractionType='inferred' → no Olumi estimate science icon
+    expect(screen.queryByLabelText(/Olumi estimated/)).toBeNull()
+    expect(screen.queryByTitle('From your brief')).toBeNull()
   })
 
   // A16: source='user' → no provenance icon
@@ -723,62 +758,68 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByText('Set by you')).toBeNull()
   })
 
-  // A17: "Not active" value + provenance icon rendered separately (not merged as phrase)
-  it('A17: "Not active" value and provenance icon are separate elements', () => {
+  // A17: Contextual value text + science icon are separate elements
+  it('A17: contextual value text and science icon are separate elements', () => {
+    vi.mocked(useScienceIcons).mockReturnValue([{
+      id: 'olumi-estimate', icon: Sparkles,
+      tooltip: 'Olumi estimated this value. May not match reality.',
+      action: 'Confirm or adjust the value for Item', colour: 'text-text-light', priority: 3,
+    }])
     renderFactor({
       label: 'Item',
       type: 'factor',
-      observedState: { value: 0, source: 'cee_inference' },
+      observedState: { value: 0, source: 'cee_inference', extractionType: 'inferred' },
     })
-    // Value text exists
-    expect(screen.getByText('Not active')).toBeDefined()
-    // Provenance rendered as icon with title attribute (not visible text)
-    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
-    // Should not appear as a joined phrase in any text content
-    expect(screen.queryByText(/Not active.*estimated/i)).toBeNull()
+    // Value text exists (contextual)
+    expect(screen.getByText('No item in place')).toBeDefined()
+    // Science icon via aria-label
+    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
   })
 
-  // A17b: "Not active" + estimated icon — inferred source (extractionType='inferred')
-  // Shows "Estimated by Olumi" icon inline (source='inferred' is suppressed for provenance,
-  // but extractionType='inferred' triggers the OlumiSparkle icon).
-  it('A17b: value=0 + extractionType=inferred shows "Not active" and "Estimated by Olumi" icon, plus confirm action', () => {
+  // A17b: value=0 + extractionType=inferred → contextual text + science icon + confirm action
+  it('A17b: value=0 + extractionType=inferred shows contextual text, science icon, and confirm action', () => {
+    vi.mocked(useScienceIcons).mockReturnValue([{
+      id: 'olumi-estimate', icon: Sparkles,
+      tooltip: 'Olumi estimated this value. May not match reality.',
+      action: 'Confirm or adjust the value for Item', colour: 'text-text-light', priority: 3,
+    }])
     renderFactor({
       label: 'Item',
       type: 'factor',
       observedState: { value: 0, source: 'inferred', extractionType: 'inferred' },
     })
-    // "Not active" (value display) must appear
-    expect(screen.getByText('Not active')).toBeDefined()
-    // Provenance rendered as icon with title attribute
-    expect(screen.getByTitle('Estimated by Olumi')).toBeDefined()
-    // "Confirm or edit" link replaced by ActionIcons confirm button
+    // Contextual value display
+    expect(screen.getByText('No item in place')).toBeDefined()
+    // Science icon via aria-label
+    expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
+    // ActionIcons confirm button
     expect(screen.getByTitle('Confirm value')).toBeDefined()
   })
 
-  // A18: Tier label thresholds — verify exact boundaries (0-0.2, 0.2-0.4, 0.4-0.6, 0.6-0.8, 0.8-1.0)
-  it('A18: value=0.2 → "Very low" (upper boundary of very low band)', () => {
+  // A18: Tier labels removed — non-binary values without raw_value show no display text
+  it('A18: value=0.2 → no tier label (non-binary without raw_value returns null)', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.2 } })
-    expect(screen.getByText('Very low')).toBeDefined()
+    expect(screen.queryByText('Very low')).toBeNull()
   })
-  it('A18: value=0.21 → "Low"', () => {
+  it('A18: value=0.21 → no tier label', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.21 } })
-    expect(screen.getByText('Low')).toBeDefined()
+    expect(screen.queryByText('Low')).toBeNull()
   })
-  it('A18: value=0.4 → "Low" (upper boundary of low band)', () => {
+  it('A18: value=0.4 → no tier label', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.4 } })
-    expect(screen.getByText('Low')).toBeDefined()
+    expect(screen.queryByText('Low')).toBeNull()
   })
-  it('A18: value=0.41 → "Medium"', () => {
+  it('A18: value=0.41 → no tier label', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.41 } })
-    expect(screen.getByText('Medium')).toBeDefined()
+    expect(screen.queryByText('Medium')).toBeNull()
   })
-  it('A18: value=0.8 → "High" (upper boundary of high band)', () => {
+  it('A18: value=0.8 → no tier label', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.8 } })
-    expect(screen.getByText('High')).toBeDefined()
+    expect(screen.queryByText('High')).toBeNull()
   })
-  it('A18: value=0.81 → "Very high"', () => {
+  it('A18: value=0.81 → no tier label', () => {
     renderFactor({ label: 'Q', type: 'factor', observedState: { value: 0.81 } })
-    expect(screen.getByText('Very high')).toBeDefined()
+    expect(screen.queryByText('Very high')).toBeNull()
   })
 })
 
