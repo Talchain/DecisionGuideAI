@@ -32,6 +32,8 @@ interface ObservedState {
   factor_type?: string
   cap?: number
   uncertainty_drivers?: string[]
+  /** CEE-provided display text. When present, UI renders verbatim. */
+  display_value?: string | null
 }
 
 export const FactorNode = memo((props: NodeProps) => {
@@ -80,6 +82,7 @@ export const FactorNode = memo((props: NodeProps) => {
       factor_type: observedState.factor_type ?? null,
       cap: observedState.cap ?? null,
       category: nodeCategory ?? null,
+      display_value: observedState.display_value ?? null,
     })
   }, [observedState, cleanedLabel, nodeCategory])
 

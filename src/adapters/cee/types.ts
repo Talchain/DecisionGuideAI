@@ -284,6 +284,8 @@ export interface CEEOptionV3 {
   unresolved_targets?: string[]
   /** Original pre-encoding intervention values (e.g. categorical strings, booleans) */
   raw_interventions?: Record<string, unknown>
+  /** Status quo flag. When true, this option represents the baseline / do-nothing choice. */
+  is_baseline?: boolean | null
 }
 
 /**

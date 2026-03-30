@@ -66,4 +66,22 @@ describe('formatFactorDisplayValue', () => {
       value: null,
     })).toBeNull()
   })
+
+  it('returns CEE display_value verbatim when present (overrides all heuristics)', () => {
+    expect(formatFactorDisplayValue({
+      label: 'Technical Leadership Presence',
+      value: 0,
+      raw_value: null,
+      display_value: 'No dedicated tech lead',
+    })).toBe('No dedicated tech lead')
+  })
+
+  it('ignores display_value when empty string', () => {
+    expect(formatFactorDisplayValue({
+      label: 'Technical Leadership Presence',
+      value: 0,
+      raw_value: null,
+      display_value: '',
+    })).toBe('No technical leadership in place')
+  })
 })

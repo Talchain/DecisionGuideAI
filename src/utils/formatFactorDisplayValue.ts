@@ -29,10 +29,17 @@ interface FactorDisplayInput {
   factor_type?: string | null
   cap?: number | null
   category?: string | null
+  /** CEE-provided display text. When present, returned verbatim (no heuristic). */
+  display_value?: string | null
 }
 
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {
-  const { label, value, raw_value, unit, factor_type, category } = input
+  const { label, value, raw_value, unit, factor_type, category, display_value } = input
+
+  // CEE-provided display_value takes absolute priority — render verbatim
+  if (display_value != null && display_value !== '') {
+    return display_value
+  }
 
   // External factors with no data: no body text (dashed border is the signal)
   if (category === 'external' && (value == null && raw_value == null)) {
