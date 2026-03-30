@@ -25,7 +25,7 @@ export function ConnRow({ edgeId, nodeKind, label, confidencePct }: ConnRowProps
     store.setShowInspectorPanel(true)
   }, [edgeId])
 
-  const truncated = label.length > 22 ? `${label.slice(0, 22)}...` : label
+  const truncated = label.length > 30 ? `${label.slice(0, 30)}...` : label
 
   return (
     <div

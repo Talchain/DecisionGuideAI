@@ -2925,6 +2925,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const { nodes } = get()
       const nodeIds = nodes.map((n) => n.id)
       set({ ceeAnalysisReady: analysisReady, ceeAnalysisReadyNodeIds: nodeIds })
+      // Sync goal threshold from CEE to store (fixes "?" badge on goals with thresholds)
+      const ceeThreshold = (analysisReady as any).goal_threshold ?? (analysisReady as any).goal_threshold_raw
+      if (ceeThreshold != null && get().goalThreshold == null) {
+        get().setGoalThreshold(typeof ceeThreshold === 'number' ? ceeThreshold : Number(ceeThreshold))
+      }
       // Persist to sessionStorage for tab-refresh survival (with node IDs for validation)
       try {
         sessionStorage.setItem('olumi-cee-analysis-ready', JSON.stringify(analysisReady))

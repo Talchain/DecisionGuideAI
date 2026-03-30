@@ -292,14 +292,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </div>
       )}
 
-      {/* Phase 2: "Needs input" badge for incomplete nodes */}
+      {/* "?" badge for incomplete nodes (replaces "Needs input" pill per spec Section 12.4) */}
       {isIncomplete && (
-        <span
-          className={`absolute -top-2 right-2 z-10 bg-panel border border-warning/30 text-warning ${typography.nodeLabel} font-medium px-1.5 py-0.5 rounded-md`}
+        <div
+          className={`absolute -top-2 -right-2 w-5 h-5 rounded-full bg-warning text-white flex items-center justify-center ${typography.nodeLabel} font-bold z-10`}
+          title="Missing required input"
           data-testid="needs-input-badge"
         >
-          Needs input
-        </span>
+          ?
+        </div>
       )}
 
       {/* Connection handles */}
@@ -352,14 +353,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           marginBottom: '8px',
         }}
       >
-        {/* T1: Shape indicator (Design System v4 §10.1) + sentence-case type label */}
-        <NodeShapeIndicator nodeKind={nodeType} size={12} />
-        <Tooltip content={NODE_TYPE_DESCRIPTIONS[nodeType] ?? ''} delay={300}>
-          <span
-            className={`${typography.nodeLabel} ${colors.text} font-semibold leading-none`}
-          >
-            {NODE_REGISTRY[nodeType]?.label ?? nodeType}
-          </span>
+        {/* Shape indicator only — type name as tooltip (spec Section 3.2) */}
+        <Tooltip content={NODE_TYPE_DESCRIPTIONS[nodeType] ?? (NODE_REGISTRY[nodeType]?.label ?? nodeType)} delay={300}>
+          <span className="inline-flex"><NodeShapeIndicator nodeKind={nodeType} size={14} /></span>
         </Tooltip>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}
