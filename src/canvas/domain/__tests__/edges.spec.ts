@@ -30,7 +30,7 @@ describe('EdgeV2 Schema', () => {
     })
 
     it('should have dual belief defaults', () => {
-      expect(DEFAULT_EDGE_DATA.beliefExists).toBe(0.7)
+      expect(DEFAULT_EDGE_DATA.beliefExists).toBe(0.8)
       expect(DEFAULT_EDGE_DATA.beliefStrength).toBe(0.5)
     })
   })

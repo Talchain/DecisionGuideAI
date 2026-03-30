@@ -268,7 +268,7 @@ export const DEFAULT_EDGE_DATA: EdgeData = {
   kind: 'decision-probability',
   functionType: 'linear',
   // Brief 5.1: Default dual beliefs indicate moderate confidence in relationship existence
-  beliefExists: 0.7,      // Default: moderately confident this relationship exists
+  beliefExists: 0.8,      // Aligned with PLoT DEFAULT_EXISTS_PROBABILITY (0.8)
   beliefStrength: 0.5,    // Default: moderate effect magnitude
   schemaVersion: 4,
 }
