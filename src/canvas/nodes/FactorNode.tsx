@@ -10,15 +10,16 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, formatInterventionValue, isCurrencyUnit, formatFactorValue, QUALITATIVE_FACTOR_TYPES, isSuppressedUnit } from '../utils/labelUtils'
+import { cleanFactorLabel, formatInterventionValue, isSuppressedUnit } from '../utils/labelUtils'
+import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
-import { SlidersHorizontal, Eye, Cloud, Search } from 'lucide-react'
+import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
 import { DataBar } from '../ui/shared/DataBar'
-import { getProvenanceLabel } from '../ui/inspector-v2/inspectorStrings'
 import { CoachingCard } from '../components/CoachingCard'
 import { useNodeConnections } from '../hooks/useNodeConnections'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { ConnRow, Sep, NodeChip, ActionIcons, OlumiSparkle, BriefIcon, MetricPills, NodePopover } from './shared'
+import { useScienceIcons } from '../hooks/useScienceIcons'
+import { ConnRow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 
 interface ObservedState {
@@ -30,19 +31,7 @@ interface ObservedState {
   extractionType?: 'explicit' | 'inferred'
   factor_type?: string
   cap?: number
-}
-
-function formatPriorRangeValue(value: number, rawUnit?: string): string {
-  const unit = isSuppressedUnit(rawUnit) ? undefined : rawUnit
-  if (unit && isCurrencyUnit(unit)) {
-    return `${unit}${Math.round(value).toLocaleString('en-GB')}`
-  }
-  if (unit === '%') {
-    const pct = Math.abs(value) <= 1 ? Math.round(value * 100) : Math.round(value)
-    return `${pct}%`
-  }
-  const display = Number.isInteger(value) ? String(value) : value.toFixed(2).replace(/\.?0+$/, '')
-  return unit ? `${display} ${unit}` : display
+  uncertainty_drivers?: string[]
 }
 
 export const FactorNode = memo((props: NodeProps) => {
@@ -68,6 +57,7 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [props.id, ceeAnalysisReady?.options, edges, isPostAnalysis, nodeCategory])
 
   const displayMetadata = useNodeDisplayMetadata(props.id, 'factor')
+  const scienceIcons = useScienceIcons(props.id, 'factor')
 
   const interventionValue = useMemo(() => {
     if (!hoveredOptionId) return null
@@ -79,73 +69,41 @@ export const FactorNode = memo((props: NodeProps) => {
 
   const isAffectedByHover = interventionValue !== null
 
-  const categoryIcon: { Icon: typeof SlidersHorizontal; tooltip: string } | null = useMemo(() => {
-    switch (nodeCategory) {
-      case 'controllable': return { Icon: SlidersHorizontal, tooltip: 'You control this factor' }
-      case 'observable':   return { Icon: Eye,               tooltip: 'You can measure this'    }
-      case 'external':     return { Icon: Cloud,             tooltip: 'Outside your control'    }
-      default:             return null
-    }
-  }, [nodeCategory])
-
-  const isTrulyBinary = useMemo(() => {
-    const options = ceeAnalysisReady?.options
-    if (!options) return false
-    const vals: number[] = []
-    for (const opt of options) {
-      if (!opt.interventions) continue
-      const rv = opt.interventions[props.id]
-      if (rv == null) continue
-      const v = typeof rv === 'number' ? rv :
-        (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : null
-      if (v != null) vals.push(v)
-    }
-    return vals.length > 0 && vals.every(v => v === 0 || v === 1)
-  }, [ceeAnalysisReady, props.id])
-
-  // Fix: "Not used" → "Not active", remove standalone "Very high"
+  // Contextual value display via formatFactorDisplayValue
   const valueDisplay = useMemo(() => {
     if (!observedState) return null
-    const { value } = observedState
-    if (value !== undefined && observedState.raw_value == null) {
-      const ft = observedState.factor_type?.toLowerCase().trim()
-      const effectiveUnit = isSuppressedUnit(observedState.unit) ? undefined : observedState.unit
-      const isQualitative = !effectiveUnit && observedState.cap == null &&
-        (!ft || QUALITATIVE_FACTOR_TYPES.has(ft))
-      if (isQualitative) {
-        if (isTrulyBinary) {
-          if (value === 0) return 'Off'
-          if (value === 1) return 'On'
-        } else {
-          if (value === 0) return 'Not active'
-        }
-      }
-    }
-    return formatFactorValue(observedState)
-  }, [observedState, isTrulyBinary])
+    return formatFactorDisplayValue({
+      label: cleanedLabel,
+      value: observedState.value ?? null,
+      raw_value: observedState.raw_value ?? null,
+      unit: isSuppressedUnit(observedState.unit) ? null : (observedState.unit ?? null),
+      factor_type: observedState.factor_type ?? null,
+      cap: observedState.cap ?? null,
+      category: nodeCategory ?? null,
+    })
+  }, [observedState, cleanedLabel, nodeCategory])
 
-  // Prior range: only show range values (ban standalone "Variable")
+  // Prior range for external factors (only the range values, no "Variable" prefix)
   const priorRangeDisplay = useMemo(() => {
     const prior = props.data?.prior as { range_min?: number; range_max?: number } | undefined
-    const min = prior?.range_min
-    const max = prior?.range_max
-    if (nodeCategory !== 'external' || min == null || max == null) return null
-    const hasUnit = observedState?.unit && !isSuppressedUnit(observedState.unit)
-    if (!hasUnit) return null
+    if (nodeCategory !== 'external' || !prior?.range_min || !prior?.range_max) return null
+    const unit = observedState?.unit && !isSuppressedUnit(observedState.unit) ? observedState.unit : null
+    if (!unit) return null
     const cap = observedState?.cap
-    const denormMin = cap != null && cap > 1 ? min * cap : min
-    const denormMax = cap != null && cap > 1 ? max * cap : max
-    return `${formatPriorRangeValue(denormMin, observedState?.unit)}–${formatPriorRangeValue(denormMax, observedState?.unit)}`
+    const min = cap != null && cap > 1 ? prior.range_min * cap : prior.range_min
+    const max = cap != null && cap > 1 ? prior.range_max * cap : prior.range_max
+    // Format range values
+    const fmt = (v: number) => {
+      if (['£', '$', '€', '¥'].includes(unit)) return `${unit}${Math.round(v).toLocaleString('en-GB')}`
+      if (unit === '%') return `${Math.round(v * 100)}%`
+      return `${Math.round(v)} ${unit}`
+    }
+    return `Range: ${fmt(min)} to ${fmt(max)}`
   }, [nodeCategory, observedState?.unit, observedState?.cap, props.data?.prior])
 
   const isInferred = observedState?.extractionType === 'inferred'
-
-  const provenanceLabel = useMemo(() => {
-    const source = observedState?.source
-    if (!source || source === 'user' || source === 'user_calibration' || source === 'default' || source === 'inferred') return null
-    const label = getProvenanceLabel(source)
-    return label === 'No evidence yet' || label === `Source: ${source}` ? null : label
-  }, [observedState?.source])
+  const isExplicit = observedState?.extractionType === 'explicit'
+  const needsInput = observedState?.value == null && nodeCategory !== 'external'
 
   const externalWithPrior = nodeCategory === 'external' && props.data?.prior != null
   const showEvidenceGapBadge =
@@ -170,15 +128,6 @@ export const FactorNode = memo((props: NodeProps) => {
     return matching.map(c => `Constrained: ${c.label} ${c.operator} ${c.value ?? '-'}`).join('; ')
   }, [goalConstraints, cleanedLabel])
 
-  const isAssumed = useMemo(() => {
-    if (isInferred) return false
-    if (provenanceLabel) return false
-    if (!observedState) return false
-    if (observedState.value === undefined) return false
-    const source = observedState.source
-    return source === 'default' || (!source && !observedState.extractionType)
-  }, [isInferred, provenanceLabel, observedState])
-
   // Anchoring detection (Detailed, pre-analysis)
   const anchoringMessage = useMemo(() => {
     if (!isDetailed || isPostAnalysis) return null
@@ -186,25 +135,23 @@ export const FactorNode = memo((props: NodeProps) => {
     if (!options || options.length < 3) return null
     const vals: number[] = []
     for (const opt of options) {
-      const rv = opt.interventions?.[props.id]
+      const rv = (opt.interventions as Record<string, unknown> | undefined)?.[props.id]
       if (rv == null) continue
       const v = typeof rv === 'number' ? rv :
-        (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : null
+        (rv && typeof rv === 'object' && 'value' in (rv as Record<string, unknown>)) ?
+        Number((rv as Record<string, unknown>).value) : null
       if (v != null) vals.push(v)
     }
     if (vals.length < 3) return null
-    const min = Math.min(...vals)
-    const max = Math.max(...vals)
-    const baseline = observedState?.value ?? min
-    const spread = max - min
-    if (Math.max(Math.abs(baseline), 0.01) > 0 && spread / Math.max(Math.abs(baseline), 0.01) < 0.2) {
+    const baseline = observedState?.value ?? vals[0] ?? 0.01
+    const spread = Math.max(...vals) - Math.min(...vals)
+    if (spread / Math.max(Math.abs(baseline), 0.01) < 0.2) {
       return valueDisplay ?? String(baseline)
     }
     return null
   }, [isDetailed, isPostAnalysis, ceeAnalysisReady, props.id, observedState?.value, valueDisplay])
 
   const outboundConnections = useNodeConnections(props.id, 'outbound')
-  const needsInput = !isPostAnalysis && observedState?.value === undefined && observedState?.raw_value == null && nodeCategory !== 'external'
 
   const handleConfirm = useCallback(() => {
     if (!observedState) return
@@ -228,9 +175,80 @@ export const FactorNode = memo((props: NodeProps) => {
     store.setShowInspectorPanel(true)
   }, [props.id])
 
-  // ----- Layer 2 content (shared between popover and Detailed inline) -----
-  const layer2Content = isPostAnalysis ? (
+  // Connected outcomes count for external popover text
+  const outcomesAffected = useMemo(() => {
+    return edges.filter(e => e.source === props.id).length
+  }, [edges, props.id])
+
+  // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
+  const preAnalysisLayer2 = !isPostAnalysis ? (
     <>
+      {/* Pre-analysis popover per spec Section 7.5 */}
+      {isInferred && (
+        <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
+          Olumi estimated this from your brief. High leverage, low evidence.
+        </p>
+      )}
+      {isExplicit && outboundConnections.length > 0 && (
+        <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
+          You provided this value. It strongly influences {outboundConnections[0]?.connectedNodeLabel ?? 'connected outcomes'}.
+        </p>
+      )}
+      {nodeCategory === 'external' && (
+        <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
+          Outside your control. Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
+        </p>
+      )}
+      {/* Connection list with strengths */}
+      {outboundConnections.length > 0 && (
+        <>
+          <Sep />
+          {outboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
+            <ConnRow
+              key={conn.edgeId}
+              edgeId={conn.edgeId}
+              nodeKind={conn.connectedNodeKind}
+              label={conn.connectedNodeLabel}
+              confidencePct={conn.confidencePct}
+            />
+          ))}
+        </>
+      )}
+      {/* Pre-analysis coaching chip */}
+      {isInferred && (
+        <>
+          <Sep />
+          <NodeChip label="What evidence supports this?" message={`What evidence supports my assumption about ${cleanedLabel}?`} />
+        </>
+      )}
+      {isExplicit && (
+        <>
+          <Sep />
+          <NodeChip label="Is this still accurate?" message={`Is my value for ${cleanedLabel} still accurate?`} />
+        </>
+      )}
+      {nodeCategory === 'external' && (
+        <>
+          <Sep />
+          <NodeChip label="What if this changes?" message={`What if ${cleanedLabel} changes? How should I plan for that?`} />
+        </>
+      )}
+      {/* Detailed pre-analysis: uncertainty drivers */}
+      {isDetailed && observedState?.uncertainty_drivers && observedState.uncertainty_drivers.length > 0 && (
+        <>
+          <Sep />
+          <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Uncertainty drivers:</p>
+          {observedState.uncertainty_drivers.map((d, i) => (
+            <p key={i} className={`${typography.edgeLabel} text-text-light m-0`}>{d}</p>
+          ))}
+        </>
+      )}
+    </>
+  ) : null
+
+  const postAnalysisLayer2 = isPostAnalysis ? (
+    <>
+      {/* Influence & Confidence bars */}
       {(influencePct != null && influencePct > 0 || confidencePct != null && confidencePct > 0) && (
         <div className="space-y-1.5 mb-1">
           {influencePct != null && influencePct > 0 && (
@@ -253,11 +271,12 @@ export const FactorNode = memo((props: NodeProps) => {
           )}
         </div>
       )}
+      {/* ConnRows (max 3 in popover, max 5 in Detailed) */}
       {outboundConnections.length > 0 && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Influences:</p>
-          {outboundConnections.slice(0, 3).map(conn => (
+          {outboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}
@@ -268,7 +287,8 @@ export const FactorNode = memo((props: NodeProps) => {
           ))}
         </>
       )}
-      {displayMetadata.sensitivityRank === 1 && isInferred && (
+      {/* BiasNote (max 1) */}
+      {displayMetadata.sensitivityRank != null && displayMetadata.sensitivityRank <= 2 && isInferred && (
         <>
           <Sep />
           <div className="flex items-center gap-1 py-0.5 px-1.5 bg-warning/10 rounded">
@@ -278,6 +298,8 @@ export const FactorNode = memo((props: NodeProps) => {
       )}
     </>
   ) : null
+
+  const layer2Content = isPostAnalysis ? postAnalysisLayer2 : preAnalysisLayer2
 
   return (
     <div
@@ -299,21 +321,12 @@ export const FactorNode = memo((props: NodeProps) => {
         data={{ ...cleanedData, controllability }}
         nodeType="factor"
         icon={metadata.icon}
-        maxWidth={nodeCategory === 'external' || needsInput ? 200 : 220}
-        headerSlot={(categoryIcon || (displayMetadata.isResultsMode && displayMetadata.voiRank !== null)) ? (
-          <span className="inline-flex items-center gap-0.5">
-            {categoryIcon && (
-              <span title={categoryIcon.tooltip} aria-label={categoryIcon.tooltip}>
-                <categoryIcon.Icon className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />
-              </span>
-            )}
-            {displayMetadata.isResultsMode && displayMetadata.voiRank !== null && (
-              <Search
-                size={14}
-                className="text-info shrink-0"
-                title={`Worth investigating (#${displayMetadata.voiRank})`}
-              />
-            )}
+        maxWidth={200}
+        headerSlot={scienceIcons.length > 0 ? (
+          <span className="inline-flex items-center gap-1">
+            {scienceIcons.map(si => (
+              <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
+            ))}
           </span>
         ) : undefined}
       >
@@ -333,41 +346,33 @@ export const FactorNode = memo((props: NodeProps) => {
 
         {/* ===== LAYER 1: Standard body ===== */}
 
-        {needsInput && (
-          <>
-            <p className={`${typography.edgeLabel} text-text-light mt-1 m-0`}>Missing value. Weakens analysis.</p>
-            <div className="mt-1.5">
-              <NodeChip label="Help me estimate this" message={`Help me estimate a reasonable value for ${cleanedLabel}`} />
-            </div>
-          </>
-        )}
-
-        {/* External factor: "Outside your control." (no "Variable" prefix) */}
-        {!needsInput && nodeCategory === 'external' && !isPostAnalysis && (
-          <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Outside your control.</p>
-        )}
-
-        {/* Value display + provenance icon */}
-        {!needsInput && valueDisplay !== null && (
-          <div className={`${typography.nodeLabel} mt-1 flex items-center gap-1`}>
-            <span className="font-semibold text-text-body">{valueDisplay}</span>
-            {observedState?.source === 'brief_extraction' ? (
-              <BriefIcon />
-            ) : (isInferred || observedState?.source === 'cee_inference') ? (
-              <OlumiSparkle />
-            ) : null}
+        {/* Value display (contextual) — null for needs-input and empty externals */}
+        {valueDisplay !== null && (
+          <div className={`${typography.nodeLabel} mt-1 text-text-body`}>
+            {valueDisplay}
           </div>
         )}
 
-        {/* Prior range with units (post-analysis external factors only) */}
-        {!needsInput && valueDisplay === null && nodeCategory === 'external' && isPostAnalysis && priorRangeDisplay && (
-          <div className={`${typography.nodeLabel} mt-1 text-text-light`}>{priorRangeDisplay}</div>
+        {/* External factor: prior range (if available) */}
+        {nodeCategory === 'external' && priorRangeDisplay && (
+          <div className={`${typography.edgeLabel} mt-0.5 text-text-light`}>{priorRangeDisplay}</div>
         )}
 
-        {/* Actionable sentence (Layer 1) */}
+        {/* Needs input: chip only (no body text per spec) */}
+        {needsInput && !isPostAnalysis && (
+          <div className="mt-1.5">
+            <NodeChip label="Help me estimate this" message={`Help me estimate a reasonable value for ${cleanedLabel}`} />
+          </div>
+        )}
+
+        {/* Pre-analysis: edge pills (entity shape + strength %) */}
+        {!isPostAnalysis && !needsInput && (
+          <EdgePills nodeId={props.id} />
+        )}
+
+        {/* Post-analysis: actionable sentence */}
         {isPostAnalysis && influencePct != null && influencePct > 50 && confidencePct != null && confidencePct < 50 && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
-            High influence, low confidence.{' '}
             <button
               type="button"
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
@@ -382,7 +387,7 @@ export const FactorNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* External factor guidance (Layer 1) */}
+        {/* Post-analysis external: scenario link */}
         {isPostAnalysis && nodeCategory === 'external' && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
             <button
@@ -399,15 +404,11 @@ export const FactorNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* MetricPills (Layer 1, post-analysis) */}
+        {/* Post-analysis: MetricPills */}
         {isPostAnalysis && (
           <MetricPills
             influencePct={influencePct}
             confidencePct={confidencePct}
-            biasType={displayMetadata.sensitivityRank === 1 && isInferred ? 'overconfidence' : undefined}
-            biasTip={displayMetadata.sensitivityRank === 1 && isInferred ? 'Key assumption unvalidated. Your result depends on this.' : undefined}
-            biasLinkLabel="Gather evidence"
-            biasLinkMessage={`How can I gather better evidence about ${cleanedLabel}?`}
           />
         )}
 
@@ -445,8 +446,8 @@ export const FactorNode = memo((props: NodeProps) => {
         />
       </BaseNode>
 
-      {/* ===== LAYER 2: Popover (Standard, post-analysis) ===== */}
-      {!isDetailed && isPostAnalysis && (
+      {/* ===== LAYER 2: Popover (Standard view) ===== */}
+      {!isDetailed && (
         <NodePopover
           visible={showPopover}
           width={240}
