@@ -54,6 +54,92 @@ vi.mock('../../adapters/plot', () => ({
   },
 }))
 
+describe('CommandPalette DOM - Accessibility', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    baseState.nodes = []
+    baseState.edges = []
+  })
+
+  afterEach(() => {
+    cleanup()
+  })
+
+  it('renders with dialog role and aria-label', () => {
+    render(<CommandPalette isOpen onClose={vi.fn()} />)
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toHaveAttribute('aria-modal', 'true')
+    expect(dialog).toHaveAttribute('aria-label', 'Command palette')
+  })
+
+  it('traps focus within the dialog (Tab wraps to first element)', () => {
+    render(<CommandPalette isOpen onClose={vi.fn()} />)
+    const input = screen.getByPlaceholderText('Search actions...')
+    // Input should be focused on open
+    expect(document.activeElement).toBe(input)
+
+    // Get all action buttons
+    const buttons = screen.getAllByRole('button')
+    const lastButton = buttons[buttons.length - 1]
+
+    // Focus the last button, then Tab should wrap to input
+    lastButton.focus()
+    expect(document.activeElement).toBe(lastButton)
+    fireEvent.keyDown(document, { key: 'Tab' })
+    // Focus trap should wrap back to input (first focusable)
+    expect(document.activeElement).toBe(input)
+  })
+
+  it('restores focus to trigger element on close', () => {
+    // Create a trigger button and focus it
+    const triggerButton = document.createElement('button')
+    triggerButton.textContent = 'Open Palette'
+    document.body.appendChild(triggerButton)
+    triggerButton.focus()
+    expect(document.activeElement).toBe(triggerButton)
+
+    const onClose = vi.fn()
+    const { rerender } = render(<CommandPalette isOpen onClose={onClose} />)
+
+    // Focus should move to the palette input
+    const input = screen.getByPlaceholderText('Search actions...')
+    expect(document.activeElement).toBe(input)
+
+    // Close the palette
+    rerender(<CommandPalette isOpen={false} onClose={onClose} />)
+
+    // Focus should return to the trigger button
+    expect(document.activeElement).toBe(triggerButton)
+
+    // Cleanup
+    document.body.removeChild(triggerButton)
+  })
+
+  it('sets aria-activedescendant on input based on arrow key selection', () => {
+    render(<CommandPalette isOpen onClose={vi.fn()} />)
+    const input = screen.getByPlaceholderText('Search actions...')
+
+    // Initial state: first item selected
+    expect(input.getAttribute('aria-activedescendant')).toBe('cmd-action-run-analysis')
+
+    // Arrow down to select second item
+    fireEvent.keyDown(document, { key: 'ArrowDown' })
+    expect(input.getAttribute('aria-activedescendant')).toBe('cmd-action-add-goal')
+  })
+
+  it('keeps dialog open when Run Analysis fails on empty graph (Enter key)', async () => {
+    const onClose = vi.fn()
+    render(<CommandPalette isOpen onClose={onClose} />)
+
+    // Press Enter on "Run Analysis" (first item, selected by default)
+    fireEvent.keyDown(document, { key: 'Enter' })
+
+    // Error should be visible — dialog stays open
+    await screen.findByText('Cannot run analysis: Graph is empty. Add at least one node.')
+    expect(onClose).not.toHaveBeenCalled()
+  })
+})
+
 describe('CommandPalette DOM - Rich Node Types', () => {
   beforeEach(() => {
     vi.clearAllMocks()

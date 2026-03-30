@@ -286,7 +286,7 @@ export const USER_EDGE_DEFAULTS: EdgeData = {
   pathType: 'bezier',
   kind: 'decision-probability',
   functionType: 'linear',
-  beliefExists: 0.7,
+  beliefExists: 0.8,      // Aligned with PLoT DEFAULT_EXISTS_PROBABILITY (0.8)
   beliefStrength: 0.5,
   strengthStd: 0.15,      // Moderate uncertainty
   schemaVersion: 4,
