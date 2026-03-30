@@ -45,7 +45,7 @@ export function TargetProbabilityBars({
         return (
           <Tooltip key={c.node_id} content="Probability of meeting this target">
             <div className="flex items-center gap-2" style={{ fontSize: 11 }}>
-              <span className={`${typography.panelMeta} text-text-body flex-1 min-w-0 truncate`}>
+              <span className={`${typography.panelMeta} text-text-body flex-1 min-w-0 truncate`} title={c.label}>
                 {c.label}
               </span>
               <div

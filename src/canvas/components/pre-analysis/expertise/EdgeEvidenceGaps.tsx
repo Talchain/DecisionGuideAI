@@ -52,6 +52,7 @@ export function EdgeEvidenceGaps({
               onMouseEnter={() => onHoverEnter?.('edge', rel.edgeId)}
               onMouseLeave={() => onHoverLeave?.()}
               className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate flex-1 min-w-0`}
+              title={`${rel.sourceLabel} → ${rel.targetLabel}`}
             >
               {rel.sourceLabel} → {rel.targetLabel}
             </button>

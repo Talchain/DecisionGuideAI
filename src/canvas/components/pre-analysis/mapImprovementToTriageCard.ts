@@ -37,7 +37,7 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
   if (item.focus?.type === 'edge') {
     if (item.subgroup === 'contested') return 'Needs your judgement: estimates disagree'
     if (item.sourceBadge === 'ai') return 'Confirm whether this relationship is real'
-    return 'Set whether this link is weak, moderate, or strong'
+    return 'Set whether this relationship is weak, moderate, or strong'
   }
 
   // Factor with no data (only when focus is a node — structural fix items like

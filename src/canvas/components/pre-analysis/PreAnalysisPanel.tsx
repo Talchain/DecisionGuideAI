@@ -802,20 +802,12 @@ export function PreAnalysisPanel({
             isLoading={data.isLoading}
             hasGoalNode={data.nodesByKind.goal.length > 0}
           >
-            {/* LAYER 2: Check rows — binary pass/fail with action links */}
-            {/* LAYER 2: Check rows — only show failures (passing checks hidden) */}
-            {!data.isLoading && (data.successThreshold == null || data.qualityChecks.some(c => c.id === 'no_baseline') || data.optionPreviews.length < 2) && (
+            {/* LAYER 2: Check rows — only show failures (passing checks hidden).
+                Goal target check removed — SuccessTarget inline input handles it. */}
+            {!data.isLoading && (data.qualityChecks.some(c => c.id === 'no_baseline') || data.optionPreviews.length < 2) && (
               <>
                 <div className="h-px bg-panel-border mx-3" />
                 <div className="space-y-1 px-3" data-testid="triage-check-rows">
-                  {data.successThreshold == null && (
-                    <TriageCheckRow
-                      label="Goal target not set"
-                      pass={false}
-                      actionLabel="Set target"
-                      onAction={() => handleFocusNode(data.goalNode?.id ?? '')}
-                    />
-                  )}
                   {data.qualityChecks.some(c => c.id === 'no_baseline') && (
                     <TriageCheckRow
                       label="No baseline set"
@@ -886,10 +878,12 @@ export function PreAnalysisPanel({
                       ordinal={i + 4}
                       title={card.title}
                       detail={card.detail}
+                      subtitle={card.subtitle}
                       category={card.category}
                       influence={card.influence}
                       variant="compact"
                       action={card.action}
+                      sourcePill={card.sourcePill}
                       onConfirm={handleConfirm}
                       onEdit={handleSetValueForGap}
                       onHoverEnter={handleHoverElement}
@@ -900,27 +894,39 @@ export function PreAnalysisPanel({
               </>
             )}
 
-            {/* LAYER 6: Science nudges (max 2) */}
+            {/* LAYER 6: Science nudges (max 2) — bias nudges use severity + type from CEE */}
             {scienceNudges.length > 0 && (
               <>
                 <div className="h-px bg-panel-border mx-3" />
                 <div className="space-y-1.5 px-3" data-testid="triage-nudges">
-                  {scienceNudges.map(nudge => (
-                    <div
-                      key={nudge.id}
-                      className="flex items-start gap-2 px-3 py-2 border border-panel-border rounded-lg hover:bg-panel-hover"
-                    >
-                      <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
-                      <span className={`${typography.panelBody} text-text-body flex-1`}>{nudge.message}</span>
-                      <button
-                        type="button"
-                        onClick={() => onSendMessage?.(`Tell me more about: ${nudge.message}`)}
-                        className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer shrink-0`}
+                  {scienceNudges.map(nudge => {
+                    // Look up original bias finding for severity and type
+                    const isBias = nudge.id.startsWith('bias_')
+                    const biasFinding = isBias
+                      ? ceeAnalysisReady?.bias_findings?.find(
+                          (f: { id: string }) => nudge.id === `bias_${f.id}`,
+                        )
+                      : undefined
+                    const severity = (biasFinding as { severity?: string } | undefined)?.severity
+                    const iconColour = severity === 'high' ? 'text-danger' : 'text-warning'
+
+                    return (
+                      <div
+                        key={nudge.id}
+                        className="flex items-start gap-2 px-3 py-2 border border-panel-border rounded-lg hover:bg-panel-hover"
                       >
-                        Explore
-                      </button>
-                    </div>
-                  ))}
+                        <AlertTriangle className={`w-3.5 h-3.5 ${iconColour} flex-shrink-0 mt-0.5`} aria-hidden="true" />
+                        <span className={`${typography.panelBody} text-text-body flex-1`}>{nudge.message}</span>
+                        <button
+                          type="button"
+                          onClick={() => onSendMessage?.(`Tell me more about: ${nudge.message}`)}
+                          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer shrink-0`}
+                        >
+                          Explore
+                        </button>
+                      </div>
+                    )
+                  })}
                 </div>
               </>
             )}
@@ -969,9 +975,9 @@ export function PreAnalysisPanel({
           </div>
         )}
 
-        {/* 2. Success Target / Hero inputs section — suppressed when target is
-               missing (check row "Set target" handles that state) */}
-        {data.successThreshold != null && <SuccessTarget
+        {/* 2. Success Target / Hero inputs section — always rendered.
+               When threshold is null, shows inline input. When set, shows value + edit. */}
+        <SuccessTarget
           goalNode={data.goalNode}
           goalNodes={data.nodesByKind.goal}
           successThreshold={data.successThreshold}
@@ -991,7 +997,7 @@ export function PreAnalysisPanel({
           constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
           goalConstraints={ceeAnalysisReady?.goal_constraints}
           onSendMessage={onSendMessage}
-        />}
+        />
 
         {/* Draft error card */}
         {lastDraftError && (

@@ -60,6 +60,7 @@ export function MissingData({
                 onMouseEnter={() => nodeId && onHoverEnter?.('node', nodeId)}
                 onMouseLeave={() => onHoverLeave?.()}
                 className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate flex-1 min-w-0`}
+                title={item.label}
               >
                 {item.label}
               </button>

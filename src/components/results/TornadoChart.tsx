@@ -582,7 +582,7 @@ export function TornadoChart({
             ? `← Fewer ${outcomeUnitSymbol}`
             : '← Weaker'}
         </span>
-        <span className="flex-1 text-center truncate" data-testid="tornado-expected-display">
+        <span className="flex-1 text-center truncate" data-testid="tornado-expected-display" title={formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}>
           {formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
         </span>
         <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-right">

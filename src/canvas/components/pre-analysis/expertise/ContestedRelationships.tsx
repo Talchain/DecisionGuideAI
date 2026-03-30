@@ -94,6 +94,7 @@ export function ContestedRelationships({
                 onMouseEnter={() => onHoverEnter?.('edge', edge.id)}
                 onMouseLeave={() => onHoverLeave?.()}
                 className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate`}
+                title={`${sourceLabel} → ${targetLabel}`}
               >
                 {sourceLabel} → {targetLabel}
               </button>

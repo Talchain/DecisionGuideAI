@@ -127,7 +127,7 @@ function OptionRangeBar({
     <div className="space-y-1">
       {/* Option label + probability */}
       <div className="flex items-center justify-between">
-        <span className={`${typography.panelHeader} text-text-body truncate`}>
+        <span className={`${typography.panelHeader} text-text-body truncate`} title={stripEncodingNotation(option.label)}>
           {stripEncodingNotation(option.label)}
         </span>
         {probabilityText && (

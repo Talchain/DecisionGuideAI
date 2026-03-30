@@ -231,7 +231,7 @@ export function SuccessTarget({
           ) : (
             <ChevronRight className="w-3.5 h-3.5 text-text-light shrink-0" />
           )}
-          <span className={`${typography.panelHeader} text-text-header truncate`}>{goalLabel}</span>
+          <span className={`${typography.panelHeader} text-text-header truncate`} title={goalLabel}>{goalLabel}</span>
           <span className="text-text-light shrink-0">·</span>
           <span className={`${typography.panelHeader} text-text-header shrink-0`}>{formatValue(successThreshold)}</span>
           <Check className="w-3.5 h-3.5 text-success shrink-0" />

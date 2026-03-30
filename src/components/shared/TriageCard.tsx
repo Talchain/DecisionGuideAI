@@ -72,7 +72,7 @@ const BADGE_COLORS: Record<TriageCardCategory, string> = {
 
 // ── Compact variant (quick-fix rows, ranks 4-6) ─────────────────────────────
 
-function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit }: TriageCardProps) {
+function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, sourcePill, subtitle }: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
 
   return (
@@ -88,7 +88,15 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
       <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
         {ordinal}
       </span>
-      <span className={`flex-1 min-w-0 truncate ${typography.panelMeta} text-info font-medium`}>{title}</span>
+      <span className={`min-w-0 truncate ${typography.panelMeta} text-info font-medium`} title={title}>{title}</span>
+      {sourcePill && (
+        <span className={`shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} text-[9px] text-text-body bg-transparent leading-none`}>
+          {sourcePill.label}
+        </span>
+      )}
+      {subtitle && (
+        <span className={`shrink-0 ${typography.panelMeta} text-text-light truncate max-w-[120px]`} title={subtitle}>{subtitle}</span>
+      )}
       {evoiImpact != null && (
         <span className={`shrink-0 ${typography.panelMeta} text-text-light`}>
           {evoiImpact.toFixed(1)}pp
@@ -178,7 +186,7 @@ export function TriageCard(props: TriageCardProps) {
         </span>
         <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <p className={`${typography.panelBody} font-semibold text-text-header truncate`}>{title}</p>
+            <p className={`${typography.panelBody} font-semibold text-text-header truncate`} title={title}>{title}</p>
             {sourcePill && (
               <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
                 {sourcePill.label}

@@ -43,6 +43,7 @@ export function FromBrief({ items, onFocusNode, onHoverEnter, onHoverLeave }: Fr
             onMouseEnter={() => item.focus?.id && onHoverEnter?.('node', item.focus.id)}
             onMouseLeave={() => onHoverLeave?.()}
             className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate flex-1 min-w-0`}
+            title={item.label}
           >
             {item.label}
           </button>

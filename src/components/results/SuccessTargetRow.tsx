@@ -71,7 +71,7 @@ function ConstraintRow({ item }: { item: ConstraintItem }) {
     >
       <div className="flex items-center gap-2">
         <ConstraintIcon prob={item.prob_satisfied} />
-        <span className={`${typography.panelBody} text-text-body flex-1 truncate`}>
+        <span className={`${typography.panelBody} text-text-body flex-1 truncate`} title={`${item.label} ${renderOperator(item.operator)} ${item.threshold}`}>
           {item.label} {renderOperator(item.operator)} {item.threshold}
         </span>
         <span className={`${typography.panelBody} ${colour} tabular-nums flex-shrink-0`}>
