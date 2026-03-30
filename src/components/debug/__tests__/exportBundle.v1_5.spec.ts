@@ -40,6 +40,7 @@ function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
       e_values_present: false,
       evpi_present: false,
       confidence_differentiated: false,
+      confidence_unique_values: [],
       confidence_source_bootstrap: false,
       intercept_populated: false,
       epsilon_std_present: false,

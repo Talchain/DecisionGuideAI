@@ -277,6 +277,8 @@ export interface DiagnosticChecks {
   evpi_present: boolean
   /** factor_sensitivity confidence values have > 1 unique value */
   confidence_differentiated: boolean
+  /** Unique confidence values seen (for debugging uniform-confidence issues) */
+  confidence_unique_values: number[]
   /** Any factor has confidence_source === "bootstrap_sampling" */
   confidence_source_bootstrap: boolean
   /** Any inference node has intercept > 0 */
@@ -1544,6 +1546,7 @@ function extractDiagnosticChecks(
     e_values_present: islEdgeEValues.length > 0,
     evpi_present: islFactorEvpi.length > 0,
     confidence_differentiated: uniqueConfidence.size > 1,
+    confidence_unique_values: [...uniqueConfidence].sort(),
     confidence_source_bootstrap: hasBootstrapSource,
     intercept_populated: hasIntercept,
     epsilon_std_present: hasEpsilonStd,
