@@ -772,7 +772,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       )}
 
       {/* T1: Edge hover popover — expert view only, 300ms delay */}
-      {showHoverPopover && !selected && viewMode !== 'standard' && (() => {
+      {/* Edge hover popover: all states, both views (spec Section 6.4) */}
+      {showHoverPopover && !selected && (() => {
         const sourceKind = sourceNode?.type || (sourceNode?.data as Record<string,unknown>)?.kind
         const targetKind = targetNode?.type || (targetNode?.data as Record<string,unknown>)?.kind
         const isOrganisationalEdge = sourceKind === 'decision' && targetKind === 'option'

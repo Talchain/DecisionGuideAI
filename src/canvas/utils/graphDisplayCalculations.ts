@@ -124,8 +124,11 @@ export function existenceCertaintyToLineStyle(
  * Calls Math.abs internally — pass the signed mean directly.
  */
 export function weightMagnitudeToStrokeWidth(signedMean: number): number {
-  const magnitude = Math.min(Math.abs(signedMean), 1)
-  return 1 + magnitude * 4
+  const magnitude = Math.abs(signedMean)
+  // Spec Section 6.1: >= 0.5 = 3px, >= 0.25 = 2px, < 0.25 = 1px
+  if (magnitude >= 0.5) return 3
+  if (magnitude >= 0.25) return 2
+  return 1
 }
 
 /**
