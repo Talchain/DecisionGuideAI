@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { useCanvasStore } from '../store'
 import { runLayoutWithProgress } from '../layout/runLayoutWithProgress'
 import { useReactFlow } from '@xyflow/react'
@@ -32,6 +32,8 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
   const inputRef = useRef<HTMLInputElement>(null)
+  const triggerRef = useRef<Element | null>(null)
+  const dialogRef = useRef<HTMLDivElement>(null)
   // React #185 FIX: Use individual selectors for actions to avoid entire-store subscription
   const addNode = useCanvasStore(s => s.addNode)
   const selectAll = useCanvasStore(s => s.selectAll)
@@ -126,6 +128,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
       setIsExecuting(true)
       try {
         await runLayoutWithProgress()
+        onClose()
       } finally {
         setIsExecuting(false)
       }
@@ -139,20 +142,44 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
     ? actions
     : actions.filter(a => a.label.toLowerCase().includes(query.toLowerCase()))
 
+  // Focus restoration: capture trigger element on open, restore on close
   useEffect(() => {
     if (isOpen) {
+      triggerRef.current = document.activeElement
       inputRef.current?.focus()
       setQuery('')
       setSelectedIndex(0)
       setValidationErrors([])
       setValidationViolations([])
+    } else if (triggerRef.current instanceof HTMLElement) {
+      triggerRef.current.focus()
+      triggerRef.current = null
     }
   }, [isOpen])
+
+  // Focus trap: keep Tab cycling within the dialog
+  const handleFocusTrap = useCallback((e: KeyboardEvent) => {
+    if (e.key !== 'Tab' || !dialogRef.current) return
+    const focusable = dialogRef.current.querySelectorAll<HTMLElement>(
+      'input, button:not([disabled]), [tabindex]:not([tabindex="-1"])',
+    )
+    if (focusable.length === 0) return
+    const first = focusable[0]
+    const last = focusable[focusable.length - 1]
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault()
+      last.focus()
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault()
+      first.focus()
+    }
+  }, [])
 
   useEffect(() => {
     if (!isOpen) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      handleFocusTrap(e)
       if (e.key === 'Escape') {
         e.preventDefault()
         onClose()
@@ -166,21 +193,30 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
         e.preventDefault()
         const action = filteredActions[selectedIndex]
         if (action) {
-          action.execute()
-          onClose()
+          const result = action.execute()
+          // Sync actions (add node, select all, etc.) — close immediately
+          if (!(result instanceof Promise)) {
+            onClose()
+          }
+          // Async actions (Run Analysis, Tidy Layout) manage their own close
+          // on success and keep the dialog open on error for feedback.
         }
       }
     }
 
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
-  }, [isOpen, filteredActions, selectedIndex, onClose])
+  }, [isOpen, filteredActions, selectedIndex, onClose, handleFocusTrap])
 
   if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-[3000] flex items-start justify-center pt-32 bg-black/50" onClick={onClose}>
-      <div 
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Command palette"
         className="bg-white rounded-lg shadow-panel w-full max-w-2xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -195,11 +231,12 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
               setSelectedIndex(0)
             }}
             placeholder="Search actions..."
+            aria-activedescendant={filteredActions[selectedIndex] ? `cmd-action-${filteredActions[selectedIndex].id}` : undefined}
             className="w-full text-lg outline-none"
           />
         </div>
 
-        {/* Validation Error Banner */}
+        {/* Validation Error Banner (ValidationBanner has built-in aria-live) */}
         {(validationErrors.length > 0 || validationViolations.length > 0) && (
           <div className="mx-4 mt-3">
             <ValidationBanner
@@ -215,7 +252,7 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
         )}
 
         {/* Actions List */}
-        <div className="max-h-96 overflow-y-auto">
+        <div className="max-h-96 overflow-y-auto" role="group" aria-label="Available actions">
           {isExecuting ? (
             <div className="px-4 py-8 text-center text-gray-500">
               <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-carrot-500"></div>
@@ -229,9 +266,14 @@ export function CommandPalette({ isOpen, onClose, onOpenInspector }: CommandPale
             filteredActions.map((action, index) => (
               <button
                 key={action.id}
+                id={`cmd-action-${action.id}`}
+                aria-current={index === selectedIndex ? 'true' : undefined}
                 onClick={async () => {
-                  await action.execute()
-                  if (!isExecuting) onClose()
+                  const result = action.execute()
+                  if (!(result instanceof Promise)) {
+                    onClose()
+                  }
+                  // Async actions (Run Analysis, Tidy Layout) close themselves on success
                 }}
                 disabled={isExecuting}
                 className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
