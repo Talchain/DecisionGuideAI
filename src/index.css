@@ -610,10 +610,10 @@
   }
 }
 
-/* SafeRichText gap spacer — horizontal rule degradation (injected via dangerouslySetInnerHTML) */
+/* SafeRichText gap spacer — paragraph breaks and horizontal rule degradation (injected via dangerouslySetInnerHTML) */
 .md-gap {
   display: block;
-  margin: 8px 0;
+  margin: 1em 0;
 }
 
 /* Graph Editing Experience Task 4a: Edge drag feedback */

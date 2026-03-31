@@ -1537,8 +1537,8 @@
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  font-size: 12px; /* panelBody token */
-  color: var(--text-muted, #9CA3AF);
+  font-size: 14px; /* bodySmall token */
+  color: var(--text-light, #908D8D);
 }
 
 .toolLoadingDot {

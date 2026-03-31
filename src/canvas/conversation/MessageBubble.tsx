@@ -30,19 +30,32 @@ import styles from './Conversation.module.css'
 const CLAMP_CHAR_THRESHOLD = 300
 /** Minimum characters that must be hidden for truncation to be worthwhile. */
 const MIN_HIDDEN_CHARS = 150
+/** Minimum sentences that must be hidden for truncation to be worthwhile. */
+const MIN_HIDDEN_SENTENCES = 3
+
+/** Count sentences in text (heuristic: split on .!? followed by space or end). */
+function countSentences(text: string): number {
+  return (text.match(/[.!?](?:\s|$)/g) || []).length
+}
 
 /**
  * Find the best truncation point in raw text at natural boundaries.
  * Returns the truncated text or null if truncation isn't worthwhile.
+ * Only truncates when at least 150 chars OR 3 sentences would be hidden.
  */
 function findNaturalTruncation(text: string): string | null {
   if (text.length <= CLAMP_CHAR_THRESHOLD) return null
 
+  /** Check whether enough content would be hidden to justify truncation. */
+  const isWorthHiding = (cutPoint: number) => {
+    const hiddenText = text.slice(cutPoint)
+    return hiddenText.length >= MIN_HIDDEN_CHARS || countSentences(hiddenText) >= MIN_HIDDEN_SENTENCES
+  }
+
   // 1. Try last paragraph break (\n\n) before limit
   const paraIdx = text.lastIndexOf('\n\n', CLAMP_CHAR_THRESHOLD)
-  if (paraIdx > 0) {
-    const hidden = text.length - paraIdx
-    if (hidden >= MIN_HIDDEN_CHARS) return text.slice(0, paraIdx)
+  if (paraIdx > 0 && isWorthHiding(paraIdx)) {
+    return text.slice(0, paraIdx)
   }
 
   // 2. Try last sentence-ending punctuation followed by space
@@ -53,9 +66,8 @@ function findNaturalTruncation(text: string): string | null {
     if (m.index + 1 > CLAMP_CHAR_THRESHOLD) break
     lastSentenceEnd = m.index + 1 // include the punctuation
   }
-  if (lastSentenceEnd > 0) {
-    const hidden = text.length - lastSentenceEnd
-    if (hidden >= MIN_HIDDEN_CHARS) return text.slice(0, lastSentenceEnd)
+  if (lastSentenceEnd > 0 && isWorthHiding(lastSentenceEnd)) {
+    return text.slice(0, lastSentenceEnd)
   }
 
   // 3. Not enough hidden content — show full text
@@ -227,7 +239,8 @@ function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSen
           : insight.severity === 'warning' ? styles.insightItemWarning
           : styles.insightItemInfo
         const entityLabel = (insight.target_id && labelMap.get(insight.target_id)) || 'this'
-        const action = getInsightAction(insight.type, entityLabel)
+        // DS v5: no action chip for info-severity insights (opportunity/informational)
+        const action = insight.severity === 'info' ? null : getInsightAction(insight.type, entityLabel)
         return (
           <div key={i} className={`${styles.insightItem} ${severityClass}`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
