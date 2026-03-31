@@ -26,7 +26,7 @@ import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
-import { COACHING, resolveCoaching } from '../coachingConfig'
+import { resolveCoaching } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { ResultsLink } from '../shared/ResultsLink'
 
@@ -163,11 +163,8 @@ export const GoalPanel = memo(function GoalPanel({
       ) : (
         <div className="mt-1">
           <GoalThresholdEditor unit={thresholdUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
-          <p className={`${typography.panelBody} text-info mt-1.5`}>
-            Adding a specific target unlocks probability calculations.{' '}
-            <button type="button" className={`${typography.panelBody} text-primary underline-offset-2 hover:underline cursor-pointer bg-transparent border-none p-0`}>
-              Add target
-            </button>
+          <p className={`${typography.panelMeta} text-info mt-1.5`}>
+            Adding a specific target unlocks probability calculations.
           </p>
         </div>
       )}

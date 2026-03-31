@@ -5,6 +5,7 @@
 
 import { memo, useState, useMemo, useCallback } from 'react'
 import { useCanvasStore } from '../../../store'
+import { useRobustness } from '../useAnalysisResults'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
@@ -112,9 +113,9 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   if (!nodeId || !node) return null
 
   // Contextual guidance for external factor — three tiers
-  const robustness = useCanvasStore(s => (s.results?.report as Record<string, unknown> | undefined)?.robustness) as
-    { flip_thresholds?: Array<{ node_id: string; alternative_winner_label?: string }> } | undefined
-  const flipEntry = robustness?.flip_thresholds?.find(ft => ft.node_id === nodeId)
+  const robustness = useRobustness()
+  const flipEntry = (robustness?.flip_thresholds as Array<{ node_id: string; alternative_winner_label?: string }> | undefined)
+    ?.find(ft => ft.node_id === nodeId)
   const externalGuidance = flipEntry?.alternative_winner_label
     ? `If ${String(node.data?.label ?? 'this factor')} is high, the recommendation changes to ${flipEntry.alternative_winner_label}.`
     : isResultsMode && displayMetadata.sensitivityRank != null

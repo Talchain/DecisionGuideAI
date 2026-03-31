@@ -243,9 +243,8 @@ export const OptionPanel = memo(function OptionPanel({
               const myPct = Math.round(displayMetadata.winRate * 100)
               const leader = allOptions.reduce((best, o) => (o.winPct ?? 0) > (best.winPct ?? 0) ? o : best, allOptions[0])
               const leaderPct = leader.winPct ?? 0
-              const isCurrent = allOptions.find(o => o.isCurrent)
               const gap = leaderPct - myPct
-              if (isCurrent && leaderPct === myPct) {
+              if (leader.isCurrent) {
                 return <p className={`${typography.panelBody} text-success mt-1`}>Currently the leading option.</p>
               }
               if (gap <= 5) {
