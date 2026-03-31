@@ -831,7 +831,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         const causalPopoverStyle: React.CSSProperties = {
           ...popoverStyle,
           pointerEvents: 'all',
-          maxWidth: '220px',
         }
         return (
           <EdgeLabelRenderer>
