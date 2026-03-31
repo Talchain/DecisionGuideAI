@@ -211,7 +211,7 @@
 }
 
 .reviewCardInfo {
-  border-left: 3px solid var(--info, #63ADCF); /* DS v5 §16.2: facilitator/coaching — left 3px info */
+  border-left: 3px solid var(--info, #52A3C8); /* DS v5 §16.2: facilitator/coaching — left 3px info */
   background: var(--bg-panel, #FEFEFE); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
   padding: 12px;
   border-radius: 8px;
@@ -379,7 +379,7 @@
   padding: 2px 8px;
   border-radius: 999px;
   background: transparent;
-  border: 1px solid rgba(99, 173, 207, 0.3);
+  border: 1px solid rgba(82, 163, 200, 0.3);
   color: var(--text-light, #908D8D);
   font-weight: 500;
 }
@@ -885,7 +885,7 @@
 }
 
 .blockBadgeDotDanger { composes: blockBadgeDot; background: var(--danger, #EA7B4B); }
-.blockBadgeDotInfo { composes: blockBadgeDot; background: var(--info, #63ADCF); }
+.blockBadgeDotInfo { composes: blockBadgeDot; background: var(--info, #52A3C8); }
 .blockBadgeDotGoal { composes: blockBadgeDot; background: var(--goal, #F5C433); }
 .blockBadgeDotSuccess { composes: blockBadgeDot; background: var(--success, #67C89E); }
 
@@ -1565,7 +1565,7 @@
  * ---------------------------------------------------------------------------*/
 
 .comparisonBlock {
-  border-top: 3px solid var(--info, #63ADCF);
+  border-top: 3px solid var(--info, #52A3C8);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 8px;
   padding: 12px;
@@ -1624,7 +1624,7 @@
 }
 
 .exerciseBlock {
-  border-top: 3px solid var(--info, #63ADCF);
+  border-top: 3px solid var(--info, #52A3C8);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 8px;
   padding: 12px;
@@ -1639,7 +1639,7 @@
   align-items: center;
   padding: 1px 8px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--info, #63ADCF) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   color: var(--text-body, #3F3F3E);
   background: transparent;
 }
@@ -1673,7 +1673,7 @@
 }
 
 .insightItemInfo {
-  border-color: var(--info, #63ADCF);
+  border-color: var(--info, #52A3C8);
   border-left-width: 3px;
 }
 
@@ -1682,7 +1682,7 @@
   align-items: center;
   padding: 1px 6px;
   border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--info, #63ADCF) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   color: var(--text-body, #3F3F3E);
   background: transparent;
   font-size: 11px;
