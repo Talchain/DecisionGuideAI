@@ -230,12 +230,7 @@ export const FactorNode = memo((props: NodeProps) => {
           <NodeChip label="Is this still accurate?" message={`Is my value for ${cleanedLabel} still accurate?`} />
         </>
       )}
-      {nodeCategory === 'external' && (
-        <>
-          <Sep />
-          <NodeChip label="What if this changes?" message={`What if ${cleanedLabel} changes? How should I plan for that?`} />
-        </>
-      )}
+      {/* "What if this changes?" chip is in the node body for external factors — not duplicated here */}
       {/* Detailed pre-analysis: uncertainty drivers */}
       {isDetailed && observedState?.uncertainty_drivers && observedState.uncertainty_drivers.length > 0 && (
         <>

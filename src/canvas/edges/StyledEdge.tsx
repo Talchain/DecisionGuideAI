@@ -802,7 +802,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           position: 'absolute',
           transform: `translate(-50%, calc(-100% - 8px)) translate(${labelX}px,${labelY}px)`,
           pointerEvents: 'none',
-          zIndex: 100,
+          zIndex: 9999,
           minWidth: '140px',
           maxWidth: '200px',
         }

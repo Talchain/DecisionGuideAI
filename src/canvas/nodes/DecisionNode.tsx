@@ -300,18 +300,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
 
-            {/* Pre-analysis Detailed: full model readiness breakdown */}
-            {isDetailed && (
-              <div className={`${typography.edgeLabel} text-text-light mt-1.5 space-y-0.5`}>
-                <div>Factors: {readiness.explicitCount} explicit, {readiness.inferredCount} estimated, {readiness.missingCount} missing, {readiness.externalCount} external</div>
-                {readiness.biasTriggers.length > 0 && (
-                  <div className="text-warning">
-                    Biases: {readiness.biasTriggers.join('; ')}
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Coaching chips */}
             <div className="flex items-center gap-1 flex-wrap mt-1.5">
               <NodeChip label="Explore more options" message="Suggest a third option I haven't considered for this decision" />

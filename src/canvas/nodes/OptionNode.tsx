@@ -7,11 +7,19 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit } from '../utils/labelUtils'
+import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
+
+/** Truncate text at word boundary to avoid mid-word cuts. */
+function truncateAtWord(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  const truncated = text.substring(0, maxLength)
+  const lastSpace = truncated.lastIndexOf(' ')
+  return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '...'
+}
 
 /** Strip known suffixes from factor labels for contextual display. */
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
@@ -36,10 +44,14 @@ function formatChipValue(chip: { label: string; value: number; unit?: string; fa
     cap: chip.cap ?? null,
   })
   if (contextual) return contextual
-  // Fallback: prefer numeric formatting over qualitative tier labels ("Low"/"Medium"/"High")
+  // Fallback: prefer numeric formatting over qualitative tier labels and raw normalised values
   const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-  // If the fallback produced a tier label, show percentage instead
+  // Tier labels and raw normalised decimals → percentage
   if (/^(Very low|Low|Medium|High|Very high)$/i.test(fallback)) {
+    return `${Math.round(chip.value * 100)}%`
+  }
+  // Raw normalised number (no unit, value looks like "0.15" or "0.85") → percentage
+  if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^\d+\.\d+$/.test(fallback)) {
     return `${Math.round(chip.value * 100)}%`
   }
   return fallback
@@ -200,7 +212,7 @@ export const OptionNode = memo((props: NodeProps) => {
     return interventionChips
       .map(c => {
         const baseline = baselineOptionInterventions?.[c.factorId] ?? c.observedValue
-        const shortLabel = c.label.length > 20 ? c.label.slice(0, 20).trimEnd() : c.label
+        const shortLabel = truncateAtWord(c.label, 22)
 
         if (baseline === undefined) {
           // No baseline to compare — show as "up" (intervention exists)
@@ -212,22 +224,25 @@ export const OptionNode = memo((props: NodeProps) => {
 
         const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down'
 
-        // For quantitative factors with units, show numeric delta
-        const hasUnit = !!c.unit && !isSuppressedUnit(c.unit)
+        // For quantitative factors with units, show formatted numeric delta (e.g. "£55,000")
+        const effectiveUnit = c.unit && !isSuppressedUnit(c.unit) ? c.unit : null
         let numericDelta: string | undefined
-        if (hasUnit) {
+        if (effectiveUnit) {
           const scaleBase = inferInterventionScaleBase(c.cap, c.observedValue, c.observedRawValue)
           if (scaleBase != null) {
-            const denormedBaseline = denormaliseInterventionValue(baseline, c.cap, c.observedValue, c.observedRawValue)
             const denormedTarget = denormaliseInterventionValue(c.value, c.cap, c.observedValue, c.observedRawValue)
-            const rawDelta = denormedTarget - denormedBaseline
-            const sign = rawDelta >= 0 ? '+' : ''
-            const formatted = Math.abs(rawDelta) >= 100
-              ? Math.round(rawDelta).toString()
-              : rawDelta.toFixed(1)
-            numericDelta = `${sign}${formatted}`
+            const rounded = Math.round(denormedTarget)
+            // Format with unit symbol
+            if (isCurrencyUnit(effectiveUnit)) {
+              numericDelta = `${effectiveUnit}${rounded.toLocaleString('en-GB')}`
+            } else if (effectiveUnit === '%') {
+              numericDelta = `${rounded}%`
+            } else {
+              numericDelta = `${rounded.toLocaleString('en-GB')} ${effectiveUnit}`
+            }
           }
         }
+        // No unit → direction + label only (no raw normalised number)
 
         return { factorId: c.factorId, label: shortLabel, direction, numericDelta }
       })
@@ -442,7 +457,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 }
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                    <span className="text-text-light">{chip.label.length > 30 ? `${chip.label.slice(0, 30)}...` : chip.label}:</span>{' '}
+                    <span className="text-text-light">{truncateAtWord(chip.label, 30)}:</span>{' '}
                     <span className="font-medium">{deltaDisplay ?? targetFormatted}</span>
                   </div>
                 )
@@ -479,7 +494,7 @@ export const OptionNode = memo((props: NodeProps) => {
               const targetFormatted = formatChipValue(chip)
               return (
                 <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                  <span className="text-text-light">{chip.label.length > 30 ? `${chip.label.slice(0, 30)}...` : chip.label}:</span>{' '}
+                  <span className="text-text-light">{truncateAtWord(chip.label, 30)}:</span>{' '}
                   <span className="font-medium">{targetFormatted}</span>
                 </div>
               )
@@ -640,7 +655,7 @@ export const OptionNode = memo((props: NodeProps) => {
                     const targetFormatted = formatChipValue(chip)
                     return (
                       <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                        <span className="text-text-light">{chip.label.length > 30 ? `${chip.label.slice(0, 30)}...` : chip.label}:</span>{' '}
+                        <span className="text-text-light">{truncateAtWord(chip.label, 30)}:</span>{' '}
                         <span className="font-medium">{targetFormatted}</span>
                       </div>
                     )

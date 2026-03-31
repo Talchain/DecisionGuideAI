@@ -252,7 +252,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         cursor-default
         ${selected ? 'ring-2 ring-info ring-offset-2' : ''}
         ${isHighlighted ? 'ring-4 ring-goal/50' : ''}
-        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : viewMode === 'standard' && nodeType === 'factor' && ((data?.category as string) === 'external' || typeof displayMetadata.sensitivityRank !== 'number' || displayMetadata.sensitivityRank > 3) ? 'opacity-60' : ''}
+        ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',
@@ -343,37 +343,41 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </span>
       )}
 
-      {/* Node header — stripped in causal lens; simplified in evidence lens */}
+      {/* Node header — shape + title on same row (spec Section 3.2) */}
       {!isCausalLens && (
       <div
         style={{
           display: 'flex',
-          alignItems: 'center',
-          gap: '8px',
-          marginBottom: '8px',
+          alignItems: 'flex-start',
+          gap: '6px',
+          marginBottom: '4px',
         }}
       >
-        {/* Shape indicator only — type name as tooltip (spec Section 3.2) */}
+        {/* Shape indicator — type name as tooltip */}
         <Tooltip content={NODE_TYPE_DESCRIPTIONS[nodeType] ?? (NODE_REGISTRY[nodeType]?.label ?? nodeType)} delay={300}>
-          <span className="inline-flex"><NodeShapeIndicator nodeKind={nodeType} size={14} /></span>
+          <span className="inline-flex mt-0.5 shrink-0"><NodeShapeIndicator nodeKind={nodeType} size={14} /></span>
         </Tooltip>
+
+        {/* Title + optional badges inline */}
+        <div className="flex-1 min-w-0">
+          <div className={`${typography.nodeTitle} text-text-body break-words`}>
+            {label}
+          </div>
+        </div>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}
         {Boolean(data?.unknownKind) && typeof data?.originalKind === 'string' && (
           <UnknownKindWarning originalKind={data.originalKind} />
         )}
 
-        {/* Optional right-aligned header content (e.g. category label) */}
-        {headerSlot ? (
-          <span className="ml-auto">{headerSlot as ReactNode}</span>
-        ) : null}
+        {/* headerSlot reserved for future use — science icons moved to bottom */}
 
         {/* Expand/collapse chevron for nodes with description */}
         {description && (
           <button
             onClick={handleExpandToggle}
             onPointerDown={(e) => e.stopPropagation()}
-            className="nodrag nopan ml-auto p-0.5 hover:bg-black/5 rounded transition-colors"
+            className="nodrag nopan shrink-0 p-0.5 hover:bg-black/5 rounded transition-colors"
             aria-label={isExpanded ? 'Collapse description' : 'Expand description'}
             title={isExpanded ? 'Collapse' : 'Expand'}
           >
@@ -387,10 +391,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       </div>
       )}
 
-      {/* Node label */}
-      <div className={`${typography.nodeTitle} text-text-body break-words`}>
-        {label}
-      </div>
+      {/* Causal lens: show label only (header hidden) */}
+      {isCausalLens && (
+        <div className={`${typography.nodeTitle} text-text-body break-words`}>
+          {label}
+        </div>
+      )}
 
       {/* Expanded description (markdown) — hidden in causal/evidence lens */}
       {!isCausalLens && !isEvidenceLens && isExpanded && description && (
@@ -409,7 +415,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           {children as ReactNode}
         </div>
       ) : null}
-      
+
+      {/* Science icons — bottom-left, alongside action icons (bottom-right) */}
+      {headerSlot && !isCausalLens && !isEvidenceLens && (
+        <div className="absolute bottom-2 left-2.5 flex gap-0.5">
+          {headerSlot as ReactNode}
+        </div>
+      )}
+
       <Handle
         type="source"
         position={Position.Bottom}
