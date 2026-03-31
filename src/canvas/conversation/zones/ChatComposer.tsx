@@ -87,7 +87,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
 
     // Derive generateState locally — avoids the useEffect lag from onBriefStateChange
     const generateState: GenerateState = isThinking ? 'loading'
-      : composer.value.trim().length >= 50 ? 'active'
+      : composer.value.trim().length > 0 ? 'active'
       : 'disabled'
 
     // Expose replaceText and consumeBrief to parent via ref
@@ -164,8 +164,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     }, [briefSignals])
 
     const showBriefStrip = Boolean(!hasGraph && isFramingStage(stage) && briefSignals && briefSignals.elements.some(e => e.detected))
-    // Show Generate Model CTA when brief strip is visible, user has typed enough, OR request is in flight (loading)
-    const showGenerateCta = showBriefStrip || generateState === 'loading' || Boolean(!hasGraph && isFramingStage(stage) && composer.value.trim().length >= 50)
+    // Show Generate Model CTA when brief strip is visible, user has typed any text, OR request is in flight (loading)
+    const showGenerateCta = showBriefStrip || generateState === 'loading' || Boolean(!hasGraph && isFramingStage(stage) && composer.value.trim().length > 0)
     useEffect(() => {
       recordUiSurfaceState('conversation', {
         firstDraftControlsVisible: showGenerateCta,

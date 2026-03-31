@@ -410,8 +410,8 @@ export const ConversationPanel = memo(function ConversationPanel({
   const handleGenerateModel = useCallback(() => {
     if (isThinking || generateInFlightRef.current) return
     const brief = composerRef.current?.consumeBrief()
-    // consumeBrief returns null if empty; also guard <50 chars to match activation threshold
-    if (brief && brief.length >= 50) {
+    // consumeBrief returns null if empty; require at least some text (CEE handles quality gating)
+    if (brief && brief.length > 0) {
       generateInFlightRef.current = true
       pendingBriefRef.current = brief // save for restore if CEE returns no draft
       beginInteractionChain({
