@@ -497,6 +497,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       <BaseEdge
         id={id}
         path={edgePath}
+        interactionWidth={0}
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
@@ -804,7 +805,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           pointerEvents: 'none',
           zIndex: 9999,
           minWidth: '140px',
-          maxWidth: '200px',
+          maxWidth: '220px',
         }
         // Simplified popover for structural/intervention edges
         if (isOrganisationalEdge || isInterventionEdge) {
@@ -838,12 +839,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               data-testid="edge-hover-popover"
               role="tooltip"
               style={causalPopoverStyle}
-              className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2 space-y-1 nodrag nopan nowheel"
+              className="bg-panel border border-panel-border rounded-lg shadow-panel px-3 py-2.5 space-y-1.5 nodrag nopan nowheel"
               onMouseEnter={handlePopoverEnter}
               onMouseLeave={handlePopoverLeave}
             >
               {/* Direction */}
-              <div className={`${typography.edgeLabel} font-medium text-text-body`}>
+              <div className={`${typography.edgeLabel} font-bold text-text-body`}>
                 {dirLabel}
               </div>
               {/* Confidence */}
@@ -868,7 +869,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 </div>
               )}
               {/* Coaching chips */}
-              <div className="flex flex-col gap-1 mt-1 pt-1 border-t border-panel-border">
+              <div className="flex flex-col gap-1 mt-2 pt-1.5 border-t border-panel-border">
                 <NodeChip label="What evidence supports this?" message={`What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`} />
                 <NodeChip label="Adjust strength" message={`I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`} />
               </div>

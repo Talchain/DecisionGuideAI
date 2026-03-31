@@ -165,19 +165,19 @@ export const OutcomeNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Post-analysis: "55%" (bold entity colour) + "of your goal" (meta) */}
+        {/* Post-analysis: "55%" (semibold entity colour) + "of your goal" (meta) */}
         {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
-            <span className={`${typography.nodeTitle} text-success`}>{bridgeEdgeData.contributionPct}%</span>
+            <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.contributionPct}%</span>
             <span className={`${typography.edgeLabel} text-text-light`}>of your goal</span>
           </div>
         )}
 
-        {/* Pre-analysis: bridge strength percentage */}
+        {/* Pre-analysis: influence percentage */}
         {!isPostAnalysis && bridgeEdgeData?.bridgeStrengthPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
-            <span className={`${typography.nodeTitle} text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>bridge strength</span>
+            <span className={`${typography.nodeLabel} font-semibold text-success`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
+            <span className={`${typography.edgeLabel} text-text-light`}>influence</span>
           </div>
         )}
 

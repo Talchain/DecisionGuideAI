@@ -133,7 +133,7 @@ export const OptionNode = memo((props: NodeProps) => {
                      Number((rawValue as { value: unknown }).value) : 0
         const factorNode = nodes.find(n => n.id === factorId)
         const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
-        const stripped = cleanFactorLabel(rawLabel)
+        const stripped = stripFactorSuffixes(cleanFactorLabel(rawLabel))
         const cleanedLabel = stripped.length > 0
           ? stripped.charAt(0).toUpperCase() +
             stripped.slice(1).replace(/\b([A-Za-z]+)\b/g, (word) =>

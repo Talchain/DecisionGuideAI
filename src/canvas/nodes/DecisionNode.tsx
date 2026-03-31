@@ -19,6 +19,15 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { typography } from '../../styles/typography'
 import { NodeChip, ScienceIcon, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
+import { cleanFactorLabel } from '../utils/labelUtils'
+
+/** Truncate text at word boundary. */
+function truncateAtWord(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  const truncated = text.substring(0, maxLength)
+  const lastSpace = truncated.lastIndexOf(' ')
+  return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '\u2026'
+}
 
 // ---- Health pill helpers ----
 
@@ -149,6 +158,62 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const allFactorsPresent = readiness.missingCount === 0
   const goalDefined = isGoalDefined(goalThreshold, goalConstraints)
   const showRunAnalysis = allFactorsPresent && goalDefined
+
+  // ---- Triage line: single most important next action (pre-analysis only) ----
+  const triageLine = useMemo(() => {
+    if (isPostAnalysis) return null
+
+    const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+
+    // 1. Missing values — find first missing factor
+    for (const node of factorNodes) {
+      const d = node.data as Record<string, unknown> | undefined
+      if (!d) continue
+      if (d.category === 'external') continue
+      const os = d.observedState as Record<string, unknown> | undefined
+      const prior = d.prior as { range_min?: number; range_max?: number } | undefined
+      const value = os?.value as number | undefined
+      if (value == null && !(prior?.range_min != null && prior?.range_max != null)) {
+        const rawLabel = (d.label as string | undefined) ?? ''
+        const cleaned = cleanFactorLabel(rawLabel) || rawLabel
+        return `Top gap: estimate ${truncateAtWord(cleaned, 40)}`
+      }
+    }
+
+    // 2. Inferred factors with high leverage — top 2 by edge weight sum across all factors
+    const scoredFactors = factorNodes
+      .filter(n => (n.data as Record<string, unknown> | undefined)?.category !== 'external')
+      .map(n => {
+        const outEdges = edges.filter(e => e.source === n.id)
+        const weightSum = outEdges.reduce((sum, e) => {
+          const w = (e.data as Record<string, unknown> | undefined)?.weight as number | undefined
+          return sum + (w ?? 0.5)
+        }, 0)
+        return { node: n, weightSum }
+      })
+      .sort((a, b) => b.weightSum - a.weightSum)
+    const topTwoIds = new Set(scoredFactors.slice(0, 2).map(s => s.node.id))
+    const topInferred = scoredFactors.find(s => {
+      if (!topTwoIds.has(s.node.id)) return false
+      const os = (s.node.data as Record<string, unknown> | undefined)?.observedState as Record<string, unknown> | undefined
+      return os?.extractionType === 'inferred'
+    })
+    if (topInferred) {
+      const rawLabel = (topInferred.node.data?.label as string | undefined) ?? ''
+      const cleaned = cleanFactorLabel(rawLabel) || rawLabel
+      return `Top gap: validate ${truncateAtWord(cleaned, 40)}`
+    }
+
+    // 3. Goal has no threshold
+    if (!goalDefined) return 'Top gap: set a success target'
+
+    // 4. Fewer than 3 options
+    if (optionNodes.length < 3) return 'Top gap: explore more options'
+
+    // 5. Model is reasonably complete — no triage line
+    return null
+  }, [isPostAnalysis, nodes, edges, goalDefined])
 
   // ---- Post-analysis: winner headline ----
   const headline = useMemo(() => {
@@ -297,6 +362,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                     {pill.label}
                   </span>
                 ))}
+              </div>
+            )}
+
+            {/* Triage line — single most important next action */}
+            {triageLine && (
+              <div className={`${typography.edgeLabel} text-text-body mt-1 truncate`}>
+                {triageLine}
               </div>
             )}
 

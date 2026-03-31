@@ -175,19 +175,19 @@ export const RiskNode = memo((props: NodeProps) => {
       >
         {/* ===== LAYER 1: Standard body (always visible) ===== */}
 
-        {/* Post-analysis: "30%" (bold entity colour) + "goal drag" (meta) */}
+        {/* Post-analysis: "30%" (semibold entity colour) + "goal drag" (meta) */}
         {isPostAnalysis && bridgeEdgeData?.contributionPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
-            <span className={`${typography.nodeTitle} text-danger`}>{bridgeEdgeData.contributionPct}%</span>
+            <span className={`${typography.nodeLabel} font-semibold text-danger`}>{bridgeEdgeData.contributionPct}%</span>
             <span className={`${typography.edgeLabel} text-text-light`}>goal drag</span>
           </div>
         )}
 
-        {/* Pre-analysis: bridge strength percentage */}
+        {/* Pre-analysis: influence percentage */}
         {!isPostAnalysis && bridgeEdgeData?.bridgeStrengthPct != null && (
           <div className="mt-1 inline-flex items-center gap-1">
-            <span className={`${typography.nodeTitle} text-danger`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
-            <span className={`${typography.edgeLabel} text-text-light`}>bridge strength</span>
+            <span className={`${typography.nodeLabel} font-semibold text-danger`}>{bridgeEdgeData.bridgeStrengthPct}%</span>
+            <span className={`${typography.edgeLabel} text-text-light`}>influence</span>
           </div>
         )}
 

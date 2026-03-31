@@ -217,8 +217,8 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    // cleanFactorLabel strips "(0–1 scale)"
-    expect(screen.getByText('Hiring rate:')).toBeDefined()
+    // cleanFactorLabel strips "(0–1 scale)", stripFactorSuffixes strips "rate"
+    expect(screen.getByText('Hiring:')).toBeDefined()
     // formatInterventionValue(0.6, 'fraction') → '60%'
     expect(screen.getByText('60%')).toBeDefined()
   })
