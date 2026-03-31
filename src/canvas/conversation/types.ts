@@ -44,6 +44,17 @@ export interface ConversationMessage {
   toolLoadingState?: string | null
   /** Deterministic CEE insights — rendered between assistant_text and chips */
   insights?: Insight[]
+  /** Base rate elicitation chips derived from MISSING_BASE_RATE guidance items.
+   *  Ephemeral — consumed on click, never persisted in conversation history. */
+  baseRateChips?: BaseRateChipSet
+}
+
+/** A set of frequency-framed chips for a single factor's base rate elicitation */
+export interface BaseRateChipSet {
+  /** Factor name from guidance item target_label (fallback: "This factor") */
+  factorLabel: string
+  /** Guidance item_id — used to dismiss guidance after user responds */
+  itemId: string
 }
 
 // ---------------------------------------------------------------------------

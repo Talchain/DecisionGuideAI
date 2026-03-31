@@ -1049,6 +1049,67 @@
   opacity: 0.85;
 }
 
+/* ---------------------------------------------------------------------------
+ * § 5b — Base rate elicitation chips (MISSING_BASE_RATE guidance)
+ * DS v5 §8.5: outlined pills only, no filled backgrounds.
+ * DS v5 §2.1: caption token (12px) on chips, bodySmall (14px) on label.
+ * ---------------------------------------------------------------------------*/
+.baseRateSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.baseRateLabel {
+  color: var(--text-light, #908D8D);
+}
+
+.baseRateRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.baseRateChip {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default, #EEE6D8);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 150ms;
+}
+
+.baseRateChip:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.baseRateChip:focus-visible {
+  outline: 2px solid var(--info, #2B7FA2);
+  outline-offset: 2px;
+}
+
+.baseRateChip:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+.baseRateChip:disabled {
+  opacity: 0.4;
+  cursor: default;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .baseRateChip:active {
+    transform: none;
+  }
+}
+
 /* Graph patch action buttons */
 .graphPatchAccept:focus-visible,
 .graphPatchDismiss:focus-visible,

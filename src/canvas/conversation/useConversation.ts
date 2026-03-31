@@ -1869,6 +1869,23 @@ export function useConversation(): UseConversationReturn {
         ? rawEnvelope.insights as import('./types').Insight[]
         : undefined
 
+      // Extract base rate elicitation chips from MISSING_BASE_RATE guidance items.
+      // One factor per turn — take only the highest-priority match (lowest number).
+      const baseRateChips = (() => {
+        const items = envelope.guidance_items
+        if (!Array.isArray(items) || items.length === 0) return undefined
+        const matches = items
+          .filter((g) =>
+            g.signal_code === 'MISSING_BASE_RATE'
+            && g.primary_action?.type === 'discuss',
+          )
+          .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100))
+        const top = matches[0]
+        if (!top) return undefined
+        const label = top.target_object?.label || 'This factor'
+        return { factorLabel: label, itemId: top.item_id } as import('./types').BaseRateChipSet
+      })()
+
       // Guard: skip empty assistant messages (no visible content and no blocks)
       const hasContent = assistantText.trim().length > 0
       const hasBlocks = orderedBlocks.length > 0
@@ -1882,6 +1899,7 @@ export function useConversation(): UseConversationReturn {
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
           insights,
+          baseRateChips,
           isStreaming: false,
           isProvisional: false,
           toolLoadingState: null,
@@ -1894,6 +1912,7 @@ export function useConversation(): UseConversationReturn {
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
           insights,
+          baseRateChips,
           timestamp: new Date(),
           clientTurnId: envelope.client_turn_id,
         }

@@ -17,6 +17,7 @@ import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
 import { ActionChipRow } from './ActionChipRow'
+import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled } from '../../flags'
 import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
@@ -146,6 +147,13 @@ export const MessageBubble = memo(function MessageBubble({
           onArtefactMessage={onArtefactMessage}
           onProposalConfirm={onProposalConfirm}
           assistantTextWordCount={message.content.trim().split(/\s+/).filter(Boolean).length}
+        />
+      )}
+      {!isUser && message.baseRateChips && !historicalChips && onArtefactMessage && (
+        <BaseRateChipRow
+          chipSet={message.baseRateChips}
+          onSendMessage={onArtefactMessage}
+          disabled={isStreaming}
         />
       )}
       {!hideChips && message.actionChips && message.actionChips.length > 0 && (
