@@ -139,6 +139,7 @@ describe('BaseRateChipRow — styling', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Priority and single-factor guard (tested via handleEnvelope, not here)
-// These are integration concerns — the component always renders what it receives.
+// Ephemeral guard — base rate chips must not render on historical messages
+// The guard (!historicalChips) lives in MessageBubble.tsx. Extraction logic
+// is tested in extractBaseRateChipSet.spec.ts.
 // ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ import { useResultsStore } from '../stores/resultsStore'
 import { hydrateMessagesFromThread, formatSessionBoundary } from './utils/hydrateThread'
 import { appendThreadEntries, createSnapshot } from '../../services/threadService'
 import type { ThreadEntry } from '../journey/threadTypes'
-import { useGuidanceStore } from '../stores/guidanceStore'
+import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import {
   isSuccessfulAnalysis,
@@ -41,6 +41,7 @@ import type {
   GraphPatchBlock,
   ProposalReviewItem,
   RelatedElementRef,
+  BaseRateChipSet,
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
@@ -365,6 +366,27 @@ export function enforceChipBudget(
     MAX_CHIPS_PER_TURN - coaching.length,
   )
   return [...coaching, ...suggestedActions.slice(0, remainingSlots)]
+}
+
+/**
+ * Extract a BaseRateChipSet from guidance items for the MISSING_BASE_RATE signal.
+ * Returns the highest-priority match (lowest number = highest priority), or undefined.
+ * Exported for unit testing.
+ */
+export function extractBaseRateChipSet(
+  items: GuidanceItem[] | undefined | null,
+): BaseRateChipSet | undefined {
+  if (!Array.isArray(items) || items.length === 0) return undefined
+  const matches = items
+    .filter((g) =>
+      g.signal_code === 'MISSING_BASE_RATE'
+      && g.primary_action?.type === 'discuss',
+    )
+    .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100))
+  const top = matches[0]
+  if (!top) return undefined
+  const label = top.target_object?.label || 'This factor'
+  return { factorLabel: label, itemId: top.item_id }
 }
 
 /**
@@ -1871,20 +1893,7 @@ export function useConversation(): UseConversationReturn {
 
       // Extract base rate elicitation chips from MISSING_BASE_RATE guidance items.
       // One factor per turn — take only the highest-priority match (lowest number).
-      const baseRateChips = (() => {
-        const items = envelope.guidance_items
-        if (!Array.isArray(items) || items.length === 0) return undefined
-        const matches = items
-          .filter((g) =>
-            g.signal_code === 'MISSING_BASE_RATE'
-            && g.primary_action?.type === 'discuss',
-          )
-          .sort((a, b) => (a.priority ?? 100) - (b.priority ?? 100))
-        const top = matches[0]
-        if (!top) return undefined
-        const label = top.target_object?.label || 'This factor'
-        return { factorLabel: label, itemId: top.item_id } as import('./types').BaseRateChipSet
-      })()
+      const baseRateChips = extractBaseRateChipSet(envelope.guidance_items)
 
       // Guard: skip empty assistant messages (no visible content and no blocks)
       const hasContent = assistantText.trim().length > 0
