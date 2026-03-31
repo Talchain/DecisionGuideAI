@@ -69,7 +69,7 @@ const TEMPLATE_PREFIX = `<!DOCTYPE html>
     }
     input:focus, select:focus {
       border-color: var(--primary);
-      box-shadow: 0 0 0 2px rgba(99, 173, 207, 0.15);
+      box-shadow: 0 0 0 2px rgba(82, 163, 200, 0.15);
     }
 
     table {

@@ -1,6 +1,6 @@
 /**
  * CoachingCard — DS v4 §15
- * bg-panel, full thin info border (1px solid rgba(99,173,207,0.30)), rounded-lg
+ * bg-panel, full thin info border (1px solid rgba(82,163,200,0.30)), rounded-lg
  * Lightbulb icon + panelBody text + dismiss + optional action chip
  * Absent (not rendered) when no coaching data — parent controls visibility
  */
@@ -24,7 +24,7 @@ export function CoachingCard({ text, action }: CoachingCardProps) {
   return (
     <div
       className="mt-3 bg-panel rounded-lg shadow-1"
-      style={{ border: '1px solid rgba(99,173,207,0.30)' }}
+      style={{ border: '1px solid rgba(82,163,200,0.30)' }}
     >
       <div className="p-2.5 pr-2">
         <div className="flex justify-between items-start gap-2">

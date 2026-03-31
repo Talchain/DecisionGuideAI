@@ -1038,7 +1038,7 @@ export function OutputsDock() {
                       ? 'text-info border-b-2 border-info'
                       : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
                   }`}
-                  style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
+                  style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
                 >
                   <span className="inline-flex items-center gap-1">
                     {tab.label}
@@ -1098,7 +1098,7 @@ export function OutputsDock() {
                     ? 'text-info border-info'
                     : 'text-ink-900/70 bg-paper-50 border-sand-200 hover:bg-paper-50 hover:text-ink-900'
                 }`}
-                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
+                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
                 aria-label={tab.label}
                 title={tab.label}
               >

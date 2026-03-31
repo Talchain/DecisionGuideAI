@@ -16,7 +16,7 @@ const ENTITY_BORDERS: Record<BriefElementKind, string> = {
   goal:        'rgba(245,196,51,0.4)',
   options:     'rgba(170,167,228,0.4)',
   metric:      'rgba(103,200,158,0.4)',
-  constraints: 'rgba(99,173,207,0.4)',
+  constraints: 'rgba(82,163,200,0.4)',
   risks:       'rgba(234,123,75,0.4)',
 }
 

@@ -136,6 +136,6 @@ describe('InspectorCoaching', () => {
     const { container } = render(<InspectorCoaching {...defaultProps} />)
     // CoachingCard uses inline style with info border
     const card = container.firstElementChild as HTMLElement
-    expect(card.style.border).toContain('rgba(99, 173, 207, 0.3)')
+    expect(card.style.border).toContain('rgba(82, 163, 200, 0.3)')
   })
 })

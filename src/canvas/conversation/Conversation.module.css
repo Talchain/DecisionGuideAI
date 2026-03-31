@@ -128,7 +128,7 @@
 
 .showMoreTextToggle {
   font-size: 11px; /* panelMeta */
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   background: none;
   border: none;
   cursor: pointer;
@@ -275,7 +275,7 @@
 
 .showMoreToggle {
   font-size: 12px; /* panelBody */
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   background: none;
   border: none;
   cursor: pointer;
@@ -321,7 +321,7 @@
 }
 
 .graphPatchProposalEyebrow {
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -402,7 +402,7 @@
   font-size: 14px; /* panelHeader */
   font-weight: 500;
   cursor: pointer;
-  background: var(--info, #2B7FA2);
+  background: var(--info, #52A3C8);
   color: var(--text-on-color, #FFFFFF);
   transition: background 150ms, opacity 150ms;
 }
@@ -497,7 +497,7 @@
 
 .graphPatchShowDetails {
   font-size: 11px; /* panelMeta */
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   background: none;
   border: none;
   cursor: pointer;
@@ -513,7 +513,7 @@
  * ---------------------------------------------------------------------------*/
 
 .framingBlock {
-  border-top: 3px solid var(--info, #2B7FA2);
+  border-top: 3px solid var(--info, #52A3C8);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 8px;
   padding: 12px;
@@ -541,7 +541,7 @@
   color: var(--text-body, #3F3F3E);
   font-size: 12px; /* panelBody */
   font-weight: 500;
-  border: 1px solid color-mix(in srgb, var(--info, #2B7FA2) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
 }
 
 .framingSection {
@@ -603,7 +603,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px; /* panelBody */
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   background: none;
   border: none;
   cursor: pointer;
@@ -620,7 +620,7 @@
   align-items: center;
   gap: 4px;
   font-size: 12px; /* panelBody */
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   text-decoration: none;
 }
 
@@ -747,7 +747,7 @@
 
 .priorityBadgeMedium {
   composes: priorityBadge;
-  background: var(--info, #2B7FA2);
+  background: var(--info, #52A3C8);
 }
 
 .priorityBadgeLow {
@@ -789,17 +789,17 @@
 
 .citationIndex {
   font-weight: 600;
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   flex-shrink: 0;
 }
 
 .citationHighlight {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   border-radius: 4px;
 }
 
 @keyframes citationPulse {
-  0%, 100% { outline-color: var(--info, #2B7FA2); }
+  0%, 100% { outline-color: var(--info, #52A3C8); }
   50% { outline-color: transparent; }
 }
 
@@ -837,7 +837,7 @@
 }
 
 .commentaryToggle:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -856,7 +856,7 @@
   gap: 2px;
   flex-shrink: 0;
   font-size: 11px; /* panelMeta */
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   font-weight: 500;
 }
 
@@ -922,7 +922,7 @@
   align-items: center;
   gap: 4px;
   font-size: 11px; /* panelMeta */
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   text-decoration: none;
 }
 
@@ -1001,7 +1001,7 @@
   composes: chip;
   background: transparent;
   color: var(--text-body, #3F3F3E);
-  border-color: color-mix(in srgb, var(--info, #2B7FA2) 30%, transparent);
+  border-color: color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
 }
 
 .chipPrimary:hover {
@@ -1038,7 +1038,7 @@
 .chipPrimary:focus-visible,
 .chipSecondary:focus-visible,
 .chipUndo:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
 
@@ -1089,7 +1089,7 @@
 }
 
 .baseRateChip:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
 
@@ -1115,7 +1115,7 @@
 .graphPatchDismiss:focus-visible,
 .graphPatchDanger:focus-visible,
 .graphPatchRetry:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
 
@@ -1132,13 +1132,13 @@
 .showMoreTextToggle:focus-visible,
 .graphPatchShowDetails:focus-visible,
 .briefExpandToggle:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
 
 /* Citation entries */
 .citationEntry:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
 
@@ -1191,13 +1191,13 @@
 .guidanceBadgeInfo {
   background: transparent;
   color: var(--text-body, #3F3F3E);
-  border: 1px solid color-mix(in srgb, var(--info, #2B7FA2) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
 }
 
 .guidanceBadgeInfoLight {
   background: transparent;
   color: var(--text-body, #3F3F3E);
-  border: 1px solid color-mix(in srgb, var(--info, #2B7FA2) 30%, transparent);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   opacity: 0.85;
 }
 
@@ -1223,9 +1223,9 @@
   min-width: 44px;
   min-height: 44px;
   border-radius: 6px;
-  border: 1px solid var(--info, #2B7FA2);
+  border: 1px solid var(--info, #52A3C8);
   background: transparent;
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   font-size: 12px; /* panelBody */
   font-weight: 500;
   cursor: pointer;
@@ -1238,7 +1238,7 @@
 }
 
 .guidanceStripAction:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
 
@@ -1262,7 +1262,7 @@
 }
 
 .guidanceStripDismiss:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
 
@@ -1321,7 +1321,7 @@
 
 .sendButtonActive {
   composes: sendButton;
-  background: var(--info, #2B7FA2);
+  background: var(--info, #52A3C8);
   color: var(--text-on-color, #FFFFFF);
 }
 
@@ -1371,7 +1371,7 @@
   align-self: center;
   padding: 6px 16px;
   border-radius: 999px;
-  background: var(--info, #2B7FA2);
+  background: var(--info, #52A3C8);
   color: var(--text-on-color, #FFFFFF);
   font-size: 12px; /* panelBody */
   font-weight: 500;
@@ -1466,7 +1466,7 @@
 }
 
 .actionStripBadgeInfo {
-  color: var(--info, #2B7FA2);
+  color: var(--info, #52A3C8);
   background: var(--info-light, #BAD7E4);
 }
 
@@ -1710,7 +1710,7 @@
 }
 
 .insightActionChip:focus-visible {
-  outline: 2px solid var(--info, #2B7FA2);
+  outline: 2px solid var(--info, #52A3C8);
   outline-offset: 2px;
 }
 

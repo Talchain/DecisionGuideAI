@@ -656,7 +656,7 @@ export function InputsDock({ onShowDocuments, currentNodes = 0, currentEdges = 0
                     ? 'text-info border-b-2 border-info'
                     : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
                 }`}
-                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
+                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
                 data-testid={tab.id === 'documents' ? 'inputs-dock-tab-documents' : undefined}
               >
                 {tab.label}
@@ -684,7 +684,7 @@ export function InputsDock({ onShowDocuments, currentNodes = 0, currentEdges = 0
                     ? 'text-info border-info'
                     : 'text-ink-900/70 bg-paper-50 border-sand-200 hover:bg-paper-50 hover:text-ink-900'
                 }`}
-                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(99,173,207,0.15)' } : undefined}
+                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
                 aria-label={tab.label}
                 title={tab.label}
               >
