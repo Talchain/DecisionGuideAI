@@ -99,6 +99,12 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
               ))}
             </div>
           )}
+          {/* Hidden dimensions indicator */}
+          {dimensions.some(d => d.value >= 1) && (
+            <p className={`${typography.panelMeta} text-text-light`}>
+              {dimensions.filter(d => d.value >= 1).map(d => d.label).join(' and ')}: 100%
+            </p>
+          )}
         </div>
       </div>
 

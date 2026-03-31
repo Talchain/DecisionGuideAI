@@ -278,10 +278,10 @@ export function OptionPreview({
           {onSendMessage && (
             <button
               type="button"
-              onClick={() => onSendMessage("Can you suggest alternative strategies I haven't considered for this decision?")}
+              onClick={() => onSendMessage("What other options should I consider for this decision?")}
               className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
             >
-              ◎ Explore other strategies
+              Explore more options
             </button>
           )}
         </div>

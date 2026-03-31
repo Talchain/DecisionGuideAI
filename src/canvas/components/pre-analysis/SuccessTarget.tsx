@@ -60,7 +60,7 @@ function GoalDiamond() {
           rx="2"
           transform="rotate(45 9 1)"
           fill="currentColor"
-          opacity={0.15}
+          opacity={0.3}
           stroke="currentColor"
           strokeWidth={1.5}
         />

@@ -15,7 +15,7 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
@@ -30,7 +30,7 @@ import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, ChevronDown, ChevronRight } from 'lucide-react'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
@@ -98,6 +98,61 @@ interface PreAnalysisPanelProps {
   blockedReason?: string
   /** Callback to send a message in the conversation panel */
   onSendMessage?: (text: string) => void
+}
+
+
+/** Disclosure toggle for "Also consider" items — collapsed by default, default-variant cards */
+function AlsoConsiderDisclosure({
+  cards, startOrdinal, onConfirm, onEdit, onSendMessage, onUpdateEdgeStrength, onHoverEnter, onHoverLeave,
+}: {
+  cards: Array<TriageCardItem & { editorConfig?: ScientificEditorProps | null }>
+  startOrdinal: number
+  onConfirm: (id: string) => void
+  onEdit: (id: string) => void
+  onSendMessage?: (text: string) => void
+  onUpdateEdgeStrength: (id: string, v: number) => void
+  onHoverEnter: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave: () => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <>
+      <div className="h-px bg-panel-border mx-3" />
+      <button
+        type="button"
+        onClick={() => setExpanded(!expanded)}
+        className={`flex items-center gap-1.5 px-3 py-1 ${typography.panelMeta} text-info cursor-pointer hover:underline`}
+      >
+        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
+        {expanded ? 'Show fewer' : `Show ${cards.length} more`}
+      </button>
+      {expanded && (
+        <div className="flex flex-col gap-1.5 px-1" data-testid="triage-quick-fix">
+          {cards.map((card, i) => (
+            <TriageCard
+              key={card.key}
+              cardKey={card.key}
+              ordinal={startOrdinal + i}
+              title={card.title}
+              detail={card.detail}
+              subtitle={card.subtitle}
+              category={card.category}
+              influence={card.influence}
+              action={card.action}
+              editorConfig={card.editorConfig ?? null}
+              sourcePill={card.sourcePill}
+              onConfirm={onConfirm}
+              onEdit={onEdit}
+              onSendMessage={onSendMessage}
+              onUpdateEdgeStrength={onUpdateEdgeStrength}
+              onHoverEnter={onHoverEnter}
+              onHoverLeave={onHoverLeave}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  )
 }
 
 export function PreAnalysisPanel({
@@ -444,7 +499,7 @@ export function PreAnalysisPanel({
 
     // Attach editorConfig for factor items with set_value action
     const targetId = item.action?.targetId
-    if (targetId && item.focus?.type === 'node' && mapped.action?.kind === 'set_value') {
+    if (targetId && item.focus?.type === 'node' && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
       return {
         ...mapped,
         editorConfig: {
@@ -476,39 +531,83 @@ export function PreAnalysisPanel({
     .filter(c => STRUCTURAL_CHECK_IDS.has(c.id) && c.id !== 'no_target' && STRUCTURAL_FLAG_LABELS[c.id])
     .map(c => ({ id: c.id, label: STRUCTURAL_FLAG_LABELS[c.id] }))
 
-  // Bias trigger cards — up to 4 cognitive bias prompts
+  // Bias trigger cards — deterministic (max 2, priority: narrow > risks > overconfidence > anchoring)
   const biasTriggers = useMemo(() => {
-    const triggers: { id: string; icon: typeof Frame; label: string; message: string }[] = []
-    const factorCount = data.nodesByKind.factor.length
-    const riskCount = data.nodesByKind.risk.length
-    const optionCount = data.optionPreviews.length
+    const triggers: { id: string; icon: typeof Frame; title: string; subtitle: string; cta: string; ctaAction: string }[] = []
 
-    if (factorCount > 0 && riskCount === 0) {
-      triggers.push({ id: 'bt_no_risks', icon: ShieldAlert, label: 'No risks identified', message: 'What could go wrong with each option? Can you help me identify risks?' })
+    // 1. Narrow framing: fewer than 3 non-baseline options
+    const nonBaselineOptions = data.optionPreviews.filter(o => !o.isBaseline)
+    if (nonBaselineOptions.length < 2) {
+      triggers.push({ id: 'narrow_framing', icon: Frame, title: 'Narrow framing: few options', subtitle: 'Better decisions come from more alternatives. Consider structurally different approaches.', cta: 'Explore more options', ctaAction: 'What other options should I consider?' })
     }
-    if (optionCount >= 2 && data.optionPreviews.every(o => !o.isBaseline)) {
-      triggers.push({ id: 'bt_no_baseline', icon: Anchor, label: 'No status quo baseline', message: 'Add a status quo option to compare against' })
+
+    // 2. Missing risks: 0 or 1 risk nodes
+    if (data.nodesByKind.risk.length <= 1) {
+      triggers.push({ id: 'missing_risks', icon: ShieldAlert, title: 'Missing risks: what could go wrong?', subtitle: 'Few risks modelled. Real strategies have costs and downsides.', cta: 'What could go wrong?', ctaAction: 'What risks am I missing?' })
     }
-    if (factorCount > 4) {
-      const aiFactors = nodes.filter(n => {
-        const nd = n.data as Record<string, unknown>
-        if (nd.kind !== 'factor' && n.type !== 'factor') return false
-        const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
-        const source = os?.source as string | undefined
-        return source !== undefined && AI_SOURCES.has(source)
-      })
-      if (aiFactors.length / factorCount > 0.8) {
-        triggers.push({ id: 'bt_ai_heavy', icon: Gauge, label: 'Most values are AI estimates', message: 'Most of my factor values are AI estimates. Can you help me identify which ones I should verify with real data?' })
+
+    // 3. Overconfidence: top factor by influence is AI-sourced with no uncertainty_drivers
+    if (factorInfluenceMap && factorInfluenceMap.size > 0) {
+      let topFactorId: string | null = null
+      let topInfluence = -1
+      for (const [id, inf] of factorInfluenceMap) {
+        if (inf > topInfluence) { topInfluence = inf; topFactorId = id }
+      }
+      if (topFactorId) {
+        const topNode = nodes.find(n => n.id === topFactorId)
+        if (topNode) {
+          const nd = topNode.data as Record<string, unknown>
+          const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
+          const source = os?.source as string | undefined
+          const drivers = os?.uncertainty_drivers as unknown[] | undefined
+          if (source && AI_SOURCES.has(source) && (!drivers || drivers.length === 0)) {
+            const label = (nd.label as string) ?? topFactorId
+            triggers.push({ id: 'overconfidence', icon: Gauge, title: 'Overconfidence: key assumption unverified', subtitle: label + ' is an AI estimate with no supporting evidence.', cta: 'Verify assumption', ctaAction: topFactorId })
+          }
+        }
       }
     }
-    if (optionCount >= 2) {
-      const interventionCounts = data.optionPreviews.filter(o => !o.isBaseline).map(o => o.interventions.length)
-      if (interventionCounts.length >= 2 && interventionCounts.every(c => c === interventionCounts[0])) {
-        triggers.push({ id: 'bt_framing', icon: Frame, label: 'Options look similar', message: 'My options seem to affect the same factors. Am I framing this decision too narrowly?' })
+
+    // 4. Anchoring: all non-baseline options affect same factors with narrow intervention spread
+    if (data.optionPreviews.length >= 2) {
+      const optionMaps: Map<string, number>[] = []
+      let allValid = true
+      for (const opt of data.optionPreviews.filter(o => !o.isBaseline)) {
+        if (!opt.interventions || opt.interventions.length === 0) { allValid = false; break }
+        const m = new Map<string, number>()
+        for (const iv of opt.interventions) {
+          if (iv.factorId && iv.interventionValue != null) m.set(iv.factorId, iv.interventionValue)
+        }
+        if (m.size === 0) { allValid = false; break }
+        optionMaps.push(m)
+      }
+      if (allValid && optionMaps.length >= 2) {
+        const allFactorIds = new Set(optionMaps.flatMap(m => [...m.keys()]))
+        const sharedFactors = [...allFactorIds].filter(fId => optionMaps.every(m => m.has(fId)))
+        if (sharedFactors.length === allFactorIds.size && sharedFactors.length > 0) {
+          let allNarrow = true
+          let hasValidFactor = false
+          for (const fId of sharedFactors) {
+            const fNode = nodes.find(n => n.id === fId)
+            if (!fNode) continue
+            const fOs = ((fNode.data as Record<string, unknown>).observedState ?? (fNode.data as Record<string, unknown>).observed_state) as Record<string, unknown> | undefined
+            const baseline = fOs?.value as number | undefined
+            if (baseline == null || baseline === 0) continue
+            hasValidFactor = true
+            const values = optionMaps.map(m => m.get(fId)).filter((v): v is number => v != null)
+            if (values.length < 2) continue
+            const spread = Math.max(...values) - Math.min(...values)
+            if (spread >= Math.abs(baseline) * 0.2) { allNarrow = false; break }
+          }
+          if (allNarrow && hasValidFactor) {
+            triggers.push({ id: 'anchoring', icon: Anchor, title: 'Anchoring: options clustered', subtitle: 'Options affect the same factors with similar values. Consider a wider range.', cta: 'Diversify options', ctaAction: 'How could I make my options more different from each other?' })
+          }
+        }
       }
     }
-    return triggers.slice(0, 4)
-  }, [data.nodesByKind.factor.length, data.nodesByKind.risk.length, data.optionPreviews, nodes])
+
+    return triggers.slice(0, 2)
+  }, [data.optionPreviews, data.nodesByKind.risk, factorInfluenceMap, nodes])
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
@@ -590,35 +689,18 @@ export function PreAnalysisPanel({
               </div>
             )}
 
-            {/* LAYER 5: Quick-fix rows (items 4-6) */}
+            {/* LAYER 5: "Also consider" disclosure toggle (default variant cards) */}
             {triageQuickFix.length > 0 && (
-              <>
-                <div className="h-px bg-panel-border mx-3" />
-                <div className="flex flex-col gap-1.5 px-1" data-testid="triage-quick-fix">
-                  <p className={`${typography.panelMeta} text-text-light font-semibold px-2`}>Also consider</p>
-                  {triageQuickFix.map((card, i) => (
-                    <TriageCard
-                      key={card.key}
-                      cardKey={card.key}
-                      ordinal={i + 4}
-                      title={card.title}
-                      detail={card.detail}
-                      subtitle={card.subtitle}
-                      category={card.category}
-                      influence={card.influence}
-                      variant="compact"
-                      action={card.action}
-                      sourcePill={card.sourcePill}
-                      onConfirm={handleConfirm}
-                      onEdit={handleSetValueForGap}
-                      onSendMessage={onSendMessage}
-                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                      onHoverEnter={handleHoverElement}
-                      onHoverLeave={handleHoverClear}
-                    />
-                  ))}
-                </div>
-              </>
+              <AlsoConsiderDisclosure
+                cards={triageQuickFix}
+                startOrdinal={triageTop3.length + 1}
+                onConfirm={handleConfirm}
+                onEdit={handleSetValueForGap}
+                onSendMessage={onSendMessage}
+                onUpdateEdgeStrength={handleUpdateEdgeStrength}
+                onHoverEnter={handleHoverElement}
+                onHoverLeave={handleHoverClear}
+              />
             )}
 
             {/* LAYER 6: Bias trigger cards */}
@@ -631,16 +713,22 @@ export function PreAnalysisPanel({
                     return (
                       <div
                         key={trigger.id}
-                        className="flex items-start gap-2 px-3 py-2 border border-panel-border rounded-lg hover:bg-panel-hover"
+                        className="flex items-start gap-2 px-3 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover"
                       >
-                        <Icon className="w-3.5 h-3.5 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
-                        <span className={`${typography.panelBody} text-text-body flex-1`}>{trigger.label}</span>
+                        <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <div className="flex-1 min-w-0">
+                          <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
+                          <p className={`${typography.panelBody} text-text-light mt-0.5`}>{trigger.subtitle}</p>
+                        </div>
                         <button
                           type="button"
-                          onClick={() => onSendMessage?.(trigger.message)}
-                          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer shrink-0`}
+                          onClick={() => {
+                            if (trigger.id === 'overconfidence') handleFocusNode(trigger.ctaAction)
+                            else onSendMessage?.(trigger.ctaAction)
+                          }}
+                          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer shrink-0 self-start mt-0.5`}
                         >
-                          Explore
+                          {trigger.cta}
                         </button>
                       </div>
                     )
@@ -668,13 +756,7 @@ export function PreAnalysisPanel({
                   ))}
                 </>
               )}
-              <button
-                type="button"
-                onClick={() => onSendMessage?.('What else should I consider in my model?')}
-                className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
-              >
-                Something missing? Ask AI
-              </button>
+
             </div>
           </ModelHealthCard>
         </SectionErrorBoundary>

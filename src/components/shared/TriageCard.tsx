@@ -148,7 +148,7 @@ function InlineValueEditor({
       <button
         type="button"
         onClick={handleSave}
-        className={`py-0.5 px-2 text-[10px] rounded-full border border-success/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer`}
+        className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
       >
         Save
       </button>
@@ -309,11 +309,11 @@ export function TriageCard(props: TriageCardProps) {
       {/* Subtitle / detail — one line, truncated */}
       <p className={`${typography.panelMeta} text-text-light truncate`} title={displaySubtitle}>{displaySubtitle}</p>
 
-      {/* Inline value editor — only when rawValue != null and editing */}
-      {isEditing && editorConfig && (
+      {/* Inline value editor — always visible when editorConfig has a value */}
+      {editorConfig && editorConfig.rawValue !== null && editorConfig.rawValue !== undefined && !isEdge && (
         <InlineValueEditor
           editorConfig={editorConfig}
-          onDone={() => setIsEditing(false)}
+          onDone={() => {}}
         />
       )}
 
@@ -324,7 +324,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => onConfirm(action.targetId!)}
-              className={`py-1 px-2.5 rounded-full ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
+              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
             >
               <span className="flex items-center gap-1"><Check size={12} /> Confirm</span>
             </button>
@@ -333,7 +333,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => onEdit(action.targetId!)}
-              className={`py-1 px-2.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               <span className="flex items-center gap-1"><Pencil size={12} /> Edit</span>
             </button>
@@ -342,7 +342,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => setIsEditing(true)}
-              className={`py-1 px-2.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               Set value
             </button>
@@ -354,7 +354,7 @@ export function TriageCard(props: TriageCardProps) {
             <button
               type="button"
               onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-              className={`py-1 px-2.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
+              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
               Ask AI to research
             </button>
