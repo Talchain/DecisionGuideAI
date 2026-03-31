@@ -203,8 +203,8 @@ function FragileEdgeCard({ edge, eValue }: { edge: ChallengeFragileEdge; eValue?
       </div>
       <p className={`${typography.panelMeta} text-text-light`}>
         {eValue != null
-          ? <>The relationship {edge.from_label} &rarr; {edge.to_label} would only need to be {eValue.toFixed(1)}x wrong to flip the recommendation.</>
-          : <>The relationship {edge.from_label} &rarr; {edge.to_label} is fragile. A shift here could change the recommendation.</>
+          ? <>The relationship {stripEncodingNotation(edge.from_label)} &rarr; {stripEncodingNotation(edge.to_label)} would only need to be {eValue.toFixed(1)}x wrong to flip the recommendation.</>
+          : <>The relationship {stripEncodingNotation(edge.from_label)} &rarr; {stripEncodingNotation(edge.to_label)} is fragile. A shift here could change the recommendation.</>
         }
       </p>
     </div>
@@ -333,7 +333,7 @@ export function ChallengeSection({
           {Object.entries(fragileBySource).map(([sourceLabel, cards]) => (
             <div key={sourceLabel} className="space-y-1">
               {cards.length > 1 && (
-                <p className={`${typography.panelMeta} text-text-light px-1`}>From: {sourceLabel}</p>
+                <p className={`${typography.panelMeta} text-text-light px-1`}>From: {stripEncodingNotation(sourceLabel)}</p>
               )}
               {cards.map((card, i) => (
                 <FragileEdgeCard key={`fragile-${card.from_label}-${card.to_label}-${i}`} edge={card} eValue={card.e_value} />
