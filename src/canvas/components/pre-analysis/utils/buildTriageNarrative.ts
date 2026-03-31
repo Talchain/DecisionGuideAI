@@ -30,7 +30,7 @@ export function buildTriageNarrative(
   if (items.length === 0) {
     if (!coachingSummary) return null
     return !hasGoalTarget
-      ? "No success target set, so analysis can't show probability of success. " + coachingSummary
+      ? "No target set. " + coachingSummary
       : coachingSummary
   }
 
