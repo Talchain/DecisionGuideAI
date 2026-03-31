@@ -94,7 +94,7 @@ function EdgeStrengthQuickSelect({
           key={b.label}
           type="button"
           onClick={() => onUpdateEdgeStrength(edgeId, b.value)}
-          className={`py-0.5 px-2 text-[10px] rounded-full border border-info/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer`}
+          className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
         >
           {b.label}
         </button>
@@ -212,12 +212,12 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
         {!isEdge && action && (
           <div className="flex gap-1 shrink-0">
             {action.kind === 'confirm' && onConfirm && action.targetId && (
-              <button type="button" onClick={() => onConfirm(action.targetId!)} className="py-0.5 px-2 text-[10px] rounded-full border border-success/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer">
+              <button type="button" onClick={() => onConfirm(action.targetId!)} className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 bg-transparent hover:bg-panel-hover cursor-pointer`}>
                 Confirm
               </button>
             )}
             {(action.kind === 'edit' || action.kind === 'set_value') && onEdit && action.targetId && (
-              <button type="button" onClick={() => onEdit(action.targetId!)} className="py-0.5 px-2 text-[10px] rounded-full border border-info/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer">
+              <button type="button" onClick={() => onEdit(action.targetId!)} className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}>
                 {action.kind === 'set_value' ? 'Set' : 'Edit'}
               </button>
             )}
@@ -227,7 +227,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
           <button
             type="button"
             onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-            className={`py-0.5 px-2 text-[10px] rounded-full border border-info/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer`}
+            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
           >
             Ask AI
           </button>

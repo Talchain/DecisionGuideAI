@@ -53,7 +53,7 @@ const STRUCTURAL_CHECK_IDS = new Set([
 ])
 
 /** AI source provenance labels */
-const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred'])
+const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
 
 /** Binary pass/fail row for triage check rows — failed rows show optional action link */
 function TriageCheckRow({ label, pass, actionLabel, onAction }: {
@@ -504,7 +504,7 @@ export function PreAnalysisPanel({
         ...mapped,
         editorConfig: {
           kind: 'factor' as const,
-          rawValue: item.rawValue ?? null,
+          rawValue: item.rawValue ?? item.value ?? null,
           cap: item.cap ?? null,
           unit: item.unit ?? null,
           onSave: (rawValue: number) => handleInlineEditValue(targetId, rawValue, item.cap ?? null),

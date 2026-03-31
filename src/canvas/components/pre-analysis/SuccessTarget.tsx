@@ -336,8 +336,8 @@ export function SuccessTarget({
       {renderGoalHeader()}
 
       {/* Success target line */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className={`${typography.panelBody} text-text-light shrink-0`}>Success target:</span>
+      <div className="flex items-start gap-2 flex-wrap">
+        <span className={`${typography.panelBody} text-text-light shrink-0 mt-0.5`}>Success target:</span>
         <span className={`${typography.panelHeader} text-text-header`}>{formatValue(successThreshold)}</span>
         {thresholdSourceBadge === 'brief' && (
           <Pill size="small" variant="success">Brief</Pill>
