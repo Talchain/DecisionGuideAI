@@ -595,3 +595,4 @@ export type OrchestratorStreamEvent =
   | { type: 'tool_result'; seq: number; tool_name: string; success: boolean; duration_ms?: number }
   | { type: 'turn_complete'; seq: number; envelope: OrchestratorResponseEnvelopeV2 }
   | { type: 'error'; seq: number; error: { code: string; message: string }; recoverable: boolean }
+  | { type: 'progress'; seq: number; message?: string }

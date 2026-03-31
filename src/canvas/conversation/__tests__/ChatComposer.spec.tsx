@@ -430,7 +430,7 @@ describe('ChatComposer', () => {
 
     expect(screen.getByTestId('bil-causal-tip')).toBeInTheDocument()
     expect(screen.getByTestId('bil-causal-tip').textContent).toContain(
-      'Tip: try describing how factors cause outcomes',
+      'Tip: describe how factors cause outcomes',
     )
   })
 

@@ -655,13 +655,13 @@ describe('Flag OFF rollback — adaptCEEBlock + fixture (end-to-end)', () => {
 // ---------------------------------------------------------------------------
 
 describe('safeRichText — blank-line paragraph separation', () => {
-  it('two paragraphs separated by a blank line produce a <br> between them', () => {
+  it('two paragraphs separated by a blank line produce a paragraph gap between them', () => {
     const html = safeRichText('Para one.\n\nPara two.')
     const container = renderHtml(html)
-    // Both paragraphs must appear as separate text nodes with a <br> between
+    // Both paragraphs must appear with visible spacing (md-gap) between them
     expect(container.textContent).toContain('Para one.')
     expect(container.textContent).toContain('Para two.')
-    expect(html).toContain('<br>')
+    expect(html).toContain('<br class="md-gap">')
   })
 
   it('leading blank line does not produce a leading <br>', () => {
@@ -688,8 +688,8 @@ describe('safeRichText — blank-line paragraph separation', () => {
     const container = renderHtml(html)
     expect(container.textContent).toContain('First line of content')
     expect(container.textContent).toContain('Second paragraph')
-    // Must have a break between them
-    expect(html).toContain('<br>')
+    // Must have visible spacing between paragraphs
+    expect(html).toMatch(/<br[ >]/)
   })
 })
 

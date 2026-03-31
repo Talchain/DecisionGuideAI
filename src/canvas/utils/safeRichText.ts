@@ -112,8 +112,10 @@ export function safeRichText(markdown: string): string {
   // Step 1b: strip emoji — use sentinel to collapse only emoji-adjacent whitespace
   const sentinelled = decoded.replace(EMOJI_RE, EMOJI_SENTINEL)
   const stripped = sentinelled.replace(EMOJI_SENTINEL_COLLAPSE_RE, ' ').trim()
+  // Step 1c: normalise em/en dashes to spaced hyphens (safety net for LLM output)
+  const dashed = stripped.replace(/[\u2014\u2013]/g, ' - ')
   // Step 2: re-escape so angle brackets don't inject HTML
-  const escaped = escapeHtml(stripped)
+  const escaped = escapeHtml(dashed)
 
   // Split into lines for processing
   const rawLines = escaped.split('\n')
@@ -233,16 +235,21 @@ export function safeRichText(markdown: string): string {
 
   let result = ''
   let prevPart = ''
+  let blankSeen = false
   for (const part of outputParts) {
-    if (part === '') continue  // blank lines: separator emitted by next non-empty part
+    if (part === '') { blankSeen = true; continue }
 
     if (part.startsWith('<ul>') || part.startsWith('<br class="md-gap">')) {
+      blankSeen = false
       result += part
     } else {
       if (result !== '') {
-        // Use gap spacer between consecutive bold-lead paragraphs for 16px separation
-        result += (isBoldLead(prevPart) && isBoldLead(part)) ? '<br class="md-gap">' : '<br>'
+        // Paragraph break (blank line between parts) → md-gap for visible spacing.
+        // Also use gap spacer between consecutive bold-lead paragraphs.
+        const useGap = blankSeen || (isBoldLead(prevPart) && isBoldLead(part))
+        result += useGap ? '<br class="md-gap">' : '<br>'
       }
+      blankSeen = false
       result += part
     }
     prevPart = part

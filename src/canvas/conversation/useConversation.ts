@@ -2194,6 +2194,13 @@ export function useConversation(): UseConversationReturn {
 
           let streamEnvelope: OrchestratorResponseEnvelopeV2 | undefined
 
+          // Show local "Thinking..." if no progress/text_delta within 3s
+          const thinkingTimerId = setTimeout(() => {
+            if (streamingMsgIdRef.current === msgId && !streamTextRef.current) {
+              updateMessage(msgId, { toolLoadingState: 'Thinking\u2026' })
+            }
+          }, 3000)
+
           for await (const event of streamOrchestratorTurn(request, controller.signal)) {
             switch (event.type) {
               case 'turn_start':
@@ -2207,6 +2214,11 @@ export function useConversation(): UseConversationReturn {
                 break
 
               case 'text_delta':
+                clearTimeout(thinkingTimerId)
+                // Clear progress/thinking status when real content starts arriving
+                if (frameBufRef.current.length === 0 && !streamTextRef.current) {
+                  updateMessage(msgId, { toolLoadingState: null })
+                }
                 frameBufRef.current.push(event.delta)
                 scheduleStreamFlush()
                 break
@@ -2222,11 +2234,20 @@ export function useConversation(): UseConversationReturn {
                 updateMessage(msgId, { blocks: streamBlocksRef.current })
                 break
 
+              case 'progress':
+                // CEE progress update (e.g. "Olumi is thinking...") — show as status text.
+                // Cleared when first text_delta arrives or turn_complete fires.
+                if (event.message) {
+                  updateMessage(msgId, { toolLoadingState: event.message })
+                }
+                break
+
               case 'tool_result':
                 updateMessage(msgId, { toolLoadingState: null })
                 break
 
               case 'turn_complete':
+                clearTimeout(thinkingTimerId)
                 // Final flush of any pending RAF buffer
                 if (rafIdRef.current != null) {
                   if (typeof cancelAnimationFrame === 'function' && rafIdRef.current !== -1) {

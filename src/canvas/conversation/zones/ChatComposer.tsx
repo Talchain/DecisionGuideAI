@@ -117,23 +117,15 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     // Human-readable summary of missing elements for BIL display
     const bilSummaryLine = useMemo(() => {
       if (!bilResult) return null
-      const MISSING_LABELS: Record<string, string> = {
-        goal: 'No goal.',
-        constraints: 'No constraints.',
-        time_horizon: 'No time horizon.',
-        success_metric: 'No success metric.',
-        status_quo_option: 'No status quo option.',
-        risk_factors: 'No risk factors.',
-      }
-      const missingText = bilResult.missing_elements
-        .map(el => MISSING_LABELS[el])
-        .filter(Boolean)
-        .join(' ')
       const parts: string[] = []
       if (bilResult.options.length > 0) parts.push(`${bilResult.options.length} option${bilResult.options.length !== 1 ? 's' : ''}`)
       if (bilResult.factors.length > 0) parts.push(`${bilResult.factors.length} factor${bilResult.factors.length !== 1 ? 's' : ''}`)
       const detected = parts.length > 0 ? `${parts.join(', ')} detected.` : ''
-      return [detected, missingText].filter(Boolean).join(' ')
+      // Concise guidance instead of exhaustive missing-item checklist
+      const guidance = bilResult.missing_elements.length > 0
+        ? 'Add a goal and options to get started.'
+        : ''
+      return [detected, guidance].filter(Boolean).join(' ') || null
     }, [bilResult])
 
     // Notify parent of readiness / text state changes
@@ -230,7 +222,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             style={{ fontSize: 11, lineHeight: 1.4, margin: 0, padding: '0 2px', fontStyle: 'italic' }}
             data-testid="bil-causal-tip"
           >
-            Tip: try describing how factors cause outcomes, not just listing them.
+            Tip: describe how factors cause outcomes, not just list them.
           </p>
         )}
 

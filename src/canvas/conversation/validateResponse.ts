@@ -214,7 +214,7 @@ export function validateEnvelopeShape(raw: unknown): OrchestratorResponseEnvelop
 // ---------------------------------------------------------------------------
 
 const KNOWN_STREAM_EVENT_TYPES = new Set([
-  'turn_start', 'text_delta', 'tool_start', 'block', 'tool_result', 'turn_complete', 'error',
+  'turn_start', 'text_delta', 'tool_start', 'block', 'tool_result', 'turn_complete', 'error', 'progress',
 ])
 
 /**

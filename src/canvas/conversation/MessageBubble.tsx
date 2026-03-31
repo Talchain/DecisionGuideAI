@@ -12,7 +12,7 @@
  * opacity until `turn_complete`.
  */
 
-import { memo, useState, useRef, useEffect } from 'react'
+import { memo, useState, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
@@ -20,6 +20,7 @@ import { ActionChipRow } from './ActionChipRow'
 import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled } from '../../flags'
+import { useCanvasStore } from '../store'
 import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
@@ -27,6 +28,39 @@ import styles from './Conversation.module.css'
 
 /** Character threshold for applying progressive disclosure. */
 const CLAMP_CHAR_THRESHOLD = 300
+/** Minimum characters that must be hidden for truncation to be worthwhile. */
+const MIN_HIDDEN_CHARS = 150
+
+/**
+ * Find the best truncation point in raw text at natural boundaries.
+ * Returns the truncated text or null if truncation isn't worthwhile.
+ */
+function findNaturalTruncation(text: string): string | null {
+  if (text.length <= CLAMP_CHAR_THRESHOLD) return null
+
+  // 1. Try last paragraph break (\n\n) before limit
+  const paraIdx = text.lastIndexOf('\n\n', CLAMP_CHAR_THRESHOLD)
+  if (paraIdx > 0) {
+    const hidden = text.length - paraIdx
+    if (hidden >= MIN_HIDDEN_CHARS) return text.slice(0, paraIdx)
+  }
+
+  // 2. Try last sentence-ending punctuation followed by space
+  const sentenceRe = /[.!?]\s/g
+  let lastSentenceEnd = -1
+  let m: RegExpExecArray | null
+  while ((m = sentenceRe.exec(text)) !== null) {
+    if (m.index + 1 > CLAMP_CHAR_THRESHOLD) break
+    lastSentenceEnd = m.index + 1 // include the punctuation
+  }
+  if (lastSentenceEnd > 0) {
+    const hidden = text.length - lastSentenceEnd
+    if (hidden >= MIN_HIDDEN_CHARS) return text.slice(0, lastSentenceEnd)
+  }
+
+  // 3. Not enough hidden content — show full text
+  return null
+}
 
 interface MessageBubbleProps {
   message: ConversationMessage
@@ -66,22 +100,13 @@ export const MessageBubble = memo(function MessageBubble({
   const isProvisional = message.isProvisional === true
   const hasToolLoading = Boolean(message.toolLoadingState)
 
-  // Progressive disclosure for long assistant prose (disabled during streaming)
-  const needsClamp = !isUser
+  // Progressive disclosure: truncate at natural boundaries (paragraph / sentence)
+  const canTruncate = !isUser
     && !isStreaming
     && !message.synthetic
-    && message.content.length > CLAMP_CHAR_THRESHOLD
     && (!message.blocks || message.blocks.length === 0)
-
+  const truncatedContent = canTruncate ? findNaturalTruncation(message.content) : null
   const [expanded, setExpanded] = useState(false)
-  const contentRef = useRef<HTMLDivElement>(null)
-  const [isOverflowing, setIsOverflowing] = useState(false)
-
-  useEffect(() => {
-    if (needsClamp && contentRef.current) {
-      setIsOverflowing(contentRef.current.scrollHeight > contentRef.current.clientHeight)
-    }
-  }, [needsClamp, message.content])
 
   // Streaming with no text yet — show thinking indicator placeholder
   if (isStreaming && !message.content && !hasToolLoading) {
@@ -105,16 +130,15 @@ export const MessageBubble = memo(function MessageBubble({
       data-testid={`message-${message.role}`}
     >
       <div
-        ref={needsClamp ? contentRef : undefined}
         className={`${typography.bodySmall} ${styles.markdownContent} ${
-          needsClamp && !expanded ? styles.markdownContentClamped : ''
-        } ${isProvisional ? styles.provisionalText : ''} ${
-          !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
-        }`}
+          isProvisional ? styles.provisionalText : ''
+        } ${!isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''}`}
         data-streaming={isStreaming || undefined}
         // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
         dangerouslySetInnerHTML={{
-          __html: safeRichText(message.content) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
+          __html: safeRichText(
+            truncatedContent && !expanded ? truncatedContent : message.content,
+          ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
         }}
       />
       {hasToolLoading && (
@@ -123,7 +147,7 @@ export const MessageBubble = memo(function MessageBubble({
           {message.toolLoadingState}
         </div>
       )}
-      {needsClamp && isOverflowing && (
+      {truncatedContent && (
         <button
           type="button"
           className={styles.showMoreTextToggle}
@@ -134,7 +158,7 @@ export const MessageBubble = memo(function MessageBubble({
         </button>
       )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
-        <InsightsStrip insights={message.insights} />
+        <InsightsStrip insights={message.insights} onSendMessage={onArtefactMessage} />
       )}
       {message.blocks && message.blocks.length > 0 && (
         <InlineBlocks
@@ -166,8 +190,35 @@ export const MessageBubble = memo(function MessageBubble({
   )
 })
 
+/** Map insight type → action chip config. Returns null for types that should not have a chip. */
+function getInsightAction(type: string, entityLabel: string): { label: string; message: string } | null {
+  switch (type) {
+    case 'missing_perspective':
+    case 'structural_gap':
+      return { label: 'Explore more options', message: 'Suggest additional options for this decision' }
+    case 'assumption_risk':
+      return { label: `Investigate ${entityLabel}`, message: `Help me clarify ${entityLabel === 'this' ? 'this assumption' : `your ${entityLabel} estimate`}` }
+    case 'calibration_concern':
+      return { label: `Calibrate ${entityLabel}`, message: `Help me calibrate ${entityLabel === 'this' ? 'this factor' : entityLabel}` }
+    case 'bias_detected':
+      return { label: `Challenge ${entityLabel}`, message: `Challenge my assumption about ${entityLabel === 'this' ? 'this' : entityLabel}` }
+    default:
+      return null
+  }
+}
+
 /** Deterministic CEE insights — rendered between assistant_text and blocks */
-function InsightsStrip({ insights }: { insights: Insight[] }) {
+function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSendMessage?: (text: string) => void }) {
+  // Resolve target_id → node label from the graph
+  const nodes = useCanvasStore(s => s.nodes)
+  const labelMap = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const n of nodes) {
+      if (n.data?.label) m.set(n.id, n.data.label)
+    }
+    return m
+  }, [nodes])
+
   return (
     <div className={styles.insightStrip} data-testid="insights-strip">
       {insights.map((insight, i) => {
@@ -175,6 +226,8 @@ function InsightsStrip({ insights }: { insights: Insight[] }) {
           insight.severity === 'important' ? styles.insightItemImportant
           : insight.severity === 'warning' ? styles.insightItemWarning
           : styles.insightItemInfo
+        const entityLabel = (insight.target_id && labelMap.get(insight.target_id)) || 'this'
+        const action = getInsightAction(insight.type, entityLabel)
         return (
           <div key={i} className={`${styles.insightItem} ${severityClass}`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
@@ -183,6 +236,17 @@ function InsightsStrip({ insights }: { insights: Insight[] }) {
               </span>
               {insight.science_concept && (
                 <span className={styles.scienceConceptBadge}>{insight.science_concept}</span>
+              )}
+              {action && onSendMessage && (
+                <button
+                  type="button"
+                  className={`${typography.caption} ${styles.insightActionChip}`}
+                  onClick={() => onSendMessage(action.message)}
+                  style={{ marginTop: 8 }}
+                  data-testid={`insight-action-${i}`}
+                >
+                  {action.label}
+                </button>
               )}
             </div>
           </div>

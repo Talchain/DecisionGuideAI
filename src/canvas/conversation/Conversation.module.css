@@ -1689,3 +1689,32 @@
   font-weight: 500;
   white-space: nowrap;
 }
+
+/* Insight action chip — DS v5 §21.4: outlined pill, caption, bg-transparent */
+.insightActionChip {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border-default, #EEE6D8);
+  background: transparent;
+  color: var(--text-body, #3F3F3E);
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 150ms;
+}
+
+.insightActionChip:hover {
+  background: var(--bg-panel-hover, #FEF9F3);
+}
+
+.insightActionChip:focus-visible {
+  outline: 2px solid var(--info, #2B7FA2);
+  outline-offset: 2px;
+}
+
+.insightActionChip:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
