@@ -3,8 +3,9 @@
  * Contains Layer 2 content (bars, ConnRows, bias notes).
  * Renders via createPortal to escape ReactFlow's stacking context,
  * ensuring popovers always appear above adjacent nodes.
+ * Tracks anchor position via rAF to stay aligned during pan/zoom.
  */
-import { useRef, useLayoutEffect, useState, type ReactNode } from 'react'
+import { useRef, useEffect, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 interface NodePopoverProps {
@@ -18,16 +19,30 @@ interface NodePopoverProps {
 }
 
 export function NodePopover({ visible, width, children, onMouseEnter, onMouseLeave, anchorRef }: NodePopoverProps) {
-  const popoverRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
-  useLayoutEffect(() => {
+  // Track anchor position continuously while visible (handles pan/zoom)
+  useEffect(() => {
     if (!visible || !anchorRef?.current) {
       setPos(null)
       return
     }
-    const rect = anchorRef.current.getBoundingClientRect()
-    setPos({ top: rect.bottom + 4, left: rect.left })
+
+    let rafId: number
+    const track = () => {
+      if (!anchorRef.current) return
+      const rect = anchorRef.current.getBoundingClientRect()
+      setPos(prev => {
+        if (prev && Math.abs(prev.top - (rect.bottom + 4)) < 0.5 && Math.abs(prev.left - rect.left) < 0.5) {
+          return prev // avoid re-render if position unchanged
+        }
+        return { top: rect.bottom + 4, left: rect.left }
+      })
+      rafId = requestAnimationFrame(track)
+    }
+    track()
+
+    return () => cancelAnimationFrame(rafId)
   }, [visible, anchorRef])
 
   if (!visible) return null
@@ -50,7 +65,6 @@ export function NodePopover({ visible, width, children, onMouseEnter, onMouseLea
 
   return createPortal(
     <div
-      ref={popoverRef}
       className="fixed z-[9999] bg-panel border border-panel-border rounded-lg shadow-2 nodrag nopan nowheel"
       style={{ top: pos.top, left: pos.left, width: width ?? 280, maxHeight: 250, overflowY: 'auto', padding: '8px 10px' }}
       onMouseEnter={onMouseEnter}

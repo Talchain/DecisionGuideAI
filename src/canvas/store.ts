@@ -3487,12 +3487,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   // Canvas view mode setter (persists to sessionStorage, triggers relayout to prevent overlap)
   setViewMode: (mode: 'standard' | 'expert') => {
+    if (get().viewMode === mode) return
     set({ viewMode: mode })
     try { sessionStorage.setItem('canvas.viewMode', mode) } catch { /* noop */ }
-    // Detailed view expands nodes — relayout after a tick so React can measure new sizes
+    // Detailed view expands nodes — relayout after React measures new sizes
     setTimeout(() => {
       get().applyLayout().catch(() => { /* layout failure is non-critical */ })
-    }, 50)
+    }, 150)
   },
 
   // Week 3: AI Clarifier actions

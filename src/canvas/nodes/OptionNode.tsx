@@ -50,8 +50,8 @@ function formatChipValue(chip: { label: string; value: number; unit?: string; fa
   if (/^(Very low|Low|Medium|High|Very high)$/i.test(fallback)) {
     return `${Math.round(chip.value * 100)}%`
   }
-  // Raw normalised number (no unit, value looks like "0.15" or "0.85") → percentage
-  if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^\d+\.\d+$/.test(fallback)) {
+  // Raw normalised number (no unit, value in [0,1] like "0.15" or "0.85") → percentage
+  if (!effectiveUnit && chip.value >= 0 && chip.value <= 1 && /^0\.\d+$/.test(fallback)) {
     return `${Math.round(chip.value * 100)}%`
   }
   return fallback
