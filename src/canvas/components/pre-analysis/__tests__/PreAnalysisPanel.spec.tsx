@@ -915,7 +915,7 @@ describe('PreAnalysisPanel', () => {
     })
   })
 
-  describe('Framing pill styling (v13 Task 7a)', () => {
+  describe.skip('Framing pill styling (v13 Task 7a) — DecisionQualityChecks removed', () => {
     it('renders Framing pill with border class and no bg-option-light', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         qualityChecks: [{
@@ -1035,10 +1035,11 @@ describe('PreAnalysisPanel', () => {
       expect(screen.queryByText('Model assumptions')).not.toBeInTheDocument()
     })
 
-    it('renders "Sharpen your thinking" NOT "Decision quality"', () => {
+    it('does NOT render "Decision quality" or "Sharpen your thinking" sections', () => {
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expect(screen.queryByText('Decision quality')).not.toBeInTheDocument()
-      expect(screen.getByText('Sharpen your thinking')).toBeInTheDocument()
+      // DecisionQualityChecks removed — "Sharpen your thinking" header no longer renders
+      expect(screen.queryByText('Sharpen your thinking')).not.toBeInTheDocument()
     })
   })
 })
