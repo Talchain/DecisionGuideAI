@@ -15,11 +15,30 @@ import { extractAssistantText, buildHistory } from '../useConversation'
 import type { ConversationMessage } from '../types'
 
 // ---------------------------------------------------------------------------
-// § 1 — V2 envelope JSON → extracts text field
+// § 1 — JSON envelope extraction (V2 + legacy shapes)
 // ---------------------------------------------------------------------------
 
 describe('extractAssistantText — V2 envelope extraction', () => {
-  it('extracts text from a JSON envelope with text field', () => {
+  it('extracts assistant_text from a full V2 envelope', () => {
+    const json = JSON.stringify({
+      assistant_text: 'The best approach depends on your constraints.',
+      response_version: 2,
+      turn_id: 'turn-abc',
+      blocks: [{ type: 'commentary', text: 'detail' }],
+      insights: [{ type: 'bias_detected', description: 'Narrow framing' }],
+    })
+    expect(extractAssistantText(json)).toBe('The best approach depends on your constraints.')
+  })
+
+  it('prefers assistant_text over text when both present', () => {
+    const json = JSON.stringify({
+      assistant_text: 'V2 text',
+      text: 'Legacy text',
+    })
+    expect(extractAssistantText(json)).toBe('V2 text')
+  })
+
+  it('extracts text from legacy JSON envelope (no assistant_text)', () => {
     const json = JSON.stringify({
       text: 'Here are four decision-making techniques.',
       insights: [{ type: 'bias_detected', description: 'Narrow framing' }],
@@ -109,14 +128,23 @@ describe('extractAssistantText — edge cases', () => {
     expect(extractAssistantText(content)).toBe(content)
   })
 
-  it('logs warning for JSON without text field', () => {
+  it('logs warning for JSON without extractable text field', () => {
     const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const json = JSON.stringify({ response: 'Hello' })
     extractAssistantText(json)
     expect(spy).toHaveBeenCalledWith(
-      expect.stringContaining('still contains JSON'),
+      expect.stringContaining('no extractable text'),
       expect.any(Object),
     )
+    spy.mockRestore()
+  })
+
+  it('warns for unknown JSON shapes without mutating content', () => {
+    const spy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const json = JSON.stringify({ random_field: 'value', blocks: [] })
+    const result = extractAssistantText(json)
+    expect(result).toBe(json) // original returned, not fallback text
+    expect(spy).toHaveBeenCalled()
     spy.mockRestore()
   })
 })

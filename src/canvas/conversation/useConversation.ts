@@ -379,21 +379,27 @@ export function enforceChipBudget(
 export function extractAssistantText(raw: string): string {
   if (!raw) return ''
   const trimmed = raw.trim()
-  if (trimmed.startsWith('{') && trimmed.includes('"text"')) {
+  // Detect JSON objects — check for opening brace and closing brace
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
     try {
       const parsed = JSON.parse(trimmed)
-      if (typeof parsed.text === 'string' && parsed.text.trim()) {
-        return parsed.text
+      if (typeof parsed === 'object' && parsed !== null) {
+        // Priority 1: V2 envelope shape — assistant_text field
+        if (typeof parsed.assistant_text === 'string' && parsed.assistant_text.trim()) {
+          return parsed.assistant_text
+        }
+        // Priority 2: Legacy/fallback shape — text field
+        if (typeof parsed.text === 'string' && parsed.text.trim()) {
+          return parsed.text
+        }
+        // Parsed as JSON but no extractable text — warn and return original
+        console.warn('[extractAssistantText] JSON object with no extractable text field', {
+          keys: Object.keys(parsed).slice(0, 10),
+        })
       }
     } catch {
       // Not valid JSON — use as-is
     }
-  }
-  // Log if still looks like JSON after extraction (indicates new envelope shape)
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-    console.warn('[extractAssistantText] content still contains JSON structure', {
-      preview: trimmed.slice(0, 100),
-    })
   }
   return raw
 }
