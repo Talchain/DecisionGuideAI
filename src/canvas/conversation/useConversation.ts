@@ -369,6 +369,36 @@ export function enforceChipBudget(
 }
 
 /**
+ * Extract clean assistant text from a potentially JSON-wrapped string.
+ * CEE's fallback parser may set assistant_text to a stringified JSON envelope
+ * like {"text": "...", "insights": [...]}. This extracts just the text field
+ * so conversation_history contains plain text, not JSON.
+ * Single extraction point — all handleEnvelope paths converge here.
+ * Exported for unit testing.
+ */
+export function extractAssistantText(raw: string): string {
+  if (!raw) return ''
+  const trimmed = raw.trim()
+  if (trimmed.startsWith('{') && trimmed.includes('"text"')) {
+    try {
+      const parsed = JSON.parse(trimmed)
+      if (typeof parsed.text === 'string' && parsed.text.trim()) {
+        return parsed.text
+      }
+    } catch {
+      // Not valid JSON — use as-is
+    }
+  }
+  // Log if still looks like JSON after extraction (indicates new envelope shape)
+  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+    console.warn('[extractAssistantText] content still contains JSON structure', {
+      preview: trimmed.slice(0, 100),
+    })
+  }
+  return raw
+}
+
+/**
  * Extract a BaseRateChipSet from guidance items for the MISSING_BASE_RATE signal.
  * Returns the highest-priority match (lowest number = highest priority), or undefined.
  * Exported for unit testing.
@@ -1798,7 +1828,8 @@ export function useConversation(): UseConversationReturn {
       // Belt-and-braces: strip <diagnostics>…</diagnostics> XML blocks and bare
       // diagnostics preamble ("Mode: …") that CEE should have removed server-side.
       // Protects against LLM output variance where diagnostics leak into assistant_text.
-      let assistantText = envelope.assistant_text ?? ''
+      let assistantText = extractAssistantText(envelope.assistant_text ?? '')
+
       // Deterministic format (response_version >= 2): plain text, no XML stripping needed
       const isV2Format = typeof rawEnvelope.response_version === 'number'
         && rawEnvelope.response_version >= 2
