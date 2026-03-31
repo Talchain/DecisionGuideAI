@@ -1,12 +1,14 @@
 // src/canvas/useKeyboardShortcuts.ts
 // Keyboard shortcuts for canvas
 
-import { useEffect, useCallback, useRef } from 'react'
+import { useEffect, useRef } from 'react'
 import { useCanvasStore } from './store'
 
 interface KeyboardShortcutOptions {
   /** Callback to set interaction mode (select/hand) for V/H shortcuts */
   onModeChange?: (mode: 'select' | 'hand') => void
+  /** Callback for spacebar hold-to-pan (true on keydown, false on keyup) */
+  onSpaceHeld?: (held: boolean) => void
 }
 
 export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
@@ -133,9 +135,33 @@ export function useKeyboardShortcuts(options?: KeyboardShortcutOptions) {
         state.nudgeSelected(0, nudgeAmount)
         return
       }
+
+      // Spacebar hold-to-pan: temporarily switch to hand mode (like Figma)
+      if (event.key === ' ' && !event.repeat) {
+        event.preventDefault()
+        optionsRef.current?.onSpaceHeld?.(true)
+        return
+      }
+    }
+
+    const handleKeyUp = (event: KeyboardEvent) => {
+      if (event.key === ' ') {
+        optionsRef.current?.onSpaceHeld?.(false)
+      }
+    }
+
+    // Clear spacebar hold if window loses focus (prevents stuck state)
+    const handleBlur = () => {
+      optionsRef.current?.onSpaceHeld?.(false)
     }
 
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+    window.addEventListener('keyup', handleKeyUp)
+    window.addEventListener('blur', handleBlur)
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('keyup', handleKeyUp)
+      window.removeEventListener('blur', handleBlur)
+    }
   }, []) // Empty deps - handler always gets fresh state via getState()
 }

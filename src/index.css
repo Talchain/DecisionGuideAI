@@ -634,3 +634,17 @@
   stroke-width: 2 !important;
   stroke-dasharray: 5 3;
 }
+
+/* Canvas interaction mode cursors — specificity must beat @xyflow's
+   .react-flow__pane.draggable and .react-flow__node.draggable rules */
+.canvas-mode-select .react-flow__pane,
+.canvas-mode-select .react-flow__pane.draggable {
+  cursor: default;
+}
+.canvas-mode-hand .react-flow__node,
+.canvas-mode-hand .react-flow__node.draggable {
+  cursor: grab;
+}
+.canvas-mode-hand .react-flow__node:active {
+  cursor: grabbing;
+}

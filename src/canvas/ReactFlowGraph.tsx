@@ -542,7 +542,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // Interaction mode: 'select' for normal selection/drag, 'hand' for pan mode (like Figma V/H)
   // Default to 'hand' mode for easier canvas navigation on load
   const [interactionMode, setInteractionMode] = useState<'select' | 'hand'>('hand')
-  const canDragSelect = interactionMode === 'select'
+
+  // Spacebar hold-to-pan: temporarily switches to hand mode while held (like Figma)
+  const [spaceHeld, setSpaceHeld] = useState(false)
+  const effectiveMode = spaceHeld ? 'hand' : interactionMode
+  const canDragSelect = effectiveMode === 'select'
 
   // M4: Graph Health actions (graphHealth, showIssuesPanel state selected above)
   const setShowIssuesPanel = useCanvasStore(s => s.setShowIssuesPanel)
@@ -1359,7 +1363,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }
 
-  useKeyboardShortcuts({ onModeChange: setInteractionMode })
+  useKeyboardShortcuts({ onModeChange: setInteractionMode, onSpaceHeld: setSpaceHeld })
 
   // Task C: Escape key closes active right panel (Provenance, AI Clarifier)
   useEscapePanel()
@@ -1913,6 +1917,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       }}
     >
       <div
+        className={effectiveMode === 'hand' ? 'canvas-mode-hand' : 'canvas-mode-select'}
         style={{
           position: 'absolute',
           top: 0,
@@ -1980,7 +1985,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
             selectionOnDrag={canDragSelect}
             selectionMode={SelectionMode.Partial}
             multiSelectionKeyCode={['Meta', 'Control']}
-            panOnDrag={interactionMode === 'hand'}
+            panOnDrag={effectiveMode === 'hand' ? true : [1, 2]}
+            nodesDraggable={effectiveMode === 'select'}
             fitView
             minZoom={0.1}
             maxZoom={4}
@@ -2015,7 +2021,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {!USE_NEW_LAYOUT && <CanvasToolbar />}
       <LeftSidebar
-        interactionMode={interactionMode}
+        interactionMode={effectiveMode}
         onModeChange={setInteractionMode}
         onFitClick={() => fitViewRef.current({ padding: 0.2, duration: 300 })}
         // Canvas control actions

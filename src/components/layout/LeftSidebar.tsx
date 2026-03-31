@@ -59,18 +59,26 @@ export function LeftSidebar({
     >
       {/* Mode Toggle & Creation Group */}
       <div className={styles.group}>
-        <Tooltip content={interactionMode === 'select' ? 'Switch to Hand mode (H)' : 'Switch to Select mode (V)'}>
+        <Tooltip content="Select mode (V)">
           <button
             type="button"
-            className={styles.iconButton}
-            aria-label={interactionMode === 'select' ? 'Currently in Select mode, click for Hand mode' : 'Currently in Hand mode, click for Select mode'}
-            onClick={() => onModeChange?.(interactionMode === 'select' ? 'hand' : 'select')}
+            className={interactionMode === 'select' ? styles.iconButtonActive : styles.iconButton}
+            aria-label="Select mode"
+            aria-pressed={interactionMode === 'select'}
+            onClick={() => onModeChange?.('select')}
           >
-            {interactionMode === 'select' ? (
-              <MousePointer2 className={styles.icon} aria-hidden="true" />
-            ) : (
-              <Hand className={styles.icon} aria-hidden="true" />
-            )}
+            <MousePointer2 className={styles.icon} aria-hidden="true" />
+          </button>
+        </Tooltip>
+        <Tooltip content="Hand mode (H)">
+          <button
+            type="button"
+            className={interactionMode === 'hand' ? styles.iconButtonActive : styles.iconButton}
+            aria-label="Hand mode"
+            aria-pressed={interactionMode === 'hand'}
+            onClick={() => onModeChange?.('hand')}
+          >
+            <Hand className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
 
