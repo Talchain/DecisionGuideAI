@@ -134,8 +134,9 @@ export const MessageBubble = memo(function MessageBubble({
   const isProvisional = message.isProvisional === true
   const hasToolLoading = Boolean(message.toolLoadingState)
 
-  // P0-1: Safety net — extract text from raw JSON blobs (CEE fallback parser)
-  const displayContent = isUser ? message.content : extractFromRawJson(message.content)
+  // P0-1: Safety net — extract text from raw JSON blobs (CEE fallback parser).
+  // Only apply after streaming completes — partial JSON during streaming would flash fallback.
+  const displayContent = isUser || isStreaming ? message.content : extractFromRawJson(message.content)
 
   // Progressive disclosure: truncate at natural boundaries (paragraph / sentence)
   const canTruncate = !isUser
