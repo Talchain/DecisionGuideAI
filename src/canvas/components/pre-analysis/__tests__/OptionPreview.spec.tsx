@@ -13,14 +13,8 @@ function makeOption(overrides: Partial<OptionPreviewData> & { interventions: Opt
   }
 }
 
-/** Expand interventions for the first option (collapsed by default) */
-function expandInterventions() {
-  const toggle = screen.getByText('Show interventions')
-  fireEvent.click(toggle)
-}
-
 describe('OptionPreview — intervention display', () => {
-  it('interventions are collapsed by default', () => {
+  it('interventions are always visible', () => {
     render(
       <OptionPreview
         options={[makeOption({
@@ -38,9 +32,9 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
-    // Intervention text should NOT be visible until expanded
-    expect(screen.queryByText('to very high')).not.toBeInTheDocument()
-    expect(screen.getByText('Show interventions')).toBeInTheDocument()
+    // Interventions should be visible without needing to expand
+    expect(screen.getByText('to very high')).toBeInTheDocument()
+    expect(screen.queryByText('Show interventions')).not.toBeInTheDocument()
   })
 
   it('shows qualitative level for cap=1, unit="" intervention (0.8 → "to very high")', () => {
@@ -61,7 +55,6 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
-    expandInterventions()
     expect(screen.getByText('to very high')).toBeInTheDocument()
   })
 
@@ -83,7 +76,6 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
-    expandInterventions()
     expect(screen.getByText('to moderate')).toBeInTheDocument()
   })
 
@@ -105,7 +97,6 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
-    expandInterventions()
     expect(screen.getByText('to 5000')).toBeInTheDocument()
   })
 
@@ -127,7 +118,6 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
-    expandInterventions()
     expect(screen.getByText('to low')).toBeInTheDocument()
   })
 
@@ -160,7 +150,6 @@ describe('OptionPreview — intervention display', () => {
         })]}
       />,
     )
-    expandInterventions()
     expect(screen.getByText(expectedLabel)).toBeInTheDocument()
   })
 
@@ -182,7 +171,6 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
-    expandInterventions()
     expect(screen.getByText('to 9 months')).toBeInTheDocument()
   })
 })
@@ -208,7 +196,6 @@ describe('OptionPreview — click-to-inspector', () => {
       />,
     )
 
-    expandInterventions()
     // Click the factor label button — should fire with the factor's id, not the option id
     fireEvent.click(screen.getByText('Market Size'))
     expect(onFocusNode).toHaveBeenCalledTimes(1)

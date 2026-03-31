@@ -258,11 +258,11 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse now')
     })
 
-    it('shows "Analyse anyway" when ready but readiness < 60', () => {
+    it('shows "Analyse now" when ready regardless of readiness score', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, hasBlockers: false }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse anyway')
+      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse now')
     })
 
     it('shows "Analyse now" CTA (disabled, aria-label signals blockers) when has blockers', () => {
@@ -648,7 +648,7 @@ describe('PreAnalysisPanel', () => {
 
       // Button should be enabled (CTA adapts to readiness: "Analyse now" or "Analyse anyway")
       const button = screen.getByRole('button', { name: /run analysis/i })
-      expect(button).toHaveTextContent(/Analyse (now|anyway)/)
+      expect(button).toHaveTextContent('Analyse now')
       expect(button).not.toBeDisabled()
     })
   })
@@ -965,9 +965,6 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
-      // Expand interventions (collapsed by default)
-      fireEvent.click(screen.getByText('Show interventions'))
 
       // Click the factor label "Ad spend" — should target the factor node, not the option
       fireEvent.click(screen.getByText('Ad spend'))

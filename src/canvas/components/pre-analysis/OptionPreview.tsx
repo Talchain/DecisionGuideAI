@@ -21,7 +21,7 @@ import { typography } from '@/styles/typography'
 function OptionSquare() {
   return (
     <span
-      className="inline-block flex-shrink-0 w-4 h-4 rounded-[2px] bg-option/20 border border-option/40"
+      className="inline-block flex-shrink-0 w-4 h-4 rounded-[2px] bg-option"
       aria-hidden="true"
     />
   )
@@ -155,11 +155,8 @@ function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' })
   return <Minus className="w-3 h-3 text-text-light" />
 }
 
-/** Per-option collapsible intervention rows — collapsed by default.
- * Shows strategy summary when collapsed, full interventions when expanded. */
+/** Per-option intervention rows — always visible */
 function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPreviewData; onFocusNode?: (id: string) => void }) {
-  const [expanded, setExpanded] = useState(false)
-
   // Baseline with interventions = "no changes"
   if (opt.isBaseline && opt.interventions.length > 0) {
     return (
@@ -169,78 +166,37 @@ function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPrevi
     )
   }
 
-  // No interventions at all
+  // Non-baseline with empty interventions — return null
   if (opt.interventions.length === 0) {
-    return opt.isBaseline ? null : (
-      <div className={`${typography.panelMeta} text-text-light mt-1`}>No mapped interventions yet</div>
-    )
+    return null
   }
 
   return (
     <div className="mt-1">
-      {!expanded && (
-        <>
-          <p className={`${typography.panelMeta} text-text-light`}>
-            {getStrategySummary(opt)}
-          </p>
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
-          >
-            Show interventions
-          </button>
-        </>
-      )}
-      {expanded && (
-        <>
-          <div className="flex flex-wrap gap-x-3 gap-y-1">
-            {opt.interventions.map(iv => {
-              const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
-              const before = formatBeforeValue(iv.currentRawValue, iv.cap, iv.unit)
-              return (
-                <span key={iv.factorId} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body`}>
-                  <InterventionArrow direction={iv.direction} />
-                  <button
-                    type="button"
-                    onClick={() => onFocusNode?.(iv.factorId)}
-                    className="hover:underline cursor-pointer"
-                  >
-                    {iv.factorLabel}
-                  </button>
-                  {before != null && display !== 'unchanged'
-                    ? <span className="text-text-light">{before} → {display.replace(/^to /, '')}</span>
-                    : <span className="text-text-light">{display}</span>
-                  }
-                </span>
-              )
-            })}
-          </div>
-          <button
-            type="button"
-            onClick={() => setExpanded(false)}
-            className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-1`}
-          >
-            Hide
-          </button>
-        </>
-      )}
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
+        {opt.interventions.map(iv => {
+          const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
+          const before = formatBeforeValue(iv.currentRawValue, iv.cap, iv.unit)
+          return (
+            <span key={iv.factorId} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body`}>
+              <InterventionArrow direction={iv.direction} />
+              <button
+                type="button"
+                onClick={() => onFocusNode?.(iv.factorId)}
+                className="hover:underline cursor-pointer"
+              >
+                {iv.factorLabel}
+              </button>
+              {before != null && display !== 'unchanged'
+                ? <span className="text-text-light">{before} → {display.replace(/^to /, '')}</span>
+                : <span className="text-text-light">{display}</span>
+              }
+            </span>
+          )
+        })}
+      </div>
     </div>
   )
-}
-
-/** Strategy summary for collapsed state */
-function getStrategySummary(opt: OptionPreviewData): string {
-  if (opt.isBaseline) return 'No changes to any factors'
-  if (opt.interventions.length === 0) return 'No mapped interventions yet'
-  const changed = opt.interventions.filter(iv => iv.direction !== 'same')
-  if (changed.length === 0) return 'No changes to any factors'
-  const parts = changed.slice(0, 2).map(iv => {
-    const sign = iv.direction === 'up' ? '+' : iv.direction === 'down' ? '' : ''
-    return `${iv.factorLabel} (${sign}${iv.deltaPercent != null ? `${Math.round(iv.deltaPercent)}%` : '...'})`
-  })
-  const suffix = changed.length > 2 ? `, +${changed.length - 2} more` : ''
-  return `Changes ${changed.length} ${changed.length === 1 ? 'factor' : 'factors'}: ${parts.join(', ')}${suffix}`
 }
 
 export function OptionPreview({

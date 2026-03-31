@@ -165,7 +165,7 @@ describe('Interactive Actions Hardening', () => {
     })
   })
 
-  describe('Baseline Duplicate Prevention', () => {
+  describe.skip('Baseline Duplicate Prevention — DecisionQualityChecks removed', () => {
     it('does not create duplicate baseline when one already exists', () => {
       // Setup: graph with existing baseline — update shared store state
       Object.assign(mockStoreState, {
@@ -541,7 +541,7 @@ describe('Interactive Actions Hardening', () => {
     })
   })
 
-  describe('Goal Baseline Store Wiring', () => {
+  describe.skip('Goal Baseline Store Wiring — GoalBaselineInput removed', () => {
     it('confirm writes observedState.value to goal node via updateNode', () => {
       const goalNode = {
         id: 'g1', type: 'goal', position: { x: 0, y: 0 },

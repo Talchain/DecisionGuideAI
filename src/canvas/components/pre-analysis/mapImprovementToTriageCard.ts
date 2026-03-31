@@ -8,6 +8,7 @@
 
 import type { ImprovementItem } from './hooks/usePreAnalysisData'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
+import { isCurrencyUnit } from '@/canvas/utils/labelUtils'
 
 export interface TriageCardItem {
   key: string
@@ -19,6 +20,14 @@ export interface TriageCardItem {
   influence: number | null
   action: TriageCardAction | undefined
   sourcePill: { label: string; borderClass: string } | null
+}
+
+/** Format a raw value with its unit for display */
+function formatValueWithUnit(rawValue: number, unit: string | undefined): string {
+  if (!unit) return String(rawValue)
+  if (isCurrencyUnit(unit)) return `${unit}${rawValue.toLocaleString()}`
+  if (unit === '%') return `${rawValue}%`
+  return `${rawValue} ${unit}`
 }
 
 /** Map ImprovementActionKind → TriageCardAction.kind */
@@ -49,10 +58,17 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
   // AI-estimated factor with a current value
   if (item.sourceBadge === 'ai') {
     if (item.rawValue != null) {
-      const display = item.unit ? `${item.rawValue} ${item.unit}` : String(item.rawValue)
-      return `Current: ${display}. Confirm or edit.`
+      return `Current: ${formatValueWithUnit(item.rawValue, item.unit)}. Confirm or edit.`
     }
     return 'Confirm or edit the AI estimate'
+  }
+
+  // Brief-sourced factor with a current value
+  if (item.sourceBadge === 'brief') {
+    if (item.rawValue != null) {
+      return `From brief: ${formatValueWithUnit(item.rawValue, item.unit)}. Confirm or edit.`
+    }
+    return 'Value from your brief. Confirm or edit.'
   }
 
   return undefined

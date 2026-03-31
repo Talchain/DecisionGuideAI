@@ -15,38 +15,45 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useCallback, useRef, useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview } from './OptionPreview'
-import { DecisionQualityChecks } from './DecisionQualityChecks'
-import { GoalBaselineInput } from './GoalBaselineInput'
 import { YourExpertise } from './expertise'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
-import { getObservedState, withObservedStateUpdate } from '../../utils/observedStateHelpers'
+import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor } from 'lucide-react'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
 import type { TriageCardItem } from './mapImprovementToTriageCard'
 import { buildTriageNarrative } from './utils/buildTriageNarrative'
-import { STRUCTURAL_CHECK_IDS } from './DecisionQualityChecks'
 import { typography } from '@/styles/typography'
-import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
+
+/** Structural check IDs — inline copy to avoid importing DecisionQualityChecks */
+const STRUCTURAL_CHECK_IDS = new Set([
+  'no_risks',
+  'no_baseline',
+  'all_positive_edges',
+  'no_target',
+])
+
+/** AI source provenance labels */
+const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred'])
 
 /** Binary pass/fail row for triage check rows — failed rows show optional action link */
 function TriageCheckRow({ label, pass, actionLabel, onAction }: {
@@ -81,9 +88,6 @@ const STRUCTURAL_FLAG_LABELS: Record<string, string> = {
   no_baseline: 'No status quo',
   no_target: 'No target set',
 }
-
-/** Quality check IDs that can serve as science nudges */
-const NUDGE_CHECK_IDS = new Set(['same_levers', 'zero_external_factors', 'many_ai_estimates'])
 
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
@@ -142,10 +146,6 @@ export function PreAnalysisPanel({
     focusNodeById(factorId)
   }, [selectNodeWithoutHistory])
 
-  const handleAskAI = useCallback((factorId: string, factorLabel: string) => {
-    onSendMessage?.(`Can you research ${factorLabel} and suggest a reasonable estimate with sources?`)
-  }, [onSendMessage])
-
   // Retry handler with toast feedback
   const handleRetryDraft = useCallback(async () => {
     const result = await retryDraft()
@@ -161,9 +161,6 @@ export function PreAnalysisPanel({
   const handleEditBrief = useCallback(() => {
     setShowDraftChat(true)
   }, [setShowDraftChat])
-
-  // Ref for scrolling to improvements
-  const improvementsRef = useRef<HTMLDivElement>(null)
 
   // Focus handlers - wire to canvas focus helpers
   const setHighlightedNodes = useCanvasStore(s => s.setHighlightedNodes)
@@ -353,18 +350,7 @@ export function PreAnalysisPanel({
     if (!node) return
 
     updateNode(nodeId, {
-      data: withObservedStateUpdate(node.data, { source: 'user_confirmed' }),
-    })
-  }, [])
-
-  // Assumption action - mark factor source as user_assumption
-  const handleAssumption = useCallback((nodeId: string) => {
-    const { nodes, updateNode } = useCanvasStore.getState()
-    const node = nodes.find(n => n.id === nodeId)
-    if (!node) return
-
-    updateNode(nodeId, {
-      data: withObservedStateUpdate(node.data, { source: 'user_assumption' }),
+      data: withObservedStateUpdate(node.data, { source: 'user_confirmed', extractionType: 'explicit' }),
     })
   }, [])
 
@@ -374,18 +360,6 @@ export function PreAnalysisPanel({
     focusNodeById(nodeId)
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes])
-
-  // Reset source action - revert factor source back to AI for re-review
-  const handleResetSource = useCallback((nodeId: string) => {
-    const { nodes, updateNode } = useCanvasStore.getState()
-    const node = nodes.find(n => n.id === nodeId)
-    if (!node) return
-
-    // Reset to AI source so item reappears in verify list
-    updateNode(nodeId, {
-      data: withObservedStateUpdate(node.data, { source: 'ai' }),
-    })
-  }, [])
 
   // Inline value edit — update factor observed state with user-provided raw value
   const handleInlineEditValue = useCallback((nodeId: string, rawValue: number, cap: number | null) => {
@@ -432,284 +406,6 @@ export function PreAnalysisPanel({
     })
   }, [])
 
-  // Add baseline action - create a new baseline option node
-  const handleAddBaseline = useCallback(() => {
-    const { nodes, addNode, updateNode, addEdge, setCeeAnalysisReady } = useCanvasStore.getState()
-
-    // Guard: Check if baseline option already exists
-    const existingBaseline = nodes.find(
-      n => n.type === 'option' &&
-           (n.data as { is_baseline?: boolean })?.is_baseline === true
-    )
-    if (existingBaseline) {
-      // Focus existing baseline instead of creating duplicate
-      setHighlightedNodes([existingBaseline.id])
-      focusNodeById(existingBaseline.id)
-      setTimeout(() => setHighlightedNodes([]), 3000)
-      console.warn('[PreAnalysisPanel] Baseline already exists, focusing:', existingBaseline.id)
-      return
-    }
-
-    // Find decision node for connection
-    const decisionNode = nodes.find(n => n.type === 'decision')
-    const anchorNode = decisionNode || nodes[0]
-
-    if (!anchorNode) {
-      console.warn('[PreAnalysisPanel] Cannot add baseline: no nodes to connect to')
-      return
-    }
-
-    // Calculate position near anchor
-    const newPosition = {
-      x: (anchorNode.position?.x || 200) + 200,
-      y: (anchorNode.position?.y || 200) + 50,
-    }
-
-    // Create new option node
-    addNode(newPosition, 'option')
-
-    // Get the newly created node
-    const newNodes = useCanvasStore.getState().nodes
-    const newNode = newNodes[newNodes.length - 1]
-    if (!newNode) return
-
-    // Collect current observed state values for interventions
-    const factorNodes = nodes.filter(n => n.type === 'factor')
-    const interventions: Record<string, number> = {}
-    for (const factor of factorNodes) {
-      const os = getObservedState(factor.data)
-      if (os.value != null) {
-        interventions[factor.id] = os.value
-      }
-    }
-
-    // Update node with baseline properties
-    updateNode(newNode.id, {
-      data: {
-        ...newNode.data,
-        label: 'Status Quo',
-        kind: 'option',
-        is_baseline: true,
-        interventions,
-        status: 'ready',
-      },
-    })
-
-    // Connect to decision node if available
-    if (decisionNode) {
-      addEdge({
-        source: decisionNode.id,
-        target: newNode.id,
-        type: 'default',
-        data: { ...DEFAULT_EDGE_DATA, confidence: 0 },
-      })
-    }
-
-    // Invalidate CEE analysis ready state
-    setCeeAnalysisReady(null)
-
-    console.warn('[PreAnalysisPanel] Added baseline option:', newNode.id)
-  }, [setHighlightedNodes])
-
-  // Add option action - create a new option node
-  const handleAddOption = useCallback(() => {
-    const { nodes, addNode, setCeeAnalysisReady } = useCanvasStore.getState()
-
-    // Find decision node for positioning
-    const decisionNode = nodes.find(n => n.type === 'decision')
-    const anchorNode = decisionNode || nodes[0]
-
-    // Calculate position near anchor
-    const newPosition = {
-      x: (anchorNode?.position?.x || 200) + 200,
-      y: (anchorNode?.position?.y || 200) + 100,
-    }
-
-    // Create new option node
-    addNode(newPosition, 'option')
-
-    // Invalidate CEE analysis ready state
-    setCeeAnalysisReady(null)
-
-    // Focus the new node
-    const newNodes = useCanvasStore.getState().nodes
-    const newNode = newNodes[newNodes.length - 1]
-    if (newNode) {
-      setHighlightedNodes([newNode.id])
-      focusNodeById(newNode.id)
-      setTimeout(() => setHighlightedNodes([]), 3000)
-    }
-
-    console.warn('[PreAnalysisPanel] Added option node')
-  }, [setHighlightedNodes])
-
-  // Add risk action - create a new risk node
-  const handleAddRisk = useCallback(() => {
-    const { nodes, addNode, setCeeAnalysisReady } = useCanvasStore.getState()
-
-    // Find goal or decision node for positioning
-    const goalNode = nodes.find(n => n.type === 'goal')
-    const anchorNode = goalNode || nodes[0]
-
-    // Calculate position near anchor
-    const newPosition = {
-      x: (anchorNode?.position?.x || 200) + 200,
-      y: (anchorNode?.position?.y || 200) + 100,
-    }
-
-    // Create new risk node
-    addNode(newPosition, 'risk')
-
-    // Invalidate CEE analysis ready state
-    setCeeAnalysisReady(null)
-
-    // Focus the new node
-    const newNodes = useCanvasStore.getState().nodes
-    const newNode = newNodes[newNodes.length - 1]
-    if (newNode) {
-      setHighlightedNodes([newNode.id])
-      focusNodeById(newNode.id)
-      setTimeout(() => setHighlightedNodes([]), 3000)
-    }
-
-    console.warn('[PreAnalysisPanel] Added risk node')
-  }, [setHighlightedNodes])
-
-
-  // Direct add from quality checks — creates a labelled node inline
-  const handleDirectAdd = useCallback((kind: 'risk' | 'factor', label: string) => {
-    const { nodes, addNode, updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
-    const goalNode = nodes.find(n => n.type === 'goal')
-    const anchorNode = goalNode || nodes[0]
-    const pos = {
-      x: (anchorNode?.position?.x || 200) + 200 + Math.random() * 50,
-      y: (anchorNode?.position?.y || 200) + 100 + Math.random() * 50,
-    }
-
-    const nodeType = kind === 'risk' ? 'risk' : 'factor'
-    addNode(pos, nodeType)
-
-    const newNode = useCanvasStore.getState().nodes[useCanvasStore.getState().nodes.length - 1]
-    if (newNode) {
-      const dataUpdate: Record<string, unknown> = { label, kind: nodeType }
-      if (kind === 'factor') {
-        dataUpdate.category = 'external'
-      }
-      updateNode(newNode.id, { data: { ...newNode.data, ...dataUpdate } })
-      setHighlightedNodes([newNode.id])
-      focusNodeById(newNode.id)
-      setTimeout(() => setHighlightedNodes([]), 3000)
-    }
-
-    setCeeAnalysisReady(null)
-  }, [setHighlightedNodes])
-
-  // Quality check CTA handler — routes action strings to existing handlers
-  const handleQualityCheckAction = useCallback((action: string) => {
-    switch (action) {
-      case 'add_risk':
-        handleAddRisk()
-        break
-      case 'add_baseline':
-        handleAddBaseline()
-        break
-      case 'add_option':
-        handleAddOption()
-        break
-      case 'review_structure':
-      case 'review_options':
-        // Scroll to improvements section
-        improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })
-        break
-      case 'review_assumptions':
-        improvementsRef.current?.scrollIntoView({ behavior: 'smooth' })
-        break
-      case 'set_target':
-        // Focus on success target — scroll to top of panel
-        break
-      case 'set_goal_baseline':
-        // Focus goal node on canvas for baseline editing
-        if (data.goalNode) {
-          handleFocusNode(data.goalNode.id)
-        }
-        break
-      default:
-        // Handle bias CTA: "Ask AI about this" for bias findings (Task 3d)
-        if (action.startsWith('ask_ai_bias_')) {
-          const biasId = action.replace('ask_ai_bias_', '')
-          const finding = ceeAnalysisReady?.bias_findings?.find(
-            (f: { id: string }) => f.id === biasId
-          )
-          if (finding) {
-            onSendMessage?.(`I may have a ${(finding as { type: string }).type} bias in my model: ${(finding as { description: string }).description}. Can you help me think about this differently?`)
-          }
-        }
-        break
-    }
-  }, [data.goalNode, handleAddRisk, handleAddBaseline, handleAddOption, handleFocusNode, ceeAnalysisReady, onSendMessage])
-
-  // Goal baseline inline input handlers
-  const handleBaselineConfirm = useCallback((value: number) => {
-    const { updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
-    const goalNode = data.goalNode
-    if (!goalNode) return
-
-    // Write value to goal node's observedState.value
-    const updatedData = withObservedStateUpdate(goalNode.data, { value })
-    updateNode(goalNode.id, { data: updatedData })
-
-    // Invalidate analysis cache — baseline change affects run inputs
-    setCeeAnalysisReady(null)
-  }, [data.goalNode])
-
-  const handleBaselineClear = useCallback(() => {
-    const { updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
-    const goalNode = data.goalNode
-    if (!goalNode) return
-
-    // Clear value from goal node's observedState by spreading without value
-    const existing = getObservedState(goalNode.data)
-    const { value: _removed, ...rest } = existing
-    const nodeData = goalNode.data as Record<string, unknown>
-    updateNode(goalNode.id, {
-      data: {
-        ...nodeData,
-        observedState: rest,
-        observed_state: rest,
-      },
-    })
-
-    // Invalidate analysis cache — baseline change affects run inputs
-    setCeeAnalysisReady(null)
-  }, [data.goalNode])
-
-  const handleBaselineInputOpen = useCallback(() => {
-    if (data.goalNode) {
-      setHighlightedNodes([data.goalNode.id])
-      focusNodeById(data.goalNode.id)
-    }
-  }, [data.goalNode, setHighlightedNodes])
-
-  const handleBaselineInputClose = useCallback(() => {
-    setHighlightedNodes([])
-  }, [setHighlightedNodes])
-
-  // Derive goal baseline value from observedState
-  const goalBaselineValue = useMemo(() => {
-    if (!data.goalNode) return null
-    const os = getObservedState(data.goalNode.data)
-    return typeof os.value === 'number' ? os.value : null
-  }, [data.goalNode])
-
-  const goalLabel = useMemo(() => {
-    if (!data.goalNode) return 'Goal'
-    return (data.goalNode.data as { label?: string })?.label ?? data.goalNode.id
-  }, [data.goalNode])
-
-  const goalUnit = useMemo(() => {
-    if (!data.goalNode) return null
-    return (data.goalNode.data as { goal_threshold_unit?: string })?.goal_threshold_unit ?? null
-  }, [data.goalNode])
 
   // Action handlers are passed directly to YourExpertise (v6)
 
@@ -775,15 +471,44 @@ export function PreAnalysisPanel({
     data.isLoading,
   )
 
-  // Science nudges: cognitive/methodological quality checks (max 2)
-  const scienceNudges = data.qualityChecks
-    .filter(c => NUDGE_CHECK_IDS.has(c.id) || c.category === 'bias')
-    .slice(0, 2)
-
-  // Structural flags for triage footer
+  // Structural flags for triage footer — suppress no_target (handled by SuccessTarget)
   const structuralFlags = data.qualityChecks
-    .filter(c => STRUCTURAL_CHECK_IDS.has(c.id) && STRUCTURAL_FLAG_LABELS[c.id])
+    .filter(c => STRUCTURAL_CHECK_IDS.has(c.id) && c.id !== 'no_target' && STRUCTURAL_FLAG_LABELS[c.id])
     .map(c => ({ id: c.id, label: STRUCTURAL_FLAG_LABELS[c.id] }))
+
+  // Bias trigger cards — up to 4 cognitive bias prompts
+  const biasTriggers = useMemo(() => {
+    const triggers: { id: string; icon: typeof Frame; label: string; message: string }[] = []
+    const factorCount = data.nodesByKind.factor.length
+    const riskCount = data.nodesByKind.risk.length
+    const optionCount = data.optionPreviews.length
+
+    if (factorCount > 0 && riskCount === 0) {
+      triggers.push({ id: 'bt_no_risks', icon: ShieldAlert, label: 'No risks identified', message: 'What could go wrong with each option? Can you help me identify risks?' })
+    }
+    if (optionCount >= 2 && data.optionPreviews.every(o => !o.isBaseline)) {
+      triggers.push({ id: 'bt_no_baseline', icon: Anchor, label: 'No status quo baseline', message: 'Add a status quo option to compare against' })
+    }
+    if (factorCount > 4) {
+      const aiFactors = nodes.filter(n => {
+        const nd = n.data as Record<string, unknown>
+        if (nd.kind !== 'factor' && n.type !== 'factor') return false
+        const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
+        const source = os?.source as string | undefined
+        return source !== undefined && AI_SOURCES.has(source)
+      })
+      if (aiFactors.length / factorCount > 0.8) {
+        triggers.push({ id: 'bt_ai_heavy', icon: Gauge, label: 'Most values are AI estimates', message: 'Most of my factor values are AI estimates. Can you help me identify which ones I should verify with real data?' })
+      }
+    }
+    if (optionCount >= 2) {
+      const interventionCounts = data.optionPreviews.filter(o => !o.isBaseline).map(o => o.interventions.length)
+      if (interventionCounts.length >= 2 && interventionCounts.every(c => c === interventionCounts[0])) {
+        triggers.push({ id: 'bt_framing', icon: Frame, label: 'Options look similar', message: 'My options seem to affect the same factors. Am I framing this decision too narrowly?' })
+      }
+    }
+    return triggers.slice(0, 4)
+  }, [data.nodesByKind.factor.length, data.nodesByKind.risk.length, data.optionPreviews, nodes])
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
@@ -841,7 +566,6 @@ export function PreAnalysisPanel({
             {/* LAYER 4: Top 3 action cards */}
             {triageTop3.length > 0 && (
               <div className="flex flex-col gap-1.5 px-1" data-testid="triage-top-actions">
-                <p className={`${typography.panelMeta} text-text-light px-2`}>Ranked by impact on the decision</p>
                 {triageTop3.map((card, i) => (
                   <TriageCard
                     key={card.key}
@@ -858,6 +582,7 @@ export function PreAnalysisPanel({
                     onConfirm={handleConfirm}
                     onEdit={handleSetValueForGap}
                     onSendMessage={onSendMessage}
+                    onUpdateEdgeStrength={handleUpdateEdgeStrength}
                     onHoverEnter={handleHoverElement}
                     onHoverLeave={handleHoverClear}
                   />
@@ -886,6 +611,8 @@ export function PreAnalysisPanel({
                       sourcePill={card.sourcePill}
                       onConfirm={handleConfirm}
                       onEdit={handleSetValueForGap}
+                      onSendMessage={onSendMessage}
+                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
                       onHoverEnter={handleHoverElement}
                       onHoverLeave={handleHoverClear}
                     />
@@ -894,32 +621,23 @@ export function PreAnalysisPanel({
               </>
             )}
 
-            {/* LAYER 6: Science nudges (max 2) — bias nudges use severity + type from CEE */}
-            {scienceNudges.length > 0 && (
+            {/* LAYER 6: Bias trigger cards */}
+            {biasTriggers.length > 0 && (
               <>
                 <div className="h-px bg-panel-border mx-3" />
                 <div className="space-y-1.5 px-3" data-testid="triage-nudges">
-                  {scienceNudges.map(nudge => {
-                    // Look up original bias finding for severity and type
-                    const isBias = nudge.id.startsWith('bias_')
-                    const biasFinding = isBias
-                      ? ceeAnalysisReady?.bias_findings?.find(
-                          (f: { id: string }) => nudge.id === `bias_${f.id}`,
-                        )
-                      : undefined
-                    const severity = (biasFinding as { severity?: string } | undefined)?.severity
-                    const iconColour = severity === 'high' ? 'text-danger' : 'text-warning'
-
+                  {biasTriggers.map(trigger => {
+                    const Icon = trigger.icon
                     return (
                       <div
-                        key={nudge.id}
+                        key={trigger.id}
                         className="flex items-start gap-2 px-3 py-2 border border-panel-border rounded-lg hover:bg-panel-hover"
                       >
-                        <AlertTriangle className={`w-3.5 h-3.5 ${iconColour} flex-shrink-0 mt-0.5`} aria-hidden="true" />
-                        <span className={`${typography.panelBody} text-text-body flex-1`}>{nudge.message}</span>
+                        <Icon className="w-3.5 h-3.5 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <span className={`${typography.panelBody} text-text-body flex-1`}>{trigger.label}</span>
                         <button
                           type="button"
-                          onClick={() => onSendMessage?.(`Tell me more about: ${nudge.message}`)}
+                          onClick={() => onSendMessage?.(trigger.message)}
                           className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer shrink-0`}
                         >
                           Explore
@@ -955,7 +673,7 @@ export function PreAnalysisPanel({
                 onClick={() => onSendMessage?.('What else should I consider in my model?')}
                 className={`${typography.panelMeta} text-info hover:underline cursor-pointer ml-auto`}
               >
-                Something missing?
+                Something missing? Ask AI
               </button>
             </div>
           </ModelHealthCard>
@@ -1093,30 +811,6 @@ export function PreAnalysisPanel({
           />
         )}
 
-        {/* Model quality checks */}
-        {(data.qualityChecks.length > 0 || data.goalNode) && (
-          <DecisionQualityChecks
-            checks={data.qualityChecks}
-            onAction={handleQualityCheckAction}
-            onDirectAdd={handleDirectAdd}
-            totalCheckCount={data.qualityChecks.length}
-            goalBaselineSlot={
-              data.goalNode ? (
-                <GoalBaselineInput
-                  currentValue={goalBaselineValue}
-                  goalLabel={goalLabel}
-                  unit={goalUnit}
-                  hasGoalNode={!!data.goalNode}
-                  onConfirm={handleBaselineConfirm}
-                  onClear={handleBaselineClear}
-                  onInputOpen={handleBaselineInputOpen}
-                  onInputClose={handleBaselineInputClose}
-                />
-              ) : undefined
-            }
-            assumptionsLedger={data.assumptionsLedger}
-          />
-        )}
 
         {/* Your expertise — unified section (v6 wireframe) */}
         <SectionErrorBoundary section="Your expertise">
@@ -1167,8 +861,6 @@ export function PreAnalysisPanel({
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}
         evidenceTotalCount={data.evidenceQuality.totalCount}
         weightedInfluenceReviewed={weightedInfluenceReviewed}
-        readinessScore={readinessScore}
-        hasGoalTarget={data.successThreshold != null}
       />
     </div>
   )

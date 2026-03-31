@@ -6,14 +6,13 @@
  *
  * Variants:
  * - 'default': Standard card with actions (p-2.5, rounded-[10px], influence bar absolute)
- * - 'compact': Quick-fix row (borderless, single-line, rank 4-6 items)
+ * - 'compact': Quick-fix row (borderless, multi-row, rank 4-6 items)
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { Check, Pencil } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
-import { ScientificEditor } from './ScientificEditor'
 import type { ScientificEditorProps } from './ScientificEditor'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -58,6 +57,8 @@ export interface TriageCardProps {
   onSendMessage?: (text: string) => void
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
+  /** Edge strength quick-select (edge cards only) */
+  onUpdateEdgeStrength?: (edgeId: string, value: number) => void
 }
 
 // ── Badge colours ───────────────────────────────────────────────────────────
@@ -70,14 +71,101 @@ const BADGE_COLORS: Record<TriageCardCategory, string> = {
   contested: 'bg-warning',
 }
 
+// ── Edge strength bands ────────────────────────────────────────────────────
+
+const STRENGTH_BANDS = [
+  { label: 'Weak', value: 0.3 },
+  { label: 'Moderate', value: 0.7 },
+  { label: 'Strong', value: 1.2 },
+] as const
+
+/** Inline edge-strength quick-select: three pill buttons */
+function EdgeStrengthQuickSelect({
+  edgeId,
+  onUpdateEdgeStrength,
+}: {
+  edgeId: string
+  onUpdateEdgeStrength: (edgeId: string, value: number) => void
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      {STRENGTH_BANDS.map(b => (
+        <button
+          key={b.label}
+          type="button"
+          onClick={() => onUpdateEdgeStrength(edgeId, b.value)}
+          className={`py-0.5 px-2 text-[10px] rounded-full border border-info/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer`}
+        >
+          {b.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Inline value editor for factor cards — shows current raw value with editable input */
+function InlineValueEditor({
+  editorConfig,
+  onDone,
+}: {
+  editorConfig: ScientificEditorProps
+  onDone: () => void
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [draft, setDraft] = useState(
+    editorConfig.rawValue != null ? String(editorConfig.rawValue) : '',
+  )
+
+  const handleSave = useCallback(() => {
+    const parsed = parseFloat(draft)
+    if (!Number.isNaN(parsed)) {
+      ;(editorConfig.onSave as (v: number) => void)(parsed)
+      onDone()
+    }
+  }, [draft, editorConfig.onSave, onDone])
+
+  const unitSuffix = editorConfig.unit === '%' ? '%' : editorConfig.unit ? ` ${editorConfig.unit}` : ''
+
+  return (
+    <div className="flex items-center gap-1.5 mt-1">
+      <div className="relative flex items-center">
+        <input
+          ref={inputRef}
+          type="number"
+          value={draft}
+          onChange={e => setDraft(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Enter') handleSave()
+            if (e.key === 'Escape') onDone()
+          }}
+          autoFocus
+          className={`w-20 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+        />
+        {unitSuffix && (
+          <span className={`${typography.panelMeta} text-text-light ml-0.5`}>{unitSuffix}</span>
+        )}
+      </div>
+      <button
+        type="button"
+        onClick={handleSave}
+        className={`py-0.5 px-2 text-[10px] rounded-full border border-success/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer`}
+      >
+        Save
+      </button>
+    </div>
+  )
+}
+
 // ── Compact variant (quick-fix rows, ranks 4-6) ─────────────────────────────
 
-function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, sourcePill, subtitle }: TriageCardProps) {
+function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onSendMessage, onUpdateEdgeStrength, sourcePill, subtitle }: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
+  const isEdge = action?.targetType === 'edge'
+  const isBrief = sourcePill?.label === 'From brief'
 
   return (
     <div
-      className="flex items-center gap-2 py-1.5 px-2 rounded-lg hover:bg-panel-hover cursor-pointer"
+      className="flex flex-col gap-1 py-1.5 px-2 rounded-lg hover:bg-panel-hover cursor-pointer"
       onMouseEnter={() => {
         if (action?.targetId && onHoverEnter) {
           onHoverEnter(action.targetType ?? 'node', action.targetId)
@@ -85,48 +173,66 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
-        {ordinal}
-      </span>
-      <span className={`min-w-0 truncate ${typography.panelMeta} text-info font-medium`} title={title}>{title}</span>
-      {sourcePill && (
-        <span className={`shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
-          {sourcePill.label}
+      {/* Row 1: badge + title + meta */}
+      <div className="flex items-center gap-2">
+        <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
+          {ordinal}
         </span>
-      )}
-      {subtitle && (
-        <span className={`shrink-0 ${typography.panelMeta} text-text-light truncate max-w-[120px]`} title={subtitle}>{subtitle}</span>
-      )}
-      {evoiImpact != null && (
-        <span className={`shrink-0 ${typography.panelMeta} text-text-light`}>
-          {evoiImpact.toFixed(1)}pp
-        </span>
-      )}
-      {influencePct != null && (
-        <div className="flex items-center gap-1 shrink-0">
-          <div className="w-8 h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
-            <div
-              className="h-full rounded-sm"
-              style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}
-            />
+        <span className={`min-w-0 truncate ${typography.panelMeta} text-info font-medium`} title={title}>{title}</span>
+        {sourcePill && (
+          <span className={`shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
+            {sourcePill.label}
+          </span>
+        )}
+        {subtitle && (
+          <span className={`shrink-0 ${typography.panelMeta} text-text-light truncate max-w-[120px]`} title={subtitle}>{subtitle}</span>
+        )}
+        {evoiImpact != null && (
+          <span className={`shrink-0 ${typography.panelMeta} text-text-light`}>
+            {evoiImpact.toFixed(1)}pp
+          </span>
+        )}
+        {influencePct != null && (
+          <div className="flex items-center gap-1 shrink-0">
+            <div className="w-8 h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
+              <div
+                className="h-full rounded-sm"
+                style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}
+              />
+            </div>
+            <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
           </div>
-          <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
-        </div>
-      )}
-      {action && (
-        <div className="flex gap-1 shrink-0">
-          {action.kind === 'confirm' && onConfirm && action.targetId && (
-            <button type="button" onClick={() => onConfirm(action.targetId!)} className="py-0.5 px-2 text-[10px] rounded-full border border-success/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer">
-              Confirm
-            </button>
-          )}
-          {(action.kind === 'edit' || action.kind === 'set_value') && onEdit && action.targetId && (
-            <button type="button" onClick={() => onEdit(action.targetId!)} className="py-0.5 px-2 text-[10px] rounded-full border border-info/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer">
-              {action.kind === 'set_value' ? 'Set' : 'Edit'}
-            </button>
-          )}
-        </div>
-      )}
+        )}
+      </div>
+      {/* Row 2: edge strength quick-select + Ask AI */}
+      <div className="flex items-center gap-1.5 pl-7">
+        {isEdge && action?.targetId && onUpdateEdgeStrength && (
+          <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
+        )}
+        {!isEdge && action && (
+          <div className="flex gap-1 shrink-0">
+            {action.kind === 'confirm' && onConfirm && action.targetId && (
+              <button type="button" onClick={() => onConfirm(action.targetId!)} className="py-0.5 px-2 text-[10px] rounded-full border border-success/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer">
+                Confirm
+              </button>
+            )}
+            {(action.kind === 'edit' || action.kind === 'set_value') && onEdit && action.targetId && (
+              <button type="button" onClick={() => onEdit(action.targetId!)} className="py-0.5 px-2 text-[10px] rounded-full border border-info/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer">
+                {action.kind === 'set_value' ? 'Set' : 'Edit'}
+              </button>
+            )}
+          </div>
+        )}
+        {onSendMessage && action?.targetId && !isBrief && (
+          <button
+            type="button"
+            onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
+            className={`py-0.5 px-2 text-[10px] rounded-full border border-info/30 text-text-body bg-transparent hover:bg-panel-hover cursor-pointer`}
+          >
+            Ask AI
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -152,6 +258,7 @@ export function TriageCard(props: TriageCardProps) {
     onSendMessage,
     onHoverEnter,
     onHoverLeave,
+    onUpdateEdgeStrength,
   } = props
 
   const [isEditing, setIsEditing] = useState(false)
@@ -160,10 +267,8 @@ export function TriageCard(props: TriageCardProps) {
 
   const influencePct = influence != null ? Math.round(influence * 100) : null
   const badgeColor = BADGE_COLORS[category]
-
-  const handleEditorCancel = useCallback(() => {
-    setIsEditing(false)
-  }, [])
+  const isEdge = action?.targetType === 'edge'
+  const isBrief = sourcePill?.label === 'From brief'
 
   // Display text: prefer subtitle over detail for the one-line description
   const displaySubtitle = subtitle || detail
@@ -204,15 +309,11 @@ export function TriageCard(props: TriageCardProps) {
       {/* Subtitle / detail — one line, truncated */}
       <p className={`${typography.panelMeta} text-text-light truncate`} title={displaySubtitle}>{displaySubtitle}</p>
 
-      {/* Inline editor */}
+      {/* Inline value editor — only when rawValue != null and editing */}
       {isEditing && editorConfig && (
-        <ScientificEditor
-          {...editorConfig}
-          onSave={(...args: any[]) => {
-            (editorConfig.onSave as any)(...args)
-            setIsEditing(false)
-          }}
-          onCancel={handleEditorCancel}
+        <InlineValueEditor
+          editorConfig={editorConfig}
+          onDone={() => setIsEditing(false)}
         />
       )}
 
@@ -237,7 +338,7 @@ export function TriageCard(props: TriageCardProps) {
               <span className="flex items-center gap-1"><Pencil size={12} /> Edit</span>
             </button>
           )}
-          {action?.kind === 'set_value' && editorConfig && (
+          {action?.kind === 'set_value' && editorConfig && editorConfig.rawValue != null && (
             <button
               type="button"
               onClick={() => setIsEditing(true)}
@@ -246,7 +347,10 @@ export function TriageCard(props: TriageCardProps) {
               Set value
             </button>
           )}
-          {onSendMessage && action?.targetId && (
+          {isEdge && action?.targetId && onUpdateEdgeStrength && (
+            <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
+          )}
+          {onSendMessage && action?.targetId && !isBrief && (
             <button
               type="button"
               onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}

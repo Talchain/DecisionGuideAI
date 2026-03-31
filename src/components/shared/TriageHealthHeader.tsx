@@ -91,12 +91,14 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
             <p className={`${typography.panelHeader} text-text-body`}>{headline}</p>
           )}
 
-          {/* 2×2 dimension bars */}
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-            {dimensions.map((dim) => (
-              <DimensionBar key={dim.label} dim={dim} />
-            ))}
-          </div>
+          {/* 2×2 dimension bars — hide completed dimensions */}
+          {dimensions.some(d => d.value < 1) && (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {dimensions.filter(d => d.value < 1).map((dim) => (
+                <DimensionBar key={dim.label} dim={dim} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

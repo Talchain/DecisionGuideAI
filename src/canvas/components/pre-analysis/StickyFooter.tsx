@@ -59,10 +59,6 @@ interface StickyFooterProps {
   evidenceTotalCount?: number
   /** Fraction (0–1) of total factor influence covered by user-reviewed factors */
   weightedInfluenceReviewed?: number
-  /** Readiness score 0-100 (average of 4 health dimensions) */
-  readinessScore?: number
-  /** Whether a goal success threshold is set */
-  hasGoalTarget?: boolean
 }
 
 export function StickyFooter({
@@ -79,8 +75,6 @@ export function StickyFooter({
   evidenceNonAiCount,
   evidenceTotalCount,
   weightedInfluenceReviewed,
-  readinessScore,
-  hasGoalTarget,
 }: StickyFooterProps) {
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
 
@@ -97,21 +91,9 @@ export function StickyFooter({
     statusIconColor = 'text-primary animate-spin'
     statusText = 'Updating draft'
   } else if (isReady) {
-    // Calibration-aware qualifier: model is always runnable, but signal user input quality
-    const calibrationRatio = (totalReviewableCount != null && totalReviewableCount > 0)
-      ? (reviewedCount ?? 0) / totalReviewableCount
-      : null
     StatusIcon = CheckCircle
-    if (calibrationRatio === null || calibrationRatio >= 0.5) {
-      statusIconColor = 'text-success'
-      statusText = 'Ready'
-    } else if (calibrationRatio > 0) {
-      statusIconColor = 'text-warning'
-      statusText = 'Ready · could improve'
-    } else {
-      statusIconColor = 'text-warning'
-      statusText = 'Ready · not yet calibrated'
-    }
+    statusIconColor = 'text-success'
+    statusText = 'Ready'
   } else if (hasBlockers) {
     StatusIcon = XCircle
     statusIconColor = 'text-danger'
@@ -122,23 +104,10 @@ export function StickyFooter({
     statusText = 'Not ready'
   }
 
-  const READINESS_THRESHOLD = 60
-  const addressedCount = reviewedCount ?? 0
-  const isProvisional = isReady && (
-    (readinessScore != null && readinessScore < READINESS_THRESHOLD)
-    || hasGoalTarget === false
-    || addressedCount === 0
-  )
-
   const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
     (reviewedCount ?? 0) >= totalReviewableCount
 
   const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
-  // Show "0% of influence reviewed" when sensitivity data exists but nothing reviewed yet;
-  // hide only when influence data is unavailable (undefined)
-  const influenceText = weightedInfluenceReviewed != null
-    ? ` · ${Math.round(weightedInfluenceReviewed * 100)}% of influence`
-    : ''
   const metaText = !isRetrying && totalReviewableCount != null && totalReviewableCount > 0 ? (
     <>
       <Tooltip content={reviewedTooltip}>
@@ -146,32 +115,21 @@ export function StickyFooter({
           {allReviewed ? 'All addressed' : `${reviewedCount ?? 0}/${totalReviewableCount} addressed`}
         </span>
       </Tooltip>
-      {influenceText && (
-        <Tooltip content="Weighted by impact on the decision outcome">
-          <span className="cursor-help">{influenceText}</span>
-        </Tooltip>
-      )}
+
     </>
   ) : hasBlockers ? `${blockerCount} to address` : undefined
 
-  // Compose consequence hint when readiness is low
-  const composedMeta = isProvisional
-    ? <>{metaText}{metaText ? ' · ' : ''}Results will be provisional</>
-    : metaText
-
-  // CTA label adapts to readiness
+  // CTA label — always "Analyse now"
   const ctaLabel = isAnalysing
     ? 'Analysing...'
-    : isProvisional
-      ? 'Analyse anyway'
-      : 'Analyse now'
+    : 'Analyse now'
 
   return (
     <AnalysisFooter
       statusIcon={StatusIcon}
       statusIconClassName={statusIconColor}
       statusText={statusText}
-      metaText={composedMeta}
+      metaText={metaText}
       actionLabel={ctaLabel}
       onAction={onAnalyse}
       actionDisabled={isDisabled}

@@ -90,7 +90,6 @@ export function SuccessTarget({
   goalConstraints,
   onSendMessage,
 }: SuccessTargetProps) {
-  const [showInput, setShowInput] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [isExpanded, setIsExpanded] = useState(false)
   const [editDraft, setEditDraft] = useState<string>('')
@@ -151,7 +150,6 @@ export function SuccessTarget({
     const parsed = parseFloat(trimmed)
     if (Number.isNaN(parsed)) return
     onThresholdChange?.(parsed)
-    setShowInput(false)
     setInputValue('')
   }, [inputValue, onThresholdChange])
 
@@ -290,63 +288,43 @@ export function SuccessTarget({
     )
   }
 
-  // No target set — show add target CTA
+  // No target set — always-visible inline input
   if (successThreshold === null) {
     return (
       <div className={`rounded-lg border ${borderColor} bg-panel p-3`}>
-        {showInput ? (
-          <div className="flex flex-col gap-2">
-            <label className={`${typography.panelBody} text-text-light`}>Target for {goalLabel}</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={inputValue}
-                onChange={(e) => setInputValue(e.target.value)}
-                placeholder={inputPlaceholder}
-                autoFocus
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleSubmit()
-                  if (e.key === 'Escape') {
-                    setShowInput(false)
-                    setInputValue('')
-                  }
-                }}
-                className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
-              />
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!inputValue.trim()}
-                className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-primary rounded-full hover:bg-primary-hover disabled:opacity-50 shrink-0`}
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowInput(false); setInputValue('') }}
-                className={`px-2 py-1.5 ${typography.panelMeta} text-text-light hover:text-text-body shrink-0`}
-              >
-                Cancel
-              </button>
-            </div>
+        <div className="flex flex-col gap-2">
+          {renderGoalHeader()}
+          <div className="flex items-center gap-2">
+            <span className={`${typography.panelMeta} text-text-light shrink-0`}>Target:</span>
+            <input
+              type="number"
+              value={inputValue}
+              onChange={(e) => setInputValue(e.target.value)}
+              placeholder={inputPlaceholder}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleSubmit()
+              }}
+              className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
+            />
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={!inputValue.trim()}
+              className={`px-3 py-1.5 ${typography.panelMeta} text-text-on-color bg-primary rounded-full hover:bg-primary-hover disabled:opacity-50 shrink-0`}
+            >
+              Save
+            </button>
           </div>
-        ) : (
-          <div>
-            <div className="flex items-center justify-between">
-              {renderGoalHeader()}
-              <button
-                type="button"
-                onClick={() => setShowInput(true)}
-                className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
-              >
-                Add target
-              </button>
-            </div>
-            <p className={`${typography.panelMeta} text-text-light mt-1`}>
-              Add a target to see each option's probability of success
-            </p>
-          </div>
-        )}
+          {onSendMessage && (
+            <button
+              type="button"
+              onClick={() => onSendMessage('Can you help me reconsider whether this goal is framed correctly?')}
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+            >
+              Reframe goal with AI
+            </button>
+          )}
+        </div>
       </div>
     )
   }

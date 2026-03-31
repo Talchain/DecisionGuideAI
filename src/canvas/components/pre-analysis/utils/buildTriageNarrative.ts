@@ -49,13 +49,11 @@ export function buildTriageNarrative(
   if (parts.length === 0) {
     text = 'Your model looks well-prepared for analysis.'
   } else {
-    text = topN === 1
-      ? `${parts.join(' and ')}. This 1 covers the highest impact:`
-      : `${parts.join(' and ')}. These ${topN} cover the highest impact:`
+    text = `Top ${topN} by impact: ${parts.join(', ')}`
   }
 
   if (!hasGoalTarget) {
-    text = "No success target set, so analysis can't show probability of success. " + text
+    text = "No target set. " + text
   }
 
   return text

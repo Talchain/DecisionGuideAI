@@ -23,7 +23,7 @@ describe('buildTriageNarrative', () => {
 
   it('prepends goal-target warning to coachingSummary fallback', () => {
     const result = buildTriageNarrative([], false, 'CEE says hello', false)
-    expect(result).toBe("No success target set, so analysis can't show probability of success. CEE says hello")
+    expect(result).toBe("No target set. CEE says hello")
   })
 
   it('returns null when items is empty and no coachingSummary', () => {
@@ -32,23 +32,23 @@ describe('buildTriageNarrative', () => {
 
   it('describes all-fix items', () => {
     const result = buildTriageNarrative([item('fix'), item('fix'), item('fix')], true, null, false)
-    expect(result).toBe('3 factors have no data. These 3 cover the highest impact:')
+    expect(result).toBe('Top 3 by impact: 3 factors have no data')
   })
 
   it('describes all-verify items', () => {
     const result = buildTriageNarrative([item('verify'), item('verify')], true, null, false)
-    expect(result).toBe('2 unverified estimates. These 2 cover the highest impact:')
+    expect(result).toBe('Top 2 by impact: 2 unverified estimates')
   })
 
   it('describes all-edge items', () => {
     const result = buildTriageNarrative([item('add_evidence')], true, null, false)
-    expect(result).toBe('1 relationship worth reviewing. This 1 covers the highest impact:')
+    expect(result).toBe('Top 1 by impact: 1 relationship worth reviewing')
   })
 
   it('joins mixed categories with "and"', () => {
     const items = [item('fix'), item('fix'), item('verify'), item('add_evidence'), item('add_evidence')]
     const result = buildTriageNarrative(items, true, null, false)
-    expect(result).toBe('2 factors have no data and 1 unverified estimate and 2 relationships worth reviewing. These 3 cover the highest impact:')
+    expect(result).toBe('Top 3 by impact: 2 factors have no data, 1 unverified estimate, 2 relationships worth reviewing')
   })
 
   it('returns well-prepared when all items are strengthen', () => {
@@ -58,19 +58,19 @@ describe('buildTriageNarrative', () => {
 
   it('prepends goal-target warning when no target set', () => {
     const result = buildTriageNarrative([item('fix')], false, null, false)
-    expect(result).toContain("No success target set")
+    expect(result).toContain("No target set.")
     expect(result).toContain('1 factor has no data')
   })
 
   it('caps topN at 3 even with more items', () => {
     const items = [item('fix'), item('fix'), item('fix'), item('fix'), item('fix')]
     const result = buildTriageNarrative(items, true, null, false)
-    expect(result).toContain('These 3 cover the highest impact:')
+    expect(result).toContain('Top 3 by impact:')
   })
 
   it('uses singular forms correctly', () => {
     const result = buildTriageNarrative([item('fix')], true, null, false)
     expect(result).toContain('1 factor has no data')
-    expect(result).toContain('This 1 covers the highest impact:')
+    expect(result).toContain('Top 1 by impact:')
   })
 })
