@@ -116,10 +116,10 @@ function ChallengeCard({
         {onSendMessage && (
           <button
             type="button"
-            onClick={() => onSendMessage(`${item.title} — how does this apply to my decision?`)}
+            onClick={() => onSendMessage(item.whatToDo ? `${item.title}: ${item.whatToDo}` : `${item.title} — how does this apply to my decision?`)}
             className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
           >
-            Discuss with AI
+            Explore this
           </button>
         )}
       </div>
@@ -163,10 +163,10 @@ function ChallengeCard({
         {onSendMessage && (
           <button
             type="button"
-            onClick={() => onSendMessage(`${item.title} — how does this apply to my decision?`)}
+            onClick={() => onSendMessage(item.whatToDo ? `${item.title}: ${item.whatToDo}` : `${item.title} — how does this apply to my decision?`)}
             className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-0.5`}
           >
-            Discuss with AI
+            Explore this
           </button>
         )}
       </div>

@@ -213,9 +213,9 @@ function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
         <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel">
           <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" />
           <p className={`${typography.panelBody} text-text-body`}>
-            If <strong>{fragile.fromLabel}</strong> weakens,{' '}
-            <strong>{fragile.alternativeWinnerLabel}</strong> strengthens and could become the better choice
-            {switchPct != null && ` (${switchPct}% chance)`}.
+            If <strong>{fragile.fromLabel}</strong> shifts,{' '}
+            <strong>{fragile.alternativeWinnerLabel}</strong> could overtake
+            {switchPct != null && ` (${switchPct}% probability)`}.
           </p>
         </div>
       )}
@@ -229,7 +229,7 @@ function TrustSummary({ actionCount }: { actionCount: number }) {
   if (actionCount === 0) return null
   return (
     <p className={`${typography.panelMeta} text-text-light`}>
-      Top {actionCount} by evidence value:
+      Top {actionCount} by evidence value
     </p>
   )
 }
@@ -335,12 +335,16 @@ function AlsoConsiderDisclosure({
   onHoverEnter,
   onHoverLeave,
   onSendMessage,
+  onConfirm,
+  onEdit,
 }: {
   items: MappedActionItem[]
   startOrdinal: number
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
   onSendMessage?: (text: string) => void
+  onConfirm?: (nodeId: string) => void
+  onEdit?: (nodeId: string) => void
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -364,11 +368,15 @@ function AlsoConsiderDisclosure({
               ordinal={startOrdinal + i}
               title={item.title}
               detail={item.detail}
+              subtitle={item.subtitle}
               category={item.category}
               influence={item.influence}
               evoiImpact={item.evoiImpact}
               action={item.action}
+              editorConfig={item.editorConfig}
               sourcePill={item.sourcePill}
+              onConfirm={onConfirm}
+              onEdit={onEdit}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
               onSendMessage={onSendMessage}
@@ -491,6 +499,8 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           onHoverEnter={onHoverEnter}
           onHoverLeave={onHoverLeave}
           onSendMessage={onSendMessage}
+          onConfirm={onConfirm}
+          onEdit={onFocusNode}
         />
       )}
 

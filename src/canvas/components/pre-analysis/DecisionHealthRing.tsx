@@ -99,7 +99,7 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
       width={size}
       height={size}
       viewBox={`0 0 ${size} ${size}`}
-      aria-label={`Decision ${centerLabel}: ${overallScore}%`}
+      aria-label={centerLabel === '%' ? `Decision score: ${overallScore}%` : `Decision ${centerLabel}: ${overallScore}%`}
       className="flex-shrink-0"
     >
       {arcs.map((arc) => {
@@ -128,27 +128,44 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
           </g>
         )
       })}
-      {/* Centre score */}
-      <text
-        x={cx}
-        y={cy - 2 * scale}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="fill-text-body"
-        style={{ fontSize: `${scoreFontSize}px`, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}
-      >
-        {overallScore}
-      </text>
-      <text
-        x={cx}
-        y={cy + 8 * scale}
-        textAnchor="middle"
-        dominantBaseline="middle"
-        className="fill-text-light"
-        style={{ fontSize: `${labelFontSize}px`, fontFamily: 'Inter, sans-serif' }}
-      >
-        {centerLabel}
-      </text>
+      {/* Centre score + label */}
+      {centerLabel === '%' ? (
+        /* Symbol suffix: render "95%" as a single text element */
+        <text
+          x={cx}
+          y={cy + 2 * scale}
+          textAnchor="middle"
+          dominantBaseline="middle"
+          className="fill-text-body"
+          style={{ fontSize: `${scoreFontSize}px`, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}
+        >
+          {overallScore}%
+        </text>
+      ) : (
+        /* Word label: score on top, label below (e.g. "72" / "ready") */
+        <>
+          <text
+            x={cx}
+            y={cy - 2 * scale}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="fill-text-body"
+            style={{ fontSize: `${scoreFontSize}px`, fontWeight: 600, fontFamily: 'Inter, sans-serif' }}
+          >
+            {overallScore}
+          </text>
+          <text
+            x={cx}
+            y={cy + 8 * scale}
+            textAnchor="middle"
+            dominantBaseline="middle"
+            className="fill-text-light"
+            style={{ fontSize: `${labelFontSize}px`, fontFamily: 'Inter, sans-serif' }}
+          >
+            {centerLabel}
+          </text>
+        </>
+      )}
     </svg>
   )
 })

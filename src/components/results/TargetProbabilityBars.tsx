@@ -1,9 +1,8 @@
 /**
  * TargetProbabilityBars — stacked horizontal bars showing per-constraint probabilities.
  *
- * Renders inside the hero section when goal_threshold exists and constraint
- * probabilities are available. Shows individual constraint bars + optional
- * "All targets" joint probability row when 2+ constraints exist.
+ * Renders when constraint probabilities are available (not gated on goalThreshold).
+ * Shows individual constraint bars + optional "Joint probability" row when 2+ constraints.
  *
  * Data source: ConstraintAnalysis from the winning option's analysis.
  */
@@ -16,16 +15,14 @@ import Tooltip from '../Tooltip'
 export interface TargetProbabilityBarsProps {
   /** Constraint analysis from the winning option */
   constraintAnalysis?: ConstraintAnalysis | null
-  /** Whether a goal threshold is set (gates entire display) */
+  /** Whether a goal threshold is set — no longer gates display */
   goalThreshold?: number | null
 }
 
 export function TargetProbabilityBars({
   constraintAnalysis,
-  goalThreshold,
 }: TargetProbabilityBarsProps) {
-  // Gate: only show when goal threshold exists AND constraints are available
-  if (goalThreshold == null) return null
+  // Gate: only on constraint data presence
   if (!constraintAnalysis?.constraints?.length) return null
 
   // Filter to constraints that have probabilities
@@ -77,7 +74,7 @@ export function TargetProbabilityBars({
             data-testid="target-joint-row"
           >
             <span className={`${typography.panelBody} font-semibold text-text-header flex-1`}>
-              All targets
+              Joint probability
             </span>
             <div
               className="flex-shrink-0 rounded overflow-hidden"
@@ -87,11 +84,11 @@ export function TargetProbabilityBars({
                 className="h-full rounded"
                 style={{
                   width: `${Math.max(2, Math.round(jointProbability * 100))}%`,
-                  background: 'var(--info)',
+                  background: evaluativeVar(jointProbability),
                 }}
               />
             </div>
-            <span className={`${typography.panelBody} font-semibold text-info flex-shrink-0 text-right`} style={{ minWidth: 28 }}>
+            <span className={`${typography.panelBody} font-semibold text-text-header flex-shrink-0 text-right`} style={{ minWidth: 28 }}>
               {Math.round(jointProbability * 100)}%
             </span>
           </div>
