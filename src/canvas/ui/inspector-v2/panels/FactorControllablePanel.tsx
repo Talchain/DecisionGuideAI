@@ -104,6 +104,15 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     return unit ? `${v.toLocaleString()} ${unit}` : `${v}`
   }
 
+  // Contextual guidance sentence based on sensitivity rank
+  const sensitivityGuidance = isResultsMode && displayMetadata.sensitivityRank != null
+    ? displayMetadata.sensitivityRank <= 2
+      ? 'This is one of the most influential factors in your model. Changes here noticeably affect the recommendation.'
+      : displayMetadata.sensitivityRank <= 5
+      ? 'This factor has moderate influence on the results.'
+      : null
+    : null
+
   return (
     <div>
       {/* §7.1 Type badges */}
@@ -118,61 +127,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         </span>
       </div>
 
-      {/* §7.2 Value — editable */}
-      <SectionTitle icon={SECTION_TITLES.value.icon} label={SECTION_TITLES.value.label} />
-      <div className="bg-panel border border-panel-border rounded-lg p-3">
-        <div className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}>
-          {unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') && (
-            <span className={`${typography.panelHeader} text-xl`}>{unit}</span>
-          )}
-          <input
-            type="number"
-            value={draftValue}
-            onChange={e => setDraftValue(e.target.value)}
-            onBlur={handleValueBlur}
-            onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
-            placeholder="Enter value"
-            className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
-          />
-          {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
-            <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>
-          )}
-        </div>
-        {shouldShowNormalised(techMode, rawValue) && value != null && (
-          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
-            System: model value: {value.toFixed(3)}
-          </div>
-        )}
-        {techMode && obs?.cap != null && (
-          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
-            Cap: {typeof obs.cap === 'number' ? obs.cap.toLocaleString() : String(obs.cap)}{unit ? ` ${unit}` : ''}
-          </div>
-        )}
-      </div>
-
-      {/* §7.3 Where this comes from */}
-      <SectionTitle icon={SECTION_TITLES.whereThisComes.icon} label={SECTION_TITLES.whereThisComes.label} />
-      {source && (
-        <div className="flex items-center gap-1">
-          <Link size={12} className="text-info" />
-          <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
-        </div>
-      )}
-      {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
-        <div className="flex gap-1.5 flex-wrap mt-1.5">
-          {uncertaintyDrivers.map((d, i) => (
-            <span
-              key={i}
-              className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
-              style={{ border: '1px solid var(--color-warning)4D' }}
-            >
-              {d}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* §7.4 Impact (post-analysis, StaleGuard) */}
+      {/* §7.4 Impact context — shown ABOVE value to motivate editing */}
       <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />
       <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
         {isResultsMode && displayMetadata.inSensitivityAnalysis && (
@@ -219,6 +174,71 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         </>
       )}
 
+      {/* Contextual guidance — why this factor matters */}
+      {sensitivityGuidance && (
+        <p className={`${typography.panelBody} text-text-body mt-2`}>{sensitivityGuidance}</p>
+      )}
+
+      {/* §7.2 Value — editable */}
+      <SectionTitle icon={SECTION_TITLES.value.icon} label={SECTION_TITLES.value.label} />
+      <div className="bg-panel border border-panel-border rounded-lg p-3">
+        <div className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}>
+          {unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') && (
+            <span className={`${typography.panelHeader} text-xl`}>{unit}</span>
+          )}
+          <input
+            type="number"
+            value={draftValue}
+            onChange={e => setDraftValue(e.target.value)}
+            onBlur={handleValueBlur}
+            onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+            placeholder="Enter value"
+            className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
+          />
+          {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
+            <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>
+          )}
+        </div>
+        {shouldShowNormalised(techMode, rawValue) && value != null && (
+          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+            System: model value: {value.toFixed(3)}
+          </div>
+        )}
+        {techMode && obs?.cap != null && (
+          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+            Cap: {typeof obs.cap === 'number' ? obs.cap.toLocaleString() : String(obs.cap)}{unit ? ` ${unit}` : ''}
+          </div>
+        )}
+        {/* Provenance inline below value (no separate section title) */}
+        {source && (
+          <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
+            <Link size={12} className="text-info" />
+            <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
+          </div>
+        )}
+        {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
+          <div className="flex gap-1.5 flex-wrap mt-1.5">
+            {uncertaintyDrivers.map((d, i) => (
+              <span
+                key={i}
+                className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
+                style={{ border: '1px solid var(--color-warning)4D' }}
+              >
+                {d}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Coaching + Guidance — positioned after value for evidence quality nudges */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="factor-controllable"
+        fallbackText={resolveCoaching('factorControllableEvidence', { factorName: String(node.data?.label ?? '') })}
+        labelContext={{ label: String(node.data?.label ?? '') }}
+      />
+
       {/* §7.5 Connections */}
       <SectionTitle icon={SECTION_TITLES.connections.icon} label={SECTION_TITLES.connections.label} />
       {setByOptions.length > 0 && (
@@ -255,14 +275,6 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           ))}
         </>
       )}
-
-      {/* Coaching + Guidance */}
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="factor-controllable"
-        fallbackText={resolveCoaching('factorControllableEvidence', { factorName: String(node.data?.label ?? '') })}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-      />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

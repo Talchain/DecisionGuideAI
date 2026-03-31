@@ -64,10 +64,10 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             key={band.label}
             type="button"
             onClick={() => handleClick(band.midpoint)}
-            className={`${typography.panelMeta} px-2 py-0.5 rounded-full bg-transparent border transition-colors
+            className={`${typography.panelMeta} px-3.5 py-1.5 rounded-full bg-transparent border transition-colors cursor-pointer
               ${isActive
-                ? 'border-primary/50 text-primary font-medium'
-                : 'border-panel-border text-text-body hover:border-text-light'
+                ? 'border-primary text-primary font-semibold'
+                : 'border-panel-border text-text-body hover:border-text-light hover:bg-panel-hover'
               }`}
             aria-pressed={isActive}
             data-testid={`strength-band-${band.label.toLowerCase().replace(/\s+/g, '-')}`}

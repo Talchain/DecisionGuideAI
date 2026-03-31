@@ -111,6 +111,11 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
   if (!nodeId || !node) return null
 
+  // Contextual guidance for external factor
+  const externalGuidance = isResultsMode && displayMetadata.sensitivityRank != null
+    ? 'This factor contributes significant uncertainty to your results. Narrowing the range would sharpen the analysis.'
+    : 'Providing an estimate helps the simulation account for this uncertainty.'
+
   return (
     <div>
       {/* Description */}
@@ -125,6 +130,55 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
         />
       </div>
+
+      {/* §9.2 Impact — shown ABOVE estimate to motivate editing */}
+      <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />
+      <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+        {isResultsMode && displayMetadata.sensitivityRank !== null && (
+          <div className="bg-panel border border-danger/30 p-2.5 rounded-lg">
+            <div className={`${typography.panelBody} font-medium`}>
+              Responsible for significant uncertainty in your results
+            </div>
+            {displayMetadata.sensitivityRank != null && (
+              <div className={`${typography.panelMeta} text-text-light mt-1`}>
+                Ranked {displayMetadata.sensitivityRank === 1 ? '1st'
+                  : displayMetadata.sensitivityRank === 2 ? '2nd'
+                  : displayMetadata.sensitivityRank === 3 ? '3rd'
+                  : `${displayMetadata.sensitivityRank}th`} in influence
+              </div>
+            )}
+          </div>
+        )}
+      </StaleGuardBanner>
+
+      {/* Investigation value (post-analysis, VoI) */}
+      {isResultsMode && displayMetadata.valueOfInformation !== null && (
+        <>
+          <SectionTitle icon={SECTION_TITLES.investigationValue.icon} label={SECTION_TITLES.investigationValue.label} />
+          <div className="bg-panel border border-panel-border rounded-lg p-2.5">
+            <DataBar
+              value={displayMetadata.valueOfInformation}
+              label="Investigation value"
+              colour="info"
+              trailingLabel={
+                displayMetadata.valueOfInformation >= 0.7 ? 'High'
+                : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
+                : 'Low'
+              }
+            />
+            <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
+              {displayMetadata.valueOfInformation >= 0.7
+                ? 'Gathering more evidence here could significantly improve confidence.'
+                : displayMetadata.valueOfInformation >= 0.4
+                ? 'Additional evidence here would moderately sharpen the analysis.'
+                : 'Further investigation here is unlikely to change the outcome.'}
+            </p>
+          </div>
+        </>
+      )}
+
+      {/* Contextual guidance */}
+      <p className={`${typography.panelBody} text-text-body mt-2`}>{externalGuidance}</p>
 
       {/* §9.1 Your estimate — QuickSetButtons ABOVE range display */}
       <SectionTitle icon={SECTION_TITLES.yourEstimate.icon} label={SECTION_TITLES.yourEstimate.label} />
@@ -202,51 +256,14 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
         )}
       </div>
 
-      {/* §9.2 Impact */}
-      <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />
-      <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
-        {isResultsMode && displayMetadata.sensitivityRank !== null && (
-          <div className="bg-panel border border-danger/30 p-2.5 rounded-lg">
-            <div className={`${typography.panelBody} font-medium`}>
-              Responsible for significant uncertainty in your results
-            </div>
-            {displayMetadata.sensitivityRank != null && (
-              <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                Ranked {displayMetadata.sensitivityRank === 1 ? '1st'
-                  : displayMetadata.sensitivityRank === 2 ? '2nd'
-                  : displayMetadata.sensitivityRank === 3 ? '3rd'
-                  : `${displayMetadata.sensitivityRank}th`} in influence
-              </div>
-            )}
-          </div>
-        )}
-      </StaleGuardBanner>
-
-      {/* Investigation value (post-analysis, VoI) */}
-      {isResultsMode && displayMetadata.valueOfInformation !== null && (
-        <>
-          <SectionTitle icon={SECTION_TITLES.investigationValue.icon} label={SECTION_TITLES.investigationValue.label} />
-          <div className="bg-panel border border-panel-border rounded-lg p-2.5">
-            <DataBar
-              value={displayMetadata.valueOfInformation}
-              label="Investigation value"
-              colour="info"
-              trailingLabel={
-                displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                : 'Low'
-              }
-            />
-            <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-              {displayMetadata.valueOfInformation >= 0.7
-                ? 'Gathering more evidence here could significantly improve confidence.'
-                : displayMetadata.valueOfInformation >= 0.4
-                ? 'Additional evidence here would moderately sharpen the analysis.'
-                : 'Further investigation here is unlikely to change the outcome.'}
-            </p>
-          </div>
-        </>
-      )}
+      {/* Coaching + Guidance — after estimate, before connections */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="factor-external"
+        fallbackText={resolveCoaching('factorExternalUncertainty', { factorName: String(node.data?.label ?? '') })}
+        labelContext={{ label: String(node.data?.label ?? '') }}
+        actionLabel="Narrow the range"
+      />
 
       {/* §9.3 Connections */}
       <SectionTitle icon={SECTION_TITLES.connections.icon} label="Influences" />
@@ -260,15 +277,6 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           onClick={() => onNavigate(conn.nodeId)}
         />
       ))}
-
-      {/* Coaching + Guidance */}
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="factor-external"
-        fallbackText={resolveCoaching('factorExternalUncertainty', { factorName: String(node.data?.label ?? '') })}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-        actionLabel="Narrow the range"
-      />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

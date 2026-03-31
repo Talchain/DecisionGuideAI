@@ -38,6 +38,9 @@ export const COACHING = {
   /** GoalPanel — connections completeness nudge */
   goalConnections: 'Consider whether all relevant outcomes and risks are connected to your goal.',
 
+  /** GoalPanel — evidence quality nudge */
+  goalEvidence: 'Consider whether the goal threshold and constraints reflect current business reality.',
+
   /** GoalPanel — success target unlock nudge */
   goalNoTarget: 'Adding a specific target unlocks probability calculations',
 } as const

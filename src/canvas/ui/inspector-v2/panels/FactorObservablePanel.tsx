@@ -68,6 +68,15 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
     return unit ? `${v.toLocaleString()} ${unit}` : `${v}`
   }
 
+  // Contextual guidance based on sensitivity rank
+  const sensitivityGuidance = isResultsMode && displayMetadata.sensitivityRank != null
+    ? displayMetadata.sensitivityRank <= 2
+      ? 'This is one of the most influential measurements in your model.'
+      : displayMetadata.sensitivityRank <= 5
+      ? 'This measurement has moderate influence on the results.'
+      : null
+    : null
+
   return (
     <div>
       {/* Type badges */}
@@ -80,38 +89,7 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
         </span>
       </div>
 
-      {/* Value */}
-      <SectionTitle icon={SECTION_TITLES.value.icon} label={SECTION_TITLES.value.label} />
-      <div className="bg-panel border border-panel-border rounded-lg p-3">
-        {rawValue != null ? (
-          <span className={`${typography.panelHeader} text-xl`}>{formatValue(rawValue)}</span>
-        ) : value != null ? (
-          <span className={`${typography.panelHeader} text-xl`}>{formatValue(value)}</span>
-        ) : (
-          <span className={`${typography.panelMeta} text-text-light italic`}>No value set</span>
-        )}
-        {shouldShowNormalised(techMode, rawValue) && value != null && (
-          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
-            System: model value: {value.toFixed(3)}
-          </div>
-        )}
-        {techMode && obs?.cap != null && (
-          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
-            Cap: {typeof obs.cap === 'number' ? obs.cap.toLocaleString() : String(obs.cap)}{unit ? ` ${unit}` : ''}
-          </div>
-        )}
-      </div>
-
-      {/* Where this comes from — emphasise recency */}
-      <SectionTitle icon={SECTION_TITLES.whereThisComes.icon} label={SECTION_TITLES.whereThisComes.label} />
-      {source && (
-        <div className="flex items-center gap-1">
-          <Link size={12} className="text-info" />
-          <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
-        </div>
-      )}
-
-      {/* Impact */}
+      {/* Impact — above value to motivate updating */}
       <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />
       <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
         {isResultsMode && displayMetadata.sensitivityRank !== null && (
@@ -153,6 +131,48 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
         </>
       )}
 
+      {/* Contextual guidance */}
+      {sensitivityGuidance && (
+        <p className={`${typography.panelBody} text-text-body mt-2`}>{sensitivityGuidance}</p>
+      )}
+
+      {/* Value */}
+      <SectionTitle icon={SECTION_TITLES.value.icon} label={SECTION_TITLES.value.label} />
+      <div className="bg-panel border border-panel-border rounded-lg p-3">
+        {rawValue != null ? (
+          <span className={`${typography.panelHeader} text-xl`}>{formatValue(rawValue)}</span>
+        ) : value != null ? (
+          <span className={`${typography.panelHeader} text-xl`}>{formatValue(value)}</span>
+        ) : (
+          <span className={`${typography.panelMeta} text-text-light italic`}>No value set</span>
+        )}
+        {shouldShowNormalised(techMode, rawValue) && value != null && (
+          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+            System: model value: {value.toFixed(3)}
+          </div>
+        )}
+        {techMode && obs?.cap != null && (
+          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+            Cap: {typeof obs.cap === 'number' ? obs.cap.toLocaleString() : String(obs.cap)}{unit ? ` ${unit}` : ''}
+          </div>
+        )}
+        {/* Provenance inline below value */}
+        {source && (
+          <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
+            <Link size={12} className="text-info" />
+            <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Coaching — after value, before connections */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="factor-observable"
+        fallbackText={resolveCoaching('factorObservableData', { factorName: String(node.data?.label ?? '') })}
+        labelContext={{ label: String(node.data?.label ?? '') }}
+      />
+
       {/* Influences */}
       <SectionTitle icon={SECTION_TITLES.connections.icon} label="Influences" />
       {influences.map(conn => (
@@ -165,14 +185,6 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           onClick={() => onNavigate(conn.nodeId)}
         />
       ))}
-
-      {/* Coaching + Guidance */}
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="factor-observable"
-        fallbackText={resolveCoaching('factorObservableData', { factorName: String(node.data?.label ?? '') })}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-      />
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

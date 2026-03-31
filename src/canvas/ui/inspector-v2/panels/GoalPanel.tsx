@@ -17,7 +17,7 @@ import { getEdgeConfidence } from '../../../domain/edges'
 import type { NodeType } from '../../../domain/nodes'
 import { SECTION_TITLES } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
-import { CoachingCard } from '../shared/CoachingCard'
+// CoachingCard removed — no-target guidance is now inline text
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
@@ -26,7 +26,7 @@ import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
-import { COACHING } from '../coachingConfig'
+import { COACHING, resolveCoaching } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
 import { ResultsLink } from '../shared/ResultsLink'
 
@@ -149,16 +149,36 @@ export const GoalPanel = memo(function GoalPanel({
           <p className={`${typography.panelBody} text-text-body`}>
             Success means reaching {'\u2265'} {goalThreshold}{thresholdUnit ? ` ${thresholdUnit}` : ''}
           </p>
-          <p className={`${typography.panelMeta} text-text-light mt-1`}>
-            Analysis calculates the probability of reaching or exceeding this target
-          </p>
+          {/* Contextual probability when analysis exists */}
+          {typeof probGoal === 'number' ? (
+            <p className={`${typography.panelBody} text-text-body mt-1`}>
+              {Math.round(probGoal * 100)}% chance of reaching this target based on the current model.
+            </p>
+          ) : (
+            <p className={`${typography.panelMeta} text-text-light mt-1`}>
+              Run the simulation to see the probability of reaching this target.
+            </p>
+          )}
         </div>
       ) : (
         <div className="mt-1">
           <GoalThresholdEditor unit={thresholdUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
-          <CoachingCard text={COACHING.goalNoTarget} action={{ label: 'Add target', onClick: () => {} }} />
+          <p className={`${typography.panelBody} text-info mt-1.5`}>
+            Adding a specific target unlocks probability calculations.{' '}
+            <button type="button" className={`${typography.panelBody} text-primary underline-offset-2 hover:underline cursor-pointer bg-transparent border-none p-0`}>
+              Add target
+            </button>
+          </p>
         </div>
       )}
+
+      {/* Coaching — after threshold section */}
+      <InspectorCoaching
+        elementId={nodeId}
+        panelType="goal"
+        fallbackText={resolveCoaching('goalEvidence', { goalName: String(node.data?.label ?? '') })}
+        labelContext={{ label: String(node.data?.label ?? '') }}
+      />
 
       {/* §4.3 Constraints — pre-analysis preview or post-analysis with probability DataBars */}
       {goalConstraints && Array.isArray(goalConstraints) && goalConstraints.length > 0 && (
@@ -368,13 +388,7 @@ export const GoalPanel = memo(function GoalPanel({
         <p className={`${typography.panelMeta} text-text-light py-2`}>No contributing factors connected yet</p>
       )}
 
-      {/* Coaching + Guidance */}
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="goal"
-        fallbackText={COACHING.goalConnections}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-      />
+      {/* Coaching moved to after threshold section */}
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>

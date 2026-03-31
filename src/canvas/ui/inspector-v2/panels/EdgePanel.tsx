@@ -247,17 +247,17 @@ export const EdgePanel = memo(function EdgePanel({
           {/* §10.2 How strong is this effect */}
           <SectionTitle icon={SECTION_TITLES.howStrong.icon} label={SECTION_TITLES.howStrong.label} />
           <div className="px-1">
-            {/* B.4: Quick-select strength band buttons */}
+            {/* Contextual sentence */}
+            <p className={`${typography.panelBody} mb-2 ${isFragile ? 'text-warning' : 'text-text-body'}`}>
+              {isFragile
+                ? 'This is a sensitive assumption. Small changes here could change the recommendation.'
+                : localBelief < 0.7
+                ? 'This connection is uncertain. Calibrating it would strengthen the analysis.'
+                : `How much does ${sourceLabel} affect ${targetLabel}?`}
+            </p>
+            {/* B.4: Quick-select strength band buttons — primary input */}
             <StrengthBandButtons value={localStrength} onChange={handleStrengthChange} />
-            <div className="relative mb-2">
-              <UncertaintyBand strength={localStrength} std={localStd} />
-              <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={techMode} />
-            </div>
-            {techMode && (
-              <div className="flex justify-between mt-1">
-                <span className={`${typography.panelMeta} text-text-light`}>{'\u22121.0'}</span><span className={`${typography.panelMeta} text-text-light`}>0</span><span className={`${typography.panelMeta} text-text-light`}>+1.0</span>
-              </div>
-            )}
+            {/* Strength pill */}
             <div className="flex justify-between items-center mt-2">
               <span
                 className={`${typography.panelMeta} font-medium inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
@@ -273,11 +273,46 @@ export const EdgePanel = memo(function EdgePanel({
                 </span>
               )}
             </div>
+            {/* Slider — behind disclosure in default mode, always visible in tech mode */}
+            {techMode ? (
+              <div className="mt-2">
+                <div className="relative mb-2">
+                  <UncertaintyBand strength={localStrength} std={localStd} />
+                  <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={techMode} />
+                </div>
+                <div className="flex justify-between mt-1">
+                  <span className={`${typography.panelMeta} text-text-light`}>{'\u22121.0'}</span><span className={`${typography.panelMeta} text-text-light`}>0</span><span className={`${typography.panelMeta} text-text-light`}>+1.0</span>
+                </div>
+              </div>
+            ) : (
+              <details className="mt-2">
+                <summary className={`${typography.panelMeta} text-info cursor-pointer`}>Fine-tune</summary>
+                <div className="mt-1.5">
+                  <div className="relative mb-2">
+                    <UncertaintyBand strength={localStrength} std={localStd} />
+                    <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={techMode} />
+                  </div>
+                </div>
+              </details>
+            )}
           </div>
+
+          {/* Coaching — after strength, before existence (most coaching is about calibrating the effect) */}
+          <InspectorCoaching
+            elementId={edgeId}
+            panelType="edge"
+            fallbackText={resolveCoaching('edgeWeight', { factorName: sourceLabel })}
+            labelContext={{ label: `${sourceLabel} \u2192 ${targetLabel}`, sourceLabel, targetLabel }}
+          />
 
           {/* §10.3 Does this connection exist */}
           <SectionTitle icon={SECTION_TITLES.doesExist.icon} label={SECTION_TITLES.doesExist.label} />
           <div className="px-1">
+            <p className={`${typography.panelBody} text-text-body mb-2`}>
+              {localBelief < 0.5
+                ? 'You seem uncertain this connection exists. If it doesn\u2019t, removing it simplifies the model.'
+                : 'How confident are you that this causal link is real?'}
+            </p>
             <div className="flex justify-between mb-1.5">
               {techMode ? (
                 <><span className={`${typography.panelMeta} text-text-light`}>0%</span><span className={`${typography.panelMeta} text-text-light`}>100%</span></>
@@ -308,31 +343,55 @@ export const EdgePanel = memo(function EdgePanel({
             )}
           </div>
 
-          {/* §10.4 How uncertain is the strength */}
-          <SectionTitle icon={SECTION_TITLES.howUncertain.icon} label={SECTION_TITLES.howUncertain.label} />
-          <div className="px-1">
-            <div className="flex justify-between mb-1.5">
-              <span className={`${typography.panelMeta} text-text-light`}>Precise</span>
-              <span className={`${typography.panelMeta} text-text-light`}>Uncertain</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="flex-1">
-                <InspectorSlider
-                  value={localStd}
-                  min={0.01}
-                  max={0.5}
-                  step={0.01}
-                  onChange={handleStdChange}
-                  aria-label="Strength uncertainty"
-                />
+          {/* §10.4 How uncertain is the strength — collapsed by default, visible in tech mode */}
+          {techMode ? (
+            <>
+              <SectionTitle icon={SECTION_TITLES.howUncertain.icon} label={SECTION_TITLES.howUncertain.label} />
+              <div className="px-1">
+                <div className="flex justify-between mb-1.5">
+                  <span className={`${typography.panelMeta} text-text-light`}>Precise</span>
+                  <span className={`${typography.panelMeta} text-text-light`}>Uncertain</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <InspectorSlider
+                      value={localStd}
+                      min={0.01}
+                      max={0.5}
+                      step={0.01}
+                      onChange={handleStdChange}
+                      aria-label="Strength uncertainty"
+                    />
+                  </div>
+                  <span className={`${typography.panelMeta} text-text-light min-w-[40px] text-right`}>
+                    System: strength.std: {localStd.toFixed(2)}
+                  </span>
+                </div>
               </div>
-              {techMode && (
-                <span className={`${typography.panelMeta} text-text-light min-w-[40px] text-right`}>
-                  System: strength.std: {localStd.toFixed(2)}
-                </span>
-              )}
-            </div>
-          </div>
+            </>
+          ) : (
+            <details className="mt-3">
+              <summary className={`${typography.panelMeta} text-info cursor-pointer`}>Fine-tune uncertainty</summary>
+              <div className="px-1 mt-1.5">
+                <div className="flex justify-between mb-1.5">
+                  <span className={`${typography.panelMeta} text-text-light`}>Precise</span>
+                  <span className={`${typography.panelMeta} text-text-light`}>Uncertain</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="flex-1">
+                    <InspectorSlider
+                      value={localStd}
+                      min={0.01}
+                      max={0.5}
+                      step={0.01}
+                      onChange={handleStdChange}
+                      aria-label="Strength uncertainty"
+                    />
+                  </div>
+                </div>
+              </div>
+            </details>
+          )}
 
           {/* §10.5 Evidence */}
           <SectionTitle icon={SECTION_TITLES.evidence.icon} label={SECTION_TITLES.evidence.label} />
@@ -430,13 +489,7 @@ export const EdgePanel = memo(function EdgePanel({
             </>
           )}
 
-          {/* Coaching — orchestrator guidance takes priority over static */}
-          <InspectorCoaching
-            elementId={edgeId}
-            panelType="edge"
-            fallbackText={COACHING.edgeWeight}
-            labelContext={{ sourceLabel, targetLabel }}
-          />
+          {/* Coaching moved to after strength section (line ~300) */}
         </>
       )}
 

@@ -210,6 +210,16 @@ export const OptionPanel = memo(function OptionPanel({
         )}
       </div>
 
+      {/* Coaching — after interventions, before impact */}
+      {interventions.length > 0 && (
+        <InspectorCoaching
+          elementId={nodeId}
+          panelType="option"
+          fallbackText={COACHING.optionCoverage}
+          labelContext={{ label: String(node.data?.label ?? '') }}
+        />
+      )}
+
       {/* §6.3 Impact (post-analysis, StaleGuard-wrapped) */}
       <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />
       <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
@@ -227,6 +237,25 @@ export const OptionPanel = memo(function OptionPanel({
                 </div>
               </div>
             )}
+
+            {/* Comparative context */}
+            {displayMetadata.winRate !== null && allOptions.length > 1 && (() => {
+              const myPct = Math.round(displayMetadata.winRate * 100)
+              const leader = allOptions.reduce((best, o) => (o.winPct ?? 0) > (best.winPct ?? 0) ? o : best, allOptions[0])
+              const leaderPct = leader.winPct ?? 0
+              const isCurrent = allOptions.find(o => o.isCurrent)
+              const gap = leaderPct - myPct
+              if (isCurrent && leaderPct === myPct) {
+                return <p className={`${typography.panelBody} text-success mt-1`}>Currently the leading option.</p>
+              }
+              if (gap <= 5) {
+                return <p className={`${typography.panelBody} text-text-body mt-1`}>Within {gap}pp of the leading option. Small model changes could shift this.</p>
+              }
+              if (gap > 10) {
+                return <p className={`${typography.panelBody} text-text-light mt-1`}>Behind {leader.label} by {gap}pp.</p>
+              }
+              return null
+            })()}
 
             {/* Story headline */}
             {headline && (
@@ -265,15 +294,7 @@ export const OptionPanel = memo(function OptionPanel({
         )}
       </StaleGuardBanner>
 
-      {/* Coaching + Guidance */}
-      {interventions.length > 0 && (
-        <InspectorCoaching
-          elementId={nodeId}
-          panelType="option"
-          fallbackText={COACHING.optionCoverage}
-          labelContext={{ label: String(node.data?.label ?? '') }}
-        />
-      )}
+      {/* Coaching moved to after interventions section */}
 
       {/* Technical disclosure — structured advanced editor */}
       <TechnicalDisclosure visible={techMode}>
