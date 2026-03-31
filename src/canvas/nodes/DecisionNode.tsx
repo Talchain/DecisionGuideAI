@@ -319,6 +319,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           width={260}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
         >
           <div className={`${typography.edgeLabel} text-text-body space-y-1`}>
             <div className="font-medium text-text-heading">Model readiness</div>

@@ -233,6 +233,7 @@ export const RiskNode = memo((props: NodeProps) => {
           width={240}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
         >
           {detailedMetrics}
           {layer2ContentPost}
@@ -246,6 +247,7 @@ export const RiskNode = memo((props: NodeProps) => {
           width={240}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
         >
           {preAnalysisPopoverContent}
         </NodePopover>

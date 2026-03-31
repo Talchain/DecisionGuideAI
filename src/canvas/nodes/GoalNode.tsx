@@ -304,6 +304,7 @@ export const GoalNode = memo((props: NodeProps) => {
           width={280}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
         >
           {layer2Content}
         </NodePopover>

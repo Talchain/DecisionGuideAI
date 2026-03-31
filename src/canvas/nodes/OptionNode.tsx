@@ -694,6 +694,7 @@ export const OptionNode = memo((props: NodeProps) => {
           width={260}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
         >
           {layer2Content}
         </NodePopover>
@@ -706,6 +707,7 @@ export const OptionNode = memo((props: NodeProps) => {
           width={260}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
         >
           {preAnalysisPopoverContent}
         </NodePopover>

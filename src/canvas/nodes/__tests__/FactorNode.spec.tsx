@@ -126,9 +126,10 @@ describe('FactorNode', () => {
     expect(container.querySelector('[title="You can measure this"]')).toBeNull()
   })
 
-  it('does not render old category icon tooltips (external)', () => {
+  it('shows dashed-border tooltip for external factors', () => {
     const { container } = renderFactor({ label: 'Market rate', type: 'factor', category: 'external' })
-    expect(container.querySelector('[title="Outside your control"]')).toBeNull()
+    // "Outside your control" is now a border tooltip (not body text) per spec
+    expect(container.querySelector('[title="Outside your control"]')).not.toBeNull()
   })
 
   it('omits old category icon tooltips when category is absent', () => {

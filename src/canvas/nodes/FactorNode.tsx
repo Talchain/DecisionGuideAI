@@ -458,6 +458,7 @@ export const FactorNode = memo((props: NodeProps) => {
           width={240}
           onMouseEnter={popoverHandlers.onMouseEnter}
           onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
         >
           {layer2Content}
         </NodePopover>

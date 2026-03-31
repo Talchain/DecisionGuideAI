@@ -245,6 +245,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       aria-label={accessibleName}
       aria-expanded={description ? isExpanded : undefined}
       {...(isIncomplete ? { 'data-testid': nodeType === 'goal' ? 'overlay-missing-threshold-node' : 'overlay-missing-value' } : {})}
+      {...(nodeType === 'factor' && (data?.category as string) === 'external' ? { title: 'Outside your control' } : {})}
       className={`
         relative rounded-lg ${isCausalLens ? 'border' : isIncomplete ? 'border-2' : borderWidth} shadow-1
         ${isCausalLens ? (causalBorderClass ?? '') : isIncomplete ? 'border-warning border-dashed' : borderClassOverride ?? `${colors.border} ${borderStyle}`}
