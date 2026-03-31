@@ -177,7 +177,7 @@ export function WinGauge({
           const displayPct = Math.round(Math.max(0, Math.min(1, share.winProbability)) * 100)
           if (displayPct <= 0) return null
           return (
-            <span key={share.id} className="inline-flex items-center gap-1 text-[11px] text-text-light">
+            <span key={share.id} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-light`}>
               <span
                 className="inline-block w-2 h-2 rounded-full flex-shrink-0"
                 style={{ backgroundColor: colors[Math.min(i, colors.length - 1)] }}

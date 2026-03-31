@@ -23,6 +23,7 @@ import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
+import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 
@@ -243,7 +244,7 @@ function ScienceNudges({ data }: { data: ResultsSectionDataReturn }) {
   if (topDriver && topDriver.normalisedInfluence > 0.6) {
     nudges.push({
       key: 'sensitivity',
-      text: `${topDriver.factorLabel} drives ${Math.round(topDriver.normalisedInfluence * 100)}% of the outcome. Small changes in its value could flip the recommendation.`,
+      text: `${stripEncodingNotation(topDriver.factorLabel)} drives ${Math.round(topDriver.normalisedInfluence * 100)}% of the outcome. Small changes in its value could flip the recommendation.`,
     })
   }
 
@@ -351,9 +352,8 @@ function AlsoConsiderDisclosure({
         className={`flex items-center gap-1 ${typography.panelMeta} text-text-light hover:text-text-body cursor-pointer`}
       >
         {expanded
-          ? <ChevronDown className="w-3 h-3" aria-hidden="true" />
-          : <ChevronRight className="w-3 h-3" aria-hidden="true" />}
-        Also consider ({items.length})
+          ? <><ChevronDown className="w-3 h-3" aria-hidden="true" /> Show fewer</>
+          : <><ChevronRight className="w-3 h-3" aria-hidden="true" /> Show {items.length} more</>}
       </button>
       {expanded && (
         <div className="flex flex-col gap-1.5 mt-1.5">

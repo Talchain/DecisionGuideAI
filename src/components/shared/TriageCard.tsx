@@ -138,7 +138,6 @@ function InlineValueEditor({
             if (e.key === 'Enter') handleSave()
             if (e.key === 'Escape') onDone()
           }}
-          autoFocus
           className={`w-20 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
         />
         {unitSuffix && (

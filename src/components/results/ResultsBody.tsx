@@ -31,6 +31,8 @@ import { CoachingPrompt } from './CoachingPrompt'
 import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 
+type RiskAppetite = 'conservative' | 'neutral' | 'aggressive'
+
 export interface StrengthCorrectionDisplay {
   edgeId: string
   from: string
@@ -120,7 +122,6 @@ export const ResultsBody = memo(function ResultsBody({
   expertMode,
 }: ResultsBodyProps) {
   // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
-  type RiskAppetite = 'conservative' | 'neutral' | 'aggressive'
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
 
   const riskWinnerId = useMemo(() => {
