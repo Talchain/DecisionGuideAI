@@ -640,8 +640,8 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Keep current price', is_baseline: true })
-    // Baseline option shows "No changes" in body (pre-analysis)
-    expect(screen.getByText('No changes')).toBeDefined()
+    // Baseline option shows "No changes to factors" in body (pre-analysis)
+    expect(screen.getByText('No changes to factors')).toBeDefined()
     // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
   })

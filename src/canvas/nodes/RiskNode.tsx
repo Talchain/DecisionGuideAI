@@ -140,9 +140,10 @@ export const RiskNode = memo((props: NodeProps) => {
         )}
       </p>
       {preAnalysisInbound.slice(0, 5).map((item, i) => (
-        <p key={i} className={`${typography.edgeLabel} text-text-light m-0`}>
-          {item.nodeLabel} — {item.strengthPct}%
-        </p>
+        <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
+          <span className="truncate">{item.nodeLabel}</span>
+          <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
+        </div>
       ))}
       <Sep />
       <div className="flex gap-1 flex-wrap">
@@ -212,9 +213,10 @@ export const RiskNode = memo((props: NodeProps) => {
             <Sep />
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Driven by:</p>
             {preAnalysisInbound.slice(0, 5).map((item, i) => (
-              <p key={i} className={`${typography.edgeLabel} text-text-light m-0`}>
-                {item.nodeLabel} — {item.strengthPct}%
-              </p>
+              <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
+                <span className="truncate">{item.nodeLabel}</span>
+                <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
+              </div>
             ))}
           </>
         )}

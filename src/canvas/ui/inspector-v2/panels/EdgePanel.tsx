@@ -494,7 +494,7 @@ export const EdgePanel = memo(function EdgePanel({
                   {edgeEValue != null && (
                     <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>
                       Assumption robustness: {edgeEValue.toFixed(1)}x
-                      {techMode ? '' : ' — this assumption would need to be ' + edgeEValue.toFixed(1) + 'x wrong to change the recommendation'}
+                      {techMode ? '' : '. This assumption would need to be ' + edgeEValue.toFixed(1) + 'x wrong to change the recommendation'}
                     </p>
                   )}
                 </div>

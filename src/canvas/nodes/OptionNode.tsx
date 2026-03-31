@@ -654,7 +654,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {/* Pre-analysis: status quo "No changes" */}
         {!isPostAnalysis && isBaselineOption && (
           <div className={`${typography.edgeLabel} mt-1 text-text-light`}>
-            No changes
+            No changes to factors
           </div>
         )}
 

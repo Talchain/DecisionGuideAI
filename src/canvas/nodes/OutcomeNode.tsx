@@ -124,9 +124,10 @@ export const OutcomeNode = memo((props: NodeProps) => {
         )}
       </p>
       {preAnalysisInbound.slice(0, 5).map((item, i) => (
-        <p key={i} className={`${typography.edgeLabel} text-text-light m-0`}>
-          {item.nodeLabel} — {item.strengthPct}%
-        </p>
+        <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
+          <span className="truncate">{item.nodeLabel}</span>
+          <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
+        </div>
       ))}
       <Sep />
       <NodeChip label="Are there other outcomes that matter?" message="Are there other outcomes or consequences I should consider for this decision?" />
@@ -191,9 +192,10 @@ export const OutcomeNode = memo((props: NodeProps) => {
             <Sep />
             <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Driven by:</p>
             {preAnalysisInbound.slice(0, 5).map((item, i) => (
-              <p key={i} className={`${typography.edgeLabel} text-text-light m-0`}>
-                {item.nodeLabel} — {item.strengthPct}%
-              </p>
+              <div key={i} className={`${typography.edgeLabel} text-text-light m-0 flex justify-between gap-2`}>
+                <span className="truncate">{item.nodeLabel}</span>
+                <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
+              </div>
             ))}
           </>
         )}

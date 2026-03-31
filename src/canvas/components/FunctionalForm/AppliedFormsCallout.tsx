@@ -50,7 +50,7 @@ const AppliedFormItem = memo(function AppliedFormItem({
         {/* Form name and rationale */}
         <p className={`${typography.caption} text-info mt-0.5`}>
           <span className="font-medium">{formInfo?.name || recommendation.recommended_form}</span>
-          {' — '}
+          {': '}
           {recommendation.rationale}
         </p>
       </div>

@@ -662,8 +662,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             }}
             className="bg-panel text-text-body border border-warning/30 shadow-sm"
             title={fragileEdgeSwitchProb !== null
-              ? `Sensitive assumption — ${Math.round(fragileEdgeSwitchProb * 100)}% chance the recommendation flips if this relationship changes`
-              : 'Sensitive assumption — outcome may flip if this relationship changes'}
+              ? `Sensitive assumption: ${Math.round(fragileEdgeSwitchProb * 100)}% chance the recommendation flips if this relationship changes`
+              : 'Sensitive assumption: outcome may flip if this relationship changes'}
           >
             <AlertTriangle size={12} />
             <span style={{ fontSize: '10px', fontWeight: 600 }}>
@@ -818,7 +818,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                 className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2"
               >
                 <div className={`${typography.panelMeta} text-text-light`}>
-                  {isOrganisationalEdge ? 'Structural link — not analysed' : 'Intervention link — sets factor value'}
+                  {isOrganisationalEdge ? 'Structural link (not analysed)' : 'This option affects this factor'}
                 </div>
               </div>
             </EdgeLabelRenderer>
@@ -864,7 +864,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
               {isFragileEdge && (
                 <div className={`${typography.edgeLabel} text-warning flex items-center gap-1`}>
                   <AlertTriangle size={10} />
-                  Sensitive{fragileEdgeSwitchProb !== null ? ` — ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ''}
+                  Sensitive{fragileEdgeSwitchProb !== null ? `: ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ''}
                 </div>
               )}
               {/* Coaching chips */}
