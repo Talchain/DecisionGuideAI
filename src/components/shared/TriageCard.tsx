@@ -309,8 +309,8 @@ export function TriageCard(props: TriageCardProps) {
       {/* Subtitle / detail — one line, truncated */}
       <p className={`${typography.panelMeta} text-text-light truncate`} title={displaySubtitle}>{displaySubtitle}</p>
 
-      {/* Inline value editor — always visible when editorConfig has a value */}
-      {editorConfig && editorConfig.rawValue !== null && editorConfig.rawValue !== undefined && !isEdge && (
+      {/* Inline value editor — always visible when editorConfig is attached */}
+      {editorConfig && !isEdge && (
         <InlineValueEditor
           editorConfig={editorConfig}
           onDone={() => {}}

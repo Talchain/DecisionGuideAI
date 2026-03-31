@@ -352,7 +352,21 @@ export function TornadoChart({
     <div
       className="p-3.5 bg-panel border border-panel-border rounded-xl shadow-1"
       data-testid="tornado-chart"
+      onPointerLeave={() => {
+        // Release any stuck drag when pointer leaves the chart
+        if (dragState.isDragging) {
+          handlePointerUp()
+        }
+      }}
     >
+      {/* Clarification line — above bars so users understand before reading */}
+      <p
+        className={`${typography.panelMeta} text-text-light mb-2`}
+        data-testid="tornado-pp-clarification"
+      >
+        Numbers show percentage point change in win likelihood when each factor varies across its plausible range
+      </p>
+
       {/* Tornado rows */}
       <div className="divide-y divide-panel-border/70">
         {rows.map((row) => {
@@ -449,7 +463,7 @@ export function TornadoChart({
                 />
               )}
               {/* Label */}
-              <div className="w-[150px] flex-shrink-0 text-right">
+              <div className="min-w-[100px] w-[150px] flex-shrink-0 text-right">
                 {row.canFocus ? (
                   <button
                     type="button"
@@ -591,14 +605,6 @@ export function TornadoChart({
             : 'Stronger →'}
         </span>
       </div>
-
-      {/* Clarification line — updated per Task 4 */}
-      <p
-        className={`${typography.panelMeta} text-text-light mt-1 ml-[158px]`}
-        data-testid="tornado-pp-clarification"
-      >
-        Numbers show percentage point change in win likelihood when each factor varies across its plausible range
-      </p>
 
       {/* Interaction strip — drag-to-preview guidance */}
       {rows.length > 0 && (

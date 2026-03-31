@@ -9,7 +9,7 @@
  * - Storybook stories (with fixture data)
  */
 
-import { useRef, useCallback, useMemo, memo } from 'react'
+import { useRef, useCallback, useMemo, memo, useState } from 'react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
@@ -119,6 +119,24 @@ export const ResultsBody = memo(function ResultsBody({
   onSetFactorValue,
   expertMode,
 }: ResultsBodyProps) {
+  // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
+  type RiskAppetite = 'conservative' | 'neutral' | 'aggressive'
+  const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
+
+  const riskWinnerId = useMemo(() => {
+    const opts = resultsSectionData.recommendation.allOptions
+    if (opts.length <= 1) return resultsSectionData.recommendation.recommendedOption?.id
+    if (riskAppetite === 'conservative') {
+      const best = [...opts].sort((a, b) => (b.outcome?.p10 ?? b.p10 ?? 0) - (a.outcome?.p10 ?? a.p10 ?? 0))[0]
+      return best?.id
+    }
+    if (riskAppetite === 'aggressive') {
+      const best = [...opts].sort((a, b) => (b.outcome?.p90 ?? b.p90 ?? 0) - (a.outcome?.p90 ?? a.p90 ?? 0))[0]
+      return best?.id
+    }
+    return resultsSectionData.recommendation.recommendedOption?.id
+  }, [riskAppetite, resultsSectionData.recommendation])
+
   // V11: Build enriched view model — drives hero rows, colours, collapse behaviour
   // Evidence ratio: fragile / (fragile + robust) = robustness-assessed edges only
   const robustnessEdgeTotal = (fragileEdgeCount ?? 0) + (robustEdgeCount ?? 0)
@@ -194,19 +212,39 @@ export const ResultsBody = memo(function ResultsBody({
                 }))}
               decisionState={vm.decisionState}
             />
+            {/* Risk appetite toggle — only shown when p10/p90 data available */}
+            {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
+              <div className="flex items-center gap-1.5">
+                <span className={`${typography.panelMeta} text-text-light`}>Risk appetite:</span>
+                {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
+                  <button
+                    key={appetite}
+                    type="button"
+                    onClick={() => setRiskAppetite(appetite)}
+                    className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer capitalize ${
+                      riskAppetite === appetite
+                        ? 'border-info/60 text-info bg-transparent'
+                        : 'border-panel-border text-text-light bg-transparent hover:border-info/30 hover:text-text-body'
+                    }`}
+                  >
+                    {appetite.charAt(0).toUpperCase() + appetite.slice(1)}
+                  </button>
+                ))}
+              </div>
+            )}
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
-              winnerId={resultsSectionData.recommendation.recommendedOption?.id}
+              winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
               onSendMessage={onSendMessage}
               hasGoalThreshold={resultsSectionData.recommendation.goalThreshold != null}
               storyHeadlines={resultsSectionData.recommendation.storyHeadlines}
               cardRefMap={optionCardRefs}
-              decisionState={vm.decisionState}
-              hinge={vm.hinge}
+              decisionState={riskAppetite === 'neutral' ? vm.decisionState : undefined}
+              hinge={riskAppetite === 'neutral' ? vm.hinge : null}
               runnerId={
                 // V12.2 Fix 1: Runner-up is highest by win_probability excluding winner
                 [...resultsSectionData.recommendation.allOptions]
-                  .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
+                  .filter(o => o.id !== (riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id))
                   .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
               }
             />
@@ -303,7 +341,7 @@ export const ResultsBody = memo(function ResultsBody({
               return (
               <div>
                 <Accordion
-                  title="Stress-test your decision"
+                  title="Before you decide"
                   defaultExpanded={false}
                   testId="accordion-before-commit"
                   badgeCount={challengeTotal}
@@ -313,6 +351,7 @@ export const ResultsBody = memo(function ResultsBody({
                     biasFindings={biasFindings}
                     preMortemItems={preMortemItems}
                     onFocusNode={onFocusNode}
+                    onSendMessage={onSendMessage}
                     evidenceGaps={resultsSectionData.confidence.evidenceGaps as EvidenceGapItem[] | undefined}
                     drivers={resultsSectionData.drivers.drivers}
                     edgeEValues={resultsSectionData.confidence.edgeEValues}

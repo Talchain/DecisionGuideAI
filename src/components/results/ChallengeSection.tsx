@@ -53,6 +53,8 @@ export interface ChallengeSectionProps {
   preMortemItems: ActionItem[]
   /** V12 B4: Focus handler for graph links on affected elements */
   onFocusNode?: (nodeId: string) => void
+  /** Handler for sending a message to the conversation panel */
+  onSendMessage?: (text: string) => void
   /** V12.2: Factor lookup data for resolving IDs to labels */
   evidenceGaps?: EvidenceGapItem[]
   drivers?: DriverItem[]
@@ -95,11 +97,13 @@ function resolveFactorLabel(
 function ChallengeCard({
   item,
   onFocusNode,
+  onSendMessage,
   evidenceGaps,
   drivers,
 }: {
   item: ActionItem
   onFocusNode?: (nodeId: string) => void
+  onSendMessage?: (text: string) => void
   evidenceGaps?: EvidenceGapItem[]
   drivers?: DriverItem[]
 }): ReactNode {
@@ -107,8 +111,17 @@ function ChallengeCard({
 
   if (!hasExpandContent) {
     return (
-      <div className="border border-panel-border rounded-lg px-3 py-2">
+      <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
         <p className={`${typography.panelBody} text-text-body`}>{item.title}</p>
+        {onSendMessage && (
+          <button
+            type="button"
+            onClick={() => onSendMessage(`${item.title} — how does this apply to my decision?`)}
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+          >
+            Discuss with AI
+          </button>
+        )}
       </div>
     )
   }
@@ -146,6 +159,15 @@ function ChallengeCard({
         )}
         {item.whatToDo && (
           <p className={`${typography.panelMeta} text-text-body`}>{item.whatToDo}</p>
+        )}
+        {onSendMessage && (
+          <button
+            type="button"
+            onClick={() => onSendMessage(`${item.title} — how does this apply to my decision?`)}
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-0.5`}
+          >
+            Discuss with AI
+          </button>
         )}
       </div>
     </details>
@@ -260,6 +282,7 @@ export function ChallengeSection({
   biasFindings,
   preMortemItems,
   onFocusNode,
+  onSendMessage,
   evidenceGaps,
   drivers,
   edgeEValues,
@@ -268,12 +291,20 @@ export function ChallengeSection({
   identifiabilityTag,
 }: ChallengeSectionProps) {
   // ── Model structure items ──────────────────────────────────────────────
-  // Merge fragile edges with E-value data per edge, sort by switch_probability, cap at 3
+  // Merge fragile edges with E-value data per edge, group by source node, sort by switch_probability, cap at 3
   const eValueMap = new Map((edgeEValues ?? []).filter(e => e.e_value < 3.0).map(e => [e.edge_id, e.e_value]))
   const mergedFragileCards = [...(fragileEdgesProp ?? [])]
     .sort((a, b) => b.switch_probability - a.switch_probability)
     .slice(0, 3)
     .map(fe => ({ ...fe, e_value: fe.edge_id ? eValueMap.get(fe.edge_id) : undefined }))
+
+  // Group fragile cards by source node (from_label) for visual grouping
+  const fragileBySource = mergedFragileCards.reduce<Record<string, typeof mergedFragileCards>>((acc, card) => {
+    const key = card.from_label
+    if (!acc[key]) acc[key] = []
+    acc[key].push(card)
+    return acc
+  }, {})
   const allWarnings = inferenceWarnings ?? []
   const rootWarnings = allWarnings.filter(w => w.code === 'MISSING_ROOT_VALUE')
   const modelStructureCount = mergedFragileCards.length + rootWarnings.length
@@ -298,8 +329,16 @@ export function ChallengeSection({
       {modelStructureCount > 0 && (
         <div className="space-y-2">
           <SubgroupDivider label="Model structure" count={modelStructureCount} />
-          {mergedFragileCards.map((card, i) => (
-            <FragileEdgeCard key={`fragile-${card.from_label}-${card.to_label}-${i}`} edge={card} eValue={card.e_value} />
+          {/* Fragile edges grouped by source node */}
+          {Object.entries(fragileBySource).map(([sourceLabel, cards]) => (
+            <div key={sourceLabel} className="space-y-1">
+              {cards.length > 1 && (
+                <p className={`${typography.panelMeta} text-text-light px-1`}>From: {sourceLabel}</p>
+              )}
+              {cards.map((card, i) => (
+                <FragileEdgeCard key={`fragile-${card.from_label}-${card.to_label}-${i}`} edge={card} eValue={card.e_value} />
+              ))}
+            </div>
           ))}
           {rootWarnings.map((warning, i) => (
             <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} />
@@ -332,6 +371,7 @@ export function ChallengeSection({
                   <ChallengeCard
                     item={item}
                     onFocusNode={onFocusNode}
+                    onSendMessage={onSendMessage}
                     evidenceGaps={evidenceGaps}
                     drivers={drivers}
                   />
@@ -362,6 +402,7 @@ export function ChallengeSection({
                   <ChallengeCard
                     item={item}
                     onFocusNode={onFocusNode}
+                    onSendMessage={onSendMessage}
                     evidenceGaps={evidenceGaps}
                     drivers={drivers}
                   />

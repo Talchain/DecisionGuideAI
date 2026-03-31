@@ -14,8 +14,8 @@
  * Uses shared TriageHealthHeader + TriageCard components.
  */
 
-import { useMemo, memo } from 'react'
-import { AlertTriangle, Check, Lightbulb, X } from 'lucide-react'
+import { useMemo, memo, useState } from 'react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Lightbulb, X } from 'lucide-react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { TriageDimension } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
@@ -24,7 +24,6 @@ import type { TriageCardCategory, TriageCardAction } from '@/components/shared/T
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { typography } from '@/styles/typography'
-import { evaluativeVar } from '@/styles/evaluative'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -208,17 +207,14 @@ function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
         goalThreshold={goalThreshold}
       />
 
-      {/* Condition card (fragility warning) */}
+      {/* Fragility warning — inline, no separate heading */}
       {fragile && (
-        <div className="rounded-lg border border-warning/30 bg-panel px-3 py-2.5 space-y-1">
-          <div className="flex items-center gap-2">
-            <AlertTriangle size={14} className="text-warning flex-shrink-0" />
-            <span className={`${typography.panelHeader} text-text-header`}>Condition</span>
-          </div>
+        <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel">
+          <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" />
           <p className={`${typography.panelBody} text-text-body`}>
-            If <strong>{fragile.fromLabel}</strong> changes significantly,{' '}
-            <strong>{fragile.alternativeWinnerLabel}</strong> could become the better choice
-            {switchPct != null && ` (${switchPct}% probability)`}.
+            If <strong>{fragile.fromLabel}</strong> weakens,{' '}
+            <strong>{fragile.alternativeWinnerLabel}</strong> strengthens and could become the better choice
+            {switchPct != null && ` (${switchPct}% chance)`}.
           </p>
         </div>
       )}
@@ -228,23 +224,12 @@ function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
 
 // ── Section 3: Trust summary ────────────────────────────────────────────────
 
-function TrustSummary({ data, actionCount }: { data: ResultsSectionDataReturn; actionCount: number }) {
-  const stability = data.recommendation.recommendationStability
-  const stabilityPct = stability != null ? Math.round(stability * 100) : null
-
+function TrustSummary({ actionCount }: { actionCount: number }) {
+  if (actionCount === 0) return null
   return (
-    <div className="space-y-1">
-      {stabilityPct != null && (
-        <p className={`${typography.panelBody} text-text-body`}>
-          Recommendation stability: <strong style={{ color: evaluativeVar(stability!) }}>{stabilityPct}%</strong>
-        </p>
-      )}
-      {actionCount > 0 && (
-        <p className={`${typography.panelMeta} text-text-light`}>
-          These {actionCount} item{actionCount === 1 ? '' : 's'} would most improve confidence:
-        </p>
-      )}
-    </div>
+    <p className={`${typography.panelMeta} text-text-light`}>
+      Top {actionCount} by evidence value:
+    </p>
   )
 }
 
@@ -341,6 +326,60 @@ function TransitionBridge({ verifiedCount, influenceCoverage }: { verifiedCount?
   )
 }
 
+// ── Section 5: Also Consider disclosure ────────────────────────────────────
+
+function AlsoConsiderDisclosure({
+  items,
+  startOrdinal,
+  onHoverEnter,
+  onHoverLeave,
+  onSendMessage,
+}: {
+  items: MappedActionItem[]
+  startOrdinal: number
+  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave?: () => void
+  onSendMessage?: (text: string) => void
+}) {
+  const [expanded, setExpanded] = useState(false)
+
+  return (
+    <div>
+      <button
+        type="button"
+        onClick={() => setExpanded(e => !e)}
+        className={`flex items-center gap-1 ${typography.panelMeta} text-text-light hover:text-text-body cursor-pointer`}
+      >
+        {expanded
+          ? <ChevronDown className="w-3 h-3" aria-hidden="true" />
+          : <ChevronRight className="w-3 h-3" aria-hidden="true" />}
+        Also consider ({items.length})
+      </button>
+      {expanded && (
+        <div className="flex flex-col gap-1.5 mt-1.5">
+          {items.map((item, i) => (
+            <TriageCard
+              key={item.key}
+              cardKey={item.key}
+              ordinal={startOrdinal + i}
+              title={item.title}
+              detail={item.detail}
+              category={item.category}
+              influence={item.influence}
+              evoiImpact={item.evoiImpact}
+              action={item.action}
+              sourcePill={item.sourcePill}
+              onHoverEnter={onHoverEnter}
+              onHoverLeave={onHoverLeave}
+              onSendMessage={onSendMessage}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Main component ──────────────────────────────────────────────────────────
 
 export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
@@ -392,8 +431,8 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
 
       {/* 1. Health header — ring shows ISL recommendation_stability directly */}
       <TriageHealthHeader
-        title="Decision confidence"
-        ringLabel="trust"
+        title="Current recommendation"
+        ringLabel="%"
         ringDimensions={ringDimensions}
         dimensions={dimensionBars}
         headline={headline}
@@ -407,12 +446,11 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       <ResultChecks data={data} />
 
       {/* 3. Trust summary + item count */}
-      <TrustSummary data={data} actionCount={allActions.length} />
+      <TrustSummary actionCount={top3.length} />
 
       {/* 4. Top 3 action cards */}
       {top3.length > 0 && (
         <div className="flex flex-col gap-1.5">
-          <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much better data would improve confidence</p>
           {top3.map((item, i) => (
             <div key={item.key}>
               <TriageCard
@@ -445,27 +483,15 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         </div>
       )}
 
-      {/* 5. Quick-fix rows (items 4-6) */}
+      {/* 5. Quick-fix rows (items 4-6) — collapsible "Also consider" */}
       {quickFix.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <p className={`${typography.panelMeta} text-text-light`}>Also consider</p>
-          {quickFix.map((item, i) => (
-            <TriageCard
-              key={item.key}
-              cardKey={item.key}
-              ordinal={i + 4}
-              title={item.title}
-              detail={item.detail}
-              category={item.category}
-              influence={item.influence}
-              evoiImpact={item.evoiImpact}
-              variant="compact"
-              action={item.action}
-              onHoverEnter={onHoverEnter}
-              onHoverLeave={onHoverLeave}
-            />
-          ))}
-        </div>
+        <AlsoConsiderDisclosure
+          items={quickFix}
+          startOrdinal={4}
+          onHoverEnter={onHoverEnter}
+          onHoverLeave={onHoverLeave}
+          onSendMessage={onSendMessage}
+        />
       )}
 
       {/* 6. Science nudges */}

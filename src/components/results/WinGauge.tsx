@@ -171,6 +171,24 @@ export function WinGauge({
           )
         })}
       </div>
+      {/* Legend — coloured dot + truncated name + percentage */}
+      <div className="flex flex-wrap gap-x-3 gap-y-0.5 mt-1.5">
+        {sorted.map((share, i) => {
+          const displayPct = Math.round(Math.max(0, Math.min(1, share.winProbability)) * 100)
+          if (displayPct <= 0) return null
+          return (
+            <span key={share.id} className="inline-flex items-center gap-1 text-[11px] text-text-light">
+              <span
+                className="inline-block w-2 h-2 rounded-full flex-shrink-0"
+                style={{ backgroundColor: colors[Math.min(i, colors.length - 1)] }}
+                aria-hidden="true"
+              />
+              <span className="truncate max-w-[120px]">{stripEncodingNotation(share.label)}</span>
+              <span className="tabular-nums">{displayPct}%</span>
+            </span>
+          )
+        })}
+      </div>
     </div>
   )
 }
