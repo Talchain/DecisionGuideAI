@@ -473,7 +473,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 const echoStripped = stripEcho(chip.label, displayVal)
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                    <span className="text-text-light">{truncateAtWord(chip.label, 30)}</span>
+                    <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
                     <span className="text-text-light"> → </span>
                     <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                   </div>
@@ -488,9 +488,9 @@ export const OptionNode = memo((props: NodeProps) => {
       {isBaselineOption && (
         <>
           <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
-          {isPostAnalysis && goalProbability !== null && goalProbability >= 0.10 && (
+          {isPostAnalysis && displayMetadata.winRate !== null && (
             <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-              {Math.round(goalProbability * 100)}% chance of target
+              {Math.round((displayMetadata.winRate ?? 0) * 100)}% win rate across simulations
             </p>
           )}
           <div className="mt-1 flex gap-1 flex-wrap">
@@ -540,7 +540,7 @@ export const OptionNode = memo((props: NodeProps) => {
               const echoStripped = stripEcho(chip.label, targetFormatted)
               return (
                 <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                  <span className="text-text-light">{truncateAtWord(chip.label, 30)}</span>
+                  <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
                   <span className="text-text-light"> → </span>
                   <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                 </div>
@@ -703,7 +703,7 @@ export const OptionNode = memo((props: NodeProps) => {
                     const echoStripped = stripEcho(chip.label, targetFormatted)
                     return (
                       <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                        <span className="text-text-light">{truncateAtWord(chip.label, 30)}</span>
+                        <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
                         <span className="text-text-light"> → </span>
                         <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                       </div>
