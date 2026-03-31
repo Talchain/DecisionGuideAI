@@ -157,12 +157,10 @@ function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' })
 
 /** Per-option intervention rows — always visible */
 function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPreviewData; onFocusNode?: (id: string) => void }) {
-  // Baseline with interventions = "no changes"
-  if (opt.isBaseline && opt.interventions.length > 0) {
+  // Baseline = "No changes"
+  if (opt.isBaseline) {
     return (
-      <div className={`${typography.panelMeta} text-text-light mt-1`}>
-        No changes — compare against current state
-      </div>
+      <p className={`${typography.panelBody} text-text-light mt-1`}>No changes</p>
     )
   }
 
