@@ -94,9 +94,10 @@ describe('GoalNode', () => {
     expect(screen.getByText('Increase revenue')).toBeDefined()
   })
 
-  it('shows type label as "Goal" (sentence-case)', () => {
+  it('renders shape indicator (type line removed in v1.1)', () => {
     renderGoal()
-    expect(screen.getByText('Goal')).toBeDefined()
+    // Type text label removed in v1.1 — shape icon with tooltip replaces it
+    expect(screen.getByLabelText(/goal node/i)).toBeDefined()
   })
 
   // T10: Achievement probability
@@ -240,9 +241,9 @@ describe('GoalNode', () => {
 
   it('does not show threshold context when goal_threshold_raw is absent', () => {
     renderGoal()
-    // No threshold display, shows coaching prompt instead
+    // No threshold display, shows "Help me set a target" chip instead (v1.1 spec)
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/What does success look like/)).toBeDefined()
+    expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
 
   it('shows threshold without unit when goal_threshold_unit is absent', () => {
@@ -288,25 +289,25 @@ describe('GoalNode', () => {
   it('shows coaching prompt when goal_threshold_raw is null', () => {
     renderGoal({ goal_threshold_raw: null })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/What does success look like/)).toBeDefined()
+    expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
 
   it('shows coaching prompt when goal_threshold_raw is empty string', () => {
     renderGoal({ goal_threshold_raw: '' })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/What does success look like/)).toBeDefined()
+    expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
 
   it('shows coaching prompt when goal_threshold_raw is whitespace-only', () => {
     renderGoal({ goal_threshold_raw: '   ' })
     expect(screen.queryByText(/Target:/)).toBeNull()
-    expect(screen.getByText(/What does success look like/)).toBeDefined()
+    expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
 
-  // P0.3: Provenance icon renders for brief_extraction source (inline on target display)
-  it('shows provenance icon for brief_extraction source', () => {
+  // P0.3: Provenance icons removed in v1.1 — verify target still renders with brief source
+  it('renders target value when source is brief_extraction (provenance icon removed in v1.1)', () => {
     renderGoal({ observedState: { source: 'brief_extraction' }, goal_threshold_raw: 100, goal_threshold_unit: '%' })
-    expect(screen.getByTitle('From your brief')).toBeDefined()
+    expect(screen.getByText(/Target:/)).toBeDefined()
   })
 
   it('does not show provenance icon for user source', () => {
@@ -600,11 +601,11 @@ describe('GoalNode', () => {
   // B5/B6: null and empty string both show coaching prompt
   it('B5: threshold_raw=null → coaching prompt (already covered, regression guard)', () => {
     renderGoal({ goal_threshold_raw: null })
-    expect(screen.getByText(/What does success look like/)).toBeDefined()
+    expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
 
   it('B6: threshold_raw="" → coaching prompt', () => {
     renderGoal({ goal_threshold_raw: '' })
-    expect(screen.getByText(/What does success look like/)).toBeDefined()
+    expect(screen.getByText(/Help me set a target/)).toBeDefined()
   })
 })

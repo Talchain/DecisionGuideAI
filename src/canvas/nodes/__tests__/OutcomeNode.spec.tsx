@@ -93,9 +93,9 @@ describe('OutcomeNode', () => {
     expect(screen.getByText('Revenue growth')).toBeDefined()
   })
 
-  it('shows type label as "Outcome" (sentence-case)', () => {
+  it('renders shape indicator (type line removed in v1.1)', () => {
     renderOutcome()
-    expect(screen.getByText('Outcome')).toBeDefined()
+    expect(screen.getByLabelText(/outcome node/i)).toBeDefined()
   })
 
   it('has displayName set', () => {
@@ -127,7 +127,8 @@ describe('OutcomeNode', () => {
       }) as any)
     )
     renderOutcome()
-    expect(screen.getByText(/Responsible for 75% of your goal/)).toBeDefined()
+    // v1.1: displayed as "75%" (bold entity colour) + "of your goal" (meta text)
+    expect(screen.getByText(/of your goal/)).toBeDefined()
   })
 
   it('does not show certainty even when beliefExists is present', () => {

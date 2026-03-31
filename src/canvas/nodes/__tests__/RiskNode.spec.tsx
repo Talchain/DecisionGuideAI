@@ -83,9 +83,9 @@ describe('RiskNode', () => {
     expect(screen.getByText('Key person dependency')).toBeDefined()
   })
 
-  it('shows type label as "Risk" (sentence-case)', () => {
+  it('renders shape indicator (type line removed in v1.1)', () => {
     renderRisk()
-    expect(screen.getByText('Risk')).toBeDefined()
+    expect(screen.getByLabelText(/risk node/i)).toBeDefined()
   })
 
   it('has displayName set', () => {
@@ -134,7 +134,8 @@ describe('RiskNode', () => {
       }) as any)
     )
     renderRisk()
-    expect(screen.getByText(/Responsible for 60% of your goal \(negative\)/)).toBeDefined()
+    // v1.1: displayed as "60%" (bold danger) + "goal drag" (meta text)
+    expect(screen.getByText(/goal drag/)).toBeDefined()
   })
 
   it('does not show certainty even when beliefExists is present', () => {

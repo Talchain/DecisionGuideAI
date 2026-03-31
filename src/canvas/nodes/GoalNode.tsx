@@ -180,10 +180,14 @@ export const GoalNode = memo((props: NodeProps) => {
         </p>
       )}
 
-      {/* Layer 2 chips */}
+      {/* Layer 2 chips — gated on threshold and achievement probability */}
       <div className="flex gap-1 flex-wrap mt-1.5">
-        <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
-        <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
+        {hasThreshold && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+          <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
+        )}
+        {hasThreshold && (
+          <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
+        )}
       </div>
     </>
   ) : null

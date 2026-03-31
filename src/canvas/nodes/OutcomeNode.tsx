@@ -74,23 +74,15 @@ export const OutcomeNode = memo((props: NodeProps) => {
     if (send) send(`How can I validate my assumption about ${topFactor.connectedNodeLabel}?`)
   }, [topFactor])
 
-  // "View parameters" handler (Detailed view)
-  const handleViewParams = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    const store = useCanvasStore.getState()
-    store.onSelectionChange({ nodes: [{ id: props.id } as any], edges: [] })
-    store.setShowInspectorPanel(true)
-  }, [props.id])
-
   // ----- Layer 2 content: post-analysis (shared between popover and Detailed inline) -----
   const layer2ContentPost = isPostAnalysis ? (
     <>
-      {/* "Depends on:" ConnRows (max 3) */}
+      {/* "Depends on:" ConnRows (max 3 Standard, max 5 Detailed) */}
       {inboundConnections.length > 0 && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
-          {inboundConnections.slice(0, 3).map(conn => (
+          {inboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}
@@ -206,17 +198,6 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </>
         )}
 
-        {/* "View parameters" link (Detailed, post-analysis) */}
-        {isDetailed && isPostAnalysis && (
-          <button
-            type="button"
-            className={`${typography.edgeLabel} text-info underline cursor-pointer mt-1.5 nodrag nopan`}
-            onClick={handleViewParams}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            View parameters
-          </button>
-        )}
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view, post-analysis, desktop hover) ===== */}

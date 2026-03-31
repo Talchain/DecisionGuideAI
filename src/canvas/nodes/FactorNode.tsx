@@ -197,9 +197,9 @@ export const FactorNode = memo((props: NodeProps) => {
           You provided this value. It strongly influences {outboundConnections[0]?.connectedNodeLabel ?? 'connected outcomes'}.
         </p>
       )}
-      {nodeCategory === 'external' && (
+      {nodeCategory === 'external' && outcomesAffected > 0 && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
-          Outside your control. Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
+          Uncertainty here affects {outcomesAffected} outcome{outcomesAffected !== 1 ? 's' : ''}.
         </p>
       )}
       {/* Connection list with strengths */}
@@ -371,6 +371,13 @@ export const FactorNode = memo((props: NodeProps) => {
         {/* Pre-analysis: edge pills (entity shape + strength %) */}
         {!isPostAnalysis && !needsInput && (
           <EdgePills nodeId={props.id} />
+        )}
+
+        {/* Pre-analysis: external factor coaching chip */}
+        {!isPostAnalysis && nodeCategory === 'external' && (
+          <div className="mt-1.5">
+            <NodeChip label="What if this changes?" message={`What if ${cleanedLabel} changes? How should I plan for that?`} />
+          </div>
         )}
 
         {/* Post-analysis: actionable sentence */}

@@ -7,10 +7,43 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, QUALITATIVE_FACTOR_TYPES } from '../utils/labelUtils'
+import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit } from '../utils/labelUtils'
+import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
 import { NodeChip, ActionIcons, BriefIcon, MetricPills, NodePopover, ScienceIcon } from './shared'
+
+/** Strip known suffixes from factor labels for contextual display. */
+const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
+function stripFactorSuffixes(label: string): string {
+  return label.replace(KNOWN_SUFFIXES, '').trim()
+}
+
+/** Format an intervention value contextually, avoiding banned "On"/"Off" content. */
+function formatChipValue(chip: { label: string; value: number; unit?: string; factorType?: string; cap?: number; observedValue?: number; observedRawValue?: string | number }): string {
+  // Denormalize intervention value when cap is available (intervention values are 0-1 normalized)
+  const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : null
+  let rawValue: number | string | null = null
+  if (effectiveUnit && chip.cap != null && chip.cap > 1) {
+    rawValue = chip.value * chip.cap
+  }
+  const contextual = formatFactorDisplayValue({
+    label: chip.label,
+    value: chip.value,
+    raw_value: rawValue,
+    unit: effectiveUnit,
+    factor_type: chip.factorType ?? null,
+    cap: chip.cap ?? null,
+  })
+  if (contextual) return contextual
+  // Fallback: prefer numeric formatting over qualitative tier labels ("Low"/"Medium"/"High")
+  const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+  // If the fallback produced a tier label, show percentage instead
+  if (/^(Very low|Low|Medium|High|Very high)$/i.test(fallback)) {
+    return `${Math.round(chip.value * 100)}%`
+  }
+  return fallback
+}
 
 interface InterventionChip {
   factorId: string
@@ -161,28 +194,6 @@ export const OptionNode = memo((props: NodeProps) => {
     )
   }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
-  const binaryFactorIds = useMemo<Set<string>>(() => {
-    const options = ceeAnalysisReady?.options
-    if (!options) return new Set()
-    const valuesPerFactor = new Map<string, number[]>()
-    for (const opt of options) {
-      if (!opt.interventions) continue
-      for (const [fid, rv] of Object.entries(opt.interventions)) {
-        const v = typeof rv === 'number' ? rv :
-          (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : null
-        if (v == null) continue
-        const arr = valuesPerFactor.get(fid)
-        if (arr) arr.push(v)
-        else valuesPerFactor.set(fid, [v])
-      }
-    }
-    const result = new Set<string>()
-    for (const [fid, vals] of valuesPerFactor) {
-      if (vals.every(v => v === 0 || v === 1)) result.add(fid)
-    }
-    return result
-  }, [ceeAnalysisReady])
-
   // Structured deltas per spec Section 13
   const structuredDeltas = useMemo<StructuredDelta[]>(() => {
     if (interventionChips.length === 0) return []
@@ -314,8 +325,10 @@ export const OptionNode = memo((props: NodeProps) => {
     const winnerHasFactor = topFactor.id in winnerInterventions
     const thisHasFactor = topFactor.id in thisInterventions
 
+    const strippedLabel = stripFactorSuffixes(factorLabel) || factorLabel
+
     if (winnerHasFactor && !thisHasFactor) {
-      return `no ${factorLabel.toLowerCase()} added`
+      return `no ${strippedLabel.toLowerCase()} added`
     }
 
     if (winnerHasFactor && thisHasFactor) {
@@ -330,7 +343,7 @@ export const OptionNode = memo((props: NodeProps) => {
           (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : 0
       })()
       if (Math.abs(winnerVal - thisVal) >= 1e-6) {
-        return `${factorLabel.toLowerCase()} lower`
+        return `${strippedLabel.toLowerCase()} lower`
       }
     }
 
@@ -391,12 +404,10 @@ export const OptionNode = memo((props: NodeProps) => {
         </p>
       )}
 
-      {/* "What this option changes:" intervention list */}
-      {interventionChips.length > 0 && (() => {
+      {/* "What this option changes:" intervention list (never for baseline) */}
+      {!isBaselineOption && interventionChips.length > 0 && (() => {
         const chipsWithMeta = interventionChips.map(chip => {
-          const baselineNorm = isBaselineOption
-            ? chip.observedValue
-            : (baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue)
+          const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
           const isNoChange = baselineNorm !== undefined && Math.abs(chip.value - baselineNorm) < 1e-6
           return { chip, isNoChange }
         })
@@ -409,16 +420,7 @@ export const OptionNode = memo((props: NodeProps) => {
             <div className="flex flex-col gap-0.5">
               {chipsWithMeta.map(({ chip, isNoChange }) => {
                 if (isNoChange) return null
-                const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : undefined
-                const ft = chip.factorType?.toLowerCase().trim()
-                const isQualitativeFactor = !effectiveUnit && chip.cap == null && (!ft || QUALITATIVE_FACTOR_TYPES.has(ft))
-                const isBinary = isQualitativeFactor && binaryFactorIds.has(chip.factorId)
-                let targetFormatted: string
-                if (isBinary) {
-                  targetFormatted = chip.value === 1 ? 'On' : chip.value === 0 ? 'Off' : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-                } else {
-                  targetFormatted = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
-                }
+                const targetFormatted = formatChipValue(chip)
                 let deltaDisplay: string | null = null
                 if (!isBaselineOption) {
                   const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
@@ -432,9 +434,7 @@ export const OptionNode = memo((props: NodeProps) => {
                       if (Math.abs(denormedBaseline) > 0.01) {
                         const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
                         const sign = pct >= 0 ? '+' : ''
-                        const baselineFormatted = isBinary
-                          ? (baselineNorm === 1 ? 'On' : baselineNorm === 0 ? 'Off' : formatInterventionValue(baselineNorm, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue))
-                          : formatInterventionValue(baselineNorm, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+                        const baselineFormatted = formatChipValue({ ...chip, value: baselineNorm })
                         deltaDisplay = `${baselineFormatted} \u2192 ${targetFormatted} (${sign}${pct.toFixed(1)}%)`
                       }
                     }
@@ -442,7 +442,7 @@ export const OptionNode = memo((props: NodeProps) => {
                 }
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                    <span className="text-text-light">{chip.label.length > 28 ? `${chip.label.slice(0, 28)}...` : chip.label}:</span>{' '}
+                    <span className="text-text-light">{chip.label.length > 30 ? `${chip.label.slice(0, 30)}...` : chip.label}:</span>{' '}
                     <span className="font-medium">{deltaDisplay ?? targetFormatted}</span>
                   </div>
                 )
@@ -458,7 +458,7 @@ export const OptionNode = memo((props: NodeProps) => {
         </div>
       )}
     </>
-  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, binaryFactorIds, isOptionFromCee])
+  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -476,13 +476,10 @@ export const OptionNode = memo((props: NodeProps) => {
         {interventionChips.length > 0 && (
           <div className="flex flex-col gap-0.5">
             {interventionChips.map(chip => {
-              const isBinary = binaryFactorIds.has(chip.factorId)
-              const targetFormatted = isBinary
-                ? (chip.value === 1 ? 'On' : chip.value === 0 ? 'Off' : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue))
-                : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+              const targetFormatted = formatChipValue(chip)
               return (
                 <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                  <span className="text-text-light">{chip.label.length > 28 ? `${chip.label.slice(0, 28)}...` : chip.label}:</span>{' '}
+                  <span className="text-text-light">{chip.label.length > 30 ? `${chip.label.slice(0, 30)}...` : chip.label}:</span>{' '}
                   <span className="font-medium">{targetFormatted}</span>
                 </div>
               )
@@ -494,7 +491,7 @@ export const OptionNode = memo((props: NodeProps) => {
         </div>
       </>
     )
-  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, binaryFactorIds, props.data])
+  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, props.data])
 
   // Completeness assessment for Detailed pre-analysis view
   const completenessText = useMemo(() => {
@@ -576,7 +573,7 @@ export const OptionNode = memo((props: NodeProps) => {
 
         {/* Pre-analysis: structured deltas (spec Section 13) */}
         {!isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0 && (
-          <div className="flex flex-col gap-0.5 mt-1">
+          <div className="flex flex-col gap-0.5 mt-1.5">
             {structuredDeltas.map(d => (
               <div key={d.factorId} className={`${typography.edgeLabel} inline-flex items-center gap-1`}>
                 {d.direction === 'up' ? (
@@ -632,7 +629,7 @@ export const OptionNode = memo((props: NodeProps) => {
         )}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
-        {showLayer2Inline && !isPostAnalysis && (
+        {showLayer2Inline && !isPostAnalysis && !isBaselineOption && (
           <>
             {/* Detailed pre-analysis: full intervention list + completeness */}
             {interventionChips.length > 0 && (
@@ -640,13 +637,10 @@ export const OptionNode = memo((props: NodeProps) => {
                 <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5 mt-1`}>Interventions:</p>
                 <div className="flex flex-col gap-0.5">
                   {interventionChips.map(chip => {
-                    const isBinary = binaryFactorIds.has(chip.factorId)
-                    const targetFormatted = isBinary
-                      ? (chip.value === 1 ? 'On' : chip.value === 0 ? 'Off' : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue))
-                      : formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
+                    const targetFormatted = formatChipValue(chip)
                     return (
                       <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                        <span className="text-text-light">{chip.label.length > 28 ? `${chip.label.slice(0, 28)}...` : chip.label}:</span>{' '}
+                        <span className="text-text-light">{chip.label.length > 30 ? `${chip.label.slice(0, 30)}...` : chip.label}:</span>{' '}
                         <span className="font-medium">{targetFormatted}</span>
                       </div>
                     )

@@ -80,16 +80,16 @@ function useModelReadiness(decisionId: string): ModelReadiness {
 
     // Bias triggers
     const biasTriggers: string[] = []
-    if (optionNodes.length < 3) biasTriggers.push('Narrow framing: fewer than 3 options')
-    if (riskNodes.length <= 1) biasTriggers.push('Missing risks: 1 or fewer risk nodes')
+    if (optionNodes.length < 3) biasTriggers.push('Narrow framing: < 3 options')
+    if (riskNodes.length <= 1) biasTriggers.push('Missing risks: \u2264 1 risk identified')
     const hasBaseline = optionNodes.some(n => (n.data as Record<string, unknown> | undefined)?.is_baseline === true)
-    if (hasBaseline) biasTriggers.push('Status quo bias: baseline option present')
-    // Overconfidence: top factor is inferred
-    const topInferred = factorNodes.some(n => {
+    if (hasBaseline) biasTriggers.push('Status quo bias: baseline present')
+    // Overconfidence: any factor is inferred (unvalidated estimate)
+    const hasInferredFactor = factorNodes.some(n => {
       const os = (n.data as Record<string, unknown> | undefined)?.observedState as Record<string, unknown> | undefined
       return os?.extractionType === 'inferred'
     })
-    if (topInferred) biasTriggers.push('Overconfidence: key factor value is estimated')
+    if (hasInferredFactor) biasTriggers.push('Overconfidence: top factor unvalidated')
 
     const gapCount = missingCount
     const estimateCount = inferredCount
@@ -204,24 +204,19 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     ? (biggestRisk.label.length > 22 ? `${biggestRisk.label.slice(0, 22)}...` : biggestRisk.label)
     : null
 
-  // Stability label for post-analysis Detailed view
-  const stabilityLabel = useMemo(() => {
+  // Stability display for post-analysis Detailed view: "93% (robust)"
+  const stabilityDisplay = useMemo(() => {
     if (!isPostAnalysis || !report) return null
     const robustness = (report as any)?.robustness
     const stability = robustness?.recommendation_stability as number | undefined
     if (stability == null) return null
-    if (stability >= 0.85) return 'Very stable'
-    if (stability >= 0.70) return 'Stable'
-    if (stability >= 0.55) return 'Moderately stable'
-    return 'Sensitive'
+    const pct = Math.round(stability * 100)
+    const tier = stability >= 0.85 ? 'robust'
+      : stability >= 0.70 ? 'moderate'
+      : stability >= 0.40 ? 'sensitive'
+      : 'highly sensitive'
+    return `${pct}% (${tier})`
   }, [isPostAnalysis, report])
-
-  // Graph completeness % for Detailed pre-analysis
-  const completeness = useMemo(() => {
-    if (readiness.totalFactors === 0) return 0
-    const filled = readiness.explicitCount + readiness.inferredCount + readiness.externalCount
-    return Math.round((filled / readiness.totalFactors) * 100)
-  }, [readiness])
 
   // Chip actions via _sendMessage
   const handleChip = useCallback((message: string) => {
@@ -274,10 +269,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               ) : null}
             </div>
 
-            {/* Post-analysis Detailed: stability label */}
-            {isDetailed && stabilityLabel && (
+            {/* Post-analysis Detailed: stability display */}
+            {isDetailed && stabilityDisplay && (
               <div className={`${typography.edgeLabel} text-text-light mt-1`}>
-                Stability: {stabilityLabel}
+                Stability: {stabilityDisplay}
               </div>
             )}
 
@@ -290,9 +285,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         ) : optionCount > 0 ? (
           <>
             {/* ===== PRE-ANALYSIS ===== */}
-            <div className={`${typography.nodeLabel} text-text-light mt-1`}>
-              {optionCount} option{optionCount !== 1 ? 's' : ''} compared
-            </div>
 
             {/* Health pills */}
             {readiness.pills.length > 0 && (
@@ -311,13 +303,12 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
             {/* Pre-analysis Detailed: full model readiness breakdown */}
             {isDetailed && (
               <div className={`${typography.edgeLabel} text-text-light mt-1.5 space-y-0.5`}>
-                <div>Factors: {readiness.explicitCount} explicit, {readiness.inferredCount} inferred, {readiness.missingCount} missing, {readiness.externalCount} external</div>
+                <div>Factors: {readiness.explicitCount} explicit, {readiness.inferredCount} estimated, {readiness.missingCount} missing, {readiness.externalCount} external</div>
                 {readiness.biasTriggers.length > 0 && (
                   <div className="text-warning">
                     Biases: {readiness.biasTriggers.join('; ')}
                   </div>
                 )}
-                <div>Graph completeness: {completeness}%</div>
               </div>
             )}
 
@@ -343,13 +334,13 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         >
           <div className={`${typography.edgeLabel} text-text-body space-y-1`}>
             <div className="font-medium text-text-heading">Model readiness</div>
-            <div>Explicit: {readiness.explicitCount}</div>
-            <div>Inferred: {readiness.inferredCount}</div>
-            <div>Missing: {readiness.missingCount}</div>
-            <div>External: {readiness.externalCount}</div>
+            {readiness.explicitCount > 0 && <div>Explicit: {readiness.explicitCount}</div>}
+            {readiness.inferredCount > 0 && <div>Estimated: {readiness.inferredCount}</div>}
+            {readiness.missingCount > 0 && <div className="text-danger">Missing: {readiness.missingCount}</div>}
+            {readiness.externalCount > 0 && <div>External: {readiness.externalCount}</div>}
             {readiness.biasTriggers.length > 0 && (
               <>
-                <div className="font-medium text-text-heading mt-1">Active bias triggers</div>
+                <div className="font-medium text-text-heading mt-1">Bias triggers</div>
                 {readiness.biasTriggers.map(trigger => (
                   <div key={trigger} className="text-warning">{trigger}</div>
                 ))}

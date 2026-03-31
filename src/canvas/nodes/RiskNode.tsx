@@ -76,14 +76,6 @@ export const RiskNode = memo((props: NodeProps) => {
   // Top factor for actionable guidance
   const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
 
-  // "View parameters" handler (Detailed view)
-  const handleViewParams = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation()
-    const store = useCanvasStore.getState()
-    store.onSelectionChange({ nodes: [{ id: props.id } as any], edges: [] })
-    store.setShowInspectorPanel(true)
-  }, [props.id])
-
   // Severity badge (Detailed view, independent of isPostAnalysis — derived from node probability/impact)
   const detailedMetrics = severity ? (
     <div
@@ -102,7 +94,7 @@ export const RiskNode = memo((props: NodeProps) => {
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
-          {inboundConnections.slice(0, 3).map(conn => (
+          {inboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}
@@ -225,18 +217,6 @@ export const RiskNode = memo((props: NodeProps) => {
               </p>
             ))}
           </>
-        )}
-
-        {/* "View parameters" link (Detailed, post-analysis) */}
-        {isDetailed && isPostAnalysis && (
-          <button
-            type="button"
-            className={`${typography.edgeLabel} text-info underline cursor-pointer mt-1.5 nodrag nopan`}
-            onClick={handleViewParams}
-            onPointerDown={(e) => e.stopPropagation()}
-          >
-            View parameters
-          </button>
         )}
 
         {typeof props.data?.description === 'string' && props.data.description && (

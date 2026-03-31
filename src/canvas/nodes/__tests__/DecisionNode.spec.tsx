@@ -89,14 +89,8 @@ describe('DecisionNode', () => {
     expect(screen.getByRole('group', { name: /decision/i })).toBeDefined()
   })
 
-  // T11: Option count — no options connected
-  it('does not show option count when no option nodes connected', () => {
-    renderDecision()
-    expect(screen.queryByText(/options? compared/)).toBeNull()
-  })
-
-  // T11: Single option
-  it('shows "1 option compared" for one connected option', () => {
+  // T11: "options compared" text removed in v1.1 — health pills replace it
+  it('does not show "options compared" text (removed in v1.1)', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         edges: [{ id: 'e1', source: 'decision-1', target: 'option-1' }],
@@ -104,45 +98,9 @@ describe('DecisionNode', () => {
       }) as any)
     )
     renderDecision()
-    expect(screen.getByText('1 option compared')).toBeDefined()
-  })
-
-  // T11: Multiple options
-  it('shows "3 options compared" for three connected options', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        edges: [
-          { id: 'e1', source: 'decision-1', target: 'option-1' },
-          { id: 'e2', source: 'decision-1', target: 'option-2' },
-          { id: 'e3', source: 'decision-1', target: 'option-3' },
-        ],
-        nodes: [
-          { id: 'option-1', type: 'option', data: { type: 'option' } },
-          { id: 'option-2', type: 'option', data: { type: 'option' } },
-          { id: 'option-3', type: 'option', data: { type: 'option' } },
-        ],
-      }) as any)
-    )
-    renderDecision()
-    expect(screen.getByText('3 options compared')).toBeDefined()
-  })
-
-  // T11: Non-option edges are not counted
-  it('does not count non-option targets', () => {
-    vi.mocked(useCanvasStore).mockImplementation((selector) =>
-      selector(makeStoreState({
-        edges: [
-          { id: 'e1', source: 'decision-1', target: 'factor-1' },
-          { id: 'e2', source: 'decision-1', target: 'option-1' },
-        ],
-        nodes: [
-          { id: 'factor-1', type: 'factor', data: { type: 'factor' } },
-          { id: 'option-1', type: 'option', data: { type: 'option' } },
-        ],
-      }) as any)
-    )
-    renderDecision()
-    expect(screen.getByText('1 option compared')).toBeDefined()
+    expect(screen.queryByText(/options? compared/)).toBeNull()
+    // Pre-analysis section renders coaching chips instead
+    expect(screen.getByText('Explore more options')).toBeDefined()
   })
 
   it('has displayName set', () => {

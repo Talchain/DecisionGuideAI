@@ -18,6 +18,8 @@
 import { memo, useMemo, useState, useRef, useEffect } from 'react'
 import { BaseEdge, EdgeLabelRenderer, getBezierPath, getSmoothStepPath, getStraightPath, type EdgeProps, useReactFlow } from '@xyflow/react'
 import { Lightbulb, AlertTriangle, Flag } from 'lucide-react'
+import { NodeChip } from '../nodes/shared'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { useShallow } from 'zustand/react/shallow'
 import type { EdgeData, EdgePathType } from '../domain/edges'
 import { applyEdgeVisualProps } from '../theme/edges'
@@ -64,8 +66,10 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   // T1: Hover popover — delayed 300ms to avoid flicker on pass-through mouse movements
   const [showHoverPopover, setShowHoverPopover] = useState(false)
   const hoverPopoverTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const leaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   useEffect(() => () => {
     if (hoverPopoverTimerRef.current) clearTimeout(hoverPopoverTimerRef.current)
+    if (leaveTimerRef.current) clearTimeout(leaveTimerRef.current)
   }, [])
   // ── Consolidated store selectors (2 subscriptions instead of 13) ──
   // Group 1: Core store data (results, review, actions)
@@ -364,17 +368,33 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }
 
   // C1: Handle hover for edge label visibility + T1: delayed hover popover
+  // Leave timer allows mouse to transition from edge path to popover without closing
   const handleMouseEnter = () => {
     setIsHovered(true)
+    if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
     hoverPopoverTimerRef.current = setTimeout(() => setShowHoverPopover(true), 300)
   }
   const handleMouseLeave = () => {
     setIsHovered(false)
-    setShowHoverPopover(false)
     if (hoverPopoverTimerRef.current) {
       clearTimeout(hoverPopoverTimerRef.current)
       hoverPopoverTimerRef.current = null
     }
+    // Delay closing so mouse can reach the popover
+    leaveTimerRef.current = setTimeout(() => {
+      setShowHoverPopover(false)
+      leaveTimerRef.current = null
+    }, 100)
+  }
+  const handlePopoverEnter = () => {
+    if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
+  }
+  const handlePopoverLeave = () => {
+    leaveTimerRef.current = setTimeout(() => {
+      setShowHoverPopover(false)
+      setIsHovered(false)
+      leaveTimerRef.current = null
+    }, 100)
   }
 
   // Detect non-causal edges — no causal label should be shown.
@@ -804,44 +824,54 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           )
         }
         const signedVal = direction === 'negative' ? -weight : weight
+        const strengthPct = Math.round(Math.abs(signedVal) * 100)
+        const confidencePct = Math.round((beliefExists ?? 0.8) * 100)
+        const dirLabel = signedVal >= 0 ? 'Positive' : 'Negative'
+        const causalPopoverStyle: React.CSSProperties = {
+          ...popoverStyle,
+          pointerEvents: 'all',
+          maxWidth: '220px',
+        }
         return (
           <EdgeLabelRenderer>
             <div
               data-testid="edge-hover-popover"
               role="tooltip"
-              style={popoverStyle}
-              className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2 space-y-1"
+              style={causalPopoverStyle}
+              className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2 space-y-1 nodrag nopan nowheel"
+              onMouseEnter={handlePopoverEnter}
+              onMouseLeave={handlePopoverLeave}
             >
-              {/* Direction + strength */}
-              <div className={`${typography.panelMeta} font-medium text-text-body flex items-center gap-1`}>
-                <span>{signedVal >= 0 ? '\u2191' : '\u2193'}</span>
-                <span>{getStrengthDescription(signedVal)}</span>
+              {/* Direction */}
+              <div className={`${typography.edgeLabel} font-medium text-text-body`}>
+                {dirLabel}
               </div>
               {/* Confidence */}
-              {beliefExists != null && (
-                <div className={`${typography.panelMeta} text-text-light`}>
-                  Confidence: {Math.round(beliefExists * 100)}%
+              <div className={`${typography.edgeLabel} text-text-light`}>
+                {confidencePct}% confident
+              </div>
+              {/* Strength bar */}
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full ${signedVal >= 0 ? 'bg-success' : 'bg-danger'}`}
+                    style={{ width: `${Math.max(4, strengthPct)}%` }}
+                  />
                 </div>
-              )}
-              {/* Provenance */}
-              {provenance && (
-                <div className={`${typography.panelMeta} text-text-light`}>
-                  {getProvenanceLabel(provenance)}
-                </div>
-              )}
-              {/* Causal lens: show strength.std on hover */}
-              {lensMode === 'causal' && causalEdgeParams?.std !== null && causalEdgeParams?.std !== undefined && (
-                <div className={`${typography.panelMeta} text-text-light`} style={{ fontFamily: 'ui-monospace, monospace' }}>
-                  std: {causalEdgeParams.std.toFixed(3)}
-                </div>
-              )}
+                <span className={`${typography.edgeLabel} text-text-light w-7 text-right shrink-0`}>{strengthPct}%</span>
+              </div>
               {/* Fragile warning with switch probability */}
               {isFragileEdge && (
-                <div className={`${typography.panelMeta} text-warning flex items-center gap-1`}>
+                <div className={`${typography.edgeLabel} text-warning flex items-center gap-1`}>
                   <AlertTriangle size={10} />
-                  Sensitive{fragileEdgeSwitchProb !== null ? ` — ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ' — sensitive to change'}
+                  Sensitive{fragileEdgeSwitchProb !== null ? ` — ${Math.round(fragileEdgeSwitchProb * 100)}% flip risk` : ''}
                 </div>
               )}
+              {/* Coaching chips */}
+              <div className="flex flex-col gap-1 mt-1 pt-1 border-t border-panel-border">
+                <NodeChip label="What evidence supports this?" message={`What evidence supports the ${dirLabel.toLowerCase()} relationship between ${srcTitle} and ${tgtTitle}?`} />
+                <NodeChip label="Adjust strength" message={`I want to adjust the strength of the relationship between ${srcTitle} and ${tgtTitle}. Current strength is ${strengthPct}%.`} />
+              </div>
             </div>
           </EdgeLabelRenderer>
         )

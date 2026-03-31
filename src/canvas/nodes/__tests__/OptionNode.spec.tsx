@@ -107,9 +107,10 @@ describe('OptionNode', () => {
     expect(screen.getByText('Hire 3 engineers')).toBeDefined()
   })
 
-  it('shows type label as "Option" (sentence-case)', () => {
+  it('renders shape indicator (type line removed in v1.1)', () => {
     renderOption()
-    expect(screen.getByText('Option')).toBeDefined()
+    // Type text label removed in v1.1 — shape icon with tooltip replaces it
+    expect(screen.getByLabelText(/option node/i)).toBeDefined()
   })
 
   // T7: Win probability
@@ -339,8 +340,8 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/:/)).toBeNull()
   })
 
-  // G2: Qualitative tier labels for no-unit qualitative factors
-  it('shows tier label for qualitative factor (no unit, factor_type "quality")', () => {
+  // G2: Qualitative factors show percentage instead of tier labels (v1.1 polish)
+  it('shows percentage for qualitative factor (no unit, factor_type "quality")', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         ceeAnalysisReady: {
@@ -360,8 +361,8 @@ describe('OptionNode', () => {
     )
     renderOption()
     expect(screen.getByText('Product-market fit:')).toBeDefined()
-    // 0.7 with factor_type 'quality' → 'High'
-    expect(screen.getByText('High')).toBeDefined()
+    // 0.7 with factor_type 'quality' → '70%' (tier labels banned in v1.1)
+    expect(screen.getByText('70%')).toBeDefined()
   })
 
   it('shows numeric value for factor with unit even if factor_type is qualitative', () => {
@@ -541,6 +542,7 @@ describe('OptionNode', () => {
   it('uses baseline option intervention value as "from" side in delta display', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
+        results: { status: 'complete', report: {} },
         ceeAnalysisReady: {
           options: [
             {
@@ -636,8 +638,8 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Keep current price', is_baseline: true })
-    // Baseline option should show "No changes from current state" (may appear in main body + expert overlay)
-    expect(screen.getAllByText('No changes from current state').length).toBeGreaterThan(0)
+    // Baseline option shows "No changes" in body (pre-analysis)
+    expect(screen.getByText('No changes')).toBeDefined()
     // No delta arrow
     expect(screen.queryByText(/→/)).toBeNull()
   })
@@ -680,8 +682,8 @@ describe('OptionNode — QA Brief C-series', () => {
       }) as any)
     )
     renderOption({ label: 'Hire lead' })
-    // Qualitative: no unit, no scale — shows tier label, no delta
-    expect(screen.getByText('High')).toBeDefined()
+    // Qualitative: no unit, no scale — shows percentage (tier labels banned in v1.1), no delta
+    expect(screen.getByText('70%')).toBeDefined()
     expect(screen.queryByText(/→/)).toBeNull()
   })
 
