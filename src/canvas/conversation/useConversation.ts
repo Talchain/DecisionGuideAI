@@ -84,6 +84,21 @@ import { isDebugBundleV2Enabled } from '../../components/debug/utils/exportBundl
 /** Sentinel message content used for system events — must never render as a user bubble */
 export const SYSTEM_MESSAGE_SENTINEL = '[system]'
 
+/**
+ * Detect assistant text that should NOT be stored in conversation history.
+ * These are error fallbacks, empty placeholders, or system acknowledgements
+ * that pollute LLM context on subsequent turns.
+ * Exported for unit testing and retroactive filtering in buildHistory.
+ */
+export function isNonConversationalContent(text: string): boolean {
+  const trimmed = text.trim()
+  if (!trimmed) return true
+  if (trimmed.startsWith("I received your message but couldn't")) return true
+  if (trimmed === "I'm ready to help with your decision.") return true
+  if (trimmed === SYSTEM_MESSAGE_SENTINEL) return true
+  return false
+}
+
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
@@ -342,6 +357,10 @@ export function buildHistory(
   const pairs: ConversationTurnPair[] = []
   for (const msg of messages) {
     if (msg.synthetic) continue
+    // Retroactive cleanup: filter error/fallback text from previously stored messages
+    if (msg.role === 'assistant' && isNonConversationalContent(msg.content)) continue
+    // Skip [system] sentinel user messages
+    if (msg.content === SYSTEM_MESSAGE_SENTINEL) continue
     // Track 3: Exclude hydrated entries that are not suitable for LLM context.
     // Only conversation-origin, complete, full-redaction entries should reach the LLM.
     if (msg._threadMeta) {
@@ -1939,10 +1958,37 @@ export function useConversation(): UseConversationReturn {
       // One factor per turn — take only the highest-priority match (lowest number).
       const baseRateChips = extractBaseRateChipSet(envelope.guidance_items)
 
-      // Guard: skip empty assistant messages (no visible content and no blocks)
+      // Guard 1: skip empty assistant messages (no visible content and no blocks)
       const hasContent = assistantText.trim().length > 0
       const hasBlocks = orderedBlocks.length > 0
       if (!hasContent && !hasBlocks) return
+
+      // Guard 2: filter error/fallback/system text from conversation history.
+      // When text is non-conversational and there are no blocks, skip entirely.
+      // When there ARE blocks, store the blocks but clear the non-conversational text
+      // so it doesn't pollute conversation_history.
+      if (isNonConversationalContent(assistantText)) {
+        if (!hasBlocks) {
+          if (import.meta.env.DEV) {
+            console.warn('[handleEnvelope] Filtered non-conversational turn from history', {
+              turnId: envelope.client_turn_id,
+              preview: assistantText.slice(0, 80),
+            })
+          }
+          // If a streaming placeholder exists, remove it cleanly
+          if (streamingMsgIdRef.current) {
+            updateMessage(streamingMsgIdRef.current, {
+              content: '',
+              isStreaming: false,
+              toolLoadingState: null,
+              synthetic: true, // marks as non-displayable
+            })
+          }
+          return
+        }
+        // Has blocks but non-conversational text — keep blocks, clear text
+        assistantText = ''
+      }
 
       // Streaming guard: if a streaming message already exists for this turn,
       // update it in place instead of creating a duplicate.

@@ -98,7 +98,7 @@ describe('Scenario 1: normal response', () => {
 // ---------------------------------------------------------------------------
 
 describe('Scenario 2: empty response', () => {
-  it('injects fallback text and emits repair telemetry', async () => {
+  it('filters non-conversational fallback from history and emits repair telemetry', async () => {
     mockCallTurn.mockResolvedValueOnce({
       assistant_text: '',
       blocks: [],
@@ -111,13 +111,12 @@ describe('Scenario 2: empty response', () => {
       await result.current.sendMessage('hello')
     })
 
+    // Guard: fallback error text is filtered from conversation history
     const msgs = result.current.messages
-    const assistant = msgs.find(m => m.role === 'assistant')
-    expect(assistant).toBeDefined()
-    // validateResponse should have injected fallback
-    expect(assistant!.content).toContain("couldn't generate a complete response")
+    const assistant = msgs.find(m => m.role === 'assistant' && !m.synthetic)
+    expect(assistant).toBeUndefined()
 
-    // Telemetry emitted for the repair
+    // Telemetry still emitted for the repair (validateResponse runs before guard)
     expect(mockTrackEvent).toHaveBeenCalledWith(
       'ui.response.repaired',
       expect.objectContaining({ repairs: expect.any(Array) }),
