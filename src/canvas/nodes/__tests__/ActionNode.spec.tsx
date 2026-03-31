@@ -86,7 +86,7 @@ describe('ActionNode - NODE_REGISTRY integration', () => {
 
   it('action has correct default dimensions', () => {
     const { defaultSize } = NODE_REGISTRY.action
-    expect(defaultSize.width).toBe(180)
-    expect(defaultSize.height).toBe(70)
+    expect(defaultSize.width).toBe(220)
+    expect(defaultSize.height).toBe(100)
   })
 })

@@ -27,12 +27,12 @@ export function MetricPills({ influencePct, confidencePct, biasType, biasTip, bi
   return (
     <div className="flex gap-[3px] mt-1.5 items-center flex-wrap">
       {hasInfluence && (
-        <span className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-info/40 text-info">
+        <span className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-info/40 text-text-body">
           I: {influencePct}%
         </span>
       )}
       {hasConfidence && (
-        <span className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-factor">
+        <span className="text-[10px] font-sans leading-tight px-[5px] py-[1px] rounded-[10px] border border-factor/60 text-text-body">
           C: {confidencePct}%
         </span>
       )}

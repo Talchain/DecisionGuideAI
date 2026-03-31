@@ -27,6 +27,20 @@ function stripFactorSuffixes(label: string): string {
   return label.replace(KNOWN_SUFFIXES, '').trim()
 }
 
+/**
+ * Strip echo — if displayValue starts with (or contains) the factor label, remove the overlap.
+ * Example: label="Technical leadership", value="Technical leadership active" → "active"
+ */
+function stripEcho(label: string, displayValue: string): string {
+  const normalLabel = label.trim().toLowerCase()
+  const normalValue = displayValue.trim().toLowerCase()
+  if (normalValue.startsWith(normalLabel)) {
+    const remainder = displayValue.trim().slice(label.trim().length).trimStart()
+    return remainder || displayValue
+  }
+  return displayValue
+}
+
 /** Format an intervention value contextually, avoiding banned "On"/"Off" content. */
 function formatChipValue(chip: { label: string; value: number; unit?: string; factorType?: string; cap?: number; observedValue?: number; observedRawValue?: string | number }): string {
   // Denormalize intervention value when cap is available (intervention values are 0-1 normalized)
@@ -455,10 +469,13 @@ export const OptionNode = memo((props: NodeProps) => {
                     }
                   }
                 }
+                const displayVal = deltaDisplay ?? targetFormatted
+                const echoStripped = stripEcho(chip.label, displayVal)
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                    <span className="text-text-light">{truncateAtWord(chip.label, 30)}:</span>{' '}
-                    <span className="font-medium">{deltaDisplay ?? targetFormatted}</span>
+                    <span className="text-text-light">{truncateAtWord(chip.label, 30)}</span>
+                    <span className="text-text-light"> → </span>
+                    <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                   </div>
                 )
               })}
@@ -467,21 +484,49 @@ export const OptionNode = memo((props: NodeProps) => {
         )
       })()}
 
-      {isOptionFromCee && (
+      {/* Status quo fallback — current baseline, no interventions */}
+      {isBaselineOption && (
+        <>
+          <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
+          {isPostAnalysis && goalProbability !== null && goalProbability >= 0.10 && (
+            <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
+              {Math.round(goalProbability * 100)}% chance of target
+            </p>
+          )}
+          <div className="mt-1 flex gap-1 flex-wrap">
+            <NodeChip label="Why does this win/lose?" message={`Why does the status quo (${(props.data?.label as string) ?? 'keep current'}) win or lose compared to other options?`} />
+            <NodeChip label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
+          </div>
+        </>
+      )}
+
+      {isOptionFromCee && !isBaselineOption && (
         <div className="mt-0.5">
           <BriefIcon />
         </div>
       )}
     </>
-  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee])
+  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
     if (isPostAnalysis) return null
     if (isBaselineOption) return (
-      <p className={`${typography.edgeLabel} text-text-light m-0`}>No changes from current state</p>
+      <>
+        <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
+        <div className="mt-1 flex gap-1 flex-wrap">
+          <NodeChip label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
+        </div>
+      </>
     )
-    if (totalInterventionCount === 0) return null
+    if (totalInterventionCount === 0) return (
+      <>
+        <p className={`${typography.nodeLabel} text-text-body m-0`}>No interventions specified for this option.</p>
+        <div className="mt-1">
+          <NodeChip label="Is this option complete?" message={`Is ${(props.data?.label as string) ?? 'this option'} fully specified? Are there any missing interventions?`} />
+        </div>
+      </>
+    )
 
     return (
       <>
@@ -492,10 +537,12 @@ export const OptionNode = memo((props: NodeProps) => {
           <div className="flex flex-col gap-0.5">
             {interventionChips.map(chip => {
               const targetFormatted = formatChipValue(chip)
+              const echoStripped = stripEcho(chip.label, targetFormatted)
               return (
                 <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                  <span className="text-text-light">{truncateAtWord(chip.label, 30)}:</span>{' '}
-                  <span className="font-medium">{targetFormatted}</span>
+                  <span className="text-text-light">{truncateAtWord(chip.label, 30)}</span>
+                  <span className="text-text-light"> → </span>
+                  <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                 </div>
               )
             })}
@@ -653,10 +700,12 @@ export const OptionNode = memo((props: NodeProps) => {
                 <div className="flex flex-col gap-0.5">
                   {interventionChips.map(chip => {
                     const targetFormatted = formatChipValue(chip)
+                    const echoStripped = stripEcho(chip.label, targetFormatted)
                     return (
                       <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
-                        <span className="text-text-light">{truncateAtWord(chip.label, 30)}:</span>{' '}
-                        <span className="font-medium">{targetFormatted}</span>
+                        <span className="text-text-light">{truncateAtWord(chip.label, 30)}</span>
+                        <span className="text-text-light"> → </span>
+                        <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
                       </div>
                     )
                   })}

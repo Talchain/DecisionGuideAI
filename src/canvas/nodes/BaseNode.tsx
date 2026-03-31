@@ -257,7 +257,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       `}
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',
-        padding: '12px',
+        padding: headerSlot ? '12px 12px 28px 12px' : '12px',
         minWidth: '140px',
         maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 200}px`,
         minHeight: isExpanded ? '120px' : undefined,
@@ -412,7 +412,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
       {/* Optional children (description, metrics, etc.) — hidden in causal/evidence lens */}
       {!isCausalLens && !isEvidenceLens && children ? (
-        <div className={`${typography.nodeLabel} text-text-body opacity-80 mt-2`}>
+        <div className="text-left">
           {children as ReactNode}
         </div>
       ) : null}

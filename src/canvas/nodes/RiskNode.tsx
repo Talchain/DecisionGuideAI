@@ -164,7 +164,7 @@ export const RiskNode = memo((props: NodeProps) => {
         data={cleanedData}
         nodeType="risk"
         icon={metadata.icon}
-        maxWidth={220}
+        maxWidth={240}
         headerSlot={scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (
