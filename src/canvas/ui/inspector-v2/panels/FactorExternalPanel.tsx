@@ -111,8 +111,13 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
   if (!nodeId || !node) return null
 
-  // Contextual guidance for external factor
-  const externalGuidance = isResultsMode && displayMetadata.sensitivityRank != null
+  // Contextual guidance for external factor — three tiers
+  const robustness = useCanvasStore(s => (s.results?.report as Record<string, unknown> | undefined)?.robustness) as
+    { flip_thresholds?: Array<{ node_id: string; alternative_winner_label?: string }> } | undefined
+  const flipEntry = robustness?.flip_thresholds?.find(ft => ft.node_id === nodeId)
+  const externalGuidance = flipEntry?.alternative_winner_label
+    ? `If ${String(node.data?.label ?? 'this factor')} is high, the recommendation changes to ${flipEntry.alternative_winner_label}.`
+    : isResultsMode && displayMetadata.sensitivityRank != null
     ? 'This factor contributes significant uncertainty to your results. Narrowing the range would sharpen the analysis.'
     : 'Providing an estimate helps the simulation account for this uncertainty.'
 

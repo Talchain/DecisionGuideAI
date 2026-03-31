@@ -80,12 +80,14 @@ export function SignedStrengthSlider({
 
   return (
     <div>
-      {/* Endpoint labels */}
-      <div className="flex items-center justify-between mb-1">
-        <span className={`${typography.panelMeta} text-danger`}>Strong negative</span>
-        <span className={`${typography.panelMeta} text-text-light`}>No effect</span>
-        <span className={`${typography.panelMeta} text-success`}>Strong positive</span>
-      </div>
+      {/* Endpoint labels — hidden in tech mode (numeric scale shown by EdgePanel instead) */}
+      {!techMode && (
+        <div className="flex items-center justify-between mb-1">
+          <span className={`${typography.panelMeta} text-danger`}>Strong negative</span>
+          <span className={`${typography.panelMeta} text-text-light`}>No effect</span>
+          <span className={`${typography.panelMeta} text-success`}>Strong positive</span>
+        </div>
+      )}
 
       {/* Slider with custom track fill */}
       <div className="relative h-6 flex items-center">

@@ -7,6 +7,9 @@ import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { ArrowRight, AlertTriangle, Beaker, ChevronDown, ChevronRight } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
+import { useEditConfirmation } from '../useEditConfirmation'
+import { EditConfirmation } from '../shared/EditConfirmation'
+import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { getEdgeConfidence, EDGE_CONSTRAINTS, DEFAULT_EDGE_DATA } from '../../../domain/edges'
 import type { NodeType } from '../../../domain/nodes'
 import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
@@ -29,7 +32,7 @@ import type { InspectorPanelProps } from '../types'
 import { extractCausalClaims, claimTypeLabel } from '../../../adapters/causalClaimsAdapter'
 import { trackGuidance } from '../../../../telemetry/guidanceEvents'
 import { isEdgeFragile, getFragileEdgeSwitchProbability } from '../../../utils/fragileEdgeMatch'
-import { COACHING } from '../coachingConfig'
+import { COACHING, resolveCoaching } from '../coachingConfig'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
@@ -129,6 +132,7 @@ export const EdgePanel = memo(function EdgePanel({
 
   const edge = edgeId ? edges.find(e => e.id === edgeId) : undefined
   const mutations = useEdgeMutations(edgeId ?? '')
+  const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const { isStale } = useStaleGuard()
 
   // Source/target nodes
@@ -203,12 +207,14 @@ export const EdgePanel = memo(function EdgePanel({
   const handleStrengthBlur = useCallback(() => {
     clearPreview()
     origStrengthRef.current = localStrength
-  }, [clearPreview, localStrength])
+    confirmEdit('strength')
+  }, [clearPreview, localStrength, confirmEdit])
 
   const handleBeliefChange = useCallback((v: number) => {
     setLocalBelief(v)
     mutations.setExistsProbability(v)
-  }, [mutations])
+    confirmEdit('existence')
+  }, [mutations, confirmEdit])
 
   const handleStdChange = useCallback((v: number) => {
     setLocalStd(v)
@@ -273,6 +279,13 @@ export const EdgePanel = memo(function EdgePanel({
                 </span>
               )}
             </div>
+            {/* Edit feedback */}
+            {lastConfirmed?.field === 'strength' && (
+              <div className="flex items-center gap-2 mt-1">
+                <EditConfirmation trigger={lastConfirmed.ts} />
+                <InlineRerunPrompt visible={isStaleAfterEdit} />
+              </div>
+            )}
             {/* Slider — behind disclosure in default mode, always visible in tech mode */}
             {techMode ? (
               <div className="mt-2">

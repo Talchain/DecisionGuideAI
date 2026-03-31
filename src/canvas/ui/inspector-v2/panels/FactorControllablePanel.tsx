@@ -7,6 +7,9 @@ import { memo, useState, useMemo, useCallback } from 'react'
 import { Link } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
+import { useEditConfirmation } from '../useEditConfirmation'
+import { EditConfirmation } from '../shared/EditConfirmation'
+import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
@@ -42,6 +45,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const mutations = useNodeMutations(nodeId ?? '')
   const { isStale } = useStaleGuard()
+  const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   const obs = (node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
@@ -58,8 +62,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
     const parsed = parseFloat(draftValue)
     if (!isNaN(parsed) && parsed !== value) {
       mutations.setObservedValue(parsed)
+      confirmEdit('value')
     }
-  }, [draftValue, value, mutations])
+  }, [draftValue, value, mutations, confirmEdit])
 
   // Connections: options that set this + outbound influences
   const setByOptions = useMemo(() => {
@@ -230,6 +235,13 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
           </div>
         )}
       </div>
+      {/* Edit feedback */}
+      {lastConfirmed?.field === 'value' && (
+        <div className="flex items-center gap-2 mt-1">
+          <EditConfirmation trigger={lastConfirmed.ts} />
+          <InlineRerunPrompt visible={isStaleAfterEdit} />
+        </div>
+      )}
 
       {/* Coaching + Guidance — positioned after value for evidence quality nudges */}
       <InspectorCoaching
