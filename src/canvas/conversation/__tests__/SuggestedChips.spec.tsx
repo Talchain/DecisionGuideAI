@@ -255,16 +255,9 @@ describe('SuggestedChips — in-flight disable', () => {
 // ---------------------------------------------------------------------------
 
 describe('SuggestedChips — historical', () => {
-  it('disables chips when isHistorical=true', () => {
-    render(<SuggestedChips chips={[chip()]} onChipClick={vi.fn()} isHistorical />)
-    expect(screen.getByRole('button')).toBeDisabled()
-  })
-
-  it('does not call onChipClick when isHistorical=true and chip is clicked', () => {
-    const onChipClick = vi.fn().mockResolvedValue(undefined)
-    render(<SuggestedChips chips={[chip()]} onChipClick={onChipClick} isHistorical />)
-    fireEvent.click(screen.getByTestId('suggested-chip-c1'))
-    expect(onChipClick).not.toHaveBeenCalled()
+  it('renders nothing when isHistorical=true (no false affordance)', () => {
+    const { container } = render(<SuggestedChips chips={[chip()]} onChipClick={vi.fn()} isHistorical />)
+    expect(container.firstChild).toBeNull()
   })
 })
 

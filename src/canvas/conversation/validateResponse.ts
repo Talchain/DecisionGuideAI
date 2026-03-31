@@ -62,7 +62,7 @@ export function stripRepairLogLines(text: string): string {
   return cleaned.join('\n').trim()
 }
 
-const FALLBACK_TEXT =
+export const FALLBACK_TEXT =
   "I received your message but couldn't generate a complete response. Try rephrasing."
 
 export function validateResponse(

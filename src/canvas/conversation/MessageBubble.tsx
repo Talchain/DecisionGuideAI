@@ -21,10 +21,32 @@ import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled } from '../../flags'
 import { useCanvasStore } from '../store'
+import { FALLBACK_TEXT } from './validateResponse'
 import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import styles from './Conversation.module.css'
+
+/** Safety net: extract text from raw JSON blobs that CEE's fallback parser may produce. */
+function extractFromRawJson(content: string): string {
+  const trimmed = content.trim()
+  if (!trimmed.startsWith('{') || !trimmed.includes('"text"')) return content
+  try {
+    const parsed = JSON.parse(trimmed)
+    if (typeof parsed.text === 'string' && parsed.text.trim()) return parsed.text
+  } catch { /* not valid JSON — fall through */ }
+  return "I have a response but it didn't render correctly. Try asking again."
+}
+
+/** Replace internal factor IDs (fac_xxx) with human-readable labels. */
+function sanitiseFactorIds(text: string, labelMap: Map<string, string>): string {
+  return text.replace(/\bfac_[a-z_]+\b/g, (match) => {
+    const label = labelMap.get(match)
+    if (label) return label
+    // Strip prefix, convert underscores to spaces, title-case
+    return match.slice(4).replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+  })
+}
 
 /** Character threshold for applying progressive disclosure. */
 const CLAMP_CHAR_THRESHOLD = 300
@@ -112,12 +134,15 @@ export const MessageBubble = memo(function MessageBubble({
   const isProvisional = message.isProvisional === true
   const hasToolLoading = Boolean(message.toolLoadingState)
 
+  // P0-1: Safety net — extract text from raw JSON blobs (CEE fallback parser)
+  const displayContent = isUser ? message.content : extractFromRawJson(message.content)
+
   // Progressive disclosure: truncate at natural boundaries (paragraph / sentence)
   const canTruncate = !isUser
     && !isStreaming
     && !message.synthetic
     && (!message.blocks || message.blocks.length === 0)
-  const truncatedContent = canTruncate ? findNaturalTruncation(message.content) : null
+  const truncatedContent = canTruncate ? findNaturalTruncation(displayContent) : null
   const [expanded, setExpanded] = useState(false)
 
   // Streaming with no text yet — show thinking indicator placeholder
@@ -149,7 +174,7 @@ export const MessageBubble = memo(function MessageBubble({
         // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
         dangerouslySetInnerHTML={{
           __html: safeRichText(
-            truncatedContent && !expanded ? truncatedContent : message.content,
+            truncatedContent && !expanded ? truncatedContent : displayContent,
           ) + (isStreaming ? '<span class="streaming-cursor" aria-hidden="true">|</span>' : ''),
         }}
       />
@@ -182,7 +207,7 @@ export const MessageBubble = memo(function MessageBubble({
           onPatchDismiss={onPatchDismiss}
           onArtefactMessage={onArtefactMessage}
           onProposalConfirm={onProposalConfirm}
-          assistantTextWordCount={message.content.trim().split(/\s+/).filter(Boolean).length}
+          assistantTextWordCount={displayContent.trim().split(/\s+/).filter(Boolean).length}
         />
       )}
       {!isUser && message.baseRateChips && !historicalChips && onArtefactMessage && (
@@ -195,7 +220,7 @@ export const MessageBubble = memo(function MessageBubble({
       {!hideChips && message.actionChips && message.actionChips.length > 0 && (
         <ActionChipRow chips={message.actionChips} onChipClick={onChipClick} disabled={historicalChips} />
       )}
-      {!isUser && !message.synthetic && onFeedback && (
+      {!isUser && !message.synthetic && displayContent !== FALLBACK_TEXT && onFeedback && (
         <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />
       )}
     </div>
@@ -245,7 +270,7 @@ function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSen
           <div key={i} className={`${styles.insightItem} ${severityClass}`}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flex: 1 }}>
               <span className={typography.panelBody} style={{ color: 'var(--text-body)' }}>
-                {insight.description}
+                {sanitiseFactorIds(insight.description, labelMap)}
               </span>
               {insight.science_concept && (
                 <span className={styles.scienceConceptBadge}>{insight.science_concept}</span>

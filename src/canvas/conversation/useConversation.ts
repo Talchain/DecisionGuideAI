@@ -47,7 +47,7 @@ import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { backfillInterventionsOntoOptionNodes } from '../utils/applyDraftResult'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
-import { validateResponse, stripRepairLogLines } from './validateResponse'
+import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
 import type { PLoTEnrichment } from '../../adapters/plot/enrichment'
 import {
@@ -1830,18 +1830,15 @@ export function useConversation(): UseConversationReturn {
         assistantText = lines.join('\n').trimEnd()
       }
 
-      // Coaching dedup: when an auto-applied graph_patch block is present, the
-      // assistant_text often duplicates the coaching prose shown inside the card.
-      // Suppress assistant_text when its content substantially overlaps with a
-      // graph_patch block summary to prevent visual duplication.
-      const autoApplyPatch = orderedBlocks.find(
-        (b): b is GraphPatchBlock => b.type === 'graph_patch' && b.auto_apply === true,
+      // Coaching dedup: when a graph_patch block is present, suppress or collapse
+      // assistant_text to avoid the user reading the same coaching prose twice.
+      const patchBlock = orderedBlocks.find(
+        (b): b is GraphPatchBlock => b.type === 'graph_patch',
       )
-      if (autoApplyPatch && assistantText.trim()) {
-        const patchSummary = (autoApplyPatch.summary || '').toLowerCase().trim()
+      if (patchBlock && assistantText.trim()) {
+        const patchSummary = (patchBlock.summary || '').toLowerCase().trim()
         const textLower = assistantText.toLowerCase().trim()
-        // Suppress when: text matches summary, text is contained in summary, or
-        // summary is contained in text (coaching prose wraps the summary).
+        // Exact/substring match → suppress entirely
         if (
           patchSummary && (
             textLower === patchSummary
@@ -1850,6 +1847,16 @@ export function useConversation(): UseConversationReturn {
           )
         ) {
           assistantText = ''
+        } else if (patchSummary) {
+          // Word-overlap check: if ≥60% of assistant_text words appear in the summary,
+          // collapse to just the first sentence to avoid visual duplication.
+          const textWords = new Set(textLower.split(/\s+/).filter(w => w.length > 3))
+          const summaryWords = new Set(patchSummary.split(/\s+/).filter(w => w.length > 3))
+          const overlap = [...textWords].filter(w => summaryWords.has(w)).length
+          if (textWords.size > 0 && overlap / textWords.size > 0.6) {
+            const firstSentence = assistantText.match(/^[^.!?]+[.!?]/)?.[0]
+            assistantText = firstSentence ?? ''
+          }
         }
       }
 
@@ -1902,9 +1909,14 @@ export function useConversation(): UseConversationReturn {
 
       // Streaming guard: if a streaming message already exists for this turn,
       // update it in place instead of creating a duplicate.
+      // P0-2: If the envelope text is a fallback placeholder but the stream
+      // accumulated real content, prefer the streamed text.
       if (streamingMsgIdRef.current) {
+        const streamedText = streamTextRef.current
+        const isFallback = assistantText === FALLBACK_TEXT
+        const finalContent = (isFallback && streamedText.trim()) ? streamedText : assistantText
         updateMessage(streamingMsgIdRef.current, {
-          content: assistantText,
+          content: finalContent,
           blocks: hasBlocks ? orderedBlocks : undefined,
           actionChips: chips.length > 0 ? chips : undefined,
           insights,

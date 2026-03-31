@@ -82,9 +82,9 @@ describe('GraphPatchBlock', () => {
       <InlineBlocks blocks={[block]} />,
     )
 
-    expect(screen.getByText("Add 'competitor response' as a risk factor")).toBeInTheDocument()
-    expect(screen.getByText('Review suggested changes')).toBeInTheDocument()
+    // P1-4: Block shows structural summary (opSummary), not coaching text (block.summary)
     expect(screen.getByText('1 risk')).toBeInTheDocument()
+    expect(screen.getByText('Review suggested changes')).toBeInTheDocument()
     expect(screen.getByTestId('patch-accept')).toBeInTheDocument()
     expect(screen.getByTestId('patch-dismiss')).toBeInTheDocument()
   })

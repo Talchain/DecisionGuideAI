@@ -42,7 +42,7 @@ import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 import { generateGraphHash } from '../utils/graphHash'
 import { resolvePatchBlockState } from './selectors'
-import { safeRichText, plainTextPreview } from '../utils/safeRichText'
+import { safeRichText, plainTextPreview, normaliseDashes } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
 
@@ -1033,8 +1033,7 @@ function GraphPatchBlockRenderer({
             {isApplied ? 'Changes applied' : 'Review suggested changes'}
           </span>
         </div>
-        <div className={styles.graphPatchSummary}>{block.summary || opSummary}</div>
-        {block.summary && block.operations.length > 0 && <div className={styles.graphPatchMeta}>{opSummary}</div>}
+        <div className={styles.graphPatchSummary}>{opSummary || normaliseDashes(block.summary || '')}</div>
       </div>
 
       {showProposalItemsInline && (

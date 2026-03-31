@@ -112,8 +112,9 @@ export function safeRichText(markdown: string): string {
   // Step 1b: strip emoji — use sentinel to collapse only emoji-adjacent whitespace
   const sentinelled = decoded.replace(EMOJI_RE, EMOJI_SENTINEL)
   const stripped = sentinelled.replace(EMOJI_SENTINEL_COLLAPSE_RE, ' ').trim()
-  // Step 1c: normalise em/en dashes to spaced hyphens (safety net for LLM output)
-  const dashed = stripped.replace(/[\u2014\u2013]/g, ' - ')
+  // Step 1c: normalise all dash variants to spaced hyphens (safety net for LLM output)
+  // U+2012 figure dash, U+2013 en dash, U+2014 em dash, U+2015 horizontal bar
+  const dashed = stripped.replace(/[\u2012\u2013\u2014\u2015]/g, ' - ')
   // Step 2: re-escape so angle brackets don't inject HTML
   const escaped = escapeHtml(dashed)
 
@@ -257,6 +258,11 @@ export function safeRichText(markdown: string): string {
 
   // Belt-and-braces: strip any disallowed tags (should never trigger, but guards future changes)
   return stripDisallowedTags(result)
+}
+
+/** Normalise dash variants to spaced hyphens. For use on plain text that doesn't go through safeRichText. */
+export function normaliseDashes(text: string): string {
+  return text.replace(/[\u2012\u2013\u2014\u2015]/g, ' - ')
 }
 
 /**

@@ -100,7 +100,7 @@ function makeConversation(overrides: Record<string, any> = {}) {
   } as any
 }
 
-const PLACEHOLDER = 'Describe your decision, the options you\u2019re weighing, and what a good outcome looks like.'
+const PLACEHOLDER = 'Describe your decision, the options you\'re weighing, and what a good outcome looks like.'
 
 describe('ChatComposer', () => {
   beforeEach(() => {

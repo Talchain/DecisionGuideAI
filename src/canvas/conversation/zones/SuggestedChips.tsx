@@ -65,8 +65,10 @@ export function SuggestedChips({
   const v2 = isOrchestratorRenderingV2Enabled()
   const [chipError, setChipError] = useState<string | null>(null)
 
-  // Render-level filter: never show a chip that can't dispatch
+  // Render-level filter: never show a chip that can't dispatch.
+  // P1-3: Historical (greyed-out) chips are removed entirely — no false affordance.
   // v2: up to 4 chips. Legacy: cap at 2.
+  if (isHistorical) return null
   const visible = chips.filter(c => !!(c.message || c.prompt)).slice(0, v2 ? 4 : 2)
   if (visible.length === 0) return null
 
