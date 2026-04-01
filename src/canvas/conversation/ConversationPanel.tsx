@@ -69,7 +69,7 @@ export const ConversationPanel = memo(function ConversationPanel({
 }: ConversationPanelProps) {
   const {
     messages, isThinking, longRunningHint,
-    sendMessage, sendSystemEvent, sendChip, retryLast,
+    sendMessage, sendSystemEvent, sendChip, dispatchAction, retryLast,
     patchBlockStates, setPatchBlockState,
     patchRejections, setPatchRejection,
   } = conversation
@@ -388,11 +388,12 @@ export const ConversationPanel = memo(function ConversationPanel({
       sendChipByLabelMessage,
       handleRunAnalysis,
       prefillChat,
+      dispatchAction,
     )
     return () => {
-      useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null, _prefillChat: null })
+      useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null, _prefillChat: null, _dispatchAction: null })
     }
-  }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis])
+  }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis, dispatchAction])
 
   const handleInsertText = useCallback((text: string) => {
     composerRef.current?.replaceText(text)

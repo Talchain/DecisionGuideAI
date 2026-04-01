@@ -441,7 +441,7 @@ export function extractBaseRateChipSet(
   const top = matches[0]
   if (!top) return undefined
   const label = top.target_object?.label || 'This factor'
-  return { factorLabel: label, itemId: top.item_id }
+  return { factorLabel: label, itemId: top.item_id, factorId: top.target_object?.id }
 }
 
 /**
@@ -938,12 +938,41 @@ export interface PatchRejectionInfo {
   violations?: string[]
 }
 
-function inferChipTurnType(chip: ActionChip): Exclude<TurnType, 'system_event' | 'explicit_generate' | 'run_analysis'> {
-  const token = `${chip.id} ${chip.label} ${chip.message ?? ''}`.toLowerCase()
-  if (token.includes('clarif')) return 'clarification_response'
-  if (token.includes('explain') || token.includes('why')) return 'explain'
-  if (token.includes('patch') || token.includes('proposal')) return 'patch_followup'
-  return 'conversation'
+/** Deterministic action_type → turn type mapping. Falls back to 'conversation' for unknown actions. */
+const ACTION_TO_TURN_TYPE: Record<string, Exclude<TurnType, 'system_event'>> = {
+  run_analysis: 'run_analysis',
+  explain_result: 'explain',
+  compare_options: 'explain',
+  what_would_flip: 'explain',
+  challenge_assumption: 'conversation',
+  set_factor_value: 'conversation',
+  add_factor: 'conversation',
+  add_option: 'conversation',
+  add_constraint: 'conversation',
+  adjust_edge_strength: 'conversation',
+  remove_factor: 'conversation',
+  set_goal_target: 'conversation',
+  run_premortem: 'explain',
+  draft_graph: 'explicit_generate',
+}
+
+/** Source surface for action dispatch — used for logging and telemetry */
+export type ActionSource = 'chip' | 'insight' | 'canvas_coaching' | 'pre_analysis' | 'guidance' | 'inspector' | 'base_rate'
+
+/** Options for the unified action dispatch function */
+export interface DispatchActionOpts {
+  /** Deterministic action type for CEE routing */
+  action_type?: string
+  /** Structured parameters for action execution */
+  parameters?: Record<string, unknown>
+  /** Display label for the action indicator and aria */
+  label: string
+  /** Fallback message text sent to CEE */
+  message: string
+  /** If true, suppress the user message bubble */
+  hidden?: boolean
+  /** Origin surface for telemetry */
+  source: ActionSource
 }
 
 function resolveUserTurnType(
@@ -985,6 +1014,8 @@ export interface UseConversationReturn {
     debugSourceSurface?: string
   }) => Promise<void>
   sendChip: (chip: ActionChip) => Promise<void>
+  /** Unified action dispatch — routes all pill/chip/action triggers through a single path with proper metadata */
+  dispatchAction: (opts: DispatchActionOpts) => Promise<void>
   clearHistory: () => void
   retryLast: () => Promise<void>
   /** GraphPatchBlock state map (keyed by `${turnId}:${patchId}`) */
@@ -2078,6 +2109,8 @@ export function useConversation(): UseConversationReturn {
       turnType?: Exclude<TurnType, 'system_event'>
       /** Deterministic chip metadata forwarded for CEE action routing */
       chipMeta?: { action_type: string; parameters?: Record<string, unknown> }
+      /** When true, render the user bubble as a compact action indicator */
+      chipInitiated?: boolean
     }) => {
       const {
         message,
@@ -2094,6 +2127,7 @@ export function useConversation(): UseConversationReturn {
         rightPanelAccidentallySubmittedComposerContent,
         turnType,
         chipMeta,
+        chipInitiated,
       } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
@@ -2151,6 +2185,7 @@ export function useConversation(): UseConversationReturn {
               displayContent: displayText,
               submittedPrompt: message,
               timestamp: new Date(),
+              ...(chipInitiated ? { chipInitiated: true } : {}),
             })
           }
         } else if (source === 'right_panel_action') {
@@ -2631,6 +2666,46 @@ export function useConversation(): UseConversationReturn {
     [sendTurn],
   )
 
+  /**
+   * dispatchAction — unified entry point for all pill/chip/action triggers.
+   *
+   * Builds chip_metadata for deterministic CEE routing, creates a compact
+   * action indicator bubble (or suppresses the bubble entirely when hidden),
+   * and sends the turn via the existing streaming path.
+   */
+  const dispatchAction = useCallback(
+    async (opts: DispatchActionOpts) => {
+      if (import.meta.env.DEV) {
+        console.debug('[Action]', opts.source, opts.action_type, opts.parameters)
+      }
+
+      recordUserAction({
+        actionType: 'clicked action',
+        payloadSummary: { label: opts.label, source: opts.source, action_type: opts.action_type },
+      })
+
+      const chipMeta = opts.action_type
+        ? { action_type: opts.action_type, ...(opts.parameters ? { parameters: opts.parameters } : {}) }
+        : undefined
+
+      // Resolve turn type from explicit action_type, fall back to conversation
+      const turnType: Exclude<TurnType, 'system_event'> =
+        (opts.action_type && ACTION_TO_TURN_TYPE[opts.action_type]) || 'conversation'
+
+      await sendTurn({
+        message: opts.message,
+        displayText: opts.label,
+        mode: 'user',
+        hidden: opts.hidden,
+        source: opts.source,
+        turnType,
+        chipMeta,
+        chipInitiated: !opts.hidden,
+      })
+    },
+    [sendTurn],
+  )
+
   const sendChip = useCallback(
     async (chip: ActionChip) => {
       // Undo draft: restore pre-draft snapshot via store action
@@ -2652,22 +2727,13 @@ export function useConversation(): UseConversationReturn {
 
       const messageToSend = chip.message || chip.prompt
       if (messageToSend) {
-        recordUserAction({
-          actionType: 'clicked chip',
-          payloadSummary: { chip_label: chip.label, intent: chip.intent, action_type: chip.action_type },
-        })
-        // Show chip.label in conversation bubble, send chip.message to orchestrator
-        await sendTurn({
+        // Delegate to dispatchAction for unified metadata handling
+        await dispatchAction({
+          action_type: chip.action_type,
+          parameters: chip.parameters,
+          label: chip.label,
           message: messageToSend,
-          displayText: chip.label,
-          mode: 'user',
-          source: 'chip_click',
-          turnType: inferChipTurnType(chip),
-          // Forward deterministic chip metadata for CEE action routing
-          chipMeta: chip.action_type ? {
-            action_type: chip.action_type,
-            ...(chip.parameters ? { parameters: chip.parameters } : {}),
-          } : undefined,
+          source: 'chip',
         })
       } else {
         // Chip has no message and is not an undo — this should not happen in practice
@@ -2676,7 +2742,7 @@ export function useConversation(): UseConversationReturn {
         throw new Error(`Chip "${chip.label}" has no message field`)
       }
     },
-    [sendTurn, addMessage],
+    [dispatchAction, addMessage],
   )
 
   const retryLast = useCallback(async () => {
@@ -2730,6 +2796,7 @@ export function useConversation(): UseConversationReturn {
     sendMessage,
     sendSystemEvent,
     sendChip,
+    dispatchAction,
     clearHistory,
     retryLast,
     patchBlockStates,

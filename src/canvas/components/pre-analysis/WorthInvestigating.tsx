@@ -15,6 +15,7 @@ import { useHighlightContext } from '../../highlighting/HighlightContext'
 import { isCrossHighlightEnabled } from '../../../flags'
 import { trackGuidance } from '../../../telemetry/guidanceEvents'
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import type { Node, Edge } from '@xyflow/react'
 
 // ---------------------------------------------------------------------------
@@ -254,10 +255,22 @@ function GapRow({ gap, onSetValue, onAskAI, factorInfluence }: { gap: EvidenceGa
           Set value
         </button>
       )}
-      {onAskAI && (
+      {(onAskAI || useGuidanceStore.getState()._dispatchAction) && (
         <button
           type="button"
-          onClick={() => onAskAI(gap.factorId, gap.factorLabel)}
+          onClick={() => {
+            const dispatch = useGuidanceStore.getState()._dispatchAction
+            if (dispatch) {
+              dispatch({
+                label: `Research ${gap.factorLabel}`,
+                message: `Can you research ${gap.factorLabel} and suggest a reasonable estimate with sources?`,
+                source: 'pre_analysis',
+                parameters: { target_id: gap.factorId, target_label: gap.factorLabel },
+              })
+            } else {
+              onAskAI?.(gap.factorId, gap.factorLabel)
+            }
+          }}
           className={`${typography.panelMeta} text-info border border-info/30 bg-transparent px-2 py-1 rounded-full hover:bg-info/5 transition-colors`}
         >
           Ask AI to research

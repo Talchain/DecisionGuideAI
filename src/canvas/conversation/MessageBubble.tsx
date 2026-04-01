@@ -21,6 +21,7 @@ import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled } from '../../flags'
 import { useCanvasStore } from '../store'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
 import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
@@ -130,6 +131,15 @@ export const MessageBubble = memo(function MessageBubble({
   // Defensive guard: never render the [system] sentinel as a user bubble
   if (isUser && message.content === SYSTEM_MESSAGE_SENTINEL) return null
 
+  // Chip-initiated user messages render as a compact pill, not a full bubble
+  if (isUser && message.chipInitiated) {
+    return (
+      <div className={styles.chipActionIndicator} data-testid="chip-action-indicator">
+        <span className={typography.caption}>{message.displayContent ?? message.content}</span>
+      </div>
+    )
+  }
+
   const isStreaming = message.isStreaming === true
   const isProvisional = message.isProvisional === true
   const hasToolLoading = Boolean(message.toolLoadingState)
@@ -228,18 +238,24 @@ export const MessageBubble = memo(function MessageBubble({
   )
 })
 
-/** Map insight type → action chip config. Returns null for types that should not have a chip. */
-function getInsightAction(type: string, entityLabel: string): { label: string; message: string } | null {
+/** Map insight type → action chip config with optional deterministic action routing. */
+interface InsightAction {
+  label: string
+  message: string
+  action_type?: string
+}
+
+function getInsightAction(type: string, entityLabel: string): InsightAction | null {
   switch (type) {
     case 'missing_perspective':
     case 'structural_gap':
-      return { label: 'Explore more options', message: 'Suggest additional options for this decision' }
+      return { label: 'Explore more options', message: 'Suggest additional options for this decision', action_type: 'add_option' }
     case 'assumption_risk':
-      return { label: `Investigate ${entityLabel}`, message: `Help me clarify ${entityLabel === 'this' ? 'this assumption' : `your ${entityLabel} estimate`}` }
+      return { label: `Investigate ${entityLabel}`, message: `Help me clarify ${entityLabel === 'this' ? 'this assumption' : `your ${entityLabel} estimate`}`, action_type: 'challenge_assumption' }
     case 'calibration_concern':
-      return { label: `Calibrate ${entityLabel}`, message: `Help me calibrate ${entityLabel === 'this' ? 'this factor' : entityLabel}` }
+      return { label: `Calibrate ${entityLabel}`, message: `Help me calibrate ${entityLabel === 'this' ? 'this factor' : entityLabel}`, action_type: 'set_factor_value' }
     case 'bias_detected':
-      return { label: `Challenge ${entityLabel}`, message: `Challenge my assumption about ${entityLabel === 'this' ? 'this' : entityLabel}` }
+      return { label: `Challenge ${entityLabel}`, message: `Challenge my assumption about ${entityLabel === 'this' ? 'this' : entityLabel}`, action_type: 'challenge_assumption' }
     default:
       return null
   }
@@ -276,11 +292,24 @@ function InsightsStrip({ insights, onSendMessage }: { insights: Insight[]; onSen
               {insight.science_concept && (
                 <span className={styles.scienceConceptBadge}>{insight.science_concept}</span>
               )}
-              {action && onSendMessage && (
+              {action && (onSendMessage || useGuidanceStore.getState()._dispatchAction) && (
                 <button
                   type="button"
                   className={`${typography.caption} ${styles.insightActionChip}`}
-                  onClick={() => onSendMessage(action.message)}
+                  onClick={() => {
+                    const dispatch = useGuidanceStore.getState()._dispatchAction
+                    if (dispatch) {
+                      dispatch({
+                        action_type: action.action_type,
+                        label: action.label,
+                        message: action.message,
+                        source: 'insight',
+                        ...(insight.target_id ? { parameters: { target_id: insight.target_id } } : {}),
+                      })
+                    } else {
+                      onSendMessage?.(action.message)
+                    }
+                  }}
                   style={{ marginTop: 8 }}
                   data-testid={`insight-action-${i}`}
                 >

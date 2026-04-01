@@ -3,9 +3,11 @@
  * Factor name, "No data" greyed, influence bar, "Set value" + "Ask AI to research" CTAs.
  */
 
+import { useCallback } from 'react'
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import Tooltip from '../../../../components/Tooltip'
 import { typography } from '@/styles/typography'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
 
 interface MissingDataProps {
@@ -40,6 +42,20 @@ export function MissingData({
   onHoverEnter,
   onHoverLeave,
 }: MissingDataProps) {
+  const handleResearch = useCallback((nodeId: string | undefined, label: string) => {
+    const dispatch = useGuidanceStore.getState()._dispatchAction
+    if (dispatch) {
+      dispatch({
+        label: `Research ${label}`,
+        message: `Can you research ${label} and suggest a reasonable estimate with sources?`,
+        source: 'pre_analysis',
+        ...(nodeId ? { parameters: { target_id: nodeId, target_label: label } } : {}),
+      })
+    } else {
+      onSendMessage?.(`Can you research ${label} and suggest a reasonable estimate with sources?`)
+    }
+  }, [onSendMessage])
+
   if (items.length === 0) return null
 
   return (
@@ -85,10 +101,10 @@ export function MissingData({
               >
                 Set value
               </button>
-              {onSendMessage && (
+              {(onSendMessage || useGuidanceStore.getState()._dispatchAction) && (
                 <button
                   type="button"
-                  onClick={() => onSendMessage(`Can you research ${item.label} and suggest a reasonable estimate with sources?`)}
+                  onClick={() => handleResearch(nodeId, item.label)}
                   className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
                 >
                   Ask AI to research

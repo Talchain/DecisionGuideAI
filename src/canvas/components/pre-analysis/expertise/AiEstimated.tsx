@@ -3,10 +3,12 @@
  * Factor name (clickable), value (inline edit), "Estimated" pill, influence bar, confirm/query/edit.
  */
 
+import { useCallback } from 'react'
 import { Check } from 'lucide-react'
 import { Pill } from '../primitives'
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import { typography } from '@/styles/typography'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
 
 interface AiEstimatedProps {
@@ -30,6 +32,19 @@ export function AiEstimated({
   onHoverEnter,
   onHoverLeave,
 }: AiEstimatedProps) {
+  const handleResearch = useCallback((nodeId: string | undefined, label: string) => {
+    const dispatch = useGuidanceStore.getState()._dispatchAction
+    if (dispatch) {
+      dispatch({
+        label: `Research ${label}`,
+        message: `Can you research ${label} and suggest a reasonable estimate with sources?`,
+        source: 'pre_analysis',
+        ...(nodeId ? { parameters: { target_id: nodeId, target_label: label } } : {}),
+      })
+    } else {
+      onSendMessage?.(`Can you research ${label} and suggest a reasonable estimate with sources?`)
+    }
+  }, [onSendMessage])
   if (items.length === 0) return null
 
   return (
@@ -83,10 +98,10 @@ export function AiEstimated({
               >
                 <Check className="w-3 h-3" aria-hidden="true" />
               </button>
-              {onSendMessage && (
+              {(onSendMessage || useGuidanceStore.getState()._dispatchAction) && (
                 <button
                   type="button"
-                  onClick={() => onSendMessage(`Can you research ${item.label} and suggest a reasonable estimate with sources?`)}
+                  onClick={() => handleResearch(nodeId, item.label)}
                   className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-1.5 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
                   title="Ask AI to research"
                 >

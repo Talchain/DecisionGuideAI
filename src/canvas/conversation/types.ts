@@ -47,6 +47,9 @@ export interface ConversationMessage {
   /** Base rate elicitation chips derived from MISSING_BASE_RATE guidance items.
    *  Ephemeral — consumed on click, never persisted in conversation history. */
   baseRateChips?: BaseRateChipSet
+  /** When true, this user message was initiated by a pill/chip click.
+   *  Renders as a compact action indicator instead of a full user bubble. */
+  chipInitiated?: boolean
 }
 
 /** A set of frequency-framed chips for a single factor's base rate elicitation */
@@ -55,6 +58,8 @@ export interface BaseRateChipSet {
   factorLabel: string
   /** Guidance item_id — used to dismiss guidance after user responds */
   itemId: string
+  /** Factor node ID from guidance target_object.id — used for action routing */
+  factorId?: string
 }
 
 // ---------------------------------------------------------------------------

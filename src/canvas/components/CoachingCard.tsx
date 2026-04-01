@@ -1,19 +1,28 @@
 /**
  * CoachingCard — contextual coaching card rendered inside node bodies.
  * Design System v5: bg-panel border border-{colour}/30 rounded-lg.
- * Uses guidanceStore._sendMessage for chip actions.
+ * Uses guidanceStore._dispatchAction for chip actions with proper metadata.
  */
 import { memo, useCallback } from 'react'
 import { Sparkles } from 'lucide-react'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { typography } from '../../styles/typography'
 
+interface CoachingCardChip {
+  label: string
+  message: string
+  /** Optional deterministic action type for CEE routing */
+  action_type?: string
+  /** Optional structured parameters */
+  parameters?: Record<string, unknown>
+}
+
 interface CoachingCardProps {
   severity: 'info' | 'warning' | 'danger'
   message: string
   linkLabel?: string
   linkMessage?: string
-  chips?: Array<{ label: string; message: string }>
+  chips?: CoachingCardChip[]
 }
 
 export const CoachingCard = memo(({
@@ -23,9 +32,32 @@ export const CoachingCard = memo(({
   linkMessage,
   chips,
 }: CoachingCardProps) => {
-  const sendMessage = useCallback((text: string) => {
-    const send = useGuidanceStore.getState()._sendMessage
-    if (send) send(text)
+  const handleChipAction = useCallback((chip: CoachingCardChip) => {
+    const dispatch = useGuidanceStore.getState()._dispatchAction
+    if (dispatch) {
+      dispatch({
+        action_type: chip.action_type,
+        parameters: chip.parameters,
+        label: chip.label,
+        message: chip.message,
+        source: 'canvas_coaching',
+      })
+    } else {
+      // Fallback: use _sendMessage if _dispatchAction not yet registered
+      const send = useGuidanceStore.getState()._sendMessage
+      if (send) send(chip.message)
+      if (import.meta.env.DEV) console.warn('[CoachingCard] _dispatchAction not registered, falling back to _sendMessage')
+    }
+  }, [])
+
+  const handleLinkAction = useCallback((label: string, msg: string) => {
+    const dispatch = useGuidanceStore.getState()._dispatchAction
+    if (dispatch) {
+      dispatch({ label, message: msg, source: 'canvas_coaching' })
+    } else {
+      const send = useGuidanceStore.getState()._sendMessage
+      if (send) send(msg)
+    }
   }, [])
 
   const borderColour = severity === 'warning' ? 'border-warning/30'
@@ -49,7 +81,7 @@ export const CoachingCard = memo(({
                 className={`${typography.nodeLabel} text-info underline cursor-pointer nodrag nopan`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  sendMessage(linkMessage)
+                  handleLinkAction(linkLabel, linkMessage)
                 }}
               >
                 {linkLabel}
@@ -67,7 +99,7 @@ export const CoachingCard = memo(({
               className={`${typography.nodeLabel} bg-transparent border border-info/30 text-text-body rounded-full px-2 py-0.5 cursor-pointer hover:bg-info/5 transition-colors nodrag nopan`}
               onClick={(e) => {
                 e.stopPropagation()
-                sendMessage(chip.message)
+                handleChipAction(chip)
               }}
             >
               {chip.label}

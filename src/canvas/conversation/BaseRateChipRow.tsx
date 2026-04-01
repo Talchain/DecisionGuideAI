@@ -13,6 +13,7 @@
 
 import { memo, useState, useCallback } from 'react'
 import type { BaseRateChipSet } from './types'
+import { useGuidanceStore } from '../stores/guidanceStore'
 import { typography } from '../../styles/typography'
 import styles from './Conversation.module.css'
 
@@ -20,6 +21,13 @@ interface BaseRateChipRowProps {
   chipSet: BaseRateChipSet
   onSendMessage: (text: string) => void
   disabled?: boolean
+}
+
+/** Numeric base rate values for frequency-framed chips */
+const BASE_RATE_VALUES: Record<string, number> = {
+  rarely: 0.2,
+  sometimes: 0.5,
+  usually: 0.8,
 }
 
 /** Build the 4 chips for a given factor label */
@@ -41,12 +49,35 @@ export const BaseRateChipRow = memo(function BaseRateChipRow({
   const chips = buildChips(chipSet.factorLabel)
 
   const handleClick = useCallback(
-    (message: string) => {
+    (chip: typeof chips[number]) => {
       if (consumed || disabled) return
       setConsumed(true)
-      onSendMessage(message)
+
+      const dispatch = useGuidanceStore.getState()._dispatchAction
+      const numericValue = BASE_RATE_VALUES[chip.message]
+      if (dispatch && numericValue != null) {
+        dispatch({
+          action_type: 'set_factor_value',
+          parameters: {
+            target_id: chipSet.factorId,
+            value: numericValue,
+          },
+          label: chip.label,
+          message: chip.message,
+          source: 'base_rate',
+        })
+      } else if (dispatch && numericValue == null) {
+        // "Not sure" — send as conversation turn without action_type
+        dispatch({
+          label: chip.label,
+          message: chip.message,
+          source: 'base_rate',
+        })
+      } else {
+        onSendMessage(chip.message)
+      }
     },
-    [consumed, disabled, onSendMessage],
+    [consumed, disabled, chipSet.factorId, onSendMessage],
   )
 
   if (consumed) return null
@@ -69,7 +100,7 @@ export const BaseRateChipRow = memo(function BaseRateChipRow({
             key={chip.id}
             type="button"
             className={`${typography.caption} ${styles.baseRateChip}`}
-            onClick={() => handleClick(chip.message)}
+            onClick={() => handleClick(chip)}
             disabled={disabled || consumed}
             aria-disabled={disabled || consumed}
             data-testid={chip.id}

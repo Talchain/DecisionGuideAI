@@ -80,7 +80,7 @@ describe('extractBaseRateChipSet — priority', () => {
       makeGuidanceItem({ item_id: 'g-mid', priority: 50, target_object: { type: 'node', id: 'f3', label: 'Mid priority' } }),
     ]
     const result = extractBaseRateChipSet(items)
-    expect(result).toEqual({ factorLabel: 'High priority', itemId: 'g-high' })
+    expect(result).toEqual({ factorLabel: 'High priority', itemId: 'g-high', factorId: 'f2' })
   })
 
   it('returns only one factor even when multiple match', () => {
@@ -141,6 +141,6 @@ describe('extractBaseRateChipSet — mixed guidance items', () => {
       makeGuidanceItem({ item_id: 'g-wrong-action', signal_code: 'MISSING_BASE_RATE', primary_action: { type: 'open_inspector', node_id: 'n1' }, priority: 10 }),
     ]
     const result = extractBaseRateChipSet(items)
-    expect(result).toEqual({ factorLabel: 'Customer churn', itemId: 'g-match' })
+    expect(result).toEqual({ factorLabel: 'Customer churn', itemId: 'g-match', factorId: 'f1' })
   })
 })

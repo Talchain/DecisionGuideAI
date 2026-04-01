@@ -64,6 +64,8 @@ export interface GuidanceState {
   _scrollToPatch: ((patchId: string) => void) | null
   /** Registered by ConversationPanel so inspector "Ask about this" can pre-fill chat input */
   _prefillChat: ((text: string) => void) | null
+  /** Registered by ConversationPanel — unified action dispatch with chip_metadata */
+  _dispatchAction: ((opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void) | null
 }
 
 export interface GuidanceActions {
@@ -80,6 +82,7 @@ export interface GuidanceActions {
     sendChip?: (label: string, message: string) => void,
     runAnalysis?: () => void,
     prefillChat?: (text: string) => void,
+    dispatchAction?: (opts: { action_type?: string; parameters?: Record<string, unknown>; label: string; message: string; hidden?: boolean; source: string }) => void,
   ) => void
   /**
    * Evict items whose valid_while hashes no longer match the current state.
@@ -112,6 +115,7 @@ const initialGuidanceState: GuidanceState = {
   _runAnalysis: null,
   _sendChip: null,
   _scrollToPatch: null,
+  _dispatchAction: null,
   _prefillChat: null,
 }
 
@@ -138,13 +142,14 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
     set({ activeGuidanceItemId: itemId })
   },
 
-  registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat) => {
+  registerConversationCallbacks: (sendMessage, scrollToPatch, sendChip, runAnalysis, prefillChat, dispatchAction) => {
     set({
       _sendMessage: sendMessage,
       _runAnalysis: runAnalysis ?? null,
       _scrollToPatch: scrollToPatch,
       _sendChip: sendChip ?? null,
       _prefillChat: prefillChat ?? null,
+      _dispatchAction: dispatchAction ?? null,
     })
   },
 

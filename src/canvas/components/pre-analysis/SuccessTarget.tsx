@@ -13,6 +13,7 @@ import { CURRENCY_SYMBOLS } from '../../utils/labelUtils'
 import { Pill } from './primitives'
 import Tooltip from '../../../components/Tooltip'
 import { typography } from '@/styles/typography'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 
 /** Goal constraint — accepts CEEGoalConstraint shape */
 interface GoalConstraint {
@@ -161,7 +162,18 @@ export function SuccessTarget({
   const handleAddConstraint = useCallback(() => {
     const trimmed = constraintInput.trim()
     if (!trimmed) return
-    onSendMessage?.(`I'd like to add a constraint: ${trimmed}`)
+    const dispatch = useGuidanceStore.getState()._dispatchAction
+    if (dispatch) {
+      dispatch({
+        action_type: 'add_constraint',
+        parameters: { description: trimmed },
+        label: 'Add constraint',
+        message: `I'd like to add a constraint: ${trimmed}`,
+        source: 'pre_analysis',
+      })
+    } else {
+      onSendMessage?.(`I'd like to add a constraint: ${trimmed}`)
+    }
     setConstraintInput('')
     setShowConstraintInput(false)
   }, [constraintInput, onSendMessage])
