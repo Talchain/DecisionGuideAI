@@ -340,34 +340,38 @@ function EdgeCard({
       {/* Full detail expansion */}
       {cardExpanded && showDetail && (
         <div className="mt-2 pt-2 border-t border-panel-border">
-          {/* Group 1: Effect */}
-          <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Effect</div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            {signedMean !== undefined && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Signed effect</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(3)}
-                </span>
-              </>
-            )}
-            {strengthStd !== undefined && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Std</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {(strengthStd as number).toFixed(3)}
-                </span>
-              </>
-            )}
-            {beliefExists !== undefined && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Exists probability</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {beliefExists.toFixed(2)}
-                </span>
-              </>
-            )}
-          </div>
+          {/* Group 1: Effect — only shown when at least one effect metric is available */}
+          {(signedMean !== undefined || strengthStd !== undefined || beliefExists !== undefined) && (
+            <>
+              <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Effect</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {signedMean !== undefined && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Signed effect</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(3)}
+                    </span>
+                  </>
+                )}
+                {strengthStd !== undefined && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Std</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {(strengthStd as number).toFixed(3)}
+                    </span>
+                  </>
+                )}
+                {beliefExists !== undefined && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Exists probability</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {beliefExists.toFixed(2)}
+                    </span>
+                  </>
+                )}
+              </div>
+            </>
+          )}
 
           {/* Group 2: Provenance */}
           <div className="border-t border-panel-border mt-2 pt-2">

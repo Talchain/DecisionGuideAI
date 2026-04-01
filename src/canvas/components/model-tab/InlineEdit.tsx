@@ -127,7 +127,7 @@ export function InlineEdit({
       tabIndex={0}
       onClick={(e) => { e.stopPropagation(); handleFocus() }}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleFocus() }}
-      className={`inline-flex items-center gap-0.5 cursor-pointer rounded-md border ${flashSuccess ? 'border-success' : 'border-panel-border'} bg-panel px-2 py-0.5 hover:border-info transition-colors duration-[600ms]`}
+      className={`inline-flex items-center gap-0.5 cursor-pointer rounded-md border ${flashSuccess ? 'border-success duration-[600ms]' : 'border-panel-border duration-150'} bg-panel px-2 py-0.5 hover:border-info transition-colors`}
       title={tooltip ?? 'Click to edit'}
       data-testid={testId ? `${testId}-display` : undefined}
     >

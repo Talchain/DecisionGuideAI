@@ -369,79 +369,85 @@ function FactorCard({
       {/* Full detail expansion */}
       {cardExpanded && showDetail && (
         <div className="mt-2 pt-2 border-t border-panel-border">
-          {/* Group 1: Current state */}
-          <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Current state</div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            {isExternal && priorRangeMin !== undefined && priorRangeMax !== undefined && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Prior range</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {formatSmartNumber(priorRangeMin)} – {formatSmartNumber(priorRangeMax)}
-                </span>
-              </>
-            )}
-            {!isExternal && obs.value !== undefined && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Normalised value</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {obs.value.toFixed(2)}
-                </span>
-              </>
-            )}
-            {obs.cap !== undefined && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Cap</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {obs.unit ? formatValueWithUnit(obs.cap, obs.unit) : formatSmartNumber(obs.cap)}
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Group 2: Sensitivity */}
-          <div className="border-t border-panel-border mt-2 pt-2">
-            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Sensitivity</div>
-            {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
-              <div className="mb-1">
-                <span className={`${typography.panelMeta} text-text-light`}>Uncertainty drivers</span>
-                <p className={`${typography.panelMeta} text-text-body mt-0.5`}>{uncertaintyDrivers.join(', ')}</p>
+          {/* Group 1: Current state — only shown when there is something to display */}
+          {(isExternal ? (priorRangeMin !== undefined && priorRangeMax !== undefined) : obs.value !== undefined || obs.cap !== undefined) && (
+            <>
+              <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Current state</div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {isExternal && priorRangeMin !== undefined && priorRangeMax !== undefined && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Prior range</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {formatSmartNumber(priorRangeMin)} – {formatSmartNumber(priorRangeMax)}
+                    </span>
+                  </>
+                )}
+                {!isExternal && obs.value !== undefined && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Normalised value</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {obs.value.toFixed(2)}
+                    </span>
+                  </>
+                )}
+                {obs.cap !== undefined && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Cap</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {obs.unit ? formatValueWithUnit(obs.cap, obs.unit) : formatSmartNumber(obs.cap)}
+                    </span>
+                  </>
+                )}
               </div>
-            )}
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-              {evpiPp != null && (
-                <>
-                  <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
-                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                    {evpiPp}pp
-                  </span>
-                </>
+            </>
+          )}
+
+          {/* Group 2: Sensitivity — only shown when at least one sensitivity metric exists */}
+          {((uncertaintyDrivers && uncertaintyDrivers.length > 0) || evpiPp != null || elasticity != null || rankFlipRate != null || factorConfidence != null) && (
+            <div className="border-t border-panel-border mt-2 pt-2">
+              <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Sensitivity</div>
+              {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
+                <div className="mb-1">
+                  <span className={`${typography.panelMeta} text-text-light`}>Uncertainty drivers</span>
+                  <p className={`${typography.panelMeta} text-text-body mt-0.5`}>{uncertaintyDrivers.join(', ')}</p>
+                </div>
               )}
-              {elasticity != null && (
-                <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
-                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                    {elasticity.toFixed(2)}
-                  </span>
-                </>
-              )}
-              {rankFlipRate != null && (
-                <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Rank flip rate</span>
-                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                    {rankFlipRate.toFixed(2)}
-                  </span>
-                </>
-              )}
-              {factorConfidence != null && (
-                <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                    {Math.round(factorConfidence * 100)}%
-                  </span>
-                </>
-              )}
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {evpiPp != null && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {evpiPp}pp
+                    </span>
+                  </>
+                )}
+                {elasticity != null && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {elasticity.toFixed(2)}
+                    </span>
+                  </>
+                )}
+                {rankFlipRate != null && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Rank flip rate</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {rankFlipRate.toFixed(2)}
+                    </span>
+                  </>
+                )}
+                {factorConfidence != null && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {Math.round(factorConfidence * 100)}%
+                    </span>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Group 3: Metadata */}
           <div className="border-t border-panel-border mt-2 pt-2">
