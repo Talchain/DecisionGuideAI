@@ -41,9 +41,11 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
 
   const displayThreshold = rawThreshold !== undefined && thresholdUnit
     ? formatValueWithUnit(rawThreshold, thresholdUnit)
-    : thresholdNorm !== undefined
-      ? `${formatSmartNumber(thresholdNorm * 100)}% likelihood`
-      : null
+    : rawThreshold !== undefined
+      ? String(formatSmartNumber(rawThreshold))
+      : thresholdNorm !== undefined
+        ? `${formatSmartNumber(thresholdNorm * 100)}% likelihood`
+        : null
 
   // Feasibility warning: shown when target is within 15% of the model's upper bound.
   // This is a presentation heuristic (not a semantic transform) — no UI-SEM tag.
@@ -77,13 +79,13 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
       data-testid="model-goal-section"
     >
       {/* Header: diamond icon + label */}
-      <div className="flex items-center gap-2 mb-2">
+      <div className="flex items-start gap-2 mb-2">
         <div
-          className="w-3.5 h-3.5 bg-goal shrink-0"
+          className="w-3.5 h-3.5 bg-goal shrink-0 mt-0.5"
           style={{ clipPath: 'polygon(50% 0%,100% 50%,50% 100%,0% 50%)' }}
           aria-hidden="true"
         />
-        <span className={`${typography.panelHeader} text-text-header flex-1 min-w-0 truncate`}>
+        <span className={`${typography.panelHeader} text-text-header flex-1 min-w-0 break-words`}>
           {label}
         </span>
       </div>
@@ -103,10 +105,17 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
             testId="goal-threshold"
           />
         ) : (
-          <span className={`${typography.panelBody} text-text-light`}>Not set</span>
+          <span className={`${typography.panelBody} text-text-light`} data-testid="goal-threshold-not-set">Not set</span>
         )}
         <SourceProvenancePill source={thresholdSource} />
       </div>
+
+      {/* Coaching prompt when no target is set */}
+      {displayThreshold === null && (
+        <div className="mt-1" data-testid="goal-threshold-coaching">
+          <span className={`${typography.panelMeta} text-text-light`}>Set a success target to help the analysis measure your options</span>
+        </div>
+      )}
 
       {/* Feasibility warning */}
       {showFeasibilityWarning && (

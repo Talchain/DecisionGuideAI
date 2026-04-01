@@ -110,6 +110,30 @@ describe('OutputsDock DOM', () => {
     ])
   })
 
+  it('shows Model tab verify badge when factors need verification', () => {
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } },
+        { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', observedState: { source: 'cee_inference' } } },
+        { id: 'f2', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'B', observedState: { source: 'user' } } },
+      ],
+    } as any)
+    render(<OutputsDock />)
+    const badge = screen.getByTestId('model-tab-verify-badge')
+    expect(badge).toBeInTheDocument()
+    expect(badge).toHaveTextContent('1')
+  })
+
+  it('hides Model tab verify badge when no factors need verification', () => {
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'f1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'A', observedState: { source: 'user' } } },
+      ],
+    } as any)
+    render(<OutputsDock />)
+    expect(screen.queryByTestId('model-tab-verify-badge')).not.toBeInTheDocument()
+  })
+
   it('shows a collapsed icon strip when closed and reopens on icon click', () => {
     render(<OutputsDock />)
 

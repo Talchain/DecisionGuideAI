@@ -43,7 +43,7 @@ import {
 } from '../utils/sandboxTelemetry'
 import { DeltaInterpretation } from './DeltaInterpretation'
 import { isJourneyTabEnabled, isCompareTabEnabled } from '../../flags'
-import { ModelHealthBadge } from './ModelHealthSection'
+import { countFactorsToVerify } from './model-tab/utils'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
 import { useDebugShortcut } from '../hooks/useDebugShortcut'
@@ -266,6 +266,12 @@ export function OutputsDock() {
   const isPreRun = !hasCompletedFirstRun
   // Empty state: hide panel when canvas has no nodes
   const hasGraphContent = nodes.length > 0
+
+  // Factors needing user verification (for Model tab badge)
+  const factorsToVerify = useMemo(
+    () => countFactorsToVerify(nodes.filter(n => n.type === 'factor' || (n.data as any)?.kind === 'factor')),
+    [nodes],
+  )
 
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
@@ -1059,8 +1065,16 @@ export function OutputsDock() {
                 >
                   <span className="inline-flex items-center gap-1">
                     {tab.label}
-                    {/* Model health ambient indicator (Brief 5 Task 5) */}
-                    {tab.id === 'diagnostics' && <ModelHealthBadge />}
+                    {tab.id === 'diagnostics' && factorsToVerify > 0 && (
+                      <span
+                        className="inline-flex items-center justify-center rounded-full bg-warning text-text-on-color"
+                        style={{ fontSize: 10, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }}
+                        title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
+                        data-testid="model-tab-verify-badge"
+                      >
+                        {factorsToVerify}
+                      </span>
+                    )}
                   </span>
                 </button>
               ))}

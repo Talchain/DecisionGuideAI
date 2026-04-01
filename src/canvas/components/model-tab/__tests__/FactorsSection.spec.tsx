@@ -175,13 +175,13 @@ describe('FactorsSection', () => {
     const nodes = [makeFactorNode('f1', 'Market size')]
     const influence = new Map([['f1', 0.75]])
     render(<FactorsSection factorNodes={nodes} factorInfluence={influence} />)
-    expect(screen.getByTestId('influence-bar')).toBeInTheDocument()
+    expect(screen.getByRole('progressbar', { name: 'Influence' })).toBeInTheDocument()
   })
 
   it('does not show influence bar when factorInfluence is undefined', () => {
     const nodes = [makeFactorNode('f1', 'Market size')]
     render(<FactorsSection factorNodes={nodes} />)
-    expect(screen.queryByTestId('influence-bar')).not.toBeInTheDocument()
+    expect(screen.queryByRole('progressbar', { name: 'Influence' })).not.toBeInTheDocument()
   })
 
   it('shows synthesised prior from synthesisedPriorMap', () => {
@@ -229,6 +229,20 @@ describe('FactorsSection', () => {
     expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
   })
 
+  it('does not render EVPI chip when pp rounds to 0', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend')]
+    const evpiMap = new Map([['f1', 0.4]])
+    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
+    expect(screen.queryByTestId('factor-f1-evpi')).not.toBeInTheDocument()
+  })
+
+  it('renders EVPI chip when pp rounds to exactly 1', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend')]
+    const evpiMap = new Map([['f1', 1]])
+    render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
+    expect(screen.getByTestId('factor-f1-evpi')).toBeInTheDocument()
+  })
+
   it('sorts by EVPI descending when evpiMap has data', () => {
     const nodes = [
       makeFactorNode('f1', 'Low EVPI'),
@@ -243,7 +257,38 @@ describe('FactorsSection', () => {
 
   // ── Attribution stability tests ─────────────────────────────────────────────
 
-  it('renders attribution stability pill when data is present post-analysis', () => {
+  it('renders attribution stability pill when multiple factors have different labels', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend'), makeFactorNode('f2', 'Budget')]
+    const influence = new Map([['f1', 0.5], ['f2', 0.3]])
+    const stabilityMap = new Map([['f1', 'high'], ['f2', 'low']])
+    render(
+      <FactorsSection
+        factorNodes={nodes}
+        factorInfluence={influence}
+        attributionStabilityMap={stabilityMap}
+        hasAnalysisData
+      />
+    )
+    expect(screen.getByText('High stability')).toBeInTheDocument()
+    expect(screen.getByText('Low stability')).toBeInTheDocument()
+  })
+
+  it('hides stability pills when all factors share the same label', () => {
+    const nodes = [makeFactorNode('f1', 'Ad spend'), makeFactorNode('f2', 'Budget')]
+    const influence = new Map([['f1', 0.5], ['f2', 0.3]])
+    const stabilityMap = new Map([['f1', 'negligible'], ['f2', 'negligible']])
+    render(
+      <FactorsSection
+        factorNodes={nodes}
+        factorInfluence={influence}
+        attributionStabilityMap={stabilityMap}
+        hasAnalysisData
+      />
+    )
+    expect(screen.queryByTestId('attribution-stability-pill')).not.toBeInTheDocument()
+  })
+
+  it('hides stability pill for single factor with any label (no differentiation)', () => {
     const nodes = [makeFactorNode('f1', 'Ad spend')]
     const influence = new Map([['f1', 0.5]])
     const stabilityMap = new Map([['f1', 'high']])
@@ -255,7 +300,7 @@ describe('FactorsSection', () => {
         hasAnalysisData
       />
     )
-    expect(screen.getByText('High stability')).toBeInTheDocument()
+    expect(screen.queryByTestId('attribution-stability-pill')).not.toBeInTheDocument()
   })
 
   it('does not render stability pill when attributionStabilityMap is empty', () => {
@@ -287,6 +332,75 @@ describe('FactorsSection', () => {
     expect(screen.getByTestId('range-derivation-badge')).toBeInTheDocument()
     expect(screen.getByText('Estimated range')).toBeInTheDocument()
   })
+
+  // ── Normalised value display tests ─────────────────────────────────────────
+
+  it('shows (normalised) suffix when only normalised value present (no raw_value, no unit)', () => {
+    const nodes = [makeFactorNode('f1', 'Score', { value: 0.5 })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.getByTestId('factor-f1-normalised-label')).toBeInTheDocument()
+    expect(screen.getByTestId('factor-f1-normalised-label')).toHaveTextContent('(normalised)')
+  })
+
+  it('does not show (normalised) suffix when raw_value is present', () => {
+    const nodes = [makeFactorNode('f1', 'Revenue', { value: 0.7, raw_value: 500000 })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.queryByTestId('factor-f1-normalised-label')).not.toBeInTheDocument()
+  })
+
+  it('does not show (normalised) suffix when raw_value and unit are present', () => {
+    const nodes = [makeFactorNode('f1', 'Revenue', { value: 0.7, raw_value: 500000, unit: '£' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.queryByTestId('factor-f1-normalised-label')).not.toBeInTheDocument()
+  })
+
+  // ── To-verify badge tests ───────────────────────────────────────────────────
+
+  it('shows to-verify badge when factors have no source', () => {
+    const nodes = [
+      makeFactorNode('f1', 'A', { source: undefined }),
+      makeFactorNode('f2', 'B', { source: 'user' }),
+    ]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.getByTestId('factors-to-verify-badge')).toBeInTheDocument()
+    expect(screen.getByTestId('factors-to-verify-badge')).toHaveTextContent('1 to verify')
+  })
+
+  it('shows to-verify badge for cee_inference source', () => {
+    const nodes = [makeFactorNode('f1', 'A', { source: 'cee_inference' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.getByTestId('factors-to-verify-badge')).toBeInTheDocument()
+  })
+
+  it('hides to-verify badge when all factors have non-inference source', () => {
+    const nodes = [
+      makeFactorNode('f1', 'A', { source: 'user' }),
+      makeFactorNode('f2', 'B', { source: 'brief_extraction' }),
+    ]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.queryByTestId('factors-to-verify-badge')).not.toBeInTheDocument()
+  })
+
+  // ── Not set display ─────────────────────────────────────────────────────────
+
+  it('shows "Not set" when factor has no value, raw_value, or unit', () => {
+    const node: Node = {
+      id: 'f1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Empty factor',
+        kind: 'factor',
+        category: 'observable',
+        observedState: {},
+      },
+    }
+    render(<FactorsSection factorNodes={[node]} />)
+    expect(screen.getByTestId('factor-f1-not-set')).toBeInTheDocument()
+    expect(screen.getByTestId('factor-f1-not-set')).toHaveTextContent('Not set')
+  })
+
+  // ── Model card removed ──────────────────────────────────────────────────────
 
   it('does not show range badge for explicit source', () => {
     const node: Node = {

@@ -59,6 +59,17 @@ export function mapSourceToTooltip(source: string | undefined): string | undefin
   return SOURCE_TOOLTIPS[source] ?? `Source: ${source}`
 }
 
+// ── Factor verification ─────────────────────────────────────────────────────
+
+/** Count factors needing user verification (no source, or AI estimate). */
+export function countFactorsToVerify(factorNodes: ReadonlyArray<{ data: unknown }>): number {
+  return factorNodes.filter(n => {
+    const data = n.data as Record<string, unknown> | undefined
+    const obs = (data?.observedState ?? data?.observed_state) as Record<string, unknown> | undefined
+    return !obs?.source || obs?.source === 'cee_inference'
+  }).length
+}
+
 // ── Strength semantic labels ──────────────────────────────────────────────────
 // Re-export from strengthBands.ts (canonical thresholds from validation_ui_data_contract_v1.1).
 export { getStrengthLabel as strengthSemanticLabel } from './strengthBands'

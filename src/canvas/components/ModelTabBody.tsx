@@ -20,9 +20,6 @@ import { useCanvasStore } from '../store'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
-import { isModelCardLiteEnabled } from '../../flags'
-import { ModelCardLite } from './ModelCardLite'
-import { selectModelCardData } from '../adapters/modelCardAdapter'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
 import { GoalSection } from './model-tab/GoalSection'
 import { OptionsSection } from './model-tab/OptionsSection'
@@ -39,6 +36,7 @@ import { StatusBar } from './model-tab/StatusBar'
 import { EntityBar } from './model-tab/EntityBar'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
+import { countFactorsToVerify } from './model-tab/utils'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -111,21 +109,8 @@ export const ModelTabBody = memo(function ModelTabBody({
   }, [])
 
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
-  // Phase 2A: Model Card Lite data from store
-  const hasCompletedFirstRun = useCanvasStore(s => s.hasCompletedFirstRun)
-  const currentGraphHash = useCanvasStore(s => s.currentGraphHash)
-  const lastAnalysisSeed = useCanvasStore(s => s.lastAnalysisSeed)
-  const lastQualityMode = useCanvasStore(s => s.lastQualityMode)
   const repairsApplied = useCanvasStore(s => s.repairsApplied)
   const results = useCanvasStore(s => s.results)
-  const modelCardData = useMemo(
-    () => selectModelCardData({
-      nodes, edges, currentGraphHash,
-      lastAnalysisSeed, lastQualityMode, repairsApplied,
-      results, hasCompletedFirstRun,
-    }),
-    [nodes, edges, currentGraphHash, lastAnalysisSeed, lastQualityMode, repairsApplied, results, hasCompletedFirstRun],
-  )
   const selectionNodeIds = useCanvasStore(s => s.selection?.nodeIds ?? EMPTY_NODE_IDS)
   const selectionEdgeIds = useCanvasStore(s => s.selection?.edgeIds ?? EMPTY_EDGE_IDS)
   const updateEdge = useCanvasStore(s => s.updateEdge)
@@ -316,13 +301,7 @@ export const ModelTabBody = memo(function ModelTabBody({
 
   const fragileEdgeCount = hasRobustnessData ? fragileEdgeIds.size : 0
 
-  // Count factors needing verification (cee_inference or no source)
-  const factorsToVerify = useMemo(() => {
-    return grouped.factor.filter(n => {
-      const obs = (n.data as any)?.observedState ?? (n.data as any)?.observed_state
-      return !obs?.source || obs?.source === 'cee_inference'
-    }).length
-  }, [grouped.factor])
+  const factorsToVerify = useMemo(() => countFactorsToVerify(grouped.factor), [grouped.factor])
 
   // ── Factor sort: needs-attention first, then alpha ─────────────────────────
 
@@ -488,13 +467,6 @@ export const ModelTabBody = memo(function ModelTabBody({
 
   return (
     <div className="space-y-4 pb-4" data-testid="model-tab">
-
-      {/* ── Model Card Lite (Phase 2A) ────────────────────────────────────── */}
-      {isModelCardLiteEnabled() && nodes.length > 0 && (
-        <SectionErrorBoundary section="model card">
-          <ModelCardLite data={modelCardData} />
-        </SectionErrorBoundary>
-      )}
 
       {/* ── Header: factor/edge counts + "Show full detail" toggle ─────────── */}
       <ModelTabHeader

@@ -123,6 +123,19 @@ beforeEach(() => {
   mockCeePipelineTrace = null
 })
 
+describe('Model card removed', () => {
+  it('does not render ModelCardLite in the model tab', () => {
+    render(
+      <ModelTabBody
+        {...DEFAULT_PROPS}
+        nodes={[makeGoalNode('g1', 'Pick the right vendor')]}
+        edges={[]}
+      />
+    )
+    expect(screen.queryByTestId('model-card-lite')).not.toBeInTheDocument()
+  })
+})
+
 describe('Goal headline', () => {
   it('shows goal label when a goal node is present', () => {
     render(

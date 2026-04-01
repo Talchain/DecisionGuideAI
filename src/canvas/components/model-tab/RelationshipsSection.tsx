@@ -131,7 +131,7 @@ function EdgeCard({
 
   const fragileTooltip = switchProbability !== undefined
     ? `${Math.round(switchProbability * 100)}% chance of flipping the recommendation`
-    : 'Fragile — sensitive to assumption changes'
+    : 'Fragile: sensitive to assumption changes'
 
   const validateWeight = useCallback((s: string) => {
     const n = parseFloat(s)
@@ -186,7 +186,7 @@ function EdgeCard({
             className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full ${typography.panelMeta} font-medium bg-transparent border border-warning/30 text-text-body shrink-0`}
             title={fragileTooltip}
           >
-            <AlertTriangle className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             fragile
           </span>
         )}
@@ -524,7 +524,7 @@ function RelationshipsSectionInner({
         )}
         {fragileEdgeIds.size > 0 && (
           <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-transparent border border-warning/30 text-text-body ${typography.panelMeta} font-medium`}>
-            <AlertTriangle className="w-2.5 h-2.5 shrink-0" aria-hidden="true" />
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
             {fragileEdgeIds.size} fragile
           </span>
         )}

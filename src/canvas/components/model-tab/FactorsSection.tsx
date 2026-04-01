@@ -19,7 +19,7 @@ import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { focusNodeById } from '../../utils/focusHelpers'
-import { formatSmartNumber, formatValueWithUnit, getPrimaryValue } from './utils'
+import { formatSmartNumber, formatValueWithUnit, getPrimaryValue, countFactorsToVerify } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { SourceProvenancePill } from './SourceProvenancePill'
 import { DataBar } from '../../ui/shared/DataBar'
@@ -107,6 +107,7 @@ function FactorCard({
   isSelected,
   evpiPp,
   attributionStability,
+  showAttributionStability,
   hasAnalysisData,
   elasticity,
   rankFlipRate,
@@ -120,6 +121,8 @@ function FactorCard({
   evpiPp?: number
   /** Attribution stability label from PLoT (when present) */
   attributionStability?: string
+  /** Whether to show the stability pill — hidden when all factors share same label */
+  showAttributionStability?: boolean
   /** Whether post-analysis data is available */
   hasAnalysisData?: boolean
   /** Elasticity value from PLoT */
@@ -295,26 +298,26 @@ function FactorCard({
                 testId={`factor-${node.id}-raw-value`}
               />
             ) : normalisedValue !== null ? (
-              <InlineEdit
-                value={String(obs.value ?? '')}
-                displayValue={normalisedValue}
-                onSave={handleValueSave}
-                validate={validateNumeric}
-                maxWidth="max-w-[80px]"
-                numeric
-                tooltip="Click to edit value"
-                testId={`factor-${node.id}-value`}
-              />
+              <>
+                <InlineEdit
+                  value={String(obs.value ?? '')}
+                  displayValue={normalisedValue}
+                  onSave={handleValueSave}
+                  validate={validateNumeric}
+                  maxWidth="max-w-[80px]"
+                  numeric
+                  tooltip="Click to edit value"
+                  testId={`factor-${node.id}-value`}
+                />
+                <span className={`${typography.panelMeta} text-text-light`} data-testid={`factor-${node.id}-normalised-label`}>(normalised)</span>
+              </>
             ) : (
-              <InlineEdit
-                value=""
-                placeholder="—"
-                onSave={handleValueSave}
-                validate={validateNumeric}
-                maxWidth="max-w-[80px]"
-                numeric
-                testId={`factor-${node.id}-value`}
-              />
+              <span
+                className={`${typography.panelBody} text-text-light`}
+                data-testid={`factor-${node.id}-not-set`}
+              >
+                Not set
+              </span>
             )}
           </div>
 
@@ -339,12 +342,12 @@ function FactorCard({
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className={`${typography.panelMeta} text-text-light w-12 shrink-0`}>Influence</span>
               <DataBar value={influence} label="Influence" colour="info" trailingLabel={`${Math.round(influence * 100)}%`} />
-              {hasAnalysisData && <AttributionStabilityPill level={attributionStability} />}
+              {hasAnalysisData && showAttributionStability && <AttributionStabilityPill level={attributionStability} />}
             </div>
           )}
 
-          {/* EVPI chip (post-analysis only) */}
-          {hasAnalysisData && evpiPp != null && (
+          {/* EVPI chip (post-analysis only) — only when >= 1pp meaningful improvement */}
+          {hasAnalysisData && evpiPp != null && Math.round(evpiPp) >= 1 && (
             <div
               className="flex items-start gap-1.5 mt-1.5 p-2 rounded-lg bg-info/[0.06] border border-info/25"
               data-testid={`factor-${node.id}-evpi`}
@@ -456,7 +459,15 @@ function FactorsSectionInner({
   evpiMap, attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap,
   hasAnalysisData,
 }: FactorsSectionProps) {
-  if (factorNodes.length === 0) return null
+  // All hooks must run before any conditional return (Rules of Hooks)
+
+  // Only show stability pills when there is differentiation across factors.
+  // If every factor has the same label (or none have data), pills add no information.
+  const showAttributionStability = useMemo(() => {
+    if (!attributionStabilityMap || attributionStabilityMap.size === 0) return false
+    const labels = new Set(attributionStabilityMap.values())
+    return labels.size > 1
+  }, [attributionStabilityMap])
 
   const sorted = useMemo(() => {
     // Post-analysis with EVPI data: sort by EVPI descending (gated on analysis state)
@@ -483,6 +494,10 @@ function FactorsSectionInner({
     })
   }, [factorNodes, factorInfluence, evpiMap, hasAnalysisData])
 
+  const toVerifyCount = useMemo(() => countFactorsToVerify(factorNodes), [factorNodes])
+
+  if (factorNodes.length === 0) return null
+
   return (
     <div className="bg-panel border border-panel-border rounded-xl p-3" data-testid="model-factors-section">
       {/* Section header */}
@@ -492,6 +507,14 @@ function FactorsSectionInner({
         <span className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-panel-border text-text-body ${typography.panelMeta} font-medium`}>
           {factorNodes.length}
         </span>
+        {toVerifyCount > 0 && (
+          <span
+            className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-warning/30 text-text-body ${typography.panelMeta} font-medium`}
+            data-testid="factors-to-verify-badge"
+          >
+            {toVerifyCount} to verify
+          </span>
+        )}
       </div>
 
       {sorted.map(node => (
@@ -503,6 +526,7 @@ function FactorsSectionInner({
           isSelected={selectedNodeIds?.has(node.id)}
           evpiPp={evpiMap?.get(node.id)}
           attributionStability={attributionStabilityMap?.get(node.id)}
+          showAttributionStability={showAttributionStability}
           elasticity={elasticityMap?.get(node.id)}
           rankFlipRate={rankFlipRateMap?.get(node.id)}
           factorConfidence={factorConfidenceMap?.get(node.id)}

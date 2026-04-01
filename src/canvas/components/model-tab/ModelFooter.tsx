@@ -50,7 +50,7 @@ export function ModelFooter({ searchQuery, onSearchChange, onCopyText, onCopyJso
         className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelMeta} text-text-body hover:bg-panel-hover transition-colors shrink-0`}
         data-testid="model-copy"
       >
-        <Copy className="w-3 h-3 shrink-0" aria-hidden="true" />
+        <Copy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
         {copied === 'text' ? 'Copied!' : 'Text'}
       </button>
       <button
@@ -59,7 +59,7 @@ export function ModelFooter({ searchQuery, onSearchChange, onCopyText, onCopyJso
         className={`inline-flex items-center gap-1 px-2 py-1 rounded border border-panel-border ${typography.panelMeta} text-text-body hover:bg-panel-hover transition-colors shrink-0`}
         data-testid="model-copy-json"
       >
-        <ClipboardCopy className="w-3 h-3 shrink-0" aria-hidden="true" />
+        <ClipboardCopy className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
         {copied === 'json' ? 'Copied!' : 'JSON'}
       </button>
     </div>

@@ -26,7 +26,7 @@ export function ReanalyseBar({ onReanalyse }: ReanalyseBarProps) {
       aria-live="polite"
     >
       <span className={`${typography.panelMeta} text-text-light flex-1 min-w-0`}>
-        Model changed — results may be out of date
+        Model changed. Results may be out of date.
       </span>
       <button
         type="button"
@@ -35,7 +35,7 @@ export function ReanalyseBar({ onReanalyse }: ReanalyseBarProps) {
         className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-primary text-text-on-color ${typography.panelMeta} font-medium hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed shrink-0`}
         data-testid="reanalyse-button"
       >
-        <RefreshCw className="w-3 h-3 shrink-0" aria-hidden="true" />
+        <RefreshCw className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
         Re-analyse
       </button>
     </div>

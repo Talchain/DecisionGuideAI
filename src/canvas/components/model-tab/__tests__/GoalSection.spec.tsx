@@ -64,7 +64,33 @@ describe('GoalSection', () => {
 
   it('renders "Not set" when no threshold data available', () => {
     render(<GoalSection goalNode={makeGoalNode({ success_threshold: undefined, goal_threshold: undefined })} />)
-    expect(screen.getByText('Not set')).toBeInTheDocument()
+    expect(screen.getByTestId('goal-threshold-not-set')).toBeInTheDocument()
+    expect(screen.getByTestId('goal-threshold-not-set')).toHaveTextContent('Not set')
+  })
+
+  it('shows coaching prompt when threshold is not set', () => {
+    render(<GoalSection goalNode={makeGoalNode({ success_threshold: undefined, goal_threshold: undefined })} />)
+    expect(screen.getByTestId('goal-threshold-coaching')).toBeInTheDocument()
+    expect(screen.getByTestId('goal-threshold-coaching')).toHaveTextContent('Set a success target')
+  })
+
+  it('does not show coaching prompt when threshold is set', () => {
+    render(<GoalSection goalNode={makeGoalNode({ success_threshold: 0.75 })} />)
+    expect(screen.queryByTestId('goal-threshold-coaching')).not.toBeInTheDocument()
+  })
+
+  it('shows raw value without unit when only raw_value present', () => {
+    render(<GoalSection goalNode={makeGoalNode({ goal_threshold_raw: 42, goal_threshold_unit: undefined, success_threshold: undefined })} />)
+    expect(screen.getByText(/42/)).toBeInTheDocument()
+    expect(screen.queryByTestId('goal-threshold-not-set')).not.toBeInTheDocument()
+  })
+
+  it('goal label uses break-words, not truncate', () => {
+    render(<GoalSection goalNode={makeGoalNode({ label: 'Maximise long-term sustainable revenue growth across all markets' })} />)
+    // The label span should have break-words class, not truncate
+    const labelEl = screen.getByText('Maximise long-term sustainable revenue growth across all markets')
+    expect(labelEl.className).toMatch(/break-words/)
+    expect(labelEl.className).not.toMatch(/truncate/)
   })
 
   it('renders source provenance pill for cee_inference source', () => {
