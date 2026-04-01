@@ -175,6 +175,8 @@ describe('FactorsSection', () => {
     const nodes = [makeFactorNode('f1', 'Market size')]
     const influence = new Map([['f1', 0.75]])
     render(<FactorsSection factorNodes={nodes} factorInfluence={influence} />)
+    // Influence bar is gated behind card expansion (progressive disclosure)
+    fireEvent.click(screen.getByTestId('factor-card-f1'))
     expect(screen.getByRole('progressbar', { name: 'Influence' })).toBeInTheDocument()
   })
 
@@ -212,6 +214,8 @@ describe('FactorsSection', () => {
     const nodes = [makeFactorNode('f1', 'Ad spend')]
     const evpiMap = new Map([['f1', 8]])
     render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
+    // EVPI chip is gated behind card expansion (progressive disclosure)
+    fireEvent.click(screen.getByTestId('factor-card-f1'))
     expect(screen.getByTestId('factor-f1-evpi')).toBeInTheDocument()
     expect(screen.getByText(/Worth 8pp if resolved/)).toBeInTheDocument()
   })
@@ -240,6 +244,7 @@ describe('FactorsSection', () => {
     const nodes = [makeFactorNode('f1', 'Ad spend')]
     const evpiMap = new Map([['f1', 1]])
     render(<FactorsSection factorNodes={nodes} evpiMap={evpiMap} hasAnalysisData />)
+    fireEvent.click(screen.getByTestId('factor-card-f1'))
     expect(screen.getByTestId('factor-f1-evpi')).toBeInTheDocument()
   })
 
@@ -269,6 +274,9 @@ describe('FactorsSection', () => {
         hasAnalysisData
       />
     )
+    // Stability pills are in the influence row, gated behind card expansion
+    fireEvent.click(screen.getByTestId('factor-card-f1'))
+    fireEvent.click(screen.getByTestId('factor-card-f2'))
     expect(screen.getByText('High stability')).toBeInTheDocument()
     expect(screen.getByText('Low stability')).toBeInTheDocument()
   })

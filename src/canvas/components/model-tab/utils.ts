@@ -7,6 +7,7 @@ import type { ObservedState } from './types'
 // ── Value formatting ──────────────────────────────────────────────────────────
 
 const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '₽', '₺', '₴', '₦', '₫', '₿'])
+const ISO_CURRENCY_CODES = new Set(['USD', 'GBP', 'EUR', 'JPY', 'INR', 'KRW', 'RUB', 'TRY', 'UAH', 'NGN', 'VND', 'BTC', 'CHF', 'CAD', 'AUD', 'NZD', 'HKD', 'SGD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'BGN', 'HRK', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'ZAR', 'EGP', 'AED', 'SAR', 'QAR', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'PKR', 'BDT', 'LKR'])
 
 /** Smart number: integers stay integer, decimals use minimal precision (max 2dp, no trailing zeros) */
 export function formatSmartNumber(n: number): string {
@@ -18,11 +19,14 @@ export function formatSmartNumber(n: number): string {
   return n.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
-/** Format value+unit: currency symbols prefix ("£49"), everything else suffixes ("9 months") */
+/** Format value+unit: currency symbols prefix ("£49"), ISO currency codes prefix ("USD 49"), everything else suffixes ("9 months", "0 FTE") */
 export function formatValueWithUnit(rawValue: number, unit: string): string {
   const trimmedUnit = unit.trim()
-  if (CURRENCY_SYMBOLS.has(trimmedUnit) || /^[A-Z]{3}$/.test(trimmedUnit)) {
+  if (CURRENCY_SYMBOLS.has(trimmedUnit)) {
     return `${trimmedUnit}${formatSmartNumber(rawValue)}`
+  }
+  if (ISO_CURRENCY_CODES.has(trimmedUnit)) {
+    return `${trimmedUnit} ${formatSmartNumber(rawValue)}`
   }
   return `${formatSmartNumber(rawValue)} ${trimmedUnit}`
 }

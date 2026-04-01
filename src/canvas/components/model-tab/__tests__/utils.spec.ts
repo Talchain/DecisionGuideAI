@@ -92,13 +92,15 @@ describe('formatValueWithUnit', () => {
     expect(formatValueWithUnit(1000, '$')).toBe('$1,000')
   })
 
-  it('prefixes ISO currency codes', () => {
-    expect(formatValueWithUnit(100, 'EUR')).toBe('EUR100')  // 100 is integer, no thousands separator
+  it('prefixes ISO currency codes with space', () => {
+    expect(formatValueWithUnit(100, 'EUR')).toBe('EUR 100')  // ISO 4217 style: code + space + number
   })
 
   it('suffixes non-currency units', () => {
     expect(formatValueWithUnit(9, 'months')).toBe('9 months')
     expect(formatValueWithUnit(2.5, '%')).toBe('2.5 %')
+    expect(formatValueWithUnit(0, 'FTE')).toBe('0 FTE')  // regression: was 'FTE0'
+    expect(formatValueWithUnit(3, 'FTE')).toBe('3 FTE')  // regression: was 'FTE3'
   })
 })
 

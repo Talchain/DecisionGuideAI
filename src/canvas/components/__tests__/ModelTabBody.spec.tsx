@@ -634,8 +634,8 @@ describe('Cross-section full-detail toggle integration', () => {
 
     // Detail panels should be absent by default (expertMode not set)
     expect(screen.queryByText('Goal threshold')).not.toBeInTheDocument()
-    expect(screen.queryByText('Scientific parameters')).not.toBeInTheDocument()
-    expect(screen.queryByText('Edge parameters')).not.toBeInTheDocument()
+    expect(screen.queryByText('Current state')).not.toBeInTheDocument()
+    expect(screen.queryByText('Effect')).not.toBeInTheDocument()
 
     // Enable expert mode via prop
     rerender(
@@ -647,10 +647,20 @@ describe('Cross-section full-detail toggle integration', () => {
       />
     )
 
-    // All sections should now show their detail panels simultaneously
+    // Goal section shows detail panel without needing a click
     expect(screen.getByText('Goal threshold')).toBeInTheDocument()
-    expect(screen.getByText('Scientific parameters')).toBeInTheDocument()
-    expect(screen.getByText('Edge parameters')).toBeInTheDocument()
+
+    // Factor card expert panel requires card to be expanded first — click it
+    const factorCard = screen.getByTestId('factor-card-f1')
+    fireEvent.click(factorCard)
+    // Expert panel group headers replace old "Scientific parameters" header
+    expect(screen.getByText('Current state')).toBeInTheDocument()
+
+    // Edge card expert panel requires card expansion — click it
+    const edgeCard = screen.getByTestId('edge-card-e1')
+    fireEvent.click(edgeCard)
+    // Expert panel group headers replace old "Edge parameters" header
+    expect(screen.getByText('Effect')).toBeInTheDocument()
 
     // Disable expert mode via prop — all detail panels should hide again
     rerender(
@@ -662,7 +672,6 @@ describe('Cross-section full-detail toggle integration', () => {
       />
     )
     expect(screen.queryByText('Goal threshold')).not.toBeInTheDocument()
-    expect(screen.queryByText('Scientific parameters')).not.toBeInTheDocument()
-    expect(screen.queryByText('Edge parameters')).not.toBeInTheDocument()
+    expect(screen.queryByText('Current state')).not.toBeInTheDocument()
   })
 })

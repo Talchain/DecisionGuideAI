@@ -107,7 +107,7 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
         ) : (
           <span className={`${typography.panelBody} text-text-light`} data-testid="goal-threshold-not-set">Not set</span>
         )}
-        <SourceProvenancePill source={thresholdSource} />
+        <SourceProvenancePill source={thresholdSource} showWhenAbsent={false} />
       </div>
 
       {/* Coaching prompt when no target is set */}
