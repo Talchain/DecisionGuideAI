@@ -26,7 +26,7 @@ import {
   constraintConfidenceColour,
   jointProbabilityLabel,
 } from '../../types/constraints'
-import { buildSegmentBorderClassMap } from './WinGauge'
+import { buildSegmentBorderClassMap, buildSegmentColorMap } from './WinGauge'
 import Tooltip from '../Tooltip'
 
 export interface OptionCardsProps {
@@ -66,12 +66,14 @@ function fallbackDescription(option: OptionResult, totalOptions: number): string
 /**
  * V11: Hinge-aware description for option cards.
  * Replaces fallbackDescription when decisionState is available.
+ * Task 9: Specific text using flip data and win probability gap.
  */
 function hingeAwareDescription(
   option: OptionResult,
   isWinner: boolean,
   isRunnerUp: boolean,
   hinge: HingeInfo | null | undefined,
+  winnerWinProbability?: number | null,
 ): string {
   if (isWinner) {
     if (hinge?.reason === 'fragile_edge') {
@@ -86,7 +88,25 @@ function hingeAwareDescription(
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
       return `If ${hinge.label} shifts, this option overtakes`
     }
+    // Task 9: Gap-based fallback instead of generic "Second highest"
+    if (winnerWinProbability != null && option.winProbability != null) {
+      const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
+      if (gapPct > 0) {
+        return `Behind by ${gapPct} percentage point${gapPct === 1 ? '' : 's'}`
+      }
+    }
     return 'Second highest win likelihood'
+  }
+  // Task 9: Status quo / baseline — specific copy
+  if (option.isBaseline) {
+    return 'Lowest risk but lowest expected outcome'
+  }
+  // Task 9: Other non-winner — gap-based
+  if (winnerWinProbability != null && option.winProbability != null) {
+    const gapPct = Math.round((winnerWinProbability - option.winProbability) * 100)
+    if (gapPct > 0) {
+      return `Behind by ${gapPct} percentage point${gapPct === 1 ? '' : 's'}`
+    }
   }
   return 'Lower win likelihood'
 }
@@ -231,6 +251,7 @@ function OptionCard({
   neutralised = false,
   sortedRank,
   segmentBorderClass,
+  segmentFillColor,
   onClick,
   globalMin = 0,
   globalMax = 1,
@@ -250,6 +271,8 @@ function OptionCard({
   sortedRank?: number
   /** Ordinal border class matching this option's WinGauge segment colour */
   segmentBorderClass?: string
+  /** Task 6b: CSS colour string for coloured fill bar (matches wins segment) */
+  segmentFillColor?: string
   onClick?: () => void
   /** Global min p10 across all options for shared range bar scale */
   globalMin?: number
@@ -335,6 +358,23 @@ function OptionCard({
       <p className={`${typography.panelBody} text-text-light line-clamp-2`}>
         {description}
       </p>
+
+      {/* Task 6b: Coloured fill bar matching wins-bar segment colour */}
+      {option.winProbability != null && segmentFillColor && !neutralised && (
+        <div
+          className="w-full rounded-full overflow-hidden"
+          style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}
+          title={`Win probability: ${Math.round(option.winProbability * 100)}%`}
+        >
+          <div
+            className="h-full rounded-full transition-all duration-300"
+            style={{
+              width: `${Math.max(2, Math.round(option.winProbability * 100))}%`,
+              backgroundColor: segmentFillColor,
+            }}
+          />
+        </div>
+      )}
 
       {/* Stat rows */}
       {hasGoalThreshold && (
@@ -474,6 +514,9 @@ export function OptionCards({
   // Ordinal border class map: derived from same palette arrays as WinGauge by index
   const segmentBorderClassMap = buildSegmentBorderClassMap(options, winnerId, decisionState)
 
+  // Task 6b: Segment fill colour map for coloured fill bars inside option cards
+  const segmentColorMap = buildSegmentColorMap(options, winnerId, decisionState)
+
   // V16.1: Truncate to top 2 when there are 4+ options; show toggle below
   const TOP_N = 2
   const shouldTruncate = sorted.length >= 4
@@ -508,14 +551,16 @@ export function OptionCards({
 
         // V11.2 Fix 2: VM hinge-aware descriptions take priority when decisionState available
         // Arrow characters stripped from story headlines (scoped to option card descriptions)
+        const winnerOpt = options.find(o => o.id === winnerId)
         const description = decisionState
-          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge)
+          ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
           : headline
             ? headline
             : fallbackDescription(option, options.length)
 
         // Ordinal border class: index-derived from same palette as WinGauge segment
         const segmentBorderClass = segmentBorderClassMap[option.id] ?? 'border-panel-border'
+        const segmentFillColor = segmentColorMap[option.id]
         return (
           <OptionCard
             key={option.id}
@@ -527,6 +572,7 @@ export function OptionCards({
             neutralised={neutralised}
             sortedRank={index + 1}
             segmentBorderClass={segmentBorderClass}
+            segmentFillColor={segmentFillColor}
             globalMin={globalMin}
             globalMax={globalMax}
             onClick={lensEnabled && resultsComplete ? () => handleLensClick(option.id) : undefined}

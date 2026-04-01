@@ -20,7 +20,7 @@ import { typography } from '../../styles/typography'
 import type { ActionItem } from './utils/groupActionItems'
 import { CappedList } from './CappedList'
 import { GraphLink } from './GraphLink'
-import { EyeOff, HelpCircle, Shield, AlertTriangle, Info } from 'lucide-react'
+import { HelpCircle, AlertTriangle, Info } from 'lucide-react'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { EvidenceGapItem, DriverItem } from './types'
 
@@ -96,6 +96,11 @@ function resolveFactorLabel(
   return fallback
 }
 
+/** Task 8: Strip academic citations "(Author)" from card titles. */
+function stripAcademicCitation(title: string): string {
+  return title.replace(/\s*\([A-Z][a-z]+(?:\s+&\s+[A-Z][a-z]+)?\)\s*$/, '').trim()
+}
+
 function ChallengeCard({
   item,
   onFocusNode,
@@ -110,6 +115,7 @@ function ChallengeCard({
   drivers?: DriverItem[]
 }): ReactNode {
   const hasExpandContent = item.whatCouldHappen || item.whatToDo || item.subtitle || item.affectedNodeIds
+  const cleanTitle = stripAcademicCitation(item.title)
 
   // Prompt for the "Explore this" CTA — prefer whatToDo, fall back to exercise prompt
   const ctaPrompt = item.whatToDo
@@ -119,7 +125,7 @@ function ChallengeCard({
   if (!hasExpandContent) {
     return (
       <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
-        <p className={`${typography.panelBody} text-text-body`}>{item.title}</p>
+        <p className={`${typography.panelBody} text-text-body`}>{cleanTitle}</p>
         <p className={`${typography.panelBody} text-text-light`}>
           Run this exercise to challenge the recommendation.
         </p>
@@ -140,7 +146,7 @@ function ChallengeCard({
     <details className="border border-panel-border rounded-lg overflow-hidden">
       <summary className={`px-3 py-2 cursor-pointer hover:bg-panel-hover ${typography.panelBody} text-text-body list-none [&::-webkit-details-marker]:hidden flex items-center gap-2`}>
         <HelpCircle className="w-3.5 h-3.5 text-text-light flex-shrink-0" aria-hidden="true" />
-        {item.title}
+        {cleanTitle}
       </summary>
       <div className="px-3 pb-2 space-y-1">
         {/* V12 B4: Affected elements as graph links */}
@@ -184,18 +190,6 @@ function ChallengeCard({
   )
 }
 
-/* ── Subgroup divider ─────────────────────────────────────────────────────── */
-
-function SubgroupDivider({ label, count }: { label: string; count: number }) {
-  return (
-    <div className="flex items-center gap-2 mt-1">
-      <span className={`${typography.panelMeta} font-semibold text-text-light whitespace-nowrap`}>
-        {label} ({count})
-      </span>
-      <div className="flex-1 h-px bg-panel-border" />
-    </div>
-  )
-}
 
 /* ── Fragile edge group card (grouped by source, with CTAs) ────────────── */
 
@@ -414,10 +408,9 @@ export function ChallengeSection({
 
   return (
     <div className="space-y-3" data-testid="challenge-section">
-      {/* ── Subgroup 1: Model structure ─────────────────────────────────── */}
+      {/* ── Model structure items (Task 8: no sub-header) ───────────────── */}
       {modelStructureCount > 0 && (
         <div className="space-y-2">
-          <SubgroupDivider label="Model structure" count={modelStructureCount} />
           {/* Fragile edges grouped by source node */}
           {Object.entries(fragileBySource).map(([sourceLabel, cards]) => (
             <FragileEdgeGroupCard
@@ -434,79 +427,31 @@ export function ChallengeSection({
         </div>
       )}
 
-      {/* ── Subgroup 2: Thinking patterns ──────────────────────────────── */}
+      {/* ── Thinking patterns — flat list, no sub-headers (Task 8) ──────── */}
       {thinkingPatternsCount > 0 && (
         <div className="space-y-2">
-          <SubgroupDivider label="Thinking patterns" count={thinkingPatternsCount} />
-
-          {/* Bias findings -- expandable cards, max 2 visible */}
-          {biasFindings.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 mb-1">
-                <EyeOff className="w-4 h-4 text-text-light flex-shrink-0" />
-                <h4 className={`${typography.panelHeader} text-text-header`}>
-                  Worth reflecting on
-                </h4>
-                <span className={`${typography.panelMeta} text-text-light`}>
-                  {biasFindings.length}
-                </span>
-              </div>
-              <CappedList<ActionItem>
-                items={biasFindings}
-                maxVisible={2}
-                getKey={(item) => item.id}
-                renderItem={(item) => (
-                  <ChallengeCard
-                    item={item}
-                    onFocusNode={onFocusNode}
-                    onSendMessage={onSendMessage}
-                    evidenceGaps={evidenceGaps}
-                    drivers={drivers}
-                  />
-                )}
-                overflowLabel={(n) => `See ${n} more`}
-                expandButtonAriaLabel="Show more bias findings"
+          <CappedList<ActionItem>
+            items={[...biasFindings, ...preMortemItems]}
+            maxVisible={4}
+            getKey={(item) => item.id}
+            renderItem={(item) => (
+              <ChallengeCard
+                item={item}
+                onFocusNode={onFocusNode}
+                onSendMessage={onSendMessage}
+                evidenceGaps={evidenceGaps}
+                drivers={drivers}
               />
-            </div>
-          )}
-
-          {/* Pre-mortem -- expandable cards, max 2 visible */}
-          {preMortemItems.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 mb-1">
-                <Shield className="w-4 h-4 text-danger flex-shrink-0" />
-                <h4 className={`${typography.panelHeader} text-text-header`}>
-                  What could go wrong
-                </h4>
-                <span className={`${typography.panelMeta} text-text-light`}>
-                  {preMortemItems.length}
-                </span>
-              </div>
-              <CappedList<ActionItem>
-                items={preMortemItems}
-                maxVisible={2}
-                getKey={(item) => item.id}
-                renderItem={(item) => (
-                  <ChallengeCard
-                    item={item}
-                    onFocusNode={onFocusNode}
-                    onSendMessage={onSendMessage}
-                    evidenceGaps={evidenceGaps}
-                    drivers={drivers}
-                  />
-                )}
-                overflowLabel={(n) => `See ${n} more`}
-                expandButtonAriaLabel="Show more pre-mortem items"
-              />
-            </div>
-          )}
+            )}
+            overflowLabel={(n) => `See ${n} more`}
+            expandButtonAriaLabel="Show more thinking patterns"
+          />
         </div>
       )}
 
-      {/* ── Subgroup 3: Scientific notes ───────────────────────────────── */}
+      {/* ── Scientific notes (Task 8: no sub-header) ──────────────────── */}
       {scientificNotesCount > 0 && (
         <div className="space-y-2">
-          <SubgroupDivider label="Scientific notes" count={scientificNotesCount} />
           {otherWarnings.map((warning, i) => (
             <InferenceWarningCard key={`warn-${warning.code}-${i}`} warning={warning} onSendMessage={onSendMessage} />
           ))}

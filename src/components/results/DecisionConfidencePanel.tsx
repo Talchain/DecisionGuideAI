@@ -15,7 +15,7 @@
  */
 
 import { useMemo, memo, useState } from 'react'
-import { AlertTriangle, Check, ChevronDown, ChevronRight, Lightbulb, X } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Lightbulb } from 'lucide-react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { TriageDimension } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
@@ -253,17 +253,28 @@ function TrustSummary({ actionCount }: { actionCount: number }) {
   )
 }
 
-// ── Section 6: Science nudges ───────────────────────────────────────────────
+// ── Section 6: Science nudge cards ─────────────────────────────────────────
 
-function ScienceNudges({ data }: { data: ResultsSectionDataReturn }) {
-  const nudges: { key: string; text: string }[] = []
+interface ScienceNudge {
+  key: string
+  title: string
+  text: string
+  targetNodeId?: string
+  targetLabel?: string
+}
+
+function buildScienceNudges(data: ResultsSectionDataReturn): ScienceNudge[] {
+  const nudges: ScienceNudge[] = []
 
   // Sensitivity warning: top driver has very high influence
   const topDriver = data.drivers?.drivers?.[0]
   if (topDriver && topDriver.normalisedInfluence > 0.6) {
     nudges.push({
       key: 'sensitivity',
-      text: `${stripEncodingNotation(topDriver.factorLabel)} drives ${Math.round(topDriver.normalisedInfluence * 100)}% of the outcome. Small changes in its value could flip the recommendation.`,
+      title: stripEncodingNotation(topDriver.factorLabel),
+      text: `Drives ${Math.round(topDriver.normalisedInfluence * 100)}% of the outcome. Small changes could flip the result.`,
+      targetNodeId: topDriver.matchedNodeId ?? topDriver.factorKey,
+      targetLabel: stripEncodingNotation(topDriver.factorLabel),
     })
   }
 
@@ -274,54 +285,58 @@ function ScienceNudges({ data }: { data: ResultsSectionDataReturn }) {
   if (hasHighEvoiContested) {
     nudges.push({
       key: 'bias',
+      title: 'Contested relationships',
       text: 'Some contested relationships have high decision impact. Resolving them could substantially change the result.',
     })
   }
 
-  if (nudges.length === 0) return null
+  return nudges
+}
 
+/** Science nudge card — same format as triage card, lightbulb icon, with CTAs */
+function ScienceNudgeCard({
+  nudge,
+  onFocusNode,
+  onSendMessage,
+}: {
+  nudge: ScienceNudge
+  onFocusNode?: (nodeId: string) => void
+  onSendMessage?: (text: string) => void
+}) {
   return (
-    <div className="space-y-1.5">
-      {nudges.map((nudge) => (
-        <div
-          key={nudge.key}
-          className="flex items-start gap-2 px-3 py-2 rounded-lg border border-info/30 bg-panel"
-        >
-          <Lightbulb size={14} className="text-info flex-shrink-0 mt-0.5" />
-          <p className={`${typography.panelMeta} text-text-body`}>{nudge.text}</p>
+    <div className="flex flex-col p-2.5 rounded-[10px] border border-info/30 bg-panel hover:bg-panel-hover">
+      <div className="flex items-start gap-2 mb-0.5">
+        <Lightbulb size={14} className="text-info flex-shrink-0 mt-0.5" />
+        <div className="flex-1 min-w-0">
+          <p className={`${typography.panelBody} font-semibold text-text-header truncate`} title={nudge.title}>{nudge.title}</p>
         </div>
-      ))}
+      </div>
+      <p className={`${typography.panelMeta} text-text-light pl-[22px]`}>{nudge.text}</p>
+      <div className="flex items-center gap-1 mt-1.5 pl-[22px]">
+        {nudge.targetNodeId && onFocusNode && (
+          <button
+            type="button"
+            onClick={() => onFocusNode(nudge.targetNodeId!)}
+            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+          >
+            Validate this factor
+          </button>
+        )}
+        {onSendMessage && nudge.targetLabel && (
+          <button
+            type="button"
+            onClick={() => onSendMessage(`Can you research ${nudge.targetLabel} and suggest a reasonable estimate with sources?`)}
+            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+          >
+            Research
+          </button>
+        )}
+      </div>
     </div>
   )
 }
 
-// ── Section 7: Footer checks ────────────────────────────────────────────────
-
-function FooterChecks({ data }: { data: ResultsSectionDataReturn }) {
-  const rec = data.recommendation
-  const hasWinner = rec.recommendedOption != null
-  const isRobust = (rec.recommendationStability ?? 0) >= 0.7
-  const hasEvidence = (rec.coachingReadinessDimensions?.evidence ?? 0) >= 0.5
-
-  return (
-    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2">
-      <FooterFlag passed={hasWinner} passLabel="Winner" failLabel="No clear winner" />
-      <FooterFlag passed={isRobust} passLabel="Robust" failLabel="Sensitive to inputs" />
-      <FooterFlag passed={hasEvidence} passLabel="Evidence" failLabel="Evidence gaps" />
-    </div>
-  )
-}
-
-function FooterFlag({ passed, passLabel, failLabel }: { passed: boolean; passLabel: string; failLabel: string }) {
-  return (
-    <span className={`inline-flex items-center gap-1 ${typography.panelMeta} ${passed ? 'text-success' : 'text-danger'}`}>
-      {passed
-        ? <Check className="w-2.5 h-2.5" aria-hidden="true" />
-        : <X className="w-2.5 h-2.5" aria-hidden="true" />}
-      {passed ? passLabel : failLabel}
-    </span>
-  )
-}
+// Task 5: FooterChecks removed — redundant with hero ring + dimension bars
 
 // ── Transition bridge banner ────────────────────────────────────────────────
 
@@ -452,6 +467,9 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)
 
+  // Task 4: science nudges integrated into triage card stack (after "Show N more")
+  const scienceNudges = useMemo(() => buildScienceNudges(data), [data])
+
   return (
     <div className="space-y-4 animate-fade-in" data-testid="decision-confidence-panel">
       {/* Transition bridge */}
@@ -516,11 +534,21 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         />
       )}
 
-      {/* 6. Science nudges */}
-      <ScienceNudges data={data} />
+      {/* 6. Science nudge cards — in triage area after "Show N more" (Task 4) */}
+      {scienceNudges.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          {scienceNudges.map((nudge) => (
+            <ScienceNudgeCard
+              key={nudge.key}
+              nudge={nudge}
+              onFocusNode={onFocusNode}
+              onSendMessage={onSendMessage}
+            />
+          ))}
+        </div>
+      )}
 
-      {/* 7. Footer checks */}
-      <FooterChecks data={data} />
+      {/* Task 5: Footer checks removed — hero ring + dimension bars communicate the same info */}
     </div>
   )
 })

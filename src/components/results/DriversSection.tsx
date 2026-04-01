@@ -438,7 +438,13 @@ function DriverRow({
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
   const hasEnrichment = driver.enrichment && hasEnrichmentContent(driver.enrichment)
   const hasZeroReason = driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason]
+  // Task 7c: ranking shift + technique added to tooltip — must be computed before this line
+  // (rankingShiftWarn and techniqueSuggestion are computed after this block, so use inline checks)
   const hasTooltipContent = decisionChangeRisk || showQualityHint || hasEnrichment || hasZeroReason
+    || (driver.attributionStability === 'low' || driver.attributionStability === 'negligible'
+        || (typeof driver.confidence === 'number' && driver.confidence < 0.9))
+    || ((driver.influenceScore ?? driver.normalisedInfluence ?? 0) > 0.6
+        && typeof driver.confidence === 'number' && driver.confidence < 0.5)
 
   const handleFocusClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
@@ -469,6 +475,26 @@ function DriverRow({
       })()
     : null
 
+  // Task 7c: ranking shift and technique suggestion for tooltip
+  const rankingShiftWarn = (() => {
+    const stabilityWarn = driver.attributionStability === 'low' || driver.attributionStability === 'negligible'
+    const confidenceWarn = typeof driver.confidence === 'number' && driver.confidence < 0.9
+    if (!stabilityWarn && !confidenceWarn) return null
+    const confidencePct = typeof driver.confidence === 'number'
+      ? Math.round(Math.max(0, Math.min(1, driver.confidence)) * 100)
+      : null
+    return confidencePct !== null
+      ? `Ranking may shift · ${confidencePct}% likely`
+      : 'Ranking may shift'
+  })()
+
+  const techniqueSuggestion = (() => {
+    const influence = driver.influenceScore ?? driver.normalisedInfluence
+    const conf = typeof driver.confidence === 'number' ? driver.confidence : null
+    if (typeof influence !== 'number' || conf === null) return null
+    return influence > 0.6 && conf < 0.5 ? 'Try: reference class forecasting' : null
+  })()
+
   // Tooltip content
   const tooltipContent = (
     <>
@@ -491,6 +517,17 @@ function DriverRow({
           <span aria-hidden="true">ℹ️</span>
           {ZERO_REASON_MESSAGES[driver.zeroReason!]}
         </p>
+      )}
+      {/* Task 7c: Ranking shift warning — in tooltip only */}
+      {rankingShiftWarn && (
+        <p className="flex items-center gap-1 text-warning">
+          <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
+          {rankingShiftWarn}
+        </p>
+      )}
+      {/* Task 7c: Technique suggestion — in tooltip only */}
+      {techniqueSuggestion && (
+        <p className="text-info">{techniqueSuggestion}</p>
       )}
       {/* CEE-generated insights */}
       {hasEnrichment && <FactorInsights enrichment={driver.enrichment!} />}
@@ -566,10 +603,11 @@ function DriverRow({
         )}
 
         {/* Confidence bar — same width as Sensitivity bar (icons moved to 4th column) */}
+        {/* Task 7a: dashed underline removed from confidence bar button */}
         {confidenceValue !== null ? (
           <button
             type="button"
-            className="cursor-pointer [border-bottom:1px_dashed_currentColor] bg-transparent p-0 border-0 w-full"
+            className="cursor-pointer bg-transparent p-0 border-0 w-full"
             onClick={(e) => {
               e.stopPropagation()
               if (onFocus) {
@@ -690,37 +728,7 @@ function DriverRow({
         </p>
       )}
 
-      {/* Combined attribution stability + exists_probability metadata line */}
-      {(() => {
-        const stabilityWarn = driver.attributionStability === 'low' || driver.attributionStability === 'negligible'
-        const confidenceWarn = typeof driver.confidence === 'number' && driver.confidence < 0.9
-        if (!stabilityWarn && !confidenceWarn) return null
-        const confidencePct = typeof driver.confidence === 'number'
-          ? Math.round(Math.max(0, Math.min(1, driver.confidence)) * 100)
-          : null
-        return (
-          <p className={`${typography.panelMeta} text-warning px-3 pb-1.5 flex items-center gap-1`}>
-            <span className="inline-block w-1.5 h-1.5 rounded-full bg-warning flex-shrink-0" aria-hidden="true" />
-            Ranking may shift
-            {confidencePct !== null && <span> &middot; {confidencePct}% likely</span>}
-          </p>
-        )
-      })()}
-
-      {/* Technique recommendation for high-influence, low-confidence drivers */}
-      {(() => {
-        const influence = driver.influenceScore ?? driver.normalisedInfluence
-        const conf = typeof driver.confidence === 'number' ? driver.confidence : null
-        if (typeof influence !== 'number' || conf === null) return null
-        if (influence > 0.6 && conf < 0.5) {
-          return (
-            <p className={`${typography.panelMeta} text-info px-3 pb-1.5`}>
-              Try: reference class forecasting
-            </p>
-          )
-        }
-        return null
-      })()}
+      {/* Task 7c: "Ranking may shift" and technique suggestion moved to tooltip — not shown by default */}
 
       {/* Quick-select for contested drivers — only when inbound edge has validation.status === 'contested' */}
       {driver.hasContestedEdge && (

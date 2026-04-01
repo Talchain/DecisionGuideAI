@@ -36,7 +36,7 @@ interface DecisionHealthRingProps {
 // Arc geometry: 270 degree arc
 const START_ANGLE = 135 // degrees from 12 o'clock
 const TOTAL_ANGLE = 270
-const DEFAULT_SIZE = 54
+const DEFAULT_SIZE = 64
 
 function toRad(deg: number) {
   return (deg * Math.PI) / 180
@@ -85,13 +85,13 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
   const cx = size / 2
   const cy = size / 2
   const strokeWidth = Math.max(2, 3 * scale)
-  const scoreFontSize = Math.max(10, 14 * scale)
-  const labelFontSize = Math.max(6, 8 * scale)
+  const scoreFontSize = Math.max(11, 16 * scale)
+  const labelFontSize = Math.max(7, 9 * scale)
 
   const arcs: ArcConfig[] = [
-    { label: 'Structure', value: s, radius: 24 * scale },
-    { label: 'Evidence', value: e, radius: 19 * scale },
-    { label: 'Coverage', value: cov, radius: 14 * scale },
+    { label: 'Structure', value: s, radius: 28 * scale },
+    { label: 'Evidence', value: e, radius: 22 * scale },
+    { label: 'Coverage', value: cov, radius: 16 * scale },
   ]
 
   return (

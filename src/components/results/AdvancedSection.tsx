@@ -9,7 +9,7 @@
  * Hash row supports copy-to-clipboard.
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
@@ -57,6 +57,8 @@ export interface AdvancedSectionProps {
   totalFactorCount?: number
   /** Robustness level for stats */
   robustnessLevel?: string
+  /** Task 10: Show analysis details (expert mode gate) */
+  expertMode?: boolean
 }
 
 const PRESET_ORDER: RiskPresetKey[] = ['risk_averse', 'neutral', 'risk_seeking']
@@ -81,9 +83,20 @@ export function AdvancedSection({
   defaultEstimateCount,
   totalFactorCount,
   robustnessLevel,
+  expertMode = false,
 }: AdvancedSectionProps) {
   const { profile, selectPreset, loading } = useRiskProfile()
   const [copiedHash, setCopiedHash] = useState(false)
+  const [narrativeExpanded, setNarrativeExpanded] = useState(false)
+  const narrativeRef = useRef<HTMLParagraphElement>(null)
+  const [narrativeClamped, setNarrativeClamped] = useState(false)
+
+  // Detect if the narrative text overflows 3 lines
+  useEffect(() => {
+    const el = narrativeRef.current
+    if (!el) return
+    setNarrativeClamped(el.scrollHeight > el.clientHeight)
+  }, [m2NarrativeSummary])
 
   const handlePresetClick = useCallback(async (preset: RiskPresetKey) => {
     await selectPreset(preset)
@@ -169,9 +182,25 @@ export function AdvancedSection({
               </p>
             )}
 
-            {/* M2 full narrative */}
+            {/* M2 full narrative — clamped to 3 lines with "Read more" (Task 10) */}
             {m2NarrativeSummary && (
-              <p>{m2NarrativeSummary}</p>
+              <div>
+                <p
+                  ref={narrativeRef}
+                  className={narrativeExpanded ? '' : 'line-clamp-3'}
+                >
+                  {m2NarrativeSummary}
+                </p>
+                {(narrativeClamped || narrativeExpanded) && (
+                  <button
+                    type="button"
+                    onClick={() => setNarrativeExpanded(e => !e)}
+                    className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-0.5`}
+                  >
+                    {narrativeExpanded ? 'Read less' : 'Read more'}
+                  </button>
+                )}
+              </div>
             )}
 
             {/* Readiness bars */}
@@ -217,7 +246,8 @@ export function AdvancedSection({
           </div>
         </div>
 
-        {/* ── Analysis Details ────────────────────────────── */}
+        {/* ── Analysis Details — expert mode only (Task 10) ──────────── */}
+        {expertMode && (
         <div>
           <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
             Analysis details
@@ -293,6 +323,7 @@ export function AdvancedSection({
             )}
           </dl>
         </div>
+        )}
       </div>
     </Accordion>
   )

@@ -84,26 +84,20 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
 
       {/* Ring + headline + dimensions layout */}
       <div className="flex items-start gap-3">
-        <DecisionHealthRing dimensions={ringDimensions} size={54} centerLabel={ringLabel} overrideScore={overrideScore} />
+        <DecisionHealthRing dimensions={ringDimensions} size={64} centerLabel={ringLabel} overrideScore={overrideScore} />
 
         <div className="flex-1 min-w-0 space-y-2">
           {headline && (
             <p className={`${typography.panelHeader} text-text-body`}>{headline}</p>
           )}
 
-          {/* 2×2 dimension bars — hide completed dimensions */}
+          {/* 2×2 dimension bars — only show incomplete dimensions (Task 3: no 100% indicator line) */}
           {dimensions.some(d => d.value < 1) && (
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
               {dimensions.filter(d => d.value < 1).map((dim) => (
                 <DimensionBar key={dim.label} dim={dim} />
               ))}
             </div>
-          )}
-          {/* Hidden dimensions indicator */}
-          {dimensions.some(d => d.value >= 1) && (
-            <p className={`${typography.panelMeta} text-text-light`}>
-              {dimensions.filter(d => d.value >= 1).map((d, i) => i === 0 ? d.label : d.label.toLowerCase()).join(' and ')}: 100%
-            </p>
           )}
         </div>
       </div>

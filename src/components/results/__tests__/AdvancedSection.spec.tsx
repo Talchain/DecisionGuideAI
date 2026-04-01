@@ -35,7 +35,7 @@ describe('AdvancedSection', () => {
   })
 
   it('renders stability percentage when provided', () => {
-    render(<AdvancedSection stability={0.85} />)
+    render(<AdvancedSection stability={0.85} expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Stability')).toBeInTheDocument()
@@ -43,7 +43,7 @@ describe('AdvancedSection', () => {
   })
 
   it('renders convergence sample count', () => {
-    render(<AdvancedSection nSamples={10000} />)
+    render(<AdvancedSection nSamples={10000} expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Simulation quality')).toBeInTheDocument()
@@ -51,7 +51,7 @@ describe('AdvancedSection', () => {
   })
 
   it('renders fragile and stable edge counts', () => {
-    render(<AdvancedSection fragileEdgeCount={3} robustEdgeCount={12} />)
+    render(<AdvancedSection fragileEdgeCount={3} robustEdgeCount={12} expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Sensitive assumptions')).toBeInTheDocument()
@@ -61,7 +61,7 @@ describe('AdvancedSection', () => {
   })
 
   it('renders graph size with node and edge counts', () => {
-    render(<AdvancedSection nodeCount={15} edgeCount={22} />)
+    render(<AdvancedSection nodeCount={15} edgeCount={22} expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Graph size')).toBeInTheDocument()
@@ -69,7 +69,7 @@ describe('AdvancedSection', () => {
   })
 
   it('renders identifiability tag', () => {
-    render(<AdvancedSection identifiability="identifiable" />)
+    render(<AdvancedSection identifiability="identifiable" expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Identifiability')).toBeInTheDocument()
@@ -77,14 +77,14 @@ describe('AdvancedSection', () => {
   })
 
   it('formats underscored identifiability tag', () => {
-    render(<AdvancedSection identifiability="not_identifiable" />)
+    render(<AdvancedSection identifiability="not_identifiable" expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Not identifiable')).toBeInTheDocument()
   })
 
   it('renders seed value', () => {
-    render(<AdvancedSection seedUsed={42} />)
+    render(<AdvancedSection seedUsed={42} expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Seed')).toBeInTheDocument()
@@ -92,7 +92,7 @@ describe('AdvancedSection', () => {
   })
 
   it('renders truncated hash with copy button', () => {
-    render(<AdvancedSection responseHash="abc123def456ghi789" />)
+    render(<AdvancedSection responseHash="abc123def456ghi789" expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.getByText('Hash')).toBeInTheDocument()
@@ -101,12 +101,20 @@ describe('AdvancedSection', () => {
   })
 
   it('hides detail rows when values are not provided', () => {
-    render(<AdvancedSection />)
+    render(<AdvancedSection expertMode />)
     fireEvent.click(screen.getByText('Advanced'))
 
     expect(screen.queryByText('Stability')).not.toBeInTheDocument()
     expect(screen.queryByText('Simulation quality')).not.toBeInTheDocument()
     expect(screen.queryByText('Hash')).not.toBeInTheDocument()
+  })
+
+  it('hides analysis details section in default (non-expert) mode', () => {
+    render(<AdvancedSection stability={0.85} nSamples={5000} />)
+    fireEvent.click(screen.getByText('Advanced'))
+
+    expect(screen.queryByText('Analysis details')).not.toBeInTheDocument()
+    expect(screen.queryByText('Stability')).not.toBeInTheDocument()
   })
 
   it('renders all analysis details together', () => {
@@ -121,6 +129,7 @@ describe('AdvancedSection', () => {
         identifiability="identifiable"
         seedUsed={99}
         responseHash="hash1234567890abcdef"
+        expertMode
       />
     )
     fireEvent.click(screen.getByText('Advanced'))

@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react'
-import { Check, Pencil } from 'lucide-react'
+import { Check, Pencil, Sparkles } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
@@ -103,31 +103,37 @@ function EdgeStrengthQuickSelect({
   )
 }
 
-/** Inline value editor for factor cards — shows current raw value with editable input */
+/**
+ * InlineValueEditor — single-row: [input] [Update] [✓ Confirm] [Research]
+ * Task 1d: all controls on one line with flex-wrap.
+ */
 function InlineValueEditor({
   editorConfig,
-  onDone,
+  onConfirm,
+  onSendMessage,
+  title,
 }: {
   editorConfig: ScientificEditorProps
-  onDone: () => void
+  onConfirm?: () => void
+  onSendMessage?: (text: string) => void
+  title: string
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const [draft, setDraft] = useState(
     editorConfig.rawValue != null ? String(editorConfig.rawValue) : '',
   )
 
-  const handleSave = useCallback(() => {
+  const handleUpdate = useCallback(() => {
     const parsed = parseFloat(draft)
     if (!Number.isNaN(parsed)) {
       ;(editorConfig.onSave as (v: number) => void)(parsed)
-      onDone()
     }
-  }, [draft, editorConfig.onSave, onDone])
+  }, [draft, editorConfig.onSave])
 
   const unitSuffix = editorConfig.unit === '%' ? '%' : editorConfig.unit ? ` ${editorConfig.unit}` : ''
 
   return (
-    <div className="flex items-center gap-1.5 mt-1">
+    <div className="flex flex-wrap items-center gap-1.5 mt-1">
       <div className="relative flex items-center">
         <input
           ref={inputRef}
@@ -135,10 +141,9 @@ function InlineValueEditor({
           value={draft}
           onChange={e => setDraft(e.target.value)}
           onKeyDown={e => {
-            if (e.key === 'Enter') handleSave()
-            if (e.key === 'Escape') onDone()
+            if (e.key === 'Enter') handleUpdate()
           }}
-          className={`w-20 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+          className={`w-16 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
         />
         {unitSuffix && (
           <span className={`${typography.panelMeta} text-text-light ml-0.5`}>{unitSuffix}</span>
@@ -146,11 +151,29 @@ function InlineValueEditor({
       </div>
       <button
         type="button"
-        onClick={handleSave}
-        className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+        onClick={handleUpdate}
+        className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
       >
-        Save
+        Update
       </button>
+      {onConfirm && (
+        <button
+          type="button"
+          onClick={onConfirm}
+          className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+        >
+          <span className="flex items-center gap-1"><Check size={11} /> Confirm</span>
+        </button>
+      )}
+      {onSendMessage && (
+        <button
+          type="button"
+          onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
+          className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+        >
+          Research
+        </button>
+      )}
     </div>
   )
 }
@@ -228,7 +251,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
             onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
             className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
           >
-            Ask AI
+            Research
           </button>
         )}
       </div>
@@ -260,7 +283,8 @@ export function TriageCard(props: TriageCardProps) {
     onUpdateEdgeStrength,
   } = props
 
-  const [isEditing, setIsEditing] = useState(false)
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [_isEditing, _setIsEditing] = useState(false)
 
   if (variant === 'compact') return <CompactTriageCard {...props} />
 
@@ -268,14 +292,16 @@ export function TriageCard(props: TriageCardProps) {
   const badgeColor = BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
   const isBrief = sourcePill?.label === 'From brief'
+  // Task 1a: "AI estimate" pill → Sparkles icon
+  const isAiEstimate = sourcePill?.label === 'AI estimate'
 
-  // Display text: prefer subtitle over detail for the one-line description
-  const displaySubtitle = subtitle || detail
+  // Display text: detail (subtitle is removed per Task 1b)
+  const displayDetail = detail
 
   return (
     <div
       key={cardKey}
-      className={`relative flex flex-col p-2.5 rounded-[10px] border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
+      className={`flex flex-col p-2.5 rounded-[10px] border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
       onMouseEnter={() => {
         if (action?.targetId && onHoverEnter) {
           onHoverEnter(action.targetType ?? 'node', action.targetId)
@@ -283,42 +309,73 @@ export function TriageCard(props: TriageCardProps) {
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      {/* Top row: ordinal + title — mb-0.5 (2px) gap to subtitle */}
-      <div className="flex items-start gap-2.5 mb-0.5">
-        <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center`}>
+      {/* Top row: ordinal + title + Sparkles (AI estimate) + influence% top-right */}
+      {/* Task 1e: influence percentage moved to top-right of title row */}
+      <div className="flex items-start gap-2 mb-0.5">
+        <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center mt-0.5`}>
           {ordinal}
         </span>
-        <div className="flex-1 min-w-0 flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
+        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-1.5 min-w-0">
             <p className={`${typography.panelBody} font-semibold text-text-header truncate`} title={title}>{title}</p>
-            {sourcePill && (
+            {/* Task 1a: Sparkles icon replaces "AI estimate" pill */}
+            {isAiEstimate && (
+              <Sparkles
+                size={13}
+                className="text-info flex-shrink-0"
+                title="Olumi estimated this value"
+                aria-label="Olumi estimated this value"
+              />
+            )}
+            {/* Non-AI-estimate source pills still shown */}
+            {sourcePill && !isAiEstimate && (
               <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
                 {sourcePill.label}
               </span>
             )}
           </div>
-          {evoiImpact != null && (
+          {/* Task 1e: influence % top-right with separator */}
+          {influencePct != null && (
+            <div
+              className="flex items-center gap-1 flex-shrink-0"
+              title={`Drives ${influencePct}% of the outcome`}
+            >
+              <div className="w-[28px] h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
+                <div
+                  className="h-full rounded-sm"
+                  style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}
+                />
+              </div>
+              <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{influencePct}%</span>
+            </div>
+          )}
+          {/* EVOI impact pill — only when no influence% */}
+          {evoiImpact != null && influencePct == null && (
             <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
-              {evoiImpact.toFixed(1)}pp impact
+              {evoiImpact.toFixed(1)}pp
             </span>
           )}
         </div>
       </div>
 
-      {/* Subtitle / detail — one line, truncated */}
-      <p className={`${typography.panelMeta} text-text-light truncate`} title={displaySubtitle}>{displaySubtitle}</p>
+      {/* Detail line — one line, truncated. Task 1b: no subtitle. */}
+      <p className={`${typography.panelMeta} text-text-light truncate pl-7`} title={displayDetail}>{displayDetail}</p>
 
-      {/* Inline value editor — always visible when editorConfig is attached */}
+      {/* Task 1d: Inline value editor row — input + Update + Confirm + Research on ONE line */}
       {editorConfig && !isEdge && (
-        <InlineValueEditor
-          editorConfig={editorConfig}
-          onDone={() => {}}
-        />
+        <div className="pl-7">
+          <InlineValueEditor
+            editorConfig={editorConfig}
+            onConfirm={action?.targetId && onConfirm ? () => onConfirm!(action!.targetId!) : undefined}
+            onSendMessage={!isBrief ? onSendMessage : undefined}
+            title={title}
+          />
+        </div>
       )}
 
-      {/* Action buttons row — mt-1.5 (6px) gap from subtitle */}
-      {!isEditing && (
-        <div className="flex items-center gap-1 mt-1.5">
+      {/* Action buttons row — only when no inline editor */}
+      {!editorConfig && !isEdge && (
+        <div className="flex items-center gap-1 mt-1.5 pl-7">
           {action?.kind === 'confirm' && onConfirm && action.targetId && (
             <button
               type="button"
@@ -337,41 +394,22 @@ export function TriageCard(props: TriageCardProps) {
               <span className="flex items-center gap-1"><Pencil size={12} /> Edit</span>
             </button>
           )}
-          {/* "Set value" pill suppressed — inline editor is already visible when editorConfig present */}
-          {action?.kind === 'set_value' && onConfirm && action.targetId && editorConfig?.rawValue != null && (
-            <button
-              type="button"
-              onClick={() => onConfirm(action.targetId!)}
-              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
-            >
-              <span className="flex items-center gap-1"><Check size={12} /> Confirm</span>
-            </button>
-          )}
-          {isEdge && action?.targetId && onUpdateEdgeStrength && (
-            <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
-          )}
+          {/* Task 1c: "Ask AI to research" → "Research" */}
           {onSendMessage && action?.targetId && !isBrief && (
             <button
               type="button"
               onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
               className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
             >
-              Ask AI to research
+              Research
             </button>
           )}
         </div>
       )}
 
-      {/* Influence bar — absolute, bottom-right of card */}
-      {influencePct != null && (
-        <div className="absolute bottom-2 right-2.5 flex items-center gap-1">
-          <div className="w-[28px] h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
-            <div
-              className="h-full rounded-sm"
-              style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}
-            />
-          </div>
-          <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
+      {isEdge && action?.targetId && onUpdateEdgeStrength && (
+        <div className="mt-1.5 pl-7">
+          <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
         </div>
       )}
     </div>

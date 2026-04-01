@@ -545,7 +545,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Second highest win likelihood')).toBeInTheDocument()
+      expect(screen.getByText('Behind by 30 percentage points')).toBeInTheDocument()
     })
 
     it('other options show "Lower win likelihood"', () => {
@@ -575,7 +575,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Lower win likelihood')).toBeInTheDocument()
+      expect(screen.getByText('Behind by 55 percentage points')).toBeInTheDocument()
     })
 
     it('V11.2: VM hinge-aware description takes priority over story_headline when decisionState available', () => {

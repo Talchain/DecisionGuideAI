@@ -199,7 +199,7 @@ export const ResultsBody = memo(function ResultsBody({
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
         <SectionErrorBoundary section="Options comparison">
-          <div className="space-y-2">
+          <div className="space-y-2 border border-panel-border rounded-lg p-3">
             <SectionHeader
               title="Your options"
               testId="section-header-options"
@@ -395,6 +395,7 @@ export const ResultsBody = memo(function ResultsBody({
           identifiabilityTag={identifiability}
           winnerWinProbability={resultsSectionData.recommendation.recommendedOption?.winProbability}
           robustnessLevel={resultsSectionData.recommendation.robustnessLevel}
+          expertMode={expertMode}
         />
       </div>
       </SectionErrorBoundary>
