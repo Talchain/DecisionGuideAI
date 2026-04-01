@@ -24,7 +24,7 @@ export interface DecisionHealthRingDimensions {
 interface DecisionHealthRingProps {
   /** Four 0-1 dimension values */
   dimensions: DecisionHealthRingDimensions
-  /** Ring diameter in px (default 64) */
+  /** Ring diameter in px (default 72) */
   size?: number
   /** Centre label below the score (default "ready") */
   centerLabel?: string
@@ -36,7 +36,7 @@ interface DecisionHealthRingProps {
 // Arc geometry: 270 degree arc
 const START_ANGLE = 135 // degrees from 12 o'clock
 const TOTAL_ANGLE = 270
-const DEFAULT_SIZE = 64
+const DEFAULT_SIZE = 72
 
 function toRad(deg: number) {
   return (deg * Math.PI) / 180
@@ -80,7 +80,7 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
     ? Math.round(overrideScore)
     : Math.round((s + e + cov + v) / 4 * 100)
 
-  // Scale radii proportionally to size (base: 54px → 24/19/14)
+  // Scale radii proportionally to size (base: 72px)
   const scale = size / DEFAULT_SIZE
   const cx = size / 2
   const cy = size / 2

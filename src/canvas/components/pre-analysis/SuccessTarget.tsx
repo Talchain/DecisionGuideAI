@@ -47,26 +47,14 @@ interface SuccessTargetProps {
   onSendMessage?: (text: string) => void
 }
 
-/** 18px diamond shape for goal nodes */
+/** 14px diamond shape for goal nodes — clip-path approach for correct --goal colour */
 function GoalDiamond() {
   return (
-    <span
-      className="inline-block flex-shrink-0 text-goal"
-      style={{ width: 18, height: 18 }}
+    <div
+      className="w-3.5 h-3.5 bg-goal shrink-0 mt-0.5"
+      style={{ clipPath: 'polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%)' }}
       aria-hidden="true"
-    >
-      <svg width="18" height="18" viewBox="0 0 18 18">
-        <rect
-          x="9" y="1" width="11.3" height="11.3"
-          rx="2"
-          transform="rotate(45 9 1)"
-          fill="currentColor"
-          opacity={0.3}
-          stroke="currentColor"
-          strokeWidth={1.5}
-        />
-      </svg>
-    </span>
+    />
   )
 }
 
@@ -133,9 +121,16 @@ export function SuccessTarget({
     return value.toLocaleString()
   }
 
-  const inputPlaceholder = goalThresholdUnit
-    ? `Enter target (${goalThresholdUnit})`
-    : 'Enter target value'
+  // Derive placeholder with unit context
+  const isCurrency = goalThresholdUnit ? CURRENCY_SYMBOLS.has(goalThresholdUnit) : false
+  const isPercent = goalThresholdUnit === '%'
+  const inputPlaceholder = isCurrency
+    ? 'e.g. 20000'
+    : isPercent
+      ? 'e.g. 75'
+      : goalThresholdUnit
+        ? `Enter target (${goalThresholdUnit})`
+        : 'Enter target value'
 
   const editLabel = goalThresholdUnit
     ? `Target value (${goalThresholdUnit})`
@@ -291,7 +286,7 @@ export function SuccessTarget({
                 <span className={`${typography.panelMeta} text-text-body`}>
                   Constraint: {c.label}{c.operator && c.value != null ? ` ${c.operator} ${c.value}` : ''}
                 </span>
-                <Pill size="small" variant="success">Brief</Pill>
+                <Pill size="small" variant="success">From brief</Pill>
               </div>
             ))}
           </div>
@@ -308,6 +303,9 @@ export function SuccessTarget({
           {renderGoalHeader()}
           <div className="flex items-center gap-2">
             <span className={`${typography.panelMeta} text-text-light shrink-0`}>Target:</span>
+            {isCurrency && goalThresholdUnit && (
+              <span className={`${typography.panelBody} text-text-light shrink-0`}>{goalThresholdUnit}</span>
+            )}
             <input
               type="number"
               value={inputValue}
@@ -318,6 +316,9 @@ export function SuccessTarget({
               }}
               className={`flex-1 min-w-0 px-2 py-1.5 ${typography.panelBody} border border-panel-border rounded-lg bg-panel text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info`}
             />
+            {isPercent && (
+              <span className={`${typography.panelBody} text-text-light shrink-0`}>%</span>
+            )}
             <button
               type="button"
               onClick={handleSubmit}
@@ -352,7 +353,7 @@ export function SuccessTarget({
         <span className={`${typography.panelBody} text-text-light shrink-0 mt-0.5`}>Success target:</span>
         <span className={`${typography.panelHeader} text-text-header`}>{formatValue(successThreshold)}</span>
         {thresholdSourceBadge === 'brief' && (
-          <Pill size="small" variant="success">Brief</Pill>
+          <Pill size="small" variant="success">From brief</Pill>
         )}
         {thresholdSourceBadge === 'ai' && (
           <Pill size="small" variant="warning">Estimated</Pill>
@@ -435,7 +436,7 @@ export function SuccessTarget({
               <span className={`${typography.panelMeta} text-text-body`}>
                 Constraint: {c.label}{c.operator && c.value != null ? ` ${c.operator} ${c.value}` : ''}
               </span>
-              <Pill size="small" variant="success">Brief</Pill>
+              <Pill size="small" variant="success">From brief</Pill>
             </div>
           ))}
         </div>

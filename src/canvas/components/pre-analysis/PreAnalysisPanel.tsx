@@ -519,11 +519,12 @@ export function PreAnalysisPanel({
   const triageQuickFix = data.triageActions.quickFix.map(mapItem)
   const triageCards = [...triageTop3, ...triageQuickFix]
 
-  // Narrative text: CEE coaching_summary → category-specific fallback
+  // Narrative text: coaching subtitle for "Strengthen your model" section
+  const topFactorName = triageTop3.length > 0 ? triageTop3[0].title : null
   const triageNarrative = buildTriageNarrative(
     triageCards,
     data.successThreshold != null,
-    data.coachingSummary,
+    topFactorName,
     data.isLoading,
   )
 
@@ -539,12 +540,12 @@ export function PreAnalysisPanel({
     // 1. Narrow framing: fewer than 3 non-baseline options
     const nonBaselineOptions = data.optionPreviews.filter(o => !o.isBaseline)
     if (nonBaselineOptions.length < 2) {
-      triggers.push({ id: 'narrow_framing', icon: Frame, title: 'Narrow framing: few options', subtitle: 'Better decisions come from more alternatives. Consider structurally different approaches.', cta: 'Explore more options', ctaAction: 'What other options should I consider?' })
+      triggers.push({ id: 'narrow_framing', icon: Frame, title: 'Narrow framing', subtitle: 'Consider structurally different approaches. What would a competitor do?', cta: 'Explore options', ctaAction: 'What other options should I consider?' })
     }
 
     // 2. Missing risks: 0 or 1 risk nodes
     if (data.nodesByKind.risk.length <= 1) {
-      triggers.push({ id: 'missing_risks', icon: ShieldAlert, title: 'Missing risks: what could go wrong?', subtitle: 'Few risks modelled. Real strategies have costs and downsides.', cta: 'What could go wrong?', ctaAction: 'What risks am I missing?' })
+      triggers.push({ id: 'missing_risks', icon: ShieldAlert, title: 'Missing risks', subtitle: 'Your model has few risks. Consider what could go wrong with each option.', cta: 'Add risks', ctaAction: 'What risks am I missing?' })
     }
 
     // 3. Overconfidence: top factor by influence is AI-sourced with no uncertainty_drivers
@@ -563,7 +564,7 @@ export function PreAnalysisPanel({
           const drivers = os?.uncertainty_drivers as unknown[] | undefined
           if (source && AI_SOURCES.has(source) && (!drivers || drivers.length === 0)) {
             const label = (nd.label as string) ?? topFactorId
-            triggers.push({ id: 'overconfidence', icon: Gauge, title: 'Overconfidence: key assumption unverified', subtitle: label + ' is an AI estimate with no supporting evidence.', cta: 'Verify assumption', ctaAction: topFactorId })
+            triggers.push({ id: 'overconfidence', icon: Gauge, title: 'Overconfidence', subtitle: `${label} drives most of the outcome but has no supporting evidence. Validate it before relying on it.`, cta: 'Validate', ctaAction: topFactorId })
           }
         }
       }
@@ -601,7 +602,7 @@ export function PreAnalysisPanel({
             if (spread >= Math.abs(baseline) * 0.2) { allNarrow = false; break }
           }
           if (allNarrow && hasValidFactor) {
-            triggers.push({ id: 'anchoring', icon: Anchor, title: 'Anchoring: options clustered', subtitle: 'Options affect the same factors with similar values. Consider a wider range.', cta: 'Diversify options', ctaAction: 'How could I make my options more different from each other?' })
+            triggers.push({ id: 'anchoring', icon: Anchor, title: 'Anchoring', subtitle: 'Your options are similar. Try a wider range of approaches.', cta: 'Diversify', ctaAction: 'How could I make my options more different from each other?' })
           }
         }
       }
@@ -653,13 +654,29 @@ export function PreAnalysisPanel({
               </>
             )}
 
-            {/* LAYER 3: Narrative */}
-            {triageNarrative && (
+            {/* LAYER 3: Section title + coaching line */}
+            {triageCards.length > 0 && (
               <>
                 <div className="h-px bg-panel-border mx-3" />
-                <p className={`${typography.panelMeta} text-text-light px-3`} data-testid="triage-narrative">
-                  {triageNarrative}
-                </p>
+                <div className="px-3 space-y-0.5" data-testid="triage-section-header">
+                  <div className="flex items-center gap-2">
+                    <p className={`${typography.panelHeader} text-text-header`}>Strengthen your model</p>
+                    <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border border-panel-border ${typography.panelMeta} text-text-body`}>
+                      {triageCards.length}
+                    </span>
+                    {data.actionableCount > 0 && (
+                      <>
+                        <span className="text-panel-border">·</span>
+                        <span className={`${typography.panelMeta} text-text-light`}>
+                          {data.addressedActionableCount}/{data.actionableCount} verified
+                        </span>
+                      </>
+                    )}
+                  </div>
+                  {triageNarrative && (
+                    <p className={`${typography.panelBody} text-text-light`}>{triageNarrative}</p>
+                  )}
+                </div>
               </>
             )}
 
@@ -714,12 +731,14 @@ export function PreAnalysisPanel({
                     return (
                       <div
                         key={trigger.id}
-                        className="flex items-start gap-2 px-3 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover"
+                        className="px-3 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover space-y-1.5"
                       >
-                        <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
-                        <div className="flex-1 min-w-0">
-                          <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
-                          <p className={`${typography.panelBody} text-text-light mt-0.5`}>{trigger.subtitle}</p>
+                        <div className="flex items-start gap-2">
+                          <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+                          <div className="flex-1 min-w-0">
+                            <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
+                            <p className={`${typography.panelBody} text-text-light mt-0.5`}>{trigger.subtitle}</p>
+                          </div>
                         </div>
                         <button
                           type="button"
@@ -727,7 +746,7 @@ export function PreAnalysisPanel({
                             if (trigger.id === 'overconfidence') handleFocusNode(trigger.ctaAction)
                             else onSendMessage?.(trigger.ctaAction)
                           }}
-                          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer shrink-0 self-start mt-0.5`}
+                          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer ml-6`}
                         >
                           {trigger.cta}
                         </button>
@@ -738,27 +757,20 @@ export function PreAnalysisPanel({
               </>
             )}
 
-            {/* LAYER 7: Footer checks — verified count + structural flags + missing link */}
+            {/* LAYER 7: Footer checks — structural flags only (verified count moved to section header) */}
+            {structuralFlags.length > 0 && (
             <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2 border-t border-panel-border" data-testid="triage-footer-flags">
-              <span className={`${typography.panelMeta} text-text-light`}>
-                {data.addressedActionableCount}/{data.actionableCount} verified
-              </span>
-              {structuralFlags.length > 0 && (
-                <>
-                  <span className="text-panel-border">·</span>
-                  {structuralFlags.map(flag => (
-                    <span
-                      key={flag.id}
-                      className={`inline-flex items-center gap-1 ${typography.panelMeta} text-danger`}
-                    >
-                      <X className="w-2.5 h-2.5" aria-hidden="true" />
-                      {flag.label}
-                    </span>
-                  ))}
-                </>
-              )}
-
+              {structuralFlags.map(flag => (
+                <span
+                  key={flag.id}
+                  className={`inline-flex items-center gap-1 ${typography.panelMeta} text-danger`}
+                >
+                  <X className="w-2.5 h-2.5" aria-hidden="true" />
+                  {flag.label}
+                </span>
+              ))}
             </div>
+            )}
           </ModelHealthCard>
         </SectionErrorBoundary>
 

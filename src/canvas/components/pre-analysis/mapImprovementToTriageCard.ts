@@ -40,12 +40,26 @@ function mapActionKind(kind: string): TriageCardAction['kind'] {
   }
 }
 
-/** Derive action-oriented subtitle from item metadata */
+/** Parse "Source → Target" edge title into { source, target } labels */
+function parseEdgeTitle(title: string): { source: string; target: string } | null {
+  const parts = title.split(' → ')
+  if (parts.length >= 2) return { source: parts[0].trim(), target: parts.slice(1).join(' → ').trim() }
+  return null
+}
+
+/** Derive contextual coaching subtitle from item metadata */
 function deriveSubtitle(item: ImprovementItem): string | undefined {
-  // Edge items: calibrate or verify the relationship
+  // Edge / relationship items
   if (item.focus?.type === 'edge') {
     if (item.subgroup === 'contested') return 'Needs your judgement: estimates disagree'
-    if (item.sourceBadge === 'ai') return 'Confirm whether this relationship is real'
+    const parsed = parseEdgeTitle(item.label)
+    if (parsed) {
+      // If source has a value context, reference it
+      if (item.rawValue != null) {
+        return `How strongly does ${parsed.source} (currently ${formatValueWithUnit(item.rawValue, item.unit)}) affect ${parsed.target}?`
+      }
+      return `Set the value of ${parsed.source} first, then calibrate this relationship`
+    }
     return 'Set whether this relationship is weak, moderate, or strong'
   }
 
@@ -55,20 +69,22 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
     return 'No value set. Even a rough estimate helps.'
   }
 
-  // AI-estimated factor with a current value
-  if (item.sourceBadge === 'ai') {
-    if (item.rawValue != null) {
-      return `Current: ${formatValueWithUnit(item.rawValue, item.unit)}. Confirm or edit.`
-    }
-    return 'Confirm or edit the AI estimate'
+  // Use CEE suggestion when available (most contextual coaching)
+  if (item.hint) {
+    return item.hint
   }
 
-  // Brief-sourced factor with a current value
-  if (item.sourceBadge === 'brief') {
+  // AI-estimated factor
+  if (item.sourceBadge === 'ai') {
     if (item.rawValue != null) {
-      return `From brief: ${formatValueWithUnit(item.rawValue, item.unit)}. Confirm or edit.`
+      return `Olumi estimated this. Does ${formatValueWithUnit(item.rawValue, item.unit)} match your expectation?`
     }
-    return 'Value from your brief. Confirm or edit.'
+    return 'Olumi estimated this value. Edit in the inspector to set your own.'
+  }
+
+  // Brief-sourced factor
+  if (item.sourceBadge === 'brief') {
+    return 'You provided this in your brief. Confirm or adjust.'
   }
 
   return undefined

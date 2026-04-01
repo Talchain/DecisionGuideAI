@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { buildTriageNarrative } from '../buildTriageNarrative'
 import type { TriageCardCategory } from '@/components/shared/TriageCard'
 
-function item(category: TriageCardCategory) {
-  return { category }
+function item(category: TriageCardCategory, title?: string) {
+  return { category, title }
 }
 
 describe('buildTriageNarrative', () => {
@@ -11,66 +11,33 @@ describe('buildTriageNarrative', () => {
     expect(buildTriageNarrative([item('fix')], true, null, true)).toBeNull()
   })
 
-  it('prefers computed narrative over coachingSummary when items exist', () => {
-    const result = buildTriageNarrative([item('fix')], true, 'CEE says hello', false)
-    expect(result).toContain('1 factor has no data')
-    expect(result).not.toBe('CEE says hello')
-  })
-
-  it('falls back to coachingSummary when items is empty', () => {
-    expect(buildTriageNarrative([], true, 'CEE says hello', false)).toBe('CEE says hello')
-  })
-
-  it('prepends goal-target warning to coachingSummary fallback', () => {
-    const result = buildTriageNarrative([], false, 'CEE says hello', false)
-    expect(result).toBe("No target set. CEE says hello")
-  })
-
-  it('returns null when items is empty and no coachingSummary', () => {
-    expect(buildTriageNarrative([], true, null, false)).toBeNull()
-  })
-
-  it('describes all-fix items', () => {
-    const result = buildTriageNarrative([item('fix'), item('fix'), item('fix')], true, null, false)
-    expect(result).toBe('Top 3 by impact: 3 factors have no data')
-  })
-
-  it('describes all-verify items', () => {
-    const result = buildTriageNarrative([item('verify'), item('verify')], true, null, false)
-    expect(result).toBe('Top 2 by impact: 2 unverified estimates')
-  })
-
-  it('describes all-edge items', () => {
-    const result = buildTriageNarrative([item('add_evidence')], true, null, false)
-    expect(result).toBe('Top 1 by impact: 1 relationship worth reviewing')
-  })
-
-  it('joins mixed categories with "and"', () => {
-    const items = [item('fix'), item('fix'), item('verify'), item('add_evidence'), item('add_evidence')]
-    const result = buildTriageNarrative(items, true, null, false)
-    expect(result).toBe('Top 3 by impact: 2 factors have no data, 1 unverified estimate, 2 relationships worth reviewing')
-  })
-
-  it('returns well-prepared when all items are strengthen', () => {
-    const result = buildTriageNarrative([item('strengthen')], true, null, false)
-    expect(result).toBe('Your model looks well-prepared for analysis.')
-  })
-
-  it('prepends goal-target warning when no target set', () => {
-    const result = buildTriageNarrative([item('fix')], false, null, false)
-    expect(result).toContain("No target set.")
-    expect(result).toContain('1 factor has no data')
-  })
-
-  it('caps topN at 3 even with more items', () => {
-    const items = [item('fix'), item('fix'), item('fix'), item('fix'), item('fix')]
-    const result = buildTriageNarrative(items, true, null, false)
-    expect(result).toContain('Top 3 by impact:')
-  })
-
-  it('uses singular forms correctly', () => {
+  it('returns coaching line when items exist and target set', () => {
     const result = buildTriageNarrative([item('fix')], true, null, false)
-    expect(result).toContain('1 factor has no data')
-    expect(result).toContain('Top 1 by impact:')
+    expect(result).toBe('Review these to improve your analysis quality')
+  })
+
+  it('returns target-setting coaching when no target', () => {
+    const result = buildTriageNarrative([item('fix')], false, null, false)
+    expect(result).toBe('Set a target and review these items before running analysis')
+  })
+
+  it('appends top factor name when available', () => {
+    const result = buildTriageNarrative([item('fix')], true, 'Hiring Cost', false)
+    expect(result).toBe('Review these to improve your analysis quality. Your highest-impact item is Hiring Cost')
+  })
+
+  it('returns well-prepared when no items and target set', () => {
+    const result = buildTriageNarrative([], true, null, false)
+    expect(result).toBe('Your model looks well-prepared for analysis')
+  })
+
+  it('returns target prompt when no items and no target', () => {
+    const result = buildTriageNarrative([], false, null, false)
+    expect(result).toBe('Set a target and review these items before running analysis')
+  })
+
+  it('appends top factor name even with no target', () => {
+    const result = buildTriageNarrative([item('fix')], false, 'Market Size', false)
+    expect(result).toBe('Set a target and review these items before running analysis. Your highest-impact item is Market Size')
   })
 })

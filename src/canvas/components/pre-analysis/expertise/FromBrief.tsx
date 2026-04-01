@@ -52,7 +52,7 @@ export function FromBrief({ items, onFocusNode, onHoverEnter, onHoverLeave }: Fr
               {item.unit ? `${item.rawValue} ${item.unit}` : String(item.rawValue)}
             </span>
           )}
-          <Pill size="small" variant="success">Brief</Pill>
+          <Pill size="small" variant="success">From brief</Pill>
         </div>
       ))}
     </div>

@@ -195,23 +195,15 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      {/* Row 1: badge + title + meta */}
+      {/* Row 1: badge + title + source indicator pinned right + meta */}
       <div className="flex items-center gap-2">
         <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
           {ordinal}
         </span>
-        <span className={`min-w-0 truncate ${typography.panelMeta} text-info font-medium`} title={title}>{title}</span>
+        <span className={`flex-1 min-w-0 truncate ${typography.panelMeta} text-info font-medium`} title={title}>{title}</span>
         {sourcePill && (
-          <span className={`shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
+          <span className={`ml-auto shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
             {sourcePill.label}
-          </span>
-        )}
-        {subtitle && (
-          <span className={`shrink-0 ${typography.panelMeta} text-text-light truncate max-w-[120px]`} title={subtitle}>{subtitle}</span>
-        )}
-        {evoiImpact != null && (
-          <span className={`shrink-0 ${typography.panelMeta} text-text-light`}>
-            {evoiImpact.toFixed(1)}pp
           </span>
         )}
         {influencePct != null && (
@@ -309,57 +301,51 @@ export function TriageCard(props: TriageCardProps) {
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      {/* Top row: ordinal + title + Sparkles (AI estimate) + influence% top-right */}
-      {/* Task 1e: influence percentage moved to top-right of title row */}
+      {/* Top row: ordinal + title ... source indicator pinned top-right */}
       <div className="flex items-start gap-2 mb-0.5">
         <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center mt-0.5`}>
           {ordinal}
         </span>
-        <div className="flex-1 min-w-0 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <p className={`${typography.panelBody} font-semibold text-text-header truncate`} title={title}>{title}</p>
-            {/* Task 1a: Sparkles icon replaces "AI estimate" pill */}
-            {isAiEstimate && (
-              <Sparkles
-                size={13}
-                className="text-info flex-shrink-0"
-                title="Olumi estimated this value"
-                aria-label="Olumi estimated this value"
+        <p className={`${typography.panelBody} font-semibold text-text-header flex-1 min-w-0 truncate`} title={title}>{title}</p>
+        {/* Source indicator — pinned top-right */}
+        {isAiEstimate && (
+          <Sparkles
+            size={13}
+            className="text-info flex-shrink-0 mt-0.5"
+            title="Olumi estimated this value"
+            aria-label="Olumi estimated this value"
+          />
+        )}
+        {sourcePill && !isAiEstimate && (
+          <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
+            {sourcePill.label}
+          </span>
+        )}
+        {/* Influence % top-right */}
+        {influencePct != null && (
+          <div
+            className="flex items-center gap-1 flex-shrink-0"
+            title={`Drives ${influencePct}% of the outcome`}
+          >
+            <div className="w-[28px] h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
+              <div
+                className="h-full rounded-sm"
+                style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}
               />
-            )}
-            {/* Non-AI-estimate source pills still shown */}
-            {sourcePill && !isAiEstimate && (
-              <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
-                {sourcePill.label}
-              </span>
-            )}
-          </div>
-          {/* Task 1e: influence % top-right with separator */}
-          {influencePct != null && (
-            <div
-              className="flex items-center gap-1 flex-shrink-0"
-              title={`Drives ${influencePct}% of the outcome`}
-            >
-              <div className="w-[28px] h-[3px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
-                <div
-                  className="h-full rounded-sm"
-                  style={{ width: `${Math.min(100, influencePct)}%`, backgroundColor: evaluativeVar(influence!) }}
-                />
-              </div>
-              <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{influencePct}%</span>
             </div>
-          )}
-          {/* EVOI impact pill — only when no influence% */}
-          {evoiImpact != null && influencePct == null && (
-            <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
-              {evoiImpact.toFixed(1)}pp
-            </span>
-          )}
-        </div>
+            <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{influencePct}%</span>
+          </div>
+        )}
+        {/* EVOI impact pill — only when no influence% */}
+        {evoiImpact != null && influencePct == null && (
+          <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
+            {evoiImpact.toFixed(1)}pp
+          </span>
+        )}
       </div>
 
-      {/* Detail line — one line, truncated. Task 1b: no subtitle. */}
-      <p className={`${typography.panelMeta} text-text-light truncate pl-7`} title={displayDetail}>{displayDetail}</p>
+      {/* Subtitle — coaching line when available; otherwise fall back to detail */}
+      <p className={`${typography.panelMeta} text-text-light truncate pl-7`} title={subtitle || displayDetail}>{subtitle || displayDetail}</p>
 
       {/* Task 1d: Inline value editor row — input + Update + Confirm + Research on ONE line */}
       {editorConfig && !isEdge && (
