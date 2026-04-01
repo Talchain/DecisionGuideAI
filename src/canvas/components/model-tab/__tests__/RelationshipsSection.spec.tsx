@@ -204,6 +204,26 @@ describe('RelationshipsSection', () => {
     fireEvent.click(screen.getByTestId('edge-card-e-ep'))
     expect(screen.getByTestId('edge-e-ep-likelihood-display')).toHaveTextContent('73')
   })
+
+  it('shows compact summary when collapsed and full controls when expanded', () => {
+    const edges = [makeEdge('e1', 'f1', 'f2', { weight: 0.5, direction: 'positive', beliefExists: 0.7 })]
+    render(<RelationshipsSection edges={edges} nodes={nodes} />)
+
+    // Collapsed: strength label and coefficient visible in summary
+    const summary = screen.getByTestId('edge-e1-summary')
+    expect(summary).toBeInTheDocument()
+    expect(summary.textContent).toContain('Moderate positive effect')
+    expect(summary.textContent).toContain('+0.50')
+
+    // Collapsed: InlineEdit for weight NOT visible
+    expect(screen.queryByTestId('edge-e1-weight')).not.toBeInTheDocument()
+
+    // Click to expand
+    fireEvent.click(screen.getByTestId('edge-card-e1'))
+
+    // Expanded: InlineEdit for weight IS visible
+    expect(screen.getByTestId('edge-e1-weight-display')).toBeInTheDocument()
+  })
 })
 
 // ── Contested edge integration ─────────────────────────────────────────────────

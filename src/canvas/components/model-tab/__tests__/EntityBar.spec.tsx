@@ -15,6 +15,14 @@ const makeNodes = (kind: string, count: number): Node[] =>
     data: { label: `${kind} ${i}`, kind },
   }))
 
+const makeGrouped = (counts: Partial<Record<string, number>>) => {
+  const result: Record<string, Node[]> = { goal: [], decision: [], option: [], factor: [], risk: [], outcome: [] }
+  for (const [kind, count] of Object.entries(counts)) {
+    result[kind] = makeNodes(kind, count ?? 0)
+  }
+  return result
+}
+
 describe('EntityBar', () => {
   it('renders nothing when totalCount is 0', () => {
     const grouped = { goal: [], decision: [], option: [], factor: [], risk: [], outcome: [] }
@@ -40,5 +48,15 @@ describe('EntityBar', () => {
     expect(bar.getAttribute('title')).toContain('5 factors')
     // Outcome has 0 — should not appear in tooltip
     expect(bar.getAttribute('title')).not.toContain('outcome')
+  })
+
+  it('shows breakdown tooltip on the bar', () => {
+    const grouped = makeGrouped({ goal: 1, factor: 3, option: 2 })
+    render(<EntityBar grouped={grouped} totalCount={6} />)
+    const bar = screen.getByTestId('model-entity-bar').querySelector('[title]')
+    expect(bar).toBeTruthy()
+    expect(bar?.getAttribute('title')).toContain('1 goal')
+    expect(bar?.getAttribute('title')).toContain('3 factors')
+    expect(bar?.getAttribute('title')).toContain('2 options')
   })
 })

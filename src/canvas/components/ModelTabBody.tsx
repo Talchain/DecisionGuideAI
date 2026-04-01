@@ -141,12 +141,9 @@ export const ModelTabBody = memo(function ModelTabBody({
       const id = f?.node_id ?? f?.factor_id
       if (!id) continue
 
-      // EVPI: prefer evpi_percentage_points; fall back to VOI * 100 (UI-SEM-049)
-      const evpiPp = typeof f?.evpi_percentage_points === 'number' && Number.isFinite(f.evpi_percentage_points)
+      // EVPI: only from evpi_percentage_points (VOI fallback removed — see UI-SEM-049)
+      const pp = typeof f?.evpi_percentage_points === 'number' && Number.isFinite(f.evpi_percentage_points)
         ? f.evpi_percentage_points : null
-      const voi = typeof f?.value_of_information === 'number' && Number.isFinite(f.value_of_information)
-        ? f.value_of_information : null
-      const pp = evpiPp ?? (voi != null ? Math.round(voi * 100) : null)
       if (pp != null) evpi.set(id, pp)
 
       // Attribution stability (from PLoT, when present — no UI derivation)

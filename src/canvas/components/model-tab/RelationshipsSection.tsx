@@ -131,6 +131,8 @@ function EdgeCard({
   const provenance = data?.provenance as string | undefined
   const hasEvidence = provenance && !NON_EVIDENCE_PROVENANCE.includes(provenance)
 
+  const causalClaim = data?.causal_claim as string | undefined ?? data?.causalClaim as string | undefined
+
   const fragileTooltip = switchProbability !== undefined
     ? `${Math.round(switchProbability * 100)}% chance of flipping the recommendation`
     : 'Fragile: sensitive to assumption changes'
@@ -385,11 +387,22 @@ function EdgeCard({
             )}
           </div>
 
+          {/* Causal claim */}
+          {causalClaim && (
+            <>
+              <div className="border-t border-panel-border my-1.5" />
+              <div className="mb-1">
+                <span className={`${typography.panelMeta} text-text-light`}>Causal claim</span>
+                <p className={`${typography.panelMeta} text-text-body mt-0.5 italic`}>{causalClaim}</p>
+              </div>
+            </>
+          )}
+
           {/* Identity */}
           <div className="border-t border-panel-border my-1.5" />
           <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
             <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere' }}>
+            <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
               {edgeId}
             </span>
           </div>
@@ -490,6 +503,7 @@ function RelationshipsSectionInner({
   onResolveContested,
   edgeEValueMap = new Map(),
   edgeRepairsMap = new Map(),
+  onSendMessage,
 }: RelationshipsSectionProps) {
   const [showAllEdges, setShowAllEdges] = useState(false)
   // Only causal edges (exclude hierarchy/structural types)
@@ -651,6 +665,17 @@ function RelationshipsSectionInner({
           </>
         )
       })()}
+
+      {onSendMessage && (
+        <button
+          type="button"
+          onClick={() => onSendMessage("I'd like to add a causal relationship")}
+          className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
+          data-testid="relationships-add-cta"
+        >
+          Add a relationship
+        </button>
+      )}
     </div>
   )
 }

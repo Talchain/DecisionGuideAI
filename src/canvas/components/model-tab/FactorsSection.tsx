@@ -449,7 +449,7 @@ function FactorCard({
           <div className="border-t border-panel-border my-1.5" />
           <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
             <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere' }}>
+            <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
               {node.id}
             </span>
           </div>
@@ -565,7 +565,7 @@ function FactorsSectionInner({
         <button
           type="button"
           onClick={() => onSendMessage('I want to add a new factor to the model')}
-          className={`${typography.panelMeta} text-info hover:text-info/80 transition-colors mt-2`}
+          className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
           data-testid="factors-add-cta"
         >
           + Add a factor

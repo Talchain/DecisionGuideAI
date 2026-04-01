@@ -111,14 +111,21 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
 
   return (
     <div className="bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0" data-testid={`option-card-${option.id}`}>
-      {/* Option name */}
-      <button
-        type="button"
-        onClick={() => focusNodeById(option.id)}
-        className={`${typography.panelHeader} text-text-header hover:text-info hover:underline text-left w-full mb-1.5 leading-snug transition-colors`}
-      >
-        {label}
-      </button>
+      {/* Option name + win probability */}
+      <div className="flex items-baseline gap-1 mb-1.5">
+        <button
+          type="button"
+          onClick={() => focusNodeById(option.id)}
+          className={`${typography.panelHeader} text-text-header hover:text-info hover:underline text-left leading-snug transition-colors`}
+        >
+          {label}
+        </button>
+        {hasAnalysisData && conditionalWinners?.[0]?.lowBucket.winProbability != null && (
+          <span className={`${typography.panelMeta} text-text-light ml-1`}>
+            · {Math.round(conditionalWinners[0].lowBucket.winProbability * 100)}% win
+          </span>
+        )}
+      </div>
 
       {/* Conditional winner card (post-analysis only).
           Cards are attached to the lowBucket winner (overall winner).
@@ -271,7 +278,7 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
                     <button
                       type="button"
                       onClick={() => onSendMessage(`Map interventions for the option "${label}"`)}
-                      className={`${typography.panelMeta} text-info hover:text-info/80 transition-colors`}
+                      className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
                       data-testid={`option-${opt.id}-map-cta`}
                     >
                       Map interventions
@@ -285,7 +292,7 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
             <button
               type="button"
               onClick={() => onSendMessage('I want to explore other strategies and options')}
-              className={`${typography.panelMeta} text-info hover:text-info/80 transition-colors mt-2`}
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
               data-testid="options-explore-cta"
             >
               + Explore other strategies
@@ -307,7 +314,7 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
             <button
               type="button"
               onClick={() => onSendMessage('I want to explore other strategies and options')}
-              className={`${typography.panelMeta} text-info hover:text-info/80 transition-colors mt-2`}
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
               data-testid="options-explore-cta"
             >
               + Explore other strategies
