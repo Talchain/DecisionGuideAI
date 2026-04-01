@@ -57,6 +57,8 @@ interface ModelTabBodyProps {
   onReanalyse?: () => void
   /** CEE quality dimensions from store */
   ceeQuality?: import('../store').CeeQualityDimensions | null
+  expertMode?: boolean
+  onSendMessage?: (message: string, opts?: { hidden?: boolean; debugSource?: string }) => void
 }
 
 // ── Source mapping ────────────────────────────────────────────────────────────
@@ -93,6 +95,8 @@ export const ModelTabBody = memo(function ModelTabBody({
   factorInfluence,
   onReanalyse,
   ceeQuality,
+  expertMode,
+  onSendMessage,
 }: ModelTabBodyProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -475,6 +479,7 @@ export const ModelTabBody = memo(function ModelTabBody({
         fragileCount={fragileEdgeCount > 0 ? fragileEdgeCount : undefined}
         contestedCount={contestedPendingCount > 0 ? contestedPendingCount : undefined}
         sortNote={hasRobustnessData && evpiMap.size > 0 ? 'ranked by EVPI' : hasRobustnessData ? undefined : 'alphabetical'}
+        showDetail={expertMode ?? false}
       >
         {/* ── Status bar ─────────────────────────────────────────────── */}
         <StatusBar
@@ -498,6 +503,7 @@ export const ModelTabBody = memo(function ModelTabBody({
             allNodes={nodes}
             conditionalWinners={conditionalWinners}
             hasAnalysisData={hasRobustnessData}
+            onSendMessage={onSendMessage}
           />
 
           <FactorsSection
@@ -511,6 +517,7 @@ export const ModelTabBody = memo(function ModelTabBody({
             rankFlipRateMap={rankFlipRateMap}
             factorConfidenceMap={factorConfidenceMap}
             hasAnalysisData={hasRobustnessData}
+            onSendMessage={onSendMessage}
           />
 
           <RelationshipsSection
@@ -523,6 +530,7 @@ export const ModelTabBody = memo(function ModelTabBody({
             onResolveContested={handleResolveContested}
             edgeEValueMap={edgeEValueMap}
             edgeRepairsMap={edgeRepairsMap}
+            onSendMessage={onSendMessage}
           />
 
           <RisksSection riskNodes={grouped.risk} allNodes={nodes} edges={edges} />

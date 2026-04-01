@@ -46,10 +46,19 @@ interface EntityBarProps {
 export function EntityBar({ grouped, totalCount }: EntityBarProps) {
   if (totalCount === 0) return null
 
+  // Build tooltip breakdown text
+  const breakdownParts = KIND_ORDER
+    .filter(kind => grouped[kind].length > 0)
+    .map(kind => {
+      const count = grouped[kind].length
+      return `${count} ${KIND_LABELS[kind]}${count !== 1 ? 's' : ''}`
+    })
+  const tooltipText = breakdownParts.join(' · ')
+
   return (
     <div className="mb-3" data-testid="model-entity-bar">
       {/* Segmented bar */}
-      <div className="flex h-[6px] rounded-full overflow-hidden" style={{ gap: '1px' }}>
+      <div className="flex h-[6px] rounded-full overflow-hidden" style={{ gap: '1px' }} title={tooltipText}>
         {KIND_ORDER.map(kind => {
           const count = grouped[kind].length
           if (count === 0) return null
@@ -60,21 +69,6 @@ export function EntityBar({ grouped, totalCount }: EntityBarProps) {
               style={{ width: `${pct}%`, backgroundColor: SEGMENT_COLOURS[kind] }}
               className="shrink-0"
             />
-          )
-        })}
-      </div>
-      {/* Legend */}
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
-        {KIND_ORDER.map(kind => {
-          const count = grouped[kind].length
-          if (count === 0) return null
-          return (
-            <div key={kind} className="flex items-center gap-1">
-              <div className={`w-2 h-2 rounded-full ${DOT_CLASSES[kind]}`} aria-hidden="true" />
-              <span className={`${typography.panelMeta} text-text-light`}>
-                {count} {KIND_LABELS[kind]}{count !== 1 ? 's' : ''}
-              </span>
-            </div>
           )
         })}
       </div>

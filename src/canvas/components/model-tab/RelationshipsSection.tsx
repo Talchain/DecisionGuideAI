@@ -62,6 +62,7 @@ interface RelationshipsSectionProps {
   edgeEValueMap?: Map<string, number>
   /** Map of edge ID → repairs applied from PLoT */
   edgeRepairsMap?: Map<string, EdgeRepairDisplay[]>
+  onSendMessage?: (message: string) => void
 }
 
 // ── Edge card ──────────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ function EdgeCard({
   /** Repairs applied to this edge from PLoT */
   repairs?: EdgeRepairDisplay[]
 }) {
+  const [cardExpanded, setCardExpanded] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (isSelected) {
@@ -162,15 +164,16 @@ function EdgeCard({
   return (
     <div
       ref={cardRef}
-      className={`bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0 transition-shadow${isSelected ? ' ring-1 ring-info/50' : ''}`}
+      className={`bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0 transition-shadow cursor-pointer${isSelected ? ' ring-1 ring-info/50' : ''}`}
       data-testid={`edge-card-${edgeId}`}
+      onClick={() => setCardExpanded(prev => !prev)}
     >
       {/* Label row */}
       <div className="flex items-start gap-1.5 mb-2">
         <button
           type="button"
-          onClick={() => focusEdgeById(edgeId)}
-          className={`${typography.panelBody} text-text-body hover:text-info transition-colors flex-1 min-w-0 text-left leading-snug`}
+          onClick={(e) => { e.stopPropagation(); focusEdgeById(edgeId) }}
+          className={`${typography.panelBody} text-text-body hover:text-info hover:underline cursor-pointer transition-colors flex-1 min-w-0 text-left leading-snug`}
         >
           <span>{fromLabel}</span>
           <span className="text-text-light mx-1" aria-hidden="true">→</span>
@@ -201,118 +204,144 @@ function EdgeCard({
         )}
       </div>
 
-      {/* Strength row — editable weight + direction toggle */}
-      <div className="mb-2">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className={`${typography.panelMeta} text-text-light`}>Strength</span>
-          {hasStrength ? (
+      {/* Compact summary when collapsed */}
+      {!cardExpanded && (
+        <div className="flex items-center gap-2 flex-wrap" data-testid={`edge-${edgeId}-summary`}>
+          {signedMean !== undefined && (
+            <span className={`${typography.panelMeta} ${signedMean >= 0 ? 'text-success' : 'text-danger'}`}>
+              {strengthSemanticLabel(signedMean)}
+            </span>
+          )}
+          {signedMean !== undefined && (
+            <span className={`${typography.panelMeta} text-text-body font-mono`}>
+              {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(2)}
+            </span>
+          )}
+          {likelihoodPct !== undefined && (
+            <span className={`${typography.panelMeta} text-text-light`}>
+              {likelihoodPct}%
+            </span>
+          )}
+        </div>
+      )}
+
+      {/* Full controls — shown when card is expanded */}
+      {cardExpanded && (<>
+        {/* Strength row — editable weight + direction toggle */}
+        <div className="mb-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className={`${typography.panelMeta} text-text-light`}>Strength</span>
+            {hasStrength ? (
+              <>
+                <InlineEdit
+                  value={rawWeight!.toFixed(2)}
+                  onSave={handleWeightSave}
+                  validate={validateWeight}
+                  maxWidth="max-w-[55px]"
+                  numeric
+                  tooltip="Weight (0–2). Click to edit."
+                  testId={`edge-${edgeId}-weight`}
+                />
+                {/* Direction toggle */}
+                <div className="inline-flex rounded overflow-hidden border border-panel-border" role="group" aria-label="Direction">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleDirectionToggle('positive') }}
+                    className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
+                      safeDirection === 'positive'
+                        ? 'bg-success/20 text-success border-r border-panel-border'
+                        : 'text-text-light hover:bg-panel border-r border-panel-border'
+                    }`}
+                    data-testid={`edge-${edgeId}-dir-positive`}
+                  >
+                    +
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); handleDirectionToggle('negative') }}
+                    className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
+                      safeDirection === 'negative'
+                        ? 'bg-danger/20 text-danger'
+                        : 'text-text-light hover:bg-panel'
+                    }`}
+                    data-testid={`edge-${edgeId}-dir-negative`}
+                  >
+                    −
+                  </button>
+                </div>
+                <StrengthBar weight={rawWeight!} direction={safeDirection} />
+              </>
+            ) : (
+              <span
+                className={`${typography.panelMeta} text-text-light`}
+                data-testid={`edge-${edgeId}-strength-notset`}
+              >
+                Not set
+              </span>
+            )}
+          </div>
+          {signedMean !== undefined && (
+            <div className="mt-1">
+              <span className={`${typography.panelMeta} ${signedMean >= 0 ? 'text-success' : 'text-danger'}`}>
+                {strengthSemanticLabel(signedMean)}
+              </span>
+              {strengthStd !== undefined && (
+                <span className={`${typography.panelMeta} text-text-light ml-1`}>
+                  ±{(strengthStd as number).toFixed(2)}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Likelihood row */}
+        <div className="flex items-center gap-2">
+          <span className={`${typography.panelMeta} text-text-light`} title="How confident you are that this relationship exists">
+            Likelihood
+          </span>
+          {hasLikelihood ? (
             <>
               <InlineEdit
-                value={rawWeight!.toFixed(2)}
-                onSave={handleWeightSave}
-                validate={validateWeight}
+                value={String(likelihoodPct)}
+                onSave={handleLikelihoodSave}
+                validate={validateLikelihood}
                 maxWidth="max-w-[55px]"
                 numeric
-                tooltip="Weight (0–2). Click to edit."
-                testId={`edge-${edgeId}-weight`}
+                suffix="%"
+                testId={`edge-${edgeId}-likelihood`}
               />
-              {/* Direction toggle */}
-              <div className="inline-flex rounded overflow-hidden border border-panel-border" role="group" aria-label="Direction">
-                <button
-                  type="button"
-                  onClick={() => handleDirectionToggle('positive')}
-                  className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
-                    safeDirection === 'positive'
-                      ? 'bg-success/20 text-success border-r border-panel-border'
-                      : 'text-text-light hover:bg-panel border-r border-panel-border'
-                  }`}
-                  data-testid={`edge-${edgeId}-dir-positive`}
-                >
-                  +
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleDirectionToggle('negative')}
-                  className={`px-2 py-0.5 ${typography.panelMeta} transition-colors ${
-                    safeDirection === 'negative'
-                      ? 'bg-danger/20 text-danger'
-                      : 'text-text-light hover:bg-panel'
-                  }`}
-                  data-testid={`edge-${edgeId}-dir-negative`}
-                >
-                  −
-                </button>
+              <div className="h-1 bg-panel-border rounded-full overflow-hidden w-10">
+                <div
+                  className={`h-full rounded-full transition-all ${likelihoodColour}`}
+                  style={{ width: `${likelihoodPct}%` }}
+                />
               </div>
-              <StrengthBar weight={rawWeight!} direction={safeDirection} />
             </>
           ) : (
             <span
               className={`${typography.panelMeta} text-text-light`}
-              data-testid={`edge-${edgeId}-strength-notset`}
+              data-testid={`edge-${edgeId}-likelihood-notset`}
             >
               Not set
             </span>
           )}
         </div>
-        {signedMean !== undefined && (
-          <div className="mt-1">
-            <span className={`${typography.panelMeta} ${signedMean >= 0 ? 'text-success' : 'text-danger'}`}>
-              {strengthSemanticLabel(signedMean)}
-            </span>
-            {strengthStd !== undefined && (
-              <span className={`${typography.panelMeta} text-text-light ml-1`}>
-                ±{(strengthStd as number).toFixed(2)}
-              </span>
-            )}
+
+        {/* Provenance (evidence only) */}
+        {hasEvidence && (
+          <div className={`${typography.panelMeta} text-text-light mt-1`}>
+            Source: {provenance}
           </div>
         )}
-      </div>
-
-      {/* Likelihood row */}
-      <div className="flex items-center gap-2">
-        <span className={`${typography.panelMeta} text-text-light`} title="How confident you are that this relationship exists">
-          Likelihood
-        </span>
-        {hasLikelihood ? (
-          <>
-            <InlineEdit
-              value={String(likelihoodPct)}
-              onSave={handleLikelihoodSave}
-              validate={validateLikelihood}
-              maxWidth="max-w-[55px]"
-              numeric
-              suffix="%"
-              testId={`edge-${edgeId}-likelihood`}
-            />
-            <div className="h-1 bg-panel-border rounded-full overflow-hidden w-10">
-              <div
-                className={`h-full rounded-full transition-all ${likelihoodColour}`}
-                style={{ width: `${likelihoodPct}%` }}
-              />
-            </div>
-          </>
-        ) : (
-          <span
-            className={`${typography.panelMeta} text-text-light`}
-            data-testid={`edge-${edgeId}-likelihood-notset`}
-          >
-            Not set
-          </span>
-        )}
-      </div>
-
-      {/* Provenance (evidence only) */}
-      {hasEvidence && (
-        <div className={`${typography.panelMeta} text-text-light mt-1`}>
-          Source: {provenance}
-        </div>
-      )}
+      </>)}
 
       {/* Full detail expansion */}
       {showDetail && (
         <div className="mt-2 pt-2 border-t border-panel-border">
-          <div className={`${typography.panelMeta} text-text-light font-mono mb-1`}>Edge detail</div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+          <div className={`${typography.panelMeta} text-text-header font-medium mb-1.5`} data-testid="edge-detail-header">Edge parameters</div>
+
+          {/* Effect group */}
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
             {signedMean !== undefined && (
               <>
                 <span className={`${typography.panelMeta} text-text-light`}>Signed effect</span>
@@ -329,9 +358,22 @@ function EdgeCard({
                 </span>
               </>
             )}
+            {beliefExists !== undefined && (
+              <>
+                <span className={`${typography.panelMeta} text-text-light`}>Exists probability</span>
+                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                  {beliefExists.toFixed(2)}
+                </span>
+              </>
+            )}
+          </div>
+
+          {/* Provenance group */}
+          <div className="border-t border-panel-border my-1.5" />
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
             <span className={`${typography.panelMeta} text-text-light`}>Provenance</span>
             <span className={`${typography.panelMeta} text-text-body text-right`}>
-              {(provenance as string | undefined) ?? '—'}
+              {(provenance as string | undefined) ?? 'Not set'}
             </span>
             {eValue != null && (
               <>
@@ -341,15 +383,22 @@ function EdgeCard({
                 </span>
               </>
             )}
+          </div>
+
+          {/* Identity */}
+          <div className="border-t border-panel-border my-1.5" />
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
             <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right truncate`}>
+            <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere' }}>
               {edgeId}
             </span>
           </div>
+
           {/* Repairs applied to this edge */}
           {repairs && repairs.length > 0 && (
             <div className="mt-2">
-              <div className={`${typography.panelMeta} text-text-light font-mono mb-1`}>Repairs applied</div>
+              <div className="border-t border-panel-border my-1.5" />
+              <div className={`${typography.panelMeta} text-text-header font-medium mb-1`}>Repairs applied</div>
               {repairs.map((r, i) => (
                 <div key={i} className={`${typography.panelMeta} text-text-body`}>
                   <span className="font-mono">{r.code}</span>

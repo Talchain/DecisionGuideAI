@@ -259,6 +259,9 @@ function FactorCard({
                 {isSynthesisedPrior && (
                   <span className={`${typography.panelMeta} text-text-light`}>· from model repair</span>
                 )}
+                {!obs.unit && !isSynthesisedPrior && (
+                  <span className={`${typography.panelMeta} text-text-light`} data-testid={`factor-${node.id}-normalised-range`}>(normalised)</span>
+                )}
               </>
             ) : (
               <>
@@ -364,66 +367,89 @@ function FactorCard({
       {/* Full detail expansion */}
       {showDetail && (
         <div className="mt-2 pt-2 border-t border-panel-border">
-          <div className={`${typography.panelMeta} text-text-light font-mono mb-1`}>Factor detail</div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            {obs.value !== undefined && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Normalised value</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {obs.value.toFixed(4)}
-                </span>
-              </>
-            )}
-            {obs.cap !== undefined && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Cap</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {obs.unit ? formatValueWithUnit(obs.cap, obs.unit) : formatSmartNumber(obs.cap)}
-                </span>
-              </>
-            )}
-            {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
-              <>
+          <div className={`${typography.panelMeta} text-text-header font-medium mb-1.5`} data-testid="factor-detail-header">Scientific parameters</div>
+
+          {/* Observed state group */}
+          {(obs.value !== undefined || obs.cap !== undefined) && (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
+              {obs.value !== undefined && (
+                <>
+                  <span className={`${typography.panelMeta} text-text-light`}>Normalised value</span>
+                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    {obs.value.toFixed(2)}
+                  </span>
+                </>
+              )}
+              {obs.cap !== undefined && (
+                <>
+                  <span className={`${typography.panelMeta} text-text-light`}>Cap</span>
+                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    {obs.unit ? formatValueWithUnit(obs.cap, obs.unit) : formatSmartNumber(obs.cap)}
+                  </span>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Uncertainty group */}
+          {(uncertaintyDrivers && uncertaintyDrivers.length > 0) && (
+            <>
+              <div className="border-t border-panel-border my-1.5" />
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
                 <span className={`${typography.panelMeta} text-text-light`}>Uncertainty drivers</span>
                 <span className={`${typography.panelMeta} text-text-body text-right`}>
                   {uncertaintyDrivers.join(', ')}
                 </span>
-              </>
-            )}
-            {evpiPp != null && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {evpiPp}pp
-                </span>
-              </>
-            )}
-            {elasticity != null && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {elasticity.toFixed(4)}
-                </span>
-              </>
-            )}
-            {rankFlipRate != null && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Rank flip rate</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {rankFlipRate.toFixed(4)}
-                </span>
-              </>
-            )}
-            {factorConfidence != null && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {(factorConfidence * 100).toFixed(0)}%
-                </span>
-              </>
-            )}
+              </div>
+            </>
+          )}
+
+          {/* Analysis metrics group */}
+          {(evpiPp != null || elasticity != null || rankFlipRate != null || factorConfidence != null) && (
+            <>
+              <div className="border-t border-panel-border my-1.5" />
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
+                {evpiPp != null && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {evpiPp}pp
+                    </span>
+                  </>
+                )}
+                {elasticity != null && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {elasticity.toFixed(2)}
+                    </span>
+                  </>
+                )}
+                {rankFlipRate != null && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Rank flip rate</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {rankFlipRate.toFixed(2)}
+                    </span>
+                  </>
+                )}
+                {factorConfidence != null && (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                      {Math.round(factorConfidence * 100)}%
+                    </span>
+                  </>
+                )}
+              </div>
+            </>
+          )}
+
+          {/* Identity */}
+          <div className="border-t border-panel-border my-1.5" />
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
             <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right truncate`}>
+            <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere' }}>
               {node.id}
             </span>
           </div>
@@ -452,12 +478,13 @@ interface FactorsSectionProps {
   factorConfidenceMap?: Map<string, number>
   /** Whether post-analysis data is available */
   hasAnalysisData?: boolean
+  onSendMessage?: (message: string) => void
 }
 
 function FactorsSectionInner({
   factorNodes, factorInfluence, synthesisedPriorMap, selectedNodeIds,
   evpiMap, attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap,
-  hasAnalysisData,
+  hasAnalysisData, onSendMessage,
 }: FactorsSectionProps) {
   // All hooks must run before any conditional return (Rules of Hooks)
 
@@ -533,6 +560,17 @@ function FactorsSectionInner({
           hasAnalysisData={hasAnalysisData}
         />
       ))}
+
+      {onSendMessage && (
+        <button
+          type="button"
+          onClick={() => onSendMessage('I want to add a new factor to the model')}
+          className={`${typography.panelMeta} text-info hover:text-info/80 transition-colors mt-2`}
+          data-testid="factors-add-cta"
+        >
+          + Add a factor
+        </button>
+      )}
     </div>
   )
 }

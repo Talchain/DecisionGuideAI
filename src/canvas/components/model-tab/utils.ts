@@ -10,9 +10,12 @@ const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '₽', '
 
 /** Smart number: integers stay integer, decimals use minimal precision (max 2dp, no trailing zeros) */
 export function formatSmartNumber(n: number): string {
-  if (Number.isInteger(n)) return String(n)
-  const fixed = n.toFixed(2)
-  return fixed.replace(/\.?0+$/, '')
+  if (Number.isInteger(n)) return n.toLocaleString('en-GB')
+  if (Math.abs(n) < 1) {
+    const fixed = n.toFixed(2)
+    return fixed.replace(/\.?0+$/, '')
+  }
+  return n.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
 /** Format value+unit: currency symbols prefix ("£49"), everything else suffixes ("9 months") */

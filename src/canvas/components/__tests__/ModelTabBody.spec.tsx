@@ -358,6 +358,9 @@ describe('Golden UI test — headline numbers regression guard', () => {
         edges={allEdges}
       />
     )
+    // Edge cards are collapsed by default — click to expand
+    fireEvent.click(screen.getByTestId('edge-card-e1'))
+    fireEvent.click(screen.getByTestId('edge-card-e2'))
     // e1 beliefExists = 0.85 → 85%
     // e2 beliefExists = 0.90 → 90%
     // Both should appear as likelihood values
@@ -378,6 +381,8 @@ describe('Golden UI test — headline numbers regression guard', () => {
         edges={[edgeWithExistsProb]}
       />
     )
+    // Edge cards are collapsed by default — click to expand
+    fireEvent.click(screen.getByTestId('edge-card-e-ep'))
     // exists_probability = 0.73 → 73%; must NOT fall back to default 70%
     expect(screen.getByTestId('edge-e-ep-likelihood-display')).toHaveTextContent('73')
   })
@@ -473,13 +478,13 @@ describe('External factor — range display', () => {
 // Strengthen section and attention banner tests removed — components moved to Analysis tab.
 
 describe('Inline edit — hover affordance classes', () => {
-  it('has cursor-text, hover:bg-panel-hover, and hover:border-panel-border on display element', () => {
+  it('has cursor-pointer, border-panel-border, and hover:border-info on display element', () => {
     const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5 })]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={[]} />)
     const displayEl = screen.getByTestId('factor-f1-value-display')
-    expect(displayEl.className).toContain('cursor-text')
-    expect(displayEl.className).toContain('hover:bg-panel-hover')
-    expect(displayEl.className).toContain('hover:border-panel-border')
+    expect(displayEl.className).toContain('cursor-pointer')
+    expect(displayEl.className).toContain('border-panel-border')
+    expect(displayEl.className).toContain('hover:border-info')
   })
 })
 
@@ -517,6 +522,8 @@ describe('DS-4: Likelihood bars use evaluative threshold colours', () => {
       data: { weight: 0.5, strengthStd: 0.1, direction: 'positive', beliefExists: 0.3 },
     }]
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
+    // Edge cards are collapsed by default — click to expand
+    fireEvent.click(screen.getByTestId('edge-card-e1'))
     // 30% likelihood should use danger colour
     expect(screen.getByTestId('edge-e1-likelihood-display')).toHaveTextContent('30')
   })
@@ -540,6 +547,8 @@ describe('DS-5: No evidence per-card noise reduction', () => {
     render(<ModelTabBody {...DEFAULT_PROPS} nodes={nodes} edges={edges} />)
     // "No evidence" label should never appear — absence of provenance row is the signal
     expect(screen.queryByText('No evidence')).not.toBeInTheDocument()
+    // Expand edge cards to see provenance rows
+    fireEvent.click(screen.getByTestId('edge-card-e1'))
     // But evidence edge should still show its source
     expect(screen.getByText(/Source: user_study/)).toBeInTheDocument()
   })
@@ -611,11 +620,11 @@ describe('DS v4 contract: pills use solid borders (no dashed)', () => {
 })
 
 describe('Cross-section full-detail toggle integration', () => {
-  it('toggling "Show full detail" reveals detail panels across goal, factors, and relationships simultaneously', () => {
+  it('expertMode prop reveals detail panels across goal, factors, and relationships simultaneously', () => {
     const goal = makeGoalNode('g1', 'Revenue target')
     const factor = makeFactorNode('f1', 'Budget', { source: 'user', value: 0.6 })
     const edge = makeEdge('e1', 'f1', 'g1', { weight: 0.5, direction: 'positive' })
-    render(
+    const { rerender } = render(
       <ModelTabBody
         {...DEFAULT_PROPS}
         nodes={[goal, factor]}
@@ -623,24 +632,37 @@ describe('Cross-section full-detail toggle integration', () => {
       />
     )
 
-    // Detail panels should be absent by default
+    // Detail panels should be absent by default (expertMode not set)
     expect(screen.queryByText('Goal threshold')).not.toBeInTheDocument()
-    expect(screen.queryByText('Factor detail')).not.toBeInTheDocument()
-    expect(screen.queryByText('Edge detail')).not.toBeInTheDocument()
+    expect(screen.queryByText('Scientific parameters')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edge parameters')).not.toBeInTheDocument()
 
-    // Toggle "Show full detail"
-    const toggle = screen.getByTestId('model-tab-show-detail-toggle')
-    fireEvent.click(toggle)
+    // Enable expert mode via prop
+    rerender(
+      <ModelTabBody
+        {...DEFAULT_PROPS}
+        nodes={[goal, factor]}
+        edges={[edge]}
+        expertMode={true}
+      />
+    )
 
     // All sections should now show their detail panels simultaneously
     expect(screen.getByText('Goal threshold')).toBeInTheDocument()
-    expect(screen.getByText('Factor detail')).toBeInTheDocument()
-    expect(screen.getByText('Edge detail')).toBeInTheDocument()
+    expect(screen.getByText('Scientific parameters')).toBeInTheDocument()
+    expect(screen.getByText('Edge parameters')).toBeInTheDocument()
 
-    // Toggle off — all detail panels should hide again
-    fireEvent.click(toggle)
+    // Disable expert mode via prop — all detail panels should hide again
+    rerender(
+      <ModelTabBody
+        {...DEFAULT_PROPS}
+        nodes={[goal, factor]}
+        edges={[edge]}
+        expertMode={false}
+      />
+    )
     expect(screen.queryByText('Goal threshold')).not.toBeInTheDocument()
-    expect(screen.queryByText('Factor detail')).not.toBeInTheDocument()
-    expect(screen.queryByText('Edge detail')).not.toBeInTheDocument()
+    expect(screen.queryByText('Scientific parameters')).not.toBeInTheDocument()
+    expect(screen.queryByText('Edge parameters')).not.toBeInTheDocument()
   })
 })

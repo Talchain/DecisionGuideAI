@@ -89,11 +89,11 @@ describe('formatSmartNumber', () => {
 describe('formatValueWithUnit', () => {
   it('prefixes currency symbols', () => {
     expect(formatValueWithUnit(49, '£')).toBe('£49')
-    expect(formatValueWithUnit(1000, '$')).toBe('$1000')
+    expect(formatValueWithUnit(1000, '$')).toBe('$1,000')
   })
 
   it('prefixes ISO currency codes', () => {
-    expect(formatValueWithUnit(100, 'EUR')).toBe('EUR100')
+    expect(formatValueWithUnit(100, 'EUR')).toBe('EUR100')  // 100 is integer, no thousands separator
   })
 
   it('suffixes non-currency units', () => {

@@ -59,7 +59,7 @@ describe('GoalSection', () => {
       goal_threshold_unit: '£',
       goal_threshold: undefined,
     })} />)
-    expect(screen.getByText(/£500000/)).toBeInTheDocument()
+    expect(screen.getByText(/£500,000/)).toBeInTheDocument()
   })
 
   it('renders "Not set" when no threshold data available', () => {

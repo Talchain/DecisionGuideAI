@@ -117,9 +117,9 @@ export function InlineEdit({
     <span
       role="button"
       tabIndex={0}
-      onClick={handleFocus}
+      onClick={(e) => { e.stopPropagation(); handleFocus() }}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleFocus() }}
-      className="inline-flex items-center gap-0.5 cursor-text rounded-sm border border-transparent hover:bg-panel-hover hover:border-panel-border px-1 -mx-1 transition-colors"
+      className="inline-flex items-center gap-0.5 cursor-pointer rounded-md border border-panel-border bg-panel px-2 py-0.5 hover:border-info transition-colors"
       title={tooltip ?? 'Click to edit'}
       data-testid={testId ? `${testId}-display` : undefined}
     >

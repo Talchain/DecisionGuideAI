@@ -56,10 +56,11 @@ describe('OptionsSection', () => {
     expect(screen.getByText('Option Alpha')).toBeInTheDocument()
   })
 
-  it('shows coaching message when option has no interventions', () => {
+  it('shows coaching card when all options lack interventions', () => {
     const options = [makeOptionNode('opt1', 'Option A')]
     render(<OptionsSection optionNodes={options} allNodes={[]} />)
-    expect(screen.getByText(/AI hasn't mapped how this option changes/)).toBeInTheDocument()
+    expect(screen.getByTestId('options-unmapped-coaching')).toBeInTheDocument()
+    expect(screen.getByText(/None of these options have mapped interventions/)).toBeInTheDocument()
   })
 
   it('shows intervention rows with factor labels and values', () => {
@@ -67,14 +68,14 @@ describe('OptionsSection', () => {
     const option = makeOptionNode('opt1', 'Scale up', { f1: 600000 })
     render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
     expect(screen.getByText('Market size')).toBeInTheDocument()
-    expect(screen.getByText('£500000')).toBeInTheDocument()
+    expect(screen.getByText('£500,000')).toBeInTheDocument()
   })
 
   it('shows delta chip for positive change', () => {
     const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
     const option = makeOptionNode('opt1', 'Expand', { f1: 120000 })
     render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
-    expect(screen.getByText(/\+£20000/)).toBeInTheDocument()
+    expect(screen.getByText(/\+£20,000/)).toBeInTheDocument()
   })
 
   it('shows "unchanged" when intervention matches baseline', () => {

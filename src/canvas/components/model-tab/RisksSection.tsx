@@ -34,7 +34,7 @@ function RiskRow({ risk, triggerFactors }: { risk: Node; triggerFactors: Node[] 
         <button
           type="button"
           onClick={() => focusNodeById(risk.id)}
-          className={`${typography.panelBody} text-text-body hover:text-info transition-colors`}
+          className={`${typography.panelBody} text-text-body hover:text-info hover:underline cursor-pointer transition-colors`}
         >
           {label}
         </button>

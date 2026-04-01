@@ -1,14 +1,9 @@
 /**
- * ModelTabHeader — "Show full detail" toggle + summary stats.
- *
- * Wraps children in DetailToggleContext.Provider so all section components
- * can read showDetail without prop drilling.
- *
- * Shows: title "Model" + summary stats line (factor count, edge count).
- * Toggle: "Show full detail" checkbox — expands scientific details in all sections.
+ * ModelTabHeader — summary stats bar.
+ * Wraps children in DetailToggleContext.Provider.
+ * Expert mode toggle lives in OutputsDock.
  */
-
-import { useState, type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { typography } from '../../../styles/typography'
 import { DetailToggleContext } from './DetailToggleContext'
 
@@ -16,59 +11,35 @@ interface ModelTabHeaderProps {
   factorCount: number
   edgeCount: number
   fragileCount?: number
-  /** Number of contested edges still pending resolution */
   contestedCount?: number
-  /** Post-analysis sort note, e.g. "ranked by EVPI" */
   sortNote?: string
+  showDetail: boolean
   children: ReactNode
 }
 
 export function ModelTabHeader({
-  factorCount,
-  edgeCount,
-  fragileCount,
-  contestedCount,
-  sortNote,
-  children,
+  factorCount, edgeCount, fragileCount, contestedCount, sortNote, showDetail, children,
 }: ModelTabHeaderProps) {
-  const [showDetail, setShowDetail] = useState(false)
-
   return (
     <DetailToggleContext.Provider value={{ showDetail }}>
-      {/* Header bar */}
-      <div className="flex items-center justify-between gap-2 mb-3 px-0.5">
-        <div className="flex items-center gap-3 flex-wrap">
-          <span className={`${typography.panelMeta} text-text-light`}>
-            {factorCount} factor{factorCount !== 1 ? 's' : ''}
-            {' · '}
-            {edgeCount} relationship{edgeCount !== 1 ? 's' : ''}
-            {fragileCount !== undefined && fragileCount > 0 && (
-              <span className="text-warning"> · {fragileCount} fragile</span>
-            )}
-            {contestedCount !== undefined && contestedCount > 0 && (
-              <span className="text-info" data-testid="header-contested-count"> · {contestedCount} contested</span>
-            )}
-          </span>
-          {sortNote && (
-            <span className={`${typography.panelMeta} text-text-light`} data-testid="header-sort-note">
-              {sortNote}
-            </span>
+      <div className="flex items-center gap-3 flex-wrap mb-3 px-0.5">
+        <span className={`${typography.panelMeta} text-text-light`}>
+          {factorCount} factor{factorCount !== 1 ? 's' : ''}
+          {' · '}
+          {edgeCount} relationship{edgeCount !== 1 ? 's' : ''}
+          {fragileCount !== undefined && fragileCount > 0 && (
+            <span className="text-warning"> · {fragileCount} fragile</span>
           )}
-        </div>
-
-        {/* Show full detail toggle */}
-        <label className="flex items-center gap-1.5 cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={showDetail}
-            onChange={e => setShowDetail(e.target.checked)}
-            className="w-3 h-3 accent-info"
-            data-testid="model-tab-show-detail-toggle"
-          />
-          <span className={`${typography.panelMeta} text-text-light`}>Show full detail</span>
-        </label>
+          {contestedCount !== undefined && contestedCount > 0 && (
+            <span className="text-info" data-testid="header-contested-count"> · {contestedCount} contested</span>
+          )}
+        </span>
+        {sortNote && (
+          <span className={`${typography.panelMeta} text-text-light`} data-testid="header-sort-note">
+            {sortNote}
+          </span>
+        )}
       </div>
-
       {children}
     </DetailToggleContext.Provider>
   )

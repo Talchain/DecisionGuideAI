@@ -109,6 +109,8 @@ describe('RelationshipsSection', () => {
   it('renders "Not set" for edge with no weight', () => {
     const edgeNoWeight: Edge = { id: 'e-uw', source: 'f1', target: 'f2', data: { direction: 'positive' } }
     render(<RelationshipsSection edges={[edgeNoWeight]} nodes={nodes} />)
+    // Click to expand card (progressive disclosure)
+    fireEvent.click(screen.getByTestId('edge-card-e-uw'))
     expect(screen.getByTestId('edge-e-uw-strength-notset')).toHaveTextContent('Not set')
     // No actionable button — no default injection
     expect(screen.queryByTestId('edge-e-uw-weight-unset')).not.toBeInTheDocument()
@@ -117,6 +119,8 @@ describe('RelationshipsSection', () => {
   it('renders "Not set" for edge with no likelihood', () => {
     const edgeNoLikelihood: Edge = { id: 'e-ul', source: 'f1', target: 'f2', data: { weight: 0.5, direction: 'positive' } }
     render(<RelationshipsSection edges={[edgeNoLikelihood]} nodes={nodes} />)
+    // Click to expand card (progressive disclosure)
+    fireEvent.click(screen.getByTestId('edge-card-e-ul'))
     expect(screen.getByTestId('edge-e-ul-likelihood-notset')).toHaveTextContent('Not set')
     // No actionable button — no default injection
     expect(screen.queryByTestId('edge-e-ul-likelihood-unset')).not.toBeInTheDocument()
@@ -147,12 +151,16 @@ describe('RelationshipsSection', () => {
   it('shows likelihood percentage', () => {
     const edges = [makeEdge('e1', 'f1', 'f2', { beliefExists: 0.85 })]
     render(<RelationshipsSection edges={edges} nodes={nodes} />)
+    // Click to expand card (progressive disclosure)
+    fireEvent.click(screen.getByTestId('edge-card-e1'))
     expect(screen.getByTestId('edge-e1-likelihood-display')).toHaveTextContent('85')
   })
 
   it('calls updateEdge when likelihood is edited', () => {
     const edges = [makeEdge('e1', 'f1', 'f2', { beliefExists: 0.7 })]
     render(<RelationshipsSection edges={edges} nodes={nodes} />)
+    // Click to expand card (progressive disclosure)
+    fireEvent.click(screen.getByTestId('edge-card-e1'))
 
     const displayEl = screen.getByTestId('edge-e1-likelihood-display')
     fireEvent.click(displayEl)
@@ -192,6 +200,8 @@ describe('RelationshipsSection', () => {
       data: { weight: 0.7, direction: 'positive', beliefExists: 0.73, provenance: 'assumption' },
     }
     render(<RelationshipsSection edges={[edgeWithBelief]} nodes={nodes} />)
+    // Click to expand card (progressive disclosure)
+    fireEvent.click(screen.getByTestId('edge-card-e-ep'))
     expect(screen.getByTestId('edge-e-ep-likelihood-display')).toHaveTextContent('73')
   })
 })

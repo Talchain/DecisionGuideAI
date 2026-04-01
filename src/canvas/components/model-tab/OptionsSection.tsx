@@ -36,6 +36,7 @@ interface OptionsSectionProps {
   conditionalWinners?: ConditionalWinner[]
   /** Whether post-analysis data is available */
   hasAnalysisData?: boolean
+  onSendMessage?: (message: string) => void
 }
 
 interface InterventionItem {
@@ -220,7 +221,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   )
 }
 
-function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAnalysisData }: OptionsSectionProps) {
+function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAnalysisData, onSendMessage }: OptionsSectionProps) {
   if (optionNodes.length === 0) return null
 
   // Build per-option conditional winner lookup (match on option ID, not label)
@@ -239,6 +240,14 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
     return map
   }, [conditionalWinners])
 
+  // Check if ALL options are unmapped (no interventions)
+  const allUnmapped = useMemo(() => {
+    return optionNodes.every(opt => {
+      const interventions = (opt.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+      return !interventions || Object.keys(interventions).length === 0
+    })
+  }, [optionNodes])
+
   return (
     <Accordion
       title="Options"
@@ -246,15 +255,66 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
       defaultExpanded={false}
       testId="model-options-section"
     >
-      {optionNodes.map(option => (
-        <OptionCard
-          key={option.id}
-          option={option}
-          allNodes={allNodes}
-          conditionalWinners={optionWinnerMap.get(option.id)}
-          hasAnalysisData={hasAnalysisData}
-        />
-      ))}
+      {allUnmapped ? (
+        /* Single coaching card when ALL options lack interventions */
+        <div className="bg-panel-hover rounded-lg p-3" data-testid="options-unmapped-coaching">
+          <p className={`${typography.panelMeta} text-text-light mb-2`}>
+            None of these options have mapped interventions yet. Tell the AI how each option changes your factors.
+          </p>
+          <ul className="space-y-1.5">
+            {optionNodes.map(opt => {
+              const label = String(opt.data?.label ?? opt.id)
+              return (
+                <li key={opt.id} className="flex items-center gap-2">
+                  <span className={`${typography.panelBody} text-text-header`}>{label}</span>
+                  {onSendMessage && (
+                    <button
+                      type="button"
+                      onClick={() => onSendMessage(`Map interventions for the option "${label}"`)}
+                      className={`${typography.panelMeta} text-info hover:text-info/80 transition-colors`}
+                      data-testid={`option-${opt.id}-map-cta`}
+                    >
+                      Map interventions
+                    </button>
+                  )}
+                </li>
+              )
+            })}
+          </ul>
+          {onSendMessage && (
+            <button
+              type="button"
+              onClick={() => onSendMessage('I want to explore other strategies and options')}
+              className={`${typography.panelMeta} text-info hover:text-info/80 transition-colors mt-2`}
+              data-testid="options-explore-cta"
+            >
+              + Explore other strategies
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          {optionNodes.map(option => (
+            <OptionCard
+              key={option.id}
+              option={option}
+              allNodes={allNodes}
+              conditionalWinners={optionWinnerMap.get(option.id)}
+              hasAnalysisData={hasAnalysisData}
+            />
+          ))}
+          {onSendMessage && (
+            <button
+              type="button"
+              onClick={() => onSendMessage('I want to explore other strategies and options')}
+              className={`${typography.panelMeta} text-info hover:text-info/80 transition-colors mt-2`}
+              data-testid="options-explore-cta"
+            >
+              + Explore other strategies
+            </button>
+          )}
+        </>
+      )}
     </Accordion>
   )
 }

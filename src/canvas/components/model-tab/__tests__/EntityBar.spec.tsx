@@ -22,7 +22,7 @@ describe('EntityBar', () => {
     expect(container.firstChild).toBeNull()
   })
 
-  it('renders proportional segments and legend', () => {
+  it('renders proportional segments and tooltip', () => {
     const grouped = {
       goal: makeNodes('goal', 1),
       decision: makeNodes('decision', 1),
@@ -33,10 +33,12 @@ describe('EntityBar', () => {
     }
     render(<EntityBar grouped={grouped} totalCount={10} />)
     expect(screen.getByTestId('model-entity-bar')).toBeInTheDocument()
-    expect(screen.getByText('1 goal')).toBeInTheDocument()
-    expect(screen.getByText('2 options')).toBeInTheDocument()
-    expect(screen.getByText('5 factors')).toBeInTheDocument()
-    // Outcome has 0 — should not appear
-    expect(screen.queryByText(/outcome/)).not.toBeInTheDocument()
+    // Legend replaced with hover tooltip on the bar
+    const bar = screen.getByTitle(/1 goal/)
+    expect(bar).toBeInTheDocument()
+    expect(bar.getAttribute('title')).toContain('2 options')
+    expect(bar.getAttribute('title')).toContain('5 factors')
+    // Outcome has 0 — should not appear in tooltip
+    expect(bar.getAttribute('title')).not.toContain('outcome')
   })
 })
