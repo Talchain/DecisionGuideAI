@@ -338,7 +338,7 @@ function EdgeCard({
       </>)}
 
       {/* Full detail expansion */}
-      {showDetail && (
+      {cardExpanded && showDetail && (
         <div className="mt-2 pt-2 border-t border-panel-border">
           {/* Group 1: Effect */}
           <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Effect</div>
@@ -369,7 +369,7 @@ function EdgeCard({
             )}
           </div>
 
-          {/* Group 2: Provenance & diagnostics */}
+          {/* Group 2: Provenance */}
           <div className="border-t border-panel-border mt-2 pt-2">
             <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Provenance</div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
@@ -392,22 +392,9 @@ function EdgeCard({
                 <p className={`${typography.panelMeta} text-text-body mt-0.5 italic`}>{causalClaim}</p>
               </div>
             )}
-          </div>
-
-          {/* Group 3: Metadata */}
-          <div className="border-t border-panel-border mt-2 pt-2">
-            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Metadata</div>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-              <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
-              <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
-                {edgeId}
-              </span>
-            </div>
-
-            {/* Repairs applied to this edge */}
             {repairs && repairs.length > 0 && (
-              <div className="mt-2">
-                <div className={`${typography.panelMeta} text-text-light`}>Repairs applied</div>
+              <div className="mt-1">
+                <span className={`${typography.panelMeta} text-text-light`}>Repairs applied</span>
                 {repairs.map((r, i) => (
                   <div key={i} className={`${typography.panelMeta} text-text-body`}>
                     <span className="font-mono">{r.code}</span>
@@ -419,6 +406,17 @@ function EdgeCard({
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Group 3: Metadata */}
+          <div className="border-t border-panel-border mt-2 pt-2">
+            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Metadata</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
+              <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
+                {edgeId}
+              </span>
+            </div>
           </div>
         </div>
       )}

@@ -372,7 +372,15 @@ function FactorCard({
           {/* Group 1: Current state */}
           <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Current state</div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            {obs.value !== undefined && (
+            {isExternal && priorRangeMin !== undefined && priorRangeMax !== undefined && (
+              <>
+                <span className={`${typography.panelMeta} text-text-light`}>Prior range</span>
+                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                  {formatSmartNumber(priorRangeMin)} – {formatSmartNumber(priorRangeMax)}
+                </span>
+              </>
+            )}
+            {!isExternal && obs.value !== undefined && (
               <>
                 <span className={`${typography.panelMeta} text-text-light`}>Normalised value</span>
                 <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>

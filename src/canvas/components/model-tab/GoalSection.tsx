@@ -140,7 +140,7 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
           <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5">
             <span className={`${typography.panelMeta} text-text-light`}>Normalised target</span>
             <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-              {thresholdNorm !== undefined ? thresholdNorm.toFixed(2) : '—'}
+              {thresholdNorm !== undefined ? thresholdNorm.toFixed(2) : 'Not set'}
             </span>
             {thresholdUnit && (
               <>

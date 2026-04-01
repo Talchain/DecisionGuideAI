@@ -9,12 +9,12 @@ import type { Node } from '@xyflow/react'
 import { typography } from '../../../styles/typography'
 
 const SEGMENT_COLOURS: Record<string, string> = {
-  goal:     'var(--color-goal, #f59e0b)',
-  decision: 'var(--color-info, #3b82f6)',
-  option:   'var(--color-option, #8b5cf6)',
-  factor:   'var(--color-factor, #6b7280)',
-  risk:     'var(--color-danger, #ef4444)',
-  outcome:  'var(--color-success, #10b981)',
+  goal:     'var(--goal, #f59e0b)',
+  decision: 'var(--info, #3b82f6)',
+  option:   'var(--option, #8b5cf6)',
+  factor:   'var(--factor, #6b7280)',
+  risk:     'var(--danger, #ef4444)',
+  outcome:  'var(--success, #10b981)',
 }
 
 const DOT_CLASSES: Record<string, string> = {
