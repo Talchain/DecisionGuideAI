@@ -109,15 +109,23 @@ function ChallengeCard({
 }): ReactNode {
   const hasExpandContent = item.whatCouldHappen || item.whatToDo || item.subtitle || item.affectedNodeIds
 
+  // Prompt for the "Explore this" CTA — prefer whatToDo, fall back to exercise prompt
+  const ctaPrompt = item.whatToDo
+    ? item.whatToDo
+    : `Run a ${item.title} exercise on this decision`
+
   if (!hasExpandContent) {
     return (
       <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
         <p className={`${typography.panelBody} text-text-body`}>{item.title}</p>
+        <p className={`${typography.panelBody} text-text-light`}>
+          Run this exercise to challenge the recommendation.
+        </p>
         {onSendMessage && (
           <button
             type="button"
-            onClick={() => onSendMessage(item.whatToDo ? `${item.title}: ${item.whatToDo}` : `${item.title} — how does this apply to my decision?`)}
-            className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+            onClick={() => onSendMessage(ctaPrompt)}
+            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
           >
             Explore this
           </button>
@@ -163,8 +171,8 @@ function ChallengeCard({
         {onSendMessage && (
           <button
             type="button"
-            onClick={() => onSendMessage(item.whatToDo ? `${item.title}: ${item.whatToDo}` : `${item.title} — how does this apply to my decision?`)}
-            className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-0.5`}
+            onClick={() => onSendMessage(ctaPrompt)}
+            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer mt-0.5`}
           >
             Explore this
           </button>

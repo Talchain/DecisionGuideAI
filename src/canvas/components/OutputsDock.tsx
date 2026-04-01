@@ -642,6 +642,19 @@ export function OutputsDock() {
     setCeeAnalysisReady(null)
   }, [])
 
+  // Node value lookup for pre-filling triage card editors with current observed values
+  const nodeValueLookup = useMemo(() => {
+    const lookup: Record<string, number | null> = {}
+    for (const n of nodes) {
+      const nd = n.data as Record<string, unknown>
+      const obs = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
+      const raw = obs?.raw_value as number | undefined
+      const val = obs?.value as number | undefined
+      lookup[n.id] = raw ?? val ?? null
+    }
+    return lookup
+  }, [nodes])
+
   // Confirm decision button: provisional when low stability or evidence gaps remain
   const confirmStability = resultsSectionData?.recommendation?.recommendationStability ?? 0
   const confirmGapCount = resultsSectionData?.confidence?.evidenceGaps?.length ?? 0
@@ -1423,6 +1436,7 @@ export function OutputsDock() {
                     onConfirmFactor={handleTriageConfirm}
                     onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
+                    nodeValueLookup={nodeValueLookup}
                   />
                 )}
                 </div>

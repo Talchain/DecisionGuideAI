@@ -346,6 +346,15 @@ export function TriageCard(props: TriageCardProps) {
               Set value
             </button>
           )}
+          {action?.kind === 'set_value' && onConfirm && action.targetId && (
+            <button
+              type="button"
+              onClick={() => onConfirm(action.targetId!)}
+              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
+            >
+              <span className="flex items-center gap-1"><Check size={12} /> Confirm</span>
+            </button>
+          )}
           {isEdge && action?.targetId && onUpdateEdgeStrength && (
             <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
           )}

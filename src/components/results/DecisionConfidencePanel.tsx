@@ -46,6 +46,8 @@ interface DecisionConfidencePanelProps {
   onSendMessage?: (text: string) => void
   /** Show influence/EVOI metrics on triage cards */
   expertMode?: boolean
+  /** Lookup: factor node ID → current observed value (for pre-filling triage card editors) */
+  nodeValueLookup?: Record<string, number | null>
 }
 
 // ── Dimension computation (same 4 labels as pre-analysis) ───────────────────
@@ -128,10 +130,12 @@ function getSourcePill(confidence: number): { label: string; borderClass: string
 function mapEvidenceGapsToActions(
   data: ResultsSectionDataReturn,
   onSetValue?: (nodeId: string, rawValue: number) => void,
+  nodeValueLookup?: Record<string, number | null>,
 ): MappedActionItem[] {
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   return gaps.map((gap, i) => {
     const targetId = gap.targetNodeId ?? gap.factorId
+    const currentValue = nodeValueLookup?.[targetId] ?? nodeValueLookup?.[gap.factorId] ?? null
     const subtitle = gap.confidence <= 0
       ? 'No value set. Even a rough estimate helps.'
       : gap.confidence < 40
@@ -154,7 +158,7 @@ function mapEvidenceGapsToActions(
       targetNodeId: targetId,
       editorConfig: onSetValue ? {
         kind: 'factor' as const,
-        rawValue: null,
+        rawValue: currentValue,
         cap: null,
         unit: null,
         onSave: (rawValue: number) => onSetValue(targetId, rawValue),
@@ -401,6 +405,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onConfirm,
   onSendMessage,
   expertMode,
+  nodeValueLookup,
 }: DecisionConfidencePanelProps) {
   const { ringDimensions, dimensionBars } = useMemo(
     () => computePostAnalysisDimensions(data),
@@ -417,7 +422,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
 
   // Merge and rank action items by EVOI
   const allActions = useMemo(() => {
-    const gaps = mapEvidenceGapsToActions(data, onSetValue)
+    const gaps = mapEvidenceGapsToActions(data, onSetValue, nodeValueLookup)
     const next = mapNextActionsToCards(data)
     const merged = [...gaps, ...next]
     merged.sort((a, b) => {
@@ -427,7 +432,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       return (b.influence ?? 0) - (a.influence ?? 0)
     })
     return merged
-  }, [data, onSetValue])
+  }, [data, onSetValue, nodeValueLookup])
 
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)

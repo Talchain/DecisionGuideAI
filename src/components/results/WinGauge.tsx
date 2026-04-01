@@ -48,10 +48,10 @@ export const WIN_GAUGE_COLORS_INDETERMINATE = [
  * Option cards use these to match their WinGauge segment colour without string-matching CSS vars.
  */
 export const WIN_GAUGE_BORDER_CLASSES = [
-  'border-2 border-success/60', // Winner — thicker, high-contrast accent
-  'border-info/60',              // Runner-up — mid-contrast, visibly linked to win-bar
-  'border-option/60',            // Third — mid-contrast, ordinal palette
-  'border-panel-border',         // Fourth+ — neutral baseline
+  'border-2 border-success/60', // Winner — high-contrast accent
+  'border-2 border-info/60',    // Runner-up — visibly linked to win-bar
+  'border-2 border-option/60',  // Third — ordinal palette
+  'border-panel-border',        // Fourth+ — neutral baseline
 ]
 
 /** Indeterminate palette border classes, parallel to WIN_GAUGE_COLORS_INDETERMINATE. */

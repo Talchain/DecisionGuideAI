@@ -88,6 +88,8 @@ export interface ResultsBodyProps {
   onSetFactorValue?: (nodeId: string, rawValue: number) => void
   /** Whether expert mode is active (shows technical details) */
   expertMode?: boolean
+  /** Lookup: factor node ID → current observed value (for pre-filling triage card editors) */
+  nodeValueLookup?: Record<string, number | null>
 }
 
 export const ResultsBody = memo(function ResultsBody({
@@ -120,6 +122,7 @@ export const ResultsBody = memo(function ResultsBody({
   onConfirmFactor,
   onSetFactorValue,
   expertMode,
+  nodeValueLookup,
 }: ResultsBodyProps) {
   // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
@@ -176,6 +179,7 @@ export const ResultsBody = memo(function ResultsBody({
           onConfirm={onConfirmFactor}
           onSetValue={onSetFactorValue}
           expertMode={expertMode}
+          nodeValueLookup={nodeValueLookup}
         />
       </SectionErrorBoundary>
 
@@ -248,6 +252,7 @@ export const ResultsBody = memo(function ResultsBody({
                   .filter(o => o.id !== (riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id))
                   .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
               }
+              expertMode={expertMode}
             />
             {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
             <TippingPoints

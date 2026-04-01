@@ -49,7 +49,7 @@ export function SectionHeader({ title, count, badgeState, countState, testId, ic
     >
       {icon === 'option' && (
         <svg width={16} height={16} viewBox="0 0 14 14" className="flex-shrink-0">
-          <rect x={1} y={1} width={12} height={12} rx={2} fill="var(--option-light)" stroke="var(--option)" strokeWidth={1.5} />
+          <rect x={1} y={1} width={12} height={12} rx={2} fill="var(--option)" stroke="var(--option)" strokeWidth={1.5} />
         </svg>
       )}
       <h3

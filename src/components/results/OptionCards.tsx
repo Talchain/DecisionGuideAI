@@ -48,6 +48,8 @@ export interface OptionCardsProps {
   onSendMessage?: (text: string) => void
   /** Handler for focusing a node on the canvas */
   onFocusNode?: (nodeId: string) => void
+  /** Expert mode — show range bars and technical details */
+  expertMode?: boolean
 }
 
 /** Fallback description when no story headline is available */
@@ -234,6 +236,7 @@ function OptionCard({
   globalMax = 1,
   onSendMessage,
   onFocusNode,
+  expertMode = false,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -254,6 +257,7 @@ function OptionCard({
   globalMax?: number
   onSendMessage?: (text: string) => void
   onFocusNode?: (nodeId: string) => void
+  expertMode?: boolean
 }) {
   const borderClass = neutralised
     ? 'border-panel-border'
@@ -358,20 +362,22 @@ function OptionCard({
         </div>
       )}
 
-      {/* Range bar: p10 / p50 / p90 visual — rendered via parent OptionRangeBar */}
-      {option.outcome && typeof option.outcome.p10 === 'number' && typeof option.outcome.p90 === 'number' ? (
-        <OptionRangeBar
-          p10={option.outcome.p10}
-          p50={option.outcome.p50 ?? option.outcome.mean ?? undefined}
-          p90={option.outcome.p90}
-          globalMin={globalMin}
-          globalMax={globalMax}
-        />
-      ) : option.outcome?.mean != null ? (
-        <p className={`${typography.panelMeta} text-text-light`}>
-          Expected: {option.outcome.mean.toLocaleString()}
-        </p>
-      ) : null}
+      {/* Range bar: p10 / p50 / p90 visual — expert mode only */}
+      {expertMode && (
+        option.outcome && typeof option.outcome.p10 === 'number' && typeof option.outcome.p90 === 'number' ? (
+          <OptionRangeBar
+            p10={option.outcome.p10}
+            p50={option.outcome.p50 ?? option.outcome.mean ?? undefined}
+            p90={option.outcome.p90}
+            globalMin={globalMin}
+            globalMax={globalMax}
+          />
+        ) : option.outcome?.mean != null ? (
+          <p className={`${typography.panelMeta} text-text-light`}>
+            Expected: {option.outcome.mean.toLocaleString()}
+          </p>
+        ) : null
+      )}
 
       {/* Multi-constraint joint probability line */}
       {option.constraintAnalysis != null &&
@@ -434,6 +440,7 @@ export function OptionCards({
   runnerId,
   onSendMessage,
   onFocusNode,
+  expertMode,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -534,6 +541,7 @@ export function OptionCards({
             }}
             onSendMessage={onSendMessage}
             onFocusNode={onFocusNode}
+            expertMode={expertMode}
           />
         )
       })}
