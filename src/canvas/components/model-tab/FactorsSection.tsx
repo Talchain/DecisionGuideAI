@@ -12,7 +12,7 @@
  * "Show full detail" expansion: normalised value, cap, uncertainty drivers, node ID.
  */
 
-import { useCallback, useContext, useEffect, useMemo, useRef } from 'react'
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Node } from '@xyflow/react'
 import { Info } from 'lucide-react'
 import { typography } from '../../../styles/typography'
@@ -139,6 +139,7 @@ function FactorCard({
     }
   }, [isSelected])
   const { showDetail } = useContext(DetailToggleContext)
+  const [cardExpanded, setCardExpanded] = useState(false)
   const updateNode = useCanvasStore(s => s.updateNode)
 
   const data = node.data as Record<string, unknown>
@@ -213,14 +214,15 @@ function FactorCard({
   return (
     <div
       ref={cardRef}
-      className={`bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0 transition-shadow${isSelected ? ' ring-1 ring-info/50' : ''}`}
+      className={`bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0 transition-shadow cursor-pointer${isSelected ? ' ring-1 ring-info/50' : ''}`}
       data-testid={`factor-card-${node.id}`}
+      onClick={() => setCardExpanded(prev => !prev)}
     >
       {/* Header row: label + badges */}
       <div className="flex items-start gap-1.5 mb-1.5 flex-wrap">
         <button
           type="button"
-          onClick={() => focusNodeById(node.id)}
+          onClick={(e) => { e.stopPropagation(); focusNodeById(node.id) }}
           className={`${typography.panelHeader} text-text-header hover:text-info hover:underline flex-1 min-w-0 text-left leading-snug transition-colors`}
         >
           {label}
@@ -273,7 +275,7 @@ function FactorCard({
                 </span>
                 <button
                   type="button"
-                  onClick={() => focusNodeById(node.id)}
+                  onClick={(e) => { e.stopPropagation(); focusNodeById(node.id) }}
                   className={`inline-flex items-center px-2 py-0.5 rounded-full border border-info/30 text-text-body hover:bg-panel-hover transition-colors ${typography.panelMeta} font-medium`}
                   data-testid={`factor-${node.id}-refine-range`}
                 >
@@ -325,7 +327,7 @@ function FactorCard({
           </div>
 
           {/* Baseline row */}
-          {obs.baseline !== undefined && (
+          {cardExpanded && obs.baseline !== undefined && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className={`${typography.panelMeta} text-text-light w-12 shrink-0`}>Baseline</span>
               <InlineEdit
@@ -341,7 +343,7 @@ function FactorCard({
           )}
 
           {/* Influence bar + stability pill (post-analysis only) */}
-          {influence !== undefined && (
+          {cardExpanded && influence !== undefined && (
             <div className="flex items-center gap-1.5 flex-wrap">
               <span className={`${typography.panelMeta} text-text-light w-12 shrink-0`}>Influence</span>
               <DataBar value={influence} label="Influence" colour="info" trailingLabel={`${Math.round(influence * 100)}%`} />
@@ -350,7 +352,7 @@ function FactorCard({
           )}
 
           {/* EVPI chip (post-analysis only) — only when >= 1pp meaningful improvement */}
-          {hasAnalysisData && evpiPp != null && Math.round(evpiPp) >= 1 && (
+          {cardExpanded && hasAnalysisData && evpiPp != null && Math.round(evpiPp) >= 1 && (
             <div
               className="flex items-start gap-1.5 mt-1.5 p-2 rounded-lg bg-info/[0.06] border border-info/25"
               data-testid={`factor-${node.id}-evpi`}
@@ -365,93 +367,83 @@ function FactorCard({
       )}
 
       {/* Full detail expansion */}
-      {showDetail && (
+      {cardExpanded && showDetail && (
         <div className="mt-2 pt-2 border-t border-panel-border">
-          <div className={`${typography.panelMeta} text-text-header font-medium mb-1.5`} data-testid="factor-detail-header">Scientific parameters</div>
+          {/* Group 1: Current state */}
+          <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Current state</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+            {obs.value !== undefined && (
+              <>
+                <span className={`${typography.panelMeta} text-text-light`}>Normalised value</span>
+                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                  {obs.value.toFixed(2)}
+                </span>
+              </>
+            )}
+            {obs.cap !== undefined && (
+              <>
+                <span className={`${typography.panelMeta} text-text-light`}>Cap</span>
+                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                  {obs.unit ? formatValueWithUnit(obs.cap, obs.unit) : formatSmartNumber(obs.cap)}
+                </span>
+              </>
+            )}
+          </div>
 
-          {/* Observed state group */}
-          {(obs.value !== undefined || obs.cap !== undefined) && (
-            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
-              {obs.value !== undefined && (
+          {/* Group 2: Sensitivity */}
+          <div className="border-t border-panel-border mt-2 pt-2">
+            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Sensitivity</div>
+            {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
+              <div className="mb-1">
+                <span className={`${typography.panelMeta} text-text-light`}>Uncertainty drivers</span>
+                <p className={`${typography.panelMeta} text-text-body mt-0.5`}>{uncertaintyDrivers.join(', ')}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              {evpiPp != null && (
                 <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Normalised value</span>
+                  <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
                   <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                    {obs.value.toFixed(2)}
+                    {evpiPp}pp
                   </span>
                 </>
               )}
-              {obs.cap !== undefined && (
+              {elasticity != null && (
                 <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Cap</span>
+                  <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
                   <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                    {obs.unit ? formatValueWithUnit(obs.cap, obs.unit) : formatSmartNumber(obs.cap)}
+                    {elasticity.toFixed(2)}
+                  </span>
+                </>
+              )}
+              {rankFlipRate != null && (
+                <>
+                  <span className={`${typography.panelMeta} text-text-light`}>Rank flip rate</span>
+                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    {rankFlipRate.toFixed(2)}
+                  </span>
+                </>
+              )}
+              {factorConfidence != null && (
+                <>
+                  <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
+                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    {Math.round(factorConfidence * 100)}%
                   </span>
                 </>
               )}
             </div>
-          )}
+          </div>
 
-          {/* Uncertainty group */}
-          {(uncertaintyDrivers && uncertaintyDrivers.length > 0) && (
-            <>
-              <div className="border-t border-panel-border my-1.5" />
-              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
-                <span className={`${typography.panelMeta} text-text-light`}>Uncertainty drivers</span>
-                <span className={`${typography.panelMeta} text-text-body text-right`}>
-                  {uncertaintyDrivers.join(', ')}
-                </span>
-              </div>
-            </>
-          )}
-
-          {/* Analysis metrics group */}
-          {(evpiPp != null || elasticity != null || rankFlipRate != null || factorConfidence != null) && (
-            <>
-              <div className="border-t border-panel-border my-1.5" />
-              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
-                {evpiPp != null && (
-                  <>
-                    <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                      {evpiPp}pp
-                    </span>
-                  </>
-                )}
-                {elasticity != null && (
-                  <>
-                    <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                      {elasticity.toFixed(2)}
-                    </span>
-                  </>
-                )}
-                {rankFlipRate != null && (
-                  <>
-                    <span className={`${typography.panelMeta} text-text-light`}>Rank flip rate</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                      {rankFlipRate.toFixed(2)}
-                    </span>
-                  </>
-                )}
-                {factorConfidence != null && (
-                  <>
-                    <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                      {Math.round(factorConfidence * 100)}%
-                    </span>
-                  </>
-                )}
-              </div>
-            </>
-          )}
-
-          {/* Identity */}
-          <div className="border-t border-panel-border my-1.5" />
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
-              {node.id}
-            </span>
+          {/* Group 3: Metadata */}
+          <div className="border-t border-panel-border mt-2 pt-2">
+            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Metadata</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
+              <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
+                {node.id}
+              </span>
+            </div>
           </div>
         </div>
       )}

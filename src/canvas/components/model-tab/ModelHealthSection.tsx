@@ -136,7 +136,6 @@ function ModelHealthSectionInner({
         {/* Full audit trail (detail toggle) */}
         {showDetail && auditTrail && (
           <div className="pt-2 border-t border-panel-border" data-testid="model-health-audit">
-            <div className={`${typography.panelMeta} text-text-light font-mono mb-1.5`}>Audit trail</div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               {auditTrail.seedUsed != null && (
                 <>

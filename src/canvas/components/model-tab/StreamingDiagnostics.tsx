@@ -27,6 +27,7 @@ export function StreamingDiagnostics({
   correlationIdHeader,
 }: StreamingDiagnosticsProps) {
   if (!showDebug) {
+    if (!import.meta.env.DEV) return null
     return (
       <p className={`${typography.panelMeta} text-text-light border-t border-panel-border pt-2`}>
         Press <kbd className={`px-1.5 py-0.5 bg-sand-100 rounded ${typography.panelMeta} font-mono`}>Shift+D</kbd> for streaming diagnostics

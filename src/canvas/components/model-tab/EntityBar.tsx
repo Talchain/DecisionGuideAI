@@ -38,6 +38,15 @@ const KIND_LABELS: Record<KindKey, string> = {
   outcome:  'outcome',
 }
 
+const KIND_SHAPES: Record<KindKey, string> = {
+  goal:     '◇',
+  decision: '□',
+  option:   '○',
+  factor:   '●',
+  risk:     '▲',
+  outcome:  '★',
+}
+
 interface EntityBarProps {
   grouped: Record<KindKey, Node[]>
   totalCount: number
@@ -51,7 +60,7 @@ export function EntityBar({ grouped, totalCount }: EntityBarProps) {
     .filter(kind => grouped[kind].length > 0)
     .map(kind => {
       const count = grouped[kind].length
-      return `${count} ${KIND_LABELS[kind]}${count !== 1 ? 's' : ''}`
+      return `${KIND_SHAPES[kind]} ${count} ${KIND_LABELS[kind]}${count !== 1 ? 's' : ''}`
     })
   const tooltipText = breakdownParts.join(' · ')
 

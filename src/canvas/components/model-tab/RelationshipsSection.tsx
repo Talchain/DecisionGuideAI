@@ -340,10 +340,9 @@ function EdgeCard({
       {/* Full detail expansion */}
       {showDetail && (
         <div className="mt-2 pt-2 border-t border-panel-border">
-          <div className={`${typography.panelMeta} text-text-header font-medium mb-1.5`} data-testid="edge-detail-header">Edge parameters</div>
-
-          {/* Effect group */}
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
+          {/* Group 1: Effect */}
+          <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Effect</div>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
             {signedMean !== undefined && (
               <>
                 <span className={`${typography.panelMeta} text-text-light`}>Signed effect</span>
@@ -370,59 +369,57 @@ function EdgeCard({
             )}
           </div>
 
-          {/* Provenance group */}
-          <div className="border-t border-panel-border my-1.5" />
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mb-1.5">
-            <span className={`${typography.panelMeta} text-text-light`}>Provenance</span>
-            <span className={`${typography.panelMeta} text-text-body text-right`}>
-              {(provenance as string | undefined) ?? 'Not set'}
-            </span>
-            {eValue != null && (
-              <>
-                <span className={`${typography.panelMeta} text-text-light`}>E-value</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {eValue.toFixed(2)}x
-                </span>
-              </>
-            )}
-          </div>
-
-          {/* Causal claim */}
-          {causalClaim && (
-            <>
-              <div className="border-t border-panel-border my-1.5" />
-              <div className="mb-1">
+          {/* Group 2: Provenance & diagnostics */}
+          <div className="border-t border-panel-border mt-2 pt-2">
+            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Provenance</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              <span className={`${typography.panelMeta} text-text-light`}>Provenance</span>
+              <span className={`${typography.panelMeta} text-text-body text-right`}>
+                {(provenance as string | undefined) ?? 'Not set'}
+              </span>
+              {eValue != null && (
+                <>
+                  <span className={`${typography.panelMeta} text-text-light`}>E-value</span>
+                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    {eValue.toFixed(2)}x
+                  </span>
+                </>
+              )}
+            </div>
+            {causalClaim && (
+              <div className="mt-1">
                 <span className={`${typography.panelMeta} text-text-light`}>Causal claim</span>
                 <p className={`${typography.panelMeta} text-text-body mt-0.5 italic`}>{causalClaim}</p>
               </div>
-            </>
-          )}
-
-          {/* Identity */}
-          <div className="border-t border-panel-border my-1.5" />
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
-              {edgeId}
-            </span>
+            )}
           </div>
 
-          {/* Repairs applied to this edge */}
-          {repairs && repairs.length > 0 && (
-            <div className="mt-2">
-              <div className="border-t border-panel-border my-1.5" />
-              <div className={`${typography.panelMeta} text-text-header font-medium mb-1`}>Repairs applied</div>
-              {repairs.map((r, i) => (
-                <div key={i} className={`${typography.panelMeta} text-text-body`}>
-                  <span className="font-mono">{r.code}</span>
-                  {r.reason && <span className="text-text-light"> {r.reason}</span>}
-                  {r.before != null && r.after != null && (
-                    <span className="text-text-light font-mono"> {String(r.before)} → {String(r.after)}</span>
-                  )}
-                </div>
-              ))}
+          {/* Group 3: Metadata */}
+          <div className="border-t border-panel-border mt-2 pt-2">
+            <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Metadata</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+              <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
+              <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
+                {edgeId}
+              </span>
             </div>
-          )}
+
+            {/* Repairs applied to this edge */}
+            {repairs && repairs.length > 0 && (
+              <div className="mt-2">
+                <div className={`${typography.panelMeta} text-text-light`}>Repairs applied</div>
+                {repairs.map((r, i) => (
+                  <div key={i} className={`${typography.panelMeta} text-text-body`}>
+                    <span className="font-mono">{r.code}</span>
+                    {r.reason && <span className="text-text-light"> {r.reason}</span>}
+                    {r.before != null && r.after != null && (
+                      <span className="text-text-light font-mono"> {String(r.before)} → {String(r.after)}</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>
@@ -656,7 +653,7 @@ function RelationshipsSectionInner({
               <button
                 type="button"
                 onClick={() => setShowAllEdges(true)}
-                className={`${typography.panelMeta} text-text-light hover:text-info transition-colors py-1.5`}
+                className={`${typography.panelMeta} text-text-light hover:text-info transition-colors py-1.5 block`}
                 data-testid="relationships-show-more"
               >
                 + {hiddenCount} more relationships
@@ -670,7 +667,7 @@ function RelationshipsSectionInner({
         <button
           type="button"
           onClick={() => onSendMessage("I'd like to add a causal relationship")}
-          className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
+          className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2 block`}
           data-testid="relationships-add-cta"
         >
           Add a relationship

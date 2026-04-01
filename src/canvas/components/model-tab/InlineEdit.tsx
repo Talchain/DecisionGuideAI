@@ -82,8 +82,16 @@ export function InlineEdit({
   testId,
   tooltip,
 }: InlineEditProps) {
+  const [flashSuccess, setFlashSuccess] = useState(false)
+
+  const wrappedOnSave = useCallback((val: string) => {
+    onSave(val)
+    setFlashSuccess(true)
+    setTimeout(() => setFlashSuccess(false), 600)
+  }, [onSave])
+
   const { editing, draft, invalid, setDraft, startEdit, commit, cancel, handleKeyDown } =
-    useInlineEdit(value, onSave, validate)
+    useInlineEdit(value, wrappedOnSave, validate)
   const inputRef = useRef<HTMLInputElement>(null)
 
   const handleFocus = useCallback(() => {
@@ -105,7 +113,7 @@ export function InlineEdit({
           onKeyDown={handleKeyDown}
           className={`${maxWidth} ${typography.panelBody} text-text-header px-2 py-0.5 rounded-sm border ${
             invalid ? 'border-danger' : 'border-panel-border hover:border-info/30'
-          } bg-panel focus:outline-none focus:ring-1 focus:ring-info/50`}
+          } bg-panel focus:outline-none focus:ring-1 focus:ring-info/50 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none`}
           data-testid={testId}
         />
         {suffix && <span className={`${typography.panelMeta} text-text-light`}>{suffix}</span>}
@@ -119,7 +127,7 @@ export function InlineEdit({
       tabIndex={0}
       onClick={(e) => { e.stopPropagation(); handleFocus() }}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleFocus() }}
-      className="inline-flex items-center gap-0.5 cursor-pointer rounded-md border border-panel-border bg-panel px-2 py-0.5 hover:border-info transition-colors"
+      className={`inline-flex items-center gap-0.5 cursor-pointer rounded-md border ${flashSuccess ? 'border-success' : 'border-panel-border'} bg-panel px-2 py-0.5 hover:border-info transition-colors`}
       title={tooltip ?? 'Click to edit'}
       data-testid={testId ? `${testId}-display` : undefined}
     >
