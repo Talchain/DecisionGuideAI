@@ -88,10 +88,11 @@ export function InspectorCoaching({
     }
   }, [topGuidanceItem, questionText, prefillOrSend])
 
-  // Determine text and action
-  const text = topGuidanceItem?.title
+  // Determine text and action — sanitise em dashes from orchestrator copy
+  const rawText = topGuidanceItem?.title
     ? `${topGuidanceItem.title}${topGuidanceItem.detail ? ` ${topGuidanceItem.detail}` : ''}`
     : fallbackText
+  const text = rawText.replace(/\s*—\s*/g, '. ').replace(/\.{2,}/g, '.')
 
   const guidanceActionLabel = topGuidanceItem
     ? (topGuidanceItem.primary_action.type === 'discuss' ? 'Discuss' : actionLabel)

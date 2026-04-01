@@ -15,17 +15,18 @@ import { typography } from '../../../../styles/typography'
 interface StrengthBand {
   label: string
   midpoint: number
+  /** Lower bound (inclusive) */
+  min: number
+  /** Upper bound (exclusive for all but last band, which is inclusive up to 1.0) */
+  max: number
 }
 
 const BANDS: StrengthBand[] = [
-  { label: 'Slight',      midpoint: 0.10 },
-  { label: 'Moderate',    midpoint: 0.35 },
-  { label: 'Strong',      midpoint: 0.50 },
-  { label: 'Very strong', midpoint: 0.80 },
+  { label: 'Slight',      midpoint: 0.10, min: 0.00, max: 0.20 },
+  { label: 'Moderate',    midpoint: 0.30, min: 0.20, max: 0.40 },
+  { label: 'Strong',      midpoint: 0.55, min: 0.40, max: 0.70 },
+  { label: 'Very strong', midpoint: 0.85, min: 0.70, max: 1.00 },
 ]
-
-/** Tolerance for matching current value to a band midpoint */
-const MATCH_TOLERANCE = 0.05
 
 interface StrengthBandButtonsProps {
   /** Current signed strength value (-1 to +1) */
@@ -43,9 +44,9 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
 
   const activeBandIndex = useMemo(() => {
     for (let i = 0; i < BANDS.length; i++) {
-      if (Math.abs(absMagnitude - BANDS[i].midpoint) <= MATCH_TOLERANCE) {
-        return i
-      }
+      const band = BANDS[i]
+      const inBand = absMagnitude >= band.min && (absMagnitude < band.max || i === BANDS.length - 1)
+      if (inBand) return i
     }
     return -1
   }, [absMagnitude])
@@ -67,7 +68,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             className={`${typography.panelMeta} px-3.5 py-1.5 rounded-full bg-transparent border transition-colors cursor-pointer
               ${isActive
                 ? 'border-primary text-primary font-semibold'
-                : 'border-panel-border text-text-body hover:border-text-light hover:bg-panel-hover'
+                : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'
               }`}
             aria-pressed={isActive}
             data-testid={`strength-band-${band.label.toLowerCase().replace(/\s+/g, '-')}`}

@@ -478,18 +478,17 @@ export const EdgePanel = memo(function EdgePanel({
                   <div className={`${typography.panelBody} font-medium text-danger flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-danger" />
                     Sensitive assumption
-                    {/* T7: Switch probability */}
-                    {fragileEdgeSwitchProb !== null && (
-                      <span className={`${typography.panelMeta} ml-1 text-warning font-mono`}>
-                        {Math.round(fragileEdgeSwitchProb * 100)}% flip risk
-                      </span>
-                    )}
                   </div>
                   <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                    {techMode
-                      ? `If strength changes significantly, the recommendation may flip.${fragileEdgeSwitchProb !== null ? ` switch_probability: ${fragileEdgeSwitchProb.toFixed(2)}` : ''}`
-                      : 'Small changes here could change the recommendation. If this effect weakens significantly, the alternative option may overtake the current leader.'}
+                    {fragileEdgeSwitchProb !== null
+                      ? `If this effect changes, there is a ${Math.round(fragileEdgeSwitchProb * 100)}% chance the recommendation would shift.`
+                      : 'If this effect changes significantly, the recommendation may shift.'}
                   </p>
+                  {techMode && fragileEdgeSwitchProb !== null && (
+                    <p className={`${typography.panelMeta} text-text-light mt-0.5 font-mono`}>
+                      System: switch_probability: {fragileEdgeSwitchProb.toFixed(2)}
+                    </p>
+                  )}
                   {/* E-value: assumption robustness indicator (ISL, gated on presence) */}
                   {edgeEValue != null && (
                     <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>

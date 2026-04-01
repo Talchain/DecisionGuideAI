@@ -11,7 +11,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
-import { SECTION_TITLES, getTypeLabel } from '../inspectorStrings'
+import { SECTION_TITLES } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
@@ -43,13 +43,11 @@ export const RiskPanel = memo(function RiskPanel({
       .map(e => {
         const src = nodes.find(n => n.id === e.source)
         const kind = (src?.type || src?.data?.kind || 'factor') as NodeType
-        const category = src?.data?.category as string | undefined
         return {
           edgeId: e.id,
           nodeId: e.source,
           nodeKind: kind,
           label: String(src?.data?.label ?? e.source),
-          category,
           strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
         }
       })
@@ -101,11 +99,6 @@ export const RiskPanel = memo(function RiskPanel({
               key={conn.edgeId}
               nodeKind={conn.nodeKind}
               label={conn.label}
-              badge={conn.category ? (
-                <span className={`${typography.panelMeta} font-medium px-2 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
-                  {getTypeLabel('factor', conn.category)}
-                </span>
-              ) : undefined}
               strength={conn.strength}
               techMode={techMode}
               onClick={() => onNavigate(conn.nodeId)}

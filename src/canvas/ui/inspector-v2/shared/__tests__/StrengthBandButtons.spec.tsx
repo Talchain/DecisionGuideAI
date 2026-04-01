@@ -17,32 +17,30 @@ describe('StrengthBandButtons', () => {
     expect(buttons[3].textContent).toBe('Very strong')
   })
 
-  it('marks "Strong" as active when value is at its midpoint (0.50)', () => {
+  it('marks "Strong" as active when value is within the strong band (0.50)', () => {
     const { container } = render(<StrengthBandButtons value={0.50} onChange={() => {}} />)
     const strongBtn = container.querySelector('[data-testid="strength-band-strong"]')
     expect(strongBtn?.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('marks "Moderate" as active when value is within tolerance (0.33)', () => {
+  it('marks "Moderate" as active when value is within the moderate band (0.33)', () => {
     const { container } = render(<StrengthBandButtons value={0.33} onChange={() => {}} />)
     const moderateBtn = container.querySelector('[data-testid="strength-band-moderate"]')
     expect(moderateBtn?.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('marks no band as active when value is between bands', () => {
+  it('marks "Moderate" as active when value is at the lower bound of moderate (0.20)', () => {
     const { container } = render(<StrengthBandButtons value={0.20} onChange={() => {}} />)
-    const buttons = container.querySelectorAll('button')
-    buttons.forEach(btn => {
-      expect(btn.getAttribute('aria-pressed')).toBe('false')
-    })
+    const moderateBtn = container.querySelector('[data-testid="strength-band-moderate"]')
+    expect(moderateBtn?.getAttribute('aria-pressed')).toBe('true')
   })
 
-  it('calls onChange with positive midpoint when clicking a band (positive value)', () => {
+  it('calls onChange with correct midpoint when clicking Strong (0.55)', () => {
     const onChange = vi.fn()
     const { container } = render(<StrengthBandButtons value={0.10} onChange={onChange} />)
     const strongBtn = container.querySelector('[data-testid="strength-band-strong"]')
     fireEvent.click(strongBtn!)
-    expect(onChange).toHaveBeenCalledWith(0.50)
+    expect(onChange).toHaveBeenCalledWith(0.55)
   })
 
   it('calls onChange with negative midpoint when current value is negative', () => {
@@ -50,7 +48,7 @@ describe('StrengthBandButtons', () => {
     const { container } = render(<StrengthBandButtons value={-0.10} onChange={onChange} />)
     const strongBtn = container.querySelector('[data-testid="strength-band-strong"]')
     fireEvent.click(strongBtn!)
-    expect(onChange).toHaveBeenCalledWith(-0.50)
+    expect(onChange).toHaveBeenCalledWith(-0.55)
   })
 
   it('preserves negative sign for all band clicks', () => {
@@ -63,6 +61,24 @@ describe('StrengthBandButtons', () => {
 
   it('detects active band from negative values (magnitude match)', () => {
     const { container } = render(<StrengthBandButtons value={-0.80} onChange={() => {}} />)
+    const veryStrongBtn = container.querySelector('[data-testid="strength-band-very-strong"]')
+    expect(veryStrongBtn?.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('marks "Slight" as active when value is 0', () => {
+    const { container } = render(<StrengthBandButtons value={0} onChange={() => {}} />)
+    const slightBtn = container.querySelector('[data-testid="strength-band-slight"]')
+    expect(slightBtn?.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('marks "Strong" as active at the lower boundary of strong (0.40)', () => {
+    const { container } = render(<StrengthBandButtons value={0.40} onChange={() => {}} />)
+    const strongBtn = container.querySelector('[data-testid="strength-band-strong"]')
+    expect(strongBtn?.getAttribute('aria-pressed')).toBe('true')
+  })
+
+  it('marks "Very strong" as active at the lower boundary of very strong (0.70)', () => {
+    const { container } = render(<StrengthBandButtons value={0.70} onChange={() => {}} />)
     const veryStrongBtn = container.querySelector('[data-testid="strength-band-very-strong"]')
     expect(veryStrongBtn?.getAttribute('aria-pressed')).toBe('true')
   })

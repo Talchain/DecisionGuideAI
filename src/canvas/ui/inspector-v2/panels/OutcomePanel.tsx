@@ -10,7 +10,7 @@ import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
-import { SECTION_TITLES, getTypeLabel } from '../inspectorStrings'
+import { SECTION_TITLES } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
@@ -26,6 +26,15 @@ function isOptionComparisonFailed(report: unknown): boolean {
   const r = report as Record<string, unknown> | null
   const status = r?.option_comparison_status as string | undefined
   return status === 'error' || status === 'failed'
+}
+
+/** Check if there is any option comparison data to display */
+function hasOptionComparisonData(report: unknown): boolean {
+  const r = report as Record<string, unknown> | null
+  const status = r?.option_comparison_status as string | undefined
+  if (status === 'pending' || status === 'running') return true
+  const comparisons = r?.option_comparison as unknown[] | undefined
+  return Array.isArray(comparisons) && comparisons.length > 0
 }
 
 // ─── Option comparison sub-component (A.3) ────────────────────────
@@ -53,21 +62,12 @@ function OptionComparisonSection({
   // Failed analysis: hide section
   if (status === 'error' || status === 'failed') return null
 
-  // Not computed or empty
+  // pending/running: outer gate passed this through, show progress state
   if (!comparisons || !Array.isArray(comparisons) || comparisons.length === 0) {
-    if (status === 'pending' || status === 'running') {
-      return (
-        <div className="bg-panel border border-panel-border rounded-lg p-3">
-          <p className={`${typography.panelMeta} text-text-light`}>
-            Analysis in progress...
-          </p>
-        </div>
-      )
-    }
     return (
       <div className="bg-panel border border-panel-border rounded-lg p-3">
         <p className={`${typography.panelMeta} text-text-light`}>
-          No per-option predictions available.
+          Analysis in progress...
         </p>
       </div>
     )
@@ -168,13 +168,11 @@ export const OutcomePanel = memo(function OutcomePanel({
       .map(e => {
         const src = nodes.find(n => n.id === e.source)
         const kind = (src?.type || src?.data?.kind || 'factor') as NodeType
-        const category = src?.data?.category as string | undefined
         return {
           edgeId: e.id,
           nodeId: e.source,
           nodeKind: kind,
           label: String(src?.data?.label ?? e.source),
-          category,
           strength: { weight: e.data?.weight ?? 0, direction: (e.data?.direction ?? 'positive') as 'positive' | 'negative' },
         }
       })
@@ -190,8 +188,8 @@ export const OutcomePanel = memo(function OutcomePanel({
         <p className={`${typography.panelBody} text-text-body mt-3`}>{description}</p>
       )}
 
-      {/* Predicted range by option — hidden entirely when analysis failed */}
-      {!(isResultsMode && isOptionComparisonFailed(resultsReport)) && (
+      {/* Predicted range by option: shown pre-analysis always; post-analysis only when data exists */}
+      {(!isResultsMode || (!isOptionComparisonFailed(resultsReport) && hasOptionComparisonData(resultsReport))) && (
         <>
           <SectionTitle icon={SECTION_TITLES.predictedRange.icon} label={SECTION_TITLES.predictedRange.label} />
           <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
@@ -244,11 +242,6 @@ export const OutcomePanel = memo(function OutcomePanel({
               key={conn.edgeId}
               nodeKind={conn.nodeKind}
               label={conn.label}
-              badge={conn.category ? (
-                <span className={`${typography.panelMeta} font-medium px-2 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
-                  {getTypeLabel('factor', conn.category)}
-                </span>
-              ) : undefined}
               strength={conn.strength}
               techMode={techMode}
               onClick={() => onNavigate(conn.nodeId)}

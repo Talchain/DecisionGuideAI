@@ -81,7 +81,7 @@ describe('OutcomePanel — option comparison section', () => {
     expect(container.textContent).not.toContain('Predicted range by option')
   })
 
-  it('shows fallback message when comparisons array is empty', () => {
+  it('hides entire predicted-range block when comparisons array is empty post-analysis', () => {
     setStoreState({
       results: {
         status: 'complete',
@@ -94,7 +94,9 @@ describe('OutcomePanel — option comparison section', () => {
     const { container } = render(
       <OutcomePanel nodeId="out1" techMode={false} onClose={() => {}} onNavigate={() => {}} />
     )
-    expect(container.textContent).toContain('No per-option predictions available')
+    // Section hides entirely when no data — avoids misleading empty state
+    expect(container.textContent).not.toContain('Predicted range by option')
+    expect(container.textContent).not.toContain('No per-option predictions available')
   })
 
   it('shows pre-analysis prompt when not in results mode', () => {
