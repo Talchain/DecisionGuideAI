@@ -527,7 +527,7 @@ export interface ConfidenceSectionData {
   /** ISL edge_e_values — sensitivity measure per edge */
   edgeEValues?: Array<{ edge_id: string; e_value: number }>
   /** Fragile edges from robustness — for ChallengeSection Model structure subgroup */
-  challengeFragileEdges?: Array<{ edge_id?: string; from_label: string; to_label: string; switch_probability: number }>
+  challengeFragileEdges?: Array<{ edge_id?: string; from_id?: string; from_label: string; to_label: string; switch_probability: number }>
 }
 
 // =============================================================================

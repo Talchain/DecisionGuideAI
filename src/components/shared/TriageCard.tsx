@@ -337,15 +337,7 @@ export function TriageCard(props: TriageCardProps) {
               <span className="flex items-center gap-1"><Pencil size={12} /> Edit</span>
             </button>
           )}
-          {action?.kind === 'set_value' && editorConfig && editorConfig.rawValue != null && (
-            <button
-              type="button"
-              onClick={() => setIsEditing(true)}
-              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
-            >
-              Set value
-            </button>
-          )}
+          {/* "Set value" pill suppressed — inline editor is already visible when editorConfig present */}
           {action?.kind === 'set_value' && onConfirm && action.targetId && editorConfig?.rawValue != null && (
             <button
               type="button"

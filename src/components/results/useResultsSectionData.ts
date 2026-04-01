@@ -2348,6 +2348,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         if (valid.length === 0) return undefined
         return valid.map((fe: any) => ({
           edge_id: fe.edge_id ? String(fe.edge_id) : undefined,
+          from_id: fe.from_id ?? fe.fromId ?? fe.source ?? undefined,
           from_label: String(fe.from_label),
           to_label: String(fe.to_label),
           switch_probability: Number(fe.switch_probability),

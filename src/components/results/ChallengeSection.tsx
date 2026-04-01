@@ -33,6 +33,8 @@ export interface EdgeEValue {
 /** Fragile edge from robustness.fragile_edges */
 export interface ChallengeFragileEdge {
   edge_id?: string
+  /** Canvas node ID of the source factor — used by onFocusNode */
+  from_id?: string
   from_label: string
   to_label: string
   switch_probability: number
@@ -195,26 +197,80 @@ function SubgroupDivider({ label, count }: { label: string; count: number }) {
   )
 }
 
-/* ── Fragile edge card (with optional E-value) ───────────────────────────── */
+/* ── Fragile edge group card (grouped by source, with CTAs) ────────────── */
 
-function FragileEdgeCard({ edge, eValue }: { edge: ChallengeFragileEdge; eValue?: number }) {
+function FragileEdgeGroupCard({
+  sourceLabel,
+  edges,
+  onFocusNode,
+  onSendMessage,
+}: {
+  sourceLabel: string
+  edges: Array<ChallengeFragileEdge & { e_value?: number }>
+  onFocusNode?: (nodeId: string) => void
+  onSendMessage?: (text: string) => void
+}) {
+  const cleanSource = stripEncodingNotation(sourceLabel)
+  const hasEValue = edges.some(e => e.e_value != null)
+  const multiple = edges.length > 1
+  const focusId = edges[0].from_id ?? edges[0].from_label
+
   return (
     <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
       <div className="flex items-center gap-2">
-        <AlertTriangle className={`w-3.5 h-3.5 ${eValue != null ? 'text-danger' : 'text-warning'} flex-shrink-0`} aria-hidden="true" />
+        <AlertTriangle className={`w-3.5 h-3.5 ${hasEValue ? 'text-danger' : 'text-warning'} flex-shrink-0`} aria-hidden="true" />
         <p className={`${typography.panelBody} text-text-body flex-1`}>
-          {eValue != null ? 'Fragile result, verify key assumptions' : 'Fragile relationship'}
+          {multiple
+            ? <>{edges.length} fragile relationships from {cleanSource}</>
+            : hasEValue ? 'Fragile result, verify key assumptions' : 'Fragile relationship'}
         </p>
-        <span className={`rounded-full border ${eValue != null ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
+        <span className={`rounded-full border ${hasEValue ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
           Stability
         </span>
       </div>
-      <p className={`${typography.panelMeta} text-text-light`}>
-        {eValue != null
-          ? <>The relationship {stripEncodingNotation(edge.from_label)} &rarr; {stripEncodingNotation(edge.to_label)} would only need to be {eValue.toFixed(1)}x wrong to flip the recommendation.</>
-          : <>The relationship {stripEncodingNotation(edge.from_label)} &rarr; {stripEncodingNotation(edge.to_label)} is fragile. A shift here could change the recommendation.</>
-        }
-      </p>
+
+      {/* Edge target list */}
+      {edges.map((edge, i) => (
+        <p key={`${edge.from_label}-${edge.to_label}-${i}`} className={`${typography.panelMeta} text-text-light`}>
+          {multiple && <>&rarr; {stripEncodingNotation(edge.to_label)}: </>}
+          {edge.e_value != null
+            ? <>
+                {!multiple && <>{cleanSource} &rarr; {stripEncodingNotation(edge.to_label)}: </>}
+                would only need to be {edge.e_value.toFixed(1)}x wrong to flip the recommendation.
+              </>
+            : <>
+                {!multiple && <>{cleanSource} &rarr; {stripEncodingNotation(edge.to_label)} is fragile. </>}
+                A shift could change the recommendation.
+              </>
+          }
+        </p>
+      ))}
+
+      {/* CTA pills */}
+      <div className="flex items-center gap-1 pt-0.5">
+        {onFocusNode && (
+          <button
+            type="button"
+            onClick={() => onFocusNode(focusId)}
+            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+          >
+            Review in inspector
+          </button>
+        )}
+        {onSendMessage && (
+          <button
+            type="button"
+            onClick={() => onSendMessage(
+              multiple
+                ? `Are the relationships from ${cleanSource} reliable? It has ${edges.length} fragile connections.`
+                : `Is the relationship between ${cleanSource} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
+            )}
+            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+          >
+            Discuss with AI
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -243,7 +299,13 @@ function RootNodeWarningCard({ warning }: { warning: ChallengeInferenceWarning }
 
 /* ── Generic inference warning card (Scientific notes) ────────────────────── */
 
-function InferenceWarningCard({ warning }: { warning: ChallengeInferenceWarning }) {
+function InferenceWarningCard({
+  warning,
+  onSendMessage,
+}: {
+  warning: ChallengeInferenceWarning
+  onSendMessage?: (text: string) => void
+}) {
   const message = warning.message ?? `Inference warning: ${warning.code}`
   return (
     <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
@@ -256,16 +318,26 @@ function InferenceWarningCard({ warning }: { warning: ChallengeInferenceWarning 
           Scientific
         </span>
       </div>
-      <p className={`${typography.panelMeta} text-info`}>
-        &#9678; Discuss with AI
-      </p>
+      {onSendMessage ? (
+        <button
+          type="button"
+          onClick={() => onSendMessage(`Can you explain this inference warning: ${message}`)}
+          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+        >
+          Discuss with AI
+        </button>
+      ) : (
+        <p className={`${typography.panelMeta} text-info`}>
+          &#9678; Discuss with AI
+        </p>
+      )}
     </div>
   )
 }
 
 /* ── Identifiability card ─────────────────────────────────────────────────── */
 
-function IdentifiabilityCard() {
+function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string) => void }) {
   return (
     <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
       <div className="flex items-center gap-2">
@@ -280,6 +352,15 @@ function IdentifiabilityCard() {
       <p className={`${typography.panelMeta} text-text-light`}>
         Does this inadvertently anchor expectations? Consider setting an observed baseline.
       </p>
+      {onSendMessage && (
+        <button
+          type="button"
+          onClick={() => onSendMessage('What baseline should I use for the success target? The current one is a default.')}
+          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+        >
+          Explore this
+        </button>
+      )}
     </div>
   )
 }
@@ -339,17 +420,16 @@ export function ChallengeSection({
           <SubgroupDivider label="Model structure" count={modelStructureCount} />
           {/* Fragile edges grouped by source node */}
           {Object.entries(fragileBySource).map(([sourceLabel, cards]) => (
-            <div key={sourceLabel} className="space-y-1">
-              {cards.length > 1 && (
-                <p className={`${typography.panelMeta} text-text-light px-1`}>From: {stripEncodingNotation(sourceLabel)}</p>
-              )}
-              {cards.map((card, i) => (
-                <FragileEdgeCard key={`fragile-${card.from_label}-${card.to_label}-${i}`} edge={card} eValue={card.e_value} />
-              ))}
-            </div>
+            <FragileEdgeGroupCard
+              key={`fragile-group-${sourceLabel}`}
+              sourceLabel={sourceLabel}
+              edges={cards}
+              onFocusNode={onFocusNode}
+              onSendMessage={onSendMessage}
+            />
           ))}
           {rootWarnings.map((warning, i) => (
-            <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} />
+            <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} onSendMessage={onSendMessage} />
           ))}
         </div>
       )}
@@ -428,9 +508,9 @@ export function ChallengeSection({
         <div className="space-y-2">
           <SubgroupDivider label="Scientific notes" count={scientificNotesCount} />
           {otherWarnings.map((warning, i) => (
-            <InferenceWarningCard key={`warn-${warning.code}-${i}`} warning={warning} />
+            <InferenceWarningCard key={`warn-${warning.code}-${i}`} warning={warning} onSendMessage={onSendMessage} />
           ))}
-          {hasIdentifiability && <IdentifiabilityCard />}
+          {hasIdentifiability && <IdentifiabilityCard onSendMessage={onSendMessage} />}
         </div>
       )}
     </div>

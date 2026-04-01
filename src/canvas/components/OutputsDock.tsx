@@ -648,7 +648,10 @@ export function OutputsDock() {
     setCeeAnalysisReady(null)
   }, [])
 
-  // Node value lookup for pre-filling triage card editors with current observed values
+  // Node value lookup for pre-filling triage card editors with current observed values.
+  // Keyed by canvas numeric ID AND by node label (normalised to fac_ snake_case) so that
+  // semantic IDs from PLoT evidence gaps (e.g. "fac_current_mrr") can also resolve.
+  // Heuristic fallback — remove when PLoT guarantees target_node_id on all evidence gaps.
   const nodeValueLookup = useMemo(() => {
     const lookup: Record<string, { value: number | null; unit: string | null; cap: number | null }> = {}
     for (const n of nodes) {
@@ -656,10 +659,19 @@ export function OutputsDock() {
       const obs = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
       const raw = obs?.raw_value as number | undefined
       const val = obs?.value as number | undefined
-      lookup[n.id] = {
+      const entry = {
         value: raw ?? val ?? null,
         unit: (obs?.unit as string | undefined) ?? null,
         cap: (obs?.cap as number | undefined) ?? null,
+      }
+      lookup[n.id] = entry
+      // Secondary key: derive fac_ snake_case ID from label so PLoT semantic IDs match
+      const label = nd?.label as string | undefined
+      if (label) {
+        const facKey = 'fac_' + label.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/_+$/, '')
+        if (!lookup[facKey]) lookup[facKey] = entry
+        // Also index by raw label for direct label matches
+        if (!lookup[label]) lookup[label] = entry
       }
     }
     return lookup
@@ -1503,6 +1515,8 @@ export function OutputsDock() {
                 factorInfluence={factorInfluenceMap}
                 onReanalyse={handleRunAnalysis}
                 ceeQuality={ceeQuality}
+                expertMode={expertMode}
+                onSendMessage={sendMessage}
               />
             )}
             {state.activeTab === 'journey' && (

@@ -196,7 +196,7 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
 
 // ── Section 2: Result checks ────────────────────────────────────────────────
 
-function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
+function ResultChecks({ data, onFocusNode }: { data: ResultsSectionDataReturn; onFocusNode?: (nodeId: string) => void }) {
   const rec = data.recommendation
   const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
 
@@ -223,6 +223,18 @@ function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
             If <strong>{fragile.fromLabel}</strong> shifts,{' '}
             <strong>{fragile.alternativeWinnerLabel}</strong> could overtake
             {switchPct != null && ` (${switchPct}% probability)`}.
+            {onFocusNode && fragile.fromId && (
+              <>
+                {' '}
+                <button
+                  type="button"
+                  onClick={() => onFocusNode(fragile.fromId)}
+                  className="text-info hover:underline cursor-pointer"
+                >
+                  Validate {stripEncodingNotation(fragile.fromLabel)}
+                </button>
+              </>
+            )}
           </p>
         </div>
       )}
@@ -459,7 +471,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       />
 
       {/* 2. Result checks — target probabilities + fragility condition */}
-      <ResultChecks data={data} />
+      <ResultChecks data={data} onFocusNode={onFocusNode} />
 
       {/* 3. Trust summary + item count */}
       <TrustSummary actionCount={top3.length} />
@@ -468,33 +480,25 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       {top3.length > 0 && (
         <div className="flex flex-col gap-1.5">
           {top3.map((item, i) => (
-            <div key={item.key}>
-              <TriageCard
-                cardKey={item.key}
-                ordinal={i + 1}
-                title={item.title}
-                detail={item.detail}
-                subtitle={item.subtitle}
-                category={item.category}
-                influence={item.influence}
-                evoiImpact={item.evoiImpact}
-                action={item.action}
-                editorConfig={item.editorConfig}
-                sourcePill={item.sourcePill}
-                onConfirm={onConfirm}
-                onEdit={onFocusNode}
-                onSendMessage={onSendMessage}
-                onHoverEnter={onHoverEnter}
-                onHoverLeave={onHoverLeave}
-              />
-              {expertMode && (item.influence != null || item.evoiImpact != null) && (
-                <p className={`${typography.panelMeta} text-text-light px-2.5 pt-0.5`}>
-                  {item.evoiImpact != null && `VOI: ${item.evoiImpact.toFixed(1)}pp`}
-                  {item.evoiImpact != null && item.influence != null && ' · '}
-                  {item.influence != null && `influence: ${Math.round(item.influence * 100)}%`}
-                </p>
-              )}
-            </div>
+            <TriageCard
+              key={item.key}
+              cardKey={item.key}
+              ordinal={i + 1}
+              title={item.title}
+              detail={item.detail}
+              subtitle={item.subtitle}
+              category={item.category}
+              influence={item.influence}
+              evoiImpact={item.evoiImpact}
+              action={item.action}
+              editorConfig={item.editorConfig}
+              sourcePill={item.sourcePill}
+              onConfirm={onConfirm}
+              onEdit={onFocusNode}
+              onSendMessage={onSendMessage}
+              onHoverEnter={onHoverEnter}
+              onHoverLeave={onHoverLeave}
+            />
           ))}
         </div>
       )}

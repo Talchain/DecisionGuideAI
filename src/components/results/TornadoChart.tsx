@@ -463,7 +463,7 @@ export function TornadoChart({
                 />
               )}
               {/* Label */}
-              <div className="min-w-[100px] w-[150px] flex-shrink-0 text-right">
+              <div className="min-w-[100px] w-[150px] flex-shrink-0 text-right pr-1.5">
                 {row.canFocus ? (
                   <button
                     type="button"

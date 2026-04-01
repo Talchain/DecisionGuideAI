@@ -296,7 +296,7 @@ function OptionCard({
         {rank != null && totalOptions > 1 && (
           <Tooltip content={`Win probability ranking across ${totalOptions} scenarios`}>
             <span
-              className={`${typography.panelBody} font-semibold text-text-light flex-shrink-0`}
+              className={`${typography.panelBody} font-semibold text-text-light flex-shrink-0 whitespace-nowrap`}
               data-testid={`rank-badge-${option.id}`}
             >
               {neutralised && option.winProbability != null
