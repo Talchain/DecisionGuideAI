@@ -227,7 +227,7 @@ export function backfillInterventionsOntoOptionNodes(
   let needsUpdate = false
 
   const updatedNodes = currentNodes.map((n) => {
-    if (n.data?.kind !== 'option') return n
+    if (n.data?.kind !== 'option' && n.data?.type !== 'option') return n
     const optEntry = analysisReady.options!.find((o) => o.id === n.id)
     if (!optEntry?.interventions || Object.keys(optEntry.interventions).length === 0) return n
 
