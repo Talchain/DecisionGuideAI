@@ -24,7 +24,7 @@ export interface DecisionHealthRingDimensions {
 interface DecisionHealthRingProps {
   /** Four 0-1 dimension values */
   dimensions: DecisionHealthRingDimensions
-  /** Ring diameter in px (default 54) */
+  /** Ring diameter in px (default 64) */
   size?: number
   /** Centre label below the score (default "ready") */
   centerLabel?: string

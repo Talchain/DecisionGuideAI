@@ -65,7 +65,7 @@ function fallbackDescription(option: OptionResult, totalOptions: number): string
 
 /**
  * V11: Hinge-aware description for option cards.
- * Replaces fallbackDescription when decisionState is available.
+ * Used when decisionState is available OR when win probability data exists.
  * Task 9: Specific text using flip data and win probability gap.
  */
 function hingeAwareDescription(
@@ -94,8 +94,9 @@ function hingeAwareDescription(
       if (gapPct > 0) {
         return `Behind by ${gapPct} percentage point${gapPct === 1 ? '' : 's'}`
       }
+      return 'Statistically tied with the leading option'
     }
-    return 'Second highest win likelihood'
+    return 'Close competitor'
   }
   // Task 9: Status quo / baseline — specific copy
   if (option.isBaseline) {
@@ -107,8 +108,9 @@ function hingeAwareDescription(
     if (gapPct > 0) {
       return `Behind by ${gapPct} percentage point${gapPct === 1 ? '' : 's'}`
     }
+    return 'Statistically tied with the leading option'
   }
-  return 'Lower win likelihood'
+  return 'Compare against the leading option'
 }
 
 /** Horizontal bar segment for stat rows */
@@ -549,14 +551,18 @@ export function OptionCards({
         const isRunnerUp = option.id === runnerId
         const headline = storyHeadlines?.[option.id]
 
-        // V11.2 Fix 2: VM hinge-aware descriptions take priority when decisionState available
-        // Arrow characters stripped from story headlines (scoped to option card descriptions)
+        // V11.2 Fix 2: VM hinge-aware descriptions take priority when decisionState available.
+        // When decisionState is absent (e.g. non-neutral risk appetite), still use
+        // hingeAwareDescription over fallbackDescription if win probabilities exist —
+        // keeps gap-based specificity. Story headlines still take priority when present.
         const winnerOpt = options.find(o => o.id === winnerId)
         const description = decisionState
           ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
           : headline
             ? headline
-            : fallbackDescription(option, options.length)
+            : (winnerOpt?.winProbability != null || option.winProbability != null)
+              ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
+              : fallbackDescription(option, options.length)
 
         // Ordinal border class: index-derived from same palette as WinGauge segment
         const segmentBorderClass = segmentBorderClassMap[option.id] ?? 'border-panel-border'
