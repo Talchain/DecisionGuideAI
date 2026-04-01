@@ -644,13 +644,17 @@ export function OutputsDock() {
 
   // Node value lookup for pre-filling triage card editors with current observed values
   const nodeValueLookup = useMemo(() => {
-    const lookup: Record<string, number | null> = {}
+    const lookup: Record<string, { value: number | null; unit: string | null; cap: number | null }> = {}
     for (const n of nodes) {
       const nd = n.data as Record<string, unknown>
       const obs = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
       const raw = obs?.raw_value as number | undefined
       const val = obs?.value as number | undefined
-      lookup[n.id] = raw ?? val ?? null
+      lookup[n.id] = {
+        value: raw ?? val ?? null,
+        unit: (obs?.unit as string | undefined) ?? null,
+        cap: (obs?.cap as number | undefined) ?? null,
+      }
     }
     return lookup
   }, [nodes])

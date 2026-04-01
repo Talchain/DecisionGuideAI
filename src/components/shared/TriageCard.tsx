@@ -346,7 +346,7 @@ export function TriageCard(props: TriageCardProps) {
               Set value
             </button>
           )}
-          {action?.kind === 'set_value' && onConfirm && action.targetId && (
+          {action?.kind === 'set_value' && onConfirm && action.targetId && editorConfig?.rawValue != null && (
             <button
               type="button"
               onClick={() => onConfirm(action.targetId!)}

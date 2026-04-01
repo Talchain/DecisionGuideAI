@@ -46,8 +46,8 @@ interface DecisionConfidencePanelProps {
   onSendMessage?: (text: string) => void
   /** Show influence/EVOI metrics on triage cards */
   expertMode?: boolean
-  /** Lookup: factor node ID → current observed value (for pre-filling triage card editors) */
-  nodeValueLookup?: Record<string, number | null>
+  /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
+  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null }>
 }
 
 // ── Dimension computation (same 4 labels as pre-analysis) ───────────────────
@@ -130,12 +130,15 @@ function getSourcePill(confidence: number): { label: string; borderClass: string
 function mapEvidenceGapsToActions(
   data: ResultsSectionDataReturn,
   onSetValue?: (nodeId: string, rawValue: number) => void,
-  nodeValueLookup?: Record<string, number | null>,
+  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null }>,
 ): MappedActionItem[] {
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   return gaps.map((gap, i) => {
     const targetId = gap.targetNodeId ?? gap.factorId
-    const currentValue = nodeValueLookup?.[targetId] ?? nodeValueLookup?.[gap.factorId] ?? null
+    const nodeMeta = nodeValueLookup?.[targetId] ?? nodeValueLookup?.[gap.factorId] ?? null
+    const currentValue = nodeMeta?.value ?? null
+    const currentUnit = nodeMeta?.unit ?? null
+    const currentCap = nodeMeta?.cap ?? null
     const subtitle = gap.confidence <= 0
       ? 'No value set. Even a rough estimate helps.'
       : gap.confidence < 40
@@ -159,8 +162,8 @@ function mapEvidenceGapsToActions(
       editorConfig: onSetValue ? {
         kind: 'factor' as const,
         rawValue: currentValue,
-        cap: null,
-        unit: null,
+        cap: currentCap,
+        unit: currentUnit,
         onSave: (rawValue: number) => onSetValue(targetId, rawValue),
         onCancel: () => {},
       } : null,

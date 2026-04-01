@@ -88,8 +88,8 @@ export interface ResultsBodyProps {
   onSetFactorValue?: (nodeId: string, rawValue: number) => void
   /** Whether expert mode is active (shows technical details) */
   expertMode?: boolean
-  /** Lookup: factor node ID → current observed value (for pre-filling triage card editors) */
-  nodeValueLookup?: Record<string, number | null>
+  /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
+  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null }>
 }
 
 export const ResultsBody = memo(function ResultsBody({

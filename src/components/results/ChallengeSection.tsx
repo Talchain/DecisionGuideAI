@@ -187,7 +187,7 @@ function ChallengeCard({
 function SubgroupDivider({ label, count }: { label: string; count: number }) {
   return (
     <div className="flex items-center gap-2 mt-1">
-      <span className="text-[10px] font-semibold text-text-light whitespace-nowrap">
+      <span className={`${typography.panelMeta} font-semibold text-text-light whitespace-nowrap`}>
         {label} ({count})
       </span>
       <div className="flex-1 h-px bg-panel-border" />
@@ -205,7 +205,7 @@ function FragileEdgeCard({ edge, eValue }: { edge: ChallengeFragileEdge; eValue?
         <p className={`${typography.panelBody} text-text-body flex-1`}>
           {eValue != null ? 'Fragile result, verify key assumptions' : 'Fragile relationship'}
         </p>
-        <span className={`rounded-full border ${eValue != null ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none`}>
+        <span className={`rounded-full border ${eValue != null ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
           Stability
         </span>
       </div>
@@ -230,7 +230,7 @@ function RootNodeWarningCard({ warning }: { warning: ChallengeInferenceWarning }
         <p className={`${typography.panelBody} text-text-body flex-1`}>
           Root node using default value
         </p>
-        <span className="rounded-full border border-danger/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+        <span className={`rounded-full border border-danger/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
           Validity
         </span>
       </div>
@@ -252,7 +252,7 @@ function InferenceWarningCard({ warning }: { warning: ChallengeInferenceWarning 
         <p className={`${typography.panelBody} text-text-body flex-1`}>
           {message}
         </p>
-        <span className="rounded-full border border-info/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+        <span className={`rounded-full border border-info/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
           Scientific
         </span>
       </div>
@@ -273,7 +273,7 @@ function IdentifiabilityCard() {
         <p className={`${typography.panelBody} text-text-body flex-1`}>
           The success target relies on a default baseline
         </p>
-        <span className="rounded-full border border-info/30 bg-transparent px-2 py-0.5 text-[10px] font-medium text-text-body leading-none">
+        <span className={`rounded-full border border-info/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
           Validity
         </span>
       </div>
