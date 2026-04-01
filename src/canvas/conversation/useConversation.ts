@@ -1506,6 +1506,21 @@ export function useConversation(): UseConversationReturn {
 
   const handleEnvelope = useCallback(
     (envelope: OrchestratorResponseEnvelopeV2, requestId?: string) => {
+      // Silent system event routing: CEE may mark system event responses as silent.
+      // Process blocks (structural data) but skip message storage and history.
+      const turnPlan = (envelope as Record<string, unknown>).turn_plan as Record<string, unknown> | undefined
+      if (turnPlan?.routing === 'system_event_silent') {
+        console.warn('[handleEnvelope] Silent system event — skipping message storage', {
+          turnId: envelope.client_turn_id ?? null,
+        })
+        if (streamingMsgIdRef.current) {
+          updateMessage(streamingMsgIdRef.current, {
+            content: '', isStreaming: false, toolLoadingState: null, synthetic: true,
+          })
+        }
+        return
+      }
+
       // Defensive validation: repair incomplete CEE responses before processing.
       // Non-mutating — original envelope preserved; cleaned copy used below.
       const rawEnvelope = envelope
@@ -1958,34 +1973,30 @@ export function useConversation(): UseConversationReturn {
       // One factor per turn — take only the highest-priority match (lowest number).
       const baseRateChips = extractBaseRateChipSet(envelope.guidance_items)
 
-      // Guard 1: skip empty assistant messages (no visible content and no blocks)
+      // Guard: skip or filter non-conversational assistant turns.
+      // Covers empty responses, error fallback text, system sentinels.
       const hasContent = assistantText.trim().length > 0
       const hasBlocks = orderedBlocks.length > 0
-      if (!hasContent && !hasBlocks) return
+      const shouldFilter = !hasContent || isNonConversationalContent(assistantText)
 
-      // Guard 2: filter error/fallback/system text from conversation history.
-      // When text is non-conversational and there are no blocks, skip entirely.
-      // When there ARE blocks, store the blocks but clear the non-conversational text
-      // so it doesn't pollute conversation_history.
-      if (isNonConversationalContent(assistantText)) {
-        if (!hasBlocks) {
-          if (import.meta.env.DEV) {
-            console.warn('[handleEnvelope] Filtered non-conversational turn from history', {
-              turnId: envelope.client_turn_id,
-              preview: assistantText.slice(0, 80),
-            })
-          }
-          // If a streaming placeholder exists, remove it cleanly
-          if (streamingMsgIdRef.current) {
-            updateMessage(streamingMsgIdRef.current, {
-              content: '',
-              isStreaming: false,
-              toolLoadingState: null,
-              synthetic: true, // marks as non-displayable
-            })
-          }
-          return
+      if (shouldFilter && !hasBlocks) {
+        // Nothing to display — clean up streaming placeholder and return
+        console.warn('[handleEnvelope] Filtered non-conversational turn from history', {
+          turnId: envelope.client_turn_id ?? null,
+          reason: !hasContent ? 'empty' : 'non_conversational',
+          preview: assistantText.slice(0, 80) || '(empty)',
+        })
+        if (streamingMsgIdRef.current) {
+          updateMessage(streamingMsgIdRef.current, {
+            content: '',
+            isStreaming: false,
+            toolLoadingState: null,
+            synthetic: true,
+          })
         }
+        return
+      }
+      if (shouldFilter && hasBlocks) {
         // Has blocks but non-conversational text — keep blocks, clear text
         assistantText = ''
       }

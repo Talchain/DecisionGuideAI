@@ -148,4 +148,37 @@ describe('buildHistory — retroactive guards', () => {
     expect(history).toHaveLength(1)
     expect(history[0].role).toBe('user')
   })
+
+  it('system event response with error followed by real turn — history is clean', () => {
+    const msgs = [
+      makeMsg('user', 'Build a model for hiring'),
+      makeMsg('assistant', 'Here is your decision model.'),
+      // System event (graph edit) triggers a turn
+      makeMsg('user', SYSTEM_MESSAGE_SENTINEL),
+      // CEE returns error for system event
+      makeMsg('assistant', "I received your message but couldn't generate a complete response. Try rephrasing."),
+      // User asks a real question
+      makeMsg('user', 'What are the key factors?'),
+      makeMsg('assistant', 'The key factors are cost, timeline, and skill availability.'),
+    ]
+    const history = buildHistory(msgs, 5)
+    // Only real conversational turns survive
+    expect(history).toEqual([
+      { role: 'user', content: 'Build a model for hiring' },
+      { role: 'assistant', content: 'Here is your decision model.' },
+      { role: 'user', content: 'What are the key factors?' },
+      { role: 'assistant', content: 'The key factors are cost, timeline, and skill availability.' },
+    ])
+  })
+
+  it('consecutive error assistant turns are both filtered', () => {
+    const msgs = [
+      makeMsg('user', 'Generate model'),
+      makeMsg('assistant', "I received your message but couldn't generate a complete response. Try rephrasing."),
+      makeMsg('assistant', "I'm ready to help with your decision."),
+    ]
+    const history = buildHistory(msgs, 5)
+    expect(history).toHaveLength(1)
+    expect(history[0]).toEqual({ role: 'user', content: 'Generate model' })
+  })
 })
