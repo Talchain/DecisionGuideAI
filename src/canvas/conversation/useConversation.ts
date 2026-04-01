@@ -938,8 +938,8 @@ export interface PatchRejectionInfo {
   violations?: string[]
 }
 
-/** Deterministic action_type → turn type mapping. Falls back to 'conversation' for unknown actions. */
-const ACTION_TO_TURN_TYPE: Record<string, Exclude<TurnType, 'system_event'>> = {
+/** Deterministic action_type → turn type mapping. Falls back to 'conversation' for unknown actions. Exported for tests. */
+export const ACTION_TO_TURN_TYPE: Record<string, Exclude<TurnType, 'system_event'>> = {
   run_analysis: 'run_analysis',
   explain_result: 'explain',
   compare_options: 'explain',
@@ -2688,9 +2688,17 @@ export function useConversation(): UseConversationReturn {
         ? { action_type: opts.action_type, ...(opts.parameters ? { parameters: opts.parameters } : {}) }
         : undefined
 
-      // Resolve turn type from explicit action_type, fall back to conversation
-      const turnType: Exclude<TurnType, 'system_event'> =
-        (opts.action_type && ACTION_TO_TURN_TYPE[opts.action_type]) || 'conversation'
+      // Resolve turn type: deterministic map first, then keyword heuristic for legacy chips
+      let turnType: Exclude<TurnType, 'system_event'> = 'conversation'
+      if (opts.action_type && ACTION_TO_TURN_TYPE[opts.action_type]) {
+        turnType = ACTION_TO_TURN_TYPE[opts.action_type]
+      } else if (!opts.action_type) {
+        // Legacy fallback: scan label/message for routing keywords
+        const token = `${opts.label} ${opts.message}`.toLowerCase()
+        if (token.includes('clarif')) turnType = 'clarification_response'
+        else if (token.includes('explain') || token.includes('why')) turnType = 'explain'
+        else if (token.includes('patch') || token.includes('proposal')) turnType = 'patch_followup'
+      }
 
       await sendTurn({
         message: opts.message,

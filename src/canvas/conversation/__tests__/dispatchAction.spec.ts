@@ -2,13 +2,13 @@
  * dispatchAction — unified pill routing tests
  *
  * Tests:
- * 1. ACTION_TO_TURN_TYPE deterministic mapping
+ * 1. ACTION_TO_TURN_TYPE deterministic mapping against expected values
  * 2. extractBaseRateChipSet populates factorId from target_object.id
  * 3. BASE_RATE_VALUES numeric mapping
  */
 
 import { describe, it, expect } from 'vitest'
-import { extractBaseRateChipSet } from '../useConversation'
+import { extractBaseRateChipSet, ACTION_TO_TURN_TYPE } from '../useConversation'
 import type { GuidanceItem } from '../../stores/guidanceStore'
 
 // ---------------------------------------------------------------------------
@@ -16,8 +16,6 @@ import type { GuidanceItem } from '../../stores/guidanceStore'
 // ---------------------------------------------------------------------------
 
 describe('ACTION_TO_TURN_TYPE mapping', () => {
-  // These values are verified by the TypeScript compiler at the definition site.
-  // This test documents the expected mapping for regression detection.
   const expectedMappings: Record<string, string> = {
     run_analysis: 'run_analysis',
     explain_result: 'explain',
@@ -38,14 +36,19 @@ describe('ACTION_TO_TURN_TYPE mapping', () => {
   it.each(Object.entries(expectedMappings))(
     '%s → %s',
     (actionType, expectedTurnType) => {
-      // Import the actual map to verify
-      // Since ACTION_TO_TURN_TYPE is module-scoped and not exported,
-      // we verify the mapping through the spec's expected values.
-      // The real verification is in the integration test below.
-      expect(expectedTurnType).toBeTruthy()
-      expect(actionType).toBeTruthy()
+      expect(ACTION_TO_TURN_TYPE[actionType]).toBe(expectedTurnType)
     },
   )
+
+  it('returns undefined for unknown action types (fallback to conversation happens at call site)', () => {
+    expect(ACTION_TO_TURN_TYPE['nonexistent_action']).toBeUndefined()
+  })
+
+  it('contains all expected action types', () => {
+    expect(Object.keys(ACTION_TO_TURN_TYPE).sort()).toEqual(
+      Object.keys(expectedMappings).sort(),
+    )
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -56,7 +59,7 @@ describe('extractBaseRateChipSet — factorId population', () => {
   const makeGuidanceItem = (overrides?: Partial<GuidanceItem>): GuidanceItem => ({
     item_id: 'guid-1',
     signal_code: 'MISSING_BASE_RATE',
-    category: 'data_quality',
+    category: 'should_fix',
     priority: 1,
     title: 'Missing base rate',
     primary_action: { type: 'discuss', prompt: 'test' },

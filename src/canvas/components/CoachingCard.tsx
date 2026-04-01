@@ -35,6 +35,9 @@ export const CoachingCard = memo(({
   const handleChipAction = useCallback((chip: CoachingCardChip) => {
     const dispatch = useGuidanceStore.getState()._dispatchAction
     if (dispatch) {
+      if (import.meta.env.DEV && !chip.action_type) {
+        console.warn('[CoachingCard] Chip dispatched without action_type — legacy chip needs migration:', chip.label)
+      }
       dispatch({
         action_type: chip.action_type,
         parameters: chip.parameters,

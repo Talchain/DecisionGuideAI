@@ -55,7 +55,8 @@ export const BaseRateChipRow = memo(function BaseRateChipRow({
 
       const dispatch = useGuidanceStore.getState()._dispatchAction
       const numericValue = BASE_RATE_VALUES[chip.message]
-      if (dispatch && numericValue != null) {
+      if (dispatch && numericValue != null && chipSet.factorId) {
+        // Known factor + known value → deterministic set_factor_value
         dispatch({
           action_type: 'set_factor_value',
           parameters: {
@@ -66,8 +67,8 @@ export const BaseRateChipRow = memo(function BaseRateChipRow({
           message: chip.message,
           source: 'base_rate',
         })
-      } else if (dispatch && numericValue == null) {
-        // "Not sure" — send as conversation turn without action_type
+      } else if (dispatch) {
+        // "Not sure" or missing factorId → conversation turn without action_type
         dispatch({
           label: chip.label,
           message: chip.message,
