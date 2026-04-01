@@ -179,6 +179,41 @@ describe('extractOptionsFromNodes', () => {
 
     expect(options).toHaveLength(0)
   })
+
+  // Regression: rerun fallback path produces valid payload when ceeAnalysisReady is null
+  // but node.data.interventions was backfilled from the prior ceeAnalysisReady.
+  it('produces valid interventions from backfilled node.data.interventions (rerun fallback path)', () => {
+    // Simulates state after: (1) ceeAnalysisReady was set, (2) backfill ran, (3) ceeAnalysisReady was cleared
+    const nodes: Node[] = [
+      makeNode('opt_a', {
+        kind: 'option',
+        label: 'Option A',
+        interventions: {
+          fac_tech_lead: { value: 1, source: 'cee_hypothesis', target_match: { node_id: 'fac_tech_lead', match_type: 'exact_id', confidence: 'high' } },
+          fac_dev_cap: { value: 0.33, source: 'cee_hypothesis', target_match: { node_id: 'fac_dev_cap', match_type: 'exact_id', confidence: 'high' } },
+        },
+      }),
+      makeNode('opt_b', {
+        kind: 'option',
+        label: 'Option B',
+        interventions: {
+          fac_dev_cap: { value: 0.67, source: 'cee_hypothesis', target_match: { node_id: 'fac_dev_cap', match_type: 'exact_id', confidence: 'high' } },
+        },
+      }),
+      makeNode('fac_tech_lead', { kind: 'factor', label: 'Tech Lead' }),
+      makeNode('fac_dev_cap', { kind: 'factor', label: 'Dev Capacity' }),
+    ]
+    const validIds = new Set(['opt_a', 'opt_b', 'fac_tech_lead', 'fac_dev_cap'])
+
+    const options = extractOptionsFromNodes(nodes, validIds)
+
+    expect(options).toHaveLength(2)
+    expect(options[0].status).toBe('ready')
+    expect(Object.keys(options[0].interventions)).toContain('fac_tech_lead')
+    expect(Object.keys(options[0].interventions)).toContain('fac_dev_cap')
+    expect(options[1].status).toBe('ready')
+    expect(Object.keys(options[1].interventions)).toContain('fac_dev_cap')
+  })
 })
 
 // ============================================================================

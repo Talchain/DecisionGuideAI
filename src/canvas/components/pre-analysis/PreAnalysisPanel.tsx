@@ -418,7 +418,7 @@ export function PreAnalysisPanel({
 
   // Inline value edit — update factor observed state with user-provided raw value
   const handleInlineEditValue = useCallback((nodeId: string, rawValue: number, cap: number | null) => {
-    const { nodes, updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
+    const { nodes, updateNode } = useCanvasStore.getState()
     const node = nodes.find(n => n.id === nodeId)
     if (!node) return
 
@@ -430,7 +430,8 @@ export function PreAnalysisPanel({
         source: 'user_override',
       }),
     })
-    setCeeAnalysisReady(null)
+    // Parametric edit — observed state is read from graph nodes at request build time,
+    // not from ceeAnalysisReady. Option intervention mappings remain valid.
   }, [])
 
   // Edge strength quick-select — update edge weight via canonical updateEdgeData (clamps [0,2])

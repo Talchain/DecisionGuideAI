@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { applyDraftResult } from '../applyDraftResult'
+import { applyDraftResult, backfillInterventionsOntoOptionNodes } from '../applyDraftResult'
 
 // Mock canvas store
 const mockPushHistory = vi.fn()
@@ -302,6 +302,29 @@ describe('applyDraftResult', () => {
     expect(mockSetCeeAnalysisReady).toHaveBeenCalled()
 
     // Option node should have interventions backfilled
+    const optionNode = storeNodes.find((n: any) => n.id === 'o1')
+    expect(optionNode).toBeDefined()
+    expect(optionNode.data.interventions).toEqual(interventions)
+    expect(optionNode.data.interventionKeys).toEqual(['f1'])
+  })
+
+  // Regression: backfill must use data.kind guard, not n.type.
+  // Canvas option nodes created from CEE drafts have type='option' on the RF node,
+  // but nodes coming through other paths may have type='default' with data.kind='option'.
+  it('backfills interventions onto option nodes with type="default" and data.kind="option"', () => {
+    const interventions = { f1: { value: 0.8, source: 'cee_hypothesis' } }
+
+    // Simulate a store that already has a node with type='default' but data.kind='option'
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: 'o1', type: 'default', data: { kind: 'option', label: 'Option A' }, position: { x: 100, y: 0 } },
+      { id: 'f1', type: 'default', data: { kind: 'factor', label: 'Price' }, position: { x: 200, y: 0 } },
+    ]
+
+    backfillInterventionsOntoOptionNodes({
+      options: [{ id: 'o1', interventions }],
+    })
+
     const optionNode = storeNodes.find((n: any) => n.id === 'o1')
     expect(optionNode).toBeDefined()
     expect(optionNode.data.interventions).toEqual(interventions)

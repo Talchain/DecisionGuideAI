@@ -631,7 +631,7 @@ export function OutputsDock() {
   }, [])
 
   const handleTriageSetValue = useCallback((nodeId: string, rawValue: number) => {
-    const { nodes, updateNode, setCeeAnalysisReady } = useCanvasStore.getState()
+    const { nodes, updateNode } = useCanvasStore.getState()
     const node = nodes.find((n: { id: string }) => n.id === nodeId)
     if (!node) return
     const nd = node.data as Record<string, unknown>
@@ -645,7 +645,8 @@ export function OutputsDock() {
         source: 'user_override',
       }),
     })
-    setCeeAnalysisReady(null)
+    // Parametric edit — observed state is read from graph nodes at request build time,
+    // not from ceeAnalysisReady. Option intervention mappings remain valid.
   }, [])
 
   // Node value lookup for pre-filling triage card editors with current observed values.
