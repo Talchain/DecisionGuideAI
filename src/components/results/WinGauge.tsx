@@ -51,15 +51,15 @@ export const WIN_GAUGE_BORDER_CLASSES = [
   'border-2 border-success/60', // Winner — high-contrast accent
   'border-2 border-info/60',    // Runner-up — visibly linked to win-bar
   'border-2 border-option/60',  // Third — ordinal palette
-  'border-panel-border',        // Fourth+ — neutral baseline
+  'border border-panel-border', // Fourth+ — neutral baseline
 ]
 
 /** Indeterminate palette border classes, parallel to WIN_GAUGE_COLORS_INDETERMINATE. */
 export const WIN_GAUGE_BORDER_CLASSES_INDETERMINATE = [
-  'border-info/30',      // Top option — matches var(--info)
-  'border-info/20',      // Second option — matches var(--info-light)
-  'border-panel-border', // Third — matches var(--border-default)
-  'border-panel-border', // Fourth — matches var(--border-default)
+  'border border-info/30',      // Top option — matches var(--info)
+  'border border-info/20',      // Second option — matches var(--info-light)
+  'border border-panel-border', // Third — matches var(--border-default)
+  'border border-panel-border', // Fourth — matches var(--border-default)
 ]
 
 // =============================================================================

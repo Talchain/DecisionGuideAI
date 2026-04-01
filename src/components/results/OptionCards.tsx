@@ -260,8 +260,8 @@ function OptionCard({
   expertMode?: boolean
 }) {
   const borderClass = neutralised
-    ? 'border-panel-border'
-    : (segmentBorderClass ?? 'border-panel-border')
+    ? 'border border-panel-border'
+    : (segmentBorderClass ?? 'border border-panel-border')
   // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
   const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
@@ -280,7 +280,7 @@ function OptionCard({
   return (
     <div
       ref={cardRef}
-      className={`bg-panel p-3 border ${borderClass} rounded-lg space-y-2 shadow-1 results-card-hover`}
+      className={`bg-panel p-3 ${borderClass} rounded-lg space-y-2 shadow-1 results-card-hover`}
       data-testid={`option-card-${option.id}`}
       data-option-id={option.id}
       onMouseEnter={() => highlightNode(option.id)}
