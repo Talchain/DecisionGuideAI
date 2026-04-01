@@ -139,11 +139,8 @@ function mapEvidenceGapsToActions(
     const currentValue = nodeMeta?.value ?? null
     const currentUnit = nodeMeta?.unit ?? null
     const currentCap = nodeMeta?.cap ?? null
-    const subtitle = gap.confidence <= 0
-      ? 'No value set. Even a rough estimate helps.'
-      : gap.confidence < 40
-        ? 'Confirm or edit the AI estimate'
-        : undefined
+    // Post-analysis cards: no subtitle — detail line shows contextual suggestion
+    const subtitle = undefined
     return {
       key: `gap-${gap.factorId}-${i}`,
       title: gap.factorLabel,
