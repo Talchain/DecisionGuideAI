@@ -184,6 +184,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
   const influencePct = influence != null ? Math.round(influence * 100) : null
   const isEdge = action?.targetType === 'edge'
   const isBrief = sourcePill?.label === 'From brief'
+  const isAiEstimate = sourcePill?.label === 'AI estimate'
 
   return (
     <div
@@ -201,7 +202,15 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
           {ordinal}
         </span>
         <span className={`flex-1 min-w-0 truncate ${typography.panelMeta} text-info font-medium`} title={title}>{title}</span>
-        {sourcePill && (
+        {isAiEstimate && (
+          <Sparkles
+            size={12}
+            className="ml-auto text-info flex-shrink-0"
+            title="Olumi estimated this value"
+            aria-label="Olumi estimated this value"
+          />
+        )}
+        {sourcePill && !isAiEstimate && (
           <span className={`ml-auto shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
             {sourcePill.label}
           </span>

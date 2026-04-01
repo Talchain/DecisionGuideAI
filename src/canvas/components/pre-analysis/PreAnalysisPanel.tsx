@@ -498,14 +498,17 @@ export function PreAnalysisPanel({
       : factorInfluenceMap?.get(item.focus?.id ?? '')
     const mapped = mapImprovementToTriageCard(item, influence)
 
-    // Attach editorConfig for factor items with set_value action
+    // Attach editorConfig for factor items with set_value action — only when
+    // a numeric rawValue exists. Non-numeric values (e.g. qualitative "low")
+    // render as coaching text + action buttons instead of an empty number input.
     const targetId = item.action?.targetId
-    if (targetId && item.focus?.type === 'node' && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
+    const numericValue = item.rawValue ?? item.value ?? null
+    if (targetId && item.focus?.type === 'node' && numericValue != null && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
       return {
         ...mapped,
         editorConfig: {
           kind: 'factor' as const,
-          rawValue: item.rawValue ?? item.value ?? null,
+          rawValue: numericValue,
           cap: item.cap ?? null,
           unit: item.unit ?? null,
           onSave: (rawValue: number) => handleInlineEditValue(targetId, rawValue, item.cap ?? null),
@@ -520,7 +523,9 @@ export function PreAnalysisPanel({
   const triageCards = [...triageTop3, ...triageQuickFix]
 
   // Narrative text: coaching subtitle for "Strengthen your model" section
-  const topFactorName = triageTop3.length > 0 ? triageTop3[0].title : null
+  // Only show highest-impact factor name for node items (not edge/relationship items)
+  const topItem = triageTop3.length > 0 ? triageTop3[0] : null
+  const topFactorName = topItem && topItem.action?.targetType !== 'edge' ? topItem.title : null
   const triageNarrative = buildTriageNarrative(
     triageCards,
     data.successThreshold != null,

@@ -47,11 +47,6 @@ export function FromBrief({ items, onFocusNode, onHoverEnter, onHoverLeave }: Fr
           >
             {item.label}
           </button>
-          {item.rawValue != null && (
-            <span className={`${typography.panelMeta} text-text-light shrink-0`}>
-              {item.unit ? `${item.rawValue} ${item.unit}` : String(item.rawValue)}
-            </span>
-          )}
           <Pill size="small" variant="success">From brief</Pill>
         </div>
       ))}
