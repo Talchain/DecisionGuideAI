@@ -243,7 +243,6 @@ function calculateFallbackReadiness(
 function createGraphFingerprint(
   nodes: Node[],
   edges: Edge[],
-  ceeAnalysisReady: { options?: { id: string }[] } | null
 ): string {
   // Node fingerprint: id, type, and value (for factors)
   const nodeFingerprint = nodes
@@ -263,10 +262,7 @@ function createGraphFingerprint(
     .sort()
     .join(',')
 
-  // CEE fingerprint: options count
-  const ceeFingerprint = ceeAnalysisReady?.options?.length ?? 0
-
-  return `n${nodes.length}|e${edges.length}|${nodeFingerprint}|${edgeFingerprint}|ar${ceeFingerprint}`
+  return `n${nodes.length}|e${edges.length}|${nodeFingerprint}|${edgeFingerprint}`
 }
 
 export function useGraphReadiness() {
@@ -289,12 +285,11 @@ export function useGraphReadiness() {
   // These are used for fingerprinting, not as direct dependencies
   const nodes = useCanvasStore(useShallow((s) => s.nodes))
   const edges = useCanvasStore(useShallow((s) => s.edges))
-  const ceeAnalysisReady = useCanvasStore((s) => s.ceeAnalysisReady)
 
   // Create stable fingerprint
   const fingerprint = useMemo(
-    () => createGraphFingerprint(nodes, edges, ceeAnalysisReady),
-    [nodes, edges, ceeAnalysisReady]
+    () => createGraphFingerprint(nodes, edges),
+    [nodes, edges]
   )
 
   // Stable callback that reads fresh state inside
@@ -586,7 +581,7 @@ export function useGraphReadiness() {
         clearTimeout(debounceTimeoutRef.current)
       }
     }
-  }, [fingerprint, fetchReadiness])
+  }, [fingerprint])
 
   // Cleanup on unmount
   useEffect(() => {

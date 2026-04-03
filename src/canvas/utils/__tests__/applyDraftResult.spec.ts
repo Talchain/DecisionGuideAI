@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { applyDraftResult, backfillInterventionsOntoOptionNodes } from '../applyDraftResult'
+import { applyDraftResult, backfillInterventionsOntoOptionNodes, backfillGoalThresholdOntoGoalNode } from '../applyDraftResult'
 
 // Mock canvas store
 const mockPushHistory = vi.fn()
@@ -19,6 +19,7 @@ const mockSetOutcomeNode = vi.fn()
 const mockSetCeeAnalysisReady = vi.fn()
 const mockSetCeePipelineTrace = vi.fn()
 const mockSetCeeQuality = vi.fn()
+const mockSetGoalConstraints = vi.fn()
 
 let storeNodes: any[] = []
 let storeEdges: any[] = []
@@ -38,6 +39,7 @@ vi.mock('../../store', () => ({
         setCeeAnalysisReady: mockSetCeeAnalysisReady,
         setCeePipelineTrace: mockSetCeePipelineTrace,
         setCeeQuality: mockSetCeeQuality,
+        setGoalConstraints: mockSetGoalConstraints,
         currentScenarioId: null,
       }),
       setState: vi.fn((update: any) => {
@@ -53,11 +55,15 @@ vi.mock('../../store/scenarios', () => ({
   saveAutosave: vi.fn(),
 }))
 
-// Mock hasAnalysisReady type guard
+// Mock CEE type guards
 vi.mock('../../../adapters/cee/types', () => ({
   hasAnalysisReady: (data: any) =>
     data?.analysis_ready?.options &&
     typeof data?.analysis_ready?.goal_node_id === 'string',
+  isCEEv3Response: (data: any) =>
+    data?.analysis_ready != null &&
+    (Array.isArray(data?.nodes) || Array.isArray(data?.graph?.nodes)) &&
+    (Array.isArray(data?.edges) || Array.isArray(data?.graph?.edges)),
 }))
 
 describe('applyDraftResult', () => {
@@ -399,5 +405,218 @@ describe('applyDraftResult', () => {
     expect(storeNodes).toHaveLength(1)
     expect(storeNodes[0].id).toBe('new1')
     expect(storeEdges).toHaveLength(0)
+  })
+
+  it('backfills is_baseline from analysis_ready onto option nodes', () => {
+    const draftData = {
+      nodes: [
+        { id: 'g1', kind: 'goal', label: 'Revenue' },
+        { id: 'o1', kind: 'option', label: 'Status Quo' },
+        { id: 'o2', kind: 'option', label: 'New Price' },
+        { id: 'f1', kind: 'factor', label: 'Price' },
+      ],
+      edges: [],
+      analysis_ready: {
+        options: [
+          { id: 'o1', status: 'ready', interventions: {}, is_baseline: true },
+          { id: 'o2', status: 'ready', interventions: { f1: { value: 10 } }, is_baseline: false },
+        ],
+        goal_node_id: 'g1',
+        status: 'ready',
+      },
+    } as any
+
+    applyDraftResult(draftData)
+
+    const baselineNode = storeNodes.find((n: any) => n.id === 'o1')
+    const nonBaselineNode = storeNodes.find((n: any) => n.id === 'o2')
+    expect(baselineNode.data.is_baseline).toBe(true)
+    // Non-baseline with is_baseline: false should be explicitly false
+    expect(nonBaselineNode.data.is_baseline).toBe(false)
+  })
+
+  it('backfills goal_threshold_raw/unit/cap from analysis_ready onto goal node', () => {
+    const draftData = {
+      nodes: [
+        { id: 'g1', kind: 'goal', label: 'Revenue' },
+        { id: 'f1', kind: 'factor', label: 'Price' },
+      ],
+      edges: [],
+      analysis_ready: {
+        options: [{ id: 'o1', status: 'ready', interventions: { f1: { value: 10 } } }],
+        goal_node_id: 'g1',
+        status: 'ready',
+        goal_threshold_raw: 20000,
+        goal_threshold_unit: '£',
+        goal_threshold_cap: 50000,
+      },
+    } as any
+
+    applyDraftResult(draftData)
+
+    const goalNode = storeNodes.find((n: any) => n.id === 'g1')
+    expect(goalNode.data.goal_threshold_raw).toBe(20000)
+    expect(goalNode.data.goal_threshold_unit).toBe('£')
+    expect(goalNode.data.goal_threshold_cap).toBe(50000)
+  })
+
+  it('stores goal_constraints from V3 response root', () => {
+    const constraints = [
+      { id: 'c1', label: 'Churn ≤ 5%', operator: '<=', value: 0.05 },
+    ]
+    const draftData = {
+      nodes: [
+        { id: 'g1', kind: 'goal', label: 'Revenue' },
+        { id: 'f1', kind: 'factor', label: 'Price' },
+      ],
+      edges: [
+        { from: 'f1', to: 'g1', weight: 0.5 },
+      ],
+      analysis_ready: {
+        options: [{ id: 'o1', status: 'ready', interventions: { f1: { value: 10 } } }],
+        goal_node_id: 'g1',
+        status: 'ready',
+      },
+      goal_constraints: constraints,
+    } as any
+
+    applyDraftResult(draftData)
+
+    expect(mockSetGoalConstraints).toHaveBeenCalledWith(constraints)
+  })
+
+  it('clears stale is_baseline when baseline option changes', () => {
+    // Pre-populate: o1 was previously the baseline
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: 'o1', type: 'option', data: { kind: 'option', label: 'Old Baseline', is_baseline: true }, position: { x: 0, y: 0 } },
+      { id: 'o2', type: 'option', data: { kind: 'option', label: 'New Baseline' }, position: { x: 0, y: 0 } },
+    ]
+
+    // Now analysis_ready says o2 is baseline, o1 is not
+    backfillInterventionsOntoOptionNodes({
+      options: [
+        { id: 'o1', is_baseline: false },
+        { id: 'o2', is_baseline: true },
+      ],
+    })
+
+    const o1 = storeNodes.find((n: any) => n.id === 'o1')
+    const o2 = storeNodes.find((n: any) => n.id === 'o2')
+    expect(o1.data.is_baseline).toBe(false) // cleared
+    expect(o2.data.is_baseline).toBe(true)
+  })
+
+  it('preserves V3 factor fields via ...rest spread (display_value, intercept, encoding_map)', () => {
+    const draftData = {
+      nodes: [
+        {
+          id: 'f1',
+          kind: 'factor',
+          label: 'Price',
+          display_value: '£49',
+          intercept: 0.3,
+          encoding_map: { low: 0, high: 1 },
+          observed_state: { value: 0.5, unit: '£' },
+        },
+        { id: 'g1', kind: 'goal', label: 'Revenue' },
+      ],
+      edges: [],
+    } as any
+
+    applyDraftResult(draftData)
+
+    const factorNode = storeNodes.find((n: any) => n.id === 'f1')
+    expect(factorNode.data.display_value).toBe('£49')
+    expect(factorNode.data.intercept).toBe(0.3)
+    expect(factorNode.data.encoding_map).toEqual({ low: 0, high: 1 })
+  })
+})
+
+describe('backfillGoalThresholdOntoGoalNode', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    storeNodes = []
+    storeEdges = []
+  })
+
+  it('writes goal_threshold_raw/unit/cap onto the goal node', () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: 'f1', type: 'factor', data: { kind: 'factor', label: 'Price' }, position: { x: 100, y: 0 } },
+    ]
+
+    backfillGoalThresholdOntoGoalNode({
+      goal_node_id: 'g1',
+      goal_threshold_raw: 20000,
+      goal_threshold_unit: '£',
+      goal_threshold_cap: 50000,
+    })
+
+    const goalNode = storeNodes.find((n: any) => n.id === 'g1')
+    expect(goalNode.data.goal_threshold_raw).toBe(20000)
+    expect(goalNode.data.goal_threshold_unit).toBe('£')
+    expect(goalNode.data.goal_threshold_cap).toBe(50000)
+  })
+
+  it('is idempotent — no store write when values match', async () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue', goal_threshold_raw: 20000, goal_threshold_unit: '£', goal_threshold_cap: 50000 }, position: { x: 0, y: 0 } },
+    ]
+
+    const { useCanvasStore } = await import('../../store')
+    ;(useCanvasStore.setState as any).mockClear()
+
+    backfillGoalThresholdOntoGoalNode({
+      goal_node_id: 'g1',
+      goal_threshold_raw: 20000,
+      goal_threshold_unit: '£',
+      goal_threshold_cap: 50000,
+    })
+
+    expect(useCanvasStore.setState).not.toHaveBeenCalled()
+  })
+
+  it('no-ops when goal_node_id is missing', async () => {
+    const { useCanvasStore } = await import('../../store')
+    ;(useCanvasStore.setState as any).mockClear()
+
+    backfillGoalThresholdOntoGoalNode({ goal_threshold_raw: 100 })
+
+    expect(useCanvasStore.setState).not.toHaveBeenCalled()
+  })
+
+  it('no-ops when threshold fields are absent from analysisReady', async () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+    ]
+
+    const { useCanvasStore } = await import('../../store')
+    ;(useCanvasStore.setState as any).mockClear()
+
+    // No goal_threshold_* fields present at all — should not touch node
+    backfillGoalThresholdOntoGoalNode({
+      goal_node_id: 'g1',
+    })
+
+    expect(useCanvasStore.setState).not.toHaveBeenCalled()
+  })
+
+  it('clears stale threshold values when analysisReady explicitly sends null', async () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue', goal_threshold_raw: 20000, goal_threshold_unit: '£', goal_threshold_cap: 50000 }, position: { x: 0, y: 0 } },
+    ]
+
+    backfillGoalThresholdOntoGoalNode({
+      goal_node_id: 'g1',
+      goal_threshold_raw: null,
+      goal_threshold_unit: null,
+      goal_threshold_cap: null,
+    })
+
+    const goalNode = storeNodes.find((n: any) => n.id === 'g1')
+    expect(goalNode.data.goal_threshold_raw).toBeNull()
+    expect(goalNode.data.goal_threshold_unit).toBeNull()
+    expect(goalNode.data.goal_threshold_cap).toBeNull()
   })
 })

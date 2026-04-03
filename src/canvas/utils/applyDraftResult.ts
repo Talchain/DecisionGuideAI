@@ -14,7 +14,7 @@
 import { useCanvasStore } from '../store'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
-import { hasAnalysisReady } from '../../adapters/cee/types'
+import { hasAnalysisReady, isCEEv3Response } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
 
 /**
@@ -173,6 +173,16 @@ export function applyDraftResult(
     // Timing: runs synchronously after setCeeAnalysisReady; nodes are already in store
     // from the setState call above. If option nodes don't exist yet, this is a no-op.
     backfillInterventionsOntoOptionNodes(analysisReadyWithCoaching)
+
+    // Backfill goal_threshold_raw/unit/cap from analysis_ready onto the goal node.
+    // CEE sends these on analysis_ready, but the GoalNode component reads from node.data.
+    backfillGoalThresholdOntoGoalNode(analysisReadyWithCoaching)
+  }
+
+  // Store goal_constraints from V3 response root (for non-orchestrator draft flow).
+  // Orchestrator flow handles this in useConversation.handleEnvelope.
+  if (isCEEv3Response(draftData) && Array.isArray(draftData.goal_constraints) && draftData.goal_constraints.length > 0) {
+    useCanvasStore.getState().setGoalConstraints(draftData.goal_constraints)
   }
 
   // Store quality dimensions
@@ -217,7 +227,7 @@ export function applyDraftResult(
  * re-renders on repeated calls.
  */
 export function backfillInterventionsOntoOptionNodes(
-  analysisReady: { options?: Array<{ id: string; interventions?: Record<string, unknown> }> } | null
+  analysisReady: { options?: Array<{ id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }> } | null
 ): void {
   if (!analysisReady?.options?.length) return
 
@@ -229,14 +239,24 @@ export function backfillInterventionsOntoOptionNodes(
   const updatedNodes = currentNodes.map((n) => {
     if (n.data?.kind !== 'option' && n.data?.type !== 'option') return n
     const optEntry = analysisReady.options!.find((o) => o.id === n.id)
-    if (!optEntry?.interventions || Object.keys(optEntry.interventions).length === 0) return n
+    if (!optEntry) return n
+
+    const hasInterventions = optEntry.interventions && Object.keys(optEntry.interventions).length > 0
+
+    // Backfill is_baseline from analysis_ready onto option node data.
+    // Always write the boolean so that non-baseline options clear a stale true.
+    const existingBaseline = (n.data?.is_baseline as boolean | undefined) ?? false
+    const newBaseline = optEntry.is_baseline === true
+    const baselineChanged = newBaseline !== existingBaseline
+
+    if (!hasInterventions && !baselineChanged) return n
 
     // Idempotent guard: skip if interventions are already identical (keys + values)
     const existing = n.data?.interventions as Record<string, unknown> | undefined
-    const newKeys = Object.keys(optEntry.interventions)
-    if (existing) {
+    const newKeys = hasInterventions ? Object.keys(optEntry.interventions!) : undefined
+    if (hasInterventions && existing) {
       try {
-        if (JSON.stringify(existing) === JSON.stringify(optEntry.interventions)) return n
+        if (JSON.stringify(existing) === JSON.stringify(optEntry.interventions) && !baselineChanged) return n
       } catch {
         // Fall through to update if serialisation fails
       }
@@ -247,8 +267,8 @@ export function backfillInterventionsOntoOptionNodes(
       ...n,
       data: {
         ...n.data,
-        interventions: optEntry.interventions,
-        interventionKeys: newKeys,
+        ...(hasInterventions ? { interventions: optEntry.interventions, interventionKeys: newKeys } : {}),
+        is_baseline: newBaseline,
       },
     }
   })
@@ -262,4 +282,66 @@ export function backfillInterventionsOntoOptionNodes(
       console.warn('[backfillInterventionsOntoOptionNodes]', backfilledCount, 'option nodes updated')
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Goal threshold backfill
+// ---------------------------------------------------------------------------
+
+/**
+ * Backfill goal_threshold_raw/unit/cap from analysis_ready onto the goal node.
+ *
+ * CEE sends these on analysis_ready, but GoalNode reads from node.data.
+ * Distinguishes "field absent" (don't touch) from "field present but null"
+ * (clear stale value). Idempotent: only writes when values actually differ.
+ */
+export function backfillGoalThresholdOntoGoalNode(
+  analysisReady: {
+    goal_node_id?: string
+    goal_threshold_raw?: number | null
+    goal_threshold_unit?: string | null
+    goal_threshold_cap?: number | null
+  } | null
+): void {
+  if (!analysisReady?.goal_node_id) return
+
+  // Distinguish "field absent from analysisReady" (don't touch) from
+  // "field present but null" (clear the value on the goal node).
+  const hasRaw = 'goal_threshold_raw' in analysisReady
+  const hasUnit = 'goal_threshold_unit' in analysisReady
+  const hasCap = 'goal_threshold_cap' in analysisReady
+
+  // Nothing to backfill if none of the fields are present on analysisReady
+  if (!hasRaw && !hasUnit && !hasCap) return
+
+  const raw = analysisReady.goal_threshold_raw ?? null
+  const unit = analysisReady.goal_threshold_unit ?? null
+  const cap = analysisReady.goal_threshold_cap ?? null
+
+  const currentNodes = useCanvasStore.getState().nodes as any[]
+  const goalNode = currentNodes.find((n: any) => n.id === analysisReady.goal_node_id)
+  if (!goalNode) return
+
+  // Idempotent: skip if already matching (only check fields that are present)
+  const d = goalNode.data as Record<string, unknown> | undefined
+  if (
+    (!hasRaw || d?.goal_threshold_raw === raw) &&
+    (!hasUnit || d?.goal_threshold_unit === unit) &&
+    (!hasCap || d?.goal_threshold_cap === cap)
+  ) return
+
+  const updatedNodes = currentNodes.map((n: any) => {
+    if (n.id !== analysisReady.goal_node_id) return n
+    return {
+      ...n,
+      data: {
+        ...n.data,
+        ...(hasRaw ? { goal_threshold_raw: raw } : {}),
+        ...(hasUnit ? { goal_threshold_unit: unit } : {}),
+        ...(hasCap ? { goal_threshold_cap: cap } : {}),
+      },
+    }
+  })
+
+  useCanvasStore.setState({ nodes: updatedNodes as any })
 }

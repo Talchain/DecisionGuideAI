@@ -332,7 +332,7 @@ export function SuccessTarget({
             <button
               type="button"
               onClick={() => onSendMessage('Can you help me reconsider whether this goal is framed correctly?')}
-              className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer self-start`}
             >
               Reframe goal with AI
             </button>
@@ -443,7 +443,7 @@ export function SuccessTarget({
       )}
 
       {/* CTAs */}
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex items-center gap-2 pt-1 justify-start">
         {showConstraintInput ? (
           <div className="flex-1 flex items-center gap-2">
             <input

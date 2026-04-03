@@ -45,7 +45,7 @@ import type {
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
-import { backfillInterventionsOntoOptionNodes } from '../utils/applyDraftResult'
+import { backfillInterventionsOntoOptionNodes, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -1882,6 +1882,10 @@ export function useConversation(): UseConversationReturn {
           // Timing assumption: applyAutoApplyPatch ran synchronously above, so option nodes
           // are already in the store. If they aren't (shouldn't happen), this is a silent no-op.
           backfillInterventionsOntoOptionNodes(resolvedAnalysisReady)
+
+          // Backfill goal_threshold_raw/unit/cap onto goal node for GoalNode display.
+          // CEE sends these on analysis_ready, but GoalNode reads from node.data.
+          backfillGoalThresholdOntoGoalNode(resolvedAnalysisReady)
         }
       }
 

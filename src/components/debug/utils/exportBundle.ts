@@ -356,6 +356,17 @@ export interface EnrichedGraphNode {
   category?: string | null
   interventions?: unknown[] | null
   interventionKeys?: string[] | null
+  // V3 factor fields
+  display_value?: string | null
+  intercept?: number | null
+  encoding_map?: Record<string, unknown> | null
+  // V3 option fields
+  is_baseline?: boolean | null
+  // V3 goal fields
+  goal_threshold?: number | null
+  goal_threshold_raw?: number | null
+  goal_threshold_unit?: string | null
+  goal_threshold_cap?: number | null
   data?: Record<string, unknown>
 }
 
@@ -675,6 +686,15 @@ export interface FullGraphData {
       category?: string
       interventions?: unknown[]
       interventionKeys?: string[]
+      // V3 fields (may be present via ...rest spread or backfill)
+      display_value?: string
+      intercept?: number
+      encoding_map?: Record<string, unknown>
+      is_baseline?: boolean
+      goal_threshold?: number
+      goal_threshold_raw?: number
+      goal_threshold_unit?: string
+      goal_threshold_cap?: number
     }
   }>
   edges: Array<{
@@ -862,6 +882,21 @@ function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph
       category: node.data?.category ?? null,
       interventions: node.data?.interventions ?? null,
       interventionKeys: node.data?.interventionKeys ?? null,
+      // V3 factor fields
+      display_value: (node.data?.display_value as string | undefined)
+        ?? ((node.data?.observedState as Record<string, unknown> | undefined)?.display_value as string | undefined)
+        ?? null,
+      intercept: typeof node.data?.intercept === 'number' ? node.data.intercept : null,
+      encoding_map: (node.data?.encoding_map as Record<string, unknown> | undefined) ?? null,
+      // V3 option fields
+      is_baseline: (node.data?.is_baseline as boolean | undefined) ?? null,
+      // V3 goal fields
+      goal_threshold: (node.data?.goal_threshold as number | undefined)
+        ?? (node.data?.success_threshold as number | undefined)
+        ?? null,
+      goal_threshold_raw: (node.data?.goal_threshold_raw as number | undefined) ?? null,
+      goal_threshold_unit: (node.data?.goal_threshold_unit as string | undefined) ?? null,
+      goal_threshold_cap: (node.data?.goal_threshold_cap as number | undefined) ?? null,
     }
 
     if (nodeKind === 'option') {

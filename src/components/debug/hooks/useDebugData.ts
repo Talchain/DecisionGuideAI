@@ -281,7 +281,7 @@ export interface DiagnosticChecks {
   confidence_unique_values: number[]
   /** Any factor has confidence_source === "bootstrap_sampling" */
   confidence_source_bootstrap: boolean
-  /** Any inference node has intercept > 0 */
+  /** Any node has a numeric intercept value (including zero) */
   intercept_populated: boolean
   /** epsilon_std field exists on any node */
   epsilon_std_present: boolean
@@ -1505,25 +1505,55 @@ function extractDiagnosticChecks(
   const islEdgeEValues = Array.isArray(isl?.edge_e_values) ? isl.edge_e_values as unknown[] : []
   const islFactorEvpi = Array.isArray(isl?.factor_evpi) ? isl.factor_evpi as unknown[] : []
 
-  // Checked from PLoT factor_sensitivity only (post-merge values the UI renders)
+  // PLoT factor_sensitivity — used for bootstrap source check
   const plotFactorSensitivity = Array.isArray(plot?.factor_sensitivity) ? plot.factor_sensitivity as Record<string, unknown>[] : []
-  const confidenceValues = plotFactorSensitivity
-    .map((f) => typeof f.confidence === 'number' ? f.confidence : null)
-    .filter((v): v is number => v !== null)
-  const uniqueConfidence = new Set(confidenceValues)
 
   const hasBootstrapSource = plotFactorSensitivity.some(
     (f) => f.confidence_source === 'bootstrap_sampling'
   )
+
+  // Edge exists_probability differentiation — extract from CEE response edges,
+  // excluding structural edges (those originating from decision/option nodes).
+  // Build node kind map from CEE nodes
+  const ceeNodes = Array.isArray(cee?.nodes) ? cee.nodes as Record<string, unknown>[]
+    : Array.isArray((cee as any)?.graph?.nodes) ? (cee as any).graph.nodes as Record<string, unknown>[]
+    : []
+  const structuralKinds = new Set(['decision', 'option'])
+  const nodeKindMap = new Map<string, string>()
+  for (const n of ceeNodes) {
+    if (n && typeof n === 'object' && typeof n.id === 'string') {
+      nodeKindMap.set(n.id, ((n.kind ?? n.type) as string ?? '').toLowerCase())
+    }
+  }
+  const ceeEdges = Array.isArray(cee?.edges) ? cee.edges as Record<string, unknown>[]
+    : Array.isArray((cee as any)?.graph?.edges) ? (cee as any).graph.edges as Record<string, unknown>[]
+    : []
+  const edgeConfidenceValues: number[] = []
+  for (const e of ceeEdges) {
+    if (!e || typeof e !== 'object') continue
+    // Use source/target (React Flow) or from/to (CEE raw) — support both
+    const fromId = (e.source ?? e.from) as string | undefined
+    const fromKind = fromId ? nodeKindMap.get(fromId) : undefined
+    if (fromKind && structuralKinds.has(fromKind)) continue // skip structural
+    const ep = e.exists_probability ?? e.belief_exists
+    if (typeof ep === 'number') edgeConfidenceValues.push(ep)
+  }
+  const uniqueConfidence = new Set(edgeConfidenceValues)
 
   // ISL options may have intercept/epsilon_std — guard against null array elements
   const islOptionsRaw = Array.isArray(isl?.options) ? isl.options as unknown[] : []
   const islOptions = islOptionsRaw.filter(
     (opt): opt is Record<string, unknown> => !!opt && typeof opt === 'object'
   )
-  const hasIntercept = islOptions.some(
-    (opt) => typeof opt.intercept === 'number' && opt.intercept > 0
+  // Check intercept on ISL options AND CEE factor nodes (both paths may carry it).
+  // Any numeric intercept counts as populated (including zero — a computed value).
+  const hasInterceptIsl = islOptions.some(
+    (opt) => typeof opt.intercept === 'number'
   )
+  const hasInterceptCee = ceeNodes.some(
+    (n) => typeof n.intercept === 'number'
+  )
+  const hasIntercept = hasInterceptIsl || hasInterceptCee
   const hasEpsilonStd = islOptions.some(
     (opt) => typeof opt.epsilon_std === 'number'
   )
@@ -1546,7 +1576,7 @@ function extractDiagnosticChecks(
     e_values_present: islEdgeEValues.length > 0,
     evpi_present: islFactorEvpi.length > 0,
     confidence_differentiated: uniqueConfidence.size > 1,
-    confidence_unique_values: [...uniqueConfidence].sort(),
+    confidence_unique_values: [...uniqueConfidence].sort((a, b) => a - b),
     confidence_source_bootstrap: hasBootstrapSource,
     intercept_populated: hasIntercept,
     epsilon_std_present: hasEpsilonStd,
