@@ -1516,13 +1516,18 @@ function extractDiagnosticChecks(
   const hasTraceData = !!ceeTrace || !!envelopeDiagTrace
     || !!(cee?._route_metadata)
 
-  // LLM raw: try legacy paths first, then fall back to _diagnostic_trace.llm_calls
+  // LLM raw: try legacy paths first, then fall back to _diagnostic_trace fields.
+  // The trace may carry llm_calls (array of call records) or llm_raw (raw prompt data).
   const llmRawPath = findLlmRawPath(ceeResponse)
-  const llmRawFromDiagTrace = !llmRawPath && envelopeDiagTrace
-    ? Array.isArray(envelopeDiagTrace.llm_calls) && envelopeDiagTrace.llm_calls.length > 0
-    : false
-  const effectiveLlmRawPath = llmRawPath
-    ?? (llmRawFromDiagTrace ? '_diagnostic_trace.llm_calls' : null)
+  let diagTraceLlmRawPath: string | null = null
+  if (!llmRawPath && envelopeDiagTrace) {
+    if (Array.isArray(envelopeDiagTrace.llm_calls) && envelopeDiagTrace.llm_calls.length > 0) {
+      diagTraceLlmRawPath = '_diagnostic_trace.llm_calls'
+    } else if (envelopeDiagTrace.llm_raw) {
+      diagTraceLlmRawPath = '_diagnostic_trace.llm_raw'
+    }
+  }
+  const effectiveLlmRawPath = llmRawPath ?? diagTraceLlmRawPath
 
   // New pipeline field presence checks
   const islEdgeEValues = Array.isArray(isl?.edge_e_values) ? isl.edge_e_values as unknown[] : []
@@ -1544,30 +1549,33 @@ function extractDiagnosticChecks(
     : Array.isArray((cee as any)?.graph?.edges) ? (cee as any).graph.edges as Record<string, unknown>[]
     : []
 
-  // When CEE response is an envelope (no top-level nodes/edges), fall back to
-  // canvas store which has the applied graph state from the orchestrator flow.
-  const useCanvasAsFallback = ceeNodes.length === 0 && ceeEdges.length === 0
-    && (canvasNodes?.length ?? 0) > 0
+  // Fallback decisions: use canvas store data when CEE response is an envelope
+  // (no top-level graph data). Edge and node fallbacks are independent — the CEE
+  // response might have nodes (from a parsing variant) but no edges.
+  const useCanvasEdges = ceeEdges.length === 0 && (canvasEdges?.length ?? 0) > 0
+  const useCanvasNodes = ceeNodes.length === 0 && (canvasNodes?.length ?? 0) > 0
 
-  // Build node kind map — works for both CEE raw and canvas store formats
+  // Build node kind map — merge from both CEE and canvas sources so structural
+  // edge filtering works regardless of which edge source we use.
   const structuralKinds = new Set(['decision', 'option'])
   const nodeKindMap = new Map<string, string>()
-  if (useCanvasAsFallback && canvasNodes) {
-    for (const n of canvasNodes) {
-      const kind = ((n.data?.kind ?? n.data?.type ?? n.type) as string ?? '').toLowerCase()
-      nodeKindMap.set(n.id, kind)
+  for (const n of ceeNodes) {
+    if (n && typeof n === 'object' && typeof n.id === 'string') {
+      nodeKindMap.set(n.id, ((n.kind ?? n.type) as string ?? '').toLowerCase())
     }
-  } else {
-    for (const n of ceeNodes) {
-      if (n && typeof n === 'object' && typeof n.id === 'string') {
-        nodeKindMap.set(n.id, ((n.kind ?? n.type) as string ?? '').toLowerCase())
+  }
+  if (canvasNodes) {
+    for (const n of canvasNodes) {
+      if (!nodeKindMap.has(n.id)) {
+        const kind = ((n.data?.kind ?? n.data?.type ?? n.type) as string ?? '').toLowerCase()
+        nodeKindMap.set(n.id, kind)
       }
     }
   }
 
   // Edge confidence values — from CEE edges or canvas store edges
   const edgeConfidenceValues: number[] = []
-  if (useCanvasAsFallback && canvasEdges) {
+  if (useCanvasEdges && canvasEdges) {
     for (const e of canvasEdges) {
       const fromKind = nodeKindMap.get(e.source)
       if (fromKind && structuralKinds.has(fromKind)) continue
@@ -1599,7 +1607,7 @@ function extractDiagnosticChecks(
   const hasInterceptCee = ceeNodes.some(
     (n) => typeof n.intercept === 'number'
   )
-  const hasInterceptCanvas = useCanvasAsFallback && (canvasNodes ?? []).some(
+  const hasInterceptCanvas = useCanvasNodes && (canvasNodes ?? []).some(
     (n) => typeof n.data?.intercept === 'number'
   )
   const hasIntercept = hasInterceptIsl || hasInterceptCee || hasInterceptCanvas

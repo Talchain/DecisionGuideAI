@@ -1689,6 +1689,67 @@ describe('useDebugData', () => {
       expect(result.current.diagnostics.intercept_populated).toBe(true)
     })
 
+    it('llm_raw_available is true when _diagnostic_trace has llm_raw without llm_calls', () => {
+      setupEnvelopeScenario({
+        envelopeDiagnosticTrace: {
+          // llm_raw present, llm_calls absent
+          llm_raw: { prompt: 'Build a decision model...', tokens: 1500 },
+        },
+      })
+
+      const { result } = renderHook(() => useDebugData())
+      expect(result.current.diagnostics.llm_raw_available).toBe(true)
+      expect(result.current.diagnostics.llm_raw_path_found).toBe('_diagnostic_trace.llm_raw')
+    })
+
+    it('confidence falls back to canvas edges when CEE has nodes but no edges', () => {
+      // Simulate a partial CEE response: nodes at top level but edges missing.
+      // Canvas store has the full graph. Edge confidence should come from canvas.
+      const ceePayload = {
+        id: 'req-partial-1',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v1/turn',
+        method: 'POST',
+        status: 200,
+        completed: true,
+        duration: 2000,
+        timestamp: Date.now(),
+        request: { body: {} },
+        response: {
+          body: {
+            // Has nodes but NO edges at top level
+            nodes: [
+              { id: 'f1', kind: 'factor' },
+              { id: 'g1', kind: 'goal' },
+            ],
+          },
+        },
+      }
+
+      const canvasNodes = [
+        { id: 'f1', type: 'factor', data: { kind: 'factor', label: 'A' } },
+        { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Goal' } },
+      ]
+      const canvasEdges = [
+        { id: 'e1', source: 'f1', target: 'g1', data: { beliefExists: 0.65 } },
+      ]
+
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector({
+          ceePipelineTrace: null,
+          nodes: canvasNodes,
+          edges: canvasEdges,
+          runMeta: null,
+        })
+      )
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({ payloads: [ceePayload] })
+      )
+
+      const { result } = renderHook(() => useDebugData())
+      expect(result.current.diagnostics.confidence_unique_values).toEqual([0.65])
+    })
+
     it('all checks degrade gracefully when no trace and no canvas data', () => {
       setupEnvelopeScenario({})
 
