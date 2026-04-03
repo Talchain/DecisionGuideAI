@@ -1481,13 +1481,24 @@ function findLlmRawPath(ceeResponse: unknown): string | null {
 }
 
 /**
- * Extract diagnostic checks from payloads
+ * Extract diagnostic checks from payloads.
+ *
+ * In the orchestrator flow the CEE response is an OrchestratorResponseEnvelopeV2
+ * which has no top-level nodes/edges/trace — those fields only exist in the
+ * direct draft flow. To produce correct diagnostics for both flows:
+ *   - canvasNodes/canvasEdges: React Flow graph from the canvas store, used as
+ *     fallback when the CEE response is an envelope (no top-level graph data).
+ *   - diagnosticTrace: the envelope's _diagnostic_trace (or runMeta.ceeDiagnosticTrace),
+ *     used as fallback for cee_trace_present and llm_raw_available.
  */
 function extractDiagnosticChecks(
   plotResponse: unknown,
   ceeResponse: unknown,
   islResponse: unknown,
-  islDataSource: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none'
+  islDataSource: 'downstream_calls' | 'direct_capture' | 'plot_response_extraction' | 'none',
+  canvasNodes?: Array<{ id: string; type?: string; data?: Record<string, unknown> }>,
+  canvasEdges?: Array<{ id: string; source: string; target: string; data?: Record<string, unknown> }>,
+  diagnosticTrace?: Record<string, unknown> | null,
 ): DiagnosticChecks {
   const plot = plotResponse as Record<string, unknown> | null | undefined
   const cee = ceeResponse as Record<string, unknown> | null | undefined
@@ -1495,11 +1506,23 @@ function extractDiagnosticChecks(
 
   const hasDownstreamCalls = findDownstreamCallsPath(plotResponse) !== null
 
+  // CEE trace: try legacy paths on CEE response body, then fall back to
+  // envelope._diagnostic_trace (orchestrator flow) or _route_metadata.
   const ceeTrace = cee?.ceeTrace as Record<string, unknown>
     ?? cee?.trace as Record<string, unknown>
     ?? (cee?.meta as Record<string, unknown>)?.trace as Record<string, unknown>
+  const envelopeDiagTrace = diagnosticTrace
+    ?? (cee?._diagnostic_trace as Record<string, unknown> | undefined)
+  const hasTraceData = !!ceeTrace || !!envelopeDiagTrace
+    || !!(cee?._route_metadata)
 
+  // LLM raw: try legacy paths first, then fall back to _diagnostic_trace.llm_calls
   const llmRawPath = findLlmRawPath(ceeResponse)
+  const llmRawFromDiagTrace = !llmRawPath && envelopeDiagTrace
+    ? Array.isArray(envelopeDiagTrace.llm_calls) && envelopeDiagTrace.llm_calls.length > 0
+    : false
+  const effectiveLlmRawPath = llmRawPath
+    ?? (llmRawFromDiagTrace ? '_diagnostic_trace.llm_calls' : null)
 
   // New pipeline field presence checks
   const islEdgeEValues = Array.isArray(isl?.edge_e_values) ? isl.edge_e_values as unknown[] : []
@@ -1512,31 +1535,54 @@ function extractDiagnosticChecks(
     (f) => f.confidence_source === 'bootstrap_sampling'
   )
 
-  // Edge exists_probability differentiation — extract from CEE response edges,
-  // excluding structural edges (those originating from decision/option nodes).
-  // Build node kind map from CEE nodes
+  // --- Nodes & edges for confidence/intercept checks ---
+  // Priority: CEE response top-level (direct draft flow) > canvas store (orchestrator flow)
   const ceeNodes = Array.isArray(cee?.nodes) ? cee.nodes as Record<string, unknown>[]
     : Array.isArray((cee as any)?.graph?.nodes) ? (cee as any).graph.nodes as Record<string, unknown>[]
     : []
-  const structuralKinds = new Set(['decision', 'option'])
-  const nodeKindMap = new Map<string, string>()
-  for (const n of ceeNodes) {
-    if (n && typeof n === 'object' && typeof n.id === 'string') {
-      nodeKindMap.set(n.id, ((n.kind ?? n.type) as string ?? '').toLowerCase())
-    }
-  }
   const ceeEdges = Array.isArray(cee?.edges) ? cee.edges as Record<string, unknown>[]
     : Array.isArray((cee as any)?.graph?.edges) ? (cee as any).graph.edges as Record<string, unknown>[]
     : []
+
+  // When CEE response is an envelope (no top-level nodes/edges), fall back to
+  // canvas store which has the applied graph state from the orchestrator flow.
+  const useCanvasAsFallback = ceeNodes.length === 0 && ceeEdges.length === 0
+    && (canvasNodes?.length ?? 0) > 0
+
+  // Build node kind map — works for both CEE raw and canvas store formats
+  const structuralKinds = new Set(['decision', 'option'])
+  const nodeKindMap = new Map<string, string>()
+  if (useCanvasAsFallback && canvasNodes) {
+    for (const n of canvasNodes) {
+      const kind = ((n.data?.kind ?? n.data?.type ?? n.type) as string ?? '').toLowerCase()
+      nodeKindMap.set(n.id, kind)
+    }
+  } else {
+    for (const n of ceeNodes) {
+      if (n && typeof n === 'object' && typeof n.id === 'string') {
+        nodeKindMap.set(n.id, ((n.kind ?? n.type) as string ?? '').toLowerCase())
+      }
+    }
+  }
+
+  // Edge confidence values — from CEE edges or canvas store edges
   const edgeConfidenceValues: number[] = []
-  for (const e of ceeEdges) {
-    if (!e || typeof e !== 'object') continue
-    // Use source/target (React Flow) or from/to (CEE raw) — support both
-    const fromId = (e.source ?? e.from) as string | undefined
-    const fromKind = fromId ? nodeKindMap.get(fromId) : undefined
-    if (fromKind && structuralKinds.has(fromKind)) continue // skip structural
-    const ep = e.exists_probability ?? e.belief_exists
-    if (typeof ep === 'number') edgeConfidenceValues.push(ep)
+  if (useCanvasAsFallback && canvasEdges) {
+    for (const e of canvasEdges) {
+      const fromKind = nodeKindMap.get(e.source)
+      if (fromKind && structuralKinds.has(fromKind)) continue
+      const ep = e.data?.exists_probability ?? e.data?.beliefExists
+      if (typeof ep === 'number') edgeConfidenceValues.push(ep)
+    }
+  } else {
+    for (const e of ceeEdges) {
+      if (!e || typeof e !== 'object') continue
+      const fromId = (e.source ?? e.from) as string | undefined
+      const fromKind = fromId ? nodeKindMap.get(fromId) : undefined
+      if (fromKind && structuralKinds.has(fromKind)) continue
+      const ep = e.exists_probability ?? e.belief_exists
+      if (typeof ep === 'number') edgeConfidenceValues.push(ep)
+    }
   }
   const uniqueConfidence = new Set(edgeConfidenceValues)
 
@@ -1545,7 +1591,7 @@ function extractDiagnosticChecks(
   const islOptions = islOptionsRaw.filter(
     (opt): opt is Record<string, unknown> => !!opt && typeof opt === 'object'
   )
-  // Check intercept on ISL options AND CEE factor nodes (both paths may carry it).
+  // Check intercept on ISL options, CEE factor nodes, AND canvas store nodes.
   // Any numeric intercept counts as populated (including zero — a computed value).
   const hasInterceptIsl = islOptions.some(
     (opt) => typeof opt.intercept === 'number'
@@ -1553,7 +1599,10 @@ function extractDiagnosticChecks(
   const hasInterceptCee = ceeNodes.some(
     (n) => typeof n.intercept === 'number'
   )
-  const hasIntercept = hasInterceptIsl || hasInterceptCee
+  const hasInterceptCanvas = useCanvasAsFallback && (canvasNodes ?? []).some(
+    (n) => typeof n.data?.intercept === 'number'
+  )
+  const hasIntercept = hasInterceptIsl || hasInterceptCee || hasInterceptCanvas
   const hasEpsilonStd = islOptions.some(
     (opt) => typeof opt.epsilon_std === 'number'
   )
@@ -1566,11 +1615,11 @@ function extractDiagnosticChecks(
     downstream_calls_path_found: findDownstreamCallsPath(plotResponse),
     downstream_calls_paths_checked: getDownstreamCallsPathsChecked(),
     isl_data_source: islDataSource,
-    cee_trace_present: !!ceeTrace,
+    cee_trace_present: hasTraceData,
     cee_degraded: (ceeTrace?.degraded as boolean) ?? false,
     cee_degraded_reason: ceeTrace?.reason as string | undefined,
-    llm_raw_available: llmRawPath !== null,
-    llm_raw_path_found: llmRawPath,
+    llm_raw_available: effectiveLlmRawPath !== null,
+    llm_raw_path_found: effectiveLlmRawPath,
 
     // Pipeline field presence checks
     e_values_present: islEdgeEValues.length > 0,
@@ -3317,12 +3366,25 @@ export function useDebugData(): DebugData {
       payloadBundle.isl_response
     )
 
-    // Extract diagnostic checks
+    // CEE diagnostic trace — passthrough from envelope._diagnostic_trace.
+    // Priority: canvas store (streaming path) > CEE response body (non-streaming path).
+    // Computed early so extractDiagnosticChecks can use it as fallback.
+    const diagnostic_trace: Record<string, unknown> | null =
+      runMeta?.ceeDiagnosticTrace
+      ?? (payloadBundle.cee_response && typeof payloadBundle.cee_response === 'object'
+        ? ((payloadBundle.cee_response as Record<string, unknown>)._diagnostic_trace as Record<string, unknown> | undefined) ?? null
+        : null)
+
+    // Extract diagnostic checks — pass canvas store nodes/edges and diagnostic trace
+    // so orchestrator-flow envelopes (no top-level graph data) still produce correct checks.
     const diagnostics = extractDiagnosticChecks(
       payloadBundle.plot_response,
       payloadBundle.cee_response,
       payloadBundle.isl_response,
-      islDataSource
+      islDataSource,
+      nodes as Array<{ id: string; type?: string; data?: Record<string, unknown> }>,
+      edges as Array<{ id: string; source: string; target: string; data?: Record<string, unknown> }>,
+      diagnostic_trace,
     )
 
     // Extract CEE trace data
@@ -3384,14 +3446,6 @@ export function useDebugData(): DebugData {
 
     // CEE operation metadata (model, prompt info per operation)
     const cee_operations = extractCeeOperations(payloadBundle.cee_response, ceeFromPlot)
-
-    // CEE diagnostic trace — passthrough from envelope._diagnostic_trace.
-    // Priority: canvas store (streaming path) > CEE response body (non-streaming path)
-    const diagnostic_trace: Record<string, unknown> | null =
-      runMeta?.ceeDiagnosticTrace
-      ?? (payloadBundle.cee_response && typeof payloadBundle.cee_response === 'object'
-        ? ((payloadBundle.cee_response as Record<string, unknown>)._diagnostic_trace as Record<string, unknown> | undefined) ?? null
-        : null)
 
     return {
       overall: {
