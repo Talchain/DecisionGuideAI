@@ -764,5 +764,41 @@ describe('Debug Bundle v2.0', () => {
 
       vi.doUnmock('../../../canvas/store')
     })
+
+    it('does not leak stale store constraints when store was cleared (no-constraint draft after constrained)', async () => {
+      // Simulates: pricing brief (constraints) → hiring brief (no constraints) → export
+      // applyDraftResult now clears goalConstraints to null on no-constraint drafts
+      vi.doMock('../../../canvas/store', () => ({
+        useCanvasStore: {
+          getState: () => ({
+            goalConstraints: null, // Cleared by applyDraftResult
+            showResultsPanel: false,
+            showInspectorPanel: false,
+            showDraftChat: false,
+            showTemplatesPanel: false,
+            showIssuesPanel: false,
+            runMeta: null,
+          }),
+        },
+      }))
+
+      const { buildDebugBundleAsync } = await import('../utils/exportBundle')
+
+      const bundle = await buildDebugBundleAsync(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: null, // SSE flow, no captured response
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      // Must be null — no stale data leak
+      expect(bundle.goal_constraints).toBeNull()
+
+      vi.doUnmock('../../../canvas/store')
+    })
   })
 })

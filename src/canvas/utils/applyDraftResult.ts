@@ -181,8 +181,14 @@ export function applyDraftResult(
 
   // Store goal_constraints from V3 response root (for non-orchestrator draft flow).
   // Orchestrator flow handles this in useConversation.handleEnvelope.
-  if (isCEEv3Response(draftData) && Array.isArray(draftData.goal_constraints) && draftData.goal_constraints.length > 0) {
-    useCanvasStore.getState().setGoalConstraints(draftData.goal_constraints)
+  // Must also clear stale constraints when the new draft has none — mirrors
+  // DraftChat.tsx:720 and useConversation.ts:1832-1835 clearing logic.
+  if (isCEEv3Response(draftData)) {
+    if (Array.isArray(draftData.goal_constraints) && draftData.goal_constraints.length > 0) {
+      useCanvasStore.getState().setGoalConstraints(draftData.goal_constraints)
+    } else {
+      useCanvasStore.getState().setGoalConstraints(null)
+    }
   }
 
   // Store quality dimensions

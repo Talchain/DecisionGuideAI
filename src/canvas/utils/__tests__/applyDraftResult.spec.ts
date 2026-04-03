@@ -485,6 +485,28 @@ describe('applyDraftResult', () => {
     expect(mockSetGoalConstraints).toHaveBeenCalledWith(constraints)
   })
 
+  it('clears stale goal_constraints when V3 response has none (no-constraint draft after constrained draft)', () => {
+    const draftData = {
+      nodes: [
+        { id: 'g1', kind: 'goal', label: 'Revenue' },
+        { id: 'f1', kind: 'factor', label: 'Price' },
+      ],
+      edges: [
+        { from: 'f1', to: 'g1', weight: 0.5 },
+      ],
+      analysis_ready: {
+        options: [{ id: 'o1', status: 'ready', interventions: { f1: { value: 10 } } }],
+        goal_node_id: 'g1',
+        status: 'ready',
+      },
+      // No goal_constraints field — simulates a hiring brief after a pricing brief
+    } as any
+
+    applyDraftResult(draftData)
+
+    expect(mockSetGoalConstraints).toHaveBeenCalledWith(null)
+  })
+
   it('clears stale is_baseline when baseline option changes', () => {
     // Pre-populate: o1 was previously the baseline
     storeNodes = [
