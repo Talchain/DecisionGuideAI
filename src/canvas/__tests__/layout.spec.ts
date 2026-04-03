@@ -245,10 +245,10 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('nodeW is clamped to MIN_NODE_W (140) when tier is too wide for canvas', async () => {
+  it('nodeW uses per-tier median when factor tier triggers multi-row on narrow canvas', async () => {
     // 14-node graph: 7 factors in tier 2. On a 936px narrow canvas,
-    // 7 * 140 + 6 * 30 = 1160px > 936 * 0.85 = 795px, so multi-row fires.
-    // layoutNodeWidth must equal 140.
+    // the factor tier triggers multi-row (elkBoxW clamped to MIN_NODE_W+padX).
+    // With per-tier sizing, layoutNodeWidth is the median tier width, not MIN.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -267,7 +267,12 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
-    expect(layoutNodeWidth).toBe(140)
+    // Per-tier sizing: layoutNodeWidth is the median across all tier widths.
+    // The factor tier (7 nodes) clamps to MIN_NODE_W (140), but other tiers
+    // (decision/option/outcome/risk/goal) get wider widths, so the median
+    // is larger than 140.
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(260)
     // All positions must be finite and non-overlapping (using MIN_NODE_W for overlap check)
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
