@@ -687,4 +687,82 @@ describe('Debug Bundle v2.0', () => {
       expect(bundle.goal_constraints).toEqual({ count: 0, items: [] })
     })
   })
+
+  describe('buildDebugBundleAsync — canvas store fallback for goal_constraints', () => {
+    it('reads goal_constraints from canvas store when cee_response has none (direct draft/SSE flow)', async () => {
+      const storeConstraints = [
+        { id: 'c1', label: 'churn under 4%', operator: '≤', value: 0.04 },
+        { id: 'c2', label: 'within 12 months', operator: '≤', value: 12 },
+      ]
+
+      // Mock canvas store to return goalConstraints
+      vi.doMock('../../../canvas/store', () => ({
+        useCanvasStore: {
+          getState: () => ({
+            goalConstraints: storeConstraints,
+            showResultsPanel: false,
+            showInspectorPanel: false,
+            showDraftChat: false,
+            showTemplatesPanel: false,
+            showIssuesPanel: false,
+            runMeta: null,
+          }),
+        },
+      }))
+
+      // Import after mock so it picks up the mocked store
+      const { buildDebugBundleAsync } = await import('../utils/exportBundle')
+
+      const bundle = await buildDebugBundleAsync(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: null, // No captured CEE response (SSE/streaming path)
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.goal_constraints).toEqual({ count: 2, items: storeConstraints })
+
+      vi.doUnmock('../../../canvas/store')
+    })
+
+    it('does not overwrite goal_constraints from cee_response with store fallback', async () => {
+      const envelopeConstraints = [{ constraint_id: 'c1', type: 'max', field: 'cost', value: 100 }]
+
+      vi.doMock('../../../canvas/store', () => ({
+        useCanvasStore: {
+          getState: () => ({
+            goalConstraints: [{ id: 'stale', label: 'stale' }],
+            showResultsPanel: false,
+            showInspectorPanel: false,
+            showDraftChat: false,
+            showTemplatesPanel: false,
+            showIssuesPanel: false,
+            runMeta: null,
+          }),
+        },
+      }))
+
+      const { buildDebugBundleAsync } = await import('../utils/exportBundle')
+
+      const bundle = await buildDebugBundleAsync(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { goal_constraints: envelopeConstraints, assistant_text: 'ok' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      // Should use envelope data, not canvas store
+      expect(bundle.goal_constraints).toEqual({ count: 1, items: envelopeConstraints })
+
+      vi.doUnmock('../../../canvas/store')
+    })
+  })
 })

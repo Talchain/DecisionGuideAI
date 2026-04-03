@@ -1699,6 +1699,20 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // Keep default
   }
 
+  // Fallback: if goal_constraints is still null (e.g. direct draft/SSE flow where
+  // CEE response isn't captured by the payload trace store), read from canvas store.
+  if (!bundle.goal_constraints) {
+    try {
+      const { useCanvasStore } = await import('../../../canvas/store')
+      const storeConstraints = useCanvasStore.getState().goalConstraints
+      if (Array.isArray(storeConstraints) && storeConstraints.length > 0) {
+        bundle.goal_constraints = { count: storeConstraints.length, items: storeConstraints }
+      }
+    } catch {
+      // Canvas store not accessible — keep null
+    }
+  }
+
   return bundle
 }
 
