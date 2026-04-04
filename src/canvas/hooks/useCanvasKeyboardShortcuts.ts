@@ -11,6 +11,7 @@
  * - Cmd/Ctrl+3: Open Results view in Outputs dock
  * - Cmd/Ctrl+I: Toggle Inspector panel
  * - Cmd/Ctrl+D: Toggle Documents drawer (M5)
+ * - Shift+A: Auto-arrange layout
  * - ?: Show keyboard map
  */
 
@@ -30,6 +31,8 @@ interface UseCanvasKeyboardShortcutsOptions {
   onShowToast?: (message: string, type?: 'info' | 'success' | 'warning' | 'error') => void
   /** Shift+F10: open context menu at the focused element's position */
   onOpenContextMenu?: (screenPos: { x: number; y: number }) => void
+  /** Shift+A: auto-arrange layout */
+  onAutoArrange?: () => void
 }
 
 export function useCanvasKeyboardShortcuts({
@@ -40,6 +43,7 @@ export function useCanvasKeyboardShortcuts({
   onToggleDocuments,
   onShowToast,
   onOpenContextMenu,
+  onAutoArrange,
 }: UseCanvasKeyboardShortcutsOptions = {}) {
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     // Ignore plain-key shortcuts when typing in text inputs/areas or editable content
@@ -179,6 +183,16 @@ export function useCanvasKeyboardShortcuts({
       return
     }
 
+    // Shift+A: Auto-arrange layout
+    if (e.key === 'A' && e.shiftKey && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (isTextInputTarget) return
+      e.preventDefault()
+      if (onAutoArrange) {
+        onAutoArrange()
+      }
+      return
+    }
+
     // L: Toggle Graph Lens dropdown
     if (e.key === 'l' && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey) {
       if (isGraphLensEnabled()) {
@@ -231,7 +245,7 @@ export function useCanvasKeyboardShortcuts({
 
       return
     }
-  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowToast, onOpenContextMenu])
+  }, [onFocusNode, onRunSimulation, onToggleResults, onToggleInspector, onToggleDocuments, onShowToast, onOpenContextMenu, onAutoArrange])
 
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown)

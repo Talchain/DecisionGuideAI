@@ -1,17 +1,12 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Save, Share2, MoreVertical, Check, BookOpen, Keyboard, HelpCircle, Users, Shield, ShieldAlert, Clock, Settings, ChevronRight, AlertTriangle, User } from 'lucide-react'
+import { Share2, Users, Shield, ShieldAlert, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
 import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
-import { isGraphLensEnabled } from '../../flags'
-import { useCanvasStore } from '../../canvas/store'
-import { LensDropdown } from '../../canvas/components/LensDropdown'
-import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
 import { useStagePill } from '../../canvas/hooks/useStagePill'
-import { useSettingsStore } from '../../canvas/settingsStore'
 import { UserAvatarMenu } from './UserAvatarMenu'
+import { KebabMenu } from './KebabMenu'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 export const HELP_EVENTS = {
@@ -19,60 +14,6 @@ export const HELP_EVENTS = {
   SHOW_KEYBOARD_LEGEND: 'topbar:show-keyboard-legend',
   SHOW_INFLUENCE_EXPLAINER: 'topbar:show-influence-explainer',
 } as const
-
-/**
- * ViewModeDropdown — Standard / Detailed toggle in the top bar.
- * Internal type: 'standard' | 'expert'. User-facing labels: "Standard" / "Detailed".
- */
-function ViewModeDropdown() {
-  const viewMode = useCanvasStore(s => s.viewMode)
-  const setViewMode = useCanvasStore(s => s.setViewMode)
-  const [open, setOpen] = useState(false)
-  const ref = useRef<HTMLDivElement | null>(null)
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [open])
-
-  const label = viewMode === 'expert' ? 'Detailed' : 'Standard'
-
-  return (
-    <div ref={ref} className="relative">
-      <Tooltip content="Switch canvas detail level">
-        <button
-          type="button"
-          className={styles.metadataChip}
-          onClick={() => setOpen(v => !v)}
-          aria-label={`View: ${label}. Click to change.`}
-        >
-          <Settings size={12} aria-hidden="true" />
-          <span className={styles.metadataLabel}>{label}</span>
-        </button>
-      </Tooltip>
-      {open && (
-        <div className="absolute top-full left-0 mt-1 z-50 bg-panel border border-panel-border rounded-lg shadow-2 py-1 min-w-[120px]">
-          {(['standard', 'expert'] as const).map(mode => (
-            <button
-              key={mode}
-              type="button"
-              className={`w-full text-left px-3 py-1.5 text-xs hover:bg-panel-hover transition-colors ${viewMode === mode ? 'font-semibold text-text-header' : 'text-text-body'}`}
-              onClick={() => { setViewMode(mode); setOpen(false) }}
-            >
-              {mode === 'expert' ? 'Detailed' : 'Standard'}
-              {viewMode === mode && <Check size={12} className="inline ml-1.5 text-info" />}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
 
 interface TopBarProps {
   scenarioTitle: string
@@ -100,25 +41,8 @@ export const TopBar = ({
 }: TopBarProps) => {
   const [isEditing, setIsEditing] = useState(false)
   const [editValue, setEditValue] = useState(scenarioTitle)
-  const [isSaving, setIsSaving] = useState(false)
-  const [showSavedConfirmation, setShowSavedConfirmation] = useState(false)
   const [showMenu, setShowMenu] = useState(false)
-  const [settingsExpanded, setSettingsExpanded] = useState(false)
   const [showSavedPill, setShowSavedPill] = useState(false)
-  const [lensOpen, setLensOpen] = useState(false)
-
-  // Listen for L key toggle event from useCanvasKeyboardShortcuts
-  useEffect(() => {
-    const handler = () => setLensOpen(v => !v)
-    window.addEventListener(LENS_TOGGLE_EVENT, handler)
-    return () => window.removeEventListener(LENS_TOGGLE_EVENT, handler)
-  }, [])
-
-  // Close lens dropdown when comparison mode hides the chip
-  const comparisonActive = useCanvasStore(s => s.comparisonMode.active)
-  useEffect(() => {
-    if (comparisonActive) setLensOpen(false)
-  }, [comparisonActive])
 
   const menuRef = useRef<HTMLDivElement | null>(null)
 
@@ -161,27 +85,14 @@ export const TopBar = ({
   }
 
   const handleSave = async () => {
-    if (!onSave || isSaving || !isDirty) return
-
-    setIsSaving(true)
+    if (!onSave) return
     try {
       await onSave()
-      setShowSavedConfirmation(true)
-      setTimeout(() => setShowSavedConfirmation(false), 2000)
     } catch (error) {
       // eslint-disable-next-line no-console
       console.error('Save failed:', error)
-    } finally {
-      setIsSaving(false)
     }
   }
-
-  // Reset settingsExpanded when menu closes
-  useEffect(() => {
-    if (!showMenu) {
-      setSettingsExpanded(false)
-    }
-  }, [showMenu])
 
   useEffect(() => {
     if (!showMenu) return
@@ -223,38 +134,10 @@ export const TopBar = ({
     setShowMenu(false)
   }, [])
 
-  const formatRelativeTime = (date: Date): string => {
-    const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-    if (seconds < 60) return 'just now'
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-    return date.toLocaleDateString()
-  }
-
-  const saveTooltip = lastSaved
-    ? `Last saved ${formatRelativeTime(lastSaved)}`
-    : 'Save changes'
-
-  const saveDisabled = !isDirty || isSaving
-
   // Decision Graph Display v2 Task 13: Analysis metadata
   const analysisMetadata = useAnalysisMetadata()
   // A.15: Stage lifecycle pill
   const stagePill = useStagePill()
-
-  // Canvas settings from store
-  const {
-    showGrid,
-    gridSize,
-    snapToGrid,
-    showAlignmentGuides,
-    highContrastMode,
-    setShowGrid,
-    setGridSize,
-    setSnapToGrid,
-    setShowAlignmentGuides,
-    setHighContrastMode,
-  } = useSettingsStore()
 
   return (
     <div className={styles.topBar} role="banner">
@@ -287,14 +170,14 @@ export const TopBar = ({
             }}
             className={styles.titleInput}
             autoFocus
-            aria-label="Edit scenario title"
+            aria-label="Edit decision title"
           />
         ) : (
           <button
             type="button"
             onClick={() => setIsEditing(true)}
             className={styles.titleButton}
-            aria-label="Edit scenario title"
+            aria-label="Edit decision title"
           >
             <span className={styles.titleText}>{scenarioTitle}</span>
             <svg
@@ -310,42 +193,10 @@ export const TopBar = ({
         )}
 
         {/* Dirty indicator (localStorage mode only) */}
-        {!isPersisted && isDirty && !isSaving && (
+        {!isPersisted && isDirty && saveStatus !== 'saving' && (
           <span className={styles.dirtyIndicator} aria-label="Unsaved changes" />
         )}
 
-        {/* C.1a: Supabase persistence save status */}
-        {isPersisted && saveStatus === 'saving' && (
-          <div
-            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-gray-500 bg-gray-100 rounded-full"
-            role="status"
-            aria-live="polite"
-          >
-            <Clock className="w-3 h-3 animate-pulse" />
-            <span>Saving…</span>
-          </div>
-        )}
-        {isPersisted && showSavedPill && (
-          <div
-            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-text-body bg-panel rounded-full transition-opacity duration-300"
-            role="status"
-            aria-live="polite"
-          >
-            <Check className="w-3 h-3" />
-            <span>Saved</span>
-          </div>
-        )}
-        {isPersisted && saveStatus === 'error' && (
-          <div
-            className="flex items-center gap-1 px-2 py-0.5 text-[11px] text-warning bg-panel rounded-full"
-            role="status"
-            aria-live="polite"
-            title={saveError ?? 'Save failed'}
-          >
-            <AlertTriangle className="w-3 h-3" />
-            <span>Save failed — retrying</span>
-          </div>
-        )}
       </div>
 
       {/* Decision Graph Display v2 Task 13: Analysis metadata chips */}
@@ -402,48 +253,62 @@ export const TopBar = ({
           </Tooltip>
         )}
 
-        {/* Graph Lens dropdown (post-analysis only) */}
-        {isGraphLensEnabled() && (
-          <LensDropdown
-            isOpen={lensOpen}
-            onClose={() => setLensOpen(false)}
-            onToggle={() => setLensOpen(v => !v)}
-          />
-        )}
-
-        {/* View mode dropdown: Standard / Detailed */}
-        <ViewModeDropdown />
       </div>
 
       {/* Right section */}
       <div className={styles.topBarRight}>
-        {/* Save button */}
-        <Tooltip content={saveTooltip}>
-          <button
-            type="button"
-            onClick={handleSave}
-            disabled={saveDisabled}
-            className={`${styles.saveButton} ${showSavedConfirmation ? styles.saveButtonSaved : ''}`}
-            aria-label="Save scenario"
-          >
-            {showSavedConfirmation ? (
-              <>
-                <Check size={12} aria-hidden="true" />
-                <span>Saved</span>
-              </>
-            ) : isSaving ? (
-              <>
+        {/* Save status indicator (replaces save button) */}
+        {isPersisted && (() => {
+          const isClickable = (saveStatus === 'error') || (isDirty && saveStatus !== 'saving')
+          const handleClick = isClickable ? handleSave : undefined
+
+          if (saveStatus === 'saving') {
+            return (
+              <span className={styles.saveStatus} role="status" aria-live="polite">
                 <Spinner size="sm" />
                 <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save size={12} aria-hidden="true" />
-                <span>Save</span>
-              </>
-            )}
-          </button>
-        </Tooltip>
+              </span>
+            )
+          }
+          if (saveStatus === 'saved' && showSavedPill) {
+            return (
+              <span className={styles.saveStatus} role="status" aria-live="polite">
+                <CheckCircle size={12} className="text-success" aria-hidden="true" />
+                <span className="text-text-light">Saved</span>
+              </span>
+            )
+          }
+          if (saveStatus === 'error') {
+            return (
+              <button
+                type="button"
+                className={`${styles.saveStatus} ${styles.saveStatusClickable}`}
+                role="status"
+                aria-live="polite"
+                onClick={handleClick}
+                title={saveError ?? 'Save failed'}
+              >
+                <XCircle size={12} className="text-danger" aria-hidden="true" />
+                <span className="text-danger">Save failed</span>
+              </button>
+            )
+          }
+          if (isDirty) {
+            return (
+              <button
+                type="button"
+                className={`${styles.saveStatus} ${styles.saveStatusClickable}`}
+                role="status"
+                aria-live="polite"
+                onClick={handleClick}
+              >
+                <AlertTriangle size={12} className="text-warning" aria-hidden="true" />
+                <span className="text-warning">Unsaved</span>
+              </button>
+            )
+          }
+          return null
+        })()}
 
         {/* Share button */}
         <Tooltip content="Generate shareable link">
@@ -451,180 +316,35 @@ export const TopBar = ({
             type="button"
             onClick={onShare}
             className={styles.shareButton}
-            aria-label="Share scenario"
+            aria-label="Share decision"
           >
-            <Share2 size={12} aria-hidden="true" />
-            <span className={styles.buttonLabel}>Share</span>
+            <Share2 size={14} aria-hidden="true" />
           </button>
         </Tooltip>
 
-        {/* Menu dropdown */}
-        <div className={styles.menuDropdown} ref={menuRef}>
-          <Tooltip content="More options">
-            <button
-              type="button"
-              onClick={() => setShowMenu(prev => !prev)}
-              className={styles.menuButton}
-              aria-label="More options"
-              aria-expanded={showMenu}
-              aria-haspopup="true"
-            >
-              <MoreVertical size={15} aria-hidden="true" />
-            </button>
-          </Tooltip>
+        {/* Version history */}
+        <Tooltip content="Version history">
+          <button
+            type="button"
+            className={styles.iconButton}
+            aria-label="Version history"
+            onClick={() => console.warn('Version history')}
+          >
+            <Clock size={14} aria-hidden="true" />
+          </button>
+        </Tooltip>
 
-          {showMenu && (
-            <div className={styles.dropdownMenu} role="menu">
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.dropdownMenuButton}
-                onClick={() => console.warn('Export')}
-              >
-                Export
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.dropdownMenuButton}
-                onClick={() => console.warn('Version history')}
-              >
-                Version history
-              </button>
-              <hr className={styles.dropdownMenuDivider} />
-              {/* Help & Learning section */}
-              <div className={styles.dropdownMenuLabel}>Need a refresher?</div>
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.dropdownMenuButton}
-                onClick={handleShowOnboarding}
-              >
-                <BookOpen size={14} aria-hidden="true" />
-                <span>Show onboarding tour</span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.dropdownMenuButton}
-                onClick={handleShowKeyboardLegend}
-              >
-                <Keyboard size={14} aria-hidden="true" />
-                <span>Keyboard shortcuts</span>
-              </button>
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.dropdownMenuButton}
-                onClick={handleShowInfluenceExplainer}
-              >
-                <HelpCircle size={14} aria-hidden="true" />
-                <span>Influence explainer</span>
-              </button>
-              <hr className={styles.dropdownMenuDivider} />
-              {/* Settings expandable section */}
-              <button
-                type="button"
-                role="menuitem"
-                className={styles.dropdownMenuButton}
-                onClick={() => setSettingsExpanded(!settingsExpanded)}
-                aria-expanded={settingsExpanded}
-                aria-controls="canvas-settings-panel"
-              >
-                <Settings size={14} aria-hidden="true" />
-                <span>Settings</span>
-                <ChevronRight
-                  size={14}
-                  className={`${styles.settingsChevron} ${settingsExpanded ? styles.settingsChevronExpanded : ''}`}
-                  aria-hidden="true"
-                />
-              </button>
-
-              {settingsExpanded && (
-                <div
-                  id="canvas-settings-panel"
-                  role="group"
-                  aria-label="Canvas settings"
-                  className={styles.settingsSection}
-                >
-                  {/* Show Grid */}
-                  <label htmlFor="setting-show-grid" className={styles.settingsRow}>
-                    <span>Show Grid</span>
-                    <input
-                      id="setting-show-grid"
-                      type="checkbox"
-                      checked={showGrid}
-                      onChange={(e) => setShowGrid(e.target.checked)}
-                      className={styles.settingsCheckbox}
-                    />
-                  </label>
-
-                  {/* Grid Size - only when grid is enabled */}
-                  {showGrid && (
-                    <div className={styles.settingsSliderRow}>
-                      <label htmlFor="setting-grid-size">Grid Size: {gridSize}px</label>
-                      <input
-                        id="setting-grid-size"
-                        type="range"
-                        min="8"
-                        max="24"
-                        step="8"
-                        value={gridSize}
-                        onChange={(e) => setGridSize(Number(e.target.value) as 8 | 16 | 24)}
-                        className={styles.settingsSlider}
-                        aria-valuemin={8}
-                        aria-valuemax={24}
-                        aria-valuenow={gridSize}
-                        aria-valuetext={`${gridSize} pixels`}
-                      />
-                      <div className={styles.settingsSliderLabels} aria-hidden="true">
-                        <span>8px</span>
-                        <span>16px</span>
-                        <span>24px</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Snap to Grid */}
-                  <label htmlFor="setting-snap-to-grid" className={styles.settingsRow}>
-                    <span>Snap to Grid</span>
-                    <input
-                      id="setting-snap-to-grid"
-                      type="checkbox"
-                      checked={snapToGrid}
-                      onChange={(e) => setSnapToGrid(e.target.checked)}
-                      className={styles.settingsCheckbox}
-                    />
-                  </label>
-
-                  {/* Alignment Guides */}
-                  <label htmlFor="setting-alignment-guides" className={styles.settingsRow}>
-                    <span>Alignment Guides</span>
-                    <input
-                      id="setting-alignment-guides"
-                      type="checkbox"
-                      checked={showAlignmentGuides}
-                      onChange={(e) => setShowAlignmentGuides(e.target.checked)}
-                      className={styles.settingsCheckbox}
-                    />
-                  </label>
-
-                  {/* High Contrast Mode */}
-                  <label htmlFor="setting-high-contrast" className={styles.settingsRow}>
-                    <span>High Contrast Mode</span>
-                    <input
-                      id="setting-high-contrast"
-                      type="checkbox"
-                      checked={highContrastMode}
-                      onChange={(e) => setHighContrastMode(e.target.checked)}
-                      className={styles.settingsCheckbox}
-                    />
-                  </label>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        {/* Kebab menu */}
+        <KebabMenu
+          isOpen={showMenu}
+          onToggle={() => setShowMenu(prev => !prev)}
+          onClose={() => setShowMenu(false)}
+          onStartRename={() => { setIsEditing(true); setShowMenu(false) }}
+          onShowOnboarding={handleShowOnboarding}
+          onShowKeyboardLegend={handleShowKeyboardLegend}
+          onShowInfluenceExplainer={handleShowInfluenceExplainer}
+          menuRef={menuRef}
+        />
 
         {/* User avatar + account dropdown */}
         <UserAvatarMenu />

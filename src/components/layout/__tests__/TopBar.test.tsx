@@ -1,6 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { TopBar } from '../TopBar'
+
+function renderTopBar(props: React.ComponentProps<typeof TopBar>) {
+  return render(
+    <MemoryRouter>
+      <TopBar {...props} />
+    </MemoryRouter>,
+  )
+}
 
 describe('TopBar', () => {
   const mockProps = {
@@ -10,15 +19,15 @@ describe('TopBar', () => {
     onShare: vi.fn(),
   }
 
-  it('renders scenario title', () => {
-    render(<TopBar {...mockProps} />)
+  it('renders decision title', () => {
+    renderTopBar(mockProps)
     expect(screen.getByText('Pricing Decision 2025')).toBeInTheDocument()
   })
 
   it('allows title editing', async () => {
-    render(<TopBar {...mockProps} />)
+    renderTopBar(mockProps)
 
-    fireEvent.click(screen.getByRole('button', { name: /edit scenario title/i }))
+    fireEvent.click(screen.getByRole('button', { name: /edit decision title/i }))
 
     const input = screen.getByRole('textbox') as HTMLInputElement
     expect(input).toHaveFocus()
@@ -32,9 +41,9 @@ describe('TopBar', () => {
   })
 
   it('limits title to 60 characters', async () => {
-    render(<TopBar {...mockProps} />)
+    renderTopBar(mockProps)
 
-    fireEvent.click(screen.getByRole('button', { name: /edit scenario title/i }))
+    fireEvent.click(screen.getByRole('button', { name: /edit decision title/i }))
 
     const input = screen.getByRole('textbox') as HTMLInputElement
     const longTitle = 'A'.repeat(70)
@@ -43,41 +52,23 @@ describe('TopBar', () => {
     expect(input).toHaveValue('A'.repeat(60))
   })
 
-  it('shows save button disabled when not dirty', () => {
-    render(<TopBar {...mockProps} isDirty={false} />)
-
-    const saveButton = screen.getByRole('button', { name: /save scenario/i })
-    expect(saveButton).toBeDisabled()
+  it('shows save status when persisted and saving', () => {
+    renderTopBar({...mockProps, isPersisted: true, saveStatus: 'saving'})
+    expect(screen.getByText('Saving...')).toBeInTheDocument()
   })
 
-  it('enables save button when dirty', () => {
-    render(<TopBar {...mockProps} isDirty />)
-
-    const saveButton = screen.getByRole('button', { name: /save scenario/i })
-    expect(saveButton).toBeEnabled()
+  it('shows unsaved status when persisted and dirty', () => {
+    renderTopBar({...mockProps, isPersisted: true, isDirty: true, saveStatus: 'saved'})
+    expect(screen.getByText('Unsaved')).toBeInTheDocument()
   })
 
-  it('shows saved confirmation after successful save', async () => {
-    const onSave = vi.fn().mockResolvedValue(undefined)
-
-    render(<TopBar {...mockProps} isDirty onSave={onSave} />)
-
-    fireEvent.click(screen.getByRole('button', { name: /save scenario/i }))
-
-    await waitFor(() => {
-      expect(screen.getByText('Saved')).toBeInTheDocument()
-    })
-
-    await waitFor(
-      () => {
-        expect(screen.queryByText('Saved')).not.toBeInTheDocument()
-      },
-      { timeout: 3000 },
-    )
+  it('renders version history button', () => {
+    renderTopBar(mockProps)
+    expect(screen.getByRole('button', { name: /version history/i })).toBeInTheDocument()
   })
 
   it('opens menu dropdown', async () => {
-    render(<TopBar {...mockProps} />)
+    renderTopBar(mockProps)
 
     fireEvent.click(screen.getByRole('button', { name: /more options/i }))
 
@@ -86,7 +77,7 @@ describe('TopBar', () => {
   })
 
   it('closes menu when clicking outside', async () => {
-    render(<TopBar {...mockProps} />)
+    renderTopBar(mockProps)
 
     fireEvent.click(screen.getByRole('button', { name: /more options/i }))
     expect(screen.getByRole('menu')).toBeInTheDocument()

@@ -21,6 +21,13 @@ vi.mock('../../store', () => {
     edges: [],
     selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
     results: { status: 'idle', report: null },
+    canUndo: () => false,
+    canRedo: () => false,
+    undo: vi.fn(),
+    redo: vi.fn(),
+    viewMode: 'standard' as const,
+    setViewMode: vi.fn(),
+    applyLayout: vi.fn(),
   }
   const mockStore = vi.fn((selector: any) => selector(mockState))
   mockStore.getState = () => mockState

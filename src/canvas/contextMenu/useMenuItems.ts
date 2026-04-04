@@ -10,6 +10,7 @@ import {
   Sparkles, Zap, Crosshair, SlidersHorizontal, ArrowUpToLine, ArrowDownToLine,
   RotateCcw, Pencil, Plus, Flag, Scissors, Copy, ClipboardPaste, CopyPlus,
   Trash2, MessageSquare, Layers, TrendingUp, AlertTriangle, ArrowLeftRight, Eye,
+  Undo2, Redo2, LayoutGrid,
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
@@ -135,6 +136,8 @@ function buildPaneMenu(
     action: wrap(() => addNodeAction(nt.type, flowPos, showToast)),
   }))
 
+  const store = useCanvasStore.getState()
+
   return [
     {
       id: 'add-node',
@@ -167,17 +170,25 @@ function buildPaneMenu(
     },
     DIV,
     {
-      id: 'toggle-view-mode',
-      label: useCanvasStore.getState().viewMode === 'expert' ? 'Switch to Standard' : 'Switch to Detailed',
-      icon: Eye,
-      tooltip: 'Toggle between Standard and Detailed canvas view',
-      enabled: true,
-      action: wrap(() => {
-        const store = useCanvasStore.getState()
-        store.setViewMode(store.viewMode === 'expert' ? 'standard' : 'expert')
-      }),
+      id: 'undo',
+      label: 'Undo',
+      icon: Undo2,
+      shortcut: '\u2318Z',
+      tooltip: 'Undo last action',
+      enabled: store.canUndo(),
+      disabledReason: store.canUndo() ? undefined : 'Nothing to undo',
+      action: wrap(() => useCanvasStore.getState().undo()),
     },
-    DIV,
+    {
+      id: 'redo',
+      label: 'Redo',
+      icon: Redo2,
+      shortcut: '\u2318\u21E7Z',
+      tooltip: 'Redo last undone action',
+      enabled: store.canRedo(),
+      disabledReason: store.canRedo() ? undefined : 'Nothing to redo',
+      action: wrap(() => useCanvasStore.getState().redo()),
+    },
     {
       id: 'paste',
       label: 'Paste',
@@ -187,6 +198,33 @@ function buildPaneMenu(
       enabled: hasClipboard,
       disabledReason: hasClipboard ? undefined : 'Nothing to paste',
       action: wrap(() => pasteAction(flowPos, showToast)),
+    },
+    DIV,
+    {
+      id: 'auto-arrange',
+      label: 'Auto-arrange',
+      icon: LayoutGrid,
+      shortcut: '\u21E7A',
+      tooltip: 'Automatically arrange all nodes',
+      enabled: store.nodes.length > 0,
+      disabledReason: store.nodes.length > 0 ? undefined : 'No nodes to arrange',
+      action: wrap(() => {
+        const s = useCanvasStore.getState()
+        if (s.nodes.length === 0) return
+        s.applyLayout()
+        showToast('Auto-arranged layout.', 'success')
+      }),
+    },
+    {
+      id: 'toggle-view-mode',
+      label: store.viewMode === 'expert' ? 'Switch to Standard' : 'Switch to Detailed',
+      icon: Eye,
+      tooltip: 'Toggle between Standard and Detailed canvas view',
+      enabled: true,
+      action: wrap(() => {
+        const s = useCanvasStore.getState()
+        s.setViewMode(s.viewMode === 'expert' ? 'standard' : 'expert')
+      }),
     },
   ]
 }

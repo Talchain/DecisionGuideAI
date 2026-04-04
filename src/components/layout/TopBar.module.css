@@ -36,7 +36,7 @@
 }
 
 .logoLink:focus {
-  outline: 2px solid var(--sky-500);
+  outline: 2px solid var(--info);
   outline-offset: 2px;
   border-radius: 4px;
 }
@@ -66,7 +66,7 @@
 }
 
 .titleButton:focus {
-  outline: 2px solid var(--sky-500);
+  outline: 2px solid var(--info);
   outline-offset: 2px;
 }
 
@@ -161,37 +161,26 @@
   height: 16px;
 }
 
-/* Save button with label */
-.saveButton {
-  display: flex;
+/* Save status indicator (lightweight text, not a button) */
+.saveStatus {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 10px;
   font-size: 12px;
-  font-weight: 500;
-  border: 1px solid var(--border-default, #EEE6D8);
-  border-radius: 6px;
-  background: white;
-  color: var(--text-body, #3F3F3E);
+  font-weight: 400;
+  white-space: nowrap;
+  transition: opacity 200ms ease;
+}
+
+.saveStatusClickable {
   cursor: pointer;
-  transition: all 150ms;
+  border: none;
+  background: transparent;
+  padding: 0;
 }
 
-.saveButton:hover:not(:disabled) {
-  border-color: var(--info, #2B7FA2);
-  background: var(--info-light, #BAD7E4);
-  color: var(--text-header, #262626);
-}
-
-.saveButton:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.saveButtonSaved {
-  border-color: var(--success, #67C89E);
-  background: var(--success-light, #B8E2D0);
-  color: var(--text-header, #262626);
+.saveStatusClickable:hover span {
+  text-decoration: underline;
 }
 
 /* Share button - icon only in pill */
@@ -220,9 +209,6 @@
   height: 16px;
 }
 
-.buttonLabel {
-  display: none; /* Hide labels in compact pill design */
-}
 
 /* Menu button */
 .menuButton {
@@ -299,44 +285,13 @@
 }
 
 .dropdownMenuLabel {
-  padding: 6px 10px 4px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  padding: 8px 10px 4px;
+  font-size: 12px;
+  font-weight: 500;
   color: var(--text-light, #908D8D);
 }
 
-/* Settings section in dropdown */
-.settingsChevron {
-  margin-left: auto;
-  color: var(--text-light, #908D8D);
-  transition: transform 200ms ease;
-}
-
-.settingsChevronExpanded {
-  transform: rotate(90deg);
-}
-
-.settingsSection {
-  padding: 4px 10px 8px 32px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  animation: settingsFadeIn 150ms ease-out;
-}
-
-@keyframes settingsFadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
+/* Canvas settings (flattened in kebab menu) */
 .settingsRow {
   display: flex;
   align-items: center;
@@ -344,7 +299,8 @@
   font-size: 12px;
   color: var(--text-body, #3F3F3E);
   cursor: pointer;
-  padding: 4px 0;
+  padding: 6px 10px;
+  border-radius: 6px;
 }
 
 .settingsRow:hover {
@@ -364,7 +320,7 @@
   gap: 4px;
   font-size: 12px;
   color: var(--text-body, #3F3F3E);
-  padding: 4px 0;
+  padding: 4px 10px 8px;
 }
 
 .settingsSlider {
@@ -495,16 +451,8 @@
 }
 
 @media (max-width: 600px) {
-  /* On small screens, constrain title and hide save label */
+  /* On small screens, constrain title */
   .titleText {
     max-width: 120px;
-  }
-
-  .saveButton span {
-    display: none;
-  }
-
-  .saveButton {
-    padding: 6px 8px;
   }
 }

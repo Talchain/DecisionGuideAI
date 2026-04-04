@@ -22,6 +22,7 @@ import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
 import { CanvasToolbar } from './CanvasToolbar'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
+import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { RightPanel } from '../components/layout/RightPanel'
 import { AlignmentGuides } from './components/AlignmentGuides'
 import { InspectorModal } from './components/InspectorModal'
@@ -339,7 +340,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Week 3: AI Coaching moved to GuidancePanel in OutputsDock
 
-  const { getViewport, setCenter, fitView, zoomIn, zoomOut, screenToFlowPosition } = useReactFlow()
+  const { getViewport, setCenter, fitView, zoomIn, zoomOut, zoomTo, screenToFlowPosition } = useReactFlow()
 
   // Brief 36 Fix: Stabilize ReactFlow function references via refs
   // These functions may have unstable references in some ReactFlow versions
@@ -347,10 +348,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const setCenterRef = useRef(setCenter)
   const zoomInRef = useRef(zoomIn)
   const zoomOutRef = useRef(zoomOut)
+  const zoomToRef = useRef(zoomTo)
   getViewportRef.current = getViewport
   setCenterRef.current = setCenter
   zoomInRef.current = zoomIn
   zoomOutRef.current = zoomOut
+  zoomToRef.current = zoomTo
 
   // Canvas control actions from store
   const undo = useCanvasStore(s => s.undo)
@@ -1101,7 +1104,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }, [])
 
-  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+F10)
+  // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+A, Shift+F10)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
     onRunSimulation: handleRunSimulation,
@@ -1109,6 +1112,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     onToggleDocuments: showDocuments,
     onShowToast: showToast,
     onOpenContextMenu: handleKeyboardContextMenu,
+    onAutoArrange: () => {
+      if (nodesRef.current.length === 0) {
+        showToast('No nodes to arrange.', 'info')
+        return
+      }
+      applyLayout()
+      showToast('Auto-arranged layout.', 'success')
+    },
   })
 
   // P0-8: Confirm connection to nearby node
@@ -2022,25 +2033,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {!USE_NEW_LAYOUT && <CanvasToolbar />}
       <LeftSidebar
         interactionMode={effectiveMode}
-        onModeChange={setInteractionMode}
-        onFitClick={() => fitViewRef.current({ padding: 0.2, duration: 300 })}
-        // Canvas control actions
+        onSelectClick={() => setInteractionMode('select')}
         onUndoClick={undo}
         onRedoClick={redo}
-        onResetClick={() => {
-          // Brief 36 Fix: Use refs instead of nodes/edges to avoid dependency re-renders
-          const currentNodes = nodesRef.current
-          const currentEdges = edgesRef.current
-          if (currentNodes.length === 0 && currentEdges.length === 0) {
-            showToast('Canvas is already empty.', 'info')
-            return
-          }
-          setShowResetConfirm(true)
-        }}
-        onZoomInClick={() => zoomInRef.current({ duration: 200 })}
-        onZoomOutClick={() => zoomOutRef.current({ duration: 200 })}
-        onAutoArrangeClick={() => {
-          // Brief 36 Fix: Use ref instead of nodes to avoid dependency re-renders
+        canUndo={canUndo()}
+        canRedo={canRedo()}
+      />
+      <CanvasViewportControls
+        onZoomIn={() => zoomInRef.current({ duration: 200 })}
+        onZoomOut={() => zoomOutRef.current({ duration: 200 })}
+        onZoomReset={() => zoomToRef.current(1, { duration: 200 })}
+        onFitView={() => fitViewRef.current({ padding: 0.2, duration: 300 })}
+        onAutoArrange={() => {
           if (nodesRef.current.length === 0) {
             showToast('No nodes to arrange.', 'info')
             return
@@ -2048,8 +2052,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           applyLayout()
           showToast('Auto-arranged layout.', 'success')
         }}
-        canUndo={canUndo()}
-        canRedo={canRedo()}
       />
       {/* Focus Mode Chip - shows when single node selected with path highlighting */}
       <div

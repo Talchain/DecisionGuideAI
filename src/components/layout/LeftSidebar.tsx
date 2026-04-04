@@ -1,63 +1,63 @@
+import { useState, useEffect, useRef } from 'react'
 import {
-  Plus,
-  PanelsTopLeft,
-  Maximize2,
+  Layers,
   Undo2,
   Redo2,
-  RotateCcw,
-  ZoomIn,
-  ZoomOut,
-  LayoutGrid,
   MousePointer2,
-  Hand,
 } from 'lucide-react'
 import Tooltip from '../Tooltip'
 import styles from './LeftSidebar.module.css'
+import { LensDropdown } from '../../canvas/components/LensDropdown'
+import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
+import { useCanvasStore } from '../../canvas/store'
+import { isGraphLensEnabled } from '../../flags'
 
 interface LeftSidebarProps {
-  // Interaction mode (select vs hand/pan)
+  /** Current interaction mode (select vs hand/pan via keyboard) */
   interactionMode?: 'select' | 'hand'
-  onModeChange?: (mode: 'select' | 'hand') => void
-  // Node/canvas actions
-  onAddNodeClick?: () => void
-  onFitClick?: () => void
+  /** Called when user clicks select button to switch to select mode */
+  onSelectClick?: () => void
   // Canvas control actions
   onUndoClick?: () => void
   onRedoClick?: () => void
-  onResetClick?: () => void
-  onZoomInClick?: () => void
-  onZoomOutClick?: () => void
-  onAutoArrangeClick?: () => void
   // Disabled states
   canUndo?: boolean
   canRedo?: boolean
-  /** Optional left offset, e.g. `calc(var(--dock-left-offset, 0rem) + 8px)` */
-  leftOffset?: string
 }
 
 export function LeftSidebar({
   interactionMode = 'select',
-  onModeChange,
-  onAddNodeClick,
-  onFitClick,
+  onSelectClick,
   // Canvas controls
   onUndoClick,
   onRedoClick,
-  onResetClick,
-  onZoomInClick,
-  onZoomOutClick,
-  onAutoArrangeClick,
   canUndo = true,
   canRedo = true,
-  leftOffset,
 }: LeftSidebarProps) {
+  const [lensOpen, setLensOpen] = useState(false)
+  const viewBtnRef = useRef<HTMLButtonElement | null>(null)
+
+  // Listen for L key toggle event from useCanvasKeyboardShortcuts
+  useEffect(() => {
+    const handler = () => setLensOpen(v => !v)
+    window.addEventListener(LENS_TOGGLE_EVENT, handler)
+    return () => window.removeEventListener(LENS_TOGGLE_EVENT, handler)
+  }, [])
+
+  // Close lens dropdown when comparison mode hides the chip
+  const comparisonActive = useCanvasStore(s => s.comparisonMode.active)
+  useEffect(() => {
+    if (comparisonActive) setLensOpen(false)
+  }, [comparisonActive])
+
+  const lensEnabled = isGraphLensEnabled()
+
   return (
     <nav
       className={styles.sidebar}
       aria-label="Canvas tools"
-      style={leftOffset ? { left: leftOffset } : undefined}
     >
-      {/* Mode Toggle & Creation Group */}
+      {/* Build group */}
       <div className={styles.group}>
         <Tooltip content="Select mode (V)">
           <button
@@ -65,47 +65,29 @@ export function LeftSidebar({
             className={interactionMode === 'select' ? styles.iconButtonActive : styles.iconButton}
             aria-label="Select mode"
             aria-pressed={interactionMode === 'select'}
-            onClick={() => onModeChange?.('select')}
+            onClick={onSelectClick}
           >
             <MousePointer2 className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
-        <Tooltip content="Hand mode (H)">
-          <button
-            type="button"
-            className={interactionMode === 'hand' ? styles.iconButtonActive : styles.iconButton}
-            aria-label="Hand mode"
-            aria-pressed={interactionMode === 'hand'}
-            onClick={() => onModeChange?.('hand')}
-          >
-            <Hand className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
 
-        <Tooltip content="Add node to canvas">
-          <button
-            type="button"
-            className={styles.iconButtonPrimary}
-            aria-label="Add node to canvas"
-            onClick={onAddNodeClick}
-          >
-            <Plus className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Templates are Coming Soon">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Templates are Coming Soon"
-            disabled
-          >
-            <PanelsTopLeft className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
+        {lensEnabled && (
+          <Tooltip content="View (L)">
+            <button
+              ref={viewBtnRef}
+              type="button"
+              className={lensOpen ? styles.iconButtonActive : styles.iconButton}
+              aria-label="Graph lens"
+              aria-pressed={lensOpen}
+              onClick={() => setLensOpen(v => !v)}
+            >
+              <Layers className={styles.icon} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        )}
       </div>
 
-      {/* Canvas Controls Group */}
+      {/* History group */}
       <div className={styles.group}>
         <Tooltip content="Undo (⌘Z)">
           <button
@@ -130,68 +112,18 @@ export function LeftSidebar({
             <Redo2 className={styles.icon} aria-hidden="true" />
           </button>
         </Tooltip>
-
-        <Tooltip content="Reset canvas">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Reset canvas"
-            onClick={onResetClick}
-          >
-            <RotateCcw className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
       </div>
 
-      {/* View Controls Group */}
-      <div className={styles.group}>
-        <Tooltip content="Zoom in (⌘+)">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Zoom in"
-            onClick={onZoomInClick}
-          >
-            <ZoomIn className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Zoom out (⌘-)">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Zoom out"
-            onClick={onZoomOutClick}
-          >
-            <ZoomOut className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-
-        <Tooltip content="Fit view to all nodes (⌘0)">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Fit all nodes in view"
-            onClick={onFitClick}
-          >
-            <Maximize2 className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-      </div>
-
-      {/* Layout Group */}
-      <div className={styles.group}>
-        <Tooltip content="Auto-arrange layout">
-          <button
-            type="button"
-            className={styles.iconButton}
-            aria-label="Auto-arrange layout"
-            onClick={onAutoArrangeClick}
-          >
-            <LayoutGrid className={styles.icon} aria-hidden="true" />
-          </button>
-        </Tooltip>
-      </div>
+      {/* Lens dropdown — portaled, anchored to View button */}
+      {lensEnabled && (
+        <LensDropdown
+          isOpen={lensOpen}
+          onClose={() => setLensOpen(false)}
+          onToggle={() => setLensOpen(v => !v)}
+          anchorRef={viewBtnRef}
+          hideChip
+        />
+      )}
     </nav>
   )
 }

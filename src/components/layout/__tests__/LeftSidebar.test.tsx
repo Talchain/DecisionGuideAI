@@ -3,40 +3,39 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { LeftSidebar } from '../LeftSidebar'
 
 describe('LeftSidebar', () => {
-  it('renders navigation with canvas tool buttons', () => {
+  it('renders navigation with 4 tool buttons (select, undo, redo + view when lens enabled)', () => {
     render(<LeftSidebar />)
 
     expect(screen.getByRole('navigation', { name: /canvas tools/i })).toBeInTheDocument()
 
     expect(screen.getByRole('button', { name: /select mode/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /hand mode/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /add node to canvas/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /templates are coming soon/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /templates are coming soon/i })).toBeDisabled()
-    expect(screen.getByRole('button', { name: /fit all nodes in view/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /auto-arrange layout/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /redo/i })).toBeInTheDocument()
   })
 
-  it('invokes callbacks when buttons are clicked', () => {
-    const onAddNodeClick = vi.fn()
-    const onFitClick = vi.fn()
-    const onAutoArrangeClick = vi.fn()
+  it('invokes undo/redo callbacks when buttons are clicked', () => {
+    const onUndoClick = vi.fn()
+    const onRedoClick = vi.fn()
 
     render(
       <LeftSidebar
-        onAddNodeClick={onAddNodeClick}
-        onFitClick={onFitClick}
-        onAutoArrangeClick={onAutoArrangeClick}
+        onUndoClick={onUndoClick}
+        onRedoClick={onRedoClick}
       />,
     )
 
-    fireEvent.click(screen.getByRole('button', { name: /add node to canvas/i }))
-    fireEvent.click(screen.getByRole('button', { name: /fit all nodes in view/i }))
-    fireEvent.click(screen.getByRole('button', { name: /auto-arrange layout/i }))
+    fireEvent.click(screen.getByRole('button', { name: /undo/i }))
+    fireEvent.click(screen.getByRole('button', { name: /redo/i }))
 
-    expect(onAddNodeClick).toHaveBeenCalledTimes(1)
-    expect(onFitClick).toHaveBeenCalledTimes(1)
-    expect(onAutoArrangeClick).toHaveBeenCalledTimes(1)
+    expect(onUndoClick).toHaveBeenCalledTimes(1)
+    expect(onRedoClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('disables undo/redo when canUndo/canRedo are false', () => {
+    render(<LeftSidebar canUndo={false} canRedo={false} />)
+
+    expect(screen.getByRole('button', { name: /undo/i })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /redo/i })).toBeDisabled()
   })
 
   describe('Mode toggle — active state and aria-pressed', () => {
@@ -44,36 +43,14 @@ describe('LeftSidebar', () => {
       render(<LeftSidebar interactionMode="select" />)
 
       const selectBtn = screen.getByRole('button', { name: /select mode/i })
-      const handBtn = screen.getByRole('button', { name: /hand mode/i })
-
       expect(selectBtn).toHaveAttribute('aria-pressed', 'true')
-      expect(handBtn).toHaveAttribute('aria-pressed', 'false')
     })
 
-    it('marks hand button as pressed when in hand mode', () => {
+    it('does not mark select as pressed when in hand mode', () => {
       render(<LeftSidebar interactionMode="hand" />)
 
       const selectBtn = screen.getByRole('button', { name: /select mode/i })
-      const handBtn = screen.getByRole('button', { name: /hand mode/i })
-
       expect(selectBtn).toHaveAttribute('aria-pressed', 'false')
-      expect(handBtn).toHaveAttribute('aria-pressed', 'true')
-    })
-
-    it('calls onModeChange with "select" when select button clicked', () => {
-      const onModeChange = vi.fn()
-      render(<LeftSidebar interactionMode="hand" onModeChange={onModeChange} />)
-
-      fireEvent.click(screen.getByRole('button', { name: /select mode/i }))
-      expect(onModeChange).toHaveBeenCalledWith('select')
-    })
-
-    it('calls onModeChange with "hand" when hand button clicked', () => {
-      const onModeChange = vi.fn()
-      render(<LeftSidebar interactionMode="select" onModeChange={onModeChange} />)
-
-      fireEvent.click(screen.getByRole('button', { name: /hand mode/i }))
-      expect(onModeChange).toHaveBeenCalledWith('hand')
     })
   })
 })

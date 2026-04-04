@@ -72,10 +72,15 @@ interface LensDropdownProps {
   isOpen: boolean
   onClose: () => void
   onToggle: () => void
+  /** External anchor ref — when provided, the built-in LensChip is hidden and the dropdown anchors to this element instead */
+  anchorRef?: React.RefObject<HTMLButtonElement | null>
+  /** Hide the built-in chip trigger (use with anchorRef for sidebar placement) */
+  hideChip?: boolean
 }
 
-export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
-  const chipRef = useRef<HTMLButtonElement | null>(null)
+export function LensDropdown({ isOpen, onClose, onToggle, anchorRef, hideChip }: LensDropdownProps) {
+  const internalChipRef = useRef<HTMLButtonElement | null>(null)
+  const chipRef = anchorRef ?? internalChipRef
   const popoverRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ top: 0, left: 0 })
 
@@ -96,23 +101,44 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
   const hasNodes = useCanvasStore(s => s.nodes.length > 0)
   const isVisible = !comparisonActive && (hasResults || hasNodes)
 
-  // Position dropdown below the chip, clamped to viewport
+  // Position dropdown relative to the chip, clamped to viewport.
+  // When anchored to left sidebar, opens to the right; otherwise opens below.
+  const anchorSide = anchorRef ? 'right' : 'bottom'
+
   useEffect(() => {
     if (!isOpen || !chipRef.current) return
     const r = chipRef.current.getBoundingClientRect()
     const dropdownHeight = 400 // approximate max height (increased for new items)
     const dropdownWidth = 220  // minWidth from style
 
-    let top = r.bottom + 6
-    let left = r.left
+    let top: number
+    let left: number
 
-    // Flip above if it would overflow bottom
-    if (top + dropdownHeight > window.innerHeight) {
-      top = r.top - dropdownHeight - 6
+    if (anchorSide === 'right') {
+      // Sidebar placement: open to the right of the anchor
+      top = r.top
+      left = r.right + 6
+      // Flip left if it would overflow right edge
+      if (left + dropdownWidth > window.innerWidth) {
+        left = r.left - dropdownWidth - 6
+      }
+    } else {
+      // Top bar placement: open below the anchor
+      top = r.bottom + 6
+      left = r.left
+      // Flip above if it would overflow bottom
+      if (top + dropdownHeight > window.innerHeight) {
+        top = r.top - dropdownHeight - 6
+      }
     }
+
     // Clamp right edge
     if (left + dropdownWidth > window.innerWidth) {
       left = window.innerWidth - dropdownWidth - 8
+    }
+    // Clamp bottom edge
+    if (top + dropdownHeight > window.innerHeight) {
+      top = window.innerHeight - dropdownHeight - 8
     }
 
     setPos({ top, left })
@@ -123,7 +149,7 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
       const first = popoverRef.current?.querySelector('[role="menuitem"]') as HTMLElement | null
       ;(active ?? first)?.focus()
     })
-  }, [isOpen])
+  }, [isOpen, anchorSide])
 
   // Outside click + Escape
   useEffect(() => {
@@ -160,7 +186,7 @@ export function LensDropdown({ isOpen, onClose, onToggle }: LensDropdownProps) {
 
   return (
     <>
-      <LensChip isActive={isActive} onClick={isOpen ? onClose : onToggle} chipRef={chipRef} />
+      {!hideChip && <LensChip isActive={isActive} onClick={isOpen ? onClose : onToggle} chipRef={chipRef} />}
 
       {isOpen && createPortal(
         <div

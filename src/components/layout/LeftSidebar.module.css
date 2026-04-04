@@ -16,7 +16,7 @@
   height: fit-content;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(8px);
-  border: 1px solid var(--sand-200);
+  border: 1px solid var(--border-default);
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04);
 }
@@ -36,16 +36,15 @@
   display: block;
   width: 24px;
   height: 1px;
-  background: var(--sand-200);
+  background: var(--border-default);
   margin-top: 6px;
 }
 
-.iconButton,
-.iconButtonPrimary {
+.iconButton {
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  border: 1px solid var(--sand-200);
+  border: 1px solid var(--border-default);
   background: white;
   display: inline-flex;
   align-items: center;
@@ -55,21 +54,10 @@
   pointer-events: auto;
 }
 
-.iconButtonPrimary {
-  background: var(--info);
-  border-color: var(--info);
-  color: white;
-}
-
-.iconButton:hover,
-.iconButtonPrimary:hover {
-  background: var(--paper-50);
+.iconButton:hover {
+  background: var(--bg-panel-hover);
   border-color: var(--info);
   box-shadow: 0 0 0 1px var(--info-light);
-}
-
-.iconButtonPrimary:hover {
-  background: var(--info-hover);
 }
 
 /* Active state for mode toggle buttons */
@@ -77,25 +65,24 @@
   width: 32px;
   height: 32px;
   border-radius: 999px;
-  border: 1px solid var(--sky-400);
-  background: var(--sky-100);
-  color: var(--sky-600);
+  border: 1px solid var(--info);
+  background: var(--info-light);
+  color: var(--info);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, transform 80ms ease, box-shadow 120ms ease;
   pointer-events: auto;
-  box-shadow: 0 0 0 1px var(--sky-200);
+  box-shadow: 0 0 0 1px var(--info-light);
 }
 
 .iconButtonActive:hover {
-  background: var(--sky-200);
-  border-color: var(--sky-500);
+  background: var(--info-light);
+  border-color: var(--info);
 }
 
 .iconButton:focus-visible,
-.iconButtonPrimary:focus-visible,
 .iconButtonActive:focus-visible {
   outline: 2px solid var(--info);
   outline-offset: 2px;
