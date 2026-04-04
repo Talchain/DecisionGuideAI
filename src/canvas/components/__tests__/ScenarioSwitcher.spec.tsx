@@ -230,7 +230,7 @@ describe('ScenarioSwitcher (A3)', () => {
     })
   })
 
-  it('displays "Untitled scenario" when no current scenario', () => {
+  it('displays "Untitled decision" when no current scenario', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector: any) => {
       const state = {
         currentScenarioId: null,
@@ -250,7 +250,7 @@ describe('ScenarioSwitcher (A3)', () => {
 
     renderWithToast()
 
-    expect(screen.getByText('Untitled scenario')).toBeInTheDocument()
+    expect(screen.getByText('Untitled decision')).toBeInTheDocument()
   })
 
   it('pill does not show when not saving and no lastSavedAt', () => {

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import {
+  Eye,
   Layers,
   Undo2,
   Redo2,
@@ -11,6 +12,9 @@ import { LensDropdown } from '../../canvas/components/LensDropdown'
 import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
 import { useCanvasStore } from '../../canvas/store'
 import { isGraphLensEnabled } from '../../flags'
+
+/** Custom event: request all open menus to close (except the source). */
+export const MENU_EXCLUSIVE_EVENT = 'menu:exclusive'
 
 interface LeftSidebarProps {
   /** Current interaction mode (select vs hand/pan via keyboard) */
@@ -37,6 +41,10 @@ export function LeftSidebar({
   const [lensOpen, setLensOpen] = useState(false)
   const viewBtnRef = useRef<HTMLButtonElement | null>(null)
 
+  // Standard/Detailed view toggle
+  const viewMode = useCanvasStore(s => s.viewMode)
+  const setViewMode = useCanvasStore(s => s.setViewMode)
+
   // Listen for L key toggle event from useCanvasKeyboardShortcuts
   useEffect(() => {
     const handler = () => setLensOpen(v => !v)
@@ -50,14 +58,34 @@ export function LeftSidebar({
     if (comparisonActive) setLensOpen(false)
   }, [comparisonActive])
 
+  // Close lens dropdown when another menu claims exclusivity
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const source = (e as CustomEvent).detail?.source
+      if (source !== 'lens') setLensOpen(false)
+    }
+    window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
+    return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
+  }, [])
+
   const lensEnabled = isGraphLensEnabled()
+
+  const handleLensToggle = () => {
+    const next = !lensOpen
+    setLensOpen(next)
+    if (next) {
+      window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'lens' } }))
+    }
+  }
+
+  const isDetailed = viewMode === 'expert'
 
   return (
     <nav
       className={styles.sidebar}
       aria-label="Canvas tools"
     >
-      {/* Build group */}
+      {/* Manipulation group: Select, Undo, Redo */}
       <div className={styles.group}>
         <Tooltip content="Select mode (V)">
           <button
@@ -71,24 +99,6 @@ export function LeftSidebar({
           </button>
         </Tooltip>
 
-        {lensEnabled && (
-          <Tooltip content="View (L)">
-            <button
-              ref={viewBtnRef}
-              type="button"
-              className={lensOpen ? styles.iconButtonActive : styles.iconButton}
-              aria-label="Graph lens"
-              aria-pressed={lensOpen}
-              onClick={() => setLensOpen(v => !v)}
-            >
-              <Layers className={styles.icon} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        )}
-      </div>
-
-      {/* History group */}
-      <div className={styles.group}>
         <Tooltip content="Undo (⌘Z)">
           <button
             type="button"
@@ -114,12 +124,42 @@ export function LeftSidebar({
         </Tooltip>
       </div>
 
+      {/* View group: Lens, Standard/Detailed */}
+      <div className={styles.group}>
+        {lensEnabled && (
+          <Tooltip content="View (L)">
+            <button
+              ref={viewBtnRef}
+              type="button"
+              className={lensOpen ? styles.iconButtonActive : styles.iconButton}
+              aria-label="Graph lens"
+              aria-pressed={lensOpen}
+              onClick={handleLensToggle}
+            >
+              <Layers className={styles.icon} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        )}
+
+        <Tooltip content={isDetailed ? 'Detailed view' : 'Standard view'}>
+          <button
+            type="button"
+            className={isDetailed ? styles.iconButtonActive : styles.iconButton}
+            aria-label={isDetailed ? 'Detailed view' : 'Standard view'}
+            aria-pressed={isDetailed}
+            onClick={() => setViewMode(isDetailed ? 'standard' : 'expert')}
+          >
+            <Eye className={styles.icon} aria-hidden="true" />
+          </button>
+        </Tooltip>
+      </div>
+
       {/* Lens dropdown — portaled, anchored to View button */}
       {lensEnabled && (
         <LensDropdown
           isOpen={lensOpen}
           onClose={() => setLensOpen(false)}
-          onToggle={() => setLensOpen(v => !v)}
+          onToggle={handleLensToggle}
           anchorRef={viewBtnRef}
           hideChip
         />

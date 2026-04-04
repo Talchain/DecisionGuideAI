@@ -654,6 +654,17 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const completeReconnect = useCanvasStore(s => s.completeReconnect)
   // Brief 37 Task 4: Use stable useShowToast to prevent re-renders on toast changes
   const showToast = useShowToast()
+
+  // Listen for toast events from TopBar (outside ToastProvider scope)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { message, level } = (e as CustomEvent).detail ?? {}
+      if (message) showToast(message, level ?? 'info')
+    }
+    window.addEventListener('topbar:show-toast', handler)
+    return () => window.removeEventListener('topbar:show-toast', handler)
+  }, [showToast])
+
   const handleOpenCompare = useCallback(() => {
     // Check if we have runs to compare (need at least 2)
     // Use loadRuns() which reads from localStorage (store.runHistory doesn't exist)

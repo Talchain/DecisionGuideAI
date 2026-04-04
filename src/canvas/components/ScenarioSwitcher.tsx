@@ -197,7 +197,7 @@ export function ScenarioSwitcher() {
         >
           <Folder className="w-4 h-4 text-gray-500" />
           <span className="max-w-[150px] truncate">
-            {currentScenario?.name || 'Untitled scenario'}
+            {currentScenario?.name || 'Untitled decision'}
           </span>
           {/* P0-2: Replace dot with reactive save status */}
           <SaveStatusPill

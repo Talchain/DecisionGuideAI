@@ -718,7 +718,7 @@ describe('S6-SCENARIO: Rename/Duplicate/Save As Operations', () => {
       render(<ScenarioSwitcher />)
 
       // Open dropdown and save dialog
-      const button = screen.getByRole('button', { name: /untitled scenario/i })
+      const button = screen.getByRole('button', { name: /untitled decision/i })
       fireEvent.click(button)
       await waitFor(() => {
         fireEvent.click(screen.getByRole('menuitem', { name: /save as\.\.\./i }))

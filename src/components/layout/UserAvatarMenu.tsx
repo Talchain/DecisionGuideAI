@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom'
 import { Settings, LogOut, LayoutGrid } from 'lucide-react'
 import { useAuth } from '../../contexts/AuthContext'
 import { typography } from '../../styles/typography'
+import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 
 function getInitial(profile: { display_name?: string | null; email?: string | null } | null, user: { email?: string } | null): string {
   const name = profile?.display_name || user?.email || ''
@@ -39,6 +40,16 @@ export function UserAvatarMenu() {
     }
   }, [open])
 
+  // Close when another menu claims exclusivity
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const source = (e as CustomEvent).detail?.source
+      if (source !== 'avatar') setOpen(false)
+    }
+    window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
+    return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
+  }, [])
+
   const handleSignOut = useCallback(async () => {
     setOpen(false)
     await signOut()
@@ -52,7 +63,13 @@ export function UserAvatarMenu() {
     <div ref={ref} className="relative">
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => {
+          const next = !open
+          setOpen(next)
+          if (next) {
+            window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'avatar' } }))
+          }
+        }}
         className="flex h-8 w-8 items-center justify-center rounded-full bg-primary text-text-on-color transition-transform duration-fast hover:scale-105"
         aria-label="Account menu"
         aria-expanded={open}

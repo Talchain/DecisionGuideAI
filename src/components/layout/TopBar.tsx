@@ -7,12 +7,14 @@ import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
 import { useStagePill } from '../../canvas/hooks/useStagePill'
 import { UserAvatarMenu } from './UserAvatarMenu'
 import { KebabMenu } from './KebabMenu'
+import { MENU_EXCLUSIVE_EVENT } from './LeftSidebar'
 
 // Custom events for help actions (communicated to ReactFlowGraph)
 export const HELP_EVENTS = {
   SHOW_ONBOARDING: 'topbar:show-onboarding',
   SHOW_KEYBOARD_LEGEND: 'topbar:show-keyboard-legend',
   SHOW_INFLUENCE_EXPLAINER: 'topbar:show-influence-explainer',
+  SHOW_TOAST: 'topbar:show-toast',
 } as const
 
 interface TopBarProps {
@@ -117,6 +119,16 @@ export const TopBar = ({
       document.removeEventListener('keydown', handleEscapeKey)
     }
   }, [showMenu])
+
+  // Close kebab menu when another menu claims exclusivity
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const source = (e as CustomEvent).detail?.source
+      if (source !== 'kebab') setShowMenu(false)
+    }
+    window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
+    return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
+  }, [])
 
   // Help action handlers - emit custom events for ReactFlowGraph to handle
   const handleShowOnboarding = useCallback(() => {
@@ -323,12 +335,16 @@ export const TopBar = ({
         </Tooltip>
 
         {/* Version history */}
-        <Tooltip content="Version history">
+        <Tooltip content="Version history (coming soon)">
           <button
             type="button"
             className={styles.iconButton}
             aria-label="Version history"
-            onClick={() => console.warn('Version history')}
+            onClick={() => {
+              window.dispatchEvent(new CustomEvent(HELP_EVENTS.SHOW_TOAST, {
+                detail: { message: 'Version history is coming soon.', level: 'info' },
+              }))
+            }}
           >
             <Clock size={14} aria-hidden="true" />
           </button>
@@ -337,7 +353,13 @@ export const TopBar = ({
         {/* Kebab menu */}
         <KebabMenu
           isOpen={showMenu}
-          onToggle={() => setShowMenu(prev => !prev)}
+          onToggle={() => {
+            const next = !showMenu
+            setShowMenu(next)
+            if (next) {
+              window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'kebab' } }))
+            }
+          }}
           onClose={() => setShowMenu(false)}
           onStartRename={() => { setIsEditing(true); setShowMenu(false) }}
           onShowOnboarding={handleShowOnboarding}

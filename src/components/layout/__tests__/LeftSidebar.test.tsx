@@ -2,15 +2,39 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { LeftSidebar } from '../LeftSidebar'
 
+// Disable graph lens feature flag so LensDropdown doesn't render
+vi.mock('../../../flags', () => ({
+  isGraphLensEnabled: () => false,
+}))
+
+// Mock canvas store for viewMode
+const mockSetViewMode = vi.fn()
+vi.mock('../../../canvas/store', () => ({
+  useCanvasStore: (selector: (s: Record<string, unknown>) => unknown) =>
+    selector({
+      viewMode: 'standard',
+      setViewMode: mockSetViewMode,
+      comparisonMode: { active: false },
+    }),
+}))
+
 describe('LeftSidebar', () => {
-  it('renders navigation with 4 tool buttons (select, undo, redo + view when lens enabled)', () => {
+  it('renders navigation with core tool buttons', () => {
     render(<LeftSidebar />)
 
     expect(screen.getByRole('navigation', { name: /canvas tools/i })).toBeInTheDocument()
-
     expect(screen.getByRole('button', { name: /select mode/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /redo/i })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /standard view/i })).toBeInTheDocument()
+  })
+
+  it('invokes onSelectClick when select button is clicked', () => {
+    const onSelectClick = vi.fn()
+    render(<LeftSidebar onSelectClick={onSelectClick} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /select mode/i }))
+    expect(onSelectClick).toHaveBeenCalledTimes(1)
   })
 
   it('invokes undo/redo callbacks when buttons are clicked', () => {
@@ -52,5 +76,12 @@ describe('LeftSidebar', () => {
       const selectBtn = screen.getByRole('button', { name: /select mode/i })
       expect(selectBtn).toHaveAttribute('aria-pressed', 'false')
     })
+  })
+
+  it('toggles view mode when Standard/Detailed button is clicked', () => {
+    render(<LeftSidebar />)
+
+    fireEvent.click(screen.getByRole('button', { name: /standard view/i }))
+    expect(mockSetViewMode).toHaveBeenCalledWith('expert')
   })
 })

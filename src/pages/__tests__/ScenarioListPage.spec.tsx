@@ -147,7 +147,7 @@ describe('ScenarioListPage', () => {
     expect(screen.getByText('Retry')).toBeTruthy()
   })
 
-  it('shows "Untitled scenario" for null titles', async () => {
+  it('shows "Untitled decision" for null titles', async () => {
     mockListScenarios.mockResolvedValue([
       {
         id: 's1',
@@ -162,7 +162,7 @@ describe('ScenarioListPage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByText('Untitled scenario')).toBeTruthy()
+      expect(screen.getByText('Untitled decision')).toBeTruthy()
     })
   })
 
