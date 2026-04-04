@@ -22,8 +22,20 @@ export interface TriageCardItem {
   sourcePill: { label: string; borderClass: string } | null
 }
 
+/** Qualitative label for 0–1 scale values */
+function qualitativeLabel(v: number): string {
+  if (v <= 0.2) return 'very low'
+  if (v <= 0.4) return 'low'
+  if (v <= 0.6) return 'moderate'
+  if (v <= 0.8) return 'high'
+  return 'very high'
+}
+
 /** Format a raw value with its unit for display */
 function formatValueWithUnit(rawValue: number, unit: string | undefined): string {
+  if ((!unit || unit === 'scale') && rawValue >= 0 && rawValue <= 1) {
+    return qualitativeLabel(rawValue)
+  }
   if (!unit) return String(rawValue)
   if (isCurrencyUnit(unit)) return `${unit}${rawValue.toLocaleString()}`
   if (unit === '%') return `${rawValue}%`
@@ -58,7 +70,7 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
       if (item.rawValue != null) {
         return `How strongly does ${parsed.source} (currently ${formatValueWithUnit(item.rawValue, item.unit)}) affect ${parsed.target}?`
       }
-      return `Set the value of ${parsed.source} first, then calibrate this relationship`
+      return `Set ${parsed.source}'s value first, then calibrate this`
     }
     return 'Set whether this relationship is weak, moderate, or strong'
   }
@@ -77,7 +89,7 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
   // AI-estimated factor
   if (item.sourceBadge === 'ai') {
     if (item.rawValue != null) {
-      return `Olumi estimated this. Does ${formatValueWithUnit(item.rawValue, item.unit)} match your expectation?`
+      return `Olumi estimated this as ${formatValueWithUnit(item.rawValue, item.unit)}. Does that match your expectation?`
     }
     return 'Olumi estimated this value. Edit in the inspector to set your own.'
   }

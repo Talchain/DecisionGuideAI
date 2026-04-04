@@ -34,17 +34,15 @@ export function buildTriageNarrative(
       : 'Set a target and review these items before running analysis'
   }
 
-  let text: string
   if (!hasGoalTarget) {
-    text = 'Set a target and review these items before running analysis'
-  } else {
-    text = 'Review these to improve your analysis quality'
+    let text = 'Set a target and review these items before running analysis'
+    if (topFactorName) text += `. Highest-impact: ${topFactorName}`
+    return text
   }
 
-  // Append top factor name when available
   if (topFactorName) {
-    text += `. Your highest-impact item is ${topFactorName}`
+    return `Highest-impact item: ${topFactorName}`
   }
 
-  return text
+  return null
 }

@@ -528,17 +528,17 @@ function getAiEstimatedValue(node: Node): string | null {
  * Used for factors without cap/unit where numeric display is meaningless.
  */
 function toQualitativeLevel(v: number): string {
-  if (v < 0.2) return 'very low'
-  if (v < 0.4) return 'low'
-  if (v < 0.6) return 'moderate'
-  if (v < 0.8) return 'high'
+  if (v <= 0.2) return 'very low'
+  if (v <= 0.4) return 'low'
+  if (v <= 0.6) return 'moderate'
+  if (v <= 0.8) return 'high'
   return 'very high'
 }
 
 function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): string {
   // Qualitative factors: no meaningful unit AND (no cap, or cap=1 which is just the normalised ceiling)
   // Empty string unit is treated the same as absent — CEE sometimes sends unit: ""
-  const isQualitative = !os.unit && (os.cap == null || os.cap === 1)
+  const isQualitative = (!os.unit || os.unit === 'scale') && (os.cap == null || os.cap === 1)
 
   if (os.raw_value != null) {
     const unit = os.unit
@@ -547,11 +547,11 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
       primary = `${unit}${Number(os.raw_value).toLocaleString()}`
     } else if (unit === '%') {
       primary = `${os.raw_value}%`
+    } else if (isQualitative && Number(os.raw_value) >= 0 && Number(os.raw_value) <= 1) {
+      // No unit (or unit="scale"), no meaningful cap, value in 0–1 range — show qualitative level
+      return toQualitativeLevel(Number(os.raw_value))
     } else if (unit) {
       primary = `${os.raw_value} ${unit}`
-    } else if (isQualitative && Number(os.raw_value) >= 0 && Number(os.raw_value) <= 1) {
-      // No unit, no meaningful cap, value in 0–1 range — show qualitative level
-      return toQualitativeLevel(Number(os.raw_value))
     } else {
       primary = String(os.raw_value)
     }

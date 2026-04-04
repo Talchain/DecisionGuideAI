@@ -736,25 +736,27 @@ export function PreAnalysisPanel({
                     return (
                       <div
                         key={trigger.id}
-                        className="px-3 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover space-y-1.5"
+                        className="px-3 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover space-y-1"
                       >
                         <div className="flex items-start gap-2">
                           <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
                           <div className="flex-1 min-w-0">
-                            <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  if (trigger.id === 'overconfidence') handleFocusNode(trigger.ctaAction)
+                                  else onSendMessage?.(trigger.ctaAction)
+                                }}
+                                className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer flex-shrink-0`}
+                              >
+                                {trigger.cta}
+                              </button>
+                            </div>
                             <p className={`${typography.panelBody} text-text-light mt-0.5`}>{trigger.subtitle}</p>
                           </div>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (trigger.id === 'overconfidence') handleFocusNode(trigger.ctaAction)
-                            else onSendMessage?.(trigger.ctaAction)
-                          }}
-                          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer ml-6`}
-                        >
-                          {trigger.cta}
-                        </button>
                       </div>
                     )
                   })}

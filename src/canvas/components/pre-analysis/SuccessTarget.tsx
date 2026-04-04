@@ -202,9 +202,15 @@ export function SuccessTarget({
     )
 
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-start gap-2">
         <GoalDiamond />
         {goalNameEl}
+        {thresholdSourceBadge === 'brief' && (
+          <Pill size="small" variant="success" className="ml-auto flex-shrink-0">From brief</Pill>
+        )}
+        {thresholdSourceBadge === 'ai' && (
+          <Pill size="small" variant="warning" className="ml-auto flex-shrink-0">Estimated</Pill>
+        )}
       </div>
     )
   }
@@ -352,12 +358,6 @@ export function SuccessTarget({
       <div className="flex items-start gap-2 flex-wrap">
         <span className={`${typography.panelBody} text-text-light shrink-0 mt-0.5`}>Success target:</span>
         <span className={`${typography.panelHeader} text-text-header`}>{formatValue(successThreshold)}</span>
-        {thresholdSourceBadge === 'brief' && (
-          <Pill size="small" variant="success">From brief</Pill>
-        )}
-        {thresholdSourceBadge === 'ai' && (
-          <Pill size="small" variant="warning">Estimated</Pill>
-        )}
         {constraintFeasibilityWarning && (
           <Tooltip delay={300} content="Target is near the upper range of what the model predicts. Consider whether this is achievable.">
             <span className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body bg-transparent border border-warning/30 rounded-full px-2 py-0.5 shrink-0`}>
@@ -366,24 +366,6 @@ export function SuccessTarget({
             </span>
           </Tooltip>
         )}
-        <div className="flex items-center gap-1 ml-auto shrink-0">
-          <button
-            type="button"
-            onClick={onThresholdConfirm}
-            className="w-[22px] h-[22px] flex items-center justify-center rounded-full border border-success/30 text-success hover:bg-panel-hover cursor-pointer"
-            title="Confirm target"
-          >
-            <Check className="w-3 h-3" />
-          </button>
-          <button
-            type="button"
-            onClick={handleEditClick}
-            className="w-[22px] h-[22px] flex items-center justify-center rounded-full border border-panel-border text-text-light hover:bg-panel-hover cursor-pointer"
-            title="Edit target"
-          >
-            <Pencil className="w-3 h-3" />
-          </button>
-        </div>
       </div>
 
       {/* Provenance */}
@@ -439,6 +421,28 @@ export function SuccessTarget({
               <Pill size="small" variant="success">From brief</Pill>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Confirm / Edit — bottom right */}
+      {!isExpanded && (
+        <div className="flex justify-end gap-1">
+          <button
+            type="button"
+            onClick={onThresholdConfirm}
+            className="w-[22px] h-[22px] flex items-center justify-center rounded-full border border-success/30 text-success hover:bg-panel-hover cursor-pointer"
+            title="Confirm target"
+          >
+            <Check className="w-3 h-3" />
+          </button>
+          <button
+            type="button"
+            onClick={handleEditClick}
+            className="w-[22px] h-[22px] flex items-center justify-center rounded-full border border-panel-border text-text-light hover:bg-panel-hover cursor-pointer"
+            title="Edit target"
+          >
+            <Pencil className="w-3 h-3" />
+          </button>
         </div>
       )}
 

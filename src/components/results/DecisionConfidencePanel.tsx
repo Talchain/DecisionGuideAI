@@ -305,30 +305,34 @@ function ScienceNudgeCard({
       <div className="flex items-start gap-2 mb-0.5">
         <Lightbulb size={14} className="text-info flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
-          <p className={`${typography.panelBody} font-semibold text-text-header truncate`} title={nudge.title}>{nudge.title}</p>
+          <div className="flex items-start justify-between gap-2">
+            <p className={`${typography.panelBody} font-semibold text-text-header truncate`} title={nudge.title}>{nudge.title}</p>
+            {((nudge.targetNodeId && onFocusNode) || (onSendMessage && nudge.targetLabel)) && (
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {nudge.targetNodeId && onFocusNode && (
+                  <button
+                    type="button"
+                    onClick={() => onFocusNode(nudge.targetNodeId!)}
+                    className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                  >
+                    Validate
+                  </button>
+                )}
+                {onSendMessage && nudge.targetLabel && (
+                  <button
+                    type="button"
+                    onClick={() => onSendMessage(`Can you research ${nudge.targetLabel} and suggest a reasonable estimate with sources?`)}
+                    className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                  >
+                    Research
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </div>
       <p className={`${typography.panelMeta} text-text-light pl-[22px]`}>{nudge.text}</p>
-      <div className="flex items-center gap-1 mt-1.5 pl-[22px]">
-        {nudge.targetNodeId && onFocusNode && (
-          <button
-            type="button"
-            onClick={() => onFocusNode(nudge.targetNodeId!)}
-            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
-          >
-            Validate this factor
-          </button>
-        )}
-        {onSendMessage && nudge.targetLabel && (
-          <button
-            type="button"
-            onClick={() => onSendMessage(`Can you research ${nudge.targetLabel} and suggest a reasonable estimate with sources?`)}
-            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
-          >
-            Research
-          </button>
-        )}
-      </div>
     </div>
   )
 }

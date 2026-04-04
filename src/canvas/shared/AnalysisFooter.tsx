@@ -40,7 +40,7 @@ export function AnalysisFooter({
 }: AnalysisFooterProps) {
   return (
     <div
-      className="sticky bottom-0 z-10 flex-shrink-0 border-t border-panel-border bg-panel px-4 py-2"
+      className="sticky bottom-0 z-10 flex-shrink-0 border-t border-panel-border bg-panel px-4 py-1.5"
       data-testid={testId}
     >
       <div className="flex items-center justify-between gap-3">
@@ -62,7 +62,7 @@ export function AnalysisFooter({
               disabled={secondaryDisabled}
               title={secondaryTitle}
               className={`
-                min-h-11 rounded-full px-4 ${typography.panelBody}
+                min-h-8 rounded-full px-4 ${typography.panelBody}
                 inline-flex items-center justify-center
                 bg-transparent border border-panel-border text-text-body transition-colors
                 hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2
@@ -81,7 +81,7 @@ export function AnalysisFooter({
             aria-label={actionAriaLabel ?? actionLabel}
             title={actionTitle}
             className={`
-              min-h-11 rounded-full px-4 ${typography.panelBody}
+              min-h-8 rounded-full px-4 ${typography.panelBody}
               inline-flex items-center justify-center gap-2
               bg-primary text-text-on-color transition-colors
               hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2

@@ -702,7 +702,7 @@ describe('usePreAnalysisData', () => {
 
     it('formats factor with cap=1, unit="" and raw_value as qualitative level', () => {
       // When raw_value is present but unit is empty and cap is 1, still qualitative
-      // 0.8 maps to 'very high' with the corrected boundaries (v11 boundary fix)
+      // 0.8 maps to 'high' with inclusive boundaries (<=0.2 very low, <=0.4 low, <=0.6 moderate, <=0.8 high, >0.8 very high)
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -722,7 +722,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'very high',
+          detail: 'high',
         })
       )
     })
@@ -1137,7 +1137,7 @@ describe('usePreAnalysisData', () => {
 
     it('displays qualitative level for binary factor with value 0.6', () => {
       // no raw_value, value in 0–1 range, no unit/cap → qualitative level
-      // 0.6 maps to 'high' with v11 corrected boundaries (>= 0.6 && < 0.8)
+      // 0.6 maps to 'moderate' with inclusive boundaries (<=0.6 moderate)
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -1157,7 +1157,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: 'high',
+          detail: 'moderate',
         })
       )
     })

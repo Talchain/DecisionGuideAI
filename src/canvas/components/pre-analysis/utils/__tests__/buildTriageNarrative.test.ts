@@ -11,9 +11,9 @@ describe('buildTriageNarrative', () => {
     expect(buildTriageNarrative([item('fix')], true, null, true)).toBeNull()
   })
 
-  it('returns coaching line when items exist and target set', () => {
+  it('returns null when items exist, target set, but no top factor', () => {
     const result = buildTriageNarrative([item('fix')], true, null, false)
-    expect(result).toBe('Review these to improve your analysis quality')
+    expect(result).toBeNull()
   })
 
   it('returns target-setting coaching when no target', () => {
@@ -21,9 +21,9 @@ describe('buildTriageNarrative', () => {
     expect(result).toBe('Set a target and review these items before running analysis')
   })
 
-  it('appends top factor name when available', () => {
+  it('returns highest-impact line when target set and top factor available', () => {
     const result = buildTriageNarrative([item('fix')], true, 'Hiring Cost', false)
-    expect(result).toBe('Review these to improve your analysis quality. Your highest-impact item is Hiring Cost')
+    expect(result).toBe('Highest-impact item: Hiring Cost')
   })
 
   it('returns well-prepared when no items and target set', () => {
@@ -38,6 +38,6 @@ describe('buildTriageNarrative', () => {
 
   it('appends top factor name even with no target', () => {
     const result = buildTriageNarrative([item('fix')], false, 'Market Size', false)
-    expect(result).toBe('Set a target and review these items before running analysis. Your highest-impact item is Market Size')
+    expect(result).toBe('Set a target and review these items before running analysis. Highest-impact: Market Size')
   })
 })
