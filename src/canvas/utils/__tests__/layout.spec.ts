@@ -4,7 +4,7 @@
  */
 import { describe, it, expect } from 'vitest'
 import { Node, Edge } from '@xyflow/react'
-import { layoutGraph, TIER_BY_KIND, CanvasSize } from '../layout'
+import { layoutGraph, TIER_BY_KIND, CanvasSize, groupByRow } from '../layout'
 
 // ---------------------------------------------------------------------------
 // Test helpers
@@ -143,11 +143,10 @@ function assertOptionsUnderDecision(nodes: Node[]) {
 
   const widths = computeNodeWidths(nodes)
   const availableWidth = CANVAS.width * 0.85
-  // ELK distributes options across the full graph width centred around the
-  // graph centroid. For complex graphs with many downstream connections, ELK
-  // may spread options wider than availableWidth to minimise edge crossings.
-  // Allow generous tolerance: 2× available width from the decision centre.
-  const maxDeviation = availableWidth * 2
+  // Options should be within 1.5× the available width of the decision centre.
+  // ELK's crossing minimiser legitimately spreads options wider than
+  // availableWidth for high-fan-out graphs (e.g. 2 options → 10 factors).
+  const maxDeviation = availableWidth * 1.5
 
   const decisionCx = getNodeCentreX(decision, widths)
   for (const opt of options) {
@@ -178,14 +177,10 @@ function assertFactorsNearParents(
       parentOptions.length
 
     const factorCx = getNodeCentreX(factor, widths)
-    // Factor should be within the available width of parent centroid.
-    // The parent-centring pass is damped (0.5) and iterative (max 3 passes),
-    // so exact alignment is not expected — especially for shared factors
-    // connected to options spread across the canvas. For large graphs,
-    // collision resolution may push factors further from their parent centroid.
+    // Factor should be within half the canvas width of parent centroid.
     const availableWidth = CANVAS.width * 0.85
     expect(Math.abs(factorCx - meanParentX)).toBeLessThanOrEqual(
-      availableWidth
+      availableWidth * 0.5
     )
   }
 }
@@ -641,7 +636,7 @@ describe('layoutGraph', () => {
       }
 
       // Same-type nodes share a tier, so they should all get the same width
-      for (const [type, widths] of widthByType) {
+      for (const [, widths] of widthByType) {
         expect(widths.size).toBe(1)
       }
     })
@@ -659,5 +654,39 @@ describe('layoutGraph', () => {
       const median = sorted[Math.floor(sorted.length / 2)]
       expect(result.layoutNodeWidth).toBe(median)
     })
+  })
+})
+
+describe('groupByRow', () => {
+  it('groups nodes within Y_TOLERANCE (5px) into the same row', () => {
+    const positionMap = new Map([
+      ['a', { x: 0, y: 100.3 }],
+      ['b', { x: 100, y: 100.8 }],
+    ])
+    const groups = groupByRow(['a', 'b'], positionMap)
+    expect(groups.size).toBe(1)
+    const row = [...groups.values()][0]
+    expect(row).toContain('a')
+    expect(row).toContain('b')
+  })
+
+  it('separates nodes beyond Y_TOLERANCE into different rows', () => {
+    const positionMap = new Map([
+      ['a', { x: 0, y: 100 }],
+      ['b', { x: 100, y: 110 }],
+    ])
+    const groups = groupByRow(['a', 'b'], positionMap)
+    expect(groups.size).toBe(2)
+  })
+
+  it('handles mixed rows correctly', () => {
+    const positionMap = new Map([
+      ['a', { x: 0, y: 100 }],
+      ['b', { x: 50, y: 103 }],
+      ['c', { x: 100, y: 200 }],
+      ['d', { x: 150, y: 202 }],
+    ])
+    const groups = groupByRow(['a', 'b', 'c', 'd'], positionMap)
+    expect(groups.size).toBe(2)
   })
 })

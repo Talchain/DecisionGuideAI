@@ -30,6 +30,29 @@ const MIN_NODE_W = 180  // BaseNode minWidth — prevents content truncation
 const MAX_NODE_W = 260  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips
 const MIN_GAP    = 50   // Minimum horizontal gap between nodes in same tier
 
+const Y_TOLERANCE = 5
+
+export function groupByRow(nodeIds: string[], positionMap: Map<string, { x: number; y: number }>): Map<number, string[]> {
+  const groups = new Map<number, string[]>()
+  const keys: number[] = []
+  for (const id of nodeIds) {
+    const y = positionMap.get(id)?.y ?? 0
+    let matched = false
+    for (const k of keys) {
+      if (Math.abs(y - k) <= Y_TOLERANCE) {
+        groups.get(k)!.push(id)
+        matched = true
+        break
+      }
+    }
+    if (!matched) {
+      keys.push(y)
+      groups.set(y, [id])
+    }
+  }
+  return groups
+}
+
 interface LayoutOptions {
   direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
   spacing?: number
@@ -94,9 +117,13 @@ export async function layoutGraph(
     tierCounts.set(t, (tierCounts.get(t) ?? 0) + 1)
   }
 
-  // Available width = canvas width minus 15% breathing room for fitView padding
-  // and visual margins. This matches the brief's 85% factor.
-  const availableWidth = canvasSize.width * 0.85
+  // Available width = canvas width minus right panel (if open) minus 15% breathing
+  // room for fitView padding and visual margins.
+  const panelEl = typeof document !== 'undefined'
+    ? document.querySelector('[data-testid="outputs-dock"]') as HTMLElement | null
+    : null
+  const panelWidth = panelEl?.getBoundingClientRect().width ?? 0
+  const availableWidth = (canvasSize.width - panelWidth) * 0.85
 
   const isDownLayout = direction === 'DOWN'
 
@@ -303,7 +330,7 @@ export async function layoutGraph(
           const nodeCentreX = pos.x + nodeElkW / 2
           const deviation = parentCentreCentroid - nodeCentreX
 
-          if (Math.abs(deviation) > gap) {
+          if (Math.abs(deviation) > 5) {
             const nudge = deviation * DAMPING
             positionMap.set(nodeId, { x: pos.x + nudge, y: pos.y })
             anyNudge = true
@@ -312,12 +339,7 @@ export async function layoutGraph(
 
         // Collision resolution within the tier (per visual row): push apart
         // overlapping nodes. Group by Y so multi-row tiers are handled correctly.
-        const rowGroups = new Map<number, string[]>()
-        for (const id of nodeIds) {
-          const y = Math.round(positionMap.get(id)?.y ?? 0)
-          if (!rowGroups.has(y)) rowGroups.set(y, [])
-          rowGroups.get(y)!.push(id)
-        }
+        const rowGroups = groupByRow(nodeIds, positionMap)
 
         for (const rowNodeIds of rowGroups.values()) {
           if (rowNodeIds.length < 2) continue
@@ -365,12 +387,7 @@ export async function layoutGraph(
       if (!nodeIds || nodeIds.length < 2) continue
 
       // Group nodes by Y position (same visual row)
-      const rowGroups = new Map<number, string[]>()
-      for (const id of nodeIds) {
-        const y = Math.round(positionMap.get(id)?.y ?? 0)
-        if (!rowGroups.has(y)) rowGroups.set(y, [])
-        rowGroups.get(y)!.push(id)
-      }
+      const rowGroups = groupByRow(nodeIds, positionMap)
 
       for (const rowNodeIds of rowGroups.values()) {
         if (rowNodeIds.length < 2) continue
@@ -494,11 +511,18 @@ function applyTierRowSplitting(
     // ELK box width for this tier
     const elkW = tierElkBoxW.get(tier) ?? (sizeMap.get(sorted[0])?.width ?? 220)
 
-    // Reposition each node into its row, centred horizontally
+    // Compute tier centroid from ELK positions (before repositioning) for centring
+    const tierCentroidX = sorted.reduce((sum, id) => {
+      const p = positionMap.get(id)
+      const w = sizeMap.get(id)?.width ?? elkW
+      return sum + (p?.x ?? 0) + w / 2
+    }, 0) / sorted.length
+
+    // Reposition each node into its row, centred on the tier centroid
     for (let r = 0; r < rows.length; r++) {
       const row = rows[r]
       const rowWidth = row.length * elkW + (row.length - 1) * gap
-      const startX = -(rowWidth / 2)
+      const startX = tierCentroidX - rowWidth / 2
       const rowY = baseY + r * (nodeH + subRowSpacing)
 
       for (let i = 0; i < row.length; i++) {
