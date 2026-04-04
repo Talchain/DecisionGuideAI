@@ -142,7 +142,8 @@ function assertOptionsUnderDecision(nodes: Node[]) {
   if (!decision || options.length === 0) return
 
   const widths = computeNodeWidths(nodes)
-  const availableWidth = CANVAS.width * 0.95
+  // In tests panelWidth=0, so availableWidth = CANVAS.width (no breathing factor).
+  const availableWidth = CANVAS.width
   // Options should be within 1.5× the available width of the decision centre.
   // ELK's crossing minimiser legitimately spreads options wider than
   // availableWidth for high-fan-out graphs (e.g. 2 options → 10 factors).
@@ -178,7 +179,7 @@ function assertFactorsNearParents(
 
     const factorCx = getNodeCentreX(factor, widths)
     // Factor should be within half the canvas width of parent centroid.
-    const availableWidth = CANVAS.width * 0.95
+    const availableWidth = CANVAS.width
     expect(Math.abs(factorCx - meanParentX)).toBeLessThanOrEqual(
       availableWidth * 0.5
     )
