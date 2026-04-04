@@ -2052,7 +2052,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {!USE_NEW_LAYOUT && <CanvasToolbar />}
       <LeftSidebar
-        interactionMode={effectiveMode}
+        interactionMode={interactionMode}
         onSelectClick={() => setInteractionMode(prev => prev === 'select' ? 'hand' : 'select')}
         onUndoClick={undo}
         onRedoClick={redo}

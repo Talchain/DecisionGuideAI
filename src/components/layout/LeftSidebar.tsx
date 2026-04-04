@@ -93,7 +93,7 @@ export function LeftSidebar({
         <Tooltip content={interactionMode === 'select' ? 'Hand mode (H)' : 'Select mode (V)'}>
           <button
             type="button"
-            className={styles.iconButton}
+            className={interactionMode === 'select' ? styles.iconButtonActive : styles.iconButton}
             aria-label={interactionMode === 'select' ? 'Switch to Hand mode' : 'Switch to Select mode'}
             aria-pressed={interactionMode === 'select'}
             onClick={onSelectClick}
