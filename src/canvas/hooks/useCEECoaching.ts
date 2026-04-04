@@ -31,12 +31,11 @@ export function useCEECoaching() {
   const checkTimeoutRef = useRef<NodeJS.Timeout>()
   const lastCheckRef = useRef<number>(0)
 
-  // Store selectors
-  const nodes = useCanvasStore(s => s.nodes)
-  const edges = useCanvasStore(s => s.edges)
-  const pushHistory = useCanvasStore(s => s.pushHistory)
-  const framing = useCanvasStore(s => s.currentScenarioFraming)
-  const hasCompletedFirstRun = useCanvasStore(s => s.hasCompletedFirstRun)
+  // Keep graph state in refs so the interval callback stays stable and doesn't
+  // reset on every position update (drag). The interval reads fresh data each
+  // tick via getState() rather than depending on reactive values.
+  const stateRef = useRef(state)
+  stateRef.current = state
 
   const dismissNudge = useCallback((nudgeId: string) => {
     setState(prev => ({
@@ -62,32 +61,21 @@ export function useCEECoaching() {
     })
   }, [dismissNudge])
 
+  // Reads fresh graph state via getState() on each call — no reactive deps on
+  // nodes/edges so the callback reference is stable across drags/position updates.
   const analyzeGraphForCoaching = useCallback(() => {
-    // Don't analyse if not enough nodes
+    const { nodes, edges, currentScenarioFraming: framing, hasCompletedFirstRun } =
+      useCanvasStore.getState()
+    const currentState = stateRef.current
+
     if (nodes.length < MIN_NODES_FOR_COACHING) return
+    if (currentState.nudgeCount >= MAX_NUDGES_PER_SESSION) return
+    if (hasCompletedFirstRun) return
 
-    // Don't show too many nudges
-    if (state.nudgeCount >= MAX_NUDGES_PER_SESSION) return
-
-    // Don't show nudges if:
-    // Brief 33 Fix: Suppress coaching nudges after ANY successful run to prevent mixed messaging
-    // (e.g., "Consider adding relationships" while showing "Strong" reliability rating)
-    // Previously required BOTH framing AND first run, but that caused contradictory UX
-    if (hasCompletedFirstRun) {
-      // User has completed analysis - don't show coaching suggestions that contradict results
-      return
-    }
-
-    // Also suppress if decision is well-framed (title, goal, or timeline set)
     const hasFraming = Boolean(framing?.title || framing?.goal || framing?.timeline)
-    if (hasFraming) {
-      // Decision is well-framed - user knows what they're doing
-      return
-    }
+    if (hasFraming) return
 
-    // Analyse for common issues
-
-    // 1. Check for disconnected nodes (missing edges)
+    // 1. Disconnected nodes
     const connectedNodeIds = new Set<string>()
     edges.forEach(e => {
       connectedNodeIds.add(e.source)
@@ -95,8 +83,8 @@ export function useCEECoaching() {
     })
     const disconnectedNodes = nodes.filter(n => !connectedNodeIds.has(n.id))
 
-    if (disconnectedNodes.length > 0 && !state.dismissedNudges.has('disconnected-nodes')) {
-      const nodeLabels = disconnectedNodes.slice(0, 2).map(n => n.data?.label || 'Untitled').join(', ')
+    if (disconnectedNodes.length > 0 && !currentState.dismissedNudges.has('disconnected-nodes')) {
+      const nodeLabels = disconnectedNodes.slice(0, 2).map(n => (n.data as any)?.label || 'Untitled').join(', ')
       showNudge({
         id: 'disconnected-nodes',
         type: 'missing_factor',
@@ -105,7 +93,6 @@ export function useCEECoaching() {
         message: `"${nodeLabels}" ${disconnectedNodes.length > 1 ? 'are' : 'is'} not connected to other factors. Consider adding relationships to show how they influence the decision.`,
         actionLabel: 'Show me',
         onAction: () => {
-          // Highlight disconnected nodes
           useCanvasStore.getState().setHighlightedNodes(disconnectedNodes.map(n => n.id))
           setTimeout(() => {
             useCanvasStore.getState().setHighlightedNodes([])
@@ -115,11 +102,11 @@ export function useCEECoaching() {
       return
     }
 
-    // 2. Check for single-path decisions (no alternatives)
+    // 2. Single-path decisions
     const decisionNodes = nodes.filter(n => n.type === 'decision')
     const optionNodes = nodes.filter(n => n.type === 'option')
 
-    if (decisionNodes.length > 0 && optionNodes.length < 2 && !state.dismissedNudges.has('single-option')) {
+    if (decisionNodes.length > 0 && optionNodes.length < 2 && !currentState.dismissedNudges.has('single-option')) {
       showNudge({
         id: 'single-option',
         type: 'bias',
@@ -128,16 +115,16 @@ export function useCEECoaching() {
         message: 'Your model has only one option. Adding alternative options helps reduce confirmation bias and leads to better decisions.',
         actionLabel: 'Add option',
         onAction: () => {
-          pushHistory()
+          useCanvasStore.getState().pushHistory()
           useCanvasStore.getState().addNode({ x: 300, y: 200 }, 'option')
         },
       })
       return
     }
 
-    // 3. Check for missing risk factors
+    // 3. Missing risk factors
     const riskNodes = nodes.filter(n => n.type === 'risk')
-    if (nodes.length >= 5 && riskNodes.length === 0 && !state.dismissedNudges.has('missing-risks')) {
+    if (nodes.length >= 5 && riskNodes.length === 0 && !currentState.dismissedNudges.has('missing-risks')) {
       showNudge({
         id: 'missing-risks',
         type: 'improvement',
@@ -146,20 +133,20 @@ export function useCEECoaching() {
         message: 'Your model has no risk factors. Identifying potential risks helps you prepare for adverse outcomes.',
         actionLabel: 'Add risk',
         onAction: () => {
-          pushHistory()
+          useCanvasStore.getState().pushHistory()
           useCanvasStore.getState().addNode({ x: 400, y: 300 }, 'risk')
         },
       })
       return
     }
 
-    // 4. Check for unbalanced edge weights
-    const edgesWithWeight = edges.filter(e => e.data?.weight !== undefined)
+    // 4. Unbalanced edge weights
+    const edgesWithWeight = edges.filter(e => (e.data as any)?.weight !== undefined)
     if (edgesWithWeight.length >= 3) {
-      const weights = edgesWithWeight.map(e => e.data?.weight ?? 0.5)
+      const weights = edgesWithWeight.map(e => (e.data as any)?.weight ?? 0.5)
       const allSameWeight = weights.every(w => Math.abs(w - weights[0]) < 0.01)
 
-      if (allSameWeight && !state.dismissedNudges.has('uniform-weights')) {
+      if (allSameWeight && !currentState.dismissedNudges.has('uniform-weights')) {
         showNudge({
           id: 'uniform-weights',
           type: 'assumption',
@@ -167,29 +154,24 @@ export function useCEECoaching() {
           title: 'Refine influence weights',
           message: 'All your connections have the same weight. Consider adjusting weights to reflect which factors have more influence.',
           actionLabel: 'Learn more',
-          onAction: () => {
-            // Could open help panel or highlight edges
-          },
+          onAction: () => {},
         })
         return
       }
     }
-  }, [nodes, edges, state.dismissedNudges, state.nudgeCount, showNudge, pushHistory, framing, hasCompletedFirstRun])
+  }, [showNudge])
 
-  // Periodic check for coaching opportunities
+  // Stable interval — never resets because analyzeGraphForCoaching is stable.
+  // Graph state is read fresh from the store on each tick via getState().
   useEffect(() => {
     const checkCoaching = () => {
       const now = Date.now()
       if (now - lastCheckRef.current < COACHING_CHECK_INTERVAL) return
-
       lastCheckRef.current = now
       analyzeGraphForCoaching()
     }
 
-    // Initial check after a delay
     checkTimeoutRef.current = setTimeout(checkCoaching, 3000)
-
-    // Periodic checks
     const interval = setInterval(checkCoaching, COACHING_CHECK_INTERVAL)
 
     return () => {

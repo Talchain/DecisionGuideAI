@@ -1115,6 +1115,15 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
   }, [])
 
+  const handleAutoArrange = useCallback(() => {
+    if (nodesRef.current.length === 0) {
+      showToast('No nodes to arrange.', 'info')
+      return
+    }
+    applyLayout()
+    showToast('Auto-arranged layout.', 'success')
+  }, [showToast, applyLayout])
+
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+A, Shift+F10)
   useCanvasKeyboardShortcuts({
     onFocusNode: handleFocusNode,
@@ -1123,14 +1132,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     onToggleDocuments: showDocuments,
     onShowToast: showToast,
     onOpenContextMenu: handleKeyboardContextMenu,
-    onAutoArrange: () => {
-      if (nodesRef.current.length === 0) {
-        showToast('No nodes to arrange.', 'info')
-        return
-      }
-      applyLayout()
-      showToast('Auto-arranged layout.', 'success')
-    },
+    onAutoArrange: handleAutoArrange,
   })
 
   // P0-8: Confirm connection to nearby node
@@ -1795,14 +1797,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: 200 }), [])
   const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: 200 }), [])
   const handleFitView = useCallback(() => fitViewRef.current({ padding: 0.2, duration: 300 }), [])
-  const handleAutoArrange = useCallback(() => {
-    if (nodesRef.current.length === 0) {
-      showToast('No nodes to arrange.', 'info')
-      return
-    }
-    applyLayout()
-    showToast('Auto-arranged layout.', 'success')
-  }, [showToast, applyLayout])
 
   // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
   // quickly determine whether React 185 is coming from inside the canvas

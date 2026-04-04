@@ -5,6 +5,7 @@
  * All action handlers are passed as props from ReactFlowGraph.
  */
 
+import { memo } from 'react'
 import { ZoomOut, ZoomIn, Maximize2, LayoutGrid } from 'lucide-react'
 import { useStore } from '@xyflow/react'
 import Tooltip from '../Tooltip'
@@ -17,7 +18,7 @@ interface CanvasViewportControlsProps {
   onAutoArrange: () => void
 }
 
-export function CanvasViewportControls({
+export const CanvasViewportControls = memo(function CanvasViewportControls({
   onZoomIn,
   onZoomOut,
   onZoomReset,
@@ -104,4 +105,4 @@ export function CanvasViewportControls({
       </Tooltip>
     </nav>
   )
-}
+})
