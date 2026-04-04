@@ -47,6 +47,8 @@ export interface InspectorShellProps {
   topBarColor: string
   /** Node type for shape indicator */
   nodeKind?: NodeType
+  /** Node ID for rationale lookup (optional — edges don't have rationales) */
+  nodeId?: string
   /** Editable label */
   label: string
   onLabelChange?: (value: string) => void

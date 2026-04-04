@@ -733,6 +733,8 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           related_elements: normaliseRelatedElements(dataObj.related_elements),
           proposal_items: proposalItems,
           ...(proposalItems.length > 0 ? { proposal_items_source: 'backend' as const } : {}),
+          // Per-operation rationale from CEE edit_graph (non-contractual debug field)
+          operation_meta: Array.isArray(dataObj.operation_meta) ? dataObj.operation_meta as GraphPatchBlock['operation_meta'] : undefined,
         }
       }
 

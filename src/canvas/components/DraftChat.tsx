@@ -748,6 +748,16 @@ export function DraftChat() {
       ? rawSensitivity
       : null
 
+    // Store per-node rationales from CEE V3 response for tooltip display
+    const rawRationales = (draftData as any).rationales
+    if (Array.isArray(rawRationales) && rawRationales.length > 0) {
+      metadataPatch.nodeRationales = Object.fromEntries(
+        rawRationales
+          .filter((r: any) => r?.target && r?.why)
+          .map((r: any) => [r.target, r.why])
+      )
+    }
+
     // Single batched setState for non-side-effect metadata — avoids 6+ separate render cycles
     useCanvasStore.setState(metadataPatch)
 

@@ -94,6 +94,29 @@ function getProposalItems(block: GraphPatchBlockType): ProposalReviewItem[] {
   return Array.isArray(block.proposal_items) ? block.proposal_items.filter((item) => !!item?.description) : []
 }
 
+/** DS §19 progressive disclosure: "More" / "Less" with border-left indent for operation rationale. */
+function OperationRationale({ rationale }: { rationale: string }) {
+  const [expanded, setExpanded] = useState(false)
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={() => setExpanded(v => !v)}
+        className={`${typography.panelMeta} text-text-light inline-flex items-center gap-0.5 hover:text-text-body transition-colors`}
+      >
+        {expanded
+          ? <><ChevronUp size={12} aria-hidden="true" /> Less</>
+          : <><ChevronDown size={12} aria-hidden="true" /> More</>}
+      </button>
+      {expanded && (
+        <div className="mt-2 pl-3 border-l-2 border-panel-border">
+          <p className={`${typography.panelMeta} text-text-light`}>{rationale}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function getProposalItemsSource(block: GraphPatchBlockType): 'backend' | 'derived_ops' | null {
   return block.proposal_items_source === 'backend' || block.proposal_items_source === 'derived_ops'
     ? block.proposal_items_source
@@ -902,6 +925,8 @@ function GraphPatchBlockRenderer({
   const opSummary = summarisePatchOps(block.operations)
   const rawProposalItems = getProposalItems(block)
   const proposalItemsSource = getProposalItemsSource(block)
+  // Per-operation rationales from CEE edit_graph (indexed parallel to operations)
+  const operationMeta = Array.isArray(block.operation_meta) ? block.operation_meta : []
   const opTargets = extractTargetIdsFromPatch(block.operations)
   const relatedTargets = extractGroundedTargets(block.related_elements)
   const nodeIds = relatedTargets.nodeIds.length > 0 ? relatedTargets.nodeIds : opTargets.nodeIds
@@ -1055,6 +1080,9 @@ function GraphPatchBlockRenderer({
                   {item.changeLabel}
                 </span>
               )}
+              {operationMeta[index]?.rationale && (
+                <OperationRationale rationale={operationMeta[index].rationale} />
+              )}
             </div>
           ))}
         </div>
@@ -1091,6 +1119,9 @@ function GraphPatchBlockRenderer({
                     <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>
                       {item.changeLabel}
                     </span>
+                  )}
+                  {operationMeta[index]?.rationale && (
+                    <OperationRationale rationale={operationMeta[index].rationale} />
                   )}
                 </div>
               ))}

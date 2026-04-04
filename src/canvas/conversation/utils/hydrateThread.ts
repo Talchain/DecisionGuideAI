@@ -66,6 +66,8 @@ function toConversationBlock(pb: PersistedBlock): ConversationBlock {
         auto_apply: base.auto_apply as boolean | undefined,
         block_id: pb.block_id,
         graph_hash_at_proposal: (base.graph_hash_at_proposal as string) ?? (base.target_graph_hash as string) ?? undefined,
+        // Per-operation rationale from CEE edit_graph (non-contractual debug field)
+        operation_meta: Array.isArray(base.operation_meta) ? base.operation_meta as GraphPatchBlock['operation_meta'] : undefined,
       }
 
     case 'commentary':

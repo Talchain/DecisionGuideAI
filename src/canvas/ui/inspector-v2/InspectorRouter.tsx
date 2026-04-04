@@ -229,6 +229,7 @@ export const InspectorRouter = memo(function InspectorRouter({
     <InspectorShell
       topBarColor={topColor}
       nodeKind={nodeType}
+      nodeId={nodeId}
       label={label}
       onLabelChange={nodeMutations.setLabel}
       typePill={typePill}

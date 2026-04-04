@@ -309,6 +309,8 @@ interface CanvasState {
   goalConstraints: CEEGoalConstraint[] | null
   // CEE Pipeline trace from last draft-graph response (for debug panel)
   ceePipelineTrace: CeePipelineTrace | null
+  // CEE V3: Per-node LLM reasoning (node ID → why text) for rationale tooltips
+  nodeRationales: Record<string, string>
   // CEE quality dimensions from draft-graph response (for pre-analysis readiness display)
   ceeQuality: CeeQualityDimensions | null
   // Phase 1b: Extended CEE warnings with dimension codes
@@ -547,6 +549,7 @@ interface CanvasState {
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
+  setNodeRationales: (rationales: Array<{ target: string; why: string }>) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
   // Phase 1b actions
   setCeeExtendedWarnings: (warnings: CEEDraftWarning[] | null) => void
@@ -1000,6 +1003,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   goalConstraints: null,
   // CEE Pipeline trace from last draft
   ceePipelineTrace: null,
+  // CEE V3: Per-node LLM reasoning for rationale tooltips
+  nodeRationales: {},
   // CEE quality dimensions from draft-graph response
   ceeQuality: null,
   // Phase 1b: Extended CEE data
@@ -1938,6 +1943,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       ceeAnalysisReadyNodeIds: null,
       goalConstraints: null,
       ceePipelineTrace: null,
+      nodeRationales: {},
       ceeQuality: null,
       // Phase 1b: Clear extended CEE data
       ceeExtendedWarnings: null,
@@ -2969,6 +2975,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       })
     }
     set({ ceePipelineTrace: trace })
+  },
+
+  setNodeRationales: (rationales: Array<{ target: string; why: string }>) => {
+    const map: Record<string, string> = {}
+    for (const r of rationales) {
+      if (r.target && r.why) map[r.target] = r.why
+    }
+    set({ nodeRationales: map })
   },
 
   setCeeQuality: (quality: CeeQualityDimensions | null) => {

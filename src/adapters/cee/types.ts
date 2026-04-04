@@ -423,6 +423,8 @@ export interface CEEv3Response extends CEEv2Response {
    * When present, PLoT/ISL computes probability_of_joint_goal.
    */
   goal_constraints?: CEEGoalConstraint[]
+  /** Per-node LLM reasoning from Stage 1 (parse). Carried through V1→V3 boundary. */
+  rationales?: Array<{ target: string; why: string; provenance_source?: string }>
 }
 
 /**

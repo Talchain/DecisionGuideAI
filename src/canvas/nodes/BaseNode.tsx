@@ -30,6 +30,7 @@ import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NODE_REGISTRY } from '../domain/nodes'
 import Tooltip from '../../components/Tooltip'
+import { RationaleTooltip } from '../components/RationaleTooltip'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
   decision: 'The choice you\'re making',
@@ -360,11 +361,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </Tooltip>
 
         {/* Title + optional badges inline */}
-        <div className="flex-1 min-w-0">
-          <div className={`${typography.nodeTitle} text-text-body break-words`}>
-            {label}
+        <RationaleTooltip nodeId={id}>
+          <div className="flex-1 min-w-0">
+            <div className={`${typography.nodeTitle} text-text-body break-words`}>
+              {label}
+            </div>
           </div>
-        </div>
+        </RationaleTooltip>
 
         {/* S1-UNK: Warning chip for unknown backend kinds */}
         {Boolean(data?.unknownKind) && typeof data?.originalKind === 'string' && (

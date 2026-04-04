@@ -250,6 +250,8 @@ export interface GraphPatchBlock {
   related_elements?: RelatedElementRef[]
   proposal_items?: ProposalReviewItem[]
   proposal_items_source?: 'backend' | 'derived_ops'
+  /** Per-operation metadata from CEE edit_graph (impact + rationale) */
+  operation_meta?: Array<{ impact: string; rationale: string }>
 }
 
 // ---------------------------------------------------------------------------

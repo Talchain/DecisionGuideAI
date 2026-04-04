@@ -5,16 +5,18 @@
  * Header is the drag surface when dragHandlers are provided.
  */
 
-import { memo, useCallback, type KeyboardEvent } from 'react'
-import { X, Code2, Spline } from 'lucide-react'
+import { memo, useState, useCallback, type KeyboardEvent } from 'react'
+import { X, Code2, Spline, HelpCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { NodeShapeIndicator } from '../../nodes/NodeShapeIndicator'
+import { useCanvasStore } from '../../store'
 import type { InspectorShellProps } from './types'
 import { EditableLabel } from './shared/EditableLabel'
 
 export const InspectorShell = memo(function InspectorShell({
   topBarColor,
   nodeKind,
+  nodeId,
   label,
   onLabelChange,
   typePill,
@@ -27,6 +29,9 @@ export const InspectorShell = memo(function InspectorShell({
   dragHandlers,
   children,
 }: InspectorShellProps) {
+  const rationale = useCanvasStore((s) => nodeId ? s.nodeRationales?.[nodeId] : undefined)
+  const [showRationale, setShowRationale] = useState(false)
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.key === 'Escape') {
       e.preventDefault()
@@ -84,12 +89,28 @@ export const InspectorShell = memo(function InspectorShell({
 
         <div className="flex items-start justify-between gap-1.5">
           <div className="flex-1 min-w-0">
-            <EditableLabel
-              value={label}
-              onSave={onLabelChange}
-              maxLength={500}
-              className={`${typography.panelHeader} text-text-header`}
-            />
+            <div className="flex items-center gap-1">
+              <EditableLabel
+                value={label}
+                onSave={onLabelChange}
+                maxLength={500}
+                className={`${typography.panelHeader} text-text-header`}
+              />
+              {rationale && (
+                <button
+                  onClick={() => setShowRationale(v => !v)}
+                  title="Why this element was included"
+                  aria-label="Why this element was included"
+                  aria-expanded={showRationale}
+                  className="p-0.5 rounded hover:bg-panel-hover transition-colors shrink-0"
+                >
+                  <HelpCircle size={16} className="text-text-light" />
+                </button>
+              )}
+            </div>
+            {showRationale && rationale && (
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>{rationale}</p>
+            )}
             {confidenceBadge && (
               <div className="mt-1">
                 {confidenceBadge}

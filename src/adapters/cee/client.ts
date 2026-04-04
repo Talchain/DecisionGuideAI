@@ -154,6 +154,11 @@ export function adaptDraftResponse(raw: unknown): CEEDraftResponse {
       result.pipeline_trace = draftTrace.pipeline as CeePipelineTrace
     }
 
+    // Pass through rationales if present (CEE V3 — per-node LLM reasoning)
+    if (Array.isArray(draft.rationales) && draft.rationales.length > 0) {
+      ;(result as Record<string, unknown>).rationales = draft.rationales
+    }
+
     // LLM omission resilience: infer missing category from graph edges
     inferMissingCategories(result.nodes, result.edges)
 
