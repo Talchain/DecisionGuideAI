@@ -84,13 +84,8 @@ describe('Mixed blocks integration — full assistant message', () => {
     expect(screen.queryByText('Commentary D')).not.toBeInTheDocument()
     expect(screen.queryByText('Commentary E')).not.toBeInTheDocument()
 
-    // Chips render in the chip row
-    expect(screen.getByTestId('chip-chip-a')).toBeInTheDocument()
-    expect(screen.getByTestId('chip-chip-b')).toBeInTheDocument()
-
-    // Chips are below blocks (chip row has role=group)
-    const chipGroup = screen.getByRole('group', { name: 'Suggested actions' })
-    expect(chipGroup).toBeInTheDocument()
+    // Inline ActionChipRow removed (Task 2: DS v5 compliance) —
+    // chips are rendered externally by SuggestedChips, not inside MessageBubble
   })
 
   it('toggle reveals remaining 2 blocks', () => {

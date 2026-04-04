@@ -72,7 +72,7 @@ export const ChatMessage = memo(function ChatMessage({
   return (
     <div
       className={`group relative pointer-events-auto ${borderClass}`}
-      style={{ marginBottom: 18 }}
+      style={{ marginBottom: 12 }}
       data-testid={`chat-message-${message.role}`}
       data-message-category={category !== 'answer' ? category : undefined}
     >

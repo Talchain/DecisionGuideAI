@@ -1054,11 +1054,11 @@ function GraphPatchBlockRenderer({
     >
       <div className={styles.graphPatchHeader}>
         <div className={styles.graphPatchTitleRow}>
-          <span className={`${typography.panelMeta} ${isApplied ? styles.graphPatchReceiptEyebrow : styles.graphPatchProposalEyebrow}`}>
+          <span className={`${typography.panelHeader} ${isApplied ? styles.graphPatchReceiptEyebrow : styles.graphPatchProposalEyebrow}`}>
             {isApplied ? 'Changes applied' : 'Review suggested changes'}
           </span>
         </div>
-        <div className={styles.graphPatchSummary}>{opSummary || normaliseDashes(block.summary || '')}</div>
+        <div className={`${typography.body} ${styles.graphPatchSummary}`}>{opSummary || normaliseDashes(block.summary || '')}</div>
       </div>
 
       {showProposalItemsInline && (

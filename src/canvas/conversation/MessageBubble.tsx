@@ -16,14 +16,14 @@ import { memo, useState, useMemo } from 'react'
 import { typography } from '../../styles/typography'
 import { safeRichText } from '../utils/safeRichText'
 import { InlineBlocks } from './InlineBlocks'
-import { ActionChipRow } from './ActionChipRow'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled } from '../../flags'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { FALLBACK_TEXT } from './validateResponse'
-import { SYSTEM_MESSAGE_SENTINEL } from './useConversation'
+import { SYSTEM_MESSAGE_SENTINEL, isNonConversationalContent } from './useConversation'
 import type { ConversationMessage, ActionChip, GraphPatchBlock, Insight } from './types'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import styles from './Conversation.module.css'
@@ -115,9 +115,7 @@ interface MessageBubbleProps {
 
 export const MessageBubble = memo(function MessageBubble({
   message,
-  hideChips,
   historicalChips = false,
-  onChipClick,
   patchBlockStates,
   patchRejections,
   onPatchAccept,
@@ -130,6 +128,12 @@ export const MessageBubble = memo(function MessageBubble({
 
   // Defensive guard: never render the [system] sentinel as a user bubble
   if (isUser && message.content === SYSTEM_MESSAGE_SENTINEL) return null
+
+  // Suppress stock acknowledgement messages (Task 5: DS v5 compliance)
+  // Only suppress when there are no blocks to render — blocks (e.g. graph_patch)
+  // must survive even when the accompanying text is non-conversational.
+  // Never suppress streaming messages — empty content during streaming is normal.
+  if (!isUser && !message.isStreaming && isNonConversationalContent(message.content) && (!message.blocks || message.blocks.length === 0)) return null
 
   // Chip-initiated user messages render as a compact pill, not a full bubble
   if (isUser && message.chipInitiated) {
@@ -178,7 +182,7 @@ export const MessageBubble = memo(function MessageBubble({
       data-testid={`message-${message.role}`}
     >
       <div
-        className={`${typography.bodySmall} ${styles.markdownContent} ${
+        className={`${typography.body} ${styles.markdownContent} ${
           isProvisional ? styles.provisionalText : ''
         } ${!isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''}`}
         data-streaming={isStreaming || undefined}
@@ -202,7 +206,7 @@ export const MessageBubble = memo(function MessageBubble({
           onClick={() => setExpanded(v => !v)}
           data-testid="message-show-more"
         >
-          {expanded ? 'Show less' : 'Show more'}
+          {expanded ? <><ChevronUp size={14} /> Show less</> : <><ChevronDown size={14} /> Show more</>}
         </button>
       )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (
@@ -227,9 +231,6 @@ export const MessageBubble = memo(function MessageBubble({
           onSendMessage={onArtefactMessage}
           disabled={isStreaming}
         />
-      )}
-      {!hideChips && message.actionChips && message.actionChips.length > 0 && (
-        <ActionChipRow chips={message.actionChips} onChipClick={onChipClick} disabled={historicalChips} />
       )}
       {!isUser && !message.synthetic && displayContent !== FALLBACK_TEXT && onFeedback && (
         <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />

@@ -91,13 +91,13 @@ describe('SuggestedChips — chip count', () => {
     expect(screen.getAllByRole('button')).toHaveLength(3)
   })
 
-  it('renders at most 4 chips even when more are supplied', () => {
+  it('renders at most 3 chips even when more are supplied', () => {
     const chips = [
       chip({ id: 'c1' }), chip({ id: 'c2' }), chip({ id: 'c3' }),
       chip({ id: 'c4' }), chip({ id: 'c5' }),
     ]
     render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getAllByRole('button')).toHaveLength(4)
+    expect(screen.getAllByRole('button')).toHaveLength(3)
   })
 
   it('does not render chips without a message field', () => {

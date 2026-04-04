@@ -96,6 +96,8 @@ export function isNonConversationalContent(text: string): boolean {
   if (trimmed.startsWith("I received your message but couldn't")) return true
   if (trimmed === "I'm ready to help with your decision.") return true
   if (trimmed === SYSTEM_MESSAGE_SENTINEL) return true
+  if (/^\s*noted\s+the\s+changes\s+to\s+your\s+model\.?\s*$/i.test(trimmed)) return true
+  if (/^\s*changes\s+applied\.?\s*$/i.test(trimmed)) return true
   return false
 }
 
@@ -1997,6 +1999,7 @@ export function useConversation(): UseConversationReturn {
           /^\s*got\s+it[.!]?\s*$/i,
           /^\s*understood[.!]?\s*$/i,
           /^\s*noted[.!]?\s*$/i,
+          /^\s*noted\s+the\s+changes\s+to\s+your\s+model\.?\s*$/i,
         ]
         if (STOCK_ACK_PATTERNS.some((p) => p.test(assistantText))) {
           assistantText = ''

@@ -67,9 +67,9 @@ export function SuggestedChips({
 
   // Render-level filter: never show a chip that can't dispatch.
   // P1-3: Historical (greyed-out) chips are removed entirely — no false affordance.
-  // v2: up to 4 chips. Legacy: cap at 2.
+  // v2: up to 3 chips (aligned with CEE chip-builder MAX_CHIPS=3). Legacy: cap at 2.
   if (isHistorical) return null
-  const visible = chips.filter(c => !!(c.message || c.prompt)).slice(0, v2 ? 4 : 2)
+  const visible = chips.filter(c => !!(c.message || c.prompt)).slice(0, v2 ? 3 : 2)
   if (visible.length === 0) return null
 
   // Auto-dismiss chip error after 5s
