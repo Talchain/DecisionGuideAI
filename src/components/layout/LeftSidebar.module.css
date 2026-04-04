@@ -82,6 +82,12 @@
   border-color: var(--info);
 }
 
+.iconButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
 .iconButton:focus-visible,
 .iconButtonActive:focus-visible {
   outline: 2px solid var(--info);

@@ -242,7 +242,6 @@ export default function CanvasMVP() {
         onSave={handleSave}
         onShare={handleShare}
         isDirty={isDirty}
-        lastSaved={isPersistenceActive && supabaseLastSaved ? new Date(supabaseLastSaved) : lastSaved}
         saveStatus={isPersistenceActive ? supabaseSaveStatus : undefined}
         saveError={isPersistenceActive ? supabaseSaveError : undefined}
         isPersisted={isPersistenceActive}

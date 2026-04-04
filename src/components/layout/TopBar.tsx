@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { Share2, Users, Shield, ShieldAlert, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react'
 import Tooltip from '../Tooltip'
-import { Spinner } from '../Spinner'
 import styles from './TopBar.module.css'
 import { useAnalysisMetadata } from '../../canvas/hooks/useAnalysisMetadata'
 import { useStagePill } from '../../canvas/hooks/useStagePill'
@@ -23,7 +22,6 @@ interface TopBarProps {
   onSave?: () => Promise<void>
   onShare?: () => void
   isDirty?: boolean
-  lastSaved?: Date | null
   // C.1a: Supabase persistence status
   saveStatus?: 'saved' | 'saving' | 'error'
   saveError?: string | null
@@ -36,7 +34,6 @@ export const TopBar = ({
   onSave,
   onShare,
   isDirty = false,
-  lastSaved = null,
   saveStatus,
   saveError,
   isPersisted = false,
