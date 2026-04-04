@@ -54,7 +54,7 @@ describe('TopBar', () => {
 
   it('shows save status when persisted and saving', () => {
     renderTopBar({...mockProps, isPersisted: true, saveStatus: 'saving'})
-    expect(screen.getByText('Saving...')).toBeInTheDocument()
+    expect(screen.getByText('Saving\u2026')).toBeInTheDocument()
   })
 
   it('shows unsaved status when persisted and dirty', () => {

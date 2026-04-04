@@ -220,7 +220,7 @@ describe('ELK Layout', () => {
   // Viewport-constrained sizing
   // ---------------------------------------------------------------------------
 
-  it('nodeW stays within [140, 240] for small graphs on a wide canvas', async () => {
+  it('nodeW stays within [180, 320] for small graphs on a wide canvas', async () => {
     // 8-node graph: widest tier = 3 options. Should produce generous nodeW near MAX.
     const nodes: Node[] = [
       makeNode('d', 'decision'),

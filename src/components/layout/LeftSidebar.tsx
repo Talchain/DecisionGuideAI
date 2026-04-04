@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Eye,
   Layers,
@@ -45,12 +45,24 @@ export function LeftSidebar({
   const viewMode = useCanvasStore(s => s.viewMode)
   const setViewMode = useCanvasStore(s => s.setViewMode)
 
+  const lensEnabled = isGraphLensEnabled()
+
+  // Toggle lens + dispatch mutual exclusion event (used by both click and L key)
+  const handleLensToggle = useCallback(() => {
+    setLensOpen(prev => {
+      const next = !prev
+      if (next) {
+        window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'lens' } }))
+      }
+      return next
+    })
+  }, [])
+
   // Listen for L key toggle event from useCanvasKeyboardShortcuts
   useEffect(() => {
-    const handler = () => setLensOpen(v => !v)
-    window.addEventListener(LENS_TOGGLE_EVENT, handler)
-    return () => window.removeEventListener(LENS_TOGGLE_EVENT, handler)
-  }, [])
+    window.addEventListener(LENS_TOGGLE_EVENT, handleLensToggle)
+    return () => window.removeEventListener(LENS_TOGGLE_EVENT, handleLensToggle)
+  }, [handleLensToggle])
 
   // Close lens dropdown when comparison mode hides the chip
   const comparisonActive = useCanvasStore(s => s.comparisonMode.active)
@@ -67,16 +79,6 @@ export function LeftSidebar({
     window.addEventListener(MENU_EXCLUSIVE_EVENT, handler)
     return () => window.removeEventListener(MENU_EXCLUSIVE_EVENT, handler)
   }, [])
-
-  const lensEnabled = isGraphLensEnabled()
-
-  const handleLensToggle = () => {
-    const next = !lensOpen
-    setLensOpen(next)
-    if (next) {
-      window.dispatchEvent(new CustomEvent(MENU_EXCLUSIVE_EVENT, { detail: { source: 'lens' } }))
-    }
-  }
 
   const isDetailed = viewMode === 'expert'
 

@@ -277,15 +277,15 @@ export const TopBar = ({
           if (saveStatus === 'saving') {
             return (
               <span className={styles.saveStatus} role="status" aria-live="polite">
-                <Spinner size="sm" />
-                <span>Saving...</span>
+                <span className="inline-block w-3 h-3 border-[1.5px] border-current border-t-transparent rounded-full animate-spin text-text-light" aria-hidden="true" />
+                <span className="text-text-light">Saving{'\u2026'}</span>
               </span>
             )
           }
           if (saveStatus === 'saved' && showSavedPill) {
             return (
               <span className={styles.saveStatus} role="status" aria-live="polite">
-                <CheckCircle size={12} className="text-success" aria-hidden="true" />
+                <CheckCircle size={12} className="text-text-light" aria-hidden="true" />
                 <span className="text-text-light">Saved</span>
               </span>
             )
