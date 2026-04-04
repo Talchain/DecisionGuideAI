@@ -228,13 +228,13 @@ describe('OptionNode', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
   })
 
-  // Width is now layout-driven (single source of truth) — falls back to 220px pre-layout
-  it('OptionNode uses layout-driven width (220px fallback)', () => {
+  // OptionNode passes maxWidth={240} to BaseNode
+  it('OptionNode uses 240px maxWidth', () => {
     const { container } = renderOption()
     const maxWidthEls = container.querySelectorAll<HTMLElement>('[style*="max-width"]')
     expect(maxWidthEls.length).toBeGreaterThan(0)
     const widths = Array.from(maxWidthEls).map(el => el.style.maxWidth)
-    expect(widths).toContain('220px')
+    expect(widths).toContain('240px')
   })
 
   // V2: Win probability number uses text-text-body (neutral, no coloured text in node body)

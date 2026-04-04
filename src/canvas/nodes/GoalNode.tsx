@@ -203,6 +203,7 @@ export const GoalNode = memo((props: NodeProps) => {
         {...props}
         nodeType="goal"
         icon={metadata.icon}
+        maxWidth={300}
         borderClassOverride={goalBorderOverride ?? undefined}
         headerSlot={scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">

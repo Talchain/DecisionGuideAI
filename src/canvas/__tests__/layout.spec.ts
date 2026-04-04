@@ -77,7 +77,7 @@ describe('ELK Layout', () => {
 
   it('returns layoutNodeWidth', async () => {
     const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(130)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(200)
     expect(layoutNodeWidth).toBeLessThanOrEqual(320)
   })
 
@@ -220,7 +220,7 @@ describe('ELK Layout', () => {
   // Viewport-constrained sizing
   // ---------------------------------------------------------------------------
 
-  it('nodeW stays within [180, 320] for small graphs on a wide canvas', async () => {
+  it('layoutNodeWidth stays within [200, 320] for small graphs on a wide canvas', async () => {
     // 8-node graph: widest tier = 3 options. Should produce generous nodeW near MAX.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -236,7 +236,8 @@ describe('ELK Layout', () => {
       makeEdge('e8', 'out', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(130)
+    // layoutNodeWidth is the median of DOM_MAX_WIDTH values (200–320)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(200)
     expect(layoutNodeWidth).toBeLessThanOrEqual(320)
     // All positions must be finite
     laid.forEach(n => {
@@ -245,10 +246,10 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('nodeW uses per-tier median when factor tier triggers multi-row on narrow canvas', async () => {
+  it('layoutNodeWidth is a valid median on a narrow canvas', async () => {
     // 14-node graph: 7 factors in tier 2. On a 936px narrow canvas,
-    // the factor tier triggers multi-row (elkBoxW clamped to MIN_NODE_W+padX = 154).
-    // With per-tier sizing, layoutNodeWidth is the median tier width, not MIN.
+    // the factor tier triggers multi-row. layoutNodeWidth is the median
+    // of DOM_MAX_WIDTH values across all node types.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -267,13 +268,10 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
-    // Per-tier sizing: layoutNodeWidth is the median across all tier widths.
-    // The factor tier (7 nodes) clamps to MIN_NODE_W (130), but other tiers
-    // (decision/option/outcome/risk/goal) get wider widths, so the median
-    // is larger than 130.
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(130)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(260)
-    // All positions must be finite and non-overlapping (using MIN_NODE_W for overlap check)
+    // layoutNodeWidth is the median of DOM_MAX_WIDTH values across node types.
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(200)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
+    // All positions must be finite
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
       expect(Number.isFinite(n.position.y)).toBe(true)
@@ -281,7 +279,7 @@ describe('ELK Layout', () => {
   })
 
   it('multi-row splitting produces no overlapping nodes for a 7-factor tier', async () => {
-    // Same 14-node graph as above, verify non-overlap using MIN_NODE_W = 130px box
+    // Same 14-node graph as above, verify non-overlap using factor DOM_MAX_WIDTH
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -300,7 +298,7 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
-    checkNoOverlap(laid, 130 + 24, 100 + 16) // MIN_NODE_W + ELK padding
+    checkNoOverlap(laid, 200 + 24, 100 + 16) // factor DOM_MAX_WIDTH + sizePaddingX
   })
 
   it('decision node is always above options which are above factors', async () => {

@@ -1,8 +1,8 @@
 /**
- * BaseNode width tests
+ * BaseNode maxWidth tests
  *
- * Verifies that nodes use layout-driven width (single source of truth)
- * and that long labels do not cause layout overflow — break-words is applied.
+ * Verifies that nodes respect maxWidth constraints and that long labels
+ * do not cause layout overflow — break-words is applied.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -68,23 +68,18 @@ const baseProps = {
   yPos: 0,
 }
 
-describe('BaseNode — width (layout-driven)', () => {
-  it('uses 220px fallback maxWidth when no layout has run', () => {
+describe('BaseNode — maxWidth', () => {
+  it('applies maxWidth style to node container', () => {
     const { container } = render(
-      <BaseNode {...baseProps} nodeType="factor" icon={Target} />
+      <BaseNode {...baseProps} nodeType="factor" icon={Target} maxWidth={200} />
     )
     const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.maxWidth).toBe('220px')
+    expect(nodeEl.style.maxWidth).toBe('200px')
   })
 
-  it('uses per-node layoutWidth from data when available', () => {
+  it('uses default 200px maxWidth when no maxWidth prop given', () => {
     const { container } = render(
-      <BaseNode
-        {...baseProps}
-        nodeType="factor"
-        icon={Target}
-        data={{ ...baseProps.data, layoutWidth: 200 }}
-      />
+      <BaseNode {...baseProps} nodeType="factor" icon={Target} />
     )
     const nodeEl = container.firstChild as HTMLElement
     expect(nodeEl.style.maxWidth).toBe('200px')
@@ -92,18 +87,18 @@ describe('BaseNode — width (layout-driven)', () => {
 
   it('label element has break-words class to prevent overflow', () => {
     const { container } = render(
-      <BaseNode {...baseProps} nodeType="factor" icon={Target} />
+      <BaseNode {...baseProps} nodeType="factor" icon={Target} maxWidth={200} />
     )
     const labelEl = container.querySelector('.break-words')
     expect(labelEl).toBeTruthy()
     expect(labelEl?.textContent).toContain('very long label')
   })
 
-  it('has minWidth of 130px', () => {
+  it('has minWidth of 140px', () => {
     const { container } = render(
       <BaseNode {...baseProps} nodeType="factor" icon={Target} />
     )
     const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.minWidth).toBe('130px')
+    expect(nodeEl.style.minWidth).toBe('140px')
   })
 })

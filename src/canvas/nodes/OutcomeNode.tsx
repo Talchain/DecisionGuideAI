@@ -155,6 +155,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
         {...props}
         nodeType="outcome"
         icon={metadata.icon}
+        maxWidth={220}
         headerSlot={scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (
