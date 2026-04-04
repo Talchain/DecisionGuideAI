@@ -23,17 +23,18 @@ describe('LeftSidebar', () => {
     render(<LeftSidebar />)
 
     expect(screen.getByRole('navigation', { name: /canvas tools/i })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /select mode/i })).toBeInTheDocument()
+    // Default mode is 'select', so button shows "Switch to Hand mode"
+    expect(screen.getByRole('button', { name: /switch to hand mode/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /undo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /redo/i })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /standard view/i })).toBeInTheDocument()
   })
 
-  it('invokes onSelectClick when select button is clicked', () => {
+  it('invokes onSelectClick when mode toggle button is clicked', () => {
     const onSelectClick = vi.fn()
     render(<LeftSidebar onSelectClick={onSelectClick} />)
 
-    fireEvent.click(screen.getByRole('button', { name: /select mode/i }))
+    fireEvent.click(screen.getByRole('button', { name: /switch to hand mode/i }))
     expect(onSelectClick).toHaveBeenCalledTimes(1)
   })
 
@@ -62,19 +63,19 @@ describe('LeftSidebar', () => {
     expect(screen.getByRole('button', { name: /redo/i })).toBeDisabled()
   })
 
-  describe('Mode toggle — active state and aria-pressed', () => {
-    it('marks select button as pressed when in select mode', () => {
+  describe('Mode toggle — icon and aria state', () => {
+    it('shows pointer icon and aria-pressed=true in select mode', () => {
       render(<LeftSidebar interactionMode="select" />)
 
-      const selectBtn = screen.getByRole('button', { name: /select mode/i })
-      expect(selectBtn).toHaveAttribute('aria-pressed', 'true')
+      const btn = screen.getByRole('button', { name: /switch to hand mode/i })
+      expect(btn).toHaveAttribute('aria-pressed', 'true')
     })
 
-    it('does not mark select as pressed when in hand mode', () => {
+    it('shows hand icon and aria-pressed=false in hand mode', () => {
       render(<LeftSidebar interactionMode="hand" />)
 
-      const selectBtn = screen.getByRole('button', { name: /select mode/i })
-      expect(selectBtn).toHaveAttribute('aria-pressed', 'false')
+      const btn = screen.getByRole('button', { name: /switch to select mode/i })
+      expect(btn).toHaveAttribute('aria-pressed', 'false')
     })
   })
 

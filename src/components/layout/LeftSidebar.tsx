@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import {
   Eye,
+  Hand,
   Layers,
   Undo2,
   Redo2,
@@ -89,15 +90,19 @@ export function LeftSidebar({
     >
       {/* Manipulation group: Select, Undo, Redo */}
       <div className={styles.group}>
-        <Tooltip content="Select mode (V)">
+        <Tooltip content={interactionMode === 'select' ? 'Hand mode (H)' : 'Select mode (V)'}>
           <button
             type="button"
-            className={interactionMode === 'select' ? styles.iconButtonActive : styles.iconButton}
-            aria-label="Select mode"
+            className={styles.iconButton}
+            aria-label={interactionMode === 'select' ? 'Switch to Hand mode' : 'Switch to Select mode'}
             aria-pressed={interactionMode === 'select'}
             onClick={onSelectClick}
           >
-            <MousePointer2 className={styles.icon} aria-hidden="true" />
+            {interactionMode === 'select' ? (
+              <MousePointer2 className={styles.icon} aria-hidden="true" />
+            ) : (
+              <Hand className={styles.icon} aria-hidden="true" />
+            )}
           </button>
         </Tooltip>
 

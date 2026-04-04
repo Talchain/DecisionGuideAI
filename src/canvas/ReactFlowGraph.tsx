@@ -1789,6 +1789,21 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     setContextMenuTarget(null)
   }, [])
 
+  // Stable callbacks for CanvasViewportControls — declared unconditionally before
+  // any debug-mode early returns to satisfy Rules of Hooks.
+  const handleZoomIn = useCallback(() => zoomInRef.current({ duration: 200 }), [])
+  const handleZoomOut = useCallback(() => zoomOutRef.current({ duration: 200 }), [])
+  const handleZoomReset = useCallback(() => zoomToRef.current(1, { duration: 200 }), [])
+  const handleFitView = useCallback(() => fitViewRef.current({ padding: 0.2, duration: 300 }), [])
+  const handleAutoArrange = useCallback(() => {
+    if (nodesRef.current.length === 0) {
+      showToast('No nodes to arrange.', 'info')
+      return
+    }
+    applyLayout()
+    showToast('Auto-arranged layout.', 'success')
+  }, [showToast, applyLayout])
+
   // Canvas debug mode: 'blank' short-circuits the full canvas UI so we can
   // quickly determine whether React 185 is coming from inside the canvas
   // subtree or elsewhere. When debugMode === 'blank', we render a minimal
@@ -2044,25 +2059,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {!USE_NEW_LAYOUT && <CanvasToolbar />}
       <LeftSidebar
         interactionMode={effectiveMode}
-        onSelectClick={() => setInteractionMode('select')}
+        onSelectClick={() => setInteractionMode(prev => prev === 'select' ? 'hand' : 'select')}
         onUndoClick={undo}
         onRedoClick={redo}
         canUndo={canUndo()}
         canRedo={canRedo()}
       />
       <CanvasViewportControls
-        onZoomIn={() => zoomInRef.current({ duration: 200 })}
-        onZoomOut={() => zoomOutRef.current({ duration: 200 })}
-        onZoomReset={() => zoomToRef.current(1, { duration: 200 })}
-        onFitView={() => fitViewRef.current({ padding: 0.2, duration: 300 })}
-        onAutoArrange={() => {
-          if (nodesRef.current.length === 0) {
-            showToast('No nodes to arrange.', 'info')
-            return
-          }
-          applyLayout()
-          showToast('Auto-arranged layout.', 'success')
-        }}
+        onZoomIn={handleZoomIn}
+        onZoomOut={handleZoomOut}
+        onZoomReset={handleZoomReset}
+        onFitView={handleFitView}
+        onAutoArrange={handleAutoArrange}
       />
       {/* Focus Mode Chip - shows when single node selected with path highlighting */}
       <div
