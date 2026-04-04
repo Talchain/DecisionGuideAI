@@ -234,6 +234,8 @@ const RF_NODE_BLOCKLIST = new Set([
   'label', 'kind', 'type', 'uncertainty', 'interventions',
   // UI-only snapshot (not for CEE); flagged_as_assumption intentionally passes through
   '_baseline_snapshot',
+  // Layout-computed per-node width — UI rendering concern only
+  'layoutWidth',
 ])
 
 /** Valid CEE node kinds — unknown kinds fall back to 'factor' */

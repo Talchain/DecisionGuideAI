@@ -45,7 +45,6 @@ interface BaseNodeProps extends NodeProps {
   nodeType: NodeType
   icon: LucideIcon
   children?: ReactNode
-  maxWidth?: number
   headerSlot?: ReactNode
   /** Override border colour + style classes (e.g. 'border-info border-dashed'). Replaces entity colour. */
   borderClassOverride?: string
@@ -56,7 +55,7 @@ interface BaseNodeProps extends NodeProps {
  * Includes connection handles and accessibility attributes
  * Click chevron icon to expand/collapse description
  */
-export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, maxWidth, headerSlot, borderClassOverride }: BaseNodeProps) => {
+export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, children, headerSlot, borderClassOverride }: BaseNodeProps) => {
   const label = typeof data?.label === 'string' && data.label ? data.label : 'Untitled'
   const description = typeof data?.description === 'string' ? data.description : undefined
 
@@ -98,9 +97,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
     return s.lens._evidenceNodeClass?.get(id) ?? null
   })
 
-  // Layout-computed node width: when a layout has run, use its computed width
-  // so the rendered node matches ELK's sizing assumptions.
-  const layoutNodeWidth = useLayoutStore(s => s.layoutNodeWidth)
+  // Layout-computed node width: prefer per-node width (set during layout pass)
+  // over the global median, so each node renders at exactly the width ELK allocated.
+  const globalLayoutWidth = useLayoutStore(s => s.layoutNodeWidth)
+  const layoutNodeWidth = (typeof data?.layoutWidth === 'number' ? data.layoutWidth : null)
+    ?? globalLayoutWidth
 
   // Canvas view mode: 'decision' (clean) vs 'model' (full detail)
   const viewMode = useCanvasStore(s => s.viewMode)
@@ -259,8 +260,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',
         padding: headerSlot && !isCausalLens && !isEvidenceLens ? '12px 12px 24px 12px' : '12px',
-        minWidth: '140px',
-        maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 200}px`,
+        minWidth: '180px',
+        // TODO: Expanded nodes (300px) may exceed tierElkBoxW, causing visual overlap.
+        // isExpanded is local useState — not accessible at layout time. To fix, persist
+        // expansion state in node.data and pass max(tierElkBoxW, 324) to ELK for expanded nodes.
+        maxWidth: isExpanded ? '300px' : `${layoutNodeWidth ?? 220}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >

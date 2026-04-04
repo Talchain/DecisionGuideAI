@@ -40,7 +40,7 @@ interface BBox {
  */
 function computeNodeWidths(nodes: Node[]): Map<string, number> {
   const AVAILABLE = CANVAS.width * 0.85
-  const MIN_W = 140
+  const MIN_W = 180
   const MAX_W = 260
   const PAD_X = 24
   const GAP = Math.max(50, NODE_SPACING) // MIN_GAP=50, effectiveNodeSpacing=60 → 60
@@ -476,7 +476,7 @@ describe('layoutGraph', () => {
     it('returns valid layoutNodeWidth', async () => {
       const { nodes, edges } = maxWidthGraph()
       const result = await layoutGraph(nodes, edges, {}, CANVAS)
-      expect(result.layoutNodeWidth).toBeGreaterThanOrEqual(140)
+      expect(result.layoutNodeWidth).toBeGreaterThanOrEqual(180)
       expect(result.layoutNodeWidth).toBeLessThanOrEqual(260)
     })
   })
@@ -610,6 +610,54 @@ describe('layoutGraph', () => {
       const { nodes, edges } = noRiskGraph()
       const result = await layoutGraph(nodes, edges, {}, CANVAS)
       assertNoOverlap(result.nodes)
+    })
+  })
+
+  describe('width consistency invariants', () => {
+    it('stamps every laid-out node with data.layoutWidth', async () => {
+      const { nodes, edges } = mediumGraph()
+      const result = await layoutGraph(nodes, edges, {}, CANVAS)
+
+      for (const n of result.nodes) {
+        const lw = (n.data as any)?.layoutWidth
+        expect(lw).toBeDefined()
+        expect(typeof lw).toBe('number')
+        // layoutWidth = tierElkBoxW - sizePaddingX, so within [MIN_NODE_W, MAX_NODE_W]
+        expect(lw).toBeGreaterThanOrEqual(180)
+        expect(lw).toBeLessThanOrEqual(260)
+      }
+    })
+
+    it('per-node layoutWidth matches tierElkBoxW for each node type', async () => {
+      const { nodes, edges } = largeGraph()
+      const result = await layoutGraph(nodes, edges, {}, CANVAS)
+
+      // Group by type and verify all nodes of the same type have the same layoutWidth
+      const widthByType = new Map<string, Set<number>>()
+      for (const n of result.nodes) {
+        const t = n.type ?? 'factor'
+        if (!widthByType.has(t)) widthByType.set(t, new Set())
+        widthByType.get(t)!.add((n.data as any).layoutWidth)
+      }
+
+      // Same-type nodes share a tier, so they should all get the same width
+      for (const [type, widths] of widthByType) {
+        expect(widths.size).toBe(1)
+      }
+    })
+
+    it('layoutNodeWidth is the median of per-tier widths', async () => {
+      const { nodes, edges } = smallGraph()
+      const result = await layoutGraph(nodes, edges, {}, CANVAS)
+
+      // Collect distinct tier widths (from any node per type)
+      const tierWidths = new Set<number>()
+      for (const n of result.nodes) {
+        tierWidths.add((n.data as any).layoutWidth)
+      }
+      const sorted = [...tierWidths].sort((a, b) => a - b)
+      const median = sorted[Math.floor(sorted.length / 2)]
+      expect(result.layoutNodeWidth).toBe(median)
     })
   })
 })

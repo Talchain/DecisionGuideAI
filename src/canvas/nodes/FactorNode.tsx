@@ -319,7 +319,6 @@ export const FactorNode = memo((props: NodeProps) => {
         data={{ ...cleanedData, controllability }}
         nodeType="factor"
         icon={metadata.icon}
-        maxWidth={200}
         headerSlot={scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (

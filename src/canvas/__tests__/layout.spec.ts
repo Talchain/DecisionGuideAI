@@ -77,7 +77,7 @@ describe('ELK Layout', () => {
 
   it('returns layoutNodeWidth', async () => {
     const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(180)
     expect(layoutNodeWidth).toBeLessThanOrEqual(320)
   })
 
@@ -236,7 +236,7 @@ describe('ELK Layout', () => {
       makeEdge('e8', 'out', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(180)
     expect(layoutNodeWidth).toBeLessThanOrEqual(320)
     // All positions must be finite
     laid.forEach(n => {
@@ -247,7 +247,7 @@ describe('ELK Layout', () => {
 
   it('nodeW uses per-tier median when factor tier triggers multi-row on narrow canvas', async () => {
     // 14-node graph: 7 factors in tier 2. On a 936px narrow canvas,
-    // the factor tier triggers multi-row (elkBoxW clamped to MIN_NODE_W+padX).
+    // the factor tier triggers multi-row (elkBoxW clamped to MIN_NODE_W+padX = 204).
     // With per-tier sizing, layoutNodeWidth is the median tier width, not MIN.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -268,10 +268,10 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
     // Per-tier sizing: layoutNodeWidth is the median across all tier widths.
-    // The factor tier (7 nodes) clamps to MIN_NODE_W (140), but other tiers
+    // The factor tier (7 nodes) clamps to MIN_NODE_W (180), but other tiers
     // (decision/option/outcome/risk/goal) get wider widths, so the median
-    // is larger than 140.
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
+    // is larger than 180.
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(180)
     expect(layoutNodeWidth).toBeLessThanOrEqual(260)
     // All positions must be finite and non-overlapping (using MIN_NODE_W for overlap check)
     laid.forEach(n => {
@@ -281,7 +281,7 @@ describe('ELK Layout', () => {
   })
 
   it('multi-row splitting produces no overlapping nodes for a 7-factor tier', async () => {
-    // Same 14-node graph as above, verify non-overlap using MIN_NODE_W = 140px box
+    // Same 14-node graph as above, verify non-overlap using MIN_NODE_W = 180px box
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -300,7 +300,7 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
-    checkNoOverlap(laid, 140 + 24, 100 + 16) // MIN_NODE_W + ELK padding
+    checkNoOverlap(laid, 180 + 24, 100 + 16) // MIN_NODE_W + ELK padding
   })
 
   it('decision node is always above options which are above factors', async () => {

@@ -385,6 +385,8 @@ const V2_NODE_BLOCKLIST = new Set([
   'uncertainty', 'interventions',
   // Context menu annotation fields (Hard rule 3: UI-only state not for PLoT)
   'flagged_as_assumption', '_baseline_snapshot',
+  // Layout-computed per-node width — UI rendering concern only
+  'layoutWidth',
 ])
 
 /**

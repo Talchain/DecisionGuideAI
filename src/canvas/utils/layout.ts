@@ -26,7 +26,7 @@ export interface CanvasSize {
 const FALLBACK_CANVAS: CanvasSize = { width: 1300, height: 750 }
 
 // Node width constraints for viewport-constrained sizing.
-const MIN_NODE_W = 140  // BaseNode minWidth
+const MIN_NODE_W = 180  // BaseNode minWidth — prevents content truncation
 const MAX_NODE_W = 260  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips
 const MIN_GAP    = 50   // Minimum horizontal gap between nodes in same tier
 
@@ -414,7 +414,16 @@ export async function layoutGraph(
   const updatedNodes = nodes.map(node => {
     const newPos = positionMap.get(node.id)
     if (newPos && !((node.data as any)?.locked === true)) {
-      return { ...node, position: newPos }
+      // Stamp per-node layout width so the DOM renders at the exact width
+      // ELK allocated, preventing width divergence between layout and render.
+      const tier = tierOf(node)
+      const tierW = tierElkBoxW.get(tier) ?? (MAX_NODE_W + sizePaddingX)
+      const layoutWidth = tierW - sizePaddingX
+      return {
+        ...node,
+        position: newPos,
+        data: { ...node.data, layoutWidth },
+      }
     }
     return node
   })

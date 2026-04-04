@@ -1,8 +1,8 @@
 /**
- * BaseNode maxWidth tests (H1)
+ * BaseNode width tests
  *
- * Verifies that nodes respect maxWidth constraints and that long labels
- * do not cause layout overflow — break-words is applied.
+ * Verifies that nodes use layout-driven width (single source of truth)
+ * and that long labels do not cause layout overflow — break-words is applied.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -68,18 +68,23 @@ const baseProps = {
   yPos: 0,
 }
 
-describe('BaseNode — maxWidth (H1)', () => {
-  it('applies maxWidth style to node container', () => {
-    const { container } = render(
-      <BaseNode {...baseProps} nodeType="factor" icon={Target} maxWidth={200} />
-    )
-    const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.maxWidth).toBe('200px')
-  })
-
-  it('uses default 200px maxWidth when no maxWidth prop given', () => {
+describe('BaseNode — width (layout-driven)', () => {
+  it('uses 220px fallback maxWidth when no layout has run', () => {
     const { container } = render(
       <BaseNode {...baseProps} nodeType="factor" icon={Target} />
+    )
+    const nodeEl = container.firstChild as HTMLElement
+    expect(nodeEl.style.maxWidth).toBe('220px')
+  })
+
+  it('uses per-node layoutWidth from data when available', () => {
+    const { container } = render(
+      <BaseNode
+        {...baseProps}
+        nodeType="factor"
+        icon={Target}
+        data={{ ...baseProps.data, layoutWidth: 200 }}
+      />
     )
     const nodeEl = container.firstChild as HTMLElement
     expect(nodeEl.style.maxWidth).toBe('200px')
@@ -87,19 +92,18 @@ describe('BaseNode — maxWidth (H1)', () => {
 
   it('label element has break-words class to prevent overflow', () => {
     const { container } = render(
-      <BaseNode {...baseProps} nodeType="factor" icon={Target} maxWidth={200} />
+      <BaseNode {...baseProps} nodeType="factor" icon={Target} />
     )
-    // The label div should have break-words class
     const labelEl = container.querySelector('.break-words')
     expect(labelEl).toBeTruthy()
     expect(labelEl?.textContent).toContain('very long label')
   })
 
-  it('uses maxWidth=238px for OptionNode (per spec)', () => {
+  it('has minWidth of 180px', () => {
     const { container } = render(
-      <BaseNode {...baseProps} nodeType="option" icon={Target} maxWidth={238} />
+      <BaseNode {...baseProps} nodeType="factor" icon={Target} />
     )
     const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.maxWidth).toBe('238px')
+    expect(nodeEl.style.minWidth).toBe('180px')
   })
 })
