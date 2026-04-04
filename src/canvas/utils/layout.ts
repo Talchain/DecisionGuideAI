@@ -117,13 +117,15 @@ export async function layoutGraph(
     tierCounts.set(t, (tierCounts.get(t) ?? 0) + 1)
   }
 
-  // Available width = canvas width minus right panel (if open) minus 15% breathing
-  // room for fitView padding and visual margins.
+  // Available width = (canvas width − dock overlay width) × 0.95.
+  // The dock is position:fixed (overlays the canvas, not a flex-sibling),
+  // so .react-flow's width does not exclude it — we subtract it here.
+  // The 5% breathing room is for fitView padding and visual margins.
   const panelEl = typeof document !== 'undefined'
     ? document.querySelector('[data-testid="outputs-dock"]') as HTMLElement | null
     : null
   const panelWidth = panelEl?.getBoundingClientRect().width ?? 0
-  const availableWidth = Math.max(0, (canvasSize.width - panelWidth) * 0.85)
+  const availableWidth = Math.max(0, (canvasSize.width - panelWidth) * 0.95)
 
   const isDownLayout = direction === 'DOWN'
 

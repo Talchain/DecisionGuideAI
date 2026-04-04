@@ -39,7 +39,7 @@ interface BBox {
  * so overlap checks use the actual width ELK assigns to each node.
  */
 function computeNodeWidths(nodes: Node[]): Map<string, number> {
-  const AVAILABLE = CANVAS.width * 0.85
+  const AVAILABLE = CANVAS.width * 0.95
   const MIN_W = 180
   const MAX_W = 260
   const PAD_X = 24
@@ -142,7 +142,7 @@ function assertOptionsUnderDecision(nodes: Node[]) {
   if (!decision || options.length === 0) return
 
   const widths = computeNodeWidths(nodes)
-  const availableWidth = CANVAS.width * 0.85
+  const availableWidth = CANVAS.width * 0.95
   // Options should be within 1.5× the available width of the decision centre.
   // ELK's crossing minimiser legitimately spreads options wider than
   // availableWidth for high-fan-out graphs (e.g. 2 options → 10 factors).
@@ -178,7 +178,7 @@ function assertFactorsNearParents(
 
     const factorCx = getNodeCentreX(factor, widths)
     // Factor should be within half the canvas width of parent centroid.
-    const availableWidth = CANVAS.width * 0.85
+    const availableWidth = CANVAS.width * 0.95
     expect(Math.abs(factorCx - meanParentX)).toBeLessThanOrEqual(
       availableWidth * 0.5
     )
