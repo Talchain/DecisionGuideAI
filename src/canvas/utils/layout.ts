@@ -123,7 +123,7 @@ export async function layoutGraph(
     ? document.querySelector('[data-testid="outputs-dock"]') as HTMLElement | null
     : null
   const panelWidth = panelEl?.getBoundingClientRect().width ?? 0
-  const availableWidth = (canvasSize.width - panelWidth) * 0.85
+  const availableWidth = Math.max(0, (canvasSize.width - panelWidth) * 0.85)
 
   const isDownLayout = direction === 'DOWN'
 
