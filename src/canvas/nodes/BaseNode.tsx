@@ -260,7 +260,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',
         padding: headerSlot && !isCausalLens && !isEvidenceLens ? '12px 12px 24px 12px' : '12px',
-        minWidth: '180px',
+        minWidth: '130px',
         // TODO: Expanded nodes (300px) may exceed tierElkBoxW, causing visual overlap.
         // isExpanded is local useState — not accessible at layout time. To fix, persist
         // expansion state in node.data and pass max(tierElkBoxW, 324) to ELK for expanded nodes.

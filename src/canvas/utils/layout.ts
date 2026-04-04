@@ -26,7 +26,8 @@ export interface CanvasSize {
 const FALLBACK_CANVAS: CanvasSize = { width: 1300, height: 750 }
 
 // Node width constraints for viewport-constrained sizing.
-const MIN_NODE_W = 180  // BaseNode minWidth — prevents content truncation
+// MIN_NODE_W must match BaseNode's CSS minWidth so layout and DOM agree.
+const MIN_NODE_W = 130  // Allows 5 factors to fit single-row on 1440px with dock open
 const MAX_NODE_W = 260  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips
 const MIN_GAP    = 50   // Minimum horizontal gap between nodes in same tier
 
@@ -117,15 +118,15 @@ export async function layoutGraph(
     tierCounts.set(t, (tierCounts.get(t) ?? 0) + 1)
   }
 
-  // Available width = (canvas width − dock overlay width) × 0.95.
+  // Available width = canvas width minus fixed-position dock overlay.
   // The dock is position:fixed (overlays the canvas, not a flex-sibling),
-  // so .react-flow's width does not exclude it — we subtract it here.
-  // The 5% breathing room is for fitView padding and visual margins.
+  // so .react-flow's clientWidth does not exclude it — we subtract it here.
+  // No additional breathing factor: fitView(padding: 0.2) handles visual margins.
   const panelEl = typeof document !== 'undefined'
     ? document.querySelector('[data-testid="outputs-dock"]') as HTMLElement | null
     : null
   const panelWidth = panelEl?.getBoundingClientRect().width ?? 0
-  const availableWidth = Math.max(0, (canvasSize.width - panelWidth) * 0.95)
+  const availableWidth = Math.max(0, canvasSize.width - panelWidth)
 
   const isDownLayout = direction === 'DOWN'
 

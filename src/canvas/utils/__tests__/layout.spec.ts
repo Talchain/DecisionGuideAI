@@ -39,8 +39,8 @@ interface BBox {
  * so overlap checks use the actual width ELK assigns to each node.
  */
 function computeNodeWidths(nodes: Node[]): Map<string, number> {
-  const AVAILABLE = CANVAS.width * 0.95
-  const MIN_W = 180
+  const AVAILABLE = CANVAS.width  // no breathing factor — fitView handles margins
+  const MIN_W = 130
   const MAX_W = 260
   const PAD_X = 24
   const GAP = Math.max(50, NODE_SPACING) // MIN_GAP=50, effectiveNodeSpacing=60 → 60
@@ -471,7 +471,7 @@ describe('layoutGraph', () => {
     it('returns valid layoutNodeWidth', async () => {
       const { nodes, edges } = maxWidthGraph()
       const result = await layoutGraph(nodes, edges, {}, CANVAS)
-      expect(result.layoutNodeWidth).toBeGreaterThanOrEqual(180)
+      expect(result.layoutNodeWidth).toBeGreaterThanOrEqual(130)
       expect(result.layoutNodeWidth).toBeLessThanOrEqual(260)
     })
   })
@@ -618,7 +618,7 @@ describe('layoutGraph', () => {
         expect(lw).toBeDefined()
         expect(typeof lw).toBe('number')
         // layoutWidth = tierElkBoxW - sizePaddingX, so within [MIN_NODE_W, MAX_NODE_W]
-        expect(lw).toBeGreaterThanOrEqual(180)
+        expect(lw).toBeGreaterThanOrEqual(130)
         expect(lw).toBeLessThanOrEqual(260)
       }
     })

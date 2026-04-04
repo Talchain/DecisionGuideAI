@@ -99,11 +99,11 @@ describe('BaseNode — width (layout-driven)', () => {
     expect(labelEl?.textContent).toContain('very long label')
   })
 
-  it('has minWidth of 180px', () => {
+  it('has minWidth of 130px', () => {
     const { container } = render(
       <BaseNode {...baseProps} nodeType="factor" icon={Target} />
     )
     const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.minWidth).toBe('180px')
+    expect(nodeEl.style.minWidth).toBe('130px')
   })
 })
