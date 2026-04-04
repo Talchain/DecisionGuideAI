@@ -426,7 +426,7 @@ export function DebugPanel() {
     <div
       style={{
         position: 'fixed',
-        bottom: 12,
+        bottom: 87, // ~2cm offset to clear footer/toolbar
         left: 12,
         zIndex: 99998,
         fontFamily: 'system-ui, -apple-system, sans-serif',
