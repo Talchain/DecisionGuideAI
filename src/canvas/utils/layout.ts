@@ -203,45 +203,16 @@ export async function layoutGraph(
       const { width, height } = getNodeDimensions(node)
       return { id: node.id, width, height }
     }),
-    edges: (() => {
-      // Filter real edges to those between unlocked nodes
-      const filteredEdges: ElkExtendedEdge[] = edges
-        .filter(e =>
-          unlocked.some(n => n.id === e.source) &&
-          unlocked.some(n => n.id === e.target)
-        )
-        .map(edge => ({
-          id: edge.id,
-          sources: [edge.source],
-          targets: [edge.target],
-        } as ElkExtendedEdge))
-
-      // Force risk nodes below outcome nodes by adding invisible edges.
-      // Without these, ELK's layered algorithm may place outcomes and risks
-      // on the same row because they have similar edge-distance from the root.
-      // We connect the first outcome to every risk. Even risks that already
-      // have an incoming outcome edge need a separator because ELK may still
-      // merge them into the same layer during crossing minimisation.
-      const outcomeIds = unlocked.filter(n => tierOf(n) === 3).map(n => n.id)
-      const riskIds = unlocked.filter(n => tierOf(n) === 4).map(n => n.id)
-      const separatorEdges: ElkExtendedEdge[] = []
-
-      if (outcomeIds.length > 0 && riskIds.length > 0) {
-        // Connect every outcome to every risk so ELK cannot merge any
-        // outcome with any risk into the same layer.
-        for (const outcomeId of outcomeIds) {
-          for (const riskId of riskIds) {
-            separatorEdges.push({
-              id: `__sep__${outcomeId}__${riskId}`,
-              sources: [outcomeId],
-              targets: [riskId],
-            } as ElkExtendedEdge)
-          }
-        }
-      }
-
-      return [...filteredEdges, ...separatorEdges]
-    })(),
+    edges: edges
+      .filter(e =>
+        unlocked.some(n => n.id === e.source) &&
+        unlocked.some(n => n.id === e.target)
+      )
+      .map(edge => ({
+        id: edge.id,
+        sources: [edge.source],
+        targets: [edge.target],
+      } as ElkExtendedEdge)),
   }
 
   const layout = await elk.layout(elkGraph)
@@ -259,6 +230,49 @@ export async function layoutGraph(
       sizeMap.set(child.id, { width: child.width, height: child.height })
     }
   })
+
+  // ---------------------------------------------------------------------------
+  // Step 4b — Separate risk nodes from outcome nodes if ELK merged them
+  // ---------------------------------------------------------------------------
+  // ELK may place outcomes and risks on the same layer because they have
+  // similar edge-distance from the root. When this happens, shift all risk
+  // nodes one layerSpacing below the lowest outcome, and push goals down
+  // by the same delta. Only fires when at least one risk shares a Y with
+  // an outcome (within 10px tolerance).
+  if (isDownLayout) {
+    const outcomeNodeIds = unlocked.filter(n => tierOf(n) === 3).map(n => n.id)
+    const riskNodeIds = unlocked.filter(n => tierOf(n) === 4).map(n => n.id)
+    const goalNodeIds = unlocked.filter(n => tierOf(n) === 5).map(n => n.id)
+
+    if (outcomeNodeIds.length > 0 && riskNodeIds.length > 0) {
+      const outcomeYs = outcomeNodeIds.map(id => positionMap.get(id)?.y ?? 0)
+      const riskYs = riskNodeIds.map(id => positionMap.get(id)?.y ?? 0)
+
+      // Check if any risk shares a Y with any outcome (within 10px)
+      const needsShift = riskYs.some(ry =>
+        outcomeYs.some(oy => Math.abs(ry - oy) <= 10)
+      )
+
+      if (needsShift) {
+        const maxOutcomeY = Math.max(...outcomeYs)
+        const maxOutcomeH = Math.max(
+          ...outcomeNodeIds.map(id => sizeMap.get(id)?.height ?? 116)
+        )
+        const newRiskY = maxOutcomeY + maxOutcomeH + effectiveLayerSpacing
+        const oldMinRiskY = Math.min(...riskYs)
+        const delta = newRiskY - oldMinRiskY
+
+        for (const id of riskNodeIds) {
+          const pos = positionMap.get(id)
+          if (pos) positionMap.set(id, { x: pos.x, y: pos.y + delta })
+        }
+        for (const id of goalNodeIds) {
+          const pos = positionMap.get(id)
+          if (pos) positionMap.set(id, { x: pos.x, y: pos.y + delta })
+        }
+      }
+    }
+  }
 
   // Apply multi-row splitting when a tier has more nodes than fit in one row
   if (nodesPerRow !== null) {
