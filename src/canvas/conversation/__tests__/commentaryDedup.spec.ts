@@ -91,4 +91,16 @@ describe('deduplicateAgainstCommentary', () => {
     const commentary = 'Completely different commentary content here.'
     expect(deduplicateAgainstCommentary(assistantText, commentary)).toBe(assistantText)
   })
+
+  it('matches despite extra whitespace in commentary', () => {
+    const assistantText = 'Option A wins with 65% probability.'
+    const commentary = 'Option A  wins  with  65%  probability.  The drivers are...'
+    expect(deduplicateAgainstCommentary(assistantText, commentary)).toBe('')
+  })
+
+  it('matches despite newlines in commentary', () => {
+    const assistantText = 'The analysis shows strong support.'
+    const commentary = 'The analysis\nshows strong\nsupport. Additional context follows.'
+    expect(deduplicateAgainstCommentary(assistantText, commentary)).toBe('')
+  })
 })

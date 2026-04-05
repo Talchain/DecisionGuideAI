@@ -102,6 +102,11 @@ export function isNonConversationalContent(text: string): boolean {
   return false
 }
 
+/** Collapse whitespace runs to a single space for comparison. */
+function normaliseWhitespace(s: string): string {
+  return s.replace(/\s+/g, ' ')
+}
+
 /**
  * Deduplicate assistant_text against a commentary block's narrative.
  *
@@ -110,8 +115,8 @@ export function isNonConversationalContent(text: string): boolean {
  * portion of assistantText that is NOT already present in the block's text.
  *
  * Heuristic: if the first sentence of assistantText appears verbatim
- * (case-insensitive) in the block narrative, strip it. Preserve any
- * remaining non-duplicate content (e.g. follow-up questions).
+ * (case-insensitive, whitespace-normalised) in the block narrative, strip it.
+ * Preserve any remaining non-duplicate content (e.g. follow-up questions).
  *
  * Exported for unit testing.
  */
@@ -122,18 +127,19 @@ export function deduplicateAgainstCommentary(
   if (!assistantText.trim() || !commentaryText.trim()) return assistantText
 
   const textTrimmed = assistantText.trim()
-  const narrativeLower = commentaryText.toLowerCase()
+  // Normalise whitespace so minor formatting differences don't prevent matching
+  const narrativeNorm = normaliseWhitespace(commentaryText.toLowerCase())
 
   // Extract the first sentence of assistantText
   const firstSentenceMatch = textTrimmed.match(/^(.+?[.!?])(?:\s|$)/)
   if (!firstSentenceMatch) {
     // No sentence boundary — check full text as single unit
-    if (narrativeLower.includes(textTrimmed.toLowerCase())) return ''
+    if (narrativeNorm.includes(normaliseWhitespace(textTrimmed.toLowerCase()))) return ''
     return assistantText
   }
 
   const firstSentence = firstSentenceMatch[1]
-  if (!narrativeLower.includes(firstSentence.toLowerCase())) {
+  if (!narrativeNorm.includes(normaliseWhitespace(firstSentence.toLowerCase()))) {
     // First sentence not in commentary — no duplication, keep as-is
     return assistantText
   }
