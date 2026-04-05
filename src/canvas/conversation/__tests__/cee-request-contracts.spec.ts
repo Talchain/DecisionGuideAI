@@ -221,7 +221,7 @@ describe('T2 — Parameter update (conversation, graph populated)', () => {
     expect(req.message).toBe('The market share factor should have a higher weight')
   })
 
-  it('analysis_state is absent (no analysis yet)', () => {
+  it('analysis_state is absent when not provided (no analysis yet)', () => {
     expect(req.analysis_state).toBeUndefined()
   })
 
@@ -285,15 +285,39 @@ describe('T3 — Alternatives question (pure conversation, no analysis)', () => 
     expect(req.conversation_history.length).toBeGreaterThan(0)
   })
 
-  it('R11: analysis_state is structurally absent from conversation builder', () => {
-    // R11: conversation builder no longer accepts analysis_state parameter
-    const req = buildConversationTurnRequest({
+  it('R11 (updated): conversation builder includes analysis_state when provided', () => {
+    const analysisState = buildAnalysisState(RAW_V2_RESPONSE)
+    const reqWith = buildConversationTurnRequest({
+      scenario_id: SCENARIO_ID,
+      conversation_history: [],
+      message: 'Why did Option A win?',
+      graph_state: POPULATED_GRAPH,
+      analysis_state: analysisState,
+    })
+    expect(reqWith.analysis_state).toBeDefined()
+    expect(reqWith.analysis_state!.analysis_status).toBe('completed')
+    expect(reqWith.analysis_state!.meta.response_hash).toBe('hash-golden-path-abc123')
+  })
+
+  it('R11 (updated): conversation builder omits analysis_state when not provided', () => {
+    const reqWithout = buildConversationTurnRequest({
       scenario_id: SCENARIO_ID,
       conversation_history: [],
       message: 'What alternatives exist?',
       graph_state: EMPTY_GRAPH,
     })
-    expect(req.analysis_state).toBeUndefined()
+    expect(reqWithout.analysis_state).toBeUndefined()
+  })
+
+  it('R11 (updated): conversation builder rejects malformed analysis_state', () => {
+    const reqBad = buildConversationTurnRequest({
+      scenario_id: SCENARIO_ID,
+      conversation_history: [],
+      message: 'Test',
+      graph_state: EMPTY_GRAPH,
+      analysis_state: { option_comparison: [], robustness: null },
+    })
+    expect(reqBad.analysis_state).toBeUndefined()
   })
 })
 
@@ -847,5 +871,80 @@ describe('T7 — Chip metadata transport', () => {
     })
     // Should not throw — validateTurnRequestBoundary would strip unknown fields
     expect(req.chip_metadata).toEqual({ action_type: 'run_analysis' })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// T8 — Conversation turn with analysis_state (post-analysis follow-up)
+// ---------------------------------------------------------------------------
+
+describe('T8 — Conversation turn with analysis_state (post-analysis follow-up)', () => {
+  const analysisState = buildAnalysisState(RAW_V2_RESPONSE)
+
+  const req = buildConversationTurnRequest({
+    scenario_id: SCENARIO_ID,
+    conversation_history: CONVERSATION_HISTORY,
+    message: 'Why did Option A win?',
+    graph_state: POPULATED_GRAPH,
+    analysis_state: analysisState,
+    client_turn_id: 'deadbeef-1234-5678-abcd-ef0123456789',
+  })
+
+  it('analysis_state is present on conversation turn after analysis', () => {
+    expect(req.analysis_state).toBeDefined()
+  })
+
+  it('analysis_state.analysis_status === "completed"', () => {
+    expect(req.analysis_state!.analysis_status).toBe('completed')
+  })
+
+  it('analysis_state.meta.response_hash is present', () => {
+    expect(typeof req.analysis_state!.meta.response_hash).toBe('string')
+    expect(req.analysis_state!.meta.response_hash.length).toBeGreaterThan(0)
+  })
+
+  it('analysis_state V2 fields at top level (not nested in results)', () => {
+    const state = req.analysis_state as Record<string, unknown>
+    expect(Array.isArray(state.option_comparison)).toBe(true)
+    expect(state.robustness).toBeDefined()
+    expect(Array.isArray(state.drivers)).toBe(true)
+  })
+
+  it('turn type is conversation (not explain)', () => {
+    expect(req._turn_type).toBe('conversation')
+  })
+
+  it('wire snapshot includes analysis_state alongside conversation fields', () => {
+    const wire = stripTurnType(req)
+    const keys = Object.keys(wire).sort()
+    expect(keys).toEqual([
+      'analysis_state',
+      'client_turn_id',
+      'conversation_history',
+      'graph_state',
+      'message',
+      'scenario_id',
+    ])
+  })
+
+  it('analysis_state absent when not provided (pre-analysis follow-up)', () => {
+    const preReq = buildConversationTurnRequest({
+      scenario_id: SCENARIO_ID,
+      conversation_history: [],
+      message: 'Tell me more about options',
+      graph_state: POPULATED_GRAPH,
+    })
+    expect(preReq.analysis_state).toBeUndefined()
+  })
+
+  it('analysis_state absent when graph is stale (undefined passed)', () => {
+    const staleReq = buildConversationTurnRequest({
+      scenario_id: SCENARIO_ID,
+      conversation_history: [],
+      message: 'Why did X win?',
+      graph_state: POPULATED_GRAPH,
+      analysis_state: undefined,
+    })
+    expect(staleReq.analysis_state).toBeUndefined()
   })
 })

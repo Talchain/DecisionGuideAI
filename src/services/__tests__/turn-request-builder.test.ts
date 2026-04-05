@@ -139,11 +139,24 @@ describe('turn request builders', () => {
     expect(req).not.toHaveProperty('system_event')
   })
 
-  it('R11: conversation builder does not accept analysis_state parameter', () => {
+  it('R11 (updated): conversation builder accepts and validates analysis_state', () => {
     const req = buildConversationTurnRequest({
       scenario_id: 's5b',
       conversation_history: [...history],
       message: 'what does the analysis show?',
+      graph_state: graphState,
+      analysis_state: validAnalysisState,
+    })
+
+    expect(req).toHaveProperty('analysis_state')
+    expect(req.analysis_state!.analysis_status).toBe('complete')
+  })
+
+  it('R11 (updated): conversation builder omits analysis_state when not provided', () => {
+    const req = buildConversationTurnRequest({
+      scenario_id: 's5b',
+      conversation_history: [...history],
+      message: 'hello',
       graph_state: graphState,
     })
 
@@ -376,21 +389,17 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
     )
   })
 
-  it('R11: flags analysis_state as forbidden on conversation turns', () => {
-    const base = buildConversationTurnRequest({
+  it('R11 (updated): accepts analysis_state on conversation turns (no violation)', () => {
+    const req = buildConversationTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...history],
-      message: 'hello',
+      message: 'Why did Option A win?',
       graph_state: graphState,
+      analysis_state: validAnalysisState,
     })
-    // Simulate accidental injection from a rogue call site
-    const req = { ...base, analysis_state: validAnalysisState } as any
 
     validateTurnRequestBoundary(req)
-    expect(consoleErrorSpy).toHaveBeenCalledWith(
-      '[BOUNDARY]',
-      expect.objectContaining({ field: 'analysis_state', violation: 'forbidden_field' }),
-    )
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
 
   it('accepts valid analysis_state on explain turns (no violation)', () => {

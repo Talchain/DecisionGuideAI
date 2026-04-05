@@ -2,7 +2,7 @@
  * useGraphReadiness — module-level dedup cache tests
  *
  * Validates that deduplicatedFetch reuses in-flight requests for identical
- * payloads within the 250ms window and that refCount prevents premature abort.
+ * payloads within the 750ms dedup window and that refCount prevents premature abort.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { clearInflightCache, __test__ } from '../useGraphReadiness'
@@ -133,8 +133,8 @@ describe('graph-readiness dedup cache', () => {
     expect(r1.entry).toBe(r2.entry) // same entry object
   })
 
-  it('reuses in-flight request beyond 250ms dedup window', async () => {
-    // Simulate a slow request that takes longer than DEDUP_WINDOW_MS (250ms)
+  it('reuses in-flight request beyond 750ms dedup window', async () => {
+    // Simulate a slow request that takes longer than DEDUP_WINDOW_MS (750ms)
     let resolveSlowFetch!: (res: Response) => void
     fetchSpy.mockImplementationOnce(() =>
       new Promise<Response>((resolve) => { resolveSlowFetch = resolve })
@@ -142,12 +142,12 @@ describe('graph-readiness dedup cache', () => {
 
     const r1 = deduplicatedFetch('/bff/cee/graph-readiness', '{"slow":1}', 'c1')
 
-    // Advance time past the 250ms window while request is still in-flight
-    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 500)
+    // Advance time past the 750ms window while request is still in-flight
+    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 1000)
 
     const r2 = deduplicatedFetch('/bff/cee/graph-readiness', '{"slow":1}', 'c2')
 
-    // Should reuse the in-flight request even though 500ms > 250ms window
+    // Should reuse the in-flight request even though 1000ms > 750ms window
     expect(r2.isReused).toBe(true)
     expect(r1.promise).toBe(r2.promise)
     expect(fetchSpy).toHaveBeenCalledTimes(1)

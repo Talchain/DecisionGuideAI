@@ -125,11 +125,11 @@ export type TurnRequestPayload =
   | ExplainTurnRequest
   | ClarificationResponseTurnRequest
 
-// R11: analysis_state is only allowed on turn types where the user explicitly
-// references results (explain, patch_followup). Omitted from conversation,
-// explicit_generate, and system_event to avoid CEE boundary warnings.
+// R11 (updated): analysis_state is now allowed on conversation turns so CEE can
+// detect post-analysis stage and surface results in the prompt. Still omitted
+// from explicit_generate and system_event where it adds no value.
 const TURN_ALLOW_LIST: Record<TurnType, readonly string[]> = {
-  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'chip_metadata', '_turn_type'],
+  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'chip_metadata', 'analysis_state', '_turn_type'],
   explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', '_turn_type'],
   run_analysis: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_inputs', '_turn_type'],
   system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', '_turn_type'],
@@ -190,17 +190,19 @@ export function isValidExplainAnalysisState(value: unknown): value is ExplainAna
   return state.results !== undefined && state.results !== null
 }
 
-// R11: analysis_state removed from conversation turns — only allowed on
-// explain/patch_followup where the user explicitly references results.
+// R11 (updated): analysis_state now included on conversation turns so CEE can
+// compute stage as 'evaluate' and surface analysis results in follow-up turns.
 export function buildConversationTurnRequest(input: {
   scenario_id: string
   conversation_history: ConversationTurnPair[]
   message: string
   graph_state: GraphStatePayload
   selected_elements?: SelectedElementsPayload
+  analysis_state?: unknown
   chip_metadata?: ChipMetadata
   client_turn_id?: string
 }): ConversationTurnRequest {
+  const validAnalysisState = isValidExplainAnalysisState(input.analysis_state) ? input.analysis_state : undefined
   return withTurnType({
     scenario_id: input.scenario_id,
     client_turn_id: createClientTurnId(input.client_turn_id),
@@ -208,6 +210,7 @@ export function buildConversationTurnRequest(input: {
     message: input.message,
     graph_state: input.graph_state,
     ...(input.selected_elements ? { selected_elements: input.selected_elements } : {}),
+    ...(validAnalysisState ? { analysis_state: validAnalysisState } : {}),
     ...(input.chip_metadata ? { chip_metadata: input.chip_metadata } : {}),
   }, 'conversation')
 }

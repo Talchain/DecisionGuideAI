@@ -1478,8 +1478,8 @@ export function useConversation(): UseConversationReturn {
             message: opts.text,
             graph_state: graphState,
             selected_elements: selectedElements,
+            analysis_state: analysisState,
             chip_metadata: opts.chipMeta,
-            // R11: analysis_state omitted — run_analysis fallback is a conversation turn
             client_turn_id: opts.clientTurnId,
           })
         }
@@ -1523,14 +1523,15 @@ export function useConversation(): UseConversationReturn {
         })
       }
 
-      // R11: analysis_state omitted on pure conversation turns — only included
-      // on explain/patch_followup turns where the user references results
+      // R11 (updated): analysis_state now included on conversation turns so CEE
+      // can detect post-analysis stage and reference computed results.
       return buildConversationTurnRequest({
         scenario_id: scenarioId,
         conversation_history: conversationHistory,
         message: opts.text,
         graph_state: graphState,
         selected_elements: selectedElements,
+        analysis_state: analysisState,
         chip_metadata: opts.chipMeta,
         client_turn_id: opts.clientTurnId,
       })
@@ -1940,12 +1941,13 @@ export function useConversation(): UseConversationReturn {
         assistantText = lines.join('\n').trimEnd()
       }
 
-      // Coaching dedup: when a graph_patch block is present, suppress or collapse
-      // assistant_text to avoid the user reading the same coaching prose twice.
+      // Coaching dedup: when an incremental graph_patch block is present, suppress
+      // or collapse assistant_text to avoid the user reading the same coaching
+      // prose twice. Skip for full_draft — Turn 1 coaching is the primary content.
       const patchBlock = orderedBlocks.find(
         (b): b is GraphPatchBlock => b.type === 'graph_patch',
       )
-      if (patchBlock && assistantText.trim()) {
+      if (patchBlock && patchBlock.patch_type !== 'full_draft' && assistantText.trim()) {
         const patchSummary = (patchBlock.summary || '').toLowerCase().trim()
         const textLower = assistantText.toLowerCase().trim()
         // Exact/substring match → suppress entirely
@@ -1990,8 +1992,14 @@ export function useConversation(): UseConversationReturn {
       // with a bare "Changes applied." or similar — the graph_patch card already shows this.
       // Only suppress when the same turn includes a graph_patch block, so standalone
       // "Noted." responses to user questions are preserved.
+      // Skip suppression for full_draft patches — Turn 1 coaching text should be
+      // preserved even if the envelope's assistant_text is a stock phrase (the real
+      // coaching arrives via text_delta streaming and is recovered downstream).
       const hasGraphPatch = orderedBlocks.some((b) => b.type === 'graph_patch')
-      if (hasGraphPatch) {
+      const hasFullDraftPatch = orderedBlocks.some(
+        (b) => b.type === 'graph_patch' && (b as GraphPatchBlock).patch_type === 'full_draft',
+      )
+      if (hasGraphPatch && !hasFullDraftPatch) {
         const STOCK_ACK_PATTERNS = [
           /^\s*changes\s+applied\.?\s*$/i,
           /^\s*got\s+it[.!]?\s*$/i,
@@ -2037,8 +2045,22 @@ export function useConversation(): UseConversationReturn {
         return
       }
       if (shouldFilter && hasBlocks) {
-        // Has blocks but non-conversational text — keep blocks, clear text
-        assistantText = ''
+        // Has blocks but non-conversational text — keep blocks, clear text.
+        // Exception: full_draft turns (Turn 1 graph generation) should preserve
+        // coaching text or fall back to streamed text, since the LLM produces
+        // meaningful explanation alongside the graph patch.
+        if (hasFullDraftPatch) {
+          // Prefer streamed text (accumulated during SSE) over the envelope's
+          // stock ack, since the LLM coaching arrives via text_delta events.
+          const streamedText = streamTextRef.current
+          if (streamedText.trim()) {
+            assistantText = streamedText
+          }
+          // If streamed text is also empty, leave assistantText as-is (may be
+          // empty — acceptable for full_draft where the graph patch card suffices)
+        } else {
+          assistantText = ''
+        }
       }
 
       // Streaming guard: if a streaming message already exists for this turn,

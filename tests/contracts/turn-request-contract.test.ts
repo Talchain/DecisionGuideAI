@@ -222,15 +222,31 @@ describe('Turn request contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('R11: post-analysis conversation turn omits analysis_state', () => {
+  test('R11 (updated): post-analysis conversation turn includes analysis_state', () => {
     const request = wirePayload(buildConversationTurnRequest({
       scenario_id: VALID_UUID,
       conversation_history: [...conversationHistory],
       message: 'Why is Option A better?',
       graph_state: graphState,
+      analysis_state: analysisState,
     }))
 
-    // R11: conversation turns no longer include analysis_state
+    // R11 (updated): conversation turns now include analysis_state
+    expect(request).toHaveProperty('analysis_state')
+
+    const valid = validateTurnRequest(request)
+    if (!valid) console.error('Validation errors:', validateTurnRequest.errors)
+    expect(valid).toBe(true)
+  })
+
+  test('R11 (updated): conversation turn without analysis omits analysis_state', () => {
+    const request = wirePayload(buildConversationTurnRequest({
+      scenario_id: VALID_UUID,
+      conversation_history: [...conversationHistory],
+      message: 'What alternatives exist?',
+      graph_state: graphState,
+    }))
+
     expect(request).not.toHaveProperty('analysis_state')
 
     const valid = validateTurnRequest(request)

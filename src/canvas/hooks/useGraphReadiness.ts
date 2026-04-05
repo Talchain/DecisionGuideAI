@@ -32,7 +32,7 @@ const BACKOFF_MULTIPLIER = 2
 // a shared cache each instance fires its own POST. This singleton
 // ensures identical payloads within DEDUP_WINDOW_MS reuse the same
 // parsed result — not the raw Response (which can only be read once).
-const DEDUP_WINDOW_MS = 250
+const DEDUP_WINDOW_MS = 750
 
 /**
  * Pre-parsed response shared between dedup consumers.
