@@ -428,4 +428,29 @@ describe('ELK Layout', () => {
     // (would be much larger if an empty risk tier inserted a phantom layer)
     expect(outcomeToGoal).toBeLessThanOrEqual(factorToOutcome * 2)
   })
+
+  it('all risk nodes land on the same Y row after shift', async () => {
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('out1', 'outcome'), makeNode('out2', 'outcome'),
+      makeNode('r1', 'risk'), makeNode('r2', 'risk'), makeNode('r3', 'risk'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'),
+      makeEdge('e3', 'o1', 'f1'), makeEdge('e4', 'o2', 'f2'), makeEdge('e5', 'o2', 'f3'),
+      makeEdge('e6', 'f1', 'out1'), makeEdge('e7', 'f2', 'out2'),
+      makeEdge('e8', 'f3', 'r1'), makeEdge('e9', 'out1', 'r2'),
+      makeEdge('e10', 'f3', 'r3'),
+      makeEdge('e11', 'out1', 'g'), makeEdge('e12', 'out2', 'g'),
+      makeEdge('e13', 'r1', 'g'), makeEdge('e14', 'r2', 'g'), makeEdge('e15', 'r3', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+    const riskYs = laid.filter(n => n.type === 'risk').map(n => n.position.y)
+    // All risks must be on the same Y (within 1px tolerance for rounding)
+    const spread = Math.max(...riskYs) - Math.min(...riskYs)
+    expect(spread).toBeLessThanOrEqual(1)
+  })
 })

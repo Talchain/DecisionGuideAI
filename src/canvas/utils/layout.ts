@@ -258,13 +258,14 @@ export async function layoutGraph(
         const maxOutcomeH = Math.max(
           ...outcomeNodeIds.map(id => sizeMap.get(id)?.height ?? 116)
         )
+        // Place all risks on a single row below the lowest outcome
         const newRiskY = maxOutcomeY + maxOutcomeH + effectiveLayerSpacing
         const oldMinRiskY = Math.min(...riskYs)
         const delta = newRiskY - oldMinRiskY
 
         for (const id of riskNodeIds) {
           const pos = positionMap.get(id)
-          if (pos) positionMap.set(id, { x: pos.x, y: pos.y + delta })
+          if (pos) positionMap.set(id, { x: pos.x, y: newRiskY })
         }
         for (const id of goalNodeIds) {
           const pos = positionMap.get(id)
