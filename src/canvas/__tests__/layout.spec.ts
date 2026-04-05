@@ -77,8 +77,8 @@ describe('ELK Layout', () => {
 
   it('returns layoutNodeWidth', async () => {
     const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(200)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(260)
   })
 
   it('preserves locked node positions', async () => {
@@ -220,7 +220,7 @@ describe('ELK Layout', () => {
   // Viewport-constrained sizing
   // ---------------------------------------------------------------------------
 
-  it('layoutNodeWidth stays within [200, 320] for small graphs on a wide canvas', async () => {
+  it('nodeW stays within [140, 260] for small graphs on a wide canvas', async () => {
     // 8-node graph: widest tier = 3 options. Should produce generous nodeW near MAX.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -236,9 +236,8 @@ describe('ELK Layout', () => {
       makeEdge('e8', 'out', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
-    // layoutNodeWidth is the median of DOM_MAX_WIDTH values (200–320)
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(200)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(260)
     // All positions must be finite
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
@@ -246,10 +245,10 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('layoutNodeWidth is a valid median on a narrow canvas', async () => {
+  it('nodeW is clamped to MIN_NODE_W (140) when tier is too wide for canvas', async () => {
     // 14-node graph: 7 factors in tier 2. On a 936px narrow canvas,
-    // the factor tier triggers multi-row. layoutNodeWidth is the median
-    // of DOM_MAX_WIDTH values across all node types.
+    // 7 * 140 + 6 * 30 = 1160px > 936 * 0.85 = 795px, so multi-row fires.
+    // layoutNodeWidth must equal 140.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -268,10 +267,8 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
-    // layoutNodeWidth is the median of DOM_MAX_WIDTH values across node types.
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(200)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
-    // All positions must be finite
+    expect(layoutNodeWidth).toBe(140)
+    // All positions must be finite and non-overlapping (using MIN_NODE_W for overlap check)
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
       expect(Number.isFinite(n.position.y)).toBe(true)
@@ -279,7 +276,7 @@ describe('ELK Layout', () => {
   })
 
   it('multi-row splitting produces no overlapping nodes for a 7-factor tier', async () => {
-    // Same 14-node graph as above, verify non-overlap using factor DOM_MAX_WIDTH
+    // Same 14-node graph as above, verify non-overlap using MIN_NODE_W = 140px box
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -298,7 +295,7 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
-    checkNoOverlap(laid, 200 + 24, 100 + 16) // factor DOM_MAX_WIDTH + sizePaddingX
+    checkNoOverlap(laid, 140 + 24, 100 + 16) // MIN_NODE_W + ELK padding
   })
 
   it('decision node is always above options which are above factors', async () => {
@@ -326,5 +323,109 @@ describe('ELK Layout', () => {
     expect(dY).toBeLessThan(o1Y)
     expect(o1Y).toBeLessThan(f1Y)
     expect(f1Y).toBeLessThan(gY)
+  })
+
+  // -------------------------------------------------------------------------
+  // Outcome/risk separation and regression guards
+  // -------------------------------------------------------------------------
+
+  it('outcomes are placed above risks (Y-separated)', async () => {
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('out1', 'outcome'), makeNode('out2', 'outcome'),
+      makeNode('r1', 'risk'), makeNode('r2', 'risk'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'),
+      makeEdge('e3', 'o1', 'f1'), makeEdge('e4', 'o2', 'f2'), makeEdge('e5', 'o2', 'f3'),
+      makeEdge('e6', 'f1', 'out1'), makeEdge('e7', 'f2', 'out2'),
+      makeEdge('e8', 'f3', 'r1'), makeEdge('e9', 'out1', 'r2'),
+      makeEdge('e10', 'out1', 'g'), makeEdge('e11', 'out2', 'g'),
+      makeEdge('e12', 'r1', 'g'), makeEdge('e13', 'r2', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+    const maxOutcomeY = Math.max(...laid.filter(n => n.type === 'outcome').map(n => n.position.y))
+    const minRiskY = Math.min(...laid.filter(n => n.type === 'risk').map(n => n.position.y))
+    expect(maxOutcomeY).toBeLessThan(minRiskY)
+  })
+
+  it('no overlaps with risks separated', async () => {
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('out1', 'outcome'), makeNode('out2', 'outcome'),
+      makeNode('r1', 'risk'), makeNode('r2', 'risk'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'),
+      makeEdge('e3', 'o1', 'f1'), makeEdge('e4', 'o2', 'f2'), makeEdge('e5', 'o2', 'f3'),
+      makeEdge('e6', 'f1', 'out1'), makeEdge('e7', 'f2', 'out2'),
+      makeEdge('e8', 'f3', 'r1'), makeEdge('e9', 'out1', 'r2'),
+      makeEdge('e10', 'out1', 'g'), makeEdge('e11', 'out2', 'g'),
+      makeEdge('e12', 'r1', 'g'), makeEdge('e13', 'r2', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+    checkNoOverlap(laid)
+  })
+
+  it('same-type nodes share the same Y row (options and outcomes)', async () => {
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
+      makeNode('out1', 'outcome'), makeNode('out2', 'outcome'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o2', 'f2'),
+      makeEdge('e6', 'f1', 'out1'), makeEdge('e7', 'f2', 'out2'),
+      makeEdge('e8', 'out1', 'g'), makeEdge('e9', 'out2', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+
+    // All options must be on the same Y row (within 10px tolerance)
+    const optionYs = laid.filter(n => n.type === 'option').map(n => n.position.y)
+    const optionYSpread = Math.max(...optionYs) - Math.min(...optionYs)
+    expect(optionYSpread).toBeLessThanOrEqual(10)
+
+    // All outcomes must be on the same Y row (within 10px tolerance)
+    const outcomeYs = laid.filter(n => n.type === 'outcome').map(n => n.position.y)
+    const outcomeYSpread = Math.max(...outcomeYs) - Math.min(...outcomeYs)
+    expect(outcomeYSpread).toBeLessThanOrEqual(10)
+  })
+
+  it('no phantom gap when risk tier is empty', async () => {
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('out1', 'outcome'), makeNode('out2', 'outcome'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'),
+      makeEdge('e3', 'o1', 'f1'), makeEdge('e4', 'o2', 'f2'), makeEdge('e5', 'o2', 'f3'),
+      makeEdge('e6', 'f1', 'out1'), makeEdge('e7', 'f2', 'out2'),
+      makeEdge('e8', 'out1', 'g'), makeEdge('e9', 'out2', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+
+    // Measure inter-tier Y gaps
+    const tierY = (type: string) => {
+      const ys = laid.filter(n => n.type === type).map(n => n.position.y)
+      return ys.reduce((a, b) => a + b, 0) / ys.length
+    }
+    const factorToOutcome = tierY('outcome') - tierY('factor')
+    const outcomeToGoal = tierY('goal') - tierY('outcome')
+
+    // The outcome→goal gap should not be more than 2× the factor→outcome gap
+    // (would be much larger if an empty risk tier inserted a phantom layer)
+    expect(outcomeToGoal).toBeLessThanOrEqual(factorToOutcome * 2)
   })
 })
