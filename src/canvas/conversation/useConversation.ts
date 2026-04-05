@@ -39,6 +39,7 @@ import type {
   OrchestratorStreamEvent,
   ConversationTurnPair,
   GraphPatchBlock,
+  CommentaryBlock,
   ProposalReviewItem,
   RelatedElementRef,
   BaseRateChipSet,
@@ -99,6 +100,47 @@ export function isNonConversationalContent(text: string): boolean {
   if (/^\s*noted\s+the\s+changes\s+to\s+your\s+model\.?\s*$/i.test(trimmed)) return true
   if (/^\s*changes\s+applied\.?\s*$/i.test(trimmed)) return true
   return false
+}
+
+/**
+ * Deduplicate assistant_text against a commentary block's narrative.
+ *
+ * When explain_result produces both assistant_text and a commentary block,
+ * the text often repeats the block's headline. This function returns the
+ * portion of assistantText that is NOT already present in the block's text.
+ *
+ * Heuristic: if the first sentence of assistantText appears verbatim
+ * (case-insensitive) in the block narrative, strip it. Preserve any
+ * remaining non-duplicate content (e.g. follow-up questions).
+ *
+ * Exported for unit testing.
+ */
+export function deduplicateAgainstCommentary(
+  assistantText: string,
+  commentaryText: string,
+): string {
+  if (!assistantText.trim() || !commentaryText.trim()) return assistantText
+
+  const textTrimmed = assistantText.trim()
+  const narrativeLower = commentaryText.toLowerCase()
+
+  // Extract the first sentence of assistantText
+  const firstSentenceMatch = textTrimmed.match(/^(.+?[.!?])(?:\s|$)/)
+  if (!firstSentenceMatch) {
+    // No sentence boundary — check full text as single unit
+    if (narrativeLower.includes(textTrimmed.toLowerCase())) return ''
+    return assistantText
+  }
+
+  const firstSentence = firstSentenceMatch[1]
+  if (!narrativeLower.includes(firstSentence.toLowerCase())) {
+    // First sentence not in commentary — no duplication, keep as-is
+    return assistantText
+  }
+
+  // First sentence is duplicated. Preserve remaining text after it.
+  const remainder = textTrimmed.slice(firstSentenceMatch[0].length).trim()
+  return remainder
 }
 
 // ---------------------------------------------------------------------------
@@ -1990,6 +2032,16 @@ export function useConversation(): UseConversationReturn {
             assistantText = firstSentence ?? ''
           }
         }
+      }
+
+      // Commentary dedup: when a commentary block is present, suppress the portion
+      // of assistant_text that repeats the block's narrative. explain_result turns
+      // often echo the headline in both fields.
+      const commentaryBlock = orderedBlocks.find(
+        (b): b is CommentaryBlock => b.type === 'commentary',
+      )
+      if (commentaryBlock && assistantText.trim()) {
+        assistantText = deduplicateAgainstCommentary(assistantText, commentaryBlock.text)
       }
 
       // Task 4 (defensive): Intercept raw structural violation text that CEE should

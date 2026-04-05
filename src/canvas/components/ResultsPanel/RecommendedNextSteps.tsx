@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { EMPTY_STATES } from '../../../components/results/emptyStates'
+import { isStableRobustnessLevel } from '../../../components/results/constants'
 
 interface NextStepAction {
   action: string
@@ -45,6 +46,8 @@ interface RecommendedNextStepsProps {
   onValidationClick?: (nodeId: string) => void
   /** Maximum actions to show */
   maxActions?: number
+  /** Robustness level from analysis — gates "Ready to decide" display */
+  robustnessLevel?: string | null
 }
 
 export function RecommendedNextSteps({
@@ -54,6 +57,7 @@ export function RecommendedNextSteps({
   onActionClick,
   onValidationClick,
   maxActions = 5,
+  robustnessLevel,
 }: RecommendedNextStepsProps) {
   const handleActionClick = useCallback(
     (action: NextStepAction) => {
@@ -221,8 +225,8 @@ export function RecommendedNextSteps({
         </div>
       )}
 
-      {/* Decision prompt if ready */}
-      {actions.length === 0 && validationItems.length === 0 && (
+      {/* Decision prompt — only when no actions remain AND robustness is stable */}
+      {actions.length === 0 && validationItems.length === 0 && isStableRobustnessLevel(robustnessLevel ?? undefined) && (
         <div className="p-3 bg-mint-50 border border-mint-200 rounded-lg">
           <div className="flex items-center gap-2">
             <CheckCircle className="h-5 w-5 text-mint-600" aria-hidden="true" />
