@@ -240,7 +240,7 @@
     },
     "AnalysisState": {
       "type": "object",
-      "required": ["analysis_status", "meta", "results"],
+      "required": ["analysis_status", "meta"],
       "properties": {
         "analysis_status": {
           "type": "string",
@@ -256,8 +256,7 @@
             }
           },
           "additionalProperties": true
-        },
-        "results": {}
+        }
       },
       "additionalProperties": true
     },

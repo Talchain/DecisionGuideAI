@@ -50,9 +50,9 @@ function sanitiseFactorIds(text: string, labelMap: Map<string, string>): string 
 }
 
 /** Character threshold for applying progressive disclosure. */
-const CLAMP_CHAR_THRESHOLD = 300
+const CLAMP_CHAR_THRESHOLD = 600
 /** Minimum characters that must be hidden for truncation to be worthwhile. */
-const MIN_HIDDEN_CHARS = 150
+const MIN_HIDDEN_CHARS = 100
 /** Minimum sentences that must be hidden for truncation to be worthwhile. */
 const MIN_HIDDEN_SENTENCES = 3
 
@@ -64,9 +64,9 @@ function countSentences(text: string): number {
 /**
  * Find the best truncation point in raw text at natural boundaries.
  * Returns the truncated text or null if truncation isn't worthwhile.
- * Only truncates when at least 150 chars OR 3 sentences would be hidden.
+ * Only truncates when at least 100 chars OR 3 sentences would be hidden.
  */
-function findNaturalTruncation(text: string): string | null {
+export function findNaturalTruncation(text: string): string | null {
   if (text.length <= CLAMP_CHAR_THRESHOLD) return null
 
   /** Check whether enough content would be hidden to justify truncation. */

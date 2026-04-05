@@ -459,7 +459,6 @@ export interface OrchestratorTurnRequest {
   analysis_state?: {
     analysis_status: string
     meta: { response_hash: string; [key: string]: unknown }
-    results: unknown
     [key: string]: unknown
   }
   selected_elements?: {

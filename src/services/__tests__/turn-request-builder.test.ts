@@ -429,7 +429,7 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
     validateTurnRequestBoundary(req)
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[BOUNDARY]',
-      expect.objectContaining({ field: 'analysis_state', violation: 'analysis_state_requires_analysis_status_meta_response_hash_results' }),
+      expect.objectContaining({ field: 'analysis_state', violation: 'analysis_state_requires_analysis_status_and_meta_response_hash' }),
     )
   })
 
@@ -465,7 +465,7 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
     validateTurnRequestBoundary(req)
     expect(consoleErrorSpy).toHaveBeenCalledWith(
       '[BOUNDARY]',
-      expect.objectContaining({ field: 'analysis_state', violation: 'analysis_state_requires_analysis_status_meta_response_hash_results' }),
+      expect.objectContaining({ field: 'analysis_state', violation: 'analysis_state_requires_analysis_status_and_meta_response_hash' }),
     )
   })
 

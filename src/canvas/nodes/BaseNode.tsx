@@ -168,9 +168,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       return !hasOptions
     }
     if (nodeType === 'option') {
-      // Option missing interventions
-      const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === id)
-      return !ceeOption?.interventions || Object.keys(ceeOption.interventions).length === 0
+      // Only mark incomplete if analysisReady exists AND contains this option with empty interventions.
+      // When analysisReady is null (cleared as stale), don't flag options as incomplete.
+      if (!ceeAnalysisReady) return false
+      const ceeOption = ceeAnalysisReady.options?.find(opt => opt.id === id)
+      if (!ceeOption) return false // Option not in analysisReady — not necessarily incomplete
+      return !ceeOption.interventions || Object.keys(ceeOption.interventions).length === 0
     }
     return false
   })()

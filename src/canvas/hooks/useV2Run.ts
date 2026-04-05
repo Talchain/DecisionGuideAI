@@ -61,11 +61,14 @@ function deriveNumericSeedFromString(input: string): number {
  * Checks:
  * - goal_node_id still exists in current nodes
  * - All intervention target node IDs still exist in current nodes
+ * - No new option nodes have been added since analysisReady was captured
+ * - Option labels have not changed
  */
-function isAnalysisReadyStale(
+export function isAnalysisReadyStale(
   analysisReady: CEEAnalysisReady,
   currentNodeIds: Set<string>,
-  storedNodeIds: string[] | null
+  storedNodeIds: string[] | null,
+  currentNodes?: Array<{ id: string; data?: Record<string, unknown> }>
 ): { isStale: boolean; reason?: string } {
   // Check if stored node IDs are available for comparison
   if (!storedNodeIds) {
@@ -73,13 +76,15 @@ function isAnalysisReadyStale(
     return { isStale: false }
   }
 
-  // Check if any nodes were deleted
-  const storedSet = new Set(storedNodeIds)
+  // Check if goal node was deleted
+  if (!currentNodeIds.has(analysisReady.goal_node_id)) {
+    return { isStale: true, reason: 'goal node no longer exists' }
+  }
+
+  // Check if any nodes were deleted that affect the analysis
   const deletedNodeIds = storedNodeIds.filter((id) => !currentNodeIds.has(id))
 
   if (deletedNodeIds.length > 0) {
-    // Check if deleted nodes include goal or intervention targets
-    const goalDeleted = !currentNodeIds.has(analysisReady.goal_node_id)
     const affectedOptions: string[] = []
 
     for (const option of analysisReady.options) {
@@ -90,19 +95,9 @@ function isAnalysisReadyStale(
       }
     }
 
-    if (goalDeleted || affectedOptions.length > 0) {
-      const reasons: string[] = []
-      if (goalDeleted) reasons.push('goal node deleted')
-      if (affectedOptions.length > 0) {
-        reasons.push(`intervention targets deleted for: ${affectedOptions.join(', ')}`)
-      }
-      return { isStale: true, reason: reasons.join('; ') }
+    if (affectedOptions.length > 0) {
+      return { isStale: true, reason: `intervention targets deleted for: ${affectedOptions.join(', ')}` }
     }
-  }
-
-  // Check if goal node was deleted (even if no storedNodeIds changed - belt and suspenders)
-  if (!currentNodeIds.has(analysisReady.goal_node_id)) {
-    return { isStale: true, reason: 'goal node no longer exists' }
   }
 
   // Check if any intervention targets no longer exist
@@ -110,6 +105,37 @@ function isAnalysisReadyStale(
     for (const targetId of Object.keys(option.interventions)) {
       if (!currentNodeIds.has(targetId)) {
         return { isStale: true, reason: `intervention target "${targetId}" no longer exists` }
+      }
+    }
+  }
+
+  // Check if any option nodes in analysisReady were deleted from the canvas
+  for (const option of analysisReady.options) {
+    if (!currentNodeIds.has(option.id)) {
+      return { isStale: true, reason: `option node "${option.label}" (${option.id}) deleted` }
+    }
+  }
+
+  // Check for new option nodes added since analysisReady was captured
+  if (currentNodes) {
+    const arOptionIds = new Set(analysisReady.options.map((o) => o.id))
+    const currentOptionNodes = currentNodes.filter(
+      (n) => n.data?.kind === 'option' || n.data?.type === 'option'
+    )
+    const newOptions = currentOptionNodes.filter((n) => !arOptionIds.has(n.id))
+    if (newOptions.length > 0) {
+      const labels = newOptions.map((n) => (n.data?.label as string) || n.id).join(', ')
+      return { isStale: true, reason: `new option nodes added: ${labels}` }
+    }
+
+    // Check if option labels changed
+    for (const arOption of analysisReady.options) {
+      const currentNode = currentNodes.find((n) => n.id === arOption.id)
+      if (currentNode) {
+        const currentLabel = currentNode.data?.label as string | undefined
+        if (currentLabel && currentLabel !== arOption.label) {
+          return { isStale: true, reason: `option label changed: "${arOption.label}" → "${currentLabel}"` }
+        }
       }
     }
   }
@@ -273,7 +299,8 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         const staleCheck = isAnalysisReadyStale(
           ceeAnalysisReady,
           currentNodeIds,
-          ceeAnalysisReadyNodeIds
+          ceeAnalysisReadyNodeIds,
+          nodes
         )
 
         if (staleCheck.isStale) {

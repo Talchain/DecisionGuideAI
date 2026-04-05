@@ -87,7 +87,7 @@ const RAW_V2_RESPONSE = {
 function buildAnalysisState(
   rawV2: typeof RAW_V2_RESPONSE,
   analysisHash = 'hash-golden-path-abc123',
-  analysisSummary: unknown = null,
+  _analysisSummary: unknown = null,
 ): ExplainAnalysisStatePayload {
   return {
     option_comparison: Array.isArray(rawV2.option_comparison) ? rawV2.option_comparison : [],
@@ -101,7 +101,6 @@ function buildAnalysisState(
     option_comparison_status: rawV2.option_comparison_status,
     robustness_status: rawV2.robustness_status,
     drivers_status: rawV2.drivers_status,
-    results: analysisSummary ?? true,
   }
 }
 
@@ -521,21 +520,9 @@ describe('T5b — Explain turn (after analysis)', () => {
     expect(Array.isArray(state.drivers)).toBe(true)
   })
 
-  it('analysis_state.results is NOT an array (it is the sentinel/summary, not V2 data)', () => {
-    expect(Array.isArray(req.analysis_state!.results)).toBe(false)
-  })
-
-  it('analysis_state.results does NOT contain nested V2 fields (regression guard for the flatten bug)', () => {
-    // The pre-refactor bug: V2 fields were wrapped inside results: { option_comparison: [...] }
-    // CEE could not read them. Guard that we never regress to this shape.
-    const results = req.analysis_state!.results
-    if (results && typeof results === 'object' && !Array.isArray(results)) {
-      const r = results as Record<string, unknown>
-      expect(r).not.toHaveProperty('option_comparison')
-      expect(r).not.toHaveProperty('robustness')
-      expect(r).not.toHaveProperty('drivers')
-      expect(r).not.toHaveProperty('edge_sensitivity')
-    }
+  it('analysis_state does NOT contain a results field (removed — was crashing CEE)', () => {
+    const state = req.analysis_state as Record<string, unknown>
+    expect(state).not.toHaveProperty('results')
   })
 
   it('analysis_state.critiques is passed through from V2 response (regression guard)', () => {
@@ -588,36 +575,18 @@ describe('T5b — Explain turn (after analysis)', () => {
 // Accidentally wrapping V2 fields inside results breaks CEE's field reading.
 // ---------------------------------------------------------------------------
 
-describe('R1 — Regression: V2 fields must NOT be nested inside results', () => {
-  it('detects the wrong shape — V2 fields wrapped inside results (the historic bug)', () => {
-    // Construct the WRONG shape to document what must never happen
-    const wrongShape: ExplainAnalysisStatePayload = {
-      analysis_status: 'completed',
-      meta: { response_hash: 'hash-bad' },
-      results: {
-        // BUG: V2 fields nested here — CEE cannot read them
-        option_comparison: [{ option_id: 'opt_a', rank: 1 }],
-        robustness: { level: 'robust' },
-        drivers: [{ factor_id: 'f1' }],
-      },
-    }
-
+describe('R1 — Regression: V2 fields must be at top level, results field must be absent', () => {
+  it('V2 fields are at TOP LEVEL of analysis_state', () => {
     const correctShape = buildAnalysisState(RAW_V2_RESPONSE)
 
-    // Wrong: V2 fields are INSIDE results
-    const wrongResults = wrongShape.results as Record<string, unknown>
-    expect(wrongResults).toHaveProperty('option_comparison')
-    expect(wrongResults).toHaveProperty('robustness')
-
-    // Correct: V2 fields are at TOP LEVEL of analysis_state, NOT inside results
     expect(correctShape).toHaveProperty('option_comparison')
     expect(correctShape).toHaveProperty('robustness')
     expect(correctShape).toHaveProperty('drivers')
-    const correctResults = correctShape.results
-    if (correctResults && typeof correctResults === 'object') {
-      expect(correctResults).not.toHaveProperty('option_comparison')
-      expect(correctResults).not.toHaveProperty('robustness')
-    }
+  })
+
+  it('results field is absent (removed — was crashing CEE with boolean true)', () => {
+    const state = buildAnalysisState(RAW_V2_RESPONSE)
+    expect(state).not.toHaveProperty('results')
   })
 
   it('snapshot: correct analysis_state top-level keys include V2 fields directly', () => {
@@ -629,7 +598,7 @@ describe('R1 — Regression: V2 fields must NOT be nested inside results', () =>
     expect(keys).toContain('edge_sensitivity')
     expect(keys).toContain('analysis_status')
     expect(keys).toContain('meta')
-    expect(keys).toContain('results')
+    expect(keys).not.toContain('results')
   })
 })
 
@@ -652,14 +621,14 @@ describe('R2 — Regression: null rawV2Response → analysis_state omitted', () 
   })
 
   it('analysis_state is absent when a malformed state is passed (builder rejects it)', () => {
-    // isValidExplainAnalysisState rejects anything missing analysis_status/meta.response_hash/results
+    // isValidExplainAnalysisState rejects anything missing analysis_status/meta.response_hash
     const req = buildExplainTurnRequest({
       scenario_id: SCENARIO_ID,
       conversation_history: CONVERSATION_HISTORY,
       message: 'Explain',
       graph_state: EMPTY_GRAPH,
       analysis_state: {
-        // Missing analysis_status, meta.response_hash, results
+        // Missing analysis_status, meta.response_hash
         option_comparison: [],
         robustness: null,
       },
@@ -667,7 +636,7 @@ describe('R2 — Regression: null rawV2Response → analysis_state omitted', () 
     expect(req.analysis_state).toBeUndefined()
   })
 
-  it('analysis_state is absent when results is null (isValidExplainAnalysisState requires results != null)', () => {
+  it('analysis_state is present when analysis_status and meta.response_hash are valid (results no longer required)', () => {
     const req = buildExplainTurnRequest({
       scenario_id: SCENARIO_ID,
       conversation_history: CONVERSATION_HISTORY,
@@ -676,10 +645,10 @@ describe('R2 — Regression: null rawV2Response → analysis_state omitted', () 
       analysis_state: {
         analysis_status: 'completed',
         meta: { response_hash: 'hash-abc' },
-        results: null,
       },
     })
-    expect(req.analysis_state).toBeUndefined()
+    expect(req.analysis_state).toBeDefined()
+    expect(req.analysis_state!.analysis_status).toBe('completed')
   })
 })
 

@@ -1415,8 +1415,8 @@ export function useConversation(): UseConversationReturn {
         : undefined
       // CEE reads V2 fields (option_comparison, robustness, drivers, etc.) at the
       // TOP LEVEL of analysis_state — NOT nested inside a `results` wrapper.
-      // `results` is kept to satisfy the ExplainAnalysisStatePayload type guard
-      // (isValidExplainAnalysisState checks results != null) but CEE ignores it.
+      // `results` was removed: it was redundant (CEE ignores it) and when
+      // analysisSummary was null it fell back to `true`, which crashed CEE.
       const analysisState: ExplainAnalysisStatePayload | undefined =
         graphIsStale ? undefined
         : analysisStatus === 'completed' && analysisHash && v2Results
@@ -1426,7 +1426,6 @@ export function useConversation(): UseConversationReturn {
               // are not overwritten by rawV2's own analysis_status / meta fields.
               analysis_status: analysisStatus,
               meta: { ...v2Results.meta, response_hash: analysisHash },
-              results: analysisSummary ?? true,
               ...(repairsSummary ? { repairs_summary: repairsSummary } : {}),
             }
         : undefined
@@ -1905,6 +1904,15 @@ export function useConversation(): UseConversationReturn {
 
       const orderedBlocks = prioritiseBlocks(normalisedBlocks)
 
+      // Detect full_draft patch early — coaching text must be preserved as-is.
+      // Full_draft turns (Turn 1 graph generation) carry meaningful LLM coaching
+      // alongside the graph patch. We skip ALL text filters for these turns so the
+      // coaching is never accidentally suppressed.
+      const hasGraphPatch = orderedBlocks.some((b) => b.type === 'graph_patch')
+      const hasFullDraftPatch = orderedBlocks.some(
+        (b) => b.type === 'graph_patch' && (b as GraphPatchBlock).patch_type === 'full_draft',
+      )
+
       // Belt-and-braces: strip <diagnostics>…</diagnostics> XML blocks and bare
       // diagnostics preamble ("Mode: …") that CEE should have removed server-side.
       // Protects against LLM output variance where diagnostics leak into assistant_text.
@@ -1916,6 +1924,18 @@ export function useConversation(): UseConversationReturn {
       if (!isV2Format) {
         assistantText = stripDiagnostics(assistantText)
       }
+
+      // Full_draft turns: preserve coaching text, skip all content filters.
+      // Fall back to streamed text only if assistant_text is empty.
+      if (hasFullDraftPatch) {
+        if (!assistantText.trim()) {
+          const streamedText = streamTextRef.current
+          if (streamedText.trim()) {
+            assistantText = streamedText
+          }
+        }
+      } else {
+      // --- Begin non-full_draft filter chain ---
 
       // Strip trailing text lines that duplicate chip labels or messages (LLM sometimes
       // echoes suggested actions — either the display label or the raw prompt — as plain
@@ -1943,11 +1963,11 @@ export function useConversation(): UseConversationReturn {
 
       // Coaching dedup: when an incremental graph_patch block is present, suppress
       // or collapse assistant_text to avoid the user reading the same coaching
-      // prose twice. Skip for full_draft — Turn 1 coaching is the primary content.
+      // prose twice.
       const patchBlock = orderedBlocks.find(
         (b): b is GraphPatchBlock => b.type === 'graph_patch',
       )
-      if (patchBlock && patchBlock.patch_type !== 'full_draft' && assistantText.trim()) {
+      if (patchBlock && assistantText.trim()) {
         const patchSummary = (patchBlock.summary || '').toLowerCase().trim()
         const textLower = assistantText.toLowerCase().trim()
         // Exact/substring match → suppress entirely
@@ -1992,14 +2012,7 @@ export function useConversation(): UseConversationReturn {
       // with a bare "Changes applied." or similar — the graph_patch card already shows this.
       // Only suppress when the same turn includes a graph_patch block, so standalone
       // "Noted." responses to user questions are preserved.
-      // Skip suppression for full_draft patches — Turn 1 coaching text should be
-      // preserved even if the envelope's assistant_text is a stock phrase (the real
-      // coaching arrives via text_delta streaming and is recovered downstream).
-      const hasGraphPatch = orderedBlocks.some((b) => b.type === 'graph_patch')
-      const hasFullDraftPatch = orderedBlocks.some(
-        (b) => b.type === 'graph_patch' && (b as GraphPatchBlock).patch_type === 'full_draft',
-      )
-      if (hasGraphPatch && !hasFullDraftPatch) {
+      if (hasGraphPatch) {
         const STOCK_ACK_PATTERNS = [
           /^\s*changes\s+applied\.?\s*$/i,
           /^\s*got\s+it[.!]?\s*$/i,
@@ -2011,6 +2024,8 @@ export function useConversation(): UseConversationReturn {
           assistantText = ''
         }
       }
+
+      } // --- End non-full_draft filter chain ---
 
       // Extract deterministic CEE insights from V2 envelopes
       const insights = isV2Format && Array.isArray(rawEnvelope.insights)
@@ -2046,19 +2061,8 @@ export function useConversation(): UseConversationReturn {
       }
       if (shouldFilter && hasBlocks) {
         // Has blocks but non-conversational text — keep blocks, clear text.
-        // Exception: full_draft turns (Turn 1 graph generation) should preserve
-        // coaching text or fall back to streamed text, since the LLM produces
-        // meaningful explanation alongside the graph patch.
-        if (hasFullDraftPatch) {
-          // Prefer streamed text (accumulated during SSE) over the envelope's
-          // stock ack, since the LLM coaching arrives via text_delta events.
-          const streamedText = streamTextRef.current
-          if (streamedText.trim()) {
-            assistantText = streamedText
-          }
-          // If streamed text is also empty, leave assistantText as-is (may be
-          // empty — acceptable for full_draft where the graph patch card suffices)
-        } else {
+        // Full_draft turns are already handled above (text preserved as-is).
+        if (!hasFullDraftPatch) {
           assistantText = ''
         }
       }

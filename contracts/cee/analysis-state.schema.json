@@ -2,9 +2,9 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://olumi.ai/contracts/cee/analysis-state.v1.json",
   "title": "CEE Analysis State",
-  "description": "Shape of analysis_state included in post-analysis turn requests. All three top-level fields are mandatory.",
+  "description": "Shape of analysis_state included in post-analysis turn requests. V2 fields (option_comparison, robustness, drivers, etc.) live at top level.",
   "type": "object",
-  "required": ["analysis_status", "meta", "results"],
+  "required": ["analysis_status", "meta"],
   "properties": {
     "analysis_status": {
       "type": "string",
@@ -22,9 +22,6 @@
         }
       },
       "additionalProperties": true
-    },
-    "results": {
-      "description": "Full analysis results object. Shape is opaque to the turn request contract — validated by CEE."
     }
   },
   "additionalProperties": true

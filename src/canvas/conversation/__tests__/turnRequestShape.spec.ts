@@ -46,7 +46,6 @@ function buildTestRequest(overrides: Partial<OrchestratorTurnRequest> = {}): Orc
 const validAnalysisState = {
   analysis_status: 'complete',
   meta: { response_hash: 'hash-abc' },
-  results: { summary: 'ok' },
 }
 
 describe('OrchestratorTurnRequest payload shape', () => {
@@ -85,12 +84,11 @@ describe('OrchestratorTurnRequest payload shape', () => {
       expect(req.analysis_state).toBeUndefined()
     })
 
-    it('analysis_state includes analysis_status, meta.response_hash, and results when present', () => {
+    it('analysis_state includes analysis_status and meta.response_hash when present', () => {
       const req = buildTestRequest({ analysis_state: validAnalysisState })
       expect(req.analysis_state).toBeDefined()
       expect(typeof req.analysis_state!.analysis_status).toBe('string')
       expect(typeof req.analysis_state!.meta.response_hash).toBe('string')
-      expect(req.analysis_state!.results).toBeDefined()
     })
   })
 
@@ -194,7 +192,6 @@ describe('OrchestratorTurnRequest payload shape', () => {
       const parsed = JSON.parse(JSON.stringify(req))
       expect(parsed.analysis_state.analysis_status).toBe('complete')
       expect(parsed.analysis_state.meta.response_hash).toBe('hash-abc')
-      expect(parsed.analysis_state.results).toEqual({ summary: 'ok' })
     })
   })
 

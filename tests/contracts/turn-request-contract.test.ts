@@ -137,22 +137,14 @@ const graphState = {
 const analysisState = {
   analysis_status: 'complete',
   meta: { response_hash: 'resp-hash-abc123', run_id: 'run-1' },
-  results: {
-    contract_version: '1.0.0',
-    recommendation: {
-      option_id: 'opt_keep',
-      option_label: 'Keep at £49',
-      win_probability: 0.65,
-    },
-    option_comparison: [
-      { id: 'opt_keep', label: 'Keep at £49', win_probability: 0.65 },
-      { id: 'opt_raise', label: 'Raise to £59', win_probability: 0.35 },
-    ],
-    top_drivers: [
-      { factor_id: 'fac_price', factor_label: 'Subscription Price', elasticity: 0.4 },
-    ],
-    robustness: { level: 'moderate', recommendation_stability: 0.55 },
-  },
+  option_comparison: [
+    { id: 'opt_keep', label: 'Keep at £49', win_probability: 0.65 },
+    { id: 'opt_raise', label: 'Raise to £59', win_probability: 0.35 },
+  ],
+  drivers: [
+    { factor_id: 'fac_price', factor_label: 'Subscription Price', elasticity: 0.4 },
+  ],
+  robustness: { level: 'moderate', recommendation_stability: 0.55 },
 }
 
 const analysisInputs = {
@@ -444,13 +436,13 @@ describe('Analysis state contract', () => {
     expect(valid).toBe(true)
   })
 
-  test('analysis_state without results fails validation', () => {
-    const invalid = { analysis_status: 'complete', meta: { response_hash: 'h1' } }
-    expect(validateAnalysisState(invalid)).toBe(false)
+  test('analysis_state without results still passes validation (results removed from contract)', () => {
+    const valid = { analysis_status: 'complete', meta: { response_hash: 'h1' } }
+    expect(validateAnalysisState(valid)).toBe(true)
   })
 
   test('analysis_state without response_hash fails validation', () => {
-    const invalid = { analysis_status: 'complete', meta: {}, results: {} }
+    const invalid = { analysis_status: 'complete', meta: {} }
     expect(validateAnalysisState(invalid)).toBe(false)
   })
 })

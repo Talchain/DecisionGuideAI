@@ -56,7 +56,6 @@ export type ExplainAnalysisStatePayload = {
     response_hash: string
     [key: string]: unknown
   }
-  results: unknown
   [key: string]: unknown
 }
 
@@ -187,7 +186,7 @@ export function isValidExplainAnalysisState(value: unknown): value is ExplainAna
   if (!meta || typeof meta !== 'object') return false
   const responseHash = (meta as Record<string, unknown>).response_hash
   if (!isNonEmptyString(responseHash)) return false
-  return state.results !== undefined && state.results !== null
+  return true
 }
 
 // R11 (updated): analysis_state now included on conversation turns so CEE can
@@ -361,7 +360,7 @@ export function validateTurnRequestBoundary(request: TurnRequestPayload): void {
     && request.analysis_state !== undefined
     && !isValidExplainAnalysisState(request.analysis_state)
   ) {
-    violations.push({ field: 'analysis_state', violation: 'analysis_state_requires_analysis_status_meta_response_hash_results' })
+    violations.push({ field: 'analysis_state', violation: 'analysis_state_requires_analysis_status_and_meta_response_hash' })
   }
 
   if (violations.length > 0) {
