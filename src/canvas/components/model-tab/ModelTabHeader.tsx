@@ -33,6 +33,9 @@ export function ModelTabHeader({
           {contestedCount !== undefined && contestedCount > 0 && (
             <span className="text-info" data-testid="header-contested-count"> · {contestedCount} contested</span>
           )}
+          {showDetail && (
+            <span className="text-info" data-testid="header-expert-indicator"> · expert</span>
+          )}
         </span>
         {sortNote && (
           <span className={`${typography.panelMeta} text-text-light`} data-testid="header-sort-note">
@@ -40,7 +43,9 @@ export function ModelTabHeader({
           </span>
         )}
       </div>
-      {children}
+      <div className={showDetail ? 'border-t-2 border-info/40 pt-3' : ''}>
+        {children}
+      </div>
     </DetailToggleContext.Provider>
   )
 }

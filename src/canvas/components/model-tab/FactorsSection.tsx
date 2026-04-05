@@ -14,7 +14,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Node } from '@xyflow/react'
-import { Info } from 'lucide-react'
+import { Info, Check } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
@@ -209,6 +209,43 @@ function FactorCard({
     })
   }, [node.id, data, updateNode])
 
+  // Task 7: Coaching on defaulted controllable factors
+  const isDefaultedControllable =
+    category === 'controllable' &&
+    obs.value === 0 &&
+    obs.source === 'cee_inference'
+
+  const coachingDismissKey = `olumi:coach:factor-default:${node.id}`
+  const [coachingDismissed, setCoachingDismissed] = useState(() =>
+    sessionStorage.getItem(coachingDismissKey) === '1'
+  )
+
+  const dismissCoaching = useCallback(() => {
+    sessionStorage.setItem(coachingDismissKey, '1')
+    setCoachingDismissed(true)
+  }, [coachingDismissKey])
+
+  // Task 8: Verify/confirm button
+  const showConfirmButton = obs.source !== 'user' && (primaryValue !== null || normalisedValue !== null)
+  const [confirmFlash, setConfirmFlash] = useState(false)
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (flashTimerRef.current) clearTimeout(flashTimerRef.current) }, [])
+
+  const handleConfirmValue = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation()
+    updateNode(node.id, {
+      data: { ...data, observedState: { ...obs, source: 'user' } },
+    })
+    // Flash success
+    setConfirmFlash(true)
+    flashTimerRef.current = setTimeout(() => setConfirmFlash(false), 300)
+    // Auto-dismiss coaching if it was showing
+    if (isDefaultedControllable && !coachingDismissed) {
+      sessionStorage.setItem(coachingDismissKey, '1')
+      setCoachingDismissed(true)
+    }
+  }, [node.id, data, obs, updateNode, isDefaultedControllable, coachingDismissed, coachingDismissKey])
+
   const uncertaintyDrivers = obs.uncertainty_drivers
 
   return (
@@ -324,7 +361,45 @@ function FactorCard({
                 Not set
               </span>
             )}
+            {showDetail && obs.value !== undefined && (
+              <span className={`${typography.panelMeta} text-text-light font-mono`} data-testid={`factor-${node.id}-inline-norm`}>
+                n:{obs.value.toFixed(2)}
+              </span>
+            )}
+            {showConfirmButton && (
+              <button
+                type="button"
+                onClick={handleConfirmValue}
+                className={`inline-flex items-center p-0.5 rounded border transition-colors ${
+                  confirmFlash
+                    ? 'border-success/60 text-success bg-success/10'
+                    : 'border-success/30 text-text-light hover:text-success hover:bg-success/10'
+                } ${typography.panelMeta}`}
+                title="Confirm this value is correct"
+                data-testid={`factor-${node.id}-confirm`}
+              >
+                <Check className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
+
+          {/* Coaching: defaulted controllable factors */}
+          {isDefaultedControllable && !coachingDismissed && (
+            <div className="flex items-start gap-1.5 mt-1 p-2 rounded-lg bg-warning/[0.06] border border-warning/25" data-testid={`factor-${node.id}-coaching`}>
+              <span className={`${typography.panelMeta} text-text-light leading-relaxed italic flex-1`}>
+                This factor defaulted to 0. Set a value or confirm it's correct.
+              </span>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); dismissCoaching() }}
+                className={`${typography.panelMeta} text-text-light hover:text-text-body shrink-0`}
+                aria-label="Dismiss coaching"
+                data-testid={`factor-${node.id}-coaching-dismiss`}
+              >
+                ×
+              </button>
+            </div>
+          )}
 
           {/* Baseline row */}
           {cardExpanded && obs.baseline !== undefined && (

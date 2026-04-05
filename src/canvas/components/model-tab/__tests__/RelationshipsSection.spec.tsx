@@ -226,6 +226,40 @@ describe('RelationshipsSection', () => {
   })
 })
 
+// ── Expert inline data ────────────────────────────────────────────────────────
+
+import { DetailToggleContext } from '../DetailToggleContext'
+
+describe('RelationshipsSection — expert inline data', () => {
+  it('shows σ and p on compact row when expert mode ON', () => {
+    const edgeWithStd: Edge = {
+      id: 'e1', source: 'f1', target: 'f2',
+      data: { weight: 0.5, direction: 'positive', beliefExists: 0.8, strengthStd: 0.15, provenance: 'assumption' },
+    }
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <RelationshipsSection edges={[edgeWithStd]} nodes={nodes} />
+      </DetailToggleContext.Provider>
+    )
+    expect(screen.getByTestId('edge-e1-inline-std')).toHaveTextContent('σ0.15')
+    expect(screen.getByTestId('edge-e1-inline-p')).toHaveTextContent('p0.80')
+  })
+
+  it('hides σ and p on compact row when expert mode OFF', () => {
+    const edgeWithStd: Edge = {
+      id: 'e1', source: 'f1', target: 'f2',
+      data: { weight: 0.5, direction: 'positive', beliefExists: 0.8, strengthStd: 0.15, provenance: 'assumption' },
+    }
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: false }}>
+        <RelationshipsSection edges={[edgeWithStd]} nodes={nodes} />
+      </DetailToggleContext.Provider>
+    )
+    expect(screen.queryByTestId('edge-e1-inline-std')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('edge-e1-inline-p')).not.toBeInTheDocument()
+  })
+})
+
 // ── Contested edge integration ─────────────────────────────────────────────────
 
 import type { ValidationMetadata } from '../../../domain/validation'

@@ -219,6 +219,16 @@ function EdgeCard({
               {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(2)}
             </span>
           )}
+          {showDetail && strengthStd !== undefined && (
+            <span className={`${typography.panelMeta} text-text-light font-mono`} data-testid={`edge-${edgeId}-inline-std`}>
+              σ{(strengthStd as number).toFixed(2)}
+            </span>
+          )}
+          {showDetail && beliefExists !== undefined && (
+            <span className={`${typography.panelMeta} text-text-light font-mono`} data-testid={`edge-${edgeId}-inline-p`}>
+              p{beliefExists.toFixed(2)}
+            </span>
+          )}
           {likelihoodPct !== undefined && (
             <span className={`${typography.panelMeta} text-text-light`}>
               {likelihoodPct}%

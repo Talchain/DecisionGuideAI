@@ -8,6 +8,18 @@ import type { ObservedState } from './types'
 
 const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '₽', '₺', '₴', '₦', '₫', '₿'])
 const ISO_CURRENCY_CODES = new Set(['USD', 'GBP', 'EUR', 'JPY', 'INR', 'KRW', 'RUB', 'TRY', 'UAH', 'NGN', 'VND', 'BTC', 'CHF', 'CAD', 'AUD', 'NZD', 'HKD', 'SGD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'BGN', 'HRK', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'ZAR', 'EGP', 'AED', 'SAR', 'QAR', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'PKR', 'BDT', 'LKR'])
+const GENERIC_UNITS = new Set(['scale', 'index', 'score', 'normalised', 'normalized', 'norm', 'unit', 'units'])
+
+/** Returns true for currency units (symbol or ISO code) */
+export function isCurrencyUnit(unit: string): boolean {
+  const trimmed = unit.trim()
+  return CURRENCY_SYMBOLS.has(trimmed) || ISO_CURRENCY_CODES.has(trimmed)
+}
+
+/** Returns true for units that represent abstract/dimensionless scales */
+export function isGenericUnit(unit: string): boolean {
+  return GENERIC_UNITS.has(unit.trim().toLowerCase())
+}
 
 /** Smart number: integers stay integer, decimals use minimal precision (max 2dp, no trailing zeros) */
 export function formatSmartNumber(n: number): string {
@@ -27,6 +39,9 @@ export function formatValueWithUnit(rawValue: number, unit: string): string {
   }
   if (ISO_CURRENCY_CODES.has(trimmedUnit)) {
     return `${trimmedUnit} ${formatSmartNumber(rawValue)}`
+  }
+  if (GENERIC_UNITS.has(trimmedUnit.toLowerCase())) {
+    return formatSmartNumber(rawValue)
   }
   return `${formatSmartNumber(rawValue)} ${trimmedUnit}`
 }

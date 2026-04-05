@@ -102,7 +102,7 @@ function ModelHealthSectionInner({
       defaultExpanded={false}
       testId="model-health-section"
     >
-      <div className="space-y-2.5">
+      <div className="space-y-1.5">
 
         {/* Root node warnings */}
         {rootNodeWarningCount > 0 && (
@@ -135,7 +135,7 @@ function ModelHealthSectionInner({
 
         {/* Full audit trail (detail toggle) */}
         {showDetail && auditTrail && (
-          <div className="pt-2 border-t border-panel-border" data-testid="model-health-audit">
+          <div className="pt-1 border-t border-panel-border" data-testid="model-health-audit">
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               {auditTrail.seedUsed != null && (
                 <>

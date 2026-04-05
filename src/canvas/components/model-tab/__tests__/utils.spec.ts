@@ -10,6 +10,8 @@ import {
   formatSmartNumber,
   formatValueWithUnit,
   getPrimaryValue,
+  isCurrencyUnit,
+  isGenericUnit,
 } from '../utils'
 
 describe('strengthSemanticLabel', () => {
@@ -101,6 +103,57 @@ describe('formatValueWithUnit', () => {
     expect(formatValueWithUnit(2.5, '%')).toBe('2.5 %')
     expect(formatValueWithUnit(0, 'FTE')).toBe('0 FTE')  // regression: was 'FTE0'
     expect(formatValueWithUnit(3, 'FTE')).toBe('3 FTE')  // regression: was 'FTE3'
+  })
+
+  it('omits generic units (scale, index, score, normalised)', () => {
+    expect(formatValueWithUnit(0.7, 'scale')).toBe('0.7')
+    expect(formatValueWithUnit(0, 'scale')).toBe('0')
+    expect(formatValueWithUnit(0.5, 'normalised')).toBe('0.5')
+    expect(formatValueWithUnit(1.23, 'index')).toBe('1.23')
+    expect(formatValueWithUnit(0.9, 'score')).toBe('0.9')
+    expect(formatValueWithUnit(0.3, 'normalized')).toBe('0.3')
+  })
+})
+
+describe('isCurrencyUnit', () => {
+  it('recognises currency symbols', () => {
+    expect(isCurrencyUnit('£')).toBe(true)
+    expect(isCurrencyUnit('$')).toBe(true)
+    expect(isCurrencyUnit('€')).toBe(true)
+  })
+
+  it('recognises ISO currency codes', () => {
+    expect(isCurrencyUnit('USD')).toBe(true)
+    expect(isCurrencyUnit('GBP')).toBe(true)
+  })
+
+  it('rejects non-currency units', () => {
+    expect(isCurrencyUnit('months')).toBe(false)
+    expect(isCurrencyUnit('FTE')).toBe(false)
+    expect(isCurrencyUnit('scale')).toBe(false)
+  })
+})
+
+describe('isGenericUnit', () => {
+  it('recognises generic/dimensionless units', () => {
+    expect(isGenericUnit('scale')).toBe(true)
+    expect(isGenericUnit('index')).toBe(true)
+    expect(isGenericUnit('score')).toBe(true)
+    expect(isGenericUnit('normalised')).toBe(true)
+    expect(isGenericUnit('normalized')).toBe(true)
+    expect(isGenericUnit('norm')).toBe(true)
+  })
+
+  it('is case-insensitive', () => {
+    expect(isGenericUnit('Scale')).toBe(true)
+    expect(isGenericUnit('NORMALISED')).toBe(true)
+  })
+
+  it('rejects specific units', () => {
+    expect(isGenericUnit('months')).toBe(false)
+    expect(isGenericUnit('FTE')).toBe(false)
+    expect(isGenericUnit('%')).toBe(false)
+    expect(isGenericUnit('£')).toBe(false)
   })
 })
 

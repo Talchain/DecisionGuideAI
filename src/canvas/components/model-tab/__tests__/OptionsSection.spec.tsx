@@ -115,4 +115,49 @@ describe('OptionsSection', () => {
     render(<OptionsSection optionNodes={options} allNodes={[]} />)
     expect(screen.getByText('2')).toBeInTheDocument()
   })
+
+  // ── Object-shaped intervention values ────────────────────────────────────────
+
+  it('renders without crash when intervention value is an object with raw_target', () => {
+    const factor = makeFactorNode('f1', 'Headcount', 10, 'FTE')
+    const option: Node = {
+      id: 'opt1', type: 'option', position: { x: 0, y: 0 },
+      data: { label: 'Hire', interventions: { f1: { raw_target: 15, target_value: 0.6 } } },
+    }
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
+    expect(screen.getByText('Headcount')).toBeInTheDocument()
+    expect(screen.getByText('15 FTE')).toBeInTheDocument()
+  })
+
+  it('falls back to target_value when raw_target absent', () => {
+    const factor = makeFactorNode('f1', 'Score', undefined, undefined)
+    const option: Node = {
+      id: 'opt1', type: 'option', position: { x: 0, y: 0 },
+      data: { label: 'Improve', interventions: { f1: { target_value: 0.7 } } },
+    }
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
+    expect(screen.getByText('Score')).toBeInTheDocument()
+  })
+
+  it('skips completely un-parseable intervention values', () => {
+    const factor = makeFactorNode('f1', 'Budget', 100, '£')
+    const option: Node = {
+      id: 'opt1', type: 'option', position: { x: 0, y: 0 },
+      data: { label: 'Bad data', interventions: { f1: { foo: 'bar' } } },
+    }
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
+    // No intervention rows rendered since value is unparseable
+    expect(screen.queryByText('Budget')).not.toBeInTheDocument()
+  })
+
+  it('handles string-valued interventions that parse to numbers', () => {
+    const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
+    const option: Node = {
+      id: 'opt1', type: 'option', position: { x: 0, y: 0 },
+      data: { label: 'Grow', interventions: { f1: '150000' } },
+    }
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
+    expect(screen.getByText('Revenue')).toBeInTheDocument()
+    expect(screen.getByText('£150,000')).toBeInTheDocument()
+  })
 })

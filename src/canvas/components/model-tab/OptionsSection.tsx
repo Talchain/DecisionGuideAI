@@ -48,30 +48,48 @@ interface InterventionItem {
   currentValue: number
 }
 
+/** Extract a numeric value from an intervention entry that may be a number, numeric string, or object */
+function extractInterventionNumeric(value: unknown): number | undefined {
+  if (typeof value === 'number' && isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const n = Number(value)
+    if (isFinite(n)) return n
+  }
+  if (value && typeof value === 'object') {
+    const obj = value as Record<string, unknown>
+    if (typeof obj.raw_target === 'number') return obj.raw_target
+    if (typeof obj.target_value === 'number') return obj.target_value
+  }
+  return undefined
+}
+
 function buildInterventions(optionNode: Node, allNodes: Node[]): InterventionItem[] {
-  const raw = (optionNode.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+  const raw = (optionNode.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
   if (!raw) return []
-  return Object.entries(raw).map(([factorId, value]) => {
+  return Object.entries(raw).flatMap(([factorId, rawValue]) => {
+    const numericValue = extractInterventionNumeric(rawValue)
+    if (numericValue === undefined) return []
     const factorNode = allNodes.find(n => n.id === factorId)
     const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
-    return {
+    return [{
       factorId,
       factorLabel: String(factorNode?.data?.label ?? factorId),
       baseline: obs?.value as number | undefined,
       rawBaseline: obs?.raw_value as number | undefined,
       unit: obs?.unit as string | undefined,
-      currentValue: value,
-    }
+      currentValue: numericValue,
+    }]
   })
 }
 
 function formatInterventionValue(value: number, unit: string | undefined): string {
+  if (typeof value !== 'number' || !isFinite(value)) return 'Not set'
   if (unit) return formatValueWithUnit(value, unit)
   return formatSmartNumber(value)
 }
 
 function DeltaChip({ baseline, current, unit }: { baseline: number | undefined; current: number; unit: string | undefined }) {
-  if (baseline === undefined) return null
+  if (baseline === undefined || typeof baseline !== 'number' || !isFinite(baseline) || typeof current !== 'number' || !isFinite(current)) return null
   const delta = current - baseline
   if (Math.abs(delta) < 0.001) {
     return <span className={`${typography.panelMeta} text-text-light`}>unchanged</span>
@@ -100,7 +118,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   const handleInterventionSave = useCallback((factorId: string, val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
-    const existing = (option.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+    const existing = (option.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
     updateNode(option.id, {
       data: {
         ...option.data,
@@ -215,7 +233,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
               [
                 <span key={`l-${iv.factorId}`} className={`${typography.panelMeta} text-text-light truncate`}>{iv.factorLabel}</span>,
                 <span key={`v-${iv.factorId}`} className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {iv.baseline?.toFixed(2) ?? '—'} {'\u2192'} {iv.currentValue.toFixed(2)}
+                  {typeof iv.baseline === 'number' ? iv.baseline.toFixed(2) : '—'} {'\u2192'} {typeof iv.currentValue === 'number' ? iv.currentValue.toFixed(2) : '—'}
                 </span>,
               ]
             ))}
@@ -250,7 +268,7 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
   // Check if ALL options are unmapped (no interventions)
   const allUnmapped = useMemo(() => {
     return optionNodes.every(opt => {
-      const interventions = (opt.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+      const interventions = (opt.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
       return !interventions || Object.keys(interventions).length === 0
     })
   }, [optionNodes])

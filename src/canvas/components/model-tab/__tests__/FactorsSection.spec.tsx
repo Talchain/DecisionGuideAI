@@ -5,6 +5,7 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { FactorsSection } from '../FactorsSection'
+import { DetailToggleContext } from '../DetailToggleContext'
 import type { Node } from '@xyflow/react'
 
 // jsdom does not implement scrollIntoView
@@ -409,6 +410,108 @@ describe('FactorsSection', () => {
   })
 
   // ── Model card removed ──────────────────────────────────────────────────────
+
+  // ── Expert inline normalised value ────────────────────────────────────────────
+
+  it('shows n: normalised value when expert mode ON', () => {
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.75, source: 'user' })]
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: true }}>
+        <FactorsSection factorNodes={nodes} />
+      </DetailToggleContext.Provider>
+    )
+    expect(screen.getByTestId('factor-f1-inline-norm')).toHaveTextContent('n:0.75')
+  })
+
+  it('hides n: normalised value when expert mode OFF', () => {
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.75, source: 'user' })]
+    render(
+      <DetailToggleContext.Provider value={{ showDetail: false }}>
+        <FactorsSection factorNodes={nodes} />
+      </DetailToggleContext.Provider>
+    )
+    expect(screen.queryByTestId('factor-f1-inline-norm')).not.toBeInTheDocument()
+  })
+
+  // ── Coaching on defaulted factors ────────────────────────────────────────────
+
+  it('shows coaching card for defaulted controllable factor', () => {
+    mockStorage.clear()
+    const nodes = [makeFactorNode('f1', 'Tech Lead', { value: 0, source: 'cee_inference', category: 'controllable' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.getByTestId('factor-f1-coaching')).toBeInTheDocument()
+    expect(screen.getByText(/This factor defaulted to 0/)).toBeInTheDocument()
+  })
+
+  it('does not show coaching for non-controllable factor', () => {
+    mockStorage.clear()
+    const nodes = [makeFactorNode('f1', 'Market', { value: 0, source: 'cee_inference', category: 'observable' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.queryByTestId('factor-f1-coaching')).not.toBeInTheDocument()
+  })
+
+  it('does not show coaching when value is non-zero', () => {
+    mockStorage.clear()
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5, source: 'cee_inference', category: 'controllable' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.queryByTestId('factor-f1-coaching')).not.toBeInTheDocument()
+  })
+
+  it('dismisses coaching on click and writes to sessionStorage', () => {
+    mockStorage.clear()
+    const nodes = [makeFactorNode('f1', 'Tech Lead', { value: 0, source: 'cee_inference', category: 'controllable' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.getByTestId('factor-f1-coaching')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('factor-f1-coaching-dismiss'))
+    expect(screen.queryByTestId('factor-f1-coaching')).not.toBeInTheDocument()
+    expect(mockStorage.get('olumi:coach:factor-default:f1')).toBe('1')
+  })
+
+  // ── Verify/confirm button ───────────────────────────────────────────────────
+
+  it('shows confirm button for unverified factor', () => {
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5, source: 'cee_inference' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.getByTestId('factor-f1-confirm')).toBeInTheDocument()
+  })
+
+  it('hides confirm button when source is user', () => {
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5, source: 'user' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.queryByTestId('factor-f1-confirm')).not.toBeInTheDocument()
+  })
+
+  it('shows confirm button when source is undefined (counted as to-verify)', () => {
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5, source: undefined })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.getByTestId('factor-f1-confirm')).toBeInTheDocument()
+  })
+
+  it('calls updateNode with source: user on confirm click', () => {
+    mockUpdateNode.mockClear()
+    const nodes = [makeFactorNode('f1', 'Budget', { value: 0.5, source: 'cee_inference' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    fireEvent.click(screen.getByTestId('factor-f1-confirm'))
+    expect(mockUpdateNode).toHaveBeenCalledWith(
+      'f1',
+      expect.objectContaining({
+        data: expect.objectContaining({
+          observedState: expect.objectContaining({ source: 'user' }),
+        }),
+      })
+    )
+  })
+
+  it('auto-dismisses coaching when confirm is clicked on defaulted factor', () => {
+    mockStorage.clear()
+    const nodes = [makeFactorNode('f1', 'Tech Lead', { value: 0, source: 'cee_inference', category: 'controllable' })]
+    render(<FactorsSection factorNodes={nodes} />)
+    expect(screen.getByTestId('factor-f1-coaching')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('factor-f1-confirm'))
+    expect(screen.queryByTestId('factor-f1-coaching')).not.toBeInTheDocument()
+  })
+
+  // ── Existing tests ──────────────────────────────────────────────────────────
 
   it('does not show range badge for explicit source', () => {
     const node: Node = {
