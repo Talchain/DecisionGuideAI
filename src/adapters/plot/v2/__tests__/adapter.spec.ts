@@ -1487,7 +1487,9 @@ describe('reconcileOptionsWithCanvasNodes integration', () => {
 
     expect(reconciled).toHaveLength(1)
     expect(reconciled[0].interventions).toEqual({
-      fac_a: expect.objectContaining({ value: 0.9, source: 'canvas_fallback' }),
+      // Backfill tags entries with 'cee_hypothesis' (closest existing semantic).
+      // The platform contract intentionally has no UI-only 'canvas_fallback' source.
+      fac_a: expect.objectContaining({ value: 0.9, source: 'cee_hypothesis' }),
     })
     void goalNodeId
   })
@@ -1639,5 +1641,83 @@ describe('reconcileOptionsWithCanvasNodes integration', () => {
       typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
     )
     expect(fallbackWarnings).toHaveLength(0)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 9: analysisReady-side all-null intervention map → fallback wins
+  // ---------------------------------------------------------------------------
+  // Critical alignment test: a map like { fac_a: null } has Object.keys length 1
+  // but ZERO usable values per validateOptionsHaveInterventions. The reader's
+  // "is this empty?" check must align with the gate's "is this usable?" check,
+  // otherwise the same defect class as the original bug recurs:
+  // analysisReady looks populated, primary path runs, gate fires, run blocks.
+  it('falls back to canvas when analysisReady has only null/undefined intervention values', () => {
+    const { nodes, edges, goalNodeId } = buildCanvas([
+      makeNode('opt_x', {
+        kind: 'option',
+        label: 'X',
+        interventions: { fac_a: 0.9 },
+      }),
+    ])
+
+    const analysisReady: CEEAnalysisReady = {
+      goal_node_id: goalNodeId,
+      options: [
+        {
+          id: 'opt_x',
+          label: 'X',
+          status: 'ready',
+          // Two keys, both with null values — looks populated but is unusable.
+          interventions: {
+            fac_a: null as unknown as { value: number; source: 'cee_hypothesis' },
+            fac_b: null as unknown as { value: number; source: 'cee_hypothesis' },
+          },
+        },
+      ],
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady, undefined, goalNodeId)
+
+    expect(request.options).toHaveLength(1)
+    // Fallback ran: canvas value reached PLoT.
+    expect(request.options[0].interventions).toEqual({ fac_a: 0.9 })
+
+    // The gate would NOT block this run (the reader and gate now agree).
+    expect(validateOptionsHaveInterventions(request.options)).toEqual([])
+
+    const fallbackWarnings = consoleWarnSpy.mock.calls.filter((args) =>
+      typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
+    )
+    expect(fallbackWarnings).toHaveLength(1)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 10: silent: true suppresses the fallback warning
+  // ---------------------------------------------------------------------------
+  // The pre-run gate in useV2Run calls reconcile with silent: true so the
+  // canonical request-build call is the only source of the warning. Without
+  // this, every analysis run with a fallback would emit two identical warnings.
+  it('silent flag suppresses fallback warnings without changing the returned options', () => {
+    const { nodes, goalNodeId } = buildCanvas([
+      makeNode('opt_added', {
+        kind: 'option',
+        label: 'Added',
+        interventions: { fac_a: 0.5 },
+      }),
+    ])
+    const validNodeIds = new Set(nodes.map((n) => n.id))
+    void goalNodeId
+
+    const noisy = reconcileOptionsWithCanvasNodes(null, nodes, validNodeIds)
+    const silent = reconcileOptionsWithCanvasNodes(null, nodes, validNodeIds, { silent: true })
+
+    // Same data either way.
+    expect(silent).toEqual(noisy)
+
+    // Only the noisy call should have produced a warning.
+    const fallbackWarnings = consoleWarnSpy.mock.calls.filter((args) =>
+      typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
+    )
+    expect(fallbackWarnings).toHaveLength(1)
   })
 })

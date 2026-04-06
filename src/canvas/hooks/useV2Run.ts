@@ -329,10 +329,13 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // flows whose interventions live on node.data.interventions.
       // See reconcileOptionsWithCanvasNodes in src/adapters/plot/v2/adapter.ts.
       {
+        // silent: true — the request-build path will call reconcile again and emit
+        // the canonical fallback warning. Avoid duplicate logs per run.
         const optionsToValidate = reconcileOptionsWithCanvasNodes(
           effectiveAnalysisReady,
           nodes as any,
           currentNodeIds,
+          { silent: true },
         )
 
         const missingInterventions = validateOptionsHaveInterventions(optionsToValidate)

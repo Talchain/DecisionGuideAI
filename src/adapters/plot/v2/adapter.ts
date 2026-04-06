@@ -183,10 +183,32 @@ export function extractOptionsFromNodes(
 // ============================================================================
 
 /**
- * Convert a raw `node.data.interventions` map into a `Record<string, CEEInterventionV3>`
- * tagged with `source: 'canvas_fallback'`. Mirrors the guards in
- * extractOptionsFromNodes (skip self-targeting, skip stale target IDs, drop
- * null values, accept either bare numbers or objects with a `value` field).
+ * Detect whether an intervention map has at least one *usable* value.
+ * Mirrors the validation rule in `validateOptionsHaveInterventions` so the
+ * reader's "is this empty?" check stays aligned with the gate's "is this
+ * usable?" check. An entry like `{ fac_a: null }` has length 1 but zero
+ * usable values, and must be treated as empty so fallback can run.
+ */
+function hasUsableInterventions(map: unknown): boolean {
+  if (!map || typeof map !== 'object') return false
+  for (const v of Object.values(map as Record<string, unknown>)) {
+    if (v == null) continue
+    if (typeof v === 'number') return true
+    if (typeof v === 'object' && 'value' in (v as Record<string, unknown>) && (v as { value: unknown }).value != null) return true
+  }
+  return false
+}
+
+/**
+ * Convert a raw `node.data.interventions` map into a `Record<string, CEEInterventionV3>`.
+ * Tags entries with `source: 'cee_hypothesis'` (closest existing semantic — "best-guess
+ * intervention from canvas/edge state", same label `synthesiseCeeAnalysisReady` uses).
+ * The platform CEEInterventionV3 contract intentionally does NOT carry a UI-only
+ * `canvas_fallback` source — observability lives in the always-on warning emitted by
+ * `reconcileOptionsWithCanvasNodes`, not in a polluted contract enum.
+ *
+ * Mirrors the guards in extractOptionsFromNodes (skip self-targeting, skip stale
+ * target IDs, drop null values, accept either bare numbers or objects with a `value` field).
  */
 function canvasInterventionsToCEE(
   optionId: string,
@@ -227,7 +249,7 @@ function canvasInterventionsToCEE(
 
     out[targetId] = {
       value,
-      source: 'canvas_fallback',
+      source: 'cee_hypothesis',
       target_match: {
         node_id: targetId,
         match_type: 'exact_id',
@@ -246,21 +268,25 @@ function canvasInterventionsToCEE(
  *   PRIMARY source. May be null (e.g. stale-cleared in useV2Run).
  * - `nodes`: current canvas nodes. AUTHORITATIVE FALLBACK via `node.data.interventions`.
  * - `validNodeIds`: set of legal intervention target IDs (used for stale-target filtering).
+ * - `options.silent`: when true, suppress the always-on backfill warning. Used by the
+ *   pre-run validation gate in useV2Run, which calls this function purely to compute
+ *   what the gate would see; the canonical signal is the request-build call.
  *
  * Returns a `CEEOptionV3[]` ready to flow into `ceeOptionToV2Option` →
  * `buildV2RequestFromAnalysisReady` → PLoT.
  *
  * Merge policy:
  * 1. Walk every entry in `analysisReady.options` first (canonical order).
- *    a. If its `interventions` is non-empty → use the entry as-is (PRIMARY wins;
- *       this is the unchanged hot path for drafted options).
- *    b. If its `interventions` is missing/empty AND a matching canvas node exists →
- *       keep the analysisReady entry's metadata (label, status, raw_interventions, etc)
- *       and BACKFILL `interventions` from `node.data.interventions`. Emit a warning
- *       so the fallback is observable.
- *    c. If its `interventions` is missing/empty AND no matching canvas node exists →
- *       still pass the entry through as-is (legacy permissive behaviour; staleness is
- *       handled separately by isAnalysisReadyStale upstream).
+ *    a. If its `interventions` has at least one USABLE value (per
+ *       hasUsableInterventions, the same rule the gate uses) → use the entry as-is
+ *       (PRIMARY wins; this is the unchanged hot path for drafted options).
+ *    b. If its `interventions` is missing/empty/all-null AND a matching canvas
+ *       node exists → keep the analysisReady entry's metadata (label, status,
+ *       raw_interventions, etc) and BACKFILL `interventions` from
+ *       `node.data.interventions`. Emit a warning so the fallback is observable.
+ *    c. If its `interventions` is missing/empty/all-null AND no matching canvas
+ *       node exists → still pass the entry through as-is (legacy permissive
+ *       behaviour; staleness is handled separately by isAnalysisReadyStale upstream).
  * 2. Then walk canvas option nodes that were NOT in analysisReady. For each:
  *    synthesise a new CEEOptionV3 entry from `node.data.interventions`, with status
  *    'ready' when fallback interventions exist, otherwise 'needs_user_mapping'.
@@ -274,16 +300,34 @@ function canvasInterventionsToCEE(
  * `node.data.interventions` is empty/missing, the returned option is empty too — and
  * `validateOptionsHaveInterventions` will catch it downstream.
  */
+export interface ReconcileOptionsHookOptions {
+  /** Suppress the always-on backfill warning. Pre-run gate sets this to true. */
+  silent?: boolean
+}
+
 export function reconcileOptionsWithCanvasNodes(
   analysisReady: CEEAnalysisReady | null | undefined,
   nodes: Node<CanvasNodeData>[],
   validNodeIds: Set<string>,
+  options: ReconcileOptionsHookOptions = {},
 ): CEEOptionV3[] {
+  const { silent = false } = options
   const optionNodes = nodes.filter(
     (n) => (n.data as Record<string, unknown> | undefined)?.kind === 'option' || (n.data as Record<string, unknown> | undefined)?.type === 'option',
   )
+  // Index option nodes by id once — keeps reconciliation O(arOptions + optionNodes)
+  // instead of O(arOptions * optionNodes).
+  const optionNodesById = new Map<string, Node<CanvasNodeData>>()
+  for (const n of optionNodes) optionNodesById.set(n.id, n)
 
   const arOptions = analysisReady?.options ?? []
+
+  const warn = (id: string) => {
+    if (silent) return
+    console.warn(
+      `[V2Adapter] reconcileOptions: backfilled interventions from canvas for option ${id} — this indicates analysisReady was incomplete. Should trend towards zero.`,
+    )
+  }
 
   // Walk analysisReady first (primary order), then append any canvas-only options.
   const seen = new Set<string>()
@@ -293,19 +337,16 @@ export function reconcileOptionsWithCanvasNodes(
     if (!arOpt || typeof arOpt.id !== 'string') continue
     seen.add(arOpt.id)
 
-    const arHasInterventions =
-      arOpt.interventions && typeof arOpt.interventions === 'object' && Object.keys(arOpt.interventions).length > 0
-
-    if (arHasInterventions) {
+    if (hasUsableInterventions(arOpt.interventions)) {
       // PRIMARY hot path — analysisReady wins with its native interventions.
       result.push(arOpt)
       continue
     }
 
-    // analysisReady entry has empty interventions — try to backfill from the
+    // analysisReady entry has no usable interventions — try to backfill from the
     // matching canvas node. If no canvas node exists, pass the entry through
     // as-is (legacy permissive behaviour; isAnalysisReadyStale handles deletions).
-    const canvasNode = optionNodes.find((n) => n.id === arOpt.id)
+    const canvasNode = optionNodesById.get(arOpt.id)
     if (!canvasNode) {
       result.push(arOpt)
       continue
@@ -319,12 +360,7 @@ export function reconcileOptionsWithCanvasNodes(
       nodeData.interventions,
       validNodeIds,
     )
-    if (Object.keys(fallback).length > 0) {
-      // Always-on warning so fallback usage is observable in staging/prod logs.
-      console.warn(
-        `[V2Adapter] reconcileOptions: backfilled interventions from canvas for option ${arOpt.id} — this indicates analysisReady was incomplete. Should trend towards zero.`,
-      )
-    }
+    if (Object.keys(fallback).length > 0) warn(arOpt.id)
     result.push({
       ...arOpt,
       interventions: fallback,
@@ -342,11 +378,7 @@ export function reconcileOptionsWithCanvasNodes(
       nodeData.interventions,
       validNodeIds,
     )
-    if (Object.keys(fallback).length > 0) {
-      console.warn(
-        `[V2Adapter] reconcileOptions: backfilled interventions from canvas for option ${node.id} — this indicates analysisReady was incomplete. Should trend towards zero.`,
-      )
-    }
+    if (Object.keys(fallback).length > 0) warn(node.id)
     result.push({
       id: node.id,
       label,
