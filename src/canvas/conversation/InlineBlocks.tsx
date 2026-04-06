@@ -56,8 +56,9 @@ const artefactNoop = () => { /* intentionally empty */ }
 const _trackedUnknownBlockTypes = new Set<string>()
 
 /**
- * DS v5 §21.2: resolve block type badge dot CSS class. Returns null for types with no dot.
- * Only the five block types explicitly listed in Brief A Task 6 get dots.
+ * DS v5 §21.2: resolve block type badge dot CSS class. Returns null for types
+ * that render inline (commentary) or are unknown. Every declared conversation
+ * block type gets a dot in the colour prescribed by the §21.2 table.
  */
 function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
   switch (block.type) {

@@ -528,11 +528,14 @@ describe('Feature flag OFF — current behaviour preserved', () => {
     expect(screen.queryByText('Bold', { exact: false })?.tagName?.toLowerCase()).not.toBe('strong')
   })
 
-  it('review card variant is used directly (not overridden by tone) when flag is off', () => {
-    // If variant=info but tone=challenger, flag off → uses variant=info
-    const block = makeReviewBlock({ variant: 'info', tone: 'challenger' })
+  it('review card tone still overrides variant even when v2 flag is off', () => {
+    // The tone→variant mapping was previously flag-gated but was ungated to
+    // keep the card wrapper/icon consistent with the always-on block dot
+    // (DS v5 §16.2: tone is authoritative). Here we pre-resolve tone to
+    // variant='alert' at the block level (matching what adaptCEEBlock now
+    // produces regardless of flag state) and assert the alert treatment.
+    const block = makeReviewBlock({ variant: 'alert', tone: 'challenger' })
     render(<InlineBlocks blocks={[block]} />)
-    // Component renders — with info variant (Lightbulb) not alert
     expect(screen.getByText('Test card')).toBeDefined()
   })
 })
@@ -604,11 +607,14 @@ describe('Fixture golden-path — envelope shapes', () => {
 })
 
 // ---------------------------------------------------------------------------
-// § 7 — P0-2: Flag OFF rollback — end-to-end via adaptCEEBlock + fixture
-// Verifies that tone→variant mapping does not leak through when flag is off.
+// § 7 — Tone→variant mapping is ungated (DS v5 §16.2)
+// Previously these tests pinned the flag-off "rollback" behaviour where
+// tone was ignored; the mapping has since been ungated so tone is always
+// authoritative (DS v5 §16.2: "Takes precedence over variant when present").
+// The tests now guard against accidental re-gating.
 // ---------------------------------------------------------------------------
 
-describe('Flag OFF rollback — adaptCEEBlock + fixture (end-to-end)', () => {
+describe('Tone→variant mapping — adaptCEEBlock + fixture (end-to-end)', () => {
   beforeEach(() => {
     vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(false)
   })
@@ -617,36 +623,31 @@ describe('Flag OFF rollback — adaptCEEBlock + fixture (end-to-end)', () => {
     vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(true)
   })
 
-  it('challenger envelope → variant=info when flag is off (no tone mapping)', () => {
-    // The raw envelope has tone=challenger but no explicit variant field.
-    // Flag off → variantFromTone is skipped; variantDirect is undefined; fallback is 'info'.
+  it('challenger envelope → variant=alert even when v2 flag is off', () => {
     const raw = fixtureData.envelopes.reviewCardChallenger.blocks[0]
     const block = adaptCEEBlock(raw) as ReviewCardBlock
-    expect(block.variant).toBe('info')
-    // tone is still stored (pass-through), but variant is not influenced by it
+    expect(block.variant).toBe('alert')
     expect(block.tone).toBe('challenger')
   })
 
-  it('facilitator envelope → variant=info when flag is off', () => {
+  it('facilitator envelope → variant=info when v2 flag is off', () => {
     const raw = fixtureData.envelopes.reviewCardFacilitator.blocks[0]
     const block = adaptCEEBlock(raw) as ReviewCardBlock
     expect(block.variant).toBe('info')
   })
 
-  it('missing tone envelope → variant=info when flag is off (legacy fallback)', () => {
+  it('missing tone envelope → variant=info when v2 flag is off (legacy fallback)', () => {
     const raw = fixtureData.envelopes.reviewCardMissingTone.blocks[0]
     const block = adaptCEEBlock(raw) as ReviewCardBlock
     expect(block.variant).toBe('info')
   })
 
-  it('challenger envelope + flag off → renders as info card (data-testid=block-review-info)', () => {
+  it('challenger envelope + flag off → renders as alert card (data-testid=block-review-alert)', () => {
     const raw = fixtureData.envelopes.reviewCardChallenger.blocks[0]
     const block = adaptCEEBlock(raw) as ReviewCardBlock
     render(<InlineBlocks blocks={[block]} />)
-    // BlockRenderer passes data-testid="block-review-{variant}" — with variant=info the
-    // wrapper must have data-testid="block-review-info", not "block-review-alert"
-    expect(screen.getByTestId('block-review-info')).toBeDefined()
-    expect(screen.queryByTestId('block-review-alert')).toBeNull()
+    expect(screen.getByTestId('block-review-alert')).toBeDefined()
+    expect(screen.queryByTestId('block-review-info')).toBeNull()
   })
 })
 

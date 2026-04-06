@@ -640,12 +640,25 @@ export function deriveProposalItemFromOperation(
         : 'Change'
 
   // Edge ops: resolve source/target labels and render as "{from} → {to}".
-  // add_edge data shape: { from, to } (canvas convention) or { source, target } (RF convention).
+  // Preference order:
+  //   1. explicit label fields on the op (from_label/to_label or
+  //      source_label/target_label) — needed when CEE adds an edge between
+  //      nodes created in the same patch, where the canvas store lookup
+  //      can't resolve yet
+  //   2. canvas-store lookup by id (nodeLabels map)
+  //   3. raw id fallback
+  // Data shape: { from, to } (canvas convention) or { source, target } (RF).
   if (action === 'add_edge' || action === 'remove_edge' || action === 'update_edge') {
     const fromId = asOptionalString(data.from) ?? asOptionalString(data.source)
     const toId = asOptionalString(data.to) ?? asOptionalString(data.target)
-    const fromLabel = (fromId && nodeLabels?.get(fromId)) || fromId
-    const toLabel = (toId && nodeLabels?.get(toId)) || toId
+    const explicitFromLabel =
+      asOptionalString(data.from_label) ?? asOptionalString(data.source_label)
+    const explicitToLabel =
+      asOptionalString(data.to_label) ?? asOptionalString(data.target_label)
+    const fromLabel =
+      explicitFromLabel || (fromId && nodeLabels?.get(fromId)) || fromId
+    const toLabel =
+      explicitToLabel || (toId && nodeLabels?.get(toId)) || toId
     if (fromLabel && toLabel) {
       return {
         description: `${verb} connection: ${fromLabel} → ${toLabel}`,
@@ -836,14 +849,15 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
         }
 
       case 'review_card': {
-        // tone field: passed through for use by the renderer (flag-gated visual treatment).
+        // DS v5 §16.2: tone is the authoritative field (challenger → alert,
+        // facilitator → info). Takes precedence over explicit variant when
+        // present. Previously flag-gated on orchestratorRenderingV2 for
+        // rollback safety; ungated so dot colour and card wrapper stay
+        // consistent with the block badge (which is also always-on).
         const tone = typeof dataObj.tone === 'string' ? dataObj.tone as 'challenger' | 'facilitator' : undefined
         const variantDirect = dataObj.variant === 'alert' ? 'alert' : dataObj.variant === 'info' ? 'info' : undefined
-        // tone → variant mapping is ONLY applied when ORCHESTRATOR_RENDERING_V2 is on.
-        // Flag off: legacy variant field is used as-is so rollback is end-to-end clean.
-        const variantFromTone: 'info' | 'alert' | undefined = isOrchestratorRenderingV2Enabled()
-          ? (tone === 'challenger' ? 'alert' : tone === 'facilitator' ? 'info' : undefined)
-          : undefined
+        const variantFromTone: 'info' | 'alert' | undefined =
+          tone === 'challenger' ? 'alert' : tone === 'facilitator' ? 'info' : undefined
         const resolvedVariant: 'info' | 'alert' = variantFromTone ?? variantDirect ?? 'info'
         return {
           type: 'review_card',

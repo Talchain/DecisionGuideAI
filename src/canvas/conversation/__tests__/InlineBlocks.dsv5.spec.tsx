@@ -12,7 +12,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
-import { deriveProposalItemFromOperation } from '../useConversation'
+import { adaptCEEBlock, deriveProposalItemFromOperation } from '../useConversation'
 import type {
   GraphPatchBlock,
   FactBlock,
@@ -22,6 +22,16 @@ import type {
   ReviewCardBlock,
   CommentaryBlock,
 } from '../types'
+import { isOrchestratorRenderingV2Enabled } from '../../../flags'
+
+// Mock the flag so we can assert ungated behaviour explicitly.
+vi.mock('../../../flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../flags')>()
+  return {
+    ...actual,
+    isOrchestratorRenderingV2Enabled: vi.fn().mockReturnValue(true),
+  }
+})
 
 // Minimal canvas store mock — InlineBlocks only reads `nodes` for patch target lookup.
 vi.mock('../../store', () => {
@@ -141,6 +151,53 @@ describe('InlineBlocks — DS v5 §21.2 block type badge dots', () => {
 })
 
 // -----------------------------------------------------------------------------
+// adaptCEEBlock — tone → variant mapping is ungated (DS v5 §16.2)
+// -----------------------------------------------------------------------------
+
+describe('adaptCEEBlock — review_card tone mapping is ungated', () => {
+  it('tone=challenger always maps to variant=alert, regardless of v2 flag', () => {
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(false)
+    const raw = {
+      block_type: 'review_card',
+      block_id: 'rv-off',
+      data: { title: 'Risk', description: 'Content', tone: 'challenger' },
+    }
+    const result = adaptCEEBlock(raw) as ReviewCardBlock
+    expect(result.variant).toBe('alert')
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(true)
+  })
+
+  it('tone=facilitator always maps to variant=info, regardless of v2 flag', () => {
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(false)
+    const raw = {
+      block_type: 'review_card',
+      block_id: 'rv-off-2',
+      data: { title: 'Tip', description: 'Content', tone: 'facilitator' },
+    }
+    const result = adaptCEEBlock(raw) as ReviewCardBlock
+    expect(result.variant).toBe('info')
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(true)
+  })
+
+  it('tone overrides an explicit variant field, even when flag is off', () => {
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(false)
+    const raw = {
+      block_type: 'review_card',
+      block_id: 'rv-off-3',
+      data: {
+        title: 'Risk',
+        description: 'Content',
+        tone: 'challenger',
+        variant: 'info', // explicit variant is overridden by tone
+      },
+    }
+    const result = adaptCEEBlock(raw) as ReviewCardBlock
+    expect(result.variant).toBe('alert')
+    vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(true)
+  })
+})
+
+// -----------------------------------------------------------------------------
 // Task 4 — ReviewCardBlock alert regression guard
 // -----------------------------------------------------------------------------
 
@@ -208,6 +265,62 @@ describe('deriveProposalItemFromOperation — edge label resolution (DS v5 §21.
       nodeLabels,
     )
     expect(item!.description).toBe('Add connection: n-unknown → Retention')
+  })
+
+  it('prefers explicit from_label/to_label over canvas store lookup', () => {
+    // Simulates CEE adding an edge between two nodes created in the same patch —
+    // the canvas store does not yet contain the new nodes, but CEE has emitted
+    // the labels alongside the ids.
+    const item = deriveProposalItemFromOperation(
+      {
+        op: 'add_edge',
+        target_id: 'e1',
+        data: {
+          from: 'n-new-a',
+          to: 'n-new-b',
+          from_label: 'Competitor response',
+          to_label: 'Market share',
+        },
+      },
+      nodeLabels, // Does not contain n-new-a / n-new-b
+    )
+    expect(item!.description).toBe('Add connection: Competitor response → Market share')
+  })
+
+  it('accepts source_label/target_label aliases as well as from_label/to_label', () => {
+    const item = deriveProposalItemFromOperation(
+      {
+        op: 'add_edge',
+        target_id: 'e1',
+        data: {
+          source: 'n-x',
+          target: 'n-y',
+          source_label: 'Pricing power',
+          target_label: 'Churn',
+        },
+      },
+      new Map(),
+    )
+    expect(item!.description).toBe('Add connection: Pricing power → Churn')
+  })
+
+  it('prefers explicit label fields even when canvas store has a different label', () => {
+    // Defensive: if CEE is more authoritative than the local canvas state
+    // (e.g. label was renamed in the patch), the op's label field wins.
+    const item = deriveProposalItemFromOperation(
+      {
+        op: 'update_edge',
+        target_id: 'e1',
+        data: {
+          from: 'n-pricing',
+          to: 'n-retention',
+          from_label: 'Pricing (updated)',
+          to_label: 'Retention (updated)',
+        },
+      },
+      nodeLabels, // has 'Pricing' and 'Retention'
+    )
+    expect(item!.description).toBe('Update connection: Pricing (updated) → Retention (updated)')
   })
 
   it('uses Remove / Update verbs for remove_edge / update_edge', () => {
