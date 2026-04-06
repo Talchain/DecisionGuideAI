@@ -250,21 +250,29 @@
   color: var(--success, #67C89E);
 }
 
+/* DS v5 conversation panel override (Paul, 7 Apr 2026): every conversation
+   block uses a full 1px semantic border @ 30% opacity instead of the §6.4
+   "top 3px accent" rule. The block badge dot (§21.2) is the type signal;
+   the border is a subtle container, not a status flag. color-mix() keeps
+   the var() reference instead of hardcoding rgba(). DS v5 §3.15: avoid
+   Tailwind opacity modifiers because brand.css defines colours as hex. */
 .reviewCardInfo {
-  border-left: 3px solid var(--info, #52A3C8); /* DS v5 §16.2: facilitator/coaching — left 3px info */
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   background: var(--bg-panel, #FEFEFE); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
   padding: 12px;
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   display: flex;
   gap: 8px;
   align-items: flex-start;
 }
 
 .reviewCardAlert {
-  border-top: 3px solid var(--danger, #EA7B4B);
+  border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   padding: 12px;
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   display: flex;
   gap: 8px;
   align-items: flex-start;
@@ -287,9 +295,10 @@
 }
 
 .factBlock {
-  border-top: 3px solid var(--success, #67C89E);
+  border: 1px solid color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -332,19 +341,22 @@
  * ---------------------------------------------------------------------------*/
 
 .graphPatchBlock {
-  border-top: 3px solid var(--goal, #F5C433);
+  border: 1px solid color-mix(in srgb, var(--goal, #F5C433) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* DS v5 §21.2: GraphPatchBlock uses goal colour top border in ALL states.
-   Applied state is signalled by status badge, not border colour change. */
+/* DS v5 conversation override (Paul, 7 Apr 2026): when a graph patch is
+   applied, swap the full border to success/30. The "Changes applied" eyebrow
+   text + Check icon also signal success but the border colour reinforces it
+   without re-introducing a coloured top bar. */
 .graphPatchBlockApplied {
-  border-top-color: var(--goal, #F5C433);
+  border-color: color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
 }
 
 .graphPatchHeader {
@@ -396,9 +408,9 @@
   justify-content: space-between;
   gap: 8px;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: 12px; /* DS v5 §6.2: cards inside panels use md (12px) */
   background: var(--bg-panel-hover, #FEF9F3);
-  border: 1px solid var(--border-default, #EEE6D8);
+  border: 1px solid var(--border-default, #EEE6D8); /* neutral panel-border, no semantic colour */
 }
 
 .graphPatchProposalCopy {
@@ -555,9 +567,10 @@
  * ---------------------------------------------------------------------------*/
 
 .framingBlock {
-  border-top: 3px solid var(--info, #52A3C8);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -611,9 +624,10 @@
  * ---------------------------------------------------------------------------*/
 
 .briefBlock {
-  border-top: 3px solid var(--success, #67C89E);
+  border: 1px solid color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -947,8 +961,9 @@
 
 .evidenceBlock {
   /* DS v5 §21.2: EvidenceBlock uses info (external information), not success. */
-  border-top: 3px solid var(--info, #52A3C8);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 10px 12px;
   background: var(--bg-panel, #FEFEFE);
   display: flex;
@@ -1618,9 +1633,10 @@
  * ---------------------------------------------------------------------------*/
 
 .comparisonBlock {
-  border-top: 3px solid var(--info, #52A3C8);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1639,9 +1655,10 @@
 }
 
 .premortemBlock {
-  border-top: 3px solid var(--warning, #FFA656);
+  border: 1px solid color-mix(in srgb, var(--warning, #FFA656) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1657,9 +1674,10 @@
 }
 
 .flipAnalysisBlock {
-  border-top: 3px solid var(--danger, #EA7B4B);
+  border: 1px solid color-mix(in srgb, var(--danger, #EA7B4B) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1667,9 +1685,10 @@
 }
 
 .proposalBlock {
-  border-top: 3px solid var(--goal, #F5C433);
+  border: 1px solid color-mix(in srgb, var(--goal, #F5C433) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1677,9 +1696,10 @@
 }
 
 .exerciseBlock {
-  border-top: 3px solid var(--info, #52A3C8);
+  border: 1px solid color-mix(in srgb, var(--info, #52A3C8) 30%, transparent);
   background: var(--bg-panel, #FEFEFE);
   border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
+  box-shadow: 0 1px 2px rgba(38, 38, 38, 0.06); /* DS v5 §5: shadow-1 */
   padding: 12px;
   display: flex;
   flex-direction: column;
