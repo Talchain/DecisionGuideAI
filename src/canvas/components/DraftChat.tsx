@@ -748,15 +748,17 @@ export function DraftChat() {
       ? rawSensitivity
       : null
 
-    // Store per-node rationales from CEE V3 response for tooltip display
+    // Store per-node rationales from CEE V3 response for tooltip display.
+    // Always overwrite — when a new draft omits rationales, we MUST clear the
+    // previous draft's map so stale rationales don't leak onto new node IDs.
     const rawRationales = (draftData as any).rationales
-    if (Array.isArray(rawRationales) && rawRationales.length > 0) {
-      metadataPatch.nodeRationales = Object.fromEntries(
-        rawRationales
-          .filter((r: any) => r?.target && r?.why)
-          .map((r: any) => [r.target, r.why])
-      )
-    }
+    metadataPatch.nodeRationales = Array.isArray(rawRationales) && rawRationales.length > 0
+      ? Object.fromEntries(
+          rawRationales
+            .filter((r: any) => r?.target && r?.why)
+            .map((r: any) => [r.target, r.why])
+        )
+      : {}
 
     // Single batched setState for non-side-effect metadata — avoids 6+ separate render cycles
     useCanvasStore.setState(metadataPatch)

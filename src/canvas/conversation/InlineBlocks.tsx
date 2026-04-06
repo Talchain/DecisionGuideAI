@@ -925,7 +925,13 @@ function GraphPatchBlockRenderer({
   const opSummary = summarisePatchOps(block.operations)
   const rawProposalItems = getProposalItems(block)
   const proposalItemsSource = getProposalItemsSource(block)
-  // Per-operation rationales from CEE edit_graph (indexed parallel to operations)
+  // Per-operation rationales from CEE edit_graph, paired by index with `operations[]`.
+  // Contract: each entry is { impact, rationale }. Emitted top-level on the
+  // GraphPatchBlock data object by the orchestrator's edit_graph tool. The same
+  // payload is also mirrored to provenance._meta for observability, but the UI
+  // reads the top-level path so it never reaches into provenance internals.
+  // See: olumi-assistants-service/src/orchestrator/tools/edit-graph.ts
+  // (search "operation_meta = operationMeta", ~line 2235).
   const operationMeta = Array.isArray(block.operation_meta) ? block.operation_meta : []
   const opTargets = extractTargetIdsFromPatch(block.operations)
   const relatedTargets = extractGroundedTargets(block.related_elements)

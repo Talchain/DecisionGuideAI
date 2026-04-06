@@ -16,9 +16,16 @@ interface TooltipProps {
   content: string
   children: ReactElement
   position?: 'top' | 'bottom' | 'left' | 'right'
+  /**
+   * Optional max width in pixels. When set, the tooltip wraps text and uses
+   * the bodySmall typography token (instead of the default single-line caption).
+   * Used by RationaleTooltip and other rich-text tooltips that need to render
+   * multi-sentence content.
+   */
+  maxWidth?: number
 }
 
-export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
+export function Tooltip({ content, children, position = 'top', maxWidth }: TooltipProps) {
   const [show, setShow] = useState(false)
   const tooltipId = useId()
 
@@ -130,11 +137,12 @@ export function Tooltip({ content, children, position = 'top' }: TooltipProps) {
         <div
           id={tooltipId}
           role="tooltip"
-          className={`absolute z-[9000] px-2 py-1 ${typography.caption} rounded whitespace-nowrap pointer-events-none`}
+          className={`absolute z-[9000] px-2 py-1 ${maxWidth ? typography.bodySmall : typography.caption} rounded ${maxWidth ? '' : 'whitespace-nowrap'} pointer-events-none`}
           style={{
             backgroundColor: 'var(--surface-card)',
             color: 'var(--text-primary)',
             boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+            ...(maxWidth !== undefined && { maxWidth: `${maxWidth}px`, whiteSpace: 'normal' }),
             ...positionStyles[position],
           }}
         >

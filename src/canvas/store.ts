@@ -549,7 +549,6 @@ interface CanvasState {
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
-  setNodeRationales: (rationales: Array<{ target: string; why: string }>) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
   // Phase 1b actions
   setCeeExtendedWarnings: (warnings: CEEDraftWarning[] | null) => void
@@ -2977,13 +2976,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ ceePipelineTrace: trace })
   },
 
-  setNodeRationales: (rationales: Array<{ target: string; why: string }>) => {
-    const map: Record<string, string> = {}
-    for (const r of rationales) {
-      if (r.target && r.why) map[r.target] = r.why
-    }
-    set({ nodeRationales: map })
-  },
+  // Note: nodeRationales is written directly via setState in DraftChat.tsx
+  // (batched alongside other CEE metadata to avoid extra render commits).
+  // No dedicated action — the data shape is trivial and only one call site exists.
 
   setCeeQuality: (quality: CeeQualityDimensions | null) => {
     if (import.meta.env.DEV && quality) {

@@ -1,54 +1,49 @@
 /**
  * nodeRationales store slice — test suite
  *
- * Tests:
- * - setNodeRationales populates map from array
- * - Filters out entries with missing target or why
- * - Clears on resetCanvas
+ * The slice has no dedicated action: nodeRationales is written directly via
+ * useCanvasStore.setState in DraftChat.tsx (batched alongside other CEE
+ * metadata). These tests cover the slice's basic shape and reset behaviour.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
 import { useCanvasStore } from '../../store'
 
-describe('nodeRationales store', () => {
+describe('nodeRationales store slice', () => {
   beforeEach(() => {
     useCanvasStore.setState({ nodeRationales: {} })
   })
 
-  it('setNodeRationales populates map from array', () => {
-    useCanvasStore.getState().setNodeRationales([
-      { target: 'factor_price', why: 'Price is key' },
-      { target: 'risk_churn', why: 'Churn risk increases with price' },
-    ])
+  it('starts empty by default', () => {
+    expect(useCanvasStore.getState().nodeRationales).toEqual({})
+  })
 
-    const { nodeRationales } = useCanvasStore.getState()
-    expect(nodeRationales).toEqual({
+  it('accepts a direct setState write', () => {
+    useCanvasStore.setState({
+      nodeRationales: {
+        factor_price: 'Price is key',
+        risk_churn: 'Churn risk increases with price',
+      },
+    })
+
+    expect(useCanvasStore.getState().nodeRationales).toEqual({
       factor_price: 'Price is key',
       risk_churn: 'Churn risk increases with price',
     })
   })
 
-  it('filters out entries with missing target or why', () => {
-    useCanvasStore.getState().setNodeRationales([
-      { target: 'factor_valid', why: 'Valid entry' },
-      { target: '', why: 'Missing target' },
-      { target: 'factor_empty_why', why: '' },
-    ])
-
-    const { nodeRationales } = useCanvasStore.getState()
-    expect(nodeRationales).toEqual({ factor_valid: 'Valid entry' })
-  })
-
-  it('overwrites previous rationales on second call', () => {
-    useCanvasStore.getState().setNodeRationales([
-      { target: 'factor_a', why: 'First' },
-    ])
-    useCanvasStore.getState().setNodeRationales([
-      { target: 'factor_b', why: 'Second' },
-    ])
+  it('overwrites the entire map on subsequent setState', () => {
+    useCanvasStore.setState({ nodeRationales: { factor_a: 'First' } })
+    useCanvasStore.setState({ nodeRationales: { factor_b: 'Second' } })
 
     const { nodeRationales } = useCanvasStore.getState()
     expect(nodeRationales).toEqual({ factor_b: 'Second' })
     expect(nodeRationales).not.toHaveProperty('factor_a')
+  })
+
+  it('clears to {} when written with an empty object (stale-rationale guard path)', () => {
+    useCanvasStore.setState({ nodeRationales: { factor_a: 'old' } })
+    useCanvasStore.setState({ nodeRationales: {} })
+    expect(useCanvasStore.getState().nodeRationales).toEqual({})
   })
 })
