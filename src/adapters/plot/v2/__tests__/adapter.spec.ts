@@ -4,15 +4,17 @@
  * Tests for /v2/run request building and response handling.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import {
   extractOptionsFromNodes,
+  reconcileOptionsWithCanvasNodes,
   uiOptionToV2Option,
   transformNodeToV2,
   transformEdgeToV2,
   buildV2Request,
   buildV2RequestFromAnalysisReady,
+  validateOptionsHaveInterventions,
 } from '../adapter'
 import {
   isBlockedResponse,
@@ -1314,5 +1316,328 @@ describe('buildV2Request (scenario comparison path)', () => {
 
     expect(request).not.toHaveProperty('goal_constraints')
     expect(request).not.toHaveProperty('goal_threshold')
+  })
+})
+
+// =============================================================================
+// reconcileOptionsWithCanvasNodes — cross-boundary intervention invariant
+// -----------------------------------------------------------------------------
+// These tests prove the canonical-path fix: PLoT must receive non-empty
+// interventions for every analysable option regardless of whether the option
+// was created by draft_graph, add_option, or manual canvas add.
+// =============================================================================
+
+describe('reconcileOptionsWithCanvasNodes integration', () => {
+  // vitest config has restoreMocks: true so the spy is restored after each test.
+  // Re-create it in beforeEach so the implementation persists across the test body.
+  let consoleWarnSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    consoleWarnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  })
+
+  // Helper: build a minimal canvas (goal + 2 factors) plus the supplied option nodes.
+  function buildCanvas(extraOptionNodes: Node[]): { nodes: Node[]; edges: Edge[]; goalNodeId: string } {
+    const nodes: Node[] = [
+      makeNode('goal_1', { kind: 'goal', label: 'Goal' }),
+      makeNode('fac_a', { kind: 'factor', label: 'Factor A' }),
+      makeNode('fac_b', { kind: 'factor', label: 'Factor B' }),
+      ...extraOptionNodes,
+    ]
+    const edges: Edge[] = [
+      makeEdge('e_a', 'fac_a', 'goal_1', { weight: 0.5, direction: 'positive', beliefExists: 0.8 }),
+      makeEdge('e_b', 'fac_b', 'goal_1', { weight: 0.5, direction: 'positive', beliefExists: 0.8 }),
+    ]
+    return { nodes, edges, goalNodeId: 'goal_1' }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Test 1: drafted option + AI-added option both survive request build
+  // ---------------------------------------------------------------------------
+  it('builds a request where both a drafted option and an AI-added option carry their interventions', () => {
+    // Drafted option: lives in analysisReady, no interventions on node.data (mirrors prod).
+    // AI-added option: lives ONLY on the canvas with interventions on node.data
+    //                  (mirrors the add_option bug — analysisReady was not refreshed).
+    const { nodes, edges, goalNodeId } = buildCanvas([
+      makeNode('opt_original', { kind: 'option', label: 'Original' }),
+      makeNode('opt_added', {
+        kind: 'option',
+        label: 'AI Added',
+        interventions: { fac_a: 0.5, fac_b: 0.2 },
+      }),
+    ])
+
+    const analysisReady: CEEAnalysisReady = {
+      goal_node_id: goalNodeId,
+      options: [
+        {
+          id: 'opt_original',
+          label: 'Original',
+          status: 'ready',
+          interventions: {
+            fac_a: { value: 0.8, source: 'brief_extraction' },
+            fac_b: { value: -0.3, source: 'brief_extraction' },
+          },
+        },
+      ],
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady, undefined, goalNodeId)
+
+    expect(request.options).toHaveLength(2)
+
+    const original = request.options.find((o) => o.id === 'opt_original')
+    const added = request.options.find((o) => o.id === 'opt_added')
+
+    // Drafted option: PRIMARY source wins, values unchanged.
+    expect(original).toBeDefined()
+    expect(original!.interventions).toEqual({ fac_a: 0.8, fac_b: -0.3 })
+
+    // AI-added option: backfilled from node.data.interventions.
+    expect(added).toBeDefined()
+    expect(added!.interventions).toEqual({ fac_a: 0.5, fac_b: 0.2 })
+
+    // Pre-run validation gate would pass for this set.
+    expect(validateOptionsHaveInterventions(request.options)).toEqual([])
+
+    // Observability: the fallback path emitted a warning for the AI-added option only.
+    const fallbackWarnings = consoleWarnSpy.mock.calls.filter((args) =>
+      typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
+    )
+    expect(fallbackWarnings).toHaveLength(1)
+    expect(fallbackWarnings[0][0]).toContain('opt_added')
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 2: analysisReady has the option but its intervention map is empty
+  //          (mirrors the synthesised-fallback case in handleEnvelope)
+  // ---------------------------------------------------------------------------
+  it('backfills from node.data.interventions when analysisReady entry has an empty intervention map', () => {
+    const { nodes, edges, goalNodeId } = buildCanvas([
+      makeNode('opt_x', {
+        kind: 'option',
+        label: 'X',
+        interventions: { fac_a: 0.9 },
+      }),
+    ])
+
+    const analysisReady: CEEAnalysisReady = {
+      goal_node_id: goalNodeId,
+      options: [
+        { id: 'opt_x', label: 'X', status: 'ready', interventions: {} },
+      ],
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady, undefined, goalNodeId)
+
+    expect(request.options).toHaveLength(1)
+    expect(request.options[0].interventions).toEqual({ fac_a: 0.9 })
+
+    const fallbackWarnings = consoleWarnSpy.mock.calls.filter((args) =>
+      typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
+    )
+    expect(fallbackWarnings).toHaveLength(1)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 3: manually canvas-added option without interventions hits the gate
+  // ---------------------------------------------------------------------------
+  it('does not invent interventions for a manually-added option that has none anywhere', () => {
+    const { nodes, goalNodeId } = buildCanvas([
+      makeNode('opt_manual', { kind: 'option', label: 'Manual' }),
+    ])
+    const validNodeIds = new Set(nodes.map((n) => n.id))
+
+    const reconciled = reconcileOptionsWithCanvasNodes(null, nodes, validNodeIds)
+
+    expect(reconciled).toHaveLength(1)
+    expect(reconciled[0].id).toBe('opt_manual')
+    expect(reconciled[0].interventions).toEqual({})
+    expect(reconciled[0].status).toBe('needs_user_mapping')
+
+    // The pre-run gate must still catch this — the reconciler is honest.
+    expect(validateOptionsHaveInterventions(reconciled)).toEqual(['Manual'])
+
+    // No fallback warning, because there were no interventions to backfill.
+    void goalNodeId
+    const fallbackWarnings = consoleWarnSpy.mock.calls.filter((args) =>
+      typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
+    )
+    expect(fallbackWarnings).toHaveLength(0)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 4: guards from extractOptionsFromNodes are preserved (self-target, stale)
+  // ---------------------------------------------------------------------------
+  it('skips self-targeting and stale intervention targets', () => {
+    const { nodes, goalNodeId } = buildCanvas([
+      makeNode('opt_x', {
+        kind: 'option',
+        label: 'X',
+        interventions: {
+          opt_x: 0.5,        // self-targeting — skipped
+          ghost_node: 0.7,   // stale — skipped
+          fac_a: 0.9,        // valid
+        },
+      }),
+    ])
+    const validNodeIds = new Set(nodes.map((n) => n.id))
+
+    const reconciled = reconcileOptionsWithCanvasNodes(null, nodes, validNodeIds)
+
+    expect(reconciled).toHaveLength(1)
+    expect(reconciled[0].interventions).toEqual({
+      fac_a: expect.objectContaining({ value: 0.9, source: 'canvas_fallback' }),
+    })
+    void goalNodeId
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 5: stale-clear path — reconciler does not manufacture interventions
+  // ---------------------------------------------------------------------------
+  it('returns empty interventions when both sources are empty (stale-clear path)', () => {
+    // Drafted option that originally lived only in analysisReady (no node.data.interventions).
+    // useV2Run cleared analysisReady because of staleness — now we have nothing.
+    const { nodes, edges, goalNodeId } = buildCanvas([
+      makeNode('opt_drafted', { kind: 'option', label: 'Drafted' }),
+    ])
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, null, undefined, goalNodeId)
+
+    expect(request.options).toHaveLength(1)
+    expect(request.options[0].interventions).toEqual({})
+
+    // Pre-run gate must still catch this — proves the reconciler does not invent values.
+    expect(validateOptionsHaveInterventions(request.options)).toEqual(['Drafted'])
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 6: duplicate option IDs — primary source (analysisReady) wins
+  // ---------------------------------------------------------------------------
+  it('uses analysisReady values when the same option id has different values on the node', () => {
+    const { nodes, edges, goalNodeId } = buildCanvas([
+      makeNode('opt_dup', {
+        kind: 'option',
+        label: 'Dup',
+        interventions: { fac_a: 0.1 },
+      }),
+    ])
+
+    const analysisReady: CEEAnalysisReady = {
+      goal_node_id: goalNodeId,
+      options: [
+        {
+          id: 'opt_dup',
+          label: 'Dup',
+          status: 'ready',
+          interventions: { fac_a: { value: 0.9, source: 'brief_extraction' } },
+        },
+      ],
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady, undefined, goalNodeId)
+
+    expect(request.options).toHaveLength(1)
+    expect(request.options[0].interventions).toEqual({ fac_a: 0.9 })
+
+    // Primary source won, no fallback warning.
+    const fallbackWarnings = consoleWarnSpy.mock.calls.filter((args) =>
+      typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
+    )
+    expect(fallbackWarnings).toHaveLength(0)
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 7: empty-but-present node.data.interventions in three shapes
+  // ---------------------------------------------------------------------------
+  it('treats undefined, empty object, and null-valued interventions as absent', () => {
+    // Shape A: interventions key absent
+    {
+      const { nodes } = buildCanvas([
+        makeNode('opt_a', { kind: 'option', label: 'A' }),
+      ])
+      const validNodeIds = new Set(nodes.map((n) => n.id))
+      const reconciled = reconcileOptionsWithCanvasNodes(null, nodes, validNodeIds)
+      expect(reconciled[0].interventions).toEqual({})
+      expect(validateOptionsHaveInterventions(reconciled)).toEqual(['A'])
+    }
+
+    // Shape B: interventions = {}
+    {
+      const { nodes } = buildCanvas([
+        makeNode('opt_b', { kind: 'option', label: 'B', interventions: {} }),
+      ])
+      const validNodeIds = new Set(nodes.map((n) => n.id))
+      const reconciled = reconcileOptionsWithCanvasNodes(null, nodes, validNodeIds)
+      expect(reconciled[0].interventions).toEqual({})
+      expect(validateOptionsHaveInterventions(reconciled)).toEqual(['B'])
+    }
+
+    // Shape C: interventions = { fac_a: null }
+    {
+      const { nodes } = buildCanvas([
+        makeNode('opt_c', { kind: 'option', label: 'C', interventions: { fac_a: null } }),
+      ])
+      const validNodeIds = new Set(nodes.map((n) => n.id))
+      const reconciled = reconcileOptionsWithCanvasNodes(null, nodes, validNodeIds)
+      expect(reconciled[0].interventions).toEqual({})
+      expect(validateOptionsHaveInterventions(reconciled)).toEqual(['C'])
+    }
+  })
+
+  // ---------------------------------------------------------------------------
+  // Test 8: drafted-only round-trip is byte-for-byte unchanged (regression guard)
+  // ---------------------------------------------------------------------------
+  it('produces identical outbound options for a draft-only graph (regression guard, no fallback path)', () => {
+    const { nodes, edges, goalNodeId } = buildCanvas([
+      makeNode('opt_one', { kind: 'option', label: 'One' }),
+      makeNode('opt_two', { kind: 'option', label: 'Two' }),
+    ])
+
+    const analysisReady: CEEAnalysisReady = {
+      goal_node_id: goalNodeId,
+      options: [
+        {
+          id: 'opt_one',
+          label: 'One',
+          status: 'ready',
+          interventions: {
+            fac_a: { value: 0.7, source: 'brief_extraction' },
+            fac_b: { value: -0.4, source: 'brief_extraction' },
+          },
+        },
+        {
+          id: 'opt_two',
+          label: 'Two',
+          status: 'ready',
+          interventions: {
+            fac_a: { value: -0.2, source: 'cee_hypothesis' },
+            fac_b: { value: 0.6, source: 'cee_hypothesis' },
+          },
+        },
+      ],
+    }
+
+    const { request } = buildV2RequestFromAnalysisReady(nodes, edges, analysisReady, undefined, goalNodeId)
+
+    // Explicit, hand-written expected map (not toMatchSnapshot — diffs must be obvious).
+    expect(request.options).toEqual([
+      {
+        id: 'opt_one',
+        label: 'One',
+        interventions: { fac_a: 0.7, fac_b: -0.4 },
+      },
+      {
+        id: 'opt_two',
+        label: 'Two',
+        interventions: { fac_a: -0.2, fac_b: 0.6 },
+      },
+    ])
+
+    // Contract: drafted-only flows must NOT touch the fallback path.
+    const fallbackWarnings = consoleWarnSpy.mock.calls.filter((args) =>
+      typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
+    )
+    expect(fallbackWarnings).toHaveLength(0)
   })
 })

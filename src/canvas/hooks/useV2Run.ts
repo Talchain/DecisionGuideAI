@@ -16,7 +16,7 @@ import {
   isSuccessfulAnalysis,
   validateV2RunResponseFull,
   sanitizeV2RunResponse,
-  extractOptionsFromNodes,
+  reconcileOptionsWithCanvasNodes,
   validateOptionsHaveInterventions,
   type V2AdapterConfig,
   type V2RunError,
@@ -322,10 +322,18 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // ── Pre-run intervention validation gate ──────────────────────────
       // Validate that every option has at least one intervention before
       // sending to PLoT. Empty interventions produce meaningless results.
+      //
+      // CRITICAL: this gate runs AFTER reconciliation so it sees the same
+      // option set the adapter will actually send. Reading from raw
+      // analysisReady.options here would block legitimate AI add_option
+      // flows whose interventions live on node.data.interventions.
+      // See reconcileOptionsWithCanvasNodes in src/adapters/plot/v2/adapter.ts.
       {
-        const optionsToValidate = effectiveAnalysisReady
-          ? effectiveAnalysisReady.options
-          : extractOptionsFromNodes(nodes as any, currentNodeIds)
+        const optionsToValidate = reconcileOptionsWithCanvasNodes(
+          effectiveAnalysisReady,
+          nodes as any,
+          currentNodeIds,
+        )
 
         const missingInterventions = validateOptionsHaveInterventions(optionsToValidate)
 

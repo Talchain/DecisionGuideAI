@@ -167,6 +167,198 @@ export function extractOptionsFromNodes(
   })
 }
 
+// ============================================================================
+// Canonical intervention reconciliation
+// ----------------------------------------------------------------------------
+// analysisReady.options[].interventions is the PRIMARY source.
+// node.data.interventions is the AUTHORITATIVE FALLBACK when analysisReady
+// is missing an option (e.g. AI add_option before a fresh analysis_ready
+// arrives) or has an empty intervention map for it (e.g. synthesised
+// analysis_ready with no outgoing edges yet).
+// This is the single reconciliation point — do not add a fourth source.
+//
+// This reconciliation layer is transitional. The long-term target is
+// request options[] as the sole canonical surface per Platform Contract v4.
+// Fallback usage is a signal of upstream inconsistency, not steady state.
+// ============================================================================
+
+/**
+ * Convert a raw `node.data.interventions` map into a `Record<string, CEEInterventionV3>`
+ * tagged with `source: 'canvas_fallback'`. Mirrors the guards in
+ * extractOptionsFromNodes (skip self-targeting, skip stale target IDs, drop
+ * null values, accept either bare numbers or objects with a `value` field).
+ */
+function canvasInterventionsToCEE(
+  optionId: string,
+  optionLabel: string,
+  rawInterventions: unknown,
+  validNodeIds: Set<string>,
+): Record<string, CEEInterventionV3> {
+  const out: Record<string, CEEInterventionV3> = {}
+  if (!rawInterventions || typeof rawInterventions !== 'object') return out
+
+  for (const [targetId, rawValue] of Object.entries(rawInterventions as Record<string, unknown>)) {
+    if (!validNodeIds.has(targetId)) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[V2Adapter] reconcileOptions: skipping stale intervention target "${targetId}" on option "${optionLabel}"`,
+        )
+      }
+      continue
+    }
+    if (targetId === optionId) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[V2Adapter] reconcileOptions: skipping self-targeting intervention on option "${optionLabel}"`,
+        )
+      }
+      continue
+    }
+    if (rawValue == null) continue
+
+    let value: number | undefined
+    if (typeof rawValue === 'number') {
+      value = rawValue
+    } else if (typeof rawValue === 'object' && 'value' in (rawValue as Record<string, unknown>)) {
+      const inner = (rawValue as { value: unknown }).value
+      if (typeof inner === 'number') value = inner
+    }
+    if (value == null) continue
+
+    out[targetId] = {
+      value,
+      source: 'canvas_fallback',
+      target_match: {
+        node_id: targetId,
+        match_type: 'exact_id',
+        confidence: 'high',
+      },
+    }
+  }
+  return out
+}
+
+/**
+ * Reconcile option interventions across the two canonical sources.
+ *
+ * Inputs:
+ * - `analysisReady`: the CEE V3 analysis_ready snapshot stored at draft time.
+ *   PRIMARY source. May be null (e.g. stale-cleared in useV2Run).
+ * - `nodes`: current canvas nodes. AUTHORITATIVE FALLBACK via `node.data.interventions`.
+ * - `validNodeIds`: set of legal intervention target IDs (used for stale-target filtering).
+ *
+ * Returns a `CEEOptionV3[]` ready to flow into `ceeOptionToV2Option` →
+ * `buildV2RequestFromAnalysisReady` → PLoT.
+ *
+ * Merge policy:
+ * 1. Walk every entry in `analysisReady.options` first (canonical order).
+ *    a. If its `interventions` is non-empty → use the entry as-is (PRIMARY wins;
+ *       this is the unchanged hot path for drafted options).
+ *    b. If its `interventions` is missing/empty AND a matching canvas node exists →
+ *       keep the analysisReady entry's metadata (label, status, raw_interventions, etc)
+ *       and BACKFILL `interventions` from `node.data.interventions`. Emit a warning
+ *       so the fallback is observable.
+ *    c. If its `interventions` is missing/empty AND no matching canvas node exists →
+ *       still pass the entry through as-is (legacy permissive behaviour; staleness is
+ *       handled separately by isAnalysisReadyStale upstream).
+ * 2. Then walk canvas option nodes that were NOT in analysisReady. For each:
+ *    synthesise a new CEEOptionV3 entry from `node.data.interventions`, with status
+ *    'ready' when fallback interventions exist, otherwise 'needs_user_mapping'.
+ *    Emit a warning. (This is the AI add_option path before a fresh analysis_ready
+ *    has arrived.)
+ * 3. Order: canonical analysisReady-backed options first (in their original order),
+ *    then any node-only options appended at the end. Stable across re-runs.
+ *
+ * Honesty guarantee: this function does NOT manufacture interventions that do not exist
+ * in either source. If `analysisReady.options[i].interventions` is empty AND
+ * `node.data.interventions` is empty/missing, the returned option is empty too — and
+ * `validateOptionsHaveInterventions` will catch it downstream.
+ */
+export function reconcileOptionsWithCanvasNodes(
+  analysisReady: CEEAnalysisReady | null | undefined,
+  nodes: Node<CanvasNodeData>[],
+  validNodeIds: Set<string>,
+): CEEOptionV3[] {
+  const optionNodes = nodes.filter(
+    (n) => (n.data as Record<string, unknown> | undefined)?.kind === 'option' || (n.data as Record<string, unknown> | undefined)?.type === 'option',
+  )
+
+  const arOptions = analysisReady?.options ?? []
+
+  // Walk analysisReady first (primary order), then append any canvas-only options.
+  const seen = new Set<string>()
+  const result: CEEOptionV3[] = []
+
+  for (const arOpt of arOptions) {
+    if (!arOpt || typeof arOpt.id !== 'string') continue
+    seen.add(arOpt.id)
+
+    const arHasInterventions =
+      arOpt.interventions && typeof arOpt.interventions === 'object' && Object.keys(arOpt.interventions).length > 0
+
+    if (arHasInterventions) {
+      // PRIMARY hot path — analysisReady wins with its native interventions.
+      result.push(arOpt)
+      continue
+    }
+
+    // analysisReady entry has empty interventions — try to backfill from the
+    // matching canvas node. If no canvas node exists, pass the entry through
+    // as-is (legacy permissive behaviour; isAnalysisReadyStale handles deletions).
+    const canvasNode = optionNodes.find((n) => n.id === arOpt.id)
+    if (!canvasNode) {
+      result.push(arOpt)
+      continue
+    }
+
+    // PRIMARY metadata + FALLBACK interventions from node.data.interventions
+    const nodeData = (canvasNode.data as Record<string, unknown> | undefined) ?? {}
+    const fallback = canvasInterventionsToCEE(
+      arOpt.id,
+      arOpt.label || arOpt.id,
+      nodeData.interventions,
+      validNodeIds,
+    )
+    if (Object.keys(fallback).length > 0) {
+      // Always-on warning so fallback usage is observable in staging/prod logs.
+      console.warn(
+        `[V2Adapter] reconcileOptions: backfilled interventions from canvas for option ${arOpt.id} — this indicates analysisReady was incomplete. Should trend towards zero.`,
+      )
+    }
+    result.push({
+      ...arOpt,
+      interventions: fallback,
+    })
+  }
+
+  // Canvas-only options (e.g. add_option before fresh analysis_ready, or manual canvas adds).
+  for (const node of optionNodes) {
+    if (seen.has(node.id)) continue
+    const nodeData = (node.data as Record<string, unknown> | undefined) ?? {}
+    const label = (nodeData.label as string | undefined) || node.id
+    const fallback = canvasInterventionsToCEE(
+      node.id,
+      label,
+      nodeData.interventions,
+      validNodeIds,
+    )
+    if (Object.keys(fallback).length > 0) {
+      console.warn(
+        `[V2Adapter] reconcileOptions: backfilled interventions from canvas for option ${node.id} — this indicates analysisReady was incomplete. Should trend towards zero.`,
+      )
+    }
+    result.push({
+      id: node.id,
+      label,
+      status: Object.keys(fallback).length > 0 ? 'ready' : 'needs_user_mapping',
+      interventions: fallback,
+      ...(typeof nodeData.is_baseline === 'boolean' ? { is_baseline: nodeData.is_baseline as boolean } : {}),
+    })
+  }
+
+  return result
+}
+
 /**
  * Validate that all options have non-empty interventions.
  * Returns an array of option labels that are missing interventions.
@@ -837,12 +1029,11 @@ export function buildV2RequestFromAnalysisReady(
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
   const { strictEdgeValidation = false, brief, goalConstraints } = options
 
-  // Fall back to standard buildV2Request if no analysisReady
-  if (!analysisReady) {
-    if (!fallbackGoalNodeId) {
-      throw new Error('Either analysisReady or fallbackGoalNodeId must be provided')
-    }
-    return buildV2Request(nodes, edges, fallbackOptions ?? [], fallbackGoalNodeId, { brief })
+  // Goal node ID precedence: analysisReady.goal_node_id > fallbackGoalNodeId.
+  // At least one must be present.
+  const goalNodeId = analysisReady?.goal_node_id ?? fallbackGoalNodeId
+  if (!goalNodeId) {
+    throw new Error('Either analysisReady or fallbackGoalNodeId must be provided')
   }
 
   // Step 1: Validate edges if strict mode enabled
@@ -861,24 +1052,35 @@ export function buildV2RequestFromAnalysisReady(
     ? edges.map(transformEdgeToV2Strict)
     : edges.map(transformEdgeToV2) // Lenient: uses fallback defaults for missing fields
 
-  // Step 3: Convert CEE options to V2 format
-  const v2Options = analysisReady.options.map(ceeOptionToV2Option)
+  // Step 3: Reconcile options across the two canonical sources before V2 conversion.
+  // analysisReady is PRIMARY; node.data.interventions is the AUTHORITATIVE FALLBACK
+  // when an option is missing from analysisReady (e.g. AI add_option) or its
+  // intervention map is empty (e.g. synthesised analysis_ready).
+  // See reconcileOptionsWithCanvasNodes for the merge policy and observability hooks.
+  // Note: `fallbackOptions` (UIOption[]) is intentionally NOT consulted here — the
+  //   canvas nodes are the canonical fallback. Callers that historically passed
+  //   fallbackOptions did so to feed extractOptionsFromNodes, which the reconciler
+  //   now subsumes via canvasInterventionsToCEE.
+  void fallbackOptions
+  const validNodeIds = new Set(nodes.map((n) => n.id))
+  const reconciledOptions = reconcileOptionsWithCanvasNodes(analysisReady, nodes, validNodeIds)
+  const v2Options = reconciledOptions.map(ceeOptionToV2Option)
 
-  // Diagnostic: warn if any option has empty interventions (should be caught by pre-run validation)
+  // Diagnostic: warn if any option STILL has empty interventions after reconciliation
+  // (the pre-run validation gate in useV2Run will block before reaching here, so this
+  // is defence-in-depth, not the primary guard).
   if (import.meta.env.DEV) {
     const emptyOptions = v2Options.filter((o) => Object.keys(o.interventions).length === 0)
     if (emptyOptions.length > 0) {
       console.warn(
-        '[V2Adapter] Options with empty interventions in buildV2RequestFromAnalysisReady:',
+        '[V2Adapter] Options with empty interventions after reconciliation in buildV2RequestFromAnalysisReady:',
         { emptyOptionLabels: emptyOptions.map((o) => o.label), totalOptions: v2Options.length },
       )
     }
   }
 
-  // Step 4: Get goal node ID and seed from analysisReady
-  // P0 Fix: Seed precedence - options.seed > analysisReady.suggested_seed > derived
-  const goalNodeId = analysisReady.goal_node_id
-  const seed = options.seed?.toString() ?? analysisReady.suggested_seed ?? String(Math.floor(Date.now() / 1000) % 1000000)
+  // Step 4: Seed precedence — options.seed > analysisReady.suggested_seed > derived
+  const seed = options.seed?.toString() ?? analysisReady?.suggested_seed ?? String(Math.floor(Date.now() / 1000) % 1000000)
 
   // Step 5: Apply ID normalisation for ISL V2 constraint
   // IMPORTANT: This normalises ALL IDs coherently:
@@ -915,8 +1117,8 @@ export function buildV2RequestFromAnalysisReady(
     // Audit F-01: Removed framing — PLoT rejects unknown fields (extra='forbid', 400).
     // Include brief for PLoT context
     ...(brief && { brief }),
-    // Goal threshold (normalised 0-1) — accepted by PLoT
-    ...(analysisReady.goal_threshold != null && { goal_threshold: analysisReady.goal_threshold }),
+    // Goal threshold (normalised 0-1) — accepted by PLoT. Only present when analysisReady provided it.
+    ...(analysisReady?.goal_threshold != null && { goal_threshold: analysisReady.goal_threshold }),
     // Goal constraints for multi-constraint analysis (from CEE response root, not analysis_ready)
     ...(goalConstraints?.length && { goal_constraints: goalConstraints }),
   }

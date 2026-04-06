@@ -260,7 +260,14 @@ export interface CEEGoalConstraint {
  */
 export interface CEEInterventionV3 {
   value: number
-  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis'
+  /**
+   * Origin of the intervention value.
+   * - brief_extraction / user_specified / cee_hypothesis: produced upstream by CEE
+   * - canvas_fallback: reconciled at request-build time from node.data.interventions
+   *   when analysisReady was incomplete. See reconcileOptionsWithCanvasNodes in
+   *   src/adapters/plot/v2/adapter.ts. Trends towards zero as upstream consistency improves.
+   */
+  source: 'brief_extraction' | 'user_specified' | 'cee_hypothesis' | 'canvas_fallback'
   target_match?: {
     node_id: string
     match_type: 'exact_id' | 'exact_label' | 'semantic'
