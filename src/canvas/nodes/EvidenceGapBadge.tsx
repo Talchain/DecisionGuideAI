@@ -36,7 +36,7 @@ const ESCALATION_STYLES: Record<EvidenceGapEscalation, { border: string; text: s
 const ESCALATION_TOOLTIP: Record<EvidenceGapEscalation, string> = {
   none:     'Setting a value would strengthen the analysis.',
   warning:  'High investigation value — gathering evidence here would improve the analysis.',
-  critical: 'Critical evidence gap — this is a top factor where better data could change the recommendation.',
+  critical: 'Critical evidence gap — this is a top factor where better data could change the result.',
 }
 
 /**

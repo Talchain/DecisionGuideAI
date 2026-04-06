@@ -90,7 +90,7 @@ export function RecommendedNextSteps({
           border: 'border-banana-200',
           text: 'text-banana-700',
           icon: Lightbulb,
-          label: 'Recommended',
+          label: 'Suggested',
         }
       default:
         return {
@@ -174,7 +174,7 @@ export function RecommendedNextSteps({
         <div className="space-y-2">
           {validationItems.length > 0 && (
             <span className={`${typography.caption} font-medium text-ink-600`}>
-              Recommended actions:
+              Suggested actions:
             </span>
           )}
           <div className="space-y-2">

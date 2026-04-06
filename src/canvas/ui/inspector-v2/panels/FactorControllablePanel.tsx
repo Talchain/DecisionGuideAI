@@ -112,7 +112,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   // Contextual guidance sentence based on sensitivity rank
   const sensitivityGuidance = isResultsMode && displayMetadata.sensitivityRank != null
     ? displayMetadata.sensitivityRank <= 2
-      ? 'This is one of the most influential factors in your model. Changes here noticeably affect the recommendation.'
+      ? 'This is one of the most influential factors in your model. Changes here noticeably affect the result.'
       : displayMetadata.sensitivityRank <= 5
       ? 'This factor has moderate influence on the results.'
       : null

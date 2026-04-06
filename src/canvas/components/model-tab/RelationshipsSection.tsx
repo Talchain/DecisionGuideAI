@@ -134,7 +134,7 @@ function EdgeCard({
   const causalClaim = data?.causal_claim as string | undefined ?? data?.causalClaim as string | undefined
 
   const fragileTooltip = switchProbability !== undefined
-    ? `${Math.round(switchProbability * 100)}% chance of flipping the recommendation`
+    ? `${Math.round(switchProbability * 100)}% chance of flipping the result`
     : 'Fragile: sensitive to assumption changes'
 
   const validateWeight = useCallback((s: string) => {
@@ -198,7 +198,7 @@ function EdgeCard({
         {eValue != null && (
           <span
             className={`${typography.panelMeta} text-text-body font-mono shrink-0`}
-            title={`This assumption would need to be ${eValue.toFixed(1)}x wrong to change the recommendation`}
+            title={`This assumption would need to be ${eValue.toFixed(1)}x wrong to change the result`}
             data-testid={`edge-${edgeId}-evalue`}
           >
             {eValue.toFixed(1)}x

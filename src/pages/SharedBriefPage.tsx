@@ -41,7 +41,7 @@ function BriefContent({ brief }: { brief: unknown }) {
       {data.recommendation && (
         <section>
           <h3 className="text-sm font-medium text-text-light uppercase tracking-wide mb-2">
-            Recommendation
+            Result
           </h3>
           <p className="text-text-body leading-relaxed">
             {typeof data.recommendation === 'string'

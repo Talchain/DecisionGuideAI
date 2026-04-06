@@ -22,7 +22,7 @@ function coverageImproving(from: string, to: string): boolean {
 export function HealthIndicators({ first, latest }: HealthIndicatorsProps) {
   const indicators = [
     {
-      label: 'Recommendation stability',
+      label: 'Result stability',
       from: first.stabilityLabel,
       to: latest.stabilityLabel,
       up: stabilityImproving(first.stabilityLabel, latest.stabilityLabel),

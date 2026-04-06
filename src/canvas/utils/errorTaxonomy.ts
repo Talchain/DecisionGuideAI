@@ -200,7 +200,7 @@ export function mapErrorToUserMessage(error: {
   if (error.code === 'HIGH_TIE_RATE' || messageLower.includes('tie rate') || messageLower.includes('ties between options')) {
     return {
       title: 'Options are too similar',
-      message: 'The analysis found many ties between options, making it difficult to recommend a clear winner.',
+      message: 'The analysis found many ties between options, making it difficult to identify a clear leading option.',
       suggestion: 'Add more differentiating factors or adjust factor weights to distinguish between options.',
       retryable: false,
       severity: 'warning',

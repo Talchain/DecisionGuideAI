@@ -232,7 +232,7 @@ export const OptionPanel = memo(function OptionPanel({
                   <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--color-option)' }}>
                     {Math.round(displayMetadata.winRate * 100)}%
                   </div>
-                  <div className={`${typography.panelMeta} text-text-light`}>Chance of winning</div>
+                  <div className={`${typography.panelMeta} text-text-light`}>Chance of leading</div>
                   <ResultsLink label="Compare all options" tab="compare" />
                 </div>
               </div>

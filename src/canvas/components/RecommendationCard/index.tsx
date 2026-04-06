@@ -262,7 +262,7 @@ export function RecommendationCard({
         <div className="flex items-center gap-3">
           <Loader2 className="h-5 w-5 text-sky-500 animate-spin" aria-hidden="true" />
           <span className={`${typography.body} text-ink-600`}>
-            Generating recommendation...
+            Generating result...
           </span>
         </div>
       </div>
@@ -280,7 +280,7 @@ export function RecommendationCard({
           <div className="flex items-center gap-3">
             <AlertTriangle className="h-5 w-5 text-carrot-600" aria-hidden="true" />
             <span className={`${typography.body} text-carrot-800`}>
-              Could not generate recommendation
+              Could not generate result
             </span>
           </div>
           <button
@@ -318,7 +318,7 @@ export function RecommendationCard({
           <div className="flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-option" aria-hidden="true" />
             <span className={`${typography.caption} font-medium text-option uppercase tracking-wide`}>
-              Recommended Action
+              Suggested Action
             </span>
           </div>
           <button

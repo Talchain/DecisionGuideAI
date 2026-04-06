@@ -70,7 +70,7 @@ export default function About() {
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Bias mitigation</h3>
             <p className="text-gray-600">
-              Cognitive bias awareness and emotional regulation through real-time analysis and recommendations.
+              Cognitive bias awareness and emotional regulation through real-time analysis and insights.
             </p>
           </div>
 

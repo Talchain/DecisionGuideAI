@@ -2057,7 +2057,7 @@ function extractRobustness(
         status: 'pass',
         stability,
         context_label: `Robust (${stabilityPercent}% stable)`,
-        description: 'Recommendation holds under assumption changes',
+        description: 'Result holds under assumption changes',
       }
     } else if (stability >= 0.65) {
       return {
@@ -2071,7 +2071,7 @@ function extractRobustness(
         status: 'fail',
         stability,
         context_label: `Fragile (${stabilityPercent}% stable)`,
-        description: 'Recommendation may change if assumptions vary',
+        description: 'Result may change if assumptions vary',
       }
     }
   }
@@ -2082,7 +2082,7 @@ function extractRobustness(
       status: 'pass',
       stability: null,
       context_label: 'Robust',
-      description: 'Recommendation stable',
+      description: 'Result stable',
     }
   }
 
@@ -2091,7 +2091,7 @@ function extractRobustness(
       status: 'warn',
       stability: null,
       context_label: 'Moderate',
-      description: 'Recommendation may vary under different assumptions',
+      description: 'Result may vary under different assumptions',
     }
   }
 
@@ -2100,7 +2100,7 @@ function extractRobustness(
     status: 'fail',
     stability: null,
     context_label: 'Fragile',
-    description: 'Recommendation may change if assumptions vary',
+    description: 'Result may change if assumptions vary',
   }
 }
 

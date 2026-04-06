@@ -448,7 +448,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   const headline = data.recommendation.coachingHeadline
     ?? data.recommendation.coachingDecisionStatement
     ?? (data.recommendation.recommendedOption
-      ? `${data.recommendation.recommendedOption.label} is the recommended option`
+      ? `${data.recommendation.recommendedOption.label} is the leading option`
       : null)
 
   // Merge and rank action items by EVOI
@@ -478,7 +478,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
 
       {/* 1. Health header — ring shows ISL recommendation_stability directly */}
       <TriageHealthHeader
-        title="Current recommendation"
+        title="Current result"
         ringLabel="%"
         ringDimensions={ringDimensions}
         dimensions={dimensionBars}

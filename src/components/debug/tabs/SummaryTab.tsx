@@ -502,12 +502,12 @@ export function SummaryTab({
           {/* Winner card - only show when there's a winning option */}
           {data.winningOption && (
             <KpiCard
-              label="Winner"
+              label="Leading option"
               value={`${data.winningOption.label || data.winningOption.id || 'Unknown'} (${Number.isFinite(data.winningOption.win_probability) ? data.winningOption.win_probability.toFixed(0) : '—'}%)`}
               status={data.winningOption.is_close_race ? 'warn' : 'ok'}
               tooltip={data.winningOption.is_close_race && data.winningOption.runner_up
                 ? `Close race vs ${data.winningOption.runner_up.label || data.winningOption.runner_up.id || 'Unknown'} (${Number.isFinite(data.winningOption.runner_up.win_probability) ? data.winningOption.runner_up.win_probability.toFixed(0) : '—'}%)`
-                : 'Clear winner'}
+                : 'Clear leading option'}
               compact
             />
           )}
@@ -554,10 +554,10 @@ export function SummaryTab({
       {/* Row 2: Winning Option (if available) */}
       {data.winningOption && (
         <div style={sectionStyle}>
-          <div style={sectionTitleStyle}>Recommendation</div>
+          <div style={sectionTitleStyle}>Result</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
             <div style={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
-              Winner: {data.winningOption.label}
+              Leading option: {data.winningOption.label}
             </div>
             <div style={{ fontSize: 13, color: '#475569' }}>
               {data.winningOption.win_probability.toFixed(0)}% confidence

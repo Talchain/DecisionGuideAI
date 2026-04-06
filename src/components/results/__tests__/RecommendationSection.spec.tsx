@@ -138,7 +138,7 @@ describe('RecommendationSection', () => {
 
     render(<RecommendationSection data={preRunData} />)
 
-    expect(screen.getByText(/Complete your model to see recommendations/)).toBeInTheDocument()
+    expect(screen.getByText(/Complete your model to see results/)).toBeInTheDocument()
   })
 
   it('does not render goal link in recommendation section (moved to Objective section)', () => {
@@ -933,10 +933,10 @@ describe('RecommendationSection', () => {
 
       render(<RecommendationSection data={lowStabilityData} />)
 
-      // Fix D3: "Too close to call" removed, now shows "no clear winner" instead
+      // Fix D3: "Too close to call" removed, now shows "no clear leading option" instead
       // V9.2: lowercase "no" because it follows "To achieve [goal],"
       expect(screen.queryByText(/Too close to call/)).not.toBeInTheDocument()
-      expect(screen.getByText(/no clear winner/)).toBeInTheDocument()
+      expect(screen.getByText(/no clear leading option/)).toBeInTheDocument()
     })
 
     it('does not show near-tie when nearTie undefined and stability is high', () => {

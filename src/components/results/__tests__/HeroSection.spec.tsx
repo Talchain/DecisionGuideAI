@@ -41,7 +41,7 @@ describe('HeroSection', () => {
       expect(screen.getByText(/Some analysis steps did not complete/)).toBeInTheDocument()
     })
 
-    it('shows "no clear winner" when stability < 0.70 (rule 2)', () => {
+    it('shows "no clear leading option" when stability < 0.70 (rule 2)', () => {
       render(
         <HeroSection
           {...baseProps}
@@ -49,8 +49,8 @@ describe('HeroSection', () => {
         />
       )
 
-      // V9.2: merged headline — lowercase "no clear winner" after "To achieve..."
-      expect(screen.getByText(/no clear winner/)).toBeInTheDocument()
+      // V9.2: merged headline — lowercase "no clear leading option" after "To achieve..."
+      expect(screen.getByText(/no clear leading option/)).toBeInTheDocument()
       expect(screen.getByText(/sensitive to your estimates/)).toBeInTheDocument()
     })
 
@@ -113,7 +113,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/no clear winner/)).toBeInTheDocument()
+      expect(screen.getByText(/no clear leading option/)).toBeInTheDocument()
     })
   })
 
@@ -139,7 +139,7 @@ describe('HeroSection', () => {
         />
       )
 
-      expect(screen.getByText(/no clear winner/)).toBeInTheDocument()
+      expect(screen.getByText(/no clear leading option/)).toBeInTheDocument()
       expect(screen.queryByText('Custom M2 headline')).not.toBeInTheDocument()
     })
   })
@@ -1769,7 +1769,7 @@ describe('HeroSection', () => {
 
       // WinGauge uses role="figure" — should NOT be in the hero
       expect(container.querySelector('[role="figure"]')).toBeNull()
-      expect(screen.queryByText('Wins across scenarios')).not.toBeInTheDocument()
+      expect(screen.queryByText('Leads across scenarios')).not.toBeInTheDocument()
     })
   })
 

@@ -161,7 +161,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
             data-testid={`conditional-winner-${option.id}`}
           >
             <span className={`${typography.panelMeta} text-warning leading-relaxed`}>
-              Wins overall, but when {cw.factorLabel} exceeds {cw.splitUnit ? formatValueWithUnit(cw.splitValue, cw.splitUnit) : formatSmartNumber(cw.splitValue)}, {takesOverLabel} takes over
+              Leads overall, but when {cw.factorLabel} exceeds {cw.splitUnit ? formatValueWithUnit(cw.splitValue, cw.splitUnit) : formatSmartNumber(cw.splitValue)}, {takesOverLabel} takes over
             </span>
           </div>
         )
@@ -170,7 +170,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
       {/* Pre-analysis coaching */}
       {!hasAnalysisData && (
         <p className={`${typography.panelMeta} text-text-light italic`}>
-          Run analysis to see when each option wins and loses
+          Run analysis to see when each option leads and lags
         </p>
       )}
 

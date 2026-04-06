@@ -236,7 +236,7 @@ export const TopBar = ({
 
         {/* Stability (only show when complete) */}
         {analysisMetadata.stability !== null && analysisMetadata.runStatus === 'complete' && (
-          <Tooltip content={analysisMetadata.stability === 'stable' ? 'Recommendation is stable across scenarios' : 'Recommendation may change with different assumptions'}>
+          <Tooltip content={analysisMetadata.stability === 'stable' ? 'Result is stable across scenarios' : 'Result may change with different assumptions'}>
             <div className={styles.metadataChip} data-stability={analysisMetadata.stability}>
               {analysisMetadata.stability === 'stable' ? (
                 <Shield size={12} aria-hidden="true" />

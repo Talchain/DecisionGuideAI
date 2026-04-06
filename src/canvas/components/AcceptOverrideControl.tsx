@@ -46,15 +46,15 @@ const confidenceConfig: Record<ConfidenceLevel, {
     border: 'border-mint-200',
     text: 'text-mint-700',
     badge: 'bg-mint-100 text-mint-700',
-    label: 'Recommended based on pattern',
-    shortLabel: 'Recommended',
+    label: 'Suggested based on pattern',
+    shortLabel: 'Suggested',
   },
   medium: {
     bg: 'bg-sun-50',
     border: 'border-sun-200',
     text: 'text-sun-700',
     badge: 'bg-sun-100 text-sun-700',
-    label: 'Suggestion — review recommended',
+    label: 'Suggestion — please review',
     shortLabel: 'Review',
   },
   low: {

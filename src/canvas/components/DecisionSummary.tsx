@@ -347,7 +347,7 @@ export function DecisionSummary({
         <div className="flex items-center gap-2 mb-2">
           <Zap className="h-4 w-4 text-mint-600" aria-hidden="true" />
           <span className={`${typography.caption} font-medium text-mint-700 uppercase tracking-wide`}>
-            Recommended Option
+            Leading Option
           </span>
           {ranking && (
             <span className={`${typography.caption} px-2 py-0.5 rounded-full ${
@@ -439,7 +439,7 @@ export function DecisionSummary({
         {/* Brief 26 Task 5: Use canvas node label for consistency */}
         {ranking && ranking.rank !== 1 && (
           <p className={`${typography.caption} text-ink-500 mb-2`}>
-            Winner: {optionNodes.find(o => o.label === ranking.winnerName)?.label || ranking.winnerName || 'Alternative option'}
+            Leading option: {optionNodes.find(o => o.label === ranking.winnerName)?.label || ranking.winnerName || 'Alternative option'}
           </p>
         )}
 

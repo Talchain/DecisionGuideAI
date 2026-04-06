@@ -105,7 +105,7 @@ export function TransitionCard({
           </div>
           {tr.robustnessChanged && (
             <div className={`${typography.panelBody} mt-0.5`}>
-              Recommendation stability: {tr.robustnessFrom} → {tr.robustnessTo}
+              Result stability: {tr.robustnessFrom} → {tr.robustnessTo}
             </div>
           )}
           {tr.goalProbDelta != null && tr.goalProbDelta !== 0 && (
@@ -189,7 +189,7 @@ export function TransitionCard({
           {/* E-value insight (standard mode: <2.0 only; expert: always) */}
           {tr.eValue != null && (showExpert || tr.eValue < 2.0) && (
             <div className={`${typography.panelBody} mt-1`}>
-              The {tr.eValueEdge} assumption would only need to be {tr.eValue}x wrong to change the recommendation.
+              The {tr.eValueEdge} assumption would only need to be {tr.eValue}x wrong to change the result.
             </div>
           )}
 

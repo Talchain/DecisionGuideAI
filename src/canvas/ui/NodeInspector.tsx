@@ -446,7 +446,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
             </div>
           ) : displayMetadata.stabilityPercentage !== null ? (
             <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
-              <span className={`${typography.panelMeta} text-text-light`}>Recommendation stability</span>
+              <span className={`${typography.panelMeta} text-text-light`}>Result stability</span>
               <span className={`${typography.panelBody} text-text-body tabular-nums`}>
                 {Math.round(displayMetadata.stabilityPercentage * 100)}%
               </span>

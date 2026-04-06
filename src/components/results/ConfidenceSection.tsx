@@ -51,7 +51,7 @@ function WhyThisMatters({ whatCouldHappen, whatToDo }: { whatCouldHappen?: strin
           )}
           {whatToDo && (
             <p className={`${typography.panelMeta} text-text-body`}>
-              <strong className="text-text-header">Recommendation:</strong> {whatToDo}
+              <strong className="text-text-header">Suggested action:</strong> {whatToDo}
             </p>
           )}
         </div>
@@ -161,8 +161,8 @@ const TIER_CONFIG: Record<ConfidenceTier, {
     borderColor: 'border-danger/30',
     textColor: 'text-danger',
     label: 'Early sketch',
-    descriptionWithItems: 'Add the missing elements below before relying on the recommendation.',
-    descriptionWithoutItems: 'Add more factors and connections before relying on the recommendation.',
+    descriptionWithItems: 'Add the missing elements below before relying on the result.',
+    descriptionWithoutItems: 'Add more factors and connections before relying on the result.',
   },
   unknown: {
     Icon: Info,
@@ -191,7 +191,7 @@ function EValueIndicator({ eValue }: { eValue: number }) {
   const colour = eValue > 3 ? 'text-success' : eValue >= 1.5 ? 'text-warning' : 'text-danger'
   return (
     <p className={`${typography.panelBody} ${colour} ml-6 mt-0.5`}>
-      This assumption would need to be {eValue.toFixed(1)}x wrong to change the recommendation
+      This assumption would need to be {eValue.toFixed(1)}x wrong to change the result
     </p>
   )
 }
@@ -507,7 +507,7 @@ export function ConfidenceSection({
           </p>
           {topAction?.couldFlip && (
             <p className={`${typography.panelMeta} text-danger mt-1`} data-testid="voi-could-flip">
-              Could change the recommendation
+              Could change the result
             </p>
           )}
         </div>
@@ -1044,7 +1044,7 @@ function FlipThresholdCards({
         </span>
       </div>
       <p className={`${typography.panelMeta} text-text-light mb-2`}>
-        Changes that would flip the recommendation
+        Changes that would flip the result
       </p>
       {visible.map((ft, idx) => {
         const margin = ft.flip_value != null ? Math.abs(ft.flip_value - ft.current_value) : null
@@ -1081,7 +1081,7 @@ function FlipThresholdCards({
             onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
           >
             <p className={`${typography.panelHeader} text-text-header`}>
-              {ft.label}: changes from {formatVal(ft.current_value)} to {formatVal(ft.flip_value!)} would flip the recommendation
+              {ft.label}: changes from {formatVal(ft.current_value)} to {formatVal(ft.flip_value!)} would flip the result
             </p>
             {ft.alternative_winner_label && (
               <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
@@ -1140,7 +1140,7 @@ function ConditionalWinnerCards({
       <div className="flex items-center gap-2 mb-1">
         <GitBranch className="w-4 h-4 text-info flex-shrink-0" />
         <h4 className={`${typography.panelHeader} text-text-header`}>
-          Conditional recommendations
+          Conditional results
         </h4>
       </div>
       {visible.map((w, idx) => {

@@ -495,7 +495,7 @@ export function useResultsPanelData(): ResultsPanelData {
       const topTipping = tippingPoints[0]
       actions.push({
         action: `Monitor "${topTipping.label}" closely - near tipping point`,
-        rationale: `Small changes here could flip the recommended choice.`,
+        rationale: `Small changes here could flip the leading option.`,
         priority: 'high',
       })
     } else if (sensitivityItems.length > 0) {
@@ -512,7 +512,7 @@ export function useResultsPanelData(): ResultsPanelData {
     if (robustnessData?.robustness_label === 'fragile') {
       actions.push({
         action: 'Consider adding mitigation strategies',
-        rationale: 'Your recommendation is sensitive to small changes in assumptions.',
+        rationale: 'Your result is sensitive to small changes in assumptions.',
         priority: 'high',
       })
     } else if (robustnessData?.robustness_label === 'moderate') {
@@ -573,13 +573,13 @@ export function useResultsPanelData(): ResultsPanelData {
       } else if (hasFragileEdges) {
         actions.push({
           action: 'Validate key assumptions in your model',
-          rationale: 'Fragile assumptions could flip the recommendation.',
+          rationale: 'Fragile assumptions could flip the result.',
           priority: 'medium',
         })
       } else {
         actions.push({
           action: 'Share results with your team',
-          rationale: 'Align stakeholders on the current recommendation.',
+          rationale: 'Align stakeholders on the current result.',
           priority: 'low',
         })
       }

@@ -1654,7 +1654,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         : tier === 'fair'
           ? 'Your model covers the basics. Address the items below.'
           : tier === 'needs_work'
-            ? 'Add the missing elements below before relying on the recommendation.'
+            ? 'Add the missing elements below before relying on the result.'
             : 'Unable to assess model quality.',
     }
 

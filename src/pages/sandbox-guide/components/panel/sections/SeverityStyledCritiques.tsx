@@ -92,7 +92,7 @@ export function SeverityStyledCritiques({
 
   return (
     <div className="space-y-3 font-sans p-6">
-      <h3 className="text-sm font-semibold text-storm-900">Issues & Recommendations</h3>
+      <h3 className="text-sm font-semibold text-storm-900">Issues and suggestions</h3>
 
       {sortedGroups.map(([severity, items]) => (
         <CritiqueGroup

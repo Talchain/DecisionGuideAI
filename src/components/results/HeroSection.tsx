@@ -344,8 +344,8 @@ export function HeroSection({
     // Precedence 2: Low stability (< 0.70) — no clear winner
     if (recommendationStability != null && recommendationStability < 0.70) {
       return {
-        main: `no clear winner, the result is sensitive to your estimates`,
-        sub: `${winnerLabel} wins slightly more often`,
+        main: `no clear leading option, the result is sensitive to your estimates`,
+        sub: `${winnerLabel} leads slightly more often`,
       }
     }
 
@@ -765,8 +765,8 @@ export function HeroSection({
                 <Info size={14} className="text-info flex-shrink-0 mt-0.5" />
                 <p className={`${typography.panelBody} text-text-body`}>
                   {nearTie.gap != null && nearTie.gap > 0
-                    ? `These two options are very close (${Math.round(nearTie.gap * 100)} percentage points apart). Small changes in assumptions could flip the recommendation.`
-                    : 'These two options are very close. Small changes in assumptions could flip the recommendation.'}
+                    ? `These two options are very close (${Math.round(nearTie.gap * 100)} percentage points apart). Small changes in assumptions could flip the result.`
+                    : 'These two options are very close. Small changes in assumptions could flip the result.'}
                 </p>
               </div>
             </div>

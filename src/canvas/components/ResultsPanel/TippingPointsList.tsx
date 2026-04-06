@@ -47,7 +47,7 @@ export function TippingPointsList({
         <div className="flex items-center justify-center gap-2 mb-1">
           <Target className="h-4 w-4 text-mint-500" aria-hidden="true" />
           <span className={`${typography.bodySmall} font-medium text-mint-700`}>
-            Robust recommendation
+            Robust result
           </span>
         </div>
         <p className={`${typography.caption} text-ink-500`}>
@@ -112,7 +112,7 @@ export function TippingPointsList({
               If {param.label.toLowerCase()}{' '}
               {param.direction === 'increase' ? 'rises to' : 'falls to'}{' '}
               <strong>{Math.round(param.flip_threshold * 100)}%</strong>
-              {' '}(from {Math.round(param.current_value * 100)}%), recommendation flips
+              {' '}(from {Math.round(param.current_value * 100)}%), result flips
             </p>
           </button>
         )

@@ -662,7 +662,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             }}
             className="bg-panel text-text-body border border-warning/30 shadow-sm"
             title={fragileEdgeSwitchProb !== null
-              ? `Sensitive assumption: ${Math.round(fragileEdgeSwitchProb * 100)}% chance the recommendation flips if this relationship changes`
+              ? `Sensitive assumption: ${Math.round(fragileEdgeSwitchProb * 100)}% chance the result flips if this relationship changes`
               : 'Sensitive assumption: outcome may flip if this relationship changes'}
           >
             <AlertTriangle size={12} />

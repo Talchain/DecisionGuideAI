@@ -310,7 +310,7 @@ export const ParetoInsights = memo(function ParetoInsights({
                   >
                     <TrendingUp className="h-3 w-3 text-mint-500" aria-hidden="true" />
                     <span className="font-medium">{diff.winnerLabel}</span>
-                    <span>wins on</span>
+                    <span>leads on</span>
                     <span className="font-medium">{diff.criterion}</span>
                     <span className="text-ink-400">
                       (+{(diff.margin * 100).toFixed(0)}%)

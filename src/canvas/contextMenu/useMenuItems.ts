@@ -571,7 +571,7 @@ function buildEdgeMenu(
           id: 'lens-fragile',
           label: 'Show all fragile edges',
           icon: Layers,
-          tooltip: 'Highlight all edges that could flip the recommendation',
+          tooltip: 'Highlight all edges that could flip the result',
           enabled: true,
           action: wrap(() => state.setLens('fragile')),
         })

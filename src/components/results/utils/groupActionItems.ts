@@ -345,7 +345,7 @@ export function groupActionItems(input: GroupActionItemsInput): ActionGroup[] {
       label: 'Validate before committing',
       icon: 'AlertTriangle',
       iconColour: 'text-danger',
-      intro: 'If any of these are wrong, the recommendation could change.',
+      intro: 'If any of these are wrong, the result could change.',
       items: group1Items,
     },
     {

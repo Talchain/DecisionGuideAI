@@ -77,12 +77,12 @@ function hingeAwareDescription(
 ): string {
   if (isWinner) {
     if (hinge?.reason === 'fragile_edge') {
-      return `Highest win likelihood but depends on ${hinge.label}`
+      return `Highest leading-option likelihood but depends on ${hinge.label}`
     }
     if (hinge?.reason === 'heuristic' || hinge?.reason === 'voi') {
-      return `Highest win likelihood. ${hinge.label} has the widest uncertainty.`
+      return `Highest leading-option likelihood. ${hinge.label} has the widest uncertainty.`
     }
-    return 'Highest win likelihood across simulated scenarios'
+    return 'Highest leading-option likelihood across simulated scenarios'
   }
   if (isRunnerUp) {
     if (hinge?.alternativeWinnerLabel && hinge.alternativeWinnerLabel === option.label) {
@@ -319,7 +319,7 @@ function OptionCard({
       {/* Header: leading rank · option name | win percentage right-aligned */}
       <div className="flex items-center gap-2">
         {rank != null && totalOptions > 1 && (
-          <Tooltip content={`Win probability ranking across ${totalOptions} scenarios`}>
+          <Tooltip content={`Leading-option ranking across ${totalOptions} scenarios`}>
             <span
               className={`${typography.panelBody} font-semibold text-text-light flex-shrink-0 whitespace-nowrap`}
               data-testid={`rank-badge-${option.id}`}
@@ -345,7 +345,7 @@ function OptionCard({
         )}
         <span className="flex-1" />
         {option.winProbability != null && (
-          <Tooltip content={`Wins in ${Math.round(option.winProbability * 100)}% of simulated scenarios`}>
+          <Tooltip content={`Leads in ${Math.round(option.winProbability * 100)}% of simulated scenarios`}>
             <span
               className={`${typography.panelHeader} text-text-header tabular-nums flex-shrink-0`}
               data-testid={`win-pct-${option.id}`}
@@ -366,7 +366,7 @@ function OptionCard({
         <div
           className="w-full rounded-full overflow-hidden"
           style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}
-          title={`Win probability: ${Math.round(option.winProbability * 100)}%`}
+          title={`Leading-option probability: ${Math.round(option.winProbability * 100)}%`}
         >
           <div
             className="h-full rounded-full transition-all duration-300"
@@ -442,15 +442,15 @@ function OptionCard({
               onClick={(e) => {
                 e.stopPropagation()
                 const prompt = isWinner
-                  ? `What makes "${option.label}" the winning option? What are its key advantages?`
+                  ? `What makes "${option.label}" the leading option? What are its key advantages?`
                   : option.isBaseline
                     ? `Why does the status quo "${option.label}" lose? What would need to change?`
-                    : `What would make "${option.label}" win instead? What changes would be needed?`
+                    : `What would make "${option.label}" lead instead? What changes would be needed?`
                 onSendMessage(prompt)
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
-              {isWinner ? 'What makes this win?' : option.isBaseline ? 'Why does this lose?' : 'What would make this win?'}
+              {isWinner ? 'What makes this lead?' : option.isBaseline ? 'Why does this lose?' : 'What would make this lead?'}
             </button>
           )}
           {!option.isBaseline && onFocusNode && (

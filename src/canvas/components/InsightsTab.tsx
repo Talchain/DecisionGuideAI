@@ -251,7 +251,7 @@ function TransportabilitySection() {
 
           {data.adaptations.length > 0 && (
             <div className="mt-2">
-              <p className={`${typography.label} mb-1`}>Recommended adaptations:</p>
+              <p className={`${typography.label} mb-1`}>Suggested adaptations:</p>
               <div className="space-y-1">
                 {data.adaptations.map((adaptation, i) => (
                   <div key={i} className={`${typography.bodySmall}`}>

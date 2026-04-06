@@ -71,7 +71,7 @@ const SEVERITY_CONFIG = {
     borderColor: 'border-sand-200',
     iconColor: 'text-warning',
     labelColor: 'text-warning',
-    description: 'recommended',
+    description: 'suggested',
   },
   info: {
     icon: Info,

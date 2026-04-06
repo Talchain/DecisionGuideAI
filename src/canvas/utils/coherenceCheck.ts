@@ -112,7 +112,7 @@ export function checkRecommendationCoherence(
       isCoherent: false,
       contradiction: {
         type: 'sentiment_mismatch',
-        description: 'Recommendation suggests proceeding, but outcome indicates negative results',
+        description: 'Analysis suggests proceeding, but outcome indicates negative results',
         recommendationText: recommendationHeadline,
         outcomeText: outcomeDescription,
       },
@@ -133,7 +133,7 @@ export function checkRecommendationCoherence(
       isCoherent: false,
       contradiction: {
         type: 'outcome_mismatch',
-        description: `Recommendation is positive but success likelihood is only ${outcomeValue.toFixed(0)}%`,
+        description: `Result is positive but success likelihood is only ${outcomeValue.toFixed(0)}%`,
         recommendationText: recommendationHeadline,
         outcomeText: outcomeDescription,
       },
@@ -151,11 +151,11 @@ export function getCoherenceWarningMessage(result: CoherenceCheckResult): string
 
   switch (result.contradiction?.type) {
     case 'sentiment_mismatch':
-      return 'Results require review — analysis produced unexpected combination of recommendation and outcome'
+      return 'Results require review — analysis produced unexpected combination of result and outcome'
     case 'outcome_mismatch':
-      return 'Results require review — recommendation confidence may not match outcome predictions'
+      return 'Results require review — result confidence may not match outcome predictions'
     case 'direction_mismatch':
-      return 'Results require review — recommendation direction conflicts with outcome trends'
+      return 'Results require review — result direction conflicts with outcome trends'
     default:
       return 'Results require review — please verify analysis outputs'
   }

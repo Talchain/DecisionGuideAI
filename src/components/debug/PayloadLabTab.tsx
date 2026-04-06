@@ -702,7 +702,7 @@ function ResultsTable({ summary, runNumber, compareWith }: ResultsTableProps) {
 
   const handleCopyTable = useCallback(() => {
     if (!hasOptions) return
-    const header = 'Option\tp10\tp50\tp90\tWinner %'
+    const header = 'Option\tp10\tp50\tp90\tLeading %'
     const rows = summary.options.map(
       (o) => `${o.label}\t${(o.p10 * 100).toFixed(1)}%\t${(o.p50 * 100).toFixed(1)}%\t${(o.p90 * 100).toFixed(1)}%\t${(o.winner_pct * 100).toFixed(0)}%`
     )
@@ -711,7 +711,7 @@ function ResultsTable({ summary, runNumber, compareWith }: ResultsTableProps) {
 
   const handleDownloadCSV = useCallback(() => {
     if (!hasOptions) return
-    const header = 'Option,p10,p50,p90,Winner %'
+    const header = 'Option,p10,p50,p90,Leading %'
     const rows = summary.options.map(
       (o) => `"${o.label}",${o.p10},${o.p50},${o.p90},${o.winner_pct}`
     )
@@ -856,7 +856,7 @@ function ResultsTable({ summary, runNumber, compareWith }: ResultsTableProps) {
               p90
             </th>
             <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>
-              Winner %
+              Leading %
             </th>
             {compareWith && (
               <th style={{ padding: '6px 8px', textAlign: 'right', borderBottom: '1px solid #e2e8f0' }}>

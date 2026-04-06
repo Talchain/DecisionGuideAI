@@ -107,7 +107,7 @@ export function ComparisonTableSection() {
               <div className="flex items-center gap-2">
                 <Star className="w-5 h-5 text-mint-600" />
                 <p className={`${typography.label} text-mint-900`}>
-                  Recommended: {data.alternative_scenarios.find(s => s.id === data.recommended_scenario)?.name || 'Base'}
+                  Suggested: {data.alternative_scenarios.find(s => s.id === data.recommended_scenario)?.name || 'Base'}
                 </p>
               </div>
             </div>

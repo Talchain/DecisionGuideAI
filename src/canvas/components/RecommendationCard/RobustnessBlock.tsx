@@ -59,7 +59,7 @@ const riskProfileConfig: Record<RiskProfilePreset, {
     robustnessAdvice: (label) => {
       if (label === 'fragile') return 'High sensitivity detected — consider waiting for more data before deciding'
       if (label === 'moderate') return 'Some uncertainty remains — review key sensitivities before committing'
-      return 'Good robustness — recommendation aligns with conservative approach'
+      return 'Good robustness — result aligns with conservative approach'
     },
   },
   neutral: {
@@ -68,7 +68,7 @@ const riskProfileConfig: Record<RiskProfilePreset, {
     robustnessAdvice: (label) => {
       if (label === 'fragile') return 'High sensitivity — consider the trade-offs carefully'
       if (label === 'moderate') return 'Moderate certainty — acceptable for balanced decision-making'
-      return 'Strong robustness — high confidence in recommendation'
+      return 'Strong robustness — high confidence in result'
     },
   },
   risk_seeking: {
@@ -99,7 +99,7 @@ const robustnessConfig: Record<RobustnessLabel, {
     iconColor: 'text-mint-600',
     borderColor: 'border-mint-200',
     label: 'Robust',
-    description: 'Recommendation is stable across plausible parameter variations',
+    description: 'Result is stable across plausible parameter variations',
     meterFill: 5,
   },
   moderate: {
@@ -109,7 +109,7 @@ const robustnessConfig: Record<RobustnessLabel, {
     iconColor: 'text-banana-600',
     borderColor: 'border-banana-200',
     label: 'Moderate',
-    description: 'Some parameters could change the recommendation if varied significantly',
+    description: 'Some parameters could change the result if varied significantly',
     meterFill: 3,
   },
   fragile: {
@@ -119,7 +119,7 @@ const robustnessConfig: Record<RobustnessLabel, {
     iconColor: 'text-carrot-600',
     borderColor: 'border-carrot-200',
     label: 'Sensitive',
-    description: 'Recommendation is sensitive to small changes in key parameters',
+    description: 'Result is sensitive to small changes in key parameters',
     meterFill: 1,
   },
   unknown: {
@@ -557,7 +557,7 @@ export const RobustnessBlock = memo(function RobustnessBlock({
             <div className="px-4 py-3">
               <p className={`${typography.caption} text-ink-500`}>
                 {robustness.recommendation.recommendation_status === 'clear'
-                  ? 'Clear winner - no significant sensitivities detected'
+                  ? 'Clear leading option - no significant sensitivities detected'
                   : robustness.recommendation.recommendation_status === 'close_call'
                     ? 'Close call between top options'
                     : 'Consider gathering more data before deciding'}
@@ -570,7 +570,7 @@ export const RobustnessBlock = memo(function RobustnessBlock({
             <span className={`${typography.caption} text-ink-500`}>
               Status: {
                 robustness.recommendation.recommendation_status === 'clear'
-                  ? 'Clear recommendation'
+                  ? 'Clear result'
                   : robustness.recommendation.recommendation_status === 'close_call'
                     ? 'Close call — consider sensitivities'
                     : 'Uncertain — more data needed'

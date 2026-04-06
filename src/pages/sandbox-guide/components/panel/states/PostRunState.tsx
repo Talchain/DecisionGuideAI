@@ -242,7 +242,7 @@ export function PostRunState(): JSX.Element {
       {/* Next Steps (from CEE or PLoT) */}
       {(ceeReview?.story?.next_actions || insights?.next_steps) && (
         <div className="p-6">
-          <div className="text-sm font-medium text-charcoal-900 mb-3">✅ Recommended Next Steps</div>
+          <div className="text-sm font-medium text-charcoal-900 mb-3">✅ Suggested Next Steps</div>
           <div className="space-y-2">
             {(ceeReview?.story?.next_actions || insights?.next_steps || []).map((action, idx) => {
               const actionText = typeof action === 'string' ? action : action.label

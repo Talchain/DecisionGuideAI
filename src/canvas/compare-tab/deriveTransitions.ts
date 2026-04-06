@@ -234,7 +234,7 @@ export function buildCumulativeTransition(snapshots: AnalysisSnapshot[]): Transi
     s.winnerId !== snapshots[i].winnerId
   ).length
   if (flipCount > 0) {
-    caveats.push(`Recommendation flipped ${flipCount === 1 ? 'once' : `${flipCount} times`}`)
+    caveats.push(`Result flipped ${flipCount === 1 ? 'once' : `${flipCount} times`}`)
   }
 
   // Check for any structure changes

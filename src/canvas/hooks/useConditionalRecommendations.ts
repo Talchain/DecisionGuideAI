@@ -221,9 +221,9 @@ export function useConditionalRecommendations(
     // Build robustness statement
     const robustnessLevel = conditionsData.robustness_summary.level
     const robustnessText = {
-      high: 'The recommendation is robust and unlikely to change under most scenarios.',
-      medium: 'The recommendation is moderately robust. A few scenarios could change the best option.',
-      low: 'The recommendation is sensitive to assumptions. Several scenarios could change the outcome.',
+      high: 'The result is robust and unlikely to change under most scenarios.',
+      medium: 'The result is moderately robust. A few scenarios could change the best option.',
+      low: 'The result is sensitive to assumptions. Several scenarios could change the outcome.',
     }[robustnessLevel]
 
     return {

@@ -256,7 +256,7 @@ export const EdgePanel = memo(function EdgePanel({
             {/* Contextual sentence */}
             <p className={`${typography.panelBody} mb-2 ${isFragile ? 'text-warning' : 'text-text-body'}`}>
               {isFragile
-                ? 'This is a sensitive assumption. Small changes here could change the recommendation.'
+                ? 'This is a sensitive assumption. Small changes here could change the result.'
                 : localBelief < 0.7
                 ? 'This connection is uncertain. Calibrating it would strengthen the analysis.'
                 : `How much does ${sourceLabel} affect ${targetLabel}?`}
@@ -481,8 +481,8 @@ export const EdgePanel = memo(function EdgePanel({
                   </div>
                   <p className={`${typography.panelMeta} text-text-light mt-1`}>
                     {fragileEdgeSwitchProb !== null
-                      ? `If this effect changes, there is a ${Math.round(fragileEdgeSwitchProb * 100)}% chance the recommendation would shift.`
-                      : 'If this effect changes significantly, the recommendation may shift.'}
+                      ? `If this effect changes, there is a ${Math.round(fragileEdgeSwitchProb * 100)}% chance the result would shift.`
+                      : 'If this effect changes significantly, the result may shift.'}
                   </p>
                   {techMode && fragileEdgeSwitchProb !== null && (
                     <p className={`${typography.panelMeta} text-text-light mt-0.5 font-mono`}>
@@ -493,7 +493,7 @@ export const EdgePanel = memo(function EdgePanel({
                   {edgeEValue != null && (
                     <p className={`${typography.panelMeta} mt-1.5 ${edgeEValue > 3 ? 'text-success' : edgeEValue >= 1.5 ? 'text-warning' : 'text-danger'}`}>
                       Assumption robustness: {edgeEValue.toFixed(1)}x
-                      {techMode ? '' : '. This assumption would need to be ' + edgeEValue.toFixed(1) + 'x wrong to change the recommendation'}
+                      {techMode ? '' : '. This assumption would need to be ' + edgeEValue.toFixed(1) + 'x wrong to change the result'}
                     </p>
                   )}
                 </div>

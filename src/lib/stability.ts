@@ -80,7 +80,7 @@ export function getStabilityClassification(
       heroLabel: 'Sensitive to assumptions',
       heroShortText: 'Review key inputs',
       heroExpandedText: 'Result changes under different assumptions. Review key inputs.',
-      coaching: 'Result changes under different assumptions. Small changes could shift the recommendation.',
+      coaching: 'Result changes under different assumptions. Small changes could shift the result.',
       colorClass: 'text-warning',
       borderClass: 'border-factor/30',
     }

@@ -579,7 +579,7 @@ export function GraphTextView({
                                   {isFragile && (
                                     <span
                                       className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-panel text-warning border border-warning/30`}
-                                      title="This edge is sensitive - changes here could affect the recommendation"
+                                      title="This edge is sensitive - changes here could affect the result"
                                     >
                                       <AlertTriangle className="w-3 h-3" aria-hidden="true" />
                                       Sensitive

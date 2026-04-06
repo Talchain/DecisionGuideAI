@@ -195,7 +195,7 @@ export function useRecommendation(
       }
 
       console.error('[useRecommendation] Fetch failed:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch recommendation')
+      setError(err instanceof Error ? err.message : 'Failed to fetch result')
 
       // Use fallback on error
       const fallback = buildFallbackRecommendation()
@@ -213,7 +213,7 @@ export function useRecommendation(
     const report = results?.report
     const optionNodes = nodes.filter((n) => n.type === 'option')
     const topOption = optionNodes[0]
-    const topOptionLabel = (topOption?.data as any)?.label || 'the recommended option'
+    const topOptionLabel = (topOption?.data as any)?.label || 'the leading option'
 
     // Extract drivers from report
     const drivers = (report?.drivers || []).slice(0, 3).map((d, idx) => ({
@@ -244,7 +244,7 @@ export function useRecommendation(
         })) as any,
         validation_steps: (report?.insights?.next_steps || []).slice(0, 3).map((step) => ({
           action: step,
-          rationale: 'Recommended validation step',
+          rationale: 'Suggested validation step',
           effort: 'medium',
         })) as any,
       },

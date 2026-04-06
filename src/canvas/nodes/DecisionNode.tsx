@@ -318,7 +318,7 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         {headline ? (
           <div className="mt-1">
             <div className={`${typography.nodeLabel} text-text-body`}>
-              {headline.winnerLabel} wins {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
+              {headline.winnerLabel} leads in {headline.winProb != null ? `${Math.round(headline.winProb * 100)}%` : ''} of scenarios{biggestRisk && biggestRisk.label ? (
                 <>
                   , but sensitive to{' '}
                   <button

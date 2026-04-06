@@ -470,13 +470,13 @@ export function InsightsPanel({
                   aria-hidden="true"
                 />
                 <span className={`${typography.labelSmall} text-success`}>
-                  Recommended Next Steps
+                  Suggested Next Steps
                 </span>
               </div>
               <ul
                 className="space-y-1.5"
                 role="list"
-                aria-label="Recommended next steps"
+                aria-label="Suggested next steps"
                 data-testid="next-steps-list"
               >
                 {filteredNextSteps.map((step, index) => {

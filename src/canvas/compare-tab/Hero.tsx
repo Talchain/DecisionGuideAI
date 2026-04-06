@@ -29,8 +29,8 @@ function getHeroCopy(
       }
     case 'noWinner':
       return {
-        line1: `Run ${latest.runNumber} · No clear winner (${latest.winnerLabel} ${latest.winnerProbability}%, ${latest.runnerUpLabel ?? '—'} ${latest.runnerUpProbability ?? 0}%)`,
-        line2: 'Model improving · Recommendation uncertain',
+        line1: `Run ${latest.runNumber} · No clear leading option (${latest.winnerLabel} ${latest.winnerProbability}%, ${latest.runnerUpLabel ?? '—'} ${latest.runnerUpProbability ?? 0}%)`,
+        line2: 'Model improving · Result uncertain',
         actionPrefix: 'Calibrate ',
         actionLink: latest.topEvpiFactor,
         actionNodeId: latest.topEvpiFactorId,
@@ -48,10 +48,10 @@ function getHeroCopy(
     case 'flipped': {
       const narrow = isNarrowFlip(latest)
       return {
-        line1: `Run ${latest.runNumber} · Recommendation changed: ${latest.winnerLabel} now leads at ${latest.winnerProbability}%`,
+        line1: `Run ${latest.runNumber} · Result changed: ${latest.winnerLabel} now leads at ${latest.winnerProbability}%`,
         line2: narrow
           ? 'New leader by a narrow margin · Review the change carefully'
-          : 'Structure changed · Review the new recommendation',
+          : 'Structure changed · Review the new result',
         actionPrefix: '',
         actionLink: 'Review what caused the change',
         actionNodeId: null,

@@ -168,7 +168,7 @@ function generateFallbackSuggestion(
 ): RiskToleranceSuggestion {
   // Heuristic-based suggestion based on context
   let suggestedPreset: RiskProfilePreset = 'neutral'
-  let rationale = 'A balanced approach is recommended for most decisions'
+  let rationale = 'A balanced approach is suggested for most decisions'
 
   if (context?.stakes === 'high') {
     suggestedPreset = 'risk_averse'

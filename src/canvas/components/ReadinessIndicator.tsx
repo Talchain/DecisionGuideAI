@@ -50,7 +50,7 @@ const LEVEL_CONFIG: Record<ReadinessLevel, {
   },
   needs_review: {
     icon: AlertCircle,
-    label: 'Review recommended',
+    label: 'Review suggested',
     shortLabel: 'Review',
     bgColor: 'bg-sun-50',
     textColor: 'text-sun-700',

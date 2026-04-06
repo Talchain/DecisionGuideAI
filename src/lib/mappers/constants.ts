@@ -128,7 +128,7 @@ export const COPY = {
   // ==========================================================================
 
   /** Generic near-tie message when gap is zero or unavailable */
-  NEAR_TIE_MESSAGE: 'The top options are too close to call. Small changes in your assumptions could shift the recommendation.',
+  NEAR_TIE_MESSAGE: 'The top options are too close to call. Small changes in your assumptions could shift the result.',
 
   /**
    * Near-tie message with gap percentage.
@@ -174,5 +174,5 @@ export const COPY = {
    * @returns Formatted message explaining win probability
    */
   SIMILAR_OUTCOMES_WITH_WINNER: (optionLabel: string, winPct: number): string =>
-    `Expected outcomes are similar, but ${optionLabel} wins in ${winPct}% of simulations — it performs better across more plausible conditions.`,
+    `Expected outcomes are similar, but ${optionLabel} leads in ${winPct}% of simulations — it performs better across more plausible conditions.`,
 } as const

@@ -334,10 +334,10 @@ export function CompareState(): JSX.Element {
           <span className="text-xl">🤖</span>
           <div>
             <div className="text-sm font-medium text-analytical-900 mb-1">
-              Recommendation
+              Result
             </div>
             <div className="text-sm text-analytical-700">
-              {delta ? generateRecommendation(baseline, current, delta.value) : 'Unable to generate recommendation'}
+              {delta ? generateRecommendation(baseline, current, delta.value) : 'Unable to generate result'}
             </div>
           </div>
         </div>

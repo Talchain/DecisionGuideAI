@@ -117,7 +117,7 @@ function OptionRangeBar({
       return `${formatPct(option.goalProbability, { fromDecimal: true })} hit target`
     }
     if (option.winProbability != null) {
-      return `Wins ${formatPct(option.winProbability, { fromDecimal: true })}`
+      return `Leads ${formatPct(option.winProbability, { fromDecimal: true })}`
     }
     // C10: Omit suffix entirely when both missing
     return null

@@ -61,7 +61,7 @@ export function VerificationBadge({ verification }: VerificationBadgeProps): JSX
     variant = 'review'
     config = {
       icon: AlertTriangle,
-      label: 'Review Recommended',
+      label: 'Review Suggested',
       description: 'Some unverified content detected',
       colorClasses: 'text-warning bg-panel border-warning/30',
     }

@@ -145,9 +145,9 @@ export function WinGauge({
 
   return (
     <div className={`mb-4${isDeemphasised ? ' opacity-70' : ''}`} role="figure" aria-label="Win probability distribution across options">
-      <Tooltip content="Proportion of Monte Carlo simulations each option wins">
+      <Tooltip content="Proportion of Monte Carlo simulations each option leads">
         <p className={`${typography.panelMeta} text-text-light mb-1`}>
-          Wins across scenarios
+          Leads across scenarios
         </p>
       </Tooltip>
       {/* Stacked bar — use clamped raw percentage for width to avoid rounding gaps */}

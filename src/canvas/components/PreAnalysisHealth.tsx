@@ -283,7 +283,7 @@ export function PreAnalysisHealth({
           {/* Medium priority */}
           {groupedImprovements.medium.length > 0 && (
             <ImprovementSection
-              title="Recommended"
+              title="Suggested"
               priority="medium"
               improvements={groupedImprovements.medium}
               onFocus={handleFocusImprovement}

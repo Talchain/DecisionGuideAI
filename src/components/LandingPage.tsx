@@ -355,7 +355,7 @@ export default function LandingPage() {
               </h3>
               <p className="text-gray-600">
                 Cognitive bias awareness and emotional regulation through
-                real-time analysis and recommendations.
+                real-time analysis and insights.
               </p>
             </div>
 

@@ -577,7 +577,7 @@ export const OptionNode = memo((props: NodeProps) => {
       {/* Winner badge -- top-right */}
       {isRecommended && (
         <span className={`absolute -top-2 -right-2 z-10 ${typography.edgeLabel} font-medium bg-panel border-2 border-option text-text-body rounded-full px-1.5 py-0.5`}>
-          Winner
+          Leading option
         </span>
       )}
       <BaseNode
@@ -612,7 +612,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {/* "Wins via [factor]" link (winner, post-analysis) */}
         {isPostAnalysis && isRecommended && winsVia && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-            Wins via{' '}
+            Leads via{' '}
             <button
               type="button"
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
@@ -671,14 +671,14 @@ export const OptionNode = memo((props: NodeProps) => {
         {isPostAnalysis && isRecommended && (
           <div className="flex gap-1 flex-wrap mt-1.5">
             <NodeChip label="What would change this?" message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to no longer be the best choice?`} />
-            <NodeChip label="Why does this win?" message={`Why does ${(props.data?.label as string) ?? 'this option'} win over the other options?`} />
+            <NodeChip label="Why does this lead?" message={`Why does ${(props.data?.label as string) ?? 'this option'} lead over the other options?`} />
           </div>
         )}
 
         {/* Coaching chip (non-winner, non-baseline, post-analysis) */}
         {isPostAnalysis && !isRecommended && !isBaselineOption && displayMetadata.winRate !== null && (
           <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip label="What would make this win?" message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to win?`} />
+            <NodeChip label="What would make this lead?" message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to lead?`} />
           </div>
         )}
 

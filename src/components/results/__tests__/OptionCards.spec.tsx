@@ -108,7 +108,7 @@ describe('OptionCards', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       // With win probabilities available, hingeAwareDescription provides gap-based text
-      expect(screen.getByText('Highest win likelihood across simulated scenarios')).toBeInTheDocument()
+      expect(screen.getByText('Highest leading-option likelihood across simulated scenarios')).toBeInTheDocument()
       expect(screen.getByText('Behind by 30 percentage points')).toBeInTheDocument()
     })
 
@@ -486,7 +486,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest win likelihood but depends on Customer churn')).toBeInTheDocument()
+      expect(screen.getByText('Highest leading-option likelihood but depends on Customer churn')).toBeInTheDocument()
     })
 
     it('winner: heuristic hinge shows "{label} has the widest uncertainty"', () => {
@@ -500,7 +500,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest win likelihood. Market size has the widest uncertainty.')).toBeInTheDocument()
+      expect(screen.getByText('Highest leading-option likelihood. Market size has the widest uncertainty.')).toBeInTheDocument()
     })
 
     it('winner: no hinge shows generic description', () => {
@@ -514,7 +514,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('Highest win likelihood across simulated scenarios')).toBeInTheDocument()
+      expect(screen.getByText('Highest leading-option likelihood across simulated scenarios')).toBeInTheDocument()
     })
 
     it('runner-up: matched alternate winner shows overtake description', () => {
@@ -593,7 +593,7 @@ describe('OptionCards', () => {
       )
 
       // VM description wins when decisionState is set
-      expect(screen.getByText('Highest win likelihood but depends on Customer churn')).toBeInTheDocument()
+      expect(screen.getByText('Highest leading-option likelihood but depends on Customer churn')).toBeInTheDocument()
       expect(screen.queryByText('Custom headline for winner.')).not.toBeInTheDocument()
     })
 
@@ -613,7 +613,7 @@ describe('OptionCards', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       // Win probabilities trigger hingeAwareDescription even without decisionState
-      expect(screen.getByText('Highest win likelihood across simulated scenarios')).toBeInTheDocument()
+      expect(screen.getByText('Highest leading-option likelihood across simulated scenarios')).toBeInTheDocument()
     })
 
     it('V11.2: renders pre-sanitized story_headline (sanitization at data layer)', () => {

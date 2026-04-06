@@ -117,7 +117,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const flipEntry = (robustness?.flip_thresholds as Array<{ node_id: string; alternative_winner_label?: string }> | undefined)
     ?.find(ft => ft.node_id === nodeId)
   const externalGuidance = flipEntry?.alternative_winner_label
-    ? `If ${String(node.data?.label ?? 'this factor')} is high, the recommendation changes to ${flipEntry.alternative_winner_label}.`
+    ? `If ${String(node.data?.label ?? 'this factor')} is high, the result changes to ${flipEntry.alternative_winner_label}.`
     : isResultsMode && displayMetadata.sensitivityRank != null
     ? 'This factor contributes significant uncertainty to your results. Narrowing the range would sharpen the analysis.'
     : 'Providing an estimate helps the simulation account for this uncertainty.'
