@@ -1,5 +1,5 @@
 /**
- * BaseNode maxWidth tests
+ * BaseNode maxWidth tests (H1)
  *
  * Verifies that nodes respect maxWidth constraints and that long labels
  * do not cause layout overflow — break-words is applied.
@@ -68,7 +68,7 @@ const baseProps = {
   yPos: 0,
 }
 
-describe('BaseNode — maxWidth', () => {
+describe('BaseNode — maxWidth (H1)', () => {
   it('applies maxWidth style to node container', () => {
     const { container } = render(
       <BaseNode {...baseProps} nodeType="factor" icon={Target} maxWidth={200} />
@@ -89,16 +89,17 @@ describe('BaseNode — maxWidth', () => {
     const { container } = render(
       <BaseNode {...baseProps} nodeType="factor" icon={Target} maxWidth={200} />
     )
+    // The label div should have break-words class
     const labelEl = container.querySelector('.break-words')
     expect(labelEl).toBeTruthy()
     expect(labelEl?.textContent).toContain('very long label')
   })
 
-  it('has minWidth of 140px', () => {
+  it('uses maxWidth=238px for OptionNode (per spec)', () => {
     const { container } = render(
-      <BaseNode {...baseProps} nodeType="factor" icon={Target} />
+      <BaseNode {...baseProps} nodeType="option" icon={Target} maxWidth={238} />
     )
     const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.minWidth).toBe('140px')
+    expect(nodeEl.style.maxWidth).toBe('238px')
   })
 })

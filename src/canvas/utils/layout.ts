@@ -5,15 +5,15 @@ import { NODE_REGISTRY } from '../domain/nodes'
 
 // Node types mapped to semantic tiers (0 = top in DOWN layout).
 // Nodes whose type is not in this map are placed in tier 2 (factor tier).
-export const TIER_BY_KIND: Record<string, number> = {
+const TIER_BY_KIND: Record<string, number> = {
   decision: 0,
   option:   1,
   factor:   2,
   action:   2,
   constraint: 2,
   outcome:  3,
-  risk:     4,
-  goal:     5,
+  risk:     3,
+  goal:     4,
 }
 
 export interface CanvasSize {
@@ -95,14 +95,9 @@ export async function layoutGraph(
   }
   const maxTierCount = Math.max(...tierCounts.values())
 
-  // Available width = (canvas − panel overlay) × 0.85 breathing room for fitView.
-  // The OutputsDock is position:fixed (overlays the canvas), so canvasSize.width
-  // does not exclude it. We subtract it here, then apply the 85% factor.
-  const panelEl = typeof document !== 'undefined'
-    ? document.querySelector('[data-testid="outputs-dock"]') as HTMLElement | null
-    : null
-  const panelWidth = panelEl?.getBoundingClientRect().width ?? 0
-  const availableWidth = Math.max(0, (canvasSize.width - panelWidth) * 0.85)
+  // Available width = canvas width minus 15% breathing room for fitView padding
+  // and visual margins. This matches the brief's 85% factor.
+  const availableWidth = canvasSize.width * 0.85
 
   // Solve for ELK box width (content + padding) and gap so the widest tier fits.
   //
@@ -230,50 +225,6 @@ export async function layoutGraph(
       sizeMap.set(child.id, { width: child.width, height: child.height })
     }
   })
-
-  // ---------------------------------------------------------------------------
-  // Step 4b — Separate risk nodes from outcome nodes if ELK merged them
-  // ---------------------------------------------------------------------------
-  // ELK may place outcomes and risks on the same layer because they have
-  // similar edge-distance from the root. When this happens, shift all risk
-  // nodes one layerSpacing below the lowest outcome, and push goals down
-  // by the same delta. Only fires when at least one risk shares a Y with
-  // an outcome (within 10px tolerance).
-  if (isDownLayout) {
-    const outcomeNodeIds = unlocked.filter(n => tierOf(n) === 3).map(n => n.id)
-    const riskNodeIds = unlocked.filter(n => tierOf(n) === 4).map(n => n.id)
-    const goalNodeIds = unlocked.filter(n => tierOf(n) === 5).map(n => n.id)
-
-    if (outcomeNodeIds.length > 0 && riskNodeIds.length > 0) {
-      const outcomeYs = outcomeNodeIds.map(id => positionMap.get(id)?.y ?? 0)
-      const riskYs = riskNodeIds.map(id => positionMap.get(id)?.y ?? 0)
-
-      // Check if any risk shares a Y with any outcome (within 10px)
-      const needsShift = riskYs.some(ry =>
-        outcomeYs.some(oy => Math.abs(ry - oy) <= 10)
-      )
-
-      if (needsShift) {
-        const maxOutcomeY = Math.max(...outcomeYs)
-        const maxOutcomeH = Math.max(
-          ...outcomeNodeIds.map(id => sizeMap.get(id)?.height ?? 116)
-        )
-        // Place all risks on a single row below the lowest outcome
-        const newRiskY = maxOutcomeY + maxOutcomeH + effectiveLayerSpacing
-        const oldMinRiskY = Math.min(...riskYs)
-        const delta = newRiskY - oldMinRiskY
-
-        for (const id of riskNodeIds) {
-          const pos = positionMap.get(id)
-          if (pos) positionMap.set(id, { x: pos.x, y: newRiskY })
-        }
-        for (const id of goalNodeIds) {
-          const pos = positionMap.get(id)
-          if (pos) positionMap.set(id, { x: pos.x, y: pos.y + delta })
-        }
-      }
-    }
-  }
 
   // Apply multi-row splitting when a tier has more nodes than fit in one row
   if (nodesPerRow !== null) {

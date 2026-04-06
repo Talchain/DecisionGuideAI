@@ -228,13 +228,25 @@ describe('OptionNode', () => {
     expect(OptionNode.displayName).toBe('OptionNode')
   })
 
-  // OptionNode passes maxWidth={240} to BaseNode
-  it('OptionNode uses 240px maxWidth', () => {
+  // P1-4: layoutNodeWidth propagation — OptionNode must not override layoutNodeWidth
+  // with a hardcoded maxWidth prop, so the store-driven width governs BaseNode sizing.
+  it('P1-4: OptionNode respects layoutNodeWidth from store (no hardcoded 238px override)', () => {
+    vi.mocked(useLayoutStore).mockImplementation((selector: (s: { layoutNodeWidth: number | null }) => unknown) =>
+      selector({ layoutNodeWidth: 180 }) as any
+    )
     const { container } = renderOption()
+    // BaseNode's root div carries an inline maxWidth style. In this test no
+    // intervention chips are rendered (ceeAnalysisReady is null), so the only
+    // element with an inline max-width is BaseNode's root div.
+    // Use querySelectorAll('[style*="max-width"]') to find it precisely without
+    // fragile DOM-walking that could match chip child elements.
     const maxWidthEls = container.querySelectorAll<HTMLElement>('[style*="max-width"]')
     expect(maxWidthEls.length).toBeGreaterThan(0)
+    // The BaseNode root is the element with the layout-governed maxWidth.
+    // Collect all found values and verify none is the old hardcoded 238px.
     const widths = Array.from(maxWidthEls).map(el => el.style.maxWidth)
-    expect(widths).toContain('240px')
+    expect(widths).toContain('180px')
+    expect(widths).not.toContain('238px')
   })
 
   // V2: Win probability number uses text-text-body (neutral, no coloured text in node body)

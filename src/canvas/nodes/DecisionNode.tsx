@@ -312,7 +312,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         id={id}
         data={data}
         selected={selected}
-        maxWidth={320}
         headerSlot={headerSlot}
       >
         {/* ===== POST-ANALYSIS ===== */}

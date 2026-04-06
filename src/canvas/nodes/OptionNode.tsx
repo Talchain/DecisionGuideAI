@@ -584,7 +584,6 @@ export const OptionNode = memo((props: NodeProps) => {
         {...props}
         nodeType="option"
         icon={metadata.icon}
-        maxWidth={240}
         headerSlot={scienceIcons.length > 0 ? (
           <span className="inline-flex items-center gap-1">
             {scienceIcons.map(si => (

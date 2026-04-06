@@ -8,7 +8,7 @@ export const ActionNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.action
 
   return (
-    <BaseNode {...props} nodeType="action" icon={metadata.icon} maxWidth={200}>
+    <BaseNode {...props} nodeType="action" icon={metadata.icon}>
       {props.data?.description && (
         <div className={`${typography.nodeLabel} opacity-70`}>
           {props.data.description}
