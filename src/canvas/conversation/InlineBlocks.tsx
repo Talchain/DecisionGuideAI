@@ -68,7 +68,9 @@ function resolveBlockBadgeDotClass(block: ConversationBlock): string | null {
     case 'graph_patch': return styles.blockBadgeDotGoal
     case 'fact': return styles.blockBadgeDotSuccess
     case 'framing': return styles.blockBadgeDotInfo
-    case 'commentary': return null // no dot per DS v5 §21.2
+    case 'brief': return styles.blockBadgeDotSuccess
+    case 'evidence': return styles.blockBadgeDotInfo
+    case 'commentary': return null // DS v5 §21.2: CommentaryBlock renders inline, no dot, no border
     case 'comparison': return styles.blockBadgeDotInfo
     case 'premortem': return styles.blockBadgeDotDanger
     case 'flip_analysis': return styles.blockBadgeDotDanger
@@ -169,7 +171,8 @@ export const InlineBlocks = memo(function InlineBlocks({
   const visible = showAll ? blocks : blocks.slice(0, MAX_VISIBLE_BLOCKS_PER_TURN)
   const hasOverflow = blocks.length > MAX_VISIBLE_BLOCKS_PER_TURN
   const hiddenCount = blocks.length - MAX_VISIBLE_BLOCKS_PER_TURN
-  const showBadgeDots = isOrchestratorRenderingV2Enabled()
+  // DS v5 §21.2: block type badge dots are always on (no v2 flag gate).
+  const showBadgeDots = true
 
   return (
     <div className={styles.blockContainer}>

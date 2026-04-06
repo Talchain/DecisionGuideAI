@@ -620,7 +620,10 @@ function normaliseRelatedElements(raw: unknown): RelatedElementRef[] | undefined
   return related.length > 0 ? related : undefined
 }
 
-function deriveProposalItemFromOperation(raw: unknown): ProposalReviewItem | null {
+export function deriveProposalItemFromOperation(
+  raw: unknown,
+  nodeLabels?: Map<string, string>,
+): ProposalReviewItem | null {
   if (raw == null || typeof raw !== 'object') return null
   const op = raw as Record<string, unknown>
   const action = asOptionalString(op.op) ?? 'change'
@@ -635,13 +638,31 @@ function deriveProposalItemFromOperation(raw: unknown): ProposalReviewItem | nul
       : action.startsWith('update_')
         ? 'Update'
         : 'Change'
+
+  // Edge ops: resolve source/target labels and render as "{from} → {to}".
+  // add_edge data shape: { from, to } (canvas convention) or { source, target } (RF convention).
+  if (action === 'add_edge' || action === 'remove_edge' || action === 'update_edge') {
+    const fromId = asOptionalString(data.from) ?? asOptionalString(data.source)
+    const toId = asOptionalString(data.to) ?? asOptionalString(data.target)
+    const fromLabel = (fromId && nodeLabels?.get(fromId)) || fromId
+    const toLabel = (toId && nodeLabels?.get(toId)) || toId
+    if (fromLabel && toLabel) {
+      return {
+        description: `${verb} connection: ${fromLabel} → ${toLabel}`,
+        changeLabel: humaniseToken(action),
+      }
+    }
+  }
+
   const description = elementLabel
     ? `${verb} ${elementLabel}`
     : `${verb} ${kind.toLowerCase()}`
 
   return {
     description,
-    ...(elementLabel ? { elementLabel } : {}),
+    // Suppress elementLabel when description already contains it — mirrors
+    // normaliseProposalReviewItems() dedup logic below.
+    ...(elementLabel && !description.includes(elementLabel) ? { elementLabel } : {}),
     changeLabel: humaniseToken(action),
   }
 }
@@ -1780,13 +1801,18 @@ export function useConversation(): UseConversationReturn {
       // Normalise CEE blocks and apply budget priority (proposed patches first)
       const responseBlocks = envelope.blocks ?? []
       const proposalItems = normaliseProposalReviewItems(envelope.proposed_changes)
+      // Map of current canvas node id → label, so derived patch rows can render
+      // "Add connection: {from_label} → {to_label}" instead of "Add connection".
+      const nodeLabels = new Map<string, string>(
+        store.nodes.map((n) => [n.id, (n.data?.label as string | undefined) ?? n.id]),
+      )
       const normalisedBlocks = mergeProposalReviewIntoBlocks(
         responseBlocks.map(adaptCEEBlock).map((block) => {
           if (block.type !== 'graph_patch') return block
           const patch = block as GraphPatchBlock
           if ((patch.proposal_items?.length ?? 0) > 0) return patch
           const fallbackItems = patch.operations
-            .map(deriveProposalItemFromOperation)
+            .map((op) => deriveProposalItemFromOperation(op, nodeLabels))
             .filter(Boolean) as ProposalReviewItem[]
           return fallbackItems.length > 0
             ? { ...patch, proposal_items: fallbackItems, proposal_items_source: 'derived_ops' as const }

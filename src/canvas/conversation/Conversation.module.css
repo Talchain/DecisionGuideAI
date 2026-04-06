@@ -254,7 +254,7 @@
   border-left: 3px solid var(--info, #52A3C8); /* DS v5 §16.2: facilitator/coaching — left 3px info */
   background: var(--bg-panel, #FEFEFE); /* DS v5 §16.2: coaching cards use bg-panel, not bg-info-light */
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   display: flex;
   gap: 8px;
   align-items: flex-start;
@@ -264,7 +264,7 @@
   border-top: 3px solid var(--danger, #EA7B4B);
   background: var(--bg-panel, #FEFEFE);
   padding: 12px;
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   display: flex;
   gap: 8px;
   align-items: flex-start;
@@ -289,7 +289,7 @@
 .factBlock {
   border-top: 3px solid var(--success, #67C89E);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -334,7 +334,7 @@
 .graphPatchBlock {
   border-top: 3px solid var(--goal, #F5C433);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 16px;
   display: flex;
   flex-direction: column;
@@ -361,7 +361,9 @@
 }
 
 .graphPatchProposalEyebrow {
-  color: var(--warning, #FFA656);
+  /* DS v5 §21.2: block type is signalled by the goal-coloured top border + dot.
+     Eyebrow heading uses neutral text-header, not a second status colour. */
+  color: var(--text-header, #262626);
   font-weight: 600;
   letter-spacing: 0.02em;
 }
@@ -555,7 +557,7 @@
 .framingBlock {
   border-top: 3px solid var(--info, #52A3C8);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -611,7 +613,7 @@
 .briefBlock {
   border-top: 3px solid var(--success, #67C89E);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -933,13 +935,20 @@
   position: relative;
 }
 
+/* DS v5 §21.2: dots sit at top:8px left:8px; bump inner block padding-left so
+   content doesn't collide with the dot. Only applies when a dot is present. */
+.blockWithBadge > div {
+  padding-left: 24px;
+}
+
 /* ---------------------------------------------------------------------------
  * § 4h — EvidenceBlock
  * ---------------------------------------------------------------------------*/
 
 .evidenceBlock {
-  border-top: 3px solid var(--success, #67C89E);
-  border-radius: 8px;
+  /* DS v5 §21.2: EvidenceBlock uses info (external information), not success. */
+  border-top: 3px solid var(--info, #52A3C8);
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 10px 12px;
   background: var(--bg-panel, #FEFEFE);
   display: flex;
@@ -1611,7 +1620,7 @@
 .comparisonBlock {
   border-top: 3px solid var(--info, #52A3C8);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1632,7 +1641,7 @@
 .premortemBlock {
   border-top: 3px solid var(--warning, #FFA656);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1650,7 +1659,7 @@
 .flipAnalysisBlock {
   border-top: 3px solid var(--danger, #EA7B4B);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1660,7 +1669,7 @@
 .proposalBlock {
   border-top: 3px solid var(--goal, #F5C433);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 12px;
   display: flex;
   flex-direction: column;
@@ -1670,7 +1679,7 @@
 .exerciseBlock {
   border-top: 3px solid var(--info, #52A3C8);
   background: var(--bg-panel, #FEFEFE);
-  border-radius: 8px;
+  border-radius: 20px; /* DS v5 §6.2: conversation blocks use lg (20px) */
   padding: 12px;
   display: flex;
   flex-direction: column;

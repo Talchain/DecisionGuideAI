@@ -918,10 +918,14 @@ describe('Block type badges — flag ON', () => {
 })
 
 // ---------------------------------------------------------------------------
-// § 15 — Block type badges — flag OFF (no dots)
+// § 15 — Block type badges — always on (DS v5 §21.2)
 // ---------------------------------------------------------------------------
+//
+// Previously gated on isOrchestratorRenderingV2Enabled; the flag gate was
+// removed so block badges always render per DS v5 §21.2. This test now
+// guards against accidental re-gating.
 
-describe('Block type badges — flag OFF', () => {
+describe('Block type badges — always on (DS v5 §21.2)', () => {
   beforeEach(() => {
     vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(false)
   })
@@ -930,10 +934,10 @@ describe('Block type badges — flag OFF', () => {
     vi.mocked(isOrchestratorRenderingV2Enabled).mockReturnValue(true)
   })
 
-  it('no badge dots when flag is off', () => {
+  it('renders badge dots regardless of the orchestratorRenderingV2 flag', () => {
     const block = makeReviewBlock({ variant: 'alert', tone: 'challenger' })
     render(<InlineBlocks blocks={[block]} />)
-    expect(screen.queryByTestId('block-badge-dot')).toBeNull()
+    expect(screen.getByTestId('block-badge-dot')).toBeInTheDocument()
   })
 })
 
