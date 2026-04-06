@@ -381,11 +381,12 @@ export function reconcileOptionsWithCanvasNodes(
       validNodeIds,
       silent,
     )
-    if (Object.keys(fallback).length > 0) warn(node.id)
+    const hasFallback = Object.keys(fallback).length > 0
+    if (hasFallback) warn(node.id)
     result.push({
       id: node.id,
       label,
-      status: Object.keys(fallback).length > 0 ? 'ready' : 'needs_user_mapping',
+      status: hasFallback ? 'ready' : 'needs_user_mapping',
       interventions: fallback,
       ...(typeof nodeData.is_baseline === 'boolean' ? { is_baseline: nodeData.is_baseline as boolean } : {}),
     })
@@ -400,6 +401,9 @@ export function reconcileOptionsWithCanvasNodes(
  * An empty array means all options are valid.
  *
  * Source-agnostic: works on CEEOptionV3[], UIOption[], or V2Option[].
+ *
+ * The "is this map usable?" rule is shared with reconcileOptionsWithCanvasNodes
+ * via hasUsableInterventions, so the gate and the reader cannot drift apart.
  */
 export function validateOptionsHaveInterventions(
   options: Array<{ id: string; label?: string; interventions?: Record<string, unknown> | null }>,
@@ -407,20 +411,7 @@ export function validateOptionsHaveInterventions(
   const missing: string[] = []
   for (const option of options) {
     if (!option) continue
-    const iv = option.interventions
-    if (!iv || typeof iv !== 'object') {
-      missing.push(option.label || option.id)
-      continue
-    }
-    // Check that at least one intervention has a usable value
-    // (not just placeholder keys with null/undefined values)
-    const hasUsableValue = Object.values(iv).some((v) => {
-      if (v == null) return false
-      if (typeof v === 'number') return true
-      if (typeof v === 'object' && 'value' in (v as any) && (v as any).value != null) return true
-      return false
-    })
-    if (!hasUsableValue) {
+    if (!hasUsableInterventions(option.interventions)) {
       missing.push(option.label || option.id)
     }
   }
