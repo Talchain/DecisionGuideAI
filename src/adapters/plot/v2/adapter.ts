@@ -168,6 +168,39 @@ export function extractOptionsFromNodes(
 }
 
 /**
+ * Validate that all options have non-empty interventions.
+ * Returns an array of option labels that are missing interventions.
+ * An empty array means all options are valid.
+ *
+ * Source-agnostic: works on CEEOptionV3[], UIOption[], or V2Option[].
+ */
+export function validateOptionsHaveInterventions(
+  options: Array<{ id: string; label?: string; interventions?: Record<string, unknown> | null }>,
+): string[] {
+  const missing: string[] = []
+  for (const option of options) {
+    if (!option) continue
+    const iv = option.interventions
+    if (!iv || typeof iv !== 'object') {
+      missing.push(option.label || option.id)
+      continue
+    }
+    // Check that at least one intervention has a usable value
+    // (not just placeholder keys with null/undefined values)
+    const hasUsableValue = Object.values(iv).some((v) => {
+      if (v == null) return false
+      if (typeof v === 'number') return true
+      if (typeof v === 'object' && 'value' in (v as any) && (v as any).value != null) return true
+      return false
+    })
+    if (!hasUsableValue) {
+      missing.push(option.label || option.id)
+    }
+  }
+  return missing
+}
+
+/**
  * Convert UIOption to V2Option format.
  * Flattens UIInterventionValue to simple number values.
  */
@@ -830,6 +863,17 @@ export function buildV2RequestFromAnalysisReady(
 
   // Step 3: Convert CEE options to V2 format
   const v2Options = analysisReady.options.map(ceeOptionToV2Option)
+
+  // Diagnostic: warn if any option has empty interventions (should be caught by pre-run validation)
+  if (import.meta.env.DEV) {
+    const emptyOptions = v2Options.filter((o) => Object.keys(o.interventions).length === 0)
+    if (emptyOptions.length > 0) {
+      console.warn(
+        '[V2Adapter] Options with empty interventions in buildV2RequestFromAnalysisReady:',
+        { emptyOptionLabels: emptyOptions.map((o) => o.label), totalOptions: v2Options.length },
+      )
+    }
+  }
 
   // Step 4: Get goal node ID and seed from analysisReady
   // P0 Fix: Seed precedence - options.seed > analysisReady.suggested_seed > derived

@@ -59,6 +59,7 @@ export {
   transformEdgeToV2Strict,
   validateEdgeData,
   validateAllEdges,
+  validateOptionsHaveInterventions,
   EdgeValidationError,
 } from './adapter'
 

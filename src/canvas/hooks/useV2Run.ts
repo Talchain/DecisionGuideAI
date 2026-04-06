@@ -16,6 +16,8 @@ import {
   isSuccessfulAnalysis,
   validateV2RunResponseFull,
   sanitizeV2RunResponse,
+  extractOptionsFromNodes,
+  validateOptionsHaveInterventions,
   type V2AdapterConfig,
   type V2RunError,
   type V2RunResponse,
@@ -314,6 +316,56 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           setGoalConstraints(null)
           effectiveAnalysisReady = null
           effectiveGoalConstraints = null
+        }
+      }
+
+      // ── Pre-run intervention validation gate ──────────────────────────
+      // Validate that every option has at least one intervention before
+      // sending to PLoT. Empty interventions produce meaningless results.
+      {
+        const optionsToValidate = effectiveAnalysisReady
+          ? effectiveAnalysisReady.options
+          : extractOptionsFromNodes(nodes as any, currentNodeIds)
+
+        const missingInterventions = validateOptionsHaveInterventions(optionsToValidate)
+
+        if (missingInterventions.length > 0) {
+          const message =
+            missingInterventions.length === 1
+              ? `Option "${missingInterventions[0]}" needs intervention values before analysis can run.`
+              : `Options ${missingInterventions.map((o) => `"${o}"`).join(', ')} need intervention values before analysis can run.`
+
+          if (import.meta.env.DEV) {
+            console.warn('[useV2Run] Pre-run validation failed: missing interventions', {
+              missingOptions: missingInterventions,
+              usingAnalysisReady: !!effectiveAnalysisReady,
+            })
+          }
+
+          trackRunFailed({
+            error_code: 'MISSING_INTERVENTIONS',
+            error_message: message,
+            duration_ms: Date.now() - startTime,
+            request_id: requestId,
+          })
+
+          resultsError({
+            code: 'MISSING_INTERVENTIONS',
+            message,
+            request_id: requestId,
+            canRetry: false,
+          })
+
+          if (persistence) {
+            persistence.persistAnalysisFailure({
+              code: 'MISSING_INTERVENTIONS',
+              message,
+            }).catch(() => { /* non-critical */ })
+          }
+
+          setError(message)
+          setIsRunning(false)
+          return
         }
       }
 

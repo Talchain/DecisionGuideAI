@@ -83,6 +83,16 @@ export {
   selectTopItem,
 } from './guidanceStore'
 
+// Graph readiness store (consolidated from useGraphReadiness hook)
+export {
+  useReadinessStore,
+  type ReadinessStoreState,
+  type ReadinessStoreActions,
+  selectReadiness,
+  selectReadinessLoading,
+  selectReadinessError,
+} from './readinessStore'
+
 /**
  * IMPORTANT: For backward compatibility, the main store.ts still exists
  * and provides the combined useCanvasStore hook. New code should prefer

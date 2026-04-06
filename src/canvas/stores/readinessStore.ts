@@ -1,0 +1,517 @@
+/**
+ * Readiness Store — single source of truth for CEE graph-readiness state.
+ *
+ * Replaces 7+ independent useGraphReadiness() hook instances that each
+ * maintained their own debounce timers, refs, and state. Now a single
+ * module-level subscription watches the canvas store, debounces 500ms,
+ * and makes one fetch per graph change.
+ *
+ * Consumers read via useReadinessStore(s => s.readiness) or via the
+ * thin wrapper useGraphReadiness() for backward compatibility.
+ */
+import { create } from 'zustand'
+import { useCanvasStore } from '../store'
+import type { Node, Edge } from '@xyflow/react'
+import { getEdgeKey } from '../domain/edgeUtils'
+import type {
+  GraphReadiness,
+  GraphImprovement,
+  DeduplicatedResponse,
+} from '../hooks/useGraphReadiness'
+import {
+  __test__ as dedupUtils,
+} from '../hooks/useGraphReadiness'
+
+// Re-export types consumers need
+export type { GraphReadiness, GraphImprovement }
+
+const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
+
+// ── Constants ──────────────────────────────────────────────────────
+const DEBOUNCE_DELAY = 500
+const INITIAL_BACKOFF_MS = 1000
+const MAX_BACKOFF_MS = 30000
+const BACKOFF_MULTIPLIER = 2
+
+// ── Store interface ────────────────────────────────────────────────
+
+export interface ReadinessStoreState {
+  readiness: GraphReadiness | null
+  loading: boolean
+  error: string | null
+}
+
+export interface ReadinessStoreActions {
+  /** Manual re-fetch bypassing debounce (used by PreAnalysisHealth refresh button) */
+  refresh: () => void
+  /**
+   * Begin watching canvas store for graph changes.
+   * Idempotent — subsequent calls are no-ops.
+   * Returns an unsubscribe function.
+   */
+  startListening: () => () => void
+  /** Reset state AND unsubscribe the canvas listener + clear timers. */
+  reset: () => void
+}
+
+const initialState: ReadinessStoreState = {
+  readiness: null,
+  loading: false,
+  error: null,
+}
+
+// ── Module-level singletons ────────────────────────────────────────
+// These replace the per-hook-instance useRef values.
+
+let debounceTimer: ReturnType<typeof setTimeout> | null = null
+let unsubCanvasStore: (() => void) | null = null
+/** Number of active consumers (hook instances). Subscription tears down at 0. */
+let listenerRefCount = 0
+let lastFingerprint: string | null = null
+let lastPayloadHash: string | null = null
+let fetchInFlight = false
+let backoff = { delay: 0, until: 0 }
+let lastLogTime = 0
+/** Ref-counted dedup entry from the shared inflight cache */
+let currentInflightEntry: { refCount: number; controller: AbortController } | null = null
+
+// ── Helpers ────────────────────────────────────────────────────────
+
+function generateCorrelationId(): string {
+  return crypto.randomUUID()
+}
+
+/**
+ * Create a stable fingerprint for graph state.
+ * Only changes when graph content actually changes.
+ */
+function createGraphFingerprint(nodes: Node[], edges: Edge[]): string {
+  const nodeFingerprint = nodes
+    .map((n) => {
+      const value = (n.data as any)?.value
+      return `${n.id}:${n.type}:${typeof value === 'number' ? value.toFixed(3) : 'x'}`
+    })
+    .sort()
+    .join(',')
+
+  const edgeFingerprint = edges
+    .map((e) => {
+      const conf = (e.data as any)?.confidence
+      return `${getEdgeKey(e)}:${conf !== undefined ? conf.toFixed(3) : 'x'}`
+    })
+    .sort()
+    .join(',')
+
+  return `n${nodes.length}|e${edges.length}|${nodeFingerprint}|${edgeFingerprint}`
+}
+
+/**
+ * Calculate fallback readiness from local graph health.
+ */
+function calculateFallbackReadiness(
+  nodes: Node[],
+  edges: Edge[],
+  graphHealth: { issues?: Array<{ severity: string }> } | null,
+): GraphReadiness {
+  let score = 50
+
+  if (nodes.length > 0) score += 10
+  if (nodes.length >= 3) score += 10
+  if (nodes.length >= 5) score += 5
+  if (edges.length > 0) score += 10
+  if (edges.length >= nodes.length - 1) score += 5
+
+  const issues = graphHealth?.issues || []
+  const blockers = issues.filter((i) => i.severity === 'error' || i.severity === 'blocker')
+  const warnings = issues.filter((i) => i.severity === 'warning')
+
+  score -= blockers.length * 15
+  score -= warnings.length * 5
+  score = Math.max(0, Math.min(100, score))
+
+  let level: GraphReadiness['readiness_level'] = 'fair'
+  if (score < 40) level = 'needs_work'
+  else if (score >= 70) level = 'strong'
+
+  return {
+    readiness_score: score,
+    readiness_level: level,
+    can_run_analysis: blockers.length === 0,
+    confidence_explanation:
+      level === 'strong'
+        ? 'Your model has good structure and connections'
+        : level === 'fair'
+          ? 'Analysis available - consider improvements for better results'
+          : 'Address critical issues before running analysis',
+    improvements: [],
+  }
+}
+
+// ── Core fetch logic ───────────────────────────────────────────────
+
+async function fetchReadiness(): Promise<void> {
+  if (fetchInFlight) return
+  fetchInFlight = true
+
+  const store = useReadinessStore.getState()
+
+  try {
+    const now = Date.now()
+    if (backoff.until > now) {
+      if (import.meta.env.DEV) {
+        console.warn(
+          `[readinessStore] Rate limited, waiting ${Math.ceil((backoff.until - now) / 1000)}s`,
+        )
+      }
+      return
+    }
+
+    const {
+      nodes: currentNodes,
+      edges: currentEdges,
+      graphHealth,
+      ceeAnalysisReady: currentCeeAnalysisReady,
+    } = useCanvasStore.getState()
+
+    if (currentNodes.length === 0) {
+      useReadinessStore.setState({
+        readiness: {
+          readiness_score: 0,
+          readiness_level: 'needs_work',
+          can_run_analysis: false,
+          confidence_explanation: 'Add some nodes to get started',
+          improvements: [],
+        },
+        loading: false,
+        error: null,
+      })
+      return
+    }
+
+    // Release previous shared dedup entry
+    if (currentInflightEntry) {
+      currentInflightEntry.refCount--
+      if (currentInflightEntry.refCount <= 0) {
+        currentInflightEntry.controller.abort()
+      }
+      currentInflightEntry = null
+    }
+
+    useReadinessStore.setState({ loading: true, error: null })
+
+    const correlationId = generateCorrelationId()
+
+    try {
+      const payload: Record<string, unknown> = {
+        graph: {
+          nodes: currentNodes.map((n) => {
+            const nodeKind = (n.data as any)?.kind || n.type || 'factor'
+            const baseNode = {
+              id: n.id,
+              type: nodeKind,
+              kind: nodeKind,
+              label: (n.data as any)?.label || n.id,
+            }
+            if (typeof (n.data as any)?.value === 'number') {
+              return { ...baseNode, data: { value: (n.data as any).value } }
+            }
+            return baseNode
+          }),
+          /**
+           * UI-SEM-011: Default belief injection (belief: 0.8).
+           * UI-SEM-030: Edge defaults for CEE coaching (weight 0.5, belief 0.8, direction 'positive').
+           */
+          edges: currentEdges.map((e) => ({
+            id: e.id,
+            from: e.source,
+            to: e.target,
+            weight: (e.data as any)?.weight ?? 0.5,
+            belief: (e.data as any)?.beliefExists ?? (e.data as any)?.belief ?? 0.8,
+            effect_direction: (e.data as any)?.direction ?? 'positive',
+          })),
+        },
+      }
+
+      const briefText = useCanvasStore.getState().currentBriefText
+      if (briefText && briefText.length >= 20) {
+        payload.brief = briefText
+      }
+
+      if (currentCeeAnalysisReady?.options?.length) {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const { model_adjustments: _strip, ...analysisReadyForPayload } = currentCeeAnalysisReady
+        payload.analysis_ready = analysisReadyForPayload
+      }
+
+      const payloadJson = JSON.stringify(payload)
+
+      if (payloadJson === lastPayloadHash) {
+        useReadinessStore.setState({ loading: false })
+        return
+      }
+      // Set after successful fetch (not here) so failed fetches don't poison the cache.
+      // See the setState call after response normalization below.
+      const currentPayloadJson = payloadJson
+
+      if (import.meta.env.DEV && now - lastLogTime > 5000) {
+        console.warn('[readinessStore] Fetching readiness:', {
+          nodes: currentNodes.length,
+          edges: currentEdges.length,
+          hasAnalysisReady: Boolean(currentCeeAnalysisReady?.options?.length),
+        })
+        lastLogTime = now
+      }
+
+      let response: DeduplicatedResponse
+      try {
+        const { promise, entry } = dedupUtils.deduplicatedFetch(
+          `${CEE_BASE_URL}/graph-readiness`,
+          payloadJson,
+          correlationId,
+        )
+        currentInflightEntry = entry
+        response = await promise
+      } catch (fetchErr) {
+        // In test environments (jsdom), relative URLs cause TypeError.
+        // Fall back to local readiness rather than crashing.
+        if ((fetchErr as Error).name === 'AbortError') throw fetchErr
+        console.warn('[readinessStore] Fetch setup failed, using fallback:', fetchErr)
+        const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
+        useReadinessStore.setState({
+          readiness: fallback,
+          error: null,
+          loading: false,
+        })
+        return
+      }
+
+      if (!response.ok) {
+        if (response.status === 429) {
+          const backoffDelay = response.retryAfterHeader
+            ? parseInt(response.retryAfterHeader, 10) * 1000
+            : Math.min(
+                backoff.delay > 0 ? backoff.delay * BACKOFF_MULTIPLIER : INITIAL_BACKOFF_MS,
+                MAX_BACKOFF_MS,
+              )
+
+          backoff = { delay: backoffDelay, until: Date.now() + backoffDelay }
+
+          console.warn(
+            `[readinessStore] Rate limited (429), backing off for ${backoffDelay / 1000}s`,
+          )
+
+          const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
+          useReadinessStore.setState({
+            readiness: fallback,
+            error: 'Rate limited - using local validation',
+            loading: false,
+          })
+          return
+        }
+
+        if (response.status === 404) {
+          if (import.meta.env.DEV) {
+            console.info(
+              '[readinessStore] CEE graph-readiness endpoint not available (404), using local validation',
+            )
+          }
+          const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
+          useReadinessStore.setState({ readiness: fallback, loading: false })
+          return
+        }
+
+        console.error('[readinessStore] CEE error response:', {
+          status: response.status,
+          statusText: response.statusText,
+          body: response.errorBody,
+        })
+        throw new Error(`HTTP ${response.status} - ${response.errorBody}`)
+      }
+
+      backoff = { delay: 0, until: 0 }
+
+      const data = response.data
+
+      const normalized: GraphReadiness = {
+        readiness_score:
+          typeof data.readiness_score === 'number'
+            ? Math.max(0, Math.min(100, data.readiness_score))
+            : 50,
+        readiness_level: ['needs_work', 'fair', 'strong'].includes(data.readiness_level)
+          ? data.readiness_level
+          : 'fair',
+        can_run_analysis:
+          typeof data.can_run_analysis === 'boolean' ? data.can_run_analysis : true,
+        confidence_explanation:
+          typeof data.confidence_explanation === 'string'
+            ? data.confidence_explanation
+            : 'Analysis available',
+        improvements: Array.isArray(data.improvements)
+          ? data.improvements.map((imp: any): GraphImprovement => ({
+              category: imp.category || 'general',
+              action: imp.action || imp.recommendation || 'Review this area',
+              current_gap: imp.current_gap || '',
+              quality_impact:
+                typeof imp.quality_impact === 'number'
+                  ? imp.quality_impact
+                  : typeof imp.potential_improvement === 'number'
+                    ? imp.potential_improvement
+                    : 5,
+              target_quality:
+                typeof imp.target_quality === 'number'
+                  ? imp.target_quality
+                  : typeof imp.target_score === 'number'
+                    ? imp.target_score
+                    : 70,
+              priority: ['high', 'medium', 'low'].includes(imp.priority)
+                ? imp.priority
+                : imp.impact || 'medium',
+              effort_minutes: typeof imp.effort_minutes === 'number' ? imp.effort_minutes : 5,
+              affected_nodes: Array.isArray(imp.affected_nodes)
+                ? imp.affected_nodes
+                : Array.isArray(imp.affected_node_ids)
+                  ? imp.affected_node_ids
+                  : undefined,
+              affected_edges: Array.isArray(imp.affected_edges)
+                ? imp.affected_edges
+                : Array.isArray(imp.affected_edge_ids)
+                  ? imp.affected_edge_ids
+                  : undefined,
+              suggested_node_type: imp.suggested_node_type || undefined,
+              current_score:
+                typeof imp.current_score === 'number' ? imp.current_score : undefined,
+            }))
+          : [],
+      }
+
+      // Only cache the payload hash after a successful fetch — failed fetches
+      // should allow retry on the same payload.
+      lastPayloadHash = currentPayloadJson
+      useReadinessStore.setState({ readiness: normalized, loading: false, error: null })
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') return
+
+      console.warn('[readinessStore] Fetch failed, using fallback:', err)
+      const fallback = calculateFallbackReadiness(currentNodes, currentEdges, graphHealth)
+      useReadinessStore.setState({
+        readiness: fallback,
+        error: err instanceof Error ? err.message : 'Unknown error',
+        loading: false,
+      })
+    }
+  } finally {
+    fetchInFlight = false
+  }
+}
+
+// ── Store definition ───────────────────────────────────────────────
+
+export const useReadinessStore = create<ReadinessStoreState & ReadinessStoreActions>((set, get) => ({
+  ...initialState,
+
+  refresh: () => {
+    lastPayloadHash = null
+    fetchReadiness().catch(() => {
+      // Swallow — fetchReadiness handles errors internally
+    })
+  },
+
+  startListening: () => {
+    listenerRefCount++
+
+    if (!unsubCanvasStore) {
+      // First consumer — create the subscription
+      unsubCanvasStore = useCanvasStore.subscribe((state, prevState) => {
+        // Only react to node/edge changes — skip unrelated store updates.
+        // Identity check is cheap; fingerprint is computed only on mismatch.
+        if (state.nodes === prevState.nodes && state.edges === prevState.edges) return
+
+        const fp = createGraphFingerprint(state.nodes, state.edges)
+        if (fp === lastFingerprint) return
+        lastFingerprint = fp
+
+        if (debounceTimer) clearTimeout(debounceTimer)
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null
+          fetchReadiness().catch(() => {
+            // Swallow — fetchReadiness handles errors internally
+          })
+        }, DEBOUNCE_DELAY)
+      })
+
+      // Fire immediately on first listen
+      const { nodes, edges } = useCanvasStore.getState()
+      lastFingerprint = createGraphFingerprint(nodes, edges)
+      fetchReadiness().catch(() => {
+        // Swallow — fetchReadiness handles its own errors internally.
+        // This catch prevents unhandled rejection in test environments
+        // where fetch() rejects due to relative URL in jsdom.
+      })
+    }
+
+    // Return a release function. Subscription only tears down when
+    // the last consumer releases (refCount drops to 0).
+    return () => {
+      listenerRefCount--
+      if (listenerRefCount <= 0) {
+        stopListening()
+      }
+    }
+  },
+
+  reset: () => {
+    stopListening()
+    set(initialState)
+  },
+}))
+
+/** Clean up subscription, timers, and module-level state. */
+function stopListening(): void {
+  listenerRefCount = 0
+  if (unsubCanvasStore) {
+    unsubCanvasStore()
+    unsubCanvasStore = null
+  }
+  if (debounceTimer) {
+    clearTimeout(debounceTimer)
+    debounceTimer = null
+  }
+  if (currentInflightEntry) {
+    currentInflightEntry.refCount--
+    if (currentInflightEntry.refCount <= 0) {
+      currentInflightEntry.controller.abort()
+    }
+    currentInflightEntry = null
+  }
+  lastFingerprint = null
+  lastPayloadHash = null
+  fetchInFlight = false
+  backoff = { delay: 0, until: 0 }
+  lastLogTime = 0
+}
+
+// Selectors
+export const selectReadiness = (state: ReadinessStoreState) => state.readiness
+export const selectReadinessLoading = (state: ReadinessStoreState) => state.loading
+export const selectReadinessError = (state: ReadinessStoreState) => state.error
+
+// ── Test helpers ───────────────────────────────────────────────────
+
+/** @internal — exposed for unit testing. Not part of public API. */
+export const __test__ = {
+  fetchReadiness,
+  createGraphFingerprint,
+  calculateFallbackReadiness,
+  getModuleState: () => ({
+    lastFingerprint,
+    lastPayloadHash,
+    fetchInFlight,
+    backoff,
+    listenerRefCount,
+    hasSubscription: unsubCanvasStore !== null,
+    hasDebounceTimer: debounceTimer !== null,
+  }),
+  resetModuleState: () => {
+    stopListening()
+  },
+}

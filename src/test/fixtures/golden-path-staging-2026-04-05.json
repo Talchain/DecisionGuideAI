@@ -1,0 +1,2893 @@
+{
+  "_fixture_meta": {
+    "purpose": "Golden-path integration fixture: brief \u2192 graph \u2192 analysis \u2192 explain. Extracted from olumi-debug-f0045fec-20260405 (mid-market expansion scenario).",
+    "created": "2026-04-05",
+    "source_bundle": "olumi-debug-f0045fec-20260405.json",
+    "version": "2.6"
+  },
+  "cee_request": {
+    "scenario_id": "fixture-scenario-001",
+    "client_turn_id": "fixture-turn-001",
+    "conversation_history": [
+      {
+        "role": "user",
+        "content": "We're a 50-person B2B SaaS company doing \u00a33M ARR. We need to decide how to expand our product into the mid-market segment within 12 months.\nGoal: Reach 200 mid-market customers with a net revenue rete... [truncated]"
+      },
+      {
+        "role": "user",
+        "content": "Can you help me with my decision?"
+      },
+      {
+        "role": "assistant",
+        "content": "Added 1 decision, 7 factors, 1 goal, 4 options, 2 outcomes, 3 risks, and 32 connections."
+      },
+      {
+        "role": "user",
+        "content": "What do you think my biggest risk is?"
+      },
+      {
+        "role": "assistant",
+        "content": "Analysis hasn't run yet, so I can't give you a ranked answer from the model. But from your structure, I'd point to one risk above the others: **cash runway combined with sales cycle length**.\n\nYou hav... [truncated]"
+      },
+      {
+        "role": "user",
+        "content": "I've run the analysis now. Can you explain the results to me?"
+      }
+    ],
+    "message": "I've run the analysis now. Can you explain the results to me?",
+    "graph_state": {
+      "nodes": [
+        {
+          "id": "dec_midmarket",
+          "kind": "decision",
+          "label": "Mid-Market Expansion Strategy"
+        },
+        {
+          "id": "fac_acquisition",
+          "kind": "factor",
+          "label": "Competitor Acquisition",
+          "category": "controllable",
+          "encoding_map": {
+            "0": "Not pursued",
+            "1": "Pursued"
+          },
+          "display_value": "No acquisition pursued",
+          "observed_state": {
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "cap": 0,
+            "extractionType": "inferred",
+            "factor_type": "other",
+            "uncertainty_drivers": [
+              "Acquisition target availability and valuation uncertain",
+              "Integration complexity and cultural fit unknown"
+            ]
+          }
+        },
+        {
+          "id": "fac_cash_runway",
+          "kind": "factor",
+          "label": "Cash Runway",
+          "category": "external",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.375,
+            "range_max": 1
+          },
+          "extractionType": "explicit",
+          "intercept": 0.75
+        },
+        {
+          "id": "fac_competition",
+          "kind": "factor",
+          "label": "Competitive Pressure",
+          "category": "external",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.6,
+            "range_max": 1
+          }
+        },
+        {
+          "id": "fac_engineering_capacity",
+          "kind": "factor",
+          "label": "Engineering Capacity",
+          "category": "external",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.2,
+            "range_max": 0.6000000000000001
+          },
+          "extractionType": "explicit",
+          "intercept": 0.4
+        },
+        {
+          "id": "fac_inbound_demand",
+          "kind": "factor",
+          "label": "Inbound Mid-Market Demand",
+          "category": "external",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.24,
+            "range_max": 0.72
+          },
+          "extractionType": "explicit",
+          "intercept": 0.48
+        },
+        {
+          "id": "fac_partnership_programme",
+          "kind": "factor",
+          "label": "SI Partnership Programme",
+          "category": "controllable",
+          "encoding_map": {
+            "0": "Not pursued",
+            "1": "Pursued"
+          },
+          "display_value": "No SI partnerships established",
+          "observed_state": {
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "cap": 0,
+            "extractionType": "inferred",
+            "factor_type": "other",
+            "uncertainty_drivers": [
+              "SI partner willingness and deal terms uncertain",
+              "Revenue share and referral conversion rates unknown"
+            ]
+          }
+        },
+        {
+          "id": "fac_product_investment",
+          "kind": "factor",
+          "label": "Mid-Market Product Investment",
+          "category": "controllable",
+          "encoding_map": {
+            "0": "Not pursued",
+            "1": "Pursued"
+          },
+          "display_value": "No product investment pursued",
+          "observed_state": {
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "cap": 0,
+            "extractionType": "inferred",
+            "factor_type": "other",
+            "uncertainty_drivers": [
+              "Engineering capacity may be insufficient for full feature build",
+              "Scope of SSO and audit log features may expand"
+            ]
+          }
+        },
+        {
+          "id": "goal_midmarket",
+          "kind": "goal",
+          "label": "Reach 200 Mid-Market Customers",
+          "goal_threshold": 0.8,
+          "goal_threshold_raw": 200,
+          "goal_threshold_unit": "customers",
+          "goal_threshold_cap": 250
+        },
+        {
+          "id": "opt_acquire",
+          "kind": "option",
+          "label": "Acquire Smaller Competitor",
+          "is_baseline": false,
+          "interventionKeys": [
+            "fac_product_investment",
+            "fac_partnership_programme",
+            "fac_acquisition"
+          ]
+        },
+        {
+          "id": "opt_build",
+          "kind": "option",
+          "label": "Build Dedicated Mid-Market Product Tier",
+          "is_baseline": false,
+          "interventionKeys": [
+            "fac_product_investment",
+            "fac_partnership_programme",
+            "fac_acquisition"
+          ]
+        },
+        {
+          "id": "opt_partner",
+          "kind": "option",
+          "label": "Partner with System Integrators",
+          "is_baseline": false,
+          "interventionKeys": [
+            "fac_product_investment",
+            "fac_partnership_programme",
+            "fac_acquisition"
+          ]
+        },
+        {
+          "id": "opt_status_quo",
+          "kind": "option",
+          "label": "Continue Current Approach (Status Quo)",
+          "is_baseline": true,
+          "interventionKeys": [
+            "fac_product_investment",
+            "fac_partnership_programme",
+            "fac_acquisition"
+          ]
+        },
+        {
+          "id": "out_customer_acquisition",
+          "kind": "outcome",
+          "label": "Mid-Market Customer Acquisition"
+        },
+        {
+          "id": "out_nrr",
+          "kind": "outcome",
+          "label": "Net Revenue Retention"
+        },
+        {
+          "id": "risk_churn",
+          "kind": "risk",
+          "label": "Monthly Churn Rate"
+        },
+        {
+          "id": "risk_runway",
+          "kind": "risk",
+          "label": "Cash Runway Pressure"
+        },
+        {
+          "id": "risk_time",
+          "kind": "risk",
+          "label": "Time to Reach Customer Target",
+          "display_value": "12 months",
+          "observed_state": {
+            "value": 0.5,
+            "unit": "months",
+            "source": "brief_extraction",
+            "raw_value": 12,
+            "cap": 24,
+            "extractionType": "explicit",
+            "factor_type": "time",
+            "uncertainty_drivers": []
+          }
+        }
+      ],
+      "edges": [
+        {
+          "from": "dec_midmarket",
+          "to": "opt_acquire",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "dec_midmarket",
+          "to": "opt_build",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "dec_midmarket",
+          "to": "opt_partner",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "dec_midmarket",
+          "to": "opt_status_quo",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_acquisition",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.65,
+            "std": 0.2
+          },
+          "exists_probability": 0.78,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_acquisition",
+          "to": "risk_churn",
+          "strength": {
+            "mean": 0.22,
+            "std": 0.14
+          },
+          "exists_probability": 0.75,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_acquisition",
+          "to": "risk_runway",
+          "strength": {
+            "mean": 0.55,
+            "std": 0.15
+          },
+          "exists_probability": 0.9,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_acquisition",
+          "to": "risk_time",
+          "strength": {
+            "mean": -0.35,
+            "std": 0.18
+          },
+          "exists_probability": 0.82,
+          "effect_direction": "negative",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_cash_runway",
+          "to": "risk_runway",
+          "strength": {
+            "mean": -0.3,
+            "std": 0.1
+          },
+          "exists_probability": 0.92,
+          "effect_direction": "negative",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_competition",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": -0.3,
+            "std": 0.22
+          },
+          "exists_probability": 0.8,
+          "effect_direction": "negative",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_competition",
+          "to": "risk_churn",
+          "strength": {
+            "mean": 0.18,
+            "std": 0.14
+          },
+          "exists_probability": 0.72,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_engineering_capacity",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.25,
+            "std": 0.12
+          },
+          "exists_probability": 0.85,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_engineering_capacity",
+          "to": "risk_time",
+          "strength": {
+            "mean": -0.2,
+            "std": 0.12
+          },
+          "exists_probability": 0.8,
+          "effect_direction": "negative",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_inbound_demand",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.2,
+            "std": 0.1
+          },
+          "exists_probability": 0.88,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_partnership_programme",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.38,
+            "std": 0.2
+          },
+          "exists_probability": 0.75,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_partnership_programme",
+          "to": "out_nrr",
+          "strength": {
+            "mean": 0.22,
+            "std": 0.18
+          },
+          "exists_probability": 0.68,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_partnership_programme",
+          "to": "risk_time",
+          "strength": {
+            "mean": 0.15,
+            "std": 0.15
+          },
+          "exists_probability": 0.65,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_product_investment",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.45,
+            "std": 0.18
+          },
+          "exists_probability": 0.82,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_product_investment",
+          "to": "out_nrr",
+          "strength": {
+            "mean": 0.35,
+            "std": 0.15
+          },
+          "exists_probability": 0.8,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_product_investment",
+          "to": "risk_churn",
+          "strength": {
+            "mean": -0.18,
+            "std": 0.12
+          },
+          "exists_probability": 0.72,
+          "effect_direction": "negative",
+          "edge_type": "directed"
+        },
+        {
+          "from": "fac_product_investment",
+          "to": "risk_time",
+          "strength": {
+            "mean": 0.38,
+            "std": 0.18
+          },
+          "exists_probability": 0.85,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "opt_acquire",
+          "to": "fac_acquisition",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "opt_build",
+          "to": "fac_product_investment",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "opt_partner",
+          "to": "fac_partnership_programme",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "opt_status_quo",
+          "to": "fac_acquisition",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "opt_status_quo",
+          "to": "fac_partnership_programme",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "opt_status_quo",
+          "to": "fac_product_investment",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "out_customer_acquisition",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": 0.55,
+            "std": 0.1
+          },
+          "exists_probability": 0.95,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "out_nrr",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": 0.22,
+            "std": 0.12
+          },
+          "exists_probability": 0.88,
+          "effect_direction": "positive",
+          "edge_type": "directed"
+        },
+        {
+          "from": "risk_churn",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": -0.18,
+            "std": 0.12
+          },
+          "exists_probability": 0.82,
+          "effect_direction": "negative",
+          "edge_type": "directed"
+        },
+        {
+          "from": "risk_runway",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": -0.22,
+            "std": 0.14
+          },
+          "exists_probability": 0.88,
+          "effect_direction": "negative",
+          "edge_type": "directed"
+        },
+        {
+          "from": "risk_time",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": -0.28,
+            "std": 0.14
+          },
+          "exists_probability": 0.9,
+          "effect_direction": "negative",
+          "edge_type": "directed"
+        }
+      ]
+    },
+    "analysis_state": {
+      "option_comparison": [
+        {
+          "option_id": "opt_acquire",
+          "option_label": "Acquire Smaller Competitor",
+          "id": "opt_acquire",
+          "label": "Acquire Smaller Competitor",
+          "outcome": {
+            "mean": 0.35997233980536225,
+            "std": 0.23688554241361096,
+            "p10": 0.03788287764629492,
+            "p50": 0.37392521461146677,
+            "p90": 0.6536511194348813,
+            "n_samples": 1000,
+            "n_valid_samples": 1000,
+            "validity_ratio": 1
+          },
+          "status": "computed",
+          "win_probability": 0.4375,
+          "probability_of_joint_goal": 0.028,
+          "constraint_probabilities": {
+            "auto_goal_threshold": 0.028
+          }
+        },
+        {
+          "option_id": "opt_build",
+          "option_label": "Build Dedicated Mid-Market Product Tier",
+          "id": "opt_build",
+          "label": "Build Dedicated Mid-Market Product Tier",
+          "outcome": {
+            "mean": 0.3245167331574112,
+            "std": 0.19779360890911457,
+            "p10": 0.06938290397768787,
+            "p50": 0.32752490469356316,
+            "p90": 0.5811347384389242,
+            "n_samples": 1000,
+            "n_valid_samples": 1000,
+            "validity_ratio": 1
+          },
+          "status": "computed",
+          "win_probability": 0.3186666666666667,
+          "probability_of_joint_goal": 0.008,
+          "constraint_probabilities": {
+            "auto_goal_threshold": 0.008
+          }
+        },
+        {
+          "option_id": "opt_partner",
+          "option_label": "Partner with System Integrators",
+          "id": "opt_partner",
+          "label": "Partner with System Integrators",
+          "outcome": {
+            "mean": 0.2977239049405649,
+            "std": 0.17730214360274,
+            "p10": 0.07705674393218935,
+            "p50": 0.2810125180344645,
+            "p90": 0.5317233506622809,
+            "n_samples": 1000,
+            "n_valid_samples": 1000,
+            "validity_ratio": 1
+          },
+          "status": "computed",
+          "win_probability": 0.23016666666666669,
+          "probability_of_joint_goal": 0.004,
+          "constraint_probabilities": {
+            "auto_goal_threshold": 0.004
+          }
+        },
+        {
+          "option_id": "opt_status_quo",
+          "option_label": "Continue Current Approach (Status Quo)",
+          "id": "opt_status_quo",
+          "label": "Continue Current Approach (Status Quo)",
+          "outcome": {
+            "mean": 0.14309602215417738,
+            "std": 0.07634914191488247,
+            "p10": 0.050271318836876924,
+            "p50": 0.13817148313009492,
+            "p90": 0.24189331746404927,
+            "n_samples": 1000,
+            "n_valid_samples": 1000,
+            "validity_ratio": 1
+          },
+          "status": "computed",
+          "win_probability": 0.013666666666666666,
+          "probability_of_joint_goal": 0,
+          "constraint_probabilities": {
+            "auto_goal_threshold": 0
+          }
+        }
+      ],
+      "robustness": {
+        "fragile_edges": [
+          {
+            "edge_id": "fac_acquisition->out_customer_acquisition",
+            "from_id": "fac_acquisition",
+            "to_id": "out_customer_acquisition",
+            "switch_probability": 0.484,
+            "marginal_switch_probability": 0.35,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Competitor Acquisition",
+            "to_label": "Mid-Market Customer Acquisition",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "out_customer_acquisition->goal_midmarket",
+            "from_id": "out_customer_acquisition",
+            "to_id": "goal_midmarket",
+            "switch_probability": 0.324,
+            "marginal_switch_probability": 0.05,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Mid-Market Customer Acquisition",
+            "to_label": "Reach 200 Mid-Market Customers",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "fac_acquisition->risk_runway",
+            "from_id": "fac_acquisition",
+            "to_id": "risk_runway",
+            "switch_probability": 0.296,
+            "marginal_switch_probability": 0.21,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Competitor Acquisition",
+            "to_label": "Cash Runway Pressure",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "risk_time->goal_midmarket",
+            "from_id": "risk_time",
+            "to_id": "goal_midmarket",
+            "switch_probability": 0.216,
+            "marginal_switch_probability": 0.35,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Time to Reach Customer Target",
+            "to_label": "Reach 200 Mid-Market Customers",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "fac_engineering_capacity->out_customer_acquisition",
+            "from_id": "fac_engineering_capacity",
+            "to_id": "out_customer_acquisition",
+            "switch_probability": 0.288,
+            "marginal_switch_probability": 0,
+            "alternative_winner_id": "opt_partner",
+            "from_label": "Engineering Capacity",
+            "to_label": "Mid-Market Customer Acquisition",
+            "alternative_winner_label": "Partner with System Integrators"
+          },
+          {
+            "edge_id": "fac_acquisition->risk_time",
+            "from_id": "fac_acquisition",
+            "to_id": "risk_time",
+            "switch_probability": 0.28,
+            "marginal_switch_probability": 0.28,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Competitor Acquisition",
+            "to_label": "Time to Reach Customer Target",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "fac_product_investment->risk_time",
+            "from_id": "fac_product_investment",
+            "to_id": "risk_time",
+            "switch_probability": 0.384,
+            "marginal_switch_probability": 0.28,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Mid-Market Product Investment",
+            "to_label": "Time to Reach Customer Target",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "fac_product_investment->out_customer_acquisition",
+            "from_id": "fac_product_investment",
+            "to_id": "out_customer_acquisition",
+            "switch_probability": 0.348,
+            "marginal_switch_probability": 0.45,
+            "alternative_winner_id": "opt_partner",
+            "from_label": "Mid-Market Product Investment",
+            "to_label": "Mid-Market Customer Acquisition",
+            "alternative_winner_label": "Partner with System Integrators"
+          },
+          {
+            "edge_id": "risk_runway->goal_midmarket",
+            "from_id": "risk_runway",
+            "to_id": "goal_midmarket",
+            "switch_probability": 0.436,
+            "marginal_switch_probability": 0.33,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Cash Runway Pressure",
+            "to_label": "Reach 200 Mid-Market Customers",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "fac_cash_runway->risk_runway",
+            "from_id": "fac_cash_runway",
+            "to_id": "risk_runway",
+            "switch_probability": 0.34,
+            "marginal_switch_probability": 0,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Cash Runway",
+            "to_label": "Cash Runway Pressure",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "fac_partnership_programme->out_customer_acquisition",
+            "from_id": "fac_partnership_programme",
+            "to_id": "out_customer_acquisition",
+            "switch_probability": 0.40942028985507245,
+            "marginal_switch_probability": 0.35,
+            "alternative_winner_id": "opt_build",
+            "from_label": "SI Partnership Programme",
+            "to_label": "Mid-Market Customer Acquisition",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "fac_inbound_demand->out_customer_acquisition",
+            "from_id": "fac_inbound_demand",
+            "to_id": "out_customer_acquisition",
+            "switch_probability": 0.3,
+            "marginal_switch_probability": 0,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Inbound Mid-Market Demand",
+            "to_label": "Mid-Market Customer Acquisition",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "fac_competition->risk_churn",
+            "from_id": "fac_competition",
+            "to_id": "risk_churn",
+            "switch_probability": 0.31142857142857144,
+            "marginal_switch_probability": 0,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Competitive Pressure",
+            "to_label": "Monthly Churn Rate",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          },
+          {
+            "edge_id": "risk_churn->goal_midmarket",
+            "from_id": "risk_churn",
+            "to_id": "goal_midmarket",
+            "switch_probability": 0.42,
+            "marginal_switch_probability": 0.27,
+            "alternative_winner_id": "opt_build",
+            "from_label": "Monthly Churn Rate",
+            "to_label": "Reach 200 Mid-Market Customers",
+            "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+          }
+        ],
+        "robust_edges": [
+          {
+            "edge_id": "fac_engineering_capacity->risk_time",
+            "from_id": "fac_engineering_capacity",
+            "to_id": "risk_time",
+            "switch_probability": 1,
+            "from_label": "Engineering Capacity",
+            "to_label": "Time to Reach Customer Target",
+            "alternative_winner_id": null,
+            "alternative_winner_label": null
+          },
+          {
+            "edge_id": "fac_partnership_programme->risk_time",
+            "from_id": "fac_partnership_programme",
+            "to_id": "risk_time",
+            "switch_probability": 1,
+            "from_label": "SI Partnership Programme",
+            "to_label": "Time to Reach Customer Target",
+            "alternative_winner_id": null,
+            "alternative_winner_label": null
+          }
+        ],
+        "recommendation_stability": 0.4375,
+        "is_robust": false,
+        "level": "very_low",
+        "confidence": 0.42366503523676335,
+        "recommended_option_id": "opt_acquire",
+        "recommended_option_label": "Acquire Smaller Competitor",
+        "near_tie": {
+          "is_tie": false,
+          "top_option_id": "opt_acquire",
+          "second_option_id": "opt_build",
+          "tied_option_ids": [
+            "opt_acquire"
+          ],
+          "gap": 0.11883333333333329,
+          "threshold": 0.1
+        }
+      },
+      "drivers": [],
+      "edge_sensitivity": [],
+      "constraints_status": "computed",
+      "critiques": [
+        {
+          "id": "d94d6bad-ca90-47f3-9bd4-ff2a5e41813f",
+          "code": "CONSTRAINT_MISSING_RANGE",
+          "severity": "info",
+          "message": "Constraint \"auto_goal_threshold\" target node \"goal_midmarket\" has no derivable range. Constraint value will be compared as-is by ISL.",
+          "source": "validation",
+          "affected_node_ids": [
+            "goal_midmarket"
+          ],
+          "blocks_analysis": false,
+          "user_message": "The constraint on Reach 200 Mid-Market Customers cannot be range-checked. The constraint value will be used as-is."
+        },
+        {
+          "id": "728e60ca-ad70-44b2-8675-9f2cdb8fd217",
+          "code": "NORMALIZATION_WARNING",
+          "severity": "info",
+          "message": "Node 'opt_acquire' has kind='option'. Option nodes are filtered before analysis.",
+          "source": "validation",
+          "blocks_analysis": false,
+          "user_message": "Acquire is an option and was excluded from factor analysis. This is expected."
+        },
+        {
+          "id": "889cb6d1-8b12-4eb1-97a5-3625a4b7c75a",
+          "code": "NORMALIZATION_WARNING",
+          "severity": "info",
+          "message": "Node 'opt_build' has kind='option'. Option nodes are filtered before analysis.",
+          "source": "validation",
+          "blocks_analysis": false,
+          "user_message": "Build is an option and was excluded from factor analysis. This is expected."
+        },
+        {
+          "id": "0bf57962-1d9e-491c-817b-12868bbb3894",
+          "code": "NORMALIZATION_WARNING",
+          "severity": "info",
+          "message": "Node 'opt_partner' has kind='option'. Option nodes are filtered before analysis.",
+          "source": "validation",
+          "blocks_analysis": false,
+          "user_message": "Partner is an option and was excluded from factor analysis. This is expected."
+        },
+        {
+          "id": "96e2a751-042c-451b-a4b8-7c66045018dd",
+          "code": "NORMALIZATION_WARNING",
+          "severity": "info",
+          "message": "Node 'opt_status_quo' has kind='option'. Option nodes are filtered before analysis.",
+          "source": "validation",
+          "blocks_analysis": false,
+          "user_message": "Status Quo is an option and was excluded from factor analysis. This is expected."
+        }
+      ],
+      "meta": {
+        "seed_used": "485977",
+        "seed_source": "client_generated",
+        "n_samples": 1000,
+        "detail_level": "deep",
+        "latency_ms": 4330.666963040829,
+        "normalization_ms": 0.4975780248641968,
+        "validation_ms": 0.32059603929519653,
+        "isl_ms": 2127.9345160126686,
+        "cee_ms": 0,
+        "build": "0d93364",
+        "computed_at": "2026-04-05T15:39:12.654Z",
+        "request_id_chain": {
+          "ui": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+          "plot": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+          "isl": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+          "isl_echoed": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+          "all_match": true,
+          "chain_complete": true
+        },
+        "feature_flags": {
+          "SCM_LITE_ENABLE": "0",
+          "PROD_SCM_LITE_PLACEHOLDER": "0",
+          "ADAPTIVE_K_ENABLE": "0",
+          "CONFIDENCE_CALIBRATED": "0",
+          "IDENT_TAG_ENABLE": "1",
+          "PROVENANCE_ENABLE": "1",
+          "ENABLE_DUAL_BELIEFS": "0",
+          "ENABLE_NOISY_OR": "0",
+          "ENABLE_LOGISTIC": "0",
+          "ENABLE_NOISY_AND_NOT": "0",
+          "ENABLE_MIXED_COMBINATION": "1",
+          "ENABLE_TRACE_CACHING": "0",
+          "ENABLE_STRATIFIED_SAMPLING": "1",
+          "ENABLE_IMPORTANCE_SAMPLING": "1",
+          "ENABLE_OPTION_PROBABILITIES": "0",
+          "RATE_LIMIT_ENABLED": "1",
+          "TOKEN_RL_ENABLE": "[REDACTED]",
+          "RL_CB_ENABLE": "0",
+          "PROMETHEUS_METRICS": "0",
+          "PROMETHEUS_ENABLE": "1",
+          "OPS_SNAPSHOT_ENABLE": "0",
+          "METRICS": "0",
+          "AUTH_ENABLED": "0",
+          "TEST_ROUTES": "0",
+          "CORS_DEV": "0",
+          "OPENAPI_DEV": "0",
+          "COMPARE_VIEW_ENABLE": "1",
+          "INSPECTOR_DEBUG_ENABLE": "0",
+          "FEATURE_STREAM": "0",
+          "STREAM_PARITY_ENABLE": "0",
+          "WHATIF_DELTA_ENABLE": "0",
+          "CEE_ORCHESTRATOR_ENABLED": "1",
+          "DECISION_REVIEW_ENABLE": "1",
+          "ENABLE_FACTS_ASSEMBLY": "1",
+          "ENABLE_REVIEW_PASS": "1",
+          "ENABLE_VALIDATE_PATCH": "1",
+          "facts_assembly": true,
+          "review_pass": true
+        },
+        "response_hash": "ee93f3a42afc11e1"
+      },
+      "analysis_status": "completed",
+      "option_comparison_status": "computed",
+      "robustness_status": "computed",
+      "drivers_status": "computed",
+      "compact_summary": {
+        "contract_version": "1.0.0",
+        "recommendation": {
+          "option_id": "opt_acquire",
+          "option_label": "Acquire Smaller Competitor",
+          "win_probability": 0.4375
+        },
+        "options": [
+          {
+            "id": "opt_acquire",
+            "label": "Acquire Smaller Competitor",
+            "win_probability": 0.4375
+          },
+          {
+            "id": "opt_build",
+            "label": "Build Dedicated Mid-Market Product Tier",
+            "win_probability": 0.3186666666666667
+          },
+          {
+            "id": "opt_partner",
+            "label": "Partner with System Integrators",
+            "win_probability": 0.23016666666666669
+          },
+          {
+            "id": "opt_status_quo",
+            "label": "Continue Current Approach (Status Quo)",
+            "win_probability": 0.013666666666666666
+          }
+        ],
+        "top_drivers": [],
+        "sensitivity_concentration": 0,
+        "confidence_band": "medium",
+        "robustness": {
+          "level": "fragile",
+          "recommendation_stability": 0.4375
+        },
+        "constraints_status": [],
+        "run_metadata": {
+          "seed": "485977",
+          "quality_mode": "deep",
+          "timestamp": null
+        }
+      }
+    }
+  },
+  "cee_response": {
+    "turn_id": "2987d8bb-eafe-4d44-a8d0-03988dcee2d6",
+    "assistant_text": "Acquire Smaller Competitor leads the analysis at 44%.\n\nLet me pull the explanation from your analysis results.",
+    "blocks": [
+      {
+        "block_id": "blk_commentary_088cdbfded6d4b86",
+        "block_type": "commentary",
+        "data": {
+          "narrative": "**Recommendation**: Acquire Smaller Competitor leads at 44%.\n\n**Stability**: Robustness: moderate.\n\n**Drivers**: Driver data not available.",
+          "sections": [
+            {
+              "heading": "Recommendation",
+              "content": "Acquire Smaller Competitor leads at 44%."
+            },
+            {
+              "heading": "Stability",
+              "content": "Robustness: moderate."
+            },
+            {
+              "heading": "Drivers",
+              "content": "Driver data not available."
+            }
+          ],
+          "supporting_refs": []
+        },
+        "provenance": {
+          "trigger": "deterministic:explain_result",
+          "turn_id": "2987d8bb-eafe-4d44-a8d0-03988dcee2d6",
+          "timestamp": "2026-04-05T15:40:21.522Z"
+        }
+      }
+    ],
+    "suggested_actions": [
+      {
+        "label": "Run analysis",
+        "prompt": "Run the analysis",
+        "role": "scientist",
+        "action_type": "run_analysis"
+      },
+      {
+        "label": "Compare options",
+        "prompt": "Compare the options",
+        "role": "scientist",
+        "action_type": "compare_options"
+      },
+      {
+        "label": "What would flip?",
+        "prompt": "What would flip the result?",
+        "role": "scientist",
+        "action_type": "what_would_flip"
+      }
+    ],
+    "lineage": {
+      "context_hash": "3f29a2da4636dffed33cc1e69645e4ddfb464f43b868452830a7b3bff27bb74a"
+    },
+    "turn_plan": {
+      "selected_tool": "explain_result",
+      "routing": "llm",
+      "long_running": false,
+      "tool_latency_ms": 34349,
+      "executed_tools": [
+        "explain_result"
+      ],
+      "deferred_tools": []
+    },
+    "stage_indicator": "evaluate",
+    "response_version": 2,
+    "guidance_items": [
+      {
+        "item_id": "gi_793de7cbd220df37",
+        "signal_code": "CTA_LITE",
+        "category": "technique",
+        "source": "analysis",
+        "title": "Ready to decide?",
+        "primary_action": {
+          "type": "discuss",
+          "prompt": "Generate the decision brief"
+        },
+        "target_object": {
+          "type": "graph"
+        },
+        "priority": 10,
+        "valid_while": {
+          "analysis_hash": "ee93f3a42afc11e1"
+        }
+      }
+    ]
+  },
+  "plot_request": {
+    "graph": {
+      "nodes": [
+        {
+          "id": "dec_midmarket",
+          "kind": "decision",
+          "label": "Mid-Market Expansion Strategy"
+        },
+        {
+          "id": "fac_acquisition",
+          "encoding_map": {
+            "0": "Not pursued",
+            "1": "Pursued"
+          },
+          "display_value": "No acquisition pursued",
+          "kind": "factor",
+          "label": "Competitor Acquisition",
+          "observed_state": {
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "cap": 0,
+            "extractionType": "inferred",
+            "factor_type": "other",
+            "uncertainty_drivers": [
+              "Acquisition target availability and valuation uncertain",
+              "Integration complexity and cultural fit unknown"
+            ],
+            "std": 0,
+            "baseline": 0
+          },
+          "category": "controllable"
+        },
+        {
+          "id": "fac_cash_runway",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.375,
+            "range_max": 1
+          },
+          "extractionType": "explicit",
+          "intercept": 0.75,
+          "kind": "factor",
+          "label": "Cash Runway",
+          "category": "external"
+        },
+        {
+          "id": "fac_competition",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.6,
+            "range_max": 1
+          },
+          "kind": "factor",
+          "label": "Competitive Pressure",
+          "category": "external"
+        },
+        {
+          "id": "fac_engineering_capacity",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.2,
+            "range_max": 0.6000000000000001
+          },
+          "extractionType": "explicit",
+          "intercept": 0.4,
+          "kind": "factor",
+          "label": "Engineering Capacity",
+          "category": "external"
+        },
+        {
+          "id": "fac_inbound_demand",
+          "prior": {
+            "distribution": "uniform",
+            "range_min": 0.24,
+            "range_max": 0.72
+          },
+          "extractionType": "explicit",
+          "intercept": 0.48,
+          "kind": "factor",
+          "label": "Inbound Mid-Market Demand",
+          "category": "external"
+        },
+        {
+          "id": "fac_partnership_programme",
+          "encoding_map": {
+            "0": "Not pursued",
+            "1": "Pursued"
+          },
+          "display_value": "No SI partnerships established",
+          "kind": "factor",
+          "label": "SI Partnership Programme",
+          "observed_state": {
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "cap": 0,
+            "extractionType": "inferred",
+            "factor_type": "other",
+            "uncertainty_drivers": [
+              "SI partner willingness and deal terms uncertain",
+              "Revenue share and referral conversion rates unknown"
+            ],
+            "std": 0,
+            "baseline": 0
+          },
+          "category": "controllable"
+        },
+        {
+          "id": "fac_product_investment",
+          "encoding_map": {
+            "0": "Not pursued",
+            "1": "Pursued"
+          },
+          "display_value": "No product investment pursued",
+          "kind": "factor",
+          "label": "Mid-Market Product Investment",
+          "observed_state": {
+            "value": 0,
+            "source": "cee_inference",
+            "raw_value": 0,
+            "cap": 0,
+            "extractionType": "inferred",
+            "factor_type": "other",
+            "uncertainty_drivers": [
+              "Engineering capacity may be insufficient for full feature build",
+              "Scope of SSO and audit log features may expand"
+            ],
+            "std": 0,
+            "baseline": 0
+          },
+          "category": "controllable"
+        },
+        {
+          "id": "goal_midmarket",
+          "goal_threshold": 0.8,
+          "goal_threshold_raw": 200,
+          "goal_threshold_unit": "customers",
+          "goal_threshold_cap": 250,
+          "kind": "goal",
+          "label": "Reach 200 Mid-Market Customers"
+        },
+        {
+          "id": "opt_acquire",
+          "is_baseline": false,
+          "interventionKeys": [
+            "fac_product_investment",
+            "fac_partnership_programme",
+            "fac_acquisition"
+          ],
+          "kind": "option",
+          "label": "Acquire Smaller Competitor"
+        },
+        {
+          "id": "opt_build",
+          "is_baseline": false,
+          "interventionKeys": [
+            "fac_product_investment",
+            "fac_partnership_programme",
+            "fac_acquisition"
+          ],
+          "kind": "option",
+          "label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "id": "opt_partner",
+          "is_baseline": false,
+          "interventionKeys": [
+            "fac_product_investment",
+            "fac_partnership_programme",
+            "fac_acquisition"
+          ],
+          "kind": "option",
+          "label": "Partner with System Integrators"
+        },
+        {
+          "id": "opt_status_quo",
+          "is_baseline": true,
+          "interventionKeys": [
+            "fac_product_investment",
+            "fac_partnership_programme",
+            "fac_acquisition"
+          ],
+          "kind": "option",
+          "label": "Continue Current Approach (Status Quo)"
+        },
+        {
+          "id": "out_customer_acquisition",
+          "kind": "outcome",
+          "label": "Mid-Market Customer Acquisition"
+        },
+        {
+          "id": "out_nrr",
+          "kind": "outcome",
+          "label": "Net Revenue Retention"
+        },
+        {
+          "id": "risk_churn",
+          "kind": "risk",
+          "label": "Monthly Churn Rate"
+        },
+        {
+          "id": "risk_runway",
+          "kind": "risk",
+          "label": "Cash Runway Pressure"
+        },
+        {
+          "id": "risk_time",
+          "display_value": "12 months",
+          "kind": "risk",
+          "label": "Time to Reach Customer Target",
+          "observed_state": {
+            "value": 0.5,
+            "unit": "months",
+            "source": "brief_extraction",
+            "raw_value": 12,
+            "cap": 24,
+            "extractionType": "explicit",
+            "factor_type": "time",
+            "uncertainty_drivers": [],
+            "std": 0.005,
+            "baseline": 0.5
+          }
+        }
+      ],
+      "edges": [
+        {
+          "from": "dec_midmarket",
+          "to": "opt_acquire",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "dec_midmarket",
+          "to": "opt_build",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "dec_midmarket",
+          "to": "opt_partner",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "dec_midmarket",
+          "to": "opt_status_quo",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "fac_acquisition",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.65,
+            "std": 0.2
+          },
+          "exists_probability": 0.78
+        },
+        {
+          "from": "fac_acquisition",
+          "to": "risk_churn",
+          "strength": {
+            "mean": 0.22,
+            "std": 0.14
+          },
+          "exists_probability": 0.75
+        },
+        {
+          "from": "fac_acquisition",
+          "to": "risk_runway",
+          "strength": {
+            "mean": 0.55,
+            "std": 0.15
+          },
+          "exists_probability": 0.9
+        },
+        {
+          "from": "fac_acquisition",
+          "to": "risk_time",
+          "strength": {
+            "mean": -0.35,
+            "std": 0.18
+          },
+          "exists_probability": 0.82
+        },
+        {
+          "from": "fac_cash_runway",
+          "to": "risk_runway",
+          "strength": {
+            "mean": -0.3,
+            "std": 0.1
+          },
+          "exists_probability": 0.92
+        },
+        {
+          "from": "fac_competition",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": -0.3,
+            "std": 0.22
+          },
+          "exists_probability": 0.8
+        },
+        {
+          "from": "fac_competition",
+          "to": "risk_churn",
+          "strength": {
+            "mean": 0.18,
+            "std": 0.14
+          },
+          "exists_probability": 0.72
+        },
+        {
+          "from": "fac_engineering_capacity",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.25,
+            "std": 0.12
+          },
+          "exists_probability": 0.85
+        },
+        {
+          "from": "fac_engineering_capacity",
+          "to": "risk_time",
+          "strength": {
+            "mean": -0.2,
+            "std": 0.12
+          },
+          "exists_probability": 0.8
+        },
+        {
+          "from": "fac_inbound_demand",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.2,
+            "std": 0.1
+          },
+          "exists_probability": 0.88
+        },
+        {
+          "from": "fac_partnership_programme",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.38,
+            "std": 0.2
+          },
+          "exists_probability": 0.75
+        },
+        {
+          "from": "fac_partnership_programme",
+          "to": "out_nrr",
+          "strength": {
+            "mean": 0.22,
+            "std": 0.18
+          },
+          "exists_probability": 0.68
+        },
+        {
+          "from": "fac_partnership_programme",
+          "to": "risk_time",
+          "strength": {
+            "mean": 0.15,
+            "std": 0.15
+          },
+          "exists_probability": 0.65
+        },
+        {
+          "from": "fac_product_investment",
+          "to": "out_customer_acquisition",
+          "strength": {
+            "mean": 0.45,
+            "std": 0.18
+          },
+          "exists_probability": 0.82
+        },
+        {
+          "from": "fac_product_investment",
+          "to": "out_nrr",
+          "strength": {
+            "mean": 0.35,
+            "std": 0.15
+          },
+          "exists_probability": 0.8
+        },
+        {
+          "from": "fac_product_investment",
+          "to": "risk_churn",
+          "strength": {
+            "mean": -0.18,
+            "std": 0.12
+          },
+          "exists_probability": 0.72
+        },
+        {
+          "from": "fac_product_investment",
+          "to": "risk_time",
+          "strength": {
+            "mean": 0.38,
+            "std": 0.18
+          },
+          "exists_probability": 0.85
+        },
+        {
+          "from": "opt_acquire",
+          "to": "fac_acquisition",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "opt_build",
+          "to": "fac_product_investment",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "opt_partner",
+          "to": "fac_partnership_programme",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "opt_status_quo",
+          "to": "fac_acquisition",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "opt_status_quo",
+          "to": "fac_partnership_programme",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "opt_status_quo",
+          "to": "fac_product_investment",
+          "strength": {
+            "mean": 1,
+            "std": 0.01
+          },
+          "exists_probability": 1
+        },
+        {
+          "from": "out_customer_acquisition",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": 0.55,
+            "std": 0.1
+          },
+          "exists_probability": 0.95
+        },
+        {
+          "from": "out_nrr",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": 0.22,
+            "std": 0.12
+          },
+          "exists_probability": 0.88
+        },
+        {
+          "from": "risk_churn",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": -0.18,
+            "std": 0.12
+          },
+          "exists_probability": 0.82
+        },
+        {
+          "from": "risk_runway",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": -0.22,
+            "std": 0.14
+          },
+          "exists_probability": 0.88
+        },
+        {
+          "from": "risk_time",
+          "to": "goal_midmarket",
+          "strength": {
+            "mean": -0.28,
+            "std": 0.14
+          },
+          "exists_probability": 0.9
+        }
+      ]
+    },
+    "options": [
+      {
+        "id": "opt_acquire",
+        "label": "Acquire Smaller Competitor",
+        "interventions": {
+          "fac_product_investment": 0,
+          "fac_partnership_programme": 0,
+          "fac_acquisition": 1
+        }
+      },
+      {
+        "id": "opt_build",
+        "label": "Build Dedicated Mid-Market Product Tier",
+        "interventions": {
+          "fac_product_investment": 1,
+          "fac_partnership_programme": 0,
+          "fac_acquisition": 0
+        }
+      },
+      {
+        "id": "opt_partner",
+        "label": "Partner with System Integrators",
+        "interventions": {
+          "fac_product_investment": 0,
+          "fac_partnership_programme": 1,
+          "fac_acquisition": 0
+        }
+      },
+      {
+        "id": "opt_status_quo",
+        "label": "Continue Current Approach (Status Quo)",
+        "interventions": {
+          "fac_product_investment": 0,
+          "fac_partnership_programme": 0,
+          "fac_acquisition": 0
+        }
+      }
+    ],
+    "goal_node_id": "goal_midmarket",
+    "seed": "485977",
+    "detail_level": "deep",
+    "goal_threshold": 0.8,
+    "request_id": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8"
+  },
+  "plot_response": {
+    "request_schema_version": "v3",
+    "endpoint_version": "v2/run",
+    "request_id": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+    "analysis_status": "computed",
+    "option_comparison_status": "computed",
+    "robustness_status": "computed",
+    "drivers_status": "computed",
+    "critiques": [
+      {
+        "id": "d94d6bad-ca90-47f3-9bd4-ff2a5e41813f",
+        "code": "CONSTRAINT_MISSING_RANGE",
+        "severity": "info",
+        "message": "Constraint \"auto_goal_threshold\" target node \"goal_midmarket\" has no derivable range. Constraint value will be compared as-is by ISL.",
+        "source": "validation",
+        "affected_node_ids": [
+          "goal_midmarket"
+        ],
+        "blocks_analysis": false,
+        "user_message": "The constraint on Reach 200 Mid-Market Customers cannot be range-checked. The constraint value will be used as-is."
+      },
+      {
+        "id": "728e60ca-ad70-44b2-8675-9f2cdb8fd217",
+        "code": "NORMALIZATION_WARNING",
+        "severity": "info",
+        "message": "Node 'opt_acquire' has kind='option'. Option nodes are filtered before analysis.",
+        "source": "validation",
+        "blocks_analysis": false,
+        "user_message": "Acquire is an option and was excluded from factor analysis. This is expected."
+      },
+      {
+        "id": "889cb6d1-8b12-4eb1-97a5-3625a4b7c75a",
+        "code": "NORMALIZATION_WARNING",
+        "severity": "info",
+        "message": "Node 'opt_build' has kind='option'. Option nodes are filtered before analysis.",
+        "source": "validation",
+        "blocks_analysis": false,
+        "user_message": "Build is an option and was excluded from factor analysis. This is expected."
+      },
+      {
+        "id": "0bf57962-1d9e-491c-817b-12868bbb3894",
+        "code": "NORMALIZATION_WARNING",
+        "severity": "info",
+        "message": "Node 'opt_partner' has kind='option'. Option nodes are filtered before analysis.",
+        "source": "validation",
+        "blocks_analysis": false,
+        "user_message": "Partner is an option and was excluded from factor analysis. This is expected."
+      },
+      {
+        "id": "96e2a751-042c-451b-a4b8-7c66045018dd",
+        "code": "NORMALIZATION_WARNING",
+        "severity": "info",
+        "message": "Node 'opt_status_quo' has kind='option'. Option nodes are filtered before analysis.",
+        "source": "validation",
+        "blocks_analysis": false,
+        "user_message": "Status Quo is an option and was excluded from factor analysis. This is expected."
+      }
+    ],
+    "option_comparison": [
+      {
+        "option_id": "opt_acquire",
+        "option_label": "Acquire Smaller Competitor",
+        "id": "opt_acquire",
+        "label": "Acquire Smaller Competitor",
+        "outcome": {
+          "mean": 0.35997233980536225,
+          "std": 0.23688554241361096,
+          "p10": 0.03788287764629492,
+          "p50": 0.37392521461146677,
+          "p90": 0.6536511194348813,
+          "n_samples": 1000,
+          "n_valid_samples": 1000,
+          "validity_ratio": 1
+        },
+        "status": "computed",
+        "win_probability": 0.4375,
+        "probability_of_joint_goal": 0.028,
+        "constraint_probabilities": {
+          "auto_goal_threshold": 0.028
+        }
+      },
+      {
+        "option_id": "opt_build",
+        "option_label": "Build Dedicated Mid-Market Product Tier",
+        "id": "opt_build",
+        "label": "Build Dedicated Mid-Market Product Tier",
+        "outcome": {
+          "mean": 0.3245167331574112,
+          "std": 0.19779360890911457,
+          "p10": 0.06938290397768787,
+          "p50": 0.32752490469356316,
+          "p90": 0.5811347384389242,
+          "n_samples": 1000,
+          "n_valid_samples": 1000,
+          "validity_ratio": 1
+        },
+        "status": "computed",
+        "win_probability": 0.3186666666666667,
+        "probability_of_joint_goal": 0.008,
+        "constraint_probabilities": {
+          "auto_goal_threshold": 0.008
+        }
+      },
+      {
+        "option_id": "opt_partner",
+        "option_label": "Partner with System Integrators",
+        "id": "opt_partner",
+        "label": "Partner with System Integrators",
+        "outcome": {
+          "mean": 0.2977239049405649,
+          "std": 0.17730214360274,
+          "p10": 0.07705674393218935,
+          "p50": 0.2810125180344645,
+          "p90": 0.5317233506622809,
+          "n_samples": 1000,
+          "n_valid_samples": 1000,
+          "validity_ratio": 1
+        },
+        "status": "computed",
+        "win_probability": 0.23016666666666669,
+        "probability_of_joint_goal": 0.004,
+        "constraint_probabilities": {
+          "auto_goal_threshold": 0.004
+        }
+      },
+      {
+        "option_id": "opt_status_quo",
+        "option_label": "Continue Current Approach (Status Quo)",
+        "id": "opt_status_quo",
+        "label": "Continue Current Approach (Status Quo)",
+        "outcome": {
+          "mean": 0.14309602215417738,
+          "std": 0.07634914191488247,
+          "p10": 0.050271318836876924,
+          "p50": 0.13817148313009492,
+          "p90": 0.24189331746404927,
+          "n_samples": 1000,
+          "n_valid_samples": 1000,
+          "validity_ratio": 1
+        },
+        "status": "computed",
+        "win_probability": 0.013666666666666666,
+        "probability_of_joint_goal": 0,
+        "constraint_probabilities": {
+          "auto_goal_threshold": 0
+        }
+      }
+    ],
+    "edge_sensitivity": [],
+    "factor_sensitivity": [
+      {
+        "factor_id": "fac_acquisition",
+        "factor_label": "Competitor Acquisition",
+        "influence_score": 1,
+        "influence_rank": 1,
+        "sensitivity_score": 0.29490000000000005,
+        "elasticity": 1,
+        "direction": "positive",
+        "importance_rank": 1,
+        "value_of_information": 0.175,
+        "confidence": 0.25,
+        "confidence_source": "isl",
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "source": "graph",
+        "flip_risk_category": "isolated",
+        "attribution_stability": "negligible",
+        "elasticity_std": 0,
+        "rank_flip_rate": 0,
+        "stability_method": "bootstrap_20",
+        "evpi_percentage_points": 2.1,
+        "evpi_method": "heuristic",
+        "range_derivation_source": "default"
+      },
+      {
+        "factor_id": "fac_product_investment",
+        "factor_label": "Mid-Market Product Investment",
+        "influence_score": 0.8494404883011188,
+        "influence_rank": 2,
+        "sensitivity_score": 0.2505,
+        "elasticity": 0.8494404883011188,
+        "direction": "positive",
+        "importance_rank": 2,
+        "value_of_information": 0.19112410986775175,
+        "confidence": 0.25,
+        "confidence_source": "isl",
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "source": "graph",
+        "flip_risk_category": "isolated",
+        "attribution_stability": "negligible",
+        "elasticity_std": 0,
+        "rank_flip_rate": 0,
+        "stability_method": "bootstrap_20",
+        "evpi_percentage_points": 2.3,
+        "evpi_method": "heuristic",
+        "range_derivation_source": "default"
+      },
+      {
+        "factor_id": "fac_partnership_programme",
+        "factor_label": "SI Partnership Programme",
+        "influence_score": 0.7304170905391657,
+        "influence_rank": 3,
+        "sensitivity_score": 0.2154,
+        "elasticity": 0.7304170905391657,
+        "direction": "positive",
+        "importance_rank": 3,
+        "value_of_information": 0.127822990844354,
+        "confidence": 0.25,
+        "confidence_source": "isl",
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "source": "graph",
+        "flip_risk_category": "isolated",
+        "attribution_stability": "negligible",
+        "elasticity_std": 0,
+        "rank_flip_rate": 0,
+        "stability_method": "bootstrap_20",
+        "evpi_percentage_points": 1.5,
+        "evpi_method": "heuristic",
+        "range_derivation_source": "default"
+      },
+      {
+        "factor_id": "fac_competition",
+        "factor_label": "Competitive Pressure",
+        "influence_score": 0.669379450661241,
+        "influence_rank": 4,
+        "sensitivity_score": -0.19740000000000002,
+        "elasticity": 0.669379450661241,
+        "direction": "negative",
+        "importance_rank": 4,
+        "value_of_information": 0,
+        "confidence": 0.25,
+        "confidence_source": "isl",
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "source": "graph",
+        "flip_risk_category": "correlated",
+        "attribution_stability": "low",
+        "elasticity_std": 0.00312959,
+        "rank_flip_rate": 0.2,
+        "stability_method": "bootstrap_20",
+        "evpi_percentage_points": 0,
+        "evpi_method": "heuristic"
+      },
+      {
+        "factor_id": "fac_engineering_capacity",
+        "factor_label": "Engineering Capacity",
+        "influence_score": 0.6561546286876907,
+        "influence_rank": 5,
+        "sensitivity_score": 0.1935,
+        "elasticity": 0.6561546286876907,
+        "direction": "positive",
+        "importance_rank": 5,
+        "value_of_information": 0,
+        "confidence": 0.25,
+        "confidence_source": "isl",
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "source": "graph",
+        "flip_risk_category": "correlated",
+        "attribution_stability": "low",
+        "elasticity_std": 0.00256173,
+        "rank_flip_rate": 0.35,
+        "stability_method": "bootstrap_20",
+        "evpi_percentage_points": 0,
+        "evpi_method": "heuristic"
+      },
+      {
+        "factor_id": "fac_inbound_demand",
+        "factor_label": "Inbound Mid-Market Demand",
+        "influence_score": 0.37300779925398436,
+        "influence_rank": 6,
+        "sensitivity_score": 0.11000000000000001,
+        "elasticity": 0.37300779925398436,
+        "direction": "positive",
+        "importance_rank": 6,
+        "value_of_information": 0,
+        "confidence": 0.25,
+        "confidence_source": "isl",
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "source": "graph",
+        "flip_risk_category": "correlated",
+        "attribution_stability": "low",
+        "elasticity_std": 0.00161213,
+        "rank_flip_rate": 0.35,
+        "stability_method": "bootstrap_20",
+        "evpi_percentage_points": 0,
+        "evpi_method": "heuristic"
+      },
+      {
+        "factor_id": "fac_cash_runway",
+        "factor_label": "Cash Runway",
+        "influence_score": 0.2238046795523906,
+        "influence_rank": 7,
+        "sensitivity_score": 0.066,
+        "elasticity": 0.2238046795523906,
+        "direction": "positive",
+        "importance_rank": 7,
+        "value_of_information": 0,
+        "confidence": 0.25,
+        "confidence_source": "isl",
+        "confidence_components": {
+          "structural_certainty": 0.5,
+          "sampling_stability": 0
+        },
+        "source": "graph",
+        "flip_risk_category": "correlated",
+        "attribution_stability": "low",
+        "elasticity_std": 0.00107615,
+        "rank_flip_rate": 0.45,
+        "stability_method": "bootstrap_20",
+        "evpi_percentage_points": 0,
+        "evpi_method": "heuristic"
+      }
+    ],
+    "factor_stability": [
+      {
+        "factor_id": "fac_engineering_capacity",
+        "factor_label": "Engineering Capacity",
+        "elasticity_std": 0.00256173,
+        "attribution_stability": "low",
+        "rank_flip_rate": 0.35,
+        "stability_method": "bootstrap_20"
+      },
+      {
+        "factor_id": "fac_competition",
+        "factor_label": "Competitive Pressure",
+        "elasticity_std": 0.00312959,
+        "attribution_stability": "low",
+        "rank_flip_rate": 0.2,
+        "stability_method": "bootstrap_20"
+      },
+      {
+        "factor_id": "fac_inbound_demand",
+        "factor_label": "Inbound Mid-Market Demand",
+        "elasticity_std": 0.00161213,
+        "attribution_stability": "low",
+        "rank_flip_rate": 0.35,
+        "stability_method": "bootstrap_20"
+      }
+    ],
+    "stability_thresholds": {
+      "high_moderate_boundary": 0.1,
+      "moderate_low_boundary": 0.3,
+      "version": "v1.0-operational-defaults",
+      "provisional": true
+    },
+    "inference_warnings": [
+      {
+        "code": "CONSTRAINT_NODE_DEFAULT_BASE",
+        "message": "Node 'goal_midmarket' has no ParameterUncertainty \u2014 defaulted to base=0.0, constraint probability may be unreliable",
+        "severity": "info"
+      }
+    ],
+    "m1_coaching": {
+      "story_headlines": {
+        "opt_acquire": "Acquire Smaller Competitor leads, but Competitor Acquisition \u2192 Mid-Market Customer Acquisition could swing the outcome to Build Dedicated Mid-Market Product Tier",
+        "opt_build": "Runner-up with 32% win probability",
+        "opt_partner": "Runner-up with 23% win probability",
+        "opt_status_quo": "Runner-up with 1% win probability"
+      },
+      "evidence_gaps": [
+        {
+          "factor_id": "fac_engineering_capacity",
+          "factor_label": "Engineering Capacity",
+          "voi_score": 0.6036,
+          "confidence": 0.3964,
+          "confidence_display": "40%",
+          "confidence_defaulted": false,
+          "influence": 1,
+          "influence_display": "100%",
+          "suggestion": "Gather data on \"Engineering Capacity\" to reduce uncertainty",
+          "notes": [],
+          "evpi_percentage_points": 7.2,
+          "evpi_method": "heuristic"
+        },
+        {
+          "factor_id": "fac_competition",
+          "factor_label": "Competitive Pressure",
+          "voi_score": 0.5933898513821337,
+          "confidence": 0.3786,
+          "confidence_display": "38%",
+          "confidence_defaulted": false,
+          "influence": 0.9549241251724071,
+          "influence_display": "95%",
+          "suggestion": "Gather data on \"Competitive Pressure\" to reduce uncertainty",
+          "notes": [],
+          "evpi_percentage_points": 7.1,
+          "evpi_method": "heuristic"
+        },
+        {
+          "factor_id": "fac_inbound_demand",
+          "factor_label": "Inbound Mid-Market Demand",
+          "voi_score": 0.36826227731848993,
+          "confidence": 0.3939,
+          "confidence_display": "39%",
+          "confidence_defaulted": false,
+          "influence": 0.6075932640133475,
+          "influence_display": "61%",
+          "suggestion": "Gather data on \"Inbound Mid-Market Demand\" to reduce uncertainty",
+          "notes": [],
+          "evpi_percentage_points": 4.4,
+          "evpi_method": "heuristic"
+        }
+      ],
+      "model_critiques": [
+        {
+          "type": "INFLUENTIAL_EXTERNALS",
+          "severity": "warn",
+          "challenge_question": "External factors Engineering Capacity, Competitive Pressure significantly affect your outcome but are inherently uncertain. How might you bound these?",
+          "suggested_action": "Consider converting to observable (if you can estimate baseline) or add proxy factors with explicit 0-1 scales",
+          "targets": [
+            "fac_engineering_capacity",
+            "fac_competition"
+          ]
+        },
+        {
+          "type": "GOAL_FEASIBILITY_LOW",
+          "severity": "warn",
+          "challenge_question": "No option has a strong probability of meeting all stated constraints. The best available option may not achieve the target.",
+          "suggested_action": "Review whether your constraints are realistic, or gather more evidence on the factors that most affect feasibility."
+        },
+        {
+          "type": "CONSTRAINT_UNGROUNDED",
+          "severity": "warn",
+          "challenge_question": "Constraint on \"Reach 200 Mid-Market Customers\" lacks a baseline value. The feasibility assessment for this constraint is based on defaults rather than evidence.",
+          "suggested_action": "Provide a current observed value for Reach 200 Mid-Market Customers to strengthen the constraint analysis.",
+          "targets": [
+            "goal_midmarket"
+          ]
+        }
+      ],
+      "next_actions": [
+        {
+          "priority": 2,
+          "action": "Gather evidence on Engineering Capacity",
+          "rationale": "This factor has high impact (100%) but low confidence (40%)",
+          "target_type": "factor",
+          "target_id": "fac_engineering_capacity",
+          "target_label": "Engineering Capacity"
+        },
+        {
+          "priority": 3,
+          "action": "Validate the Competitor Acquisition \u2192 Mid-Market Customer Acquisition assumption",
+          "rationale": "48% chance this flips the decision to Build Dedicated Mid-Market Product Tier",
+          "target_type": "edge",
+          "target_id": "fac_acquisition->out_customer_acquisition",
+          "target_label": "Competitor Acquisition \u2192 Mid-Market Customer Acquisition"
+        }
+      ],
+      "readiness": "needs_evidence",
+      "headline_type": "needs_evidence",
+      "top_fragile_edge": {
+        "edge_id": "fac_acquisition->out_customer_acquisition",
+        "label": "Competitor Acquisition \u2192 Mid-Market Customer Acquisition",
+        "alternative_winner": "Build Dedicated Mid-Market Product Tier",
+        "switch_probability": 0.484
+      },
+      "assumptions_ledger": {
+        "assumptions": [
+          {
+            "dedup_key": "plot_normaliser:derived:global:unknown:goal_constraints",
+            "source_service": "plot_normaliser",
+            "action": "derived",
+            "entity_type": "global",
+            "entity_id": "unknown",
+            "field": "goal_constraints",
+            "from_value": "goal_threshold=0.8",
+            "to_value": "auto_goal_threshold",
+            "reason": "No goal_constraints provided; auto-generated single constraint from goal_threshold",
+            "impact": "low",
+            "impact_reason_code": "STRUCTURAL_ONLY"
+          },
+          {
+            "dedup_key": "plot_normaliser:inferred:global:unknown:goal_threshold",
+            "source_service": "plot_normaliser",
+            "action": "inferred",
+            "entity_type": "global",
+            "entity_id": "unknown",
+            "field": "goal_threshold",
+            "from_value": 0.8,
+            "to_value": "ignored",
+            "reason": "goal_constraints present. goal_threshold=0.8 ignored (goal_constraints take precedence)",
+            "impact": "low",
+            "impact_reason_code": "STRUCTURAL_ONLY"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_acquisition->out_customer_acquisition:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_acquisition->out_customer_acquisition",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.484,
+            "reason": "Edge Competitor Acquisition \u2192 Mid-Market Customer Acquisition has 48% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:risk_runway->goal_midmarket:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "risk_runway->goal_midmarket",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.436,
+            "reason": "Edge Cash Runway Pressure \u2192 Reach 200 Mid-Market Customers has 44% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:risk_churn->goal_midmarket:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "risk_churn->goal_midmarket",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.42,
+            "reason": "Edge Monthly Churn Rate \u2192 Reach 200 Mid-Market Customers has 42% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_partnership_programme->out_customer_acquisition:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_partnership_programme->out_customer_acquisition",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.40942028985507245,
+            "reason": "Edge SI Partnership Programme \u2192 Mid-Market Customer Acquisition has 41% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_product_investment->risk_time:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_product_investment->risk_time",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.384,
+            "reason": "Edge Mid-Market Product Investment \u2192 Time to Reach Customer Target has 38% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_product_investment->out_customer_acquisition:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_product_investment->out_customer_acquisition",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.348,
+            "reason": "Edge Mid-Market Product Investment \u2192 Mid-Market Customer Acquisition has 35% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_cash_runway->risk_runway:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_cash_runway->risk_runway",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.34,
+            "reason": "Edge Cash Runway \u2192 Cash Runway Pressure has 34% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:out_customer_acquisition->goal_midmarket:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "out_customer_acquisition->goal_midmarket",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.324,
+            "reason": "Edge Mid-Market Customer Acquisition \u2192 Reach 200 Mid-Market Customers has 32% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_competition->risk_churn:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_competition->risk_churn",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.31142857142857144,
+            "reason": "Edge Competitive Pressure \u2192 Monthly Churn Rate has 31% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_inbound_demand->out_customer_acquisition:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_inbound_demand->out_customer_acquisition",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.3,
+            "reason": "Edge Inbound Mid-Market Demand \u2192 Mid-Market Customer Acquisition has 30% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_acquisition->risk_runway:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_acquisition->risk_runway",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.296,
+            "reason": "Edge Competitor Acquisition \u2192 Cash Runway Pressure has 30% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_engineering_capacity->out_customer_acquisition:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_engineering_capacity->out_customer_acquisition",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.288,
+            "reason": "Edge Engineering Capacity \u2192 Mid-Market Customer Acquisition has 29% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:fac_acquisition->risk_time:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "fac_acquisition->risk_time",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.28,
+            "reason": "Edge Competitor Acquisition \u2192 Time to Reach Customer Target has 28% chance of flipping decision",
+            "impact": "high",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:edge:risk_time->goal_midmarket:switch_probability",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "edge",
+            "entity_id": "risk_time->goal_midmarket",
+            "field": "switch_probability",
+            "from_value": null,
+            "to_value": 0.216,
+            "reason": "Edge Time to Reach Customer Target \u2192 Reach 200 Mid-Market Customers has 22% chance of flipping decision",
+            "impact": "medium",
+            "impact_reason_code": "FRAGILE_EDGE"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:node:fac_engineering_capacity:confidence",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "node",
+            "entity_id": "fac_engineering_capacity",
+            "field": "confidence",
+            "from_value": null,
+            "to_value": 0.3964,
+            "reason": "Factor Engineering Capacity has low confidence (40%)",
+            "impact": "high",
+            "impact_reason_code": "HIGH_INFLUENCE_FACTOR"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:node:fac_competition:confidence",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "node",
+            "entity_id": "fac_competition",
+            "field": "confidence",
+            "from_value": null,
+            "to_value": 0.3786,
+            "reason": "Factor Competitive Pressure has low confidence (38%)",
+            "impact": "high",
+            "impact_reason_code": "HIGH_INFLUENCE_FACTOR"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:node:fac_inbound_demand:confidence",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "node",
+            "entity_id": "fac_inbound_demand",
+            "field": "confidence",
+            "from_value": null,
+            "to_value": 0.3939,
+            "reason": "Factor Inbound Mid-Market Demand has low confidence (39%)",
+            "impact": "high",
+            "impact_reason_code": "HIGH_INFLUENCE_FACTOR"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:node:fac_cash_runway:confidence",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "node",
+            "entity_id": "fac_cash_runway",
+            "field": "confidence",
+            "from_value": null,
+            "to_value": 0.3839,
+            "reason": "Factor Cash Runway has low confidence (38%)",
+            "impact": "low",
+            "impact_reason_code": "STRUCTURAL_ONLY"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:node:fac_acquisition:confidence",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "node",
+            "entity_id": "fac_acquisition",
+            "field": "confidence",
+            "from_value": null,
+            "to_value": 0.1,
+            "reason": "Factor Competitor Acquisition has low confidence (10%)",
+            "impact": "low",
+            "impact_reason_code": "STRUCTURAL_ONLY"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:node:fac_partnership_programme:confidence",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "node",
+            "entity_id": "fac_partnership_programme",
+            "field": "confidence",
+            "from_value": null,
+            "to_value": 0.1,
+            "reason": "Factor SI Partnership Programme has low confidence (10%)",
+            "impact": "low",
+            "impact_reason_code": "STRUCTURAL_ONLY"
+          },
+          {
+            "dedup_key": "isl_engine:flagged:node:fac_product_investment:confidence",
+            "source_service": "isl_engine",
+            "action": "flagged",
+            "entity_type": "node",
+            "entity_id": "fac_product_investment",
+            "field": "confidence",
+            "from_value": null,
+            "to_value": 0.1,
+            "reason": "Factor Mid-Market Product Investment has low confidence (10%)",
+            "impact": "low",
+            "impact_reason_code": "STRUCTURAL_ONLY"
+          }
+        ],
+        "total_count": 23,
+        "high_impact_count": 16,
+        "medium_impact_count": 1,
+        "low_impact_count": 6
+      },
+      "thresholds_used": {
+        "headline_clear_winner_delta": 0.2,
+        "headline_clear_winner_stability": 0.7,
+        "headline_moderate_winner_delta": 0.1,
+        "headline_moderate_winner_stability": 0.5,
+        "headline_close_call_delta": 0.1,
+        "headline_high_uncertainty_voi": 0.3,
+        "headline_high_uncertainty_fragile": 0.25,
+        "headline_fragile_edge_min": 0.15,
+        "evidence_gap_min_voi": 0,
+        "evidence_gap_top_quartile": true,
+        "evidence_gap_floor": 3,
+        "evidence_gap_cap": 3,
+        "critique_dominant_factor_threshold": 0.5,
+        "critique_influential_external_quartile": 0.25,
+        "critique_narrow_framing_max_options": 2,
+        "critique_anchoring_baseline_value": 0.5,
+        "critique_overconfidence_threshold": 0.85,
+        "action_fragile_edge_threshold": 0.2,
+        "action_high_voi_threshold": 0.4,
+        "readiness_high_evidence_gap_count": 2,
+        "readiness_high_voi_threshold": 0.4,
+        "readiness_joint_prob_floor": 0.05,
+        "readiness_joint_prob_close_call": 0.3
+      },
+      "readiness_signals": {
+        "overall": "needs_evidence",
+        "overall_score": 0.35,
+        "computed_score_raw": 0.48,
+        "dimensions": {
+          "evidence_quality": 0.4,
+          "model_robustness": 0.3,
+          "framing_quality": 1
+        },
+        "signals": [
+          {
+            "dimension": "evidence",
+            "signal": "2 high-VoI evidence gaps",
+            "impact": "negative",
+            "weight": 0.4
+          },
+          {
+            "dimension": "evidence",
+            "signal": "Low average confidence (26%)",
+            "impact": "negative",
+            "weight": 0.2
+          },
+          {
+            "dimension": "robustness",
+            "signal": "Low recommendation stability (44%)",
+            "impact": "negative",
+            "weight": 0.4
+          },
+          {
+            "dimension": "robustness",
+            "signal": "14 fragile edges",
+            "impact": "negative",
+            "weight": 0.3
+          },
+          {
+            "dimension": "framing",
+            "signal": "4 options considered",
+            "impact": "positive",
+            "weight": 0.1
+          }
+        ]
+      },
+      "key_drivers": [
+        {
+          "factor_id": "fac_engineering_capacity",
+          "factor_label": "Engineering Capacity",
+          "influence_score": 0.004,
+          "normalised_impact": 1,
+          "impact_display": "Very High",
+          "direction": "positive",
+          "rank": 1
+        },
+        {
+          "factor_id": "fac_competition",
+          "factor_label": "Competitive Pressure",
+          "influence_score": 0.004,
+          "normalised_impact": 0.95,
+          "impact_display": "Very High",
+          "direction": "negative",
+          "rank": 2
+        },
+        {
+          "factor_id": "fac_inbound_demand",
+          "factor_label": "Inbound Mid-Market Demand",
+          "influence_score": 0.003,
+          "normalised_impact": 0.61,
+          "impact_display": "High",
+          "direction": "positive",
+          "rank": 3
+        },
+        {
+          "factor_id": "fac_cash_runway",
+          "factor_label": "Cash Runway",
+          "influence_score": 0.001,
+          "normalised_impact": 0.35,
+          "impact_display": "Medium",
+          "direction": "positive",
+          "rank": 4
+        },
+        {
+          "factor_id": "fac_acquisition",
+          "factor_label": "Competitor Acquisition",
+          "influence_score": 0,
+          "normalised_impact": 0,
+          "impact_display": "Low",
+          "direction": "negative",
+          "rank": 5
+        }
+      ],
+      "executive_summary": {
+        "summary": "The decision is unclear based on current evidence. Key uncertainty: Engineering Capacity has high impact but low evidence quality. Gather evidence on Engineering Capacity before deciding.",
+        "decision_statement": "The decision is unclear based on current evidence.",
+        "key_qualifier": "Key uncertainty: Engineering Capacity has high impact but low evidence quality.",
+        "action_implication": "Gather evidence on Engineering Capacity before deciding."
+      },
+      "coaching_version": "1.1.0",
+      "computed_at": "2026-04-05T15:39:12.657Z"
+    },
+    "identifiability": {
+      "status": "identifiable",
+      "method": "backdoor",
+      "pairs_checked": 3,
+      "pairs_identifiable": 3
+    },
+    "m1_review": null,
+    "review_status": "skipped",
+    "review_skip_reason": "BRIEF_MISSING",
+    "robustness": {
+      "fragile_edges": [
+        {
+          "edge_id": "fac_acquisition->out_customer_acquisition",
+          "from_id": "fac_acquisition",
+          "to_id": "out_customer_acquisition",
+          "switch_probability": 0.484,
+          "marginal_switch_probability": 0.35,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Competitor Acquisition",
+          "to_label": "Mid-Market Customer Acquisition",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "out_customer_acquisition->goal_midmarket",
+          "from_id": "out_customer_acquisition",
+          "to_id": "goal_midmarket",
+          "switch_probability": 0.324,
+          "marginal_switch_probability": 0.05,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Mid-Market Customer Acquisition",
+          "to_label": "Reach 200 Mid-Market Customers",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "fac_acquisition->risk_runway",
+          "from_id": "fac_acquisition",
+          "to_id": "risk_runway",
+          "switch_probability": 0.296,
+          "marginal_switch_probability": 0.21,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Competitor Acquisition",
+          "to_label": "Cash Runway Pressure",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "risk_time->goal_midmarket",
+          "from_id": "risk_time",
+          "to_id": "goal_midmarket",
+          "switch_probability": 0.216,
+          "marginal_switch_probability": 0.35,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Time to Reach Customer Target",
+          "to_label": "Reach 200 Mid-Market Customers",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "fac_engineering_capacity->out_customer_acquisition",
+          "from_id": "fac_engineering_capacity",
+          "to_id": "out_customer_acquisition",
+          "switch_probability": 0.288,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_partner",
+          "from_label": "Engineering Capacity",
+          "to_label": "Mid-Market Customer Acquisition",
+          "alternative_winner_label": "Partner with System Integrators"
+        },
+        {
+          "edge_id": "fac_acquisition->risk_time",
+          "from_id": "fac_acquisition",
+          "to_id": "risk_time",
+          "switch_probability": 0.28,
+          "marginal_switch_probability": 0.28,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Competitor Acquisition",
+          "to_label": "Time to Reach Customer Target",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "fac_product_investment->risk_time",
+          "from_id": "fac_product_investment",
+          "to_id": "risk_time",
+          "switch_probability": 0.384,
+          "marginal_switch_probability": 0.28,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Mid-Market Product Investment",
+          "to_label": "Time to Reach Customer Target",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "fac_product_investment->out_customer_acquisition",
+          "from_id": "fac_product_investment",
+          "to_id": "out_customer_acquisition",
+          "switch_probability": 0.348,
+          "marginal_switch_probability": 0.45,
+          "alternative_winner_id": "opt_partner",
+          "from_label": "Mid-Market Product Investment",
+          "to_label": "Mid-Market Customer Acquisition",
+          "alternative_winner_label": "Partner with System Integrators"
+        },
+        {
+          "edge_id": "risk_runway->goal_midmarket",
+          "from_id": "risk_runway",
+          "to_id": "goal_midmarket",
+          "switch_probability": 0.436,
+          "marginal_switch_probability": 0.33,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Cash Runway Pressure",
+          "to_label": "Reach 200 Mid-Market Customers",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "fac_cash_runway->risk_runway",
+          "from_id": "fac_cash_runway",
+          "to_id": "risk_runway",
+          "switch_probability": 0.34,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Cash Runway",
+          "to_label": "Cash Runway Pressure",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "fac_partnership_programme->out_customer_acquisition",
+          "from_id": "fac_partnership_programme",
+          "to_id": "out_customer_acquisition",
+          "switch_probability": 0.40942028985507245,
+          "marginal_switch_probability": 0.35,
+          "alternative_winner_id": "opt_build",
+          "from_label": "SI Partnership Programme",
+          "to_label": "Mid-Market Customer Acquisition",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "fac_inbound_demand->out_customer_acquisition",
+          "from_id": "fac_inbound_demand",
+          "to_id": "out_customer_acquisition",
+          "switch_probability": 0.3,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Inbound Mid-Market Demand",
+          "to_label": "Mid-Market Customer Acquisition",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "fac_competition->risk_churn",
+          "from_id": "fac_competition",
+          "to_id": "risk_churn",
+          "switch_probability": 0.31142857142857144,
+          "marginal_switch_probability": 0,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Competitive Pressure",
+          "to_label": "Monthly Churn Rate",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        },
+        {
+          "edge_id": "risk_churn->goal_midmarket",
+          "from_id": "risk_churn",
+          "to_id": "goal_midmarket",
+          "switch_probability": 0.42,
+          "marginal_switch_probability": 0.27,
+          "alternative_winner_id": "opt_build",
+          "from_label": "Monthly Churn Rate",
+          "to_label": "Reach 200 Mid-Market Customers",
+          "alternative_winner_label": "Build Dedicated Mid-Market Product Tier"
+        }
+      ],
+      "robust_edges": [
+        {
+          "edge_id": "fac_engineering_capacity->risk_time",
+          "from_id": "fac_engineering_capacity",
+          "to_id": "risk_time",
+          "switch_probability": 1,
+          "from_label": "Engineering Capacity",
+          "to_label": "Time to Reach Customer Target",
+          "alternative_winner_id": null,
+          "alternative_winner_label": null
+        },
+        {
+          "edge_id": "fac_partnership_programme->risk_time",
+          "from_id": "fac_partnership_programme",
+          "to_id": "risk_time",
+          "switch_probability": 1,
+          "from_label": "SI Partnership Programme",
+          "to_label": "Time to Reach Customer Target",
+          "alternative_winner_id": null,
+          "alternative_winner_label": null
+        }
+      ],
+      "recommendation_stability": 0.4375,
+      "is_robust": false,
+      "level": "very_low",
+      "confidence": 0.42366503523676335,
+      "recommended_option_id": "opt_acquire",
+      "recommended_option_label": "Acquire Smaller Competitor",
+      "near_tie": {
+        "is_tie": false,
+        "top_option_id": "opt_acquire",
+        "second_option_id": "opt_build",
+        "tied_option_ids": [
+          "opt_acquire"
+        ],
+        "gap": 0.11883333333333329,
+        "threshold": 0.1
+      }
+    },
+    "robustness_synthesis": null,
+    "cee_status": "skipped",
+    "decision_quality": null,
+    "insights": null,
+    "improvement_guidance": null,
+    "rationale": null,
+    "ceeTrace": {
+      "requestId": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+      "degraded": false,
+      "timestamp": "2026-04-05T15:39:12.655Z",
+      "source": "orchestrator",
+      "reason": "Legacy CEE calls skipped (M2 decision-review enabled)"
+    },
+    "processing_time_ms": 4330.666963040829,
+    "response_hash": "ee93f3a42afc11e1",
+    "meta": {
+      "seed_used": "485977",
+      "seed_source": "client_generated",
+      "n_samples": 1000,
+      "detail_level": "deep",
+      "latency_ms": 4330.666963040829,
+      "normalization_ms": 0.4975780248641968,
+      "validation_ms": 0.32059603929519653,
+      "isl_ms": 2127.9345160126686,
+      "cee_ms": 0,
+      "build": "0d93364",
+      "computed_at": "2026-04-05T15:39:12.654Z",
+      "request_id_chain": {
+        "ui": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+        "plot": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+        "isl": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+        "isl_echoed": "432fdf8d-a88f-44a5-830f-6d1575ccfaa8",
+        "all_match": true,
+        "chain_complete": true
+      },
+      "feature_flags": {
+        "SCM_LITE_ENABLE": "0",
+        "PROD_SCM_LITE_PLACEHOLDER": "0",
+        "ADAPTIVE_K_ENABLE": "0",
+        "CONFIDENCE_CALIBRATED": "0",
+        "IDENT_TAG_ENABLE": "1",
+        "PROVENANCE_ENABLE": "1",
+        "ENABLE_DUAL_BELIEFS": "0",
+        "ENABLE_NOISY_OR": "0",
+        "ENABLE_LOGISTIC": "0",
+        "ENABLE_NOISY_AND_NOT": "0",
+        "ENABLE_MIXED_COMBINATION": "1",
+        "ENABLE_TRACE_CACHING": "0",
+        "ENABLE_STRATIFIED_SAMPLING": "1",
+        "ENABLE_IMPORTANCE_SAMPLING": "1",
+        "ENABLE_OPTION_PROBABILITIES": "0",
+        "RATE_LIMIT_ENABLED": "1",
+        "TOKEN_RL_ENABLE": "[REDACTED]",
+        "RL_CB_ENABLE": "0",
+        "PROMETHEUS_METRICS": "0",
+        "PROMETHEUS_ENABLE": "1",
+        "OPS_SNAPSHOT_ENABLE": "0",
+        "METRICS": "0",
+        "AUTH_ENABLED": "0",
+        "TEST_ROUTES": "0",
+        "CORS_DEV": "0",
+        "OPENAPI_DEV": "0",
+        "COMPARE_VIEW_ENABLE": "1",
+        "INSPECTOR_DEBUG_ENABLE": "0",
+        "FEATURE_STREAM": "0",
+        "STREAM_PARITY_ENABLE": "0",
+        "WHATIF_DELTA_ENABLE": "0",
+        "CEE_ORCHESTRATOR_ENABLED": "1",
+        "DECISION_REVIEW_ENABLE": "1",
+        "ENABLE_FACTS_ASSEMBLY": "1",
+        "ENABLE_REVIEW_PASS": "1",
+        "ENABLE_VALIDATE_PATCH": "1",
+        "facts_assembly": true,
+        "review_pass": true
+      }
+    },
+    "_factor_stability_trimmed": true
+  }
+}
