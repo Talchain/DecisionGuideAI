@@ -304,6 +304,10 @@ export function formatInterventionValue(
   observedValue?: number | null,
   observedRawValue?: string | number | null,
 ): string {
+  // Defensive guard: callers must pass a finite number. Object/NaN/undefined
+  // inputs previously produced "[object Object]" and "£NaN" strings on factor
+  // nodes (see FactorNode.tsx interventionValue memo). Fail visibly instead.
+  if (typeof value !== 'number' || !Number.isFinite(value)) return ''
   // Sanitise unit — never display internal factor_type descriptor strings as units
   unit = sanitiseUnit(unit)
   // J1: Denormalise using cap before any formatting

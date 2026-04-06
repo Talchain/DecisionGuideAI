@@ -65,8 +65,15 @@ export const FactorNode = memo((props: NodeProps) => {
     if (!hoveredOptionId) return null
     const hoveredOption = nodes.find(n => n.id === hoveredOptionId)
     if (!hoveredOption?.data?.interventions) return null
-    const interventions = hoveredOption.data.interventions as Record<string, number>
-    return interventions[props.id] ?? null
+    const interventions = hoveredOption.data.interventions as Record<string, unknown>
+    const raw = interventions[props.id]
+    if (raw == null) return null
+    if (typeof raw === 'number') return raw
+    if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+      const v = Number((raw as { value: unknown }).value)
+      return Number.isFinite(v) ? v : null
+    }
+    return null
   }, [hoveredOptionId, nodes, props.id])
 
   const isAffectedByHover = interventionValue !== null
