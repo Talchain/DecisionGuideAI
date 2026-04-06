@@ -1431,6 +1431,7 @@ export function useConversation(): UseConversationReturn {
         if (!Array.isArray(rawV2.option_comparison)) v2ArrayCoercions.push('option_comparison')
         if (!Array.isArray(rawV2.drivers)) v2ArrayCoercions.push('drivers')
         if (!Array.isArray(rawV2.edge_sensitivity)) v2ArrayCoercions.push('edge_sensitivity')
+        if (rawV2.factor_sensitivity !== undefined && !Array.isArray(rawV2.factor_sensitivity)) v2ArrayCoercions.push('factor_sensitivity')
         if (v2ArrayCoercions.length > 0) {
           coercionWarnedHashRef.current = analysisHash
           console.warn('[buildRequest] rawV2Response has non-array fields coerced to []:', v2ArrayCoercions)
@@ -1444,8 +1445,16 @@ export function useConversation(): UseConversationReturn {
       const v2Results = rawV2 ? {
         option_comparison: Array.isArray(rawV2.option_comparison) ? rawV2.option_comparison : [],
         robustness: rawV2.robustness ?? null,
+        // Retained for backward compatibility; factor_sensitivity is the canonical driver surface for CEE.
         drivers: Array.isArray(rawV2.drivers) ? rawV2.drivers : [],
         edge_sensitivity: Array.isArray(rawV2.edge_sensitivity) ? rawV2.edge_sensitivity : [],
+        // Forward top-5 factor_sensitivity entries so CEE orchestrator can produce
+        // driver-based coaching (referenced by v32a prompt plays). PLoT already returns
+        // these in importance_rank order — slice without re-sorting to preserve passthrough semantics.
+        // Omit the key entirely when PLoT does not provide it (don't fabricate empty arrays).
+        ...(Array.isArray(rawV2.factor_sensitivity)
+          ? { factor_sensitivity: rawV2.factor_sensitivity.slice(0, 5) }
+          : {}),
         constraints_status: rawV2.constraints_status ?? null,
         critiques: Array.isArray(rawV2.critiques) ? rawV2.critiques : [],
         meta: rawV2.meta ?? null,

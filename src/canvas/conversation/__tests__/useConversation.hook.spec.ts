@@ -481,6 +481,84 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(Array.isArray(request.analysis_state.option_comparison)).toBe(true)
   })
 
+  it('R12: forwards factor_sensitivity (top-5 slice) into analysis_state via real buildRequest path', async () => {
+    // Production-path test (not the helper) — exercises useConversation.buildRequest end to end
+    // to confirm factor_sensitivity reaches the outbound CEE turn payload.
+    const factors = [
+      { factor_id: 'f1', importance_rank: 1, elasticity: 0.5 },
+      { factor_id: 'f2', importance_rank: 2, elasticity: 0.4 },
+      { factor_id: 'f3', importance_rank: 3, elasticity: 0.3 },
+      { factor_id: 'f4', importance_rank: 4, elasticity: 0.2 },
+      { factor_id: 'f5', importance_rank: 5, elasticity: 0.1 },
+      { factor_id: 'f6', importance_rank: 6, elasticity: 0.05 },
+    ]
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100, hash: 'hash-fs' } as any,
+      graphEditedSinceLastRun: false,
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: [{ option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 }],
+        robustness_status: 'computed',
+        robustness: null,
+        drivers_status: 'computed',
+        drivers: [],
+        factor_sensitivity: factors,
+        meta: { seed_used: '42' },
+      } as any,
+    })
+    useResultsStore.setState({
+      results: { status: 'idle', progress: 0, analysisSummary: null },
+    } as any)
+
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Tell me about the drivers')
+    })
+
+    const request = mockStreamTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeDefined()
+    expect(request.analysis_state.factor_sensitivity).toBeDefined()
+    expect(request.analysis_state.factor_sensitivity).toHaveLength(5)
+    // Order preserved from PLoT (no re-sort)
+    expect(request.analysis_state.factor_sensitivity).toEqual(factors.slice(0, 5))
+  })
+
+  it('R12: omits factor_sensitivity key entirely when rawV2 does not provide it', async () => {
+    useCanvasStore.setState({
+      results: { status: 'complete', progress: 100, hash: 'hash-no-fs' } as any,
+      graphEditedSinceLastRun: false,
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: [{ option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 }],
+        robustness_status: 'computed',
+        robustness: null,
+        drivers_status: 'computed',
+        drivers: [],
+        meta: { seed_used: '42' },
+        // factor_sensitivity intentionally absent
+      } as any,
+    })
+    useResultsStore.setState({
+      results: { status: 'idle', progress: 0, analysisSummary: null },
+    } as any)
+
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Tell me about the drivers')
+    })
+
+    const request = mockStreamTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeDefined()
+    expect('factor_sensitivity' in request.analysis_state).toBe(false)
+    expect(request.analysis_state.factor_sensitivity).toBeUndefined()
+  })
+
   it('omits analysis_state when graph has been edited since last analysis (stale guard)', async () => {
     // Canvas store: analysis complete but graph was edited (stale)
     useCanvasStore.setState({

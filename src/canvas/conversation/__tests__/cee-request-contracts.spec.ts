@@ -76,6 +76,9 @@ const RAW_V2_RESPONSE = {
   edge_sensitivity: [
     { edge_id: 'e1', from: 'opt_a', to: 'goal_1', switch_probability: 0.12 },
   ],
+  factor_sensitivity: [
+    { factor_id: 'factor_1', importance_rank: 1, elasticity: 0.42, confidence: 0.8 },
+  ],
   constraints_status: null,
   critiques: [
     { code: 'INBOUND_STRENGTH_SUM_EXCEEDED', severity: 'warning', message: 'Factors driving goal may be over-weighted' },
@@ -94,6 +97,9 @@ function buildAnalysisState(
     robustness: rawV2.robustness ?? null,
     drivers: Array.isArray(rawV2.drivers) ? rawV2.drivers : [],
     edge_sensitivity: Array.isArray(rawV2.edge_sensitivity) ? rawV2.edge_sensitivity : [],
+    ...(Array.isArray(rawV2.factor_sensitivity)
+      ? { factor_sensitivity: rawV2.factor_sensitivity.slice(0, 5) }
+      : {}),
     constraints_status: rawV2.constraints_status ?? null,
     critiques: Array.isArray(rawV2.critiques) ? rawV2.critiques : [],
     meta: { ...rawV2.meta, response_hash: analysisHash },
@@ -915,5 +921,85 @@ describe('T8 — Conversation turn with analysis_state (post-analysis follow-up)
       analysis_state: undefined,
     })
     expect(staleReq.analysis_state).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// R4 — factor_sensitivity forwarded into analysis_state (top-5 slice)
+// ---------------------------------------------------------------------------
+
+describe('R4 — factor_sensitivity forwarded into analysis_state', () => {
+  it('forwards factor_sensitivity entries unchanged when rawV2 has them', () => {
+    const factors = [
+      { factor_id: 'f1', importance_rank: 1, elasticity: 0.42, confidence: 0.8 },
+      { factor_id: 'f2', importance_rank: 2, elasticity: 0.31, confidence: 0.7 },
+      { factor_id: 'f3', importance_rank: 3, elasticity: 0.18, confidence: 0.6 },
+    ]
+    const rawV2 = { ...RAW_V2_RESPONSE, factor_sensitivity: factors }
+    const analysisState = buildAnalysisState(rawV2)
+    expect(analysisState.factor_sensitivity).toEqual(factors)
+  })
+
+  it('top-5 slice preserves PLoT order (no re-sorting) when rawV2 has more than 5', () => {
+    // PLoT returns these in importance_rank order; UI must not re-sort.
+    const factors = [
+      { factor_id: 'f1', importance_rank: 1 },
+      { factor_id: 'f2', importance_rank: 2 },
+      { factor_id: 'f3', importance_rank: 3 },
+      { factor_id: 'f4', importance_rank: 4 },
+      { factor_id: 'f5', importance_rank: 5 },
+      { factor_id: 'f6', importance_rank: 6 },
+      { factor_id: 'f7', importance_rank: 7 },
+      { factor_id: 'f8', importance_rank: 8 },
+    ]
+    const rawV2 = { ...RAW_V2_RESPONSE, factor_sensitivity: factors }
+    const analysisState = buildAnalysisState(rawV2)
+    expect(analysisState.factor_sensitivity).toHaveLength(5)
+    expect(analysisState.factor_sensitivity).toEqual(factors.slice(0, 5))
+  })
+
+  it('factor_sensitivity key is omitted (not [], not null) when rawV2 omits it', () => {
+    const { factor_sensitivity: _omitted, ...rest } = RAW_V2_RESPONSE
+    const analysisState = buildAnalysisState(rest as typeof RAW_V2_RESPONSE)
+    expect('factor_sensitivity' in analysisState).toBe(false)
+    expect(analysisState.factor_sensitivity).toBeUndefined()
+  })
+
+  it('robustness passthrough: edge_e_values, conditional_winners, inference_warnings survive untouched', () => {
+    const robustness = {
+      level: 'robust',
+      score: 0.81,
+      edge_e_values: [
+        { edge_id: 'e1', e_value: 1.42, lower_bound: 1.1 },
+      ],
+      conditional_winners: [
+        { condition: 'high_demand', option_id: 'opt_a' },
+      ],
+      inference_warnings: [
+        { code: 'WEAK_PRIOR', severity: 'info', message: 'Prior is uninformative' },
+      ],
+    }
+    const rawV2 = { ...RAW_V2_RESPONSE, robustness } as typeof RAW_V2_RESPONSE
+    const analysisState = buildAnalysisState(rawV2)
+    // Deep equality — every nested field must round-trip without reshape.
+    expect(analysisState.robustness).toEqual(robustness)
+  })
+
+  it('existing fields are unchanged after factor_sensitivity addition (deep equality)', () => {
+    const analysisState = buildAnalysisState(RAW_V2_RESPONSE)
+    expect(analysisState).toEqual({
+      option_comparison: RAW_V2_RESPONSE.option_comparison,
+      robustness: RAW_V2_RESPONSE.robustness,
+      drivers: RAW_V2_RESPONSE.drivers,
+      edge_sensitivity: RAW_V2_RESPONSE.edge_sensitivity,
+      factor_sensitivity: RAW_V2_RESPONSE.factor_sensitivity,
+      constraints_status: null,
+      critiques: RAW_V2_RESPONSE.critiques,
+      meta: { ...RAW_V2_RESPONSE.meta, response_hash: 'hash-golden-path-abc123' },
+      analysis_status: 'completed',
+      option_comparison_status: 'computed',
+      robustness_status: 'computed',
+      drivers_status: 'computed',
+    })
   })
 })
