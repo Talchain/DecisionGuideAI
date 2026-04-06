@@ -215,13 +215,14 @@ function canvasInterventionsToCEE(
   optionLabel: string,
   rawInterventions: unknown,
   validNodeIds: Set<string>,
+  silent: boolean,
 ): Record<string, CEEInterventionV3> {
   const out: Record<string, CEEInterventionV3> = {}
   if (!rawInterventions || typeof rawInterventions !== 'object') return out
 
   for (const [targetId, rawValue] of Object.entries(rawInterventions as Record<string, unknown>)) {
     if (!validNodeIds.has(targetId)) {
-      if (import.meta.env.DEV) {
+      if (!silent && import.meta.env.DEV) {
         console.warn(
           `[V2Adapter] reconcileOptions: skipping stale intervention target "${targetId}" on option "${optionLabel}"`,
         )
@@ -229,7 +230,7 @@ function canvasInterventionsToCEE(
       continue
     }
     if (targetId === optionId) {
-      if (import.meta.env.DEV) {
+      if (!silent && import.meta.env.DEV) {
         console.warn(
           `[V2Adapter] reconcileOptions: skipping self-targeting intervention on option "${optionLabel}"`,
         )
@@ -359,6 +360,7 @@ export function reconcileOptionsWithCanvasNodes(
       arOpt.label || arOpt.id,
       nodeData.interventions,
       validNodeIds,
+      silent,
     )
     if (Object.keys(fallback).length > 0) warn(arOpt.id)
     result.push({
@@ -377,6 +379,7 @@ export function reconcileOptionsWithCanvasNodes(
       label,
       nodeData.interventions,
       validNodeIds,
+      silent,
     )
     if (Object.keys(fallback).length > 0) warn(node.id)
     result.push({
@@ -1039,14 +1042,18 @@ export interface BuildV2RequestOptions {
  * Build V2RunRequest preferring CEE analysis_ready when available.
  *
  * This is the preferred entry point for P0-UI integration:
- * - When analysisReady is provided, uses its options and goal_node_id
+ * - Reconciles options from analysisReady + node.data.interventions internally
+ *   via reconcileOptionsWithCanvasNodes (analysisReady is primary, node data is
+ *   the authoritative fallback for newly added options)
  * - Applies edge transformation (strict or lenient based on options)
- * - Falls back to buildV2Request when analysisReady is not provided
+ * - When analysisReady is not provided, uses fallbackGoalNodeId for the goal
+ *   and reads options entirely from canvas nodes
  *
  * @param nodes - Canvas nodes
  * @param edges - Canvas edges
  * @param analysisReady - CEE V3 analysis_ready payload (optional)
- * @param fallbackOptions - UIOptions to use if analysisReady not provided
+ * @param _fallbackOptions - UNUSED. Preserved for backwards compatibility.
+ *   The reconciler now reads node.data.interventions directly. Pass `undefined`.
  * @param fallbackGoalNodeId - Goal node ID to use if analysisReady not provided
  * @param options - Build options (strictEdgeValidation, etc.)
  * @returns V2RunRequest with normalised IDs and reverseIdMap for response translation
@@ -1055,7 +1062,8 @@ export function buildV2RequestFromAnalysisReady(
   nodes: Node<CanvasNodeData>[],
   edges: Edge<CanvasEdgeData>[],
   analysisReady?: CEEAnalysisReady | null,
-  fallbackOptions?: UIOption[],
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _fallbackOptions?: UIOption[],
   fallbackGoalNodeId?: string,
   options: BuildV2RequestOptions = {}
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
@@ -1089,11 +1097,6 @@ export function buildV2RequestFromAnalysisReady(
   // when an option is missing from analysisReady (e.g. AI add_option) or its
   // intervention map is empty (e.g. synthesised analysis_ready).
   // See reconcileOptionsWithCanvasNodes for the merge policy and observability hooks.
-  // Note: `fallbackOptions` (UIOption[]) is intentionally NOT consulted here — the
-  //   canvas nodes are the canonical fallback. Callers that historically passed
-  //   fallbackOptions did so to feed extractOptionsFromNodes, which the reconciler
-  //   now subsumes via canvasInterventionsToCEE.
-  void fallbackOptions
   const validNodeIds = new Set(nodes.map((n) => n.id))
   const reconciledOptions = reconcileOptionsWithCanvasNodes(analysisReady, nodes, validNodeIds)
   const v2Options = reconciledOptions.map(ceeOptionToV2Option)
@@ -1433,8 +1436,9 @@ export async function executeV2Run(
  * Execute V2 run using CEE analysis_ready when available.
  *
  * Preferred entry point for P0-UI integration:
- * - When analysisReady is provided, uses its options and goal_node_id
- * - Falls back to extracting options from nodes when not provided
+ * - Reconciles options from analysisReady + node.data.interventions via
+ *   reconcileOptionsWithCanvasNodes (analysisReady primary, node data fallback)
+ * - When analysisReady is not provided, uses fallbackGoalNodeId for the goal
  *
  * @param config - V2 adapter config
  * @param nodes - Canvas nodes
@@ -1459,18 +1463,15 @@ export async function executeV2RunWithAnalysisReady(
   brief?: string,
   goalConstraints?: CEEGoalConstraint[] | null
 ): Promise<V2RunResult> {
-  // Build fallback options from nodes (used when analysisReady not available)
-  const validNodeIds = new Set(nodes.map((n) => n.id))
-  const fallbackOptions = extractOptionsFromNodes(nodes, validNodeIds)
-
-  // Build request - uses analysisReady if available, falls back to node extraction
-  // P0 Fix: Pass seed to avoid hardcoded "42" default
-  // P0 Fix: Pass brief for PLoT context
+  // Build request — buildV2RequestFromAnalysisReady now reconciles options
+  // from analysisReady + node.data.interventions internally, so we no longer
+  // need to extract a UIOption[] fallback ourselves. The fallback parameter
+  // is preserved on the signature for backwards compatibility but is unused.
   const { request, reverseIdMap } = buildV2RequestFromAnalysisReady(
     nodes,
     edges,
     analysisReady,
-    fallbackOptions,
+    undefined,
     fallbackGoalNodeId,
     { strictEdgeValidation: false, seed, brief, goalConstraints } // Lenient mode for user-edited graphs
   )
