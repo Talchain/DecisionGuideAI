@@ -15,6 +15,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { useCanvasStore } from '../store'
 import { generateScenarios, canGenerateScenarios } from '../utils/generateScenarios'
+import { unwrapInterventionValue } from '../utils/labelUtils'
 import type { Snapshot, ComparisonResult } from '../snapshots/types'
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
@@ -372,14 +373,17 @@ export function useScenarioComparison(): UseScenarioComparisonReturn {
             const data = node.data as Record<string, unknown>
             const interventions: Record<string, number> = {}
 
-            // Extract interventions from node data
+            // Extract interventions from node data. Use the shared unwrap
+            // helper so heterogeneous shapes (number / V3 object / malformed)
+            // are normalised once. Entries that fail to unwrap are dropped
+            // — sending {value: null} to PLoT would either error or produce
+            // nonsense scenarios.
             if (data?.interventions && typeof data.interventions === 'object') {
               for (const [key, rawValue] of Object.entries(data.interventions as Record<string, unknown>)) {
                 if (validNodeIds.has(key) && key !== node.id) {
-                  if (typeof rawValue === 'number') {
-                    interventions[key] = rawValue
-                  } else if (rawValue && typeof rawValue === 'object' && 'value' in rawValue) {
-                    interventions[key] = (rawValue as { value: number }).value
+                  const unwrapped = unwrapInterventionValue(rawValue)
+                  if (unwrapped != null) {
+                    interventions[key] = unwrapped
                   }
                 }
               }

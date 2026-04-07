@@ -14,6 +14,7 @@ import {
 import type { ComponentType } from 'react'
 import type { NodeType } from '../domain/nodes'
 import { computeSignedMean } from '../domain/edges'
+import { unwrapInterventionValue } from '../utils/labelUtils'
 
 export interface ScienceIconDef {
   id: string
@@ -77,11 +78,10 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
         for (const opt of ceeAnalysisReady.options) {
           const interventions = opt.interventions as Record<string, unknown> | undefined
           if (!interventions) continue
-          const rv = interventions[nodeId]
-          if (rv == null) continue
-          const v = typeof rv === 'number' ? rv :
-            (rv && typeof rv === 'object' && 'value' in (rv as Record<string, unknown>)) ?
-            Number((rv as Record<string, unknown>).value) : null
+          // Use the shared helper so the unwrap is consistent with display
+          // paths and never coerces null/string into a fake 0 (which would
+          // pollute the spread calculation and falsely trigger anchoring).
+          const v = unwrapInterventionValue(interventions[nodeId])
           if (v != null) vals.push(v)
         }
         if (vals.length >= 3) {

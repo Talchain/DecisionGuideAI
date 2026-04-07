@@ -138,11 +138,9 @@ export const FactorNode = memo((props: NodeProps) => {
     if (!options || options.length < 3) return null
     const vals: number[] = []
     for (const opt of options) {
-      const rv = (opt.interventions as Record<string, unknown> | undefined)?.[props.id]
-      if (rv == null) continue
-      const v = typeof rv === 'number' ? rv :
-        (rv && typeof rv === 'object' && 'value' in (rv as Record<string, unknown>)) ?
-        Number((rv as Record<string, unknown>).value) : null
+      // unwrapInterventionValue handles plain numbers, V3 objects, and
+      // returns null for malformed/missing entries (no Number() coercion).
+      const v = unwrapInterventionValue((opt.interventions as Record<string, unknown> | undefined)?.[props.id])
       if (v != null) vals.push(v)
     }
     if (vals.length < 3) return null

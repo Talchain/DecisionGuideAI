@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit } from '../utils/labelUtils'
+import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -141,10 +141,12 @@ export const OptionNode = memo((props: NodeProps) => {
     if (interventionEntries.length === 0) return []
 
     return interventionEntries
-      .map(([factorId, rawValue]) => {
-        const value = typeof rawValue === 'number' ? rawValue :
-                     (rawValue && typeof rawValue === 'object' && 'value' in rawValue) ?
-                     Number((rawValue as { value: unknown }).value) : 0
+      .flatMap(([factorId, rawValue]) => {
+        // Drop entries that fail to unwrap. Prior to this fix, malformed
+        // entries (e.g. { value: null }) were coerced to 0 via Number(...)
+        // and rendered as deliberate-looking zero chips.
+        const value = unwrapInterventionValue(rawValue)
+        if (value == null) return []
         const factorNode = nodes.find(n => n.id === factorId)
         const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
         const stripped = stripFactorSuffixes(cleanFactorLabel(rawLabel))
@@ -158,11 +160,11 @@ export const OptionNode = memo((props: NodeProps) => {
           unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
         } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
-        return {
+        return [{
           factorId, label: cleanedLabel, value, unit,
           factorType: observedState?.factor_type, cap: observedState?.cap,
           observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
-        }
+        }]
       })
       .sort((a, b) => Math.abs(b.value) - Math.abs(a.value))
       .slice(0, 3)
@@ -211,11 +213,14 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!baselineNode) return null
     const baseCeeOption = options.find(opt => opt.id === baselineNode.id)
     if (!baseCeeOption?.interventions) return null
+    // Drop entries that fail to unwrap. Downstream lookup
+    // (`baselineOptionInterventions?.[c.factorId] ?? c.observedValue`) will
+    // fall back to the observed value, which is a more honest baseline than
+    // a Number()-coerced 0.
     return Object.fromEntries(
-      Object.entries(baseCeeOption.interventions).map(([fid, rv]) => {
-        const v = typeof rv === 'number' ? rv :
-          (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : 0
-        return [fid, v]
+      Object.entries(baseCeeOption.interventions).flatMap(([fid, rv]) => {
+        const v = unwrapInterventionValue(rv)
+        return v != null ? [[fid, v] as const] : []
       })
     )
   }, [isBaselineOption, ceeAnalysisReady, nodes, props.id])
@@ -361,17 +366,11 @@ export const OptionNode = memo((props: NodeProps) => {
     }
 
     if (winnerHasFactor && thisHasFactor) {
-      const winnerVal = (() => {
-        const rv = winnerInterventions[topFactor.id]
-        return typeof rv === 'number' ? rv :
-          (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : 0
-      })()
-      const thisVal = (() => {
-        const rv = thisInterventions[topFactor.id]
-        return typeof rv === 'number' ? rv :
-          (rv && typeof rv === 'object' && 'value' in rv) ? Number((rv as { value: unknown }).value) : 0
-      })()
-      if (Math.abs(winnerVal - thisVal) >= 1e-6) {
+      // unwrapInterventionValue returns null for malformed entries; treat
+      // those as "no comparable value" and skip the lower-than message.
+      const winnerVal = unwrapInterventionValue(winnerInterventions[topFactor.id])
+      const thisVal = unwrapInterventionValue(thisInterventions[topFactor.id])
+      if (winnerVal != null && thisVal != null && Math.abs(winnerVal - thisVal) >= 1e-6) {
         return `${strippedLabel.toLowerCase()} lower`
       }
     }

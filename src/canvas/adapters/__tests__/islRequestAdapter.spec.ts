@@ -774,6 +774,74 @@ describe('islRequestAdapter', () => {
       })
     })
 
+    it('unwraps UIInterventionValue / CEEInterventionV3 object-shape interventions', () => {
+      // Regression guard: prior to the unwrapInterventionValue refactor,
+      // extractInterventions checked `typeof value === 'number'` only and
+      // silently dropped V3 objects ({ value, source, ... }) — the shape
+      // produced by normaliseOptionFromCEE. ISL conformal requests for any
+      // option with V3-stored interventions then arrived with empty maps,
+      // breaking ConformalPrediction / DriversSignal / DecisionSummary.
+      const nodes: UINode[] = [
+        { id: 'factor1', type: 'factor', data: { label: 'Factor 1' } },
+        { id: 'factor2', type: 'factor', data: { label: 'Factor 2' } },
+        {
+          id: 'option1',
+          type: 'option',
+          data: {
+            label: 'Option A',
+            interventions: {
+              // Plain number (legacy / analysis_ready format)
+              'factor1': 0.8,
+              // V3 object form (post-normaliseOptionFromCEE)
+              'factor2': {
+                value: 0.6,
+                source: 'brief_extraction',
+                target_match: { node_id: 'factor2', match_type: 'exact_id', confidence: 'high' },
+                value_confidence: 'high',
+              },
+            } as Record<string, unknown>,
+          },
+        },
+      ]
+
+      const result = extractISLOptions(nodes)
+
+      expect(result[0].interventions).toEqual({
+        'factor1': 0.8,
+        'factor2': 0.6,
+      })
+    })
+
+    it('drops malformed object-shape interventions instead of sending null/0 to PLoT', () => {
+      // Strict typeof guard in unwrapInterventionValue: { value: null } returns
+      // null (not 0). Without this, an unset intervention would render as a
+      // deliberate zero in inspector panels and pollute the ISL request.
+      const nodes: UINode[] = [
+        { id: 'factor1', type: 'factor', data: { label: 'Factor 1' } },
+        { id: 'factor2', type: 'factor', data: { label: 'Factor 2' } },
+        { id: 'factor3', type: 'factor', data: { label: 'Factor 3' } },
+        {
+          id: 'option1',
+          type: 'option',
+          data: {
+            label: 'Option A',
+            interventions: {
+              'factor1': 0.8,                                // valid number
+              'factor2': { value: null, source: 'brief_extraction' }, // malformed: null .value
+              'factor3': { source: 'brief_extraction' },     // malformed: no .value field
+            } as Record<string, unknown>,
+          },
+        },
+      ]
+
+      const result = extractISLOptions(nodes)
+
+      // Only the valid factor1 entry survives.
+      expect(result[0].interventions).toEqual({ 'factor1': 0.8 })
+      expect(result[0].interventions).not.toHaveProperty('factor2')
+      expect(result[0].interventions).not.toHaveProperty('factor3')
+    })
+
     it('falls back to node value when no explicit interventions', () => {
       const nodes: UINode[] = [
         { id: 'option1', type: 'option', data: { label: 'Option A', value: 0.75 } },

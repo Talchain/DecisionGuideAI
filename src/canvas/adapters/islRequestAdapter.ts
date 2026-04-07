@@ -29,6 +29,7 @@ import type {
   LegacyISLRobustnessRequest,
 } from '../../adapters/isl/types'
 import { STD_FLOOR, DEFAULT_EXISTS_PROBABILITY } from '../../adapters/plot/v2/types'
+import { unwrapInterventionValue } from '../utils/labelUtils'
 
 // =============================================================================
 // UI Graph Types (internal format)
@@ -240,17 +241,22 @@ function extractInterventions(
   const interventions: Record<string, number> = {}
   const filteredKeys: string[] = []
 
-  // Check for explicit interventions in node data
+  // Check for explicit interventions in node data. Map values may be plain
+  // numbers (legacy / analysis_ready) or UIInterventionValue / CEEInterventionV3
+  // objects ({ value, source, ... }) — the post-normaliseOptionFromCEE shape.
+  // Use the shared unwrap helper so V3 objects are not silently dropped from
+  // the ISL conformal request payload (the bug class fixed in inspector
+  // display paths in commit ca4793a1).
   if (node.data?.interventions && typeof node.data.interventions === 'object') {
-    for (const [key, value] of Object.entries(node.data.interventions)) {
-      if (typeof value === 'number') {
-        // P0 Fix: Validate intervention key exists in graph
-        if (validNodeIds && !validNodeIds.has(key)) {
-          filteredKeys.push(key)
-          continue // Skip stale node ID
-        }
-        interventions[key] = value
+    for (const [key, rawValue] of Object.entries(node.data.interventions)) {
+      const value = unwrapInterventionValue(rawValue)
+      if (value == null) continue
+      // P0 Fix: Validate intervention key exists in graph
+      if (validNodeIds && !validNodeIds.has(key)) {
+        filteredKeys.push(key)
+        continue // Skip stale node ID
       }
+      interventions[key] = value
     }
   }
 
