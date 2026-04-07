@@ -15,7 +15,7 @@ import {
   SECTION_TITLES,
   EMPTY_STATES,
 } from '../inspectorStrings'
-import { formatFactorValue } from '../../../utils/labelUtils'
+import { formatFactorValue, unwrapInterventionValue } from '../../../utils/labelUtils'
 import { SectionTitle } from '../shared/SectionTitle'
 import { InterventionRow } from '../shared/InterventionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
@@ -64,26 +64,33 @@ export const OptionPanel = memo(function OptionPanel({
   }, [showDropdown])
 
   // Interventions
+  // Map values may be plain numbers (legacy/analysis_ready) or
+  // UIInterventionValue/CEEInterventionV3 objects ({ value, source, ... });
+  // unwrapInterventionValue normalises both. Entries that fail to unwrap
+  // (malformed objects, non-finite numbers) are dropped — InterventionRow
+  // requires a finite numeric `currentValue`.
   const interventions = useMemo(() => {
-    const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+    const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
     if (!raw) return []
-    return Object.entries(raw).map(([factorId, value]) => {
+    return Object.entries(raw).flatMap(([factorId, rawValue]) => {
+      const value = unwrapInterventionValue(rawValue)
+      if (value == null) return []
       const factorNode = nodes.find(n => n.id === factorId)
       const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
-      return {
+      return [{
         factorId,
         factorLabel: String(factorNode?.data?.label ?? factorId),
         baseline: obs?.value as number | undefined,
         rawBaseline: obs?.raw_value as number | undefined,
         unit: obs?.unit as string | undefined,
         value,
-      }
+      }]
     })
   }, [node?.data, nodes])
 
   // Set of already-intervened factor IDs for the dropdown
   const interventionIds = useMemo(() => {
-    const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+    const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
     return new Set(raw ? Object.keys(raw) : [])
   }, [node?.data])
 

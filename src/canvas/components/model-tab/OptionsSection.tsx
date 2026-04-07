@@ -18,6 +18,7 @@ import { focusNodeById } from '../../utils/focusHelpers'
 import { formatValueWithUnit, formatSmartNumber } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
+import { unwrapInterventionValue } from '../../utils/labelUtils'
 
 /** Conditional winner entry from ISL */
 export interface ConditionalWinner {
@@ -48,17 +49,37 @@ interface InterventionItem {
   currentValue: number
 }
 
-/** Extract a numeric value from an intervention entry that may be a number, numeric string, or object */
+/**
+ * Extract a numeric intervention value, accepting any of these shapes:
+ * - plain number (legacy / analysis_ready format)
+ * - numeric string (back-compat with hand-edited fixtures)
+ * - object with `raw_target` (legacy model-tab response shape)
+ * - object with `target_value` (legacy model-tab response shape)
+ * - UIInterventionValue / CEEInterventionV3 object with `.value`
+ *   (post-`normaliseOptionFromCEE` shape used by inspector panels)
+ *
+ * Returns undefined when no finite numeric value can be extracted, so
+ * callers can `flatMap` to drop unrenderable rows.
+ *
+ * Note: this helper is intentionally more permissive than `unwrapInterventionValue`
+ * in `labelUtils.ts`. The model-tab Options section receives intervention
+ * payloads from older CEE response paths that use `raw_target` / `target_value`
+ * field names; those paths still need to render correctly.
+ */
 function extractInterventionNumeric(value: unknown): number | undefined {
-  if (typeof value === 'number' && isFinite(value)) return value
+  // Primary: V3-shape unwrap (handles plain numbers, {value} objects).
+  const unwrapped = unwrapInterventionValue(value)
+  if (unwrapped != null) return unwrapped
+  // Fallback: numeric string
   if (typeof value === 'string' && value.trim() !== '') {
     const n = Number(value)
-    if (isFinite(n)) return n
+    if (Number.isFinite(n)) return n
   }
+  // Fallback: legacy model-tab object shapes (raw_target / target_value)
   if (value && typeof value === 'object') {
     const obj = value as Record<string, unknown>
-    if (typeof obj.raw_target === 'number') return obj.raw_target
-    if (typeof obj.target_value === 'number') return obj.target_value
+    if (typeof obj.raw_target === 'number' && Number.isFinite(obj.raw_target)) return obj.raw_target
+    if (typeof obj.target_value === 'number' && Number.isFinite(obj.target_value)) return obj.target_value
   }
   return undefined
 }

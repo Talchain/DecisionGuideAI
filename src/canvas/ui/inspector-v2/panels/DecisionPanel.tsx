@@ -46,7 +46,10 @@ export const DecisionPanel = memo(function DecisionPanel({
         if (!optNode) return null
         const kind = (optNode.type || optNode.data?.kind) as string
         if (kind !== 'option') return null
-        const ivs = (optNode.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+        // Cast to `unknown` (not `number`) — interventions may be V3 objects
+        // ({ value, source, ... }) or plain numbers. Only the key count is read
+        // here, but the type should not lie about the value shape.
+        const ivs = (optNode.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
         const ivCount = ivs ? Object.keys(ivs).length : 0
         const label = String(optNode.data?.label ?? e.target)
         const isBaseline = detectBaseline(label).isBaseline

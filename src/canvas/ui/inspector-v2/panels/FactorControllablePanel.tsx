@@ -16,6 +16,7 @@ import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useStaleGuard } from '../useStaleGuard'
 import { shouldShowNormalised } from '../normalisedDisplay'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import {
   SECTION_TITLES,
   getExtractionLabel,
@@ -74,16 +75,19 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         const src = nodes.find(n => n.id === e.source)
         const kind = (src?.type || src?.data?.kind || 'factor') as NodeType
         if (kind !== 'option') return null
-        const ivs = (src?.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
-        const ivValue = ivs?.[nodeId]
+        // Interventions may be stored as plain numbers (legacy/analysis_ready)
+        // or as UIInterventionValue/CEEInterventionV3 objects ({ value, source,
+        // ... }). unwrapInterventionValue handles both. See labelUtils.ts.
+        const ivs = (src?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
+        const interventionValue = unwrapInterventionValue(ivs?.[nodeId])
         return {
           nodeId: e.source,
           label: String(src?.data?.label ?? e.source),
-          interventionValue: ivValue,
+          interventionValue,
           unit,
         }
       })
-      .filter(Boolean) as Array<{ nodeId: string; label: string; interventionValue?: number; unit?: string }>
+      .filter(Boolean) as Array<{ nodeId: string; label: string; interventionValue: number | null; unit?: string }>
   }, [edges, nodes, nodeId, unit])
 
   const influences = useMemo(() => {

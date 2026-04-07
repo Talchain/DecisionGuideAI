@@ -15,6 +15,7 @@ import {
   denormaliseInterventionValue,
   isCurrencyUnit,
   formatFactorValue,
+  unwrapInterventionValue,
 } from '../labelUtils'
 import { describeEdgeInfluence } from '../../domain/edges'
 
@@ -278,6 +279,97 @@ describe('denormaliseInterventionValue', () => {
       // raw_value: 0, cap: 10, baselineNorm: 0.01 — raw path would give 0 * (anything) = 0
       // Must fall through to value * cap instead
       expect(denormaliseInterventionValue(0.5, 10, 0.01, 0)).toBe(5)
+    })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// unwrapInterventionValue
+// ---------------------------------------------------------------------------
+// Centralised unwrap helper for intervention map values, which may be either
+// plain numbers (legacy / analysis_ready) or {value, source, ...} objects
+// (UIInterventionValue / CEEInterventionV3 from normaliseOptionFromCEE).
+// Inspector panels and the FactorNode hover memo previously inlined or omitted
+// this logic, producing "[object Object]" / "£NaN" / silently-dropped rows.
+
+describe('unwrapInterventionValue', () => {
+  describe('null and undefined', () => {
+    it('returns null for undefined', () => {
+      expect(unwrapInterventionValue(undefined)).toBeNull()
+    })
+    it('returns null for null', () => {
+      expect(unwrapInterventionValue(null)).toBeNull()
+    })
+  })
+
+  describe('primitive number', () => {
+    it('returns finite numbers unchanged', () => {
+      expect(unwrapInterventionValue(0.1)).toBe(0.1)
+      expect(unwrapInterventionValue(0)).toBe(0)
+      expect(unwrapInterventionValue(-7)).toBe(-7)
+      expect(unwrapInterventionValue(1_000_000)).toBe(1_000_000)
+    })
+    it('returns null for NaN', () => {
+      expect(unwrapInterventionValue(NaN)).toBeNull()
+    })
+    it('returns null for Infinity and -Infinity', () => {
+      expect(unwrapInterventionValue(Infinity)).toBeNull()
+      expect(unwrapInterventionValue(-Infinity)).toBeNull()
+    })
+  })
+
+  describe('CEEInterventionV3 / UIInterventionValue object', () => {
+    it('extracts .value when raw is a {value} object', () => {
+      expect(unwrapInterventionValue({ value: 0.1 })).toBe(0.1)
+    })
+    it('extracts .value from a full CEEInterventionV3 shape', () => {
+      const intervention = {
+        value: 25000,
+        source: 'brief_extraction',
+        target_match: { node_id: 'budget', match_type: 'exact_id', confidence: 'high' },
+        value_confidence: 'high',
+        reasoning: 'Extracted from "£25k marketing budget"',
+      }
+      expect(unwrapInterventionValue(intervention)).toBe(25000)
+    })
+    it('returns null when .value is missing', () => {
+      expect(unwrapInterventionValue({ source: 'brief_extraction' })).toBeNull()
+    })
+    it('returns null when .value is non-finite', () => {
+      expect(unwrapInterventionValue({ value: NaN })).toBeNull()
+      expect(unwrapInterventionValue({ value: Infinity })).toBeNull()
+    })
+    it('returns null when .value is not a number-like', () => {
+      // Number(undefined) = NaN
+      expect(unwrapInterventionValue({ value: undefined })).toBeNull()
+      // Number(null) = 0 — finite, so it unwraps to 0. This is intentional:
+      // a stored null is treated as a zero intervention rather than dropped.
+      expect(unwrapInterventionValue({ value: null })).toBe(0)
+      // Number('foo') = NaN
+      expect(unwrapInterventionValue({ value: 'not-a-number' })).toBeNull()
+    })
+    it('coerces numeric strings inside .value', () => {
+      // Number('0.5') = 0.5 — defensible because the existing
+      // formatInterventionValue accepts only number, so coercing string→number
+      // here keeps the seam consistent.
+      expect(unwrapInterventionValue({ value: '0.5' })).toBe(0.5)
+    })
+  })
+
+  describe('other types', () => {
+    it('returns null for plain strings', () => {
+      expect(unwrapInterventionValue('0.1')).toBeNull()
+    })
+    it('returns null for booleans', () => {
+      expect(unwrapInterventionValue(true)).toBeNull()
+      expect(unwrapInterventionValue(false)).toBeNull()
+    })
+    it('returns null for arrays', () => {
+      // Arrays are objects but lack a `.value` property.
+      expect(unwrapInterventionValue([0.1])).toBeNull()
+    })
+    it('returns null for empty objects', () => {
+      expect(unwrapInterventionValue({})).toBeNull()
     })
   })
 })

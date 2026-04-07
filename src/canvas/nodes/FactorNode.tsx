@@ -10,7 +10,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, formatInterventionValue, isSuppressedUnit } from '../utils/labelUtils'
+import { cleanFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
@@ -66,16 +66,7 @@ export const FactorNode = memo((props: NodeProps) => {
     const hoveredOption = nodes.find(n => n.id === hoveredOptionId)
     if (!hoveredOption?.data?.interventions) return null
     const interventions = hoveredOption.data.interventions as Record<string, unknown>
-    const raw = interventions[props.id]
-    if (raw == null) return null
-    if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
-    // `raw` is already non-null here (checked above), so `typeof raw === 'object'`
-    // cannot be the `typeof null === 'object'` trap.
-    if (typeof raw === 'object' && 'value' in raw) {
-      const v = Number((raw as { value: unknown }).value)
-      return Number.isFinite(v) ? v : null
-    }
-    return null
+    return unwrapInterventionValue(interventions[props.id])
   }, [hoveredOptionId, nodes, props.id])
 
   const isAffectedByHover = interventionValue !== null

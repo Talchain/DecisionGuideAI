@@ -18,7 +18,7 @@ import type { NodeType } from '../domain/nodes'
 import { renderIcon } from '../helpers/renderIcon'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { typography } from '../../styles/typography'
-import { qualitativeTierLabel, formatInterventionValue, CURRENCY_SYMBOLS } from '../utils/labelUtils'
+import { qualitativeTierLabel, formatInterventionValue, unwrapInterventionValue, CURRENCY_SYMBOLS } from '../utils/labelUtils'
 
 interface NodeInspectorCompactProps {
   nodeId: string
@@ -46,19 +46,25 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
 
   // Get interventions for option nodes
   // Unit precedence: intervention_unit → observed_state.unit → null
+  // Map values may be plain numbers or UIInterventionValue/CEEInterventionV3
+  // objects ({ value, source, ... }); unwrapInterventionValue normalises both.
+  // Entries that fail to unwrap are dropped (formatChipValue requires a finite
+  // number).
   const interventionRows = useMemo<InterventionRow[]>(() => {
     if (!isOptionNode) return []
-    const interventions = node?.data?.interventions as Record<string, number> | undefined
+    const interventions = node?.data?.interventions as Record<string, unknown> | undefined
     if (!interventions) return []
 
-    return Object.entries(interventions).map(([factorId, value]) => {
+    return Object.entries(interventions).flatMap(([factorId, rawValue]) => {
+      const value = unwrapInterventionValue(rawValue)
+      if (value == null) return []
       const factorNode = nodes.find(n => n.id === factorId)
       const factorLabel = factorNode?.data?.label || factorId
       // Task 4: Unit precedence - intervention_unit → observed_state.unit → ''
       const factorData = factorNode?.data as any
       const observedState = factorData?.observedState ?? factorData?.observed_state
       const unit = factorData?.intervention_unit ?? observedState?.unit ?? ''
-      return { factorId, factorLabel, value, unit }
+      return [{ factorId, factorLabel: String(factorLabel), value, unit }]
     })
   }, [isOptionNode, node?.data?.interventions, nodes])
 

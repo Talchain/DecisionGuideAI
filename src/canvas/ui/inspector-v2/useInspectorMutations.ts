@@ -60,7 +60,11 @@ export function useNodeMutations(nodeId: string) {
   const setIntervention = useCallback((factorId: string, value: number) => {
     const node = getNode()
     if (!node) return
-    const existing = (node.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined
+    // Cast to `unknown` (not `number`) — existing intervention map may contain
+    // V3 objects ({ value, source, ... }) under other keys. The spread below
+    // preserves heterogeneous values; downstream display paths route every
+    // read through `unwrapInterventionValue` (see labelUtils.ts).
+    const existing = (node.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
     updateNode(nodeId, {
       data: {
         ...node.data,
@@ -72,7 +76,7 @@ export function useNodeMutations(nodeId: string) {
   const removeIntervention = useCallback((factorId: string) => {
     const node = getNode()
     if (!node) return
-    const existing = { ...((node.data as Record<string, unknown>)?.interventions as Record<string, number> | undefined) }
+    const existing = { ...((node.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined) }
     delete existing[factorId]
     updateNode(nodeId, {
       data: {

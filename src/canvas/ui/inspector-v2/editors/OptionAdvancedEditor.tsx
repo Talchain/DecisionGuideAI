@@ -9,6 +9,7 @@ import { useNodeMutations } from '../useInspectorMutations'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
 
 interface OptionAdvancedEditorProps {
   nodeId: string
@@ -20,21 +21,27 @@ export function OptionAdvancedEditor({ nodeId }: OptionAdvancedEditorProps) {
   const mutations = useNodeMutations(nodeId)
 
   const data = node?.data as Record<string, unknown> | undefined
-  const interventions = (data?.interventions as Record<string, number>) ?? {}
+  // Map values may be plain numbers or UIInterventionValue/CEEInterventionV3
+  // objects ({ value, source, ... }); unwrapInterventionValue normalises both.
+  // Entries that fail to unwrap are dropped (AdvancedField type='number'
+  // requires a finite numeric value).
+  const interventions = (data?.interventions as Record<string, unknown>) ?? {}
 
   // Build intervention rows with factor labels
   const rows = useMemo(() => {
-    return Object.entries(interventions).map(([factorId, value]) => {
+    return Object.entries(interventions).flatMap(([factorId, rawValue]) => {
+      const value = unwrapInterventionValue(rawValue)
+      if (value == null) return []
       const factor = nodes.find(n => n.id === factorId)
       const factorData = factor?.data as Record<string, unknown> | undefined
       const obs = factorData?.observedState as Record<string, unknown> | undefined
-      return {
+      return [{
         factorId,
         label: String(factorData?.label ?? factorId),
         value,
         unit: (obs?.unit as string) ?? '',
         cap: obs?.cap as number | undefined,
-      }
+      }]
     })
   }, [interventions, nodes])
 

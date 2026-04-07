@@ -283,6 +283,38 @@ export function formatFactorValue(observedState: {
 }
 
 /**
+ * Unwrap an intervention value to a finite number, accepting both legacy
+ * scalar form and the V3 object form `{ value, source, ... }` produced by
+ * `normaliseOptionFromCEE` (see `src/types/options.ts`).
+ *
+ * Returns null when:
+ * - input is null / undefined
+ * - input is a number that is NaN or Infinity
+ * - input is an object whose `.value` property is missing or non-finite
+ * - input is any other type (string, boolean, array, etc.)
+ *
+ * Centralises the unwrap logic so every UI display path converges on one
+ * source of truth. Inspector panels (FactorControllablePanel, OptionPanel,
+ * NodeInspectorCompact, OptionAdvancedEditor) previously cast the
+ * `interventions` map as `Record<string, number>` and rendered objects
+ * directly, producing "[object Object]" / "£NaN" on hover, in connections
+ * lists, and in advanced editors. The hover-tooltip path on FactorNode was
+ * fixed inline in commits b053c82b / fafe62eb; this helper extracts that
+ * pattern so every other display path can share it.
+ */
+export function unwrapInterventionValue(raw: unknown): number | null {
+  if (raw == null) return null
+  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+  // `raw` is non-null here, so `typeof raw === 'object'` is safe (no
+  // `typeof null === 'object'` trap).
+  if (typeof raw === 'object' && 'value' in raw) {
+    const v = Number((raw as { value: unknown }).value)
+    return Number.isFinite(v) ? v : null
+  }
+  return null
+}
+
+/**
  * Format an intervention value for display as a human-readable chip.
  * Used in OptionNode intervention chips (T8/J1).
  *
