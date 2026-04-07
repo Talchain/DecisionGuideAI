@@ -286,6 +286,34 @@ describe('denormaliseInterventionValue', () => {
 // formatInterventionValue (T8)
 // ---------------------------------------------------------------------------
 describe('formatInterventionValue', () => {
+  describe('defensive guard: non-finite input returns empty string', () => {
+    // Regression guard for the FactorNode hover bug where CEEInterventionV3
+    // objects were cast as numbers and produced "[object Object] scale" / "£NaN" /
+    // "Very high" via Math.round / string concat / falsy comparison coercion.
+    it('returns "" for NaN', () => {
+      expect(formatInterventionValue(NaN)).toBe('')
+      expect(formatInterventionValue(NaN, '£')).toBe('')
+      expect(formatInterventionValue(NaN, 'hours')).toBe('')
+    })
+
+    it('returns "" for Infinity', () => {
+      expect(formatInterventionValue(Infinity)).toBe('')
+      expect(formatInterventionValue(-Infinity, '%')).toBe('')
+    })
+
+    it('returns "" when an object is passed where a number is expected', () => {
+      // Simulates the pre-fix bug: CEEInterventionV3 object reaching the
+      // formatter through a mistyped cast. Double-cast through `unknown` is
+      // intentional — we're specifically testing runtime behaviour when the
+      // compile-time contract is violated, which TypeScript would otherwise
+      // (correctly) reject.
+      const intervention = { value: 0.7, source: 'brief_extraction' } as unknown as number
+      expect(formatInterventionValue(intervention, '£')).toBe('')
+      expect(formatInterventionValue(intervention, 'scale')).toBe('')
+      expect(formatInterventionValue(intervention)).toBe('')
+    })
+  })
+
   describe('fraction / proportion unit', () => {
     it('converts fraction to percentage', () => {
       expect(formatInterventionValue(0.6, 'fraction')).toBe('60%')

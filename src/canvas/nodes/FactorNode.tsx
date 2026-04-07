@@ -68,8 +68,10 @@ export const FactorNode = memo((props: NodeProps) => {
     const interventions = hoveredOption.data.interventions as Record<string, unknown>
     const raw = interventions[props.id]
     if (raw == null) return null
-    if (typeof raw === 'number') return raw
-    if (typeof raw === 'object' && raw !== null && 'value' in raw) {
+    if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
+    // `raw` is already non-null here (checked above), so `typeof raw === 'object'`
+    // cannot be the `typeof null === 'object'` trap.
+    if (typeof raw === 'object' && 'value' in raw) {
       const v = Number((raw as { value: unknown }).value)
       return Number.isFinite(v) ? v : null
     }

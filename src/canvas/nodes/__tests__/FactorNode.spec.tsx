@@ -896,3 +896,96 @@ describe('FactorNode — evidence gap badge', () => {
     expect(container.querySelector('[data-testid="evidence-gap-badge"]')).not.toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Intervention hover — regression guard for the CEEInterventionV3 unwrap bug.
+// Before the fix (b053c82b), FactorNode cast hoveredOption.data.interventions
+// as Record<string,number>, causing objects to render as "[object Object]" /
+// "£NaN" / "Very high" via Math.round({...}), string concat, and falsy
+// comparison coercion. These tests lock both intervention shapes (primitive
+// number and {value} object) in so the narrowing branch cannot silently revert.
+// ---------------------------------------------------------------------------
+
+describe('FactorNode — intervention hover', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  const mountWithHoveredOption = (interventionEntry: unknown, factorData: Record<string, unknown>) => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: 'option-1',
+        nodes: [
+          { id: 'option-1', type: 'option', data: { interventions: { 'factor-1': interventionEntry } } },
+        ],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'idle', report: null },
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'expert',
+      })
+    )
+    return renderFactor(factorData)
+  }
+
+  it('renders the hover chip with a primitive number intervention (qualitative tier)', () => {
+    mountWithHoveredOption(0.7, {
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.5, factor_type: 'quality' },
+    })
+    // qualitativeTierLabel(0.7) === 'High'
+    expect(screen.getByText('Intervention: High')).toBeDefined()
+  })
+
+  it('unwraps a CEEInterventionV3 {value} object and renders the same result', () => {
+    // Minimal V3 shape — extra fields (source, target_match) are irrelevant to the unwrap.
+    mountWithHoveredOption({ value: 0.7 }, {
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.5, factor_type: 'quality' },
+    })
+    expect(screen.getByText('Intervention: High')).toBeDefined()
+    // Regression assertion: none of the pre-fix corrupt strings should appear anywhere.
+    expect(screen.queryByText(/\[object Object\]/)).toBeNull()
+    expect(screen.queryByText(/NaN/)).toBeNull()
+  })
+
+  it('unwraps a {value} object on the currency path without producing £NaN', () => {
+    // Pre-fix, this combination produced "Intervention: £NaN" via
+    // Math.round({...}).toLocaleString(). The unwrap + guard together must
+    // render a valid currency string.
+    mountWithHoveredOption({ value: 0.5 }, {
+      label: 'Marketing Budget',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.1, raw_value: 5000, unit: '£', cap: 10000 },
+    })
+    expect(screen.queryByText(/£NaN/)).toBeNull()
+    // Denormalised via raw_value/observedValue: 5000 × (0.5 / 0.1) = 25000.
+    expect(screen.getByText('Intervention: £25,000')).toBeDefined()
+  })
+
+  it('suppresses the hover chip entirely when the intervention entry is malformed', () => {
+    mountWithHoveredOption({ source: 'brief_extraction' }, {
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.5, factor_type: 'quality' },
+    })
+    expect(screen.queryByText(/^Intervention:/)).toBeNull()
+  })
+
+  it('suppresses the hover chip when a primitive NaN is stored', () => {
+    mountWithHoveredOption(NaN, {
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.5, factor_type: 'quality' },
+    })
+    expect(screen.queryByText(/^Intervention:/)).toBeNull()
+  })
+})
