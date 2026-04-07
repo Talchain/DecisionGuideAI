@@ -1,5 +1,5 @@
 /**
- * CanvasViewportControls — bottom-left floating pill with zoom, fit-view, and auto-arrange.
+ * CanvasViewportControls — bottom-left vertical floating pill with zoom, fit-view, and auto-arrange.
  *
  * Reads zoom level reactively from the @xyflow/react store.
  * All action handlers are passed as props from ReactFlowGraph.
@@ -31,7 +31,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
   return (
     <nav
       aria-label="Viewport controls"
-      className="fixed bottom-3 left-3 flex items-center h-9 border border-border-default bg-panel/95 backdrop-blur-[8px] rounded-full px-2 gap-1"
+      className="fixed bottom-3 left-3 flex flex-col items-center w-9 border border-border-default bg-panel/95 backdrop-blur-[8px] rounded-full py-2 gap-1"
       style={{
         /* z-index: matches sidebar rail — see DS v5 z-index scale (pending) */
         zIndex: 1100,
@@ -54,7 +54,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
       <Tooltip content="Reset to 100%">
         <button
           type="button"
-          className="min-w-[40px] h-7 inline-flex items-center justify-center text-xs text-text-light hover:text-text-body hover:underline transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
+          className="w-7 h-7 inline-flex items-center justify-center text-xs text-text-light hover:text-text-body hover:underline transition-colors focus-visible:outline-2 focus-visible:outline-info focus-visible:outline-offset-2"
           aria-label={`Zoom level ${zoomPct}. Click to reset to 100%`}
           onClick={onZoomReset}
         >
@@ -76,7 +76,7 @@ export const CanvasViewportControls = memo(function CanvasViewportControls({
 
       {/* Separator */}
       <div
-        className="w-px h-4 mx-1 bg-border-default"
+        className="h-px w-4 bg-border-default"
         aria-hidden="true"
       />
 

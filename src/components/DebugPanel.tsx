@@ -426,7 +426,7 @@ export function DebugPanel() {
     <div
       style={{
         position: 'fixed',
-        bottom: 87, // ~2cm offset to clear footer/toolbar
+        bottom: 200, // clears vertical viewport controls panel: 12 (bottom-3) + 8+8 (py-2) + 5×28 (buttons) + 6×4 (gap-1) + 1 (separator) = 193px + 7px clearance
         left: 12,
         zIndex: 99998,
         fontFamily: 'system-ui, -apple-system, sans-serif',
