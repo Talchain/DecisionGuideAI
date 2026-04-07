@@ -1,8 +1,10 @@
 /**
  * WorthInvestigating — evidence gaps section in the pre-analysis panel.
  *
- * Shows factors ranked by importance where gathering evidence would
- * strengthen the analysis. Hides entirely if zero gaps.
+ * @deprecated Not rendered in production. Superseded by YourExpertise and its
+ * sub-components (MissingData, AiEstimated) which receive compositeInfluenceMap
+ * for VoI-aware influence bars. The deriveEvidenceGaps export is tested and kept
+ * for reference; the WorthInvestigating component itself is unused.
  *
  * Phase 2B: Pre-analysis enrichment (Task 4b).
  */

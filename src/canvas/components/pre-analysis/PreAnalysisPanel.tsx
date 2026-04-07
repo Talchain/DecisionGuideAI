@@ -370,8 +370,8 @@ export function PreAnalysisPanel({
   }, [preAnalysisSensitivity])
 
   // Composite influence map: VoI takes precedence when available (post-analysis).
-  // Passed to WorthInvestigating for "Drives N%" badge so it reflects the best
-  // available signal: VoI when present, factor_influence (sensitivity) otherwise.
+  // Passed to YourExpertise for influence bars and triage card sort so they reflect
+  // the best available signal: VoI when present, factor_influence (sensitivity) otherwise.
   const compositeInfluenceMap = useMemo(() => {
     if (data.voiMap && data.voiMap.size > 0) return data.voiMap
     return factorInfluenceMap
@@ -602,10 +602,11 @@ export function PreAnalysisPanel({
     }
 
     // 3. Overconfidence: top factor by influence is AI-sourced with no uncertainty_drivers
-    if (factorInfluenceMap && factorInfluenceMap.size > 0) {
+    // Uses compositeInfluenceMap so VoI takes precedence over sensitivity when available.
+    if (compositeInfluenceMap && compositeInfluenceMap.size > 0) {
       let topFactorId: string | null = null
       let topInfluence = -1
-      for (const [id, inf] of factorInfluenceMap) {
+      for (const [id, inf] of compositeInfluenceMap) {
         if (inf > topInfluence) { topInfluence = inf; topFactorId = id }
       }
       if (topFactorId) {
@@ -662,7 +663,7 @@ export function PreAnalysisPanel({
     }
 
     return triggers.slice(0, 2)
-  }, [ceeAnalysisReady?.bias_findings, data.optionPreviews, data.nodesByKind.risk, factorInfluenceMap, nodes])
+  }, [ceeAnalysisReady?.bias_findings, data.optionPreviews, data.nodesByKind.risk, compositeInfluenceMap, nodes])
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
