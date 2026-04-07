@@ -66,6 +66,69 @@ describe('Conversation.module.css — GraphPatchBlock border token', () => {
   })
 })
 
+/**
+ * Paul's 7 Apr 2026 conversation panel override: every conversation block
+ * uses a full 1px border at 30% via color-mix, a 20px radius, and shadow-1.
+ * This parameterised test protects the contract across all block types so
+ * a future regression on any single block is caught.
+ */
+describe('Conversation.module.css — all conversation blocks share the full-border contract', () => {
+  const CONVERSATION_BLOCKS: Array<{ className: string; token: string }> = [
+    { className: 'reviewCardInfo',    token: '--info' },
+    { className: 'reviewCardAlert',   token: '--danger' },
+    { className: 'factBlock',         token: '--success' },
+    { className: 'graphPatchBlock',   token: '--goal' },
+    { className: 'framingBlock',      token: '--info' },
+    { className: 'briefBlock',        token: '--success' },
+    { className: 'evidenceBlock',     token: '--info' },
+    { className: 'comparisonBlock',   token: '--info' },
+    { className: 'premortemBlock',    token: '--warning' },
+    { className: 'flipAnalysisBlock', token: '--danger' },
+    { className: 'proposalBlock',     token: '--goal' },
+    { className: 'exerciseBlock',     token: '--info' },
+  ]
+
+  const css = readFileSync(CSS_PATH, 'utf-8')
+
+  it.each(CONVERSATION_BLOCKS)(
+    '$className has a full 1px border using $token wrapped in color-mix — no top-only 3px accent',
+    ({ className, token }) => {
+      // Non-greedy match up to the first closing brace so we don't accidentally
+      // swallow the next rule body (covers single-rule bodies without nested braces).
+      const ruleRegex = new RegExp(`\\.${className}\\s*\\{([^}]+)\\}`, 's')
+      const match = css.match(ruleRegex)
+      expect(match, `${className} rule must exist`).toBeTruthy()
+
+      const ruleBody = match![1]
+      // Full 1px border using color-mix() — the new conversation override
+      expect(ruleBody).toMatch(/border:\s*1px\s+solid\s+color-mix\(/)
+      expect(ruleBody).toContain(token)
+      // Old top-3px accent must not sneak back in
+      expect(ruleBody).not.toMatch(/border-top:\s*3px/)
+      expect(ruleBody).not.toMatch(/border-left:\s*3px\s+solid\s+var\(--(info|danger|goal|success|warning)/)
+    },
+  )
+
+  it.each(CONVERSATION_BLOCKS)(
+    '$className has DS v5 §5 shadow-1 and §6.2 20px radius',
+    ({ className }) => {
+      const ruleRegex = new RegExp(`\\.${className}\\s*\\{([^}]+)\\}`, 's')
+      const ruleBody = css.match(ruleRegex)![1]
+      expect(ruleBody).toMatch(/box-shadow:\s*0\s+1px\s+2px\s+rgba\(38,\s*38,\s*38,\s*0\.06\)/)
+      expect(ruleBody).toMatch(/border-radius:\s*20px/)
+    },
+  )
+
+  it('no conversation block class contains a 3px coloured one-sided border', () => {
+    // Guard against any *new* block class being added with the old top-accent pattern.
+    // Panel-border dividers (--border-default) are allowed; semantic colour tokens are not.
+    const illegalMatches = css.match(
+      /border-(top|left|right|bottom):\s*3px\s+solid\s+var\(--(info|danger|success|goal|warning)/g,
+    )
+    expect(illegalMatches).toBeNull()
+  })
+})
+
 describe('index.css — olumi scrollbar utility', () => {
   it('defines the shared scrollbar class with the expected width and hover tokens', () => {
     const css = readFileSync(INDEX_CSS_PATH, 'utf-8')

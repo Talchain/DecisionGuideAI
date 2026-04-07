@@ -373,8 +373,9 @@
 }
 
 .graphPatchProposalEyebrow {
-  /* DS v5 §21.2: block type is signalled by the goal-coloured top border + dot.
-     Eyebrow heading uses neutral text-header, not a second status colour. */
+  /* DS v5 §21.2 + Paul's 7 Apr 2026 override: block type is signalled by
+     the full goal/30 border + dot. Eyebrow heading uses neutral text-header,
+     not a second status colour. */
   color: var(--text-header, #262626);
   font-weight: 600;
   letter-spacing: 0.02em;
