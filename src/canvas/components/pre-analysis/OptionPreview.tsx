@@ -33,6 +33,8 @@ interface OptionPreviewProps {
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
   onSendMessage?: (text: string) => void
+  /** When true, shows a structural similarity coaching line below the option list */
+  hasSameLeversCheck?: boolean
 }
 
 /**
@@ -203,6 +205,7 @@ export function OptionPreview({
   onHoverEnter,
   onHoverLeave,
   onSendMessage,
+  hasSameLeversCheck = false,
 }: OptionPreviewProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
@@ -271,6 +274,22 @@ export function OptionPreview({
               />
             </div>
           ))}
+
+          {/* Structural similarity coaching line */}
+          {hasSameLeversCheck && (
+            <p className={`${typography.panelBody} text-text-light mt-2`}>
+              Your options all work through similar factors. Consider a structurally different approach.{' '}
+              {onSendMessage && (
+                <button
+                  type="button"
+                  onClick={() => onSendMessage('My options seem similar. Can you suggest a structurally different approach?')}
+                  className="text-info hover:underline cursor-pointer"
+                >
+                  Explore alternatives
+                </button>
+              )}
+            </p>
+          )}
 
           {/* Ideation CTA */}
           {onSendMessage && (

@@ -279,6 +279,8 @@ export interface PreAnalysisData {
   contestedEdges: Array<{ edge: Edge; validation: import('../../../../canvas/domain/validation').ValidationMetadata }>
   /** Balance score for decision health ring (0–1) */
   balanceScore: number
+  /** VoI map derived from m1Coaching evidence_gaps (post-analysis). factorId → voi (0-1). Undefined when no data. */
+  voiMap: Map<string, number> | undefined
   /** Assumptions ledger from M1 coaching (post-analysis, gated on presence) */
   assumptionsLedger: Array<{ severity: 'low' | 'medium' | 'high'; message: string }> | null
 }
@@ -617,6 +619,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const m1ReviewAssumptions = useCanvasStore(s => s.runMeta?.m1ReviewAssumptions)
   const m1AssumptionsLedger = useCanvasStore(s => s.runMeta?.m1Coaching?.assumptions_ledger as Array<{ severity: string; message: string }> | undefined)
+  const m1EvidenceGaps = useCanvasStore(s => s.runMeta?.m1Coaching?.evidence_gaps)
   // PLoT critiques from previous run (for structural checks)
   // Mapper puts them at report.run.critique; also check top-level report.critiques as fallback
   const plotCritiques = useCanvasStore(s => {
@@ -1041,14 +1044,47 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     return fi ? new Map(Object.entries(fi)) : undefined
   }, [preAnalysisSensitivity?.factor_influence])
 
-  // Diversified triage actions: top 3 from unique source factors + quick-fix overflow
+  // VoI map derived from m1Coaching evidence_gaps (post-analysis, optional).
+  // Keys are factor_id strings; values are voi scores (0-1, higher = more valuable).
+  const voiMap = useMemo(() => {
+    if (!m1EvidenceGaps || m1EvidenceGaps.length === 0) return undefined
+    const map = new Map<string, number>()
+    for (const gap of m1EvidenceGaps) {
+      if (gap.factor_id && typeof gap.voi === 'number') {
+        map.set(gap.factor_id, gap.voi)
+      }
+    }
+    return map.size > 0 ? map : undefined
+  }, [m1EvidenceGaps])
+
+  // Composite influence map: VoI takes precedence when available, falls back to
+  // factor_influence from PreAnalysisSensitivity. Used to rank triage items by
+  // decision impact before the diversity-dedup pass.
+  const compositeInfluenceMap = useMemo(() => {
+    if (voiMap && voiMap.size > 0) return voiMap
+    return factorInfluenceMap
+  }, [voiMap, factorInfluenceMap])
+
+  // Diversified triage actions: sorted by composite influence (VoI > sensitivity > category bucket),
+  // then deduplicated by source factor so top 3 come from diverse factors.
   const triageActions = useMemo(() => {
     const allItems: ImprovementItem[] = []
     for (const category of ['fix', 'verify', 'add_evidence', 'strengthen'] as ImprovementCategory[]) {
       allItems.push(...improvementsByCategory[category])
     }
-    return diversifyTriageItems(allItems, edges, factorInfluenceMap)
-  }, [improvementsByCategory, edges, factorInfluenceMap])
+
+    // When influence data is available, sort by descending influence score before
+    // the diversity pass. Items without a score sort below scored items.
+    if (compositeInfluenceMap && compositeInfluenceMap.size > 0) {
+      allItems.sort((a, b) => {
+        const aScore = a.focus ? (compositeInfluenceMap.get(a.focus.id) ?? -1) : -1
+        const bScore = b.focus ? (compositeInfluenceMap.get(b.focus.id) ?? -1) : -1
+        return bScore - aScore
+      })
+    }
+
+    return diversifyTriageItems(allItems, edges, compositeInfluenceMap)
+  }, [improvementsByCategory, edges, compositeInfluenceMap])
 
   const edgeInfluenceMap = useMemo(() => {
     const ei = preAnalysisSensitivity?.edge_influence
@@ -1909,6 +1945,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     coachingSummary,
     contestedEdges,
     balanceScore,
+    voiMap,
     assumptionsLedger: m1AssumptionsLedger?.length
       ? m1AssumptionsLedger.map(a => ({
           severity: (a.severity === 'high' || a.severity === 'medium' || a.severity === 'low' ? a.severity : 'low') as 'low' | 'medium' | 'high',

@@ -30,7 +30,7 @@ import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, ChevronDown, ChevronRight } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, ChevronDown, ChevronRight } from 'lucide-react'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
@@ -368,6 +368,14 @@ export function PreAnalysisPanel({
     const entries = Object.entries(preAnalysisSensitivity.factor_influence)
     return entries.length > 0 ? new Map(entries) : undefined
   }, [preAnalysisSensitivity])
+
+  // Composite influence map: VoI takes precedence when available (post-analysis).
+  // Passed to WorthInvestigating for "Drives N%" badge so it reflects the best
+  // available signal: VoI when present, factor_influence (sensitivity) otherwise.
+  const compositeInfluenceMap = useMemo(() => {
+    if (data.voiMap && data.voiMap.size > 0) return data.voiMap
+    return factorInfluenceMap
+  }, [data.voiMap, factorInfluenceMap])
   const edgeInfluenceMap = useMemo(() => {
     if (!preAnalysisSensitivity?.edge_influence) return undefined
     const entries = Object.entries(preAnalysisSensitivity.edge_influence)
@@ -495,7 +503,7 @@ export function PreAnalysisPanel({
   const mapItem = (item: typeof data.triageActions.top3[number]): MappedCard => {
     const influence = item.focus?.type === 'edge'
       ? edgeInfluenceMap?.get(item.focus.id)
-      : factorInfluenceMap?.get(item.focus?.id ?? '')
+      : compositeInfluenceMap?.get(item.focus?.id ?? '')
     const mapped = mapImprovementToTriageCard(item, influence)
 
     // Attach editorConfig for factor items with set_value action — only when
@@ -538,11 +546,51 @@ export function PreAnalysisPanel({
     .filter(c => STRUCTURAL_CHECK_IDS.has(c.id) && c.id !== 'no_target' && STRUCTURAL_FLAG_LABELS[c.id])
     .map(c => ({ id: c.id, label: STRUCTURAL_FLAG_LABELS[c.id] }))
 
-  // Bias trigger cards — deterministic (max 2, priority: narrow > risks > overconfidence > anchoring)
-  const biasTriggers = useMemo(() => {
-    const triggers: { id: string; icon: typeof Frame; title: string; subtitle: string; cta: string; ctaAction: string }[] = []
+  // Icon + title lookup for CEE bias type strings → layer-6 card config
+  const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
+    framing:     { icon: Frame,     title: 'Narrow framing' },
+    anchoring:   { icon: Anchor,    title: 'Anchoring' },
+    confidence:  { icon: Gauge,     title: 'Overconfidence' },
+    blind_spots: { icon: EyeOff,    title: 'Blind spots' },
+    // Map confirmation bias (no direct UI icon) to framing as the closest visual
+    confirmation: { icon: Frame,    title: 'Confirmation bias' },
+  }
 
-    // 1. Narrow framing: fewer than 3 non-baseline options
+  // Bias trigger cards — CEE findings take precedence when available.
+  // Falls back to UI-side deterministic checks when CEE provides no findings.
+  // Max 2 cards.
+  const biasTriggers = useMemo(() => {
+    type BiasTrigger = { id: string; icon: typeof Frame; title: string; subtitle: string; cta: string; ctaAction: string }
+    const triggers: BiasTrigger[] = []
+
+    const ceeBiasFindings = ceeAnalysisReady?.bias_findings ?? []
+
+    if (ceeBiasFindings.length > 0) {
+      // Sort CEE findings by severity: high → medium → low
+      const SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
+      const sorted = [...ceeBiasFindings].sort(
+        (a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9),
+      )
+      for (const finding of sorted) {
+        const config = BIAS_TYPE_ICON[finding.type]
+        if (!config) continue
+        triggers.push({
+          id: `cee_bias_${finding.id}`,
+          icon: config.icon,
+          title: config.title,
+          subtitle: finding.description || `Potential ${finding.type} bias detected.`,
+          cta: 'Ask AI',
+          ctaAction: `I may have a ${finding.type} bias in my decision model. Can you help me think through it?`,
+        })
+        if (triggers.length >= 2) break
+      }
+      if (triggers.length > 0) return triggers
+      // If no CEE finding matched a known icon type, fall through to deterministic
+    }
+
+    // Deterministic fallback — graph-signal-only checks
+
+    // 1. Narrow framing: fewer than 2 non-baseline options
     const nonBaselineOptions = data.optionPreviews.filter(o => !o.isBaseline)
     if (nonBaselineOptions.length < 2) {
       triggers.push({ id: 'narrow_framing', icon: Frame, title: 'Narrow framing', subtitle: 'Consider structurally different approaches. What would a competitor do?', cta: 'Explore options', ctaAction: 'What other options should I consider?' })
@@ -614,7 +662,7 @@ export function PreAnalysisPanel({
     }
 
     return triggers.slice(0, 2)
-  }, [data.optionPreviews, data.nodesByKind.risk, factorInfluenceMap, nodes])
+  }, [ceeAnalysisReady?.bias_findings, data.optionPreviews, data.nodesByKind.risk, factorInfluenceMap, nodes])
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
@@ -910,6 +958,7 @@ export function PreAnalysisPanel({
             onHoverEnter={handleHoverElement}
             onHoverLeave={handleHoverClear}
             onSendMessage={onSendMessage}
+            hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
           />
         )}
 
@@ -921,7 +970,7 @@ export function PreAnalysisPanel({
             contestedEdges={data.contestedEdges}
             nodes={nodes}
             edges={edges}
-            factorInfluenceMap={factorInfluenceMap}
+            factorInfluenceMap={compositeInfluenceMap}
             edgeInfluenceMap={edgeInfluenceMap}
             reviewedCount={data.reviewedFactorsCount}
             allItems={[

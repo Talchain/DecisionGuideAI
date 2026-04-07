@@ -66,15 +66,14 @@ export const ModelHealthCard = memo(function ModelHealthCard({
     )
   }
 
-  // Headline synthesised from graph state — no CEE `graph_summary` field exists yet.
-  // Replace with CEE-provided summary when the field is added to the response envelope.
+  // Headline synthesised from graph state.
   const headline = goalLabel
     ? `Choosing between ${optionCount} ${optionCount === 1 ? 'strategy' : 'strategies'} to achieve ${goalLabel}`
     : null
 
-  const coaching = coachingSummary == null
-    ? 'Your expertise makes the analysis more reliable. The Verified score improves as you verify values in Your expertise below.'
-    : null
+  const coaching = coachingSummary != null
+    ? coachingSummary
+    : 'Your expertise makes the analysis more reliable. The Verified score improves as you verify values in Your expertise below.'
 
   return (
     <div className="space-y-3" data-testid="decision-readiness-card">

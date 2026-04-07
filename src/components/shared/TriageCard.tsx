@@ -14,6 +14,7 @@ import { Check, Pencil, Sparkles } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
+import Tooltip from '@/components/Tooltip'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -69,6 +70,40 @@ const BADGE_COLORS: Record<TriageCardCategory, string> = {
   add_evidence: 'bg-info',
   strengthen: 'bg-option',
   contested: 'bg-warning',
+}
+
+// ── Icon action button (DS v5 §9.2 / §9.8) ────────────────────────────────
+
+/**
+ * Icon-only action button with mandatory tooltip.
+ * 44×44px minimum touch target, icon renders at 14px.
+ * Colour: text-text-light at rest, hoverClass on hover.
+ */
+function IconActionButton({
+  icon: Icon,
+  tooltip,
+  hoverClass,
+  onClick,
+  'aria-label': ariaLabel,
+}: {
+  icon: React.ComponentType<{ size?: number; className?: string }>
+  tooltip: string
+  hoverClass: string
+  onClick: () => void
+  'aria-label': string
+}) {
+  return (
+    <Tooltip content={tooltip} delay={400}>
+      <button
+        type="button"
+        onClick={onClick}
+        aria-label={ariaLabel}
+        className={`inline-flex items-center justify-center w-11 h-11 rounded text-text-light ${hoverClass} cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+      >
+        <Icon size={14} aria-hidden="true" />
+      </button>
+    </Tooltip>
+  )
 }
 
 // ── Edge strength bands ────────────────────────────────────────────────────
@@ -133,7 +168,7 @@ function InlineValueEditor({
   const unitSuffix = editorConfig.unit === '%' ? '%' : editorConfig.unit ? ` ${editorConfig.unit}` : ''
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5 mt-1">
+    <div className="flex flex-wrap items-center gap-0.5 mt-1">
       <div className="relative flex items-center">
         <input
           ref={inputRef}
@@ -149,30 +184,30 @@ function InlineValueEditor({
           <span className={`${typography.panelMeta} text-text-light ml-0.5`}>{unitSuffix}</span>
         )}
       </div>
-      <button
-        type="button"
+      <IconActionButton
+        icon={Pencil}
+        tooltip="Edit value"
+        hoverClass="hover:text-text-body"
         onClick={handleUpdate}
-        className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
-      >
-        Update
-      </button>
+        aria-label="Edit value"
+      />
       {onConfirm && (
-        <button
-          type="button"
+        <IconActionButton
+          icon={Check}
+          tooltip="Confirm AI estimate"
+          hoverClass="hover:text-success"
           onClick={onConfirm}
-          className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
-        >
-          <span className="flex items-center gap-1"><Check size={11} /> Confirm</span>
-        </button>
+          aria-label="Confirm AI estimate"
+        />
       )}
       {onSendMessage && (
-        <button
-          type="button"
+        <IconActionButton
+          icon={Sparkles}
+          tooltip="Ask AI to research"
+          hoverClass="hover:text-info"
           onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-          className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
-        >
-          Research
-        </button>
+          aria-label="Ask AI to research"
+        />
       )}
     </div>
   )
@@ -227,33 +262,41 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
           </div>
         )}
       </div>
-      {/* Row 2: edge strength quick-select + Ask AI */}
-      <div className="flex items-center gap-1.5 pl-7">
+      {/* Row 2: edge strength quick-select + icon action buttons */}
+      <div className="flex items-center gap-0.5 pl-7">
         {isEdge && action?.targetId && onUpdateEdgeStrength && (
           <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
         )}
         {!isEdge && action && (
-          <div className="flex gap-1 shrink-0">
+          <>
             {action.kind === 'confirm' && onConfirm && action.targetId && (
-              <button type="button" onClick={() => onConfirm(action.targetId!)} className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 bg-transparent hover:bg-panel-hover cursor-pointer`}>
-                Confirm
-              </button>
+              <IconActionButton
+                icon={Check}
+                tooltip="Confirm AI estimate"
+                hoverClass="hover:text-success"
+                onClick={() => onConfirm!(action!.targetId!)}
+                aria-label="Confirm AI estimate"
+              />
             )}
             {(action.kind === 'edit' || action.kind === 'set_value') && onEdit && action.targetId && (
-              <button type="button" onClick={() => onEdit(action.targetId!)} className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}>
-                {action.kind === 'set_value' ? 'Set' : 'Edit'}
-              </button>
+              <IconActionButton
+                icon={Pencil}
+                tooltip="Edit value"
+                hoverClass="hover:text-text-body"
+                onClick={() => onEdit!(action!.targetId!)}
+                aria-label="Edit value"
+              />
             )}
-          </div>
+          </>
         )}
         {onSendMessage && action?.targetId && !isBrief && (
-          <button
-            type="button"
-            onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
-          >
-            Research
-          </button>
+          <IconActionButton
+            icon={Sparkles}
+            tooltip="Ask AI to research"
+            hoverClass="hover:text-info"
+            onClick={() => onSendMessage!(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
+            aria-label="Ask AI to research"
+          />
         )}
       </div>
     </div>
@@ -370,34 +413,33 @@ export function TriageCard(props: TriageCardProps) {
 
       {/* Action buttons row — only when no inline editor */}
       {!editorConfig && !isEdge && (
-        <div className="flex items-center gap-1 mt-1.5 pl-7">
+        <div className="flex items-center justify-end gap-1 mt-1.5 pl-7">
           {action?.kind === 'confirm' && onConfirm && action.targetId && (
-            <button
-              type="button"
-              onClick={() => onConfirm(action.targetId!)}
-              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-success border border-success/30 hover:bg-panel-hover cursor-pointer`}
-            >
-              <span className="flex items-center gap-1"><Check size={12} /> Confirm</span>
-            </button>
+            <IconActionButton
+              icon={Check}
+              tooltip="Confirm AI estimate"
+              hoverClass="hover:text-success"
+              onClick={() => onConfirm!(action!.targetId!)}
+              aria-label="Confirm AI estimate"
+            />
           )}
           {action?.kind === 'edit' && onEdit && action.targetId && (
-            <button
-              type="button"
-              onClick={() => onEdit(action.targetId!)}
-              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
-            >
-              <span className="flex items-center gap-1"><Pencil size={12} /> Edit</span>
-            </button>
+            <IconActionButton
+              icon={Pencil}
+              tooltip="Edit value"
+              hoverClass="hover:text-text-body"
+              onClick={() => onEdit!(action!.targetId!)}
+              aria-label="Edit value"
+            />
           )}
-          {/* Task 1c: "Ask AI to research" → "Research" */}
           {onSendMessage && action?.targetId && !isBrief && (
-            <button
-              type="button"
-              onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-              className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 hover:bg-panel-hover cursor-pointer`}
-            >
-              Research
-            </button>
+            <IconActionButton
+              icon={Sparkles}
+              tooltip="Ask AI to research"
+              hoverClass="hover:text-info"
+              onClick={() => onSendMessage!(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
+              aria-label="Ask AI to research"
+            />
           )}
         </div>
       )}
