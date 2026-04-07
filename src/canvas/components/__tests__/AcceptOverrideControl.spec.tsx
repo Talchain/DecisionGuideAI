@@ -22,16 +22,17 @@ describe('AcceptOverrideControl', () => {
   })
 
   describe('confidence messaging', () => {
-    it('shows "Recommended based on pattern" for high confidence', () => {
+    it('shows "Suggested based on pattern" for high confidence', () => {
       render(<AcceptOverrideControl {...defaultProps} confidence="high" />)
 
-      expect(screen.getByText('Recommended based on pattern')).toBeInTheDocument()
+      // Neutral "Suggested" framing per ea8d23a7 (no "Recommended"/"Winner").
+      expect(screen.getByText('Suggested based on pattern')).toBeInTheDocument()
     })
 
-    it('shows "Suggestion — review recommended" for medium confidence', () => {
+    it('shows "Suggestion — please review" for medium confidence', () => {
       render(<AcceptOverrideControl {...defaultProps} confidence="medium" />)
 
-      expect(screen.getByText('Suggestion — review recommended')).toBeInTheDocument()
+      expect(screen.getByText('Suggestion — please review')).toBeInTheDocument()
     })
 
     it('shows "Suggestion — please verify" for low confidence', () => {
@@ -55,31 +56,31 @@ describe('AcceptOverrideControl', () => {
   })
 
   describe('styling by confidence level', () => {
-    it('uses mint colors for high confidence', () => {
+    it('uses semantic panel bg with success border for high confidence', () => {
       const { container } = render(
         <AcceptOverrideControl {...defaultProps} confidence="high" />
       )
 
       const wrapper = container.querySelector('[role="region"]')
-      expect(wrapper).toHaveClass('bg-mint-50', 'border-mint-200')
+      expect(wrapper).toHaveClass('bg-panel', 'border-success/30')
     })
 
-    it('uses sun colors for medium confidence', () => {
+    it('uses semantic panel bg with warning border for medium confidence', () => {
       const { container } = render(
         <AcceptOverrideControl {...defaultProps} confidence="medium" />
       )
 
       const wrapper = container.querySelector('[role="region"]')
-      expect(wrapper).toHaveClass('bg-sun-50', 'border-sun-200')
+      expect(wrapper).toHaveClass('bg-panel', 'border-warning/30')
     })
 
-    it('uses sand colors for low confidence', () => {
+    it('uses semantic panel bg with neutral border for low confidence', () => {
       const { container } = render(
         <AcceptOverrideControl {...defaultProps} confidence="low" />
       )
 
       const wrapper = container.querySelector('[role="region"]')
-      expect(wrapper).toHaveClass('bg-sand-50', 'border-sand-200')
+      expect(wrapper).toHaveClass('bg-panel', 'border-neutral/30')
     })
   })
 
@@ -135,7 +136,10 @@ describe('AcceptOverrideControl', () => {
     it('hides rationale by default', () => {
       render(<AcceptOverrideControl {...defaultProps} rationale="Hidden rationale" />)
 
-      expect(screen.queryByText('Hidden rationale')).not.toBeInTheDocument()
+      // DS v5 §15.2: rationale is in the DOM but visually hidden via the
+      // animated height/opacity transition (not removed on collapse).
+      const rationaleText = screen.getByText('Hidden rationale')
+      expect(rationaleText.closest('div[class*="transition-"]')).toHaveStyle({ height: '0', opacity: '0' })
     })
 
     it('shows rationale when expanded', () => {

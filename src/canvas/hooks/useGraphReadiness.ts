@@ -59,10 +59,8 @@ function deduplicatedFetch(
   payloadJson: string,
   correlationId: string,
 ): { promise: Promise<DeduplicatedResponse>; entry: InflightEntry; isReused: boolean } {
-  // Key on endpoint + full payload body so distinct payloads never collide
   const cacheKey = `${url}:${payloadJson}`
   const existing = inflightCache.get(cacheKey)
-  // Reuse if still in-flight, or if settled within the dedup window
   if (existing && (!existing.settled || Date.now() - existing.timestamp < DEDUP_WINDOW_MS)) {
     existing.refCount++
     return { promise: existing.promise, entry: existing, isReused: true }
@@ -70,16 +68,20 @@ function deduplicatedFetch(
 
   const controller = new AbortController()
 
-  // Parse the response body exactly once, then share the parsed result
-  const promise = fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Request-ID': correlationId,
-    },
-    body: payloadJson,
-    signal: controller.signal,
-  }).then(async (response): Promise<DeduplicatedResponse> => {
+  // Parse the response body exactly once, then share the parsed result.
+  // The async IIFE ensures fetch() rejection is captured within the promise
+  // chain rather than triggering Node.js "unhandled rejection" in test
+  // environments where relative URLs are invalid (jsdom).
+  const promise = (async (): Promise<DeduplicatedResponse> => {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Request-ID': correlationId,
+      },
+      body: payloadJson,
+      signal: controller.signal,
+    })
     if (response.ok) {
       const data = await response.json()
       return {
@@ -100,7 +102,7 @@ function deduplicatedFetch(
       errorBody,
       retryAfterHeader: response.headers.get('Retry-After'),
     }
-  })
+  })()
 
   const entry: InflightEntry = { promise, timestamp: Date.now(), controller, refCount: 1, settled: false }
   inflightCache.set(cacheKey, entry)
@@ -109,7 +111,6 @@ function deduplicatedFetch(
   promise.finally(() => {
     entry.settled = true
     setTimeout(() => {
-      // Only delete if it's still our entry (not replaced by a newer request)
       if (inflightCache.get(cacheKey) === entry) {
         inflightCache.delete(cacheKey)
       }

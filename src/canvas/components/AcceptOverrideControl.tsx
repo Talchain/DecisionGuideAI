@@ -2,10 +2,13 @@
  * AcceptOverrideControl - Reusable component for CEE suggestion pattern
  * Implements the CEE Transparency Principle: every AI suggestion must have
  * clear provenance and one-click override capability.
+ *
+ * DS v5 compliant: semantic tokens, ChevronRight (rotated on expand),
+ * animated transition-[height,opacity] duration-200 (§15.2).
  */
 
-import { memo, useState } from 'react'
-import { Check, Pencil, Sparkles, ChevronDown, ChevronUp } from 'lucide-react'
+import { memo, useState, useRef, useEffect } from 'react'
+import { Check, Pencil, Sparkles, ChevronRight } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low'
@@ -42,26 +45,28 @@ const confidenceConfig: Record<ConfidenceLevel, {
   shortLabel: string
 }> = {
   high: {
-    bg: 'bg-mint-50',
-    border: 'border-mint-200',
-    text: 'text-mint-700',
-    badge: 'bg-mint-100 text-mint-700',
+    // DS v5: semantic tokens (bg-panel + success/30 border), matches .low tier.
+    bg: 'bg-panel',
+    border: 'border-success/30',
+    text: 'text-success',
+    badge: 'bg-transparent border border-success/30 text-text-body',
+    // Copy: neutral "Suggested" framing per ea8d23a7 (no "Recommended"/"Winner").
     label: 'Suggested based on pattern',
     shortLabel: 'Suggested',
   },
   medium: {
-    bg: 'bg-sun-50',
-    border: 'border-sun-200',
-    text: 'text-sun-700',
-    badge: 'bg-sun-100 text-sun-700',
+    bg: 'bg-panel',
+    border: 'border-warning/30',
+    text: 'text-warning',
+    badge: 'bg-transparent border border-warning/30 text-text-body',
     label: 'Suggestion — please review',
     shortLabel: 'Review',
   },
   low: {
-    bg: 'bg-sand-50',
-    border: 'border-sand-200',
-    text: 'text-sand-600',
-    badge: 'bg-sand-100 text-sand-600',
+    bg: 'bg-panel',
+    border: 'border-neutral/30',
+    text: 'text-text-light',
+    badge: 'bg-transparent border border-neutral/30 text-text-body',
     label: 'Suggestion — please verify',
     shortLabel: 'Verify',
   },
@@ -81,6 +86,26 @@ function AcceptOverrideControlInner<T>({
 }: AcceptOverrideControlProps<T>) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded)
   const config = confidenceConfig[confidence]
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [contentHeight, setContentHeight] = useState<number | undefined>(
+    defaultExpanded ? undefined : 0
+  )
+
+  useEffect(() => {
+    if (!contentRef.current) return
+
+    if (isExpanded) {
+      const height = contentRef.current.scrollHeight
+      setContentHeight(height)
+      const timer = setTimeout(() => setContentHeight(undefined), 200)
+      return () => clearTimeout(timer)
+    } else {
+      if (contentRef.current.scrollHeight > 0) {
+        setContentHeight(contentRef.current.scrollHeight)
+        requestAnimationFrame(() => setContentHeight(0))
+      }
+    }
+  }, [isExpanded])
 
   return (
     <div
@@ -97,13 +122,12 @@ function AcceptOverrideControlInner<T>({
         <div className="flex-1 min-w-0">
           {/* Header with suggestion and confidence */}
           <div className="flex items-center flex-wrap gap-2 mb-1">
-            <span className={`${typography.caption} text-ink-600`}>
+            <span className={`${typography.caption} text-text-light`}>
               {suggestionLabel}:
             </span>
-            <span className={`${typography.label} text-ink-900`}>
+            <span className={`${typography.label} text-text-body`}>
               {formatValue(suggestedValue)}
             </span>
-            {/* Task 3.5: Confidence-based messaging */}
             <span
               className={`${typography.caption} px-1.5 py-0.5 rounded font-medium ${config.badge}`}
               title={`${confidence} confidence`}
@@ -113,26 +137,32 @@ function AcceptOverrideControlInner<T>({
             </span>
           </div>
 
-          {/* Rationale - collapsible */}
+          {/* Rationale - collapsible with animated transition (DS v5 §15.2) */}
           <div className="mb-2">
             <button
               type="button"
               onClick={() => setIsExpanded(!isExpanded)}
-              className={`${typography.caption} text-ink-500 flex items-center gap-1 hover:text-ink-700 transition-colors`}
+              className={`${typography.caption} text-text-light flex items-center gap-1 hover:text-text-body transition-colors`}
               aria-expanded={isExpanded}
             >
-              {isExpanded ? (
-                <ChevronUp className="w-3 h-3" />
-              ) : (
-                <ChevronDown className="w-3 h-3" />
-              )}
+              <ChevronRight
+                className={`w-3 h-3 transition-transform duration-200 ${isExpanded ? 'rotate-90' : ''}`}
+                aria-hidden="true"
+              />
               {isExpanded ? 'Hide' : 'Show'} rationale
             </button>
-            {isExpanded && (
-              <p className={`${typography.bodySmall} text-ink-600 mt-1`}>
+            <div
+              ref={contentRef}
+              className="transition-[height,opacity] duration-200 ease-in-out overflow-hidden"
+              style={{
+                height: contentHeight === undefined ? 'auto' : contentHeight,
+                opacity: isExpanded ? 1 : 0,
+              }}
+            >
+              <p className={`${typography.bodySmall} text-text-body mt-1`}>
                 {rationale}
               </p>
-            )}
+            </div>
           </div>
 
           {/* Action buttons */}
@@ -142,8 +172,8 @@ function AcceptOverrideControlInner<T>({
               onClick={() => onAccept(suggestedValue)}
               className={`
                 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                ${typography.button} bg-mint-500 text-white
-                hover:bg-mint-600 transition-colors
+                ${typography.button} bg-primary text-text-on-color
+                hover:bg-primary-hover transition-colors
               `}
               data-testid={`${testIdPrefix}-accept`}
             >
@@ -155,8 +185,8 @@ function AcceptOverrideControlInner<T>({
               onClick={onOverride}
               className={`
                 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg
-                ${typography.button} border border-ink-300 text-ink-700
-                hover:bg-ink-50 transition-colors
+                ${typography.button} border border-panel-border text-text-body
+                hover:bg-panel-hover transition-colors
               `}
               data-testid={`${testIdPrefix}-override`}
             >
