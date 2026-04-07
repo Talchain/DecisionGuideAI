@@ -177,6 +177,169 @@ describe('FactorControllablePanel — intervention unwrap regression', () => {
     expect(container.textContent).not.toContain('[object Object]')
     expect(container.textContent).not.toContain('NaN')
   })
+
+  it('omits the badge when intervention .value is null (treated as missing, not zero)', () => {
+    // Regression guard: a previous helper coerced { value: null } to 0 via
+    // Number(null), rendering "Intervention: £0" for unset interventions.
+    // The strict-typeof helper treats null as missing → no badge, no zero.
+    const factor: Node = {
+      id: 'factor-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Marketing budget',
+        category: 'controllable',
+        observedState: { value: 0.1, unit: '\u00A3' },
+      },
+    }
+    const option: Node = {
+      id: 'option-1',
+      type: 'option',
+      position: { x: 200, y: 0 },
+      data: {
+        label: 'Hire One Developer',
+        interventions: { 'factor-1': { value: null, source: 'brief_extraction' } },
+      },
+    }
+    const edge: Edge = { id: 'e1', source: 'option-1', target: 'factor-1' }
+
+    seedStore([factor, option], [edge])
+
+    const { container } = render(
+      <FactorControllablePanel
+        nodeId="factor-1"
+        techMode={false}
+        onClose={noop}
+        onNavigate={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('Hire One Developer')
+    // Specifically: no "£0" badge (the zero-coercion regression).
+    expect(container.textContent).not.toMatch(/\u00A30(?!\.)/)
+    expect(container.textContent).not.toContain('[object Object]')
+  })
+
+  it('renders a string intervention verbatim when stored as a bare string', () => {
+    // Per the brief: "If the value is a string, display it directly."
+    // The connections badge is one of the few intervention display sites
+    // that supports this — it's a passive `<span>` with no arithmetic.
+    const factor: Node = {
+      id: 'factor-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Team morale',
+        category: 'controllable',
+        observedState: { value: 0.5, factor_type: 'quality' },
+      },
+    }
+    const option: Node = {
+      id: 'option-1',
+      type: 'option',
+      position: { x: 200, y: 0 },
+      data: {
+        label: 'Run team retro',
+        interventions: { 'factor-1': 'high' }, // qualitative string
+      },
+    }
+    const edge: Edge = { id: 'e1', source: 'option-1', target: 'factor-1' }
+
+    seedStore([factor, option], [edge])
+
+    const { container } = render(
+      <FactorControllablePanel
+        nodeId="factor-1"
+        techMode={false}
+        onClose={noop}
+        onNavigate={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('Run team retro')
+    // Badge renders the string verbatim, not "[object Object]" or "NaN".
+    expect(container.textContent).toContain('high')
+    expect(container.textContent).not.toContain('[object Object]')
+    expect(container.textContent).not.toContain('NaN')
+  })
+
+  it('renders a string intervention verbatim from a { value: string } V3 shape', () => {
+    const factor: Node = {
+      id: 'factor-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Team morale',
+        category: 'controllable',
+        observedState: { value: 0.5, factor_type: 'quality' },
+      },
+    }
+    const option: Node = {
+      id: 'option-1',
+      type: 'option',
+      position: { x: 200, y: 0 },
+      data: {
+        label: 'Hire a coach',
+        interventions: {
+          'factor-1': { value: 'very high', source: 'brief_extraction' },
+        },
+      },
+    }
+    const edge: Edge = { id: 'e1', source: 'option-1', target: 'factor-1' }
+
+    seedStore([factor, option], [edge])
+
+    const { container } = render(
+      <FactorControllablePanel
+        nodeId="factor-1"
+        techMode={false}
+        onClose={noop}
+        onNavigate={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('Hire a coach')
+    expect(container.textContent).toContain('very high')
+    expect(container.textContent).not.toContain('[object Object]')
+  })
+
+  it('omits the badge for an empty string (whitespace counts as missing)', () => {
+    const factor: Node = {
+      id: 'factor-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Team morale',
+        category: 'controllable',
+        observedState: { value: 0.5, factor_type: 'quality' },
+      },
+    }
+    const option: Node = {
+      id: 'option-1',
+      type: 'option',
+      position: { x: 200, y: 0 },
+      data: {
+        label: 'Empty intervention',
+        interventions: { 'factor-1': '   ' }, // whitespace-only
+      },
+    }
+    const edge: Edge = { id: 'e1', source: 'option-1', target: 'factor-1' }
+
+    seedStore([factor, option], [edge])
+
+    const { container } = render(
+      <FactorControllablePanel
+        nodeId="factor-1"
+        techMode={false}
+        onClose={noop}
+        onNavigate={noop}
+      />
+    )
+
+    expect(container.textContent).toContain('Empty intervention')
+    // No badge content beyond the connection row label.
+    expect(container.textContent).not.toContain('[object Object]')
+  })
 })
 
 describe('OptionPanel — intervention unwrap regression', () => {
@@ -279,5 +442,94 @@ describe('OptionPanel — intervention unwrap regression', () => {
     expect(container.textContent).toContain('Marketing budget')
     // The malformed factor's row is dropped (no Headcount row)
     expect(container.textContent).not.toContain('Headcount')
+  })
+
+  it('drops string interventions because InterventionRow requires a numeric value', () => {
+    // Per the brief: "If the value is a string, display it directly." This
+    // applies only to passive display sites — OptionPanel uses InterventionRow
+    // which expects `currentValue: number` and computes a delta against the
+    // baseline. Strings cannot be edited as numbers, so the entry is dropped
+    // (the alternative is "[object Object]" or NaN deltas).
+    //
+    // This test guards the deliberate choice. If product wants strings to
+    // appear here in future, InterventionRow will need a string-display
+    // variant rather than relaxing the numeric type.
+    const factor: Node = {
+      id: 'factor-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Team morale',
+        category: 'controllable',
+        observedState: { value: 0.5, factor_type: 'quality' },
+      },
+    }
+    const option: Node = {
+      id: 'option-1',
+      type: 'option',
+      position: { x: 200, y: 0 },
+      data: {
+        label: 'Run team retro',
+        interventions: { 'factor-1': 'high' },
+      },
+    }
+
+    seedStore([factor, option])
+
+    const { container } = render(
+      <OptionPanel
+        nodeId="option-1"
+        techMode={false}
+        onClose={noop}
+        onNavigate={noop}
+      />
+    )
+
+    // Row dropped → factor label not shown in the intervention list, no
+    // corrupt strings reach the DOM.
+    expect(container.textContent).not.toContain('[object Object]')
+    expect(container.textContent).not.toContain('NaN')
+    expect(container.textContent).not.toContain('Team morale')
+  })
+
+  it('drops { value: null } interventions instead of rendering them as 0', () => {
+    // Same regression guard as the FactorControllablePanel test, but at the
+    // OptionPanel boundary. InterventionRow would render "0" + a -100% delta
+    // if we coerced null → 0; treating it as missing is the safer choice.
+    const factor: Node = {
+      id: 'factor-1',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {
+        label: 'Marketing budget',
+        category: 'controllable',
+        observedState: { value: 0.1, unit: '\u00A3' },
+      },
+    }
+    const option: Node = {
+      id: 'option-1',
+      type: 'option',
+      position: { x: 200, y: 0 },
+      data: {
+        label: 'Unset intervention',
+        interventions: { 'factor-1': { value: null, source: 'brief_extraction' } },
+      },
+    }
+
+    seedStore([factor, option])
+
+    const { container } = render(
+      <OptionPanel
+        nodeId="option-1"
+        techMode={false}
+        onClose={noop}
+        onNavigate={noop}
+      />
+    )
+
+    expect(container.textContent).not.toContain('[object Object]')
+    expect(container.textContent).not.toContain('NaN')
+    // Row is dropped — Marketing budget should not appear.
+    expect(container.textContent).not.toContain('Marketing budget')
   })
 })

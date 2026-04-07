@@ -290,26 +290,41 @@ export function formatFactorValue(observedState: {
  * Returns null when:
  * - input is null / undefined
  * - input is a number that is NaN or Infinity
- * - input is an object whose `.value` property is missing or non-finite
+ * - input is an object whose `.value` is not a finite number (covers
+ *   missing field, null, undefined, string, NaN, Infinity)
  * - input is any other type (string, boolean, array, etc.)
  *
+ * Strictly typed: this helper does NOT coerce strings, null, or undefined
+ * into numbers via `Number(...)`. A previous version did, which produced
+ * the surprise that `{ value: null }` returned 0 (because `Number(null) === 0`)
+ * — that rendered "Intervention: £0" for unset interventions and short-
+ * circuited the legacy fallback chain in OptionsSection.extractInterventionNumeric.
+ *
+ * Sites that need to render string interventions verbatim must check the
+ * raw value separately (see FactorControllablePanel for an example) — the
+ * brief explicitly says strings should "display directly", but the four
+ * numeric display paths (OptionPanel InterventionRow, NodeInspectorCompact
+ * formatChipValue, OptionAdvancedEditor AdvancedField type=number, FactorNode
+ * formatInterventionValue) cannot render strings without breaking their
+ * arithmetic / editable input contracts. Those sites correctly drop string
+ * entries; only the FactorControllablePanel connections badge passes them
+ * through.
+ *
  * Centralises the unwrap logic so every UI display path converges on one
- * source of truth. Inspector panels (FactorControllablePanel, OptionPanel,
- * NodeInspectorCompact, OptionAdvancedEditor) previously cast the
- * `interventions` map as `Record<string, number>` and rendered objects
- * directly, producing "[object Object]" / "£NaN" on hover, in connections
- * lists, and in advanced editors. The hover-tooltip path on FactorNode was
- * fixed inline in commits b053c82b / fafe62eb; this helper extracts that
- * pattern so every other display path can share it.
+ * source of truth. Inspector panels previously cast the `interventions`
+ * map as `Record<string, number>` and rendered objects directly, producing
+ * "[object Object]" / "£NaN" on hover, in connections lists, and in
+ * advanced editors. The hover-tooltip path on FactorNode was fixed inline
+ * in commits b053c82b / fafe62eb; this helper extracts that pattern so
+ * every other display path can share it.
  */
 export function unwrapInterventionValue(raw: unknown): number | null {
-  if (raw == null) return null
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
-  // `raw` is non-null here, so `typeof raw === 'object'` is safe (no
-  // `typeof null === 'object'` trap).
-  if (typeof raw === 'object' && 'value' in raw) {
-    const v = Number((raw as { value: unknown }).value)
-    return Number.isFinite(v) ? v : null
+  if (raw != null && typeof raw === 'object' && 'value' in raw) {
+    // Strict numeric check on `.value` — no Number(...) coercion, since
+    // `Number(null) === 0` and `Number('foo') === NaN` cause subtle bugs.
+    const v = (raw as { value: unknown }).value
+    return typeof v === 'number' && Number.isFinite(v) ? v : null
   }
   return null
 }

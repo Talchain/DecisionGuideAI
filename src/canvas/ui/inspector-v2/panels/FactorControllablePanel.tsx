@@ -32,6 +32,21 @@ import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
 import { ResultsLink } from '../shared/ResultsLink'
 
+/**
+ * Extract a non-empty string intervention value, accepting either a bare
+ * string or a `{ value: string }` object. Used by the connections badge
+ * which renders qualitative interventions verbatim. Returns null when no
+ * non-empty string is present (so the caller can fall back to "no badge").
+ */
+function extractStringIntervention(raw: unknown): string | null {
+  if (typeof raw === 'string') return raw.trim() === '' ? null : raw
+  if (raw != null && typeof raw === 'object' && 'value' in raw) {
+    const v = (raw as { value: unknown }).value
+    if (typeof v === 'string') return v.trim() === '' ? null : v
+  }
+  return null
+}
+
 export const FactorControllablePanel = memo(function FactorControllablePanel({
   nodeId,
   techMode,
@@ -75,19 +90,35 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         const src = nodes.find(n => n.id === e.source)
         const kind = (src?.type || src?.data?.kind || 'factor') as NodeType
         if (kind !== 'option') return null
-        // Interventions may be stored as plain numbers (legacy/analysis_ready)
-        // or as UIInterventionValue/CEEInterventionV3 objects ({ value, source,
-        // ... }). unwrapInterventionValue handles both. See labelUtils.ts.
+        // Interventions may be stored as plain numbers (legacy/analysis_ready),
+        // as UIInterventionValue/CEEInterventionV3 objects ({ value, source,
+        // ... }), or — for qualitative factors — as plain strings or
+        // {value: string} objects. unwrapInterventionValue handles the numeric
+        // path; the string-pass-through branch below covers the rest.
+        // The connections badge is one of the few intervention display sites
+        // that can render strings verbatim — the editable / arithmetic sites
+        // (OptionPanel, OptionAdvancedEditor, NodeInspectorCompact, FactorNode
+        // hover) require finite numbers and correctly drop string entries.
         const ivs = (src?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
-        const interventionValue = unwrapInterventionValue(ivs?.[nodeId])
+        const raw = ivs?.[nodeId]
+        const interventionValue = unwrapInterventionValue(raw)
+        const interventionStringValue =
+          interventionValue == null ? extractStringIntervention(raw) : null
         return {
           nodeId: e.source,
           label: String(src?.data?.label ?? e.source),
           interventionValue,
+          interventionStringValue,
           unit,
         }
       })
-      .filter(Boolean) as Array<{ nodeId: string; label: string; interventionValue: number | null; unit?: string }>
+      .filter(Boolean) as Array<{
+        nodeId: string
+        label: string
+        interventionValue: number | null
+        interventionStringValue: string | null
+        unit?: string
+      }>
   }, [edges, nodes, nodeId, unit])
 
   const influences = useMemo(() => {
@@ -260,20 +291,31 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       {setByOptions.length > 0 && (
         <>
           <div className={`${typography.panelMeta} text-text-light mb-1`}>Set by options:</div>
-          {setByOptions.map(o => (
-            <ConnectionRow
-              key={o.nodeId}
-              nodeKind="option"
-              label={o.label}
-              badge={o.interventionValue != null ? (
-                <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent text-text-body border border-option/30`}>
-                  {o.unit ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue}
-                </span>
-              ) : undefined}
-              techMode={techMode}
-              onClick={() => onNavigate(o.nodeId)}
-            />
-          ))}
+          {setByOptions.map(o => {
+            // Numeric badge → unit-prefixed (or bare for no-unit factors).
+            // String badge → render verbatim (qualitative interventions per
+            // brief instruction "If the value is a string, display it directly").
+            // Drop the badge entirely when neither resolves.
+            const badgeContent = o.interventionValue != null
+              ? (o.unit ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
+              : o.interventionStringValue != null
+                ? o.interventionStringValue
+                : null
+            return (
+              <ConnectionRow
+                key={o.nodeId}
+                nodeKind="option"
+                label={o.label}
+                badge={badgeContent != null ? (
+                  <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent text-text-body border border-option/30`}>
+                    {badgeContent}
+                  </span>
+                ) : undefined}
+                techMode={techMode}
+                onClick={() => onNavigate(o.nodeId)}
+              />
+            )
+          })}
         </>
       )}
       {influences.length > 0 && (

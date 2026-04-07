@@ -339,20 +339,28 @@ describe('unwrapInterventionValue', () => {
       expect(unwrapInterventionValue({ value: NaN })).toBeNull()
       expect(unwrapInterventionValue({ value: Infinity })).toBeNull()
     })
-    it('returns null when .value is not a number-like', () => {
-      // Number(undefined) = NaN
+    it('returns null when .value is undefined', () => {
       expect(unwrapInterventionValue({ value: undefined })).toBeNull()
-      // Number(null) = 0 — finite, so it unwraps to 0. This is intentional:
-      // a stored null is treated as a zero intervention rather than dropped.
-      expect(unwrapInterventionValue({ value: null })).toBe(0)
-      // Number('foo') = NaN
-      expect(unwrapInterventionValue({ value: 'not-a-number' })).toBeNull()
     })
-    it('coerces numeric strings inside .value', () => {
-      // Number('0.5') = 0.5 — defensible because the existing
-      // formatInterventionValue accepts only number, so coercing string→number
-      // here keeps the seam consistent.
-      expect(unwrapInterventionValue({ value: '0.5' })).toBe(0.5)
+    it('returns null when .value is null (not coerced to 0)', () => {
+      // Strict typeof check on .value: null is not a finite number, so the
+      // entry is treated as missing. A previous version coerced via
+      // `Number(null) === 0`, which rendered "Intervention: £0" for unset
+      // interventions and short-circuited the legacy fallback chain in
+      // OptionsSection.extractInterventionNumeric (raw_target / target_value).
+      expect(unwrapInterventionValue({ value: null })).toBeNull()
+    })
+    it('returns null when .value is a string (no Number coercion)', () => {
+      // Both numeric-looking and non-numeric strings drop. Sites that need
+      // to render string interventions verbatim must read the raw entry
+      // separately (see FactorControllablePanel connections badge).
+      expect(unwrapInterventionValue({ value: '0.5' })).toBeNull()
+      expect(unwrapInterventionValue({ value: 'low' })).toBeNull()
+      expect(unwrapInterventionValue({ value: '' })).toBeNull()
+    })
+    it('returns null when .value is a boolean', () => {
+      expect(unwrapInterventionValue({ value: true })).toBeNull()
+      expect(unwrapInterventionValue({ value: false })).toBeNull()
     })
   })
 
