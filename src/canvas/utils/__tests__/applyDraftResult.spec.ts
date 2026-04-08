@@ -529,6 +529,123 @@ describe('applyDraftResult', () => {
     expect(o2.data.is_baseline).toBe(true)
   })
 
+  // Counter-shape contract for the structured backfill telemetry. The metric
+  // we want to trend to zero post-2026-04-08 envelope fix is the intervention
+  // backfill — the baseline-only counter is reported separately so it can't
+  // pollute the intervention metric. See
+  // olumi-assistants-service/Docs/intervention-authority-contract.md.
+  it('returns interventionBackfilledCount=2 when two options receive new interventions', () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: 'o1', type: 'option', data: { kind: 'option', label: 'A' }, position: { x: 0, y: 0 } },
+      { id: 'o2', type: 'option', data: { kind: 'option', label: 'B' }, position: { x: 0, y: 0 } },
+    ]
+
+    const result = backfillInterventionsOntoOptionNodes({
+      options: [
+        { id: 'o1', interventions: { f1: 0.5 } },
+        { id: 'o2', interventions: { f1: 0.7 } },
+      ],
+    })
+
+    expect(result.interventionBackfilledCount).toBe(2)
+    expect(result.baselineOnlyUpdatedCount).toBe(0)
+    expect(result.totalUpdatedCount).toBe(2)
+  })
+
+  it('returns baselineOnlyUpdatedCount when only is_baseline flips (intervention metric is zero)', () => {
+    // Pre-populate: o1 baseline=true, o2 baseline=false. Neither has interventions.
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: 'o1', type: 'option', data: { kind: 'option', label: 'A', is_baseline: true }, position: { x: 0, y: 0 } },
+      { id: 'o2', type: 'option', data: { kind: 'option', label: 'B' }, position: { x: 0, y: 0 } },
+    ]
+
+    const result = backfillInterventionsOntoOptionNodes({
+      options: [
+        { id: 'o1', is_baseline: false },
+        { id: 'o2', is_baseline: true },
+      ],
+    })
+
+    // Both options were updated (baseline flipped on both) but the
+    // intervention metric must stay at zero — that's the whole point of the
+    // split. The previous single-counter design conflated these.
+    expect(result.interventionBackfilledCount).toBe(0)
+    expect(result.baselineOnlyUpdatedCount).toBe(2)
+    expect(result.totalUpdatedCount).toBe(2)
+  })
+
+  it('returns interventionBackfilledCount when interventions change AND baseline flips on the same node', () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      // o1 has stale interventions and is currently baseline.
+      { id: 'o1', type: 'option', data: { kind: 'option', label: 'A', interventions: { f1: 0.1 }, is_baseline: true }, position: { x: 0, y: 0 } },
+    ]
+
+    const result = backfillInterventionsOntoOptionNodes({
+      options: [
+        { id: 'o1', interventions: { f1: 0.9 }, is_baseline: false },
+      ],
+    })
+
+    // The intervention map changed, so the node counts as an intervention
+    // backfill — even though the baseline also flipped. This avoids
+    // double-counting: a single node update lands in exactly one bucket.
+    expect(result.interventionBackfilledCount).toBe(1)
+    expect(result.baselineOnlyUpdatedCount).toBe(0)
+    expect(result.totalUpdatedCount).toBe(1)
+  })
+
+  it('returns baselineOnlyUpdatedCount when the new interventions match existing AND baseline flips', () => {
+    // Idempotent intervention re-write that the JSON.stringify guard catches,
+    // but the baseline flip still requires a write. The split-counter logic
+    // must classify this as baseline-only, not intervention.
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: 'o1', type: 'option', data: { kind: 'option', label: 'A', interventions: { f1: 0.5 }, is_baseline: false }, position: { x: 0, y: 0 } },
+    ]
+
+    const result = backfillInterventionsOntoOptionNodes({
+      options: [
+        { id: 'o1', interventions: { f1: 0.5 }, is_baseline: true }, // identical map, baseline flipped
+      ],
+    })
+
+    expect(result.interventionBackfilledCount).toBe(0)
+    expect(result.baselineOnlyUpdatedCount).toBe(1)
+  })
+
+  it('returns all-zero result when nothing needs updating (idempotent re-write, no baseline change)', () => {
+    storeNodes = [
+      { id: 'g1', type: 'goal', data: { kind: 'goal', label: 'Revenue' }, position: { x: 0, y: 0 } },
+      { id: 'o1', type: 'option', data: { kind: 'option', label: 'A', interventions: { f1: 0.5 }, is_baseline: true }, position: { x: 0, y: 0 } },
+    ]
+
+    const result = backfillInterventionsOntoOptionNodes({
+      options: [
+        { id: 'o1', interventions: { f1: 0.5 }, is_baseline: true }, // identical
+      ],
+    })
+
+    expect(result.interventionBackfilledCount).toBe(0)
+    expect(result.baselineOnlyUpdatedCount).toBe(0)
+    expect(result.totalUpdatedCount).toBe(0)
+  })
+
+  it('returns all-zero result for null/empty analysisReady input', () => {
+    expect(backfillInterventionsOntoOptionNodes(null)).toEqual({
+      interventionBackfilledCount: 0,
+      baselineOnlyUpdatedCount: 0,
+      totalUpdatedCount: 0,
+    })
+    expect(backfillInterventionsOntoOptionNodes({ options: [] })).toEqual({
+      interventionBackfilledCount: 0,
+      baselineOnlyUpdatedCount: 0,
+      totalUpdatedCount: 0,
+    })
+  })
+
   it('preserves V3 factor fields via ...rest spread (display_value, intercept, encoding_map)', () => {
     const draftData = {
       nodes: [
