@@ -51,6 +51,26 @@ describe('isFactorNeedsInput', () => {
     ).toBe(false)
   })
 
+  it('returns false when a prior range is present (parity with legacy isIncomplete)', () => {
+    expect(
+      isFactorNeedsInput({
+        category: 'controllable',
+        prior: { range_min: 100, range_max: 500 },
+        observedState: {},
+      }),
+    ).toBe(false)
+  })
+
+  it('still treats partial prior (one bound only) as needs-input', () => {
+    expect(
+      isFactorNeedsInput({
+        category: 'controllable',
+        prior: { range_min: 100 },
+        observedState: {},
+      }),
+    ).toBe(true)
+  })
+
   it('treats undefined fields as null (loose equality)', () => {
     expect(
       isFactorNeedsInput({

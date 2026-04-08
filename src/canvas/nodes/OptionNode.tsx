@@ -149,13 +149,18 @@ export const OptionNode = memo((props: NodeProps) => {
         if (value == null) return []
         const factorNode = nodes.find(n => n.id === factorId)
         const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
-        const stripped = stripFactorSuffixes(cleanFactorLabel(rawLabel))
-        const cleanedLabel = stripped.length > 0
-          ? stripped.charAt(0).toUpperCase() +
-            stripped.slice(1).replace(/\b([A-Za-z]+)\b/g, (word) =>
+        // Graph v1.1 Task 6: do NOT strip suffixes here. The popover / Detailed
+        // intervention list wants the readable form ("Technical leadership"),
+        // and compactFactorLabel needs the full phrase ("Technical leadership
+        // presence") to look up wireframe v4 short forms. Each render path
+        // applies its own truncation.
+        const cleaned = cleanFactorLabel(rawLabel)
+        const cleanedLabel = cleaned.length > 0
+          ? cleaned.charAt(0).toUpperCase() +
+            cleaned.slice(1).replace(/\b([A-Za-z]+)\b/g, (word) =>
               /^[A-Z]{2,}$/.test(word) ? word : word.toLowerCase()
             )
-          : stripped
+          : cleaned
         const observedState = factorNode?.data?.observedState as {
           unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
         } | undefined

@@ -65,25 +65,29 @@ export const FactorNode = memo((props: NodeProps) => {
   // Graph v1.1 Task 2: priority ranking — top 3 stay full-fat, others get
   // visually quieted in Standard view. Post-analysis uses sensitivityRank
   // (already top-3 from displayMetadata); pre-analysis ranks by structural
-  // centrality (sum of |signed mean| of outbound causal edges, the same data
-  // EdgePills already render).
+  // centrality, mirroring EdgePills (sum of |signed mean| of outbound edges
+  // whose target is an outcome or risk — those are the surfaces users care
+  // about pre-analysis). Tiny graphs (≤3 factors) treat every factor as
+  // high-priority since there's nothing to quieten.
   const preAnalysisFactorRank = useMemo<number | null>(() => {
     if (isPostAnalysis) return null
     const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
-    if (factorNodes.length <= 3) return 1 // tiny graphs: every factor is top-tier
-    const scoreFor = (id: string): number => {
-      const out = edges.filter(e => e.source === id)
-      let sum = 0
-      for (const e of out) {
-        sum += Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined))
-      }
-      return sum
+    if (factorNodes.length <= 3) return 1
+    // Single O(N + E) pass: build a map of factor id → weight sum, then sort.
+    const scores = new Map<string, number>()
+    for (const f of factorNodes) scores.set(f.id, 0)
+    for (const e of edges) {
+      if (!scores.has(e.source)) continue
+      const target = nodes.find(n => n.id === e.target)
+      if (!target) continue
+      const targetKind = target.type ?? target.data?.type
+      if (targetKind !== 'outcome' && targetKind !== 'risk') continue
+      const weight = Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined))
+      scores.set(e.source, (scores.get(e.source) ?? 0) + weight)
     }
-    const scored = factorNodes.map(n => ({ id: n.id, score: scoreFor(n.id) }))
-    scored.sort((a, b) => b.score - a.score)
-    const idx = scored.findIndex(s => s.id === props.id)
-    if (idx < 0) return null
-    return idx + 1
+    const sorted = Array.from(scores.entries()).sort((a, b) => b[1] - a[1])
+    const idx = sorted.findIndex(([id]) => id === props.id)
+    return idx < 0 ? null : idx + 1
   }, [isPostAnalysis, nodes, edges, props.id])
 
   const priorityRank: number | null = isPostAnalysis

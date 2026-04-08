@@ -1003,35 +1003,36 @@ describe('FactorNode — intervention hover', () => {
   // view — the hover popover (ConnRows, BiasNote, coaching) is suppressed.
   // High-priority factors keep the popover.
   describe('low-priority Standard view popover', () => {
-    const buildState = (extra: Record<string, unknown>) => ({
-      hoveredOptionId: null,
-      nodes: [
-        { id: 'factor-1', type: 'factor', data: { type: 'factor', label: 'Low priority' } },
-        { id: 'factor-2', type: 'factor', data: { type: 'factor', label: 'Other' } },
-        { id: 'factor-3', type: 'factor', data: { type: 'factor', label: 'Other' } },
-        { id: 'factor-4', type: 'factor', data: { type: 'factor', label: 'Other' } },
-        { id: 'factor-5', type: 'factor', data: { type: 'factor', label: 'Other' } },
-      ],
-      edges: [
-        // factor-2..factor-5 each have outbound weight 1 → factor-1 ranks #5 (low)
-        { id: 'e2', source: 'factor-2', target: 'goal', data: { weight: 1, direction: 'positive' } },
-        { id: 'e3', source: 'factor-3', target: 'goal', data: { weight: 1, direction: 'positive' } },
-        { id: 'e4', source: 'factor-4', target: 'goal', data: { weight: 1, direction: 'positive' } },
-        { id: 'e5', source: 'factor-5', target: 'goal', data: { weight: 1, direction: 'positive' } },
-      ],
-      ceeAnalysisReady: null,
-      results: { status: 'idle', report: null },
-      highlightedNodes: new Set(),
-      dimmedNodeIds: new Set(),
-      goalThreshold: null,
-      goalConstraints: [],
-      viewMode: 'standard',
-      ...extra,
-    })
-
     it('does not render the popover at all for a low-priority factor in Standard view', () => {
+      // Build a 5-factor graph where factor-1 (the rendered node) has no outbound
+      // edges to outcomes/risks but factors 2..5 each connect to an outcome.
+      // Pre-analysis ranking by structural centrality places factor-1 at rank 5
+      // (low priority).
       vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
-        selector(buildState({}))
+        selector({
+          hoveredOptionId: null,
+          nodes: [
+            { id: 'factor-1', type: 'factor', data: { type: 'factor', label: 'Low priority' } },
+            { id: 'factor-2', type: 'factor', data: { type: 'factor', label: 'F2' } },
+            { id: 'factor-3', type: 'factor', data: { type: 'factor', label: 'F3' } },
+            { id: 'factor-4', type: 'factor', data: { type: 'factor', label: 'F4' } },
+            { id: 'factor-5', type: 'factor', data: { type: 'factor', label: 'F5' } },
+            { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Outcome' } },
+          ],
+          edges: [
+            { id: 'e2', source: 'factor-2', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
+            { id: 'e3', source: 'factor-3', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
+            { id: 'e4', source: 'factor-4', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
+            { id: 'e5', source: 'factor-5', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
+          ],
+          ceeAnalysisReady: null,
+          results: { status: 'idle', report: null },
+          highlightedNodes: new Set(),
+          dimmedNodeIds: new Set(),
+          goalThreshold: null,
+          goalConstraints: [],
+          viewMode: 'standard',
+        })
       )
       renderFactor({
         label: 'Low priority',
@@ -1043,14 +1044,21 @@ describe('FactorNode — intervention hover', () => {
     })
 
     it('does render the popover for a high-priority (top-3) factor in Standard view', () => {
-      // Make this factor the only ranked one — it becomes top-3 by default.
+      // Inverse topology: factor-1 has the only edge to the outcome → rank 1.
       vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
         selector({
           hoveredOptionId: null,
           nodes: [
             { id: 'factor-1', type: 'factor', data: { type: 'factor', label: 'High priority' } },
+            { id: 'factor-2', type: 'factor', data: { type: 'factor', label: 'F2' } },
+            { id: 'factor-3', type: 'factor', data: { type: 'factor', label: 'F3' } },
+            { id: 'factor-4', type: 'factor', data: { type: 'factor', label: 'F4' } },
+            { id: 'factor-5', type: 'factor', data: { type: 'factor', label: 'F5' } },
+            { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Outcome' } },
           ],
-          edges: [],
+          edges: [
+            { id: 'e1', source: 'factor-1', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
+          ],
           ceeAnalysisReady: null,
           results: { status: 'idle', report: null },
           highlightedNodes: new Set(),

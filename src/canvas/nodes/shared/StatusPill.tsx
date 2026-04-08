@@ -18,6 +18,8 @@ interface StatusPillProps {
 
 export const StatusPill = memo(({ label, title }: StatusPillProps) => (
   <span
+    role="status"
+    aria-label={title ?? label}
     className="absolute -top-2 -right-1 z-10 inline-flex items-center font-sans font-medium text-warning bg-warning/15 border border-warning/40 rounded-[10px]"
     style={{ fontSize: 9, padding: '1px 6px', lineHeight: 1.2, borderWidth: '0.5px' }}
     title={title ?? label}

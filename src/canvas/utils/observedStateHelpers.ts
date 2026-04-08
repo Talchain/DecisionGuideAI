@@ -88,15 +88,22 @@ export function hasObservedData(nodeData: unknown): boolean {
  *
  * Wireframe v4 trigger (FactorNeedsPre): factor needs input when ALL of
  * `value`, `raw_value` and `display_value` are nullish AND the factor is not
- * external. External factors are exempt — dashed border = "outside your
- * control" must not be confused with amber = "needs your judgement".
+ * external AND it has no prior range. External / prior-range factors are
+ * exempt — dashed border = "outside your control" must not be confused with
+ * amber = "needs your judgement".
  *
  * Both call sites must agree on this predicate, otherwise a node can show the
  * "Help me estimate this" chip without the amber border (or vice-versa).
  */
 export function isFactorNeedsInput(nodeData: unknown): boolean {
-  const data = nodeData as { category?: string } | undefined
+  const data = nodeData as {
+    category?: string
+    prior?: { range_min?: number; range_max?: number }
+  } | undefined
   if (data?.category === 'external') return false
+  // A prior range counts as user-supplied evidence — same exemption the legacy
+  // BaseNode incomplete check applied.
+  if (data?.prior?.range_min != null && data?.prior?.range_max != null) return false
   const obs = getObservedState(nodeData)
   const valueMissing = obs.value == null
   const rawMissing = obs.raw_value == null

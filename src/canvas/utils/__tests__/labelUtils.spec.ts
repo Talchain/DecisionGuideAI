@@ -8,6 +8,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   cleanFactorLabel,
+  compactFactorLabel,
   sensitivityTierLabel,
   evidenceTierLabel,
   formatInterventionValue,
@@ -77,6 +78,61 @@ describe('cleanFactorLabel', () => {
 
   it('strips trailing whitespace after removal', () => {
     expect(cleanFactorLabel('Metric   (0/1)')).toBe('Metric')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// compactFactorLabel — Graph v1.1 Task 6 (wireframe v4 OptionWinnerPre pills)
+// ---------------------------------------------------------------------------
+describe('compactFactorLabel', () => {
+  it('returns the canonical short form for known wireframe phrases', () => {
+    expect(compactFactorLabel('Technical leadership presence')).toBe('leadership')
+    expect(compactFactorLabel('Technical leadership in place')).toBe('leadership')
+    expect(compactFactorLabel('Developer headcount capacity')).toBe('dev headcount')
+    expect(compactFactorLabel('Developer headcount level')).toBe('dev headcount')
+    expect(compactFactorLabel('Monthly recurring revenue')).toBe('MRR')
+    expect(compactFactorLabel('Advertising spend')).toBe('ad spend')
+  })
+
+  it('lookup is case-insensitive', () => {
+    expect(compactFactorLabel('TECHNICAL LEADERSHIP PRESENCE')).toBe('leadership')
+    expect(compactFactorLabel('technical leadership presence')).toBe('leadership')
+  })
+
+  it('strips known generic suffixes when no lookup matches', () => {
+    // "Sales rate" -> strip "rate" -> "Sales" (within cap, no truncate)
+    expect(compactFactorLabel('Sales rate')).toBe('Sales')
+    expect(compactFactorLabel('Hiring capacity')).toBe('Hiring')
+    expect(compactFactorLabel('Inventory state')).toBe('Inventory')
+  })
+
+  it('truncates long labels with an ellipsis when over the cap', () => {
+    // "Customer satisfaction Level" -> strip Level -> "Customer satisfaction" (21 chars)
+    // -> substring(0, 15) -> "Customer satisf" -> ends with "…"
+    const result = compactFactorLabel('Customer satisfaction Level')
+    expect(result.endsWith('…')).toBe(true)
+    expect(result.length).toBeLessThanOrEqual(16)
+    expect(result.startsWith('Customer')).toBe(true)
+  })
+
+  it('does not break a word mid-character when truncating', () => {
+    // 25 chars, no suffix match, must truncate
+    const result = compactFactorLabel('Customer acquisition cost')
+    expect(result.endsWith('…')).toBe(true)
+    expect(result.length).toBeLessThanOrEqual(16)
+  })
+
+  it('returns the original label when shorter than the cap and no lookup matches', () => {
+    expect(compactFactorLabel('Budget')).toBe('Budget')
+  })
+
+  it('handles empty / falsy input', () => {
+    expect(compactFactorLabel('')).toBe('')
+    expect(compactFactorLabel('   ')).toBe('')
+  })
+
+  it('respects a custom maxLength', () => {
+    expect(compactFactorLabel('Customer satisfaction', 8)).toMatch(/…$/)
   })
 })
 

@@ -260,8 +260,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       `}
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',
-        // Reserve bottom padding for footer ActionIcons (footer remains the action slot).
-        padding: '12px 12px 24px 12px',
+        // Footer padding reserved only on node types that actually render
+        // ActionIcons (factor, option). Other types keep symmetric padding.
+        padding: (nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens
+          ? '12px 12px 24px 12px'
+          : '12px',
         minWidth: '140px',
         maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 200}px`,
         minHeight: isExpanded ? '120px' : undefined,
