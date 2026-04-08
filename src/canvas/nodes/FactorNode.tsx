@@ -383,19 +383,36 @@ export const FactorNode = memo((props: NodeProps) => {
           )
         })()}
       >
-        {/* Intervention highlight when option hovered */}
-        {isAffectedByHover && (
-          <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-            Intervention: {formatInterventionValue(
-              interventionValue,
-              observedState?.unit,
-              observedState?.factor_type,
-              observedState?.cap,
-              observedState?.value,
-              observedState?.raw_value,
-            )}
-          </div>
-        )}
+        {/* Intervention highlight when option hovered. Polish 4 review fix:
+            formatInterventionValue can return '' for scale-unit factors
+            with no raw_value anchor (the meaningless-unit suppression
+            path). When that happens we fall back to a directional cue
+            ("Intervention: ↑" / "↓") instead of leaving a dangling label. */}
+        {isAffectedByHover && (() => {
+          const formatted = formatInterventionValue(
+            interventionValue,
+            observedState?.unit,
+            observedState?.factor_type,
+            observedState?.cap,
+            observedState?.value,
+            observedState?.raw_value,
+          )
+          if (formatted) {
+            return (
+              <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
+                Intervention: {formatted}
+              </div>
+            )
+          }
+          // Empty formatter result → fall back to a direction-only cue.
+          const baseline = observedState?.value ?? 0
+          const direction = interventionValue! > baseline ? '↑ Increase' : interventionValue! < baseline ? '↓ Decrease' : 'No change'
+          return (
+            <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
+              Intervention: {direction}
+            </div>
+          )
+        })()}
 
         {/* ===== LAYER 1: Standard body ===== */}
 

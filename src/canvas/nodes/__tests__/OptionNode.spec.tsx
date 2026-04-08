@@ -850,5 +850,115 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(screen.getAllByText(/marketing expertise/i).length).toBeGreaterThan(0)
       expect(screen.queryByText(/scale/i)).toBeNull()
     })
+
+    // Self-assessment fix #4: scale-unit factor with cap (so the deltaDisplay
+    // path is reached) used to render " → ()" because both formatChipValue
+    // calls returned empty strings. The deltaDisplay must only build when
+    // both sides produced meaningful output.
+    it('does not render a broken " → ()" delta when both formatChipValue calls are empty', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              { id: 'option-1', interventions: { 'factor-1': 0.7 } },
+              { id: 'option-2', interventions: { 'factor-1': 0.3 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Aggressive', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Conservative', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Marketing Expertise',
+                // cap=10 means inferInterventionScaleBase returns 10, the
+                // deltaDisplay code path activates, but both chip values
+                // collapse to '' because of the meaningless-unit suppression.
+                observedState: { unit: 'scale', value: 0.5, cap: 10 },
+              },
+            },
+          ],
+          viewMode: 'expert',
+        }) as any),
+      )
+      renderOption({ label: 'Aggressive' })
+      // No empty parentheses, no orphan arrow.
+      expect(screen.queryByText(/→ \(/)).toBeNull()
+      expect(screen.queryByText(/\(\)/)).toBeNull()
+      expect(screen.queryByText(/→ \s*$/)).toBeNull()
+    })
+  })
+
+  // Self-assessment fix #5: differentiator must NOT fire when other options
+  // simply omit a factor that this option holds at the observed baseline.
+  describe('Polish 4 review: differentiator uses observed baseline as fallback', () => {
+    it('does not flag a factor when this option intervenes at the observed baseline and others omit it', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Option A intervenes on factor-1 at 0.7 (matches observed value).
+              // Option B and C omit factor-1 entirely.
+              { id: 'option-1', interventions: { 'factor-1': 0.7 } },
+              { id: 'option-2', interventions: {} },
+              { id: 'option-3', interventions: {} },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Hold', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Other A', type: 'option' } },
+            { id: 'option-3', type: 'option', data: { label: 'Other B', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Headcount',
+                // Observed baseline = 0.7 — same as Option A's intervention.
+                // The pre-fix code would compute avgOthers=0 and falsely
+                // flag a 0.7 differentiator. Post-fix uses 0.7 baseline so
+                // diff = 0 → no differentiator.
+                observedState: { unit: 'engineers', value: 0.7, raw_value: 7, cap: 10 },
+              },
+            },
+          ],
+          // Differentiator only renders in Standard view.
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Hold' })
+      expect(screen.queryByText(/key difference/i)).toBeNull()
+    })
+
+    it('still flags a factor when this option diverges from the observed baseline', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Option A pushes factor-1 to 0.9 — far above the observed
+              // baseline of 0.3, while Option B leaves it at 0.3.
+              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: {} },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Aggressive', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Hold', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Headcount',
+                observedState: { unit: 'engineers', value: 0.3, raw_value: 3, cap: 10 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Aggressive' })
+      // diff = |0.9 - 0.3| = 0.6 > 0.1 threshold → differentiator fires.
+      expect(screen.getByText(/key difference/i)).toBeDefined()
+    })
   })
 })

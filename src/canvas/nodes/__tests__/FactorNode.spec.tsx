@@ -1004,6 +1004,36 @@ describe('FactorNode — intervention hover', () => {
     expect(screen.queryByText(/^Intervention:/)).toBeNull()
   })
 
+  // Polish 4 self-assessment fix #3: scale-unit factor with no raw_value
+  // anchor used to render "Intervention: " (empty) because
+  // formatInterventionValue returns ''. The overlay must fall back to a
+  // direction-only cue.
+  it('falls back to direction-only intervention text for scale-unit factors with no raw anchor', () => {
+    mountWithHoveredOption(0.7, {
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.3, unit: 'scale' },
+    })
+    // No "scale", no number — direction cue only.
+    expect(screen.queryByText(/scale/i)).toBeNull()
+    expect(screen.queryByText(/0\.7/)).toBeNull()
+    // Falls back to "↑ Increase" (intervention 0.7 > observed 0.3).
+    expect(screen.getByText(/Intervention:/)).toBeDefined()
+    expect(screen.getByText(/Increase/)).toBeDefined()
+  })
+
+  it('falls back to "↓ Decrease" when intervention is below observed for scale unit', () => {
+    mountWithHoveredOption(0.1, {
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.5, unit: 'scale' },
+    })
+    expect(screen.queryByText(/scale/i)).toBeNull()
+    expect(screen.getByText(/Decrease/)).toBeDefined()
+  })
+
   // Graph v1.1 Task 2: low-priority factors are visually quieted in Standard
   // view — the hover popover (ConnRows, BiasNote, coaching) is suppressed.
   // High-priority factors keep the popover.

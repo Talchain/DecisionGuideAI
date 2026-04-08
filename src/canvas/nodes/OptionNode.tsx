@@ -281,11 +281,17 @@ export const OptionNode = memo((props: NodeProps) => {
 
   /**
    * Polish 4 Task 5: differentiator factor — the intervention where this
-   * option diverges most from the average of the other (non-status-quo)
-   * options. Returns null when:
+   * option diverges most from the *effective value* of the other (non-status
+   * quo) options. "Effective value" treats an option that doesn't intervene
+   * on a factor as leaving it at the factor's observed baseline (NOT zero) —
+   * otherwise an option that holds a factor at its real-world value (e.g.
+   * 0.7) would falsely look "differentiated" when other options simply omit
+   * the intervention.
+   *
+   * Returns null when:
    *   - this is the status quo (it changes nothing),
    *   - there are fewer than 2 other non-status-quo options to compare against,
-   *   - all options change the same factors by similar amounts (max diff < 0.1
+   *   - all options end up at similar values (max effective diff < 0.1
    *     normalised, i.e. less than a 10% spread on the 0–1 axis).
    */
   const differentiatorLabel = useMemo<string | null>(() => {
@@ -315,16 +321,28 @@ export const OptionNode = memo((props: NodeProps) => {
     if (!myValues || myValues.size === 0) return null
     if (optionInterventions.size < 2) return null // need at least one other option
 
-    // For each factor I touch, compute the average value across other options
-    // (treating absent factors as 0) and the absolute difference from mine.
+    // Resolve the observed baseline for a factor — used when an option doesn't
+    // intervene on it. Falls back to 0 only when the factor has no observed
+    // value at all.
+    const observedBaselineFor = (factorId: string): number => {
+      const factorNode = nodes.find(n => n.id === factorId)
+      const obs = (factorNode?.data as any)?.observedState as { value?: number } | undefined
+      return typeof obs?.value === 'number' ? obs.value : 0
+    }
+
+    // For each factor I touch, compute the average effective value across the
+    // other options (using the observed baseline as the fallback when an
+    // option doesn't list this factor) and the absolute diff from mine.
     let bestFactorId: string | null = null
     let bestDiff = 0
     for (const [factorId, myValue] of myValues.entries()) {
+      const baseline = observedBaselineFor(factorId)
       let sum = 0
       let count = 0
       for (const [otherId, otherValues] of optionInterventions.entries()) {
         if (otherId === props.id) continue
-        sum += otherValues.get(factorId) ?? 0
+        // Effective value: explicit intervention if present, else baseline.
+        sum += otherValues.has(factorId) ? otherValues.get(factorId)! : baseline
         count += 1
       }
       if (count === 0) continue
@@ -540,7 +558,13 @@ export const OptionNode = memo((props: NodeProps) => {
                         const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
                         const sign = pct >= 0 ? '+' : ''
                         const baselineFormatted = formatChipValue({ ...chip, value: baselineNorm })
-                        deltaDisplay = `${baselineFormatted} \u2192 ${targetFormatted} (${sign}${pct.toFixed(1)}%)`
+                        // Polish 4 review fix: only build the delta string when
+                        // both formatChipValue calls produced meaningful output.
+                        // Otherwise we'd render " → ()" for scale-unit factors
+                        // (empty baselineFormatted + empty targetFormatted).
+                        if (baselineFormatted && targetFormatted) {
+                          deltaDisplay = `${baselineFormatted} \u2192 ${targetFormatted} (${sign}${pct.toFixed(1)}%)`
+                        }
                       }
                     }
                   }
