@@ -35,6 +35,13 @@ interface OptionPreviewProps {
   onSendMessage?: (text: string) => void
   /** When true, shows a structural similarity coaching line below the option list */
   hasSameLeversCheck?: boolean
+  /**
+   * When true, each option's intervention list is collapsed by default with a
+   * per-option chevron toggle. Used by the v2 pre-analysis panel to keep the
+   * option quality card compact. Default is false (interventions always visible)
+   * to preserve existing consumer behaviour and tests.
+   */
+  collapseInterventionsByDefault?: boolean
 }
 
 /**
@@ -157,8 +164,24 @@ function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' })
   return <Minus className="w-3 h-3 text-text-light" />
 }
 
-/** Per-option intervention rows — always visible */
-function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPreviewData; onFocusNode?: (id: string) => void }) {
+/**
+ * Per-option intervention rows.
+ *
+ * Default (collapsedByDefault=false): the intervention list is always visible.
+ * v2 panel (collapsedByDefault=true): the list is hidden behind a per-option
+ * disclosure toggle so the option quality card stays compact.
+ */
+function OptionInterventions({
+  option: opt,
+  onFocusNode,
+  collapsedByDefault = false,
+}: {
+  option: OptionPreviewData
+  onFocusNode?: (id: string) => void
+  collapsedByDefault?: boolean
+}) {
+  const [isOpen, setIsOpen] = useState(!collapsedByDefault)
+
   // Baseline = "No changes"
   if (opt.isBaseline) {
     return (
@@ -171,7 +194,7 @@ function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPrevi
     return null
   }
 
-  return (
+  const list = (
     <div className="mt-1">
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {opt.interventions.map(iv => {
@@ -197,6 +220,31 @@ function OptionInterventions({ option: opt, onFocusNode }: { option: OptionPrevi
       </div>
     </div>
   )
+
+  if (!collapsedByDefault) return list
+
+  // Per-option disclosure: chevron + count, click to toggle
+  const count = opt.interventions.length
+  return (
+    <div className="mt-1">
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          setIsOpen(!isOpen)
+        }}
+        className={`inline-flex items-center gap-1 ${typography.panelMeta} text-info hover:underline cursor-pointer`}
+        aria-expanded={isOpen}
+        data-testid={`option-interventions-toggle-${opt.id}`}
+      >
+        {isOpen
+          ? <ChevronDown className="w-3 h-3" />
+          : <ChevronRight className="w-3 h-3" />}
+        {isOpen ? 'Hide changes' : `Show ${count} change${count === 1 ? '' : 's'}`}
+      </button>
+      {isOpen && list}
+    </div>
+  )
 }
 
 export function OptionPreview({
@@ -206,6 +254,7 @@ export function OptionPreview({
   onHoverLeave,
   onSendMessage,
   hasSameLeversCheck = false,
+  collapseInterventionsByDefault = false,
 }: OptionPreviewProps) {
   const [isExpanded, setIsExpanded] = useState(true)
 
@@ -267,10 +316,11 @@ export function OptionPreview({
                 )}
               </div>
 
-              {/* Interventions — collapsed by default, shows strategy summary when collapsed */}
+              {/* Interventions — collapsed per option when v2 panel passes the flag */}
               <OptionInterventions
                 option={opt}
                 onFocusNode={onFocusNode}
+                collapsedByDefault={collapseInterventionsByDefault}
               />
             </div>
           ))}

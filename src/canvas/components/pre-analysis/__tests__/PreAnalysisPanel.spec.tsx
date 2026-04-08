@@ -985,6 +985,11 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
+      // v2 panel passes collapseInterventionsByDefault — interventions are hidden
+      // behind a per-option disclosure. Click the disclosure first to reveal "Ad spend".
+      const interventionToggle = screen.queryByTestId('option-interventions-toggle-opt_expand')
+      if (interventionToggle) fireEvent.click(interventionToggle)
+
       // Click the factor label "Ad spend" — should target the factor node, not the option
       fireEvent.click(screen.getByText('Ad spend'))
 

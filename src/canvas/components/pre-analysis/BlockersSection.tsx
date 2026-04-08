@@ -38,6 +38,12 @@ interface BlockersSectionProps {
   onRetryDraft: () => void
   /** Edit brief callback — opens DraftChat for re-phrasing */
   onEditBrief: () => void
+  /**
+   * Hide the inline "Fix before running" header. Used when the parent renders
+   * its own section header (e.g. v2 panel "Must fix"), so this component
+   * contributes its blocker cards without a duplicate header.
+   */
+  hideHeader?: boolean
 }
 
 export function BlockersSection({
@@ -48,6 +54,7 @@ export function BlockersSection({
   lastDraftRetryable,
   onRetryDraft,
   onEditBrief,
+  hideHeader = false,
 }: BlockersSectionProps) {
   if (blockers.length === 0 && informationalBlockers.length === 0) return null
 
@@ -60,18 +67,20 @@ export function BlockersSection({
 
   return (
     <div className="space-y-2" data-testid="blockers-section">
-      {/* Blocking items — "Fix before running" */}
+      {/* Blocking items — "Fix before running" header (suppressed when parent renders its own) */}
       {blockers.length > 0 && (
         <>
-          {/* Section header with count badge */}
-          <div className="flex items-center gap-2">
-            <span className={`${typography.panelHeader} text-danger`}>
-              Fix before running
-            </span>
-            <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-transparent border border-danger/30 text-text-body ${typography.panelMeta}`}>
-              {blockers.length}
-            </span>
-          </div>
+          {/* Section header with count badge — hidden when parent supplies a header */}
+          {!hideHeader && (
+            <div className="flex items-center gap-2">
+              <span className={`${typography.panelHeader} text-danger`}>
+                Fix before running
+              </span>
+              <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-transparent border border-danger/30 text-text-body ${typography.panelMeta}`}>
+                {blockers.length}
+              </span>
+            </div>
+          )}
 
           {/* Blocker cards */}
           {blockers.map((enriched, idx) => {

@@ -117,7 +117,11 @@ function StatusBanner({
   switch (state.kind) {
     case 'failed':
       dotClass = 'bg-danger'
-      text = 'Analysis failed. Your model is intact. Retry or review the issue below.'
+      // Only mention retry when the retry action is actually available; otherwise
+      // direct users to review the error detail rendered below.
+      text = state.canRetry
+        ? 'Analysis failed. Your model is intact. Retry or review the issue below.'
+        : 'Analysis failed. Your model is intact. Review the issue below.'
       break
     case 'blocked':
       dotClass = 'bg-danger'
@@ -289,7 +293,7 @@ export function PreAnalysisPanel({
   const handleRetryDraft = useCallback(async () => {
     const result = await retryDraft()
     if (result.success) {
-      showToast('Draft refreshed — check readiness', 'success')
+      showToast('Draft refreshed. Check readiness.', 'success')
     } else {
       showToast(result.error || 'Draft retry failed', 'error')
     }
@@ -789,13 +793,22 @@ export function PreAnalysisPanel({
     + improveConfidenceCards.length
     + (expertiseHasItems ? 1 : 0)
 
-  // Highest-value summary line above the accordion: only when the topmost
-  // triage card lives in Improve confidence (i.e. the most impactful action
-  // isn't already surfaced in Must fix or Review next).
+  // Highest-value summary line above the accordion. Surfaces the most impactful
+  // action when it lives inside Improve confidence (so it isn't hidden by the
+  // collapse). Two paths:
+  //   1. The topmost triage card overall is in the Improve confidence bucket.
+  //   2. There are no remaining triage cards anywhere AND the success target is
+  //      unset — in that case the goal target itself is the top remaining action.
   const overallTop = triageTop3[0] ?? triageQuickFix[0] ?? null
-  const highestValueLabel = overallTop && improveConfidenceCards.some(c => c.key === overallTop.key)
+  const topCardInsideImproveConfidence =
+    overallTop && improveConfidenceCards.some(c => c.key === overallTop.key)
+  const noTriageCardsAnywhere = triageTop3.length === 0 && triageQuickFix.length === 0
+  const goalTargetIsTopAction = noTriageCardsAnywhere && data.successThreshold == null
+  const highestValueLabel = topCardInsideImproveConfidence
     ? overallTop.title
-    : null
+    : goalTargetIsTopAction
+      ? 'Set success target'
+      : null
 
   // Banner state — strict precedence: failed > blocked > recommendations > ready.
   // Loading does not produce a banner; the panel content is hidden by ModelHealthCard.
@@ -820,26 +833,9 @@ export function PreAnalysisPanel({
           isRetrying={isRetrying}
         />
 
-        {/* Compressed health row: ring + 4 dimension bars only (no title/headline/coaching) */}
-        <SectionErrorBoundary section="Model health">
-          <div className="px-2">
-            <ModelHealthCard
-              compact
-              completeness={completeness}
-              evidence={evidence}
-              balance={balance}
-              calibration={calibration}
-              optionCount={data.optionPreviews.length}
-              goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
-              coachingSummary={data.coachingSummary}
-              isLoading={data.isLoading}
-              hasGoalNode={data.nodesByKind.goal.length > 0}
-            />
-          </div>
-        </SectionErrorBoundary>
-
-        {/* Draft error detail — full opacity even in failed state */}
-        {lastDraftError && (
+        {/* Draft error detail — only renders in failed state, full opacity above the
+            de-emphasised content. Sits directly below the banner. */}
+        {isFailed && lastDraftError && (
           <div className="px-2">
             <div
               className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-3 py-2.5"
@@ -907,15 +903,58 @@ export function PreAnalysisPanel({
           </div>
         )}
 
-        {/* Three-bucket content. In failed state, de-emphasise everything below the error card. */}
+        {/* Three-bucket content + health row. In failed state, de-emphasise everything
+            (health, banners, sections) so only the banner and error detail above stay
+            at full opacity. */}
         <div className={`space-y-4 ${isFailed ? 'opacity-60 pointer-events-none' : ''}`}>
 
-          {/* Section 1: Must fix — only when blockers exist */}
+          {/* Compressed health row: ring + 4 dimension bars only (no title/headline/coaching).
+              Sits inside the de-emphasised wrapper so it dims with the rest of the content
+              when the banner is in failed state. */}
+          <SectionErrorBoundary section="Model health">
+            <div className="px-2">
+              <ModelHealthCard
+                compact
+                completeness={completeness}
+                evidence={evidence}
+                balance={balance}
+                calibration={calibration}
+                optionCount={data.optionPreviews.length}
+                goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
+                coachingSummary={data.coachingSummary}
+                isLoading={data.isLoading}
+                hasGoalNode={data.nodesByKind.goal.length > 0}
+              />
+            </div>
+          </SectionErrorBoundary>
+
+          {/* Section 1: Must fix — only when blockers exist.
+              Order per brief:
+                1. Options need configuration (enriched blockers — surfaced first)
+                2. Structural flags ("Fewer than 2 options", "No baseline set")
+                3. Critical severity items from triage cards
+              No internal subheader from BlockersSection — Must fix owns the header. */}
           {mustFixCount > 0 && (
             <section className="space-y-2" data-testid="section-must-fix">
               <SectionHeader title="Must fix" count={mustFixCount} tone="danger" testId="section-must-fix-header" />
 
-              {/* Structural check rows */}
+              {/* 1. Enriched blockers (e.g. Options need configuration) */}
+              {!data.isReady && data.enrichedBlockers.length > 0 && (
+                <SectionErrorBoundary section="Blockers">
+                  <BlockersSection
+                    blockers={data.enrichedBlockers}
+                    informationalBlockers={[]}
+                    canRetryDraft={canRetryDraft}
+                    isRetrying={isRetrying}
+                    lastDraftRetryable={lastDraftError?.retryable}
+                    onRetryDraft={handleRetryDraft}
+                    onEditBrief={handleEditBrief}
+                    hideHeader
+                  />
+                </SectionErrorBoundary>
+              )}
+
+              {/* 2. Structural check rows */}
               {structuralCheckCount > 0 && (
                 <div className="space-y-1 px-3">
                   {fewerThanTwoOptionsCheck && (
@@ -937,7 +976,7 @@ export function PreAnalysisPanel({
                 </div>
               )}
 
-              {/* Critical Fix triage cards */}
+              {/* 3. Critical Fix triage cards */}
               {mustFixCards.length > 0 && (
                 <div className="flex flex-col gap-1.5 px-1" data-testid="must-fix-cards">
                   {mustFixCards.map((card, i) => (
@@ -963,21 +1002,6 @@ export function PreAnalysisPanel({
                   ))}
                 </div>
               )}
-
-              {/* Enriched blockers */}
-              {!data.isReady && data.enrichedBlockers.length > 0 && (
-                <SectionErrorBoundary section="Blockers">
-                  <BlockersSection
-                    blockers={data.enrichedBlockers}
-                    informationalBlockers={[]}
-                    canRetryDraft={canRetryDraft}
-                    isRetrying={isRetrying}
-                    lastDraftRetryable={lastDraftError?.retryable}
-                    onRetryDraft={handleRetryDraft}
-                    onEditBrief={handleEditBrief}
-                  />
-                </SectionErrorBoundary>
-              )}
             </section>
           )}
 
@@ -1001,7 +1025,7 @@ export function PreAnalysisPanel({
             <section className="space-y-2" data-testid="section-review-next">
               <SectionHeader title="Review next" count={reviewNextCount} tone="info" testId="section-review-next-header" />
 
-              {/* Option similarity / quality card */}
+              {/* Option similarity / quality card — interventions collapsed per option (v2 brief) */}
               {showOptionQualityCard && data.optionPreviews.length > 0 && (
                 <div className="px-2">
                   <OptionPreview
@@ -1011,6 +1035,7 @@ export function PreAnalysisPanel({
                     onHoverLeave={handleHoverClear}
                     onSendMessage={onSendMessage}
                     hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
+                    collapseInterventionsByDefault
                   />
                 </div>
               )}
@@ -1183,15 +1208,15 @@ export function PreAnalysisPanel({
       </div>
 
       {/* 8. Sticky Footer (pinned to bottom)
-          v2: status text mirrors top banner — Ready or Blocked. The footer
-          continues to derive its enable/disable state from data.isReady so
-          the button stays in sync with the API readiness signal even when
-          the bucket counts are partial. The "0/N addressed" meta is removed
-          (redundant with section counts above). */}
+          v2: status text mirrors top banner — Blocked when Must fix has items
+          (covers structural checks + critical Fix cards + enriched blockers),
+          Ready otherwise. Disable state stacks both signals so the button is
+          disabled whenever the API says !isReady OR Must fix has items.
+          The "0/N addressed" meta is removed (redundant with section counts). */}
       <StickyFooter
-        isReady={data.isReady}
-        hasBlockers={data.hasBlockers}
-        blockerCount={data.blockerCount}
+        isReady={data.isReady && mustFixCount === 0}
+        hasBlockers={data.hasBlockers || mustFixCount > 0}
+        blockerCount={Math.max(data.blockerCount, mustFixCount)}
         isAnalysing={isAnalysing}
         onAnalyse={onAnalyse}
         blockedReason={blockedReason}
