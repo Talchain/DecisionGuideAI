@@ -16,6 +16,21 @@ import { Pill } from './primitives'
 import Tooltip from '../../../components/Tooltip'
 import type { OptionPreviewData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
+import { classifyUnit } from '../../utils/labelUtils'
+
+/**
+ * Treat the unit as "no display unit" when it falls into the placeholder
+ * bucket from labelUtils.classifyUnit. Placeholder units (scale, index, score,
+ * normalised, norm, unit, units) carry no real-world scale and add nothing
+ * but noise to "0 → 0.5 scale". Suppressing them everywhere keeps the
+ * intervention display consistent with the triage card detail logic in
+ * usePreAnalysisData.formatObservedStateDetail.
+ */
+function isPlaceholderUnit(unit: string | null | undefined): boolean {
+  if (unit == null) return true
+  const kind = classifyUnit(unit).kind
+  return kind === 'none' || kind === 'placeholder'
+}
 
 /** Option square shape — purple, rounded-[2px], per DS v5 §10.1 */
 function OptionSquare() {
@@ -62,6 +77,11 @@ function pluraliseUnit(unit: string, count: number): string {
  * Format the current (before) raw value for display alongside the intervention target.
  * Uses the same formatting rules as formatInterventionDisplay.
  * Returns null when currentRawValue is absent (estimated value with no grounding).
+ *
+ * Placeholder units (scale, index, score, …) are treated like no-unit so the
+ * before-value reads "very low" or "0.5", not "0.5 scale". The "before"
+ * qualitative path uses the same boundaries as formatInterventionDisplay so
+ * "before → after" stays consistent for qualitative factors.
  */
 function formatBeforeValue(
   currentRawValue: number | null,
@@ -69,14 +89,16 @@ function formatBeforeValue(
   unit: string | null,
 ): string | null {
   if (currentRawValue == null) return null
-  // Qualitative: no unit and no meaningful cap — mirror formatInterventionDisplay qualitative path
-  if (!unit && (cap == null || cap === 1)) {
+  const placeholder = isPlaceholderUnit(unit)
+  // Qualitative: placeholder unit AND no meaningful cap — show level label
+  if (placeholder && (cap == null || cap === 1)) {
     const v = currentRawValue
     const level = v < 0.2 ? 'very low' : v < 0.4 ? 'low' : v < 0.6 ? 'moderate' : v < 0.8 ? 'high' : 'very high'
     return level
   }
   const isDiscrete = cap != null && Number.isInteger(cap) && Number.isInteger(currentRawValue)
   const display = isDiscrete ? Math.round(currentRawValue) : +currentRawValue.toFixed(1)
+  if (placeholder) return `${display}`
   if (unit === '$' || unit === '£') return `${unit}${display.toLocaleString()}`
   if (unit === '%') return `${display}%`
   if (unit) return `${display} ${pluraliseUnit(unit, display)}`
@@ -107,9 +129,15 @@ function formatInterventionDisplay(
   // Don't claim 'unchanged' from direction alone — direction='same' can mean
   // "no observed state to compare". The raw-value check below handles confirmed-same.
 
-  // Qualitative detection: no meaningful unit AND (no cap, or cap=1 which is just normalised ceiling)
-  // Empty string unit is treated the same as absent — CEE sometimes sends unit: ""
-  const isQualitative = !unit && (cap == null || cap === 1)
+  // Placeholder units (scale, index, score, …) are treated like no-unit so the
+  // intervention reads "to 0.5" not "to 0.5 scale". This is the cross-surface
+  // contract from labelUtils.classifyUnit and matches formatObservedStateDetail
+  // in usePreAnalysisData.
+  const placeholder = isPlaceholderUnit(unit)
+
+  // Qualitative detection: placeholder unit AND no meaningful cap (cap=1 is just
+  // the normalised ceiling). Renders qualitative band labels.
+  const isQualitative = placeholder && (cap == null || cap === 1)
 
   // --- Determine raw value ---
   let rawValue: number
@@ -152,6 +180,9 @@ function formatInterventionDisplay(
   // Show ~ when rounding changed the displayed value (continuous only)
   const approx = !isDiscrete && display !== rawValue ? '~' : ''
 
+  // Placeholder unit → drop the suffix; the scale "scale" / "index" / "score"
+  // would add no meaning to a denormalised number.
+  if (placeholder) return `to ${approx}${display}`
   if (unit === '$' || unit === '£') return `to ${approx}${unit}${display.toLocaleString()}`
   if (unit === '%') return `to ${approx}${display}%`
   if (unit) return `to ${approx}${display} ${pluraliseUnit(unit, display)}`
@@ -198,7 +229,12 @@ function OptionInterventions({
     <div className="mt-1">
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {opt.interventions.map(iv => {
-          const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
+          // Prefer CEE-provided display string when present (future CEE-1
+          // schema). Otherwise fall back to the local formatter which
+          // handles placeholder units, qualitative bands, and discrete caps.
+          const display = iv.displayValue && iv.displayValue.trim().length > 0
+            ? `to ${iv.displayValue}`
+            : formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
           const before = formatBeforeValue(iv.currentRawValue, iv.cap, iv.unit)
           return (
             <span key={iv.factorId} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body`}>

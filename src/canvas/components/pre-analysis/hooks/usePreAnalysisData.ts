@@ -134,6 +134,13 @@ export interface OptionPreviewData {
     unit: string | null
     /** Factor's current raw value (for "unchanged" detection) */
     currentRawValue: number | null
+    /**
+     * CEE-provided display string for the factor's current value (e.g.
+     * "£5,000" or "12 engineers"). When present, the UI renders it verbatim
+     * instead of running its own format heuristic. Future CEE-1 schema field;
+     * undefined when CEE has not yet been migrated.
+     */
+    displayValue?: string | null
   }>
 }
 
@@ -1585,15 +1592,25 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           else if (rivRounded < crvRounded) direction = 'down'
         }
 
-        return { factorId, factorLabel, interventionValue, currentValue, direction, cap: factorCap, unit: factorUnit, currentRawValue }
+        // CEE-provided display string (future CEE-1 schema). When present,
+        // OptionPreview renders it verbatim instead of running its own
+        // numeric formatter. Read from observedState.display_value.
+        const displayValue = ((os as { display_value?: string | null }).display_value ?? null) as string | null
+
+        return { factorId, factorLabel, interventionValue, currentValue, direction, cap: factorCap, unit: factorUnit, currentRawValue, displayValue }
       })
 
       // Suppress interventions that don't change the factor's current value.
-      // Qualitative factors (cap=null/1, no unit): compare normalised values directly
-      // (currentRawValue is null for these, so direction='same' default can't be used).
+      // Qualitative factors (cap=null/1, placeholder/no unit): compare normalised
+      // values directly (currentRawValue is null for these, so direction='same'
+      // default can't be used). Placeholder units (scale, index, score, …) are
+      // treated as qualitative for this filter to match the OptionPreview
+      // formatter contract.
       // Dimensional factors: direction='same' is only set when currentRawValue is known and matches.
       const filteredInterventions = interventions.filter(iv => {
-        const isQualitative = !iv.unit && (iv.cap == null || iv.cap === 1)
+        const unitKind = classifyUnit(iv.unit).kind
+        const isQualitative = (unitKind === 'none' || unitKind === 'placeholder')
+          && (iv.cap == null || iv.cap === 1)
         if (isQualitative && iv.currentValue != null) {
           return Math.round(iv.interventionValue * 1000) !== Math.round(iv.currentValue * 1000)
         }
