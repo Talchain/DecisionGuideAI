@@ -21,6 +21,7 @@ import { usePopoverHover } from '../hooks/usePopoverHover'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
+import { computeSignedMean } from '../domain/edges'
 
 interface ObservedState {
   value?: number
@@ -60,6 +61,36 @@ export const FactorNode = memo((props: NodeProps) => {
 
   const displayMetadata = useNodeDisplayMetadata(props.id, 'factor')
   const scienceIcons = useScienceIcons(props.id, 'factor')
+
+  // Graph v1.1 Task 2: priority ranking — top 3 stay full-fat, others get
+  // visually quieted in Standard view. Post-analysis uses sensitivityRank
+  // (already top-3 from displayMetadata); pre-analysis ranks by structural
+  // centrality (sum of |signed mean| of outbound causal edges, the same data
+  // EdgePills already render).
+  const preAnalysisFactorRank = useMemo<number | null>(() => {
+    if (isPostAnalysis) return null
+    const factorNodes = nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor')
+    if (factorNodes.length <= 3) return 1 // tiny graphs: every factor is top-tier
+    const scoreFor = (id: string): number => {
+      const out = edges.filter(e => e.source === id)
+      let sum = 0
+      for (const e of out) {
+        sum += Math.abs(computeSignedMean(e.data as Record<string, unknown> | undefined))
+      }
+      return sum
+    }
+    const scored = factorNodes.map(n => ({ id: n.id, score: scoreFor(n.id) }))
+    scored.sort((a, b) => b.score - a.score)
+    const idx = scored.findIndex(s => s.id === props.id)
+    if (idx < 0) return null
+    return idx + 1
+  }, [isPostAnalysis, nodes, edges, props.id])
+
+  const priorityRank: number | null = isPostAnalysis
+    ? displayMetadata.sensitivityRank
+    : preAnalysisFactorRank
+  const isHighPriority = priorityRank != null && priorityRank <= 3
+  const isLowPriority = !isHighPriority
 
   const interventionValue = useMemo(() => {
     if (!hoveredOptionId) return null
@@ -166,6 +197,18 @@ export const FactorNode = memo((props: NodeProps) => {
 
   const influencePct = displayMetadata.influence != null ? Math.round(displayMetadata.influence * 100) : null
   const confidencePct = displayMetadata.confidence != null ? Math.round(displayMetadata.confidence * 100) : null
+
+  // Graph v1.1 Task 3: synthesised one-line coaching for Standard view post-analysis
+  // top-ranked factors. This replaces standalone coaching text (BiasNote etc.) on
+  // the same node so there's a single source of guidance.
+  const synthesisedCoaching = useMemo<{ prefix: string } | null>(() => {
+    if (!isPostAnalysis || !isHighPriority) return null
+    if (influencePct == null || confidencePct == null) return null
+    if (influencePct >= 70 && confidencePct <= 40) return { prefix: 'High influence, low confidence.' }
+    if (influencePct >= 70 && confidencePct > 40 && isInferred) return { prefix: 'Key driver.' }
+    if (influencePct < 70 && confidencePct <= 40) return { prefix: 'Low confidence.' }
+    return null
+  }, [isPostAnalysis, isHighPriority, influencePct, confidencePct, isInferred])
 
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
 
@@ -283,8 +326,11 @@ export const FactorNode = memo((props: NodeProps) => {
           ))}
         </>
       )}
-      {/* BiasNote (max 1) */}
-      {displayMetadata.sensitivityRank != null && displayMetadata.sensitivityRank <= 2 && isInferred && (
+      {/* BiasNote (max 1) — suppressed when a synthesised coaching line is
+          already shown on the node body (Graph v1.1 Task 3: no duplicate
+          messaging within a single node). Detailed view keeps the BiasNote
+          inline since the synthesised line is Standard-only. */}
+      {!synthesisedCoaching && displayMetadata.sensitivityRank != null && displayMetadata.sensitivityRank <= 2 && isInferred && (
         <>
           <Sep />
           <div className="flex items-center gap-1 py-0.5 px-1.5 bg-warning/10 rounded">
@@ -317,13 +363,22 @@ export const FactorNode = memo((props: NodeProps) => {
         data={{ ...cleanedData, controllability }}
         nodeType="factor"
         icon={metadata.icon}
-        headerSlot={scienceIcons.length > 0 ? (
-          <span className="inline-flex items-center gap-1">
-            {scienceIcons.map(si => (
-              <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
-            ))}
-          </span>
-        ) : undefined}
+        headerSlot={(() => {
+          // Graph v1.1 Task 2: low-priority factors keep their identity cues
+          // (sparkle for inferred) but lose extra science icons in Standard view.
+          // Detailed view always shows the full set.
+          const visibleIcons = (!isDetailed && isLowPriority)
+            ? scienceIcons.filter(si => si.id === 'olumi-estimate')
+            : scienceIcons
+          if (visibleIcons.length === 0) return undefined
+          return (
+            <span className="inline-flex items-center gap-1">
+              {visibleIcons.map(si => (
+                <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
+              ))}
+            </span>
+          )
+        })()}
       >
         {/* Intervention highlight when option hovered */}
         {isAffectedByHover && (
@@ -360,21 +415,26 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Pre-analysis: edge pills (entity shape + strength %) */}
-        {!isPostAnalysis && !needsInput && (
+        {/* Pre-analysis: edge pills (entity shape + strength %) — high-priority only
+            in Standard. Detailed always shows. (Graph v1.1 Task 2) */}
+        {!isPostAnalysis && !needsInput && (isDetailed || isHighPriority) && (
           <EdgePills nodeId={props.id} />
         )}
 
-        {/* Pre-analysis: external factor coaching chip */}
-        {!isPostAnalysis && nodeCategory === 'external' && (
+        {/* Pre-analysis: external factor coaching chip — quieted on low-priority
+            Standard view. */}
+        {!isPostAnalysis && nodeCategory === 'external' && (isDetailed || isHighPriority) && (
           <div className="mt-1.5">
             <NodeChip label="What if this changes?" message={`What if ${cleanedLabel} changes? How should I plan for that?`} />
           </div>
         )}
 
-        {/* Post-analysis: actionable sentence */}
-        {isPostAnalysis && influencePct != null && influencePct > 50 && confidencePct != null && confidencePct < 50 && (
+        {/* Post-analysis: synthesised coaching line (Graph v1.1 Task 3).
+            Standard view only, top-ranked factors only. Detailed view keeps
+            the full ConnRows + bars treatment in Layer 2. */}
+        {!isDetailed && synthesisedCoaching && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
+            {synthesisedCoaching.prefix}{' '}
             <button
               type="button"
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
@@ -389,8 +449,9 @@ export const FactorNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Post-analysis external: scenario link */}
-        {isPostAnalysis && nodeCategory === 'external' && (
+        {/* Post-analysis external: scenario link — high-priority only in
+            Standard. Detailed always. */}
+        {isPostAnalysis && nodeCategory === 'external' && (isDetailed || isHighPriority) && (
           <p className={`${typography.edgeLabel} text-text-body mt-1 m-0`}>
             <button
               type="button"
@@ -439,13 +500,18 @@ export const FactorNode = memo((props: NodeProps) => {
           </button>
         )}
 
-        {/* Action icons */}
-        <ActionIcons
-          nodeId={props.id}
-          showConfirm={isInferred && valueDisplay !== null}
-          showEdit={valueDisplay !== null || needsInput}
-          onConfirm={handleConfirm}
-        />
+        {/* Action icons — wireframe v4 Task 5: external factors get no footer
+            actions (their data is outside the user's control). Low-priority
+            factors in Standard view drop the confirm icon and show edit only
+            (Task 2 quieting). */}
+        {nodeCategory !== 'external' && (
+          <ActionIcons
+            nodeId={props.id}
+            showConfirm={isInferred && valueDisplay !== null && (isDetailed || isHighPriority)}
+            showEdit={valueDisplay !== null || needsInput}
+            onConfirm={handleConfirm}
+          />
+        )}
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view) ===== */}

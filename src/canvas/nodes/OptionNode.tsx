@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -231,7 +231,8 @@ export const OptionNode = memo((props: NodeProps) => {
     return interventionChips
       .map(c => {
         const baseline = baselineOptionInterventions?.[c.factorId] ?? c.observedValue
-        const shortLabel = truncateAtWord(c.label, 22)
+        // Graph v1.1 Task 6: aggressive compaction for pre-analysis pills.
+        const shortLabel = compactFactorLabel(c.label, 15)
 
         if (baseline === undefined) {
           // No baseline to compare — show as "up" (intervention exists)
@@ -631,20 +632,25 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Pre-analysis: structured deltas (spec Section 13) */}
+        {/* Pre-analysis: structured deltas — Graph v1.1 Task 6 wireframe v4
+            OptionWinnerPre. Outlined pills (10px, panel-border, rounded-full)
+            laid out horizontally so several fit per row. Labels are compacted
+            via compactFactorLabel before reaching here. */}
         {!isPostAnalysis && !isBaselineOption && structuredDeltas.length > 0 && (
-          <div className="flex flex-col gap-0.5 mt-1.5">
+          <div className="flex flex-wrap gap-1 mt-1.5">
             {structuredDeltas.map(d => (
-              <div key={d.factorId} className={`${typography.edgeLabel} inline-flex items-center gap-1`}>
+              <span
+                key={d.factorId}
+                className="inline-flex items-center gap-0.5 font-sans leading-tight px-[5px] py-[1px] rounded-full border border-panel-border bg-transparent text-text-body"
+                style={{ fontSize: 10, borderWidth: '0.5px' }}
+              >
                 {d.direction === 'up' ? (
-                  <ArrowUp size={12} className="text-success flex-shrink-0" />
+                  <ArrowUp size={10} className="text-success flex-shrink-0" />
                 ) : (
-                  <ArrowDown size={12} className="text-danger flex-shrink-0" />
+                  <ArrowDown size={10} className="text-danger flex-shrink-0" />
                 )}
-                <span className="text-text-body">
-                  {d.numericDelta ? `${d.numericDelta} ` : ''}{d.label}
-                </span>
-              </div>
+                {d.numericDelta ? `${d.numericDelta} ` : ''}{d.label}
+              </span>
             ))}
           </div>
         )}

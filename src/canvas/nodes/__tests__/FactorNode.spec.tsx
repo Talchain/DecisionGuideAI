@@ -561,18 +561,20 @@ describe('FactorNode', () => {
     expect(screen.getByTitle('Confirm value')).toBeDefined()
   })
 
-  // V1: Incomplete factor (no value) must use factor stone border, not goal yellow
-  it('uses border-factor (not border-goal) for external factor with no observed value', () => {
+  // Graph v1.1 wireframe v4: external factors NEVER get amber treatment.
+  // Dashed border = "outside your control"; amber = "needs your judgement".
+  // The two states must not be confused, even when value is missing.
+  it('uses border-factor (not amber, not goal) for external factor with no observed value', () => {
     const { container } = renderFactor({
       label: 'Market rate',
       type: 'factor',
       category: 'external',
-      // No observedState.value — triggers isIncomplete in BaseNode
+      // No observedState.value — but external factors are exempt from amber.
     })
     const nodeEl = container.querySelector('[role="group"]')
     expect(nodeEl?.className).not.toContain('border-goal')
-    // Phase 2: incomplete nodes now use border-warning (amber) instead of entity colour
-    expect(nodeEl?.className).toContain('border-warning')
+    expect(nodeEl?.className).not.toContain('border-warning')
+    expect(nodeEl?.className).toContain('border-factor')
   })
 
   it('uses border-warning for any factor with no observed value (controllable)', () => {

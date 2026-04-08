@@ -22,6 +22,55 @@ export function cleanFactorLabel(label: string): string {
 }
 
 /**
+ * Lookup table of common verbose factor phrases → compact display forms.
+ * Applied before generic suffix stripping when rendering pre-analysis option
+ * pills (Graph v1.1 wireframe v4 OptionWinnerPre — pills like "↑ Leadership"
+ * rather than "↑ Technical leadership presence"). Order matters: longer phrases
+ * first so partial matches don't pre-empt the canonical form.
+ *
+ * Lookup is case-insensitive and whole-phrase. Add new entries here rather
+ * than hardcoding shortenings inside components.
+ */
+const COMPACT_LABEL_LOOKUP: ReadonlyArray<readonly [RegExp, string]> = [
+  [/^technical leadership (presence|in place)$/i, 'leadership'],
+  [/^developer headcount (capacity|level)$/i, 'dev headcount'],
+  [/^monthly recurring revenue$/i, 'MRR'],
+  [/^advertising spend$/i, 'ad spend'],
+]
+
+/** Generic suffix patterns shared with the local OptionNode helper. */
+const COMPACT_LABEL_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
+
+/**
+ * Truncate at word boundary, ellipsising the tail. Used for label compaction
+ * so we never cut a word in half.
+ */
+function truncateLabelAtWord(text: string, maxLength: number): string {
+  if (text.length <= maxLength) return text
+  const truncated = text.substring(0, maxLength)
+  const lastSpace = truncated.lastIndexOf(' ')
+  return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '…'
+}
+
+/**
+ * Aggressive label compaction for pre-analysis option pills.
+ * Wireframe v4 (OptionWinnerPre) shows pills like "↑ Leadership" / "+1 dev"
+ * rather than full factor labels. Order: lookup table → suffix strip → truncate.
+ *
+ * @param label - Raw factor label (already cleaned of scale metadata)
+ * @param maxLength - Truncation cap (default 15 per spec)
+ */
+export function compactFactorLabel(label: string, maxLength = 15): string {
+  if (!label) return label
+  const trimmed = label.trim()
+  for (const [pattern, replacement] of COMPACT_LABEL_LOOKUP) {
+    if (pattern.test(trimmed)) return replacement
+  }
+  const stripped = trimmed.replace(COMPACT_LABEL_SUFFIXES, '').trim()
+  return truncateLabelAtWord(stripped, maxLength)
+}
+
+/**
  * Map a sensitivity score (0–1) to a descriptive tier label.
  * Used for the Sensitivity bar on factor nodes (T6).
  *

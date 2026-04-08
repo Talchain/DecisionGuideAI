@@ -134,7 +134,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
     </>
   ) : null
 
-  // Achievement metric (Detailed view, independent of isPostAnalysis — comes from displayMetadata)
+  // Achievement metric (Detailed view) — diagnostic indicator distinct from
+  // the Layer 1 contribution percentage (which is bridge weight to goal).
   const detailedMetrics = displayMetadata.achievementProbability !== null ? (
     <>
       <Sep />
@@ -181,7 +182,12 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
+        {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
+            Graph v1.1 Task 4: align with wireframe v4 OutcomePostDet —
+            percentage (Layer 1), separator, "Depends on:" ConnRows (max 3),
+            separator, one Strengthen action. The achievement metric is a
+            distinct diagnostic (probability of the outcome occurring at all,
+            not the goal-bridge contribution shown in Layer 1) so it stays. */}
         {isDetailed && layer2ContentPost}
         {isDetailed && detailedMetrics}
 

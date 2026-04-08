@@ -106,12 +106,13 @@ export const RiskNode = memo((props: NodeProps) => {
         </>
       )}
 
-      {/* Actionable: factor-specific wording */}
+      {/* Actionable: factor-specific wording. Graph v1.1 Task 4: removed the
+          "Driven by factors outside your control" lead-in — the dashed border
+          on the connected external factor already communicates that. */}
       {topFactor && (
         <>
           <Sep />
           <p className={`${typography.edgeLabel} text-text-body m-0`}>
-            Driven by factors outside your control.{' '}
             <button
               type="button"
               className={`${typography.edgeLabel} text-info underline cursor-pointer nodrag nopan`}
@@ -202,7 +203,10 @@ export const RiskNode = memo((props: NodeProps) => {
           </>
         )}
 
-        {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
+        {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
+            Graph v1.1 Task 4: align with wireframe v4. Severity badge is a
+            state indicator (not coaching text) so it's retained alongside the
+            percentage + chips already in Layer 1. */}
         {isDetailed && detailedMetrics}
         {isDetailed && layer2ContentPost}
 

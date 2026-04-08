@@ -30,6 +30,7 @@ import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
 import { NODE_REGISTRY } from '../domain/nodes'
 import Tooltip from '../../components/Tooltip'
+import { StatusPill } from './shared/StatusPill'
 
 const NODE_TYPE_DESCRIPTIONS: Record<string, string> = {
   decision: 'The choice you\'re making',
@@ -154,11 +155,15 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const isIncomplete = (() => {
     if (!isPreRunMode) return false
     if (nodeType === 'factor') {
-      const obs = data?.observedState as { value?: number } | undefined
-      const prior = data?.prior as { range_min?: number; range_max?: number } | undefined
-      // External factors with prior range are not incomplete
-      if (prior?.range_min != null && prior?.range_max != null) return false
-      return obs?.value === undefined
+      // External factors NEVER get amber treatment (dashed = "outside your control",
+      // amber = "needs your judgement"; the two states must not be confused).
+      if (data?.category === 'external') return false
+      const obs = data?.observedState as { value?: number; raw_value?: string | number; display_value?: string | null } | undefined
+      // Wireframe v4 trigger: value AND raw_value AND display_value all null/undefined.
+      const valueMissing = obs?.value == null
+      const rawMissing = obs?.raw_value == null
+      const displayMissing = obs?.display_value == null
+      return valueMissing && rawMissing && displayMissing
     }
     if (nodeType === 'goal') {
       return !isGoalDefined(goalThreshold, goalConstraints)
@@ -260,7 +265,8 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       `}
       style={{
         backgroundColor: evidenceBgStyle ?? '#FEFEFE',
-        padding: headerSlot && !isCausalLens && !isEvidenceLens ? '12px 12px 24px 12px' : '12px',
+        // Reserve bottom padding for footer ActionIcons (footer remains the action slot).
+        padding: '12px 12px 24px 12px',
         minWidth: '140px',
         maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 200}px`,
         minHeight: isExpanded ? '120px' : undefined,
@@ -285,26 +291,14 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         </div>
       )}
 
-      {/* B.I.10: "?" badge for incomplete goal nodes */}
-      {isIncomplete && nodeType === 'goal' && (
-        <div
-          className={`absolute -top-2 -right-2 w-5 h-5 rounded-full bg-goal text-white flex items-center justify-center ${typography.nodeLabel} font-bold`}
-          title="Set a success threshold to enable analysis"
-          data-testid="overlay-missing-threshold"
-        >
-          ?
-        </div>
-      )}
-
-      {/* "?" badge for incomplete nodes (replaces "Needs input" pill per spec Section 12.4) */}
-      {isIncomplete && (
-        <div
-          className={`absolute -top-2 -right-2 w-5 h-5 rounded-full bg-warning text-white flex items-center justify-center ${typography.nodeLabel} font-bold z-10`}
-          title="Missing required input"
-          data-testid="needs-input-badge"
-        >
-          ?
-        </div>
+      {/* Graph v1.1: "Needs input" StatusPill replaces the legacy "?" badge for
+          factor (no value) and goal (no threshold). Wireframe v4 — FactorNeedsPre
+          / GoalNoTargetPre. Decision/option keep the warning border only. */}
+      {isIncomplete && (nodeType === 'factor' || nodeType === 'goal') && (
+        <StatusPill
+          label="Needs input"
+          title={nodeType === 'goal' ? 'Set a success threshold to enable analysis' : 'Missing required input'}
+        />
       )}
 
       {/* Connection handles */}
@@ -374,7 +368,13 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           <UnknownKindWarning originalKind={data.originalKind} />
         )}
 
-        {/* headerSlot reserved for future use — science icons moved to bottom */}
+        {/* Graph v1.1 Task 5: header slot — science / state icons live top-right
+            of the title row. Action icons remain in the footer (ActionIcons). */}
+        {headerSlot && !isCausalLens && !isEvidenceLens && (
+          <span className="inline-flex items-center gap-1 shrink-0 ml-auto">
+            {headerSlot as ReactNode}
+          </span>
+        )}
 
         {/* Expand/collapse chevron for nodes with description */}
         {description && (
@@ -419,13 +419,6 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           {children as ReactNode}
         </div>
       ) : null}
-
-      {/* Science icons — bottom-left, alongside action icons (bottom-right) */}
-      {headerSlot && !isCausalLens && !isEvidenceLens && (
-        <div className="absolute bottom-2 left-2.5 flex gap-0.5">
-          {headerSlot as ReactNode}
-        </div>
-      )}
 
       <Handle
         type="source"

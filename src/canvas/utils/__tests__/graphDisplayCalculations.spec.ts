@@ -202,34 +202,38 @@ describe('graphDisplayCalculations', () => {
   })
 
   describe('weightMagnitudeToStrokeWidth', () => {
-    // Graph Editing Experience Task 9a: Linear 1-5px scale (1 + |mean| * 4)
-    it('returns 1px for magnitude 0', () => {
-      expect(weightMagnitudeToStrokeWidth(0)).toBe(1)
+    // Graph v1.1 Task 7 (wireframe v4) thresholds:
+    //   |mean| >= 0.7 -> 3px
+    //   |mean| >= 0.4 -> 2px
+    //   |mean| <  0.4 -> 1.5px
+    it('returns 1.5px for magnitude 0', () => {
+      expect(weightMagnitudeToStrokeWidth(0)).toBe(1.5)
     })
 
-    it('returns linear scale for magnitude 0.25', () => {
-      expect(weightMagnitudeToStrokeWidth(0.25)).toBe(2)
+    it('returns 1.5px just below the 0.4 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.39)).toBe(1.5)
     })
 
-    it('returns linear scale for magnitude 0.5', () => {
-      expect(weightMagnitudeToStrokeWidth(0.5)).toBe(3)
+    it('returns 2px at the 0.4 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.4)).toBe(2)
     })
 
-    it('returns linear scale for magnitude 0.75', () => {
-      expect(weightMagnitudeToStrokeWidth(0.75)).toBe(4)
+    it('returns 2px just below the 0.7 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.69)).toBe(2)
     })
 
-    it('returns 5px for magnitude 1.0', () => {
-      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(5)
+    it('returns 3px at the 0.7 boundary', () => {
+      expect(weightMagnitudeToStrokeWidth(0.7)).toBe(3)
     })
 
-    it('clamps magnitude > 1 to 5px', () => {
-      expect(weightMagnitudeToStrokeWidth(1.5)).toBe(5)
+    it('returns 3px for magnitude 1.0', () => {
+      expect(weightMagnitudeToStrokeWidth(1.0)).toBe(3)
     })
 
     it('handles negative values via internal Math.abs', () => {
-      expect(weightMagnitudeToStrokeWidth(-0.5)).toBe(3)
-      expect(weightMagnitudeToStrokeWidth(-1.0)).toBe(5)
+      expect(weightMagnitudeToStrokeWidth(-0.7)).toBe(3)
+      expect(weightMagnitudeToStrokeWidth(-0.4)).toBe(2)
+      expect(weightMagnitudeToStrokeWidth(-0.1)).toBe(1.5)
     })
   })
 
