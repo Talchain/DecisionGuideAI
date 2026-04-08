@@ -93,12 +93,15 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
 
   // Pattern 2: value only (no raw_value) → binary heuristic
   if (value != null && raw_value == null) {
-    // Graph v1.1 polish 4 Task 1: a fractional value (strictly between 0 and
-    // 1) with a meaningless unit ("scale" or undefined) is a normalised
-    // placeholder with no real-world calibration. Suppress to avoid the
-    // misleading "0.1" / "0.5" body text. Binary 0/1 values still flow
-    // through the contextual heuristic below because they convey real meaning.
-    if (value > 0 && value < 1 && isMeaninglessUnit(unit)) {
+    // Graph v1.1 polish 4 Task 1 + review feedback: when the unit is
+    // meaningless ("scale" or undefined), a normalised value tells the user
+    // nothing real. The contextual "No X in place" / "X active" text is only
+    // honest when the user has explicitly tagged the factor as binary.
+    // Otherwise — including the previous "qualitative factor_type" loophole —
+    // suppress entirely so the dashed/amber border + StatusPill (or the
+    // higher-fidelity Detailed view) carry the meaning.
+    const isExplicitlyBinary = factor_type?.toLowerCase().trim() === 'binary'
+    if (isMeaninglessUnit(unit) && !isExplicitlyBinary) {
       return null
     }
     const stripped = stripSuffixes(label).toLowerCase()

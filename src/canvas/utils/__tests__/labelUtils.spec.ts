@@ -772,6 +772,36 @@ describe('formatInterventionValue — multi-char currency (P1.6)', () => {
   })
 })
 
+// Polish 4 review: scale-unit + no raw_value → empty string so callers can
+// suppress the arrow + value entirely on intervention pills and popovers.
+describe('formatInterventionValue — meaningless scale unit suppression', () => {
+  it('returns empty string for value=0.1 with unit="scale" and no raw anchor', () => {
+    expect(formatInterventionValue(0.1, 'scale')).toBe('')
+  })
+
+  it('returns empty string for value=0.5 with unit="scale" and no raw anchor', () => {
+    expect(formatInterventionValue(0.5, 'scale')).toBe('')
+  })
+
+  it('returns empty string regardless of factor_type when scale + no raw', () => {
+    expect(formatInterventionValue(0.7, 'scale', 'quality')).toBe('')
+    expect(formatInterventionValue(0.7, 'scale', 'demand')).toBe('')
+  })
+
+  it('preserves scale-unit formatting when an observed raw value anchors it', () => {
+    // If we have something to denormalise against, the unit becomes meaningful.
+    // Note: real-world scale values denormalised through observedRawValue
+    // would render as a number, not the bare unit. Just assert non-empty.
+    const out = formatInterventionValue(0.5, 'scale', undefined, undefined, undefined, 10)
+    expect(out).not.toBe('')
+  })
+
+  it('case-insensitive: "Scale" / " SCALE " also suppressed', () => {
+    expect(formatInterventionValue(0.5, 'Scale')).toBe('')
+    expect(formatInterventionValue(0.5, ' SCALE ')).toBe('')
+  })
+})
+
 // ---------------------------------------------------------------------------
 // P1.6: formatFactorValue — currency unit handling
 // ---------------------------------------------------------------------------

@@ -130,8 +130,9 @@ export const OutcomeNode = memo((props: NodeProps) => {
           <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
         </div>
       ))}
-      <Sep />
-      <NodeChip label="Are there other outcomes that matter?" message="Are there other outcomes or consequences I should consider for this decision?" />
+      {/* Polish 4 review: removed the "Are there other outcomes that matter?"
+          chip — the body now carries the canonical "What strengthens this?"
+          chip and the audit table allows only one chip per outcome node. */}
     </>
   ) : null
 

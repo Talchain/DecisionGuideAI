@@ -431,13 +431,15 @@ export function formatInterventionValue(
   if (typeof value !== 'number' || !Number.isFinite(value)) return ''
   // Sanitise unit — never display internal factor_type descriptor strings as units
   unit = sanitiseUnit(unit)
-  // Graph v1.1 polish 4 Task 1: "scale" is a placeholder unit emitted by CEE
-  // for normalised factors with no real-world calibration. When the only
-  // anchor we have is "scale" (no raw_value to denormalise against), the
-  // number is meaningless to the user — drop the unit so we fall through to
-  // the qualitative tier path instead of rendering "0.1 scale".
+  // Graph v1.1 polish 4 Task 1 + review: "scale" is a placeholder unit
+  // emitted by CEE for normalised factors with no real-world calibration.
+  // When the only anchor we have is "scale" (no raw_value to denormalise
+  // against), the number is meaningless to the user — return an empty string
+  // so callers can render the arrow + label only (no tier label, no
+  // percentage, no "0.1 scale"). Callers must check for empty and hide the
+  // "→" separator accordingly.
   if (unit && unit.toLowerCase().trim() === 'scale' && observedRawValue == null) {
-    unit = undefined
+    return ''
   }
   // J1: Denormalise using cap before any formatting
   const v = denormaliseInterventionValue(value, cap, observedValue, observedRawValue)

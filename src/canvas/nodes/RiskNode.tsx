@@ -147,11 +147,11 @@ export const RiskNode = memo((props: NodeProps) => {
           <span className={`${typography.nodeLabel} font-semibold shrink-0`}>{item.strengthPct}%</span>
         </div>
       ))}
-      <Sep />
-      <div className="flex gap-1 flex-wrap">
-        <NodeChip label="Are there other risks?" message="What other risks should I consider for this decision?" />
-        <NodeChip label="What's the worst case?" message="What is the worst-case scenario for this risk?" />
-      </div>
+      {/* Polish 4 review: removed the "Are there other risks?" /
+          "What's the worst case?" chips. The body now carries the canonical
+          pair ("What reduces this?" + "Add mitigation") in both phases — the
+          audit table allows max 2 chips per node and stacking another 2 in
+          the popover would push the total to 4. */}
     </>
   ) : null
 

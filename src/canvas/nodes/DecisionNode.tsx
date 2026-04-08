@@ -409,9 +409,10 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 ))}
               </>
             )}
-            <div className="mt-1.5">
-              <NodeChip label="Review model readiness" message="Review the model readiness for this decision" />
-            </div>
+            {/* Polish 4 review: removed the "Review model readiness" chip
+                from the popover. It was a generic CTA not tied to any state
+                and stacked on top of the body's 2 chips, exceeding the audit
+                table's per-node max. */}
           </div>
         </NodePopover>
       )}

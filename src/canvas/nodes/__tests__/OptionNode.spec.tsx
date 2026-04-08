@@ -802,4 +802,53 @@ describe('OptionNode — QA Brief C-series', () => {
     expect(screen.queryByText(/win probability/)).toBeNull()
     expect(screen.queryByText('Leading option')).toBeNull()
   })
+
+  // Polish 4 review: scale-unit interventions with no raw_value should
+  // render as arrow + label only on pre-analysis pills, with no numeric
+  // text or "scale" suffix bleeding through.
+  describe('Polish 4 review: scale-unit interventions render arrow + label only', () => {
+    const buildState = (overrides: Record<string, unknown> = {}) => makeStoreState({
+      ceeAnalysisReady: {
+        options: [
+          { id: 'option-1', interventions: { 'factor-1': 0.7 } },
+          { id: 'option-2', interventions: { 'factor-1': 0.2 } },
+        ],
+      },
+      nodes: [
+        { id: 'option-1', type: 'option', data: { label: 'Aggressive plan', type: 'option' } },
+        { id: 'option-2', type: 'option', data: { label: 'Conservative plan', type: 'option' } },
+        {
+          id: 'factor-1',
+          type: 'factor',
+          data: {
+            label: 'Marketing Expertise Available',
+            observedState: { unit: 'scale', value: 0.5 },
+          },
+        },
+      ],
+      ...overrides,
+    })
+
+    it('option pre-analysis pill omits the scale value and the "scale" suffix', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) => selector(buildState() as any))
+      renderOption({ label: 'Aggressive plan' })
+      // No "0.7", no "scale", no "70%" should appear in the pill area.
+      expect(screen.queryByText(/scale/i)).toBeNull()
+      expect(screen.queryByText(/0\.7/)).toBeNull()
+      // The factor's compact label is still rendered (one or more occurrences
+      // depending on whether the popover/Detailed list also instantiates).
+      expect(screen.getAllByText(/marketing expertise/i).length).toBeGreaterThan(0)
+    })
+
+    it('option Detailed list shows label only with no "→" arrow when value is empty', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector({ ...buildState(), viewMode: 'expert' } as any),
+      )
+      renderOption({ label: 'Aggressive plan' })
+      // The intervention list row exists for the factor but has no arrow,
+      // because formatChipValue returned empty string for scale-no-raw.
+      expect(screen.getAllByText(/marketing expertise/i).length).toBeGreaterThan(0)
+      expect(screen.queryByText(/scale/i)).toBeNull()
+    })
+  })
 })

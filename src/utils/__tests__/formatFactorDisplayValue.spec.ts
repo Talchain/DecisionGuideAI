@@ -23,13 +23,16 @@ describe('formatFactorDisplayValue', () => {
     })).toBe('No cost allocated')
   })
 
-  it('returns contextual text for binary 0 without raw_value', () => {
+  // Post-review: contextual binary text now requires explicit factor_type='binary'.
+  // factor_type 'other' / undefined no longer triggers the binary heuristic so
+  // we don't render misleading "No X in place" for continuous quality factors.
+  it('returns contextual text for explicitly-binary 0 without raw_value', () => {
     expect(formatFactorDisplayValue({
       label: 'Technical Leadership Presence',
       value: 0,
       raw_value: null,
       unit: null,
-      factor_type: 'other',
+      factor_type: 'binary',
     })).toBe('No technical leadership in place')
   })
 
@@ -39,15 +42,17 @@ describe('formatFactorDisplayValue', () => {
       value: 0,
       raw_value: null,
       unit: null,
+      factor_type: 'binary',
     })).toBe('No developer headcount in place')
   })
 
-  it('returns contextual text for binary 1 without raw_value', () => {
+  it('returns contextual text for explicitly-binary 1 without raw_value', () => {
     expect(formatFactorDisplayValue({
       label: 'Technical Leadership Presence',
       value: 1,
       raw_value: null,
       unit: null,
+      factor_type: 'binary',
     })).toBe('Technical leadership active')
   })
 
@@ -76,12 +81,13 @@ describe('formatFactorDisplayValue', () => {
     })).toBe('No dedicated tech lead')
   })
 
-  it('ignores display_value when empty string', () => {
+  it('ignores display_value when empty string and factor_type is binary', () => {
     expect(formatFactorDisplayValue({
       label: 'Technical Leadership Presence',
       value: 0,
       raw_value: null,
       display_value: '',
+      factor_type: 'binary',
     })).toBe('No technical leadership in place')
   })
 
@@ -104,23 +110,43 @@ describe('formatFactorDisplayValue', () => {
       })).toBeNull()
     })
 
-    it('preserves binary value=0 contextual text even with no unit', () => {
-      // Polish 4 Task 1 explicitly only suppresses 0 < value < 1; value === 0
-      // and value === 1 still flow through the binary contextual heuristic.
+    it('suppresses value=0 with no unit when factor_type is not binary', () => {
+      // Post-review tightening: contextual text only fires when factor_type is
+      // explicitly 'binary'. Without that signal, "No X in place" misrepresents
+      // continuous quality factors that happen to land at 0.
       expect(formatFactorDisplayValue({
         label: 'Tech Lead',
         value: 0,
         raw_value: null,
+      })).toBeNull()
+    })
+
+    it('preserves explicitly-binary value=0 contextual text', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Tech Lead',
+        value: 0,
+        raw_value: null,
+        factor_type: 'binary',
       })).toBe('No tech lead in place')
     })
 
-    it('preserves binary value=1 contextual text even with unit="scale"', () => {
+    it('preserves explicitly-binary value=1 contextual text even with unit="scale"', () => {
       expect(formatFactorDisplayValue({
         label: 'Tech Lead',
         value: 1,
         raw_value: null,
         unit: 'scale',
+        factor_type: 'binary',
       })).toBe('Tech lead active')
+    })
+
+    it('suppresses value=0 with unit="scale" when factor_type is not binary', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Some metric',
+        value: 0,
+        raw_value: null,
+        unit: 'scale',
+      })).toBeNull()
     })
 
     it('does not suppress when raw_value is present (real-world data)', () => {

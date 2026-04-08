@@ -267,19 +267,10 @@ export const FactorNode = memo((props: NodeProps) => {
           ))}
         </>
       )}
-      {/* Pre-analysis coaching chip */}
-      {isInferred && (
-        <>
-          <Sep />
-          <NodeChip label="What evidence supports this?" message={`What evidence supports my assumption about ${cleanedLabel}?`} />
-        </>
-      )}
-      {isExplicit && (
-        <>
-          <Sep />
-          <NodeChip label="Is this still accurate?" message={`Is my value for ${cleanedLabel} still accurate?`} />
-        </>
-      )}
+      {/* Polish 4 review: pre-analysis coaching chips removed from the
+          popover to honour the chip audit table — the body now carries the
+          single canonical chip ("What evidence supports this?" for top-3
+          inferred factors). Explicit factors get no chip per the audit. */}
       {/* "What if this changes?" chip is in the node body for external factors — not duplicated here */}
       {/* Detailed pre-analysis: uncertainty drivers */}
       {isDetailed && observedState?.uncertainty_drivers && observedState.uncertainty_drivers.length > 0 && (

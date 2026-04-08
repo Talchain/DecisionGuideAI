@@ -174,15 +174,15 @@ export const GoalNode = memo((props: NodeProps) => {
         </p>
       )}
 
-      {/* Layer 2 chips — gated on threshold and achievement probability */}
-      <div className="flex gap-1 flex-wrap mt-1.5">
-        {hasThreshold && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+      {/* Polish 4 review: removed the popover "Is my target realistic?"
+          chip — the body now carries it post-analysis. The state-specific
+          "Why is this so low?" chip stays because it only fires for the
+          low-probability state and isn't represented elsewhere. */}
+      {hasThreshold && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+        <div className="flex gap-1 flex-wrap mt-1.5">
           <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
-        )}
-        {hasThreshold && (
-          <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
-        )}
-      </div>
+        </div>
+      )}
     </>
   ) : null
 

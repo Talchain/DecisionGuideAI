@@ -546,12 +546,20 @@ export const OptionNode = memo((props: NodeProps) => {
                   }
                 }
                 const displayVal = deltaDisplay ?? targetFormatted
-                const echoStripped = stripEcho(chip.label, displayVal)
+                // Polish 4 review: when the intervention value is empty
+                // (scale-unit factor with no raw_value anchor), suppress the
+                // "→" separator and show only the label so the row reads as
+                // a discovery cue rather than misleading "→ 0.1 scale".
+                const echoStripped = displayVal ? stripEcho(chip.label, displayVal) : ''
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                     <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
-                    <span className="text-text-light"> → </span>
-                    <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
+                    {echoStripped && (
+                      <>
+                        <span className="text-text-light"> → </span>
+                        <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
+                      </>
+                    )}
                   </div>
                 )
               })}
@@ -587,20 +595,19 @@ export const OptionNode = memo((props: NodeProps) => {
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
     if (isPostAnalysis) return null
+    // Polish 4 review: pre-analysis status quo popover used to carry a
+    // "Risks of inaction" chip. The audit table says status quo gets no chip
+    // pre-analysis (the EyeOff bias icon handles coaching). The "Is this
+    // option complete?" chip on the no-interventions branch was likewise
+    // outside the audit. Both removed.
     if (isBaselineOption) return (
       <>
         <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
-        <div className="mt-1 flex gap-1 flex-wrap">
-          <NodeChip label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
-        </div>
       </>
     )
     if (totalInterventionCount === 0) return (
       <>
         <p className={`${typography.nodeLabel} text-text-body m-0`}>No interventions specified for this option.</p>
-        <div className="mt-1">
-          <NodeChip label="Is this option complete?" message={`Is ${(props.data?.label as string) ?? 'this option'} fully specified? Are there any missing interventions?`} />
-        </div>
       </>
     )
 
@@ -613,20 +620,21 @@ export const OptionNode = memo((props: NodeProps) => {
           <div className="flex flex-col gap-0.5">
             {interventionChips.map(chip => {
               const targetFormatted = formatChipValue(chip)
-              const echoStripped = stripEcho(chip.label, targetFormatted)
+              const echoStripped = targetFormatted ? stripEcho(chip.label, targetFormatted) : ''
               return (
                 <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                   <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
-                  <span className="text-text-light"> → </span>
-                  <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
+                  {echoStripped && (
+                    <>
+                      <span className="text-text-light"> → </span>
+                      <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
+                    </>
+                  )}
                 </div>
               )
             })}
           </div>
         )}
-        <div className="mt-1">
-          <NodeChip label="Is this option complete?" message={`Is ${(props.data?.label as string) ?? 'this option'} fully specified? Are there any missing interventions?`} />
-        </div>
       </>
     )
   }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, props.data])
@@ -789,12 +797,16 @@ export const OptionNode = memo((props: NodeProps) => {
                 <div className="flex flex-col gap-0.5">
                   {interventionChips.map(chip => {
                     const targetFormatted = formatChipValue(chip)
-                    const echoStripped = stripEcho(chip.label, targetFormatted)
+                    const echoStripped = targetFormatted ? stripEcho(chip.label, targetFormatted) : ''
                     return (
                       <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                         <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
-                        <span className="text-text-light"> → </span>
-                        <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
+                        {echoStripped && (
+                          <>
+                            <span className="text-text-light"> → </span>
+                            <span className={`${typography.nodeLabel} font-semibold`}>{echoStripped}</span>
+                          </>
+                        )}
                       </div>
                     )
                   })}

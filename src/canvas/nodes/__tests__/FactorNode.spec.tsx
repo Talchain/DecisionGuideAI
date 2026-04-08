@@ -207,13 +207,13 @@ describe('FactorNode', () => {
     expect(screen.getByText('85')).toBeDefined()
   })
 
-  it('falls back to contextual text for binary 0 without raw_value (qualitative factor — no unit, no cap)', () => {
+  it('renders contextual text for explicitly-binary 0 without raw_value', () => {
     renderFactor({
       label: 'Hired',
       type: 'factor',
-      observedState: { value: 0 },
+      // Polish 4 review: contextual text now requires factor_type='binary'.
+      observedState: { value: 0, factor_type: 'binary' },
     })
-    // formatFactorDisplayValue returns contextual text like "No hired in place"
     expect(screen.getByText('No hired in place')).toBeDefined()
   })
 
@@ -222,9 +222,11 @@ describe('FactorNode', () => {
     renderFactor({
       label: 'Hire decision',
       type: 'factor',
-      observedState: { value: 0, unit: 'binary' },
+      // Polish 4 review: when unit is 'binary' (a factor_type leak),
+      // isSuppressedUnit drops it. We also need factor_type='binary' for the
+      // contextual heuristic to fire.
+      observedState: { value: 0, unit: 'binary', factor_type: 'binary' },
     })
-    // "binary" suppressed by isSuppressedUnit → contextual value text
     expect(screen.queryByText(/binary/)).toBeNull()
     expect(screen.getByText('No hire decision in place')).toBeDefined()
   })
@@ -252,23 +254,24 @@ describe('FactorNode', () => {
     expect(screen.getByText('No churn in place')).toBeDefined()
   })
 
-  // P1.5: qualitative factor_type + no unit — contextual text
-  it('shows contextual text for value===0 with qualitative factor_type and no unit', () => {
+  // Polish 4 review: continuous quality factors at value=0 should NOT render
+  // "No X in place" — that misrepresents a continuum as a binary. The
+  // contextual heuristic now only fires when factor_type === 'binary'.
+  it('suppresses contextual text for value===0 with qualitative factor_type and no unit', () => {
     renderFactor({
       label: 'Product fit',
       type: 'factor',
       observedState: { value: 0, factor_type: 'quality' },
     })
-    expect(screen.getByText('No product fit in place')).toBeDefined()
+    expect(screen.queryByText('No product fit in place')).toBeNull()
   })
 
-  it('falls back to contextual text for binary 1 without raw_value', () => {
+  it('renders contextual text for explicitly-binary 1 without raw_value', () => {
     renderFactor({
       label: 'Hired',
       type: 'factor',
-      observedState: { value: 1 },
+      observedState: { value: 1, factor_type: 'binary' },
     })
-    // formatFactorDisplayValue returns "{Label} active" for value=1
     expect(screen.getByText('Hired active')).toBeDefined()
   })
 
@@ -560,8 +563,9 @@ describe('FactorNode', () => {
     renderFactor({
       label: 'Salary',
       type: 'factor',
-      // value=0 produces non-null valueDisplay ("No salary in place"), enabling confirm button
-      observedState: { value: 0, extractionType: 'inferred' },
+      // value=0 + factor_type='binary' produces non-null valueDisplay
+      // ("No salary in place"), enabling the confirm button.
+      observedState: { value: 0, extractionType: 'inferred', factor_type: 'binary' },
     })
     // Science icon uses aria-label
     expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
@@ -693,9 +697,10 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByText('£50')).toBeNull()
   })
 
-  // A5: value=1.0, no raw_value, no cap, no unit → contextual "{Label} active"
-  it('A5: value=1.0 with no raw_value, cap, or unit renders contextual text', () => {
-    renderFactor({ label: 'Quality', type: 'factor', observedState: { value: 1.0 } })
+  // A5: value=1.0 + factor_type='binary' renders contextual "{Label} active".
+  // Polish 4 review: contextual text now requires explicit factor_type.
+  it('A5: value=1.0 with factor_type=binary and no raw_value renders contextual text', () => {
+    renderFactor({ label: 'Quality', type: 'factor', observedState: { value: 1.0, factor_type: 'binary' } })
     expect(screen.getByText('Quality active')).toBeDefined()
   })
 
@@ -779,9 +784,9 @@ describe('FactorNode — QA Brief A-series', () => {
     renderFactor({
       label: 'Item',
       type: 'factor',
-      observedState: { value: 0, source: 'cee_inference', extractionType: 'inferred' },
+      observedState: { value: 0, source: 'cee_inference', extractionType: 'inferred', factor_type: 'binary' },
     })
-    // Value text exists (contextual)
+    // Value text exists (contextual) — requires factor_type='binary' post Polish 4 review
     expect(screen.getByText('No item in place')).toBeDefined()
     // Science icon via aria-label
     expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
@@ -797,9 +802,9 @@ describe('FactorNode — QA Brief A-series', () => {
     renderFactor({
       label: 'Item',
       type: 'factor',
-      observedState: { value: 0, source: 'inferred', extractionType: 'inferred' },
+      observedState: { value: 0, source: 'inferred', extractionType: 'inferred', factor_type: 'binary' },
     })
-    // Contextual value display
+    // Contextual value display — requires factor_type='binary' post Polish 4 review
     expect(screen.getByText('No item in place')).toBeDefined()
     // Science icon via aria-label
     expect(screen.getByLabelText(/Olumi estimated/)).toBeDefined()
@@ -1075,6 +1080,43 @@ describe('FactorNode — intervention hover', () => {
         observedState: { value: 0.5 },
       })
       expect(screen.queryByTestId('factor-node-popover')).not.toBeNull()
+    })
+  })
+
+  // Polish 4 review: regression test against popover-only chip drift. The
+  // chip audit table allows max 2 chips per node in Standard view; the body
+  // and the popover must not duplicate the same chip text.
+  describe('chip audit drift guard', () => {
+    it('top inferred factor renders "What evidence supports this?" exactly once across body + popover', () => {
+      vi.mocked(useScienceIcons).mockReturnValue([])
+      vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+        selector({
+          hoveredOptionId: null,
+          nodes: [
+            { id: 'factor-1', type: 'factor', data: { type: 'factor', label: 'Hiring rate' } },
+            { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Revenue' } },
+          ],
+          edges: [
+            { id: 'e1', source: 'factor-1', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
+          ],
+          ceeAnalysisReady: null,
+          results: { status: 'idle', report: null },
+          highlightedNodes: new Set(),
+          dimmedNodeIds: new Set(),
+          goalThreshold: null,
+          goalConstraints: [],
+          viewMode: 'standard',
+        })
+      )
+      renderFactor({
+        label: 'Hiring rate',
+        type: 'factor',
+        category: 'controllable',
+        observedState: { value: 0.5, extractionType: 'inferred' },
+      })
+      // Body chip is canonical; popover does not duplicate it.
+      const matches = screen.getAllByText('What evidence supports this?')
+      expect(matches.length).toBe(1)
     })
   })
 })
