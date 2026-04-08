@@ -31,12 +31,11 @@ function qualitativeLabel(v: number): string {
   return 'very high'
 }
 
-/** Locale-aware number formatter with thousand separators for values > 999 */
+/** Locale-aware number formatter with thousand separators for values >= 1000. */
 const NUMBER_FMT = new Intl.NumberFormat('en-GB')
 function formatNumber(n: number): string {
   if (Math.abs(n) >= 1000) return NUMBER_FMT.format(n)
-  // Preserve decimal precision for small values, drop trailing zeros
-  return Number.isInteger(n) ? String(n) : String(n)
+  return String(n)
 }
 
 /**

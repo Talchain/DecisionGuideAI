@@ -41,10 +41,21 @@ import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
-const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
-
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
+
+/**
+ * Icon + title lookup for CEE bias type strings.
+ * Defined at module scope so the biasTriggers useMemo dependency array stays stable.
+ */
+const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
+  framing:     { icon: Frame,     title: 'Narrow framing' },
+  anchoring:   { icon: Anchor,    title: 'Anchoring' },
+  confidence:  { icon: Gauge,     title: 'Overconfidence' },
+  blind_spots: { icon: EyeOff,    title: 'Blind spots' },
+  // Map confirmation bias (no direct UI icon) to framing as the closest visual
+  confirmation: { icon: Frame,    title: 'Confirmation bias' },
+}
 
 /** Binary pass/fail row for triage check rows — failed rows show optional action link */
 function TriageCheckRow({ label, pass, actionLabel, onAction }: {
@@ -316,18 +327,6 @@ export function PreAnalysisPanel({
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes, selectNodeWithoutHistory])
 
-  const handleFocusEdge = useCallback((type: 'node' | 'edge', id: string) => {
-    if (type === 'edge') {
-      selectEdgeWithoutHistory(id)  // opens edge inspector
-      setHighlightedEdges([id])
-      focusEdgeById(id)
-      setTimeout(() => setHighlightedEdges([]), 3000)
-    } else {
-      // For nodes, use the node focus handler
-      handleFocusNode(id)
-    }
-  }, [handleFocusNode, selectEdgeWithoutHistory, setHighlightedEdges])
-
   // Hover handlers - highlight graph elements on panel item hover
   const handleHoverElement = useCallback((type: 'node' | 'edge', id: string) => {
     if (type === 'node') {
@@ -579,9 +578,8 @@ export function PreAnalysisPanel({
   const calibration = data.totalReviewableFactorsCount > 0
     ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
     : 0
-  const readinessScore = Math.round(
-    (clamp01(completeness) + clamp01(evidence) + clamp01(balance) + clamp01(calibration)) / 4 * 100,
-  )
+  // readinessScore was previously surfaced in the footer (now driven by
+  // bannerState + data.isReady). Removed in v2 panel regroup.
 
   // === TRIAGE CONTENT ===
 
@@ -617,16 +615,6 @@ export function PreAnalysisPanel({
   const triageTop3 = data.triageActions.top3.map(mapItem)
   const triageQuickFix = data.triageActions.quickFix.map(mapItem)
   const triageCards = [...triageTop3, ...triageQuickFix]
-
-  // Icon + title lookup for CEE bias type strings → layer-6 card config
-  const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
-    framing:     { icon: Frame,     title: 'Narrow framing' },
-    anchoring:   { icon: Anchor,    title: 'Anchoring' },
-    confidence:  { icon: Gauge,     title: 'Overconfidence' },
-    blind_spots: { icon: EyeOff,    title: 'Blind spots' },
-    // Map confirmation bias (no direct UI icon) to framing as the closest visual
-    confirmation: { icon: Frame,    title: 'Confirmation bias' },
-  }
 
   // Bias trigger cards — CEE findings take precedence when available.
   // Falls back to UI-side deterministic checks when CEE provides no findings.
@@ -743,14 +731,6 @@ export function PreAnalysisPanel({
   // the other two buckets. Filter on item key (which carries through the
   // mapper unchanged).
 
-  // Structural blockers — only fire when the data hook says they are real
-  // blockers (i.e. CEE has run and reported them). Avoids spurious "Fewer
-  // than 2 options" when optionPreviews is empty because CEE has not run yet.
-  const noBaselineCheck = !data.isLoading && data.qualityChecks.some(c => c.id === 'no_baseline')
-  const fewerThanTwoOptionsCheck = !data.isLoading
-    && data.optionPreviews.length > 0
-    && data.optionPreviews.length < 2
-
   // Must fix: critical 'fix' category triage cards (filtered on category from
   // the mapper output) plus enriched blockers. Triage cards are already
   // ordered by priority; cards with category === 'fix' represent blockers.
@@ -762,6 +742,20 @@ export function PreAnalysisPanel({
       mustFixCards.push(c)
     }
   }
+
+  // Structural check rows. Two dedup rules:
+  //   1. Only fire when CEE has run and the data is real (not empty
+  //      optionPreviews from a loading/mock state). Avoids spurious checks.
+  //   2. Suppress a structural row when an equivalent fix-category triage
+  //      card already covers the issue. e.g. usePreAnalysisData emits a
+  //      'fewer_than_2_options' fix card whenever optionNodes.length < 2;
+  //      we don't want to render the same blocker twice in Must fix.
+  const noBaselineCheck = !data.isLoading && data.qualityChecks.some(c => c.id === 'no_baseline')
+  const fewerThanTwoOptionsCheck = !data.isLoading
+    && data.optionPreviews.length > 0
+    && data.optionPreviews.length < 2
+    && !mustFixCardKeys.has('fewer_than_2_options')
+
   const enrichedBlockerCount = !data.isReady ? data.enrichedBlockers.length : 0
   const structuralCheckCount = (noBaselineCheck ? 1 : 0) + (fewerThanTwoOptionsCheck ? 1 : 0)
   const mustFixCount = mustFixCards.length + enrichedBlockerCount + structuralCheckCount
