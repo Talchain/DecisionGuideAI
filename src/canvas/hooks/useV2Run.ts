@@ -17,7 +17,7 @@ import {
   validateV2RunResponseFull,
   sanitizeV2RunResponse,
   reconcileOptionsWithCanvasNodes,
-  validateOptionsHaveInterventions,
+  flattenInterventions,
   type V2AdapterConfig,
   type V2RunError,
   type V2RunResponse,
@@ -338,28 +338,29 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           { silent: true },
         )
 
-        const missingInterventions = validateOptionsHaveInterventions(optionsToValidate)
-
-        if (missingInterventions.length > 0) {
-          // Carry the affected option {id, label} pairs through the error so the
-          // UI can render coached recovery (option-specific configure CTA) instead
-          // of a generic banner. Identify by label match against the reconciled set.
-          const labelToOption = new Map<string, { id: string; label: string }>()
-          for (const opt of optionsToValidate) {
-            labelToOption.set(opt.label || opt.id, { id: opt.id, label: opt.label || opt.id })
+        // Identify offending options directly by id (not label) so duplicate
+        // labels do not collapse two distinct options into one entry.
+        // validateOptionsHaveInterventions returns labels only, which is fine
+        // for the human message but loses identity — we re-walk the reconciled
+        // list with the same usability rule (flattenInterventions, the single
+        // canonical "is this a usable map?" check) and key by opt.id.
+        const affectedOptions: Array<{ id: string; label: string }> = []
+        for (const opt of optionsToValidate) {
+          if (Object.keys(flattenInterventions(opt.interventions)).length === 0) {
+            affectedOptions.push({ id: opt.id, label: opt.label || opt.id })
           }
-          const affectedOptions: Array<{ id: string; label: string }> = missingInterventions.map(
-            (label) => labelToOption.get(label) ?? { id: label, label },
-          )
+        }
 
+        if (affectedOptions.length > 0) {
+          const labels = affectedOptions.map((o) => o.label)
           const message =
-            missingInterventions.length === 1
-              ? `Option "${missingInterventions[0]}" needs intervention values before analysis can run.`
-              : `Options ${missingInterventions.map((o) => `"${o}"`).join(', ')} need intervention values before analysis can run.`
+            affectedOptions.length === 1
+              ? `Option "${labels[0]}" needs intervention values before analysis can run.`
+              : `Options ${labels.map((o) => `"${o}"`).join(', ')} need intervention values before analysis can run.`
 
           if (import.meta.env.DEV) {
             console.warn('[useV2Run] Pre-run validation failed: missing interventions', {
-              missingOptions: missingInterventions,
+              missingOptions: labels,
               usingAnalysisReady: !!effectiveAnalysisReady,
             })
           }
@@ -433,12 +434,13 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         }
 
         // Surface PLoT EMPTY_INTERVENTIONS / MISSING_INTERVENTIONS critiques as
-        // a coached recovery state rather than a generic blocker. Promote the
-        // critique code only when we can also resolve at least one affected
-        // option node — otherwise the coached UI has nothing useful to render
-        // and we'd just regress to a less-helpful generic error than VALIDATION_BLOCKED.
-        // Affected option ids come from critique.affected_nodes (PLoT references
-        // the option node id directly).
+        // a coached recovery state rather than a generic blocker. The coached
+        // UI is always preferable to "Something went wrong" for these codes,
+        // so we render it even when affected_nodes references a stale id that
+        // is no longer on the canvas — falling back to the id as the visible
+        // label gives the user something concrete to act on, and is more
+        // honest than the generic banner. Affected option ids come from
+        // critique.affected_nodes (PLoT references option node id directly).
         const interventionCritiques = (errorResult.critiques || []).filter(
           (c) => c.code === 'EMPTY_INTERVENTIONS' || c.code === 'MISSING_INTERVENTIONS',
         )
@@ -455,18 +457,31 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
               })
             }
           }
-          const affectedIds = new Set<string>()
+          const affectedIds: string[] = []
+          const seenIds = new Set<string>()
           for (const crit of interventionCritiques) {
-            for (const id of crit.affected_nodes ?? []) affectedIds.add(id)
+            for (const id of crit.affected_nodes ?? []) {
+              if (!seenIds.has(id)) {
+                seenIds.add(id)
+                affectedIds.push(id)
+              }
+            }
           }
-          const resolved = [...affectedIds]
-            .map((id) => optionNodeById.get(id))
-            .filter((o): o is { id: string; label: string } => Boolean(o))
+          // Resolve to canvas labels where possible, fall back to id-as-label
+          // for stale references so the coached UI can still render.
+          const resolved = affectedIds.map(
+            (id) => optionNodeById.get(id) ?? { id, label: id },
+          )
           if (resolved.length > 0) affectedOptions = resolved
         }
 
+        // Promote the code whenever the coached banner can render at least
+        // one option (resolved or id-fallback). If affected_nodes was empty
+        // entirely, we have nothing to render and fall back to the generic
+        // VALIDATION_BLOCKED path — which is what happens for cycles, missing
+        // goal, and other unrelated 422s.
         const promotedCode =
-          affectedOptions && interventionCritiques.length > 0
+          affectedOptions && affectedOptions.length > 0
             ? interventionCritiques[0].code
             : 'VALIDATION_BLOCKED'
 

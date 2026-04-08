@@ -225,19 +225,18 @@ export function flattenInterventions(
 
 /**
  * Detect whether an intervention map has at least one *usable* value.
- * Mirrors the validation rule in `validateOptionsHaveInterventions` so the
- * reader's "is this empty?" check stays aligned with the gate's "is this
- * usable?" check. An entry like `{ fac_a: null }` has length 1 but zero
- * usable values, and must be treated as empty so fallback can run.
+ *
+ * Defined in terms of `flattenInterventions` so the gate's "is this usable?"
+ * check cannot drift from the wire format's "is this a number?" check. If
+ * flattenInterventions would drop every entry (null values, non-numeric
+ * `{value: 'tbd'}`, NaN, missing `value`, etc.), the map is treated as empty
+ * and the fallback / blocker fires — preventing the historical class of bug
+ * where the gate accepted a map full of nested objects that PLoT then
+ * rejected with EMPTY_INTERVENTIONS.
  */
 function hasUsableInterventions(map: unknown): boolean {
   if (!map || typeof map !== 'object') return false
-  for (const v of Object.values(map as Record<string, unknown>)) {
-    if (v == null) continue
-    if (typeof v === 'number') return true
-    if (typeof v === 'object' && 'value' in (v as Record<string, unknown>) && (v as { value: unknown }).value != null) return true
-  }
-  return false
+  return Object.keys(flattenInterventions(map)).length > 0
 }
 
 /**

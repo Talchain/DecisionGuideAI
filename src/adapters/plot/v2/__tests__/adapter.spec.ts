@@ -1823,6 +1823,67 @@ describe('flattenInterventions', () => {
 })
 
 // ============================================================================
+// validateOptionsHaveInterventions — gate must mirror flattenInterventions
+// ============================================================================
+
+describe('validateOptionsHaveInterventions — alignment with flattenInterventions', () => {
+  it("rejects an option whose only intervention is { value: 'tbd' }", () => {
+    // hasUsableInterventions historically accepted any non-null .value, so a
+    // {value: 'tbd'} entry passed the gate while flattenInterventions dropped
+    // it — letting empty interventions reach PLoT. Both rules are now derived
+    // from flattenInterventions, so this option must be flagged as missing.
+    const missing = validateOptionsHaveInterventions([
+      {
+        id: 'opt-bad',
+        label: 'Bad Option',
+        interventions: { fac_a: { value: 'tbd' } as unknown as number },
+      },
+    ])
+    expect(missing).toEqual(['Bad Option'])
+  })
+
+  it('rejects an option whose only intervention has a NaN .value', () => {
+    const missing = validateOptionsHaveInterventions([
+      {
+        id: 'opt-bad',
+        label: 'Bad Option',
+        interventions: { fac_a: { value: NaN } as unknown as number },
+      },
+    ])
+    expect(missing).toEqual(['Bad Option'])
+  })
+
+  it('rejects an option whose only intervention is a bare NaN', () => {
+    const missing = validateOptionsHaveInterventions([
+      { id: 'opt-bad', label: 'Bad Option', interventions: { fac_a: NaN } },
+    ])
+    expect(missing).toEqual(['Bad Option'])
+  })
+
+  it('rejects an option whose only intervention is missing the value field entirely', () => {
+    const missing = validateOptionsHaveInterventions([
+      {
+        id: 'opt-bad',
+        label: 'Bad Option',
+        interventions: { fac_a: { unit: 'scale', source: 'x' } as unknown as number },
+      },
+    ])
+    expect(missing).toEqual(['Bad Option'])
+  })
+
+  it('accepts an option with a finite numeric .value', () => {
+    const missing = validateOptionsHaveInterventions([
+      {
+        id: 'opt-good',
+        label: 'Good Option',
+        interventions: { fac_a: { value: 0.5 } as unknown as number },
+      },
+    ])
+    expect(missing).toEqual([])
+  })
+})
+
+// ============================================================================
 // PAYLOAD BOUNDARY ASSERTION
 // Final defence: at the /v2/run request assembly point, no nested intervention
 // objects survive after all transforms. If this regresses, PLoT will reject

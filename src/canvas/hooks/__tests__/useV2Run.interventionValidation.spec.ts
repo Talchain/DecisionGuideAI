@@ -291,6 +291,74 @@ describe('Pre-run intervention validation', () => {
     ])
   })
 
+  it('still renders the coached state when PLoT critique references stale option ids (id fallback)', async () => {
+    // Simulate: PLoT critique points at "opt-deleted" which is no longer on the
+    // canvas (e.g. user deleted the option between request build and response).
+    // Coached UI must still render — using the id as the visible label —
+    // because that is more honest and more actionable than "Something went wrong".
+    setupCanvasWithOptions({
+      analysisReady: {
+        goal_node_id: 'goal-1',
+        status: 'ready',
+        options: [
+          { id: 'opt-1', label: 'Option A', status: 'ready', interventions: { 'fac-1': 0.5 } },
+          { id: 'opt-2', label: 'Option B', status: 'ready', interventions: { 'fac-1': 0.3 } },
+        ],
+      },
+    })
+
+    mockExecute.mockResolvedValueOnce({
+      analysis_status: 'blocked',
+      status_reason: 'Options missing intervention values',
+      critiques: [
+        {
+          code: 'EMPTY_INTERVENTIONS',
+          severity: 'blocker',
+          message: 'opt-deleted has no interventions',
+          affected_nodes: ['opt-deleted'],
+        },
+      ],
+      request_id: 'req-test-interventions',
+    })
+
+    const { result } = renderHook(() => useV2Run())
+    await act(async () => {
+      await result.current.runV2Analysis()
+    })
+
+    const storeError = useCanvasStore.getState().results.error
+    expect(storeError?.code).toBe('EMPTY_INTERVENTIONS')
+    // Stale id falls through as both id and label so the coached banner can render.
+    expect(storeError?.affectedOptions).toEqual([
+      { id: 'opt-deleted', label: 'opt-deleted' },
+    ])
+  })
+
+  it('preserves duplicate-label options as distinct entries (keyed by id)', async () => {
+    // Two options with the same display label must NOT collapse — the user
+    // needs to see both entries so they can configure each one independently.
+    setupCanvasWithOptions({
+      analysisReady: {
+        goal_node_id: 'goal-1',
+        status: 'ready',
+        options: [
+          { id: 'opt-1', label: 'Option A', status: 'ready', interventions: {} },
+          { id: 'opt-2', label: 'Option A', status: 'ready', interventions: {} },
+        ],
+      },
+    })
+
+    const { result } = renderHook(() => useV2Run())
+    await act(async () => {
+      await result.current.runV2Analysis()
+    })
+
+    const storeError = useCanvasStore.getState().results.error
+    expect(storeError?.affectedOptions).toHaveLength(2)
+    const ids = (storeError?.affectedOptions ?? []).map((o) => o.id).sort()
+    expect(ids).toEqual(['opt-1', 'opt-2'])
+  })
+
   it('leaves the generic VALIDATION_BLOCKED code in place for unrelated 422 critiques', async () => {
     setupCanvasWithOptions({
       analysisReady: {
