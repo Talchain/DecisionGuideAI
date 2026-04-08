@@ -225,6 +225,107 @@ describe('Pre-run intervention validation', () => {
     )
   })
 
+  it('attaches affectedOptions to the store error so the UI can render coached recovery', async () => {
+    setupCanvasWithOptions({
+      analysisReady: {
+        goal_node_id: 'goal-1',
+        status: 'ready',
+        options: [
+          { id: 'opt-1', label: 'Option A', status: 'ready', interventions: {} },
+          { id: 'opt-2', label: 'Option B', status: 'ready', interventions: {} },
+        ],
+      },
+    })
+
+    const { result } = renderHook(() => useV2Run())
+    await act(async () => {
+      await result.current.runV2Analysis()
+    })
+
+    const storeError = useCanvasStore.getState().results.error
+    expect(storeError?.code).toBe('MISSING_INTERVENTIONS')
+    expect(storeError?.affectedOptions).toBeDefined()
+    const ids = (storeError?.affectedOptions ?? []).map((o) => o.id).sort()
+    const labels = (storeError?.affectedOptions ?? []).map((o) => o.label).sort()
+    expect(ids).toEqual(['opt-1', 'opt-2'])
+    expect(labels).toEqual(['Option A', 'Option B'])
+  })
+
+  it('promotes PLoT 422 EMPTY_INTERVENTIONS critique to the error code with affectedOptions', async () => {
+    setupCanvasWithOptions({
+      analysisReady: {
+        goal_node_id: 'goal-1',
+        status: 'ready',
+        options: [
+          // Both options have interventions so the pre-run gate passes; PLoT
+          // is the one rejecting (simulated by the mock below).
+          { id: 'opt-1', label: 'Option A', status: 'ready', interventions: { 'fac-1': 0.5 } },
+          { id: 'opt-2', label: 'Option B', status: 'ready', interventions: { 'fac-1': 0.3 } },
+        ],
+      },
+    })
+
+    mockExecute.mockResolvedValueOnce({
+      analysis_status: 'blocked',
+      status_reason: 'Options missing intervention values',
+      critiques: [
+        {
+          code: 'EMPTY_INTERVENTIONS',
+          severity: 'blocker',
+          message: 'opt-1 has no interventions',
+          affected_nodes: ['opt-1'],
+        },
+      ],
+      request_id: 'req-test-interventions',
+    })
+
+    const { result } = renderHook(() => useV2Run())
+    await act(async () => {
+      await result.current.runV2Analysis()
+    })
+
+    const storeError = useCanvasStore.getState().results.error
+    expect(storeError?.code).toBe('EMPTY_INTERVENTIONS')
+    expect(storeError?.affectedOptions).toEqual([
+      { id: 'opt-1', label: 'Option A' },
+    ])
+  })
+
+  it('leaves the generic VALIDATION_BLOCKED code in place for unrelated 422 critiques', async () => {
+    setupCanvasWithOptions({
+      analysisReady: {
+        goal_node_id: 'goal-1',
+        status: 'ready',
+        options: [
+          { id: 'opt-1', label: 'Option A', status: 'ready', interventions: { 'fac-1': 0.5 } },
+          { id: 'opt-2', label: 'Option B', status: 'ready', interventions: { 'fac-1': 0.3 } },
+        ],
+      },
+    })
+
+    mockExecute.mockResolvedValueOnce({
+      analysis_status: 'blocked',
+      status_reason: 'Graph contains a cycle',
+      critiques: [
+        {
+          code: 'GRAPH_HAS_CYCLE',
+          severity: 'blocker',
+          message: 'cycle detected',
+        },
+      ],
+      request_id: 'req-test-interventions',
+    })
+
+    const { result } = renderHook(() => useV2Run())
+    await act(async () => {
+      await result.current.runV2Analysis()
+    })
+
+    const storeError = useCanvasStore.getState().results.error
+    expect(storeError?.code).toBe('VALIDATION_BLOCKED')
+    expect(storeError?.affectedOptions).toBeUndefined()
+  })
+
   it('persists failure to Supabase when persistence is provided', async () => {
     const mockPersistFailure = vi.fn().mockResolvedValue(undefined)
     const mockPersistence = {

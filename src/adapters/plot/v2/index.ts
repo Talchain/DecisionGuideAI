@@ -61,6 +61,7 @@ export {
   validateEdgeData,
   validateAllEdges,
   validateOptionsHaveInterventions,
+  flattenInterventions,
   EdgeValidationError,
 } from './adapter'
 

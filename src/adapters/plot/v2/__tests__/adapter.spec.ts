@@ -8,6 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import type { Node, Edge } from '@xyflow/react'
 import {
   extractOptionsFromNodes,
+  flattenInterventions,
   reconcileOptionsWithCanvasNodes,
   uiOptionToV2Option,
   transformNodeToV2,
@@ -1719,5 +1720,166 @@ describe('reconcileOptionsWithCanvasNodes integration', () => {
       typeof args[0] === 'string' && args[0].includes('reconcileOptions: backfilled'),
     )
     expect(fallbackWarnings).toHaveLength(1)
+  })
+})
+
+// ============================================================================
+// flattenInterventions — canvas → PLoT shape converter
+// ============================================================================
+
+describe('flattenInterventions', () => {
+  it('passes through bare numbers', () => {
+    expect(flattenInterventions({ factor_a: 0.5, factor_b: -2 })).toEqual({
+      factor_a: 0.5,
+      factor_b: -2,
+    })
+  })
+
+  it('extracts .value from complex {value, unit, source} objects', () => {
+    expect(
+      flattenInterventions({
+        factor_a: { value: 0.5, unit: 'scale', source: 'brief_extraction' },
+      }),
+    ).toEqual({ factor_a: 0.5 })
+  })
+
+  it('handles mixed shapes in the same map', () => {
+    expect(
+      flattenInterventions({
+        flat: 0.25,
+        nested: { value: 0.75, unit: 'pct' },
+        v3_shape: { value: 1.5, source: 'cee_hypothesis', target_match: { node_id: 'x' } },
+      }),
+    ).toEqual({ flat: 0.25, nested: 0.75, v3_shape: 1.5 })
+  })
+
+  it('returns an empty object for empty input', () => {
+    expect(flattenInterventions({})).toEqual({})
+  })
+
+  it('returns empty for null / undefined / non-object', () => {
+    expect(flattenInterventions(null)).toEqual({})
+    expect(flattenInterventions(undefined)).toEqual({})
+    expect(flattenInterventions('not an object')).toEqual({})
+    expect(flattenInterventions(42)).toEqual({})
+  })
+
+  it('skips entries with {value: null}', () => {
+    expect(
+      flattenInterventions({
+        good: 0.5,
+        bad: { value: null, unit: 'scale' },
+      }),
+    ).toEqual({ good: 0.5 })
+  })
+
+  it('skips entries with non-numeric .value (e.g. "tbd")', () => {
+    expect(
+      flattenInterventions({
+        good: 0.5,
+        bad: { value: 'not_a_number' },
+      }),
+    ).toEqual({ good: 0.5 })
+  })
+
+  it('skips entries that are bare null / undefined', () => {
+    expect(
+      flattenInterventions({
+        good: 0.5,
+        a: null,
+        b: undefined,
+      } as Record<string, unknown>),
+    ).toEqual({ good: 0.5 })
+  })
+
+  it('skips NaN and Infinity rather than smuggling them through', () => {
+    expect(
+      flattenInterventions({
+        good: 0.5,
+        nan: NaN,
+        inf: Infinity,
+        nested_nan: { value: NaN },
+      }),
+    ).toEqual({ good: 0.5 })
+  })
+
+  it('drops object entries that are missing the `value` field entirely', () => {
+    expect(
+      flattenInterventions({
+        good: 0.5,
+        bad: { unit: 'scale', source: 'x' } as unknown,
+      }),
+    ).toEqual({ good: 0.5 })
+  })
+
+  it('drops array values (not a valid intervention shape)', () => {
+    expect(
+      flattenInterventions({
+        good: 0.5,
+        bad: [0.1, 0.2],
+      } as Record<string, unknown>),
+    ).toEqual({ good: 0.5 })
+  })
+})
+
+// ============================================================================
+// PAYLOAD BOUNDARY ASSERTION
+// Final defence: at the /v2/run request assembly point, no nested intervention
+// objects survive after all transforms. If this regresses, PLoT will reject
+// with EMPTY_INTERVENTIONS even when canvas data looks correct.
+// ============================================================================
+
+describe('V2 request assembly — intervention payload boundary', () => {
+  it('strips nested {value, unit, source} from canvas option nodes before reaching V2RunRequest', () => {
+    const nodes: Node[] = [
+      makeNode('opt_a', {
+        kind: 'option',
+        label: 'Option A',
+        interventions: {
+          fac_1: { value: 0.5, unit: 'scale', source: 'brief_extraction' },
+          fac_2: { value: -0.25, unit: 'pct' },
+        },
+      }),
+      makeNode('opt_b', {
+        kind: 'option',
+        label: 'Option B',
+        interventions: {
+          fac_1: 0.75,
+        },
+      }),
+      makeNode('fac_1', { kind: 'factor', label: 'Factor 1' }),
+      makeNode('fac_2', { kind: 'factor', label: 'Factor 2' }),
+      makeNode('goal', { kind: 'goal', label: 'Goal' }),
+    ]
+    const edges: Edge[] = [
+      { id: 'e1', source: 'fac_1', target: 'goal', data: { weight: 0.5, direction: 'positive' } },
+      { id: 'e2', source: 'fac_2', target: 'goal', data: { weight: 0.5, direction: 'positive' } },
+    ]
+
+    const { request } = buildV2RequestFromAnalysisReady(
+      nodes,
+      edges,
+      null,
+      undefined,
+      'goal',
+    )
+
+    // Every option's interventions must be Record<string, number>.
+    for (const opt of request.options) {
+      for (const [factorId, value] of Object.entries(opt.interventions)) {
+        expect(typeof value).toBe('number')
+        expect(Number.isFinite(value)).toBe(true)
+        // The forbidden shape — a nested object — must not appear.
+        expect(value).not.toMatchObject({ value: expect.anything() })
+        // Sanity: no string-coerced nesting.
+        expect(typeof factorId).toBe('string')
+      }
+    }
+
+    // And the actual values must match what canvas provided after extraction.
+    const optA = request.options.find((o) => o.id === 'opt_a')
+    const optB = request.options.find((o) => o.id === 'opt_b')
+    expect(optA?.interventions).toEqual({ fac_1: 0.5, fac_2: -0.25 })
+    expect(optB?.interventions).toEqual({ fac_1: 0.75 })
   })
 })

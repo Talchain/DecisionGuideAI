@@ -341,6 +341,17 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         const missingInterventions = validateOptionsHaveInterventions(optionsToValidate)
 
         if (missingInterventions.length > 0) {
+          // Carry the affected option {id, label} pairs through the error so the
+          // UI can render coached recovery (option-specific configure CTA) instead
+          // of a generic banner. Identify by label match against the reconciled set.
+          const labelToOption = new Map<string, { id: string; label: string }>()
+          for (const opt of optionsToValidate) {
+            labelToOption.set(opt.label || opt.id, { id: opt.id, label: opt.label || opt.id })
+          }
+          const affectedOptions: Array<{ id: string; label: string }> = missingInterventions.map(
+            (label) => labelToOption.get(label) ?? { id: label, label },
+          )
+
           const message =
             missingInterventions.length === 1
               ? `Option "${missingInterventions[0]}" needs intervention values before analysis can run.`
@@ -365,6 +376,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
             message,
             request_id: requestId,
             canRetry: false,
+            affectedOptions,
           })
 
           if (persistence) {
@@ -420,18 +432,57 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
           })
         }
 
+        // Surface PLoT EMPTY_INTERVENTIONS / MISSING_INTERVENTIONS critiques as
+        // a coached recovery state rather than a generic blocker. Promote the
+        // critique code only when we can also resolve at least one affected
+        // option node — otherwise the coached UI has nothing useful to render
+        // and we'd just regress to a less-helpful generic error than VALIDATION_BLOCKED.
+        // Affected option ids come from critique.affected_nodes (PLoT references
+        // the option node id directly).
+        const interventionCritiques = (errorResult.critiques || []).filter(
+          (c) => c.code === 'EMPTY_INTERVENTIONS' || c.code === 'MISSING_INTERVENTIONS',
+        )
+
+        let affectedOptions: Array<{ id: string; label: string }> | undefined
+        if (interventionCritiques.length > 0) {
+          const optionNodeById = new Map<string, { id: string; label: string }>()
+          for (const n of nodes) {
+            const d = (n.data ?? {}) as Record<string, unknown>
+            if (d.kind === 'option' || d.type === 'option') {
+              optionNodeById.set(n.id, {
+                id: n.id,
+                label: (d.label as string | undefined) || n.id,
+              })
+            }
+          }
+          const affectedIds = new Set<string>()
+          for (const crit of interventionCritiques) {
+            for (const id of crit.affected_nodes ?? []) affectedIds.add(id)
+          }
+          const resolved = [...affectedIds]
+            .map((id) => optionNodeById.get(id))
+            .filter((o): o is { id: string; label: string } => Boolean(o))
+          if (resolved.length > 0) affectedOptions = resolved
+        }
+
+        const promotedCode =
+          affectedOptions && interventionCritiques.length > 0
+            ? interventionCritiques[0].code
+            : 'VALIDATION_BLOCKED'
+
         trackRunFailed({
-          error_code: 'VALIDATION_BLOCKED',
+          error_code: promotedCode,
           error_message: errorResult.status_reason,
           duration_ms: elapsed_ms,
           request_id: requestId,
         })
 
         resultsError({
-          code: 'VALIDATION_BLOCKED',
+          code: promotedCode,
           message: errorResult.status_reason,
           request_id: requestId,
           canRetry: false, // User needs to fix model first
+          affectedOptions,
         })
 
         // C.1b: Persist failure to Supabase (non-blocking)

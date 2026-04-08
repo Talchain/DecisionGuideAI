@@ -183,6 +183,47 @@ export function extractOptionsFromNodes(
 // ============================================================================
 
 /**
+ * Flatten an intervention map of mixed shapes to a `Record<string, number>`.
+ *
+ * Canvas option nodes may store interventions as either:
+ * - bare numbers (already flat) — `{ fac_a: 0.5 }`
+ * - complex objects — `{ fac_a: { value: 0.5, unit: 'scale', source: 'brief_extraction' } }`
+ *
+ * PLoT requires the flat shape. This is the single canonical converter; apply
+ * it at every boundary where canvas-shaped interventions cross into anything
+ * that will end up in a PLoT or CEE turn request body.
+ *
+ * Skip rules (do not produce an entry):
+ * - `null` / `undefined`
+ * - non-object, non-number values (strings, booleans, arrays)
+ * - object without a numeric `value` field (e.g. `{ value: null }`,
+ *   `{ value: 'tbd' }`, or no `value` at all)
+ *
+ * This is intentionally permissive on shape and strict on numeric content —
+ * an unrecognised entry is dropped, never coerced.
+ */
+export function flattenInterventions(
+  raw: unknown,
+): Record<string, number> {
+  const out: Record<string, number> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (value == null) continue
+    if (typeof value === 'number') {
+      if (Number.isFinite(value)) out[key] = value
+      continue
+    }
+    if (typeof value === 'object' && !Array.isArray(value)) {
+      const inner = (value as { value?: unknown }).value
+      if (typeof inner === 'number' && Number.isFinite(inner)) {
+        out[key] = inner
+      }
+    }
+  }
+  return out
+}
+
+/**
  * Detect whether an intervention map has at least one *usable* value.
  * Mirrors the validation rule in `validateOptionsHaveInterventions` so the
  * reader's "is this empty?" check stays aligned with the gate's "is this
@@ -353,12 +394,16 @@ export function reconcileOptionsWithCanvasNodes(
       continue
     }
 
-    // PRIMARY metadata + FALLBACK interventions from node.data.interventions
+    // PRIMARY metadata + FALLBACK interventions from node.data.interventions.
+    // Flatten complex `{value, unit, source}` shapes first so canvasInterventionsToCEE
+    // sees the canonical Record<string, number> form. This is the upstream guard for
+    // PLoT EMPTY_INTERVENTIONS — see flattenInterventions for the shape contract.
     const nodeData = (canvasNode.data as Record<string, unknown> | undefined) ?? {}
+    const flatNodeInterventions = flattenInterventions(nodeData.interventions)
     const fallback = canvasInterventionsToCEE(
       arOpt.id,
       arOpt.label || arOpt.id,
-      nodeData.interventions,
+      flatNodeInterventions,
       validNodeIds,
       silent,
     )
@@ -374,10 +419,12 @@ export function reconcileOptionsWithCanvasNodes(
     if (seen.has(node.id)) continue
     const nodeData = (node.data as Record<string, unknown> | undefined) ?? {}
     const label = (nodeData.label as string | undefined) || node.id
+    // Flatten complex shapes before handing off to the CEE converter.
+    const flatNodeInterventions = flattenInterventions(nodeData.interventions)
     const fallback = canvasInterventionsToCEE(
       node.id,
       label,
-      nodeData.interventions,
+      flatNodeInterventions,
       validNodeIds,
       silent,
     )
@@ -512,18 +559,15 @@ export function ceeOptionToV2Option(ceeOption: CEEOptionV3): V2Option {
     })
   }
 
+  // Final boundary flatten — invariant: every value at the PLoT request edge is a
+  // finite number. flattenInterventions handles V3 nested, complex canvas
+  // {value, unit, source}, and bare-number shapes uniformly, and drops anything
+  // that cannot be coerced to a finite number rather than smuggling NaN/undefined
+  // through to PLoT.
   const result: V2Option = {
     id: ceeOption.id,
     label: ceeOption.label,
-    interventions: Object.fromEntries(
-      Object.entries(ceeOption.interventions).map(([nodeId, iv]) => {
-        // Handle both nested (V3) and flattened (analysis_ready) formats
-        // V3 nested: iv = { value: number, source: string, ... }
-        // Flattened: iv = number
-        const value = typeof iv === 'number' ? iv : iv?.value
-        return [nodeId, value]
-      })
-    ),
+    interventions: flattenInterventions(ceeOption.interventions),
   }
 
   if (import.meta.env.DEV) {

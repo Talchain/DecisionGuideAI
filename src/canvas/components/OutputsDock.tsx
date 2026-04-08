@@ -1160,6 +1160,113 @@ export function OutputsDock() {
                 <div className={`flex-1 min-h-0 ${isPreRun && nodes.length > 0 ? 'flex flex-col' : 'olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6'}`}>
                 {/* P0.6: User-friendly error display */}
                 {isError && error && (() => {
+                  // Coached recovery branch: when the failure is specifically about
+                  // options missing intervention mappings, the system already knows
+                  // which options need attention. Render names + a configure CTA
+                  // instead of a generic "something went wrong" banner. Warning
+                  // palette (amber), not error red — this is a known modelling
+                  // state, not a system fault.
+                  const isInterventionRecovery =
+                    (error.code === 'EMPTY_INTERVENTIONS' ||
+                      error.code === 'MISSING_INTERVENTIONS') &&
+                    Boolean(error.affectedOptions && error.affectedOptions.length > 0)
+
+                  if (isInterventionRecovery) {
+                    const affected = error.affectedOptions!
+                    const headline = 'Options need their effects mapped'
+                    const verb = affected.length === 1 ? "doesn't" : "don't"
+                    const tail = ` ${verb} have clear effects on the model's factors yet. Map how each option changes the factors it influences.`
+                    const primaryLabel = `Configure ${affected[0].label}`
+
+                    const openOptionInInspector = (optionId: string) => {
+                      try {
+                        useCanvasStore.getState().selectNodeWithoutHistory(optionId)
+                      } catch {
+                        /* non-critical: focus is best-effort */
+                      }
+                      focusNodeById(optionId)
+                    }
+
+                    return (
+                      <div
+                        className="flex flex-col gap-2 px-3 py-3 rounded-lg border bg-panel border-warning/30"
+                        role="alert"
+                        aria-live="polite"
+                        data-testid="outputs-error-banner"
+                        data-error-code={error.code}
+                      >
+                        <div className={`${typography.panelHeader} text-warning`}>
+                          {headline}
+                        </div>
+                        <div className={`${typography.panelBody} text-text-body`}>
+                          {affected.map((opt, idx) => {
+                            const isLast = idx === affected.length - 1
+                            // Inline list separator: "A and B" for two; "A, B, and C" for three+
+                            let separator = ''
+                            if (idx > 0) {
+                              if (affected.length === 2) separator = ' and '
+                              else if (isLast) separator = ', and '
+                              else separator = ', '
+                            }
+                            return (
+                              <span key={opt.id}>
+                                {separator}
+                                <button
+                                  type="button"
+                                  onClick={() => openOptionInInspector(opt.id)}
+                                  className="underline text-warning hover:opacity-80 focus:outline-none focus-visible:ring-2 focus-visible:ring-warning rounded"
+                                  data-testid={`coached-option-${opt.id}`}
+                                >
+                                  {opt.label}
+                                </button>
+                              </span>
+                            )
+                          })}
+                          <span>{tail}</span>
+                        </div>
+                        <div className="flex flex-col gap-2 mt-1">
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              type="button"
+                              onClick={() => openOptionInInspector(affected[0].id)}
+                              className={`${typography.caption} font-medium px-3 py-1.5 rounded bg-primary text-text-on-color hover:opacity-90`}
+                              data-testid="coached-primary-configure"
+                            >
+                              {primaryLabel}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleRunAnalysis}
+                              disabled={isRunning}
+                              className={`${typography.caption} font-medium px-3 py-1.5 rounded border border-warning/30 text-text-body bg-transparent hover:bg-panel disabled:opacity-50`}
+                              data-testid="coached-secondary-retry"
+                            >
+                              Retry analysis
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setState(prev => ({ ...prev, isOpen: false }))}
+                              className={`${typography.caption} text-text-light hover:text-text-body underline`}
+                              data-testid="coached-tertiary-edit"
+                            >
+                              Edit model
+                            </button>
+                          </div>
+                        </div>
+                        {import.meta.env.DEV && (
+                          <details className="mt-2">
+                            <summary className={`${typography.code} text-ink-500 cursor-pointer`}>
+                              Debug info
+                            </summary>
+                            <div className={`${typography.code} text-ink-500 mt-1 text-xs`}>
+                              Code: {error.code} | Request ID: {error.request_id || 'n/a'}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    )
+                  }
+
                   const friendlyError = getUserFriendlyError({
                     code: error.code,
                     message: error.message,

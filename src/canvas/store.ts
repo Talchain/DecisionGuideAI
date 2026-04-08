@@ -160,7 +160,7 @@ export interface ResultsState {
   seed?: number
   hash?: string                 // response_hash
   report?: ReportV1 | null
-  error?: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean } | null
+  error?: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean; affectedOptions?: Array<{ id: string; label: string }> } | null
   startedAt?: number
   finishedAt?: number
   drivers?: Array<{ kind: 'node' | 'edge'; id: string }>
@@ -505,7 +505,7 @@ interface CanvasState {
     /** Raw V2RunResponse from PLoT — preserved for typed field access and debug */
     rawV2Response?: V2RunResponse | null
   }) => void
-  resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean }) => void
+  resultsError: (params: { code: string; message: string; retryAfter?: number; request_id?: string; canRetry?: boolean; affectedOptions?: Array<{ id: string; label: string }> }) => void
   /** Capture detailed error information for Debug Panel */
   captureErrorDetail: (detail: ErrorDetail) => void
   /** Clear all captured error details */
@@ -2324,13 +2324,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
   },
 
-  resultsError: ({ code, message, retryAfter, request_id, canRetry }) => {
+  resultsError: ({ code, message, retryAfter, request_id, canRetry, affectedOptions }) => {
     set(s => ({
       results: {
         ...s.results,
         status: 'error',
         // retryAfter: reserved for future rate-limit handling, not currently displayed
-        error: { code, message, retryAfter, request_id, canRetry },
+        error: { code, message, retryAfter, request_id, canRetry, affectedOptions },
         finishedAt: Date.now()
       }
     }))
@@ -3914,7 +3914,7 @@ export const selectResultsStatus = (state: CanvasState): ResultsStatus => state.
 export const selectProgress = (state: CanvasState): number => state.results.progress
 export const selectReport = (state: CanvasState): ReportV1 | null | undefined => state.results.report
 export const selectDrivers = (state: CanvasState): Array<{ kind: 'node' | 'edge'; id: string }> | undefined => state.results.drivers
-export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number; request_id?: string } | null | undefined => state.results.error
+export const selectError = (state: CanvasState): { code: string; message: string; retryAfter?: number; request_id?: string; affectedOptions?: Array<{ id: string; label: string }> } | null | undefined => state.results.error
 export const selectRunId = (state: CanvasState): string | undefined => state.results.runId
 export const selectSeed = (state: CanvasState): number | undefined => state.results.seed
 export const selectHash = (state: CanvasState): string | undefined => state.results.hash

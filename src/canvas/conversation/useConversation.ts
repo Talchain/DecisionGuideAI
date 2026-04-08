@@ -1409,6 +1409,9 @@ export function useConversation(): UseConversationReturn {
         reconciledOptions.length > 0 && ceeReady?.goal_node_id
           ? {
               // PLoT requires option_id; we use CEE option id as the canonical identifier on both fields for now.
+              // NOTE: interventions remain in the CEEInterventionV3 nested {value, source, target_match}
+              // shape here — CEE expects the nested form on its turn endpoint and only the V2/PLoT
+              // request edge (via ceeOptionToV2Option → flattenInterventions) collapses to numbers.
               options: reconciledOptions.map((opt) => ({
                 id: opt.id,
                 option_id: opt.id,
