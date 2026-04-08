@@ -170,13 +170,20 @@ describe('graphDisplayCalculations', () => {
       expect(lineStyle).toBeUndefined()
     })
 
-    it('returns "6,4" (dashed) for 40-70% certainty', () => {
+    it('returns "6,4" (dashed) for sub-threshold certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0.5)
       expect(lineStyle).toBe('6,4')
     })
 
-    it('returns "6,4" (dashed) for exactly 70% certainty', () => {
+    // Wireframe v4: edges with exists_probability < 0.7 are dashed; >= 0.7 is
+    // solid. The boundary at exactly 0.7 falls on the solid side.
+    it('returns undefined (solid) for exactly 70% certainty', () => {
       const lineStyle = existenceCertaintyToLineStyle(0.7)
+      expect(lineStyle).toBeUndefined()
+    })
+
+    it('returns "6,4" (dashed) just below the 70% boundary', () => {
+      const lineStyle = existenceCertaintyToLineStyle(0.6999)
       expect(lineStyle).toBe('6,4')
     })
 

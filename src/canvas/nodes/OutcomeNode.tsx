@@ -82,7 +82,8 @@ export const OutcomeNode = memo((props: NodeProps) => {
         <>
           <Sep />
           <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Depends on:</p>
-          {inboundConnections.slice(0, isDetailed ? 5 : 3).map(conn => (
+          {/* Wireframe v4 OutcomePostDet: max 3 ConnRows in both views. */}
+          {inboundConnections.slice(0, 3).map(conn => (
             <ConnRow
               key={conn.edgeId}
               edgeId={conn.edgeId}

@@ -98,11 +98,9 @@ export function calculateRiskSeverity(
 }
 
 /**
- * Map existence certainty to SVG dasharray for line style
- * From Decision Graph Display v2 spec (D.1 updated thresholds):
- * - Solid: 70–100% (high confidence)
- * - Dashed: 40–69% (medium confidence)
- * - Dotted: 0–39% (low confidence)
+ * Map existence certainty to SVG dasharray for line style.
+ * Graph v1.1 Task 7 / wireframe v4: edges with `exists_probability < 0.7`
+ * render dashed; `>= 0.7` is solid. The boundary at exactly 0.7 is solid.
  *
  * @param existsProbability - edge.exists_probability (0-1)
  * @returns SVG dasharray string or undefined for solid
@@ -110,11 +108,9 @@ export function calculateRiskSeverity(
 export function existenceCertaintyToLineStyle(
   existsProbability: number | undefined
 ): string | undefined {
-  if (existsProbability === undefined || existsProbability > 0.7) {
+  if (existsProbability === undefined || existsProbability >= 0.7) {
     return undefined // Solid (default)
   }
-
-  // Single dashed style for all confidence < 0.7
   return '6,4'
 }
 

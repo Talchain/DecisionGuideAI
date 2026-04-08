@@ -25,6 +25,7 @@ import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { isGraphLensEnabled } from '../../flags'
 import { NodeShapeIndicator } from './NodeShapeIndicator'
@@ -155,15 +156,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const isIncomplete = (() => {
     if (!isPreRunMode) return false
     if (nodeType === 'factor') {
-      // External factors NEVER get amber treatment (dashed = "outside your control",
-      // amber = "needs your judgement"; the two states must not be confused).
-      if (data?.category === 'external') return false
-      const obs = data?.observedState as { value?: number; raw_value?: string | number; display_value?: string | null } | undefined
-      // Wireframe v4 trigger: value AND raw_value AND display_value all null/undefined.
-      const valueMissing = obs?.value == null
-      const rawMissing = obs?.raw_value == null
-      const displayMissing = obs?.display_value == null
-      return valueMissing && rawMissing && displayMissing
+      // Single source of truth shared with FactorNode's in-body chip — see
+      // isFactorNeedsInput in observedStateHelpers.ts.
+      return isFactorNeedsInput(data)
     }
     if (nodeType === 'goal') {
       return !isGoalDefined(goalThreshold, goalConstraints)

@@ -58,6 +58,14 @@ vi.mock('../../hooks/useScienceIcons', () => ({
   useScienceIcons: vi.fn(() => []),
 }))
 
+// Make NodePopover transparent in tests so we can directly assert what its
+// content would render (otherwise the popover is hidden until 300ms hover).
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="factor-node-popover">{children}</div>
+  ),
+}))
+
 // Default: graph badges OFF, lens OFF. Individual tests override as needed.
 vi.mock('../../../flags', () => ({
   isGraphBadgesEnabled: vi.fn(() => false),
@@ -989,5 +997,76 @@ describe('FactorNode — intervention hover', () => {
       observedState: { value: 0.5, factor_type: 'quality' },
     })
     expect(screen.queryByText(/^Intervention:/)).toBeNull()
+  })
+
+  // Graph v1.1 Task 2: low-priority factors are visually quieted in Standard
+  // view — the hover popover (ConnRows, BiasNote, coaching) is suppressed.
+  // High-priority factors keep the popover.
+  describe('low-priority Standard view popover', () => {
+    const buildState = (extra: Record<string, unknown>) => ({
+      hoveredOptionId: null,
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: { type: 'factor', label: 'Low priority' } },
+        { id: 'factor-2', type: 'factor', data: { type: 'factor', label: 'Other' } },
+        { id: 'factor-3', type: 'factor', data: { type: 'factor', label: 'Other' } },
+        { id: 'factor-4', type: 'factor', data: { type: 'factor', label: 'Other' } },
+        { id: 'factor-5', type: 'factor', data: { type: 'factor', label: 'Other' } },
+      ],
+      edges: [
+        // factor-2..factor-5 each have outbound weight 1 → factor-1 ranks #5 (low)
+        { id: 'e2', source: 'factor-2', target: 'goal', data: { weight: 1, direction: 'positive' } },
+        { id: 'e3', source: 'factor-3', target: 'goal', data: { weight: 1, direction: 'positive' } },
+        { id: 'e4', source: 'factor-4', target: 'goal', data: { weight: 1, direction: 'positive' } },
+        { id: 'e5', source: 'factor-5', target: 'goal', data: { weight: 1, direction: 'positive' } },
+      ],
+      ceeAnalysisReady: null,
+      results: { status: 'idle', report: null },
+      highlightedNodes: new Set(),
+      dimmedNodeIds: new Set(),
+      goalThreshold: null,
+      goalConstraints: [],
+      viewMode: 'standard',
+      ...extra,
+    })
+
+    it('does not render the popover at all for a low-priority factor in Standard view', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+        selector(buildState({}))
+      )
+      renderFactor({
+        label: 'Low priority',
+        type: 'factor',
+        category: 'controllable',
+        observedState: { value: 0.5 },
+      })
+      expect(screen.queryByTestId('factor-node-popover')).toBeNull()
+    })
+
+    it('does render the popover for a high-priority (top-3) factor in Standard view', () => {
+      // Make this factor the only ranked one — it becomes top-3 by default.
+      vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+        selector({
+          hoveredOptionId: null,
+          nodes: [
+            { id: 'factor-1', type: 'factor', data: { type: 'factor', label: 'High priority' } },
+          ],
+          edges: [],
+          ceeAnalysisReady: null,
+          results: { status: 'idle', report: null },
+          highlightedNodes: new Set(),
+          dimmedNodeIds: new Set(),
+          goalThreshold: null,
+          goalConstraints: [],
+          viewMode: 'standard',
+        })
+      )
+      renderFactor({
+        label: 'High priority',
+        type: 'factor',
+        category: 'controllable',
+        observedState: { value: 0.5 },
+      })
+      expect(screen.queryByTestId('factor-node-popover')).not.toBeNull()
+    })
   })
 })

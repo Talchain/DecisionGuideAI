@@ -19,7 +19,7 @@
 /** Shape of observed_state on factor nodes */
 export interface ObservedStateData {
   value?: number
-  raw_value?: number
+  raw_value?: number | string | null
   baseline?: number
   std?: number
   unit?: string
@@ -28,6 +28,8 @@ export interface ObservedStateData {
   factor_type?: string
   uncertainty_drivers?: string[]
   extractionType?: string
+  /** CEE-provided display text. When present the UI renders verbatim. */
+  display_value?: string | null
   [key: string]: unknown
 }
 
@@ -78,6 +80,28 @@ export function hasObservedData(nodeData: unknown): boolean {
   // Empty object returned when key is absent — no keys means no data
   if (Object.keys(obs).length === 0) return false
   return typeof obs.value === 'number'
+}
+
+/**
+ * Single source of truth for the "factor needs input" predicate used by the
+ * amber StatusPill (BaseNode) AND the in-body coaching chip (FactorNode).
+ *
+ * Wireframe v4 trigger (FactorNeedsPre): factor needs input when ALL of
+ * `value`, `raw_value` and `display_value` are nullish AND the factor is not
+ * external. External factors are exempt — dashed border = "outside your
+ * control" must not be confused with amber = "needs your judgement".
+ *
+ * Both call sites must agree on this predicate, otherwise a node can show the
+ * "Help me estimate this" chip without the amber border (or vice-versa).
+ */
+export function isFactorNeedsInput(nodeData: unknown): boolean {
+  const data = nodeData as { category?: string } | undefined
+  if (data?.category === 'external') return false
+  const obs = getObservedState(nodeData)
+  const valueMissing = obs.value == null
+  const rawMissing = obs.raw_value == null
+  const displayMissing = obs.display_value == null
+  return valueMissing && rawMissing && displayMissing
 }
 
 /**

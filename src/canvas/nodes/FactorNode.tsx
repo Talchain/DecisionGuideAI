@@ -8,7 +8,7 @@ import { NODE_REGISTRY } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
-import { hasObservedData } from '../utils/observedStateHelpers'
+import { hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
 import { cleanFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
@@ -137,7 +137,9 @@ export const FactorNode = memo((props: NodeProps) => {
 
   const isInferred = observedState?.extractionType === 'inferred'
   const isExplicit = observedState?.extractionType === 'explicit'
-  const needsInput = observedState?.value == null && nodeCategory !== 'external'
+  // Single source of truth shared with BaseNode's StatusPill (wireframe v4
+  // FactorNeedsPre): all of value/raw_value/display_value null AND non-external.
+  const needsInput = isFactorNeedsInput(props.data)
 
   const externalWithPrior = nodeCategory === 'external' && props.data?.prior != null
   const showEvidenceGapBadge =
@@ -365,10 +367,13 @@ export const FactorNode = memo((props: NodeProps) => {
         icon={metadata.icon}
         headerSlot={(() => {
           // Graph v1.1 Task 2: low-priority factors keep their identity cues
-          // (sparkle for inferred) but lose extra science icons in Standard view.
-          // Detailed view always shows the full set.
+          // (sparkle for inferred, fileQuestion for needs-input) but lose extra
+          // science icons in Standard view. Detailed view always shows the full
+          // set. The needs-input fileQuestion icon is preserved regardless of
+          // priority because the truth table mandates it.
+          const KEEP_LOW_PRIORITY = new Set(['olumi-estimate', 'evidence-gap'])
           const visibleIcons = (!isDetailed && isLowPriority)
-            ? scienceIcons.filter(si => si.id === 'olumi-estimate')
+            ? scienceIcons.filter(si => KEEP_LOW_PRIORITY.has(si.id))
             : scienceIcons
           if (visibleIcons.length === 0) return undefined
           return (
@@ -415,9 +420,10 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Pre-analysis: edge pills (entity shape + strength %) — high-priority only
-            in Standard. Detailed always shows. (Graph v1.1 Task 2) */}
-        {!isPostAnalysis && !needsInput && (isDetailed || isHighPriority) && (
+        {/* Pre-analysis: edge pills (entity shape + strength %) — shown for both
+            high- and low-priority factors per wireframe v4 FactorLowPre. They are
+            the structural cue that conveys relative influence pre-analysis. */}
+        {!isPostAnalysis && !needsInput && (
           <EdgePills nodeId={props.id} />
         )}
 
@@ -514,8 +520,12 @@ export const FactorNode = memo((props: NodeProps) => {
         )}
       </BaseNode>
 
-      {/* ===== LAYER 2: Popover (Standard view) ===== */}
-      {!isDetailed && (
+      {/* ===== LAYER 2: Popover (Standard view) =====
+          Graph v1.1 Task 2: low-priority factors are visually quieted in
+          Standard, so the popover (ConnRows, BiasNote, coaching chips) is
+          suppressed too. The user can promote the node by switching to
+          Detailed view or selecting it in the inspector. */}
+      {!isDetailed && isHighPriority && (
         <NodePopover
           visible={showPopover}
           width={240}

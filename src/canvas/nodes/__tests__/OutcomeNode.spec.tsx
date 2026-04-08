@@ -197,4 +197,39 @@ describe('OutcomeNode', () => {
     renderOutcome()
     expect(screen.getByText('Achievement: 68%')).toBeDefined()
   })
+
+  // Wireframe v4 OutcomePostDet: Detailed view caps "Depends on:" ConnRows at 3
+  // even when more inbound factors exist.
+  it('caps Depends on ConnRows at 3 in Detailed post-analysis view', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: null },
+        nodes: [
+          { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Revenue' } },
+          { id: 'goal-1', data: { type: 'goal' } },
+          { id: 'f1', type: 'factor', data: { type: 'factor', label: 'Factor One' } },
+          { id: 'f2', type: 'factor', data: { type: 'factor', label: 'Factor Two' } },
+          { id: 'f3', type: 'factor', data: { type: 'factor', label: 'Factor Three' } },
+          { id: 'f4', type: 'factor', data: { type: 'factor', label: 'Factor Four' } },
+          { id: 'f5', type: 'factor', data: { type: 'factor', label: 'Factor Five' } },
+        ],
+        edges: [
+          { id: 'b1', source: 'outcome-1', target: 'goal-1', data: { weight: 0.5, direction: 'positive' } },
+          { id: 'e1', source: 'f1', target: 'outcome-1', data: { exists_probability: 0.9 } },
+          { id: 'e2', source: 'f2', target: 'outcome-1', data: { exists_probability: 0.85 } },
+          { id: 'e3', source: 'f3', target: 'outcome-1', data: { exists_probability: 0.8 } },
+          { id: 'e4', source: 'f4', target: 'outcome-1', data: { exists_probability: 0.75 } },
+          { id: 'e5', source: 'f5', target: 'outcome-1', data: { exists_probability: 0.7 } },
+        ],
+        viewMode: 'expert',
+      }) as any)
+    )
+    renderOutcome()
+    // First three sorted-by-confidence factors render; the 4th and 5th do not.
+    expect(screen.getByText('Factor One')).toBeDefined()
+    expect(screen.getByText('Factor Two')).toBeDefined()
+    expect(screen.getByText('Factor Three')).toBeDefined()
+    expect(screen.queryByText('Factor Four')).toBeNull()
+    expect(screen.queryByText('Factor Five')).toBeNull()
+  })
 })

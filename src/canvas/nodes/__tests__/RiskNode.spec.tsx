@@ -171,4 +171,38 @@ describe('RiskNode', () => {
     renderRisk()
     expect(screen.queryByText(/influence on goal/)).toBeNull()
   })
+
+  // Wireframe v4: Detailed view caps "Depends on:" ConnRows at 3 even when
+  // more inbound factors exist.
+  it('caps Depends on ConnRows at 3 in Detailed post-analysis view', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: { status: 'complete', report: null },
+        nodes: [
+          { id: 'risk-1', type: 'risk', data: { type: 'risk', label: 'Key person dependency' } },
+          { id: 'goal-1', data: { type: 'goal' } },
+          { id: 'f1', type: 'factor', data: { type: 'factor', label: 'Risk Factor One' } },
+          { id: 'f2', type: 'factor', data: { type: 'factor', label: 'Risk Factor Two' } },
+          { id: 'f3', type: 'factor', data: { type: 'factor', label: 'Risk Factor Three' } },
+          { id: 'f4', type: 'factor', data: { type: 'factor', label: 'Risk Factor Four' } },
+          { id: 'f5', type: 'factor', data: { type: 'factor', label: 'Risk Factor Five' } },
+        ],
+        edges: [
+          { id: 'b1', source: 'risk-1', target: 'goal-1', data: { weight: 0.4, direction: 'negative' } },
+          { id: 'e1', source: 'f1', target: 'risk-1', data: { exists_probability: 0.9 } },
+          { id: 'e2', source: 'f2', target: 'risk-1', data: { exists_probability: 0.85 } },
+          { id: 'e3', source: 'f3', target: 'risk-1', data: { exists_probability: 0.8 } },
+          { id: 'e4', source: 'f4', target: 'risk-1', data: { exists_probability: 0.75 } },
+          { id: 'e5', source: 'f5', target: 'risk-1', data: { exists_probability: 0.7 } },
+        ],
+        viewMode: 'expert',
+      }) as any)
+    )
+    renderRisk()
+    expect(screen.getByText('Risk Factor One')).toBeDefined()
+    expect(screen.getByText('Risk Factor Two')).toBeDefined()
+    expect(screen.getByText('Risk Factor Three')).toBeDefined()
+    expect(screen.queryByText('Risk Factor Four')).toBeNull()
+    expect(screen.queryByText('Risk Factor Five')).toBeNull()
+  })
 })
