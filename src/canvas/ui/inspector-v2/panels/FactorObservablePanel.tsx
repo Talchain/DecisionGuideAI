@@ -13,6 +13,7 @@ import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
 import { shouldShowNormalised } from '../normalisedDisplay'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
 import { SECTION_TITLES, getExtractionLabel, getProvenanceLabel } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
@@ -39,8 +40,15 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   const obs = (node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
-  const rawValue = obs?.raw_value as number | undefined
-  const value = obs?.value as number | undefined
+  // Defensive unwrap: observedState.raw_value / value / cap should be plain
+  // numbers, but CEE/legacy paths can wrap them in `{ value, unit, ... }`
+  // objects. Casting unknown→number lies; the values then reach
+  // .toLocaleString() and render as "[object Object]". unwrapInterventionValue
+  // is generic numeric defense (handles both number and `{ value: number }`)
+  // and returns null when the input cannot resolve to a finite number.
+  const rawValue = unwrapInterventionValue(obs?.raw_value) ?? undefined
+  const value = unwrapInterventionValue(obs?.value) ?? undefined
+  const cap = unwrapInterventionValue(obs?.cap) ?? undefined
   const unit = obs?.unit as string | undefined
   const source = obs?.source as string | undefined
 
@@ -151,9 +159,9 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
             System: model value: {value.toFixed(3)}
           </div>
         )}
-        {techMode && obs?.cap != null && (
+        {techMode && cap != null && (
           <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
-            Cap: {typeof obs.cap === 'number' ? obs.cap.toLocaleString() : String(obs.cap)}{unit ? ` ${unit}` : ''}
+            Cap: {cap.toLocaleString()}{unit ? ` ${unit}` : ''}
           </div>
         )}
         {/* Provenance inline below value */}

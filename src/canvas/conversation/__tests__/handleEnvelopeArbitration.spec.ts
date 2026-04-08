@@ -42,6 +42,13 @@ vi.mock('../../../adapters/plot/v2', () => ({
   isFailedAnalysis: () => false,
   validateV2RunResponseFull: () => ({ softWarnings: [] }),
   sanitizeV2RunResponse: (r: unknown) => r,
+  // buildRequest calls reconcileOptionsWithCanvasNodes when assembling
+  // analysis_inputs. These tests don't exercise option reconciliation, so a
+  // pass-through that returns the analysisReady options (or empty array) is
+  // sufficient. Without this stub the import resolves to undefined and the
+  // call throws "is not a function" before the orchestrator turn fires.
+  reconcileOptionsWithCanvasNodes: (analysisReady: any) =>
+    Array.isArray(analysisReady?.options) ? analysisReady.options : [],
 }))
 
 vi.mock('../../../adapters/plot/v2/responseMapper', () => ({

@@ -11,6 +11,7 @@ import { getProvenanceLabel } from '../inspectorStrings'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 import { typography } from '../../../../styles/typography'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
 
 const FACTOR_TYPES = [
   { value: '', label: '—' },
@@ -49,6 +50,18 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
   const ssRange = stateSpace?.range as Record<string, unknown> | undefined
   const drivers = (data?.uncertainty_drivers as string[]) ?? []
 
+  // Defensive unwrap: observedState.value / raw_value / baseline / std should
+  // be plain numbers, but legacy / future CEE shapes may wrap them as
+  // `{ value: number }` objects. AdvancedField does `String(value ?? '')`
+  // unconditionally, which produces "[object Object]" in the editor input
+  // for compound shapes. unwrapInterventionValue is generic numeric defense.
+  // Same fix class as the panel-level unwraps in Task 2.
+  const obsValue = unwrapInterventionValue(obs?.value) ?? undefined
+  const obsRawValue = unwrapInterventionValue(obs?.raw_value) ?? undefined
+  const obsBaseline = unwrapInterventionValue(obs?.baseline) ?? undefined
+  const obsStd = unwrapInterventionValue(obs?.std) ?? undefined
+  const obsCap = unwrapInterventionValue(obs?.cap) ?? undefined
+
   const [newDriver, setNewDriver] = useState('')
 
   const handleAddDriver = useCallback(() => {
@@ -69,7 +82,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
       <AdvancedFieldGroup title="Observed state">
         <AdvancedField
           label="Normalised value"
-          value={obs?.value as number | undefined}
+          value={obsValue}
           onChange={v => mutations.setObservedValue(v as number)}
           type="number"
           min={0}
@@ -78,7 +91,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
         />
         <AdvancedField
           label="Raw value"
-          value={obs?.raw_value as number | undefined}
+          value={obsRawValue}
           onChange={v => mutations.setObservedRawValue(v as number)}
           type="number"
           placeholder="Original units"
@@ -92,7 +105,7 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
         />
         <AdvancedField
           label="Scale cap"
-          value={obs?.cap as number | undefined}
+          value={obsCap}
           onChange={v => mutations.setObservedCap(v as number)}
           type="number"
           min={0}
@@ -100,14 +113,14 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
         />
         <AdvancedField
           label="Baseline"
-          value={obs?.baseline as number | undefined}
+          value={obsBaseline}
           onChange={v => mutations.setObservedBaseline(v as number)}
           type="number"
           placeholder="Reference value"
         />
         <AdvancedField
           label="Observation uncertainty (σ)"
-          value={obs?.std as number | undefined}
+          value={obsStd}
           onChange={v => mutations.setObservedStd(v as number)}
           type="number"
           min={0}

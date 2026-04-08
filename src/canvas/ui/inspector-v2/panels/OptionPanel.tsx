@@ -77,11 +77,16 @@ export const OptionPanel = memo(function OptionPanel({
       if (value == null) return []
       const factorNode = nodes.find(n => n.id === factorId)
       const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+      // Defensive unwrap: observedState.value / .raw_value should be plain
+      // numbers, but legacy/wrapped shapes ({ value: 0.5, unit: 'scale' })
+      // would otherwise flow into InterventionRow as the baseline prop and
+      // render as "[object Object]" via .toLocaleString(). Same helper as
+      // the intervention value above — generic numeric defense.
       return [{
         factorId,
         factorLabel: String(factorNode?.data?.label ?? factorId),
-        baseline: obs?.value as number | undefined,
-        rawBaseline: obs?.raw_value as number | undefined,
+        baseline: unwrapInterventionValue(obs?.value) ?? undefined,
+        rawBaseline: unwrapInterventionValue(obs?.raw_value) ?? undefined,
         unit: obs?.unit as string | undefined,
         value,
       }]
@@ -105,7 +110,11 @@ export const OptionPanel = memo(function OptionPanel({
           id: n.id,
           label: String(n.data?.label ?? n.id),
           valueDisplay,
-          baseline: obs?.value as number | undefined,
+          // Defensive unwrap: see the interventions memo above. baseline flows
+          // into mutations.setIntervention as the initial intervention value
+          // for newly-added factor changes; passing an object would corrupt the
+          // store and propagate "[object Object]" through downstream renders.
+          baseline: unwrapInterventionValue(obs?.value) ?? undefined,
         }
       })
   }, [nodes, nodeId])

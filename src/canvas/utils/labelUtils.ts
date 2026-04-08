@@ -237,7 +237,22 @@ export function formatFactorValue(observedState: {
 } | undefined | null): string | null {
   if (!observedState) return null
 
-  const { raw_value, value, cap, factor_type } = observedState
+  // Defensive unwrap: callers cast unknown→number on .value/.raw_value, but
+  // legacy / future CEE shapes may wrap them as `{ value: number }` objects.
+  // Without this guard, `String({ value: 0.5 })` produces "[object Object]"
+  // and the rendered cell shows "£[object Object]". unwrapInterventionValue
+  // is generic numeric defense (handles both number and `{ value: number }`)
+  // and returns null for everything else (string, undefined, null, boolean).
+  //
+  // For raw_value we preserve the legacy "string passes through" semantics
+  // (the signature intentionally accepts `string | number`); only non-string
+  // inputs flow through unwrap.
+  const rRaw: unknown = observedState.raw_value
+  const rValue: unknown = observedState.value
+  const raw_value: string | number | undefined =
+    typeof rRaw === 'string' ? rRaw : (unwrapInterventionValue(rRaw) ?? undefined)
+  const value: number | undefined = unwrapInterventionValue(rValue) ?? undefined
+  const { cap, factor_type } = observedState
   const unit = sanitiseUnit(observedState.unit)
 
   // 1. raw_value present — preferred path

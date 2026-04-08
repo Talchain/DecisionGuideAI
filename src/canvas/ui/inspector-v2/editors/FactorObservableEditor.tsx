@@ -7,6 +7,7 @@ import { useCanvasStore } from '../../../store'
 import { useNodeMutations } from '../useInspectorMutations'
 import { AdvancedField } from '../shared/AdvancedField'
 import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
+import { unwrapInterventionValue } from '../../../utils/labelUtils'
 
 const EXTRACTION_OPTIONS = [
   { value: 'explicit', label: 'Explicit' },
@@ -26,6 +27,14 @@ export function FactorObservableEditor({ nodeId }: FactorObservableEditorProps) 
   const stateSpace = data?.state_space as Record<string, unknown> | undefined
   const ssRange = stateSpace?.range as Record<string, unknown> | undefined
 
+  // Defensive unwrap: same fix class as the panel-level unwraps in Task 2.
+  // Compound `{ value: number, unit?: string }` shapes would otherwise reach
+  // AdvancedField's `String(value ?? '')` and render as "[object Object]".
+  const obsValue = unwrapInterventionValue(obs?.value) ?? undefined
+  const obsRawValue = unwrapInterventionValue(obs?.raw_value) ?? undefined
+  const obsBaseline = unwrapInterventionValue(obs?.baseline) ?? undefined
+  const obsCap = unwrapInterventionValue(obs?.cap) ?? undefined
+
   if (!node) return null
 
   return (
@@ -33,7 +42,7 @@ export function FactorObservableEditor({ nodeId }: FactorObservableEditorProps) 
       <AdvancedFieldGroup title="Observed state">
         <AdvancedField
           label="Normalised value"
-          value={obs?.value as number | undefined}
+          value={obsValue}
           onChange={v => mutations.setObservedValue(v as number)}
           type="number"
           min={0}
@@ -42,7 +51,7 @@ export function FactorObservableEditor({ nodeId }: FactorObservableEditorProps) 
         />
         <AdvancedField
           label="Raw value"
-          value={obs?.raw_value as number | undefined}
+          value={obsRawValue}
           onChange={v => mutations.setObservedRawValue(v as number)}
           type="number"
           placeholder="Original units"
@@ -56,14 +65,14 @@ export function FactorObservableEditor({ nodeId }: FactorObservableEditorProps) 
         />
         <AdvancedField
           label="Scale cap"
-          value={obs?.cap as number | undefined}
+          value={obsCap}
           onChange={v => mutations.setObservedCap(v as number)}
           type="number"
           min={0}
         />
         <AdvancedField
           label="Baseline"
-          value={obs?.baseline as number | undefined}
+          value={obsBaseline}
           onChange={v => mutations.setObservedBaseline(v as number)}
           type="number"
         />

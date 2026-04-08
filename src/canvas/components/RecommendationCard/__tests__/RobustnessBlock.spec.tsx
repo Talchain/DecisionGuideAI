@@ -275,7 +275,7 @@ describe('RobustnessBlock', () => {
         value_of_information: [],
       }
       render(<RobustnessBlock robustness={minimalData} defaultExpanded />)
-      expect(screen.getByText(/Clear winner/)).toBeInTheDocument()
+      expect(screen.getByText(/Clear leading option/)).toBeInTheDocument()
     })
   })
 

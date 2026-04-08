@@ -40,9 +40,11 @@ vi.mock('../../../flags', () => ({
   isOrchestratorStreamingEnabled: () => false,
 }))
 
-// Mock the v2 adapter — provide all functions used by handleEnvelope.
-// NOTE: factory functions are hoisted by Vitest, so we define plain functions
-// (not vi.fn()) for pass-through mocks to avoid undefined-return issues.
+// Mock the v2 adapter — provide all functions used by handleEnvelope AND
+// by buildRequest (which sendMessage calls before delegating to the
+// orchestrator). NOTE: factory functions are hoisted by Vitest, so we
+// define plain functions (not vi.fn()) for pass-through mocks to avoid
+// undefined-return issues.
 vi.mock('../../../adapters/plot/v2', () => ({
   isSuccessfulAnalysis: (r: unknown) => {
     const res = r as Record<string, unknown>
@@ -52,6 +54,13 @@ vi.mock('../../../adapters/plot/v2', () => ({
   isFailedAnalysis: (r: unknown) => (r as any).analysis_status === 'failed',
   validateV2RunResponseFull: () => ({ softWarnings: [] }),
   sanitizeV2RunResponse: (r: unknown) => r, // identity pass-through
+  // buildRequest calls reconcileOptionsWithCanvasNodes when assembling
+  // analysis_inputs. These tests don't exercise option reconciliation, so a
+  // pass-through that returns the analysisReady options (or empty array) is
+  // sufficient. Without this stub the import resolves to undefined and the
+  // call throws "is not a function" before the orchestrator turn fires.
+  reconcileOptionsWithCanvasNodes: (analysisReady: any) =>
+    Array.isArray(analysisReady?.options) ? analysisReady.options : [],
 }))
 
 vi.mock('../../../adapters/plot/v2/responseMapper', () => ({

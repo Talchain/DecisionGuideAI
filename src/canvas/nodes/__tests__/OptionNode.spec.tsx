@@ -1,6 +1,6 @@
 /**
  * OptionNode render tests
- * T7: Win probability bar + Winner badge
+ * T7: Win probability bar + Leading option badge
  * T8: Intervention chips with cleaned labels and formatted values
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest'
@@ -134,8 +134,8 @@ describe('OptionNode', () => {
     expect(screen.getByText('72% win probability')).toBeDefined()
   })
 
-  // T7: Winner badge
-  it('shows Winner badge for highest winRate option', () => {
+  // T7: Leading option badge
+  it('shows Leading option badge for highest winRate option', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -165,10 +165,10 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    expect(screen.getByText('Winner')).toBeDefined()
+    expect(screen.getByText('Leading option')).toBeDefined()
   })
 
-  it('does not show Winner badge for non-highest option', () => {
+  it('does not show Leading option badge for non-highest option', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -197,7 +197,7 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    expect(screen.queryByText('Winner')).toBeNull()
+    expect(screen.queryByText('Leading option')).toBeNull()
   })
 
   // T8: Intervention chips
@@ -285,8 +285,8 @@ describe('OptionNode', () => {
     expect(percentEl.className).not.toContain('text-option')
   })
 
-  // V3: Winner badge uses text-text-body (WCAG AA contrast on bg-success-light)
-  it('Winner badge uses text-text-body (not text-success)', () => {
+  // V3: Leading option badge uses text-text-body (WCAG AA contrast on bg-success-light)
+  it('Leading option badge uses text-text-body (not text-success)', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -315,7 +315,7 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    const badge = screen.getByText('Winner')
+    const badge = screen.getByText('Leading option')
     expect(badge.className).toContain('text-text-body')
     expect(badge.className).not.toContain('text-success')
   })
@@ -437,7 +437,7 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/win probability/)).toBeNull()
   })
 
-  it('does not show Winner badge when resultsReport has no option_probabilities key', () => {
+  it('does not show Leading option badge when resultsReport has no option_probabilities key', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -458,10 +458,10 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    expect(screen.queryByText('Winner')).toBeNull()
+    expect(screen.queryByText('Leading option')).toBeNull()
   })
 
-  it('shows Winner badge when a non-canvas option has higher rate in report', () => {
+  it('shows Leading option badge when a non-canvas option has higher rate in report', () => {
     // P0-2: only visible canvas option IDs count when computing max
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
@@ -494,11 +494,11 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    // option-1 has highest win rate among visible options → Winner
-    expect(screen.getByText('Winner')).toBeDefined()
+    // option-1 has highest win rate among visible options → Leading option
+    expect(screen.getByText('Leading option')).toBeDefined()
   })
 
-  it('does not show Winner badge when only one option node exists', () => {
+  it('does not show Leading option badge when only one option node exists', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,
       influence: null,
@@ -523,8 +523,8 @@ describe('OptionNode', () => {
       }) as any)
     )
     renderOption()
-    // isWinner requires length >= 2
-    expect(screen.queryByText('Winner')).toBeNull()
+    // isRecommended requires length >= 2
+    expect(screen.queryByText('Leading option')).toBeNull()
   })
 
   // V3: Intervention details render in expert overlay without chip styling
@@ -796,10 +796,10 @@ describe('OptionNode — QA Brief C-series', () => {
     expect(screen.queryByText(/→/)).toBeNull()
   })
 
-  // C9: Pre-analysis — no win probability, no recommended badge
-  it('C9: pre-analysis shows no win probability and no Winner badge', () => {
+  // C9: Pre-analysis — no win probability, no Leading option badge
+  it('C9: pre-analysis shows no win probability and no Leading option badge', () => {
     renderOption()
     expect(screen.queryByText(/win probability/)).toBeNull()
-    expect(screen.queryByText('Winner')).toBeNull()
+    expect(screen.queryByText('Leading option')).toBeNull()
   })
 })

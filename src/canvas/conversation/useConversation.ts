@@ -20,6 +20,7 @@ import { useGuidanceStore, type GuidanceItem } from '../stores/guidanceStore'
 import { serializeSystemEvent } from './systemEvents'
 import {
   isSuccessfulAnalysis,
+  reconcileOptionsWithCanvasNodes,
   sanitizeV2RunResponse,
   validateV2RunResponseFull,
 } from '../../adapters/plot/v2'
@@ -1372,15 +1373,43 @@ export function useConversation(): UseConversationReturn {
         }
       }
 
-      // Build analysis_inputs from ceeAnalysisReady when options and a resolved goal are available.
+      // Build analysis_inputs from ceeAnalysisReady when a resolved goal is available.
       // goal_node_id comes from ceeAnalysisReady (required field); omit analysis_inputs entirely
-      // if either options are absent or goal_node_id is falsy (partial context is worse than none).
+      // if goal_node_id is falsy (partial context is worse than none).
+      //
+      // Options are reconciled with canvas nodes: analysisReady.options are primary, but
+      // when an entry has empty/needs_encoding interventions OR a canvas option node has
+      // no analysisReady entry at all, we backfill from node.data.interventions. This
+      // mirrors the PLoT /v2/run path (useV2Run.ts:334, adapter.ts:1092) so the
+      // conversational turn path can never send stale interventions to CEE after
+      // add_option / draft_graph / manual canvas edits.
+      //
+      // Reconcile is gated on ceeReady?.goal_node_id: when no goal exists,
+      // analysis_inputs would be omitted anyway, so calling reconcile would
+      // (a) waste a per-turn allocation and (b) emit per-option backfill
+      // warnings for data that is never actually sent — misleading console
+      // noise that suggests "we backfilled then transmitted" when in fact
+      // nothing was transmitted at all.
+      //
+      // NOTE: silent flag intentionally omitted (defaults to false). Unlike the PLoT
+      // run path — where useV2Run pre-validates with silent: true and adapter.ts:1092
+      // calls reconcile a second time without silent (where the canonical warning
+      // fires) — the conversational path calls reconcile exactly once. Suppressing
+      // here would mean MISSING_INTERVENTIONS regressions on this path leave no
+      // console trace. The per-option backfill warning is the observability hook.
       const ceeReady = store.ceeAnalysisReady
+      const reconciledOptions = ceeReady?.goal_node_id
+        ? reconcileOptionsWithCanvasNodes(
+            ceeReady,
+            store.nodes as any,
+            new Set(store.nodes.map((n) => n.id)),
+          )
+        : []
       const analysisInputs =
-        ceeReady && ceeReady.options.length > 0 && ceeReady.goal_node_id
+        reconciledOptions.length > 0 && ceeReady?.goal_node_id
           ? {
               // PLoT requires option_id; we use CEE option id as the canonical identifier on both fields for now.
-              options: ceeReady.options.map((opt) => ({
+              options: reconciledOptions.map((opt) => ({
                 id: opt.id,
                 option_id: opt.id,
                 label: opt.label,

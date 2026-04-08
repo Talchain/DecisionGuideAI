@@ -65,8 +65,15 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   const obs = (node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
-  const rawValue = obs?.raw_value as number | undefined
-  const value = obs?.value as number | undefined
+  // Defensive unwrap: observedState.raw_value / value / cap should be plain
+  // numbers, but CEE/legacy paths can wrap them in `{ value, unit, ... }`
+  // objects. Casting unknown→number lies; the values then reach the editable
+  // input via `String(displayValue)` and render as "[object Object]".
+  // unwrapInterventionValue is generic numeric defense (handles both number
+  // and `{ value: number }`) and returns null when the input cannot resolve.
+  const rawValue = unwrapInterventionValue(obs?.raw_value) ?? undefined
+  const value = unwrapInterventionValue(obs?.value) ?? undefined
+  const cap = unwrapInterventionValue(obs?.cap) ?? undefined
   const unit = obs?.unit as string | undefined
   const source = obs?.source as string | undefined
   const uncertaintyDrivers = (node?.data as Record<string, unknown>)?.uncertainty_drivers as string[] | undefined
@@ -244,9 +251,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             System: model value: {value.toFixed(3)}
           </div>
         )}
-        {techMode && obs?.cap != null && (
+        {techMode && cap != null && (
           <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
-            Cap: {typeof obs.cap === 'number' ? obs.cap.toLocaleString() : String(obs.cap)}{unit ? ` ${unit}` : ''}
+            Cap: {cap.toLocaleString()}{unit ? ` ${unit}` : ''}
           </div>
         )}
         {/* Provenance inline below value (no separate section title) */}
