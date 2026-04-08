@@ -222,11 +222,10 @@ export function qualitativeTierLabel(value: number): string {
  * - The model-tab raw formatter (formatRawValueWithUnit) drops the unit
  *   suffix and renders the number on its own.
  *
- * Keep in sync with the equivalent set in src/canvas/components/model-tab/utils.ts
- * — that file has its own copy because the model-tab utility module pre-dates
- * the consolidation. Removing the duplicate set there would couple the
- * model-tab utils to labelUtils, which is a bigger change than this audit
- * scope warranted.
+ * Single source of truth — Polish 4 follow-up Item 2 (review). The
+ * model-tab utility module previously had its own GENERIC_UNITS set; it now
+ * imports GENERIC_PLACEHOLDER_UNITS from this file so the canvas and the
+ * model-tab can't drift on which units are meaningless.
  */
 export const GENERIC_PLACEHOLDER_UNITS: ReadonlySet<string> = new Set([
   'scale', 'index', 'score', 'normalised', 'normalized', 'norm', 'unit', 'units',

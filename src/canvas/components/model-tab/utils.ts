@@ -1,14 +1,22 @@
 /**
  * Shared utilities for the model-tab component suite.
+ *
+ * Polish 4 follow-up Item 2 (review): the generic-placeholder-unit set is now
+ * imported from labelUtils so the canvas and the model-tab can't drift on
+ * which units count as "no real-world meaning". The currency sets remain
+ * local because the model-tab's split between symbol and ISO is structurally
+ * different from labelUtils's combined set — collapsing those would change
+ * the public API of isCurrencyUnit elsewhere. Audit comment at the top of
+ * labelUtils.ts inventories every value-rendering surface.
  */
 
 import type { ObservedState } from './types'
+import { GENERIC_PLACEHOLDER_UNITS } from '../../utils/labelUtils'
 
 // ── Value formatting ──────────────────────────────────────────────────────────
 
 const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '₽', '₺', '₴', '₦', '₫', '₿'])
 const ISO_CURRENCY_CODES = new Set(['USD', 'GBP', 'EUR', 'JPY', 'INR', 'KRW', 'RUB', 'TRY', 'UAH', 'NGN', 'VND', 'BTC', 'CHF', 'CAD', 'AUD', 'NZD', 'HKD', 'SGD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'BGN', 'HRK', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'ZAR', 'EGP', 'AED', 'SAR', 'QAR', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'PKR', 'BDT', 'LKR'])
-const GENERIC_UNITS = new Set(['scale', 'index', 'score', 'normalised', 'normalized', 'norm', 'unit', 'units'])
 
 /** Returns true for currency units (symbol or ISO code) */
 export function isCurrencyUnit(unit: string): boolean {
@@ -16,9 +24,10 @@ export function isCurrencyUnit(unit: string): boolean {
   return CURRENCY_SYMBOLS.has(trimmed) || ISO_CURRENCY_CODES.has(trimmed)
 }
 
-/** Returns true for units that represent abstract/dimensionless scales */
+/** Returns true for units that represent abstract/dimensionless scales.
+ *  Source of truth: GENERIC_PLACEHOLDER_UNITS in labelUtils.ts. */
 export function isGenericUnit(unit: string): boolean {
-  return GENERIC_UNITS.has(unit.trim().toLowerCase())
+  return GENERIC_PLACEHOLDER_UNITS.has(unit.trim().toLowerCase())
 }
 
 /** Smart number: integers stay integer, decimals use minimal precision (max 2dp, no trailing zeros) */
@@ -40,7 +49,9 @@ export function formatValueWithUnit(rawValue: number, unit: string): string {
   if (ISO_CURRENCY_CODES.has(trimmedUnit)) {
     return `${trimmedUnit} ${formatSmartNumber(rawValue)}`
   }
-  if (GENERIC_UNITS.has(trimmedUnit.toLowerCase())) {
+  // Generic placeholder units (scale, index, score, …) — drop the suffix.
+  // Single source of truth lives in labelUtils.GENERIC_PLACEHOLDER_UNITS.
+  if (GENERIC_PLACEHOLDER_UNITS.has(trimmedUnit.toLowerCase())) {
     return formatSmartNumber(rawValue)
   }
   return `${formatSmartNumber(rawValue)} ${trimmedUnit}`

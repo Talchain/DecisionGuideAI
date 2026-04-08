@@ -104,29 +104,31 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
     }
   }, [])
 
-  // Format intervention chip value with unit (distinct from labelUtils.formatInterventionValue)
-  // Task 4: "sets to [value]" format when no unit
+  // Format intervention chip value with unit (inspector copy variant).
+  // Polish 4 review fix #2: route through the shared formatInterventionValue
+  // for unit-present cases so generic-placeholder units (scale, index, …)
+  // get the same suppression treatment as the canvas — previously the
+  // default branch rendered "0.5 scale" verbatim. preserveTierLabel keeps a
+  // coarse "Very low" / "High" classification on the side panel.
+  //
+  // The "sets to N" copy is preserved for the unit-less branch — that's the
+  // inspector-specific text the brief explicitly called out as different
+  // from the canvas pill rendering.
   const formatChipValue = useCallback((value: number, unit: string): string => {
     if (!unit) {
       return `sets to ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
     }
-
-    switch (unit.toLowerCase()) {
-      case 'gbp':
-      case '£':
-        return `£${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      case 'usd':
-      case '$':
-        return `$${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      case 'eur':
-      case '€':
-        return `€${value.toLocaleString(undefined, { maximumFractionDigits: 0 })}`
-      case 'percent':
-      case '%':
-        return `${value.toLocaleString(undefined, { maximumFractionDigits: 1 })}%`
-      default:
-        return `${value.toLocaleString(undefined, { maximumFractionDigits: 2 })} ${unit}`
-    }
+    // Route through the shared formatter so generic-placeholder units are
+    // suppressed (or fall back to a tier label) consistently with the canvas.
+    const shared = formatInterventionValue(
+      value, unit, undefined, undefined, undefined, undefined,
+      { preserveTierLabel: true },
+    )
+    if (shared) return shared
+    // Defensive fallback (shared formatter returned '' AND preserveTierLabel
+    // didn't help — should be unreachable for finite values, but keeps the
+    // chip from rendering blank if it ever happens).
+    return `sets to ${value.toLocaleString(undefined, { maximumFractionDigits: 2 })}`
   }, [])
 
   if (!node) return null
@@ -179,7 +181,12 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
         {node.data?.label || 'Untitled'}
       </p>
 
-      {/* Key metric: Factor current value — formatted for human comprehension */}
+      {/* Key metric: Factor current value — formatted for human comprehension.
+          Polish 4 review fix #1: pass preserveTierLabel=true so the inspector
+          falls back to a qualitative tier ("Very low" / "High") when the
+          factor has a generic-placeholder unit (e.g. "scale") with no raw
+          anchor. Without this we used to render an empty value next to the
+          "Current value" label, leaving a styled card with blank content. */}
       {currentType === 'factor' && (node.data?.observedState as any)?.value !== undefined && (() => {
         const obs = node.data?.observedState as any
         const rawVal = obs?.raw_value
@@ -194,10 +201,16 @@ export const NodeInspectorCompact = memo(({ nodeId, onClose, onExpandToFull }: N
             display = unit ? `${rawVal} ${unit}` : String(rawVal)
           }
         } else if (unit) {
-          display = formatInterventionValue(numValue, unit, obs?.factor_type)
+          display = formatInterventionValue(
+            numValue, unit, obs?.factor_type, undefined, undefined, undefined,
+            { preserveTierLabel: true },
+          )
         } else {
           display = qualitativeTierLabel(numValue)
         }
+        // Defensive: hide the entire row when there's still nothing to render
+        // (e.g. observed value missing). Empty styled cards are confusing.
+        if (!display) return null
         return (
           <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border mb-2">
             <span className={`${typography.panelMeta} text-text-light`}>Current value</span>

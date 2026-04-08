@@ -856,6 +856,32 @@ describe('formatInterventionValue — preserveTierLabel option (Item B)', () => 
     expect(formatInterventionValue(0.5, 'scale', undefined, undefined, undefined, undefined, {})).toBe('')
     expect(formatInterventionValue(0.5, 'scale', undefined, undefined, undefined, undefined, { preserveTierLabel: false })).toBe('')
   })
+
+  // Polish 4 review: NodeInspectorCompact "Current value" row + intervention
+  // chip rows pass preserveTierLabel=true so the inspector never renders an
+  // empty styled card. Contract pinning — if this regresses the inspector
+  // rows go blank.
+  it('NodeInspectorCompact contract: factor with unit=scale and no raw renders a tier, not empty', () => {
+    const result = formatInterventionValue(
+      0.5, 'scale', 'quality', undefined, undefined, undefined, { preserveTierLabel: true },
+    )
+    expect(result).not.toBe('')
+    expect(['Very low', 'Low', 'Medium', 'High', 'Very high']).toContain(result)
+  })
+
+  it('NodeInspectorCompact contract: covers all tier ranges for scale-no-raw', () => {
+    const opts = { preserveTierLabel: true }
+    expect(formatInterventionValue(0.0, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Very low')
+    expect(formatInterventionValue(0.2, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Very low')
+    expect(formatInterventionValue(0.21, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Low')
+    expect(formatInterventionValue(0.4, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Low')
+    expect(formatInterventionValue(0.41, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Medium')
+    expect(formatInterventionValue(0.6, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Medium')
+    expect(formatInterventionValue(0.61, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('High')
+    expect(formatInterventionValue(0.8, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('High')
+    expect(formatInterventionValue(0.81, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Very high')
+    expect(formatInterventionValue(1.0, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Very high')
+  })
 })
 
 // ---------------------------------------------------------------------------
