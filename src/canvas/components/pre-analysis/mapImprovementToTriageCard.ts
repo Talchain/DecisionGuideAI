@@ -54,14 +54,11 @@ function formatValueWithUnit(rawValue: number, unit: string | undefined | null):
   }
   if (!unit) return formatNumber(rawValue)
   if (isCurrencyUnit(unit)) return `${unit}${formatNumber(rawValue)}`
-  if (unit === '%') {
-    // Fractional value with % unit (e.g. 0.04 → "4%"). Values > 1 are assumed
-    // to already be in percent form (e.g. 75 → "75%").
-    const pct = rawValue >= 0 && rawValue <= 1
-      ? Number((rawValue * 100).toFixed(2))
-      : rawValue
-    return `${formatNumber(pct)}%`
-  }
+  // raw_value is treated as a literal user-facing value (convention: `value`
+  // is normalised 0–1, `raw_value` is the display scale). Mirrors model-tab
+  // utils.ts. The fractional-to-percent conversion lives only on the
+  // value-only branch in formatObservedStateDetail.
+  if (unit === '%') return `${formatNumber(rawValue)}%`
   return `${formatNumber(rawValue)} ${unit}`
 }
 

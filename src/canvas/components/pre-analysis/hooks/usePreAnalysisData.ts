@@ -556,12 +556,13 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
     if (unit && CURRENCY_SYMBOLS.has(unit)) {
       primary = `${unit}${formatDetailNumber(rawNum)}`
     } else if (unit === '%') {
-      // Fractional raw_value with % unit (e.g. 0.04 → "4%"). Values > 1 are
-      // assumed to already be in percent form (e.g. 75 → "75%").
-      const pct = rawNum >= 0 && rawNum <= 1
-        ? Number((rawNum * 100).toFixed(2))
-        : rawNum
-      primary = `${formatDetailNumber(pct)}%`
+      // raw_value is treated as a literal user-facing value. Convention in this
+      // codebase: `value` is the normalised 0–1 form, `raw_value` is the
+      // display scale (e.g. value=0.85 + raw_value=85 + unit='%' → "85%").
+      // Mirrors src/canvas/components/model-tab/utils.ts to keep cross-surface
+      // parity. Fractional-percent conversion lives only on the value-only
+      // branch below.
+      primary = `${formatDetailNumber(rawNum)}%`
     } else if (isQualitative && rawNum >= 0 && rawNum <= 1) {
       // No unit (or unit="scale"), no meaningful cap, value in 0–1 range — show qualitative level
       return toQualitativeLevel(rawNum)

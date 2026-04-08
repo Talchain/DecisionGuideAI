@@ -596,6 +596,99 @@ describe('usePreAnalysisData', () => {
       )
     })
 
+    // Pin the percent + raw_value contract.
+    //
+    // Codebase convention (matches model-tab/utils.ts):
+    //   - `value` is normalised 0–1 (the engine-facing form)
+    //   - `raw_value` is the user-facing display value (already in scale)
+    //
+    // Therefore:
+    //   - When raw_value is present, it is rendered LITERALLY: 0.5 → "0.5%",
+    //     85 → "85%". No fractional-to-percent conversion is applied here.
+    //   - When raw_value is absent and only `value` exists, the value-only
+    //     branch assumes fractional 0–1 form and multiplies by 100, so
+    //     0.04 → "4%". Values > 1 are passed through (75 → "75%").
+    //
+    // These tests pin both branches so future drift is caught.
+
+    it('renders raw_value 0.04 with unit "%" literally as "0.04%" (not 4%)', () => {
+      // raw_value is the user-facing value. A literal 0.04% should render as such.
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Tiny Percentage',
+              observed_state: { source: 'ai', value: 0.0004, raw_value: 0.04, unit: '%' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: '0.04%',
+        })
+      )
+    })
+
+    it('renders raw_value 0.5 with unit "%" literally as "0.5%" (not 50%)', () => {
+      // ChatGPT review case: a literal 0.5% must not be misrendered as 50%.
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Half Percent',
+              observed_state: { source: 'ai', value: 0.005, raw_value: 0.5, unit: '%' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: '0.5%',
+        })
+      )
+    })
+
+    it('renders raw_value 85 with unit "%" as "85%" (canonical canvas pattern)', () => {
+      // Canonical pattern from inspector tests: value=normalised, raw_value=display.
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Conversion Rate',
+              observed_state: { source: 'ai', value: 0.85, raw_value: 85, unit: '%' },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: '85%',
+        })
+      )
+    })
+
     it('formats pound values with thousand separators (20000 → "£20,000")', () => {
       // value 20000 with unit '£' → currency prefix + thousand separators
       mockUseCanvasStore.mockImplementation(createMockStore({
