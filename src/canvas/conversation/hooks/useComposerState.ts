@@ -61,6 +61,26 @@ export function useComposerState({
   // depending on the (potentially stale) closure value at effect creation.
   const latestValueRef = useRef(value)
 
+  // Watch for scenario switches: when the active scenario changes, the composer
+  // draft is no longer relevant (it belonged to the old decision). loadScenario
+  // already clears `draftComposerText` in the store, but the local React state
+  // outlives the store write, so we explicitly reset both here. Without this,
+  // the user could see their draft for one decision appear in another.
+  const scenarioId = useCanvasStore((s) => s.currentScenarioId)
+  const lastScenarioRef = useRef(scenarioId)
+  useEffect(() => {
+    if (scenarioId !== lastScenarioRef.current) {
+      lastScenarioRef.current = scenarioId
+      setValueRaw('')
+      latestValueRef.current = ''
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
+      writeDraftToStore('')
+    }
+  }, [scenarioId])
+
   const canSend = value.trim().length > 0 && !disabled
 
   // Auto-grow on value change — caps at maxHeightPercent of viewport
@@ -108,7 +128,6 @@ export function useComposerState({
       }
       writeDraftToStore(latestValueRef.current)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleKeyDown = useCallback(

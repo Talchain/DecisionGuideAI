@@ -247,4 +247,22 @@ describe('useComposerState — draft persistence to canvas store', () => {
     expect(result.current.value).toBe('')
     expect(result.current.value).not.toBe('null')
   })
+
+  it('clears local value when the active scenario changes mid-composition', () => {
+    useCanvasStore.setState({ currentScenarioId: 'scenario-a', draftComposerText: null })
+    const { result, rerender } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+
+    act(() => { result.current.handleChange(makeChangeEvent('thinking about scenario A')) })
+    expect(result.current.value).toBe('thinking about scenario A')
+
+    // Switch scenarios — the composer is still mounted but its draft now
+    // belongs to a decision that the user has navigated away from.
+    act(() => { useCanvasStore.setState({ currentScenarioId: 'scenario-b' }) })
+    rerender()
+
+    expect(result.current.value).toBe('')
+    expect(useCanvasStore.getState().draftComposerText).toBeNull()
+  })
 })
