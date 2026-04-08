@@ -343,7 +343,19 @@ function canvasInterventionsToCEE(
  * `validateOptionsHaveInterventions` will catch it downstream.
  */
 export interface ReconcileOptionsHookOptions {
-  /** Suppress the always-on backfill warning. Pre-run gate sets this to true. */
+  /**
+   * Suppress the legacy `console.warn` diagnostic. Pre-run gate sets this to
+   * true to avoid duplicate console noise (the run-success path calls
+   * reconcile a second time inside `buildV2RequestFromAnalysisReady`).
+   *
+   * NOTE: this flag does NOT suppress structured backfill telemetry. The
+   * structured `reconcile_options.backfill` event always emits, tagged with
+   * `phase` so aggregators can distinguish pre-run-check emissions from
+   * request-build emissions and dedupe in the success path. Suppressing
+   * structured telemetry alongside the console diagnostic was hiding fallback
+   * usage on blocked runs (the pre-run gate returns early before the
+   * second reconcile call ever happens).
+   */
   silent?: boolean
   /**
    * Scenario id for backfill telemetry (optional). When set, structured
@@ -353,6 +365,26 @@ export interface ReconcileOptionsHookOptions {
    * docs/intervention-authority-contract.md.
    */
   scenarioId?: string | null
+  /**
+   * Phase tag for backfill telemetry. Distinguishes the call sites so
+   * aggregators can dedupe by `(scenarioId, optionId, phase)`. Three values:
+   *
+   *   - `'pre_run_check'` — pre-run validation gate in `useV2Run`. Fires for
+   *     both run-success and run-blocked paths. Sets `silent: true` to
+   *     suppress duplicate console output (the success path will call
+   *     reconcile a second time inside `buildV2RequestFromAnalysisReady`).
+   *   - `'request_build'` — inside `buildV2RequestFromAnalysisReady`. Only
+   *     fires on the run-success path (blocked runs return early before
+   *     reaching this call).
+   *   - `'turn_request'` — conversational turn path in `useConversation`,
+   *     building `analysis_inputs` for the CEE turn endpoint (not the PLoT
+   *     run path). Distinct from the two PLoT-side phases above.
+   *
+   * Defaults to `'request_build'` because that's the path the existing
+   * adapter callers (and direct tests) take. Pre-run gate and conversational
+   * turn explicitly set their own phase.
+   */
+  phase?: 'pre_run_check' | 'request_build' | 'turn_request'
 }
 
 export function reconcileOptionsWithCanvasNodes(
@@ -361,7 +393,7 @@ export function reconcileOptionsWithCanvasNodes(
   validNodeIds: Set<string>,
   options: ReconcileOptionsHookOptions = {},
 ): CEEOptionV3[] {
-  const { silent = false, scenarioId = null } = options
+  const { silent = false, scenarioId = null, phase = 'request_build' } = options
   const optionNodes = nodes.filter(
     (n) => (n.data as Record<string, unknown> | undefined)?.kind === 'option' || (n.data as Record<string, unknown> | undefined)?.type === 'option',
   )
@@ -373,35 +405,44 @@ export function reconcileOptionsWithCanvasNodes(
   const arOptions = analysisReady?.options ?? []
 
   /**
-   * Emit a backfill diagnostic. Two emissions per call:
+   * Emit a backfill diagnostic. Up to two emissions per call:
    *
-   * 1. The legacy `console.warn` keeps the substring
+   * 1. The legacy `console.warn` (gated by `silent`) keeps the substring
    *    `'reconcileOptions: backfilled'` on `args[0]` that adapter.spec.ts
-   *    and reconcile.patchAccept.spec.ts assert against (5 sites).
-   * 2. A structured `logger.warn` payload (added 2026-04-08) carries
-   *    `scenarioId`, `optionId`, `backfillSource`, and
-   *    `interventionKeyCount` so log aggregators can track whether the
-   *    backfill paths still fire after the envelope fix. The goal is for
-   *    these to trend to zero — when they do, the canvas-side backfills
-   *    documented in docs/intervention-authority-contract.md can be
-   *    retired.
+   *    and reconcile.patchAccept.spec.ts assert against (5 sites). The
+   *    pre-run gate sets `silent: true` to suppress this in the
+   *    run-success path (avoids duplicate console output across the two
+   *    reconcile calls in a single run).
+   * 2. The structured `logger.warn` payload (added 2026-04-08) ALWAYS emits,
+   *    regardless of `silent`. It carries `scenarioId`, `optionId`,
+   *    `backfillSource`, `interventionKeyCount`, and `phase` so log
+   *    aggregators can dedupe by `(scenarioId, optionId, phase)` in the
+   *    success path (where reconcile is called twice with different phases)
+   *    and still capture pre-run-only emissions on blocked runs. The goal
+   *    is for these to trend to zero — when they do, the canvas-side
+   *    backfills documented in docs/intervention-authority-contract.md
+   *    can be retired.
    */
   const warn = (id: string, backfillSource: 'canvas_node' | 'canvas_only', interventionKeyCount: number) => {
-    if (silent) return
-    // Legacy diagnostic — preserved for the existing test substring contract
-    // (`'reconcileOptions: backfilled'` on args[0] across 5 spec assertions).
-    console.warn(
-      `[V2Adapter] reconcileOptions: backfilled from canvas for option "${id}" — CEE analysis_ready was incomplete`,
-      { optionId: id, backfillSource, context: 'reconcileOptionsWithCanvasNodes' },
-    )
-    // Structured backfill telemetry — use the shared logger so prod log
-    // aggregators see consistent fields (scenarioId, optionId, backfillSource,
-    // interventionKeyCount). See docs/intervention-authority-contract.md.
+    // Legacy diagnostic — preserved for the existing test substring contract.
+    // Honours `silent` to suppress duplicate console output in the run-success
+    // path (pre-run gate vs. request-build call).
+    if (!silent) {
+      console.warn(
+        `[V2Adapter] reconcileOptions: backfilled from canvas for option "${id}" — CEE analysis_ready was incomplete`,
+        { optionId: id, backfillSource, context: 'reconcileOptionsWithCanvasNodes', phase },
+      )
+    }
+    // Structured backfill telemetry — ALWAYS emits. Suppressing this when
+    // silent was hiding fallback usage on blocked runs (the pre-run gate
+    // returns early before the second reconcile call). Aggregators dedupe by
+    // (scenarioId, optionId, phase) in the success path.
     logger.warn('reconcile_options.backfill', {
       scenarioId,
       optionId: id,
       backfillSource,
       interventionKeyCount,
+      phase,
     })
   }
 
@@ -1175,7 +1216,12 @@ export function buildV2RequestFromAnalysisReady(
   // intervention map is empty (e.g. synthesised analysis_ready).
   // See reconcileOptionsWithCanvasNodes for the merge policy and observability hooks.
   const validNodeIds = new Set(nodes.map((n) => n.id))
-  const reconciledOptions = reconcileOptionsWithCanvasNodes(analysisReady, nodes, validNodeIds, { scenarioId })
+  const reconciledOptions = reconcileOptionsWithCanvasNodes(
+    analysisReady,
+    nodes,
+    validNodeIds,
+    { scenarioId, phase: 'request_build' },
+  )
   const v2Options = reconciledOptions.map(ceeOptionToV2Option)
 
   // Diagnostic: warn if any option STILL has empty interventions after reconciliation

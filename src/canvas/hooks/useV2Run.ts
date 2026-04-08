@@ -330,12 +330,18 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       // See reconcileOptionsWithCanvasNodes in src/adapters/plot/v2/adapter.ts.
       {
         // silent: true — the request-build path will call reconcile again and emit
-        // the canonical fallback warning. Avoid duplicate logs per run.
+        // the canonical fallback console.warn. Avoid duplicate logs per run.
+        // phase: 'pre_run_check' — structured backfill telemetry still emits
+        // (with the phase tag so aggregators can dedupe across the two calls
+        // in the success path). Without the phase tag, blocked runs would
+        // hide all fallback usage because they return early below before the
+        // second reconcile call ever happens. See
+        // adapters/plot/v2/adapter.ts:ReconcileOptionsHookOptions.
         const optionsToValidate = reconcileOptionsWithCanvasNodes(
           effectiveAnalysisReady,
           nodes as any,
           currentNodeIds,
-          { silent: true },
+          { silent: true, phase: 'pre_run_check', scenarioId: framing?.scenario_id ?? null },
         )
 
         // Identify offending options directly by id (not label) so duplicate

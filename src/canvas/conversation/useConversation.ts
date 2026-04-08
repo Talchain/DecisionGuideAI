@@ -1404,7 +1404,7 @@ export function useConversation(): UseConversationReturn {
             ceeReady,
             store.nodes as any,
             new Set(store.nodes.map((n) => n.id)),
-            { scenarioId: store.currentScenarioId ?? null },
+            { scenarioId: store.currentScenarioId ?? null, phase: 'turn_request' },
           )
         : []
       const analysisInputs =
@@ -2017,14 +2017,19 @@ export function useConversation(): UseConversationReturn {
           // ran synchronously above, so option nodes are already in the store.
           //
           // Per-turn observability mirrors applyDraftResult: emits a structured
-          // log when any node was backfilled, so we can track whether the
-          // backfill is still load-bearing post-2026-04-08 envelope fix.
-          // See docs/intervention-authority-contract.md.
-          const { backfilledCount: turnBackfilledCount } = backfillInterventionsOntoOptionNodes(resolvedAnalysisReady)
-          if (turnBackfilledCount > 0) {
+          // log when any node received an intervention backfill, so we can
+          // track whether the backfill is still load-bearing post-2026-04-08
+          // envelope fix. The intervention metric is split from the
+          // baseline-only metric so the latter doesn't poison the former
+          // (is_baseline backfill will outlive intervention backfill until
+          // is_baseline gets a dedicated source). See
+          // docs/intervention-authority-contract.md.
+          const turnBackfillResult = backfillInterventionsOntoOptionNodes(resolvedAnalysisReady)
+          if (turnBackfillResult.interventionBackfilledCount > 0) {
             logger.warn('handle_envelope.intervention_backfill', {
               scenarioId: useCanvasStore.getState().currentScenarioId ?? null,
-              backfilledCount: turnBackfilledCount,
+              interventionBackfilledCount: turnBackfillResult.interventionBackfilledCount,
+              baselineOnlyUpdatedCount: turnBackfillResult.baselineOnlyUpdatedCount,
               totalOptionsInPayload: resolvedAnalysisReady.options?.length ?? 0,
             })
           }

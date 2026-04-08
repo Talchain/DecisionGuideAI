@@ -184,18 +184,22 @@ export function applyDraftResult(
     // Timing: runs synchronously after setCeeAnalysisReady; nodes are already
     // in store from the setState call above. If option nodes don't exist yet,
     // this is a no-op.
-    const { backfilledCount } = backfillInterventionsOntoOptionNodes(analysisReadyWithCoaching)
+    const backfillResult = backfillInterventionsOntoOptionNodes(analysisReadyWithCoaching)
 
-    // Per-draft observability: emit a structured log with the count of option
-    // nodes that received backfilled interventions. The goal is for this to
-    // trend to zero after the 2026-04-08 envelope fix; if it stays >0 it means
-    // the pipeline still publishes interventions on analysis_ready.options[]
-    // rather than on graph_patch add_node operations and the canvas-side
-    // backfill is still load-bearing. See docs/intervention-authority-contract.md.
-    if (backfilledCount > 0) {
+    // Per-draft observability: emit a structured log when any option node
+    // received a real intervention backfill. The intervention metric is the
+    // one we want to trend to zero after the 2026-04-08 envelope fix; if it
+    // stays >0 it means the pipeline still publishes interventions on
+    // analysis_ready.options[] rather than on graph_patch add_node operations
+    // and the canvas-side backfill is still load-bearing. The baseline-only
+    // counter is reported alongside but tracked separately because is_baseline
+    // backfill will outlive the intervention backfill (until is_baseline gets
+    // its own dedicated source). See docs/intervention-authority-contract.md.
+    if (backfillResult.interventionBackfilledCount > 0) {
       logger.warn('apply_draft.intervention_backfill', {
         scenarioId: useCanvasStore.getState().currentScenarioId ?? null,
-        backfilledCount,
+        interventionBackfilledCount: backfillResult.interventionBackfilledCount,
+        baselineOnlyUpdatedCount: backfillResult.baselineOnlyUpdatedCount,
         totalOptionsInPayload: analysisReadyWithCoaching.options?.length ?? 0,
       })
     }
@@ -260,20 +264,45 @@ export function applyDraftResult(
  * is_baseline value actually differ (deep equality via JSON serialisation),
  * avoiding unnecessary re-renders on repeated calls.
  *
- * @returns `{ backfilledCount }` — number of option nodes that received an
- *   updated payload. Used by the call site to emit per-draft observability
- *   so we can track whether the backfill is still load-bearing after the
- *   2026-04-08 envelope fix; see docs/intervention-authority-contract.md.
+ * @returns Per-call counters that the caller emits as structured telemetry.
+ *
+ *   - `interventionBackfilledCount` — option nodes whose intervention map was
+ *     written (either added for the first time, or replaced with different
+ *     keys/values). This is the metric we want to trend to zero after the
+ *     2026-04-08 envelope fix; when it does, the canvas-side intervention
+ *     backfill can be retired.
+ *   - `baselineOnlyUpdatedCount` — option nodes whose ONLY change was the
+ *     `is_baseline` flag. These will continue to fire even after the
+ *     intervention backfill is retired (until is_baseline migrates to a
+ *     dedicated source), so they must be tracked separately to avoid
+ *     poisoning the intervention metric.
+ *   - `totalUpdatedCount` — total nodes touched (sum of the above plus any
+ *     nodes that received both an intervention write AND a baseline change).
+ *
+ *   See docs/intervention-authority-contract.md for the removal plan.
  */
+export interface BackfillInterventionsResult {
+  interventionBackfilledCount: number
+  baselineOnlyUpdatedCount: number
+  totalUpdatedCount: number
+}
+
 export function backfillInterventionsOntoOptionNodes(
   analysisReady: { options?: Array<{ id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }> } | null
-): { backfilledCount: number } {
-  if (!analysisReady?.options?.length) return { backfilledCount: 0 }
+): BackfillInterventionsResult {
+  const empty: BackfillInterventionsResult = {
+    interventionBackfilledCount: 0,
+    baselineOnlyUpdatedCount: 0,
+    totalUpdatedCount: 0,
+  }
+  if (!analysisReady?.options?.length) return empty
 
   // TODO: type narrowing — useCanvasStore.getState().nodes typed as Node[]
   // but node.type/data shape varies by kind. Cast to any for now.
   const currentNodes = useCanvasStore.getState().nodes as any[]
   let needsUpdate = false
+  let interventionBackfilledCount = 0
+  let baselineOnlyUpdatedCount = 0
 
   const updatedNodes = currentNodes.map((n) => {
     if (n.data?.kind !== 'option' && n.data?.type !== 'option') return n
@@ -290,18 +319,37 @@ export function backfillInterventionsOntoOptionNodes(
 
     if (!hasInterventions && !baselineChanged) return n
 
-    // Idempotent guard: skip if interventions are already identical (keys + values)
+    // Determine whether the intervention map actually changed (vs. an
+    // identical re-write that the JSON.stringify guard catches). This is the
+    // load-bearing distinction for the telemetry split: an idempotent
+    // re-write that ALSO has a baseline change is a "baseline-only update"
+    // for our counter, even though the cloned node carries the intervention
+    // payload too.
     const existing = n.data?.interventions as Record<string, unknown> | undefined
     const newKeys = hasInterventions ? Object.keys(optEntry.interventions!) : undefined
+    let interventionMapChanged = hasInterventions && !existing
     if (hasInterventions && existing) {
       try {
-        if (JSON.stringify(existing) === JSON.stringify(optEntry.interventions) && !baselineChanged) return n
+        const same = JSON.stringify(existing) === JSON.stringify(optEntry.interventions)
+        // Same map AND no baseline change → fully idempotent, skip the update.
+        if (same && !baselineChanged) return n
+        interventionMapChanged = !same
       } catch {
-        // Fall through to update if serialisation fails
+        // Serialisation failed — fall through and treat as a real change so
+        // we don't drop the update. Counter accuracy degrades by at most one.
+        interventionMapChanged = true
       }
     }
 
     needsUpdate = true
+    if (interventionMapChanged) {
+      interventionBackfilledCount += 1
+    } else {
+      // Reached only when the node was updated, hasInterventions is false (or
+      // the map was identical), and baselineChanged is true.
+      baselineOnlyUpdatedCount += 1
+    }
+
     return {
       ...n,
       data: {
@@ -312,15 +360,21 @@ export function backfillInterventionsOntoOptionNodes(
     }
   })
 
-  let backfilledCount = 0
   if (needsUpdate) {
     useCanvasStore.setState({ nodes: updatedNodes as any })
-    backfilledCount = updatedNodes.filter((n, i) => n !== currentNodes[i]).length
     if (import.meta.env.DEV) {
-      console.warn('[backfillInterventionsOntoOptionNodes]', backfilledCount, 'option nodes updated')
+      console.warn(
+        '[backfillInterventionsOntoOptionNodes]',
+        `intervention=${interventionBackfilledCount}`,
+        `baseline-only=${baselineOnlyUpdatedCount}`,
+      )
     }
   }
-  return { backfilledCount }
+  return {
+    interventionBackfilledCount,
+    baselineOnlyUpdatedCount,
+    totalUpdatedCount: interventionBackfilledCount + baselineOnlyUpdatedCount,
+  }
 }
 
 // ---------------------------------------------------------------------------

@@ -47,6 +47,7 @@ import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
 import { useRunEligibilityCheck } from '../hooks/useRunEligibilityCheck'
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
+import { useGraphReadiness } from '../hooks/useGraphReadiness'
 import { trackCompareOpened } from '../utils/sandboxTelemetry'
  import { typography } from '../../styles/typography'
  import { buildHealthStrings } from '../utils/graphHealthStrings'
@@ -102,14 +103,20 @@ import { trackCompareOpened } from '../utils/sandboxTelemetry'
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([])
   const [validationViolations, setValidationViolations] = useState<ValidationError[]>([]) // v1.2: coaching warnings
 
-  // Unified run gate — same function used by ConversationPanel and OutputsDock
-  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
+  // Unified run gate — same function used by ConversationPanel and OutputsDock.
+  // Reads the real readiness from useGraphReadiness() (sourced from CEE's
+  // graph-readiness endpoint) instead of constructing a synthetic
+  // can_run_analysis: true. The synthetic shortcut was correct before the
+  // 2026-04-08 CEE fix that made needs_encoding a hard blocker but is now
+  // stale: it would enable "Run again" for scenarios CEE has flagged as
+  // unanalysable. See docs/blocked-readiness-ux-verification-2026-04-08.md.
+  const { readiness } = useGraphReadiness()
   const hasValidationBlockers = graphHealth?.issues?.some(
     (i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker'
   ) ?? false
   const runGateResult = canRunAnalysisUtil({
     graphHealth: graphHealth ?? null,
-    readiness: ceeAnalysisReady ? { can_run_analysis: true, readiness_level: 'strong', confidence_explanation: '' } : null,
+    readiness,
     hasBlockers: hasValidationBlockers,
     nodeCount: nodes.length,
     isRunning,

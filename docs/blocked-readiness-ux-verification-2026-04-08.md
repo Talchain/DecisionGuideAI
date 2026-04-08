@@ -15,7 +15,7 @@ Context: CEE's `assist/v1/graph-readiness` endpoint was tightened on 2026-04-08 
 | [`readinessStore.ts`](../src/canvas/stores/readinessStore.ts) | 132-181, 336-344 | All three fields | Local store that mirrors the readiness response. The `can_run_analysis` field is forwarded as-is (line 343-344). ✅ Compatible. |
 | [`useResultsSectionData.ts`](../src/components/results/useResultsSectionData.ts) | 584-598, 1624-1635 | `readiness_level`, `readiness_score` (no `can_run_analysis`) | Used post-run for quality summarisation. Doesn't gate any user action. ✅ Not relevant to blocking UX. |
 | [`PipelineTab.tsx`](../src/components/debug/tabs/PipelineTab.tsx) | 1890 | `readiness_score` | Debug-only metric card. ✅ Not user-facing. |
-| **`ResultsPanel.tsx`** | **112** | **HARDCODED `can_run_analysis: true`** | **⚠ Bypasses readiness gate.** See "Flagged surface" below. |
+| **`ResultsPanel.tsx`** | **115** | `can_run_analysis` (real, via `useGraphReadiness()`) | **Fixed 2026-04-08** — was hardcoded to `true` via a synthetic readiness object; now reads the real `readiness` from `useGraphReadiness()`, matching `OutputsDock.tsx:376`. See "Fixed surface" below. |
 
 ## Coached recovery rendering for `needs_encoding`
 
@@ -31,7 +31,9 @@ The complementary Layer 1 client-side gate at [`usePreRunValidation.ts:181-244`]
 
 **Conclusion**: The coached recovery story for `needs_encoding` was already complete before the CEE fix. The fix simply makes the readiness *score* agree with the run-path *gate*, so the user no longer sees "Analyse now" enabled while the run path would reject.
 
-## Flagged surface: `ResultsPanel.tsx:112`
+## Fixed surface: `ResultsPanel.tsx:115`
+
+**Original code (now removed):**
 
 ```tsx
 const runGateResult = canRunAnalysisUtil({
@@ -43,24 +45,33 @@ const runGateResult = canRunAnalysisUtil({
 })
 ```
 
-The ResultsPanel constructs a **synthetic** readiness object that hardcodes `can_run_analysis: true` and `readiness_level: 'strong'` whenever `ceeAnalysisReady` is non-null in the store. This bypasses the V1 readiness endpoint entirely.
+The ResultsPanel constructed a **synthetic** readiness object that hardcoded `can_run_analysis: true` and `readiness_level: 'strong'` whenever `ceeAnalysisReady` was non-null in the store. This bypassed the V1 readiness endpoint entirely.
 
-### Behaviour analysis
+**Fix shipped 2026-04-08** — the synthetic shortcut was replaced with a real `useGraphReadiness()` call, mirroring `OutputsDock.tsx:376`:
 
-- **Pre-CEE-fix**: The readiness endpoint counted `needs_encoding` as ready, so this synthetic shortcut and the real endpoint agreed. Hardcoding `true` produced the same answer as the endpoint would have.
-- **Post-CEE-fix**: The readiness endpoint now returns `false` for `needs_encoding`. The synthetic shortcut still returns `true`. **They disagree.**
+```tsx
+const { readiness } = useGraphReadiness()
+const hasValidationBlockers = graphHealth?.issues?.some(...) ?? false
+const runGateResult = canRunAnalysisUtil({
+  graphHealth: graphHealth ?? null,
+  readiness,
+  hasBlockers: hasValidationBlockers,
+  nodeCount: nodes.length,
+  isRunning,
+})
+```
 
-Concretely: a user can be on the Results panel, see the "Run again" button enabled because of this synthetic shortcut, click it, and reach `usePreRunValidation` (the run-path gate). The run gate has its own `needs_encoding` handling at [`usePreRunValidation.ts:212-238`](../src/canvas/hooks/usePreRunValidation.ts#L212-L238) — soft-bypass if every option's per-option `status === 'ready'`, otherwise hard-block. So the user does NOT silently send a bad request to PLoT; they hit the run-path gate and see a blocker message.
+### Pre-fix behaviour analysis
 
-### Severity
+- **Pre-CEE-fix (before 2026-04-08 envelope change)**: The readiness endpoint counted `needs_encoding` as ready, so this synthetic shortcut and the real endpoint agreed. Hardcoding `true` produced the same answer as the endpoint would have.
+- **Post-CEE-fix, pre-this-fix**: The readiness endpoint returned `false` for `needs_encoding`, but the synthetic shortcut still returned `true`. They disagreed: a user could see "Run again" enabled when CEE had flagged the model as unanalysable. The run-path gate (`usePreRunValidation`) caught it before the request reached PLoT, so no bad PLoT request, but the disabled-state contract was wrong.
+- **Post-this-fix**: ResultsPanel now reads the same readiness source as `OutputsDock`, the canonical Results UX. The button gating is consistent with every other readiness consumer in the UI.
 
-**Low** — the run-path gate catches it. The user sees a button that's enabled where strictly it should be disabled, but if they click, they get a clean blocker message with a recovery action. No bad PLoT request, no silent failure.
+### Production impact note
 
-### Recommendation (out of scope for this Risk-Tier-A brief)
+`ResultsPanel.tsx` is documented at the top of the file as "**NOT currently rendered in the main canvas flow**" — the canonical Results UX is `OutputsDock.tsx`, which already reads the real readiness via `useGraphReadiness()`. So the fix here is **hygiene + future-proofing** rather than a user-visible production bug fix. If the panel is ever re-activated (or is referenced by tests that exercise the code path), the gating will now be correct from the start.
 
-Replace the synthetic readiness object at line 112 with an actual `useGraphReadiness()` call, or pass the real `readiness` from a parent component. Estimated change: 5-10 lines, low risk. Should be tracked as a separate fix because it's a pre-existing divergence rather than something the CEE fix introduced.
-
-Per the brief: "Do not change UX code unless a clear bug is found." This is a pre-existing low-severity divergence that the run-path gate already mitigates, so I'm flagging it but not patching.
+**`OutputsDock.tsx:376`** — the user-facing surface — already uses `useGraphReadiness()` and was correct before this round. No change needed there.
 
 ## Other observations
 
@@ -90,11 +101,9 @@ These are user-readable but a little terse. Could be improved with a fuller expl
 |---|---|---|
 | Eight readiness consumers all correctly propagate `can_run_analysis: false` | n/a | None — already correct |
 | Coached recovery for `needs_encoding` already in place at PreAnalysisReadinessPanel | n/a | None — already correct |
-| `ResultsPanel.tsx:112` bypasses readiness via hardcoded synthetic object | Low (mitigated by run-path gate) | Flag for separate fix; not in scope |
+| `ResultsPanel.tsx:112` bypassed readiness via hardcoded synthetic object | Low (mitigated by run-path gate) | **Fixed 2026-04-08** — replaced with `useGraphReadiness()` call |
 | `usePreRunValidation` soft-bypass for `needs_encoding`+all-options-ready | n/a | Correct as designed |
 | `confidence_explanation` text from CEE could be more descriptive | n/a (terse but functional) | Future polish |
-
-No UX changes were made as part of this brief, per the "do not change UX code unless a clear bug is found" instruction. The flagged ResultsPanel divergence is a pre-existing issue rather than a bug introduced by the CEE fix.
 
 ## Cross-reference
 
