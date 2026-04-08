@@ -167,11 +167,22 @@ export function applyDraftResult(
       : draftData.analysis_ready
     useCanvasStore.getState().setCeeAnalysisReady(analysisReadyWithCoaching)
 
-    // Backfill interventions onto option nodes for debug bundle capture.
-    // CEE sends interventions on analysis_ready.options, not on graph_patch add_node data.
-    // TODO: Remove backfill when CEE includes interventions in graph_patch add_node ops.
-    // Timing: runs synchronously after setCeeAnalysisReady; nodes are already in store
-    // from the setState call above. If option nodes don't exist yet, this is a no-op.
+    // Backfill interventions onto option nodes. CEE publishes intervention data
+    // via analysis_ready.options[], not via graph_patch add_node operations, so
+    // we mirror them onto node.data.interventions for the consumers that read
+    // there directly: OptionNode/FactorNode rendering, islRequestAdapter,
+    // useScenarioComparison, and the debug bundle export.
+    //
+    // The PLoT v2 adapter prefers analysis_ready and falls back to node.data
+    // when reconciling — see adapters/plot/v2/adapter.ts:reconcileOptionsWithCanvasNodes.
+    //
+    // This backfill stays until every consumer migrates to read from
+    // ceeAnalysisReady.options[]. The CEE-side fix on 2026-04-08 (preventing
+    // envelope.ts from clobbering analysis_ready) does NOT remove this need.
+    //
+    // Timing: runs synchronously after setCeeAnalysisReady; nodes are already
+    // in store from the setState call above. If option nodes don't exist yet,
+    // this is a no-op.
     backfillInterventionsOntoOptionNodes(analysisReadyWithCoaching)
 
     // Backfill goal_threshold_raw/unit/cap from analysis_ready onto the goal node.
@@ -222,15 +233,17 @@ export function applyDraftResult(
 // ---------------------------------------------------------------------------
 
 /**
- * Backfill interventions from analysis_ready onto option nodes in the store.
+ * Backfill interventions and is_baseline from analysis_ready onto option nodes.
  *
- * CEE sends intervention data on analysis_ready.options, not on individual
- * graph_patch add_node operations. The debug bundle export reads
- * node.data.interventions, so we need to populate it here.
+ * CEE publishes intervention data and the is_baseline flag on
+ * analysis_ready.options[], not on individual graph_patch add_node operations.
+ * Multiple UI consumers read from node.data.interventions / node.data.is_baseline
+ * directly: OptionNode, FactorNode, islRequestAdapter, useScenarioComparison,
+ * the debug bundle export, and the PLoT v2 adapter as a fallback.
  *
- * Idempotent: only writes to store when at least one node's interventions
- * actually differ (deep equality via JSON serialisation), avoiding unnecessary
- * re-renders on repeated calls.
+ * Idempotent: only writes to store when at least one node's interventions or
+ * is_baseline value actually differ (deep equality via JSON serialisation),
+ * avoiding unnecessary re-renders on repeated calls.
  */
 export function backfillInterventionsOntoOptionNodes(
   analysisReady: { options?: Array<{ id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }> } | null

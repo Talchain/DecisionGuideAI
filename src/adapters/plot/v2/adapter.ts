@@ -365,8 +365,12 @@ export function reconcileOptionsWithCanvasNodes(
 
   const warn = (id: string) => {
     if (silent) return
+    // Diagnostic: this fires when CEE-produced analysis_ready is incomplete
+    // for an option and we recover by reading node.data.interventions. After
+    // the 2026-04-08 envelope fix (no more recompute), this path should only
+    // fire for canvas-only adds and edge cases — investigate every occurrence.
     console.warn(
-      `[V2Adapter] reconcileOptions: backfilled interventions from canvas for option ${id} — this indicates analysisReady was incomplete. Should trend towards zero.`,
+      `[V2Adapter] reconcileOptions: backfilled from canvas for option "${id}" — CEE analysis_ready was incomplete`,
     )
   }
 
