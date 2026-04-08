@@ -86,17 +86,19 @@ export function ContestedRelationships({
 
         return (
           <div key={edge.id} className="px-1 py-1.5 space-y-1">
-            {/* Edge label + impact pill */}
+            {/* Edge label + impact pill — source shown in full, target truncates when narrow. */}
             <div className="flex items-center justify-between gap-2">
               <button
                 type="button"
                 onClick={() => onFocusEdge?.(edge.id)}
                 onMouseEnter={() => onHoverEnter?.('edge', edge.id)}
                 onMouseLeave={() => onHoverLeave?.()}
-                className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate`}
+                className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left flex items-baseline gap-1 min-w-0`}
                 title={`${sourceLabel} → ${targetLabel}`}
               >
-                {sourceLabel} → {targetLabel}
+                <span className="whitespace-nowrap flex-shrink-0">{sourceLabel}</span>
+                <span className="text-text-light flex-shrink-0" aria-hidden="true">→</span>
+                <span className="truncate min-w-0">{targetLabel}</span>
               </button>
               {influence != null && influence > 0.3 && (
                 <Pill size="small" variant="warning">High impact</Pill>

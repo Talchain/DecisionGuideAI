@@ -818,8 +818,25 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         isAi ? 'ai' :
         undefined
 
-      // Build context line: raw_value + unit always primary, verification_prompt → hint
-      const contextLine = formatObservedStateDetail(os) || (isAi ? 'Estimated' : '')
+      // "Not set" override for inferred zeros — when a factor has extractionType
+      // "inferred" and the raw value (or fallback normalised value) is 0 with no
+      // meaningful unit, the literal "0" is misleading. The AI did not measure
+      // zero; it placed the value at the bottom of the scale because it had
+      // nothing to ground on. Show "Not set" so the user understands they still
+      // need to provide a value.
+      const factorData = factor.data as { extractionType?: string } | undefined
+      const isInferred = factorData?.extractionType === 'inferred'
+      const rawValueNum = os.raw_value != null ? Number(os.raw_value) : null
+      const valueNum = os.value != null ? Number(os.value) : null
+      const hasMeaningfulUnit = !!os.unit && os.unit !== 'scale'
+      const isZeroValue = (rawValueNum === 0) || (rawValueNum == null && valueNum === 0)
+      const isInferredZero = isInferred && isZeroValue && !hasMeaningfulUnit
+
+      // Build context line: raw_value + unit always primary, verification_prompt → hint.
+      // "Not set" replaces the formatter output for inferred-zero factors.
+      const contextLine = isInferredZero
+        ? 'Not set'
+        : formatObservedStateDetail(os) || (isAi ? 'Estimated' : '')
 
       // Verification prompt demoted to secondary hint (never overrides raw_value)
       const hint = verificationPrompt || undefined

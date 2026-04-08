@@ -92,6 +92,13 @@ interface PreAnalysisPanelProps {
   blockedReason?: string
   /** Callback to send a message in the conversation panel */
   onSendMessage?: (text: string) => void
+  /**
+   * Expert mode toggle from OutputsDock (`</>` button in the tab bar).
+   * When true, developer-facing diagnostics (correlation IDs, copy-diagnostics
+   * button, raw error payloads) render in the panel. Off by default so the
+   * failure state stays user-friendly.
+   */
+  expertMode?: boolean
 }
 
 
@@ -150,7 +157,7 @@ function StatusBanner({
 
   return (
     <div
-      className="flex items-start gap-2 px-3 py-2"
+      className="flex items-start gap-2 py-2"
       role="status"
       data-testid="pre-analysis-status-banner"
     >
@@ -193,7 +200,7 @@ function SectionHeader({
     tone === 'info' ? 'border-info/30' :
     'border-factor/30'
   return (
-    <div className="flex items-center gap-2 px-3" data-testid={testId}>
+    <div className="flex items-center gap-2" data-testid={testId}>
       <p className={`${typography.panelHeader} text-text-header`}>{title}</p>
       <span
         className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border ${borderClass} ${typography.panelMeta} text-text-body`}
@@ -222,14 +229,14 @@ function ImproveConfidenceAccordion({
   return (
     <div className="space-y-1" data-testid="improve-confidence-section">
       {highestValueLabel && (
-        <p className={`${typography.panelMeta} text-info px-3`}>
+        <p className={`${typography.panelMeta} text-info`}>
           Highest value: {highestValueLabel}
         </p>
       )}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between gap-2 px-3 py-1 cursor-pointer hover:bg-panel-hover rounded"
+        className="w-full flex items-center justify-between gap-2 py-1 cursor-pointer hover:bg-panel-hover rounded"
         aria-expanded={expanded}
         data-testid="improve-confidence-toggle"
       >
@@ -259,6 +266,7 @@ export function PreAnalysisPanel({
   isAnalysing = false,
   blockedReason,
   onSendMessage,
+  expertMode = false,
 }: PreAnalysisPanelProps) {
   // Get all panel data from hook (includes derived progress counts)
   const data = usePreAnalysisData()
@@ -818,8 +826,13 @@ export function PreAnalysisPanel({
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
-      {/* Scrollable content area */}
-      <div className="olumi-scrollbar flex-1 min-h-0 overflow-y-auto py-3 space-y-3">
+      {/* Scrollable content area
+          Horizontal padding is owned by the scroll container (px-3 = 12px).
+          Children MUST NOT add their own px-* / mx-* wrappers — this keeps
+          every card, section header, triage row and accordion flush to the
+          same 12px lane. DS v5 §4.1 spacing scale; sticky footer retains
+          px-4 per §8.9. */}
+      <div className="olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
         {/* Top status banner — strict precedence: failed > blocked > recommendations > ready */}
         <StatusBanner
           state={bannerState}
@@ -828,43 +841,45 @@ export function PreAnalysisPanel({
         />
 
         {/* Draft error detail — only renders in failed state, full opacity above the
-            de-emphasised content. Sits directly below the banner. */}
+            de-emphasised content. Sits directly below the banner.
+            Expert-mode gating: the correlation ID row is a developer-facing
+            detail and is hidden from non-expert users. */}
         {isFailed && lastDraftError && (
-          <div className="px-2">
-            <div
-              className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-3 py-2.5"
-              data-testid="draft-error-card"
-            >
-              <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
-              <p className={`${typography.panelBody} text-text-body mt-0.5`}>{lastDraftError.message}</p>
-              {lastDraftError.correlationId && (
-                <p className={`${typography.panelMeta} text-text-light mt-0.5 font-mono`}>
-                  ID: {lastDraftError.correlationId}
-                </p>
-              )}
-              <div className="flex items-center gap-2 mt-2">
-                {lastDraftError.retryable === false ? (
-                  <button
-                    type="button"
-                    onClick={handleEditBrief}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
-                    data-testid="draft-error-edit-brief"
-                  >
-                    <Pencil size={12} />
-                    Edit brief
-                  </button>
-                ) : canRetryDraft ? (
-                  <button
-                    type="button"
-                    onClick={handleRetryDraft}
-                    disabled={isRetrying}
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-                    data-testid="draft-error-retry"
-                  >
-                    <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
-                    {isRetrying ? 'Retrying…' : 'Retry Draft'}
-                  </button>
-                ) : null}
+          <div
+            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-3 py-2.5"
+            data-testid="draft-error-card"
+          >
+            <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
+            <p className={`${typography.panelBody} text-text-body mt-0.5`}>{lastDraftError.message}</p>
+            {expertMode && lastDraftError.correlationId && (
+              <p className={`${typography.panelMeta} text-text-light mt-0.5 font-mono`} data-testid="draft-error-correlation-id">
+                ID: {lastDraftError.correlationId}
+              </p>
+            )}
+            <div className="flex items-center gap-2 mt-2">
+              {lastDraftError.retryable === false ? (
+                <button
+                  type="button"
+                  onClick={handleEditBrief}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
+                  data-testid="draft-error-edit-brief"
+                >
+                  <Pencil size={12} />
+                  Edit brief
+                </button>
+              ) : canRetryDraft ? (
+                <button
+                  type="button"
+                  onClick={handleRetryDraft}
+                  disabled={isRetrying}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  data-testid="draft-error-retry"
+                >
+                  <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
+                  {isRetrying ? 'Retrying…' : 'Retry Draft'}
+                </button>
+              ) : null}
+              {expertMode && (
                 <button
                   type="button"
                   onClick={() => {
@@ -878,22 +893,23 @@ export function PreAnalysisPanel({
                     showToast('Diagnostics copied', 'success')
                   }}
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-text-light bg-panel border border-panel-border rounded-full hover:bg-panel-hover transition-colors`}
+                  data-testid="draft-error-copy-diagnostics"
                 >
                   <Copy size={12} />
                   Copy diagnostics
                 </button>
-              </div>
-              {lastDraftError.retryable === false && (
-                <div className="mt-2 rounded-md bg-panel border border-panel-border px-2.5 py-2">
-                  <p className={`${typography.panelMeta} text-text-body mb-1`}>Tips for a clearer brief</p>
-                  <ul className={`${typography.panelMeta} text-text-light space-y-0.5 list-disc pl-3.5`}>
-                    <li>State one clear goal</li>
-                    <li>List 2–3 options you're considering</li>
-                    <li>Mention key factors that matter to your decision</li>
-                  </ul>
-                </div>
               )}
             </div>
+            {lastDraftError.retryable === false && (
+              <div className="mt-2 rounded-md bg-panel border border-panel-border px-2.5 py-2">
+                <p className={`${typography.panelMeta} text-text-body mb-1`}>Tips for a clearer brief</p>
+                <ul className={`${typography.panelMeta} text-text-light space-y-0.5 list-disc pl-3.5`}>
+                  <li>State one clear goal</li>
+                  <li>List 2–3 options you're considering</li>
+                  <li>Mention key factors that matter to your decision</li>
+                </ul>
+              </div>
+            )}
           </div>
         )}
 
@@ -906,20 +922,18 @@ export function PreAnalysisPanel({
               Sits inside the de-emphasised wrapper so it dims with the rest of the content
               when the banner is in failed state. */}
           <SectionErrorBoundary section="Model health">
-            <div className="px-2">
-              <ModelHealthCard
-                compact
-                completeness={completeness}
-                evidence={evidence}
-                balance={balance}
-                calibration={calibration}
-                optionCount={data.optionPreviews.length}
-                goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
-                coachingSummary={data.coachingSummary}
-                isLoading={data.isLoading}
-                hasGoalNode={data.nodesByKind.goal.length > 0}
-              />
-            </div>
+            <ModelHealthCard
+              compact
+              completeness={completeness}
+              evidence={evidence}
+              balance={balance}
+              calibration={calibration}
+              optionCount={data.optionPreviews.length}
+              goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
+              coachingSummary={data.coachingSummary}
+              isLoading={data.isLoading}
+              hasGoalNode={data.nodesByKind.goal.length > 0}
+            />
           </SectionErrorBoundary>
 
           {/* Section 1: Must fix — only when blockers exist.
@@ -950,7 +964,7 @@ export function PreAnalysisPanel({
 
               {/* 2. Structural check rows */}
               {structuralCheckCount > 0 && (
-                <div className="space-y-1 px-3">
+                <div className="space-y-1">
                   {fewerThanTwoOptionsCheck && (
                     <TriageCheckRow
                       label="Fewer than 2 options"
@@ -972,7 +986,7 @@ export function PreAnalysisPanel({
 
               {/* 3. Critical Fix triage cards */}
               {mustFixCards.length > 0 && (
-                <div className="flex flex-col gap-1.5 px-1" data-testid="must-fix-cards">
+                <div className="flex flex-col gap-1.5" data-testid="must-fix-cards">
                   {mustFixCards.map((card, i) => (
                     <TriageCard
                       key={card.key}
@@ -1021,22 +1035,20 @@ export function PreAnalysisPanel({
 
               {/* Option similarity / quality card — interventions collapsed per option (v2 brief) */}
               {showOptionQualityCard && data.optionPreviews.length > 0 && (
-                <div className="px-2">
-                  <OptionPreview
-                    options={data.optionPreviews}
-                    onFocusNode={handleFocusNode}
-                    onHoverEnter={handleHoverElement}
-                    onHoverLeave={handleHoverClear}
-                    onSendMessage={onSendMessage}
-                    hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
-                    collapseInterventionsByDefault
-                  />
-                </div>
+                <OptionPreview
+                  options={data.optionPreviews}
+                  onFocusNode={handleFocusNode}
+                  onHoverEnter={handleHoverElement}
+                  onHoverLeave={handleHoverClear}
+                  onSendMessage={onSendMessage}
+                  hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
+                  collapseInterventionsByDefault
+                />
               )}
 
               {/* Bias trigger cards */}
               {biasTriggers.length > 0 && (
-                <div className="space-y-1.5 px-3" data-testid="review-next-nudges">
+                <div className="space-y-1.5" data-testid="review-next-nudges">
                   {biasTriggers.map(trigger => {
                     const Icon = trigger.icon
                     return (
@@ -1071,7 +1083,7 @@ export function PreAnalysisPanel({
 
               {/* Top 3 triage cards (excluding any in Must fix) */}
               {reviewNextTopCards.length > 0 && (
-                <div className="flex flex-col gap-1.5 px-1" data-testid="triage-top-actions">
+                <div className="flex flex-col gap-1.5" data-testid="triage-top-actions">
                   {reviewNextTopCards.map((card, i) => (
                     <TriageCard
                       key={card.key}
@@ -1128,7 +1140,7 @@ export function PreAnalysisPanel({
 
             {/* Remaining triage cards (quick fix) — excluding any in Must fix */}
             {improveConfidenceCards.length > 0 && (
-              <div className="flex flex-col gap-1.5 px-1" data-testid="improve-confidence-cards">
+              <div className="flex flex-col gap-1.5" data-testid="improve-confidence-cards">
                 {improveConfidenceCards.map((card, i) => (
                   <TriageCard
                     key={card.key}
@@ -1188,7 +1200,7 @@ export function PreAnalysisPanel({
           {/* Minimal graph coaching — pre-run guidance, not blocker */}
           {isMinimalGraph && (
             <div
-              className="flex items-start gap-2 px-3 py-2.5 mx-2 bg-panel border border-info/30 rounded-md"
+              className="flex items-start gap-2 px-3 py-2.5 bg-panel border border-info/30 rounded-md"
               role="status"
               data-testid="minimal-graph-coaching"
             >

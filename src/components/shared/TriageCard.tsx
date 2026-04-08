@@ -72,11 +72,44 @@ const BADGE_COLORS: Record<TriageCardCategory, string> = {
   contested: 'bg-warning',
 }
 
+// ── Edge title rendering ────────────────────────────────────────────────────
+
+/**
+ * Render an edge title (`"Source → Target"`) so the source label is shown in
+ * full and only the target truncates when the panel runs out of width. Also
+ * returns a plain element for non-edge titles. The parent decides truncation
+ * scope via `allowSourceShrink`: in the compact variant the source can shrink
+ * too, but in the default variant the source stays full and the target owns
+ * the overflow.
+ */
+function renderTriageTitle(title: string, className: string) {
+  const arrowIdx = title.indexOf(' → ')
+  if (arrowIdx < 0) {
+    // Non-edge title: plain truncating paragraph.
+    return (
+      <p className={`${className} truncate`} title={title}>
+        {title}
+      </p>
+    )
+  }
+  const source = title.slice(0, arrowIdx)
+  const target = title.slice(arrowIdx + 3)
+  return (
+    <p className={`${className} min-w-0 flex items-baseline gap-1`} title={title}>
+      <span className="whitespace-nowrap flex-shrink-0">{source}</span>
+      <span className="text-text-light flex-shrink-0" aria-hidden="true">→</span>
+      <span className="truncate min-w-0">{target}</span>
+    </p>
+  )
+}
+
 // ── Icon action button (DS v5 §9.2 / §9.8) ────────────────────────────────
 
 /**
  * Icon-only action button with mandatory tooltip.
- * 44×44px minimum touch target, icon renders at 14px.
+ * 28×28px visual size to keep the triage-card value row compact; the actual
+ * hit rect stays generous via the card's parent padding (adjacent icons use
+ * a gap of 8px per DS v5 §4.1 spacing). Icon renders at 14px.
  * Colour: text-text-light at rest, hoverClass on hover.
  */
 function IconActionButton({
@@ -98,7 +131,7 @@ function IconActionButton({
         type="button"
         onClick={onClick}
         aria-label={ariaLabel}
-        className={`inline-flex items-center justify-center w-11 h-11 rounded text-text-light ${hoverClass} cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+        className={`inline-flex items-center justify-center w-7 h-7 rounded text-text-light ${hoverClass} cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
       >
         <Icon size={14} aria-hidden="true" />
       </button>
@@ -139,10 +172,16 @@ function EdgeStrengthQuickSelect({
 }
 
 /**
- * InlineValueEditor — single-row: [input] [Update] [✓ Confirm] [Research]
- * Task 1d: all controls on one line with flex-wrap.
+ * InlineValueControls — the input + icon group on the right side of a
+ * collapsed triage card row. Input is compact (w-16), unit hugs the input,
+ * and the three icon actions sit in a single shrink-free group with 8px gaps.
+ *
+ * Unlike the previous layout this does not own the outer flex row — the
+ * parent places <SubtitleOrDetail/> on the left and <InlineValueControls/>
+ * on the right inside the same 1-row container, so subtitle text and the
+ * input controls share a single row instead of stacking.
  */
-function InlineValueEditor({
+function InlineValueControls({
   editorConfig,
   onConfirm,
   onSendMessage,
@@ -165,11 +204,11 @@ function InlineValueEditor({
     }
   }, [draft, editorConfig.onSave])
 
-  const unitSuffix = editorConfig.unit === '%' ? '%' : editorConfig.unit ? ` ${editorConfig.unit}` : ''
+  const unitSuffix = editorConfig.unit === '%' ? '%' : editorConfig.unit ? editorConfig.unit : ''
 
   return (
-    <div className="flex flex-wrap items-center gap-0.5 mt-1">
-      <div className="relative flex items-center">
+    <div className="flex items-center gap-2 flex-shrink-0">
+      <div className="inline-flex items-center gap-0.5">
         <input
           ref={inputRef}
           type="number"
@@ -178,37 +217,40 @@ function InlineValueEditor({
           onKeyDown={e => {
             if (e.key === 'Enter') handleUpdate()
           }}
-          className={`w-16 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+          className={`w-14 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+          aria-label={`Value for ${title}`}
         />
         {unitSuffix && (
-          <span className={`${typography.panelMeta} text-text-light ml-0.5`}>{unitSuffix}</span>
+          <span className={`${typography.panelMeta} text-text-light`}>{unitSuffix}</span>
         )}
       </div>
-      <IconActionButton
-        icon={Pencil}
-        tooltip="Edit value"
-        hoverClass="hover:text-text-body"
-        onClick={handleUpdate}
-        aria-label="Edit value"
-      />
-      {onConfirm && (
+      <div className="inline-flex items-center gap-1">
         <IconActionButton
-          icon={Check}
-          tooltip="Confirm AI estimate"
-          hoverClass="hover:text-success"
-          onClick={onConfirm}
-          aria-label="Confirm AI estimate"
+          icon={Pencil}
+          tooltip="Edit value"
+          hoverClass="hover:text-text-body"
+          onClick={handleUpdate}
+          aria-label="Edit value"
         />
-      )}
-      {onSendMessage && (
-        <IconActionButton
-          icon={Sparkles}
-          tooltip="Ask AI to research"
-          hoverClass="hover:text-info"
-          onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-          aria-label="Ask AI to research"
-        />
-      )}
+        {onConfirm && (
+          <IconActionButton
+            icon={Check}
+            tooltip="Confirm AI estimate"
+            hoverClass="hover:text-success"
+            onClick={onConfirm}
+            aria-label="Confirm AI estimate"
+          />
+        )}
+        {onSendMessage && (
+          <IconActionButton
+            icon={Sparkles}
+            tooltip="Ask AI to research"
+            hoverClass="hover:text-info"
+            onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
+            aria-label="Ask AI to research"
+          />
+        )}
+      </div>
     </div>
   )
 }
@@ -236,7 +278,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
         <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
           {ordinal}
         </span>
-        <span className={`flex-1 min-w-0 truncate ${typography.panelMeta} text-info font-medium`} title={title}>{title}</span>
+        {renderTriageTitle(title, `flex-1 min-w-0 ${typography.panelMeta} text-info font-medium`)}
         {isAiEstimate && (
           <Sparkles
             size={12}
@@ -358,7 +400,7 @@ export function TriageCard(props: TriageCardProps) {
         <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center mt-0.5`}>
           {ordinal}
         </span>
-        <p className={`${typography.panelBody} font-semibold text-text-header flex-1 min-w-0 truncate`} title={title}>{title}</p>
+        {renderTriageTitle(title, `${typography.panelBody} font-semibold text-text-header flex-1 min-w-0`)}
         {/* Source indicator — pinned top-right */}
         {isAiEstimate && (
           <Sparkles
@@ -396,58 +438,74 @@ export function TriageCard(props: TriageCardProps) {
         )}
       </div>
 
-      {/* Subtitle — coaching line when available; otherwise fall back to detail */}
-      <p className={`${typography.panelMeta} text-text-light truncate pl-7`} title={subtitle || displayDetail}>{subtitle || displayDetail}</p>
-
-      {/* Task 1d: Inline value editor row — input + Update + Confirm + Research on ONE line */}
-      {editorConfig && !isEdge && (
-        <div className="pl-7">
-          <InlineValueEditor
-            editorConfig={editorConfig}
-            onConfirm={action?.targetId && onConfirm ? () => onConfirm!(action!.targetId!) : undefined}
-            onSendMessage={!isBrief ? onSendMessage : undefined}
-            title={title}
-          />
+      {/* Collapsed subtitle + value row.
+          The subtitle (coaching line) and the value controls share a single
+          row for factor cards so AI-estimate cards look like:
+            "AI estimate. Does this match? [input] ✏ ✓ ✦"
+          When no editorConfig is available, the action-icon group replaces
+          the input + icons on the right side. Subtitle truncates first so
+          the right-side controls never get pushed off-screen. */}
+      {!isEdge && (
+        <div className="flex items-center gap-2 pl-7 mt-0.5 min-w-0">
+          <p
+            className={`${typography.panelMeta} text-text-light truncate flex-1 min-w-0`}
+            title={subtitle || displayDetail}
+          >
+            {subtitle || displayDetail}
+          </p>
+          {editorConfig ? (
+            <InlineValueControls
+              editorConfig={editorConfig}
+              onConfirm={action?.targetId && onConfirm ? () => onConfirm!(action!.targetId!) : undefined}
+              onSendMessage={!isBrief ? onSendMessage : undefined}
+              title={title}
+            />
+          ) : action ? (
+            <div className="inline-flex items-center gap-1 flex-shrink-0">
+              {action.kind === 'confirm' && onConfirm && action.targetId && (
+                <IconActionButton
+                  icon={Check}
+                  tooltip="Confirm AI estimate"
+                  hoverClass="hover:text-success"
+                  onClick={() => onConfirm!(action!.targetId!)}
+                  aria-label="Confirm AI estimate"
+                />
+              )}
+              {action.kind === 'edit' && onEdit && action.targetId && (
+                <IconActionButton
+                  icon={Pencil}
+                  tooltip="Edit value"
+                  hoverClass="hover:text-text-body"
+                  onClick={() => onEdit!(action!.targetId!)}
+                  aria-label="Edit value"
+                />
+              )}
+              {onSendMessage && action.targetId && !isBrief && (
+                <IconActionButton
+                  icon={Sparkles}
+                  tooltip="Ask AI to research"
+                  hoverClass="hover:text-info"
+                  onClick={() => onSendMessage!(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
+                  aria-label="Ask AI to research"
+                />
+              )}
+            </div>
+          ) : null}
         </div>
       )}
 
-      {/* Action buttons row — only when no inline editor */}
-      {!editorConfig && !isEdge && (
-        <div className="flex items-center justify-end gap-1 mt-1.5 pl-7">
-          {action?.kind === 'confirm' && onConfirm && action.targetId && (
-            <IconActionButton
-              icon={Check}
-              tooltip="Confirm AI estimate"
-              hoverClass="hover:text-success"
-              onClick={() => onConfirm!(action!.targetId!)}
-              aria-label="Confirm AI estimate"
-            />
+      {/* Edge cards keep the two-row layout: subtitle, then strength quick-select */}
+      {isEdge && (
+        <>
+          <p className={`${typography.panelMeta} text-text-light truncate pl-7`} title={subtitle || displayDetail}>
+            {subtitle || displayDetail}
+          </p>
+          {action?.targetId && onUpdateEdgeStrength && (
+            <div className="mt-1.5 pl-7">
+              <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
+            </div>
           )}
-          {action?.kind === 'edit' && onEdit && action.targetId && (
-            <IconActionButton
-              icon={Pencil}
-              tooltip="Edit value"
-              hoverClass="hover:text-text-body"
-              onClick={() => onEdit!(action!.targetId!)}
-              aria-label="Edit value"
-            />
-          )}
-          {onSendMessage && action?.targetId && !isBrief && (
-            <IconActionButton
-              icon={Sparkles}
-              tooltip="Ask AI to research"
-              hoverClass="hover:text-info"
-              onClick={() => onSendMessage!(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-              aria-label="Ask AI to research"
-            />
-          )}
-        </div>
-      )}
-
-      {isEdge && action?.targetId && onUpdateEdgeStrength && (
-        <div className="mt-1.5 pl-7">
-          <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
-        </div>
+        </>
       )}
     </div>
   )

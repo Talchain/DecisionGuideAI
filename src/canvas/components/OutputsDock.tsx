@@ -1384,6 +1384,7 @@ export function OutputsDock() {
                       isAnalysing={isRunning}
                       blockedReason={runBlockedTooltip}
                       onSendMessage={sendMessage}
+                      expertMode={expertMode}
                     />
                   </div>
                 )}
