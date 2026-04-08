@@ -369,8 +369,14 @@ export function reconcileOptionsWithCanvasNodes(
     // for an option and we recover by reading node.data.interventions. After
     // the 2026-04-08 envelope fix (no more recompute), this path should only
     // fire for canvas-only adds and edge cases — investigate every occurrence.
+    //
+    // Structured payload mirrors the convention used elsewhere in this file
+    // (see line 883, 925, 1027, 1148) so log aggregators can filter by
+    // `optionId`. The leading message string keeps the substring
+    // `'reconcileOptions: backfilled'` that downstream tests assert on.
     console.warn(
       `[V2Adapter] reconcileOptions: backfilled from canvas for option "${id}" — CEE analysis_ready was incomplete`,
+      { optionId: id, source: 'canvas_node_data', context: 'reconcileOptionsWithCanvasNodes' },
     )
   }
 
