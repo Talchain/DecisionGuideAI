@@ -78,7 +78,7 @@ describe('ELK Layout', () => {
   it('returns layoutNodeWidth', async () => {
     const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(260)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(300)
   })
 
   it('preserves locked node positions', async () => {
@@ -220,7 +220,7 @@ describe('ELK Layout', () => {
   // Viewport-constrained sizing
   // ---------------------------------------------------------------------------
 
-  it('nodeW stays within [140, 240] for small graphs on a wide canvas', async () => {
+  it('nodeW stays within [140, 300] for small graphs on a wide canvas', async () => {
     // 8-node graph: widest tier = 3 options. Should produce generous nodeW near MAX.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -237,7 +237,7 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(260)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(300)
     // All positions must be finite
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)

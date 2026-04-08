@@ -27,7 +27,7 @@ const FALLBACK_CANVAS: CanvasSize = { width: 1300, height: 750 }
 
 // Node width constraints for viewport-constrained sizing.
 const MIN_NODE_W = 140  // BaseNode minWidth
-const MAX_NODE_W = 260  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips
+const MAX_NODE_W = 300  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips
 const MIN_GAP    = 30   // Minimum horizontal gap between nodes in same tier
 
 interface LayoutOptions {
