@@ -382,8 +382,11 @@ test.describe('Inspector Phase 1 (Track B)', () => {
     await expect(dialog.getByText('ASSUMPTIONS')).toBeVisible()
     await expect(dialog.getByText('ADVANCED')).toBeVisible()
 
-    // No compact popover rendered
-    // (InspectorPopover was removed in S.1, but verify no popover-like element exists)
+    // No compact popover rendered. The InspectorPopover / NodeInspectorCompact /
+    // EdgeInspectorCompact files were deleted entirely in the Polish 4 follow-up
+    // (Phase 2 / S.1 removed the routing; the orphaned chain lingered until
+    // the post-polish cleanup). This assertion stays as a regression guard —
+    // if anyone reintroduces a compact popover under this test id, it fails.
     await expect(page.locator('[data-testid="inspector-popover"]')).toHaveCount(0)
 
     // Screenshot

@@ -759,17 +759,21 @@ describe('isCurrencyUnit', () => {
   })
 })
 
-describe('formatInterventionValue — multi-char currency (P1.6)', () => {
-  it('prefixes CHF correctly', () => {
-    expect(formatInterventionValue(1200, 'CHF')).toBe('CHF1,200')
+describe('formatInterventionValue — multi-char currency (P1.6 + Polish 4 follow-up)', () => {
+  // Polish 4 follow-up: multi-char ISO codes now prefix WITH a space
+  // ("CHF 1,200") instead of the previous no-space form ("CHF1,200") which
+  // was off-brand for ISO codes. Single-char symbols still prefix with no
+  // space. Source of truth: CURRENCY_SYMBOLS vs ISO_CURRENCY_CODES.
+  it('prefixes CHF with a space (ISO code)', () => {
+    expect(formatInterventionValue(1200, 'CHF')).toBe('CHF 1,200')
   })
 
-  it('prefixes kr correctly', () => {
-    expect(formatInterventionValue(500, 'kr')).toBe('kr500')
+  it('prefixes kr with a space (ISO-ish label)', () => {
+    expect(formatInterventionValue(500, 'kr')).toBe('kr 500')
   })
 
-  it('prefixes R$ correctly', () => {
-    expect(formatInterventionValue(2000, 'R$')).toBe('R$2,000')
+  it('prefixes R$ with a space (ISO-ish label)', () => {
+    expect(formatInterventionValue(2000, 'R$')).toBe('R$ 2,000')
   })
 })
 
@@ -886,16 +890,17 @@ describe('formatInterventionValue — preserveTierLabel option (Item B)', () => 
 // ---------------------------------------------------------------------------
 // P1.6: formatFactorValue — currency unit handling
 // ---------------------------------------------------------------------------
-describe('formatFactorValue — multi-char currency (P1.6)', () => {
-  it('formats CHF raw_value as prefix', () => {
-    expect(formatFactorValue({ raw_value: '1200', unit: 'CHF' })).toBe('CHF1,200')
+describe('formatFactorValue — multi-char currency (P1.6 + Polish 4 follow-up)', () => {
+  // Polish 4 follow-up: ISO codes render with a space ("CHF 1,200").
+  it('formats CHF raw_value as space-separated prefix', () => {
+    expect(formatFactorValue({ raw_value: '1200', unit: 'CHF' })).toBe('CHF 1,200')
   })
 
-  it('formats kr raw_value as prefix', () => {
-    expect(formatFactorValue({ raw_value: '500', unit: 'kr' })).toBe('kr500')
+  it('formats kr raw_value as space-separated prefix', () => {
+    expect(formatFactorValue({ raw_value: '500', unit: 'kr' })).toBe('kr 500')
   })
 
-  it('formats £ raw_value as prefix (single-char still works)', () => {
+  it('formats £ raw_value as no-space prefix (single-char symbol)', () => {
     expect(formatFactorValue({ raw_value: '49', unit: '£' })).toBe('£49')
   })
 

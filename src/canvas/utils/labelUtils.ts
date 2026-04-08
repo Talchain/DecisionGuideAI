@@ -225,10 +225,28 @@ export function qualitativeTierLabel(value: number): string {
  * - The model-tab raw formatter (formatRawValueWithUnit) drops the unit
  *   suffix and renders the number on its own.
  *
- * Single source of truth — Polish 4 follow-up Item 2 (review). The
- * model-tab utility module previously had its own GENERIC_UNITS set; it now
- * imports GENERIC_PLACEHOLDER_UNITS from this file so the canvas and the
- * model-tab can't drift on which units are meaningless.
+ * Single source of truth — Polish 4 follow-up. The model-tab utility module
+ * previously had its own GENERIC_UNITS, CURRENCY_SYMBOLS, and
+ * ISO_CURRENCY_CODES sets. They all now come from this file so the canvas
+ * and the model-tab can't drift on which units are meaningless and which
+ * are currencies.
+ *
+ * The CURRENCY_SYMBOLS / ISO_CURRENCY_CODES split is load-bearing:
+ *   - Symbol → prefix with NO space ("£49,000", "$500")
+ *   - ISO code → prefix WITH space ("CHF 49,000", "USD 500")
+ * formatInterventionValue, formatFactorValue, formatRawValueWithUnit, and
+ * model-tab's formatValueWithUnit all honour this rule.
+ *
+ * Known remaining scatter (documented tech debt, NOT consolidated here):
+ *   - src/utils/formatFactorDisplayValue.ts line ~71: hardcoded
+ *     ['£', '$', '€', '¥']. Used by the FactorNode body display only.
+ *     Changing it would flip the A10 test asserting "500 CHF" suffix.
+ *   - src/canvas/ui/inspector-v2/panels/{FactorControllable,FactorObservable}Panel.tsx
+ *     and shared/InterventionRow.tsx: hardcoded ['£', '$', '€']. A narrower
+ *     UX-specific set for inline inspector input prefix treatment; tests
+ *     assert CHF is rendered as a TRAILING label in these panels.
+ *   Both would require a product decision on which surfaces treat ISO
+ *   codes as inline prefixes vs trailing labels.
  */
 export const GENERIC_PLACEHOLDER_UNITS: ReadonlySet<string> = new Set([
   'scale', 'index', 'score', 'normalised', 'normalized', 'norm', 'unit', 'units',
@@ -239,20 +257,42 @@ function isGenericPlaceholderUnit(unit: string | null | undefined): boolean {
   return GENERIC_PLACEHOLDER_UNITS.has(unit.toLowerCase().trim())
 }
 
-/** Currency symbols that prefix the number (J2). Used for both char-prefix checks and full-unit-string checks. */
-export const CURRENCY_SYMBOLS = new Set([
+/**
+ * Currency glyphs that prefix the number with NO space (e.g. "£49", "$500").
+ * Single-char symbols only. Multi-char ISO codes live in ISO_CURRENCY_CODES.
+ *
+ * Polish 4 follow-up: CHF / kr / R$ used to live in this set — they were
+ * technically detected but the no-space prefix formatting was wrong for
+ * multi-char codes ("CHF500" looked off). They moved to ISO_CURRENCY_CODES
+ * which renders them as space-separated prefix ("CHF 500").
+ */
+export const CURRENCY_SYMBOLS: ReadonlySet<string> = new Set([
   '£', '$', '€', '¥', '₹', '₩', '₽', '฿', '₫', '₪', '₴', '₸', '₺', '₼', '₾',
-  'CHF', 'kr', 'R$',
 ])
 
 /**
- * Returns true if the given unit string represents a currency symbol.
- * Checks the full string first (for multi-char symbols like 'CHF', 'kr', 'R$'),
- * then the first character (for single-char symbols like '£', '$', '€').
+ * ISO currency codes that prefix the number WITH a space (e.g. "CHF 500",
+ * "USD 1,200"). Single source of truth for both labelUtils and model-tab/utils.
+ */
+export const ISO_CURRENCY_CODES: ReadonlySet<string> = new Set([
+  'USD', 'GBP', 'EUR', 'JPY', 'INR', 'KRW', 'RUB', 'TRY', 'UAH', 'NGN', 'VND', 'BTC',
+  'CHF', 'CAD', 'AUD', 'NZD', 'HKD', 'SGD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK',
+  'HUF', 'RON', 'BGN', 'HRK', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'ZAR',
+  'EGP', 'AED', 'SAR', 'QAR', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'PKR', 'BDT', 'LKR',
+  // Non-standard labels that behave like ISO codes for display purposes.
+  'kr', 'R$',
+])
+
+/**
+ * Returns true if the given unit string represents ANY kind of currency
+ * (single-char symbol or multi-char ISO code / label).
+ *
+ * Helper preserved for backwards compatibility. New code can import the two
+ * sets directly and call `.has(unit)` to distinguish symbol-vs-ISO formatting.
  */
 export function isCurrencyUnit(unit: string): boolean {
   if (!unit) return false
-  return CURRENCY_SYMBOLS.has(unit) || CURRENCY_SYMBOLS.has(unit[0])
+  return CURRENCY_SYMBOLS.has(unit) || ISO_CURRENCY_CODES.has(unit) || CURRENCY_SYMBOLS.has(unit[0])
 }
 
 /**
@@ -394,11 +434,18 @@ export function formatFactorValue(observedState: {
     const rawStr = String(raw_value).trim()
     if (!unit) return rawStr
     const numericRaw = Number(rawStr)
-    if (isCurrencyUnit(unit)) {
+    // Polish 4 follow-up: symbol → prefix no space; ISO code → prefix with space.
+    if (CURRENCY_SYMBOLS.has(unit)) {
       if (!isNaN(numericRaw) && rawStr !== '') {
         return formatInterventionValue(numericRaw, unit, factor_type)
       }
       return `${unit}${rawStr}`
+    }
+    if (ISO_CURRENCY_CODES.has(unit)) {
+      if (!isNaN(numericRaw) && rawStr !== '') {
+        return formatInterventionValue(numericRaw, unit, factor_type)
+      }
+      return `${unit} ${rawStr}`
     }
     // % unit: no space between value and symbol (e.g. "0%" not "0 %")
     if (unit === '%') {
@@ -413,8 +460,11 @@ export function formatFactorValue(observedState: {
   if (cap != null && cap > 1) {
     const denormed = denormaliseInterventionValue(value, cap)
     if (unit) {
-      if (isCurrencyUnit(unit)) {
+      if (CURRENCY_SYMBOLS.has(unit)) {
         return `${unit}${Math.round(denormed).toLocaleString('en-GB')}`
+      }
+      if (ISO_CURRENCY_CODES.has(unit)) {
+        return `${unit} ${Math.round(denormed).toLocaleString('en-GB')}`
       }
       if (unit === '%') {
         const pct = Math.abs(value) <= 1 ? Math.round(value * 100) : Math.round(value)
@@ -538,10 +588,17 @@ export function formatInterventionValue(
     const display = Math.abs(value) <= 1 ? Math.round(value * 100) : Math.round(value)
     return `${display}%`
   }
-  // J2: Currency symbols prefix the number
-  if (unit && isCurrencyUnit(unit)) {
+  // J2 + Polish 4 follow-up: single-char currency symbols prefix the number
+  // with no space ("£49,000"); multi-char ISO codes prefix with a space
+  // ("CHF 49,000"). The split matches the single source of truth in
+  // CURRENCY_SYMBOLS and ISO_CURRENCY_CODES.
+  if (unit && CURRENCY_SYMBOLS.has(unit)) {
     const rounded = hasScaleBase ? Math.round(v) : v
     return `${unit}${rounded.toLocaleString('en-GB')}`
+  }
+  if (unit && ISO_CURRENCY_CODES.has(unit)) {
+    const rounded = hasScaleBase ? Math.round(v) : v
+    return `${unit} ${rounded.toLocaleString('en-GB')}`
   }
   if (unit) {
     // J1: Round to integer when cap was applied; otherwise preserve existing precision
@@ -581,13 +638,6 @@ export function formatInterventionValue(
  * input contracts differ — keep them separate so the type signature itself
  * tells you which path to use.
  */
-const ISO_CURRENCY_CODES_SET: ReadonlySet<string> = new Set([
-  'USD', 'GBP', 'EUR', 'JPY', 'INR', 'KRW', 'RUB', 'TRY', 'UAH', 'NGN', 'VND', 'BTC',
-  'CHF', 'CAD', 'AUD', 'NZD', 'HKD', 'SGD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK',
-  'HUF', 'RON', 'BGN', 'HRK', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'ZAR',
-  'EGP', 'AED', 'SAR', 'QAR', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'PKR', 'BDT', 'LKR',
-])
-
 function formatRawSmartNumber(n: number): string {
   if (Number.isInteger(n)) return n.toLocaleString('en-GB')
   if (Math.abs(n) < 1) return n.toFixed(2).replace(/\.?0+$/, '')
@@ -601,10 +651,10 @@ export function formatRawValueWithUnit(value: number, unit?: string | null): str
   if (!trimmed) return formatRawSmartNumber(value)
   // Generic placeholder unit → drop the suffix entirely.
   if (isGenericPlaceholderUnit(trimmed)) return formatRawSmartNumber(value)
-  // Currency symbol prefix.
-  if (isCurrencyUnit(trimmed)) return `${trimmed}${formatRawSmartNumber(value)}`
-  // ISO currency code prefix with space.
-  if (ISO_CURRENCY_CODES_SET.has(trimmed)) return `${trimmed} ${formatRawSmartNumber(value)}`
+  // Currency symbol → prefix, no space ("£49,000").
+  if (CURRENCY_SYMBOLS.has(trimmed)) return `${trimmed}${formatRawSmartNumber(value)}`
+  // ISO currency code → prefix with space ("USD 49,000").
+  if (ISO_CURRENCY_CODES.has(trimmed)) return `${trimmed} ${formatRawSmartNumber(value)}`
   // Percent: no space.
   if (trimmed === '%') return `${formatRawSmartNumber(value)}%`
   // Everything else: suffix with space.

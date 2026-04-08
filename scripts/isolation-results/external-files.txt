@@ -54,9 +54,7 @@ src/utils/__tests__/idempotency.spec.ts
 src/utils/idempotency.ts
 src/observability/metrics.ts
 src/canvas/ui/EdgeInspector.tsx
-src/canvas/ui/NodeInspectorCompact.tsx
 src/canvas/ui/__tests__/NodeInspector.icon.spec.tsx
-src/canvas/ui/EdgeInspectorCompact.tsx
 src/canvas/ui/NodeInspector.tsx
 src/canvas/settingsStore.ts
 src/canvas/snapshots/SnapshotPanel.tsx
@@ -173,7 +171,6 @@ src/canvas/components/DecisionReviewPanel.tsx
 src/canvas/components/ImportExportDialog.tsx
 src/canvas/components/DraftChat.tsx
 src/canvas/components/CompareView.tsx
-src/canvas/components/InspectorPopover.tsx
 src/canvas/components/DecisionRationaleForm.tsx
 src/canvas/components/OnboardingOverlay.tsx
 src/canvas/components/RangeLabels.tsx

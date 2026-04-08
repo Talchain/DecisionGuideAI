@@ -1,24 +1,24 @@
 /**
  * Shared utilities for the model-tab component suite.
  *
- * Polish 4 follow-up Item 2 (review): the generic-placeholder-unit set is now
- * imported from labelUtils so the canvas and the model-tab can't drift on
- * which units count as "no real-world meaning". The currency sets remain
- * local because the model-tab's split between symbol and ISO is structurally
- * different from labelUtils's combined set — collapsing those would change
- * the public API of isCurrencyUnit elsewhere. Audit comment at the top of
- * labelUtils.ts inventories every value-rendering surface.
+ * Polish 4 follow-up (review): all three shared unit sets — generic
+ * placeholder units, single-char currency symbols, and ISO currency codes —
+ * now come from labelUtils as a single source of truth. The earlier local
+ * copies caused drift (the model-tab added BTC to ISO codes but labelUtils
+ * didn't) and were a documented piece of tech debt. Audit comment at the
+ * top of labelUtils.ts inventories every value-rendering surface.
  */
 
 import type { ObservedState } from './types'
-import { GENERIC_PLACEHOLDER_UNITS } from '../../utils/labelUtils'
+import {
+  GENERIC_PLACEHOLDER_UNITS,
+  CURRENCY_SYMBOLS,
+  ISO_CURRENCY_CODES,
+} from '../../utils/labelUtils'
 
 // ── Value formatting ──────────────────────────────────────────────────────────
 
-const CURRENCY_SYMBOLS = new Set(['£', '$', '€', '¥', '₹', '₩', '₽', '₺', '₴', '₦', '₫', '₿'])
-const ISO_CURRENCY_CODES = new Set(['USD', 'GBP', 'EUR', 'JPY', 'INR', 'KRW', 'RUB', 'TRY', 'UAH', 'NGN', 'VND', 'BTC', 'CHF', 'CAD', 'AUD', 'NZD', 'HKD', 'SGD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK', 'HUF', 'RON', 'BGN', 'HRK', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'ZAR', 'EGP', 'AED', 'SAR', 'QAR', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'PKR', 'BDT', 'LKR'])
-
-/** Returns true for currency units (symbol or ISO code) */
+/** Returns true for currency units (symbol or ISO code). */
 export function isCurrencyUnit(unit: string): boolean {
   const trimmed = unit.trim()
   return CURRENCY_SYMBOLS.has(trimmed) || ISO_CURRENCY_CODES.has(trimmed)
