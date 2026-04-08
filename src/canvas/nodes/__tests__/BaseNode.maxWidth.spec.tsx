@@ -77,12 +77,12 @@ describe('BaseNode — maxWidth (H1)', () => {
     expect(nodeEl.style.maxWidth).toBe('200px')
   })
 
-  it('uses default 200px maxWidth when no maxWidth prop given', () => {
+  it('uses default 300px maxWidth when no maxWidth prop given', () => {
     const { container } = render(
       <BaseNode {...baseProps} nodeType="factor" icon={Target} />
     )
     const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.maxWidth).toBe('200px')
+    expect(nodeEl.style.maxWidth).toBe('300px')
   })
 
   it('label element has break-words class to prevent overflow', () => {

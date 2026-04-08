@@ -266,7 +266,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           ? '12px 12px 24px 12px'
           : '12px',
         minWidth: '140px',
-        maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 200}px`,
+        maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 300}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >
