@@ -9,6 +9,7 @@ import { describe, it, expect } from 'vitest'
 import {
   cleanFactorLabel,
   compactFactorLabel,
+  classifyUnit,
   sensitivityTierLabel,
   evidenceTierLabel,
   formatInterventionValue,
@@ -1084,5 +1085,144 @@ describe('formatRawValueWithUnit', () => {
 
   it('accepts null unit (parity with the original local helper)', () => {
     expect(formatRawValueWithUnit(49000, null)).toBe('49,000')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// classifyUnit — single source of truth for unit type detection.
+// Polish 4 review follow-up: normalises case + whitespace so 'chf', ' CHF '
+// and 'USD' all resolve to their canonical ISO form.
+// ---------------------------------------------------------------------------
+describe('classifyUnit', () => {
+  it('returns "none" for null / undefined / empty / whitespace', () => {
+    expect(classifyUnit(null).kind).toBe('none')
+    expect(classifyUnit(undefined).kind).toBe('none')
+    expect(classifyUnit('').kind).toBe('none')
+    expect(classifyUnit('   ').kind).toBe('none')
+  })
+
+  it('returns "symbol" for single-char currency glyphs', () => {
+    expect(classifyUnit('£').kind).toBe('symbol')
+    expect(classifyUnit('$').kind).toBe('symbol')
+    expect(classifyUnit('€').kind).toBe('symbol')
+    expect(classifyUnit('¥').kind).toBe('symbol')
+  })
+
+  it('trims whitespace on symbols', () => {
+    expect(classifyUnit(' £ ').kind).toBe('symbol')
+    expect(classifyUnit(' £ ').canonical).toBe('£')
+  })
+
+  it('returns "iso" for uppercase 3-letter codes', () => {
+    expect(classifyUnit('CHF').kind).toBe('iso')
+    expect(classifyUnit('USD').kind).toBe('iso')
+    expect(classifyUnit('EUR').kind).toBe('iso')
+  })
+
+  it('normalises lowercase ISO codes to uppercase canonical', () => {
+    const chf = classifyUnit('chf')
+    expect(chf.kind).toBe('iso')
+    expect(chf.canonical).toBe('CHF')
+    const usd = classifyUnit('usd')
+    expect(usd.kind).toBe('iso')
+    expect(usd.canonical).toBe('USD')
+  })
+
+  it('normalises mixed-case ISO codes', () => {
+    expect(classifyUnit('Chf').canonical).toBe('CHF')
+    expect(classifyUnit('uSd').canonical).toBe('USD')
+  })
+
+  it('trims whitespace on ISO codes', () => {
+    expect(classifyUnit(' CHF ').kind).toBe('iso')
+    expect(classifyUnit(' CHF ').canonical).toBe('CHF')
+    expect(classifyUnit(' chf ').canonical).toBe('CHF')
+  })
+
+  it('preserves non-uppercase ISO-ish labels ("kr", "R$") as canonical', () => {
+    expect(classifyUnit('kr').kind).toBe('iso')
+    expect(classifyUnit('kr').canonical).toBe('kr')
+    expect(classifyUnit('R$').kind).toBe('iso')
+    expect(classifyUnit('R$').canonical).toBe('R$')
+    // Uppercased "KR" does NOT normalise to "kr" — only the exact label matches.
+    expect(classifyUnit('KR').kind).toBe('other')
+  })
+
+  it('lowercased "r$" normalises to canonical "R$" via .toUpperCase()', () => {
+    // '$' is not alphabetic, so 'r$'.toUpperCase() === 'R$' which IS in the set.
+    expect(classifyUnit('r$').kind).toBe('iso')
+    expect(classifyUnit('r$').canonical).toBe('R$')
+  })
+
+  it('returns "percent" for %', () => {
+    expect(classifyUnit('%').kind).toBe('percent')
+    expect(classifyUnit(' % ').kind).toBe('percent')
+  })
+
+  it('returns "placeholder" for generic units', () => {
+    expect(classifyUnit('scale').kind).toBe('placeholder')
+    expect(classifyUnit('index').kind).toBe('placeholder')
+    expect(classifyUnit('score').kind).toBe('placeholder')
+    expect(classifyUnit('SCALE').kind).toBe('placeholder')
+    expect(classifyUnit(' Scale ').kind).toBe('placeholder')
+  })
+
+  it('returns "other" for real unnormalised units', () => {
+    expect(classifyUnit('engineers').kind).toBe('other')
+    expect(classifyUnit('months').kind).toBe('other')
+    expect(classifyUnit('FTE').kind).toBe('other')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Case + whitespace drift — Polish 4 review follow-up. These tests pin the
+// classifyUnit normalisation across every formatter so we can't regress into
+// "chf" / " CHF " rendering inconsistently.
+// ---------------------------------------------------------------------------
+describe('ISO currency normalisation across formatters', () => {
+  describe('formatInterventionValue', () => {
+    it('formats lowercase "chf" as space-prefix "CHF 1,200"', () => {
+      expect(formatInterventionValue(1200, 'chf')).toBe('CHF 1,200')
+    })
+    it('formats whitespace-padded " CHF " as space-prefix "CHF 1,200"', () => {
+      expect(formatInterventionValue(1200, ' CHF ')).toBe('CHF 1,200')
+    })
+    it('formats mixed-case "uSd" as "USD 500"', () => {
+      expect(formatInterventionValue(500, 'uSd')).toBe('USD 500')
+    })
+    it('preserves non-uppercase "kr" label as canonical "kr"', () => {
+      expect(formatInterventionValue(500, 'kr')).toBe('kr 500')
+    })
+  })
+
+  describe('formatFactorValue', () => {
+    it('formats lowercase raw_value currency as space-prefix ISO', () => {
+      expect(formatFactorValue({ raw_value: '1200', unit: 'chf' })).toBe('CHF 1,200')
+    })
+    it('formats whitespace-padded raw_value currency', () => {
+      expect(formatFactorValue({ raw_value: '500', unit: ' USD ' })).toBe('USD 500')
+    })
+  })
+
+  describe('formatRawValueWithUnit', () => {
+    it('formats lowercase ISO codes with space prefix', () => {
+      expect(formatRawValueWithUnit(49000, 'chf')).toBe('CHF 49,000')
+      expect(formatRawValueWithUnit(49000, 'usd')).toBe('USD 49,000')
+    })
+    it('formats whitespace-padded ISO codes', () => {
+      expect(formatRawValueWithUnit(49000, ' CHF ')).toBe('CHF 49,000')
+    })
+    it('still preserves symbol prefix for lowercase symbol (no-op for £)', () => {
+      // Single-char symbols don't have a lowercase — just verify whitespace trims.
+      expect(formatRawValueWithUnit(49000, ' £ ')).toBe('£49,000')
+    })
+  })
+
+  describe('isCurrencyUnit', () => {
+    it('returns true for lowercase / padded ISO codes', () => {
+      expect(isCurrencyUnit('chf')).toBe(true)
+      expect(isCurrencyUnit(' USD ')).toBe(true)
+      expect(isCurrencyUnit('eur')).toBe(true)
+    })
   })
 })

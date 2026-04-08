@@ -732,10 +732,15 @@ describe('FactorNode — QA Brief A-series', () => {
     expect(screen.queryByText(/binary/i)).toBeNull()
   })
 
-  // A10: unit="CHF", raw_value=500 → "500 CHF" (CHF not in single-char currency prefix set)
-  it('A10: unit="CHF" with raw_value=500 renders "500 CHF"', () => {
+  // A10 (Polish 4 review follow-up): unit="CHF" now renders as ISO-style
+  // prefix "CHF 500" — classifyUnit in labelUtils puts CHF in the iso kind,
+  // which formats as space-separated prefix across every canvas surface.
+  // Previously this file rendered "500 CHF" via its own hardcoded symbol
+  // list; that inconsistency with labelUtils was flagged as tech debt and
+  // is now fixed.
+  it('A10: unit="CHF" with raw_value=500 renders "CHF 500" (ISO-style prefix)', () => {
     renderFactor({ label: 'Cost', type: 'factor', observedState: { raw_value: '500', unit: 'CHF' } })
-    expect(screen.getByText('500 CHF')).toBeDefined()
+    expect(screen.getByText('CHF 500')).toBeDefined()
   })
 
   // A14: source='cee_inference' — provenance icons removed, science icons handle this

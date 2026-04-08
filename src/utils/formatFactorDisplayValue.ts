@@ -7,7 +7,16 @@
  *
  * Returns null when no meaningful text can be produced (node renders
  * no body text). Never returns generic placeholders.
+ *
+ * Polish 4 review follow-up: currency detection now goes through
+ * classifyUnit from labelUtils so symbols (£, $, €) prefix with no space,
+ * ISO codes (CHF, USD, kr, R$) prefix with a space, and case / whitespace
+ * drift ('chf', ' CHF ') resolve to the canonical form. Previously this
+ * file had a hardcoded `['£', '$', '€', '¥']` list that treated CHF as a
+ * trailing suffix ("500 CHF") — inconsistent with the rest of the codebase.
  */
+
+import { classifyUnit } from '../canvas/utils/labelUtils'
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
@@ -67,16 +76,21 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       if (numericRaw === 0 && factor_type?.toLowerCase() === 'cost') {
         return 'No cost allocated'
       }
-      // Currency prefix
-      if (['£', '$', '€', '¥'].includes(unit)) {
-        return `${unit}${formatNumber(numericRaw)}`
+      // Polish 4 review follow-up: classifyUnit handles symbol/ISO/%/other
+      // with case + whitespace normalisation. 'CHF' now renders as the
+      // ISO-style prefix "CHF 500" instead of the old suffix "500 CHF".
+      const { kind, canonical } = classifyUnit(unit)
+      if (kind === 'symbol') {
+        return `${canonical}${formatNumber(numericRaw)}`
       }
-      // Percentage
-      if (unit === '%') {
+      if (kind === 'iso') {
+        return `${canonical} ${formatNumber(numericRaw)}`
+      }
+      if (kind === 'percent') {
         return `${Math.round(numericRaw)}%`
       }
-      // Unit suffix
-      return `${formatNumber(numericRaw)} ${unit}`
+      // 'other' | 'placeholder' | 'none' (unreachable here — unit is truthy)
+      return `${formatNumber(numericRaw)} ${canonical || unit}`
     }
     // raw_value is a non-numeric string with unit
     return `${raw_value} ${unit}`

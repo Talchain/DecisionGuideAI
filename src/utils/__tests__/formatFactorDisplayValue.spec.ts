@@ -158,4 +158,74 @@ describe('formatFactorDisplayValue', () => {
       })).toBe('5 engineers')
     })
   })
+
+  // Polish 4 review follow-up: currency detection now goes through
+  // classifyUnit from labelUtils. Previously this file had a hardcoded
+  // `['£', '$', '€', '¥']` list that rendered CHF as "500 CHF" (trailing).
+  // Now symbols prefix with no space and ISO codes prefix with a space —
+  // consistent with every other canvas + model-tab formatter.
+  describe('shared currency classification (Polish 4 review)', () => {
+    it('formats single-char symbols as no-space prefix (£49,000)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Budget',
+        value: 0.5,
+        raw_value: 49000,
+        unit: '£',
+      })).toBe('£49,000')
+    })
+
+    it('formats ISO codes as space-prefix (CHF 500)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Reserve',
+        value: 0.5,
+        raw_value: 500,
+        unit: 'CHF',
+      })).toBe('CHF 500')
+    })
+
+    it('normalises lowercase ISO codes (chf → CHF 500)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Reserve',
+        value: 0.5,
+        raw_value: 500,
+        unit: 'chf',
+      })).toBe('CHF 500')
+    })
+
+    it('trims whitespace on ISO codes ( CHF  → CHF 1,200)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Reserve',
+        value: 0.5,
+        raw_value: 1200,
+        unit: ' CHF ',
+      })).toBe('CHF 1,200')
+    })
+
+    it('preserves non-uppercase "kr" label', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Revenue',
+        value: 0.5,
+        raw_value: 500,
+        unit: 'kr',
+      })).toBe('kr 500')
+    })
+
+    it('still formats % with no space', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Churn',
+        value: 0.5,
+        raw_value: 5,
+        unit: '%',
+      })).toBe('5%')
+    })
+
+    it('still formats "other" units as trailing suffix', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Headcount',
+        value: 0.5,
+        raw_value: 9,
+        unit: 'months',
+      })).toBe('9 months')
+    })
+  })
 })

@@ -225,28 +225,32 @@ export function qualitativeTierLabel(value: number): string {
  * - The model-tab raw formatter (formatRawValueWithUnit) drops the unit
  *   suffix and renders the number on its own.
  *
- * Single source of truth — Polish 4 follow-up. The model-tab utility module
- * previously had its own GENERIC_UNITS, CURRENCY_SYMBOLS, and
- * ISO_CURRENCY_CODES sets. They all now come from this file so the canvas
- * and the model-tab can't drift on which units are meaningless and which
- * are currencies.
+ * Single source of truth — Polish 4 follow-up + review follow-up. The
+ * model-tab utility module previously had its own GENERIC_UNITS,
+ * CURRENCY_SYMBOLS, and ISO_CURRENCY_CODES sets. formatFactorDisplayValue
+ * had its own hardcoded ['£', '$', '€', '¥'] list. They all now route
+ * through classifyUnit (below) so the canvas, the model-tab, and the
+ * factor body display can't drift on which units are meaningless and
+ * which are currencies.
  *
  * The CURRENCY_SYMBOLS / ISO_CURRENCY_CODES split is load-bearing:
  *   - Symbol → prefix with NO space ("£49,000", "$500")
  *   - ISO code → prefix WITH space ("CHF 49,000", "USD 500")
- * formatInterventionValue, formatFactorValue, formatRawValueWithUnit, and
- * model-tab's formatValueWithUnit all honour this rule.
+ * Every formatter in this file plus src/utils/formatFactorDisplayValue.ts
+ * and src/canvas/components/model-tab/utils.ts honours this rule.
  *
- * Known remaining scatter (documented tech debt, NOT consolidated here):
- *   - src/utils/formatFactorDisplayValue.ts line ~71: hardcoded
- *     ['£', '$', '€', '¥']. Used by the FactorNode body display only.
- *     Changing it would flip the A10 test asserting "500 CHF" suffix.
+ * classifyUnit also normalises case + whitespace so 'chf', ' CHF ',
+ * 'USD', 'r$' all resolve to their canonical ISO form.
+ *
+ * Known remaining scatter (documented exception, NOT consolidated):
  *   - src/canvas/ui/inspector-v2/panels/{FactorControllable,FactorObservable}Panel.tsx
  *     and shared/InterventionRow.tsx: hardcoded ['£', '$', '€']. A narrower
- *     UX-specific set for inline inspector input prefix treatment; tests
- *     assert CHF is rendered as a TRAILING label in these panels.
- *   Both would require a product decision on which surfaces treat ISO
- *   codes as inline prefixes vs trailing labels.
+ *     UX-intentional set for inline inspector-input prefix treatment. The
+ *     inspector renders the unit as a SEPARATE span (not a fused prefix
+ *     glyph) for ISO codes so the user can edit the number cleanly next to
+ *     a trailing label. InspectorRouter.spec.tsx explicitly asserts this
+ *     behaviour (CHF renders as a trailing span, not an inline prefix).
+ *     This is a structural UX choice, not a tech-debt scatter — leave it.
  */
 export const GENERIC_PLACEHOLDER_UNITS: ReadonlySet<string> = new Set([
   'scale', 'index', 'score', 'normalised', 'normalized', 'norm', 'unit', 'units',
@@ -284,15 +288,65 @@ export const ISO_CURRENCY_CODES: ReadonlySet<string> = new Set([
 ])
 
 /**
+ * Unit classification used by every value formatter in this file.
+ *
+ * Polish 4 review follow-up: previously each formatter called `.has(unit)`
+ * directly on CURRENCY_SYMBOLS / ISO_CURRENCY_CODES / GENERIC_PLACEHOLDER_UNITS,
+ * which made currency detection case- and whitespace-sensitive — `'chf'` or
+ * `' CHF '` would fall through to the generic suffix path and render as
+ * "1200 chf" instead of "CHF 1,200". Routing every formatter through this
+ * single helper gives us normalisation in one place.
+ *
+ * Returns:
+ *   - 'none'        — unit is null / undefined / empty after trim
+ *   - 'symbol'      — single-char currency glyph (£, $, €, …)
+ *   - 'iso'         — multi-char ISO code or ISO-ish label (CHF, USD, kr, R$)
+ *   - 'percent'     — '%'
+ *   - 'placeholder' — generic placeholder (scale, index, score, …)
+ *   - 'other'       — a real unit that should render as a trailing suffix
+ *                     (engineers, months, FTE, …)
+ *
+ * Lookup order: none → symbol (exact) → iso (case-insensitive for 3-letter
+ * ISO codes; exact for non-ISO labels like 'kr' / 'R$') → percent →
+ * placeholder → other.
+ */
+export type UnitClass = 'none' | 'symbol' | 'iso' | 'percent' | 'placeholder' | 'other'
+
+export function classifyUnit(unit: string | null | undefined): { kind: UnitClass; canonical: string } {
+  if (unit == null) return { kind: 'none', canonical: '' }
+  const trimmed = unit.trim()
+  if (!trimmed) return { kind: 'none', canonical: '' }
+
+  // Symbol match first — single-char glyphs are case-sensitive (£/$/€ don't
+  // have "upper/lowercase" versions anyway).
+  if (CURRENCY_SYMBOLS.has(trimmed)) return { kind: 'symbol', canonical: trimmed }
+
+  // ISO code match — try the raw form first (preserves 'kr' / 'R$' labels),
+  // then the uppercase form (so 'chf' / 'usd' work too).
+  if (ISO_CURRENCY_CODES.has(trimmed)) return { kind: 'iso', canonical: trimmed }
+  const upper = trimmed.toUpperCase()
+  if (ISO_CURRENCY_CODES.has(upper)) return { kind: 'iso', canonical: upper }
+
+  if (trimmed === '%') return { kind: 'percent', canonical: '%' }
+
+  if (GENERIC_PLACEHOLDER_UNITS.has(trimmed.toLowerCase())) {
+    return { kind: 'placeholder', canonical: trimmed }
+  }
+
+  return { kind: 'other', canonical: trimmed }
+}
+
+/**
  * Returns true if the given unit string represents ANY kind of currency
  * (single-char symbol or multi-char ISO code / label).
  *
- * Helper preserved for backwards compatibility. New code can import the two
- * sets directly and call `.has(unit)` to distinguish symbol-vs-ISO formatting.
+ * Helper preserved for backwards compatibility. New code should call
+ * classifyUnit(unit).kind directly to distinguish symbol-vs-ISO formatting.
  */
 export function isCurrencyUnit(unit: string): boolean {
   if (!unit) return false
-  return CURRENCY_SYMBOLS.has(unit) || ISO_CURRENCY_CODES.has(unit) || CURRENCY_SYMBOLS.has(unit[0])
+  const kind = classifyUnit(unit).kind
+  return kind === 'symbol' || kind === 'iso'
 }
 
 /**
@@ -434,24 +488,25 @@ export function formatFactorValue(observedState: {
     const rawStr = String(raw_value).trim()
     if (!unit) return rawStr
     const numericRaw = Number(rawStr)
-    // Polish 4 follow-up: symbol → prefix no space; ISO code → prefix with space.
-    if (CURRENCY_SYMBOLS.has(unit)) {
+    // Polish 4 review follow-up: classifyUnit normalises case / whitespace
+    // so 'chf', ' CHF ', 'USD' all resolve to their canonical ISO form.
+    const { kind, canonical } = classifyUnit(unit)
+    if (kind === 'symbol') {
       if (!isNaN(numericRaw) && rawStr !== '') {
-        return formatInterventionValue(numericRaw, unit, factor_type)
+        return formatInterventionValue(numericRaw, canonical, factor_type)
       }
-      return `${unit}${rawStr}`
+      return `${canonical}${rawStr}`
     }
-    if (ISO_CURRENCY_CODES.has(unit)) {
+    if (kind === 'iso') {
       if (!isNaN(numericRaw) && rawStr !== '') {
-        return formatInterventionValue(numericRaw, unit, factor_type)
+        return formatInterventionValue(numericRaw, canonical, factor_type)
       }
-      return `${unit} ${rawStr}`
+      return `${canonical} ${rawStr}`
     }
-    // % unit: no space between value and symbol (e.g. "0%" not "0 %")
-    if (unit === '%') {
+    if (kind === 'percent') {
       return `${rawStr}%`
     }
-    return `${rawStr} ${unit}`
+    return `${rawStr} ${canonical || unit}`
   }
 
   if (value === undefined) return null
@@ -460,17 +515,18 @@ export function formatFactorValue(observedState: {
   if (cap != null && cap > 1) {
     const denormed = denormaliseInterventionValue(value, cap)
     if (unit) {
-      if (CURRENCY_SYMBOLS.has(unit)) {
-        return `${unit}${Math.round(denormed).toLocaleString('en-GB')}`
+      const { kind, canonical } = classifyUnit(unit)
+      if (kind === 'symbol') {
+        return `${canonical}${Math.round(denormed).toLocaleString('en-GB')}`
       }
-      if (ISO_CURRENCY_CODES.has(unit)) {
-        return `${unit} ${Math.round(denormed).toLocaleString('en-GB')}`
+      if (kind === 'iso') {
+        return `${canonical} ${Math.round(denormed).toLocaleString('en-GB')}`
       }
-      if (unit === '%') {
+      if (kind === 'percent') {
         const pct = Math.abs(value) <= 1 ? Math.round(value * 100) : Math.round(value)
         return `${pct}%`
       }
-      return `${Math.round(denormed)} ${unit}`
+      return `${Math.round(denormed)} ${canonical || unit}`
     }
   }
 
@@ -584,27 +640,40 @@ export function formatInterventionValue(
     // Fraction/proportion: always treat as 0–1 scale (cap doesn't apply — already a ratio)
     return `${Math.round(value * 100)}%`
   }
-  if (unit === '%') {
+  // Polish 4 review follow-up: route every unit classification through
+  // classifyUnit so case / whitespace drift can't create inconsistent
+  // rendering ('chf' → "1200 chf" before; "CHF 1,200" now).
+  const { kind, canonical } = classifyUnit(unit)
+  if (kind === 'percent') {
     const display = Math.abs(value) <= 1 ? Math.round(value * 100) : Math.round(value)
     return `${display}%`
   }
-  // J2 + Polish 4 follow-up: single-char currency symbols prefix the number
-  // with no space ("£49,000"); multi-char ISO codes prefix with a space
-  // ("CHF 49,000"). The split matches the single source of truth in
-  // CURRENCY_SYMBOLS and ISO_CURRENCY_CODES.
-  if (unit && CURRENCY_SYMBOLS.has(unit)) {
+  if (kind === 'symbol') {
+    // J2: single-char glyph → prefix with no space ("£49,000").
     const rounded = hasScaleBase ? Math.round(v) : v
-    return `${unit}${rounded.toLocaleString('en-GB')}`
+    return `${canonical}${rounded.toLocaleString('en-GB')}`
   }
-  if (unit && ISO_CURRENCY_CODES.has(unit)) {
+  if (kind === 'iso') {
+    // ISO code → prefix with space ("CHF 49,000"). Canonical form is the
+    // uppercased label for 3-letter codes, or the raw 'kr'/'R$' label.
     const rounded = hasScaleBase ? Math.round(v) : v
-    return `${unit} ${rounded.toLocaleString('en-GB')}`
+    return `${canonical} ${rounded.toLocaleString('en-GB')}`
   }
-  if (unit) {
+  if (kind === 'other') {
     // J1: Round to integer when cap was applied; otherwise preserve existing precision
     const display = hasScaleBase ? Math.round(v) : v
-    return `${display} ${unit}`
+    return `${display} ${canonical}`
   }
+  if (kind === 'placeholder') {
+    // Scale / index / score / … with a raw anchor: the suppression path
+    // (top of function) already caught the no-raw case. Here we have raw
+    // data, so preserve the legacy "0.5 scale" suffix rendering for
+    // backwards compatibility with callers that pass both.
+    const display = hasScaleBase ? Math.round(v) : v
+    return `${display} ${canonical}`
+  }
+  // kind === 'none' → no unit. Fall through to the qualitative tier path
+  // below so value-only callers still render a meaningful label.
   // No unit — check if this is a qualitative factor type (case-insensitive)
   const ft = factorType?.toLowerCase().trim()
   const isQualitative = !ft || QUALITATIVE_FACTOR_TYPES.has(ft)
@@ -646,17 +715,15 @@ function formatRawSmartNumber(n: number): string {
 
 export function formatRawValueWithUnit(value: number, unit?: string | null): string {
   if (typeof value !== 'number' || !Number.isFinite(value)) return 'Not set'
-  if (!unit) return formatRawSmartNumber(value)
-  const trimmed = unit.trim()
-  if (!trimmed) return formatRawSmartNumber(value)
-  // Generic placeholder unit → drop the suffix entirely.
-  if (isGenericPlaceholderUnit(trimmed)) return formatRawSmartNumber(value)
-  // Currency symbol → prefix, no space ("£49,000").
-  if (CURRENCY_SYMBOLS.has(trimmed)) return `${trimmed}${formatRawSmartNumber(value)}`
-  // ISO currency code → prefix with space ("USD 49,000").
-  if (ISO_CURRENCY_CODES.has(trimmed)) return `${trimmed} ${formatRawSmartNumber(value)}`
-  // Percent: no space.
-  if (trimmed === '%') return `${formatRawSmartNumber(value)}%`
-  // Everything else: suffix with space.
-  return `${formatRawSmartNumber(value)} ${trimmed}`
+  // Polish 4 review follow-up: route through classifyUnit so case /
+  // whitespace / generic-placeholder / ISO handling is identical to the
+  // normalised-value formatters above.
+  const { kind, canonical } = classifyUnit(unit)
+  if (kind === 'none') return formatRawSmartNumber(value)
+  if (kind === 'placeholder') return formatRawSmartNumber(value)
+  if (kind === 'symbol') return `${canonical}${formatRawSmartNumber(value)}`
+  if (kind === 'iso') return `${canonical} ${formatRawSmartNumber(value)}`
+  if (kind === 'percent') return `${formatRawSmartNumber(value)}%`
+  // kind === 'other'
+  return `${formatRawSmartNumber(value)} ${canonical}`
 }
