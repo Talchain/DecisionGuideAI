@@ -1200,12 +1200,11 @@ export function OutputsDock() {
                         </div>
                         <div className={`${typography.panelBody} text-text-body`}>
                           {affected.map((opt, idx) => {
-                            const isLast = idx === affected.length - 1
                             // Inline list separator: "A and B" for two; "A, B, and C" for three+
                             let separator = ''
                             if (idx > 0) {
                               if (affected.length === 2) separator = ' and '
-                              else if (isLast) separator = ', and '
+                              else if (idx === affected.length - 1) separator = ', and '
                               else separator = ', '
                             }
                             return (

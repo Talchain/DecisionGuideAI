@@ -503,7 +503,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         // C.1b: Persist failure to Supabase (non-blocking)
         if (persistence) {
           persistence.persistAnalysisFailure({
-            code: 'VALIDATION_BLOCKED',
+            code: promotedCode,
             message: errorResult.status_reason,
           }).catch(() => { /* non-critical */ })
         }
