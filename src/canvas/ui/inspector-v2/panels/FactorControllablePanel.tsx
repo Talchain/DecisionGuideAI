@@ -104,8 +104,8 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         // path; the string-pass-through branch below covers the rest.
         // The connections badge is one of the few intervention display sites
         // that can render strings verbatim — the editable / arithmetic sites
-        // (OptionPanel, OptionAdvancedEditor, NodeInspectorCompact, FactorNode
-        // hover) require finite numbers and correctly drop string entries.
+        // (OptionPanel, OptionAdvancedEditor, FactorNode hover) require finite
+        // numbers and correctly drop string entries.
         const ivs = (src?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
         const raw = ivs?.[nodeId]
         const interventionValue = unwrapInterventionValue(raw)

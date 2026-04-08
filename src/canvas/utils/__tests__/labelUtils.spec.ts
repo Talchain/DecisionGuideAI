@@ -857,11 +857,10 @@ describe('formatInterventionValue — preserveTierLabel option (Item B)', () => 
     expect(formatInterventionValue(0.5, 'scale', undefined, undefined, undefined, undefined, { preserveTierLabel: false })).toBe('')
   })
 
-  // Polish 4 review: NodeInspectorCompact "Current value" row + intervention
-  // chip rows pass preserveTierLabel=true so the inspector never renders an
-  // empty styled card. Contract pinning — if this regresses the inspector
-  // rows go blank.
-  it('NodeInspectorCompact contract: factor with unit=scale and no raw renders a tier, not empty', () => {
+  // Contract pinning for callers that pass preserveTierLabel=true (currently
+  // GraphTextView observed-state rows). If this regresses, the text view
+  // will hide rows entirely instead of showing a coarse tier label.
+  it('preserveTierLabel contract: factor with unit=scale and no raw renders a tier, not empty', () => {
     const result = formatInterventionValue(
       0.5, 'scale', 'quality', undefined, undefined, undefined, { preserveTierLabel: true },
     )
@@ -869,7 +868,7 @@ describe('formatInterventionValue — preserveTierLabel option (Item B)', () => 
     expect(['Very low', 'Low', 'Medium', 'High', 'Very high']).toContain(result)
   })
 
-  it('NodeInspectorCompact contract: covers all tier ranges for scale-no-raw', () => {
+  it('preserveTierLabel contract: covers all tier ranges for scale-no-raw', () => {
     const opts = { preserveTierLabel: true }
     expect(formatInterventionValue(0.0, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Very low')
     expect(formatInterventionValue(0.2, 'scale', undefined, undefined, undefined, undefined, opts)).toBe('Very low')

@@ -20,7 +20,7 @@
  *
  * 2. formatInterventionValue    (this file, line ~430)
  *    - Surface: factor node hover overlay, OptionNode pill/popover/Detailed list (via formatChipValue),
- *      GraphTextView observed-state row, NodeInspectorCompact main value display
+ *      GraphTextView observed-state row
  *    - Input:   value, unit, factorType, cap, observedValue, observedRawValue, opts?
  *    - Output:  '' | "£40,000" | "75%" | "Very low" (qualitative tier) | "5 engineers"
  *    - Fallback: '' for scale-no-raw (Polish 4 Task 1 — meaningless unit suppression).
@@ -40,14 +40,17 @@
  *    - Status: do not extend. New code should use formatFactorDisplayValue.
  *
  * Local shadows that intentionally exist (do NOT consolidate without redesign):
- *   - NodeInspectorCompact.tsx::formatChipValue — uses "sets to {value}" copy
- *     for the intervention chip cards. UI text variant; not API-compatible.
  *   - OptionNode.tsx::formatChipValue — composes formatFactorDisplayValue with
  *     a fallback through formatInterventionValue. Cannot be moved into labelUtils
  *     without dragging factor-display logic in.
  *
  * Removed shadows (Polish 4 follow-up):
  *   - OptionsSection.tsx::formatInterventionValue — replaced with formatRawValueWithUnit.
+ *   - NodeInspectorCompact.tsx::formatChipValue — file deleted (orphaned chain
+ *     after Phase 2 (S.1) routing change; verified zero importers, e2e asserts
+ *     no popover renders). The file used to mention "sets to N" copy for
+ *     unit-less interventions but the entire compact-inspector path was
+ *     removed from the canvas single-click flow.
  * ============================================================================
  */
 
@@ -448,13 +451,12 @@ export function formatFactorValue(observedState: {
  *
  * Sites that need to render string interventions verbatim must check the
  * raw value separately (see FactorControllablePanel for an example) — the
- * brief explicitly says strings should "display directly", but the four
- * numeric display paths (OptionPanel InterventionRow, NodeInspectorCompact
- * formatChipValue, OptionAdvancedEditor AdvancedField type=number, FactorNode
- * formatInterventionValue) cannot render strings without breaking their
- * arithmetic / editable input contracts. Those sites correctly drop string
- * entries; only the FactorControllablePanel connections badge passes them
- * through.
+ * brief explicitly says strings should "display directly", but the three
+ * numeric display paths (OptionPanel InterventionRow, OptionAdvancedEditor
+ * AdvancedField type=number, FactorNode formatInterventionValue) cannot
+ * render strings without breaking their arithmetic / editable input
+ * contracts. Those sites correctly drop string entries; only the
+ * FactorControllablePanel connections badge passes them through.
  *
  * Centralises the unwrap logic so every UI display path converges on one
  * source of truth. Inspector panels previously cast the `interventions`
