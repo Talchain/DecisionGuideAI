@@ -1,3 +1,18 @@
+/**
+ * KNOWN-BROKEN TESTS — pre-existing failures awaiting fix.
+ *
+ * As of 2026-04-08, 6 tests in this file fail because they expect a
+ * "Sharpen your thinking" section header that no longer exists in the
+ * DecisionQualityChecks component. The test file has not been updated
+ * since the section was removed/renamed.
+ *
+ * Status: not tracked in an issue. Failures are present on baseline,
+ * confirmed independent of the v2 pre-analysis panel regroup work.
+ *
+ * Action needed: either update the test fixtures to match the current
+ * DecisionQualityChecks component contract, or remove the file if the
+ * component is no longer used.
+ */
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi } from 'vitest'
 import { DecisionQualityChecks } from '../DecisionQualityChecks'

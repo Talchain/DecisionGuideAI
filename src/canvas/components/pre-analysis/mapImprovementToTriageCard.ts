@@ -54,7 +54,14 @@ function formatValueWithUnit(rawValue: number, unit: string | undefined | null):
   }
   if (!unit) return formatNumber(rawValue)
   if (isCurrencyUnit(unit)) return `${unit}${formatNumber(rawValue)}`
-  if (unit === '%') return `${formatNumber(rawValue)}%`
+  if (unit === '%') {
+    // Fractional value with % unit (e.g. 0.04 → "4%"). Values > 1 are assumed
+    // to already be in percent form (e.g. 75 → "75%").
+    const pct = rawValue >= 0 && rawValue <= 1
+      ? Number((rawValue * 100).toFixed(2))
+      : rawValue
+    return `${formatNumber(pct)}%`
+  }
   return `${formatNumber(rawValue)} ${unit}`
 }
 
