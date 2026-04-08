@@ -544,8 +544,8 @@ describe('usePreAnalysisData', () => {
   })
 
   describe('Value Formatting', () => {
-    it('formats fractional percentage values correctly (0.04 → "0.04 (scale 0–1)")', () => {
-      // contextLine: no raw_value, value present → normalised fallback
+    it('formats fractional percentage values correctly (0.04 → "4%")', () => {
+      // value 0.04 with unit '%' → multiply by 100 for display
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -565,13 +565,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '0.04 (scale 0–1)',
+          detail: '4%',
         })
       )
     })
 
-    it('handles percentage values already in percent form (75 → "75")', () => {
-      // contextLine: no raw_value, value present, value > 1 → plain number (no scale suffix)
+    it('handles percentage values already in percent form (75 → "75%")', () => {
+      // value 75 with unit '%' (already in percent form, > 1) → "75%"
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -591,13 +591,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '75',
+          detail: '75%',
         })
       )
     })
 
-    it('formats pound values correctly (20000 → "20000")', () => {
-      // contextLine: no raw_value, value present, value > 1 → plain number (no scale suffix)
+    it('formats pound values with thousand separators (20000 → "£20,000")', () => {
+      // value 20000 with unit '£' → currency prefix + thousand separators
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -617,13 +617,13 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '20000',
+          detail: '£20,000',
         })
       )
     })
 
-    it('formats dollar values correctly (5000 → "5000")', () => {
-      // contextLine: no raw_value, value present, value > 1 → plain number (no scale suffix)
+    it('formats dollar values with thousand separators (5000 → "$5,000")', () => {
+      // value 5000 with unit '$' → currency prefix + thousand separators
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
           {
@@ -643,7 +643,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '5000',
+          detail: '$5,000',
         })
       )
     })
@@ -727,7 +727,7 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('formats factor with cap=1, unit="" and out-of-range value as numeric', () => {
+    it('formats factor with cap=1, unit="" and out-of-range value as numeric (with thousand separators)', () => {
       // Value > 1 with cap=1, unit="" — range guard prevents qualitative mapping
       mockUseCanvasStore.mockImplementation(createMockStore({
         nodes: [
@@ -748,7 +748,7 @@ describe('usePreAnalysisData', () => {
       expect(result.current.improvementsByCategory.verify).toContainEqual(
         expect.objectContaining({
           key: 'verify_factor1',
-          detail: '5000',
+          detail: '5,000',
         })
       )
     })
@@ -2185,11 +2185,11 @@ describe('usePreAnalysisData', () => {
 
         const { result } = renderHook(() => usePreAnalysisData())
 
-        // contextLine: no raw_value, value present, value > 1 → plain number (no scale suffix)
+        // contextLine: no raw_value, value present with currency unit → currency-formatted with thousand separators
         expect(result.current.improvementsByCategory.verify).toContainEqual(
           expect.objectContaining({
             key: 'verify_factor1',
-            detail: '5000',
+            detail: '$5,000',
           })
         )
       })

@@ -22,7 +22,7 @@ export interface TriageCardItem {
   sourcePill: { label: string; borderClass: string } | null
 }
 
-/** Qualitative label for 0–1 scale values */
+/** Qualitative label for 0–1 scale values (inclusive boundaries) */
 function qualitativeLabel(v: number): string {
   if (v <= 0.2) return 'very low'
   if (v <= 0.4) return 'low'
@@ -31,15 +31,32 @@ function qualitativeLabel(v: number): string {
   return 'very high'
 }
 
-/** Format a raw value with its unit for display */
-function formatValueWithUnit(rawValue: number, unit: string | undefined): string {
+/** Locale-aware number formatter with thousand separators for values > 999 */
+const NUMBER_FMT = new Intl.NumberFormat('en-GB')
+function formatNumber(n: number): string {
+  if (Math.abs(n) >= 1000) return NUMBER_FMT.format(n)
+  // Preserve decimal precision for small values, drop trailing zeros
+  return Number.isInteger(n) ? String(n) : String(n)
+}
+
+/**
+ * Format a raw value with its unit for display.
+ *
+ * Rules (from design brief):
+ * - Currency symbols prefix the number: £5,000 not 5000 £
+ * - Percentage suffix: 4.5% not % 4.5
+ * - Time/generic units suffix with a space: 3 months, 500 users
+ * - Numbers > 999 get thousand separators via Intl.NumberFormat
+ * - Empty/"scale" unit + 0–1 value falls back to qualitative label
+ */
+function formatValueWithUnit(rawValue: number, unit: string | undefined | null): string {
   if ((!unit || unit === 'scale') && rawValue >= 0 && rawValue <= 1) {
     return qualitativeLabel(rawValue)
   }
-  if (!unit) return String(rawValue)
-  if (isCurrencyUnit(unit)) return `${unit}${rawValue.toLocaleString()}`
-  if (unit === '%') return `${rawValue}%`
-  return `${rawValue} ${unit}`
+  if (!unit) return formatNumber(rawValue)
+  if (isCurrencyUnit(unit)) return `${unit}${formatNumber(rawValue)}`
+  if (unit === '%') return `${formatNumber(rawValue)}%`
+  return `${formatNumber(rawValue)} ${unit}`
 }
 
 /** Map ImprovementActionKind → TriageCardAction.kind */
@@ -59,6 +76,13 @@ function parseEdgeTitle(title: string): { source: string; target: string } | nul
   return null
 }
 
+/** Cap subtitle length to keep cards single-line and avoid ellipsis truncation. */
+const MAX_SUBTITLE_LEN = 60
+
+function trimSubtitle(s: string): string {
+  return s.length <= MAX_SUBTITLE_LEN ? s : s.slice(0, MAX_SUBTITLE_LEN - 1).trimEnd()
+}
+
 /** Derive contextual coaching subtitle from item metadata */
 function deriveSubtitle(item: ImprovementItem): string | undefined {
   // Edge / relationship items
@@ -68,9 +92,10 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
     if (parsed) {
       // If source has a value context, reference it
       if (item.rawValue != null) {
-        return `How strongly does ${parsed.source} (currently ${formatValueWithUnit(item.rawValue, item.unit)}) affect ${parsed.target}?`
+        return trimSubtitle(`How strongly does ${parsed.source} (${formatValueWithUnit(item.rawValue, item.unit)}) affect ${parsed.target}?`)
       }
-      return `Set ${parsed.source}'s value first, then calibrate this`
+      // No source value yet — coaching that fits in 60 chars regardless of label length
+      return 'No data yet. Set a value to include in analysis.'
     }
     return 'Set whether this relationship is weak, moderate, or strong'
   }
@@ -78,25 +103,22 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
   // Factor with no data (only when focus is a node — structural fix items like
   // "fewer than 2 options" don't have a focus target and shouldn't get this subtitle)
   if (item.detail === 'No observed data' || (item.category === 'fix' && item.focus?.type === 'node')) {
-    return 'No value set. Even a rough estimate helps.'
+    return 'No data yet. Set a value to include in analysis.'
   }
 
   // Use CEE suggestion when available (most contextual coaching)
   if (item.hint) {
-    return item.hint
+    return trimSubtitle(item.hint)
   }
 
   // AI-estimated factor
   if (item.sourceBadge === 'ai') {
-    if (item.rawValue != null) {
-      return `Olumi estimated this as ${formatValueWithUnit(item.rawValue, item.unit)}. Does that match your expectation?`
-    }
-    return 'Olumi estimated this value. Edit in the inspector to set your own.'
+    return 'AI estimate. Does this match?'
   }
 
   // Brief-sourced factor
   if (item.sourceBadge === 'brief') {
-    return 'You provided this in your brief. Confirm or adjust.'
+    return 'From your brief. Does this look right?'
   }
 
   return undefined

@@ -64,7 +64,7 @@ interface StickyFooterProps {
 export function StickyFooter({
   isReady,
   hasBlockers,
-  blockerCount,
+  blockerCount: _blockerCount,
   isAnalysing,
   onAnalyse,
   blockedReason,
@@ -74,7 +74,7 @@ export function StickyFooter({
   totalReviewableCount,
   evidenceNonAiCount,
   evidenceTotalCount,
-  weightedInfluenceReviewed,
+  weightedInfluenceReviewed: _weightedInfluenceReviewed,
 }: StickyFooterProps) {
   const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
 
@@ -104,20 +104,21 @@ export function StickyFooter({
     statusText = 'Not ready'
   }
 
+  // v2 panel: footer status mirrors top banner — Blocked / Ready only.
+  // The "addressed" count is suppressed (redundant with bucket section counts).
+  // When the host caller still passes reviewedCount/totalReviewableCount (legacy),
+  // it is shown via tooltip-only access; no inline meta text.
   const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
     (reviewedCount ?? 0) >= totalReviewableCount
 
   const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
   const metaText = !isRetrying && totalReviewableCount != null && totalReviewableCount > 0 ? (
-    <>
-      <Tooltip content={reviewedTooltip}>
-        <span className="cursor-help">
-          {allReviewed ? 'All addressed' : `${reviewedCount ?? 0}/${totalReviewableCount} addressed`}
-        </span>
-      </Tooltip>
-
-    </>
-  ) : hasBlockers ? `${blockerCount} to address` : undefined
+    <Tooltip content={reviewedTooltip}>
+      <span className="cursor-help">
+        {allReviewed ? 'All addressed' : `${reviewedCount ?? 0}/${totalReviewableCount} addressed`}
+      </span>
+    </Tooltip>
+  ) : undefined
 
   // CTA label — always "Analyse now"
   const ctaLabel = isAnalysing

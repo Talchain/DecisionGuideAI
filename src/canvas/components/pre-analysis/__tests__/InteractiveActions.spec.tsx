@@ -452,7 +452,11 @@ describe('Interactive Actions Hardening', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Expand "Your expertise" accordion to reveal verify items
+      // Expand "Improve confidence" accordion (v2 panel) to reveal Your expertise
+      const improveToggle = screen.queryByTestId('improve-confidence-toggle')
+      if (improveToggle) fireEvent.click(improveToggle)
+
+      // Then expand "Your expertise" accordion to reveal verify items
       const expertiseHeader = screen.getByText('Your expertise')
       fireEvent.click(expertiseHeader)
 

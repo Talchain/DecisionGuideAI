@@ -35,7 +35,6 @@ import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
 import type { TriageCardItem } from './mapImprovementToTriageCard'
-import { buildTriageNarrative } from './utils/buildTriageNarrative'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
@@ -43,14 +42,6 @@ import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
 const clamp01 = (v: number) => Math.max(0, Math.min(1, v))
-
-/** Structural check IDs — inline copy to avoid importing DecisionQualityChecks */
-const STRUCTURAL_CHECK_IDS = new Set([
-  'no_risks',
-  'no_baseline',
-  'all_positive_edges',
-  'no_target',
-])
 
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
@@ -81,14 +72,6 @@ function TriageCheckRow({ label, pass, actionLabel, onAction }: {
   )
 }
 
-/** Labels for structural quality checks shown as triage footer flags */
-const STRUCTURAL_FLAG_LABELS: Record<string, string> = {
-  no_risks: 'No risks added',
-  all_positive_edges: 'No trade-offs',
-  no_baseline: 'No status quo',
-  no_target: 'No target set',
-}
-
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
   onAnalyse: () => void
@@ -101,57 +84,158 @@ interface PreAnalysisPanelProps {
 }
 
 
-/** Disclosure toggle for "Also consider" items — collapsed by default, default-variant cards */
-function AlsoConsiderDisclosure({
-  cards, startOrdinal, onConfirm, onEdit, onSendMessage, onUpdateEdgeStrength, onHoverEnter, onHoverLeave,
+/**
+ * Top status banner — single source of truth for panel state.
+ *
+ * Strict precedence (first match wins):
+ *   1. failed   — analysis failure (lastDraftError or analysis error state)
+ *   2. blocked  — Must fix section has items
+ *   3. ready_with_recommendations — Review next has items
+ *   4. ready    — nothing to flag
+ *
+ * In failed state, content below is de-emphasised by the parent (opacity 0.6)
+ * except the error detail/retry. The banner does not show "Ready" alongside
+ * a failure.
+ */
+type BannerState =
+  | { kind: 'failed'; messageDetail: string | null; canRetry: boolean }
+  | { kind: 'blocked'; mustFixCount: number }
+  | { kind: 'ready_with_recommendations'; reviewNextCount: number }
+  | { kind: 'ready' }
+
+function StatusBanner({
+  state,
+  onRetry,
+  isRetrying,
 }: {
-  cards: Array<TriageCardItem & { editorConfig?: ScientificEditorProps | null }>
-  startOrdinal: number
-  onConfirm: (id: string) => void
-  onEdit: (id: string) => void
-  onSendMessage?: (text: string) => void
-  onUpdateEdgeStrength: (id: string, v: number) => void
-  onHoverEnter: (type: 'node' | 'edge', id: string) => void
-  onHoverLeave: () => void
+  state: BannerState
+  onRetry?: () => void
+  isRetrying?: boolean
+}) {
+  let dotClass: string
+  let text: string
+  switch (state.kind) {
+    case 'failed':
+      dotClass = 'bg-danger'
+      text = 'Analysis failed. Your model is intact. Retry or review the issue below.'
+      break
+    case 'blocked':
+      dotClass = 'bg-danger'
+      text = `Blocked by ${state.mustFixCount} ${state.mustFixCount === 1 ? 'issue' : 'issues'}. Fix before running.`
+      break
+    case 'ready_with_recommendations':
+      dotClass = 'bg-success'
+      text = `Ready to run. ${state.reviewNextCount} ${state.reviewNextCount === 1 ? 'check' : 'checks'} would improve results.`
+      break
+    case 'ready':
+      dotClass = 'bg-success'
+      text = 'Ready to run.'
+      break
+  }
+
+  return (
+    <div
+      className="flex items-start gap-2 px-3 py-2"
+      role="status"
+      data-testid="pre-analysis-status-banner"
+    >
+      <span
+        className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotClass}`}
+        aria-hidden="true"
+      />
+      <p className={`${typography.panelBody} text-text-body flex-1`}>{text}</p>
+      {state.kind === 'failed' && state.canRetry && onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={isRetrying}
+          className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover disabled:opacity-50 cursor-pointer`}
+          data-testid="status-banner-retry"
+        >
+          <RefreshCw size={11} className={isRetrying ? 'animate-spin' : ''} />
+          {isRetrying ? 'Retrying' : 'Retry'}
+        </button>
+      )}
+    </div>
+  )
+}
+
+/** Section header used by Must fix and Review next sections */
+function SectionHeader({
+  title,
+  count,
+  tone,
+  testId,
+}: {
+  title: string
+  count: number
+  tone: 'danger' | 'info' | 'factor'
+  testId?: string
+}) {
+  if (count <= 0) return null
+  const borderClass =
+    tone === 'danger' ? 'border-danger/30' :
+    tone === 'info' ? 'border-info/30' :
+    'border-factor/30'
+  return (
+    <div className="flex items-center gap-2 px-3" data-testid={testId}>
+      <p className={`${typography.panelHeader} text-text-header`}>{title}</p>
+      <span
+        className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border ${borderClass} ${typography.panelMeta} text-text-body`}
+      >
+        {count}
+      </span>
+    </div>
+  )
+}
+
+/**
+ * Improve confidence — collapsible accordion (collapsed by default).
+ * Shows a "Highest value: ..." summary line above the chevron when applicable.
+ */
+function ImproveConfidenceAccordion({
+  count,
+  highestValueLabel,
+  children,
+}: {
+  count: number
+  highestValueLabel: string | null
+  children: React.ReactNode
 }) {
   const [expanded, setExpanded] = useState(false)
+  if (count <= 0) return null
   return (
-    <>
-      <div className="h-px bg-panel-border mx-3" />
+    <div className="space-y-1" data-testid="improve-confidence-section">
+      {highestValueLabel && (
+        <p className={`${typography.panelMeta} text-info px-3`}>
+          Highest value: {highestValueLabel}
+        </p>
+      )}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className={`flex items-center gap-1.5 px-3 py-1 ${typography.panelMeta} text-info cursor-pointer hover:underline`}
+        className="w-full flex items-center justify-between gap-2 px-3 py-1 cursor-pointer hover:bg-panel-hover rounded"
+        aria-expanded={expanded}
+        data-testid="improve-confidence-toggle"
       >
-        {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
-        {expanded ? 'Show fewer' : `Show ${cards.length} more`}
+        <div className="flex items-center gap-2">
+          <p className={`${typography.panelHeader} text-text-header`}>Improve confidence</p>
+          <span
+            className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border border-factor/30 ${typography.panelMeta} text-text-body`}
+          >
+            {count}
+          </span>
+        </div>
+        {expanded
+          ? <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
+          : <ChevronRight className="w-4 h-4 text-text-light" aria-hidden="true" />}
       </button>
       {expanded && (
-        <div className="flex flex-col gap-1.5 px-1" data-testid="triage-quick-fix">
-          {cards.map((card, i) => (
-            <TriageCard
-              key={card.key}
-              cardKey={card.key}
-              ordinal={startOrdinal + i}
-              title={card.title}
-              detail={card.detail}
-              subtitle={card.subtitle}
-              category={card.category}
-              influence={card.influence}
-              action={card.action}
-              editorConfig={card.editorConfig ?? null}
-              sourcePill={card.sourcePill}
-              onConfirm={onConfirm}
-              onEdit={onEdit}
-              onSendMessage={onSendMessage}
-              onUpdateEdgeStrength={onUpdateEdgeStrength}
-              onHoverEnter={onHoverEnter}
-              onHoverLeave={onHoverLeave}
-            />
-          ))}
+        <div className="space-y-3" data-testid="improve-confidence-content">
+          {children}
         </div>
       )}
-    </>
+    </div>
   )
 }
 
@@ -530,22 +614,6 @@ export function PreAnalysisPanel({
   const triageQuickFix = data.triageActions.quickFix.map(mapItem)
   const triageCards = [...triageTop3, ...triageQuickFix]
 
-  // Narrative text: coaching subtitle for "Strengthen your model" section
-  // Only show highest-impact factor name for node items (not edge/relationship items)
-  const topItem = triageTop3.length > 0 ? triageTop3[0] : null
-  const topFactorName = topItem && topItem.action?.targetType !== 'edge' ? topItem.title : null
-  const triageNarrative = buildTriageNarrative(
-    triageCards,
-    data.successThreshold != null,
-    topFactorName,
-    data.isLoading,
-  )
-
-  // Structural flags for triage footer — suppress no_target (handled by SuccessTarget)
-  const structuralFlags = data.qualityChecks
-    .filter(c => STRUCTURAL_CHECK_IDS.has(c.id) && c.id !== 'no_target' && STRUCTURAL_FLAG_LABELS[c.id])
-    .map(c => ({ id: c.id, label: STRUCTURAL_FLAG_LABELS[c.id] }))
-
   // Icon + title lookup for CEE bias type strings → layer-6 card config
   const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
     framing:     { icon: Frame,     title: 'Narrow framing' },
@@ -665,38 +733,192 @@ export function PreAnalysisPanel({
     return triggers.slice(0, 2)
   }, [ceeAnalysisReady?.bias_findings, data.optionPreviews, data.nodesByKind.risk, compositeInfluenceMap, nodes])
 
+  // === V2 PANEL BUCKETS ===
+  // Three-bucket regroup: Must fix → Review next → Improve confidence.
+  // Deduplication rule: any item that appears in Must fix is excluded from
+  // the other two buckets. Filter on item key (which carries through the
+  // mapper unchanged).
+
+  // Structural blockers — only fire when the data hook says they are real
+  // blockers (i.e. CEE has run and reported them). Avoids spurious "Fewer
+  // than 2 options" when optionPreviews is empty because CEE has not run yet.
+  const noBaselineCheck = !data.isLoading && data.qualityChecks.some(c => c.id === 'no_baseline')
+  const fewerThanTwoOptionsCheck = !data.isLoading
+    && data.optionPreviews.length > 0
+    && data.optionPreviews.length < 2
+
+  // Must fix: critical 'fix' category triage cards (filtered on category from
+  // the mapper output) plus enriched blockers. Triage cards are already
+  // ordered by priority; cards with category === 'fix' represent blockers.
+  const mustFixCardKeys = new Set<string>()
+  const mustFixCards: typeof triageCards = []
+  for (const c of triageCards) {
+    if (c.category === 'fix') {
+      mustFixCardKeys.add(c.key)
+      mustFixCards.push(c)
+    }
+  }
+  const enrichedBlockerCount = !data.isReady ? data.enrichedBlockers.length : 0
+  const structuralCheckCount = (noBaselineCheck ? 1 : 0) + (fewerThanTwoOptionsCheck ? 1 : 0)
+  const mustFixCount = mustFixCards.length + enrichedBlockerCount + structuralCheckCount
+
+  // Review next: top-3 triage cards (excluding any in Must fix), bias triggers,
+  // and option quality card. The card surfaces when:
+  //   - same_levers quality check fires (options too similar), OR
+  //   - the model has fewer than 3 options (encourage broader framing).
+  // Note: < 2 options is also a Must fix structural blocker, but the Review next
+  // card still appears with coaching to explore alternatives.
+  const reviewNextTopCards = triageTop3.filter(c => !mustFixCardKeys.has(c.key))
+  const showOptionQualityCard = data.optionPreviews.length > 0
+    && (data.qualityChecks.some(c => c.id === 'same_levers') || data.optionPreviews.length < 3)
+  const reviewNextCount = reviewNextTopCards.length + biasTriggers.length + (showOptionQualityCard ? 1 : 0)
+
+  // Improve confidence: SuccessTarget (always present), remaining (quickFix)
+  // triage cards, Your expertise, missing knowledge prompt.
+  // The accordion always renders so users can adjust the goal target and review
+  // their expertise — even when nothing else is pending.
+  const improveConfidenceCards = triageQuickFix.filter(c => !mustFixCardKeys.has(c.key))
+  const expertiseHasItems =
+    (data.improvementsByCategory.verify?.length ?? 0) > 0
+    || (data.improvementsByCategory.add_evidence?.length ?? 0) > 0
+    || (data.contestedEdges?.length ?? 0) > 0
+  // Count: goal target (always 1) + remaining cards + expertise (when present).
+  // The "1" for SuccessTarget keeps the accordion from disappearing in the
+  // ready/clean state — users still need to be able to refine the threshold.
+  const improveConfidenceCount = 1
+    + improveConfidenceCards.length
+    + (expertiseHasItems ? 1 : 0)
+
+  // Highest-value summary line above the accordion: only when the topmost
+  // triage card lives in Improve confidence (i.e. the most impactful action
+  // isn't already surfaced in Must fix or Review next).
+  const overallTop = triageTop3[0] ?? triageQuickFix[0] ?? null
+  const highestValueLabel = overallTop && improveConfidenceCards.some(c => c.key === overallTop.key)
+    ? overallTop.title
+    : null
+
+  // Banner state — strict precedence: failed > blocked > recommendations > ready.
+  // Loading does not produce a banner; the panel content is hidden by ModelHealthCard.
+  const bannerState: BannerState = lastDraftError
+    ? { kind: 'failed', messageDetail: lastDraftError.message ?? null, canRetry: canRetryDraft }
+    : mustFixCount > 0
+      ? { kind: 'blocked', mustFixCount }
+      : reviewNextCount > 0
+        ? { kind: 'ready_with_recommendations', reviewNextCount }
+        : { kind: 'ready' }
+
+  const isFailed = bannerState.kind === 'failed'
+
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
       {/* Scrollable content area */}
-      <div className="olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-2 py-3 space-y-4">
-        {/* 1. Decision readiness triage panel (v4: ring + checks + action cards + nudges + footer flags) */}
+      <div className="olumi-scrollbar flex-1 min-h-0 overflow-y-auto py-3 space-y-3">
+        {/* Top status banner — strict precedence: failed > blocked > recommendations > ready */}
+        <StatusBanner
+          state={bannerState}
+          onRetry={canRetryDraft ? handleRetryDraft : undefined}
+          isRetrying={isRetrying}
+        />
+
+        {/* Compressed health row: ring + 4 dimension bars only (no title/headline/coaching) */}
         <SectionErrorBoundary section="Model health">
-          <ModelHealthCard
-            completeness={completeness}
-            evidence={evidence}
-            balance={balance}
-            calibration={calibration}
-            optionCount={data.optionPreviews.length}
-            goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
-            coachingSummary={data.coachingSummary}
-            isLoading={data.isLoading}
-            hasGoalNode={data.nodesByKind.goal.length > 0}
-          >
-            {/* LAYER 2: Check rows — only show failures (passing checks hidden).
-                Goal target check removed — SuccessTarget inline input handles it. */}
-            {!data.isLoading && (data.qualityChecks.some(c => c.id === 'no_baseline') || data.optionPreviews.length < 2) && (
-              <>
-                <div className="h-px bg-panel-border mx-3" />
-                <div className="space-y-1 px-3" data-testid="triage-check-rows">
-                  {data.qualityChecks.some(c => c.id === 'no_baseline') && (
-                    <TriageCheckRow
-                      label="No baseline set"
-                      pass={false}
-                      actionLabel="Add baseline"
-                      onAction={() => onSendMessage?.('Add a status quo option to compare against')}
-                    />
-                  )}
-                  {data.optionPreviews.length < 2 && (
+          <div className="px-2">
+            <ModelHealthCard
+              compact
+              completeness={completeness}
+              evidence={evidence}
+              balance={balance}
+              calibration={calibration}
+              optionCount={data.optionPreviews.length}
+              goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
+              coachingSummary={data.coachingSummary}
+              isLoading={data.isLoading}
+              hasGoalNode={data.nodesByKind.goal.length > 0}
+            />
+          </div>
+        </SectionErrorBoundary>
+
+        {/* Draft error detail — full opacity even in failed state */}
+        {lastDraftError && (
+          <div className="px-2">
+            <div
+              className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-3 py-2.5"
+              data-testid="draft-error-card"
+            >
+              <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
+              <p className={`${typography.panelBody} text-text-body mt-0.5`}>{lastDraftError.message}</p>
+              {lastDraftError.correlationId && (
+                <p className={`${typography.panelMeta} text-text-light mt-0.5 font-mono`}>
+                  ID: {lastDraftError.correlationId}
+                </p>
+              )}
+              <div className="flex items-center gap-2 mt-2">
+                {lastDraftError.retryable === false ? (
+                  <button
+                    type="button"
+                    onClick={handleEditBrief}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
+                    data-testid="draft-error-edit-brief"
+                  >
+                    <Pencil size={12} />
+                    Edit brief
+                  </button>
+                ) : canRetryDraft ? (
+                  <button
+                    type="button"
+                    onClick={handleRetryDraft}
+                    disabled={isRetrying}
+                    className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                    data-testid="draft-error-retry"
+                  >
+                    <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
+                    {isRetrying ? 'Retrying…' : 'Retry Draft'}
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const diagnostics = {
+                      message: lastDraftError.message,
+                      status: lastDraftError.status,
+                      correlationId: lastDraftError.correlationId,
+                      timestamp: new Date(lastDraftError.timestamp).toISOString(),
+                    }
+                    copyTextToClipboard(JSON.stringify(diagnostics, null, 2))
+                    showToast('Diagnostics copied', 'success')
+                  }}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-text-light bg-panel border border-panel-border rounded-full hover:bg-panel-hover transition-colors`}
+                >
+                  <Copy size={12} />
+                  Copy diagnostics
+                </button>
+              </div>
+              {lastDraftError.retryable === false && (
+                <div className="mt-2 rounded-md bg-panel border border-panel-border px-2.5 py-2">
+                  <p className={`${typography.panelMeta} text-text-body mb-1`}>Tips for a clearer brief</p>
+                  <ul className={`${typography.panelMeta} text-text-light space-y-0.5 list-disc pl-3.5`}>
+                    <li>State one clear goal</li>
+                    <li>List 2–3 options you're considering</li>
+                    <li>Mention key factors that matter to your decision</li>
+                  </ul>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Three-bucket content. In failed state, de-emphasise everything below the error card. */}
+        <div className={`space-y-4 ${isFailed ? 'opacity-60 pointer-events-none' : ''}`}>
+
+          {/* Section 1: Must fix — only when blockers exist */}
+          {mustFixCount > 0 && (
+            <section className="space-y-2" data-testid="section-must-fix">
+              <SectionHeader title="Must fix" count={mustFixCount} tone="danger" testId="section-must-fix-header" />
+
+              {/* Structural check rows */}
+              {structuralCheckCount > 0 && (
+                <div className="space-y-1 px-3">
+                  {fewerThanTwoOptionsCheck && (
                     <TriageCheckRow
                       label="Fewer than 2 options"
                       pass={false}
@@ -704,82 +926,98 @@ export function PreAnalysisPanel({
                       onAction={() => onSendMessage?.('Add another option to compare')}
                     />
                   )}
-                </div>
-              </>
-            )}
-
-            {/* LAYER 3: Section title + coaching line */}
-            {triageCards.length > 0 && (
-              <>
-                <div className="h-px bg-panel-border mx-3" />
-                <div className="px-3 space-y-0.5" data-testid="triage-section-header">
-                  <div className="flex items-center gap-2">
-                    <p className={`${typography.panelHeader} text-text-header`}>Strengthen your model</p>
-                    <span className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border border-panel-border ${typography.panelMeta} text-text-body`}>
-                      {triageCards.length}
-                    </span>
-                    {data.actionableCount > 0 && (
-                      <>
-                        <span className="text-panel-border">·</span>
-                        <span className={`${typography.panelMeta} text-text-light`}>
-                          {data.addressedActionableCount}/{data.actionableCount} verified
-                        </span>
-                      </>
-                    )}
-                  </div>
-                  {triageNarrative && (
-                    <p className={`${typography.panelBody} text-text-light`}>{triageNarrative}</p>
+                  {noBaselineCheck && (
+                    <TriageCheckRow
+                      label="No baseline set"
+                      pass={false}
+                      actionLabel="Add baseline"
+                      onAction={() => onSendMessage?.('Add a status quo option to compare against')}
+                    />
                   )}
                 </div>
-              </>
-            )}
+              )}
 
-            {/* LAYER 4: Top 3 action cards */}
-            {triageTop3.length > 0 && (
-              <div className="flex flex-col gap-1.5 px-1" data-testid="triage-top-actions">
-                {triageTop3.map((card, i) => (
-                  <TriageCard
-                    key={card.key}
-                    cardKey={card.key}
-                    ordinal={i + 1}
-                    title={card.title}
-                    detail={card.detail}
-                    subtitle={card.subtitle}
-                    category={card.category}
-                    influence={card.influence}
-                    action={card.action}
-                    editorConfig={card.editorConfig ?? null}
-                    sourcePill={card.sourcePill}
-                    onConfirm={handleConfirm}
-                    onEdit={handleSetValueForGap}
-                    onSendMessage={onSendMessage}
-                    onUpdateEdgeStrength={handleUpdateEdgeStrength}
+              {/* Critical Fix triage cards */}
+              {mustFixCards.length > 0 && (
+                <div className="flex flex-col gap-1.5 px-1" data-testid="must-fix-cards">
+                  {mustFixCards.map((card, i) => (
+                    <TriageCard
+                      key={card.key}
+                      cardKey={card.key}
+                      ordinal={i + 1}
+                      title={card.title}
+                      detail={card.detail}
+                      subtitle={card.subtitle}
+                      category={card.category}
+                      influence={card.influence}
+                      action={card.action}
+                      editorConfig={card.editorConfig ?? null}
+                      sourcePill={card.sourcePill}
+                      onConfirm={handleConfirm}
+                      onEdit={handleSetValueForGap}
+                      onSendMessage={onSendMessage}
+                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
+                      onHoverEnter={handleHoverElement}
+                      onHoverLeave={handleHoverClear}
+                    />
+                  ))}
+                </div>
+              )}
+
+              {/* Enriched blockers */}
+              {!data.isReady && data.enrichedBlockers.length > 0 && (
+                <SectionErrorBoundary section="Blockers">
+                  <BlockersSection
+                    blockers={data.enrichedBlockers}
+                    informationalBlockers={[]}
+                    canRetryDraft={canRetryDraft}
+                    isRetrying={isRetrying}
+                    lastDraftRetryable={lastDraftError?.retryable}
+                    onRetryDraft={handleRetryDraft}
+                    onEditBrief={handleEditBrief}
+                  />
+                </SectionErrorBoundary>
+              )}
+            </section>
+          )}
+
+          {/* Informational (non-blocking) blockers — surfaced regardless of bucket */}
+          {data.informationalBlockers.length > 0 && (
+            <SectionErrorBoundary section="Notes">
+              <BlockersSection
+                blockers={[]}
+                informationalBlockers={data.informationalBlockers}
+                canRetryDraft={false}
+                isRetrying={false}
+                lastDraftRetryable={undefined}
+                onRetryDraft={handleRetryDraft}
+                onEditBrief={handleEditBrief}
+              />
+            </SectionErrorBoundary>
+          )}
+
+          {/* Section 2: Review next */}
+          {reviewNextCount > 0 && (
+            <section className="space-y-2" data-testid="section-review-next">
+              <SectionHeader title="Review next" count={reviewNextCount} tone="info" testId="section-review-next-header" />
+
+              {/* Option similarity / quality card */}
+              {showOptionQualityCard && data.optionPreviews.length > 0 && (
+                <div className="px-2">
+                  <OptionPreview
+                    options={data.optionPreviews}
+                    onFocusNode={handleFocusNode}
                     onHoverEnter={handleHoverElement}
                     onHoverLeave={handleHoverClear}
+                    onSendMessage={onSendMessage}
+                    hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
                   />
-                ))}
-              </div>
-            )}
+                </div>
+              )}
 
-            {/* LAYER 5: "Also consider" disclosure toggle (default variant cards) */}
-            {triageQuickFix.length > 0 && (
-              <AlsoConsiderDisclosure
-                cards={triageQuickFix}
-                startOrdinal={triageTop3.length + 1}
-                onConfirm={handleConfirm}
-                onEdit={handleSetValueForGap}
-                onSendMessage={onSendMessage}
-                onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                onHoverEnter={handleHoverElement}
-                onHoverLeave={handleHoverClear}
-              />
-            )}
-
-            {/* LAYER 6: Bias trigger cards */}
-            {biasTriggers.length > 0 && (
-              <>
-                <div className="h-px bg-panel-border mx-3" />
-                <div className="space-y-1.5 px-3" data-testid="triage-nudges">
+              {/* Bias trigger cards */}
+              {biasTriggers.length > 0 && (
+                <div className="space-y-1.5 px-3" data-testid="review-next-nudges">
                   {biasTriggers.map(trigger => {
                     const Icon = trigger.icon
                     return (
@@ -810,195 +1048,146 @@ export function PreAnalysisPanel({
                     )
                   })}
                 </div>
-              </>
-            )}
+              )}
 
-            {/* LAYER 7: Footer checks — structural flags only (verified count moved to section header) */}
-            {structuralFlags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 px-3 pt-2 border-t border-panel-border" data-testid="triage-footer-flags">
-              {structuralFlags.map(flag => (
-                <span
-                  key={flag.id}
-                  className={`inline-flex items-center gap-1 ${typography.panelMeta} text-danger`}
-                >
-                  <X className="w-2.5 h-2.5" aria-hidden="true" />
-                  {flag.label}
-                </span>
-              ))}
-            </div>
-            )}
-          </ModelHealthCard>
-        </SectionErrorBoundary>
+              {/* Top 3 triage cards (excluding any in Must fix) */}
+              {reviewNextTopCards.length > 0 && (
+                <div className="flex flex-col gap-1.5 px-1" data-testid="triage-top-actions">
+                  {reviewNextTopCards.map((card, i) => (
+                    <TriageCard
+                      key={card.key}
+                      cardKey={card.key}
+                      ordinal={i + 1}
+                      title={card.title}
+                      detail={card.detail}
+                      subtitle={card.subtitle}
+                      category={card.category}
+                      influence={card.influence}
+                      action={card.action}
+                      editorConfig={card.editorConfig ?? null}
+                      sourcePill={card.sourcePill}
+                      onConfirm={handleConfirm}
+                      onEdit={handleSetValueForGap}
+                      onSendMessage={onSendMessage}
+                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
+                      onHoverEnter={handleHoverElement}
+                      onHoverLeave={handleHoverClear}
+                    />
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
 
-        {/* Task P.3.2: Minimal graph coaching (pre-run guidance, not blocker) */}
-        {isMinimalGraph && (
-          <div
-            className="flex items-start gap-2 px-3 py-2.5 bg-panel border border-info/30 rounded-md"
-            role="status"
-            data-testid="minimal-graph-coaching"
+          {/* Section 3: Improve confidence — collapsed by default */}
+          <ImproveConfidenceAccordion
+            count={improveConfidenceCount}
+            highestValueLabel={highestValueLabel}
           >
-            <AlertTriangle className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
-            <p className={`${typography.panelBody} text-info`}>
-              Your model needs more detail for a meaningful analysis. Try adding factors that influence your outcome.
-            </p>
-          </div>
-        )}
+            {/* Goal target inline edit */}
+            <SuccessTarget
+              goalNode={data.goalNode}
+              goalNodes={data.nodesByKind.goal}
+              successThreshold={data.successThreshold}
+              isThresholdAutoDerived={data.isThresholdAutoDerived}
+              isThresholdConfirmed={data.isThresholdConfirmed}
+              thresholdProvenance={data.thresholdProvenance}
+              onThresholdChange={handleThresholdChange}
+              onThresholdConfirm={handleThresholdConfirm}
+              onThresholdEdit={handleThresholdEdit}
+              onGoalChange={handleGoalChange}
+              goalThresholdRaw={data.goalThresholdRaw}
+              goalThresholdUnit={data.goalThresholdUnit}
+              thresholdSourceBadge={data.thresholdSourceBadge}
+              onFocusNode={handleFocusNode}
+              onHoverEnter={(id) => handleHoverElement('node', id)}
+              onHoverLeave={handleHoverClear}
+              constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
+              goalConstraints={ceeAnalysisReady?.goal_constraints}
+              onSendMessage={onSendMessage}
+            />
 
-        {/* 2. Success Target / Hero inputs section — always rendered.
-               When threshold is null, shows inline input. When set, shows value + edit. */}
-        <SuccessTarget
-          goalNode={data.goalNode}
-          goalNodes={data.nodesByKind.goal}
-          successThreshold={data.successThreshold}
-          isThresholdAutoDerived={data.isThresholdAutoDerived}
-          isThresholdConfirmed={data.isThresholdConfirmed}
-          thresholdProvenance={data.thresholdProvenance}
-          onThresholdChange={handleThresholdChange}
-          onThresholdConfirm={handleThresholdConfirm}
-          onThresholdEdit={handleThresholdEdit}
-          onGoalChange={handleGoalChange}
-          goalThresholdRaw={data.goalThresholdRaw}
-          goalThresholdUnit={data.goalThresholdUnit}
-          thresholdSourceBadge={data.thresholdSourceBadge}
-          onFocusNode={handleFocusNode}
-          onHoverEnter={(id) => handleHoverElement('node', id)}
-          onHoverLeave={handleHoverClear}
-          constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
-          goalConstraints={ceeAnalysisReady?.goal_constraints}
-          onSendMessage={onSendMessage}
-        />
-
-        {/* Draft error card */}
-        {lastDraftError && (
-          <div
-            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-3 py-2.5"
-            data-testid="draft-error-card"
-          >
-            <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
-            <p className={`${typography.panelBody} text-text-body mt-0.5`}>{lastDraftError.message}</p>
-            {lastDraftError.correlationId && (
-              <p className={`${typography.panelMeta} text-text-light mt-0.5 font-mono`}>
-                ID: {lastDraftError.correlationId}
-              </p>
-            )}
-            <div className="flex items-center gap-2 mt-2">
-              {lastDraftError.retryable === false ? (
-                <button
-                  type="button"
-                  onClick={handleEditBrief}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
-                  data-testid="draft-error-edit-brief"
-                >
-                  <Pencil size={12} />
-                  Edit brief
-                </button>
-              ) : canRetryDraft ? (
-                <button
-                  type="button"
-                  onClick={handleRetryDraft}
-                  disabled={isRetrying}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-                  data-testid="draft-error-retry"
-                >
-                  <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
-                  {isRetrying ? 'Retrying…' : 'Retry Draft'}
-                </button>
-              ) : null}
-              <button
-                type="button"
-                onClick={() => {
-                  const diagnostics = {
-                    message: lastDraftError.message,
-                    status: lastDraftError.status,
-                    correlationId: lastDraftError.correlationId,
-                    timestamp: new Date(lastDraftError.timestamp).toISOString(),
-                  }
-                  copyTextToClipboard(JSON.stringify(diagnostics, null, 2))
-                  showToast('Diagnostics copied', 'success')
-                }}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-text-light bg-panel border border-panel-border rounded-full hover:bg-panel-hover transition-colors`}
-              >
-                <Copy size={12} />
-                Copy diagnostics
-              </button>
-            </div>
-            {lastDraftError.retryable === false && (
-              <div className="mt-2 rounded-md bg-panel border border-panel-border px-2.5 py-2">
-                <p className={`${typography.panelMeta} text-text-body mb-1`}>Tips for a clearer brief</p>
-                <ul className={`${typography.panelMeta} text-text-light space-y-0.5 list-disc pl-3.5`}>
-                  <li>State one clear goal</li>
-                  <li>List 2–3 options you're considering</li>
-                  <li>Mention key factors that matter to your decision</li>
-                </ul>
+            {/* Remaining triage cards (quick fix) — excluding any in Must fix */}
+            {improveConfidenceCards.length > 0 && (
+              <div className="flex flex-col gap-1.5 px-1" data-testid="improve-confidence-cards">
+                {improveConfidenceCards.map((card, i) => (
+                  <TriageCard
+                    key={card.key}
+                    cardKey={card.key}
+                    ordinal={i + 1}
+                    title={card.title}
+                    detail={card.detail}
+                    subtitle={card.subtitle}
+                    category={card.category}
+                    influence={card.influence}
+                    action={card.action}
+                    editorConfig={card.editorConfig ?? null}
+                    sourcePill={card.sourcePill}
+                    onConfirm={handleConfirm}
+                    onEdit={handleSetValueForGap}
+                    onSendMessage={onSendMessage}
+                    onUpdateEdgeStrength={handleUpdateEdgeStrength}
+                    onHoverEnter={handleHoverElement}
+                    onHoverLeave={handleHoverClear}
+                  />
+                ))}
               </div>
             )}
-          </div>
-        )}
 
-        {/* Blockers section — structured cards from usePreRunValidation */}
-        {/* Show when: blocking items exist (not ready), OR informational items exist (notes) */}
-        {((!data.isReady && data.enrichedBlockers.length > 0) || data.informationalBlockers.length > 0) && (
-          <SectionErrorBoundary section="Blockers">
-            <BlockersSection
-              blockers={data.isReady ? [] : data.enrichedBlockers}
-              informationalBlockers={data.informationalBlockers}
-              canRetryDraft={canRetryDraft}
-              isRetrying={isRetrying}
-              lastDraftRetryable={lastDraftError?.retryable}
-              onRetryDraft={handleRetryDraft}
-              onEditBrief={handleEditBrief}
-            />
-          </SectionErrorBoundary>
-        )}
+            {/* Your expertise — unified section (v6 wireframe) */}
+            <SectionErrorBoundary section="Your expertise">
+              <YourExpertise
+                improvementsByCategory={data.improvementsByCategory}
+                contestedEdges={data.contestedEdges}
+                nodes={nodes}
+                edges={edges}
+                factorInfluenceMap={compositeInfluenceMap}
+                edgeInfluenceMap={edgeInfluenceMap}
+                reviewedCount={data.reviewedFactorsCount}
+                allItems={[
+                  ...(data.improvementsByCategory.verify ?? []),
+                  ...(data.improvementsByCategory.add_evidence ?? []),
+                ]}
+                onFocusNode={handleFocusNode}
+                onFocusEdge={handleFocusEdgeById}
+                onConfirm={handleConfirm}
+                onEdit={handleEdit}
+                onSetValue={handleSetValueForGap}
+                onSendMessage={onSendMessage}
+                onResolveEdge={handleResolveContestedEdge}
+                onUpdateEdgeStrength={handleUpdateEdgeStrength}
+                onAddEvidence={handleAddEvidence}
+                onHoverEnter={handleHoverElement}
+                onHoverLeave={handleHoverClear}
+              />
+            </SectionErrorBoundary>
 
-        {/* 5. Option preview section (Task 3) */}
-        {data.optionPreviews.length > 0 && (
-          <OptionPreview
-            options={data.optionPreviews}
-            onFocusNode={handleFocusNode}
-            onHoverEnter={handleHoverElement}
-            onHoverLeave={handleHoverClear}
-            onSendMessage={onSendMessage}
-            hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
-          />
-        )}
+            {/* "What's missing?" prompt */}
+            <MissingKnowledgePrompt onSendMessage={onSendMessage} />
+          </ImproveConfidenceAccordion>
 
-
-        {/* Your expertise — unified section (v6 wireframe) */}
-        <SectionErrorBoundary section="Your expertise">
-          <YourExpertise
-            improvementsByCategory={data.improvementsByCategory}
-            contestedEdges={data.contestedEdges}
-            nodes={nodes}
-            edges={edges}
-            factorInfluenceMap={compositeInfluenceMap}
-            edgeInfluenceMap={edgeInfluenceMap}
-            reviewedCount={data.reviewedFactorsCount}
-            allItems={[
-              ...(data.improvementsByCategory.verify ?? []),
-              ...(data.improvementsByCategory.add_evidence ?? []),
-            ]}
-            onFocusNode={handleFocusNode}
-            onFocusEdge={handleFocusEdgeById}
-            onConfirm={handleConfirm}
-            onEdit={handleEdit}
-            onSetValue={handleSetValueForGap}
-            onSendMessage={onSendMessage}
-            onResolveEdge={handleResolveContestedEdge}
-            onUpdateEdgeStrength={handleUpdateEdgeStrength}
-            onAddEvidence={handleAddEvidence}
-            onHoverEnter={handleHoverElement}
-            onHoverLeave={handleHoverClear}
-          />
-        </SectionErrorBoundary>
-
-        {/* "What's missing?" prompt */}
-        <MissingKnowledgePrompt onSendMessage={onSendMessage} />
-
-        {/* Goal selector now lives in SuccessTarget hero — AnalysisSettings removed */}
+          {/* Minimal graph coaching — pre-run guidance, not blocker */}
+          {isMinimalGraph && (
+            <div
+              className="flex items-start gap-2 px-3 py-2.5 mx-2 bg-panel border border-info/30 rounded-md"
+              role="status"
+              data-testid="minimal-graph-coaching"
+            >
+              <AlertTriangle className="w-4 h-4 text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
+              <p className={`${typography.panelBody} text-info`}>
+                Your model needs more detail for a meaningful analysis. Try adding factors that influence your outcome.
+              </p>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* 8. Sticky Footer (pinned to bottom) */}
+      {/* 8. Sticky Footer (pinned to bottom)
+          v2: status text mirrors top banner — Ready or Blocked. The footer
+          continues to derive its enable/disable state from data.isReady so
+          the button stays in sync with the API readiness signal even when
+          the bucket counts are partial. The "0/N addressed" meta is removed
+          (redundant with section counts above). */}
       <StickyFooter
         isReady={data.isReady}
         hasBlockers={data.hasBlockers}
@@ -1008,8 +1197,6 @@ export function PreAnalysisPanel({
         blockedReason={blockedReason}
         isLoading={data.isLoading}
         isRetrying={isRetrying}
-        reviewedCount={data.addressedActionableCount}
-        totalReviewableCount={data.actionableCount}
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}
         evidenceTotalCount={data.evidenceQuality.totalCount}
         weightedInfluenceReviewed={weightedInfluenceReviewed}

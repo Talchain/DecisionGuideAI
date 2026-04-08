@@ -129,8 +129,8 @@ export function SuccessTarget({
     : isPercent
       ? 'e.g. 75'
       : goalThresholdUnit
-        ? `Enter target (${goalThresholdUnit})`
-        : 'Enter target value'
+        ? `What number would count as success? (${goalThresholdUnit})`
+        : 'What number would count as success?'
 
   const editLabel = goalThresholdUnit
     ? `Target value (${goalThresholdUnit})`

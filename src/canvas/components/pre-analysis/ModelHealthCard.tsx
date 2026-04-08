@@ -23,6 +23,12 @@ interface ModelHealthCardProps {
   hasGoalNode: boolean
   /** Triage content rendered inside the Decision readiness card below the health header */
   children?: React.ReactNode
+  /**
+   * Compact mode for v2 panel structure: omits title, headline, and coaching;
+   * shows only the ring + 4 dimension bars in a single tight row.
+   * Status text comes from the new top banner instead.
+   */
+  compact?: boolean
 }
 
 const PRE_ANALYSIS_DIMENSIONS: Omit<TriageDimension, 'value'>[] = [
@@ -43,6 +49,7 @@ export const ModelHealthCard = memo(function ModelHealthCard({
   isLoading,
   hasGoalNode,
   children,
+  compact = false,
 }: ModelHealthCardProps) {
   const ringDimensions: DecisionHealthRingDimensions = useMemo(() => ({
     structure: completeness,
@@ -74,6 +81,26 @@ export const ModelHealthCard = memo(function ModelHealthCard({
   const coaching = coachingSummary != null
     ? coachingSummary
     : 'Your expertise makes the analysis more reliable. The Verified score improves as you verify values in Your expertise below.'
+
+  // Compact mode (v2 panel): ring + dimension bars only, no title/headline/coaching.
+  // The status banner above carries the readiness message.
+  if (compact) {
+    return (
+      <div className="space-y-2" data-testid="decision-readiness-card">
+        <TriageHealthHeader
+          title="Decision readiness"
+          ringLabel="ready"
+          ringDimensions={ringDimensions}
+          dimensions={dimensions}
+          headline={null}
+          coaching={null}
+          testId="model-health-card"
+          hideTitle
+        />
+        {children}
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-3" data-testid="decision-readiness-card">

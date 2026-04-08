@@ -537,25 +537,33 @@ function toQualitativeLevel(v: number): string {
   return 'very high'
 }
 
+/** Locale-aware number formatter — thousand separators for values >= 1000. */
+const DETAIL_NUMBER_FMT = new Intl.NumberFormat('en-GB')
+function formatDetailNumber(n: number): string {
+  if (Math.abs(n) >= 1000) return DETAIL_NUMBER_FMT.format(n)
+  return String(n)
+}
+
 function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): string {
   // Qualitative factors: no meaningful unit AND (no cap, or cap=1 which is just the normalised ceiling)
-  // Empty string unit is treated the same as absent — CEE sometimes sends unit: ""
+  // Empty string unit and "scale" are treated the same as absent — CEE sometimes sends unit: "" or "scale"
   const isQualitative = (!os.unit || os.unit === 'scale') && (os.cap == null || os.cap === 1)
 
   if (os.raw_value != null) {
     const unit = os.unit
+    const rawNum = Number(os.raw_value)
     let primary: string
     if (unit && CURRENCY_SYMBOLS.has(unit)) {
-      primary = `${unit}${Number(os.raw_value).toLocaleString()}`
+      primary = `${unit}${formatDetailNumber(rawNum)}`
     } else if (unit === '%') {
-      primary = `${os.raw_value}%`
-    } else if (isQualitative && Number(os.raw_value) >= 0 && Number(os.raw_value) <= 1) {
+      primary = `${formatDetailNumber(rawNum)}%`
+    } else if (isQualitative && rawNum >= 0 && rawNum <= 1) {
       // No unit (or unit="scale"), no meaningful cap, value in 0–1 range — show qualitative level
-      return toQualitativeLevel(Number(os.raw_value))
+      return toQualitativeLevel(rawNum)
     } else if (unit) {
-      primary = `${os.raw_value} ${unit}`
+      primary = `${formatDetailNumber(rawNum)} ${unit}`
     } else {
-      primary = String(os.raw_value)
+      primary = formatDetailNumber(rawNum)
     }
     if (os.cap != null && !isQualitative) {
       // Suppress "of 100" for percentages — "50%" not "50% of 100"
@@ -564,15 +572,43 @@ function formatObservedStateDetail(os: ReturnType<typeof getObservedState>): str
       // The cap is a normalisation ceiling, not a meaningful budget limit
       if (unit && CURRENCY_SYMBOLS.has(unit)) return primary
       // Don't repeat suffix units — "9 months of 18" not "9 months of 18 months"
-      return `${primary} of ${String(os.cap)}`
+      return `${primary} of ${formatDetailNumber(Number(os.cap))}`
     }
     return primary
   }
   if (os.value != null) {
     const numValue = Number(os.value)
+    const unit = os.unit
+
+    // Qualitative (no unit or unit="scale", and no useful cap): show level label
     if (isQualitative && numValue >= 0 && numValue <= 1) return toQualitativeLevel(numValue)
-    if (numValue >= 0 && numValue <= 1) return `${numValue.toFixed(2)} (scale 0–1)`
-    return String(numValue)
+
+    // Percentage with fractional value (e.g. 0.04 → "4%")
+    if (unit === '%' && numValue >= 0 && numValue <= 1) {
+      // Multiply by 100, drop trailing zeros via Number conversion
+      const pct = Number((numValue * 100).toFixed(2))
+      return `${formatDetailNumber(pct)}%`
+    }
+    // Percentage already in percent form (e.g. 75 → "75%")
+    if (unit === '%') return `${formatDetailNumber(numValue)}%`
+
+    // Normalised 0–1 value with cap > 1: denormalise (e.g. value=0.5, cap=100, unit='users' → "50 users")
+    if (numValue >= 0 && numValue <= 1 && os.cap != null && Number(os.cap) > 1) {
+      const denorm = numValue * Number(os.cap)
+      if (unit && CURRENCY_SYMBOLS.has(unit)) return `${unit}${formatDetailNumber(Math.round(denorm))}`
+      if (unit) return `${formatDetailNumber(Math.round(denorm))} ${unit}`
+      return formatDetailNumber(Math.round(denorm))
+    }
+
+    // Currency value already in raw form (e.g. value=20000, unit='£' → "£20,000")
+    if (unit && CURRENCY_SYMBOLS.has(unit)) return `${unit}${formatDetailNumber(numValue)}`
+
+    // 0–1 value with no useful unit/cap context — fall back to qualitative
+    if (numValue >= 0 && numValue <= 1) return toQualitativeLevel(numValue)
+
+    // Plain number with optional unit suffix
+    if (unit) return `${formatDetailNumber(numValue)} ${unit}`
+    return formatDetailNumber(numValue)
   }
   return ''
 }

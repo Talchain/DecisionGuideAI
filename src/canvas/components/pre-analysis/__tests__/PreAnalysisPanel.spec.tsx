@@ -95,6 +95,16 @@ vi.mock('../../../store', () => ({
 
 const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as ReturnType<typeof vi.fn>
 
+/**
+ * Expand the "Improve confidence" accordion if present.
+ * The v2 panel renders Goal target, YourExpertise, MissingKnowledgePrompt
+ * inside this accordion (collapsed by default).
+ */
+function expandImproveConfidence() {
+  const toggle = screen.queryByTestId('improve-confidence-toggle')
+  if (toggle) fireEvent.click(toggle)
+}
+
 describe('PreAnalysisPanel', () => {
   const mockOnAnalyse = vi.fn()
 
@@ -327,10 +337,11 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Accordion Behaviour', () => {
-    it('renders your expertise section', () => {
+    it('renders your expertise section inside Improve confidence (expanded)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expandImproveConfidence()
       expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
     })
 
@@ -346,13 +357,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      // YourExpertise section renders with header
+      expandImproveConfidence()
+      // YourExpertise section renders with header (inside Improve confidence accordion)
       expect(screen.getByText('Your expertise')).toBeInTheDocument()
     })
   })
 
   describe('Expertise Section', () => {
-    it('renders your expertise section with verify items', () => {
+    it('renders your expertise section with verify items (inside Improve confidence)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
@@ -363,12 +375,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expandImproveConfidence()
       expect(screen.getByText('Your expertise')).toBeInTheDocument()
     })
   })
 
   describe('Evidence Quality Display', () => {
-    it('shows reviewed count in footer when actionableCount > 0', () => {
+    it('does not show reviewed count in v2 footer (redundant with section counts)', () => {
+      // v2 brief: "Remove '0/N addressed' (redundant with section counts)"
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         evidenceQuality: { level: 'low', ratio: 0.2, nonAiCount: 0, totalCount: 5 },
         addressedActionableCount: 0,
@@ -376,10 +390,10 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByText('0/5 addressed')).toBeInTheDocument()
+      expect(screen.queryByText('0/5 addressed')).not.toBeInTheDocument()
     })
 
-    it('shows "All addressed" in footer when all actionable items addressed', () => {
+    it('does not show "All addressed" in v2 footer (redundant with section counts)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         evidenceQuality: { level: 'high', ratio: 1, nonAiCount: 5, totalCount: 5 },
         addressedActionableCount: 5,
@@ -388,7 +402,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const footer = screen.getByTestId('sticky-footer')
-      expect(footer).toHaveTextContent('All addressed')
+      expect(footer).not.toHaveTextContent('All addressed')
     })
 
     it('does not show Quality tier label in footer', () => {
@@ -402,19 +416,19 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Wiring Fixes Regression', () => {
-    it('renders Goal selector when success threshold is set', () => {
+    it('renders Goal selector inside Improve confidence accordion when threshold is set', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         successThreshold: 0.7,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
-      // Goal selector lives in SuccessTarget hero (shown when threshold is set)
+      expandImproveConfidence()
+      // Goal selector lives in SuccessTarget inside Improve confidence accordion
       const goalTexts = screen.getAllByText('Goal')
       expect(goalTexts.length).toBeGreaterThanOrEqual(1)
     })
 
-    it('renders sections in correct order: Header → SuccessTarget → Tiers → ModelSnapshot', () => {
+    it('renders sections in correct order: banner → health → buckets → expertise', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         tiers: {
           mustAddress: { items: [{ key: 'f1', category: 'fix', label: 'Test Fix', detail: 'Detail' }], count: 1 },
@@ -431,10 +445,12 @@ describe('PreAnalysisPanel', () => {
       }))
 
       const { container } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expandImproveConfidence()
       const panel = container.querySelector('[data-testid="pre-analysis-panel"]')
       expect(panel).toBeInTheDocument()
 
-      // Verify key sections exist (v4: Decision readiness card + expertise)
+      // Banner + health + expertise (after expanding the accordion)
+      expect(screen.getByTestId('pre-analysis-status-banner')).toBeInTheDocument()
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
       expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
 
@@ -442,9 +458,11 @@ describe('PreAnalysisPanel', () => {
       const scrollableContent = panel?.querySelector('.overflow-y-auto')
       const html = scrollableContent?.innerHTML ?? ''
 
+      const bannerPos = html.indexOf('pre-analysis-status-banner')
       const healthPos = html.indexOf('model-health-card')
       const expertisePos = html.indexOf('your-expertise-section')
 
+      expect(bannerPos).toBeLessThan(healthPos)
       expect(healthPos).toBeLessThan(expertisePos)
     })
 
@@ -589,8 +607,8 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
-      // YourExpertise section is present (collapsed by default) with badge count
+      expandImproveConfidence()
+      // YourExpertise section is present inside Improve confidence accordion
       expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
       expect(screen.getByText('Your expertise')).toBeInTheDocument()
     })
@@ -603,8 +621,8 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
-      // YourExpertise section is present (collapsed by default, no badge when empty)
+      expandImproveConfidence()
+      // YourExpertise section is present inside Improve confidence accordion
       expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
     })
 
@@ -655,7 +673,8 @@ describe('PreAnalysisPanel', () => {
 
   describe('P2 Polish Tasks', () => {
     describe('Task 1: Inputs Reviewed Label', () => {
-      it('shows reviewed count in footer, no evidence tier label', () => {
+      it('does not show reviewed count in v2 footer, no evidence tier label', () => {
+        // v2 brief: "Remove '0/N addressed' (redundant with section counts)"
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           evidenceQuality: { level: 'medium', ratio: 0.5, nonAiCount: 2, totalCount: 4 },
           addressedActionableCount: 2,
@@ -664,8 +683,8 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-        // Shows reviewed count in footer — no quality tier label
-        expect(screen.getByText('2/4 addressed')).toBeInTheDocument()
+        // v2 footer omits the addressed count (redundant with section counts above)
+        expect(screen.queryByText('2/4 addressed')).not.toBeInTheDocument()
         expect(screen.queryByText(/Quality:/)).not.toBeInTheDocument()
         expect(screen.queryByText(/Data confidence:/)).not.toBeInTheDocument()
         expect(screen.queryByText(/Input confidence:/)).not.toBeInTheDocument()
@@ -686,8 +705,8 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
-        // Your expertise section visible (collapsed by default)
+        expandImproveConfidence()
+        // Your expertise section visible inside Improve confidence accordion
         expect(screen.getByText('Your expertise')).toBeInTheDocument()
         expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
       })
@@ -705,7 +724,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
+        expandImproveConfidence()
         // Should NOT show "(addressed to 0 of 0)"
         expect(screen.queryByText(/\(addressed to 0 of 0\)/)).not.toBeInTheDocument()
         // Should show plain "Your expertise"
@@ -732,7 +751,7 @@ describe('PreAnalysisPanel', () => {
     })
 
     describe('Task 3: Success Target Provenance', () => {
-      it('shows provenance text when available', () => {
+      it('shows provenance text when available (inside Improve confidence)', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           successThreshold: 1000000,
           isThresholdAutoDerived: true,
@@ -740,7 +759,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
+        expandImproveConfidence()
         // Should show provenance text below threshold
         expect(screen.getByText(/Source: Target Revenue of \$1M/)).toBeInTheDocument()
       })
@@ -753,7 +772,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
+        expandImproveConfidence()
         // Should NOT show "Source:"
         expect(screen.queryByText(/Source:/)).not.toBeInTheDocument()
       })
@@ -766,7 +785,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-
+        expandImproveConfidence()
         // Should NOT show stale provenance after user edit
         expect(screen.queryByText(/Extracted from:/)).not.toBeInTheDocument()
       })

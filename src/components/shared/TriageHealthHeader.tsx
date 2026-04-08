@@ -41,6 +41,12 @@ export interface TriageHealthHeaderProps {
   overrideScore?: number | null
   /** Test ID for the container */
   testId?: string
+  /**
+   * Hide the title and coaching line — used by the v2 pre-analysis panel
+   * where the top status banner replaces the title. The DOM still includes
+   * a visually-hidden title for tests/screen readers.
+   */
+  hideTitle?: boolean
 }
 
 function DimensionBar({ dim }: { dim: TriageDimension }) {
@@ -73,14 +79,22 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
   coaching,
   overrideScore,
   testId = 'triage-health-header',
+  hideTitle = false,
 }: TriageHealthHeaderProps) {
   const [coachingDismissed, setCoachingDismissed] = useState(false)
 
-  const showCoaching = !coachingDismissed && coaching != null
+  const showCoaching = !coachingDismissed && coaching != null && !hideTitle
 
   return (
-    <div className="rounded-lg border border-panel-border bg-panel px-3 py-3 space-y-3" data-testid={testId}>
-      <p className={`${typography.panelHeader} text-text-header`}>{title}</p>
+    <div
+      className={`rounded-lg border border-panel-border bg-panel px-3 ${hideTitle ? 'py-2 space-y-2' : 'py-3 space-y-3'}`}
+      data-testid={testId}
+    >
+      {hideTitle ? (
+        <p className="sr-only">{title}</p>
+      ) : (
+        <p className={`${typography.panelHeader} text-text-header`}>{title}</p>
+      )}
 
       {/* Ring + headline + dimensions layout */}
       <div className="flex items-start gap-3">
