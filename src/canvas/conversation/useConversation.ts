@@ -48,6 +48,7 @@ import type {
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { backfillInterventionsOntoOptionNodes, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
+import { logger } from '../../lib/logger'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -1403,6 +1404,7 @@ export function useConversation(): UseConversationReturn {
             ceeReady,
             store.nodes as any,
             new Set(store.nodes.map((n) => n.id)),
+            { scenarioId: store.currentScenarioId ?? null },
           )
         : []
       const analysisInputs =
@@ -2009,12 +2011,23 @@ export function useConversation(): UseConversationReturn {
         if (resolvedAnalysisReady) {
           useCanvasStore.getState().setCeeAnalysisReady(resolvedAnalysisReady)
 
-          // Backfill interventions onto option nodes for debug bundle capture.
-          // CEE sends interventions on analysis_ready.options, not on graph_patch add_node data.
-          // TODO: Remove backfill when CEE includes interventions in graph_patch add_node ops.
-          // Timing assumption: applyAutoApplyPatch ran synchronously above, so option nodes
-          // are already in the store. If they aren't (shouldn't happen), this is a silent no-op.
-          backfillInterventionsOntoOptionNodes(resolvedAnalysisReady)
+          // Backfill interventions onto option nodes. See applyDraftResult.ts
+          // for the full rationale; this branch is the conversational-turn
+          // counterpart to the draft path. Timing assumption: applyAutoApplyPatch
+          // ran synchronously above, so option nodes are already in the store.
+          //
+          // Per-turn observability mirrors applyDraftResult: emits a structured
+          // log when any node was backfilled, so we can track whether the
+          // backfill is still load-bearing post-2026-04-08 envelope fix.
+          // See docs/intervention-authority-contract.md.
+          const { backfilledCount: turnBackfilledCount } = backfillInterventionsOntoOptionNodes(resolvedAnalysisReady)
+          if (turnBackfilledCount > 0) {
+            logger.warn('handle_envelope.intervention_backfill', {
+              scenarioId: useCanvasStore.getState().currentScenarioId ?? null,
+              backfilledCount: turnBackfilledCount,
+              totalOptionsInPayload: resolvedAnalysisReady.options?.length ?? 0,
+            })
+          }
 
           // Backfill goal_threshold_raw/unit/cap onto goal node for GoalNode display.
           // CEE sends these on analysis_ready, but GoalNode reads from node.data.

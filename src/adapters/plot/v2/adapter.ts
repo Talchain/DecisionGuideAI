@@ -31,6 +31,7 @@ import type { UIOption, UIInterventionValue } from '../../../types/options'
 import type { CEEAnalysisReady, CEEGoalConstraint, CEEOptionV3 } from '../../cee/types'
 import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 import { STRENGTH_BOUNDS, clampStrength } from '../../../canvas/domain/edges'
+import { logger } from '../../../lib/logger'
 
 // ============================================================================
 // Canvas Data Types (input format)
@@ -344,6 +345,14 @@ function canvasInterventionsToCEE(
 export interface ReconcileOptionsHookOptions {
   /** Suppress the always-on backfill warning. Pre-run gate sets this to true. */
   silent?: boolean
+  /**
+   * Scenario id for backfill telemetry (optional). When set, structured
+   * backfill events include this id so downstream log aggregators can group
+   * occurrences per scenario. Used to verify that the canvas-fallback paths
+   * trend to zero after the 2026-04-08 envelope fix; see
+   * docs/intervention-authority-contract.md.
+   */
+  scenarioId?: string | null
 }
 
 export function reconcileOptionsWithCanvasNodes(
@@ -352,7 +361,7 @@ export function reconcileOptionsWithCanvasNodes(
   validNodeIds: Set<string>,
   options: ReconcileOptionsHookOptions = {},
 ): CEEOptionV3[] {
-  const { silent = false } = options
+  const { silent = false, scenarioId = null } = options
   const optionNodes = nodes.filter(
     (n) => (n.data as Record<string, unknown> | undefined)?.kind === 'option' || (n.data as Record<string, unknown> | undefined)?.type === 'option',
   )
@@ -363,21 +372,37 @@ export function reconcileOptionsWithCanvasNodes(
 
   const arOptions = analysisReady?.options ?? []
 
-  const warn = (id: string) => {
+  /**
+   * Emit a backfill diagnostic. Two emissions per call:
+   *
+   * 1. The legacy `console.warn` keeps the substring
+   *    `'reconcileOptions: backfilled'` on `args[0]` that adapter.spec.ts
+   *    and reconcile.patchAccept.spec.ts assert against (5 sites).
+   * 2. A structured `logger.warn` payload (added 2026-04-08) carries
+   *    `scenarioId`, `optionId`, `backfillSource`, and
+   *    `interventionKeyCount` so log aggregators can track whether the
+   *    backfill paths still fire after the envelope fix. The goal is for
+   *    these to trend to zero — when they do, the canvas-side backfills
+   *    documented in docs/intervention-authority-contract.md can be
+   *    retired.
+   */
+  const warn = (id: string, backfillSource: 'canvas_node' | 'canvas_only', interventionKeyCount: number) => {
     if (silent) return
-    // Diagnostic: this fires when CEE-produced analysis_ready is incomplete
-    // for an option and we recover by reading node.data.interventions. After
-    // the 2026-04-08 envelope fix (no more recompute), this path should only
-    // fire for canvas-only adds and edge cases — investigate every occurrence.
-    //
-    // Structured payload mirrors the convention used elsewhere in this file
-    // (see line 883, 925, 1027, 1148) so log aggregators can filter by
-    // `optionId`. The leading message string keeps the substring
-    // `'reconcileOptions: backfilled'` that downstream tests assert on.
+    // Legacy diagnostic — preserved for the existing test substring contract
+    // (`'reconcileOptions: backfilled'` on args[0] across 5 spec assertions).
     console.warn(
       `[V2Adapter] reconcileOptions: backfilled from canvas for option "${id}" — CEE analysis_ready was incomplete`,
-      { optionId: id, source: 'canvas_node_data', context: 'reconcileOptionsWithCanvasNodes' },
+      { optionId: id, backfillSource, context: 'reconcileOptionsWithCanvasNodes' },
     )
+    // Structured backfill telemetry — use the shared logger so prod log
+    // aggregators see consistent fields (scenarioId, optionId, backfillSource,
+    // interventionKeyCount). See docs/intervention-authority-contract.md.
+    logger.warn('reconcile_options.backfill', {
+      scenarioId,
+      optionId: id,
+      backfillSource,
+      interventionKeyCount,
+    })
   }
 
   // Walk analysisReady first (primary order), then append any canvas-only options.
@@ -416,7 +441,8 @@ export function reconcileOptionsWithCanvasNodes(
       validNodeIds,
       silent,
     )
-    if (Object.keys(fallback).length > 0) warn(arOpt.id)
+    const fallbackKeyCount = Object.keys(fallback).length
+    if (fallbackKeyCount > 0) warn(arOpt.id, 'canvas_node', fallbackKeyCount)
     result.push({
       ...arOpt,
       interventions: fallback,
@@ -437,8 +463,9 @@ export function reconcileOptionsWithCanvasNodes(
       validNodeIds,
       silent,
     )
-    const hasFallback = Object.keys(fallback).length > 0
-    if (hasFallback) warn(node.id)
+    const fallbackKeyCount = Object.keys(fallback).length
+    const hasFallback = fallbackKeyCount > 0
+    if (hasFallback) warn(node.id, 'canvas_only', fallbackKeyCount)
     result.push({
       id: node.id,
       label,
@@ -1080,6 +1107,12 @@ export interface BuildV2RequestOptions {
    * Stored separately from analysis_ready (CEE sends at response root).
    */
   goalConstraints?: CEEGoalConstraint[] | null
+  /**
+   * Scenario id for backfill telemetry. Forwarded to
+   * `reconcileOptionsWithCanvasNodes` so structured backfill events include
+   * the scenario context. See docs/intervention-authority-contract.md.
+   */
+  scenarioId?: string | null
 }
 
 /**
@@ -1111,7 +1144,7 @@ export function buildV2RequestFromAnalysisReady(
   fallbackGoalNodeId?: string,
   options: BuildV2RequestOptions = {}
 ): { request: V2RunRequest; reverseIdMap: Map<string, string> } {
-  const { strictEdgeValidation = false, brief, goalConstraints } = options
+  const { strictEdgeValidation = false, brief, goalConstraints, scenarioId = null } = options
 
   // Goal node ID precedence: analysisReady.goal_node_id > fallbackGoalNodeId.
   // At least one must be present.
@@ -1142,7 +1175,7 @@ export function buildV2RequestFromAnalysisReady(
   // intervention map is empty (e.g. synthesised analysis_ready).
   // See reconcileOptionsWithCanvasNodes for the merge policy and observability hooks.
   const validNodeIds = new Set(nodes.map((n) => n.id))
-  const reconciledOptions = reconcileOptionsWithCanvasNodes(analysisReady, nodes, validNodeIds)
+  const reconciledOptions = reconcileOptionsWithCanvasNodes(analysisReady, nodes, validNodeIds, { scenarioId })
   const v2Options = reconciledOptions.map(ceeOptionToV2Option)
 
   // Diagnostic: warn if any option STILL has empty interventions after reconciliation
@@ -1505,19 +1538,22 @@ export async function executeV2RunWithAnalysisReady(
   goalThreshold?: number,
   seed?: number,
   brief?: string,
-  goalConstraints?: CEEGoalConstraint[] | null
+  goalConstraints?: CEEGoalConstraint[] | null,
+  scenarioId?: string | null
 ): Promise<V2RunResult> {
   // Build request — buildV2RequestFromAnalysisReady now reconciles options
   // from analysisReady + node.data.interventions internally, so we no longer
   // need to extract a UIOption[] fallback ourselves. The fallback parameter
   // is preserved on the signature for backwards compatibility but is unused.
+  // scenarioId is forwarded for backfill telemetry only (see
+  // docs/intervention-authority-contract.md).
   const { request, reverseIdMap } = buildV2RequestFromAnalysisReady(
     nodes,
     edges,
     analysisReady,
     undefined,
     fallbackGoalNodeId,
-    { strictEdgeValidation: false, seed, brief, goalConstraints } // Lenient mode for user-edited graphs
+    { strictEdgeValidation: false, seed, brief, goalConstraints, scenarioId } // Lenient mode for user-edited graphs
   )
 
   // Add request ID for tracing

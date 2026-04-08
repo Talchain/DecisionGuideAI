@@ -16,6 +16,7 @@ import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCEEv3Response } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
+import { logger } from '../../lib/logger'
 
 /**
  * Apply a CEE draft response to the canvas, replacing the current graph.
@@ -183,7 +184,21 @@ export function applyDraftResult(
     // Timing: runs synchronously after setCeeAnalysisReady; nodes are already
     // in store from the setState call above. If option nodes don't exist yet,
     // this is a no-op.
-    backfillInterventionsOntoOptionNodes(analysisReadyWithCoaching)
+    const { backfilledCount } = backfillInterventionsOntoOptionNodes(analysisReadyWithCoaching)
+
+    // Per-draft observability: emit a structured log with the count of option
+    // nodes that received backfilled interventions. The goal is for this to
+    // trend to zero after the 2026-04-08 envelope fix; if it stays >0 it means
+    // the pipeline still publishes interventions on analysis_ready.options[]
+    // rather than on graph_patch add_node operations and the canvas-side
+    // backfill is still load-bearing. See docs/intervention-authority-contract.md.
+    if (backfilledCount > 0) {
+      logger.warn('apply_draft.intervention_backfill', {
+        scenarioId: useCanvasStore.getState().currentScenarioId ?? null,
+        backfilledCount,
+        totalOptionsInPayload: analysisReadyWithCoaching.options?.length ?? 0,
+      })
+    }
 
     // Backfill goal_threshold_raw/unit/cap from analysis_ready onto the goal node.
     // CEE sends these on analysis_ready, but the GoalNode component reads from node.data.
@@ -244,11 +259,16 @@ export function applyDraftResult(
  * Idempotent: only writes to store when at least one node's interventions or
  * is_baseline value actually differ (deep equality via JSON serialisation),
  * avoiding unnecessary re-renders on repeated calls.
+ *
+ * @returns `{ backfilledCount }` — number of option nodes that received an
+ *   updated payload. Used by the call site to emit per-draft observability
+ *   so we can track whether the backfill is still load-bearing after the
+ *   2026-04-08 envelope fix; see docs/intervention-authority-contract.md.
  */
 export function backfillInterventionsOntoOptionNodes(
   analysisReady: { options?: Array<{ id: string; interventions?: Record<string, unknown>; is_baseline?: boolean | null }> } | null
-): void {
-  if (!analysisReady?.options?.length) return
+): { backfilledCount: number } {
+  if (!analysisReady?.options?.length) return { backfilledCount: 0 }
 
   // TODO: type narrowing — useCanvasStore.getState().nodes typed as Node[]
   // but node.type/data shape varies by kind. Cast to any for now.
@@ -292,15 +312,15 @@ export function backfillInterventionsOntoOptionNodes(
     }
   })
 
+  let backfilledCount = 0
   if (needsUpdate) {
     useCanvasStore.setState({ nodes: updatedNodes as any })
+    backfilledCount = updatedNodes.filter((n, i) => n !== currentNodes[i]).length
     if (import.meta.env.DEV) {
-      const backfilledCount = updatedNodes.filter(
-        (n, i) => n !== currentNodes[i]
-      ).length
       console.warn('[backfillInterventionsOntoOptionNodes]', backfilledCount, 'option nodes updated')
     }
   }
+  return { backfilledCount }
 }
 
 // ---------------------------------------------------------------------------

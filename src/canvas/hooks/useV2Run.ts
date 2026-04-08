@@ -417,7 +417,8 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
         goalThreshold ?? undefined,
         seed,
         lastDraftDescription || undefined,
-        effectiveGoalConstraints
+        effectiveGoalConstraints,
+        framing?.scenario_id ?? null
       )
 
       const elapsed_ms = Date.now() - startTime
