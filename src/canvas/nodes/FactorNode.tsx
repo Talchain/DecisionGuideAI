@@ -233,13 +233,16 @@ export const FactorNode = memo((props: NodeProps) => {
   // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
   const preAnalysisLayer2 = !isPostAnalysis ? (
     <>
-      {/* Pre-analysis popover per spec Section 7.5 */}
-      {isInferred && (
+      {/* Pre-analysis coaching line — Polish 4 Task 3: only on top-3 factors.
+          Detailed view shows more evidence (ConnRows, bars, parameters), not
+          coaching on every node. Standard view already gates the popover via
+          isHighPriority. */}
+      {isInferred && isHighPriority && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
           Olumi estimated this from your brief. High leverage, low evidence.
         </p>
       )}
-      {isExplicit && outboundConnections.length > 0 && (
+      {isExplicit && isHighPriority && outboundConnections.length > 0 && (
         <p className={`${typography.edgeLabel} text-text-body m-0 mb-1`}>
           You provided this value. It strongly influences {outboundConnections[0]?.connectedNodeLabel ?? 'connected outcomes'}.
         </p>
@@ -436,6 +439,16 @@ export const FactorNode = memo((props: NodeProps) => {
         {!isPostAnalysis && nodeCategory === 'external' && (isDetailed || isHighPriority) && (
           <div className="mt-1.5">
             <NodeChip label="What if this changes?" message={`What if ${cleanedLabel} changes? How should I plan for that?`} />
+          </div>
+        )}
+
+        {/* Polish 4 Task 7 chip audit: top-3 inferred (non-external) factors
+            get an evidence chip in the body in pre-analysis Standard. Detailed
+            view leaves this to the inline Layer 2 content. Low-priority and
+            explicit factors render no chip per the audit table. */}
+        {!isPostAnalysis && !isDetailed && isHighPriority && isInferred && nodeCategory !== 'external' && !needsInput && (
+          <div className="mt-1.5">
+            <NodeChip label="What evidence supports this?" message={`What evidence supports my assumption about ${cleanedLabel}?`} />
           </div>
         )}
 

@@ -15,6 +15,19 @@ function stripSuffixes(label: string): string {
   return label.replace(KNOWN_SUFFIXES, '').trim()
 }
 
+/**
+ * Graph v1.1 polish 4 Task 1: a unit is "meaningless" when it's the bare
+ * "scale" descriptor produced by CEE for normalised factors with no
+ * real-world calibration. Such values (0, 0.1, 0.5 etc.) imply
+ * "measured-at-zero/half" but actually mean "no concrete data". Currency,
+ * %, count and named units (engineers, hours, …) are all kept.
+ */
+function isMeaninglessUnit(unit: string | null | undefined): boolean {
+  if (unit == null) return true
+  const u = unit.toLowerCase().trim()
+  return u === '' || u === 'scale'
+}
+
 function formatNumber(value: number): string {
   return Math.abs(value) >= 1000
     ? value.toLocaleString('en-GB')
@@ -80,6 +93,14 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
 
   // Pattern 2: value only (no raw_value) → binary heuristic
   if (value != null && raw_value == null) {
+    // Graph v1.1 polish 4 Task 1: a fractional value (strictly between 0 and
+    // 1) with a meaningless unit ("scale" or undefined) is a normalised
+    // placeholder with no real-world calibration. Suppress to avoid the
+    // misleading "0.1" / "0.5" body text. Binary 0/1 values still flow
+    // through the contextual heuristic below because they convey real meaning.
+    if (value > 0 && value < 1 && isMeaninglessUnit(unit)) {
+      return null
+    }
     const stripped = stripSuffixes(label).toLowerCase()
     if (value === 0) {
       return `No ${stripped} in place`
@@ -87,7 +108,8 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     if (value === 1) {
       return `${stripped.charAt(0).toUpperCase()}${stripped.slice(1)} active`
     }
-    // Non-binary numeric value without raw_value: return null (no meaningful display)
+    // Non-binary numeric value (e.g. 0.42) with a real unit but no raw_value:
+    // return null (no meaningful display).
     return null
   }
 

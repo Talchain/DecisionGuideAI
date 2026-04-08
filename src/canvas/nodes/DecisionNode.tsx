@@ -371,12 +371,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
 
-            {/* Coaching chips */}
+            {/* Coaching chips — Polish 4 Task 7: max 2 chips. "Run analysis"
+                is the state-specific CTA when the model is ready and replaces
+                the generic "What could go wrong?" so we never exceed 2 chips. */}
             <div className="flex items-center gap-1 flex-wrap mt-1.5">
               <NodeChip label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
-              <NodeChip label="What could go wrong?" message="What could go wrong with this decision?" />
-              {showRunAnalysis && (
+              {showRunAnalysis ? (
                 <NodeChip label="Run analysis" message="Run the analysis now" />
+              ) : (
+                <NodeChip label="What could go wrong?" message="What could go wrong with this decision?" />
               )}
             </div>
           </>

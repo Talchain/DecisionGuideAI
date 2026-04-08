@@ -90,8 +90,22 @@ describe('compactFactorLabel', () => {
     expect(compactFactorLabel('Technical leadership in place')).toBe('leadership')
     expect(compactFactorLabel('Developer headcount capacity')).toBe('dev headcount')
     expect(compactFactorLabel('Developer headcount level')).toBe('dev headcount')
+    // Polish 4 Task 2: "added" variant from staging screenshots.
+    expect(compactFactorLabel('Developer headcount added')).toBe('dev headcount')
     expect(compactFactorLabel('Monthly recurring revenue')).toBe('MRR')
     expect(compactFactorLabel('Advertising spend')).toBe('ad spend')
+  })
+
+  // Polish 4 Task 2: marketing-graph factor labels from staging screenshots.
+  it('compacts marketing-graph factor labels from the lookup table', () => {
+    expect(compactFactorLabel('Campaign execution quality')).toBe('campaign quality')
+    expect(compactFactorLabel('Marketing expertise available')).toBe('marketing expertise')
+    expect(compactFactorLabel('Founder time burden')).toBe('founder time')
+    expect(compactFactorLabel('Founder/PM time on marketing')).toBe('founder time')
+    expect(compactFactorLabel('Founder PM time on marketing')).toBe('founder time')
+    expect(compactFactorLabel('Market receptivity to feature')).toBe('market receptivity')
+    expect(compactFactorLabel('Customer price sensitivity')).toBe('price sensitivity')
+    expect(compactFactorLabel('Technical complexity of roadmap')).toBe('tech complexity')
   })
 
   it('lookup is case-insensitive', () => {

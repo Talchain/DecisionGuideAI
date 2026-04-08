@@ -71,12 +71,6 @@ export const GoalNode = memo((props: NodeProps) => {
   }, [robustnessData, stabilityClassification])
 
   const stabilityValue = robustnessData?.stability ?? displayMetadata.stabilityPercentage
-  const nodes = useCanvasStore(state => state.nodes)
-
-  const hasRiskNodes = useMemo(() =>
-    nodes.some(n => n.type === 'risk' || n.data?.type === 'risk'),
-    [nodes]
-  )
 
   const preAnalysisConstraints = useCanvasStore(state => state.goalConstraints)
   const postAnalysisConstraints = useCanvasStore(state =>
@@ -285,10 +279,19 @@ export const GoalNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* No risks coaching (both views) */}
-        {!hasRiskNodes && (
+        {/* Polish 4 Task 7: chip audit. Goal (with target) chip per the table:
+              Pre  -> "Run analysis"
+              Post -> "Is my target realistic?"
+            "Identify risks" was removed because it isn't in the audit table —
+            risk discovery belongs on the Decision node. */}
+        {hasThreshold && !isPostAnalysis && (
           <div className="mt-1.5">
-            <NodeChip label="Identify risks" message="What risks could prevent me from reaching my goal?" />
+            <NodeChip label="Run analysis" message="Run the analysis now" />
+          </div>
+        )}
+        {hasThreshold && isPostAnalysis && (
+          <div className="mt-1.5">
+            <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
           </div>
         )}
 

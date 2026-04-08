@@ -249,10 +249,15 @@ export const OptionNode = memo((props: NodeProps) => {
 
         const direction: 'up' | 'down' = diff > 0 ? 'up' : 'down'
 
-        // For quantitative factors with units, show formatted numeric delta (e.g. "£55,000")
+        // For quantitative factors with units, show formatted numeric delta (e.g. "£55,000").
+        // Graph v1.1 polish 4 Task 1: a unit of "scale" with no raw_value is a
+        // normalised number with no real-world meaning — suppress the numeric
+        // delta entirely so the pill renders as just "↑ factor".
         const effectiveUnit = c.unit && !isSuppressedUnit(c.unit) ? c.unit : null
+        const isScaleUnit = effectiveUnit?.toLowerCase().trim() === 'scale'
+        const hasRawAnchor = c.observedRawValue != null
         let numericDelta: string | undefined
-        if (effectiveUnit) {
+        if (effectiveUnit && !(isScaleUnit && !hasRawAnchor)) {
           const scaleBase = inferInterventionScaleBase(c.cap, c.observedValue, c.observedRawValue)
           if (scaleBase != null) {
             const denormedTarget = denormaliseInterventionValue(c.value, c.cap, c.observedValue, c.observedRawValue)
@@ -267,12 +272,78 @@ export const OptionNode = memo((props: NodeProps) => {
             }
           }
         }
-        // No unit → direction + label only (no raw normalised number)
+        // No unit (or meaningless "scale" unit) → direction + label only
 
         return { factorId: c.factorId, label: shortLabel, direction, numericDelta }
       })
       .filter((d): d is StructuredDelta => d !== null)
   }, [interventionChips, baselineOptionInterventions])
+
+  /**
+   * Polish 4 Task 5: differentiator factor — the intervention where this
+   * option diverges most from the average of the other (non-status-quo)
+   * options. Returns null when:
+   *   - this is the status quo (it changes nothing),
+   *   - there are fewer than 2 other non-status-quo options to compare against,
+   *   - all options change the same factors by similar amounts (max diff < 0.1
+   *     normalised, i.e. less than a 10% spread on the 0–1 axis).
+   */
+  const differentiatorLabel = useMemo<string | null>(() => {
+    if (isPostAnalysis) return null
+    if (isBaselineOption) return null
+    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+    if (optionNodes.length < 2) return null
+
+    // Build a map of option id → factorId → numeric value (unwrapped).
+    const optionInterventions = new Map<string, Map<string, number>>()
+    for (const optNode of optionNodes) {
+      const isBaseline = (optNode.data as any)?.is_baseline === true
+        || detectBaseline((optNode.data?.label as string) ?? '').isBaseline
+      if (isBaseline) continue
+      const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === optNode.id)
+      const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
+      if (!interventions || typeof interventions !== 'object') continue
+      const map = new Map<string, number>()
+      for (const [fid, raw] of Object.entries(interventions)) {
+        const v = unwrapInterventionValue(raw)
+        if (v != null) map.set(fid, v)
+      }
+      optionInterventions.set(optNode.id, map)
+    }
+
+    const myValues = optionInterventions.get(props.id)
+    if (!myValues || myValues.size === 0) return null
+    if (optionInterventions.size < 2) return null // need at least one other option
+
+    // For each factor I touch, compute the average value across other options
+    // (treating absent factors as 0) and the absolute difference from mine.
+    let bestFactorId: string | null = null
+    let bestDiff = 0
+    for (const [factorId, myValue] of myValues.entries()) {
+      let sum = 0
+      let count = 0
+      for (const [otherId, otherValues] of optionInterventions.entries()) {
+        if (otherId === props.id) continue
+        sum += otherValues.get(factorId) ?? 0
+        count += 1
+      }
+      if (count === 0) continue
+      const avgOthers = sum / count
+      const diff = Math.abs(myValue - avgOthers)
+      if (diff > bestDiff) {
+        bestDiff = diff
+        bestFactorId = factorId
+      }
+    }
+
+    // Threshold: less than 10% spread on the 0–1 axis means options are too
+    // similar to call out a differentiator.
+    if (bestFactorId == null || bestDiff < 0.1) return null
+
+    const factorNode = nodes.find(n => n.id === bestFactorId)
+    const rawLabel = (factorNode?.data?.label as string | undefined) ?? bestFactorId
+    return compactFactorLabel(cleanFactorLabel(rawLabel), 20)
+  }, [isPostAnalysis, isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
   const handleMouseEnter = useMemo(() => () => {
     if (hasInterventions) setHoveredOption(props.id)
@@ -658,6 +729,15 @@ export const OptionNode = memo((props: NodeProps) => {
               </span>
             ))}
           </div>
+        )}
+
+        {/* Polish 4 Task 5: differentiator line — what's strategically unique
+            about this option vs the others. Standard view only (Detailed
+            already shows the full intervention list). */}
+        {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiatorLabel && (
+          <p className={`${typography.edgeLabel} text-text-light mt-1 m-0`}>
+            {differentiatorLabel.charAt(0).toUpperCase() + differentiatorLabel.slice(1)} is the key difference
+          </p>
         )}
 
         {/* Pre-analysis: status quo "No changes" */}

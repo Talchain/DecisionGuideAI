@@ -33,9 +33,19 @@ export function cleanFactorLabel(label: string): string {
  */
 const COMPACT_LABEL_LOOKUP: ReadonlyArray<readonly [RegExp, string]> = [
   [/^technical leadership (presence|in place)$/i, 'leadership'],
-  [/^developer headcount (capacity|level)$/i, 'dev headcount'],
+  // Polish 4 Task 2: developer headcount variants seen in staging screenshots.
+  // "added" is the new variant alongside the original "capacity"/"level".
+  [/^developer headcount (capacity|level|added)$/i, 'dev headcount'],
   [/^monthly recurring revenue$/i, 'MRR'],
   [/^advertising spend$/i, 'ad spend'],
+  // Polish 4 Task 2: marketing-graph factor labels from staging screenshots.
+  [/^campaign execution quality$/i, 'campaign quality'],
+  [/^marketing expertise available$/i, 'marketing expertise'],
+  [/^founder time burden$/i, 'founder time'],
+  [/^founder[\s/]*pm time on marketing$/i, 'founder time'],
+  [/^market receptivity to feature$/i, 'market receptivity'],
+  [/^customer price sensitivity$/i, 'price sensitivity'],
+  [/^technical complexity of roadmap$/i, 'tech complexity'],
 ]
 
 /** Generic suffix patterns shared with the local OptionNode helper. */
@@ -421,6 +431,14 @@ export function formatInterventionValue(
   if (typeof value !== 'number' || !Number.isFinite(value)) return ''
   // Sanitise unit — never display internal factor_type descriptor strings as units
   unit = sanitiseUnit(unit)
+  // Graph v1.1 polish 4 Task 1: "scale" is a placeholder unit emitted by CEE
+  // for normalised factors with no real-world calibration. When the only
+  // anchor we have is "scale" (no raw_value to denormalise against), the
+  // number is meaningless to the user — drop the unit so we fall through to
+  // the qualitative tier path instead of rendering "0.1 scale".
+  if (unit && unit.toLowerCase().trim() === 'scale' && observedRawValue == null) {
+    unit = undefined
+  }
   // J1: Denormalise using cap before any formatting
   const v = denormaliseInterventionValue(value, cap, observedValue, observedRawValue)
   const scaleBase = inferInterventionScaleBase(cap, observedValue, observedRawValue)

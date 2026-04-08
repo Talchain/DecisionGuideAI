@@ -193,16 +193,16 @@ export const RiskNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Coaching chips (both views, post-analysis) — kept in Layer 1 */}
-        {isPostAnalysis && (
-          <>
-            <Sep />
-            <div className="flex gap-1 flex-wrap mt-0.5">
-              <NodeChip label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
-              <NodeChip label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
-            </div>
-          </>
-        )}
+        {/* Coaching chips — Polish 4 Task 4: shown both pre- and post-analysis
+            so risk nodes are actionable during model building, not just after
+            results. Polish 4 Task 7 chip audit: max 2 chips. */}
+        <>
+          <Sep />
+          <div className="flex gap-1 flex-wrap mt-0.5">
+            <NodeChip label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
+            <NodeChip label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
+          </div>
+        </>
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4. Severity badge is a

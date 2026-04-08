@@ -84,4 +84,52 @@ describe('formatFactorDisplayValue', () => {
       display_value: '',
     })).toBe('No technical leadership in place')
   })
+
+  // Polish 4 Task 1: suppress meaningless fractional placeholder values.
+  describe('meaningless-unit suppression (Polish 4 Task 1)', () => {
+    it('returns null for value=0.1 with unit="scale" and no raw_value', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Marketing Expertise Available',
+        value: 0.1,
+        raw_value: null,
+        unit: 'scale',
+      })).toBeNull()
+    })
+
+    it('returns null for value=0.5 with no unit and no raw_value', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Generic Quality',
+        value: 0.5,
+        raw_value: null,
+      })).toBeNull()
+    })
+
+    it('preserves binary value=0 contextual text even with no unit', () => {
+      // Polish 4 Task 1 explicitly only suppresses 0 < value < 1; value === 0
+      // and value === 1 still flow through the binary contextual heuristic.
+      expect(formatFactorDisplayValue({
+        label: 'Tech Lead',
+        value: 0,
+        raw_value: null,
+      })).toBe('No tech lead in place')
+    })
+
+    it('preserves binary value=1 contextual text even with unit="scale"', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Tech Lead',
+        value: 1,
+        raw_value: null,
+        unit: 'scale',
+      })).toBe('Tech lead active')
+    })
+
+    it('does not suppress when raw_value is present (real-world data)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Headcount',
+        value: 0.5,
+        raw_value: 5,
+        unit: 'engineers',
+      })).toBe('5 engineers')
+    })
+  })
 })

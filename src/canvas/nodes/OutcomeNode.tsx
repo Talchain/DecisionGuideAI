@@ -183,6 +183,18 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </div>
         )}
 
+        {/* Polish 4 Task 4: pre-analysis outcome chip — gives the user one
+            actionable next step during model building. Single chip per the
+            audit table; popover handles the rest post-analysis. */}
+        {!isPostAnalysis && (
+          <div className="flex gap-1 flex-wrap mt-1.5">
+            <NodeChip
+              label="What strengthens this?"
+              message={`What upstream factors strengthen ${(props.data?.label as string) ?? 'this outcome'}?`}
+            />
+          </div>
+        )}
+
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4 OutcomePostDet —
             percentage (Layer 1), separator, "Depends on:" ConnRows (max 3),
