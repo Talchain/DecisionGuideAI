@@ -846,6 +846,201 @@ describe('usePreAnalysisData', () => {
       )
     })
 
+    // ── Inferred-zero "Not set" override ──────────────────────────────────
+    //
+    // When a factor is AI-inferred (extractionType === 'inferred') AND the
+    // raw value is 0 AND there is no meaningful unit, the literal "0" is
+    // misleading. The AI did not measure zero; it placed the value at the
+    // bottom of the scale because it had nothing to ground on. The verify
+    // card should read "Not set" so the user knows to provide a value.
+    //
+    // extractionType has two storage locations — we must check both:
+    //   1. observedState.extractionType (canonical, CEE-derived factors)
+    //   2. node.data.extractionType (inspector-edited factors)
+
+    it('renders "Not set" for inferred-zero factor with observedState.extractionType', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Market Size',
+              observed_state: {
+                source: 'ai',
+                value: 0,
+                raw_value: 0,
+                extractionType: 'inferred',
+              },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'Not set',
+        })
+      )
+    })
+
+    it('renders "Not set" for inferred-zero factor with node.data.extractionType (inspector path)', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'User-edited factor',
+              extractionType: 'inferred',
+              observed_state: { source: 'ai', value: 0, raw_value: 0 },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'Not set',
+        })
+      )
+    })
+
+    it('renders "Not set" for inferred-zero factor with placeholder unit "index"', () => {
+      // "index" is in GENERIC_PLACEHOLDER_UNITS alongside scale, score, norm.
+      // All should collapse to "Not set" when the value is zero-and-inferred.
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Quality Index',
+              observed_state: {
+                source: 'ai',
+                value: 0,
+                raw_value: 0,
+                unit: 'index',
+                extractionType: 'inferred',
+              },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'Not set',
+        })
+      )
+    })
+
+    it('renders "Not set" for inferred-zero factor with placeholder unit "score"', () => {
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Customer Satisfaction Score',
+              observed_state: {
+                source: 'ai',
+                value: 0,
+                raw_value: 0,
+                unit: 'score',
+                extractionType: 'inferred',
+              },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      expect(result.current.improvementsByCategory.verify).toContainEqual(
+        expect.objectContaining({
+          key: 'verify_factor1',
+          detail: 'Not set',
+        })
+      )
+    })
+
+    it('does NOT render "Not set" when unit is a meaningful real-world unit (e.g. "users")', () => {
+      // A zero-valued inferred factor with a meaningful unit should still show
+      // the formatter output ("0 users"), because the user may have legitimately
+      // inferred zero users. "Not set" only applies to placeholder units.
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Free users',
+              observed_state: {
+                source: 'ai',
+                value: 0,
+                raw_value: 0,
+                unit: 'users',
+                extractionType: 'inferred',
+              },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const item = result.current.improvementsByCategory.verify.find(
+        (i) => i.key === 'verify_factor1',
+      )
+      expect(item).toBeDefined()
+      expect(item?.detail).not.toBe('Not set')
+    })
+
+    it('does NOT render "Not set" when extractionType is "explicit" (user-provided zero)', () => {
+      // Explicit zero is a real user decision and should render literally.
+      mockUseCanvasStore.mockImplementation(createMockStore({
+        nodes: [
+          {
+            id: 'factor1',
+            type: 'factor',
+            position: { x: 0, y: 0 },
+            data: {
+              label: 'Explicit zero',
+              observed_state: {
+                source: 'user_confirmed',
+                value: 0,
+                raw_value: 0,
+                extractionType: 'explicit',
+              },
+            },
+          },
+        ],
+      }))
+
+      const { result } = renderHook(() => usePreAnalysisData())
+
+      const item = result.current.improvementsByCategory.verify.find(
+        (i) => i.key === 'verify_factor1',
+      )
+      expect(item).toBeDefined()
+      expect(item?.detail).not.toBe('Not set')
+    })
+
     it('excludes factors with null observed_state value from verify', () => {
       // Factors without a non-null observed_state value are excluded from verify
       mockUseCanvasStore.mockImplementation(createMockStore({

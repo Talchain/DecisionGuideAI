@@ -224,7 +224,7 @@ function InlineValueControls({
           <span className={`${typography.panelMeta} text-text-light`}>{unitSuffix}</span>
         )}
       </div>
-      <div className="inline-flex items-center gap-1">
+      <div className="inline-flex items-center gap-2" data-testid="triage-card-icon-group">
         <IconActionButton
           icon={Pencil}
           tooltip="Edit value"
@@ -304,43 +304,58 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
           </div>
         )}
       </div>
-      {/* Row 2: edge strength quick-select + icon action buttons */}
-      <div className="flex items-center gap-0.5 pl-7">
-        {isEdge && action?.targetId && onUpdateEdgeStrength && (
-          <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
-        )}
-        {!isEdge && action && (
-          <>
-            {action.kind === 'confirm' && onConfirm && action.targetId && (
-              <IconActionButton
-                icon={Check}
-                tooltip="Confirm AI estimate"
-                hoverClass="hover:text-success"
-                onClick={() => onConfirm!(action!.targetId!)}
-                aria-label="Confirm AI estimate"
-              />
-            )}
-            {(action.kind === 'edit' || action.kind === 'set_value') && onEdit && action.targetId && (
-              <IconActionButton
-                icon={Pencil}
-                tooltip="Edit value"
-                hoverClass="hover:text-text-body"
-                onClick={() => onEdit!(action!.targetId!)}
-                aria-label="Edit value"
-              />
-            )}
-          </>
-        )}
-        {onSendMessage && action?.targetId && !isBrief && (
-          <IconActionButton
-            icon={Sparkles}
-            tooltip="Ask AI to research"
-            hoverClass="hover:text-info"
-            onClick={() => onSendMessage!(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-            aria-label="Ask AI to research"
-          />
-        )}
-      </div>
+      {/* Row 2: subtitle (truncating) on the left, edge quick-select OR action
+          icons on the right. The subtitle is new in this variant — it was
+          previously dropped, losing the coaching line. Icons use a 8px gap
+          to match the default variant and the brief. The whole row is gated
+          on having at least one of subtitle / edge-strength / icon action so
+          we don't render an empty placeholder row. */}
+      {(subtitle || (isEdge && action?.targetId && onUpdateEdgeStrength) || (!isEdge && action)) && (
+        <div className="flex items-center gap-2 pl-7 min-w-0">
+          <p
+            className={`${typography.panelMeta} text-text-light truncate flex-1 min-w-0`}
+            title={subtitle || ''}
+          >
+            {subtitle || ''}
+          </p>
+          {isEdge && action?.targetId && onUpdateEdgeStrength && (
+            <div className="flex-shrink-0">
+              <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
+            </div>
+          )}
+          {!isEdge && action && (
+            <div className="inline-flex items-center gap-2 flex-shrink-0" data-testid="triage-card-icon-group">
+              {action.kind === 'confirm' && onConfirm && action.targetId && (
+                <IconActionButton
+                  icon={Check}
+                  tooltip="Confirm AI estimate"
+                  hoverClass="hover:text-success"
+                  onClick={() => onConfirm!(action!.targetId!)}
+                  aria-label="Confirm AI estimate"
+                />
+              )}
+              {(action.kind === 'edit' || action.kind === 'set_value') && onEdit && action.targetId && (
+                <IconActionButton
+                  icon={Pencil}
+                  tooltip="Edit value"
+                  hoverClass="hover:text-text-body"
+                  onClick={() => onEdit!(action!.targetId!)}
+                  aria-label="Edit value"
+                />
+              )}
+              {onSendMessage && action.targetId && !isBrief && (
+                <IconActionButton
+                  icon={Sparkles}
+                  tooltip="Ask AI to research"
+                  hoverClass="hover:text-info"
+                  onClick={() => onSendMessage!(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
+                  aria-label="Ask AI to research"
+                />
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -461,7 +476,7 @@ export function TriageCard(props: TriageCardProps) {
               title={title}
             />
           ) : action ? (
-            <div className="inline-flex items-center gap-1 flex-shrink-0">
+            <div className="inline-flex items-center gap-2 flex-shrink-0" data-testid="triage-card-icon-group">
               {action.kind === 'confirm' && onConfirm && action.targetId && (
                 <IconActionButton
                   icon={Check}

@@ -18,7 +18,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useShallow } from 'zustand/shallow'
-import { CURRENCY_SYMBOLS } from '../../../utils/labelUtils'
+import { CURRENCY_SYMBOLS, classifyUnit } from '../../../utils/labelUtils'
 import type { Node, Edge } from '@xyflow/react'
 import type { BiasType } from '../primitives/BiasIcon'
 // Import existing readiness hook for canonical canRun/hasBlockers logic
@@ -824,11 +824,26 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       // zero; it placed the value at the bottom of the scale because it had
       // nothing to ground on. Show "Not set" so the user understands they still
       // need to provide a value.
+      //
+      // extractionType has two storage locations in this codebase:
+      //   1. `observedState.extractionType` — CEE-derived factors (canonical,
+      //      present in golden-path fixtures at /observed_state/extractionType)
+      //   2. `node.data.extractionType` — factors edited via the inspector
+      //      (useInspectorMutations.setExtractionType writes it here)
+      // We check both to catch every inferred factor regardless of origin.
       const factorData = factor.data as { extractionType?: string } | undefined
-      const isInferred = factorData?.extractionType === 'inferred'
+      const isInferred =
+        os.extractionType === 'inferred'
+        || factorData?.extractionType === 'inferred'
       const rawValueNum = os.raw_value != null ? Number(os.raw_value) : null
       const valueNum = os.value != null ? Number(os.value) : null
-      const hasMeaningfulUnit = !!os.unit && os.unit !== 'scale'
+      // A "meaningful" unit is one that carries real-world scale (currency,
+      // percent, or a named domain unit like "engineers"). classifyUnit's
+      // 'placeholder' bucket covers scale/index/score/norm/normalised/unit/units
+      // — all of which have no real scale and collapse to literal "0" for a
+      // zero-valued inferred factor.
+      const unitKind = classifyUnit(os.unit).kind
+      const hasMeaningfulUnit = unitKind !== 'none' && unitKind !== 'placeholder'
       const isZeroValue = (rawValueNum === 0) || (rawValueNum == null && valueNum === 0)
       const isInferredZero = isInferred && isZeroValue && !hasMeaningfulUnit
 
