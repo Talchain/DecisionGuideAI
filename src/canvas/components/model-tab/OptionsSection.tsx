@@ -18,7 +18,7 @@ import { focusNodeById } from '../../utils/focusHelpers'
 import { formatValueWithUnit, formatSmartNumber } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
-import { unwrapInterventionValue } from '../../utils/labelUtils'
+import { unwrapInterventionValue, formatRawValueWithUnit } from '../../utils/labelUtils'
 
 /** Conditional winner entry from ISL */
 export interface ConditionalWinner {
@@ -103,11 +103,13 @@ function buildInterventions(optionNode: Node, allNodes: Node[]): InterventionIte
   })
 }
 
-function formatInterventionValue(value: number, unit: string | undefined): string {
-  if (typeof value !== 'number' || !isFinite(value)) return 'Not set'
-  if (unit) return formatValueWithUnit(value, unit)
-  return formatSmartNumber(value)
-}
+// Polish 4 follow-up Item C: the local formatInterventionValue shadow has
+// been replaced with the shared formatRawValueWithUnit from labelUtils.ts.
+// See the value-formatting surface inventory at the top of labelUtils.ts.
+//
+// formatValueWithUnit + formatSmartNumber are still imported because the
+// DeltaChip helper uses them directly (deltas are pre-computed numbers
+// passed without involving the broader formatRawValueWithUnit branch logic).
 
 function DeltaChip({ baseline, current, unit }: { baseline: number | undefined; current: number; unit: string | undefined }) {
   if (baseline === undefined || typeof baseline !== 'number' || !isFinite(baseline) || typeof current !== 'number' || !isFinite(current)) return null
@@ -216,14 +218,14 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
               {/* Baseline */}
               {iv.rawBaseline !== undefined && (
                 <span className={`${typography.panelMeta} text-text-light`}>
-                  {formatInterventionValue(iv.rawBaseline, iv.unit)}
+                  {formatRawValueWithUnit(iv.rawBaseline, iv.unit)}
                 </span>
               )}
               <ArrowRight className="w-3 h-3 text-text-light shrink-0" aria-hidden="true" />
               {/* Editable target */}
               <InlineEdit
                 value={String(iv.currentValue)}
-                displayValue={formatInterventionValue(iv.currentValue, iv.unit)}
+                displayValue={formatRawValueWithUnit(iv.currentValue, iv.unit)}
                 onSave={(val) => handleInterventionSave(iv.factorId, val)}
                 validate={(s) => !isNaN(parseFloat(s))}
                 maxWidth="max-w-[80px]"

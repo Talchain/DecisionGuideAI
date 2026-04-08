@@ -225,7 +225,12 @@ function getObservedStateInfo(node: Node): { value: string | null; unit: string 
     }
   } else if (numValue !== null) {
     if (unit) {
-      value = formatInterventionValue(numValue, unit, observedState.factor_type)
+      // Polish 4 follow-up Item B: preserveTierLabel keeps the qualitative
+      // tier ("Very low" / "High") for generic-placeholder units (e.g. "scale")
+      // with no raw_value anchor. Without this flag the canvas-side suppression
+      // (formatInterventionValue → '') would hide the entire row in the text
+      // view, losing useful coarse classification.
+      value = formatInterventionValue(numValue, unit, observedState.factor_type, undefined, undefined, undefined, { preserveTierLabel: true })
     } else {
       value = qualitativeTierLabel(numValue)
     }

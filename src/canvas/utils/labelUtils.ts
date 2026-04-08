@@ -1,6 +1,54 @@
 /**
  * Canvas node label utilities
  * Display-only transforms — never mutate underlying data
+ *
+ * ============================================================================
+ * VALUE-FORMATTING SURFACE INVENTORY (Polish 4 follow-up Item C)
+ * ============================================================================
+ *
+ * The codebase has FOUR distinct user-facing value-rendering paths. This block
+ * exists to keep them straight — when adding a new caller, decide which one
+ * fits and call it directly. Do NOT add a fifth shadow.
+ *
+ * 1. formatFactorDisplayValue   (src/utils/formatFactorDisplayValue.ts)
+ *    - Surface: factor node body text (FactorNode.tsx, OptionNode formatChipValue contextual path)
+ *    - Input:   { label, value, raw_value, unit, factor_type, cap, category, display_value }
+ *    - Output:  null | "£40,000" | "75%" | "No tech lead in place" | display_value verbatim
+ *    - Fallback: returns null when no meaningful text can be produced.
+ *    - Notes: CEE display_value takes priority. Binary contextual text only fires
+ *      when factor_type === 'binary'. Suppresses fractional 0<v<1 with meaningless unit.
+ *
+ * 2. formatInterventionValue    (this file, line ~430)
+ *    - Surface: factor node hover overlay, OptionNode pill/popover/Detailed list (via formatChipValue),
+ *      GraphTextView observed-state row, NodeInspectorCompact main value display
+ *    - Input:   value, unit, factorType, cap, observedValue, observedRawValue, opts?
+ *    - Output:  '' | "£40,000" | "75%" | "Very low" (qualitative tier) | "5 engineers"
+ *    - Fallback: '' for scale-no-raw (Polish 4 Task 1 — meaningless unit suppression).
+ *    - opts.preserveTierLabel: when true, scale-no-raw returns the qualitative tier
+ *      label instead of '' (used by GraphTextView so the text view keeps tier info).
+ *    - Notes: takes a NORMALISED 0–1 intervention value, denormalises via cap/raw.
+ *
+ * 3. formatRawValueWithUnit     (this file, ~line 415)
+ *    - Surface: model-tab OptionsSection intervention rows + delta chips
+ *    - Input:   already-denormalised raw number + optional unit
+ *    - Output:  "£49,000" | "USD 49,000" | "9 months" | "49" (generic units stripped)
+ *    - Fallback: "Not set" when value is non-finite.
+ *    - Notes: NEVER denormalises — caller passes the real-world number as-is.
+ *
+ * 4. formatFactorValue          (this file, ~line 290) — LEGACY
+ *    - Surface: inspector-v2 OptionPanel.tsx (only caller — kept for compat).
+ *    - Status: do not extend. New code should use formatFactorDisplayValue.
+ *
+ * Local shadows that intentionally exist (do NOT consolidate without redesign):
+ *   - NodeInspectorCompact.tsx::formatChipValue — uses "sets to {value}" copy
+ *     for the intervention chip cards. UI text variant; not API-compatible.
+ *   - OptionNode.tsx::formatChipValue — composes formatFactorDisplayValue with
+ *     a fallback through formatInterventionValue. Cannot be moved into labelUtils
+ *     without dragging factor-display logic in.
+ *
+ * Removed shadows (Polish 4 follow-up):
+ *   - OptionsSection.tsx::formatInterventionValue — replaced with formatRawValueWithUnit.
+ * ============================================================================
  */
 
 /**
@@ -162,6 +210,31 @@ export function qualitativeTierLabel(value: number): string {
   if (value <= 0.6) return 'Medium'
   if (value <= 0.8) return 'High'
   return 'Very high'
+}
+
+/**
+ * "Generic placeholder" units emitted by CEE for normalised factors with no
+ * real-world calibration. They contribute no information when rendered as a
+ * suffix on a number — "0.5 scale" looks measured but isn't.
+ *
+ * - The canvas formatters (formatInterventionValue) treat these as a signal
+ *   to suppress the entire value when there's no raw_value anchor.
+ * - The model-tab raw formatter (formatRawValueWithUnit) drops the unit
+ *   suffix and renders the number on its own.
+ *
+ * Keep in sync with the equivalent set in src/canvas/components/model-tab/utils.ts
+ * — that file has its own copy because the model-tab utility module pre-dates
+ * the consolidation. Removing the duplicate set there would couple the
+ * model-tab utils to labelUtils, which is a bigger change than this audit
+ * scope warranted.
+ */
+export const GENERIC_PLACEHOLDER_UNITS: ReadonlySet<string> = new Set([
+  'scale', 'index', 'score', 'normalised', 'normalized', 'norm', 'unit', 'units',
+])
+
+function isGenericPlaceholderUnit(unit: string | null | undefined): boolean {
+  if (unit == null) return false
+  return GENERIC_PLACEHOLDER_UNITS.has(unit.toLowerCase().trim())
 }
 
 /** Currency symbols that prefix the number (J2). Used for both char-prefix checks and full-unit-string checks. */
@@ -415,7 +488,14 @@ export function unwrapInterventionValue(raw: unknown): number | null {
  * @param unit       - Optional unit hint (e.g. '%', 'fraction', '£', 'engineers')
  * @param factorType - Optional CEE factor_type (e.g. 'quality', 'demand') — triggers tier labels
  * @param cap        - Optional factor cap for denormalisation (J1)
- * @returns Human-readable string
+ * @param observedValue    - Factor's observed normalised value (for proportional denormalisation)
+ * @param observedRawValue - Factor's observed raw value (real-world anchor)
+ * @param opts.preserveTierLabel - When true, generic placeholder units with no
+ *   raw anchor return the qualitative tier label (e.g. "Very low") instead of
+ *   the empty string. Used by GraphTextView so the text view keeps tier info
+ *   while the canvas suppresses meaningless numbers. Default: false.
+ * @returns Human-readable string. May be '' to signal "suppress" — callers
+ *   that render adjacent decoration (arrows, separators) MUST check for empty.
  */
 export function formatInterventionValue(
   value: number,
@@ -424,6 +504,7 @@ export function formatInterventionValue(
   cap?: number,
   observedValue?: number | null,
   observedRawValue?: string | number | null,
+  opts?: { preserveTierLabel?: boolean },
 ): string {
   // Defensive guard: callers must pass a finite number. Object/NaN/undefined
   // inputs previously produced "[object Object]" and "£NaN" strings on factor
@@ -431,15 +512,17 @@ export function formatInterventionValue(
   if (typeof value !== 'number' || !Number.isFinite(value)) return ''
   // Sanitise unit — never display internal factor_type descriptor strings as units
   unit = sanitiseUnit(unit)
-  // Graph v1.1 polish 4 Task 1 + review: "scale" is a placeholder unit
-  // emitted by CEE for normalised factors with no real-world calibration.
-  // When the only anchor we have is "scale" (no raw_value to denormalise
-  // against), the number is meaningless to the user — return an empty string
-  // so callers can render the arrow + label only (no tier label, no
-  // percentage, no "0.1 scale"). Callers must check for empty and hide the
-  // "→" separator accordingly.
-  if (unit && unit.toLowerCase().trim() === 'scale' && observedRawValue == null) {
-    return ''
+  // Graph v1.1 polish 4 Task 1 + review + follow-up: any "generic placeholder"
+  // unit (scale, index, score, normalised, …) emitted by CEE for normalised
+  // factors with no real-world calibration is meaningless without an anchor.
+  //
+  //   - preserveTierLabel=false (default): return '' so canvas callers can
+  //     render arrow-only pills with no trailing number.
+  //   - preserveTierLabel=true (GraphTextView): return the qualitative tier
+  //     label so the text view still surfaces a coarse "Very low" / "High"
+  //     classification.
+  if (isGenericPlaceholderUnit(unit) && observedRawValue == null) {
+    return opts?.preserveTierLabel ? qualitativeTierLabel(value) : ''
   }
   // J1: Denormalise using cap before any formatting
   const v = denormaliseInterventionValue(value, cap, observedValue, observedRawValue)
@@ -473,4 +556,56 @@ export function formatInterventionValue(
   }
   // Continuous without unit, non-qualitative — show as number (max 2 dp)
   return v % 1 === 0 ? String(v) : v.toFixed(2).replace(/\.?0+$/, '')
+}
+
+/**
+ * Format an already-denormalised raw value with an optional unit.
+ *
+ * Polish 4 follow-up Item C: this replaces the local `formatInterventionValue`
+ * shadow inside OptionsSection.tsx. The model-tab code receives raw numbers
+ * straight from the option intervention payload (it doesn't denormalise) and
+ * just needs to glue a unit on the end with the right formatting rules.
+ *
+ * Rules:
+ *   - non-finite value           → "Not set" (legacy compat with the local helper)
+ *   - generic placeholder unit   → number only, no suffix ("49000" not "49000 scale")
+ *   - currency symbol            → prefix ("£49,000")
+ *   - ISO currency code          → prefix with space ("USD 49,000")
+ *   - %                          → suffix with no space ("49%")
+ *   - other unit                 → suffix with space ("9 months")
+ *   - no unit                    → bare smart-formatted number
+ *
+ * Distinct from formatInterventionValue (which takes a NORMALISED 0–1 value
+ * and denormalises). The two functions converge on similar output but the
+ * input contracts differ — keep them separate so the type signature itself
+ * tells you which path to use.
+ */
+const ISO_CURRENCY_CODES_SET: ReadonlySet<string> = new Set([
+  'USD', 'GBP', 'EUR', 'JPY', 'INR', 'KRW', 'RUB', 'TRY', 'UAH', 'NGN', 'VND', 'BTC',
+  'CHF', 'CAD', 'AUD', 'NZD', 'HKD', 'SGD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK',
+  'HUF', 'RON', 'BGN', 'HRK', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'ZAR',
+  'EGP', 'AED', 'SAR', 'QAR', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'PKR', 'BDT', 'LKR',
+])
+
+function formatRawSmartNumber(n: number): string {
+  if (Number.isInteger(n)) return n.toLocaleString('en-GB')
+  if (Math.abs(n) < 1) return n.toFixed(2).replace(/\.?0+$/, '')
+  return n.toLocaleString('en-GB', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
+}
+
+export function formatRawValueWithUnit(value: number, unit?: string | null): string {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 'Not set'
+  if (!unit) return formatRawSmartNumber(value)
+  const trimmed = unit.trim()
+  if (!trimmed) return formatRawSmartNumber(value)
+  // Generic placeholder unit → drop the suffix entirely.
+  if (isGenericPlaceholderUnit(trimmed)) return formatRawSmartNumber(value)
+  // Currency symbol prefix.
+  if (isCurrencyUnit(trimmed)) return `${trimmed}${formatRawSmartNumber(value)}`
+  // ISO currency code prefix with space.
+  if (ISO_CURRENCY_CODES_SET.has(trimmed)) return `${trimmed} ${formatRawSmartNumber(value)}`
+  // Percent: no space.
+  if (trimmed === '%') return `${formatRawSmartNumber(value)}%`
+  // Everything else: suffix with space.
+  return `${formatRawSmartNumber(value)} ${trimmed}`
 }

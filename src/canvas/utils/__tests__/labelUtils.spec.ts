@@ -12,6 +12,7 @@ import {
   sensitivityTierLabel,
   evidenceTierLabel,
   formatInterventionValue,
+  formatRawValueWithUnit,
   qualitativeTierLabel,
   denormaliseInterventionValue,
   isCurrencyUnit,
@@ -800,6 +801,61 @@ describe('formatInterventionValue — meaningless scale unit suppression', () =>
     expect(formatInterventionValue(0.5, 'Scale')).toBe('')
     expect(formatInterventionValue(0.5, ' SCALE ')).toBe('')
   })
+
+  // Polish 4 follow-up Item C: extended generic-placeholder set covers
+  // index, score, norm, unit, units. Note: 'normalised'/'normalized' are
+  // *also* in the legacy INTERNAL_FACTOR_TYPE_DESCRIPTORS set, so they get
+  // stripped earlier by sanitiseUnit and fall through to the qualitative
+  // tier branch — same end result (no misleading numeric text bleeds
+  // through), just via a different code path. The test below pins both
+  // behaviours so neither path drifts.
+  it('suppresses generic placeholder units that survive sanitiseUnit', () => {
+    expect(formatInterventionValue(0.5, 'index')).toBe('')
+    expect(formatInterventionValue(0.5, 'score')).toBe('')
+    expect(formatInterventionValue(0.5, 'norm')).toBe('')
+    expect(formatInterventionValue(0.5, 'unit')).toBe('')
+    expect(formatInterventionValue(0.5, 'units')).toBe('')
+  })
+
+  it('legacy normalised/normalized units fall through to qualitative tier (sanitiseUnit strips them first)', () => {
+    // Effectively suppressed: no "0.5 normalised" string ever appears, but
+    // the tier label still surfaces because sanitiseUnit drops the unit
+    // before isGenericPlaceholderUnit is reached.
+    expect(formatInterventionValue(0.5, 'normalised')).toBe('Medium')
+    expect(formatInterventionValue(0.5, 'normalized')).toBe('Medium')
+  })
+})
+
+// Polish 4 follow-up Item B: preserveTierLabel keeps the qualitative tier
+// for generic-placeholder units instead of returning '', so GraphTextView
+// can render coarse classification while the canvas suppresses meaningless
+// numbers.
+describe('formatInterventionValue — preserveTierLabel option (Item B)', () => {
+  it('returns the qualitative tier for value=0.1 with scale + preserveTierLabel', () => {
+    expect(formatInterventionValue(0.1, 'scale', undefined, undefined, undefined, undefined, { preserveTierLabel: true })).toBe('Very low')
+  })
+
+  it('returns the qualitative tier for value=0.5 with scale + preserveTierLabel', () => {
+    expect(formatInterventionValue(0.5, 'scale', undefined, undefined, undefined, undefined, { preserveTierLabel: true })).toBe('Medium')
+  })
+
+  it('returns the qualitative tier for value=0.85 with scale + preserveTierLabel', () => {
+    expect(formatInterventionValue(0.85, 'scale', undefined, undefined, undefined, undefined, { preserveTierLabel: true })).toBe('Very high')
+  })
+
+  it('preserveTierLabel does NOT bypass the raw-anchor branch', () => {
+    // When raw is present, normal denormalisation runs — preserveTierLabel
+    // is only relevant for the "meaningless unit" suppression path.
+    const out = formatInterventionValue(0.5, 'scale', undefined, undefined, undefined, 10, { preserveTierLabel: true })
+    expect(out).not.toBe('Low')
+    expect(out).not.toBe('')
+  })
+
+  it('preserveTierLabel default is still empty string (canvas behaviour unchanged)', () => {
+    expect(formatInterventionValue(0.5, 'scale')).toBe('')
+    expect(formatInterventionValue(0.5, 'scale', undefined, undefined, undefined, undefined, {})).toBe('')
+    expect(formatInterventionValue(0.5, 'scale', undefined, undefined, undefined, undefined, { preserveTierLabel: false })).toBe('')
+  })
 })
 
 // ---------------------------------------------------------------------------
@@ -924,5 +980,79 @@ describe('top-tier label is Very high (Task 5)', () => {
 
   it('formatFactorValue({ value: 1.0 }) returns "Very high"', () => {
     expect(formatFactorValue({ value: 1.0 })).toBe('Very high')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// formatRawValueWithUnit — Polish 4 follow-up Item C
+// Replaces the local `formatInterventionValue` shadow inside OptionsSection.
+// Takes an already-denormalised value (no cap denormalisation) and glues a
+// unit onto it with currency / ISO / % / generic-strip rules.
+// ---------------------------------------------------------------------------
+describe('formatRawValueWithUnit', () => {
+  it('returns "Not set" for non-finite values', () => {
+    expect(formatRawValueWithUnit(NaN, '£')).toBe('Not set')
+    expect(formatRawValueWithUnit(Infinity, '£')).toBe('Not set')
+    expect(formatRawValueWithUnit(-Infinity, '£')).toBe('Not set')
+  })
+
+  it('returns bare smart number when no unit is provided', () => {
+    expect(formatRawValueWithUnit(49000)).toBe('49,000')
+    expect(formatRawValueWithUnit(1.5)).toBe('1.5')
+    expect(formatRawValueWithUnit(0.5)).toBe('0.5')
+    expect(formatRawValueWithUnit(0)).toBe('0')
+  })
+
+  it('returns bare smart number when unit is empty / whitespace', () => {
+    expect(formatRawValueWithUnit(49000, '')).toBe('49,000')
+    expect(formatRawValueWithUnit(49000, '   ')).toBe('49,000')
+  })
+
+  it('drops the unit suffix for generic placeholder units', () => {
+    expect(formatRawValueWithUnit(49, 'scale')).toBe('49')
+    expect(formatRawValueWithUnit(49, 'index')).toBe('49')
+    expect(formatRawValueWithUnit(49, 'score')).toBe('49')
+    expect(formatRawValueWithUnit(49, 'norm')).toBe('49')
+    expect(formatRawValueWithUnit(49, 'units')).toBe('49')
+    // Case-insensitive.
+    expect(formatRawValueWithUnit(49, 'SCALE')).toBe('49')
+    expect(formatRawValueWithUnit(49, ' Scale ')).toBe('49')
+  })
+
+  it('prefixes currency symbols with no space', () => {
+    expect(formatRawValueWithUnit(49000, '£')).toBe('£49,000')
+    expect(formatRawValueWithUnit(49000, '$')).toBe('$49,000')
+    expect(formatRawValueWithUnit(49000, '€')).toBe('€49,000')
+  })
+
+  it('prefixes ISO currency codes with a space', () => {
+    expect(formatRawValueWithUnit(49000, 'USD')).toBe('USD 49,000')
+    expect(formatRawValueWithUnit(49000, 'GBP')).toBe('GBP 49,000')
+    expect(formatRawValueWithUnit(49000, 'EUR')).toBe('EUR 49,000')
+  })
+
+  it('suffixes percent with no space', () => {
+    expect(formatRawValueWithUnit(75, '%')).toBe('75%')
+    expect(formatRawValueWithUnit(0.5, '%')).toBe('0.5%')
+  })
+
+  it('suffixes generic units with a space', () => {
+    expect(formatRawValueWithUnit(9, 'months')).toBe('9 months')
+    expect(formatRawValueWithUnit(3, 'engineers')).toBe('3 engineers')
+    expect(formatRawValueWithUnit(0, 'FTE')).toBe('0 FTE')
+  })
+
+  it('handles decimals with smart precision', () => {
+    expect(formatRawValueWithUnit(0.05, '%')).toBe('0.05%')
+    expect(formatRawValueWithUnit(1.234, 'index')).toBe('1.23')
+  })
+
+  it('formats negative numbers correctly', () => {
+    expect(formatRawValueWithUnit(-1500, '£')).toBe('£-1,500')
+    expect(formatRawValueWithUnit(-5, 'engineers')).toBe('-5 engineers')
+  })
+
+  it('accepts null unit (parity with the original local helper)', () => {
+    expect(formatRawValueWithUnit(49000, null)).toBe('49,000')
   })
 })
