@@ -82,8 +82,9 @@ describe('GraphPatchBlock', () => {
       <InlineBlocks blocks={[block]} />,
     )
 
-    // P1-4: Block shows structural summary (opSummary), not coaching text (block.summary)
-    expect(screen.getByText('1 risk')).toBeInTheDocument()
+    // Block shows CEE's semantic summary (block.summary) when present —
+    // coaching-grade language wins over the count-based opSummary fallback.
+    expect(screen.getByText("Add 'competitor response' as a risk factor")).toBeInTheDocument()
     expect(screen.getByText('Review suggested changes')).toBeInTheDocument()
     expect(screen.getByTestId('patch-accept')).toBeInTheDocument()
     expect(screen.getByTestId('patch-dismiss')).toBeInTheDocument()
@@ -324,8 +325,13 @@ describe('GraphPatchBlock', () => {
     expect(screen.getByText('Show 2 more')).toBeInTheDocument()
   })
 
-  it('renders multiple operations count', () => {
+  it('renders multiple operations count via opSummary fallback when block summary is empty', () => {
+    // When block.summary is empty, opSummary takes over as the visible text.
+    // The test was originally written before the precedence inversion and
+    // implicitly relied on the bug; we explicitly clear summary now so the
+    // test still asserts the count-based path.
     const block = makePatchBlock({
+      summary: '',
       operations: [
         { op: 'add_node', target_id: 'n1', data: {} },
         { op: 'add_edge', target_id: 'e1', data: { source: 'n1', target: 'n2' } },
@@ -352,6 +358,42 @@ describe('GraphPatchBlock', () => {
 
     // Op summary should appear as the primary text (since summary is empty)
     expect(screen.getByText('2 factors, 1 option')).toBeInTheDocument()
+  })
+
+  it('prefers CEE summary over op-summary when both are present', () => {
+    // Precedence inversion: block.summary (CEE coaching text) wins over the
+    // count-based summarisePatchOps fallback. This is the core Task 3 fix.
+    const block = makePatchBlock({
+      summary: 'Restructured the model around customer churn',
+      operations: [
+        { op: 'add_node', target_id: 'n1', data: { kind: 'factor', label: 'Churn' } },
+        { op: 'add_edge', target_id: 'e1', data: { source: 'n1', target: 'n2' } },
+      ],
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.getByText('Restructured the model around customer churn')).toBeInTheDocument()
+    // The count-based fallback must NOT also be rendered.
+    expect(screen.queryByText('1 node, 1 edge')).not.toBeInTheDocument()
+  })
+
+  it('collapses the summary row entirely when both summary and operations are empty', () => {
+    // Both-empty case: no summary div in the DOM, no blank space, no trailing
+    // colon in aria-label. The patch header ("Review suggested changes")
+    // continues to render as a sibling.
+    const block = makePatchBlock({
+      summary: '',
+      operations: [],
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    // Header still renders.
+    expect(screen.getByText('Review suggested changes')).toBeInTheDocument()
+    // The aria-label has no trailing colon when both are empty.
+    const blockEl = screen.getByTestId('block-graph-patch-patch-1')
+    expect(blockEl.getAttribute('aria-label')).toBe('Proposed changes')
+    // No '0 operations' or other empty-shell text in the DOM.
+    expect(screen.queryByText(/0 operations/)).not.toBeInTheDocument()
   })
 
   it('shows retry button on network error (block stays proposed)', () => {

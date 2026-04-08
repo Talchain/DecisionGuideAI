@@ -929,6 +929,17 @@ function GraphPatchBlockRenderer({
   const canvasNodes = useCanvasStore(s => s.nodes)
   const canvasNodeIds = useMemo(() => new Set(canvasNodes.map((n: { id: string }) => n.id)), [canvasNodes])
   const opSummary = summarisePatchOps(block.operations)
+  // Patch summary precedence: prefer CEE's semantic `block.summary` (coaching-grade
+  // text) over the UI's count-based `opSummary` fallback. When both are empty the
+  // summary row collapses entirely (no empty shell). Mirrors the precedence used by
+  // aria-label below so screen readers and visual UI stay aligned.
+  //
+  // The opSummary fallback is only meaningful when there are operations to count;
+  // an empty operations array yields '0 operations', which is noise — drop it so
+  // the both-empty case truly collapses.
+  const ceeSummaryText = normaliseDashes(block.summary || '')
+  const opSummaryUseful = block.operations.length > 0 ? opSummary : ''
+  const summaryText = ceeSummaryText || opSummaryUseful
   const rawProposalItems = getProposalItems(block)
   const proposalItemsSource = getProposalItemsSource(block)
   // Per-operation rationales from CEE edit_graph, paired by index with `operations[]`.
@@ -1062,7 +1073,7 @@ function GraphPatchBlockRenderer({
     <div
       className={`${styles.graphPatchBlock} ${isApplied ? styles.graphPatchBlockApplied : ''}`}
       data-testid={`block-graph-patch-${block.patch_id}`}
-      aria-label={`${isApplied ? 'Applied changes' : 'Proposed changes'}: ${block.summary}`}
+      aria-label={`${isApplied ? 'Applied changes' : 'Proposed changes'}${summaryText ? ': ' + summaryText : ''}`}
     >
       <div className={styles.graphPatchHeader}>
         <div className={styles.graphPatchTitleRow}>
@@ -1070,7 +1081,9 @@ function GraphPatchBlockRenderer({
             {isApplied ? 'Changes applied' : 'Review suggested changes'}
           </span>
         </div>
-        <div className={`${typography.body} ${styles.graphPatchSummary}`}>{opSummary || normaliseDashes(block.summary || '')}</div>
+        {summaryText && (
+          <div className={`${typography.body} ${styles.graphPatchSummary}`}>{summaryText}</div>
+        )}
       </div>
 
       {showProposalItemsInline && (

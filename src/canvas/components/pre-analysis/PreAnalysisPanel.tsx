@@ -26,6 +26,7 @@ import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
+import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
@@ -47,14 +48,110 @@ const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'e
 /**
  * Icon + title lookup for CEE bias type strings.
  * Defined at module scope so the biasTriggers useMemo dependency array stays stable.
+ *
+ * Two key spaces are supported because CEE has two field conventions in flight:
+ *   1. Lowercase `type` (existing CEEBiasFinding.type field) — anchoring,
+ *      framing, confidence, confirmation, blind_spots
+ *   2. Uppercase `code` (newer schema variant — AUTHORITY_BIAS, etc.) — these
+ *      need explicit mapping per the brief.
+ *
+ * Any unrecognised key falls back to BIAS_FALLBACK (EyeOff) per the brief.
  */
 const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
-  framing:     { icon: Frame,     title: 'Narrow framing' },
-  anchoring:   { icon: Anchor,    title: 'Anchoring' },
-  confidence:  { icon: Gauge,     title: 'Overconfidence' },
-  blind_spots: { icon: EyeOff,    title: 'Blind spots' },
-  // Map confirmation bias (no direct UI icon) to framing as the closest visual
-  confirmation: { icon: Frame,    title: 'Confirmation bias' },
+  // Lowercase type values (existing field convention)
+  framing:      { icon: Frame,     title: 'Narrow framing' },
+  anchoring:    { icon: Anchor,    title: 'Anchoring' },
+  confidence:   { icon: Gauge,     title: 'Overconfidence' },
+  blind_spots:  { icon: EyeOff,    title: 'Blind spots' },
+  confirmation: { icon: Frame,     title: 'Confirmation bias' },
+  // Uppercase code values (newer schema)
+  AUTHORITY_BIAS:    { icon: Anchor, title: 'Authority bias' },
+  CONFIRMATION_BIAS: { icon: Gauge,  title: 'Confirmation bias' },
+  SUNK_COST:         { icon: Anchor, title: 'Sunk cost' },
+  NARROW_FRAMING:    { icon: Frame,  title: 'Narrow framing' },
+  STATUS_QUO_BIAS:   { icon: EyeOff, title: 'Status quo bias' },
+}
+
+/** Generic fallback for unrecognised bias codes per the brief. */
+const BIAS_FALLBACK: { icon: typeof Frame; title: string } = {
+  icon: EyeOff,
+  title: 'Bias detected',
+}
+
+/** Truncate a long bias explanation to 80 chars; the full text remains in the title attribute. */
+const BIAS_EXPLANATION_MAX = 80
+function truncateExplanation(s: string): string {
+  if (s.length <= BIAS_EXPLANATION_MAX) return s
+  return s.slice(0, BIAS_EXPLANATION_MAX - 1).trimEnd() + '…'
+}
+
+/** Severity rank for sorting CEE findings. Lower = higher priority. */
+const BIAS_SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
+
+/**
+ * Permissive shape for CEE bias findings. The CEEBiasFinding TypeScript type
+ * lags the runtime shape — newer CEE responses include `code`, `explanation`,
+ * `category`, and `micro_intervention` fields that are not in the type. We
+ * read both old and new field names so the panel works whether or not CEE
+ * has migrated.
+ */
+type RawBiasFinding = {
+  id?: string
+  type?: string
+  code?: string
+  category?: string
+  severity?: string
+  description?: string
+  explanation?: string
+  citation?: string
+  interventions?: Array<{ description?: string; [k: string]: unknown }>
+  micro_intervention?: { steps?: Array<{ text?: string; [k: string]: unknown }>; [k: string]: unknown }
+}
+
+interface NormalisedBiasTrigger {
+  id: string
+  icon: typeof Frame
+  title: string
+  subtitle: string
+  fullExplanation: string
+  severity: string
+  /** First step text from micro_intervention.steps, when present. Drives the "Try this" chip. */
+  microInterventionStep: string | null
+  /** Generic "Ask AI" prompt for the secondary chip. */
+  askAiPrompt: string
+}
+
+function normaliseCeeBiasFinding(raw: RawBiasFinding, idx: number): NormalisedBiasTrigger | null {
+  // Lookup key: prefer uppercase `code`, fall back to lowercase `type`.
+  const lookupKey = raw.code || raw.type || ''
+  const config = BIAS_TYPE_ICON[lookupKey] ?? BIAS_FALLBACK
+
+  // Subtitle text: prefer `explanation` (newer schema), fall back to `description`.
+  const fullExplanation = (raw.explanation || raw.description || '').trim()
+  if (!fullExplanation) return null
+
+  // micro_intervention.steps[0].text is the new schema; fall back to first
+  // entry in `interventions[].description` (existing schema).
+  const microStep =
+    raw.micro_intervention?.steps?.[0]?.text
+    ?? raw.interventions?.[0]?.description
+    ?? null
+
+  // Stable id: prefer raw.id, then the lookup key, then the array index.
+  // Parenthesised explicitly because mixing ?? and || in the same expression
+  // is a TypeScript syntax error.
+  const stableId = raw.id ?? (lookupKey || String(idx))
+
+  return {
+    id: `cee_bias_${stableId}`,
+    icon: config.icon,
+    title: config.title,
+    subtitle: truncateExplanation(fullExplanation),
+    fullExplanation,
+    severity: raw.severity ?? 'medium',
+    microInterventionStep: microStep ?? null,
+    askAiPrompt: `I may have a ${config.title.toLowerCase()} in my decision model. Can you help me think through it?`,
+  }
 }
 
 /** Binary pass/fail row for triage check rows — failed rows show optional action link */
@@ -626,47 +723,72 @@ export function PreAnalysisPanel({
 
   // Bias trigger cards — CEE findings take precedence when available.
   // Falls back to UI-side deterministic checks when CEE provides no findings.
-  // Max 2 cards.
-  const biasTriggers = useMemo(() => {
-    type BiasTrigger = { id: string; icon: typeof Frame; title: string; subtitle: string; cta: string; ctaAction: string }
-    const triggers: BiasTrigger[] = []
+  // Max 2 cards. Trigger shape is shared across both paths so the render layer
+  // can treat them uniformly. The CEE path also surfaces a "Try this" chip
+  // when the finding includes a micro_intervention.steps[0] action.
+  const biasTriggers = useMemo<NormalisedBiasTrigger[]>(() => {
+    const triggers: NormalisedBiasTrigger[] = []
 
-    const ceeBiasFindings = ceeAnalysisReady?.bias_findings ?? []
+    const ceeBiasFindings = (ceeAnalysisReady?.bias_findings ?? []) as RawBiasFinding[]
 
     if (ceeBiasFindings.length > 0) {
-      // Sort CEE findings by severity: high → medium → low
-      const SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
+      // Sort CEE findings by severity: high → medium → low (BIAS_SEVERITY_RANK)
       const sorted = [...ceeBiasFindings].sort(
-        (a, b) => (SEVERITY_RANK[a.severity] ?? 9) - (SEVERITY_RANK[b.severity] ?? 9),
+        (a, b) => (BIAS_SEVERITY_RANK[a.severity ?? ''] ?? 9) - (BIAS_SEVERITY_RANK[b.severity ?? ''] ?? 9),
       )
-      for (const finding of sorted) {
-        const config = BIAS_TYPE_ICON[finding.type]
-        if (!config) continue
-        triggers.push({
-          id: `cee_bias_${finding.id}`,
-          icon: config.icon,
-          title: config.title,
-          subtitle: finding.description || `Potential ${finding.type} bias detected.`,
-          cta: 'Ask AI',
-          ctaAction: `I may have a ${finding.type} bias in my decision model. Can you help me think through it?`,
-        })
+      for (let i = 0; i < sorted.length; i++) {
+        const normalised = normaliseCeeBiasFinding(sorted[i], i)
+        if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
       }
       if (triggers.length > 0) return triggers
-      // If no CEE finding matched a known icon type, fall through to deterministic
+      // If no CEE finding produced a usable trigger, fall through to deterministic
     }
 
-    // Deterministic fallback — graph-signal-only checks
+    // Deterministic fallback — graph-signal-only checks. Each check produces
+    // a trigger in the shared NormalisedBiasTrigger shape (no micro_intervention,
+    // generic askAiPrompt drives the single Ask AI chip).
+
+    const pushDeterministic = (
+      id: string,
+      icon: typeof Frame,
+      title: string,
+      explanation: string,
+      askAiPrompt: string,
+    ) => {
+      triggers.push({
+        id,
+        icon,
+        title,
+        subtitle: truncateExplanation(explanation),
+        fullExplanation: explanation,
+        severity: 'medium',
+        microInterventionStep: null,
+        askAiPrompt,
+      })
+    }
 
     // 1. Narrow framing: fewer than 2 non-baseline options
     const nonBaselineOptions = data.optionPreviews.filter(o => !o.isBaseline)
     if (nonBaselineOptions.length < 2) {
-      triggers.push({ id: 'narrow_framing', icon: Frame, title: 'Narrow framing', subtitle: 'Consider structurally different approaches. What would a competitor do?', cta: 'Explore options', ctaAction: 'What other options should I consider?' })
+      pushDeterministic(
+        'narrow_framing',
+        Frame,
+        'Narrow framing',
+        'Consider structurally different approaches. What would a competitor do?',
+        'What other options should I consider?',
+      )
     }
 
     // 2. Missing risks: 0 or 1 risk nodes
     if (data.nodesByKind.risk.length <= 1) {
-      triggers.push({ id: 'missing_risks', icon: ShieldAlert, title: 'Missing risks', subtitle: 'Your model has few risks. Consider what could go wrong with each option.', cta: 'Add risks', ctaAction: 'What risks am I missing?' })
+      pushDeterministic(
+        'missing_risks',
+        ShieldAlert,
+        'Missing risks',
+        'Your model has few risks. Consider what could go wrong with each option.',
+        'What risks am I missing?',
+      )
     }
 
     // 3. Overconfidence: top factor by influence is AI-sourced with no uncertainty_drivers
@@ -686,7 +808,13 @@ export function PreAnalysisPanel({
           const drivers = os?.uncertainty_drivers as unknown[] | undefined
           if (source && AI_SOURCES.has(source) && (!drivers || drivers.length === 0)) {
             const label = (nd.label as string) ?? topFactorId
-            triggers.push({ id: 'overconfidence', icon: Gauge, title: 'Overconfidence', subtitle: `${label} drives most of the outcome but has no supporting evidence. Validate it before relying on it.`, cta: 'Validate', ctaAction: topFactorId })
+            pushDeterministic(
+              'overconfidence',
+              Gauge,
+              'Overconfidence',
+              `${label} drives most of the outcome but has no supporting evidence. Validate it before relying on it.`,
+              `Help me validate ${label}.`,
+            )
           }
         }
       }
@@ -724,7 +852,13 @@ export function PreAnalysisPanel({
             if (spread >= Math.abs(baseline) * 0.2) { allNarrow = false; break }
           }
           if (allNarrow && hasValidFactor) {
-            triggers.push({ id: 'anchoring', icon: Anchor, title: 'Anchoring', subtitle: 'Your options are similar. Try a wider range of approaches.', cta: 'Diversify', ctaAction: 'How could I make my options more different from each other?' })
+            pushDeterministic(
+              'anchoring',
+              Anchor,
+              'Anchoring',
+              'Your options are similar. Try a wider range of approaches.',
+              'How could I make my options more different from each other?',
+            )
           }
         }
       }
@@ -1046,33 +1180,57 @@ export function PreAnalysisPanel({
                 />
               )}
 
-              {/* Bias trigger cards */}
+              {/* Bias trigger cards. Each card shows: icon, title, truncated
+                  explanation (full text on hover via the title attribute),
+                  optional "Try this" chip from the CEE micro_intervention,
+                  and a generic "Ask AI" chip that drops the askAiPrompt into
+                  the conversation. */}
               {biasTriggers.length > 0 && (
                 <div className="space-y-1.5" data-testid="review-next-nudges">
                   {biasTriggers.map(trigger => {
                     const Icon = trigger.icon
+                    const handleTryThis = () => {
+                      if (!trigger.microInterventionStep) return
+                      const prefill = useGuidanceStore.getState()._prefillChat
+                      if (prefill) prefill(trigger.microInterventionStep)
+                      else onSendMessage?.(trigger.microInterventionStep)
+                    }
                     return (
                       <div
                         key={trigger.id}
                         className="px-3 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover space-y-1"
+                        data-testid={`bias-trigger-${trigger.id}`}
                       >
                         <div className="flex items-start gap-2">
                           <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-start justify-between gap-2">
-                              <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
+                            <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
+                            <p
+                              className={`${typography.panelBody} text-text-light mt-0.5`}
+                              title={trigger.fullExplanation}
+                            >
+                              {trigger.subtitle}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-1 mt-1">
+                              {trigger.microInterventionStep && (
+                                <button
+                                  type="button"
+                                  onClick={handleTryThis}
+                                  className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer flex-shrink-0`}
+                                  data-testid={`bias-trigger-try-${trigger.id}`}
+                                >
+                                  Try this
+                                </button>
+                              )}
                               <button
                                 type="button"
-                                onClick={() => {
-                                  if (trigger.id === 'overconfidence') handleFocusNode(trigger.ctaAction)
-                                  else onSendMessage?.(trigger.ctaAction)
-                                }}
+                                onClick={() => onSendMessage?.(trigger.askAiPrompt)}
                                 className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer flex-shrink-0`}
+                                data-testid={`bias-trigger-ask-${trigger.id}`}
                               >
-                                {trigger.cta}
+                                Ask AI
                               </button>
                             </div>
-                            <p className={`${typography.panelBody} text-text-light mt-0.5`}>{trigger.subtitle}</p>
                           </div>
                         </div>
                       </div>

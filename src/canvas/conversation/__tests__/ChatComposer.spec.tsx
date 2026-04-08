@@ -22,10 +22,22 @@ vi.mock('../../hooks/useStagePill', () => ({
   useStagePill: () => ({ stage: mockStage }),
 }))
 
-let mockCanvasState = { nodes: [] as Array<{ id: string }>, edges: [] as Array<{ id: string }> }
+let mockCanvasState: { nodes: Array<{ id: string }>; edges: Array<{ id: string }>; draftComposerText: string | null } = {
+  nodes: [],
+  edges: [],
+  draftComposerText: null,
+}
 
 vi.mock('../../store', () => ({
-  useCanvasStore: (selector: (s: any) => any) => selector(mockCanvasState),
+  useCanvasStore: Object.assign(
+    (selector: (s: any) => any) => selector(mockCanvasState),
+    {
+      getState: () => mockCanvasState,
+      setState: (partial: Partial<typeof mockCanvasState>) => {
+        mockCanvasState = { ...mockCanvasState, ...partial }
+      },
+    },
+  ),
 }))
 
 vi.mock('../../stores/guidanceStore', () => ({
@@ -108,7 +120,7 @@ describe('ChatComposer', () => {
     mockBriefSignals = null
     mockBilEnabled = false
     mockBilResult = null
-    mockCanvasState = { nodes: [], edges: [] }
+    mockCanvasState = { nodes: [], edges: [], draftComposerText: null }
   })
 
   it('renders textarea with placeholder', () => {
@@ -284,7 +296,7 @@ describe('ChatComposer', () => {
 
   it('hides first-draft guidance and generate controls once a graph exists', () => {
     mockStage = 'frame'
-    mockCanvasState = { nodes: [{ id: 'node-1' }], edges: [] }
+    mockCanvasState = { nodes: [{ id: 'node-1' }], edges: [], draftComposerText: null }
     mockBriefSignals = {
       elements: [
         { kind: 'goal', detected: true, label: 'Goal', coachingTip: 'State your goal.' },

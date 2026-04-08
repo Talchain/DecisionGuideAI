@@ -281,6 +281,11 @@ interface CanvasState {
   showDraftChat: boolean
   // Current brief textarea content (synced from ChatComposer for graph-readiness requests)
   currentBriefText: string | null
+  // Draft composer text — persists across panel collapse/reopen so users don't
+  // lose mid-typed messages. Scoped to the current scenario: cleared on send,
+  // scenario switch (loadScenario / importCanvas), and explicit reset.
+  // Distinct from currentBriefText, which is the readiness-signal mirror.
+  draftComposerText: string | null
   // AI Model Selection (session-only, not persisted to localStorage)
   // Only non-default models are sent to API to keep payloads clean
   selectedGenerationModel: string | null  // null = use default (gpt-4o)
@@ -982,6 +987,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     showTemplatesPanel: false,
     showDraftChat: false,
     currentBriefText: null,
+    draftComposerText: null,
     // AI Model Selection (session-only, start with defaults)
     selectedGenerationModel: null,
     selectedRepairModel: null,
@@ -1779,6 +1785,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       showDraftChat: false,
       currentBriefText: null,
+      draftComposerText: null,
       // Reset model selection on import
       selectedGenerationModel: null,
       selectedRepairModel: null,
@@ -2551,6 +2558,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
       touchedNodeIds: new Set(),
       showDraftChat: false,
+      // Composer draft is scoped to a scenario — clear it on switch so a draft
+      // for "buy vs build" can't bleed into "hire vs contract".
+      draftComposerText: null,
       // M6: Exit comparison mode when switching scenarios
       comparisonMode: {
         active: false,

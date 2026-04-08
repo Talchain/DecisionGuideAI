@@ -4,9 +4,18 @@
  * Enter sends (when content + not disabled), Shift+Enter inserts newline,
  * Escape collapses the panel. The textarea auto-grows with content up to
  * a configurable max height (default 35% of panel).
+ *
+ * Persistence: the composer value is mirrored to canvas store
+ * `draftComposerText` so it survives panel collapse/reopen. Mounts initialise
+ * from the store; subsequent edits write through with a 300 ms debounce; the
+ * unmount cleanup flushes immediately so a fast collapse can't lose the last
+ * 300 ms of typing. The store field is scoped to the current scenario —
+ * `loadScenario` and `importCanvas` clear it so a draft for one decision
+ * can't bleed into another.
  */
 
 import { useRef, useState, useCallback, useEffect } from 'react'
+import { useCanvasStore } from '../../store'
 
 interface UseComposerStateOpts {
   onSend: (text: string) => void
@@ -26,14 +35,31 @@ interface UseComposerStateReturn {
   replaceText: (text: string) => void
 }
 
+const STORE_WRITE_DEBOUNCE_MS = 300
+
+/** Persist composer text to the canvas store, normalising empty → null. */
+function writeDraftToStore(value: string): void {
+  if (typeof useCanvasStore.setState === 'function') {
+    useCanvasStore.setState({ draftComposerText: value || null })
+  }
+}
+
 export function useComposerState({
   onSend,
   onCollapse,
   disabled = false,
   maxHeightPercent = 35,
 }: UseComposerStateOpts): UseComposerStateReturn {
-  const [value, setValue] = useState('')
+  // Mount-time read uses getState() (not a hook selector) so a store change
+  // mid-typing doesn't re-trigger the initialiser and reset the textarea.
+  const [value, setValueRaw] = useState(
+    () => useCanvasStore.getState().draftComposerText ?? '',
+  )
   const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Mirror of the latest value so the unmount cleanup can flush without
+  // depending on the (potentially stale) closure value at effect creation.
+  const latestValueRef = useRef(value)
 
   const canSend = value.trim().length > 0 && !disabled
 
@@ -48,13 +74,58 @@ export function useComposerState({
     el.style.overflowY = el.scrollHeight > maxHeight ? 'auto' : 'hidden'
   }, [value, maxHeightPercent])
 
+  /**
+   * Schedule a debounced write to the store. Cancels any pending write so
+   * only the most recent typing is persisted. Also keeps `latestValueRef`
+   * in sync so the unmount flush has the right value.
+   */
+  const scheduleStoreWrite = useCallback((next: string) => {
+    latestValueRef.current = next
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+    }
+    debounceTimerRef.current = setTimeout(() => {
+      writeDraftToStore(next)
+      debounceTimerRef.current = null
+    }, STORE_WRITE_DEBOUNCE_MS)
+  }, [])
+
+  // Wrap setValue so every mutation goes through the persistence pipeline.
+  // External callers using setValue directly (rare) still benefit.
+  const setValue = useCallback((next: string) => {
+    setValueRaw(next)
+    scheduleStoreWrite(next)
+  }, [scheduleStoreWrite])
+
+  // Cleanup on unmount: flush any pending debounced write immediately so
+  // a quick panel collapse doesn't drop the last keystrokes. Only runs on
+  // unmount (empty deps) — running per-value would defeat the debounce.
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current)
+        debounceTimerRef.current = null
+      }
+      writeDraftToStore(latestValueRef.current)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault()
         if (canSend) {
           onSend(value.trim())
-          setValue('')
+          setValueRaw('')
+          // Clear the persisted draft synchronously on send — debouncing
+          // here would let the just-sent text reappear on the next mount.
+          if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current)
+            debounceTimerRef.current = null
+          }
+          latestValueRef.current = ''
+          writeDraftToStore('')
         }
       }
       if (e.key === 'Escape') {
@@ -67,18 +138,27 @@ export function useComposerState({
 
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      setValue(e.target.value)
+      const next = e.target.value
+      setValueRaw(next)
+      scheduleStoreWrite(next)
     },
-    [],
+    [scheduleStoreWrite],
   )
 
   const reset = useCallback(() => {
-    setValue('')
+    setValueRaw('')
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current)
+      debounceTimerRef.current = null
+    }
+    latestValueRef.current = ''
+    writeDraftToStore('')
   }, [])
 
   /** Replace input content (used by Guide dropdown). Focuses and places cursor at end. */
   const replaceText = useCallback((text: string) => {
-    setValue(text)
+    setValueRaw(text)
+    scheduleStoreWrite(text)
     requestAnimationFrame(() => {
       const el = textareaRef.current
       if (el) {
@@ -86,7 +166,7 @@ export function useComposerState({
         el.setSelectionRange(text.length, text.length)
       }
     })
-  }, [])
+  }, [scheduleStoreWrite])
 
   return { value, setValue, textareaRef, handleKeyDown, handleChange, canSend, reset, replaceText }
 }

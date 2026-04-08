@@ -11,9 +11,10 @@
  * - reset clears value
  */
 
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useComposerState } from '../hooks/useComposerState'
+import { useCanvasStore } from '../../store'
 import type React from 'react'
 
 function makeKeyEvent(key: string, overrides: Partial<React.KeyboardEvent<HTMLTextAreaElement>> = {}) {
@@ -124,5 +125,126 @@ describe('useComposerState', () => {
 
     act(() => { result.current.replaceText('scaffold text') })
     expect(result.current.value).toBe('scaffold text')
+  })
+})
+
+// ─────────────────────────────────────────────────────────────────────────
+// Draft persistence (Task 4)
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('useComposerState — draft persistence to canvas store', () => {
+  beforeEach(() => {
+    // Reset persisted draft before each test so cases are independent.
+    useCanvasStore.setState({ draftComposerText: null })
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('initialises empty when the store has no draft', () => {
+    const { result } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+    expect(result.current.value).toBe('')
+  })
+
+  it('initialises from store on mount when a draft is persisted', () => {
+    useCanvasStore.setState({ draftComposerText: 'previously typed text' })
+
+    const { result } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+    expect(result.current.value).toBe('previously typed text')
+  })
+
+  it('writes to the store after the debounce window', () => {
+    const { result } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+
+    act(() => { result.current.handleChange(makeChangeEvent('drafting…')) })
+
+    // Before the debounce fires, the store has not been written to.
+    expect(useCanvasStore.getState().draftComposerText).toBeNull()
+
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(useCanvasStore.getState().draftComposerText).toBe('drafting…')
+  })
+
+  it('flushes pending value to the store on unmount (panel collapse case)', () => {
+    const { result, unmount } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+
+    act(() => { result.current.handleChange(makeChangeEvent('mid-typed')) })
+    // Unmount immediately — debounce hasn't fired yet.
+    unmount()
+
+    expect(useCanvasStore.getState().draftComposerText).toBe('mid-typed')
+  })
+
+  it('survives unmount/remount round-trip (the bug being fixed)', () => {
+    const { result: r1, unmount } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+    act(() => { r1.current.handleChange(makeChangeEvent('persistent text')) })
+    unmount()
+
+    const { result: r2 } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+    expect(r2.current.value).toBe('persistent text')
+  })
+
+  it('clears the store synchronously on send so the next mount is empty', () => {
+    useCanvasStore.setState({ draftComposerText: 'hello' })
+    const onSend = vi.fn()
+    const { result } = renderHook(() =>
+      useComposerState({ onSend, onCollapse: vi.fn() }),
+    )
+
+    act(() => { result.current.handleChange(makeChangeEvent('hello')) })
+    act(() => { result.current.handleKeyDown(makeKeyEvent('Enter')) })
+
+    expect(onSend).toHaveBeenCalledWith('hello')
+    expect(useCanvasStore.getState().draftComposerText).toBeNull()
+  })
+
+  it('clears the store synchronously on reset()', () => {
+    const { result } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+
+    act(() => { result.current.handleChange(makeChangeEvent('typing')) })
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(useCanvasStore.getState().draftComposerText).toBe('typing')
+
+    act(() => { result.current.reset() })
+    expect(useCanvasStore.getState().draftComposerText).toBeNull()
+  })
+
+  it('persists replaceText through the same pipeline (Guide-dropdown case)', () => {
+    const { result, unmount } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+
+    act(() => { result.current.replaceText('from guide dropdown') })
+    unmount()
+
+    const { result: r2 } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+    expect(r2.current.value).toBe('from guide dropdown')
+  })
+
+  it('clears local value (does not show the literal "null") when store entry is null', () => {
+    useCanvasStore.setState({ draftComposerText: null })
+    const { result } = renderHook(() =>
+      useComposerState({ onSend: vi.fn(), onCollapse: vi.fn() }),
+    )
+    expect(result.current.value).toBe('')
+    expect(result.current.value).not.toBe('null')
   })
 })
