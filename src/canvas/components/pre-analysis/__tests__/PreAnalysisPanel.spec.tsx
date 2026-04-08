@@ -1066,4 +1066,111 @@ describe('PreAnalysisPanel', () => {
       expect(screen.queryByText('Sharpen your thinking')).not.toBeInTheDocument()
     })
   })
+
+  describe('Dynamic headline (Fix 2: bias-and-headline brief)', () => {
+    // The compact ModelHealthCard renders the bucket-derived headline at
+    // data-testid="model-health-card-headline". Precedence:
+    //   1. ceeAnalysisReady.coaching_summary (CEE override)
+    //   2. First Must fix item label → "[label]. Fix before running."
+    //   3. First Review next item label → "[label] has the biggest impact. Review before running."
+    //   4. Improve confidence has actionable cards → "Ready to run. [N] checks would improve results."
+    //   5. Else → "Ready to run."
+    //
+    // These tests use a "clean" mock that suppresses the deterministic bias
+    // triggers (which would otherwise push reviewNextCount > 0 even in a
+    // baseline state). This is done by populating optionPreviews with three
+    // options and providing two risk nodes.
+    const cleanBaselineMock = (): Partial<PreAnalysisData> => ({
+      isReady: true,
+      hasBlockers: false,
+      nodesByKind: {
+        goal: [{ id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal' } }],
+        decision: [],
+        option: [
+          { id: 'o1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 1' } },
+          { id: 'o2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option 2' } },
+        ],
+        factor: [],
+        risk: [
+          { id: 'r1', type: 'risk', position: { x: 0, y: 0 }, data: { label: 'Risk 1' } },
+          { id: 'r2', type: 'risk', position: { x: 0, y: 0 }, data: { label: 'Risk 2' } },
+        ],
+        outcome: [],
+      },
+      // 3 options so showOptionQualityCard does not fire (length >= 3)
+      optionPreviews: [
+        { id: 'o1', label: 'Option 1', status: 'ready', isBaseline: false, interventions: [] },
+        { id: 'o2', label: 'Option 2', status: 'ready', isBaseline: false, interventions: [] },
+        { id: 'o3', label: 'Option 3', status: 'ready', isBaseline: true, interventions: [] },
+      ],
+    })
+
+    it('renders "[Must fix label]. Fix before running." when Must fix has items', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        ...cleanBaselineMock(),
+        isReady: false,
+        hasBlockers: true,
+        improvementsByCategory: {
+          fix: [{ key: 'fix_a', category: 'fix', label: 'Add baseline option', detail: 'Required' }],
+          verify: [],
+          add_evidence: [],
+          strengthen: [],
+        },
+        triageActions: {
+          top3: [{ key: 'fix_a', category: 'fix', label: 'Add baseline option', detail: 'Required' }],
+          quickFix: [],
+        },
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      const headline = screen.getByTestId('model-health-card-headline')
+      expect(headline).toHaveTextContent('Add baseline option. Fix before running.')
+    })
+
+    it('renders "Ready to run. N checks would improve results." in clean ready state with quick-fix cards', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        ...cleanBaselineMock(),
+        improvementsByCategory: {
+          fix: [],
+          verify: [],
+          add_evidence: [],
+          strengthen: [
+            { key: 's1', category: 'strengthen', label: 'Strengthen 1', detail: '' },
+            { key: 's2', category: 'strengthen', label: 'Strengthen 2', detail: '' },
+          ],
+        },
+        triageActions: {
+          top3: [],
+          quickFix: [
+            { key: 's1', category: 'strengthen', label: 'Strengthen 1', detail: '' },
+            { key: 's2', category: 'strengthen', label: 'Strengthen 2', detail: '' },
+          ],
+        },
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      const headline = screen.getByTestId('model-health-card-headline')
+      expect(headline).toHaveTextContent('Ready to run. 2 checks would improve results.')
+    })
+
+    it('renders "Ready to run." in fully clean state', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData(cleanBaselineMock()))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      const headline = screen.getByTestId('model-health-card-headline')
+      expect(headline).toHaveTextContent('Ready to run.')
+    })
+
+    it('does NOT render the deleted static "Your expertise makes the analysis more reliable" fallback', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        ...cleanBaselineMock(),
+        coachingSummary: null,
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(
+        screen.queryByText(/Your expertise makes the analysis more reliable/),
+      ).not.toBeInTheDocument()
+    })
+  })
 })

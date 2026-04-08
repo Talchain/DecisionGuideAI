@@ -946,6 +946,67 @@ export function PreAnalysisPanel({
       ? 'Set success target'
       : null
 
+  // Dynamic headline for the health card. Reads from the same bucket data
+  // already computed above so there's no duplicate work. Precedence:
+  //   1. CEE-provided coaching_summary (if/when CEE populates it)
+  //   2. First Must fix item label → "[label]. Fix before running."
+  //   3. First Review next item label → "[label] has the biggest impact. Review before running."
+  //   4. Improve confidence has actionable cards → "Ready to run. [N] checks would improve results."
+  //   5. Else → "Ready to run."
+  // Returns null while loading (the card shows its own loading state).
+  const dynamicHeadline = useMemo<string | null>(() => {
+    if (data.isLoading) return null
+
+    // 1. CEE override (always wins when present)
+    const ceeSummary = ceeAnalysisReady?.coaching_summary
+    if (ceeSummary && ceeSummary.trim().length > 0) return ceeSummary
+
+    // 2. Must fix
+    if (mustFixCount > 0) {
+      // Prefer the first triage card label; fall back to the first enriched
+      // blocker title; fall back to a structural check label.
+      const firstFix =
+        mustFixCards[0]?.title
+        ?? data.enrichedBlockers[0]?.display?.title
+        ?? (fewerThanTwoOptionsCheck ? 'Fewer than 2 options' : null)
+        ?? (noBaselineCheck ? 'No baseline set' : null)
+      if (firstFix) return `${firstFix}. Fix before running.`
+      return 'Fix before running.'
+    }
+
+    // 3. Review next
+    if (reviewNextCount > 0) {
+      const firstReview = reviewNextTopCards[0]?.title ?? biasTriggers[0]?.title
+      if (firstReview) return `${firstReview} has the biggest impact. Review before running.`
+      return 'Ready to run. Review before continuing.'
+    }
+
+    // 4. Improve confidence — only count actionable items, not the always-on
+    //    SuccessTarget seat. The "+1 for goal target" baseline shouldn't push
+    //    the user toward a "checks would improve results" message when there
+    //    are no real cards or expertise items pending.
+    const improveActionable = improveConfidenceCards.length + (expertiseHasItems ? 1 : 0)
+    if (improveActionable > 0) {
+      return `Ready to run. ${improveActionable} ${improveActionable === 1 ? 'check' : 'checks'} would improve results.`
+    }
+
+    // 5. Clean ready state
+    return 'Ready to run.'
+  }, [
+    data.isLoading,
+    ceeAnalysisReady?.coaching_summary,
+    mustFixCount,
+    mustFixCards,
+    data.enrichedBlockers,
+    fewerThanTwoOptionsCheck,
+    noBaselineCheck,
+    reviewNextCount,
+    reviewNextTopCards,
+    biasTriggers,
+    improveConfidenceCards,
+    expertiseHasItems,
+  ])
+
   // Banner state — strict precedence: failed > blocked > recommendations > ready.
   // Loading does not produce a banner; the panel content is hidden by ModelHealthCard.
   const bannerState: BannerState = lastDraftError
@@ -1052,9 +1113,12 @@ export function PreAnalysisPanel({
             at full opacity. */}
         <div className={`space-y-4 ${isFailed ? 'opacity-60 pointer-events-none' : ''}`}>
 
-          {/* Compressed health row: ring + 4 dimension bars only (no title/headline/coaching).
-              Sits inside the de-emphasised wrapper so it dims with the rest of the content
-              when the banner is in failed state. */}
+          {/* Compressed health row: ring + 4 dimension bars + dynamic headline.
+              Sits inside the de-emphasised wrapper so it dims with the rest of
+              the content when the banner is in failed state. The dynamicHeadline
+              prop carries the bucket-derived coaching line; the static
+              "Your expertise makes the analysis more reliable…" fallback was
+              deleted in the bias-and-headline brief. */}
           <SectionErrorBoundary section="Model health">
             <ModelHealthCard
               compact
@@ -1065,6 +1129,7 @@ export function PreAnalysisPanel({
               optionCount={data.optionPreviews.length}
               goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
               coachingSummary={data.coachingSummary}
+              dynamicHeadline={dynamicHeadline}
               isLoading={data.isLoading}
               hasGoalNode={data.nodesByKind.goal.length > 0}
             />

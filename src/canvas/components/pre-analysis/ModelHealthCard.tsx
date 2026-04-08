@@ -29,6 +29,16 @@ interface ModelHealthCardProps {
    * Status text comes from the new top banner instead.
    */
   compact?: boolean
+  /**
+   * Dynamic coaching headline derived from the highest-priority bucket signal
+   * (Must fix → Review next → Improve confidence → Ready). Computed by the
+   * panel parent so it has access to bucket-level state.
+   *
+   * Precedence at render: coachingSummary (CEE-provided) → dynamicHeadline →
+   * null. The previous static fallback ("Your expertise makes the analysis
+   * more reliable…") was deleted per the bias-and-headline brief.
+   */
+  dynamicHeadline?: string | null
 }
 
 const PRE_ANALYSIS_DIMENSIONS: Omit<TriageDimension, 'value'>[] = [
@@ -50,6 +60,7 @@ export const ModelHealthCard = memo(function ModelHealthCard({
   hasGoalNode,
   children,
   compact = false,
+  dynamicHeadline = null,
 }: ModelHealthCardProps) {
   const ringDimensions: DecisionHealthRingDimensions = useMemo(() => ({
     structure: completeness,
@@ -73,17 +84,22 @@ export const ModelHealthCard = memo(function ModelHealthCard({
     )
   }
 
-  // Headline synthesised from graph state.
+  // Headline synthesised from graph state (legacy non-compact path).
   const headline = goalLabel
     ? `Choosing between ${optionCount} ${optionCount === 1 ? 'strategy' : 'strategies'} to achieve ${goalLabel}`
     : null
 
-  const coaching = coachingSummary != null
-    ? coachingSummary
-    : 'Your expertise makes the analysis more reliable. The Verified score improves as you verify values in Your expertise below.'
+  // Coaching line precedence (both compact and non-compact):
+  //   1. CEE-provided coaching_summary
+  //   2. Bucket-derived dynamicHeadline from the panel parent
+  //   3. null (no static fallback — the previous "Your expertise…" copy was
+  //      deleted in the bias-and-headline brief)
+  const coaching = coachingSummary ?? dynamicHeadline ?? null
 
-  // Compact mode (v2 panel): ring + dimension bars only, no title/headline/coaching.
-  // The status banner above carries the readiness message.
+  // Compact mode (v2 panel): ring + dimension bars + dynamic coaching headline
+  // (panelBody / text-text-body / max 2 lines per the brief). The status
+  // banner above the panel still carries the read-state colour, but the
+  // headline tells the user *which* item is most important next.
   if (compact) {
     return (
       <div className="space-y-2" data-testid="decision-readiness-card">
@@ -97,6 +113,14 @@ export const ModelHealthCard = memo(function ModelHealthCard({
           testId="model-health-card"
           hideTitle
         />
+        {coaching && (
+          <p
+            className={`${typography.panelBody} text-text-body line-clamp-2`}
+            data-testid="model-health-card-headline"
+          >
+            {coaching}
+          </p>
+        )}
         {children}
       </div>
     )
