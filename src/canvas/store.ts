@@ -269,6 +269,18 @@ interface CanvasState {
   currentScenarioLastRunSeed: string | null  // Seed used for last analysis run (stringified)
   hasCompletedFirstRun: boolean  // True after at least one successful or restored run in this session
   graphEditedSinceLastRun: boolean  // True when graph has been structurally edited since last analysis run
+  /**
+   * True only after `resultsComplete` has fully written a fresh analysis
+   * snapshot (hash + rawV2Response) to the store. Flipped to false by
+   * `resultsStart` (new run begins — prior snapshot is no longer trustworthy)
+   * and by any graph edit (via `pushToHistory`). Read by `buildRequest` in
+   * useConversation to gate whether `analysis_state` is included in the CEE
+   * turn payload, closing the race where a just-finished run's hash is
+   * readable but the rawV2Response write hasn't settled. Belt-and-braces
+   * over the existing `graphEditedSinceLastRun` + `status === 'complete'`
+   * guards — see docs/open-issues-root-cause-investigation-2026-04-09.md.
+   */
+  analysisStateReady: boolean
   isDirty: boolean  // Has unsaved changes
   isSaving: boolean  // P0-2: Currently saving
   lastSavedAt: number | null  // P0-2: Timestamp of last successful save
@@ -732,6 +744,10 @@ function pushToHistory(get: () => CanvasState, set: (fn: (s: CanvasState) => Par
     history: { past, future: [] },
     _internal: { lastHistoryHash: h },
     graphEditedSinceLastRun: true,
+    // Graph edit invalidates the cached analysis snapshot — any pending
+    // CEE turn that reads the store before a new run finishes must NOT
+    // include stale analysis_state.
+    analysisStateReady: false,
     // Graph Lens: auto-reset on graph edit
     lens: createDefaultLensState(),
   }))
@@ -982,6 +998,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   currentScenarioLastRunSeed: null,
   hasCompletedFirstRun: false,
   graphEditedSinceLastRun: false,
+  analysisStateReady: false,
   isDirty: false,
   isSaving: false,  // P0-2: Initially not saving
   lastSavedAt: null,  // P0-2: No save yet
@@ -1969,6 +1986,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       runMeta: {},
       hasCompletedFirstRun: false,
       graphEditedSinceLastRun: false,
+      analysisStateReady: false,
       // Clear validation state
       graphHealth: null,
       needleMovers: [],
@@ -2157,6 +2175,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       },
       // Graph Lens: auto-reset on new analysis run
       lens: createDefaultLensState(),
+      // A new run is in flight — the previous snapshot's hash + rawV2Response
+      // are preserved in the store (for continuity) but MUST NOT be sent to
+      // CEE on subsequent conversational turns. Flipped back to true only in
+      // resultsComplete after the new snapshot is fully written.
+      analysisStateReady: false,
     })
   },
 
@@ -2247,6 +2270,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastRunSeed: seedString,
       hasCompletedFirstRun: true,
       graphEditedSinceLastRun: false,
+      // The snapshot (report, hash, rawV2Response) has been fully written in
+      // this same set() call, so the flag flips atomically alongside the
+      // write. Any buildRequest read that observes rawV2Response will also
+      // observe analysisStateReady === true.
+      analysisStateReady: true,
       // Phase 2A: Persist analysis metadata for Model Card Lite / trust strip
       // Read from raw V2RunResponse (typed) instead of casting through ReportV1
       lastAnalysisSeed: (() => {
@@ -2345,7 +2373,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         // retryAfter: reserved for future rate-limit handling, not currently displayed
         error: { code, message, retryAfter, request_id, canRetry, affectedOptions },
         finishedAt: Date.now()
-      }
+      },
+      // Run failed — the prior snapshot (preserved on the results object)
+      // may still be the user's best available context, but the new-run
+      // snapshot never landed. Leave analysisStateReady where resultsStart
+      // set it (false) so subsequent turns omit analysis_state until the
+      // user successfully reruns.
+      analysisStateReady: false,
     }))
   },
 
@@ -2374,7 +2408,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         ...s.results,
         status: 'cancelled',
         finishedAt: Date.now()
-      }
+      },
+      // Run cancelled — same reasoning as resultsError: the new snapshot
+      // never landed, so don't send stale analysis_state on subsequent turns.
+      analysisStateReady: false,
     }))
   },
 
@@ -2433,6 +2470,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       isDirty: false,
       hasCompletedFirstRun: true,
       graphEditedSinceLastRun: false,
+      // Historical loads have no rawV2Response, so buildRequest's v2Results
+      // will be null and analysis_state will be omitted regardless. Flag
+      // kept false to document intent (the snapshot isn't a fresh run).
+      analysisStateReady: false,
       rawV2Response: null, // Historical runs don't carry raw V2 response
     }))
   },
@@ -2472,6 +2513,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       })(),
       hasCompletedFirstRun: true,
       graphEditedSinceLastRun: false,
+      // Supabase hydration has no rawV2Response — same reasoning as
+      // resultsLoadHistorical above.
+      analysisStateReady: false,
       rawV2Response: null, // Supabase hydration doesn't carry raw V2 response
     }))
   },
@@ -2487,6 +2531,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       lens: createDefaultLensState(),
       hoveredOptionId: null,
       rawV2Response: null,
+      // Results cleared — no valid snapshot.
+      analysisStateReady: false,
       // Clear all runMeta including V1 CEE fields to prevent stale Decision Review
       runMeta: {
         diagnostics: undefined,

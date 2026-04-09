@@ -1504,6 +1504,16 @@ export function useConversation(): UseConversationReturn {
       const analysisHash = store.results.hash
       const { analysisSummary } = useResultsStore.getState().results
       const graphIsStale = store.graphEditedSinceLastRun
+      // Belt-and-braces freshness gate (2026-04-09). `analysisStateReady` is
+      // flipped true only inside `resultsComplete` alongside the atomic write
+      // of results.hash + rawV2Response, and back to false on resultsStart /
+      // resultsError / resultsCancelled / any graph edit. Guards against the
+      // race where a new run is mid-flight (resultsStart preserves the prior
+      // hash for continuity) but the user sends a turn before the new
+      // snapshot has landed — without this check, buildRequest would ship
+      // the prior run's data under the prior hash. See
+      // docs/open-issues-root-cause-investigation-2026-04-09.md.
+      const analysisIsReady = store.analysisStateReady
 
       // Build results from rawV2Response — CEE expects V2 field names
       // (option_comparison, robustness, drivers, etc.) directly on results.
@@ -1562,7 +1572,7 @@ export function useConversation(): UseConversationReturn {
       // `results` was removed: it was redundant (CEE ignores it) and when
       // analysisSummary was null it fell back to `true`, which crashed CEE.
       const analysisState: ExplainAnalysisStatePayload | undefined =
-        graphIsStale ? undefined
+        graphIsStale || !analysisIsReady ? undefined
         : analysisStatus === 'completed' && analysisHash && v2Results
           ? {
               ...v2Results,

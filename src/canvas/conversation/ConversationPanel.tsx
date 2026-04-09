@@ -15,8 +15,10 @@ import { useStagePill } from '../hooks/useStagePill'
 import type { ActionChip, GraphPatchBlock } from './types'
 import type { UseConversationReturn } from './useConversation'
 import { applyAutoApplyPatch } from './utils/applyPatch'
+import { backfillInterventionsOntoOptionNodes, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 import { plot } from '../../adapters/plot'
+import { logger } from '../../lib/logger'
 import { ChatTopBar } from './zones/ChatTopBar'
 import { ChatThread } from './zones/ChatThread'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
@@ -136,6 +138,35 @@ export const ConversationPanel = memo(function ConversationPanel({
         stateBefore: createPanelInteractionSnapshot(messages.length),
         setPending: true,
       })
+      // Mirror CEE analysis_ready → canvas store + option-node data cache.
+      // Extracted as a local closure so both the PLoT-validated success path
+      // and the op-replay / adapter-less fallbacks share the same post-apply
+      // mirroring step. Without this, an AI-added option accepted via a
+      // non-auto-apply patch lands on the canvas with empty
+      // node.data.interventions — the pre-run reconciler then synthesises
+      // the option as 'needs_user_mapping' and the run gate blocks with
+      // MISSING_INTERVENTIONS. Mirrors the draft-apply path at
+      // applyDraftResult.ts:187 and the auto-apply handleEnvelope path in
+      // useConversation.ts (backfill call post-setCeeAnalysisReady). See
+      // docs/open-issues-root-cause-investigation-2026-04-09.md.
+      const mirrorAnalysisReadyAfterAccept = () => {
+        const resolvedAnalysisReady = block.analysis_ready ?? null
+        if (!resolvedAnalysisReady) return
+        useCanvasStore.getState().setCeeAnalysisReady(resolvedAnalysisReady)
+        const backfillResult = backfillInterventionsOntoOptionNodes(resolvedAnalysisReady)
+        if (backfillResult.interventionBackfilledCount > 0) {
+          logger.warn('patch_accept.intervention_backfill', {
+            patchId: block.patch_id,
+            scenarioId: useCanvasStore.getState().currentScenarioId ?? null,
+            interventionBackfilledCount: backfillResult.interventionBackfilledCount,
+            baselineOnlyUpdatedCount: backfillResult.baselineOnlyUpdatedCount,
+            totalOptionsInPayload: resolvedAnalysisReady.options?.length ?? 0,
+          })
+        }
+        // Goal threshold cache mirror — same pattern, same contract.
+        backfillGoalThresholdOntoGoalNode(resolvedAnalysisReady)
+      }
+
       try {
         const state = useCanvasStore.getState()
         const currentHash = state.currentScenarioLastResultHash
@@ -191,6 +222,10 @@ export const ConversationPanel = memo(function ConversationPanel({
               useCanvasStore.getState().endExternalGraphMutation()
             }
 
+            // Task 2 (2026-04-09): mirror CEE analysis_ready into the
+            // canvas store + option-node cache after the patch lands.
+            mirrorAnalysisReadyAfterAccept()
+
             setPatchBlockState(stateKey, 'accepted')
             recordInteractionEvent({
               chainId,
@@ -243,6 +278,11 @@ export const ConversationPanel = memo(function ConversationPanel({
           } finally {
             useCanvasStore.getState().endExternalGraphMutation()
           }
+
+          // Task 2 (2026-04-09): same mirror step for the adapter-less
+          // fallback path.
+          mirrorAnalysisReadyAfterAccept()
+
           setPatchBlockState(stateKey, 'accepted')
           recordInteractionEvent({
             chainId,
