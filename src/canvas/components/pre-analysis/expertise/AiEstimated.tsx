@@ -10,6 +10,7 @@ import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import { typography } from '@/styles/typography'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
+import { classifyUnit } from '@/canvas/utils/labelUtils'
 
 interface AiEstimatedProps {
   items: ImprovementItem[]
@@ -77,7 +78,9 @@ export function AiEstimated({
                   onClick={() => nodeId && onEdit?.(nodeId)}
                   className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
                 >
-                  {item.unit ? `${item.rawValue} ${item.unit}` : String(item.rawValue)}
+                  {item.unit && classifyUnit(item.unit).kind !== 'placeholder'
+                    ? `${item.rawValue} ${item.unit}`
+                    : String(item.rawValue)}
                 </button>
               )}
               <Pill size="small" variant="warning">Estimated</Pill>

@@ -253,8 +253,9 @@ describe('KeyRelationshipsSubgroup', () => {
     render(<KeyRelationshipsSubgroup items={testItems} />)
     // Expand
     await user.click(screen.getByText('Show key relationships'))
-    // Edge label visible
-    expect(screen.getByText('Factor A → Goal')).toBeInTheDocument()
+    // Edge label visible (source and target rendered as separate spans inside the button)
+    expect(screen.getByText('Factor A')).toBeInTheDocument()
+    expect(screen.getByText('Goal')).toBeInTheDocument()
     // Strength label: Moderate positive (0.45)
     expect(screen.getByText(/Moderate positive/)).toBeInTheDocument()
     expect(screen.getByText(/0\.45/)).toBeInTheDocument()

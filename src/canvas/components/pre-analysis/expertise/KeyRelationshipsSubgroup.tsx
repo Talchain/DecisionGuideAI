@@ -105,15 +105,20 @@ export function KeyRelationshipsSubgroup({
         }
 
         return (
-          <div key={rel.edgeId} className="px-1 py-1 space-y-1">
+          <div key={rel.edgeId} className="px-1 py-2 space-y-1">
+            {/* Row 1: source (full-width, wraps) → target (truncated with tooltip) */}
             <button
               type="button"
               onClick={() => onFocusEdge?.(rel.edgeId)}
               onMouseEnter={() => onHoverEnter?.('edge', rel.edgeId)}
               onMouseLeave={() => onHoverLeave?.()}
-              className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left`}
+              className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left w-full flex items-baseline gap-1 flex-wrap`}
             >
-              {rel.sourceLabel} → {rel.targetLabel}
+              <span className="break-words">{rel.sourceLabel}</span>
+              <span className="text-text-light shrink-0">→</span>
+              <Tooltip delay={300} content={rel.targetLabel}>
+                <span className="truncate max-w-[8rem]">{rel.targetLabel}</span>
+              </Tooltip>
             </button>
             <div className={`${typography.panelMeta} text-text-light flex items-center gap-1.5 flex-wrap`}>
               {segments.map((seg, i) => (
@@ -123,14 +128,15 @@ export function KeyRelationshipsSubgroup({
                 </span>
               ))}
             </div>
+            {/* Row 2: strength pills at 44px touch height */}
             {onUpdateEdgeStrength && (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
                 {STRENGTH_BANDS.map(band => (
                   <button
                     key={band.label}
                     type="button"
                     onClick={() => onUpdateEdgeStrength(rel.edgeId, band.value)}
-                    className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                    className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-3 min-h-[44px] bg-transparent hover:bg-panel-hover cursor-pointer inline-flex items-center justify-center`}
                   >
                     {band.label}
                   </button>

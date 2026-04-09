@@ -1722,7 +1722,7 @@ export function PreAnalysisPanel({
           <ImproveConfidenceAccordion
             count={improveConfidenceCount}
             highestValueLabel={highestValueLabel}
-            coachingLine={getImproveConfidenceCoachingLine(improveConfidenceCards.length)}
+            coachingLine={getImproveConfidenceCoachingLine(improveConfidenceCards.length + (expertiseHasItems ? 1 : 0))}
           >
             {/* Goal target inline edit */}
             <SuccessTarget
