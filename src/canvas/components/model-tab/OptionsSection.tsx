@@ -9,7 +9,7 @@
 
 import { useCallback, useContext, useMemo } from 'react'
 import type { Node } from '@xyflow/react'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
@@ -38,15 +38,24 @@ interface OptionsSectionProps {
   /** Whether post-analysis data is available */
   hasAnalysisData?: boolean
   onSendMessage?: (message: string) => void
+  /** Controlled expansion state */
+  isExpanded?: boolean
+  /** Callback when expansion state changes */
+  onExpandChange?: (expanded: boolean) => void
 }
 
 interface InterventionItem {
   factorId: string
   factorLabel: string
+  /** Normalised baseline (0-1) */
   baseline: number | undefined
+  /** Raw baseline in user units (e.g. 10000 for £10,000) */
   rawBaseline: number | undefined
   unit: string | undefined
+  /** Intervention target — always normalised (0-1) */
   currentValue: number
+  /** True when the factor has a raw_value with a real unit — target is in a different unit space */
+  hasRawUnit: boolean
 }
 
 /**
@@ -92,13 +101,25 @@ function buildInterventions(optionNode: Node, allNodes: Node[]): InterventionIte
     if (numericValue === undefined) return []
     const factorNode = allNodes.find(n => n.id === factorId)
     const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+    const rawBaseline = obs?.raw_value as number | undefined
+    const unit = obs?.unit as string | undefined
+    // Detect cross-unit-space: the factor has raw units (e.g. £10,000) and
+    // the intervention target looks normalised (0-1 range while baseline is large).
+    // When the intervention value is in the same ballpark as raw_value, they're
+    // in the same unit space (e.g. both £). When the intervention is 0-1 and
+    // the baseline is much larger, the target is normalised model-space.
+    const hasRawUnit = rawBaseline !== undefined && !!unit && unit !== 'scale'
+    const looksNormalised = hasRawUnit
+      && numericValue >= 0 && numericValue <= 1
+      && Math.abs(rawBaseline!) > 10
     return [{
       factorId,
       factorLabel: String(factorNode?.data?.label ?? factorId),
       baseline: obs?.value as number | undefined,
-      rawBaseline: obs?.raw_value as number | undefined,
-      unit: obs?.unit as string | undefined,
+      rawBaseline,
+      unit,
       currentValue: numericValue,
+      hasRawUnit: looksNormalised,
     }]
   })
 }
@@ -111,7 +132,13 @@ function buildInterventions(optionNode: Node, allNodes: Node[]): InterventionIte
 // DeltaChip helper uses them directly (deltas are pre-computed numbers
 // passed without involving the broader formatRawValueWithUnit branch logic).
 
-function DeltaChip({ baseline, current, unit }: { baseline: number | undefined; current: number; unit: string | undefined }) {
+function DeltaChip({ baseline, current, unit, crossUnitSpace }: {
+  baseline: number | undefined; current: number; unit: string | undefined
+  /** When true, baseline is raw and current is normalised — delta is meaningless */
+  crossUnitSpace?: boolean
+}) {
+  // Never show delta when comparing raw baseline to normalised target
+  if (crossUnitSpace) return null
   if (baseline === undefined || typeof baseline !== 'number' || !isFinite(baseline) || typeof current !== 'number' || !isFinite(current)) return null
   const delta = current - baseline
   if (Math.abs(delta) < 0.001) {
@@ -142,7 +169,10 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   // (delta within an epsilon of zero), replace the verbose row list with a
   // single "No changes to any factors" line. The threshold matches DeltaChip's
   // own "unchanged" cutoff so display stays consistent.
+  // Status-quo only applies when all interventions are in the same unit space as their baseline.
+  // Cross-unit-space interventions (raw baseline vs normalised target) are never status-quo.
   const isStatusQuo = interventions.length > 0 && interventions.every(iv => {
+    if (iv.hasRawUnit) return false // can't compare raw to normalised
     const baseline = iv.rawBaseline ?? iv.baseline
     if (baseline === undefined || typeof baseline !== 'number' || !isFinite(baseline)) return false
     if (typeof iv.currentValue !== 'number' || !isFinite(iv.currentValue)) return false
@@ -225,63 +255,85 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
 
       {interventions.length > 0 && !isStatusQuo && (
         <div className="space-y-1" data-testid={`option-interventions-${option.id}`}>
-          {interventions.map(iv => (
-            <div key={iv.factorId} className="flex items-center gap-1.5 flex-wrap">
-              {/* Factor name */}
-              <button
-                type="button"
-                onClick={() => focusNodeById(iv.factorId)}
-                className={`${typography.panelBody} text-text-body hover:text-info transition-colors min-w-[80px]`}
-              >
-                {iv.factorLabel}
-              </button>
-              {/* Baseline */}
-              {iv.rawBaseline !== undefined && (
-                <span className={`${typography.panelMeta} text-text-light`}>
-                  {formatRawValueWithUnit(iv.rawBaseline, iv.unit)}
-                </span>
-              )}
-              <ArrowRight className="w-3 h-3 text-text-light shrink-0" aria-hidden="true" />
-              {/* Editable target */}
-              <InlineEdit
-                value={String(iv.currentValue)}
-                displayValue={formatRawValueWithUnit(iv.currentValue, iv.unit)}
-                onSave={(val) => handleInterventionSave(iv.factorId, val)}
-                validate={(s) => !isNaN(parseFloat(s))}
-                maxWidth="max-w-[80px]"
-                numeric
-                tooltip="Click to edit intervention value"
-                testId={`intervention-${option.id}-${iv.factorId}`}
-              />
-              {/* Delta */}
-              <DeltaChip
-                baseline={iv.rawBaseline ?? iv.baseline}
-                current={iv.currentValue}
-                unit={iv.unit}
-              />
-            </div>
-          ))}
+          {interventions.map(iv => {
+            // Baseline display: prefer raw value + unit when available
+            const baselineDisplay = iv.rawBaseline !== undefined
+              ? formatRawValueWithUnit(iv.rawBaseline, iv.unit)
+              : iv.baseline !== undefined
+                ? formatSmartNumber(iv.baseline)
+                : undefined
+            // Target display: when the target looks normalised (0-1 while
+            // baseline is large), show it as normalised without raw units.
+            // Otherwise show it with the same unit as the baseline.
+            const targetDisplay = iv.hasRawUnit
+              ? `${iv.currentValue.toFixed(2)} (normalised)`
+              : formatRawValueWithUnit(iv.currentValue, iv.unit)
+
+            return (
+              <div key={iv.factorId} className="flex items-center gap-1.5 flex-wrap">
+                {/* Factor name */}
+                <button
+                  type="button"
+                  onClick={() => focusNodeById(iv.factorId)}
+                  className={`${typography.panelBody} text-text-body hover:text-info transition-colors min-w-[80px]`}
+                >
+                  {iv.factorLabel}
+                </button>
+                {/* Baseline */}
+                {baselineDisplay !== undefined && (
+                  <span className={`${typography.panelMeta} text-text-light`}>
+                    {baselineDisplay}
+                  </span>
+                )}
+                <ArrowRight className="w-3 h-3 text-text-light shrink-0" aria-hidden="true" />
+                {/* Editable target */}
+                <InlineEdit
+                  value={String(iv.currentValue)}
+                  displayValue={targetDisplay}
+                  onSave={(val) => handleInterventionSave(iv.factorId, val)}
+                  validate={(s) => !isNaN(parseFloat(s))}
+                  maxWidth="max-w-[80px]"
+                  numeric
+                  tooltip="Click to edit intervention value"
+                  testId={`intervention-${option.id}-${iv.factorId}`}
+                />
+                {/* Delta — hidden when comparing raw baseline to normalised target */}
+                <DeltaChip
+                  baseline={iv.hasRawUnit ? undefined : (iv.rawBaseline ?? iv.baseline)}
+                  current={iv.currentValue}
+                  unit={iv.hasRawUnit ? undefined : iv.unit}
+                  crossUnitSpace={iv.hasRawUnit}
+                />
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* Full detail expansion */}
-      {showDetail && interventions.length > 0 && (
+      {/* Full detail expansion — only data not visible in compact view */}
+      {showDetail && (
         <div className="mt-2 pt-2 border-t border-panel-border">
-          <div className={`${typography.panelMeta} text-text-light font-mono mb-1`}>Interventions (do-operator)</div>
-          <div className={`${typography.panelMeta} text-text-body mb-1.5`}>
-            What this option sets each factor to, overriding the baseline
-          </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-            {interventions.map(iv => (
-              [
-                <span key={`l-${iv.factorId}`} className={`${typography.panelMeta} text-text-light truncate`}>{iv.factorLabel}</span>,
-                <span key={`v-${iv.factorId}`} className={`${typography.panelMeta} text-text-body font-mono text-right`}>
-                  {typeof iv.baseline === 'number' ? iv.baseline.toFixed(2) : '—'} {'\u2192'} {typeof iv.currentValue === 'number' ? iv.currentValue.toFixed(2) : '—'}
-                </span>,
-              ]
-            ))}
+          {interventions.length > 0 && (
+            <>
+              <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Normalised targets (model space)</div>
+              <div className={`${typography.panelBody} text-text-body mb-1.5`}>
+                Internal simulation values, overriding each factor's baseline
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
+                {interventions.map(iv => (
+                  [
+                    <span key={`l-${iv.factorId}`} className={`${typography.panelMeta} text-text-light truncate`}>{iv.factorLabel}</span>,
+                    <span key={`v-${iv.factorId}`} className={`${typography.panelBody} text-text-body font-mono text-right`}>
+                      {typeof iv.baseline === 'number' ? iv.baseline.toFixed(2) : '—'} {'\u2192'} {typeof iv.currentValue === 'number' ? iv.currentValue.toFixed(2) : '—'}
+                    </span>,
+                  ]
+                ))}
+              </div>
+            </>
+          )}
+          <div className={`grid grid-cols-2 gap-x-3 gap-y-0.5 ${interventions.length > 0 ? 'mt-2 pt-2 border-t border-panel-border' : ''}`}>
             <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right truncate`}>{option.id}</span>
+            <span className={`${typography.panelBody} text-text-body font-mono text-right truncate`}>{option.id}</span>
           </div>
         </div>
       )}
@@ -289,7 +341,7 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   )
 }
 
-function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAnalysisData, onSendMessage }: OptionsSectionProps) {
+function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAnalysisData, onSendMessage, isExpanded, onExpandChange }: OptionsSectionProps) {
   if (optionNodes.length === 0) return null
 
   // Build per-option conditional winner lookup (match on option ID, not label)
@@ -321,6 +373,8 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
       title="Options"
       badgeCount={optionNodes.length}
       defaultExpanded={false}
+      isExpanded={isExpanded}
+      onExpandChange={onExpandChange}
       testId="model-options-section"
     >
       {allUnmapped ? (
@@ -382,6 +436,19 @@ function OptionsSectionInner({ optionNodes, allNodes, conditionalWinners, hasAna
             </button>
           )}
         </>
+      )}
+      {onSendMessage && (
+        <div className="flex justify-end mt-2">
+          <button
+            type="button"
+            onClick={() => onSendMessage('Help me review my options and how they compare')}
+            className="text-text-light hover:text-info cursor-pointer transition-colors"
+            title="Discuss this with the AI"
+            data-testid="options-discuss"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
     </Accordion>
   )

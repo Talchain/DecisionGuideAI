@@ -9,7 +9,7 @@
 
 import { useCallback, useContext } from 'react'
 import type { Node } from '@xyflow/react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
@@ -20,9 +20,10 @@ import { DetailToggleContext } from './DetailToggleContext'
 
 interface GoalSectionProps {
   goalNode: Node | undefined
+  onSendMessage?: (message: string) => void
 }
 
-function GoalSectionInner({ goalNode }: GoalSectionProps) {
+function GoalSectionInner({ goalNode, onSendMessage }: GoalSectionProps) {
   const { showDetail } = useContext(DetailToggleContext)
   const updateNode = useCanvasStore(s => s.updateNode)
 
@@ -105,7 +106,16 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
             testId="goal-threshold"
           />
         ) : (
-          <span className={`${typography.panelBody} text-text-light`} data-testid="goal-threshold-not-set">Not set</span>
+          <InlineEdit
+            value=""
+            placeholder="Not set"
+            onSave={handleThresholdSave}
+            validate={validateThreshold}
+            maxWidth="max-w-[120px]"
+            numeric
+            tooltip="Click to set a success target"
+            testId="goal-threshold-not-set"
+          />
         )}
         <SourceProvenancePill source={thresholdSource} showWhenAbsent={false} />
       </div>
@@ -130,26 +140,41 @@ function GoalSectionInner({ goalNode }: GoalSectionProps) {
         </div>
       )}
 
+      {/* Discuss with AI */}
+      {onSendMessage && (
+        <div className="flex justify-end mt-2">
+          <button
+            type="button"
+            onClick={() => onSendMessage(`Help me understand my goal '${label}' and whether the target of ${displayThreshold ?? 'not set'} is appropriate`)}
+            className="text-text-light hover:text-info cursor-pointer transition-colors"
+            title="Discuss this with the AI"
+            data-testid="goal-discuss"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
       {/* Full detail expansion */}
       {showDetail && (
         <div className="mt-2.5 pt-2.5 border-t border-panel-border space-y-0.5">
-          <div className={`${typography.panelMeta} text-text-light font-mono`}>Goal threshold</div>
-          <div className={`${typography.panelMeta} text-text-body`}>
+          <div className={`${typography.panelMeta} text-text-light font-medium`}>Goal threshold</div>
+          <div className={`${typography.panelBody} text-text-body`}>
             The probability you need to hit for this to count as success
           </div>
           <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 mt-1.5">
             <span className={`${typography.panelMeta} text-text-light`}>Normalised target</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+            <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
               {thresholdNorm !== undefined ? thresholdNorm.toFixed(2) : 'Not set'}
             </span>
             {thresholdUnit && (
               <>
                 <span className={`${typography.panelMeta} text-text-light`}>Unit</span>
-                <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>{thresholdUnit}</span>
+                <span className={`${typography.panelBody} text-text-body font-mono text-right`}>{thresholdUnit}</span>
               </>
             )}
             <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
-            <span className={`${typography.panelMeta} text-text-body font-mono text-right truncate`}>
+            <span className={`${typography.panelBody} text-text-body font-mono text-right truncate`}>
               {goalNode.id}
             </span>
           </div>

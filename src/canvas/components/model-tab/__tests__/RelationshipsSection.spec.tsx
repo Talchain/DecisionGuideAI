@@ -318,10 +318,11 @@ describe('RelationshipsSection — contested integration', () => {
     expect(screen.queryByTestId('relationships-separator')).not.toBeInTheDocument()
   })
 
-  it('shows contested count badge in header', () => {
+  it('shows contested count in accordion header', () => {
     const contested = makeContested('ec', 'f1', 'f2')
-    render(<RelationshipsSection edges={[contested]} nodes={nodes} />)
-    expect(screen.getByTestId('relationships-contested-count')).toHaveTextContent('1 contested')
+    const { container } = render(<RelationshipsSection edges={[contested]} nodes={nodes} />)
+    // tierLabel renders "1 contested" inside the Accordion header
+    expect(container.textContent).toContain('1 contested')
   })
 
   it('one-per-target-node cap: only highest-priority contested edge per target shown as ContestedEdgeCard', () => {

@@ -23,18 +23,21 @@ vi.mock('../../../../components/results/Accordion', () => ({
 }))
 
 describe('ModelHealthSection', () => {
-  it('renders with Audit title when CEE quality data is present', () => {
+  it('renders with Model card title when CEE quality data is present', () => {
     render(<ModelHealthSection ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />)
     expect(screen.getByTestId('model-health-section')).toBeInTheDocument()
-    expect(screen.getByText('Audit')).toBeInTheDocument()
+    expect(screen.getByText('Model card')).toBeInTheDocument()
   })
 
-  it('renders nothing pre-analysis when no audit data and no CEE quality', () => {
-    const { container } = render(<ModelHealthSection />)
-    expect(container.firstChild).toBeNull()
+  it('renders pre-analysis content when no audit data and no CEE quality', () => {
+    render(<ModelHealthSection factorCount={4} edgeCount={6} factorsToVerify={2} />)
+    expect(screen.getByTestId('model-card-pre-analysis')).toBeInTheDocument()
+    expect(screen.getByText(/4 factors and 6 relationships/)).toBeInTheDocument()
+    expect(screen.getByText(/2 factors need your input/)).toBeInTheDocument()
+    expect(screen.getByText(/Run analysis to see stability/)).toBeInTheDocument()
   })
 
-  it('renders nothing when audit trail is all-null and no CEE quality', () => {
+  it('renders pre-analysis content when audit trail is all-null and no CEE quality', () => {
     const emptyAudit: AuditTrailData = {
       seedUsed: null,
       responseHash: null,
@@ -45,8 +48,8 @@ describe('ModelHealthSection', () => {
       autoNoiseApplied: null,
       stabilityPenaltyFactor: null,
     }
-    const { container } = render(<ModelHealthSection auditTrail={emptyAudit} />)
-    expect(container.firstChild).toBeNull()
+    render(<ModelHealthSection auditTrail={emptyAudit} factorCount={3} edgeCount={5} />)
+    expect(screen.getByTestId('model-card-pre-analysis')).toBeInTheDocument()
   })
 
   it('renders when only CEE quality is present (post-analysis with no audit trail)', () => {

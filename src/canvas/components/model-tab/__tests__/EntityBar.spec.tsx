@@ -59,4 +59,18 @@ describe('EntityBar', () => {
     expect(bar?.getAttribute('title')).toContain('3 factors')
     expect(bar?.getAttribute('title')).toContain('2 options')
   })
+
+  it('renders inline legend with colour dots below the bar', () => {
+    const grouped = makeGrouped({ goal: 1, factor: 3, option: 2, risk: 1 })
+    render(<EntityBar grouped={grouped} totalCount={7} />)
+    const legend = screen.getByTestId('entity-bar-legend')
+    expect(legend).toBeInTheDocument()
+    expect(legend.textContent).toContain('1 goal')
+    expect(legend.textContent).toContain('3 factors')
+    expect(legend.textContent).toContain('2 options')
+    expect(legend.textContent).toContain('1 risk')
+    // Each legend entry has a colour dot
+    const dots = legend.querySelectorAll('.rounded-full')
+    expect(dots.length).toBeGreaterThanOrEqual(4)
+  })
 })

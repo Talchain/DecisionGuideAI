@@ -9,7 +9,7 @@
  */
 
 import { useContext, useMemo } from 'react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
@@ -32,6 +32,17 @@ interface ModelHealthSectionProps {
   ceeQuality?: CeeQualityDimensions | null
   /** Audit trail from PLoT response metadata */
   auditTrail?: AuditTrailData
+  /** Total factor count for pre-analysis summary */
+  factorCount?: number
+  /** Total edge count for pre-analysis summary */
+  edgeCount?: number
+  /** Number of factors needing verification */
+  factorsToVerify?: number
+  /** Controlled expansion state */
+  isExpanded?: boolean
+  /** Callback when expansion state changes */
+  onExpandChange?: (expanded: boolean) => void
+  onSendMessage?: (message: string) => void
 }
 
 // ── Quality score row ──────────────────────────────────────────────────────────
@@ -60,6 +71,12 @@ function QualityRow({ label, score }: { label: string; score: number }) {
 function ModelHealthSectionInner({
   ceeQuality,
   auditTrail,
+  factorCount,
+  edgeCount,
+  factorsToVerify,
+  isExpanded,
+  onExpandChange,
+  onSendMessage,
 }: ModelHealthSectionProps) {
   const { showDetail } = useContext(DetailToggleContext)
 
@@ -84,10 +101,6 @@ function ModelHealthSectionInner({
     ).join(', ')
   }, [auditTrail?.repairsApplied])
 
-  // Pre-analysis empty state: hide the section entirely when neither
-  // audit-trail signals nor CEE quality scores have been populated. The
-  // Audit panel has nothing meaningful to show before the first run.
-  // (Computed AFTER all hooks to honour the Rules of Hooks.)
   const hasAuditSignal =
     auditTrail != null && (
       auditTrail.seedUsed != null ||
@@ -100,10 +113,7 @@ function ModelHealthSectionInner({
       (auditTrail.inferenceWarnings != null && auditTrail.inferenceWarnings.length > 0)
     )
   const hasQualitySignal = ceeQuality != null && ceeQuality.overall != null
-
-  if (!hasAuditSignal && !hasQualitySignal) {
-    return null
-  }
+  const isPreAnalysis = !hasAuditSignal && !hasQualitySignal
 
   // Collapsed summary visible in accordion header via tierLabel
   const stabilityLabel = auditTrail?.recommendationStability != null
@@ -117,13 +127,41 @@ function ModelHealthSectionInner({
 
   return (
     <Accordion
-      title="Audit"
+      title="Model card"
       tierLabel={headerSummary}
       tierVariant={headerSummary ? 'fair' : undefined}
       defaultExpanded={false}
+      isExpanded={isExpanded}
+      onExpandChange={onExpandChange}
       testId="model-health-section"
     >
       <div className="space-y-1.5">
+
+        {/* Pre-analysis content */}
+        {isPreAnalysis && (
+          <div data-testid="model-card-pre-analysis">
+            {(factorCount != null || edgeCount != null) && (
+              <p className={`${typography.panelBody} text-text-body`}>
+                Based on {factorCount ?? 0} factor{factorCount !== 1 ? 's' : ''} and {edgeCount ?? 0} relationship{edgeCount !== 1 ? 's' : ''}
+              </p>
+            )}
+            {factorsToVerify != null && factorsToVerify > 0 && (
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>
+                {factorsToVerify} factor{factorsToVerify !== 1 ? 's need' : ' needs'} your input
+              </p>
+            )}
+            <p className={`${typography.panelMeta} text-text-light mt-1`}>
+              Run analysis to see stability, confidence, and reproducibility data
+            </p>
+          </div>
+        )}
+
+        {/* Post-analysis: methodology one-liner */}
+        {auditTrail?.nSamples != null && (
+          <p className={`${typography.panelBody} text-text-body`} data-testid="model-card-methodology">
+            Based on {auditTrail.nSamples.toLocaleString('en-GB')} Monte Carlo simulations
+          </p>
+        )}
 
         {/* Root node warnings */}
         {rootNodeWarningCount > 0 && (
@@ -221,6 +259,19 @@ function ModelHealthSectionInner({
                 </span>
               </div>
             )}
+          </div>
+        )}
+        {onSendMessage && (
+          <div className="flex justify-end mt-2">
+            <button
+              type="button"
+              onClick={() => onSendMessage('Help me understand the reliability and limitations of my model')}
+              className="text-text-light hover:text-info cursor-pointer transition-colors"
+              title="Discuss this with the AI"
+              data-testid="modelcard-discuss"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+            </button>
           </div>
         )}
       </div>

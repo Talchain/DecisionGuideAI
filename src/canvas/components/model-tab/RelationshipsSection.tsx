@@ -23,10 +23,11 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
-import { AlertTriangle } from 'lucide-react'
+import { AlertTriangle, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
+import { Accordion } from '../../../components/results/Accordion'
 import { getDisplayEdgeId } from '../../utils/edgeIdentity'
 import { focusEdgeById } from '../../utils/focusHelpers'
 import { NON_EVIDENCE_PROVENANCE } from '../../utils/evidenceCoverage'
@@ -35,6 +36,7 @@ import { InlineEdit } from './InlineEdit'
 import { DetailToggleContext } from './DetailToggleContext'
 import { StrengthBar } from '../../ui/inspector/StrengthBar'
 import { ContestedEdgeCard } from './ContestedEdgeCard'
+import { CoachingCard } from './CoachingCard'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
 
 /** Repair display entry for edge detail */
@@ -63,6 +65,10 @@ interface RelationshipsSectionProps {
   /** Map of edge ID → repairs applied from PLoT */
   edgeRepairsMap?: Map<string, EdgeRepairDisplay[]>
   onSendMessage?: (message: string) => void
+  /** Controlled expansion state */
+  isExpanded?: boolean
+  /** Callback when expansion state changes */
+  onExpandChange?: (expanded: boolean) => void
 }
 
 // ── Edge card ──────────────────────────────────────────────────────────────────
@@ -358,7 +364,7 @@ function EdgeCard({
                 {signedMean !== undefined && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Signed effect</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {signedMean >= 0 ? '+' : ''}{signedMean.toFixed(3)}
                     </span>
                   </>
@@ -366,7 +372,7 @@ function EdgeCard({
                 {strengthStd !== undefined && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Std</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {(strengthStd as number).toFixed(3)}
                     </span>
                   </>
@@ -374,7 +380,7 @@ function EdgeCard({
                 {beliefExists !== undefined && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Exists probability</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {beliefExists.toFixed(2)}
                     </span>
                   </>
@@ -388,13 +394,13 @@ function EdgeCard({
             <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Provenance</div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               <span className={`${typography.panelMeta} text-text-light`}>Provenance</span>
-              <span className={`${typography.panelMeta} text-text-body text-right`}>
+              <span className={`${typography.panelBody} text-text-body text-right`}>
                 {(provenance as string | undefined) ?? 'Not set'}
               </span>
               {eValue != null && (
                 <>
                   <span className={`${typography.panelMeta} text-text-light`}>E-value</span>
-                  <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                  <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                     {eValue.toFixed(2)}x
                   </span>
                 </>
@@ -403,14 +409,14 @@ function EdgeCard({
             {causalClaim && (
               <div className="mt-1">
                 <span className={`${typography.panelMeta} text-text-light`}>Causal claim</span>
-                <p className={`${typography.panelMeta} text-text-body mt-0.5 italic`}>{causalClaim}</p>
+                <p className={`${typography.panelBody} text-text-body mt-0.5 italic`}>{causalClaim}</p>
               </div>
             )}
             {repairs && repairs.length > 0 && (
               <div className="mt-1">
                 <span className={`${typography.panelMeta} text-text-light`}>Repairs applied</span>
                 {repairs.map((r, i) => (
-                  <div key={i} className={`${typography.panelMeta} text-text-body`}>
+                  <div key={i} className={`${typography.panelBody} text-text-body`}>
                     <span className="font-mono">{r.code}</span>
                     {r.reason && <span className="text-text-light"> {r.reason}</span>}
                     {r.before != null && r.after != null && (
@@ -427,7 +433,7 @@ function EdgeCard({
             <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Metadata</div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               <span className={`${typography.panelMeta} text-text-light`}>Edge ID</span>
-              <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
+              <span className={`${typography.panelBody} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
                 {edgeId}
               </span>
             </div>
@@ -513,6 +519,8 @@ function RelationshipsSectionInner({
   edgeEValueMap = new Map(),
   edgeRepairsMap = new Map(),
   onSendMessage,
+  isExpanded,
+  onExpandChange,
 }: RelationshipsSectionProps) {
   const [showAllEdges, setShowAllEdges] = useState(false)
   // Only causal edges (exclude hierarchy/structural types)
@@ -574,33 +582,30 @@ function RelationshipsSectionInner({
 
   if (causalEdges.length === 0) return null
 
+  // Build tier label from contested + fragile counts
+  const tierParts: string[] = []
+  if (pendingCount > 0) tierParts.push(`${pendingCount} contested`)
+  if (fragileEdgeIds.size > 0) tierParts.push(`${fragileEdgeIds.size} fragile`)
+  const tierLabel = tierParts.length > 0 ? tierParts.join(' · ') : undefined
+
   return (
-    <div className="bg-panel border border-panel-border rounded-xl p-3" data-testid="model-relationships-section">
-      {/* Section header */}
-      <div className="flex items-center gap-2 mb-2 flex-wrap">
-        <div className="w-3 h-3 bg-info rounded-full shrink-0" aria-hidden="true" />
-        <span className={`${typography.panelHeader} text-text-header`}>Relationships</span>
-        <span
-          className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-panel-border text-text-body ${typography.panelMeta} font-medium`}
-          data-testid="relationships-total-count"
-        >
-          {causalEdges.length}
-        </span>
-        {pendingCount > 0 && (
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-info/30 text-text-body ${typography.panelMeta} font-medium`}
-            data-testid="relationships-contested-count"
-          >
-            {pendingCount} contested
-          </span>
-        )}
-        {fragileEdgeIds.size > 0 && (
-          <span className={`inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-transparent border border-warning/30 text-text-body ${typography.panelMeta} font-medium`}>
-            <AlertTriangle className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-            {fragileEdgeIds.size} fragile
-          </span>
-        )}
-      </div>
+    <Accordion
+      title="Relationships"
+      badgeCount={causalEdges.length}
+      tierLabel={tierLabel}
+      tierVariant={fragileEdgeIds.size > 0 ? 'needs_work' : pendingCount > 0 ? 'fair' : undefined}
+      defaultExpanded={false}
+      isExpanded={isExpanded}
+      onExpandChange={onExpandChange}
+      testId="model-relationships-section"
+    >
+
+      {/* Coaching: fragile relationships warning */}
+      {fragileEdgeIds.size > 0 && (
+        <CoachingCard sectionId="relationships-fragile">
+          Fragile relationships could change the recommendation. Review the strongest ones first.
+        </CoachingCard>
+      )}
 
       {/* Contested group intro hint */}
       {topGroup.length > 0 && (
@@ -676,16 +681,27 @@ function RelationshipsSectionInner({
       })()}
 
       {onSendMessage && (
-        <button
-          type="button"
-          onClick={() => onSendMessage("I'd like to add a causal relationship")}
-          className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2 block`}
-          data-testid="relationships-add-cta"
-        >
-          Add a relationship
-        </button>
+        <div className="flex items-center justify-between mt-2">
+          <button
+            type="button"
+            onClick={() => onSendMessage("I'd like to add a causal relationship")}
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+            data-testid="relationships-add-cta"
+          >
+            Add a relationship
+          </button>
+          <button
+            type="button"
+            onClick={() => onSendMessage('Help me review the causal relationships and which ones need attention')}
+            className="text-text-light hover:text-info cursor-pointer transition-colors"
+            title="Discuss this with the AI"
+            data-testid="relationships-discuss"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
-    </div>
+    </Accordion>
   )
 }
 

@@ -187,4 +187,41 @@ describe('OptionsSection', () => {
     expect(screen.getByText('Revenue')).toBeInTheDocument()
     expect(screen.getByText('£150,000')).toBeInTheDocument()
   })
+
+  // ── Normalised intervention display ────────────────────────────────────────
+
+  it('shows normalised label when intervention target is 0-1 and factor has large raw baseline', () => {
+    // Factor with raw_value=10000 and unit=£. Intervention target is 0.8 (normalised).
+    const factor = makeFactorNode('f1', 'Ad spend', 10000, '£')
+    const option = makeOptionNode('opt1', 'Campaign', { f1: 0.8 })
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
+    // Target should show as normalised, not £0.8
+    expect(screen.getByText(/0\.80/)).toBeInTheDocument()
+    expect(screen.getByText(/normalised/)).toBeInTheDocument()
+    // Baseline should show raw value with unit
+    expect(screen.getByText('£10,000')).toBeInTheDocument()
+    // Delta chip should NOT render (cross-unit-space)
+    expect(screen.queryByText(/£9,999/)).not.toBeInTheDocument()
+  })
+
+  it('shows raw values with units when both baseline and target are in same range', () => {
+    const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
+    const option = makeOptionNode('opt1', 'Expand', { f1: 120000 })
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
+    expect(screen.getByText('£100,000')).toBeInTheDocument()
+    expect(screen.getByText('£120,000')).toBeInTheDocument()
+    expect(screen.getByText(/\+£20,000/)).toBeInTheDocument()
+  })
+
+  // ── Discuss with AI button ────────────────────────────────────────────────
+
+  it('renders discuss button when onSendMessage provided', () => {
+    const sendMessage = vi.fn()
+    const options = [makeOptionNode('opt1', 'Option A')]
+    render(<OptionsSection optionNodes={options} allNodes={[]} onSendMessage={sendMessage} />)
+    const btn = screen.getByTestId('options-discuss')
+    expect(btn).toBeInTheDocument()
+    fireEvent.click(btn)
+    expect(sendMessage).toHaveBeenCalledWith(expect.stringContaining('review my options'))
+  })
 })

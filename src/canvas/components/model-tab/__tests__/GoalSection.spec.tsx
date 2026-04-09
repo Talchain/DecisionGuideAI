@@ -62,10 +62,11 @@ describe('GoalSection', () => {
     expect(screen.getByText(/£500,000/)).toBeInTheDocument()
   })
 
-  it('renders "Not set" when no threshold data available', () => {
+  it('renders editable "Not set" when no threshold data available', () => {
     render(<GoalSection goalNode={makeGoalNode({ success_threshold: undefined, goal_threshold: undefined })} />)
-    expect(screen.getByTestId('goal-threshold-not-set')).toBeInTheDocument()
-    expect(screen.getByTestId('goal-threshold-not-set')).toHaveTextContent('Not set')
+    // InlineEdit renders with -display suffix in display mode
+    expect(screen.getByTestId('goal-threshold-not-set-display')).toBeInTheDocument()
+    expect(screen.getByTestId('goal-threshold-not-set-display')).toHaveTextContent('Not set')
   })
 
   it('shows coaching prompt when threshold is not set', () => {

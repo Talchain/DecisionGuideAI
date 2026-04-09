@@ -81,6 +81,19 @@ export function EntityBar({ grouped, totalCount }: EntityBarProps) {
           )
         })}
       </div>
+      {/* Inline legend */}
+      <div className={`${typography.panelMeta} text-text-light mt-1.5 flex flex-wrap gap-x-2 gap-y-0.5`} data-testid="entity-bar-legend">
+        {KIND_ORDER.map(kind => {
+          const count = grouped[kind].length
+          if (count === 0) return null
+          return (
+            <span key={kind} className="inline-flex items-center gap-1">
+              <span className={`w-1.5 h-1.5 rounded-full ${DOT_CLASSES[kind]} shrink-0`} />
+              {count} {KIND_LABELS[kind]}{count !== 1 ? 's' : ''}
+            </span>
+          )
+        })}
+      </div>
     </div>
   )
 }

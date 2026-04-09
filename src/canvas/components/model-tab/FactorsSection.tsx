@@ -14,16 +14,18 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Node } from '@xyflow/react'
-import { Info, Check } from 'lucide-react'
+import { Info, Check, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
+import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { formatSmartNumber, formatValueWithUnit, getPrimaryValue, countFactorsToVerify } from './utils'
 import { InlineEdit } from './InlineEdit'
 import { SourceProvenancePill } from './SourceProvenancePill'
 import { DataBar } from '../../ui/shared/DataBar'
 import { DetailToggleContext } from './DetailToggleContext'
+import { CoachingCard } from './CoachingCard'
 import type { ObservedState, FactorInfluenceMap } from './types'
 
 // ── Category badge ─────────────────────────────────────────────────────────────
@@ -452,7 +454,7 @@ function FactorCard({
                 {isExternal && priorRangeMin !== undefined && priorRangeMax !== undefined && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Prior range</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {formatSmartNumber(priorRangeMin)} – {formatSmartNumber(priorRangeMax)}
                     </span>
                   </>
@@ -460,7 +462,7 @@ function FactorCard({
                 {!isExternal && obs.value !== undefined && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Normalised value</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {obs.value.toFixed(2)}
                     </span>
                   </>
@@ -468,7 +470,7 @@ function FactorCard({
                 {obs.cap !== undefined && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Cap</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {obs.unit ? formatValueWithUnit(obs.cap, obs.unit) : formatSmartNumber(obs.cap)}
                     </span>
                   </>
@@ -484,14 +486,14 @@ function FactorCard({
               {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
                 <div className="mb-1">
                   <span className={`${typography.panelMeta} text-text-light`}>Uncertainty drivers</span>
-                  <p className={`${typography.panelMeta} text-text-body mt-0.5`}>{uncertaintyDrivers.join(', ')}</p>
+                  <p className={`${typography.panelBody} text-text-body mt-0.5`}>{uncertaintyDrivers.join(', ')}</p>
                 </div>
               )}
               <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
                 {evpiPp != null && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>EVPI</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {evpiPp}pp
                     </span>
                   </>
@@ -499,7 +501,7 @@ function FactorCard({
                 {elasticity != null && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Elasticity</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {elasticity.toFixed(2)}
                     </span>
                   </>
@@ -507,7 +509,7 @@ function FactorCard({
                 {rankFlipRate != null && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Rank flip rate</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {rankFlipRate.toFixed(2)}
                     </span>
                   </>
@@ -515,7 +517,7 @@ function FactorCard({
                 {factorConfidence != null && (
                   <>
                     <span className={`${typography.panelMeta} text-text-light`}>Confidence</span>
-                    <span className={`${typography.panelMeta} text-text-body font-mono text-right`}>
+                    <span className={`${typography.panelBody} text-text-body font-mono text-right`}>
                       {Math.round(factorConfidence * 100)}%
                     </span>
                   </>
@@ -529,7 +531,7 @@ function FactorCard({
             <div className={`${typography.panelMeta} text-text-light font-medium mb-1`}>Metadata</div>
             <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
               <span className={`${typography.panelMeta} text-text-light`}>Node ID</span>
-              <span className={`${typography.panelMeta} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
+              <span className={`${typography.panelBody} text-text-body font-mono text-right`} style={{ overflowWrap: 'anywhere', wordBreak: 'break-all' }}>
                 {node.id}
               </span>
             </div>
@@ -560,12 +562,16 @@ interface FactorsSectionProps {
   /** Whether post-analysis data is available */
   hasAnalysisData?: boolean
   onSendMessage?: (message: string) => void
+  /** Controlled expansion state */
+  isExpanded?: boolean
+  /** Callback when expansion state changes */
+  onExpandChange?: (expanded: boolean) => void
 }
 
 function FactorsSectionInner({
   factorNodes, factorInfluence, synthesisedPriorMap, selectedNodeIds,
   evpiMap, attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap,
-  hasAnalysisData, onSendMessage,
+  hasAnalysisData, onSendMessage, isExpanded, onExpandChange,
 }: FactorsSectionProps) {
   // All hooks must run before any conditional return (Rules of Hooks)
 
@@ -607,23 +613,21 @@ function FactorsSectionInner({
   if (factorNodes.length === 0) return null
 
   return (
-    <div className="bg-panel border border-panel-border rounded-xl p-3" data-testid="model-factors-section">
-      {/* Section header */}
-      <div className="flex items-center gap-2 mb-2">
-        <div className="w-3 h-3 bg-factor rounded-full shrink-0" aria-hidden="true" />
-        <span className={`${typography.panelHeader} text-text-header`}>Factors</span>
-        <span className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-panel-border text-text-body ${typography.panelMeta} font-medium`}>
-          {factorNodes.length}
-        </span>
-        {toVerifyCount > 0 && (
-          <span
-            className={`inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-warning/30 text-text-body ${typography.panelMeta} font-medium`}
-            data-testid="factors-to-verify-badge"
-          >
-            {toVerifyCount} to verify
-          </span>
-        )}
-      </div>
+    <Accordion
+      title="Factors"
+      badgeCount={factorNodes.length}
+      tierLabel={toVerifyCount > 0 ? `${toVerifyCount} to verify` : undefined}
+      tierVariant={toVerifyCount > 0 ? 'needs_work' : undefined}
+      defaultExpanded
+      isExpanded={isExpanded}
+      onExpandChange={onExpandChange}
+      testId="model-factors-section"
+    >
+      {toVerifyCount > 0 && (
+        <CoachingCard sectionId="factors-verify">
+          Factors marked 'AI estimate' use the AI's assumptions. Your knowledge improves the analysis.
+        </CoachingCard>
+      )}
 
       {sorted.map(node => (
         <FactorCard
@@ -643,16 +647,27 @@ function FactorsSectionInner({
       ))}
 
       {onSendMessage && (
-        <button
-          type="button"
-          onClick={() => onSendMessage('I want to add a new factor to the model')}
-          className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
-          data-testid="factors-add-cta"
-        >
-          + Add a factor
-        </button>
+        <div className="flex items-center justify-between mt-2">
+          <button
+            type="button"
+            onClick={() => onSendMessage('I want to add a new factor to the model')}
+            className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
+            data-testid="factors-add-cta"
+          >
+            + Add a factor
+          </button>
+          <button
+            type="button"
+            onClick={() => onSendMessage('Help me review the factors in my model and whether the values are reasonable')}
+            className="text-text-light hover:text-info cursor-pointer transition-colors"
+            title="Discuss this with the AI"
+            data-testid="factors-discuss"
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
-    </div>
+    </Accordion>
   )
 }
 

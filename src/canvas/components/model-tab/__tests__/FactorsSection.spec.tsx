@@ -365,29 +365,29 @@ describe('FactorsSection', () => {
 
   // ── To-verify badge tests ───────────────────────────────────────────────────
 
-  it('shows to-verify badge when factors have no source', () => {
+  it('shows to-verify count in accordion header when factors have no source', () => {
     const nodes = [
       makeFactorNode('f1', 'A', { source: undefined }),
       makeFactorNode('f2', 'B', { source: 'user' }),
     ]
-    render(<FactorsSection factorNodes={nodes} />)
-    expect(screen.getByTestId('factors-to-verify-badge')).toBeInTheDocument()
-    expect(screen.getByTestId('factors-to-verify-badge')).toHaveTextContent('1 to verify')
+    const { container } = render(<FactorsSection factorNodes={nodes} />)
+    // tierLabel renders inside the Accordion header
+    expect(container.textContent).toContain('1 to verify')
   })
 
-  it('shows to-verify badge for cee_inference source', () => {
+  it('shows to-verify count for cee_inference source', () => {
     const nodes = [makeFactorNode('f1', 'A', { source: 'cee_inference' })]
-    render(<FactorsSection factorNodes={nodes} />)
-    expect(screen.getByTestId('factors-to-verify-badge')).toBeInTheDocument()
+    const { container } = render(<FactorsSection factorNodes={nodes} />)
+    expect(container.textContent).toContain('to verify')
   })
 
-  it('hides to-verify badge when all factors have non-inference source', () => {
+  it('does not show to-verify count when all factors have non-inference source', () => {
     const nodes = [
       makeFactorNode('f1', 'A', { source: 'user' }),
       makeFactorNode('f2', 'B', { source: 'brief_extraction' }),
     ]
-    render(<FactorsSection factorNodes={nodes} />)
-    expect(screen.queryByTestId('factors-to-verify-badge')).not.toBeInTheDocument()
+    const { container } = render(<FactorsSection factorNodes={nodes} />)
+    expect(container.textContent).not.toContain('to verify')
   })
 
   // ── Not set display ─────────────────────────────────────────────────────────

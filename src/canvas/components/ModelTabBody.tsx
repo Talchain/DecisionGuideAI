@@ -100,6 +100,18 @@ export const ModelTabBody = memo(function ModelTabBody({
 }: ModelTabBodyProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
+  // Single-open accordion: in default mode, only one section open at a time.
+  // In expert mode (showDetail), sections manage their own state independently.
+  const [openSection, setOpenSection] = useState<string | null>('factors')
+  const isExpert = expertMode ?? false
+  const makeSectionProps = useCallback((sectionId: string) => {
+    if (isExpert) return {} // expert mode: uncontrolled (multi-open)
+    return {
+      isExpanded: openSection === sectionId,
+      onExpandChange: (expanded: boolean) => setOpenSection(expanded ? sectionId : null),
+    }
+  }, [isExpert, openSection])
+
   // Telemetry: fire MODEL_CARD_VIEWED once when the tab mounts
   useEffect(() => {
     const state = useCanvasStore.getState()
@@ -516,7 +528,7 @@ export const ModelTabBody = memo(function ModelTabBody({
 
         {/* ── Sections ───────────────────────────────────────────────── */}
         <div className="space-y-4">
-          <GoalSection goalNode={grouped.goal[0]} />
+          <GoalSection goalNode={grouped.goal[0]} onSendMessage={onSendMessage} />
 
           <OptionsSection
             optionNodes={grouped.option}
@@ -524,6 +536,7 @@ export const ModelTabBody = memo(function ModelTabBody({
             conditionalWinners={conditionalWinners}
             hasAnalysisData={hasRobustnessData}
             onSendMessage={onSendMessage}
+            {...makeSectionProps('options')}
           />
 
           <FactorsSection
@@ -538,6 +551,7 @@ export const ModelTabBody = memo(function ModelTabBody({
             factorConfidenceMap={factorConfidenceMap}
             hasAnalysisData={hasRobustnessData}
             onSendMessage={onSendMessage}
+            {...makeSectionProps('factors')}
           />
 
           <RelationshipsSection
@@ -551,13 +565,26 @@ export const ModelTabBody = memo(function ModelTabBody({
             edgeEValueMap={edgeEValueMap}
             edgeRepairsMap={edgeRepairsMap}
             onSendMessage={onSendMessage}
+            {...makeSectionProps('relationships')}
           />
 
-          <RisksSection riskNodes={grouped.risk} allNodes={nodes} edges={edges} />
+          <RisksSection
+            riskNodes={grouped.risk}
+            allNodes={nodes}
+            edges={edges}
+            hasFragileEdges={fragileEdgeIds.size > 0}
+            onSendMessage={onSendMessage}
+            {...makeSectionProps('risks')}
+          />
 
           <ModelHealthSection
             ceeQuality={ceeQuality}
             auditTrail={auditTrail}
+            factorCount={grouped.factor.length}
+            edgeCount={causalEdges.length}
+            factorsToVerify={factorsToVerify}
+            onSendMessage={onSendMessage}
+            {...makeSectionProps('modelcard')}
           />
         </div>
       </ModelTabHeader>
