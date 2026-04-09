@@ -83,7 +83,11 @@ function RisksSectionInner({ riskNodes, allNodes, edges }: RisksSectionProps) {
         const sourceIds = inboundMap.get(risk.id) ?? []
         const triggerFactors = sourceIds
           .map(id => allNodes.find(n => n.id === id))
-          .filter((n): n is Node => n !== undefined && (n.data as Record<string, unknown>)?.kind === 'factor')
+          .filter((n): n is Node => n !== undefined && (
+            n.type === 'factor' ||
+            (n.data as Record<string, unknown>)?.kind === 'factor' ||
+            (n.data as Record<string, unknown>)?.type === 'factor'
+          ))
         return (
           <RiskRow key={risk.id} risk={risk} triggerFactors={triggerFactors} />
         )
