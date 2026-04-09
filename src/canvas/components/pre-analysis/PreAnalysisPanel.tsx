@@ -39,6 +39,13 @@ import type { TriageCardItem } from './mapImprovementToTriageCard'
 import { filterRedundantBlockers } from './filterRedundantBlockers'
 import type { AiDiscussElement } from './buildAiDiscussPrompt'
 import { DiscussWithAiButton } from './DiscussWithAiButton'
+import {
+  pickStartHere,
+  BIAS_SEVERITY_SCORE,
+  OPTION_QUALITY_SEVERITY,
+  type ReviewNextSignal,
+  type TriageSignal,
+} from './pickStartHere'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
@@ -951,17 +958,90 @@ export function PreAnalysisPanel({
   const REVIEW_NEXT_TRIAGE_BUDGET = 3
   const REVIEW_NEXT_BIAS_BUDGET = 2
   const reviewNextTriageAll = triageTop3.filter(c => !mustFixCardKeys.has(c.key))
-  const reviewNextTriageVisible = reviewNextTriageAll.slice(0, REVIEW_NEXT_TRIAGE_BUDGET)
-  const reviewNextTriageOverflow = reviewNextTriageAll.slice(REVIEW_NEXT_TRIAGE_BUDGET)
-  const reviewNextBiasVisible = biasTriggers.slice(0, REVIEW_NEXT_BIAS_BUDGET)
-  const reviewNextBiasOverflow = biasTriggers.slice(REVIEW_NEXT_BIAS_BUDGET)
   const showOptionQualityCard = data.optionPreviews.length > 0
     && (data.qualityChecks.some(c => c.id === 'same_levers') || data.optionPreviews.length < 3)
+
+  // P1-4: build the unified signal list across ALL Review next kinds and pick
+  // the highest-priority item as "Start here". Re-evaluated on every render so
+  // a newly important item promotes automatically when state changes.
+  //
+  // Scoring:
+  //   - triage: VoI > factor_influence > 0 (via TriageCardItem.influence which is
+  //     the composite map value). Defaulted when no influence map exists.
+  //   - option_quality: 0.9 (intervention overlap via same_levers) else 0.7
+  //   - bias: CEE severity or fallback 'medium' (0.65)
+  const hasIntervestionOverlap = data.qualityChecks.some(c => c.id === 'same_levers')
+  const triageSignals: ReviewNextSignal[] = reviewNextTriageAll.map((card, idx) => {
+    const improvement = data.triageActions.top3[idx]
+    const influence = card.influence
+    const score = typeof influence === 'number' ? influence : -1
+    return {
+      kind: 'triage',
+      id: `triage:${card.key}`,
+      score: score < 0 ? 0.3 : score,
+      defaultedScore: score < 0 || !compositeInfluenceMap || compositeInfluenceMap.size === 0,
+      focusId: improvement?.focus?.id,
+      card,
+    }
+  })
+  const biasSignals: ReviewNextSignal[] = biasTriggers.map(trigger => ({
+    kind: 'bias',
+    id: `bias:${trigger.id}`,
+    score: BIAS_SEVERITY_SCORE[trigger.severity ?? 'medium'] ?? 0.65,
+    defaultedScore: false,
+    biasType: trigger.title,
+  }))
+  const optionQualitySignal: ReviewNextSignal | null = showOptionQualityCard
+    ? {
+        kind: 'option_quality',
+        id: 'option_quality',
+        score: hasIntervestionOverlap
+          ? OPTION_QUALITY_SEVERITY.intervention_overlap
+          : OPTION_QUALITY_SEVERITY.few_options,
+        defaultedScore: false,
+        optionLabels: data.optionPreviews.map(o => o.label),
+        hasInterventionOverlap: hasIntervestionOverlap,
+      }
+    : null
+  const allReviewNextSignals: ReviewNextSignal[] = [
+    ...triageSignals,
+    ...biasSignals,
+    ...(optionQualitySignal ? [optionQualitySignal] : []),
+  ]
+
+  // Dominant factor override (CEE) — falls back to undefined when not present.
+  const dominantFactorId =
+    (ceeAnalysisReady as { review?: { dominant_factor_low_confidence?: { factor_id?: string } } } | undefined)
+      ?.review?.dominant_factor_low_confidence?.factor_id
+
+  const startHereSignal = pickStartHere(allReviewNextSignals, {
+    hasMustFix: mustFixCount > 0,
+    dominantFactorId,
+  })
+
+  // Exclude startHere from downstream lists by id so the same signal_id never
+  // appears twice in Review next (P1-8 invariant).
+  const startHereId = startHereSignal?.id
+  const reviewNextTriageAfterStart = startHereId
+    ? reviewNextTriageAll.filter(c => `triage:${c.key}` !== startHereId)
+    : reviewNextTriageAll
+  const biasTriggersAfterStart = startHereId
+    ? biasTriggers.filter(t => `bias:${t.id}` !== startHereId)
+    : biasTriggers
+  const showOptionQualityCardAfterStart =
+    showOptionQualityCard && startHereId !== 'option_quality'
+
+  const reviewNextTriageVisible = reviewNextTriageAfterStart.slice(0, REVIEW_NEXT_TRIAGE_BUDGET)
+  const reviewNextTriageOverflow = reviewNextTriageAfterStart.slice(REVIEW_NEXT_TRIAGE_BUDGET)
+  const reviewNextBiasVisible = biasTriggersAfterStart.slice(0, REVIEW_NEXT_BIAS_BUDGET)
+  const reviewNextBiasOverflow = biasTriggersAfterStart.slice(REVIEW_NEXT_BIAS_BUDGET)
   const reviewNextOverflowCount = reviewNextTriageOverflow.length + reviewNextBiasOverflow.length
-  // Section badge counts the TRUE total (visible + overflow) so users see the
-  // real number even when overflow is collapsed.
+  // Section badge counts the TRUE total (visible + overflow + Start here) so
+  // users see the real number even when overflow is collapsed.
   const reviewNextCount =
-    reviewNextTriageAll.length + biasTriggers.length + (showOptionQualityCard ? 1 : 0)
+    reviewNextTriageAll.length
+    + biasTriggers.length
+    + (showOptionQualityCard ? 1 : 0)
   // Kept for existing call sites that previously referenced `reviewNextTopCards`.
   const reviewNextTopCards = reviewNextTriageVisible
 
@@ -1319,8 +1399,70 @@ export function PreAnalysisPanel({
             <section className="space-y-2" data-testid="section-review-next">
               <SectionHeader title="Review next" count={reviewNextCount} tone="info" testId="section-review-next-header" />
 
-              {/* Option similarity / quality card — interventions collapsed per option (v2 brief) */}
-              {showOptionQualityCard && data.optionPreviews.length > 0 && (
+              {/* P1-4: Start here card — highest-priority signal elevated with
+                  a 3px success left border. Delegates rendering to the
+                  underlying signal kind. Exclusion from downstream lists is
+                  enforced above by signal_id. */}
+              {startHereSignal && (
+                <div
+                  className="border-l-[3px] border-success rounded-[10px]"
+                  data-testid="start-here-card"
+                >
+                  {startHereSignal.kind === 'triage' && (
+                    <TriageCard
+                      cardKey={startHereSignal.card.key}
+                      ordinal={0}
+                      title={startHereSignal.card.title}
+                      detail={startHereSignal.card.detail}
+                      subtitle={startHereSignal.card.subtitle}
+                      category={startHereSignal.card.category}
+                      influence={startHereSignal.card.influence}
+                      action={startHereSignal.card.action}
+                      editorConfig={(startHereSignal.card as { editorConfig?: ScientificEditorProps | null }).editorConfig ?? null}
+                      sourcePill={startHereSignal.card.sourcePill}
+                      aiDiscuss={(startHereSignal.card as { aiDiscuss?: AiDiscussElement }).aiDiscuss}
+                      onConfirm={handleConfirm}
+                      onEdit={handleSetValueForGap}
+                      onSendMessage={onSendMessage}
+                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
+                      onHoverEnter={handleHoverElement}
+                      onHoverLeave={handleHoverClear}
+                    />
+                  )}
+                  {startHereSignal.kind === 'bias' && (
+                    <div className="relative px-3 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover">
+                      <p className={`${typography.panelHeader} text-text-header`}>
+                        {startHereSignal.biasType}
+                      </p>
+                      <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
+                        Watch for this bias when reviewing the items below.
+                      </p>
+                      <div className="absolute bottom-1 right-1">
+                        <DiscussWithAiButton element={{ kind: 'bias', biasType: startHereSignal.biasType }} />
+                      </div>
+                    </div>
+                  )}
+                  {startHereSignal.kind === 'option_quality' && (
+                    <div className="relative px-3 pr-7 py-2.5 border border-panel-border rounded-[10px] hover:bg-panel-hover">
+                      <p className={`${typography.panelHeader} text-text-header`}>
+                        Your options
+                      </p>
+                      <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
+                        {startHereSignal.hasInterventionOverlap
+                          ? 'Your options work through similar factors.'
+                          : 'You have fewer than 3 options to compare.'}
+                      </p>
+                      <div className="absolute bottom-1 right-1">
+                        <DiscussWithAiButton element={{ kind: 'option', label: startHereSignal.optionLabels[0] ?? 'your options' }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Option similarity / quality card — interventions collapsed per option (v2 brief).
+                  Suppressed here when it was promoted into the Start here slot. */}
+              {showOptionQualityCardAfterStart && data.optionPreviews.length > 0 && (
                 <OptionPreview
                   options={data.optionPreviews}
                   onFocusNode={handleFocusNode}
@@ -1338,9 +1480,9 @@ export function PreAnalysisPanel({
                   and a generic "Ask AI" chip that drops the askAiPrompt into
                   the conversation. P1-8: budget capped at 2 visible; overflow
                   appears when the user expands Show more. */}
-              {(reviewNextExpanded ? biasTriggers : reviewNextBiasVisible).length > 0 && (
+              {(reviewNextExpanded ? biasTriggersAfterStart : reviewNextBiasVisible).length > 0 && (
                 <div className="space-y-1.5" data-testid="review-next-nudges">
-                  {(reviewNextExpanded ? biasTriggers : reviewNextBiasVisible).map(trigger => {
+                  {(reviewNextExpanded ? biasTriggersAfterStart : reviewNextBiasVisible).map(trigger => {
                     const Icon = trigger.icon
                     const handleTryThis = () => {
                       if (!trigger.microInterventionStep) return
@@ -1415,7 +1557,7 @@ export function PreAnalysisPanel({
               {/* Triage cards (excluding any in Must fix). P1-8: budget capped
                   at 3 visible; overflow appears when Show more expanded. */}
               {(() => {
-                const visibleTriage = reviewNextExpanded ? reviewNextTriageAll : reviewNextTopCards
+                const visibleTriage = reviewNextExpanded ? reviewNextTriageAfterStart : reviewNextTopCards
                 if (visibleTriage.length === 0) return null
                 return (
                   <div className="flex flex-col gap-1.5" data-testid="triage-top-actions">
