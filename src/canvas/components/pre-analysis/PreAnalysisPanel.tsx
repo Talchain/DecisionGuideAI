@@ -375,6 +375,11 @@ export function PreAnalysisPanel({
   // Get all panel data from hook (includes derived progress counts)
   const data = usePreAnalysisData()
 
+  // P1-8: local toggle for Review next "Show more". Overflow stays inside
+  // Review next (does not migrate to Improve confidence); this controls
+  // visibility within the section.
+  const [reviewNextExpanded, setReviewNextExpanded] = useState(false)
+
   // Task P.3.2: Get node and edge counts for minimal graph coaching
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -938,10 +943,27 @@ export function PreAnalysisPanel({
   //   - the model has fewer than 3 options (encourage broader framing).
   // Note: < 2 options is also a Must fix structural blocker, but the Review next
   // card still appears with coaching to explore alternatives.
-  const reviewNextTopCards = triageTop3.filter(c => !mustFixCardKeys.has(c.key))
+  //
+  // P1-8: hard budget — max 1 option-quality + 2 bias + 3 triage = 6 visible
+  // (plus 1 Start here slot added by P1-4). Anything beyond the budget stays
+  // inside Review next as overflow behind a "Show more" toggle. Overflow does
+  // NOT migrate to Improve confidence — that would mix semantic ownership.
+  const REVIEW_NEXT_TRIAGE_BUDGET = 3
+  const REVIEW_NEXT_BIAS_BUDGET = 2
+  const reviewNextTriageAll = triageTop3.filter(c => !mustFixCardKeys.has(c.key))
+  const reviewNextTriageVisible = reviewNextTriageAll.slice(0, REVIEW_NEXT_TRIAGE_BUDGET)
+  const reviewNextTriageOverflow = reviewNextTriageAll.slice(REVIEW_NEXT_TRIAGE_BUDGET)
+  const reviewNextBiasVisible = biasTriggers.slice(0, REVIEW_NEXT_BIAS_BUDGET)
+  const reviewNextBiasOverflow = biasTriggers.slice(REVIEW_NEXT_BIAS_BUDGET)
   const showOptionQualityCard = data.optionPreviews.length > 0
     && (data.qualityChecks.some(c => c.id === 'same_levers') || data.optionPreviews.length < 3)
-  const reviewNextCount = reviewNextTopCards.length + biasTriggers.length + (showOptionQualityCard ? 1 : 0)
+  const reviewNextOverflowCount = reviewNextTriageOverflow.length + reviewNextBiasOverflow.length
+  // Section badge counts the TRUE total (visible + overflow) so users see the
+  // real number even when overflow is collapsed.
+  const reviewNextCount =
+    reviewNextTriageAll.length + biasTriggers.length + (showOptionQualityCard ? 1 : 0)
+  // Kept for existing call sites that previously referenced `reviewNextTopCards`.
+  const reviewNextTopCards = reviewNextTriageVisible
 
   // Improve confidence: SuccessTarget (always present), remaining (quickFix)
   // triage cards, Your expertise, missing knowledge prompt.
@@ -1314,10 +1336,11 @@ export function PreAnalysisPanel({
                   explanation (full text on hover via the title attribute),
                   optional "Try this" chip from the CEE micro_intervention,
                   and a generic "Ask AI" chip that drops the askAiPrompt into
-                  the conversation. */}
-              {biasTriggers.length > 0 && (
+                  the conversation. P1-8: budget capped at 2 visible; overflow
+                  appears when the user expands Show more. */}
+              {(reviewNextExpanded ? biasTriggers : reviewNextBiasVisible).length > 0 && (
                 <div className="space-y-1.5" data-testid="review-next-nudges">
-                  {biasTriggers.map(trigger => {
+                  {(reviewNextExpanded ? biasTriggers : reviewNextBiasVisible).map(trigger => {
                     const Icon = trigger.icon
                     const handleTryThis = () => {
                       if (!trigger.microInterventionStep) return
@@ -1389,32 +1412,52 @@ export function PreAnalysisPanel({
                 </div>
               )}
 
-              {/* Top 3 triage cards (excluding any in Must fix) */}
-              {reviewNextTopCards.length > 0 && (
-                <div className="flex flex-col gap-1.5" data-testid="triage-top-actions">
-                  {reviewNextTopCards.map((card, i) => (
-                    <TriageCard
-                      key={card.key}
-                      cardKey={card.key}
-                      ordinal={i + 1}
-                      title={card.title}
-                      detail={card.detail}
-                      subtitle={card.subtitle}
-                      category={card.category}
-                      influence={card.influence}
-                      action={card.action}
-                      editorConfig={card.editorConfig ?? null}
-                      sourcePill={card.sourcePill}
-                      aiDiscuss={card.aiDiscuss}
-                      onConfirm={handleConfirm}
-                      onEdit={handleSetValueForGap}
-                      onSendMessage={onSendMessage}
-                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                      onHoverEnter={handleHoverElement}
-                      onHoverLeave={handleHoverClear}
-                    />
-                  ))}
-                </div>
+              {/* Triage cards (excluding any in Must fix). P1-8: budget capped
+                  at 3 visible; overflow appears when Show more expanded. */}
+              {(() => {
+                const visibleTriage = reviewNextExpanded ? reviewNextTriageAll : reviewNextTopCards
+                if (visibleTriage.length === 0) return null
+                return (
+                  <div className="flex flex-col gap-1.5" data-testid="triage-top-actions">
+                    {visibleTriage.map((card, i) => (
+                      <TriageCard
+                        key={card.key}
+                        cardKey={card.key}
+                        ordinal={i + 1}
+                        title={card.title}
+                        detail={card.detail}
+                        subtitle={card.subtitle}
+                        category={card.category}
+                        influence={card.influence}
+                        action={card.action}
+                        editorConfig={card.editorConfig ?? null}
+                        sourcePill={card.sourcePill}
+                        aiDiscuss={card.aiDiscuss}
+                        onConfirm={handleConfirm}
+                        onEdit={handleSetValueForGap}
+                        onSendMessage={onSendMessage}
+                        onUpdateEdgeStrength={handleUpdateEdgeStrength}
+                        onHoverEnter={handleHoverElement}
+                        onHoverLeave={handleHoverClear}
+                      />
+                    ))}
+                  </div>
+                )
+              })()}
+
+              {/* P1-8: Show more / Show less toggle — only when overflow exists */}
+              {reviewNextOverflowCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setReviewNextExpanded(e => !e)}
+                  aria-expanded={reviewNextExpanded}
+                  className={`${typography.panelMeta} text-info hover:underline self-start`}
+                  data-testid="review-next-show-more"
+                >
+                  {reviewNextExpanded
+                    ? 'Show less'
+                    : `Show ${reviewNextOverflowCount} more`}
+                </button>
               )}
             </section>
           )}
