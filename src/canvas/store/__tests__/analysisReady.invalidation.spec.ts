@@ -256,4 +256,47 @@ describe('Canvas Store – ceeAnalysisReady invalidation', () => {
       }).not.toThrow()
     })
   })
+
+  // ────────────────────────────────────────────────────────────────────
+  // pushHistory → flag invalidation contract (regression, 2026-04-09)
+  //
+  // pushHistory is the single place in the store that flips
+  // graphEditedSinceLastRun:true + analysisStateReady:false. Every caller
+  // that mutates the graph must route through it (directly via pushHistory()
+  // or via one of the helpers that calls it internally). The 2026-04-09 fix
+  // to ConversationPanel.handlePatchAccept relies on this contract: the
+  // op-replay and adapter-less fallback paths now call pushHistory() before
+  // applyAutoApplyPatch so the staleness flags flip correctly.
+  //
+  // This test pins the contract so accidental removal of the flag flips
+  // inside pushToHistory is caught locally.
+  // ────────────────────────────────────────────────────────────────────
+  describe('pushHistory — staleness flag invalidation contract', () => {
+    beforeEach(() => {
+      // Simulate the post-run state: analysis just completed, graph clean.
+      useCanvasStore.setState({
+        graphEditedSinceLastRun: false,
+        analysisStateReady: true,
+      })
+    })
+
+    it('flips graphEditedSinceLastRun to true', () => {
+      expect(useCanvasStore.getState().graphEditedSinceLastRun).toBe(false)
+      useCanvasStore.getState().pushHistory()
+      expect(useCanvasStore.getState().graphEditedSinceLastRun).toBe(true)
+    })
+
+    it('flips analysisStateReady to false', () => {
+      expect(useCanvasStore.getState().analysisStateReady).toBe(true)
+      useCanvasStore.getState().pushHistory()
+      expect(useCanvasStore.getState().analysisStateReady).toBe(false)
+    })
+
+    it('is idempotent — calling twice leaves flags in the invalidated state', () => {
+      useCanvasStore.getState().pushHistory()
+      useCanvasStore.getState().pushHistory()
+      expect(useCanvasStore.getState().graphEditedSinceLastRun).toBe(true)
+      expect(useCanvasStore.getState().analysisStateReady).toBe(false)
+    })
+  })
 })

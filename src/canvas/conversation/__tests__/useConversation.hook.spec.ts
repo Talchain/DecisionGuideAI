@@ -442,6 +442,10 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-abc' } as any,
       graphEditedSinceLastRun: false,
+      // 2026-04-09: staleness guard requires analysisStateReady to be set
+      // by resultsComplete before buildRequest will ship analysis_state.
+      // Tests mocking the post-`resultsComplete` state must mirror this.
+      analysisStateReady: true,
       rawV2Response: {
         analysis_status: 'computed',
         option_comparison_status: 'computed',
@@ -495,6 +499,10 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-fs' } as any,
       graphEditedSinceLastRun: false,
+      // 2026-04-09: staleness guard requires analysisStateReady to be set
+      // by resultsComplete before buildRequest will ship analysis_state.
+      // Tests mocking the post-`resultsComplete` state must mirror this.
+      analysisStateReady: true,
       rawV2Response: {
         analysis_status: 'computed',
         option_comparison_status: 'computed',
@@ -530,6 +538,10 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-no-fs' } as any,
       graphEditedSinceLastRun: false,
+      // 2026-04-09: staleness guard requires analysisStateReady to be set
+      // by resultsComplete before buildRequest will ship analysis_state.
+      // Tests mocking the post-`resultsComplete` state must mirror this.
+      analysisStateReady: true,
       rawV2Response: {
         analysis_status: 'computed',
         option_comparison_status: 'computed',
@@ -604,6 +616,10 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'resp-hash-123' } as any,
       graphEditedSinceLastRun: false,
+      // 2026-04-09: staleness guard requires analysisStateReady to be set
+      // by resultsComplete before buildRequest will ship analysis_state.
+      // Tests mocking the post-`resultsComplete` state must mirror this.
+      analysisStateReady: true,
       rawV2Response: {
         analysis_status: 'computed',
         option_comparison_status: 'computed',
@@ -662,6 +678,10 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-malformed' } as any,
       graphEditedSinceLastRun: false,
+      // 2026-04-09: staleness guard requires analysisStateReady to be set
+      // by resultsComplete before buildRequest will ship analysis_state.
+      // Tests mocking the post-`resultsComplete` state must mirror this.
+      analysisStateReady: true,
       rawV2Response: {
         analysis_status: 'computed',
         option_comparison_status: 'computed',
@@ -698,6 +718,10 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     useCanvasStore.setState({
       results: { status: 'complete', progress: 100, hash: 'hash-no-raw' } as any,
       graphEditedSinceLastRun: false,
+      // 2026-04-09: staleness guard requires analysisStateReady to be set
+      // by resultsComplete before buildRequest will ship analysis_state.
+      // Tests mocking the post-`resultsComplete` state must mirror this.
+      analysisStateReady: true,
       rawV2Response: null,
     })
 

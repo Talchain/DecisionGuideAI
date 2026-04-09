@@ -282,15 +282,99 @@ describe('describeOperation — raw-ID invariant across all op types', () => {
     { op: 'add_edge', target_id: 'edge_1', data: {} },
     { op: 'update_edge', target_id: 'edge_2', data: {} },
     { op: 'remove_edge', target_id: 'edge_3', data: {} },
+    // Full-word prefixes emitted by CEE deterministic action handlers
+    // (add-option.ts → option_*, add-factor.ts → factor_*). The short-
+    // prefix regex alone doesn't match these, so prior to the 2026-04-09
+    // regex widening a raw `factor_team_morale` or `option_hire_tech_lead`
+    // string in any label field would slip past every tier of
+    // resolveNodeLabel.
+    { op: 'add_node', target_id: 'factor_team_morale', data: {} },
+    { op: 'update_node', target_id: 'option_hire_tech_lead', data: {} },
+    { op: 'remove_node', target_id: 'decision_rebuild_checkout', data: {} },
+    { op: 'add_node', target_id: 'outcome_happy_user', data: {} },
+    { op: 'update_node', target_id: 'constraint_budget_cap', data: {} },
   ]
 
   for (const op of ops) {
-    it(`${op.op} with unresolvable label never emits raw IDs`, () => {
+    it(`${op.op}(${op.target_id}) with unresolvable label never emits raw IDs`, () => {
       const result = describeOperation(op, deps)
       expect(result).not.toMatch(RAW_ID_PATTERN)
       expect(result).not.toContain(op.target_id)
     })
   }
+})
+
+describe('RAW_ID_PATTERN — long-prefix coverage (2026-04-09)', () => {
+  // Regression test: the original pattern only covered short prefixes
+  // (fac|opt|goal|dec|out|risk|con). CEE's deterministic action handlers
+  // generate full-word prefixes (factor_, option_, decision_, outcome_,
+  // constraint_) which must also be caught for defence-in-depth.
+  it.each([
+    // Short-prefix IDs — pre-existing coverage, must still match.
+    'fac_x',
+    'opt_hire',
+    'goal_ship',
+    'dec_rebuild',
+    'out_happy',
+    'risk_churn',
+    'con_budget',
+    // Long-prefix IDs — new coverage.
+    'factor_team_morale',
+    'option_hire_tech_lead',
+    'decision_rebuild_checkout',
+    'outcome_happy_user',
+    'constraint_budget_cap',
+    // Case-insensitive (regex has /i flag).
+    'Factor_Team_Morale',
+    'OPTION_HIRE',
+  ])('matches %s', (id) => {
+    expect(id).toMatch(RAW_ID_PATTERN)
+  })
+
+  it.each([
+    // Non-ID strings that should NOT match.
+    'Market Growth',
+    'Hire a Contractor',
+    'factor',           // no underscore + body
+    'option model',     // no underscore pattern
+    'factorised risk',  // no underscore following prefix
+    'my_custom_key',    // not one of the known prefixes
+  ])('does NOT match %s', (s) => {
+    expect(s).not.toMatch(RAW_ID_PATTERN)
+  })
+
+  it('resolveNodeLabel rejects a tier-1 elementLabel that is a long-prefix raw ID', () => {
+    // Brief's scenario: CEE puts `option_hire_tech_lead` into
+    // proposalItem.elementLabel. Prior to the widening, this would slip
+    // through tier 1 and render verbatim as the node label.
+    const op: PatchOperation = {
+      op: 'add_node',
+      target_id: 'option_hire_tech_lead',
+      data: { kind: 'option', label: 'Hire a Tech Lead' },
+    }
+    const deps = makeDeps({
+      proposalItem: { description: '', elementLabel: 'option_hire_tech_lead' },
+    })
+    // Tier 1 rejected by widened regex → tier 2 (op.data.label) wins.
+    const result = describeOperation(op, deps)
+    expect(result).toBe('Add **Hire a Tech Lead** (option)')
+    expect(result).not.toMatch(RAW_ID_PATTERN)
+  })
+
+  it('resolveNodeLabel rejects a tier-2 op.data.label that is a long-prefix raw ID', () => {
+    // Pathological case: CEE somehow emits op.data.label = 'factor_xyz'.
+    // Prior to the widening, this would render as `Add **factor_xyz** (factor)`.
+    const op: PatchOperation = {
+      op: 'add_node',
+      target_id: 'factor_team_morale',
+      data: { kind: 'factor', label: 'factor_team_morale' },
+    }
+    const deps = makeDeps({
+      relatedElements: [{ node_id: 'factor_team_morale', label: 'Team Morale' }],
+    })
+    // Tier 2 rejected → tier 3 (relatedElements) wins.
+    expect(describeOperation(op, deps)).toBe('Add **Team Morale** (factor)')
+  })
 })
 
 // ─────────────────────────────────────────────────────────────────────────

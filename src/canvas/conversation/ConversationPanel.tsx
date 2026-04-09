@@ -216,6 +216,17 @@ export const ConversationPanel = memo(function ConversationPanel({
                 if (import.meta.env.DEV) {
                   console.warn('[olumi] op-replay fallback: PLoT did not return full graph, applying operations individually')
                 }
+                // applyAutoApplyPatch calls `useCanvasStore.setState` directly
+                // without going through `pushHistory`, so we push history here
+                // to match the validatedGraph branch above and the auto-apply
+                // path in useConversation.ts:1926. This is load-bearing for
+                // the 2026-04-09 staleness guard: `pushToHistory` is the one
+                // place that flips `graphEditedSinceLastRun: true` and
+                // `analysisStateReady: false`. Without this call, the fallback
+                // path would silently mutate the graph and the next turn
+                // would ship stale analysis_state referencing the pre-patch
+                // graph under the prior run's hash.
+                useCanvasStore.getState().pushHistory()
                 applyAutoApplyPatch(block)
               }
             } finally {
@@ -274,6 +285,10 @@ export const ConversationPanel = memo(function ConversationPanel({
         } else {
           useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
           try {
+            // Same pushHistory rationale as the op-replay fallback above —
+            // applyAutoApplyPatch does not push history itself, so we must
+            // invalidate graphEditedSinceLastRun + analysisStateReady here.
+            useCanvasStore.getState().pushHistory()
             applyAutoApplyPatch(block)
           } finally {
             useCanvasStore.getState().endExternalGraphMutation()
