@@ -18,7 +18,7 @@
  * - No filled/tinted backgrounds
  */
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight, Info, RefreshCw, Pencil } from 'lucide-react'
 import type { EnrichedBlocker } from './blockerEnrichment'
 import { looksLikeId, prettifyId } from './blockerEnrichment'
@@ -72,10 +72,10 @@ function BlockerTitle({
     return <>{display.title}</>
   }
 
-  // Resolve labels from the canvas store for each affected option id so the
-  // displayed text matches the hydrated title (which may prettify raw IDs).
-  const { nodes } = useCanvasStore.getState()
-  const idsToShow = blocker.affectedIds.slice(0, 3)
+  // Subscribe to the store so the component re-renders if node labels change
+  // after initial mount. getState() would read a stale snapshot.
+  const nodes = useCanvasStore(s => s.nodes)
+  const idsToShow = useMemo(() => blocker.affectedIds!.slice(0, 3), [blocker.affectedIds])
   const remainingCount = Math.max(0, blocker.affectedIds.length - 3)
 
   return (

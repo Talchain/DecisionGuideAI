@@ -86,7 +86,10 @@ export function isRedundantWithStartHere(
   // appears inside the coaching line, OR vice versa. Covers the common case
   // where the triage coaching line begins with the factor title
   // ("Factor A drives 45%...") — suppress to avoid duplication.
-  const MIN_TITLE_LEN = 3
+  // 5-char minimum avoids false positives for short common words (e.g. "Age"
+  // matching "advantage", "Wage" matching "average") while still catching
+  // real factor-name duplicates like "Price" inside "Price drives 72%…".
+  const MIN_TITLE_LEN = 5
   if (titleLower.length >= MIN_TITLE_LEN) {
     if (lineLower.includes(titleLower)) return true
     if (titleLower.includes(lineLower)) return true
