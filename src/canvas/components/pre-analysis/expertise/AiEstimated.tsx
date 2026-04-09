@@ -56,56 +56,63 @@ export function AiEstimated({
         const influencePct = influence != null ? Math.round(influence * 100) : null
 
         return (
-          <div key={item.key} className="flex items-center gap-2 py-1 px-1">
-            <button
-              type="button"
-              onClick={() => nodeId && onFocusNode?.(nodeId)}
-              onMouseEnter={() => nodeId && onHoverEnter?.('node', nodeId)}
-              onMouseLeave={() => onHoverLeave?.()}
-              className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left truncate flex-1 min-w-0`}
-              title={item.label}
-            >
-              {item.label}
-            </button>
-            {item.rawValue != null && (
+          // P1-1: two-row layout for readability.
+          // Row 1: factor name (wraps, never truncates) + value + Estimated pill + small influence bar.
+          // Row 2: action pills at 44px touch height with 8px gap.
+          <div key={item.key} className="px-1 py-2 space-y-2">
+            {/* Row 1 */}
+            <div className="flex items-start gap-2 flex-wrap">
               <button
                 type="button"
-                onClick={() => nodeId && onEdit?.(nodeId)}
-                className={`${typography.panelMeta} text-text-body hover:text-info cursor-pointer shrink-0`}
+                onClick={() => nodeId && onFocusNode?.(nodeId)}
+                onMouseEnter={() => nodeId && onHoverEnter?.('node', nodeId)}
+                onMouseLeave={() => onHoverLeave?.()}
+                className={`${typography.panelBody} text-info hover:underline cursor-pointer text-left flex-1 min-w-[12rem] break-words`}
               >
-                {item.unit ? `${item.rawValue} ${item.unit}` : String(item.rawValue)}
+                {item.label}
               </button>
-            )}
-            <Pill size="small" variant="warning">Estimated</Pill>
-            {influencePct != null && (
-              <div className="flex items-center gap-1 shrink-0" style={{ width: 60 }}>
-                <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-warning rounded-full"
-                    style={{ width: `${Math.min(100, influencePct)}%` }}
-                  />
+              {item.rawValue != null && (
+                <button
+                  type="button"
+                  onClick={() => nodeId && onEdit?.(nodeId)}
+                  className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
+                >
+                  {item.unit ? `${item.rawValue} ${item.unit}` : String(item.rawValue)}
+                </button>
+              )}
+              <Pill size="small" variant="warning">Estimated</Pill>
+              {influencePct != null && (
+                <div className="flex items-center gap-1 shrink-0" style={{ width: 60 }}>
+                  <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-warning rounded-full"
+                      style={{ width: `${Math.min(100, influencePct)}%` }}
+                    />
+                  </div>
+                  <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
                 </div>
-                <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
-              </div>
-            )}
-            <div className="flex items-center gap-1 shrink-0">
+              )}
+            </div>
+            {/* Row 2 — actions with 44px touch height */}
+            <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => nodeId && onConfirm?.(nodeId)}
-                className={`${typography.panelMeta} text-success border border-success/30 rounded-full px-1.5 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
-                aria-label="Confirm value"
+                className={`${typography.panelMeta} text-success border border-success/30 rounded-full inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                aria-label={`Confirm value for ${item.label}`}
                 title="Confirm value"
               >
-                <Check className="w-3 h-3" aria-hidden="true" />
+                <Check className="w-4 h-4" aria-hidden="true" />
               </button>
               {(onSendMessage || useGuidanceStore.getState()._dispatchAction) && (
                 <button
                   type="button"
                   onClick={() => handleResearch(nodeId, item.label)}
-                  className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-1.5 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                  className={`${typography.panelMeta} text-info border border-info/30 rounded-full inline-flex items-center justify-center min-h-[44px] px-3 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                  aria-label={`Ask AI to research ${item.label}`}
                   title="Ask AI to research"
                 >
-                  ?
+                  Ask AI
                 </button>
               )}
             </div>

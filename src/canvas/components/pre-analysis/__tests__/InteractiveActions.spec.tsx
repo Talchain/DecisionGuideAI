@@ -460,10 +460,10 @@ describe('Interactive Actions Hardening', () => {
       const expertiseHeader = screen.getByText('Your expertise')
       fireEvent.click(expertiseHeader)
 
-      // Find and click the Confirm button (icon button with aria-label containing "Confirm")
-      const confirmButtons = screen.getAllByRole('button', { name: /confirm/i })
-      // Find the one that's the icon button (has aria-label="Confirm this value is correct")
-      const confirmButton = confirmButtons.find(btn => btn.getAttribute('aria-label') === 'Confirm value')
+      // Find and click the Confirm button (icon button with aria-label containing "Confirm value")
+      // P1-1 update: aria-label is now scoped per factor, e.g. "Confirm value for Net profit"
+      const confirmButtons = screen.getAllByRole('button', { name: /confirm value/i })
+      const confirmButton = confirmButtons[0]
       expect(confirmButton).toBeTruthy()
       fireEvent.click(confirmButton!)
 

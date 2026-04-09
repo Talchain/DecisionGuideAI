@@ -14,7 +14,6 @@ import { ChevronDown, ChevronRight, Info } from 'lucide-react'
 import { Pill } from '../primitives'
 import Tooltip from '../../../../components/Tooltip'
 import { typography } from '@/styles/typography'
-import { ConfidenceSpectrum } from './ConfidenceSpectrum'
 import { ContestedRelationships } from './ContestedRelationships'
 import { AiEstimated } from './AiEstimated'
 import { MissingData } from './MissingData'
@@ -57,7 +56,9 @@ export function YourExpertise({
   factorInfluenceMap,
   edgeInfluenceMap,
   reviewedCount,
-  allItems,
+  // allItems was consumed by ConfidenceSpectrum, removed in P1-1; keep the
+  // prop on the interface for caller compatibility but ignore it here.
+  allItems: _allItems,
   onFocusNode,
   onFocusEdge,
   onConfirm,
@@ -137,8 +138,24 @@ export function YourExpertise({
             </div>
           )}
 
-          {/* Confidence spectrum */}
-          <ConfidenceSpectrum items={allItems} />
+          {/* P1-1: lighter summary line in place of the spectrum bar.
+              "{N} from brief, {N} AI estimates, {N} missing data" — only mentions
+              non-zero buckets so the line stays terse. */}
+          {(() => {
+            const briefN = groups.fromBrief.length
+            const aiN = groups.aiEstimated.length
+            const missingN = groups.missingData.length
+            const parts: string[] = []
+            if (briefN > 0) parts.push(`${briefN} from brief`)
+            if (aiN > 0) parts.push(`${aiN} AI ${aiN === 1 ? 'estimate' : 'estimates'}`)
+            if (missingN > 0) parts.push(`${missingN} missing data`)
+            if (parts.length === 0) return null
+            return (
+              <p className={`${typography.panelMeta} text-text-light`} data-testid="expertise-summary">
+                {parts.join(', ')}
+              </p>
+            )
+          })()}
 
           {/* Empty state */}
           {allEmpty ? (
