@@ -15,7 +15,7 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useRef } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
@@ -50,6 +50,8 @@ import {
   resolveReviewNextCoachingLine,
   getImproveConfidenceCoachingLine,
 } from './sectionCoaching'
+import { useResolvedSignals } from './useResolvedSignals'
+import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
@@ -399,6 +401,10 @@ export function PreAnalysisPanel({
   // visibility within the section.
   const [reviewNextExpanded, setReviewNextExpanded] = useState(false)
 
+  // P1-5: prefers-reduced-motion flag — used to skip the fade transition on
+  // resolved-state rows for users who requested reduced motion.
+  const prefersReducedMotion = usePrefersReducedMotion()
+
   // Task P.3.2: Get node and edge counts for minimal graph coaching
   const nodes = useCanvasStore(s => s.nodes)
   const edges = useCanvasStore(s => s.edges)
@@ -629,15 +635,48 @@ export function PreAnalysisPanel({
 
   // === INTERACTIVE ACTION HANDLERS ===
 
-  // Confirm action - mark factor source as user_confirmed
+  // P1-5: Refs holding the current triage signals + markResolved callback
+  // so handleConfirm can look up the signal_id by nodeId and mark resolved
+  // without creating a circular declaration (useResolvedSignals is declared
+  // later in the function body because it depends on allReviewNextSignals).
+  const triageSignalsRef = useRef<TriageSignal[]>([])
+  const markResolvedRef = useRef<((e: { signalId: string; label: string; kind: 'confirm' | 'setValue'; undoSnapshot: unknown }) => void) | null>(null)
+  const undoResolvedRef = useRef<((signalId: string) => unknown | null) | null>(null)
+
+  // Confirm action - mark factor source as user_confirmed. P1-5: snapshots
+  // the previous node.data so useResolvedSignals can hold an undo payload.
   const handleConfirm = useCallback((nodeId: string) => {
     const { nodes, updateNode } = useCanvasStore.getState()
     const node = nodes.find(n => n.id === nodeId)
     if (!node) return
 
+    // Snapshot before mutation so Undo can restore the exact previous state.
+    const undoSnapshot = { nodeId, previousData: node.data }
+
     updateNode(nodeId, {
       data: withObservedStateUpdate(node.data, { source: 'user_confirmed', extractionType: 'explicit' }),
     })
+
+    const match = triageSignalsRef.current.find((s: TriageSignal) => s.focusId === nodeId)
+    if (match && markResolvedRef.current) {
+      markResolvedRef.current({
+        signalId: match.id,
+        label: match.card.title,
+        kind: 'confirm',
+        undoSnapshot,
+      })
+    }
+  }, [])
+
+  // P1-5: Undo a resolved signal — restores the snapshot node.data via
+  // updateNode and removes the resolved entry so the original card renders
+  // again. No-op when the signal has no snapshot.
+  const handleUndoResolved = useCallback((signalId: string) => {
+    if (!undoResolvedRef.current) return
+    const snapshot = undoResolvedRef.current(signalId) as { nodeId: string; previousData: unknown } | null
+    if (!snapshot) return
+    const { updateNode } = useCanvasStore.getState()
+    updateNode(snapshot.nodeId, { data: snapshot.previousData as any })
   }, [])
 
   // Edit action - focus node on canvas for editing
@@ -983,7 +1022,11 @@ export function PreAnalysisPanel({
   //   - option_quality: 0.9 (intervention overlap via same_levers) else 0.7
   //   - bias: CEE severity or fallback 'medium' (0.65)
   const hasIntervestionOverlap = data.qualityChecks.some(c => c.id === 'same_levers')
-  const triageSignals: ReviewNextSignal[] = reviewNextTriageAll.map((card, idx) => {
+  // Keep the ref in sync with the latest signals so handleConfirm sees the
+  // current set on its next invocation. Assigned outside useMemo because
+  // ref writes during render are safe as long as they don't affect other
+  // reads within the same render.
+  const triageSignals: TriageSignal[] = reviewNextTriageAll.map((card, idx) => {
     const improvement = data.triageActions.top3[idx]
     const influence = card.influence
     const score = typeof influence === 'number' ? influence : -1
@@ -1020,6 +1063,24 @@ export function PreAnalysisPanel({
     ...biasSignals,
     ...(optionQualitySignal ? [optionQualitySignal] : []),
   ]
+  // P1-5: keep the triage signals ref in sync so handleConfirm can look up
+  // the signal_id for a given nodeId on its next invocation.
+  triageSignalsRef.current = triageSignals
+
+  // P1-5: parent-managed resolved state. Hook takes the set of live signal
+  // ids so the reaper can remove entries whose underlying signal has been
+  // filtered out of the panel (e.g. the triage item disappeared after confirm
+  // propagated through the store).
+  const liveSignalIds = useMemo(
+    () => new Set(allReviewNextSignals.map(s => s.id)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [allReviewNextSignals.map(s => s.id).join('|')],
+  )
+  const { resolved: resolvedSignals, markResolved, undo: undoResolved } = useResolvedSignals(liveSignalIds)
+  // Publish the latest callbacks to the refs used by handleConfirm /
+  // handleUndoResolved so those stable callbacks don't need to re-bind.
+  markResolvedRef.current = markResolved
+  undoResolvedRef.current = undoResolved
 
   // Dominant factor override (CEE) — falls back to undefined when not present.
   const dominantFactorId =
@@ -1032,16 +1093,14 @@ export function PreAnalysisPanel({
   })
 
   // Exclude startHere from downstream lists by id so the same signal_id never
-  // appears twice in Review next (P1-8 invariant).
+  // appears twice in Review next (P1-8 invariant). Also exclude resolved
+  // signals (P1-5) so the card disappears the instant the user confirms.
   const startHereId = startHereSignal?.id
-  const reviewNextTriageAfterStart = startHereId
-    ? reviewNextTriageAll.filter(c => `triage:${c.key}` !== startHereId)
-    : reviewNextTriageAll
-  const biasTriggersAfterStart = startHereId
-    ? biasTriggers.filter(t => `bias:${t.id}` !== startHereId)
-    : biasTriggers
+  const isExcluded = (id: string) => id === startHereId || resolvedSignals.has(id)
+  const reviewNextTriageAfterStart = reviewNextTriageAll.filter(c => !isExcluded(`triage:${c.key}`))
+  const biasTriggersAfterStart = biasTriggers.filter(t => !isExcluded(`bias:${t.id}`))
   const showOptionQualityCardAfterStart =
-    showOptionQualityCard && startHereId !== 'option_quality'
+    showOptionQualityCard && !isExcluded('option_quality')
 
   const reviewNextTriageVisible = reviewNextTriageAfterStart.slice(0, REVIEW_NEXT_TRIAGE_BUDGET)
   const reviewNextTriageOverflow = reviewNextTriageAfterStart.slice(REVIEW_NEXT_TRIAGE_BUDGET)
@@ -1424,6 +1483,33 @@ export function PreAnalysisPanel({
                   </p>
                 )
               })()}
+
+              {/* P1-5: Resolved-state rows for recently confirmed triage items.
+                  Each row renders "✓ {label} confirmed — Undo" and disappears
+                  automatically on the next render cycle once the underlying
+                  signal has been filtered out of the live list. Fade is
+                  disabled when prefers-reduced-motion is set. */}
+              {Array.from(resolvedSignals.values()).map(entry => (
+                <div
+                  key={`resolved-${entry.signalId}`}
+                  className={`flex items-center gap-2 px-2 py-1 text-success ${prefersReducedMotion ? '' : 'transition-opacity duration-200'}`}
+                  data-testid="resolved-signal-row"
+                >
+                  <Check className="w-3.5 h-3.5 flex-shrink-0" aria-hidden="true" />
+                  <span className={`${typography.panelMeta} flex-1 truncate`}>
+                    {entry.label} confirmed
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleUndoResolved(entry.signalId)}
+                    className={`${typography.panelMeta} text-info hover:underline`}
+                    aria-label={`Undo confirmation of ${entry.label}`}
+                    data-testid={`undo-${entry.signalId}`}
+                  >
+                    Undo
+                  </button>
+                </div>
+              ))}
 
               {/* P1-4: Start here card — highest-priority signal elevated with
                   a 3px success left border. Delegates rendering to the
