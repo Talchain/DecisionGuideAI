@@ -115,6 +115,7 @@ export const ModelTabBody = memo(function ModelTabBody({
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
   const repairsApplied = useCanvasStore(s => s.repairsApplied)
   const results = useCanvasStore(s => s.results)
+  const hasCompletedFirstRun = useCanvasStore(s => s.hasCompletedFirstRun)
   const selectionNodeIds = useCanvasStore(s => s.selection?.nodeIds ?? EMPTY_NODE_IDS)
   const selectionEdgeIds = useCanvasStore(s => s.selection?.edgeIds ?? EMPTY_EDGE_IDS)
   const updateEdge = useCanvasStore(s => s.updateEdge)
@@ -123,6 +124,12 @@ export const ModelTabBody = memo(function ModelTabBody({
   // ── Scientific enrichment data from PLoT response ───────────────────────────
   // Single-pass extraction of all per-factor enrichment maps from factor_sensitivity.
   // Each map is keyed by factor node_id. Fields are only set when present in the response.
+  //
+  // Source priority:
+  //   1. results.report.factor_sensitivity — picked best source from the V1 mapper.
+  //      Survives history loads (rawV2Response is null after Supabase hydration).
+  //   2. rawV2Response.factor_sensitivity / downstream_calls — fresh-run fallback
+  //      when the V1 mapper hasn't populated the report yet.
 
   const { evpiMap, attributionStabilityMap, elasticityMap, rankFlipRateMap, factorConfidenceMap } = useMemo(() => {
     const evpi = new Map<string, number>()
@@ -131,8 +138,14 @@ export const ModelTabBody = memo(function ModelTabBody({
     const flipRate = new Map<string, number>()
     const confidence = new Map<string, number>()
 
-    const factors = (rawV2Response as any)?.factor_sensitivity ??
-      (rawV2Response as any)?.downstream_calls?.isl?.response?.factor_sensitivity ?? []
+    const reportFactors = (results?.report as any)?.factor_sensitivity
+    const rawTopLevelFactors = (rawV2Response as any)?.factor_sensitivity
+    const rawDownstreamFactors = (rawV2Response as any)?.downstream_calls?.isl?.response?.factor_sensitivity
+    const factors =
+      (Array.isArray(reportFactors) && reportFactors.length > 0 && reportFactors) ||
+      (Array.isArray(rawTopLevelFactors) && rawTopLevelFactors.length > 0 && rawTopLevelFactors) ||
+      (Array.isArray(rawDownstreamFactors) && rawDownstreamFactors) ||
+      []
     if (!Array.isArray(factors)) {
       return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
     }
@@ -141,9 +154,14 @@ export const ModelTabBody = memo(function ModelTabBody({
       const id = f?.node_id ?? f?.factor_id
       if (!id) continue
 
-      // EVPI: only from evpi_percentage_points (VOI fallback removed — see UI-SEM-049)
+      // EVPI: prefer evpi_percentage_points; fall back to value_of_information * 100
+      // (UI-SEM-049 reinstated — PLoT does not yet guarantee evpi_percentage_points
+      // on every code path, so the fallback keeps EVPI surfaces alive.)
       const pp = typeof f?.evpi_percentage_points === 'number' && Number.isFinite(f.evpi_percentage_points)
-        ? f.evpi_percentage_points : null
+        ? f.evpi_percentage_points
+        : typeof f?.value_of_information === 'number' && Number.isFinite(f.value_of_information)
+          ? Math.round(f.value_of_information * 100)
+          : null
       if (pp != null) evpi.set(id, pp)
 
       // Attribution stability (from PLoT, when present — no UI derivation)
@@ -160,7 +178,7 @@ export const ModelTabBody = memo(function ModelTabBody({
     }
 
     return { evpiMap: evpi, attributionStabilityMap: stability, elasticityMap: elasticity, rankFlipRateMap: flipRate, factorConfidenceMap: confidence }
-  }, [rawV2Response])
+  }, [rawV2Response, results?.report])
 
   // Edge E-value map from ISL edge_e_values (already passed through in response mapper)
   const edgeEValueMap = useMemo(() => {
@@ -282,7 +300,12 @@ export const ModelTabBody = memo(function ModelTabBody({
 
   // ── Robustness data ───────────────────────────────────────────────────────
 
-  const hasRobustnessData = robustness !== null
+  // hasAnalysisData is true if either:
+  //   - robustness has been mapped from the latest report, OR
+  //   - the user has completed at least one analysis run in this session
+  // (the second branch matters after Supabase hydration where robustness may
+  //  be stale or omitted while hasCompletedFirstRun is restored).
+  const hasRobustnessData = robustness !== null || hasCompletedFirstRun
 
   // Build a lookup keyed by RF edge.id, matching by source+target when PLoT canonical IDs differ
   const fragileLookup = useMemo(() => {

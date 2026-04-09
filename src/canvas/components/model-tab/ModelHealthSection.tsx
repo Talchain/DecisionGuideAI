@@ -84,6 +84,27 @@ function ModelHealthSectionInner({
     ).join(', ')
   }, [auditTrail?.repairsApplied])
 
+  // Pre-analysis empty state: hide the section entirely when neither
+  // audit-trail signals nor CEE quality scores have been populated. The
+  // Audit panel has nothing meaningful to show before the first run.
+  // (Computed AFTER all hooks to honour the Rules of Hooks.)
+  const hasAuditSignal =
+    auditTrail != null && (
+      auditTrail.seedUsed != null ||
+      auditTrail.responseHash != null ||
+      auditTrail.nSamples != null ||
+      auditTrail.recommendationStability != null ||
+      auditTrail.autoNoiseApplied != null ||
+      auditTrail.stabilityPenaltyFactor != null ||
+      (auditTrail.repairsApplied != null && auditTrail.repairsApplied.length > 0) ||
+      (auditTrail.inferenceWarnings != null && auditTrail.inferenceWarnings.length > 0)
+    )
+  const hasQualitySignal = ceeQuality != null && ceeQuality.overall != null
+
+  if (!hasAuditSignal && !hasQualitySignal) {
+    return null
+  }
+
   // Collapsed summary visible in accordion header via tierLabel
   const stabilityLabel = auditTrail?.recommendationStability != null
     ? `${Math.round(auditTrail.recommendationStability * 100)}% stability`

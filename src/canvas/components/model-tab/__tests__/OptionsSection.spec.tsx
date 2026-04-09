@@ -78,11 +78,38 @@ describe('OptionsSection', () => {
     expect(screen.getByText(/\+£20,000/)).toBeInTheDocument()
   })
 
-  it('shows "unchanged" when intervention matches baseline', () => {
-    const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
-    const option = makeOptionNode('opt1', 'Hold', { f1: 100000 })
-    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} />)
+  it('collapses to "No changes to any factors" when all interventions match baseline (status quo)', () => {
+    const factor1 = makeFactorNode('f1', 'Revenue', 100000, '£')
+    const factor2 = makeFactorNode('f2', 'Headcount', 10, 'FTE')
+    const option = makeOptionNode('opt1', 'Hold', { f1: 100000, f2: 10 })
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor1, factor2]} />)
+    // Status quo collapse: single line replaces verbose intervention rows
+    expect(screen.getByTestId('option-status-quo-opt1')).toHaveTextContent('No changes to any factors')
+    expect(screen.queryByTestId('option-interventions-opt1')).not.toBeInTheDocument()
+  })
+
+  it('shows individual "unchanged" labels in a mixed-change scenario', () => {
+    const factor1 = makeFactorNode('f1', 'Revenue', 100000, '£')
+    const factor2 = makeFactorNode('f2', 'Headcount', 10, 'FTE')
+    // Revenue is unchanged but Headcount grows — not status quo, so individual rows still render.
+    const option = makeOptionNode('opt1', 'Hire', { f1: 100000, f2: 15 })
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor1, factor2]} />)
+    expect(screen.queryByTestId('option-status-quo-opt1')).not.toBeInTheDocument()
     expect(screen.getByText('unchanged')).toBeInTheDocument()
+  })
+
+  it('hides "Run analysis to see when each option leads and lags" copy when hasAnalysisData=true', () => {
+    const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
+    const option = makeOptionNode('opt1', 'Grow', { f1: 120000 })
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} hasAnalysisData={true} />)
+    expect(screen.queryByText(/Run analysis to see when each option leads and lags/)).not.toBeInTheDocument()
+  })
+
+  it('shows "Run analysis to see when each option leads and lags" copy when hasAnalysisData=false', () => {
+    const factor = makeFactorNode('f1', 'Revenue', 100000, '£')
+    const option = makeOptionNode('opt1', 'Grow', { f1: 120000 })
+    render(<OptionsSection optionNodes={[option]} allNodes={[factor]} hasAnalysisData={false} />)
+    expect(screen.getByText(/Run analysis to see when each option leads and lags/)).toBeInTheDocument()
   })
 
   it('calls updateNode when intervention value is edited', () => {

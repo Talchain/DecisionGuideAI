@@ -138,6 +138,17 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
   const label = String(option.data?.label ?? option.id)
   const interventions = buildInterventions(option, allNodes)
 
+  // Status-quo collapse: when every intervention leaves its factor unchanged
+  // (delta within an epsilon of zero), replace the verbose row list with a
+  // single "No changes to any factors" line. The threshold matches DeltaChip's
+  // own "unchanged" cutoff so display stays consistent.
+  const isStatusQuo = interventions.length > 0 && interventions.every(iv => {
+    const baseline = iv.rawBaseline ?? iv.baseline
+    if (baseline === undefined || typeof baseline !== 'number' || !isFinite(baseline)) return false
+    if (typeof iv.currentValue !== 'number' || !isFinite(iv.currentValue)) return false
+    return Math.abs(iv.currentValue - baseline) < 0.001
+  })
+
   const handleInterventionSave = useCallback((factorId: string, val: string) => {
     const num = parseFloat(val)
     if (isNaN(num)) return
@@ -203,7 +214,16 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
         </p>
       )}
 
-      {interventions.length > 0 && (
+      {isStatusQuo && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid={`option-status-quo-${option.id}`}
+        >
+          No changes to any factors
+        </p>
+      )}
+
+      {interventions.length > 0 && !isStatusQuo && (
         <div className="space-y-1" data-testid={`option-interventions-${option.id}`}>
           {interventions.map(iv => (
             <div key={iv.factorId} className="flex items-center gap-1.5 flex-wrap">

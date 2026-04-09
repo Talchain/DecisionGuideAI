@@ -23,10 +23,50 @@ vi.mock('../../../../components/results/Accordion', () => ({
 }))
 
 describe('ModelHealthSection', () => {
-  it('renders with Audit title', () => {
-    render(<ModelHealthSection />)
+  it('renders with Audit title when CEE quality data is present', () => {
+    render(<ModelHealthSection ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />)
     expect(screen.getByTestId('model-health-section')).toBeInTheDocument()
     expect(screen.getByText('Audit')).toBeInTheDocument()
+  })
+
+  it('renders nothing pre-analysis when no audit data and no CEE quality', () => {
+    const { container } = render(<ModelHealthSection />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders nothing when audit trail is all-null and no CEE quality', () => {
+    const emptyAudit: AuditTrailData = {
+      seedUsed: null,
+      responseHash: null,
+      nSamples: null,
+      repairsApplied: null,
+      inferenceWarnings: null,
+      recommendationStability: null,
+      autoNoiseApplied: null,
+      stabilityPenaltyFactor: null,
+    }
+    const { container } = render(<ModelHealthSection auditTrail={emptyAudit} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  it('renders when only CEE quality is present (post-analysis with no audit trail)', () => {
+    render(<ModelHealthSection ceeQuality={{ overall: 6.5, structure: 7, causality: 6, coverage: 6.5, safety: 6 }} />)
+    expect(screen.getByTestId('model-health-section')).toBeInTheDocument()
+  })
+
+  it('renders when audit trail has any signal (e.g. only seedUsed set)', () => {
+    const auditTrail: AuditTrailData = {
+      seedUsed: '12345',
+      responseHash: null,
+      nSamples: null,
+      repairsApplied: null,
+      inferenceWarnings: null,
+      recommendationStability: null,
+      autoNoiseApplied: null,
+      stabilityPenaltyFactor: null,
+    }
+    render(<ModelHealthSection auditTrail={auditTrail} />)
+    expect(screen.getByTestId('model-health-section')).toBeInTheDocument()
   })
 
   it('shows stability and quality in accordion header (visible when collapsed)', () => {
