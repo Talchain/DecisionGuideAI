@@ -37,6 +37,8 @@ import type { ScientificEditorProps } from '@/components/shared/ScientificEditor
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
 import type { TriageCardItem } from './mapImprovementToTriageCard'
 import { filterRedundantBlockers } from './filterRedundantBlockers'
+import type { AiDiscussElement } from './buildAiDiscussPrompt'
+import { DiscussWithAiButton } from './DiscussWithAiButton'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
@@ -242,7 +244,10 @@ function StatusBanner({
       break
     case 'blocked':
       dotClass = 'bg-danger'
-      text = `Blocked by ${state.mustFixCount} ${state.mustFixCount === 1 ? 'issue' : 'issues'}. Fix before running.`
+      text =
+        state.mustFixCount === 1
+          ? '1 item to address before analysis'
+          : `${state.mustFixCount} items to address before analysis`
       break
     case 'ready_with_recommendations':
       dotClass = 'bg-success'
@@ -692,12 +697,24 @@ export function PreAnalysisPanel({
 
   // Map improvement items to TriageCard props (diversified top3 + quickFix)
   // Build editorConfig for factor items that need "Set value" inline editing
-  type MappedCard = TriageCardItem & { editorConfig?: ScientificEditorProps | null }
+  type MappedCard = TriageCardItem & { editorConfig?: ScientificEditorProps | null; aiDiscuss?: AiDiscussElement }
   const mapItem = (item: typeof data.triageActions.top3[number]): MappedCard => {
     const influence = item.focus?.type === 'edge'
       ? edgeInfluenceMap?.get(item.focus.id)
       : compositeInfluenceMap?.get(item.focus?.id ?? '')
     const mapped = mapImprovementToTriageCard(item, influence)
+
+    // P1-2: build the discuss-with-AI element from the item shape so the
+    // sparkle button can pre-fill chat with a contextual prompt.
+    let aiDiscuss: AiDiscussElement | undefined
+    if (item.focus?.type === 'edge') {
+      const arrow = item.label.indexOf(' → ')
+      if (arrow > 0) {
+        aiDiscuss = { kind: 'edge', from: item.label.slice(0, arrow), to: item.label.slice(arrow + 3) }
+      }
+    } else if (item.focus?.type === 'node') {
+      aiDiscuss = { kind: 'factor', label: item.label }
+    }
 
     // Attach editorConfig for factor items with set_value action — only when
     // a numeric rawValue exists. Non-numeric values (e.g. qualitative "low")
@@ -715,9 +732,10 @@ export function PreAnalysisPanel({
           onSave: (rawValue: number) => handleInlineEditValue(targetId, rawValue, item.cap ?? null),
           onCancel: () => {},
         },
+        aiDiscuss,
       }
     }
-    return mapped
+    return { ...mapped, aiDiscuss }
   }
   const triageTop3 = data.triageActions.top3.map(mapItem)
   const triageQuickFix = data.triageActions.quickFix.map(mapItem)
@@ -961,7 +979,7 @@ export function PreAnalysisPanel({
   // Dynamic headline for the health card. Reads from the same bucket data
   // already computed above so there's no duplicate work. Precedence:
   //   1. CEE-provided coaching_summary (if/when CEE populates it)
-  //   2. First Must fix item → "[label]. Fix before running."
+  //   2. First Must fix item → "[label]. Address before analysis."
   //      Order matches the rendered Must fix section: enriched blockers first,
   //      then structural rows ("Fewer than 2 options", "No baseline set"),
   //      then critical fix triage cards.
@@ -1245,6 +1263,7 @@ export function PreAnalysisPanel({
                       action={card.action}
                       editorConfig={card.editorConfig ?? null}
                       sourcePill={card.sourcePill}
+                      aiDiscuss={card.aiDiscuss}
                       onConfirm={handleConfirm}
                       onEdit={handleSetValueForGap}
                       onSendMessage={onSendMessage}
@@ -1320,7 +1339,7 @@ export function PreAnalysisPanel({
                     return (
                       <div
                         key={trigger.id}
-                        className="px-3 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover space-y-1"
+                        className="relative px-3 pr-7 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover space-y-1"
                         data-testid={`bias-trigger-${trigger.id}`}
                       >
                         <div className="flex items-start gap-2">
@@ -1360,6 +1379,10 @@ export function PreAnalysisPanel({
                             </div>
                           </div>
                         </div>
+                        {/* P1-2: Discuss-with-AI sparkle, bottom-right of the bias card */}
+                        <div className="absolute bottom-1 right-1">
+                          <DiscussWithAiButton element={{ kind: 'bias', biasType: trigger.title }} />
+                        </div>
                       </div>
                     )
                   })}
@@ -1382,6 +1405,7 @@ export function PreAnalysisPanel({
                       action={card.action}
                       editorConfig={card.editorConfig ?? null}
                       sourcePill={card.sourcePill}
+                      aiDiscuss={card.aiDiscuss}
                       onConfirm={handleConfirm}
                       onEdit={handleSetValueForGap}
                       onSendMessage={onSendMessage}
@@ -1439,6 +1463,7 @@ export function PreAnalysisPanel({
                     action={card.action}
                     editorConfig={card.editorConfig ?? null}
                     sourcePill={card.sourcePill}
+                    aiDiscuss={card.aiDiscuss}
                     onConfirm={handleConfirm}
                     onEdit={handleSetValueForGap}
                     onSendMessage={onSendMessage}

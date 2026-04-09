@@ -24,6 +24,7 @@ import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
 import { AlertTriangle, Check, X as XIcon, Info, Lightbulb, Search, ArrowLeftRight, GitBranch, ShieldAlert } from 'lucide-react'
+import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 
 /**
  * Expandable "Why this matters" section for action items with whatCouldHappen / whatToDo data.
@@ -286,7 +287,7 @@ function UncertaintyRow({
 
   return (
     <div
-      className={`p-3 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded-lg transition-all ${
+      className={`relative p-3 pr-7 ${severityConfig.bgColor} border ${severityConfig.borderColor} rounded-lg transition-all ${
         isClickable ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/50' : ''
       }`}
       onClick={cardClickHandler}
@@ -382,6 +383,21 @@ function UncertaintyRow({
           </div>
         </>
       )}
+
+      {/* P1-2: Discuss-with-AI sparkle, bottom-right. Only shown for fragile
+          relationship cards (high-risk group); refinement rows keep their
+          existing affordances to avoid visual clutter. */}
+      {groupType === 'high-risk' && edgeTitle && (() => {
+        const arrow = edgeTitle.indexOf(' → ')
+        const element = arrow > 0
+          ? { kind: 'edge' as const, from: edgeTitle.slice(0, arrow), to: edgeTitle.slice(arrow + 3) }
+          : { kind: 'factor' as const, label: edgeTitle }
+        return (
+          <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
+            <DiscussWithAiButton element={element} />
+          </div>
+        )
+      })()}
     </div>
   )
 }

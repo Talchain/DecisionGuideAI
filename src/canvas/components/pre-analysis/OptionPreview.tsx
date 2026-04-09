@@ -17,6 +17,7 @@ import Tooltip from '../../../components/Tooltip'
 import type { OptionPreviewData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 import { classifyUnit } from '../../utils/labelUtils'
+import { DiscussWithAiButton } from './DiscussWithAiButton'
 
 /**
  * Visible header text for the option quality card. Exported so other surfaces
@@ -312,8 +313,13 @@ export function OptionPreview({
   // Suppress "Ready" pills when all options share the same status
   const allSameStatus = options.length > 0 && options.every(o => o.status === options[0].status)
 
+  // P1-2: option quality card gets a generic "discuss options" sparkle. Passes
+  // a synthetic label so buildAiDiscussPrompt produces a sensible prompt for
+  // the option set as a whole.
+  const firstOptionLabel = options[0]?.label ?? 'your options'
+
   return (
-    <div className="rounded-lg border border-panel-border" data-testid="option-preview">
+    <div className="relative rounded-lg border border-panel-border" data-testid="option-preview">
       {/* Header — option square shape, no decorative icon */}
       <button
         type="button"
@@ -402,6 +408,11 @@ export function OptionPreview({
           )}
         </div>
       )}
+
+      {/* P1-2: Discuss-with-AI sparkle, bottom-right of the option quality card */}
+      <div className="absolute bottom-1 right-1">
+        <DiscussWithAiButton element={{ kind: 'option', label: firstOptionLabel }} />
+      </div>
     </div>
   )
 }

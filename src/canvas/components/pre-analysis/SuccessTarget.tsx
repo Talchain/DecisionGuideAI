@@ -14,6 +14,7 @@ import { Pill } from './primitives'
 import Tooltip from '../../../components/Tooltip'
 import { typography } from '@/styles/typography'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+import { DiscussWithAiButton } from './DiscussWithAiButton'
 
 /** Goal constraint — accepts CEEGoalConstraint shape */
 interface GoalConstraint {
@@ -349,8 +350,13 @@ export function SuccessTarget({
   }
 
   // Value present but not confirmed
+  const discussGoalLabel = (goalNode?.data as { label?: string } | undefined)?.label ?? 'this goal'
   return (
-    <div className={`rounded-lg border ${borderColor} bg-panel p-3 space-y-2`}>
+    <div className={`relative rounded-lg border ${borderColor} bg-panel p-3 pr-7 space-y-2`}>
+      {/* P1-2: Discuss-with-AI sparkle, bottom-right of the goal target card */}
+      <div className="absolute bottom-1 right-1">
+        <DiscussWithAiButton element={{ kind: 'goal', label: discussGoalLabel }} />
+      </div>
       {/* Goal header with diamond */}
       {renderGoalHeader()}
 

@@ -27,6 +27,7 @@ import { typography } from '../../styles/typography'
 import { formatPercent } from '../../utils/formatPercent'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
+import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -743,6 +744,11 @@ function DriverRow({
         triggerRef={infoButtonRef}
         id={`tooltip-${driver.factorKey}`}
       />
+
+      {/* P1-2: Discuss-with-AI sparkle, bottom-right of the driver card */}
+      <div className="absolute bottom-1 right-1">
+        <DiscussWithAiButton element={{ kind: 'factor', label: cleanedLabel }} />
+      </div>
     </div>
   )
 }

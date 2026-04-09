@@ -15,6 +15,8 @@ import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
 import Tooltip from '@/components/Tooltip'
+import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
+import type { AiDiscussElement } from '@/canvas/components/pre-analysis/buildAiDiscussPrompt'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -60,6 +62,13 @@ export interface TriageCardProps {
   onHoverLeave?: () => void
   /** Edge strength quick-select (edge cards only) */
   onUpdateEdgeStrength?: (edgeId: string, value: number) => void
+  /**
+   * P1-2: Optional "Discuss with AI" element. When provided, renders a small
+   * sparkle button in the card's bottom-right that pre-fills chat with a
+   * contextual prompt. Only honoured by the default variant (compact rows
+   * keep their original layout).
+   */
+  aiDiscuss?: AiDiscussElement
 }
 
 // ── Badge colours ───────────────────────────────────────────────────────────
@@ -382,6 +391,7 @@ export function TriageCard(props: TriageCardProps) {
     onHoverEnter,
     onHoverLeave,
     onUpdateEdgeStrength,
+    aiDiscuss,
   } = props
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -402,7 +412,7 @@ export function TriageCard(props: TriageCardProps) {
   return (
     <div
       key={cardKey}
-      className={`flex flex-col p-2.5 rounded-[10px] border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
+      className={`relative flex flex-col p-2.5 pr-7 rounded-[10px] border hover:bg-panel-hover ${category === 'fix' ? 'border-danger/30' : 'border-panel-border'}`}
       onMouseEnter={() => {
         if (action?.targetId && onHoverEnter) {
           onHoverEnter(action.targetType ?? 'node', action.targetId)
@@ -521,6 +531,15 @@ export function TriageCard(props: TriageCardProps) {
             </div>
           )}
         </>
+      )}
+
+      {/* P1-2: Discuss-with-AI sparkle, anchored bottom-right of the card.
+          Visually secondary (14px, text-text-light → text-info on hover) and
+          smaller than the 16px primary action icons in InlineValueControls. */}
+      {aiDiscuss && (
+        <div className="absolute bottom-1 right-1">
+          <DiscussWithAiButton element={aiDiscuss} />
+        </div>
       )}
     </div>
   )
