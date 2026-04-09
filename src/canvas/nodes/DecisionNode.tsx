@@ -238,6 +238,26 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     ? (biggestRisk.label.length > 22 ? `${biggestRisk.label.slice(0, 22)}...` : biggestRisk.label)
     : null
 
+  // Coaching chip clusters — live in popovers (Standard) or inline in
+  // Detailed view. The body never renders coaching chips. Exception:
+  // pre-analysis body still shows the "Run analysis" CTA when the model is
+  // ready, because that's a primary action button rather than coaching.
+  const preAnalysisCoachingChips = useMemo(() => (
+    <div className="flex items-center gap-1 flex-wrap mt-1.5">
+      <NodeChip label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
+      {!showRunAnalysis && (
+        <NodeChip label="What could go wrong?" message="What could go wrong with this decision?" />
+      )}
+    </div>
+  ), [showRunAnalysis])
+
+  const postAnalysisCoachingChips = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip label="Challenge this result" message="What assumptions would need to change for a different option to win?" />
+      <NodeChip label="Compare options" message="Compare the options side by side" />
+    </div>
+  ), [])
+
   // Stability for post-analysis Detailed body and Standard popover.
   // Returns the underlying fraction (0-1) so the popover progress bar can use
   // it directly without re-parsing the formatted string.
@@ -296,19 +316,15 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               ) : null}
             </div>
 
-            {/* Post-analysis Detailed only: stability display in body. Standard
-                surfaces the same info via the popover below. */}
+            {/* Post-analysis Detailed only: stability + chips inline in body
+                (Detailed has no popover). Standard surfaces both via the
+                popover below. */}
             {isDetailed && stabilityDisplay && (
               <div className={`${typography.edgeLabel} text-text-light mt-1`}>
                 Stability: {stabilityDisplay.pct}% ({stabilityDisplay.tier})
               </div>
             )}
-
-            {/* Post-analysis chips */}
-            <div className="flex gap-1 flex-wrap mt-1.5">
-              <NodeChip label="Challenge this result" message="What assumptions would need to change for a different option to win?" />
-              <NodeChip label="Compare options" message="Compare the options side by side" />
-            </div>
+            {isDetailed && postAnalysisCoachingChips}
           </div>
         ) : optionCount > 0 ? (
           <>
@@ -321,22 +337,19 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
 
-            {/* Coaching chips — max 2 chips. "Run analysis" is the
-                state-specific CTA when the model is ready and replaces the
-                generic "What could go wrong?" so we never exceed 2 chips. */}
-            <div className="flex items-center gap-1 flex-wrap mt-1.5">
-              <NodeChip label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
-              {showRunAnalysis ? (
+            {/* Body chip: ONLY the "Run analysis" CTA when the model is ready.
+                Coaching chips ("Explore more options" / "What could go wrong?")
+                live in the popover below — see preAnalysisCoachingChips. */}
+            {showRunAnalysis && (
+              <div className="flex items-center gap-1 flex-wrap mt-1.5">
                 <NodeChip label="Run analysis" message="Run the analysis now" />
-              ) : (
-                <NodeChip label="What could go wrong?" message="What could go wrong with this decision?" />
-              )}
-            </div>
+              </div>
+            )}
           </>
         ) : null}
       </BaseNode>
 
-      {/* Pre-analysis popover — model readiness breakdown */}
+      {/* Pre-analysis popover — model readiness breakdown + coaching chips */}
       {!isPostAnalysis && optionCount > 0 && (
         <NodePopover
           visible={showPopover}
@@ -360,13 +373,14 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </>
             )}
           </div>
+          {preAnalysisCoachingChips}
         </NodePopover>
       )}
 
-      {/* Post-analysis Standard popover — stability detail.
-          Detailed view shows stability inline in the body, so we don't need
-          the popover there. */}
-      {isPostAnalysis && !isDetailed && stabilityDisplay && (
+      {/* Post-analysis Standard popover — stability detail + coaching chips.
+          Detailed view shows stability + chips inline in the body, so the
+          popover only renders in Standard. */}
+      {isPostAnalysis && !isDetailed && (
         <NodePopover
           visible={showPopover}
           width={220}
@@ -374,19 +388,22 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           onMouseLeave={popoverHandlers.onMouseLeave}
           anchorRef={nodeElRef}
         >
-          <div className={`${typography.edgeLabel} text-text-body space-y-1.5`}>
-            <div className="font-medium text-text-heading">Stability</div>
-            <div className="flex items-center gap-1.5">
-              <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-info"
-                  style={{ width: `${Math.max(4, stabilityDisplay.pct)}%` }}
-                />
+          {stabilityDisplay && (
+            <div className={`${typography.edgeLabel} text-text-body space-y-1.5`}>
+              <div className="font-medium text-text-heading">Stability</div>
+              <div className="flex items-center gap-1.5">
+                <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-info"
+                    style={{ width: `${Math.max(4, stabilityDisplay.pct)}%` }}
+                  />
+                </div>
+                <span className="w-7 text-right shrink-0 text-text-light">{stabilityDisplay.pct}%</span>
               </div>
-              <span className="w-7 text-right shrink-0 text-text-light">{stabilityDisplay.pct}%</span>
+              <div className="text-text-light">{stabilityDisplay.tier}</div>
             </div>
-            <div className="text-text-light">{stabilityDisplay.tier}</div>
-          </div>
+          )}
+          {postAnalysisCoachingChips}
         </NodePopover>
       )}
     </div>

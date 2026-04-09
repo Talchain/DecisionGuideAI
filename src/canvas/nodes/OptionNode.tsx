@@ -585,6 +585,55 @@ export const OptionNode = memo((props: NodeProps) => {
     return nodes.filter(n => n.type === 'factor' || n.data?.type === 'factor').length
   }, [nodes])
 
+  // ----- Coaching chip cluster (shared between Standard popover and Detailed inline) -----
+  // All option AI chips live here. Body never renders chips directly.
+  const optionChips = useMemo(() => {
+    const optionLabel = (props.data?.label as string) ?? 'this option'
+    if (isPostAnalysis) {
+      if (isBaselineOption) {
+        // Baseline chips already pre-existed inside layer2Content; keep them.
+        return (
+          <div className="flex gap-1 flex-wrap mt-1.5">
+            <NodeChip label="Why does this win/lose?" message={`Why does the status quo (${optionLabel}) win or lose compared to other options?`} />
+            <NodeChip label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
+          </div>
+        )
+      }
+      if (isRecommended) {
+        return (
+          <div className="flex gap-1 flex-wrap mt-1.5">
+            <NodeChip label="What would change this?" message={`What would need to change for ${optionLabel} to no longer be the best choice?`} />
+            <NodeChip label="Why does this lead?" message={`Why does ${optionLabel} lead over the other options?`} />
+          </div>
+        )
+      }
+      // Non-winner, non-baseline
+      if (displayMetadata.winRate !== null) {
+        return (
+          <div className="flex gap-1 flex-wrap mt-1.5">
+            {closeCallGapPp != null && (
+              <NodeChip
+                label="What would change this?"
+                message={`What would need to change for ${optionLabel} to become the leader?`}
+              />
+            )}
+            <NodeChip label="What would make this lead?" message={`What would need to change for ${optionLabel} to lead?`} />
+          </div>
+        )
+      }
+      return null
+    }
+    // Pre-analysis: only non-baseline gets a chip
+    if (!isBaselineOption) {
+      return (
+        <div className="flex gap-1 flex-wrap mt-1.5">
+          <NodeChip label="What could go wrong?" message={`What could go wrong if we choose ${optionLabel}?`} />
+        </div>
+      )
+    }
+    return null
+  }, [isPostAnalysis, isBaselineOption, isRecommended, displayMetadata.winRate, closeCallGapPp, props.data])
+
   // ----- Layer 2 content (shared between popover and Detailed inline) -----
   const layer2Content = useMemo(() => (
     <>
@@ -678,10 +727,6 @@ export const OptionNode = memo((props: NodeProps) => {
               {Math.round((displayMetadata.winRate ?? 0) * 100)}% win rate across simulations
             </p>
           )}
-          <div className="mt-1 flex gap-1 flex-wrap">
-            <NodeChip label="Why does this win/lose?" message={`Why does the status quo (${(props.data?.label as string) ?? 'keep current'}) win or lose compared to other options?`} />
-            <NodeChip label="Risks of inaction" message="What are the risks of choosing to do nothing?" />
-          </div>
         </>
       )}
 
@@ -690,8 +735,12 @@ export const OptionNode = memo((props: NodeProps) => {
           <BriefIcon />
         </div>
       )}
+
+      {/* Coaching chips — Standard view: live in popover; Detailed view: live
+          in this inline layer-2 block. Body never renders chips directly. */}
+      {optionChips}
     </>
-  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data])
+  ), [isPostAnalysis, goalProbability, handleGoalReviewClick, interventionChips, isBaselineOption, baselineOptionInterventions, isOptionFromCee, props.data, displayMetadata.winRate, optionChips])
 
   // ----- Pre-analysis popover content -----
   const preAnalysisPopoverContent = useMemo(() => {
@@ -709,6 +758,7 @@ export const OptionNode = memo((props: NodeProps) => {
     if (totalInterventionCount === 0) return (
       <>
         <p className={`${typography.nodeLabel} text-text-body m-0`}>No interventions specified for this option.</p>
+        {optionChips}
       </>
     )
 
@@ -736,9 +786,10 @@ export const OptionNode = memo((props: NodeProps) => {
             })}
           </div>
         )}
+        {optionChips}
       </>
     )
-  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, props.data])
+  }, [isPostAnalysis, isBaselineOption, totalInterventionCount, interventionChips, props.data, optionChips])
 
   // Completeness assessment for Detailed pre-analysis view
   const completenessText = useMemo(() => {
@@ -875,36 +926,9 @@ export const OptionNode = memo((props: NodeProps) => {
           />
         )}
 
-        {/* Coaching chips (winner, post-analysis) */}
-        {isPostAnalysis && isRecommended && (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip label="What would change this?" message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to no longer be the best choice?`} />
-            <NodeChip label="Why does this lead?" message={`Why does ${(props.data?.label as string) ?? 'this option'} lead over the other options?`} />
-          </div>
-        )}
-
-        {/* Coaching chip (non-winner, non-baseline, post-analysis).
-            Graph v2 Task 4: close-call options also surface "What would
-            change this?" alongside "What would make this lead?" so the user
-            has a quick path to interrogate the gap. */}
-        {isPostAnalysis && !isRecommended && !isBaselineOption && displayMetadata.winRate !== null && (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            {closeCallGapPp != null && (
-              <NodeChip
-                label="What would change this?"
-                message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to become the leader?`}
-              />
-            )}
-            <NodeChip label="What would make this lead?" message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to lead?`} />
-          </div>
-        )}
-
-        {/* Pre-analysis: coaching chip for all options */}
-        {!isPostAnalysis && !isBaselineOption && (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip label="What could go wrong?" message={`What could go wrong if we choose ${(props.data?.label as string) ?? 'this option'}?`} />
-          </div>
-        )}
+        {/* Coaching chips moved into popover (Standard) / Detailed inline
+            layer-2. See `optionChips` useMemo above and the popover branches
+            at the bottom of this file. */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) ===== */}
         {showLayer2Inline && !isPostAnalysis && !isBaselineOption && (
@@ -935,6 +959,9 @@ export const OptionNode = memo((props: NodeProps) => {
             {completenessText && (
               <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>{completenessText}</p>
             )}
+            {/* Coaching chips inline (Detailed pre-analysis) — Standard renders
+                them in the popover instead. */}
+            {optionChips}
           </>
         )}
 

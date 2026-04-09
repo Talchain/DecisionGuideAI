@@ -76,6 +76,15 @@ export const RiskNode = memo((props: NodeProps) => {
   // Top factor for actionable guidance
   const topFactor = inboundConnections.length > 0 ? inboundConnections[0] : null
 
+  // Coaching chips — same pair in both phases. Body never renders chips
+  // directly; they live in popovers (Standard) or inline in Detailed view.
+  const riskChips = useMemo(() => (
+    <div className="flex gap-1 flex-wrap mt-1.5">
+      <NodeChip label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
+      <NodeChip label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
+    </div>
+  ), [cleanedLabel])
+
   // Severity badge (Detailed view, independent of isPostAnalysis — derived from node probability/impact)
   const detailedMetrics = severity ? (
     <div
@@ -193,16 +202,9 @@ export const RiskNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Coaching chips — Polish 4 Task 4: shown both pre- and post-analysis
-            so risk nodes are actionable during model building, not just after
-            results. Polish 4 Task 7 chip audit: max 2 chips. */}
-        <>
-          <Sep />
-          <div className="flex gap-1 flex-wrap mt-0.5">
-            <NodeChip label="What reduces this?" message={`What factors or actions could reduce ${cleanedLabel || 'this risk'}?`} />
-            <NodeChip label="Add mitigation" message={`Suggest a mitigation strategy for ${cleanedLabel || 'this risk'}`} />
-          </div>
-        </>
+        {/* Coaching chips moved to popovers — see `riskChips` useMemo above
+            and the popover branches at the bottom of this file. In Detailed
+            view they appear inline beneath layer-2 content. */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4. Severity badge is a
@@ -225,6 +227,10 @@ export const RiskNode = memo((props: NodeProps) => {
           </>
         )}
 
+        {/* Detailed view: coaching chips inline (Standard renders them in
+            the popovers below). */}
+        {isDetailed && riskChips}
+
         {typeof props.data?.description === 'string' && props.data.description && (
           <div className={`${typography.nodeLabel} opacity-70 mt-1`}>
             {props.data.description}
@@ -243,11 +249,14 @@ export const RiskNode = memo((props: NodeProps) => {
         >
           {detailedMetrics}
           {layer2ContentPost}
+          {riskChips}
         </NodePopover>
       )}
 
-      {/* ===== LAYER 2: Popover (Standard view, pre-analysis, desktop hover) ===== */}
-      {!isDetailed && !isPostAnalysis && preAnalysisInbound.length > 0 && (
+      {/* ===== LAYER 2: Popover (Standard view, pre-analysis, desktop hover) =====
+          Always renders in pre-analysis Standard so the coaching chips have
+          a home, even when there are no inbound factors yet. */}
+      {!isDetailed && !isPostAnalysis && (
         <NodePopover
           visible={showPopover}
           width={240}
@@ -256,6 +265,7 @@ export const RiskNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {preAnalysisPopoverContent}
+          {riskChips}
         </NodePopover>
       )}
     </div>

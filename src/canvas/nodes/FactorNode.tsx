@@ -341,6 +341,43 @@ export const FactorNode = memo((props: NodeProps) => {
     return edges.filter(e => e.source === props.id).length
   }, [edges, props.id])
 
+  // ----- Coaching chip cluster -----
+  // Computed once, then injected into preAnalysisLayer2 (so it appears in
+  // both the high-priority Standard popover and the Detailed inline render),
+  // and into a dedicated needsInput popover branch for low-priority cases.
+  // The body never renders chips directly.
+  const factorChips = useMemo(() => {
+    if (isPostAnalysis) return null
+    const chips: React.ReactNode[] = []
+    if (needsInput) {
+      chips.push(
+        <NodeChip
+          key="estimate"
+          label="Help me estimate this"
+          message={`Help me estimate a reasonable value for ${cleanedLabel}`}
+        />
+      )
+    } else if (nodeCategory === 'external') {
+      chips.push(
+        <NodeChip
+          key="external-change"
+          label="What if this changes?"
+          message={`What if ${cleanedLabel} changes? How should I plan for that?`}
+        />
+      )
+    } else if (isInferred) {
+      chips.push(
+        <NodeChip
+          key="evidence"
+          label="What evidence supports this?"
+          message={`What evidence supports my assumption about ${cleanedLabel}?`}
+        />
+      )
+    }
+    if (chips.length === 0) return null
+    return <div className="flex gap-1 flex-wrap mt-1.5">{chips}</div>
+  }, [isPostAnalysis, needsInput, nodeCategory, isInferred, cleanedLabel])
+
   // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
 
   // Graph v2 Task 3: per-option comparison table block. Rendered ONLY inside
@@ -415,11 +452,11 @@ export const FactorNode = memo((props: NodeProps) => {
           ))}
         </>
       )}
-      {/* Polish 4 review: pre-analysis coaching chips removed from the
-          popover to honour the chip audit table — the body now carries the
-          single canonical chip ("What evidence supports this?" for top-3
-          inferred factors). Explicit factors get no chip per the audit. */}
-      {/* "What if this changes?" chip is in the node body for external factors — not duplicated here */}
+      {/* Coaching chips — moved out of body. They appear here in the
+          high-priority Standard popover and in the Detailed inline render
+          (which uses preAnalysisLayer2 too). For low-priority needsInput
+          standalone, see the dedicated needsInput popover branch below. */}
+      {factorChips}
       {/* Detailed pre-analysis: uncertainty drivers */}
       {isDetailed && observedState?.uncertainty_drivers && observedState.uncertainty_drivers.length > 0 && (
         <>
@@ -576,13 +613,6 @@ export const FactorNode = memo((props: NodeProps) => {
           <div className={`${typography.edgeLabel} mt-0.5 text-text-light`}>{priorRangeDisplay}</div>
         )}
 
-        {/* Needs input: chip only (no body text per spec) */}
-        {needsInput && !isPostAnalysis && (
-          <div className="mt-1.5">
-            <NodeChip label="Help me estimate this" message={`Help me estimate a reasonable value for ${cleanedLabel}`} />
-          </div>
-        )}
-
         {/* Pre-analysis: edge pills (entity shape + strength %) — shown for both
             high- and low-priority factors per wireframe v4 FactorLowPre. They are
             the structural cue that conveys relative influence pre-analysis. */}
@@ -590,23 +620,9 @@ export const FactorNode = memo((props: NodeProps) => {
           <EdgePills nodeId={props.id} />
         )}
 
-        {/* Pre-analysis: external factor coaching chip — quieted on low-priority
-            Standard view. */}
-        {!isPostAnalysis && nodeCategory === 'external' && (isDetailed || isHighPriority) && (
-          <div className="mt-1.5">
-            <NodeChip label="What if this changes?" message={`What if ${cleanedLabel} changes? How should I plan for that?`} />
-          </div>
-        )}
-
-        {/* Polish 4 Task 7 chip audit: top-3 inferred (non-external) factors
-            get an evidence chip in the body in pre-analysis Standard. Detailed
-            view leaves this to the inline Layer 2 content. Low-priority and
-            explicit factors render no chip per the audit table. */}
-        {!isPostAnalysis && !isDetailed && isHighPriority && isInferred && nodeCategory !== 'external' && !needsInput && (
-          <div className="mt-1.5">
-            <NodeChip label="What evidence supports this?" message={`What evidence supports my assumption about ${cleanedLabel}?`} />
-          </div>
-        )}
+        {/* Coaching chips ("Help me estimate this", "What if this changes?",
+            "What evidence supports this?") moved to popovers — see
+            `factorChips` useMemo above and the popover branches below. */}
 
         {/* Post-analysis: synthesised coaching line (Graph v1.1 Task 3).
             Standard view only, top-ranked factors only. Detailed view keeps
@@ -717,7 +733,8 @@ export const FactorNode = memo((props: NodeProps) => {
           option-comparison table is genuinely useful regardless of rank — a
           low-leverage cost factor that all options change differently is
           exactly where comparison helps. External factors stay suppressed
-          (gated by renderOptionValuesBlock’s nodeCategory check). */}
+          (gated by renderOptionValuesBlock’s nodeCategory check). The chip
+          cluster appears beneath the table when both are present. */}
       {!isDetailed && isLowPriority && hasOptionValues && (
         <NodePopover
           visible={showPopover}
@@ -727,6 +744,25 @@ export const FactorNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {renderOptionValuesBlock(false)}
+          {factorChips}
+        </NodePopover>
+      )}
+
+      {/* Coaching-chip popover for low-priority factors that have NO option
+          comparison table to host the chip (external factors, needs-input,
+          and inferred-controllable with no recorded option interventions).
+          Without this branch the body would be the only home for the chip
+          on these low-priority cases — but the brief is explicit that AI
+          chips live in popovers, never in the body. */}
+      {!isDetailed && isLowPriority && !hasOptionValues && factorChips && (
+        <NodePopover
+          visible={showPopover}
+          width={240}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
+        >
+          {factorChips}
         </NodePopover>
       )}
     </div>

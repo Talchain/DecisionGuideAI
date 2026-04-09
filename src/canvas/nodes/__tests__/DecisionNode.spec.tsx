@@ -51,6 +51,16 @@ vi.mock('../../../hooks/useISLValidation', () => ({
   useISLValidation: vi.fn(() => ({ data: null })),
 }))
 
+// Make NodePopover transparent in tests so we can directly assert what its
+// content would render. The real popover is hidden by a 300ms hover delay
+// and a position-tracking guard, neither of which fire in jsdom without a
+// real anchor measurement.
+vi.mock('../shared/NodePopover', () => ({
+  NodePopover: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="decision-node-popover">{children}</div>
+  ),
+}))
+
 import { useCanvasStore } from '../../store'
 
 const baseProps = {

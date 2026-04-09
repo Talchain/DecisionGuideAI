@@ -136,6 +136,20 @@ export const OutcomeNode = memo((props: NodeProps) => {
     </>
   ) : null
 
+  // Coaching chip (pre-analysis only) — moved out of body. Lives in the
+  // pre-analysis popover (Standard) or inline in Detailed view.
+  const outcomeChips = useMemo(() => {
+    if (isPostAnalysis) return null
+    return (
+      <div className="flex gap-1 flex-wrap mt-1.5">
+        <NodeChip
+          label="What strengthens this?"
+          message={`What upstream factors strengthen ${(props.data?.label as string) ?? 'this outcome'}?`}
+        />
+      </div>
+    )
+  }, [isPostAnalysis, props.data])
+
   // Achievement metric (Detailed view) — diagnostic indicator distinct from
   // the Layer 1 contribution percentage (which is bridge weight to goal).
   const detailedMetrics = displayMetadata.achievementProbability !== null ? (
@@ -184,17 +198,9 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Polish 4 Task 4: pre-analysis outcome chip — gives the user one
-            actionable next step during model building. Single chip per the
-            audit table; popover handles the rest post-analysis. */}
-        {!isPostAnalysis && (
-          <div className="flex gap-1 flex-wrap mt-1.5">
-            <NodeChip
-              label="What strengthens this?"
-              message={`What upstream factors strengthen ${(props.data?.label as string) ?? 'this outcome'}?`}
-            />
-          </div>
-        )}
+        {/* Coaching chip moved to popover — see `outcomeChips` useMemo and
+            popover branches below. In Detailed view it appears inline beneath
+            the pre-analysis driver list. */}
 
         {/* ===== LAYER 2: Detailed inline (only in Detailed view) =====
             Graph v1.1 Task 4: align with wireframe v4 OutcomePostDet —
@@ -219,6 +225,10 @@ export const OutcomeNode = memo((props: NodeProps) => {
           </>
         )}
 
+        {/* Detailed pre-analysis: coaching chip inline (Standard renders it
+            in the popover below). */}
+        {isDetailed && outcomeChips}
+
       </BaseNode>
 
       {/* ===== LAYER 2: Popover (Standard view, post-analysis, desktop hover) ===== */}
@@ -234,8 +244,10 @@ export const OutcomeNode = memo((props: NodeProps) => {
         </NodePopover>
       )}
 
-      {/* ===== LAYER 2: Popover (Standard view, pre-analysis, desktop hover) ===== */}
-      {!isDetailed && !isPostAnalysis && preAnalysisInbound.length > 0 && (
+      {/* ===== LAYER 2: Popover (Standard view, pre-analysis, desktop hover) =====
+          Always renders in pre-analysis Standard so the coaching chip has a
+          home, even when there are no inbound factors yet. */}
+      {!isDetailed && !isPostAnalysis && (
         <NodePopover
           visible={showPopover}
           width={240}
@@ -244,6 +256,7 @@ export const OutcomeNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {preAnalysisPopoverContent}
+          {outcomeChips}
         </NodePopover>
       )}
     </div>

@@ -118,11 +118,15 @@ export const GoalNode = memo((props: NodeProps) => {
   // Whether to show Layer 2 inline (Detailed view)
   const showLayer2Inline = isDetailed
 
-  // Layer 2 content exists when there's anything to show (stability, constraints, warning)
+  // Layer 2 content exists when there's anything to show (stability,
+  // constraints, warning) OR when post-analysis chips need a home (every
+  // post-analysis goal with a threshold gets at least the "Is my target
+  // realistic?" coaching chip).
   const hasLayer2 = (
     stabilityValue !== null ||
     (activeConstraints && activeConstraints.length > 0) ||
-    hasConstraintDefaultWarning
+    hasConstraintDefaultWarning ||
+    (hasThreshold && isPostAnalysis)
   )
 
   // Popover trigger: only for goals with threshold, post-analysis
@@ -174,13 +178,16 @@ export const GoalNode = memo((props: NodeProps) => {
         </p>
       )}
 
-      {/* Polish 4 review: removed the popover "Is my target realistic?"
-          chip — the body now carries it post-analysis. The state-specific
-          "Why is this so low?" chip stays because it only fires for the
-          low-probability state and isn't represented elsewhere. */}
-      {hasThreshold && displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+      {/* Coaching chips — moved out of body. "Why is this so low?" only
+          fires when the achievement probability is critically low; "Is my
+          target realistic?" applies to every post-analysis goal with a
+          threshold. */}
+      {hasThreshold && (
         <div className="flex gap-1 flex-wrap mt-1.5">
-          <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
+          {displayMetadata.achievementProbability !== null && displayMetadata.achievementProbability < 0.10 && (
+            <NodeChip label="Why is this so low?" message="Why is the probability of reaching my goal target so low? What are the main drivers?" />
+          )}
+          <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
         </div>
       )}
     </>
@@ -279,21 +286,18 @@ export const GoalNode = memo((props: NodeProps) => {
           </p>
         )}
 
-        {/* Polish 4 Task 7: chip audit. Goal (with target) chip per the table:
-              Pre  -> "Run analysis"
-              Post -> "Is my target realistic?"
-            "Identify risks" was removed because it isn't in the audit table —
-            risk discovery belongs on the Decision node. */}
+        {/* Pre-analysis primary CTA: "Run analysis". This stays in the body
+            because it's a primary action button rather than coaching — moving
+            it to a hover popover would make it nearly undiscoverable for
+            first-time users. */}
         {hasThreshold && !isPostAnalysis && (
           <div className="mt-1.5">
             <NodeChip label="Run analysis" message="Run the analysis now" />
           </div>
         )}
-        {hasThreshold && isPostAnalysis && (
-          <div className="mt-1.5">
-            <NodeChip label="Is my target realistic?" message="Is my current goal target realistic given the factors in my model? What would be a more achievable target?" />
-          </div>
-        )}
+
+        {/* Coaching chip "Is my target realistic?" moved to popover (Standard)
+            / Detailed inline layer-2. See `layer2Content` above. */}
 
         {/* Layer 2: inline in Detailed view */}
         {showLayer2Inline && layer2Content}
