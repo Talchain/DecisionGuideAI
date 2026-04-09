@@ -779,20 +779,18 @@ export function PreAnalysisPanel({
       aiDiscuss = { kind: 'factor', label: item.label }
     }
 
-    // Attach editorConfig for factor items with set_value or confirm action.
-    // Inferred-zero items (detail === 'Not set') always get an editor — but
-    // rawValue is passed as null so the input renders empty with placeholder
-    // "Set value" rather than pre-filling with the misleading sentinel 0.
+    // Attach editorConfig for every factor item with set_value or confirm action,
+    // regardless of whether rawValue/value is present. When both are null (including
+    // inferred-zero "Not set" items) rawValue is passed as null so the input renders
+    // empty with placeholder text rather than pre-filling with a misleading value.
     const targetId = item.action?.targetId
     const numericValue = item.rawValue ?? item.value ?? null
-    const isInferredZeroItem = item.detail === 'Not set'
-    if (targetId && item.focus?.type === 'node' && (numericValue != null || isInferredZeroItem) && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
+    if (targetId && item.focus?.type === 'node' && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
       return {
         ...mapped,
         editorConfig: {
           kind: 'factor' as const,
-          // Pass null for inferred zeros so the input is empty (placeholder shows).
-          rawValue: isInferredZeroItem ? null : numericValue,
+          rawValue: numericValue,
           cap: item.cap ?? null,
           unit: item.unit ?? null,
           onSave: (rawValue: number) => handleInlineEditValue(targetId, rawValue, item.cap ?? null),

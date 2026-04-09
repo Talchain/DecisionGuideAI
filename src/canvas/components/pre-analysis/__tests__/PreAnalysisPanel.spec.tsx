@@ -1023,6 +1023,74 @@ describe('PreAnalysisPanel', () => {
     })
   })
 
+  describe('Inline editor regression — always present for factor triage cards', () => {
+    it('renders an inline editor for a factor card with a numeric rawValue', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        triageActions: {
+          top3: [{
+            key: 'verify_fac_a',
+            category: 'verify',
+            label: 'Market Size',
+            detail: '500 engineers',
+            focus: { type: 'node', id: 'fac_a', label: 'Market Size' },
+            action: { label: 'Confirm', kind: 'confirm', targetId: 'fac_a', targetType: 'node' },
+            rawValue: 500,
+            unit: 'engineers',
+            cap: null,
+            sourceBadge: 'brief',
+          }],
+          quickFix: [],
+        },
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByRole('spinbutton', { name: /Market Size/i })).toBeInTheDocument()
+    })
+
+    it('renders an inline editor for a factor card with null rawValue and null value', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        triageActions: {
+          top3: [{
+            key: 'verify_fac_b',
+            category: 'verify',
+            label: 'Churn Rate',
+            detail: 'Estimated',
+            focus: { type: 'node', id: 'fac_b', label: 'Churn Rate' },
+            action: { label: 'Confirm', kind: 'confirm', targetId: 'fac_b', targetType: 'node' },
+            rawValue: null,
+            unit: null,
+            cap: null,
+            sourceBadge: 'ai',
+          }],
+          quickFix: [],
+        },
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByRole('spinbutton', { name: /Churn Rate/i })).toBeInTheDocument()
+    })
+
+    it('renders an inline editor for an inferred-zero factor card (detail === "Not set")', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        triageActions: {
+          top3: [{
+            key: 'verify_fac_c',
+            category: 'verify',
+            label: 'Direct Delivery Capacity',
+            detail: 'Not set',
+            focus: { type: 'node', id: 'fac_c', label: 'Direct Delivery Capacity' },
+            action: { label: 'Confirm', kind: 'confirm', targetId: 'fac_c', targetType: 'node' },
+            rawValue: 0,
+            unit: 'scale',
+            cap: null,
+            sourceBadge: 'ai',
+          }],
+          quickFix: [],
+        },
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByRole('spinbutton', { name: /Direct Delivery Capacity/i })).toBeInTheDocument()
+    })
+  })
+
   describe('Negative acceptance criteria (v6 wireframe)', () => {
     beforeEach(() => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
