@@ -431,6 +431,40 @@ describe('Render matrix — OptionNode × view × phase', () => {
     expect(screen.getByText('Close call: within 1 percentage point')).toBeDefined()
   })
 
+  it('Standard post non-leader, sub-percent gap (0.4pp): floor at 1pp, never reads "0 percentage points"', () => {
+    // Gap of 0.004 → Math.round → 0; floor clamps to 1pp so the line never
+    // reads the awkward "within 0 percentage points" phrasing.
+    applyStore({
+      viewMode: 'standard',
+      phase: 'post',
+      nodes: [
+        { id: 'option-1', type: 'option', data: { label: 'Aggressive plan', type: 'option' } },
+        { id: 'option-2', type: 'option', data: { label: 'Conservative plan', type: 'option' } },
+      ],
+      edges: [],
+      report: {
+        robustness: { recommended_option_id: 'option-2' },
+        option_probabilities: {
+          'option-1': { win_probability: 0.496 },
+          'option-2': { win_probability: 0.500 },
+        },
+      },
+    })
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.496,
+      isResultsMode: true,
+    } as any)
+    renderOption({})
+    expect(screen.getByText('Close call: within 1 percentage point')).toBeDefined()
+    expect(screen.queryByText(/within 0 percentage point/)).toBeNull()
+  })
+
   it('Standard post close-call: "What would change this?" chip is added alongside "What would make this lead?"', () => {
     applyStore(closeCallTopology(3))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({

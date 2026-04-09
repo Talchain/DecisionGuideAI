@@ -213,6 +213,32 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(within(popover).getByText('2 more in inspector')).toBeDefined()
   })
 
+  it('Post Standard: status quo (is_baseline) row reads "no change" even when its intervention equals the baseline value', () => {
+    applyStore({
+      viewMode: 'standard',
+      phase: 'post',
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: baseFactorData },
+        { id: 'option-1', type: 'option', data: { type: 'option', label: 'Hire', interventions: { 'factor-1': 60000 } } },
+        // Baseline option carries an explicit intervention that equals the
+        // factor's current value (50000). Brief specifies the row reads "no
+        // change" — the value is semantically identical to no intervention.
+        { id: 'option-sq', type: 'option', data: { type: 'option', label: 'Stay', is_baseline: true, interventions: { 'factor-1': 50000 } } },
+      ],
+      report: {
+        robustness: { recommended_option_id: 'option-1' },
+        option_probabilities: {
+          'option-1': { win_probability: 0.7 },
+          'option-sq': { win_probability: 0.3 },
+        },
+      },
+    })
+    renderFactor(baseFactorData)
+    const popover = screen.getByTestId('factor-node-popover')
+    const stayRow = within(popover).getByText('Stay').parentElement!
+    expect(stayRow.lastElementChild?.textContent).toBe('no change')
+  })
+
   it('Post Standard: option that does not intervene on this factor shows "no change"', () => {
     applyStore({
       viewMode: 'standard',

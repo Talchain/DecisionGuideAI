@@ -190,7 +190,10 @@ export const FactorNode = memo((props: NodeProps) => {
 
     const rows = visibleRows.map(r => {
       let displayValue: string
-      if (!r.hasIntervention) {
+      if (r.isStatusQuo || !r.hasIntervention) {
+        // Status quo rows always read "no change" — matches the brief example
+        // ("○ No New Hire   no change") even when an explicit intervention
+        // value is present that happens to equal the baseline.
         displayValue = 'no change'
       } else if (r.value != null) {
         const formatted = formatInterventionValue(

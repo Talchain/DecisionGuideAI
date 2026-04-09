@@ -147,7 +147,11 @@ export const OptionNode = memo((props: NodeProps) => {
     if (leaderWin == null) return null
     const gap = leaderWin - thisWin
     if (gap < 0 || gap > 0.05) return null
-    return Math.round(gap * 100)
+    // Floor to at least 1pp so the line never reads "within 0 percentage
+    // points". A truly zero gap is already filtered by the isRecommended
+    // early return (within-0.0001 tolerance), but rounding can still produce
+    // 0 from a small positive gap like 0.004.
+    return Math.max(1, Math.round(gap * 100))
   }, [isPostAnalysis, isRecommended, resultsReport, props.id])
 
   const interventionChips = useMemo<InterventionChip[]>(() => {

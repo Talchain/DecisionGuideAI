@@ -32,16 +32,12 @@ function truncateAtWord(text: string, maxLength: number): string {
 // ---- Model readiness helpers ----
 
 interface ModelReadiness {
-  gapCount: number
-  estimateCount: number
-  biasCount: number
-  // breakdown for popover / detailed view
+  // breakdown consumed by the pre-analysis popover and triage line
   explicitCount: number
   inferredCount: number
   missingCount: number
   externalCount: number
   biasTriggers: string[]
-  totalFactors: number
 }
 
 function useModelReadiness(decisionId: string): ModelReadiness {
@@ -94,20 +90,12 @@ function useModelReadiness(decisionId: string): ModelReadiness {
     })
     if (hasInferredFactor) biasTriggers.push('Overconfidence: top factor unvalidated')
 
-    const gapCount = missingCount
-    const estimateCount = inferredCount
-    const biasCount = biasTriggers.length
-
     return {
-      gapCount,
-      estimateCount,
-      biasCount,
       explicitCount,
       inferredCount,
       missingCount,
       externalCount,
       biasTriggers,
-      totalFactors: factorNodes.length,
     }
   }, [nodes, edges, decisionId])
 }

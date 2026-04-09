@@ -626,8 +626,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         }}
       />
       
-      {/* Causal lens: numeric parameter label (strength.mean + exists_probability) */}
-      {lensMode === 'causal' && causalEdgeParams && (
+      {/* Causal lens: numeric parameter label (strength.mean + exists_probability).
+          Structural edges have no causal parameters to show. */}
+      {lensMode === 'causal' && causalEdgeParams && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -654,8 +655,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Evidence lens: provenance label */}
-      {lensMode === 'evidence' && evidenceEdgeClass && (
+      {/* Evidence lens: provenance label.
+          Structural edges aren't evidence-classified. */}
+      {lensMode === 'evidence' && evidenceEdgeClass && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -676,8 +678,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Direction sign indicator: Detailed view, post-analysis only */}
-      {viewMode !== 'standard' && isResultsMode && direction && lensMode !== 'causal' && (
+      {/* Direction sign indicator: Detailed view, post-analysis only.
+          Structural edges have no semantic direction — exclude defensively. */}
+      {viewMode !== 'standard' && isResultsMode && direction && lensMode !== 'causal' && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -700,7 +703,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
       {/* Decision Graph Display v2 Task 4: Fragile edge warning badge (Results mode, Model view only) */}
       {/* Decision view: no fragile badges (Phase 1) */}
-      {viewMode !== 'standard' && isFragileEdge && (
+      {/* Structural edges are not analysed — fragility is meaningless. */}
+      {viewMode !== 'standard' && isFragileEdge && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -728,7 +732,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
       {/* Graph Lens: Alternative winner label on fragile edges (hover/selection only) */}
       {/* Correction #2: component-local state, no store update, no rerender of other edges */}
-      {isLensFragile && (isHovered || selected) && (
+      {/* Structural edges are not part of the fragility lens. */}
+      {isLensFragile && (isHovered || selected) && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
@@ -828,8 +833,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* Context menu: Assumption flag badge on edge */}
-      {data?.flagged_as_assumption && (
+      {/* Context menu: Assumption flag badge on edge.
+          Structural edges aren't user assumptions — exclude defensively. */}
+      {data?.flagged_as_assumption && !isStructuralEdge && (
         <EdgeLabelRenderer>
           <div
             style={{
