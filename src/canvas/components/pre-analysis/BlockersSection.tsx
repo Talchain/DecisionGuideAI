@@ -1,7 +1,7 @@
 /**
  * BlockersSection — Structured blocker cards for pre-analysis panel.
  *
- * Renders "Fix before running" section with count badge for blocking items,
+ * Renders "Address before analysis" section with count badge for blocking items,
  * and a separate "Notes" section for informational (non-blocking) items.
  *
  * Constraint_dropped items are grouped into a single collapsible card
@@ -41,7 +41,7 @@ interface BlockersSectionProps {
   /** Edit brief callback — opens DraftChat for re-phrasing */
   onEditBrief: () => void
   /**
-   * Hide the inline "Fix before running" header. Used when the parent renders
+   * Hide the inline "Address before analysis" header. Used when the parent renders
    * its own section header (e.g. v2 panel "Must fix"), so this component
    * contributes its blocker cards without a duplicate header.
    */
@@ -138,14 +138,14 @@ export function BlockersSection({
 
   return (
     <div className="space-y-2" data-testid="blockers-section">
-      {/* Blocking items — "Fix before running" header (suppressed when parent renders its own) */}
+      {/* Blocking items — "Address before analysis" header (suppressed when parent renders its own) */}
       {blockers.length > 0 && (
         <>
           {/* Section header with count badge — hidden when parent supplies a header */}
           {!hideHeader && (
             <div className="flex items-center gap-2">
               <span className={`${typography.panelHeader} text-danger`}>
-                Fix before running
+                Address before analysis
               </span>
               <span className={`inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full bg-transparent border border-danger/30 text-text-body ${typography.panelMeta}`}>
                 {blockers.length}

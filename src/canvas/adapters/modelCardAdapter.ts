@@ -104,7 +104,7 @@ export function fieldPathToLabel(fieldPath: string | undefined, nodes?: Node[]):
     .replace(/_/g, ' ')
 }
 
-const FIELD_LABELS: Record<string, string> = {
+export const FIELD_LABELS: Record<string, string> = {
   exists_probability: 'Existence probability',
   strength_mean: 'Strength',
   strength_std: 'Strength uncertainty',

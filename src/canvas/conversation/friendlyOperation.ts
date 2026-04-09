@@ -1,0 +1,215 @@
+/**
+ * friendlyOperation.ts
+ *
+ * Converts raw PatchOperation data into human-readable strings for display
+ * in the AI conversation panel. Raw node/edge IDs must NEVER appear in
+ * rendered UI — this module provides the guaranteed fallback chain.
+ *
+ * Label resolution priority (per element):
+ *   1. proposalItem.elementLabel (CEE-provided label on the payload)
+ *   2. op.data.label             (for add_node, where label is in the data)
+ *   3. relatedElements lookup    (CEE-provided related_elements array)
+ *   4. nodeLabels / edgeEndpoints (memoised canvas store read, built per render)
+ *   5. GENERIC_BY_OP fallback    (human text — never the raw ID)
+ */
+
+import { FIELD_LABELS } from '../adapters/modelCardAdapter'
+import type { PatchOperation, ProposalReviewItem, RelatedElementRef } from './types'
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
+
+/** Regex for detecting raw element IDs that must never reach rendered UI. */
+export const RAW_ID_PATTERN = /\b(?:opt|fac|goal|dec|out|risk|con)_[a-z0-9_]+/i
+
+/** Human-readable generic fallback when label resolution fails entirely. */
+const GENERIC_BY_OP: Record<PatchOperation['op'], string> = {
+  add_node:    'Add factor',
+  update_node: 'Update factor',
+  remove_node: 'Remove factor',
+  add_edge:    'Add connection',
+  update_edge: 'Update connection',
+  remove_edge: 'Remove connection',
+}
+
+/**
+ * Deterministic priority order for update_node: which changed key to surface.
+ * Do NOT rely on Object.keys() iteration order — it is engine-dependent.
+ */
+const UPDATE_FIELD_PRIORITY: readonly string[] = [
+  'label',
+  'kind',
+  'category',
+  'observedState',
+  'observed_state',
+  'strength',
+  'strength_mean',
+  'weight',
+  'direction',
+  'prior',
+]
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns a display-friendly label for a raw field key.
+ * Looks up FIELD_LABELS (single source of truth), falls back to camelCase
+ * alias resolution then basic humanisation.
+ */
+export function friendlyFieldName(key: string): string {
+  if (FIELD_LABELS[key]) return FIELD_LABELS[key]
+  // Alias camelCase canvas keys → snake_case entries in FIELD_LABELS
+  const snake = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase()
+  if (FIELD_LABELS[snake]) return FIELD_LABELS[snake]
+  return snake.replace(/_/g, ' ').replace(/^./, (c) => c.toUpperCase())
+}
+
+/**
+ * Returns the first changed key from `data` according to UPDATE_FIELD_PRIORITY,
+ * then any remaining keys (excluding `id`), sorted for determinism.
+ */
+export function firstChangedKey(
+  data: Record<string, unknown> | undefined,
+): string | undefined {
+  if (!data) return undefined
+  for (const k of UPDATE_FIELD_PRIORITY) {
+    if (k in data) return k
+  }
+  const rest = Object.keys(data)
+    .filter((k) => k !== 'id')
+    .sort()
+  return rest[0]
+}
+
+// ---------------------------------------------------------------------------
+// describeOperation
+// ---------------------------------------------------------------------------
+
+export interface DescribeOpDeps {
+  /** CEE-provided proposal item for this operation (may carry elementLabel). */
+  proposalItem?: ProposalReviewItem
+  /** CEE-provided related elements array for this patch block. */
+  relatedElements?: RelatedElementRef[]
+  /**
+   * Pre-built map of node ID → display label, built once per render from
+   * the canvas store. Avoids per-operation store subscriptions.
+   */
+  nodeLabels: Map<string, string>
+  /**
+   * Pre-built map of edge ID → { from, to } source/target node IDs, built
+   * once per render. Resolve display labels via nodeLabels.
+   */
+  edgeEndpoints: Map<string, { from: string; to: string }>
+}
+
+/** Resolve a node's display label using the 4-tier fallback chain. */
+function resolveNodeLabel(
+  id: string,
+  deps: DescribeOpDeps,
+  opData?: Record<string, unknown>,
+): string {
+  // 1. CEE payload label
+  if (deps.proposalItem?.elementLabel && !RAW_ID_PATTERN.test(deps.proposalItem.elementLabel)) {
+    return deps.proposalItem.elementLabel
+  }
+  // 2. label field in operation data (add_node carries it)
+  if (opData?.label && typeof opData.label === 'string' && !RAW_ID_PATTERN.test(opData.label)) {
+    return opData.label
+  }
+  // 3. related_elements lookup
+  const related = deps.relatedElements?.find(
+    (r) => r.node_id === id && r.label && !RAW_ID_PATTERN.test(r.label),
+  )
+  if (related?.label) return related.label
+  // 4. memoised canvas store read
+  const storeLabel = deps.nodeLabels.get(id)
+  if (storeLabel && storeLabel.trim() && !RAW_ID_PATTERN.test(storeLabel)) return storeLabel
+  // 5. Generic fallback — never the raw ID
+  return ''
+}
+
+/** Resolve an edge's display label as "fromLabel → toLabel". */
+function resolveEdgeLabel(
+  id: string,
+  deps: DescribeOpDeps,
+  opData?: Record<string, unknown>,
+): { from: string; to: string } {
+  // From memoised edge endpoints
+  const ep = deps.edgeEndpoints.get(id)
+  if (ep) {
+    return {
+      from: deps.nodeLabels.get(ep.from) ?? '',
+      to: deps.nodeLabels.get(ep.to) ?? '',
+    }
+  }
+  // For add_edge, source/target are in op.data
+  const src = typeof opData?.source === 'string' ? opData.source : ''
+  const tgt = typeof opData?.target === 'string' ? opData.target : ''
+  return {
+    from: (src && deps.nodeLabels.get(src)) ?? '',
+    to: (tgt && deps.nodeLabels.get(tgt)) ?? '',
+  }
+}
+
+/**
+ * Returns a human-readable description of a single patch operation.
+ *
+ * Output uses markdown `**bold**` for element names — the existing
+ * ReactMarkdown / safeRichText rendering pipeline preserves it.
+ *
+ * Raw IDs are never emitted. The GENERIC_BY_OP map provides the final
+ * safety net.
+ */
+export function describeOperation(op: PatchOperation, deps: DescribeOpDeps): string {
+  const generic = GENERIC_BY_OP[op.op]
+
+  switch (op.op) {
+    case 'add_node': {
+      const label = resolveNodeLabel(op.target_id, deps, op.data)
+      if (!label) return generic
+      const kind = typeof op.data.kind === 'string' ? op.data.kind : ''
+      const kindSuffix = kind ? ` (${kind})` : ''
+      return `Add **${label}**${kindSuffix}`
+    }
+
+    case 'update_node': {
+      const label = resolveNodeLabel(op.target_id, deps, op.data)
+      const field = firstChangedKey(op.data)
+      if (!label) return generic
+      if (!field) return `Update **${label}**`
+      return `Update **${label}**: ${friendlyFieldName(field)}`
+    }
+
+    case 'remove_node': {
+      const label = resolveNodeLabel(op.target_id, deps, op.data)
+      if (!label) return generic
+      return `Remove **${label}**`
+    }
+
+    case 'add_edge': {
+      const { from, to } = resolveEdgeLabel(op.target_id, deps, op.data)
+      if (!from && !to) return generic
+      return `Connect **${from || '?'}** → **${to || '?'}**`
+    }
+
+    case 'update_edge': {
+      const { from, to } = resolveEdgeLabel(op.target_id, deps, op.data)
+      const field = firstChangedKey(op.data)
+      if (!from && !to) return generic
+      const base = `Update connection **${from || '?'}** → **${to || '?'}**`
+      return field ? `${base}: ${friendlyFieldName(field)}` : base
+    }
+
+    case 'remove_edge': {
+      const { from, to } = resolveEdgeLabel(op.target_id, deps, op.data)
+      if (!from && !to) return generic
+      return `Disconnect **${from || '?'}** → **${to || '?'}**`
+    }
+
+    default:
+      return generic
+  }
+}

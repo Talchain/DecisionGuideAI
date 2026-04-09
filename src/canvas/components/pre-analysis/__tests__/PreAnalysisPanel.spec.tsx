@@ -292,7 +292,7 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /fix issues/i })).toHaveTextContent('Analyse now')
+      expect(screen.getByRole('button', { name: /address issues/i })).toHaveTextContent('Analyse now')
     })
 
     it('shows "Analysing..." when isAnalysing is true', () => {
@@ -314,7 +314,7 @@ describe('PreAnalysisPanel', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: false, hasBlockers: true }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /fix issues/i })).toBeDisabled()
+      expect(screen.getByRole('button', { name: /address issues/i })).toBeDisabled()
     })
 
     it('shows "Analyse now" CTA (disabled) when isReady=false and hasBlockers=false', () => {
@@ -904,9 +904,9 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Should show "Notes" section, not "Fix before running"
+      // Should show "Notes" section, not "Address before analysis"
       expect(screen.getByText('Notes')).toBeInTheDocument()
-      expect(screen.queryByText('Fix before running')).not.toBeInTheDocument()
+      expect(screen.queryByText('Address before analysis')).not.toBeInTheDocument()
 
       // Should show the grouped constraint card
       expect(screen.getByTestId('constraint-group-card')).toBeInTheDocument()
@@ -1071,7 +1071,7 @@ describe('PreAnalysisPanel', () => {
     // The compact ModelHealthCard renders the bucket-derived headline at
     // data-testid="model-health-card-headline". Precedence:
     //   1. ceeAnalysisReady.coaching_summary (CEE override)
-    //   2. First Must fix item label → "[label]. Fix before running."
+    //   2. First Must fix item label → "[label]. Address before analysis."
     //   3. First Review next item label → "[label] has the biggest impact. Review before running."
     //   4. Improve confidence has actionable cards → "Ready to run. [N] checks would improve results."
     //   5. Else → "Ready to run."
@@ -1105,7 +1105,7 @@ describe('PreAnalysisPanel', () => {
       ],
     })
 
-    it('renders "[Must fix label]. Fix before running." when Must fix has items', () => {
+    it('renders "[Must fix label]. Address before analysis." when Must fix has items', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         ...cleanBaselineMock(),
         isReady: false,
@@ -1124,7 +1124,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const headline = screen.getByTestId('model-health-card-headline')
-      expect(headline).toHaveTextContent('Add baseline option. Fix before running.')
+      expect(headline).toHaveTextContent('Add baseline option. Address before analysis.')
     })
 
     it('renders "Ready to run. N checks would improve results." in clean ready state with quick-fix cards', () => {

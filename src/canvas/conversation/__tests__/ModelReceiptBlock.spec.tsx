@@ -100,7 +100,7 @@ describe('ModelReceiptBlock', () => {
     const { rerender } = render(
       <ModelReceiptBlock data={{ ...fullData, readiness: 'blocked' }} />,
     )
-    expect(screen.getByText('Blocked')).toBeInTheDocument()
+    expect(screen.getByText('Needs attention')).toBeInTheDocument()
 
     rerender(
       <ModelReceiptBlock data={{ ...fullData, readiness: 'incomplete' }} />,

@@ -1181,8 +1181,8 @@ export function PreAnalysisPanel({
         ?? (noBaselineCheck ? 'No baseline set' : null)
         // 2c. Critical fix triage cards (rendered last)
         ?? mustFixCards[0]?.title
-      if (firstFix) return `${firstFix}. Fix before running.`
-      return 'Fix before running.'
+      if (firstFix) return `${firstFix}. Address before analysis.`
+      return 'Address before analysis.'
     }
 
     // 3. Review next — match the rendered display order.

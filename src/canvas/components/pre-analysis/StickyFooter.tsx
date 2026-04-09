@@ -1,7 +1,7 @@
 /**
  * StickyFooter - 48px bar pinned to bottom of panel
  *
- * Left: CheckCircle/XCircle/Loader icon + "Ready"/"Blocked"/"Checking"
+ * Left: CheckCircle/XCircle/Loader icon + "Ready"/"Needs attention"/"Checking"
  *       · X/Y reviewed (with source-distribution tooltip)
  * Right: CTA button(s)
  *   - Primary: "Analyse Now" (brand green, pill shape)
@@ -97,7 +97,7 @@ export function StickyFooter({
   } else if (hasBlockers) {
     StatusIcon = XCircle
     statusIconColor = 'text-danger'
-    statusText = 'Blocked'
+    statusText = 'Needs attention'
   } else {
     StatusIcon = AlertTriangle
     statusIconColor = 'text-warning'
@@ -141,13 +141,13 @@ export function StickyFooter({
           : isAnalysing
             ? 'Analysis in progress'
             : hasBlockers
-              ? `Fix issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
+              ? `Address issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
               : !isReady
                 ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
                 : 'Run analysis'
       }
       actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
-        ? (blockedReason || 'Complete required actions before analysing')
+        ? (blockedReason || 'Address required items before analysing')
         : 'Run 1,000 Monte Carlo simulations with uncertainty margins to compare your options'}
     />
   )

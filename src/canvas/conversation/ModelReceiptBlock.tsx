@@ -22,7 +22,7 @@ function readinessPill(readiness: ModelReceiptData['readiness']) {
     case 'ready':
       return { text: 'Ready', className: 'text-success border border-success/30 bg-transparent' }
     case 'blocked':
-      return { text: 'Blocked', className: 'text-danger border border-danger/30 bg-transparent' }
+      return { text: 'Needs attention', className: 'text-danger border border-danger/30 bg-transparent' }
     case 'incomplete':
       return { text: 'Needs review', className: 'text-warning border border-warning/30 bg-transparent' }
     default:

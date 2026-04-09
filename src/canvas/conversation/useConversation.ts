@@ -350,21 +350,32 @@ export function stripDiagnostics(text: string): string {
 
 /** Build a user-facing error message from a caught error */
 export function buildErrorMessage(err: unknown): string {
+  // Always log structured detail for development console output (never rendered).
+  if (err instanceof OrchestratorError) {
+    if (import.meta.env.DEV) {
+      console.warn('[orchestrator] error', {
+        status: err.status,
+        requestId: err.requestId,
+        body: err.body,
+      })
+    }
+  }
   if (!(err instanceof OrchestratorError)) {
     return 'Something went wrong. Try again or rephrase your message.'
   }
-  const ref = err.requestId ? ` [ref: ${err.requestId}]` : ''
+  // DEV-only ref suffix to aid debugging; never in production bundles.
+  const ref = import.meta.env.DEV && err.requestId ? ` [ref: ${err.requestId}]` : ''
   switch (true) {
     case err.status === 401:
       return `Authentication error.${ref} Please refresh and try again.`
     case err.status === 429:
       return `Too many requests.${ref} Please wait a moment and try again.`
     case err.status === 400:
-      return `Request error (400).${ref} Try rephrasing your message.`
+      return `Request error.${ref} Try rephrasing your message.`
     case err.status !== undefined && err.status >= 500:
-      return `Service temporarily unavailable (${err.status}).${ref} Please try again shortly.`
+      return `Service temporarily unavailable.${ref} Please try again shortly.`
     default:
-      return `Something went wrong (${err.status}).${ref} Try again or rephrase your message.`
+      return `Something went wrong.${ref} Try again or rephrase your message.`
   }
 }
 

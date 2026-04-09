@@ -34,7 +34,7 @@ export function GuideTopBar(): JSX.Element {
       case 'building':
         return { label: 'Building Model', variant: 'info' }
       case 'pre-run-blocked':
-        return { label: 'Blocked', variant: 'error' }
+        return { label: 'Needs attention', variant: 'error' }
       case 'pre-run-ready':
         return { label: 'Ready to Run', variant: 'success' }
       case 'post-run':

@@ -52,9 +52,16 @@ function sanitiseFactorIds(text: string, labelMap: Map<string, string>): string 
 /** Character threshold for applying progressive disclosure. */
 const CLAMP_CHAR_THRESHOLD = 600
 /** Minimum characters that must be hidden for truncation to be worthwhile. */
-const MIN_HIDDEN_CHARS = 100
+const MIN_HIDDEN_CHARS = 150
 /** Minimum sentences that must be hidden for truncation to be worthwhile. */
 const MIN_HIDDEN_SENTENCES = 3
+/**
+ * Maximum distance a paragraph break can sit before CLAMP_CHAR_THRESHOLD and
+ * still be used as the cut point. If the nearest \n\n is more than 100 chars
+ * before the threshold we skip it (too aggressive) and fall through to the
+ * sentence-end path instead.
+ */
+const MAX_PARA_BREAK_DISTANCE = 100
 
 /** Count sentences in text (heuristic: split on .!? followed by space or end). */
 function countSentences(text: string): number {
@@ -75,9 +82,16 @@ export function findNaturalTruncation(text: string): string | null {
     return hiddenText.length >= MIN_HIDDEN_CHARS || countSentences(hiddenText) >= MIN_HIDDEN_SENTENCES
   }
 
-  // 1. Try last paragraph break (\n\n) before limit
+  // 1. Try last paragraph break (\n\n) before limit, but only when it sits
+  //    within MAX_PARA_BREAK_DISTANCE chars of the threshold. A break that is
+  //    far before the threshold would truncate too aggressively; in that case
+  //    fall through to the sentence-end path for a more accurate cut.
   const paraIdx = text.lastIndexOf('\n\n', CLAMP_CHAR_THRESHOLD)
-  if (paraIdx > 0 && isWorthHiding(paraIdx)) {
+  if (
+    paraIdx > 0 &&
+    CLAMP_CHAR_THRESHOLD - paraIdx <= MAX_PARA_BREAK_DISTANCE &&
+    isWorthHiding(paraIdx)
+  ) {
     return text.slice(0, paraIdx)
   }
 
@@ -220,11 +234,13 @@ export const MessageBubble = memo(function MessageBubble({
       {truncatedContent && (
         <button
           type="button"
-          className={styles.showMoreTextToggle}
+          className={styles.inlineDisclosureToggle}
           onClick={() => setExpanded(v => !v)}
           data-testid="message-show-more"
+          aria-expanded={expanded}
+          aria-label={expanded ? 'Show less of this message' : 'Show more of this message'}
         >
-          {expanded ? <><ChevronUp size={14} /> Show less</> : <><ChevronDown size={14} /> Show more</>}
+          {expanded ? <><ChevronUp size={12} /> Show less</> : <><ChevronDown size={12} /> Show more</>}
         </button>
       )}
       {message.insights && message.insights.length > 0 && isDeterministicCeeEnabled() && (

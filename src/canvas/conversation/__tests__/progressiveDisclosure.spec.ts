@@ -4,7 +4,9 @@
  * Verifies:
  * 1. Messages under 600 chars show full text (no truncation)
  * 2. Messages over 600 chars truncate at a natural boundary
- * 3. Truncation respects minimum hidden content threshold (100 chars)
+ * 3. Truncation respects minimum hidden content threshold (150 chars)
+ * 4. Paragraph-break guard: a break >100 chars before the threshold is skipped;
+ *    falls through to sentence-end path instead.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -21,20 +23,35 @@ describe('findNaturalTruncation', () => {
     expect(findNaturalTruncation(exactText)).toBeNull()
   })
 
-  it('truncates text over 600 chars at paragraph boundary', () => {
-    const para1 = 'Your model captures the core structural risks. ' // ~48 chars
-    const para2 = 'Here are the recommendations I would suggest for improvement. ' // ~62 chars
-    // Build text with paragraph break before 600 chars
-    const beforeBreak = (para1 + para2).repeat(4) // ~440 chars
-    const afterBreak = '\n\n' + 'Detailed recommendation content. '.repeat(10) // ~330+ chars
-    const fullText = beforeBreak + afterBreak
+  it('truncates text over 600 chars at paragraph boundary when break is within 100 chars of threshold', () => {
+    // Paragraph break at index 550, which is 50 chars before CLAMP_CHAR_THRESHOLD (600).
+    // 50 <= MAX_PARA_BREAK_DISTANCE (100) → guard passes.
+    // The hidden portion is 200+ chars of A's, well over MIN_HIDDEN_CHARS (150).
+    // Using all A's so no sentence endings exist in the hidden portion — ensuring
+    // the paragraph-break path is taken, not the sentence-end path.
+    const intro = 'A'.repeat(550)               // 550 chars, no sentence endings
+    const hidden = '\n\n' + 'A'.repeat(200)     // 202 chars, no sentence endings
+    const fullText = intro + hidden
     expect(fullText.length).toBeGreaterThan(600)
 
     const result = findNaturalTruncation(fullText)
     expect(result).not.toBeNull()
-    expect(result!.length).toBeLessThanOrEqual(600)
-    // Should not include the paragraph break and content after it
-    expect(result).not.toContain('Detailed recommendation')
+    // Must cut at the paragraph break: result is the first 550 A's
+    expect(result).toBe(intro)
+  })
+
+  it('skips paragraph break when it is >100 chars before threshold (guard kicks in)', () => {
+    // Paragraph break at index 400 → 600 - 400 = 200 > MAX_PARA_BREAK_DISTANCE (100).
+    // Guard should skip this break. The function then falls through to sentence-end.
+    const intro = 'A'.repeat(400)               // 400 chars, no sentence endings
+    const hidden = '\n\n' + 'A'.repeat(300)     // 302 chars, no sentence endings
+    const fullText = intro + hidden
+    expect(fullText.length).toBeGreaterThan(600)
+
+    // No sentence endings exist anywhere in this text, so the sentence-end path
+    // also finds nothing. The function must return null (no valid cut point).
+    const result = findNaturalTruncation(fullText)
+    expect(result).toBeNull()
   })
 
   it('truncates at sentence boundary when no paragraph break available', () => {
@@ -60,23 +77,26 @@ describe('findNaturalTruncation', () => {
     }
   })
 
-  it('returns null when hidden content would be less than 100 chars', () => {
-    // Text just over 600 chars but only ~50 chars would be hidden
-    const mainText = 'A'.repeat(590) + '. '
-    const tail = 'Short tail.'  // ~11 chars, under MIN_HIDDEN_CHARS (100)
+  it('returns null when hidden content would be less than 150 chars', () => {
+    // Sentence boundary at ~590, only 60 chars hidden — below MIN_HIDDEN_CHARS (150).
+    // Use a long run of A's then a sentence ending, then short tail.
+    const mainText = 'A'.repeat(588) + '. '   // 590 chars, sentence end at pos 588
+    const tail = 'A'.repeat(60)               // 60 chars — below MIN_HIDDEN_CHARS
     const fullText = mainText + tail
     expect(fullText.length).toBeGreaterThan(600)
 
     const result = findNaturalTruncation(fullText)
-    // Should return null because hidden content is too short
+    // Should return null because hidden content (60 chars) < MIN_HIDDEN_CHARS (150)
     expect(result).toBeNull()
   })
 
-  it('truncates when hidden content exceeds 100 chars', () => {
-    // First 500 chars end with a sentence, then 200+ chars of content
-    const firstPart = 'Important intro content. '.repeat(20) // ~500 chars
-    const secondPart = 'Hidden detailed content that should be behind Show More toggle. '.repeat(4) // ~260 chars
-    const fullText = firstPart + secondPart
+  it('truncates when hidden content exceeds 150 chars', () => {
+    // Sentence boundary at ~400, then 250+ A's of content.
+    // 400 + 2 + 250 = 652 chars total. Hidden after sentence boundary = 250 chars ≥ 150.
+    // No paragraph breaks, so sentence-end path is used.
+    const intro = 'A'.repeat(398) + '. '       // 400 chars, sentence end at pos 398
+    const tail = 'A'.repeat(252)               // 252 chars — exceeds MIN_HIDDEN_CHARS (150)
+    const fullText = intro + tail
     expect(fullText.length).toBeGreaterThan(600)
 
     const result = findNaturalTruncation(fullText)

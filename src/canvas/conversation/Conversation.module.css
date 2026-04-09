@@ -30,14 +30,14 @@
   white-space: normal;
 }
 .markdownContent p {
-  margin: 0 0 8px;
+  margin: 0 0 14px;
 }
 .markdownContent p:last-child {
   margin-bottom: 0;
 }
 .markdownContent ul,
 .markdownContent ol {
-  margin: 4px 0 8px;
+  margin: 6px 0 12px;
   padding-left: 16px;
 }
 .markdownContent li {
@@ -351,12 +351,11 @@
   gap: 8px;
 }
 
-/* DS v5 conversation override (Paul, 7 Apr 2026): when a graph patch is
-   applied, swap the full border to success/30. The "Changes applied" eyebrow
-   text + Check icon also signal success but the border colour reinforces it
-   without re-introducing a coloured top bar. */
+/* When a patch is applied the border reverts to the same neutral as the default
+   patch block. Status is signalled by the muted "Changes applied" eyebrow text
+   + Check icon; a second colour channel is redundant (DS v5 §21.2). */
 .graphPatchBlockApplied {
-  border-color: color-mix(in srgb, var(--success, #67C89E) 30%, transparent);
+  border-color: var(--border-default, #EEE6D8);
 }
 
 .graphPatchHeader {
@@ -373,18 +372,15 @@
 }
 
 .graphPatchProposalEyebrow {
-  /* DS v5 §21.2 + Paul's 7 Apr 2026 override: block type is signalled by
-     the full goal/30 border + dot. Eyebrow heading uses neutral text-header,
-     not a second status colour. */
-  color: var(--text-header, #262626);
+  /* DS v5 §21.2: block type signalled by the goal/30 border + dot. Eyebrow
+     uses muted secondary text — no second status colour. */
+  color: var(--text-secondary, #6B6B6A);
   font-weight: 600;
-  letter-spacing: 0.02em;
 }
 
 .graphPatchReceiptEyebrow {
-  color: var(--success, #67C89E);
+  color: var(--text-secondary, #6B6B6A);
   font-weight: 600;
-  letter-spacing: 0.02em;
 }
 
 .graphPatchSummary {
@@ -505,7 +501,7 @@
 
 .graphPatchStatusApplied {
   composes: graphPatchStatus;
-  color: var(--success, #67C89E);
+  color: var(--text-secondary, #6B6B6A);
 }
 
 .graphPatchStatusRejected {
@@ -561,6 +557,34 @@
 
 .graphPatchShowDetails:hover {
   text-decoration: underline;
+}
+
+/* Unified inline disclosure toggle — used by MessageBubble "Show more",
+   GraphPatch "Show details", and OperationRationale "More/Less" buttons.
+   Spec: DS v5 §21.3 — 11px panelMeta, info-blue, no underline on hover. */
+.inlineDisclosureToggle {
+  font-family: inherit;
+  font-size: 11px; /* typography.panelMeta */
+  line-height: 1.4;
+  font-weight: 400;
+  color: var(--info, #52A3C8);
+  background: none;
+  border: none;
+  text-decoration: none;
+  cursor: pointer;
+  padding: 4px 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.inlineDisclosureToggle:hover {
+  text-decoration: none;
+  opacity: 0.85;
+}
+.inlineDisclosureToggle:focus-visible {
+  outline: 2px solid var(--info, #52A3C8);
+  outline-offset: 2px;
+  border-radius: 2px;
 }
 
 /* ---------------------------------------------------------------------------

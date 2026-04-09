@@ -47,10 +47,10 @@ describe('GuideTopBar', () => {
     expect(screen.getByText('Building Model')).toBeInTheDocument()
   })
 
-  it('should show "Blocked" badge when pre-run-blocked', () => {
+  it('should show "Needs attention" badge when pre-run-blocked', () => {
     useGuideStore.setState({ journeyStage: 'pre-run-blocked' })
     render(<GuideTopBar />)
-    expect(screen.getByText('Blocked')).toBeInTheDocument()
+    expect(screen.getByText('Needs attention')).toBeInTheDocument()
   })
 
   it('should show "Ready to Run" badge when pre-run-ready', () => {

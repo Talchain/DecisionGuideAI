@@ -44,6 +44,8 @@ import { generateGraphHash } from '../utils/graphHash'
 import { resolvePatchBlockState } from './selectors'
 import { safeRichText, plainTextPreview, normaliseDashes } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
+import { describeOperation, RAW_ID_PATTERN } from './friendlyOperation'
+import type { DescribeOpDeps } from './friendlyOperation'
 import styles from './Conversation.module.css'
 
 // ---------------------------------------------------------------------------
@@ -107,7 +109,9 @@ function OperationRationale({ rationale }: { rationale: string }) {
       <button
         type="button"
         onClick={() => setExpanded(v => !v)}
-        className={`${typography.panelMeta} text-text-light inline-flex items-center gap-0.5 hover:text-text-body transition-colors`}
+        className={styles.inlineDisclosureToggle}
+        aria-expanded={expanded}
+        aria-label={expanded ? 'Show less rationale' : 'Show more rationale'}
       >
         {expanded
           ? <><ChevronUp size={12} aria-hidden="true" /> Less</>
@@ -927,7 +931,18 @@ function GraphPatchBlockRenderer({
   const isSettled = resolvedState !== 'proposed'
 
   const canvasNodes = useCanvasStore(s => s.nodes)
+  const canvasEdges = useCanvasStore(s => s.edges)
   const canvasNodeIds = useMemo(() => new Set(canvasNodes.map((n: { id: string }) => n.id)), [canvasNodes])
+  // Built once per render so N operations don't trigger N separate store lookups.
+  const nodeLabels = useMemo<Map<string, string>>(
+    () => new Map((canvasNodes ?? []).map((n) => [n.id, (n.data?.label as string) ?? ''])),
+    [canvasNodes],
+  )
+  // Built once per render; edge endpoints resolved via nodeLabels.
+  const edgeEndpoints = useMemo<Map<string, { from: string; to: string }>>(
+    () => new Map((canvasEdges ?? []).map((e) => [e.id, { from: e.source, to: e.target }])),
+    [canvasEdges],
+  )
   const opSummary = summarisePatchOps(block.operations)
   // Patch summary precedence: prefer CEE's semantic `block.summary` (coaching-grade
   // text) over the UI's count-based `opSummary` fallback. When both are empty the
@@ -966,19 +981,38 @@ function GraphPatchBlockRenderer({
   const hasRevealTargets = !isWholeGraphTarget && !isGenerativeDraft && (uniqueTargetNodeIds.length > 0 || edgeIds.length > 0)
   const isApplied = isAutoApplied || resolvedState === 'accepted'
   const statusLabel = 'Applied'
-  // For generative drafts with no backend proposal items, synthesize from operations
-  // so the "Show details" toggle still works
-  const proposalItems = rawProposalItems.length > 0
-    ? rawProposalItems
-    : isGenerativeDraft
-      ? block.operations
-          .filter(op => op.op === 'add_node')
-          .map(op => ({
-            description: (op.data?.label as string) ?? op.op,
-            elementLabel: (op.data?.kind as string) ?? '',
-            changeLabel: 'Add',
-          }))
-      : []
+  const relatedElements = block.related_elements
+
+  // proposalItems: prefer CEE backend items, sanitising any raw IDs in descriptions.
+  // For drafts/generative patches with no backend items, synthesize from all operations
+  // (not just add_node) so the "Show details" toggle always has content.
+  const proposalItems = useMemo<ProposalReviewItem[]>(() => {
+    if (rawProposalItems.length > 0) {
+      // Sanitise: replace raw IDs in description or elementLabel with friendly text.
+      return rawProposalItems.map((item, idx) => {
+        const op = block.operations[idx]
+        const deps: DescribeOpDeps = { proposalItem: item, relatedElements, nodeLabels, edgeEndpoints }
+        const descNeedsClean = RAW_ID_PATTERN.test(item.description)
+        const labelNeedsClean = item.elementLabel ? RAW_ID_PATTERN.test(item.elementLabel) : false
+        if (!descNeedsClean && !labelNeedsClean) return item
+        return {
+          ...item,
+          description: op ? describeOperation(op, deps) : item.description,
+          elementLabel: labelNeedsClean ? undefined : item.elementLabel,
+        }
+      })
+    }
+    // Synthesize from all operations for drafts or when backend omitted items.
+    return block.operations.map((op) => {
+      const deps: DescribeOpDeps = { relatedElements, nodeLabels, edgeEndpoints }
+      return {
+        description: describeOperation(op, deps),
+        elementLabel: typeof op.data?.kind === 'string' ? op.data.kind : undefined,
+        changeLabel: undefined,
+      }
+    })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawProposalItems, block.operations, relatedElements, nodeLabels, edgeEndpoints])
   const shouldCollapseProposalItems =
     proposalItems.length > 2
     || proposalItemsSource === 'derived_ops'
@@ -1091,9 +1125,10 @@ function GraphPatchBlockRenderer({
           {proposalItems.map((item, index) => (
             <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
               <div className={styles.graphPatchProposalCopy}>
-                <span className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}>
-                  {item.description}
-                </span>
+                <span
+                  className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}
+                  dangerouslySetInnerHTML={{ __html: safeRichText(item.description) }}
+                />
                 {item.elementLabel && (
                   <span className={`${typography.panelMeta} ${styles.graphPatchProposalLabel}`}>
                     {item.elementLabel}
@@ -1117,9 +1152,10 @@ function GraphPatchBlockRenderer({
         <div>
           <button
             type="button"
-            className={styles.graphPatchShowDetails}
+            className={styles.inlineDisclosureToggle}
             onClick={() => setShowProposalDetails((value) => !value)}
             aria-expanded={showProposalDetails}
+            aria-label={showProposalDetails ? 'Hide change details' : 'Show change details'}
             data-testid="patch-proposal-details-toggle"
           >
             {showProposalDetails
@@ -1131,9 +1167,10 @@ function GraphPatchBlockRenderer({
               {proposalItems.map((item, index) => (
                 <div key={`${item.description}-${index}`} className={styles.graphPatchProposalItem}>
                   <div className={styles.graphPatchProposalCopy}>
-                    <span className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}>
-                      {item.description}
-                    </span>
+                    <span
+                      className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}
+                      dangerouslySetInnerHTML={{ __html: safeRichText(item.description) }}
+                    />
                     {item.elementLabel && (
                       <span className={`${typography.panelMeta} ${styles.graphPatchProposalLabel}`}>
                         {item.elementLabel}
@@ -1212,8 +1249,10 @@ function GraphPatchBlockRenderer({
                   {rejectionInfo.violations.length > 1 && !showViolations && (
                     <button
                       type="button"
-                      className={styles.graphPatchShowDetails}
+                      className={styles.inlineDisclosureToggle}
                       onClick={() => setShowViolations(true)}
+                      aria-expanded={false}
+                      aria-label={`Show ${rejectionInfo.violations.length - 1} more violation details`}
                     >
                       Show {rejectionInfo.violations.length - 1} more
                     </button>
