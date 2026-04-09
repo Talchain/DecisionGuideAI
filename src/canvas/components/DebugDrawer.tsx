@@ -42,8 +42,14 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
   const debugRawCeeOutput = useCanvasStore((s) => s.debugRawCeeOutput)
   const setDebugRawCeeOutput = useCanvasStore((s) => s.setDebugRawCeeOutput)
 
-  // Keyboard shortcut: Cmd+Shift+D
+  // Keyboard shortcut: Cmd+Shift+D — gated to dev builds only.
+  // P0-3: in production this drawer would surface request IDs, response hashes,
+  // CEE trace data and other debug fields without an expert-mode toggle. There
+  // is currently no global expert-mode store to consult, so the safest fix is
+  // to make the drawer strictly dev-only. If a runtime expert toggle is added
+  // later, broaden this gate to `import.meta.env.DEV || expertMode`.
   useEffect(() => {
+    if (!import.meta.env.DEV) return
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key === 'd') {
         e.preventDefault()
@@ -63,6 +69,9 @@ export function DebugDrawer({ isOpen: externalIsOpen, onClose }: DebugDrawerProp
     setTimeout(() => setCopiedField(null), 2000)
   }, [])
 
+  // P0-3: belt-and-braces — never render in production even if external state
+  // tries to force the drawer open.
+  if (!import.meta.env.DEV) return null
   if (!isOpen) return null
 
   // Extract debug values - prioritize V1 fields over legacy
