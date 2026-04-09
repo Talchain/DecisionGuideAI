@@ -235,4 +235,28 @@ describe('StyledEdge — structural vs causal differentiation', () => {
     const style = (baseEdge as unknown as HTMLElement).style
     expect(style.stroke.toLowerCase()).not.toBe('#7a7a7a')
   })
+
+  it('explicit data.edge_type === "causal" overrides node-kind inference for option→factor', () => {
+    // option→factor would normally infer to structural. The explicit
+    // edge_type tag must win — the edge keeps causal styling and shows the
+    // hover popover.
+    nodeKinds.src = 'option'
+    nodeKinds.tgt = 'factor'
+
+    const { container } = render(
+      <StyledEdge
+        {...baseEdgeProps as any}
+        data={{ ...baseEdgeProps.data, edge_type: 'causal' }}
+      />
+    )
+
+    const baseEdge = container.querySelector('[data-testid="base-edge"]') as SVGPathElement | null
+    const style = (baseEdge as unknown as HTMLElement).style
+    // Causal: NOT the structural grey, NOT 1px
+    expect(style.stroke.toLowerCase()).not.toBe('#7a7a7a')
+    expect(parseFloat(style.strokeWidth)).toBeGreaterThan(1)
+    // Hitbox carries no native title (causal edges use the hover popover)
+    const hitPath = container.querySelector('path[stroke="transparent"]')
+    expect(hitPath!.querySelector('title')).toBeNull()
+  })
 })

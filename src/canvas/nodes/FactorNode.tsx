@@ -113,6 +113,10 @@ export const FactorNode = memo((props: NodeProps) => {
   //   pre:  canvas order → status quo last
   // Status quo detection prefers an explicit `is_baseline` flag, falling back
   // to an epsilon delta against the factor's current value.
+  //
+  // Data source: ceeAnalysisReady.options[id].interventions is canonical
+  // (CEE-normalised). Falls back to node.data.interventions when CEE has not
+  // synthesised yet — mirrors OptionNode.interventionChips.
   const optionComparisonRows = useMemo(() => {
     if (nodeCategory === 'external') return null
     const optionNodes = nodes.filter(n => (n.type === 'option') || (n.data?.type === 'option'))
@@ -135,7 +139,15 @@ export const FactorNode = memo((props: NodeProps) => {
     }
 
     const withMeta: Row[] = optionNodes.map(opt => {
-      const interventions = (opt.data as any)?.interventions as Record<string, unknown> | undefined
+      // Primary: ceeAnalysisReady (canonical post-CEE source)
+      const ceeOption = ceeAnalysisReady?.options?.find(o => o.id === opt.id)
+      let interventions: Record<string, unknown> | undefined
+      if (ceeOption?.interventions && typeof ceeOption.interventions === 'object') {
+        interventions = ceeOption.interventions as Record<string, unknown>
+      } else {
+        // Fallback: option node data.interventions (pre-CEE state)
+        interventions = (opt.data as any)?.interventions as Record<string, unknown> | undefined
+      }
       const raw = interventions?.[props.id]
       const hasIntervention = raw !== undefined
       const value = unwrapInterventionValue(raw)
@@ -200,7 +212,7 @@ export const FactorNode = memo((props: NodeProps) => {
     })
 
     return { rows, overflow }
-  }, [nodes, props.id, nodeCategory, isPostAnalysis, resultsReport, observedState])
+  }, [nodes, props.id, nodeCategory, isPostAnalysis, resultsReport, observedState, ceeAnalysisReady])
 
   // Contextual value display via formatFactorDisplayValue
   const valueDisplay = useMemo(() => {
@@ -328,35 +340,41 @@ export const FactorNode = memo((props: NodeProps) => {
 
   // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
 
-  // Graph v2 Task 3: per-option comparison table block. Rendered inside both
-  // pre and post layer 2, gated by `nodeCategory !== 'external'` and
-  // `optionComparisonRows && rows.length > 0`.
-  const optionValuesBlock = optionComparisonRows && optionComparisonRows.rows.length > 0 ? (
-    <>
-      <Sep />
-      <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Option values:</p>
-      <div className="space-y-0.5">
-        {optionComparisonRows.rows.map(row => (
-          <div key={row.id} className="flex items-center gap-1">
-            <div className="w-[10px] h-[10px] rounded-sm bg-option flex-shrink-0" />
-            <span className={`${typography.edgeLabel} text-text-body flex-1 truncate`}>
-              {row.label}
-            </span>
-            <span className={`${typography.edgeLabel} font-semibold text-right ${
-              row.displayValue === 'no change' ? 'text-text-light' : 'text-text-body'
-            }`}>
-              {row.displayValue}
-            </span>
-          </div>
-        ))}
-        {optionComparisonRows.overflow > 0 && (
-          <div className={`${typography.edgeLabel} text-info mt-0.5`}>
-            {optionComparisonRows.overflow} more in inspector
-          </div>
-        )}
-      </div>
-    </>
-  ) : null
+  // Graph v2 Task 3: per-option comparison table block. Rendered ONLY inside
+  // the Standard popover (never the inline Detailed body, never the node
+  // body), gated by `nodeCategory !== 'external'` and `optionComparisonRows`.
+  // The `withSep` flag controls whether a leading separator renders — true
+  // when stacked beneath other layer-2 content, false when the table is the
+  // popover's only content (low-priority controllable case).
+  const renderOptionValuesBlock = (withSep: boolean) =>
+    optionComparisonRows && optionComparisonRows.rows.length > 0 ? (
+      <>
+        {withSep && <Sep />}
+        <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Option values:</p>
+        <div className="space-y-0.5">
+          {optionComparisonRows.rows.map(row => (
+            <div key={row.id} className="flex items-center gap-1">
+              <div className="w-[10px] h-[10px] rounded-sm bg-option flex-shrink-0" />
+              <span className={`${typography.edgeLabel} text-text-body flex-1 truncate`}>
+                {row.label}
+              </span>
+              <span className={`${typography.edgeLabel} font-semibold text-right ${
+                row.displayValue === 'no change' ? 'text-text-light' : 'text-text-body'
+              }`}>
+                {row.displayValue}
+              </span>
+            </div>
+          ))}
+          {optionComparisonRows.overflow > 0 && (
+            <div className={`${typography.edgeLabel} text-info mt-0.5`}>
+              {optionComparisonRows.overflow} more in inspector
+            </div>
+          )}
+        </div>
+      </>
+    ) : null
+
+  const hasOptionValues = optionComparisonRows != null && optionComparisonRows.rows.length > 0
 
   const preAnalysisLayer2 = !isPostAnalysis ? (
     <>
@@ -394,7 +412,6 @@ export const FactorNode = memo((props: NodeProps) => {
           ))}
         </>
       )}
-      {optionValuesBlock}
       {/* Polish 4 review: pre-analysis coaching chips removed from the
           popover to honour the chip audit table — the body now carries the
           single canonical chip ("What evidence supports this?" for top-3
@@ -466,7 +483,6 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         </>
       )}
-      {optionValuesBlock}
     </>
   ) : null
 
@@ -688,6 +704,26 @@ export const FactorNode = memo((props: NodeProps) => {
           anchorRef={nodeElRef}
         >
           {layer2Content}
+          {renderOptionValuesBlock(true)}
+        </NodePopover>
+      )}
+
+      {/* Graph v2 Task 3: low-priority controllable factors get a table-only
+          popover. The Graph v1.1 quietening rules suppress the full layer 2
+          (bars / ConnRows / coaching) for low-priority factors, but the
+          option-comparison table is genuinely useful regardless of rank — a
+          low-leverage cost factor that all options change differently is
+          exactly where comparison helps. External factors stay suppressed
+          (gated by renderOptionValuesBlock’s nodeCategory check). */}
+      {!isDetailed && isLowPriority && hasOptionValues && (
+        <NodePopover
+          visible={showPopover}
+          width={240}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
+        >
+          {renderOptionValuesBlock(false)}
         </NodePopover>
       )}
     </div>

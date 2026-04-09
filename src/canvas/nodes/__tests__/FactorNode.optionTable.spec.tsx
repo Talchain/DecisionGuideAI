@@ -59,6 +59,7 @@ interface StoreState {
   nodes: Array<Record<string, unknown>>
   edges?: Array<Record<string, unknown>>
   report?: Record<string, unknown> | null
+  ceeAnalysisReady?: { options?: Array<{ id: string; interventions: Record<string, unknown> }> } | null
 }
 
 function buildStoreState(s: StoreState) {
@@ -66,7 +67,7 @@ function buildStoreState(s: StoreState) {
     hoveredOptionId: null,
     nodes: s.nodes,
     edges: s.edges ?? [],
-    ceeAnalysisReady: null,
+    ceeAnalysisReady: s.ceeAnalysisReady ?? null,
     results: {
       status: s.phase === 'post' ? 'complete' : 'idle',
       report: s.phase === 'post' ? (s.report ?? {}) : null,
@@ -266,12 +267,143 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(valueSpan?.textContent).toMatch(/^[A-Z]/) // Capitalised tier label
   })
 
-  it('Post Detailed: popover NOT rendered (existing high-priority gate is Standard-only)', () => {
+  it('Post Detailed: popover NOT rendered AND "Option values:" does NOT leak into the inline body', () => {
     applyStore({
       viewMode: 'expert',
       phase: 'post',
       nodes: [
         { id: 'factor-1', type: 'factor', data: baseFactorData },
+        { id: 'option-1', type: 'option', data: { type: 'option', label: 'Hire', interventions: { 'factor-1': 60000 } } },
+        { id: 'option-2', type: 'option', data: { type: 'option', label: 'Wait', interventions: { 'factor-1': 40000 } } },
+      ],
+      report: {
+        robustness: { recommended_option_id: 'option-1' },
+        option_probabilities: {
+          'option-1': { win_probability: 0.7 },
+          'option-2': { win_probability: 0.3 },
+        },
+      },
+    })
+    renderFactor(baseFactorData)
+    // Detailed view inlines layer2 in the body, not in the popover. The
+    // popover wrapper is gated `!isDetailed && isHighPriority` so it does
+    // not render at all in Detailed view.
+    expect(screen.queryByTestId('factor-node-popover')).toBeNull()
+    // Brief: "Standard popover only. Do NOT add to node body or Detailed
+    // inline." The comparison table must not leak into the Detailed inline
+    // layer 2 either.
+    expect(screen.queryByText('Option values:')).toBeNull()
+  })
+
+  it('Pre Detailed: comparison table does NOT render in the inline body', () => {
+    applyStore({
+      viewMode: 'expert',
+      phase: 'pre',
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: baseFactorData },
+        { id: 'option-1', type: 'option', data: { type: 'option', label: 'Hire 3', interventions: { 'factor-1': 60000 } } },
+        { id: 'option-2', type: 'option', data: { type: 'option', label: 'Hire 1', interventions: { 'factor-1': 40000 } } },
+      ],
+    })
+    renderFactor(baseFactorData)
+    expect(screen.queryByTestId('factor-node-popover')).toBeNull()
+    expect(screen.queryByText('Option values:')).toBeNull()
+  })
+
+  it('Post Standard, low-priority controllable factor: table-only popover still renders the comparison table', () => {
+    // Drop sensitivityRank below 3 → low priority. The full Layer 2 (bars,
+    // ConnRows, coaching) is suppressed by the existing isHighPriority gate,
+    // but the comparison table popover surfaces because the table is useful
+    // regardless of rank.
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: 5, // not top-3
+      influence: 0.1,
+      confidence: 0.1,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+    } as any)
+    applyStore({
+      viewMode: 'standard',
+      phase: 'post',
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: baseFactorData },
+        { id: 'option-1', type: 'option', data: { type: 'option', label: 'Hire 3', interventions: { 'factor-1': 60000 } } },
+        { id: 'option-2', type: 'option', data: { type: 'option', label: 'Hire 1', interventions: { 'factor-1': 40000 } } },
+      ],
+      report: {
+        robustness: { recommended_option_id: 'option-1' },
+        option_probabilities: {
+          'option-1': { win_probability: 0.7 },
+          'option-2': { win_probability: 0.3 },
+        },
+      },
+    })
+    renderFactor(baseFactorData)
+    const popover = screen.getByTestId('factor-node-popover')
+    expect(within(popover).getByText('Option values:')).toBeDefined()
+    expect(within(popover).getByText('Hire 3')).toBeDefined()
+    expect(within(popover).getByText('Hire 1')).toBeDefined()
+  })
+
+  it('Post Standard: ceeAnalysisReady.options.interventions wins over node.data.interventions', () => {
+    // Node data has stale/empty interventions; ceeAnalysisReady has the
+    // canonical post-CEE values. The table must reflect ceeAnalysisReady.
+    applyStore({
+      viewMode: 'standard',
+      phase: 'post',
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: baseFactorData },
+        { id: 'option-1', type: 'option', data: { type: 'option', label: 'Hire 3', interventions: {} } },
+        { id: 'option-2', type: 'option', data: { type: 'option', label: 'Hire 1' /* no node interventions at all */ } },
+      ],
+      ceeAnalysisReady: {
+        options: [
+          { id: 'option-1', interventions: { 'factor-1': 60000 } },
+          { id: 'option-2', interventions: { 'factor-1': 40000 } },
+        ],
+      },
+      report: {
+        robustness: { recommended_option_id: 'option-1' },
+        option_probabilities: {
+          'option-1': { win_probability: 0.7 },
+          'option-2': { win_probability: 0.3 },
+        },
+      },
+    })
+    renderFactor(baseFactorData)
+    const popover = screen.getByTestId('factor-node-popover')
+    // Both options must show formatted values from ceeAnalysisReady, NOT
+    // "no change" (which is what the node-data-only path would have produced).
+    expect(within(popover).queryByText('no change')).toBeNull()
+    // The £ formatted values from formatInterventionValue should appear.
+    // Look for the row containing "Hire 3" and assert its sibling value cell
+    // is not the empty fallback.
+    const hire3Row = within(popover).getByText('Hire 3').parentElement!
+    const hire3Value = hire3Row.lastElementChild!.textContent!
+    expect(hire3Value).not.toBe('no change')
+    expect(hire3Value).not.toBe('set')
+  })
+
+  it('Post Standard, low-priority external factor: NO popover (external factors stay suppressed)', () => {
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: 5,
+      influence: 0.1,
+      confidence: 0.1,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: true,
+    } as any)
+    const externalFactor = { ...baseFactorData, category: 'external' }
+    applyStore({
+      viewMode: 'standard',
+      phase: 'post',
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: externalFactor },
         { id: 'option-1', type: 'option', data: { type: 'option', label: 'Hire', interventions: { 'factor-1': 60000 } } },
       ],
       report: {
@@ -279,10 +411,9 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
         option_probabilities: { 'option-1': { win_probability: 0.7 } },
       },
     })
-    renderFactor(baseFactorData)
-    // Detailed view inlines layer2 in the body, not in the popover. The
-    // popover wrapper is gated `!isDetailed && isHighPriority` so it does
-    // not render at all in Detailed view.
+    renderFactor(externalFactor)
+    // The optionComparisonRows useMemo returns null for external factors, so
+    // hasOptionValues is false and the low-priority popover does not render.
     expect(screen.queryByTestId('factor-node-popover')).toBeNull()
   })
 

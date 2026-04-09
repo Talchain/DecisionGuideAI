@@ -408,16 +408,14 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // Detect structural (non-causal) edges. Covers decision→option (organisational
   // wiring) and option→factor (intervention edges). Resolution order:
-  //   1. Explicit data.edge_type === 'structural' wins
-  //   2. Explicit 'bidirected' / 'confounder' → not structural (special path)
-  //   3. Otherwise infer from source / target node kinds
+  //   1. Any explicit data.edge_type wins over node-kind inference
+  //      - 'structural' → structural
+  //      - any other recognised value (causal/directed/bidirected/confounder) → not structural
+  //   2. Otherwise infer from source / target node kinds
   // Returns the tooltip text differentiated by sub-type so the hitbox can
   // attach a native browser tooltip.
   const { isStructuralEdge, structuralTooltip } = useMemo(() => {
     const explicit = (data as Record<string, unknown> | undefined)?.edge_type as string | undefined
-    if (explicit === 'bidirected' || explicit === 'confounder') {
-      return { isStructuralEdge: false, structuralTooltip: null }
-    }
     const srcKind = sourceNode?.type || (sourceNode?.data as Record<string, unknown>)?.kind
     const tgtKind = targetNode?.type || (targetNode?.data as Record<string, unknown>)?.kind
     if (explicit === 'structural') {
@@ -430,6 +428,13 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       }
       return { isStructuralEdge: true, structuralTooltip: 'Structural link (not analysed)' }
     }
+    // Any other explicit edge_type disables structural inference. This means a
+    // graph that has tagged option→factor edges as 'causal' (overriding the
+    // default intervention semantics) keeps full causal styling.
+    if (explicit != null && explicit !== '') {
+      return { isStructuralEdge: false, structuralTooltip: null }
+    }
+    // No explicit value — infer from node kinds.
     if (srcKind === 'decision' && tgtKind === 'option') {
       return { isStructuralEdge: true, structuralTooltip: 'Option of this decision' }
     }
