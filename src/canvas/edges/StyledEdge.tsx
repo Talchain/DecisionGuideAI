@@ -47,8 +47,9 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 
 // Structural edge grey — brief constant, not a theme token. Used for the
 // thin 1px solid stroke on decision→option and option→factor edges so they
-// recede visually next to causal edges.
-const STRUCTURAL_EDGE_COLOUR = '#7A7A7A'
+// recede visually next to causal edges. Exported so tests track the colour
+// via the constant rather than a hard-coded literal.
+export const STRUCTURAL_EDGE_COLOUR = '#B8B8B8'
 
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()

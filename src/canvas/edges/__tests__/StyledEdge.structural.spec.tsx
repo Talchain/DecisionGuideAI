@@ -9,8 +9,10 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, fireEvent, act } from '@testing-library/react'
-import { StyledEdge } from '../StyledEdge'
+import { StyledEdge, STRUCTURAL_EDGE_COLOUR } from '../StyledEdge'
 import { Position } from '@xyflow/react'
+
+const STRUCTURAL_GREY = STRUCTURAL_EDGE_COLOUR.toLowerCase()
 
 // ── Node kind registry — switched per-test ───────────────────────────────────
 const nodeKinds: Record<string, string> = {}
@@ -150,7 +152,7 @@ describe('StyledEdge — structural vs causal differentiation', () => {
     expect(style.strokeWidth).toBe('1')
     // Tailwind/CSS may convert hex to rgb in some browsers; jsdom keeps the
     // raw value, but defensive comparison strips whitespace and case.
-    expect(style.stroke.toLowerCase()).toBe('#7a7a7a')
+    expect(style.stroke.toLowerCase()).toBe(STRUCTURAL_GREY)
     expect(style.strokeDasharray).toBe('')
 
     // Native <title> child on the hitbox path
@@ -177,7 +179,7 @@ describe('StyledEdge — structural vs causal differentiation', () => {
     const baseEdge = container.querySelector('[data-testid="base-edge"]') as SVGPathElement | null
     const style = (baseEdge as unknown as HTMLElement).style
     expect(style.strokeWidth).toBe('1')
-    expect(style.stroke.toLowerCase()).toBe('#7a7a7a')
+    expect(style.stroke.toLowerCase()).toBe(STRUCTURAL_GREY)
 
     const hitPath = container.querySelector('path[stroke="transparent"]')
     const titleEl = hitPath!.querySelector('title')
@@ -193,7 +195,7 @@ describe('StyledEdge — structural vs causal differentiation', () => {
     const baseEdge = container.querySelector('[data-testid="base-edge"]') as SVGPathElement | null
     const style = (baseEdge as unknown as HTMLElement).style
     // Causal: not the structural grey
-    expect(style.stroke.toLowerCase()).not.toBe('#7a7a7a')
+    expect(style.stroke.toLowerCase()).not.toBe(STRUCTURAL_GREY)
     // Causal stroke width is > 1 (the importanceToStrokeWidth mock returns 2)
     const widthNum = parseFloat(style.strokeWidth)
     expect(widthNum).toBeGreaterThan(1)
@@ -217,7 +219,7 @@ describe('StyledEdge — structural vs causal differentiation', () => {
     const baseEdge = container.querySelector('[data-testid="base-edge"]') as SVGPathElement | null
     const style = (baseEdge as unknown as HTMLElement).style
     expect(style.strokeWidth).toBe('1')
-    expect(style.stroke.toLowerCase()).toBe('#7a7a7a')
+    expect(style.stroke.toLowerCase()).toBe(STRUCTURAL_GREY)
   })
 
   it('explicit data.edge_type === "bidirected" keeps causal styling (special path preserved)', () => {
@@ -233,7 +235,7 @@ describe('StyledEdge — structural vs causal differentiation', () => {
 
     const baseEdge = container.querySelector('[data-testid="base-edge"]') as SVGPathElement | null
     const style = (baseEdge as unknown as HTMLElement).style
-    expect(style.stroke.toLowerCase()).not.toBe('#7a7a7a')
+    expect(style.stroke.toLowerCase()).not.toBe(STRUCTURAL_GREY)
   })
 
   it('explicit data.edge_type === "causal" overrides node-kind inference for option→factor', () => {
@@ -253,7 +255,7 @@ describe('StyledEdge — structural vs causal differentiation', () => {
     const baseEdge = container.querySelector('[data-testid="base-edge"]') as SVGPathElement | null
     const style = (baseEdge as unknown as HTMLElement).style
     // Causal: NOT the structural grey, NOT 1px
-    expect(style.stroke.toLowerCase()).not.toBe('#7a7a7a')
+    expect(style.stroke.toLowerCase()).not.toBe(STRUCTURAL_GREY)
     expect(parseFloat(style.strokeWidth)).toBeGreaterThan(1)
     // Hitbox carries no native title (causal edges use the hover popover)
     const hitPath = container.querySelector('path[stroke="transparent"]')
