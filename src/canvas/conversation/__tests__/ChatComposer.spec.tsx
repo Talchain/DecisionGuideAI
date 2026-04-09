@@ -518,3 +518,101 @@ describe('ChatComposer', () => {
     expect(screen.queryByTestId('bil-causal-tip')).not.toBeInTheDocument()
   })
 })
+
+// ============================================================================
+// T6 — Stop button (canonical isStreaming signal)
+// ============================================================================
+
+describe('ChatComposer — Stop button (T6)', () => {
+  beforeEach(() => {
+    mockStage = 'ideate'
+    mockBriefSignals = null
+    mockBilEnabled = false
+    mockBilResult = null
+    mockCanvasState = { nodes: [{ id: 'n1' }], edges: [], draftComposerText: null }
+  })
+
+  it('shows the send button (not the stop button) when isThinking is false', () => {
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation({ isThinking: false, cancelTurn: vi.fn() })}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('send-button')).toBeInTheDocument()
+    expect(screen.queryByTestId('stop-button')).not.toBeInTheDocument()
+  })
+
+  it('shows the stop button (not the send button) when isThinking is true', () => {
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation({ isThinking: true, cancelTurn: vi.fn() })}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('stop-button')).toBeInTheDocument()
+    expect(screen.queryByTestId('send-button')).not.toBeInTheDocument()
+  })
+
+  it('clicking the stop button calls cancelTurn exactly once', () => {
+    const cancelTurn = vi.fn()
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation({ isThinking: true, cancelTurn })}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('stop-button'))
+    expect(cancelTurn).toHaveBeenCalledTimes(1)
+  })
+
+  it('stop button has the correct aria-label for accessibility', () => {
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation({ isThinking: true, cancelTurn: vi.fn() })}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+    expect(screen.getByLabelText('Stop response')).toBeInTheDocument()
+  })
+
+  it('uses isThinking as the SOLE source of truth — no toolLoadingState fallback', () => {
+    // Even if a toolLoadingState-like signal exists on the conversation, the
+    // stop button should ONLY appear when isThinking is true. The composer
+    // never looks at message-level toolLoadingState — only the canonical
+    // hook-level isThinking flag.
+    const ref = createRef<ChatComposerHandle>()
+    render(
+      <ChatComposer
+        ref={ref}
+        conversation={makeConversation({ isThinking: false, toolLoadingState: 'Running...', cancelTurn: vi.fn() })}
+        onCollapse={vi.fn()}
+        onScrollToPatch={vi.fn()}
+        onOpenInspector={vi.fn()}
+        onGenerateModel={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('stop-button')).not.toBeInTheDocument()
+    expect(screen.getByTestId('send-button')).toBeInTheDocument()
+  })
+})

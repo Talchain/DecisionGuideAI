@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useImperativeHandle, useEffect, useMemo, forwardRef, memo } from 'react'
-import { ArrowUp, Play } from 'lucide-react'
+import { ArrowUp, Play, Square } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useStagePill } from '../../hooks/useStagePill'
 import { useCanvasStore } from '../../store'
@@ -65,7 +65,7 @@ const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
 
 export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProps>(
   function ChatComposer({ conversation, onCollapse, onScrollToPatch, onOpenInspector, onGenerateModel, onBriefStateChange }, ref) {
-    const { sendMessage, isThinking } = conversation
+    const { sendMessage, isThinking, cancelTurn } = conversation
     const { stage } = useStagePill()
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
     const hasGraph = useCanvasStore(s => s.nodes.length > 0 || s.edges.length > 0)
@@ -268,33 +268,65 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             }}
           />
 
-          {/* Send button */}
-          <button
-            type="button"
-            onClick={() => { if (composer.canSend) { handleSend(composer.value.trim()); composer.reset() } }}
-            disabled={!composer.canSend}
-            aria-label="Send message"
-            className="send-btn flex-shrink-0 flex items-center justify-center"
-            style={{
-              width: 34,
-              height: 34,
-              borderRadius: '50%',
-              marginBottom: 2,
-              transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
-              background: composer.canSend ? 'var(--primary, #2B7FA2)' : 'var(--bg-panel-hover, #FEF9F3)',
-              border: composer.canSend ? 'none' : '1px solid var(--border-default, #E8E5E1)',
-              boxShadow: composer.canSend ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
-              cursor: composer.canSend ? 'pointer' : 'default',
-            }}
-            data-testid="send-button"
-          >
-            <ArrowUp
-              className="w-[15px] h-[15px]"
-              strokeWidth={2.2}
-              style={{ stroke: composer.canSend ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
-              aria-hidden="true"
-            />
-          </button>
+          {/* Send / Stop button (T6).
+            * isThinking is the SINGLE canonical streaming signal — when true,
+            * the button replaces send with stop. No loose fallback on
+            * toolLoadingState; this is the only source of truth. */}
+          {isThinking ? (
+            <button
+              type="button"
+              onClick={cancelTurn}
+              aria-label="Stop response"
+              className="stop-btn flex-shrink-0 flex items-center justify-center"
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: '50%',
+                marginBottom: 2,
+                transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                background: 'var(--bg-panel, #FEF9F3)',
+                border: '1px solid var(--border-default, #EEE6D8)',
+                boxShadow: 'none',
+                cursor: 'pointer',
+              }}
+              data-testid="stop-button"
+            >
+              <Square
+                className="w-[14px] h-[14px]"
+                strokeWidth={2.2}
+                fill="var(--text-body, #2A2A2A)"
+                style={{ stroke: 'var(--text-body, #2A2A2A)' }}
+                aria-hidden="true"
+              />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => { if (composer.canSend) { handleSend(composer.value.trim()); composer.reset() } }}
+              disabled={!composer.canSend}
+              aria-label="Send message"
+              className="send-btn flex-shrink-0 flex items-center justify-center"
+              style={{
+                width: 34,
+                height: 34,
+                borderRadius: '50%',
+                marginBottom: 2,
+                transition: 'all 200ms cubic-bezier(0.4, 0, 0.2, 1)',
+                background: composer.canSend ? 'var(--primary, #2B7FA2)' : 'var(--bg-panel-hover, #FEF9F3)',
+                border: composer.canSend ? 'none' : '1px solid var(--border-default, #E8E5E1)',
+                boxShadow: composer.canSend ? '0 1px 2px rgba(38,38,38,0.06)' : 'none',
+                cursor: composer.canSend ? 'pointer' : 'default',
+              }}
+              data-testid="send-button"
+            >
+              <ArrowUp
+                className="w-[15px] h-[15px]"
+                strokeWidth={2.2}
+                style={{ stroke: composer.canSend ? 'var(--text-on-color, #FFFFFF)' : 'var(--text-light, #908D8D)' }}
+                aria-hidden="true"
+              />
+            </button>
+          )}
         </div>
 
         <style>{`
@@ -303,6 +335,12 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             transform: translateY(-1px);
           }
           .send-btn:not(:disabled):active {
+            transform: scale(0.92);
+          }
+          .stop-btn:hover {
+            background: var(--bg-panel-hover, #F5EEE0) !important;
+          }
+          .stop-btn:active {
             transform: scale(0.92);
           }
         `}</style>

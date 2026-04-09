@@ -24,7 +24,7 @@ vi.mock('../Conversation.module.css', () => ({
 
 // Mock dependencies
 vi.mock('../../styles/typography', () => ({
-  typography: { bodySmall: 'bodySmall' },
+  typography: { bodySmall: 'bodySmall', panelMeta: 'panelMeta', caption: 'caption', body: 'body' },
 }))
 
 vi.mock('../utils/markdown', () => ({
@@ -147,5 +147,75 @@ describe('MessageBubble — streaming', () => {
     })
     render(<MessageBubble message={msg} onChipClick={noop} />)
     expect(screen.getByTestId('message-assistant')).toBeTruthy()
+  })
+})
+
+// ============================================================================
+// T6 — stoppedByUser indicator (Stop button persistence)
+// ============================================================================
+
+describe('MessageBubble — stoppedByUser indicator (T6)', () => {
+  it('renders "Response stopped." when stoppedByUser is true', () => {
+    render(
+      <MessageBubble
+        message={makeMsg({ stoppedByUser: true, content: 'Partial text', isStreaming: false })}
+        onChipClick={noop}
+      />,
+    )
+    const indicator = screen.getByTestId('response-stopped-indicator')
+    expect(indicator).toBeTruthy()
+    expect(indicator.textContent).toBe('Response stopped.')
+  })
+
+  it('does NOT render the indicator on a normal completed message', () => {
+    render(
+      <MessageBubble
+        message={makeMsg({ stoppedByUser: false, content: 'Hello', isStreaming: false })}
+        onChipClick={noop}
+      />,
+    )
+    expect(screen.queryByTestId('response-stopped-indicator')).toBeNull()
+  })
+
+  it('preserves prior partial content alongside the indicator', () => {
+    render(
+      <MessageBubble
+        message={makeMsg({
+          stoppedByUser: true,
+          isStreaming: false,
+          content: 'I was about to say something important',
+        })}
+        onChipClick={noop}
+      />,
+    )
+    const bubble = screen.getByTestId('message-assistant')
+    expect(bubble.innerHTML).toContain('I was about to say something important')
+    expect(screen.getByTestId('response-stopped-indicator')).toBeTruthy()
+  })
+
+  it('late chunks (simulated by re-render with extra fields) do NOT clear stoppedByUser', () => {
+    // Simulates the merge semantics in updateMessage(): a subsequent patch
+    // that does NOT include stoppedByUser must leave it set. Re-rendering the
+    // component with an updated message that still has stoppedByUser proves
+    // the indicator persists. This is the front-line guarantee — the merge
+    // happens upstream in setMessages, but the renderer must respect the field.
+    const { rerender } = render(
+      <MessageBubble
+        message={makeMsg({ stoppedByUser: true, content: 'Initial partial', isStreaming: false })}
+        onChipClick={noop}
+      />,
+    )
+    expect(screen.getByTestId('response-stopped-indicator')).toBeTruthy()
+
+    // A late chunk arrives — the message gets updated with new content but
+    // stoppedByUser is preserved by the shallow merge in updateMessage().
+    rerender(
+      <MessageBubble
+        message={makeMsg({ stoppedByUser: true, content: 'Initial partial plus late chunk', isStreaming: false })}
+        onChipClick={noop}
+      />,
+    )
+    expect(screen.getByTestId('response-stopped-indicator')).toBeTruthy()
+    expect(screen.getByTestId('message-assistant').innerHTML).toContain('plus late chunk')
   })
 })

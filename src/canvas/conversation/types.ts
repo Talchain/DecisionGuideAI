@@ -50,6 +50,12 @@ export interface ConversationMessage {
   /** When true, this user message was initiated by a pill/chip click.
    *  Renders as a compact action indicator instead of a full user bubble. */
   chipInitiated?: boolean
+  /**
+   * T6 (Stop button): set on the streaming assistant message when the user
+   * clicks Stop and the AbortController fires. Once set, the indicator must
+   * persist — late chunks arriving after abort MUST NOT clear it.
+   */
+  stoppedByUser?: boolean
 }
 
 /** A set of frequency-framed chips for a single factor's base rate elicitation */

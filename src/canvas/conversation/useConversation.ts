@@ -1107,6 +1107,13 @@ export interface UseConversationReturn {
   dispatchAction: (opts: DispatchActionOpts) => Promise<void>
   clearHistory: () => void
   retryLast: () => Promise<void>
+  /**
+   * T6: User-initiated cancel of the current in-flight turn. Aborts the
+   * AbortController, marks the streaming message as `stoppedByUser`, and
+   * tears down thinking state. No-op when no turn is active. Stop must NEVER
+   * accept, reject, or mutate any patch state.
+   */
+  cancelTurn: () => void
   /** GraphPatchBlock state map (keyed by `${turnId}:${patchId}`) */
   patchBlockStates: Map<string, PatchBlockState>
   setPatchBlockState: (key: string, state: PatchBlockState) => void
@@ -2988,6 +2995,38 @@ export function useConversation(): UseConversationReturn {
     clearTimeout(timeoutTimerRef.current)
   }, [])
 
+  /**
+   * T6: User-initiated cancel of the current turn. Aborts the inflight
+   * AbortController, marks the streaming message as `stoppedByUser` so the UI
+   * can show a "Response stopped." indicator, and tears down the timers and
+   * thinking state. Late chunks arriving after abort do NOT clear the
+   * stoppedByUser flag — see the streaming loop's case branches.
+   *
+   * No-ops when no turn is active. Does NOT touch any patch state — Stop only
+   * stops the response stream; it never accepts, rejects, or mutates a patch.
+   */
+  const cancelTurn = useCallback(() => {
+    if (!isThinkingRef.current && !abortRef.current) return
+    // Mark the in-flight streaming message FIRST so any chunk handlers that
+    // race against the abort observe stoppedByUser === true and preserve it.
+    const stoppedMsgId = streamingMsgIdRef.current
+    if (stoppedMsgId) {
+      updateMessage(stoppedMsgId, {
+        stoppedByUser: true,
+        isStreaming: false,
+        isProvisional: false,
+        toolLoadingState: null,
+      })
+    }
+    abortRef.current?.abort()
+    clearTimeout(longRunningTimerRef.current)
+    clearTimeout(timeoutTimerRef.current)
+    clearInterval(elapsedIntervalRef.current)
+    setIsThinking(false)
+    useCanvasStore.getState().setIsGenerating(false)
+    setLongRunningHint(null)
+  }, [updateMessage])
+
   return {
     messages,
     isThinking,
@@ -2999,6 +3038,7 @@ export function useConversation(): UseConversationReturn {
     dispatchAction,
     clearHistory,
     retryLast,
+    cancelTurn,
     patchBlockStates,
     setPatchBlockState,
     patchRejections,

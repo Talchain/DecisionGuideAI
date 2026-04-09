@@ -199,6 +199,17 @@ export const MessageBubble = memo(function MessageBubble({
           {message.toolLoadingState}
         </div>
       )}
+      {/* T6: persistent "Response stopped." indicator on user-cancelled turns.
+        * Set by useConversation.cancelTurn(); never cleared by late chunks. */}
+      {message.stoppedByUser && (
+        <div
+          className={typography.panelMeta}
+          style={{ color: 'var(--text-light, #908D8D)', marginTop: 4 }}
+          data-testid="response-stopped-indicator"
+        >
+          Response stopped.
+        </div>
+      )}
       {truncatedContent && (
         <button
           type="button"
