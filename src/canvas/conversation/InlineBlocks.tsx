@@ -214,6 +214,8 @@ export const InlineBlocks = memo(function InlineBlocks({
           type="button"
           className={styles.showMoreToggle}
           onClick={() => setShowAll((v) => !v)}
+          aria-expanded={showAll}
+          aria-label={showAll ? 'Show fewer blocks' : `Show ${hiddenCount} more block${hiddenCount !== 1 ? 's' : ''}`}
         >
           {showAll ? 'Show less' : `Show ${hiddenCount} more`}
         </button>
@@ -997,7 +999,12 @@ function GraphPatchBlockRenderer({
         if (!descNeedsClean && !labelNeedsClean) return item
         return {
           ...item,
-          description: op ? describeOperation(op, deps) : item.description,
+          // When operations are misaligned (more proposal_items than ops), op may be
+          // undefined. describeOperation requires a valid op, so fall back to stripping
+          // the raw ID from the original description rather than emitting it.
+          description: op
+            ? describeOperation(op, deps)
+            : item.description.replace(new RegExp(RAW_ID_PATTERN.source, 'gi'), '[item]'),
           elementLabel: labelNeedsClean ? undefined : item.elementLabel,
         }
       })
@@ -1011,7 +1018,6 @@ function GraphPatchBlockRenderer({
         changeLabel: undefined,
       }
     })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rawProposalItems, block.operations, relatedElements, nodeLabels, edgeEndpoints])
   const shouldCollapseProposalItems =
     proposalItems.length > 2
@@ -1127,6 +1133,7 @@ function GraphPatchBlockRenderer({
               <div className={styles.graphPatchProposalCopy}>
                 <span
                   className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}
+                  // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; bold from describeOperation **markdown**)
                   dangerouslySetInnerHTML={{ __html: safeRichText(item.description) }}
                 />
                 {item.elementLabel && (
@@ -1169,6 +1176,7 @@ function GraphPatchBlockRenderer({
                   <div className={styles.graphPatchProposalCopy}>
                     <span
                       className={`${typography.bodySmall} ${styles.graphPatchProposalDescription}`}
+                      // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; bold from describeOperation **markdown**)
                       dangerouslySetInnerHTML={{ __html: safeRichText(item.description) }}
                     />
                     {item.elementLabel && (

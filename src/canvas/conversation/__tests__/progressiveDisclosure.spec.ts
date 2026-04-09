@@ -4,7 +4,7 @@
  * Verifies:
  * 1. Messages under 600 chars show full text (no truncation)
  * 2. Messages over 600 chars truncate at a natural boundary
- * 3. Truncation respects minimum hidden content threshold (150 chars)
+ * 3. Truncation only fires when ≥150 chars would be hidden (MIN_HIDDEN_CHARS)
  * 4. Paragraph-break guard: a break >100 chars before the threshold is skipped;
  *    falls through to sentence-end path instead.
  */

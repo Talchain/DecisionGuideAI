@@ -53,8 +53,6 @@ function sanitiseFactorIds(text: string, labelMap: Map<string, string>): string 
 const CLAMP_CHAR_THRESHOLD = 600
 /** Minimum characters that must be hidden for truncation to be worthwhile. */
 const MIN_HIDDEN_CHARS = 150
-/** Minimum sentences that must be hidden for truncation to be worthwhile. */
-const MIN_HIDDEN_SENTENCES = 3
 /**
  * Maximum distance a paragraph break can sit before CLAMP_CHAR_THRESHOLD and
  * still be used as the cut point. If the nearest \n\n is more than 100 chars
@@ -63,24 +61,16 @@ const MIN_HIDDEN_SENTENCES = 3
  */
 const MAX_PARA_BREAK_DISTANCE = 100
 
-/** Count sentences in text (heuristic: split on .!? followed by space or end). */
-function countSentences(text: string): number {
-  return (text.match(/[.!?](?:\s|$)/g) || []).length
-}
-
 /**
  * Find the best truncation point in raw text at natural boundaries.
  * Returns the truncated text or null if truncation isn't worthwhile.
- * Only truncates when at least 100 chars OR 3 sentences would be hidden.
+ * Only truncates when at least MIN_HIDDEN_CHARS (150) characters would be hidden.
  */
 export function findNaturalTruncation(text: string): string | null {
   if (text.length <= CLAMP_CHAR_THRESHOLD) return null
 
   /** Check whether enough content would be hidden to justify truncation. */
-  const isWorthHiding = (cutPoint: number) => {
-    const hiddenText = text.slice(cutPoint)
-    return hiddenText.length >= MIN_HIDDEN_CHARS || countSentences(hiddenText) >= MIN_HIDDEN_SENTENCES
-  }
+  const isWorthHiding = (cutPoint: number) => text.slice(cutPoint).length >= MIN_HIDDEN_CHARS
 
   // 1. Try last paragraph break (\n\n) before limit, but only when it sits
   //    within MAX_PARA_BREAK_DISTANCE chars of the threshold. A break that is
