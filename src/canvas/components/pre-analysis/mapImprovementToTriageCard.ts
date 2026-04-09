@@ -8,7 +8,7 @@
 
 import type { ImprovementItem } from './hooks/usePreAnalysisData'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
-import { isCurrencyUnit } from '@/canvas/utils/labelUtils'
+import { isCurrencyUnit, classifyUnit } from '@/canvas/utils/labelUtils'
 
 export interface TriageCardItem {
   key: string
@@ -46,13 +46,21 @@ function formatNumber(n: number): string {
  * - Percentage suffix: 4.5% not % 4.5
  * - Time/generic units suffix with a space: 3 months, 500 users
  * - Numbers > 999 get thousand separators via Intl.NumberFormat
- * - Empty/"scale" unit + 0–1 value falls back to qualitative label
+ * - Placeholder units (scale/score/index/norm/normalised/unit/units) + 0–1
+ *   value → qualitative label. Outside that range, the unit is suppressed
+ *   and we render the bare number — placeholder units carry no real-world
+ *   scale, so "0 score" / "50 index" are misleading.
+ * - P0-1: previously this only guarded `unit === 'scale'`, leaking
+ *   "0 score", "0 index", "0 norm" etc. Broadened to use classifyUnit.
  */
 function formatValueWithUnit(rawValue: number, unit: string | undefined | null): string {
-  if ((!unit || unit === 'scale') && rawValue >= 0 && rawValue <= 1) {
+  const unitKind = classifyUnit(unit ?? null).kind
+  const isPlaceholder = unitKind === 'placeholder'
+
+  if ((!unit || isPlaceholder) && rawValue >= 0 && rawValue <= 1) {
     return qualitativeLabel(rawValue)
   }
-  if (!unit) return formatNumber(rawValue)
+  if (!unit || isPlaceholder) return formatNumber(rawValue)
   if (isCurrencyUnit(unit)) return `${unit}${formatNumber(rawValue)}`
   // raw_value is treated as a literal user-facing value (convention: `value`
   // is normalised 0–1, `raw_value` is the display scale). Mirrors model-tab
@@ -93,12 +101,12 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
     if (item.subgroup === 'contested') return 'Needs your judgement: estimates disagree'
     const parsed = parseEdgeTitle(item.label)
     if (parsed) {
-      // If source has a value context, reference it
-      if (item.rawValue != null) {
-        return trimSubtitle(`How strongly does ${parsed.source} (${formatValueWithUnit(item.rawValue, item.unit)}) affect ${parsed.target}?`)
-      }
-      // No source value yet — coaching that fits in 60 chars regardless of label length
-      return 'No data yet. Set a value to include in analysis.'
+      // P0-1: previously rendered "How strongly does {source} ({rawValue} {unit})
+      // affect {target}?" — but ImprovementItem.rawValue belongs to the *target*
+      // factor of the verify item, not the source referenced in the question.
+      // The parenthetical was showing the wrong factor's value. Drop it entirely
+      // rather than reach into the canvas store from a pure mapper.
+      return trimSubtitle(`How strongly does ${parsed.source} affect ${parsed.target}?`)
     }
     return 'Set whether this relationship is weak, moderate, or strong'
   }
