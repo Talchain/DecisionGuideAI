@@ -1393,6 +1393,7 @@ export function PreAnalysisPanel({
                     lastDraftRetryable={lastDraftError?.retryable}
                     onRetryDraft={handleRetryDraft}
                     onEditBrief={handleEditBrief}
+                    onFocusNode={handleFocusNode}
                     hideHeader
                   />
                 </SectionErrorBoundary>

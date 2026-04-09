@@ -21,7 +21,9 @@
 import { useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight, Info, RefreshCw, Pencil } from 'lucide-react'
 import type { EnrichedBlocker } from './blockerEnrichment'
+import { looksLikeId, prettifyId } from './blockerEnrichment'
 import { typography } from '@/styles/typography'
+import { useCanvasStore } from '@/canvas/store'
 
 interface BlockersSectionProps {
   /** Enriched blockers to render (blocking — prevent run) */
@@ -44,6 +46,66 @@ interface BlockersSectionProps {
    * contributes its blocker cards without a duplicate header.
    */
   hideHeader?: boolean
+  /**
+   * P1-6: Focus-node callback used when a blocker title contains option names.
+   * Clicking an option name pans the canvas + opens the inspector for that
+   * option. Falls back to the module-level focusNodeById helper when absent.
+   */
+  onFocusNode?: (nodeId: string) => void
+}
+
+/**
+ * P1-6: render an OPTIONS_NEED_MAPPING blocker title with each option name
+ * as a clickable button that deep-links to the canvas inspector. For other
+ * codes or when affectedIds is missing, returns the plain title string.
+ */
+function BlockerTitle({
+  blocker,
+  display,
+  onFocusNode,
+}: {
+  blocker: EnrichedBlocker['blocker']
+  display: EnrichedBlocker['display']
+  onFocusNode: (nodeId: string) => void
+}) {
+  if (blocker.code !== 'OPTIONS_NEED_MAPPING' || !blocker.affectedIds || blocker.affectedIds.length === 0) {
+    return <>{display.title}</>
+  }
+
+  // Resolve labels from the canvas store for each affected option id so the
+  // displayed text matches the hydrated title (which may prettify raw IDs).
+  const { nodes } = useCanvasStore.getState()
+  const idsToShow = blocker.affectedIds.slice(0, 3)
+  const remainingCount = Math.max(0, blocker.affectedIds.length - 3)
+
+  return (
+    <>
+      Options need configuration:{' '}
+      {idsToShow.map((id, i) => {
+        const node = nodes.find(n => n.id === id)
+        const label = (node?.data as { label?: string } | undefined)?.label
+        const displayLabel = label && !looksLikeId(label) ? label : prettifyId(id)
+        return (
+          <span key={id}>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                onFocusNode(id)
+              }}
+              className="text-info hover:underline focus-visible:outline-none focus-visible:underline"
+              aria-label={`Open ${displayLabel} in inspector`}
+              data-testid={`blocker-option-link-${id}`}
+            >
+              {displayLabel}
+            </button>
+            {i < idsToShow.length - 1 ? ', ' : ''}
+          </span>
+        )
+      })}
+      {remainingCount > 0 ? ` +${remainingCount} more` : ''}
+    </>
+  )
 }
 
 export function BlockersSection({
@@ -55,7 +117,16 @@ export function BlockersSection({
   onRetryDraft,
   onEditBrief,
   hideHeader = false,
+  onFocusNode,
 }: BlockersSectionProps) {
+  // Prefer the injected callback; fall back to the module-level focusHelpers
+  // registration so existing call sites keep working without wiring.
+  const focusNode = onFocusNode ?? ((id: string) => {
+    // Dynamic import avoids pulling focusHelpers into the module graph
+    // unless needed. In practice focusHelpers is always registered once
+    // the canvas has mounted.
+    import('../../utils/focusHelpers').then(m => m.focusNodeById(id))
+  })
   if (blockers.length === 0 && informationalBlockers.length === 0) return null
 
   // When lastDraftRetryable is explicitly false, show "Edit brief" instead of "Retry Draft"
@@ -106,7 +177,7 @@ export function BlockersSection({
                     <p className={`${typography.panelHeader} ${
                       isCritical ? 'text-danger' : 'text-warning'
                     }`}>
-                      {display.title}
+                      <BlockerTitle blocker={blocker} display={display} onFocusNode={focusNode} />
                     </p>
                     <p className={`${typography.panelBody} text-text-body mt-0.5`}>
                       {display.description}
