@@ -20,7 +20,7 @@ import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
-import { OptionPreview } from './OptionPreview'
+import { OptionPreview, OPTION_PREVIEW_TITLE } from './OptionPreview'
 import { YourExpertise } from './expertise'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
@@ -36,6 +36,7 @@ import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
 import type { TriageCardItem } from './mapImprovementToTriageCard'
+import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
@@ -949,8 +950,15 @@ export function PreAnalysisPanel({
   // Dynamic headline for the health card. Reads from the same bucket data
   // already computed above so there's no duplicate work. Precedence:
   //   1. CEE-provided coaching_summary (if/when CEE populates it)
-  //   2. First Must fix item label → "[label]. Fix before running."
-  //   3. First Review next item label → "[label] has the biggest impact. Review before running."
+  //   2. First Must fix item → "[label]. Fix before running."
+  //      Order matches the rendered Must fix section: enriched blockers first,
+  //      then structural rows ("Fewer than 2 options", "No baseline set"),
+  //      then critical fix triage cards.
+  //   3. First Review next item → subject-specific sentence (see branch
+  //      comments). Plural-subject option card gets "Review your options
+  //      before running."; singular bias triggers get "[Bias] may be shaping
+  //      your choices. …"; singular triage cards get "[Factor] has the
+  //      biggest impact. …". Order matches the rendered Review next section.
   //   4. Improve confidence has actionable cards → "Ready to run. [N] checks would improve results."
   //   5. Else → "Ready to run."
   // Returns null while loading (the card shows its own loading state).
@@ -961,23 +969,47 @@ export function PreAnalysisPanel({
     const ceeSummary = ceeAnalysisReady?.coaching_summary
     if (ceeSummary && ceeSummary.trim().length > 0) return ceeSummary
 
-    // 2. Must fix
+    // 2. Must fix — match the rendered display order, not the data shape order
     if (mustFixCount > 0) {
-      // Prefer the first triage card label; fall back to the first enriched
-      // blocker title; fall back to a structural check label.
       const firstFix =
-        mustFixCards[0]?.title
-        ?? data.enrichedBlockers[0]?.display?.title
+        // 2a. Enriched blockers (rendered first in the section)
+        (!data.isReady ? data.enrichedBlockers[0]?.display?.title : null)
+        // 2b. Structural rows (rendered second; "Fewer than 2 options" before "No baseline set")
         ?? (fewerThanTwoOptionsCheck ? 'Fewer than 2 options' : null)
         ?? (noBaselineCheck ? 'No baseline set' : null)
+        // 2c. Critical fix triage cards (rendered last)
+        ?? mustFixCards[0]?.title
       if (firstFix) return `${firstFix}. Fix before running.`
       return 'Fix before running.'
     }
 
-    // 3. Review next
+    // 3. Review next — match the rendered display order.
+    // Each branch builds a full sentence so grammar stays correct per subject
+    // (plural "options" vs singular bias/triage titles) and copy fits the
+    // nature of the item ("impact" for factors, "shaping your choices" for
+    // biases, "review" for the option set).
     if (reviewNextCount > 0) {
-      const firstReview = reviewNextTopCards[0]?.title ?? biasTriggers[0]?.title
-      if (firstReview) return `${firstReview} has the biggest impact. Review before running.`
+      // 3a. Option quality card (rendered first in the section). Plural
+      //     subject — the previous flat template produced the ungrammatical
+      //     "Your options has the biggest impact." Now we build a sentence
+      //     that works for both reasons the card appears (same_levers check
+      //     AND fewer than 3 options), without overclaiming either.
+      if (showOptionQualityCard) {
+        return `Review ${OPTION_PREVIEW_TITLE.toLowerCase()} before running.`
+      }
+      // 3b. Bias triggers (rendered second). Biases shape reasoning — they
+      //     don't "have impact" on a factor, so the triage phrasing is wrong
+      //     here. Singular subject.
+      const firstBias = biasTriggers[0]?.title
+      if (firstBias) {
+        return `${firstBias} may be shaping your choices. Review before running.`
+      }
+      // 3c. Top triage cards (rendered last). Singular factor/edge subject —
+      //     the original "has the biggest impact" phrasing fits.
+      const firstTriage = reviewNextTopCards[0]?.title
+      if (firstTriage) {
+        return `${firstTriage} has the biggest impact. Review before running.`
+      }
       return 'Ready to run. Review before continuing.'
     }
 
@@ -994,6 +1026,7 @@ export function PreAnalysisPanel({
     return 'Ready to run.'
   }, [
     data.isLoading,
+    data.isReady,
     ceeAnalysisReady?.coaching_summary,
     mustFixCount,
     mustFixCards,
@@ -1003,6 +1036,7 @@ export function PreAnalysisPanel({
     reviewNextCount,
     reviewNextTopCards,
     biasTriggers,
+    showOptionQualityCard,
     improveConfidenceCards,
     expertiseHasItems,
   ])
@@ -1260,6 +1294,17 @@ export function PreAnalysisPanel({
                       if (prefill) prefill(trigger.microInterventionStep)
                       else onSendMessage?.(trigger.microInterventionStep)
                     }
+                    // Only attach the DS tooltip when the explanation was
+                    // actually truncated — otherwise the hover would just
+                    // repeat the visible text. truncateExplanation appends
+                    // an ellipsis when the source string exceeds 80 chars,
+                    // so length divergence is the cheapest reliable signal.
+                    const isTruncated = trigger.subtitle !== trigger.fullExplanation
+                    const subtitleEl = (
+                      <p className={`${typography.panelBody} text-text-light mt-0.5`}>
+                        {trigger.subtitle}
+                      </p>
+                    )
                     return (
                       <div
                         key={trigger.id}
@@ -1270,12 +1315,17 @@ export function PreAnalysisPanel({
                           <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
                           <div className="flex-1 min-w-0">
                             <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
-                            <p
-                              className={`${typography.panelBody} text-text-light mt-0.5`}
-                              title={trigger.fullExplanation}
-                            >
-                              {trigger.subtitle}
-                            </p>
+                            {isTruncated ? (
+                              <Tooltip
+                                delay={300}
+                                content={trigger.fullExplanation}
+                                className="!max-w-[280px]"
+                              >
+                                {subtitleEl}
+                              </Tooltip>
+                            ) : (
+                              subtitleEl
+                            )}
                             <div className="flex flex-wrap items-center gap-1 mt-1">
                               {trigger.microInterventionStep && (
                                 <button

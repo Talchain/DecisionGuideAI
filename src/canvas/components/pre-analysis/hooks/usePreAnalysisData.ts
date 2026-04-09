@@ -135,12 +135,14 @@ export interface OptionPreviewData {
     /** Factor's current raw value (for "unchanged" detection) */
     currentRawValue: number | null
     /**
-     * CEE-provided display string for the factor's current value (e.g.
-     * "£5,000" or "12 engineers"). When present, the UI renders it verbatim
-     * instead of running its own format heuristic. Future CEE-1 schema field;
-     * undefined when CEE has not yet been migrated.
+     * CEE-provided display string for the factor's **current** observed value
+     * (e.g. "£5,000" or "12 engineers"). This is the *before* value, NOT the
+     * intervention target. OptionPreview uses it to render the left-hand side
+     * of "before → after". The intervention target is always derived from
+     * `interventionValue` via the local formatter — never from this field.
+     * Future CEE-1 schema field; undefined when CEE has not yet been migrated.
      */
-    displayValue?: string | null
+    currentDisplayValue?: string | null
   }>
 }
 
@@ -1592,12 +1594,14 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
           else if (rivRounded < crvRounded) direction = 'down'
         }
 
-        // CEE-provided display string (future CEE-1 schema). When present,
-        // OptionPreview renders it verbatim instead of running its own
-        // numeric formatter. Read from observedState.display_value.
-        const displayValue = ((os as { display_value?: string | null }).display_value ?? null) as string | null
+        // CEE-provided display string for the factor's current observed
+        // value (future CEE-1 schema). When present, OptionPreview renders
+        // it verbatim on the left side of "before → after" instead of
+        // running its own numeric formatter. This is the BEFORE value, not
+        // the intervention target — see currentDisplayValue field doc.
+        const currentDisplayValue = ((os as { display_value?: string | null }).display_value ?? null) as string | null
 
-        return { factorId, factorLabel, interventionValue, currentValue, direction, cap: factorCap, unit: factorUnit, currentRawValue, displayValue }
+        return { factorId, factorLabel, interventionValue, currentValue, direction, cap: factorCap, unit: factorUnit, currentRawValue, currentDisplayValue }
       })
 
       // Suppress interventions that don't change the factor's current value.

@@ -1172,5 +1172,30 @@ describe('PreAnalysisPanel', () => {
         screen.queryByText(/Your expertise makes the analysis more reliable/),
       ).not.toBeInTheDocument()
     })
+
+    it('renders a grammatically correct Review next headline when the option quality card is the first item', () => {
+      // Fewer than 3 options (and no same_levers check) triggers the option
+      // quality card as the first Review next item. Subject is plural, so
+      // the headline must NOT read "Your options has the biggest impact."
+      // (the grammar bug this test guards against).
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        ...cleanBaselineMock(),
+        isReady: true,
+        hasBlockers: false,
+        // 2 options + nothing in Must fix → Review next fires with the
+        // option quality card (count === 1)
+        optionPreviews: [
+          { id: 'o1', label: 'Option 1', status: 'ready', isBaseline: false, interventions: [] },
+          { id: 'o2', label: 'Option 2', status: 'ready', isBaseline: true, interventions: [] },
+        ],
+        triageActions: { top3: [], quickFix: [] },
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      const headline = screen.getByTestId('model-health-card-headline')
+      expect(headline).toHaveTextContent('Review your options before running.')
+      // Guard against the grammar bug ChatGPT flagged
+      expect(headline).not.toHaveTextContent('Your options has the biggest impact')
+    })
   })
 })

@@ -19,6 +19,13 @@ import { typography } from '@/styles/typography'
 import { classifyUnit } from '../../utils/labelUtils'
 
 /**
+ * Visible header text for the option quality card. Exported so other surfaces
+ * (notably the PreAnalysisPanel dynamic headline) can reference the same copy
+ * without hard-coding a parallel literal that would drift if this ever changes.
+ */
+export const OPTION_PREVIEW_TITLE = 'Your options'
+
+/**
  * Treat the unit as "no display unit" when it falls into the placeholder
  * bucket from labelUtils.classifyUnit. Placeholder units (scale, index, score,
  * normalised, norm, unit, units) carry no real-world scale and add nothing
@@ -229,13 +236,19 @@ function OptionInterventions({
     <div className="mt-1">
       <div className="flex flex-wrap gap-x-3 gap-y-1">
         {opt.interventions.map(iv => {
-          // Prefer CEE-provided display string when present (future CEE-1
-          // schema). Otherwise fall back to the local formatter which
-          // handles placeholder units, qualitative bands, and discrete caps.
-          const display = iv.displayValue && iv.displayValue.trim().length > 0
-            ? `to ${iv.displayValue}`
-            : formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
-          const before = formatBeforeValue(iv.currentRawValue, iv.cap, iv.unit)
+          // The intervention TARGET is always derived from interventionValue
+          // via the local formatter. We do NOT use iv.currentDisplayValue
+          // here — that field is the formatted *current* value (the "before"
+          // side of the arrow), not the target. Mixing them up would silently
+          // misstate where each option moves the factor to.
+          const display = formatInterventionDisplay(iv.interventionValue, iv.cap, iv.unit, iv.direction, iv.currentRawValue)
+          // Prefer the CEE-provided current value display string when
+          // present (future CEE-1 schema). Otherwise fall back to the local
+          // before-value formatter that mirrors formatInterventionDisplay's
+          // unit/qualitative rules.
+          const before = iv.currentDisplayValue && iv.currentDisplayValue.trim().length > 0
+            ? iv.currentDisplayValue
+            : formatBeforeValue(iv.currentRawValue, iv.cap, iv.unit)
           return (
             <span key={iv.factorId} className={`inline-flex items-center gap-1 ${typography.panelMeta} text-text-body`}>
               <InterventionArrow direction={iv.direction} />
@@ -309,7 +322,7 @@ export function OptionPreview({
       >
         <div className="flex items-center gap-2">
           <OptionSquare />
-          <span className={`${typography.panelHeader} text-text-body`}>Your options</span>
+          <span className={`${typography.panelHeader} text-text-body`}>{OPTION_PREVIEW_TITLE}</span>
           <Tooltip delay={300} content="The strategies you're choosing between. Each changes different factors by different amounts. Click any value to adjust.">
             <Info size={14} className="text-text-light" />
           </Tooltip>
