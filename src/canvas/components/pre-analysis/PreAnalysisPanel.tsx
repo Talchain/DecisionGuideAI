@@ -46,6 +46,10 @@ import {
   type ReviewNextSignal,
   type TriageSignal,
 } from './pickStartHere'
+import {
+  resolveReviewNextCoachingLine,
+  getImproveConfidenceCoachingLine,
+} from './sectionCoaching'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
@@ -329,10 +333,13 @@ function SectionHeader({
 function ImproveConfidenceAccordion({
   count,
   highestValueLabel,
+  coachingLine,
   children,
 }: {
   count: number
   highestValueLabel: string | null
+  /** P1-3: per-section coaching line; rendered below the header when non-null */
+  coachingLine?: string | null
   children: React.ReactNode
 }) {
   const [expanded, setExpanded] = useState(false)
@@ -363,6 +370,11 @@ function ImproveConfidenceAccordion({
           ? <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
           : <ChevronRight className="w-4 h-4 text-text-light" aria-hidden="true" />}
       </button>
+      {coachingLine && (
+        <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-coaching">
+          {coachingLine}
+        </p>
+      )}
       {expanded && (
         <div className="space-y-3" data-testid="improve-confidence-content">
           {children}
@@ -1399,6 +1411,20 @@ export function PreAnalysisPanel({
             <section className="space-y-2" data-testid="section-review-next">
               <SectionHeader title="Review next" count={reviewNextCount} tone="info" testId="section-review-next-header" />
 
+              {/* P1-3: Per-section coaching line derived from the SAME picked
+                  Start here signal. Suppressed when redundant with the Start
+                  here card, when the signal carries a defaulted score, or
+                  when there's no useful copy to render. */}
+              {(() => {
+                const line = resolveReviewNextCoachingLine(startHereSignal)
+                if (!line) return null
+                return (
+                  <p className={`${typography.panelMeta} text-text-light`} data-testid="review-next-coaching">
+                    {line}
+                  </p>
+                )
+              })()}
+
               {/* P1-4: Start here card — highest-priority signal elevated with
                   a 3px success left border. Delegates rendering to the
                   underlying signal kind. Exclusion from downstream lists is
@@ -1604,10 +1630,12 @@ export function PreAnalysisPanel({
             </section>
           )}
 
-          {/* Section 3: Improve confidence — collapsed by default */}
+          {/* Section 3: Improve confidence — collapsed by default.
+              P1-3: coaching line derived from actionable count. */}
           <ImproveConfidenceAccordion
             count={improveConfidenceCount}
             highestValueLabel={highestValueLabel}
+            coachingLine={getImproveConfidenceCoachingLine(improveConfidenceCards.length)}
           >
             {/* Goal target inline edit */}
             <SuccessTarget
