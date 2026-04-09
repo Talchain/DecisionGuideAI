@@ -985,6 +985,9 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
+      // OptionPreview is collapsed by default — expand it first.
+      fireEvent.click(screen.getByTestId('option-preview-toggle'))
+
       // v2 panel passes collapseInterventionsByDefault — interventions are hidden
       // behind a per-option disclosure. Click the disclosure first to reveal "Ad spend".
       const interventionToggle = screen.queryByTestId('option-interventions-toggle-opt_expand')
@@ -1010,6 +1013,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      // OptionPreview is collapsed by default — expand it first.
+      fireEvent.click(screen.getByTestId('option-preview-toggle'))
 
       fireEvent.click(screen.getByText('Expand Now'))
 

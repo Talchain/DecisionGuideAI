@@ -779,19 +779,20 @@ export function PreAnalysisPanel({
       aiDiscuss = { kind: 'factor', label: item.label }
     }
 
-    // Attach editorConfig for factor items with set_value action — only when
-    // a numeric rawValue exists AND the item is not an inferred-zero placeholder
-    // (detail === 'Not set'). Inferred zeros should prompt the user to set a
-    // value via the action button, not show a pre-filled "0" input.
+    // Attach editorConfig for factor items with set_value or confirm action.
+    // Inferred-zero items (detail === 'Not set') always get an editor — but
+    // rawValue is passed as null so the input renders empty with placeholder
+    // "Set value" rather than pre-filling with the misleading sentinel 0.
     const targetId = item.action?.targetId
     const numericValue = item.rawValue ?? item.value ?? null
     const isInferredZeroItem = item.detail === 'Not set'
-    if (targetId && item.focus?.type === 'node' && numericValue != null && !isInferredZeroItem && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
+    if (targetId && item.focus?.type === 'node' && (numericValue != null || isInferredZeroItem) && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
       return {
         ...mapped,
         editorConfig: {
           kind: 'factor' as const,
-          rawValue: numericValue,
+          // Pass null for inferred zeros so the input is empty (placeholder shows).
+          rawValue: isInferredZeroItem ? null : numericValue,
           cap: item.cap ?? null,
           unit: item.unit ?? null,
           onSave: (rawValue: number) => handleInlineEditValue(targetId, rawValue, item.cap ?? null),
@@ -1647,8 +1648,8 @@ export function PreAnalysisPanel({
                             ) : (
                               subtitleEl
                             )}
-                            <div className="flex flex-wrap items-center gap-1 mt-1">
-                              {trigger.microInterventionStep && (
+                            {trigger.microInterventionStep && (
+                              <div className="flex flex-wrap items-center gap-1 mt-1">
                                 <button
                                   type="button"
                                   onClick={handleTryThis}
@@ -1657,16 +1658,8 @@ export function PreAnalysisPanel({
                                 >
                                   Try this
                                 </button>
-                              )}
-                              <button
-                                type="button"
-                                onClick={() => onSendMessage?.(trigger.askAiPrompt)}
-                                className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer flex-shrink-0`}
-                                data-testid={`bias-trigger-ask-${trigger.id}`}
-                              >
-                                Ask AI
-                              </button>
-                            </div>
+                              </div>
+                            )}
                           </div>
                         </div>
                         {/* P1-2: Discuss-with-AI sparkle, bottom-right of the bias card */}

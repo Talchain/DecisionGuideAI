@@ -23,6 +23,6 @@ export function buildAiDiscussPrompt(el: AiDiscussElement): string {
     case 'bias':
       return `Tell me more about ${el.biasType} and how it might affect my thinking.`
     case 'goal':
-      return `Tell me about the goal "${el.label}". How should I think about success here?`
+      return `Help me define what success looks like for this decision and suggest a measurable target.`
   }
 }

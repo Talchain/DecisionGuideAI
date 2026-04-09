@@ -1,14 +1,16 @@
 /**
  * MissingData — Subgroup 3: Factors with no observed data.
- * Factor name, "No data" greyed, influence bar, "Set value" + "Ask AI to research" CTAs.
+ * Two-row layout (P1-1): factor name + "No data" + influence bar on row 1;
+ * icon-only "Set value" (Pencil) at 44px touch height on row 2.
+ * Technique hint kept as plain text. One sparkle (DiscussWithAiButton) per row.
  */
 
-import { useCallback } from 'react'
+import { Pencil } from 'lucide-react'
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import Tooltip from '../../../../components/Tooltip'
 import { typography } from '@/styles/typography'
-import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
+import { DiscussWithAiButton } from '../DiscussWithAiButton'
 
 interface MissingDataProps {
   items: ImprovementItem[]
@@ -37,25 +39,10 @@ export function MissingData({
   items,
   onFocusNode,
   onSetValue,
-  onSendMessage,
   factorInfluenceMap,
   onHoverEnter,
   onHoverLeave,
 }: MissingDataProps) {
-  const handleResearch = useCallback((nodeId: string | undefined, label: string) => {
-    const dispatch = useGuidanceStore.getState()._dispatchAction
-    if (dispatch) {
-      dispatch({
-        label: `Research ${label}`,
-        message: `Can you research ${label} and suggest a reasonable estimate with sources?`,
-        source: 'pre_analysis',
-        ...(nodeId ? { parameters: { target_id: nodeId, target_label: label } } : {}),
-      })
-    } else {
-      onSendMessage?.(`Can you research ${label} and suggest a reasonable estimate with sources?`)
-    }
-  }, [onSendMessage])
-
   if (items.length === 0) return null
 
   return (
@@ -68,9 +55,11 @@ export function MissingData({
         const technique = getTechniqueHint(item.label)
 
         return (
-          // P1-1: two-row layout, factor name wraps, 44px touch on action pills.
-          <div key={item.key} className="px-1 py-2 space-y-2">
-            {/* Row 1 — name (wraps) + No data + influence bar */}
+          // P1-1: two-row layout. Row 1: name + No data + influence bar.
+          // Row 2: icon-only Set value (Pencil) + technique hint text.
+          // One sparkle bottom-right (Fix 2/5).
+          <div key={item.key} className="relative px-1 py-2 space-y-2 pr-7">
+            {/* Row 1 — name (wraps) + No data label + influence bar */}
             <div className="flex items-start gap-2 flex-wrap">
               <button
                 type="button"
@@ -94,31 +83,27 @@ export function MissingData({
                 </div>
               )}
             </div>
-            {/* Row 2 — actions with 44px touch height */}
+            {/* Row 2 — icon-only Set value + technique hint */}
             <div className="flex items-center gap-2 flex-wrap">
-              <button
-                type="button"
-                onClick={() => nodeId && onSetValue?.(nodeId)}
-                className={`${typography.panelMeta} text-info border border-info/30 rounded-full inline-flex items-center justify-center min-h-[44px] px-3 bg-transparent hover:bg-panel-hover cursor-pointer`}
-                aria-label={`Set value for ${item.label}`}
-              >
-                Set value
-              </button>
-              {(onSendMessage || useGuidanceStore.getState()._dispatchAction) && (
+              <Tooltip delay={200} content="Set value">
                 <button
                   type="button"
-                  onClick={() => handleResearch(nodeId, item.label)}
-                  className={`${typography.panelMeta} text-info border border-info/30 rounded-full inline-flex items-center justify-center min-h-[44px] px-3 bg-transparent hover:bg-panel-hover cursor-pointer`}
-                  aria-label={`Ask AI to research ${item.label}`}
+                  onClick={() => nodeId && onSetValue?.(nodeId)}
+                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full border border-info/30 text-info bg-transparent hover:bg-panel-hover cursor-pointer"
+                  aria-label={`Set value for ${item.label}`}
                 >
-                  Ask AI to research
+                  <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
-              )}
+              </Tooltip>
               <Tooltip delay={300} content={technique.tooltip}>
                 <span className={`${typography.panelMeta} text-text-light cursor-help`}>
                   {technique.text}
                 </span>
               </Tooltip>
+            </div>
+            {/* One sparkle — bottom-right of the row */}
+            <div className="absolute bottom-1 right-1">
+              <DiscussWithAiButton element={{ kind: 'factor', label: item.label }} />
             </div>
           </div>
         )

@@ -1,16 +1,18 @@
 /**
  * AiEstimated — Subgroup 2: Factors estimated by AI, needing user verification.
- * Factor name (clickable), value (inline edit), "Estimated" pill, influence bar, confirm/query/edit.
+ * Two-row layout (P1-1): factor name (wraps) + value + Estimated pill + influence bar
+ * on row 1; icon-only action buttons at 44px touch height on row 2.
+ * One sparkle (DiscussWithAiButton) anchored bottom-right per row (Fix 2/5).
  */
 
-import { useCallback } from 'react'
-import { Check } from 'lucide-react'
+import { Check, Pencil } from 'lucide-react'
 import { Pill } from '../primitives'
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import { typography } from '@/styles/typography'
-import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
 import { classifyUnit } from '@/canvas/utils/labelUtils'
+import { DiscussWithAiButton } from '../DiscussWithAiButton'
+import Tooltip from '../../../../components/Tooltip'
 
 interface AiEstimatedProps {
   items: ImprovementItem[]
@@ -28,24 +30,10 @@ export function AiEstimated({
   onFocusNode,
   onConfirm,
   onEdit,
-  onSendMessage,
   factorInfluenceMap,
   onHoverEnter,
   onHoverLeave,
 }: AiEstimatedProps) {
-  const handleResearch = useCallback((nodeId: string | undefined, label: string) => {
-    const dispatch = useGuidanceStore.getState()._dispatchAction
-    if (dispatch) {
-      dispatch({
-        label: `Research ${label}`,
-        message: `Can you research ${label} and suggest a reasonable estimate with sources?`,
-        source: 'pre_analysis',
-        ...(nodeId ? { parameters: { target_id: nodeId, target_label: label } } : {}),
-      })
-    } else {
-      onSendMessage?.(`Can you research ${label} and suggest a reasonable estimate with sources?`)
-    }
-  }, [onSendMessage])
   if (items.length === 0) return null
 
   return (
@@ -57,10 +45,9 @@ export function AiEstimated({
         const influencePct = influence != null ? Math.round(influence * 100) : null
 
         return (
-          // P1-1: two-row layout for readability.
-          // Row 1: factor name (wraps, never truncates) + value + Estimated pill + small influence bar.
-          // Row 2: action pills at 44px touch height with 8px gap.
-          <div key={item.key} className="px-1 py-2 space-y-2">
+          // P1-1: two-row layout. Row 1: name + value + pill + influence bar.
+          // Row 2: icon-only actions at 44px touch height. One sparkle bottom-right.
+          <div key={item.key} className="relative px-1 py-2 space-y-2 pr-7">
             {/* Row 1 */}
             <div className="flex items-start gap-2 flex-wrap">
               <button
@@ -96,28 +83,32 @@ export function AiEstimated({
                 </div>
               )}
             </div>
-            {/* Row 2 — actions with 44px touch height */}
+            {/* Row 2 — icon-only actions, 44px touch targets */}
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => nodeId && onConfirm?.(nodeId)}
-                className={`${typography.panelMeta} text-success border border-success/30 rounded-full inline-flex items-center justify-center min-h-[44px] min-w-[44px] px-3 bg-transparent hover:bg-panel-hover cursor-pointer`}
-                aria-label={`Confirm value for ${item.label}`}
-                title="Confirm value"
-              >
-                <Check className="w-4 h-4" aria-hidden="true" />
-              </button>
-              {(onSendMessage || useGuidanceStore.getState()._dispatchAction) && (
+              <Tooltip delay={200} content="Confirm value">
                 <button
                   type="button"
-                  onClick={() => handleResearch(nodeId, item.label)}
-                  className={`${typography.panelMeta} text-info border border-info/30 rounded-full inline-flex items-center justify-center min-h-[44px] px-3 bg-transparent hover:bg-panel-hover cursor-pointer`}
-                  aria-label={`Ask AI to research ${item.label}`}
-                  title="Ask AI to research"
+                  onClick={() => nodeId && onConfirm?.(nodeId)}
+                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full border border-success/30 text-success bg-transparent hover:bg-panel-hover cursor-pointer"
+                  aria-label={`Confirm value for ${item.label}`}
                 >
-                  Ask AI
+                  <Check className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
-              )}
+              </Tooltip>
+              <Tooltip delay={200} content="Edit value">
+                <button
+                  type="button"
+                  onClick={() => nodeId && onEdit?.(nodeId)}
+                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] rounded-full border border-panel-border text-text-light bg-transparent hover:bg-panel-hover hover:text-text-body cursor-pointer"
+                  aria-label={`Edit value for ${item.label}`}
+                >
+                  <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                </button>
+              </Tooltip>
+            </div>
+            {/* One sparkle — bottom-right of the row */}
+            <div className="absolute bottom-1 right-1">
+              <DiscussWithAiButton element={{ kind: 'factor', label: item.label }} />
             </div>
           </div>
         )

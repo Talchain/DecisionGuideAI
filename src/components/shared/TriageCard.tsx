@@ -194,12 +194,10 @@ function EdgeStrengthQuickSelect({
 function InlineValueControls({
   editorConfig,
   onConfirm,
-  onSendMessage,
   title,
 }: {
   editorConfig: ScientificEditorProps
   onConfirm?: () => void
-  onSendMessage?: (text: string) => void
   title: string
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
@@ -255,15 +253,6 @@ function InlineValueControls({
             hoverClass="hover:text-success"
             onClick={onConfirm}
             aria-label="Confirm AI estimate"
-          />
-        )}
-        {onSendMessage && (
-          <IconActionButton
-            icon={Sparkles}
-            tooltip="Ask AI to research"
-            hoverClass="hover:text-info"
-            onClick={() => onSendMessage(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-            aria-label="Ask AI to research"
           />
         )}
       </div>
@@ -357,15 +346,6 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
                   hoverClass="hover:text-text-body"
                   onClick={() => onEdit!(action!.targetId!)}
                   aria-label="Edit value"
-                />
-              )}
-              {onSendMessage && action.targetId && !isBrief && (
-                <IconActionButton
-                  icon={Sparkles}
-                  tooltip="Ask AI to research"
-                  hoverClass="hover:text-info"
-                  onClick={() => onSendMessage!(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-                  aria-label="Ask AI to research"
                 />
               )}
             </div>
@@ -489,7 +469,6 @@ export function TriageCard(props: TriageCardProps) {
             <InlineValueControls
               editorConfig={editorConfig}
               onConfirm={action?.targetId && onConfirm ? () => onConfirm!(action!.targetId!) : undefined}
-              onSendMessage={!isBrief ? onSendMessage : undefined}
               title={title}
             />
           ) : action ? (
@@ -510,15 +489,6 @@ export function TriageCard(props: TriageCardProps) {
                   hoverClass="hover:text-text-body"
                   onClick={() => onEdit!(action!.targetId!)}
                   aria-label="Edit value"
-                />
-              )}
-              {onSendMessage && action.targetId && !isBrief && (
-                <IconActionButton
-                  icon={Sparkles}
-                  tooltip="Ask AI to research"
-                  hoverClass="hover:text-info"
-                  onClick={() => onSendMessage!(`Can you research ${title} and suggest a reasonable estimate with sources?`)}
-                  aria-label="Ask AI to research"
                 />
               )}
             </div>

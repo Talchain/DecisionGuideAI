@@ -306,7 +306,7 @@ export function OptionPreview({
   hasSameLeversCheck = false,
   collapseInterventionsByDefault = false,
 }: OptionPreviewProps) {
-  const [isExpanded, setIsExpanded] = useState(true)
+  const [isExpanded, setIsExpanded] = useState(false)
 
   if (options.length === 0) return null
 
@@ -325,6 +325,7 @@ export function OptionPreview({
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
+        data-testid="option-preview-toggle"
       >
         <div className="flex items-center gap-2">
           <OptionSquare />
@@ -342,6 +343,13 @@ export function OptionPreview({
           )}
         </div>
       </button>
+
+      {/* Coaching line — visible in collapsed state only */}
+      {!isExpanded && hasSameLeversCheck && (
+        <p className={`${typography.panelMeta} text-text-light px-3 pb-2`}>
+          Your options work through similar factors.
+        </p>
+      )}
 
       {/* Content */}
       {isExpanded && (

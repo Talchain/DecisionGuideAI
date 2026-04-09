@@ -37,15 +37,17 @@ function DiscussWithAiButtonImpl({ element, ariaLabel, className }: DiscussWithA
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     const text = buildAiDiscussPrompt(element)
-    if (prefillChat) {
-      prefillChat(text)
-    } else if (sendMessage) {
+    // Auto-submit preferred: message lands immediately. Fall back to pre-fill
+    // only when sendMessage is not registered (e.g. during onboarding flow).
+    if (sendMessage) {
       sendMessage(text)
+    } else if (prefillChat) {
+      prefillChat(text)
     }
   }, [element, prefillChat, sendMessage])
 
   // If neither callback is registered, render nothing — no dead button.
-  if (!prefillChat && !sendMessage) return null
+  if (!sendMessage && !prefillChat) return null
 
   const computedAriaLabel = ariaLabel ?? buildDefaultAriaLabel(element)
 

@@ -305,7 +305,7 @@ export function SuccessTarget({
   // No target set — always-visible inline input
   if (successThreshold === null) {
     return (
-      <div className={`rounded-lg border ${borderColor} bg-panel p-3`}>
+      <div className={`relative rounded-lg border ${borderColor} bg-panel p-3 pr-7`}>
         <div className="flex flex-col gap-2">
           {renderGoalHeader()}
           <div className="flex items-center gap-2">
@@ -335,15 +335,13 @@ export function SuccessTarget({
               Save
             </button>
           </div>
-          {onSendMessage && (
-            <button
-              type="button"
-              onClick={() => onSendMessage('Can you help me reconsider whether this goal is framed correctly?')}
-              className={`${typography.panelMeta} text-info hover:underline cursor-pointer self-start`}
-            >
-              Reframe goal with AI
-            </button>
-          )}
+        </div>
+        {/* Sparkle bottom-right — auto-submits contextual goal prompt */}
+        <div className="absolute bottom-1 right-1">
+          <DiscussWithAiButton
+            element={{ kind: 'goal', label: goalLabel }}
+            ariaLabel="Get help defining the success target"
+          />
         </div>
       </div>
     )
@@ -496,15 +494,6 @@ export function SuccessTarget({
             >
               Add constraint
             </button>
-            {onSendMessage && (
-              <button
-                type="button"
-                onClick={() => onSendMessage('Can you help me reconsider whether this goal is framed correctly?')}
-                className={`${typography.panelMeta} text-info hover:underline cursor-pointer`}
-              >
-                Reframe goal with AI
-              </button>
-            )}
           </>
         )}
       </div>
