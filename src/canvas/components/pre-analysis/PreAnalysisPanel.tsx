@@ -780,11 +780,13 @@ export function PreAnalysisPanel({
     }
 
     // Attach editorConfig for factor items with set_value action — only when
-    // a numeric rawValue exists. Non-numeric values (e.g. qualitative "low")
-    // render as coaching text + action buttons instead of an empty number input.
+    // a numeric rawValue exists AND the item is not an inferred-zero placeholder
+    // (detail === 'Not set'). Inferred zeros should prompt the user to set a
+    // value via the action button, not show a pre-filled "0" input.
     const targetId = item.action?.targetId
     const numericValue = item.rawValue ?? item.value ?? null
-    if (targetId && item.focus?.type === 'node' && numericValue != null && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
+    const isInferredZeroItem = item.detail === 'Not set'
+    if (targetId && item.focus?.type === 'node' && numericValue != null && !isInferredZeroItem && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
       return {
         ...mapped,
         editorConfig: {
@@ -1091,6 +1093,14 @@ export function PreAnalysisPanel({
     hasMustFix: mustFixCount > 0,
     dominantFactorId,
   })
+  if (import.meta.env.DEV) {
+    console.debug('[PreAnalysis] pickStartHere', {
+      signalCount: allReviewNextSignals.length,
+      hasMustFix: mustFixCount > 0,
+      mustFixCount,
+      picked: startHereSignal ? { kind: startHereSignal.kind, id: startHereSignal.id, score: startHereSignal.score } : null,
+    })
+  }
 
   // Exclude startHere from downstream lists by id so the same signal_id never
   // appears twice in Review next (P1-8 invariant). Also exclude resolved
@@ -1174,8 +1184,10 @@ export function PreAnalysisPanel({
     // 2. Must fix — match the rendered display order, not the data shape order
     if (mustFixCount > 0) {
       const firstFix =
-        // 2a. Enriched blockers (rendered first in the section)
-        (!data.isReady ? data.enrichedBlockers[0]?.display?.title : null)
+        // 2a. Enriched blockers (rendered first in the section) — use the
+        //     filtered list so the headline doesn't echo a blocker that the
+        //     draft-error card already covers (P0-2 dedup).
+        (!data.isReady ? visibleEnrichedBlockers[0]?.display?.title : null)
         // 2b. Structural rows (rendered second; "Fewer than 2 options" before "No baseline set")
         ?? (fewerThanTwoOptionsCheck ? 'Fewer than 2 options' : null)
         ?? (noBaselineCheck ? 'No baseline set' : null)

@@ -72,7 +72,7 @@ export function AiEstimated({
               >
                 {item.label}
               </button>
-              {item.rawValue != null && (
+              {item.rawValue != null && item.detail !== 'Not set' && (
                 <button
                   type="button"
                   onClick={() => nodeId && onEdit?.(nodeId)}

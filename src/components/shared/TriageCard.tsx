@@ -17,6 +17,7 @@ import type { ScientificEditorProps } from './ScientificEditor'
 import Tooltip from '@/components/Tooltip'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import type { AiDiscussElement } from '@/canvas/components/pre-analysis/buildAiDiscussPrompt'
+import { classifyUnit } from '@/canvas/utils/labelUtils'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -213,7 +214,13 @@ function InlineValueControls({
     }
   }, [draft, editorConfig.onSave])
 
-  const unitSuffix = editorConfig.unit === '%' ? '%' : editorConfig.unit ? editorConfig.unit : ''
+  // Suppress placeholder units (scale, score, index, norm…) from the inline
+  // editor — they carry no real-world scale and would render as "0 scale".
+  const unitSuffix = editorConfig.unit === '%'
+    ? '%'
+    : editorConfig.unit && classifyUnit(editorConfig.unit).kind !== 'placeholder'
+      ? editorConfig.unit
+      : ''
 
   return (
     <div className="flex items-center gap-2 flex-shrink-0">
