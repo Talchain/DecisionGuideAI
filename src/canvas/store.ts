@@ -303,6 +303,12 @@ interface CanvasState {
     timestamp: number
     /** Whether the error is retryable. false = deterministic validation failure. */
     retryable?: boolean
+    /**
+     * CEE-side error code (e.g. 'MISSING_INTERVENTIONS', 'OPTIONS_NEED_MAPPING')
+     * extracted from err.details.code. Used to filter redundant blockers from the
+     * Must fix list when the draft error card already covers the same signal.
+     */
+    code?: string
   } | null
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
@@ -550,7 +556,7 @@ interface CanvasState {
   setDraftChatPreDraftSnapshot: (snapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null) => void
   undoDraft: () => void
   setLastDraftDescription: (description: string) => void
-  setLastDraftError: (error: { message: string; status?: number; correlationId?: string; timestamp: number } | null) => void
+  setLastDraftError: (error: { message: string; status?: number; correlationId?: string; timestamp: number; retryable?: boolean; code?: string } | null) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void

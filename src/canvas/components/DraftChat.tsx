@@ -274,7 +274,7 @@ export function DraftChat() {
       console.error('Draft failed:', err)
 
       // Store draft error for pre-analysis panel visibility
-      const draftError: { message: string; status?: number; correlationId?: string; timestamp: number; retryable?: boolean } = {
+      const draftError: { message: string; status?: number; correlationId?: string; timestamp: number; retryable?: boolean; code?: string } = {
         message: err instanceof Error ? err.message : 'Draft failed',
         timestamp: Date.now(),
       }
@@ -287,6 +287,11 @@ export function DraftChat() {
         draftError.retryable = typeof ceeRetryable === 'boolean'
           ? ceeRetryable
           : (err.status === 429 || err.status >= 500)
+        // P0-2: capture CEE error code so PreAnalysisPanel can filter redundant
+        // blockers from the Must fix list when the draft error card already
+        // surfaces the same signal.
+        const ceeCode = details?.code ?? details?.details?.code
+        if (typeof ceeCode === 'string') draftError.code = ceeCode
       }
       useCanvasStore.getState().setLastDraftError(draftError)
 

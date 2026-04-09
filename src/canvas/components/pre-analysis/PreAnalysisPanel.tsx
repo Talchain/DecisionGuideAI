@@ -36,6 +36,7 @@ import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
 import type { TriageCardItem } from './mapImprovementToTriageCard'
+import { filterRedundantBlockers } from './filterRedundantBlockers'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
@@ -899,7 +900,17 @@ export function PreAnalysisPanel({
     && data.optionPreviews.length < 2
     && !mustFixCardKeys.has('fewer_than_2_options')
 
-  const enrichedBlockerCount = !data.isReady ? data.enrichedBlockers.length : 0
+  // P0-2: filter blockers that the Draft failed card already covers, so the
+  // user does not see "Options need configuration" twice (once in the error
+  // card, once in Must fix). Pure render-time transform; does not mutate
+  // validation state. Lifted above mustFixCount so the count and the rendered
+  // list stay consistent.
+  const visibleEnrichedBlockers = useMemo(
+    () => filterRedundantBlockers(data.enrichedBlockers, lastDraftError),
+    [data.enrichedBlockers, lastDraftError],
+  )
+
+  const enrichedBlockerCount = !data.isReady ? visibleEnrichedBlockers.length : 0
   const structuralCheckCount = (noBaselineCheck ? 1 : 0) + (fewerThanTwoOptionsCheck ? 1 : 0)
   const mustFixCount = mustFixCards.length + enrichedBlockerCount + structuralCheckCount
 
@@ -1179,11 +1190,12 @@ export function PreAnalysisPanel({
             <section className="space-y-2" data-testid="section-must-fix">
               <SectionHeader title="Must fix" count={mustFixCount} tone="danger" testId="section-must-fix-header" />
 
-              {/* 1. Enriched blockers (e.g. Options need configuration) */}
-              {!data.isReady && data.enrichedBlockers.length > 0 && (
+              {/* 1. Enriched blockers (e.g. Options need configuration). P0-2:
+                  filtered to drop entries that the Draft failed card already covers. */}
+              {!data.isReady && visibleEnrichedBlockers.length > 0 && (
                 <SectionErrorBoundary section="Blockers">
                   <BlockersSection
-                    blockers={data.enrichedBlockers}
+                    blockers={visibleEnrichedBlockers}
                     informationalBlockers={[]}
                     canRetryDraft={canRetryDraft}
                     isRetrying={isRetrying}
