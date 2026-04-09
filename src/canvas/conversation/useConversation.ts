@@ -2999,16 +2999,38 @@ export function useConversation(): UseConversationReturn {
    * T6: User-initiated cancel of the current turn. Aborts the inflight
    * AbortController, marks the streaming message as `stoppedByUser` so the UI
    * can show a "Response stopped." indicator, and tears down the timers and
-   * thinking state. Late chunks arriving after abort do NOT clear the
-   * stoppedByUser flag — see the streaming loop's case branches.
+   * thinking state.
+   *
+   * CRITICAL (N8): after updating the message, this function calls
+   * `cleanupStreamRefs()` to clear `streamingMsgIdRef` BEFORE the abort
+   * throws. The sendTurn finally block has a "stuck stream recovery" branch
+   * that, if the ref is still set, overwrites the message content with
+   * "The response was interrupted." and attaches a "Try again" chip. For a
+   * user-initiated stop that's wrong on both counts — the user chose to
+   * stop, so (a) we must preserve the partial content they saw, and (b)
+   * "Try again" is misleading. Clearing the ref short-circuits that branch.
    *
    * No-ops when no turn is active. Does NOT touch any patch state — Stop only
    * stops the response stream; it never accepts, rejects, or mutates a patch.
    */
   const cancelTurn = useCallback(() => {
-    if (!isThinkingRef.current && !abortRef.current) return
+    // Idempotent guard (F). We intentionally check isThinkingRef (mirror of
+    // isThinking state) and NOT abortRef, because abortRef remains set across
+    // turns — after the first turn ends, abortRef.current stays non-null.
+    // Using it as a gate would fail to short-circuit stale clicks. The UI
+    // only renders the Stop button when isThinking is true, so this is a
+    // defence-in-depth check against programmatic callers.
+    if (!isThinkingRef.current) return
+
+    // Sync the ref IMMEDIATELY so a second synchronous cancelTurn call (e.g.
+    // double-click) observes the updated value and bails (G). setIsThinking(false)
+    // only updates the mirror ref on the next commit phase via its useEffect.
+    isThinkingRef.current = false
+
     // Mark the in-flight streaming message FIRST so any chunk handlers that
     // race against the abort observe stoppedByUser === true and preserve it.
+    // The shallow merge in updateMessage leaves stoppedByUser set even if
+    // subsequent patches don't include it, so late chunks cannot clear it.
     const stoppedMsgId = streamingMsgIdRef.current
     if (stoppedMsgId) {
       updateMessage(stoppedMsgId, {
@@ -3018,6 +3040,12 @@ export function useConversation(): UseConversationReturn {
         toolLoadingState: null,
       })
     }
+
+    // N8: clear stream refs BEFORE aborting so the finally block's
+    // stuck-stream recovery branch sees `streamingMsgIdRef.current === null`
+    // and leaves our stopped-message state intact.
+    cleanupStreamRefs()
+
     abortRef.current?.abort()
     clearTimeout(longRunningTimerRef.current)
     clearTimeout(timeoutTimerRef.current)
@@ -3025,7 +3053,7 @@ export function useConversation(): UseConversationReturn {
     setIsThinking(false)
     useCanvasStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
-  }, [updateMessage])
+  }, [updateMessage, cleanupStreamRefs])
 
   return {
     messages,

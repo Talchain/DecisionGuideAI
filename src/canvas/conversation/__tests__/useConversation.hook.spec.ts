@@ -1407,3 +1407,125 @@ describe('null-initial scenario_id lifecycle', () => {
     expect(UUID_RE.test(request.client_turn_id)).toBe(true)
   })
 })
+
+// ---------------------------------------------------------------------------
+// T6 — cancelTurn (Stop button)
+// ---------------------------------------------------------------------------
+
+describe('cancelTurn — T6 Stop button', () => {
+  beforeEach(() => {
+    // Enable streaming path so cancelTurn's interaction with the streaming
+    // loop's finally block is exercised. N8 only affects the streaming path —
+    // the non-streaming path never sets streamingMsgIdRef.
+    localStorage.setItem('feature.orchestratorStreaming', '1')
+  })
+
+  afterEach(() => {
+    localStorage.removeItem('feature.orchestratorStreaming')
+  })
+
+  /**
+   * Build a mock streaming generator that yields the given text chunk, then
+   * hangs forever waiting for more events. The test calls cancelTurn to abort
+   * it. The generator honours the controller.signal so it throws AbortError
+   * when the signal is aborted, mirroring production streamOrchestratorTurn.
+   */
+  function configureStreamingGeneratorWithPartialText(partialText: string) {
+    mockStreamTurn.mockImplementation(async function* (_req: unknown, signal: AbortSignal) {
+      // Yield an initial text_delta so the message has content when the user stops.
+      yield { type: 'text_delta' as const, delta: partialText }
+      // Wait for abort. Resolve a promise on the signal's 'abort' event so the
+      // generator exits cleanly with an AbortError mirroring production fetch.
+      await new Promise<never>((_, reject) => {
+        if (signal.aborted) {
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+          return
+        }
+        signal.addEventListener('abort', () => {
+          reject(Object.assign(new Error('aborted'), { name: 'AbortError' }))
+        }, { once: true })
+      })
+    })
+  }
+
+  it('N8: clicking Stop preserves the partial text instead of overwriting with "The response was interrupted."', async () => {
+    const partialText = "I'll add a factor called "
+    configureStreamingGeneratorWithPartialText(partialText)
+
+    const { result } = renderHook(() => useConversation())
+
+    // Start the turn (do not await — it hangs until Stop).
+    await act(async () => {
+      result.current.sendMessage('test question')
+    })
+
+    // Let the text_delta flush (RAF is mocked to microtask in test env).
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    // Stop the turn.
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+
+    // Allow pending microtasks (finally block, abort-triggered catch) to run.
+    await act(async () => {
+      await Promise.resolve()
+      await Promise.resolve()
+    })
+
+    const assistantMessages = result.current.messages.filter((m) => m.role === 'assistant')
+    expect(assistantMessages.length).toBeGreaterThan(0)
+    const last = assistantMessages[assistantMessages.length - 1]
+
+    // N8 regression: content must NOT be overwritten with the stuck-stream
+    // recovery placeholder. The partial text the user saw must be preserved.
+    expect(last.content).not.toContain('The response was interrupted')
+    // No Try again chip — the user intentionally stopped.
+    const retryChip = last.actionChips?.find((c) => c.id === 'retry')
+    expect(retryChip).toBeUndefined()
+    // Stopped indicator marker intact.
+    expect(last.stoppedByUser).toBe(true)
+    expect(last.isStreaming).toBe(false)
+    expect(last.isProvisional).toBe(false)
+  })
+
+  it('F: cancelTurn is idempotent when isThinking is false (not a no-op after first turn)', async () => {
+    // Regression for the F defensive fix: earlier the early-return used
+    //   if (!isThinkingRef.current && !abortRef.current) return
+    // After the first turn, abortRef.current stays set, so the second
+    // condition was always true → the early return never fired → clicking
+    // Stop on an idle composer would run the full cleanup path against
+    // stale state. The fix checks only isThinkingRef.
+    const { result } = renderHook(() => useConversation())
+
+    // Call cancelTurn BEFORE any turn has started. Must be a no-op.
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    expect(result.current.isThinking).toBe(false)
+    expect(result.current.messages).toEqual([])
+
+    // Now start and complete a turn to ensure abortRef is populated.
+    mockStreamTurn.mockImplementation(async function* () {
+      yield { type: 'turn_complete' as const, envelope: { assistant_text: 'done', client_turn_id: 'c1' } }
+    })
+    await act(async () => {
+      await result.current.sendMessage('hello')
+    })
+    expect(result.current.isThinking).toBe(false)
+
+    // Call cancelTurn again post-turn. This was the buggy path before F:
+    // abortRef.current is now set (from the completed turn), so the old
+    // condition fell through and ran cleanup. The fix ensures it bails.
+    const messagesBefore = result.current.messages.length
+    await act(async () => {
+      result.current.cancelTurn()
+    })
+    // Cleanup must NOT have added a new message or changed state.
+    expect(result.current.messages.length).toBe(messagesBefore)
+    expect(result.current.isThinking).toBe(false)
+  })
+})

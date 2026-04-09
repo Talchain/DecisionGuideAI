@@ -150,7 +150,14 @@ export const MessageBubble = memo(function MessageBubble({
 
   // P0-1: Safety net — extract text from raw JSON blobs (CEE fallback parser).
   // Only apply after streaming completes — partial JSON during streaming would flash fallback.
-  const displayContent = isUser || isStreaming ? message.content : extractFromRawJson(message.content)
+  // N3 (T6): skip the JSON-extraction safety net on user-stopped messages. The
+  // partial content may be an incomplete JSON fragment that JSON.parse would
+  // reject, causing extractFromRawJson to return its "didn't render correctly"
+  // placeholder — confusing alongside the "Response stopped." indicator. The
+  // user chose to stop mid-stream; show whatever partial they had.
+  const displayContent = (isUser || isStreaming || message.stoppedByUser)
+    ? message.content
+    : extractFromRawJson(message.content)
 
   // Progressive disclosure: truncate at natural boundaries (paragraph / sentence)
   const canTruncate = !isUser

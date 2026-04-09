@@ -218,4 +218,32 @@ describe('MessageBubble — stoppedByUser indicator (T6)', () => {
     expect(screen.getByTestId('response-stopped-indicator')).toBeTruthy()
     expect(screen.getByTestId('message-assistant').innerHTML).toContain('plus late chunk')
   })
+
+  it('N3: does NOT run extractFromRawJson on stopped messages with partial JSON content', () => {
+    // A user stops mid-stream while a CEE fallback parser was emitting raw
+    // JSON. The accumulated content is an incomplete JSON fragment that
+    // would fail JSON.parse. Without the N3 short-circuit, extractFromRawJson
+    // would return its "didn't render correctly. Try asking again."
+    // placeholder — confusing alongside "Response stopped."
+    //
+    // With N3, the fragment is preserved as-is. The user sees what arrived
+    // and can decide what to do with it.
+    const partialJson = '{"text":"I\'ll add a factor called Demand grow'
+    render(
+      <MessageBubble
+        message={makeMsg({
+          stoppedByUser: true,
+          isStreaming: false,
+          content: partialJson,
+        })}
+        onChipClick={noop}
+      />,
+    )
+    const bubble = screen.getByTestId('message-assistant')
+    // Partial content visible as-is, not replaced by the fallback placeholder.
+    expect(bubble.innerHTML).toContain('Demand grow')
+    expect(bubble.innerHTML).not.toContain("didn't render correctly")
+    // Stopped indicator still present.
+    expect(screen.getByTestId('response-stopped-indicator')).toBeTruthy()
+  })
 })
