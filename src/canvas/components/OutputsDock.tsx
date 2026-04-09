@@ -682,7 +682,11 @@ export function OutputsDock() {
   const confirmStability = resultsSectionData?.recommendation?.recommendationStability ?? 0
   const confirmGapCount = resultsSectionData?.confidence?.evidenceGaps?.length ?? 0
   const isConfirmProvisional = confirmStability < 0.4 || confirmGapCount > 0
-  const confirmLabel = isConfirmProvisional ? 'Confirm anyway' : 'Confirm decision'
+  // P1-7: "Confirm anyway" framed the action as friction. Rename the
+  // provisional path to "Create decision brief" so completing with caveats
+  // reads as forward motion. The non-provisional label stays as
+  // "Confirm decision" for the clean-result case.
+  const confirmLabel = isConfirmProvisional ? 'Create decision brief' : 'Confirm decision'
   const confirmTitle = confirmStability < 0.4
     ? 'Trust score is below 40% — address items to improve confidence'
     : confirmGapCount > 0
@@ -1593,8 +1597,8 @@ export function OutputsDock() {
                     actionTitle={confirmTitle}
                     actionAriaLabel={isConfirmProvisional
                       ? confirmGapCount > 0
-                        ? `Confirm anyway — ${confirmGapCount} evidence gap${confirmGapCount === 1 ? '' : 's'} remain`
-                        : 'Confirm anyway — trust score is low'
+                        ? `Create decision brief, ${confirmGapCount} evidence gap${confirmGapCount === 1 ? '' : 's'} remain`
+                        : 'Create decision brief, trust score is low'
                       : 'Confirm decision'}
                     secondaryActionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
                     secondaryOnAction={handleRunAnalysis}
