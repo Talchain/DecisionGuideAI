@@ -122,6 +122,34 @@ export const OptionNode = memo((props: NodeProps) => {
   const viewMode = useCanvasStore(state => state.viewMode)
   const isDetailed = viewMode === 'expert'
 
+  // Graph v2 Task 4: close-call gap in percentage points. Non-zero only when
+  // this option is a non-leader within 5pp of the leader's win probability.
+  // Prefers report.robustness.recommended_option_id; falls back to max scan if
+  // missing. Returns null when not in close-call territory or pre-analysis.
+  const closeCallGapPp = useMemo<number | null>(() => {
+    if (!isPostAnalysis || isRecommended) return null
+    const report = resultsReport as any
+    const probs: Record<string, { win_probability?: number }> | undefined = report?.option_probabilities
+    if (!probs) return null
+    const thisWin = probs[props.id]?.win_probability
+    if (typeof thisWin !== 'number') return null
+    let leaderWin: number | null = null
+    const recommendedId = report?.robustness?.recommended_option_id as string | undefined
+    if (recommendedId && typeof probs[recommendedId]?.win_probability === 'number') {
+      leaderWin = probs[recommendedId]!.win_probability!
+    } else {
+      // Fallback: scan for max
+      for (const id in probs) {
+        const w = probs[id]?.win_probability
+        if (typeof w === 'number' && (leaderWin == null || w > leaderWin)) leaderWin = w
+      }
+    }
+    if (leaderWin == null) return null
+    const gap = leaderWin - thisWin
+    if (gap < 0 || gap > 0.05) return null
+    return Math.round(gap * 100)
+  }, [isPostAnalysis, isRecommended, resultsReport, props.id])
+
   const interventionChips = useMemo<InterventionChip[]>(() => {
     // Primary: ceeAnalysisReady.options[optionId].interventions
     const ceeOption = ceeAnalysisReady?.options?.find(opt => opt.id === props.id)
@@ -778,6 +806,15 @@ export const OptionNode = memo((props: NodeProps) => {
           </p>
         )}
 
+        {/* Graph v2 Task 4: close-call line — only when within 5pp of leader.
+            Renders ABOVE the existing "Behind:" reason so users see both the
+            closeness signal and the causal explanation. */}
+        {closeCallGapPp != null && (
+          <p className={`${typography.nodeLabel} text-warning mt-0.5 m-0`}>
+            Close call: within {closeCallGapPp} percentage point{closeCallGapPp !== 1 ? 's' : ''}
+          </p>
+        )}
+
         {/* "Behind:" reason (non-winner, post-analysis -- includes status quo) */}
         {isPostAnalysis && !isRecommended && behindReason && (
           <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
@@ -842,9 +879,18 @@ export const OptionNode = memo((props: NodeProps) => {
           </div>
         )}
 
-        {/* Coaching chip (non-winner, non-baseline, post-analysis) */}
+        {/* Coaching chip (non-winner, non-baseline, post-analysis).
+            Graph v2 Task 4: close-call options also surface "What would
+            change this?" alongside "What would make this lead?" so the user
+            has a quick path to interrogate the gap. */}
         {isPostAnalysis && !isRecommended && !isBaselineOption && displayMetadata.winRate !== null && (
           <div className="flex gap-1 flex-wrap mt-1.5">
+            {closeCallGapPp != null && (
+              <NodeChip
+                label="What would change this?"
+                message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to become the leader?`}
+              />
+            )}
             <NodeChip label="What would make this lead?" message={`What would need to change for ${(props.data?.label as string) ?? 'this option'} to lead?`} />
           </div>
         )}

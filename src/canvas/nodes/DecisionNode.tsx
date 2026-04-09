@@ -1,11 +1,12 @@
 /**
- * Decision node component — v3.1 wireframe (Decision Graph Spec v1.1 Section 5.1)
+ * Decision node component — Graph v2 simplification.
  *
- * Pre-analysis Standard: health pills (gaps / estimates / biases), coaching chips,
- *   science icons in header, popover with model readiness breakdown.
- * Post-analysis Standard: compound winner + risk sentence, coaching chips.
- * Pre-analysis Detailed: full model readiness breakdown inline.
- * Post-analysis Detailed: stability label inline.
+ * Pre-analysis Standard: triage line, 2 coaching chips, popover with model
+ *   readiness breakdown.
+ * Pre-analysis Detailed: same as Standard (chip rules are view-agnostic).
+ * Post-analysis Standard: compound winner + risk sentence, 2 coaching chips,
+ *   popover with stability % + tier + progress bar.
+ * Post-analysis Detailed: same as Standard PLUS stability line in body.
  */
 import { memo, useMemo, useCallback } from 'react'
 import type { NodeProps } from '@xyflow/react'
@@ -15,9 +16,8 @@ import type { DecisionNodeData } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
-import { useScienceIcons } from '../hooks/useScienceIcons'
 import { typography } from '../../styles/typography'
-import { NodeChip, ScienceIcon, NodePopover } from './shared'
+import { NodeChip, NodePopover } from './shared'
 import { isGoalDefined } from '../../utils/isGoalDefined'
 import { cleanFactorLabel } from '../utils/labelUtils'
 
@@ -29,18 +29,12 @@ function truncateAtWord(text: string, maxLength: number): string {
   return (lastSpace > maxLength * 0.6 ? truncated.substring(0, lastSpace) : truncated).trimEnd() + '\u2026'
 }
 
-// ---- Health pill helpers ----
-
-interface HealthPill {
-  label: string
-  colour: 'danger' | 'warning'
-}
+// ---- Model readiness helpers ----
 
 interface ModelReadiness {
   gapCount: number
   estimateCount: number
   biasCount: number
-  pills: HealthPill[]
   // breakdown for popover / detailed view
   explicitCount: number
   inferredCount: number
@@ -104,16 +98,10 @@ function useModelReadiness(decisionId: string): ModelReadiness {
     const estimateCount = inferredCount
     const biasCount = biasTriggers.length
 
-    const pills: HealthPill[] = []
-    if (gapCount > 0) pills.push({ label: `${gapCount} gap${gapCount !== 1 ? 's' : ''}`, colour: 'danger' })
-    if (estimateCount > 0) pills.push({ label: `${estimateCount} estimate${estimateCount !== 1 ? 's' : ''}`, colour: 'warning' })
-    if (biasCount > 0) pills.push({ label: `${biasCount} bias${biasCount !== 1 ? 'es' : ''}`, colour: 'warning' })
-
     return {
       gapCount,
       estimateCount,
       biasCount,
-      pills,
       explicitCount,
       inferredCount,
       missingCount,
@@ -122,12 +110,6 @@ function useModelReadiness(decisionId: string): ModelReadiness {
       totalFactors: factorNodes.length,
     }
   }, [nodes, edges, decisionId])
-}
-
-// ---- Pill colour map ----
-const pillColourClasses: Record<HealthPill['colour'], string> = {
-  danger: 'border-danger/30 text-danger',
-  warning: 'border-warning/30 text-warning',
 }
 
 export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNodeData>) => {
@@ -142,7 +124,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   const isPostAnalysis = resultsStatus === 'complete'
   const isDetailed = viewMode === 'expert'
 
-  const scienceIcons = useScienceIcons(id, 'decision')
   const readiness = useModelReadiness(id)
   const { showPopover, nodeHandlers, popoverHandlers, nodeElRef } = usePopoverHover()
 
@@ -269,18 +250,21 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
     ? (biggestRisk.label.length > 22 ? `${biggestRisk.label.slice(0, 22)}...` : biggestRisk.label)
     : null
 
-  // Stability display for post-analysis Detailed view: "93% (robust)"
+  // Stability for post-analysis Detailed body and Standard popover.
+  // Returns the underlying fraction (0-1) so the popover progress bar can use
+  // it directly without re-parsing the formatted string.
   const stabilityDisplay = useMemo(() => {
     if (!isPostAnalysis || !report) return null
     const robustness = (report as any)?.robustness
     const stability = robustness?.recommendation_stability as number | undefined
     if (stability == null) return null
-    const pct = Math.round(stability * 100)
-    const tier = stability >= 0.85 ? 'robust'
-      : stability >= 0.70 ? 'moderate'
-      : stability >= 0.40 ? 'sensitive'
+    const fraction = Math.max(0, Math.min(1, stability))
+    const pct = Math.round(fraction * 100)
+    const tier = fraction >= 0.85 ? 'robust'
+      : fraction >= 0.70 ? 'moderate'
+      : fraction >= 0.40 ? 'sensitive'
       : 'highly sensitive'
-    return `${pct}% (${tier})`
+    return { pct, tier, fraction }
   }, [isPostAnalysis, report])
 
   // Chip actions via _sendMessage
@@ -290,14 +274,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
   }, [])
 
   // ---- Render ----
-
-  const headerSlot = scienceIcons.length > 0 ? (
-    <span className="inline-flex items-center gap-1">
-      {scienceIcons.map(si => (
-        <ScienceIcon key={si.id} icon={si.icon} tooltip={si.tooltip} action={si.action} colour={si.colour} />
-      ))}
-    </span>
-  ) : undefined
 
   return (
     <div
@@ -312,7 +288,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
         id={id}
         data={data}
         selected={selected}
-        headerSlot={headerSlot}
       >
         {/* ===== POST-ANALYSIS ===== */}
         {headline ? (
@@ -333,10 +308,11 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               ) : null}
             </div>
 
-            {/* Post-analysis Detailed: stability display */}
+            {/* Post-analysis Detailed only: stability display in body. Standard
+                surfaces the same info via the popover below. */}
             {isDetailed && stabilityDisplay && (
               <div className={`${typography.edgeLabel} text-text-light mt-1`}>
-                Stability: {stabilityDisplay}
+                Stability: {stabilityDisplay.pct}% ({stabilityDisplay.tier})
               </div>
             )}
 
@@ -350,20 +326,6 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
           <>
             {/* ===== PRE-ANALYSIS ===== */}
 
-            {/* Health pills */}
-            {readiness.pills.length > 0 && (
-              <div className="flex gap-[3px] mt-1.5 items-center flex-wrap">
-                {readiness.pills.map(pill => (
-                  <span
-                    key={pill.label}
-                    className={`${typography.edgeLabel} px-[5px] py-[1px] rounded-[10px] border bg-transparent ${pillColourClasses[pill.colour]}`}
-                  >
-                    {pill.label}
-                  </span>
-                ))}
-              </div>
-            )}
-
             {/* Triage line — single most important next action */}
             {triageLine && (
               <div className={`${typography.edgeLabel} text-text-body mt-1 truncate`}>
@@ -371,9 +333,9 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
               </div>
             )}
 
-            {/* Coaching chips — Polish 4 Task 7: max 2 chips. "Run analysis"
-                is the state-specific CTA when the model is ready and replaces
-                the generic "What could go wrong?" so we never exceed 2 chips. */}
+            {/* Coaching chips — max 2 chips. "Run analysis" is the
+                state-specific CTA when the model is ready and replaces the
+                generic "What could go wrong?" so we never exceed 2 chips. */}
             <div className="flex items-center gap-1 flex-wrap mt-1.5">
               <NodeChip label="Explore more options" message="Suggest a third option I haven't considered for this decision" />
               {showRunAnalysis ? (
@@ -409,10 +371,33 @@ export const DecisionNode = memo(({ id, data, selected }: NodeProps<DecisionNode
                 ))}
               </>
             )}
-            {/* Polish 4 review: removed the "Review model readiness" chip
-                from the popover. It was a generic CTA not tied to any state
-                and stacked on top of the body's 2 chips, exceeding the audit
-                table's per-node max. */}
+          </div>
+        </NodePopover>
+      )}
+
+      {/* Post-analysis Standard popover — stability detail.
+          Detailed view shows stability inline in the body, so we don't need
+          the popover there. */}
+      {isPostAnalysis && !isDetailed && stabilityDisplay && (
+        <NodePopover
+          visible={showPopover}
+          width={220}
+          onMouseEnter={popoverHandlers.onMouseEnter}
+          onMouseLeave={popoverHandlers.onMouseLeave}
+          anchorRef={nodeElRef}
+        >
+          <div className={`${typography.edgeLabel} text-text-body space-y-1.5`}>
+            <div className="font-medium text-text-heading">Stability</div>
+            <div className="flex items-center gap-1.5">
+              <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-info"
+                  style={{ width: `${Math.max(4, stabilityDisplay.pct)}%` }}
+                />
+              </div>
+              <span className="w-7 text-right shrink-0 text-text-light">{stabilityDisplay.pct}%</span>
+            </div>
+            <div className="text-text-light">{stabilityDisplay.tier}</div>
           </div>
         </NodePopover>
       )}

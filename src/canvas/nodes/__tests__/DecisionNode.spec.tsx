@@ -178,8 +178,11 @@ describe('DecisionNode', () => {
     expect(screen.queryByText('Acquire Smaller Competitor')).toBeNull()
   })
 
-  // Health pills: gaps shown when factors have null observedState.value
-  it('shows gap pill when factors have missing values', () => {
+  // Graph v2 simplification: health pills removed from the body. The gap /
+  // estimate / bias counts still feed the pre-analysis popover (model
+  // readiness breakdown), but the body never renders the "1 gap" / "2
+  // estimates" pills any more.
+  it('does NOT render gap pill in the body when factors have missing values', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         edges: [{ id: 'e1', source: 'decision-1', target: 'option-1' }],
@@ -191,11 +194,10 @@ describe('DecisionNode', () => {
       }) as any)
     )
     renderDecision()
-    expect(screen.getByText('1 gap')).toBeDefined()
+    expect(screen.queryByText(/\d+ gap/i)).toBeNull()
   })
 
-  // Health pills: estimates shown when factors have extractionType 'inferred'
-  it('shows estimate pill when factors are inferred', () => {
+  it('does NOT render estimate pill in the body when factors are inferred', () => {
     vi.mocked(useCanvasStore).mockImplementation((selector) =>
       selector(makeStoreState({
         edges: [{ id: 'e1', source: 'decision-1', target: 'option-1' }],
@@ -207,7 +209,7 @@ describe('DecisionNode', () => {
       }) as any)
     )
     renderDecision()
-    expect(screen.getByText('2 estimates')).toBeDefined()
+    expect(screen.queryByText(/\d+ estimate/i)).toBeNull()
   })
 
   // Chips: pre-analysis shows "Explore more options" and "What could go wrong?"

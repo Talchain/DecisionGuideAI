@@ -364,6 +364,142 @@ describe('Render matrix — OptionNode × view × phase', () => {
     expect(screen.queryByText(/key difference/i)).toBeNull()
     expect(screen.getByText('What would make this lead?')).toBeDefined()
   })
+
+  // ---- Graph v2 Task 4: close-call variant ----
+
+  // Topology where option-1 (the rendered node) is non-leader within 5pp
+  // of option-2 (the leader). Includes the report so the close-call useMemo
+  // can read win probabilities.
+  const closeCallTopology = (gapPp: number): MatrixState => ({
+    viewMode: 'standard',
+    phase: 'post',
+    nodes: [
+      { id: 'option-1', type: 'option', data: { label: 'Aggressive plan', type: 'option' } },
+      { id: 'option-2', type: 'option', data: { label: 'Conservative plan', type: 'option' } },
+      {
+        id: 'factor-1',
+        type: 'factor',
+        data: { label: 'Hiring rate', observedState: { unit: 'engineers', value: 0.3, raw_value: 3, cap: 10 } },
+      },
+    ],
+    edges: [],
+    ceeAnalysisReady: {
+      options: [
+        { id: 'option-1', interventions: { 'factor-1': 0.5 } },
+        { id: 'option-2', interventions: { 'factor-1': 0.9 } },
+      ],
+    },
+    report: {
+      robustness: { recommended_option_id: 'option-2' },
+      option_probabilities: {
+        'option-1': { win_probability: 0.50 - gapPp / 100 },
+        'option-2': { win_probability: 0.50 },
+      },
+    },
+  })
+
+  it('Standard post non-leader, gap 3pp: shows "Close call: within 3 percentage points" and keeps "Behind:" line', () => {
+    applyStore(closeCallTopology(3))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.47, // not the leader
+      isResultsMode: true,
+    } as any)
+    renderOption({})
+    expect(screen.getByText('Close call: within 3 percentage points')).toBeDefined()
+    expect(screen.getByText(/Behind:/)).toBeDefined()
+  })
+
+  it('Standard post non-leader, gap 1pp: pluralisation drops the trailing "s"', () => {
+    applyStore(closeCallTopology(1))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.49,
+      isResultsMode: true,
+    } as any)
+    renderOption({})
+    expect(screen.getByText('Close call: within 1 percentage point')).toBeDefined()
+  })
+
+  it('Standard post close-call: "What would change this?" chip is added alongside "What would make this lead?"', () => {
+    applyStore(closeCallTopology(3))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.47,
+      isResultsMode: true,
+    } as any)
+    renderOption({})
+    expect(screen.getByText('What would change this?')).toBeDefined()
+    expect(screen.getByText('What would make this lead?')).toBeDefined()
+  })
+
+  it('Standard post non-leader, gap 10pp: NO close-call line, NO "What would change this?" chip', () => {
+    applyStore(closeCallTopology(10))
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.40,
+      isResultsMode: true,
+    } as any)
+    renderOption({})
+    expect(screen.queryByText(/Close call:/)).toBeNull()
+    expect(screen.queryByText('What would change this?')).toBeNull()
+    // The standard "What would make this lead?" chip is still present.
+    expect(screen.getByText('What would make this lead?')).toBeDefined()
+  })
+
+  it('Standard post leader: NO close-call line on the leader itself', () => {
+    applyStore(closeCallTopology(3))
+    // Mark this rendered option (option-1) as the leader by giving it the
+    // higher win probability and making the report point at it.
+    applyStore({
+      ...closeCallTopology(3),
+      report: {
+        robustness: { recommended_option_id: 'option-1' },
+        option_probabilities: {
+          'option-1': { win_probability: 0.55 },
+          'option-2': { win_probability: 0.45 },
+        },
+      },
+    })
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.55,
+      isResultsMode: true,
+    } as any)
+    renderOption({})
+    expect(screen.queryByText(/Close call:/)).toBeNull()
+  })
+
+  it('Pre Standard non-baseline: close-call line never renders pre-analysis', () => {
+    applyStore({ ...closeCallTopology(3), phase: 'pre' })
+    renderOption({})
+    expect(screen.queryByText(/Close call:/)).toBeNull()
+  })
 })
 
 // ============================================================================
@@ -424,19 +560,27 @@ describe('Render matrix — DecisionNode chip audit', () => {
 
   // A decision with at least one option so the pre-analysis branch renders.
   // Post-analysis branch needs a `report.robustness.recommended_option_id`
-  // pointing at an actual option node so the headline computes.
-  const decisionTopology = (viewMode: ViewMode, phase: Phase): MatrixState => ({
+  // pointing at an actual option node so the headline computes. Includes a
+  // missing-value factor + an inferred factor so the legacy pill code (now
+  // removed) would have rendered "1 gap" / "1 estimate" pills — used to assert
+  // the pills are gone.
+  const decisionTopology = (viewMode: ViewMode, phase: Phase, stability?: number): MatrixState => ({
     viewMode,
     phase,
     nodes: [
       { id: 'decision-1', type: 'decision', data: { label: 'Hiring decision', type: 'decision' } },
       { id: 'option-1', type: 'option', data: { label: 'Hire 3', type: 'option' } },
+      { id: 'factor-missing', type: 'factor', data: { type: 'factor', label: 'Cost', category: 'controllable' } },
+      { id: 'factor-inferred', type: 'factor', data: { type: 'factor', label: 'Demand', category: 'controllable', observedState: { value: 0.5, extractionType: 'inferred' } } },
     ],
     edges: [
       { id: 'e1', source: 'decision-1', target: 'option-1', data: {} },
     ],
     report: phase === 'post' ? {
-      robustness: { recommended_option_id: 'option-1' },
+      robustness: {
+        recommended_option_id: 'option-1',
+        recommendation_stability: stability ?? 0.93,
+      },
       option_probabilities: { 'option-1': { win_probability: 0.7 } },
     } : null,
   })
@@ -474,6 +618,69 @@ describe('Render matrix — DecisionNode chip audit', () => {
     renderDecision()
     expect(screen.getByText('Challenge this result')).toBeDefined()
     expect(screen.getByText('Compare options')).toBeDefined()
+  })
+
+  // ---- Graph v2 simplification ----
+
+  it('Standard pre: no health pills (gaps / estimates / biases) render in body', () => {
+    applyStore(decisionTopology('standard', 'pre'))
+    renderDecision()
+    expect(screen.queryByText(/\d+ gap/i)).toBeNull()
+    expect(screen.queryByText(/\d+ estimate/i)).toBeNull()
+    expect(screen.queryByText(/\d+ bias/i)).toBeNull()
+  })
+
+  it('Detailed pre: no health pills render in body', () => {
+    applyStore(decisionTopology('expert', 'pre'))
+    renderDecision()
+    expect(screen.queryByText(/\d+ gap/i)).toBeNull()
+    expect(screen.queryByText(/\d+ estimate/i)).toBeNull()
+    expect(screen.queryByText(/\d+ bias/i)).toBeNull()
+  })
+
+  it('Standard post: no "Stability:" text in body — moved to popover', () => {
+    applyStore(decisionTopology('standard', 'post', 0.93))
+    renderDecision()
+    // The body must not contain "Stability:" — that lives in the Detailed
+    // body and the Standard popover. The popover is rendered (via the
+    // NodePopover mock) but it appears under data-testid="node-popover".
+    const popovers = screen.queryAllByTestId('node-popover')
+    // Filter out the popover content and assert no stand-alone "Stability:"
+    // sentence outside it.
+    const bodyHasStabilityLine = screen.queryAllByText(/Stability:/).length
+    // If a "Stability:" line exists at all, it must be inside the popover.
+    if (bodyHasStabilityLine > 0) {
+      const popoverHtml = popovers.map(p => p.innerHTML).join('')
+      expect(popoverHtml).toMatch(/Stability/)
+    }
+    // The Detailed-style "Stability: 93% (robust)" line never renders in
+    // Standard post — assert directly.
+    expect(screen.queryByText(/Stability: 93%/)).toBeNull()
+  })
+
+  it('Detailed post: stability line renders in body', () => {
+    applyStore(decisionTopology('expert', 'post', 0.93))
+    renderDecision()
+    expect(screen.getByText(/Stability: 93% \(robust\)/)).toBeDefined()
+  })
+
+  it('Standard post: popover contains stability label and percentage', () => {
+    applyStore(decisionTopology('standard', 'post', 0.93))
+    renderDecision()
+    const popover = screen.getByTestId('node-popover')
+    expect(popover.textContent).toContain('Stability')
+    expect(popover.textContent).toContain('93%')
+    expect(popover.textContent).toContain('robust')
+  })
+
+  it('Standard pre: no science icon header wrapper renders', () => {
+    applyStore(decisionTopology('standard', 'pre'))
+    const { container } = renderDecision()
+    // The science-icon header was an inline-flex span next to the title.
+    // useScienceIcons is mocked to [] globally, so even before this change
+    // the wrapper was empty — but this assertion pins the expectation that
+    // the wrapper itself is gone (no headerSlot prop passed).
+    expect(container.querySelector('.inline-flex.items-center.gap-1')).toBeNull()
   })
 })
 

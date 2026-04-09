@@ -49,6 +49,7 @@ export const FactorNode = memo((props: NodeProps) => {
   const edges = useCanvasStore(state => state.edges)
   const ceeAnalysisReady = useCanvasStore(state => state.ceeAnalysisReady)
   const resultsStatus = useCanvasStore(state => state.results.status)
+  const resultsReport = useCanvasStore(state => state.results.report)
   const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
   const isDetailed = viewMode === 'expert'
@@ -105,6 +106,101 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [hoveredOptionId, nodes, props.id])
 
   const isAffectedByHover = interventionValue !== null
+
+  // Graph v2 Task 3: per-option comparison table for the popover.
+  // Suppressed for external factors and rendered in both phases. Ordering:
+  //   post: leader first → win prob desc → status quo last
+  //   pre:  canvas order → status quo last
+  // Status quo detection prefers an explicit `is_baseline` flag, falling back
+  // to an epsilon delta against the factor's current value.
+  const optionComparisonRows = useMemo(() => {
+    if (nodeCategory === 'external') return null
+    const optionNodes = nodes.filter(n => (n.type === 'option') || (n.data?.type === 'option'))
+    if (optionNodes.length === 0) return null
+
+    const recommendedId = isPostAnalysis
+      ? ((resultsReport as any)?.robustness?.recommended_option_id as string | undefined)
+      : undefined
+    const winProbs = isPostAnalysis
+      ? ((resultsReport as any)?.option_probabilities ?? {})
+      : {}
+
+    type Row = {
+      id: string
+      node: typeof optionNodes[number]
+      hasIntervention: boolean
+      value: number | null
+      isStatusQuo: boolean
+      winProb: number
+    }
+
+    const withMeta: Row[] = optionNodes.map(opt => {
+      const interventions = (opt.data as any)?.interventions as Record<string, unknown> | undefined
+      const raw = interventions?.[props.id]
+      const hasIntervention = raw !== undefined
+      const value = unwrapInterventionValue(raw)
+      // Prefer explicit is_baseline; fall back to epsilon delta against factor value
+      const explicitBaseline = (opt.data as any)?.is_baseline === true
+      const epsilonStatusQuo =
+        !explicitBaseline
+        && hasIntervention
+        && value != null
+        && observedState?.value != null
+        && Math.abs(value - observedState.value) < 1e-6
+      const isStatusQuo = explicitBaseline || epsilonStatusQuo
+      const winProb = (winProbs[opt.id] as any)?.win_probability ?? -1
+      return { id: opt.id, node: opt, hasIntervention, value, isStatusQuo, winProb }
+    })
+
+    // Sort
+    if (isPostAnalysis) {
+      withMeta.sort((a, b) => {
+        if (a.isStatusQuo && !b.isStatusQuo) return 1
+        if (!a.isStatusQuo && b.isStatusQuo) return -1
+        if (a.id === recommendedId) return -1
+        if (b.id === recommendedId) return 1
+        return b.winProb - a.winProb
+      })
+    } else {
+      // Canvas order, status quo last
+      withMeta.sort((a, b) => (a.isStatusQuo ? 1 : 0) - (b.isStatusQuo ? 1 : 0))
+    }
+
+    // Truncate: max 4 rows. If more, top 3 non-status-quo + status quo (if present).
+    const statusQuo = withMeta.find(r => r.isStatusQuo)
+    const nonSq = withMeta.filter(r => !r.isStatusQuo)
+    let visibleRows = withMeta
+    let overflow = 0
+    if (withMeta.length > 4) {
+      visibleRows = [...nonSq.slice(0, 3), ...(statusQuo ? [statusQuo] : [])]
+      overflow = withMeta.length - visibleRows.length
+    }
+
+    const rows = visibleRows.map(r => {
+      let displayValue: string
+      if (!r.hasIntervention) {
+        displayValue = 'no change'
+      } else if (r.value != null) {
+        const formatted = formatInterventionValue(
+          r.value,
+          observedState?.unit,
+          observedState?.factor_type,
+          observedState?.cap,
+          observedState?.value,
+          observedState?.raw_value,
+          { preserveTierLabel: true },
+        )
+        displayValue = formatted || 'set'
+      } else {
+        displayValue = 'set'
+      }
+      const rawLabel = ((r.node.data as any)?.label as string | undefined) ?? r.id
+      const label = rawLabel.length > 20 ? rawLabel.slice(0, 20) + '…' : rawLabel
+      return { id: r.id, label, displayValue }
+    })
+
+    return { rows, overflow }
+  }, [nodes, props.id, nodeCategory, isPostAnalysis, resultsReport, observedState])
 
   // Contextual value display via formatFactorDisplayValue
   const valueDisplay = useMemo(() => {
@@ -231,6 +327,37 @@ export const FactorNode = memo((props: NodeProps) => {
   }, [edges, props.id])
 
   // ----- Layer 2 content (popover in Standard, inline in Detailed) -----
+
+  // Graph v2 Task 3: per-option comparison table block. Rendered inside both
+  // pre and post layer 2, gated by `nodeCategory !== 'external'` and
+  // `optionComparisonRows && rows.length > 0`.
+  const optionValuesBlock = optionComparisonRows && optionComparisonRows.rows.length > 0 ? (
+    <>
+      <Sep />
+      <p className={`${typography.edgeLabel} font-medium text-text-body m-0 mb-0.5`}>Option values:</p>
+      <div className="space-y-0.5">
+        {optionComparisonRows.rows.map(row => (
+          <div key={row.id} className="flex items-center gap-1">
+            <div className="w-[10px] h-[10px] rounded-sm bg-option flex-shrink-0" />
+            <span className={`${typography.edgeLabel} text-text-body flex-1 truncate`}>
+              {row.label}
+            </span>
+            <span className={`${typography.edgeLabel} font-semibold text-right ${
+              row.displayValue === 'no change' ? 'text-text-light' : 'text-text-body'
+            }`}>
+              {row.displayValue}
+            </span>
+          </div>
+        ))}
+        {optionComparisonRows.overflow > 0 && (
+          <div className={`${typography.edgeLabel} text-info mt-0.5`}>
+            {optionComparisonRows.overflow} more in inspector
+          </div>
+        )}
+      </div>
+    </>
+  ) : null
+
   const preAnalysisLayer2 = !isPostAnalysis ? (
     <>
       {/* Pre-analysis coaching line — Polish 4 Task 3: only on top-3 factors.
@@ -267,6 +394,7 @@ export const FactorNode = memo((props: NodeProps) => {
           ))}
         </>
       )}
+      {optionValuesBlock}
       {/* Polish 4 review: pre-analysis coaching chips removed from the
           popover to honour the chip audit table — the body now carries the
           single canonical chip ("What evidence supports this?" for top-3
@@ -338,6 +466,7 @@ export const FactorNode = memo((props: NodeProps) => {
           </div>
         </>
       )}
+      {optionValuesBlock}
     </>
   ) : null
 

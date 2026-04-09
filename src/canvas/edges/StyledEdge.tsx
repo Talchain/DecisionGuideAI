@@ -44,6 +44,12 @@ import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
  */
 // Direction colours (green/red/grey) are pre-existing hex — not changed in this brief.
 // All new styling uses design tokens.
+
+// Structural edge grey — brief constant, not a theme token. Used for the
+// thin 1px solid stroke on decision→option and option→factor edges so they
+// recede visually next to causal edges.
+const STRUCTURAL_EDGE_COLOUR = '#7A7A7A'
+
 export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, selected, data }: EdgeProps<EdgeData>) => {
   const isDark = useIsDark()
   const prefersReducedMotion = usePrefersReducedMotion()
@@ -369,9 +375,12 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   // C1: Handle hover for edge label visibility + T1: delayed hover popover
   // Leave timer allows mouse to transition from edge path to popover without closing
+  // Structural edges skip the popover timer entirely — they show a native
+  // browser tooltip via the <title> child on the hitbox path instead.
   const handleMouseEnter = () => {
     setIsHovered(true)
     if (leaveTimerRef.current) { clearTimeout(leaveTimerRef.current); leaveTimerRef.current = null }
+    if (isStructuralEdge) return
     hoverPopoverTimerRef.current = setTimeout(() => setShowHoverPopover(true), 300)
   }
   const handleMouseLeave = () => {
@@ -397,20 +406,44 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }, 100)
   }
 
-  // Detect non-causal edges — no causal label should be shown.
-  // Covers both structural (decision→option) and intervention (option→factor) edges.
-  const isNonCausalEdge = useMemo(() => {
+  // Detect structural (non-causal) edges. Covers decision→option (organisational
+  // wiring) and option→factor (intervention edges). Resolution order:
+  //   1. Explicit data.edge_type === 'structural' wins
+  //   2. Explicit 'bidirected' / 'confounder' → not structural (special path)
+  //   3. Otherwise infer from source / target node kinds
+  // Returns the tooltip text differentiated by sub-type so the hitbox can
+  // attach a native browser tooltip.
+  const { isStructuralEdge, structuralTooltip } = useMemo(() => {
+    const explicit = (data as Record<string, unknown> | undefined)?.edge_type as string | undefined
+    if (explicit === 'bidirected' || explicit === 'confounder') {
+      return { isStructuralEdge: false, structuralTooltip: null }
+    }
     const srcKind = sourceNode?.type || (sourceNode?.data as Record<string, unknown>)?.kind
     const tgtKind = targetNode?.type || (targetNode?.data as Record<string, unknown>)?.kind
-    return (srcKind === 'decision' && tgtKind === 'option') ||
-           (srcKind === 'option' && tgtKind === 'factor')
-  }, [sourceNode, targetNode])
+    if (explicit === 'structural') {
+      // Use sub-type for tooltip text where possible
+      if (srcKind === 'decision' && tgtKind === 'option') {
+        return { isStructuralEdge: true, structuralTooltip: 'Option of this decision' }
+      }
+      if (srcKind === 'option' && tgtKind === 'factor') {
+        return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor' }
+      }
+      return { isStructuralEdge: true, structuralTooltip: 'Structural link (not analysed)' }
+    }
+    if (srcKind === 'decision' && tgtKind === 'option') {
+      return { isStructuralEdge: true, structuralTooltip: 'Option of this decision' }
+    }
+    if (srcKind === 'option' && tgtKind === 'factor') {
+      return { isStructuralEdge: true, structuralTooltip: 'This option affects this factor' }
+    }
+    return { isStructuralEdge: false, structuralTooltip: null }
+  }, [data, sourceNode, targetNode])
 
   // Graph Editing Experience Task 9c: Persistent labels on top 3 edges
   // Pre-analysis: rank by |strength.mean|. Post-analysis: rank by composite importance.
   // Structural edges (decision→option) are excluded from ranking.
   const isTopStrengthEdge = useMemo(() => {
-    if (isNonCausalEdge) return false
+    if (isStructuralEdge) return false
     const allEdges = getEdges()
     // Filter out non-causal edges (structural + intervention) before ranking
     const causalEdges = allEdges.filter(e => {
@@ -449,7 +482,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
     }))
     strengths.sort((a, b) => b.strength - a.strength)
     return new Set(strengths.slice(0, 3).map(s => s.id)).has(id)
-  }, [id, isNonCausalEdge, getEdges, isResultsMode, report])
+  }, [id, isStructuralEdge, getEdges, isResultsMode, report])
 
   // Task 9c: Offset persistent labels away from nodes to avoid overlap
   const persistentLabelOffset = useMemo(() => {
@@ -475,15 +508,17 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
   }, [isTopStrengthEdge, source, target, getNode, labelX, labelY, sourceX, sourceY, targetX, targetY])
 
   // C1: Edge labels only in Detailed view, post-analysis
-  // Structural edges (decision→option) never show causal labels
-  const showLabel = viewMode !== 'standard' && isResultsMode && !isNonCausalEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
+  // Structural edges (decision→option, option→factor) never show causal labels
+  const showLabel = viewMode !== 'standard' && isResultsMode && !isStructuralEdge && (selected || isHovered || hasSuggestion || (isFirstEdge && showEdgeHint) || isTopStrengthEdge)
 
   // Causal lens: hide structural edges entirely
   if (isLensHidden) return null
 
   return (
     <>
-      {/* Invisible hitbox for hover detection - wider than visual edge */}
+      {/* Invisible hitbox for hover detection - wider than visual edge.
+          Structural edges nest a native <title> for the hover tooltip so we
+          don't need a custom popover overlay. */}
       <path
         d={edgePath}
         fill="none"
@@ -493,7 +528,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         onMouseLeave={handleMouseLeave}
         style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
         {...(isPreRunIncompleteEdge ? { 'data-testid': 'overlay-missing-confidence' } : {})}
-      />
+      >
+        {isStructuralEdge && structuralTooltip && <title>{structuralTooltip}</title>}
+      </path>
       <BaseEdge
         id={id}
         path={edgePath}
@@ -501,6 +538,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
+            // Structural edges: fixed 1px regardless of lens / hover / highlight
+            if (isStructuralEdge) return 1
             // Causal lens: thickness encodes |strength.mean|
             if (lensMode === 'causal' && causalEdgeParams) {
               return weightMagnitudeToStrokeWidth(causalEdgeParams.mean)
@@ -525,12 +564,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           })(),
           // Fix 1: Use existence certainty for line style, fallback to visual props
           // B.I.10: Pre-run incomplete edges get dashed stroke to indicate "needs attention"
-          // Priority: contested dash > pre-run incomplete dash > existence certainty > visual props
-          strokeDasharray: isContested ? contestedDashArray : isPreRunIncompleteEdge ? '6 3' : (existenceCertaintyDash ?? visualProps.strokeDasharray),
+          // Priority: structural (solid) > contested dash > pre-run incomplete dash > existence certainty > visual props
+          strokeDasharray: (() => {
+            if (isStructuralEdge) return undefined
+            if (isContested) return contestedDashArray
+            if (isPreRunIncompleteEdge) return '6 3'
+            return existenceCertaintyDash ?? visualProps.strokeDasharray
+          })(),
           // Graph Interaction P1: Highlighted edges get brighter color
           // F.2: Direction colour always applies — yellow only for truly uninitialised edges
           // Pre-run overlay controls dash pattern only, not colour
           stroke: (() => {
+            // Structural edges: fixed grey regardless of lens / highlight
+            if (isStructuralEdge) return STRUCTURAL_EDGE_COLOUR
             // Causal lens: neutral colour, danger for negative edges
             if (lensMode === 'causal' && causalEdgeParams) {
               return causalEdgeParams.mean < 0 ? 'var(--semantic-danger, #ef4444)' : 'var(--text-body, #3F3F3E)'
@@ -550,7 +596,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           })(),
           // Graph Lens: opacity for dimmed edges
           // Graph Editing Experience Task 9b: Confidence opacity layered on top
-          opacity: isLensDimmed ? 0.2
+          // Structural edges always full opacity (no exists_probability gating).
+          opacity: isStructuralEdge ? undefined
+            : isLensDimmed ? 0.2
             : (lensMode === 'sensitivity' && lensSensWeight !== null && lensQ25 !== null && lensSensWeight <= lensQ25) ? 0.4
             : (() => {
                 // Task 9b: Encode exists_probability as opacity
@@ -792,13 +840,9 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
         </EdgeLabelRenderer>
       )}
 
-      {/* T1: Edge hover popover — expert view only, 300ms delay */}
-      {/* Edge hover popover: all states, both views (spec Section 6.4) */}
-      {showHoverPopover && !selected && (() => {
-        const sourceKind = sourceNode?.type || (sourceNode?.data as Record<string,unknown>)?.kind
-        const targetKind = targetNode?.type || (targetNode?.data as Record<string,unknown>)?.kind
-        const isOrganisationalEdge = sourceKind === 'decision' && targetKind === 'option'
-        const isInterventionEdge = sourceKind === 'option' && targetKind === 'factor'
+      {/* Edge hover popover: causal edges only — structural edges use a
+          native browser <title> tooltip on the hitbox path. */}
+      {showHoverPopover && !selected && !isStructuralEdge && (() => {
         const popoverStyle: React.CSSProperties = {
           position: 'absolute',
           transform: `translate(-50%, calc(-100% - 8px)) translate(${labelX}px,${labelY}px)`,
@@ -806,23 +850,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
           zIndex: 9999,
           minWidth: '140px',
           maxWidth: '220px',
-        }
-        // Simplified popover for structural/intervention edges
-        if (isOrganisationalEdge || isInterventionEdge) {
-          return (
-            <EdgeLabelRenderer>
-              <div
-                data-testid="edge-hover-popover"
-                role="tooltip"
-                style={popoverStyle}
-                className="bg-panel border border-panel-border rounded-lg shadow-panel px-2.5 py-2"
-              >
-                <div className={`${typography.panelMeta} text-text-light`}>
-                  {isOrganisationalEdge ? 'Structural link (not analysed)' : 'This option affects this factor'}
-                </div>
-              </div>
-            </EdgeLabelRenderer>
-          )
         }
         const signedVal = direction === 'negative' ? -weight : weight
         const strengthPct = Math.round(Math.abs(signedVal) * 100)
