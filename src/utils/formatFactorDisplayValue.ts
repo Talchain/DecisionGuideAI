@@ -24,19 +24,6 @@ function stripSuffixes(label: string): string {
   return label.replace(KNOWN_SUFFIXES, '').trim()
 }
 
-/**
- * Graph v1.1 polish 4 Task 1: a unit is "meaningless" when it's the bare
- * "scale" descriptor produced by CEE for normalised factors with no
- * real-world calibration. Such values (0, 0.1, 0.5 etc.) imply
- * "measured-at-zero/half" but actually mean "no concrete data". Currency,
- * %, count and named units (engineers, hours, …) are all kept.
- */
-function isMeaninglessUnit(unit: string | null | undefined): boolean {
-  if (unit == null) return true
-  const u = unit.toLowerCase().trim()
-  return u === '' || u === 'scale'
-}
-
 function formatNumber(value: number): string {
   return Math.abs(value) >= 1000
     ? value.toLocaleString('en-GB')
@@ -73,7 +60,9 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   // raw_value is just the denormalised normalised value (value × cap) — not a
   // real-world measurement. Skip Pattern 1 entirely so Pattern 2 can apply
   // the binary heuristic or return null (suppression).
-  const unitKind = unit ? classifyUnit(unit).kind : null
+  const { kind: unitKind, canonical: unitCanonical } = unit
+    ? classifyUnit(unit)
+    : { kind: null as null, canonical: '' }
   if (raw_value != null && unit && unitKind !== 'placeholder') {
     const numericRaw = typeof raw_value === 'number' ? raw_value : Number(raw_value)
     if (!isNaN(numericRaw)) {
@@ -84,18 +73,17 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       // Polish 4 review follow-up: classifyUnit handles symbol/ISO/%/other
       // with case + whitespace normalisation. 'CHF' now renders as the
       // ISO-style prefix "CHF 500" instead of the old suffix "500 CHF".
-      const { kind, canonical } = classifyUnit(unit)
-      if (kind === 'symbol') {
-        return `${canonical}${formatNumber(numericRaw)}`
+      if (unitKind === 'symbol') {
+        return `${unitCanonical}${formatNumber(numericRaw)}`
       }
-      if (kind === 'iso') {
-        return `${canonical} ${formatNumber(numericRaw)}`
+      if (unitKind === 'iso') {
+        return `${unitCanonical} ${formatNumber(numericRaw)}`
       }
-      if (kind === 'percent') {
+      if (unitKind === 'percent') {
         return `${Math.round(numericRaw)}%`
       }
       // 'other' | 'none' (unreachable here — unit is truthy)
-      return `${formatNumber(numericRaw)} ${canonical || unit}`
+      return `${formatNumber(numericRaw)} ${unitCanonical || unit}`
     }
     // raw_value is a non-numeric string with unit
     return `${raw_value} ${unit}`
@@ -125,9 +113,8 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     const isExplicitlyBinary = factor_type?.toLowerCase().trim() === 'binary'
     const factorTypeUnset = factor_type == null
     // A unit is "meaningless" for display purposes when it's null/empty, or
-    // any generic placeholder (scale, index, score, norm, …). Use unitKind
-    // from classifyUnit rather than the narrower isMeaninglessUnit so ALL
-    // placeholder units get the same suppression/contextual gating.
+    // any generic placeholder (scale, index, score, norm, …). Uses unitKind
+    // from classifyUnit so ALL placeholder units get the same gating.
     const isMeaningless = unit == null || unit.trim() === '' || unitKind === 'placeholder'
     // Graph v2 fix: when value === 0 and factor_type is not set, CEE likely
     // omitted factor_type for a binary factor (CEE-4 upstream issue). Treat

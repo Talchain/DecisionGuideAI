@@ -451,64 +451,12 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [interventionChips, baselineOptionInterventions])
 
   /**
-   * Polish 4 Task 5: differentiator factor — the intervention where this
-   * option diverges most from the *effective value* of the other (non-status
-   * quo) options.
+   * Differentiator line — a complete sentence describing what's strategically
+   * unique about this option (Standard pre-analysis only).
    *
-   * ──────────────────────────────────────────────────────────────────────
-   * v1 HEURISTIC — boundaries and limitations (Polish 4 follow-up Item D)
-   * ──────────────────────────────────────────────────────────────────────
-   *
-   * Scope of the calculation:
-   *
-   *   1. ONLY considers factors THIS option intervenes on. A factor that
-   *      another option uniquely changes (and this option leaves untouched)
-   *      will NEVER be flagged as a differentiator from this option's
-   *      perspective, even if it's the strongest contrast in the option set.
-   *      Rationale: the user is reading "what makes MY option special",
-   *      not "what's special across all options". A future v2 could
-   *      surface negative-space differentiators ("everyone else changes X,
-   *      you don't") but that's a different UX call.
-   *
-   *   2. The 0.1 threshold (normalised, i.e. ≥10% of the 0–1 axis) suppresses
-   *      the line when options are near-identical. Below the threshold the
-   *      callout adds noise without insight. Tune carefully — lowering it
-   *      will fire on every tiny intervention difference; raising it will
-   *      hide genuine but subtle differences.
-   *
-   *   3. Absent interventions on other options use the factor's
-   *      observedState.value as the fallback baseline (NOT 0). This prevents
-   *      a false positive when this option intervenes to hold a factor at
-   *      its real-world value (0.7) and other options simply omit it: the
-   *      pre-fix code computed avgOthers=0 → diff=0.7 → false positive.
-   *      The fallback to 0 only fires when the factor itself has no observed
-   *      value (a degenerate state).
-   *
-   *   4. The "average" across other options weights each option equally —
-   *      doesn't account for option likelihood, win probability, or any
-   *      semantic priority. Pre-analysis only, so no probabilistic data
-   *      is available.
-   *
-   *   5. Comparison is done in NORMALISED space (0–1 axis). Two factors
-   *      with very different units could in principle have the same
-   *      normalised diff but very different real-world significance. The
-   *      heuristic ignores this — by design, since we're picking a single
-   *      "key difference" callout, not running impact analysis.
-   *
-   * Returns null when:
-   *   - this is the status quo (it changes nothing),
-   *   - there are fewer than 2 non-status-quo options to compare against,
-   *   - all options end up at similar values (max effective diff < 0.1
-   *     normalised),
-   *   - this option has no interventions at all,
-   *   - the candidate factor isn't found in the node graph (data integrity).
-   *
-   * Future v2 candidates (not implemented):
-   *   - Negative-space differentiator: factors others change but this option
-   *     leaves alone.
-   *   - Magnitude-weighted diff using observedState.cap or raw_value to
-   *     surface real-world significance over normalised noise.
-   *   - Multi-line differentiator showing the top 2–3 unique factors.
+   * Delegates to computeAllDifferentiators() which computes all options in
+   * one pass. See that helper's docblock for the algorithm, thresholds, and
+   * deduplication logic. Returns null for baseline/post-analysis.
    */
   const differentiatorLabel = useMemo<string | null>(() => {
     if (isPostAnalysis) return null
