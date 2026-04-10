@@ -170,6 +170,45 @@ describe('formatFactorDisplayValue', () => {
       })).toBeNull()
     })
 
+    // Placeholder unit consistency: index, score, norm get same treatment as scale
+    it('suppresses value=0.5 with unit="index" and no raw_value', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Quality Index',
+        value: 0.5,
+        raw_value: null,
+        unit: 'index',
+      })).toBeNull()
+    })
+
+    it('returns contextual text for value=0 with unit="index" and no factor_type', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Quality Index',
+        value: 0,
+        raw_value: null,
+        unit: 'index',
+      })).toBe('No quality index in place')
+    })
+
+    it('suppresses value=0 with unit="score" when factor_type is explicitly non-binary', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Readiness Score',
+        value: 0,
+        raw_value: null,
+        unit: 'score',
+        factor_type: 'continuous',
+      })).toBeNull()
+    })
+
+    it('suppresses value=0 with unit="norm" when factor_type is explicitly non-binary', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Performance Metric',
+        value: 0,
+        raw_value: null,
+        unit: 'norm',
+        factor_type: 'continuous',
+      })).toBeNull()
+    })
+
     it('does not suppress when raw_value is present (real-world data)', () => {
       expect(formatFactorDisplayValue({
         label: 'Headcount',

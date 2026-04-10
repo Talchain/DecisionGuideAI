@@ -124,12 +124,17 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     // higher-fidelity Detailed view) carry the meaning.
     const isExplicitlyBinary = factor_type?.toLowerCase().trim() === 'binary'
     const factorTypeUnset = factor_type == null
+    // A unit is "meaningless" for display purposes when it's null/empty, or
+    // any generic placeholder (scale, index, score, norm, …). Use unitKind
+    // from classifyUnit rather than the narrower isMeaninglessUnit so ALL
+    // placeholder units get the same suppression/contextual gating.
+    const isMeaningless = unit == null || unit.trim() === '' || unitKind === 'placeholder'
     // Graph v2 fix: when value === 0 and factor_type is not set, CEE likely
     // omitted factor_type for a binary factor (CEE-4 upstream issue). Treat
     // as binary-like zero and produce contextual "No X in place" text.
     // When factor_type IS set to something non-binary (e.g. 'continuous'),
     // suppress — the explicit type indicates this isn't binary.
-    if (isMeaninglessUnit(unit) && !isExplicitlyBinary) {
+    if (isMeaningless && !isExplicitlyBinary) {
       if (value === 0 && factorTypeUnset) {
         const stripped = stripSuffixes(label).toLowerCase()
         return `No ${stripped} in place`

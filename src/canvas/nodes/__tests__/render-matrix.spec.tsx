@@ -329,6 +329,26 @@ describe('Render matrix — OptionNode × view × phase', () => {
     expect(differentiatorP!.textContent).toMatch(/hiring/i)
   })
 
+  it('Standard pre: identical shared-factor values suppress differentiator on both options', () => {
+    // Both options intervene on factor-1 at the same value → dedup suppresses both
+    applyStore({
+      ...twoOptionTopology('standard', 'pre'),
+      ceeAnalysisReady: {
+        options: [
+          { id: 'option-1', interventions: { 'factor-1': 0.9 } },
+          { id: 'option-2', interventions: { 'factor-1': 0.9 } },
+        ],
+      },
+    })
+    const { container } = renderOption({})
+    // No differentiator <p> should exist — both would produce identical text
+    const allPs = container.querySelectorAll('p')
+    const differentiatorP = Array.from(allPs).find(
+      p => p.textContent?.includes('→') || /key difference/i.test(p.textContent ?? '')
+    )
+    expect(differentiatorP).toBeUndefined()
+  })
+
   it('Standard post non-leading: shows "What would make this lead?" chip and NO differentiator', () => {
     applyStore(twoOptionTopology('standard', 'post'))
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
