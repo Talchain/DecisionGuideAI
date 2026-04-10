@@ -28,6 +28,145 @@ function stripFactorSuffixes(label: string): string {
 }
 
 /**
+ * Compute differentiator labels for ALL non-baseline options in one pass.
+ * Returns a Map<optionId, string | null> where the string is the complete
+ * sentence to render (e.g. "Tech lead hired is the key difference" or
+ * "Tech lead hired → 90%").
+ *
+ * When two options share the same top-differentiating factor, values are
+ * appended to disambiguate. If the values are also identical (or both
+ * produce empty formatted text), the differentiator is suppressed for both.
+ */
+function computeAllDifferentiators(
+  nodes: readonly { id: string; type?: string; data?: any }[],
+  ceeAnalysisReady: { options?: { id: string; interventions?: Record<string, unknown> }[] } | null,
+): Map<string, string | null> {
+  const result = new Map<string, string | null>()
+
+  const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
+  if (optionNodes.length < 2) return result
+
+  // Build option id → factorId → numeric value
+  const optionInterventions = new Map<string, Map<string, number>>()
+  for (const optNode of optionNodes) {
+    const isBaseline = (optNode.data as any)?.is_baseline === true
+      || detectBaseline((optNode.data?.label as string) ?? '').isBaseline
+    if (isBaseline) continue
+    const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === optNode.id)
+    const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
+    if (!interventions || typeof interventions !== 'object') continue
+    const map = new Map<string, number>()
+    for (const [fid, raw] of Object.entries(interventions)) {
+      const v = unwrapInterventionValue(raw)
+      if (v != null) map.set(fid, v)
+    }
+    optionInterventions.set(optNode.id, map)
+  }
+
+  if (optionInterventions.size < 2) return result
+
+  // Observed baseline resolver
+  const observedBaselineFor = (factorId: string): number => {
+    const factorNode = nodes.find(n => n.id === factorId)
+    const obs = (factorNode?.data as any)?.observedState as { value?: number } | undefined
+    return typeof obs?.value === 'number' ? obs.value : 0
+  }
+
+  // Phase 1: find each option's best differentiating factor
+  const bestFactors = new Map<string, { factorId: string; diff: number; myValue: number }>()
+  for (const [optionId, myValues] of optionInterventions.entries()) {
+    if (myValues.size === 0) continue
+    let bestFactorId: string | null = null
+    let bestDiff = 0
+    let bestMyValue = 0
+    for (const [factorId, myValue] of myValues.entries()) {
+      const baseline = observedBaselineFor(factorId)
+      let sum = 0
+      let count = 0
+      for (const [otherId, otherValues] of optionInterventions.entries()) {
+        if (otherId === optionId) continue
+        sum += otherValues.has(factorId) ? otherValues.get(factorId)! : baseline
+        count += 1
+      }
+      if (count === 0) continue
+      const avgOthers = sum / count
+      const diff = Math.abs(myValue - avgOthers)
+      if (diff > bestDiff) {
+        bestDiff = diff
+        bestFactorId = factorId
+        bestMyValue = myValue
+      }
+    }
+    if (bestFactorId == null || bestDiff < 0.1) continue
+    bestFactors.set(optionId, { factorId: bestFactorId, diff: bestDiff, myValue: bestMyValue })
+  }
+
+  // Phase 2: count how many options claim each factor as their top differentiator
+  const factorClaimCount = new Map<string, number>()
+  for (const { factorId } of bestFactors.values()) {
+    factorClaimCount.set(factorId, (factorClaimCount.get(factorId) ?? 0) + 1)
+  }
+
+  // Phase 3: build label for each option
+  const candidateLabels = new Map<string, string>()
+  for (const [optionId, { factorId, myValue }] of bestFactors.entries()) {
+    const factorNode = nodes.find(n => n.id === factorId)
+    const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
+    const compactLabel = compactFactorLabel(cleanFactorLabel(rawLabel), 20)
+
+    if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
+      // Unique factor — simple sentence
+      candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} is the key difference`)
+    } else {
+      // Shared factor — disambiguate with formatted value
+      const obs = (factorNode?.data as any)?.observedState as {
+        unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
+      } | undefined
+      const unit = (factorNode?.data?.unit as string | undefined) ?? obs?.unit
+      const effectiveUnit = unit && !isSuppressedUnit(unit) ? unit : undefined
+      const formatted = formatInterventionValue(
+        myValue,
+        effectiveUnit,
+        obs?.factor_type,
+        obs?.cap,
+        obs?.value,
+        obs?.raw_value,
+        { preserveTierLabel: true },
+      )
+      if (formatted) {
+        candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${formatted}`)
+      } else {
+        // Empty formatted value (scale-no-raw suppression) → directional fallback
+        const baseline = observedBaselineFor(factorId)
+        if (myValue > baseline + 0.1) {
+          candidateLabels.set(optionId, `Increases ${compactLabel}`)
+        } else if (myValue < baseline - 0.1) {
+          candidateLabels.set(optionId, `Decreases ${compactLabel}`)
+        } else {
+          candidateLabels.set(optionId, `Does not change ${compactLabel}`)
+        }
+      }
+    }
+  }
+
+  // Phase 4: suppress any labels that are still identical across options
+  const labelCount = new Map<string, number>()
+  for (const label of candidateLabels.values()) {
+    labelCount.set(label, (labelCount.get(label) ?? 0) + 1)
+  }
+
+  for (const [optionId, label] of candidateLabels.entries()) {
+    if ((labelCount.get(label) ?? 0) > 1) {
+      result.set(optionId, null)
+    } else {
+      result.set(optionId, label)
+    }
+  }
+
+  return result
+}
+
+/**
  * Strip echo — if displayValue starts with (or contains) the factor label, remove the overlap.
  * Example: label="Technical leadership", value="Technical leadership active" → "active"
  */
@@ -374,70 +513,8 @@ export const OptionNode = memo((props: NodeProps) => {
   const differentiatorLabel = useMemo<string | null>(() => {
     if (isPostAnalysis) return null
     if (isBaselineOption) return null
-    const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
-    if (optionNodes.length < 2) return null
-
-    // Build a map of option id → factorId → numeric value (unwrapped).
-    const optionInterventions = new Map<string, Map<string, number>>()
-    for (const optNode of optionNodes) {
-      const isBaseline = (optNode.data as any)?.is_baseline === true
-        || detectBaseline((optNode.data?.label as string) ?? '').isBaseline
-      if (isBaseline) continue
-      const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === optNode.id)
-      const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
-      if (!interventions || typeof interventions !== 'object') continue
-      const map = new Map<string, number>()
-      for (const [fid, raw] of Object.entries(interventions)) {
-        const v = unwrapInterventionValue(raw)
-        if (v != null) map.set(fid, v)
-      }
-      optionInterventions.set(optNode.id, map)
-    }
-
-    const myValues = optionInterventions.get(props.id)
-    if (!myValues || myValues.size === 0) return null
-    if (optionInterventions.size < 2) return null // need at least one other option
-
-    // Resolve the observed baseline for a factor — used when an option doesn't
-    // intervene on it. Falls back to 0 only when the factor has no observed
-    // value at all.
-    const observedBaselineFor = (factorId: string): number => {
-      const factorNode = nodes.find(n => n.id === factorId)
-      const obs = (factorNode?.data as any)?.observedState as { value?: number } | undefined
-      return typeof obs?.value === 'number' ? obs.value : 0
-    }
-
-    // For each factor I touch, compute the average effective value across the
-    // other options (using the observed baseline as the fallback when an
-    // option doesn't list this factor) and the absolute diff from mine.
-    let bestFactorId: string | null = null
-    let bestDiff = 0
-    for (const [factorId, myValue] of myValues.entries()) {
-      const baseline = observedBaselineFor(factorId)
-      let sum = 0
-      let count = 0
-      for (const [otherId, otherValues] of optionInterventions.entries()) {
-        if (otherId === props.id) continue
-        // Effective value: explicit intervention if present, else baseline.
-        sum += otherValues.has(factorId) ? otherValues.get(factorId)! : baseline
-        count += 1
-      }
-      if (count === 0) continue
-      const avgOthers = sum / count
-      const diff = Math.abs(myValue - avgOthers)
-      if (diff > bestDiff) {
-        bestDiff = diff
-        bestFactorId = factorId
-      }
-    }
-
-    // Threshold: less than 10% spread on the 0–1 axis means options are too
-    // similar to call out a differentiator.
-    if (bestFactorId == null || bestDiff < 0.1) return null
-
-    const factorNode = nodes.find(n => n.id === bestFactorId)
-    const rawLabel = (factorNode?.data?.label as string | undefined) ?? bestFactorId
-    return compactFactorLabel(cleanFactorLabel(rawLabel), 20)
+    const allDiffs = computeAllDifferentiators(nodes, ceeAnalysisReady)
+    return allDiffs.get(props.id) ?? null
   }, [isPostAnalysis, isBaselineOption, ceeAnalysisReady, nodes, props.id])
 
   const handleMouseEnter = useMemo(() => () => {
@@ -905,7 +982,7 @@ export const OptionNode = memo((props: NodeProps) => {
             already shows the full intervention list). */}
         {!isPostAnalysis && !isBaselineOption && !isDetailed && differentiatorLabel && (
           <p className={`${typography.edgeLabel} text-text-light mt-1 m-0`}>
-            {differentiatorLabel.charAt(0).toUpperCase() + differentiatorLabel.slice(1)} is the key difference
+            {differentiatorLabel}
           </p>
         )}
 

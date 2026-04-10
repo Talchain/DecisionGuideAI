@@ -317,9 +317,16 @@ describe('Render matrix — OptionNode × view × phase', () => {
 
   it('Standard pre non-baseline: shows "What could go wrong?" chip + differentiator line', () => {
     applyStore(twoOptionTopology('standard', 'pre'))
-    renderOption({})
+    const { container } = renderOption({})
     expect(screen.getByText('What could go wrong?')).toBeDefined()
-    expect(screen.getByText(/key difference/i)).toBeDefined()
+    // Both options share the same top factor → disambiguated with value
+    // (option-1 at 0.9 on engineers cap=10 → "Hiring rate → 9 engineers")
+    // The differentiator renders in a <p> with text-text-light class.
+    const allPs = container.querySelectorAll('p')
+    const differentiatorP = Array.from(allPs).find(p => p.textContent?.includes('→'))
+    expect(differentiatorP).toBeDefined()
+    // compactFactorLabel strips "rate" suffix → "Hiring → 9 engineers"
+    expect(differentiatorP!.textContent).toMatch(/hiring/i)
   })
 
   it('Standard post non-leading: shows "What would make this lead?" chip and NO differentiator', () => {

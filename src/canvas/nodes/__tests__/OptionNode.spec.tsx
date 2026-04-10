@@ -961,4 +961,188 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(screen.getByText(/key difference/i)).toBeDefined()
     })
   })
+
+  // Graph v2: differentiator deduplication — when 2+ options share the same
+  // top factor, the label includes the formatted value to disambiguate.
+  describe('Graph v2: differentiator deduplication', () => {
+    it('shows different differentiator text when two options share the same factor at different values', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Both options intervene on factor-1 but at different values.
+              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Hire Tech Lead', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Hire Developers', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Tech Lead Hired',
+                observedState: { unit: '%', value: 0.5, raw_value: 50, cap: 100 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Hire Tech Lead' })
+      // Shared factor → value appended. option-1 has value 0.9 on % factor → "90%"
+      // The differentiator is in a <p> element, the chip also contains the factor name.
+      // Use getAllByText and find the differentiator paragraph specifically.
+      const matches = screen.getAllByText(/tech lead hired/i)
+      const differentiatorP = matches.find(el => el.tagName === 'P')
+      expect(differentiatorP).toBeDefined()
+      expect(differentiatorP!.textContent).toContain('→')
+      expect(differentiatorP!.textContent).toContain('90%')
+      // Should NOT say "is the key difference" — value-disambiguated form
+      expect(differentiatorP!.textContent).not.toContain('key difference')
+    })
+
+    it('suppresses differentiator when two options share same factor with identical values', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Both options intervene on factor-1 at the same value
+              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { 'factor-1': 0.9 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Tech Lead Hired',
+                observedState: { unit: '%', value: 0.5, raw_value: 50, cap: 100 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Option A' })
+      // Both options produce identical differentiator text → suppressed.
+      // The chip may still show the factor name, but no differentiator <p> should exist.
+      expect(screen.queryByText(/key difference/i)).toBeNull()
+      const matches = screen.queryAllByText(/tech lead hired/i)
+      const differentiatorP = matches.find(el => el.tagName === 'P')
+      expect(differentiatorP).toBeUndefined()
+    })
+
+    it('disambiguates with tier label when shared factor is a scale unit (preserveTierLabel)', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Both options intervene on a scale factor (no raw_value) at different values
+              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Aggressive', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Conservative', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Marketing Expertise',
+                // scale unit, no raw_value → formatInterventionValue with
+                // preserveTierLabel returns "Very high" / "Very low"
+                observedState: { unit: 'scale', value: 0.5 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Aggressive' })
+      // option-1 has value 0.9 → tier label "Very high"
+      // Shared factor → "Marketing expertise → Very high"
+      const matches = screen.queryAllByText(/marketing expertise/i)
+      const differentiatorP = matches.find(el => el.tagName === 'P')
+      expect(differentiatorP).toBeDefined()
+      expect(differentiatorP!.textContent).toContain('→')
+      expect(differentiatorP!.textContent).toContain('Very high')
+    })
+
+    it('disambiguates lower-value scale factor with tier label', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              { id: 'option-1', interventions: { 'factor-1': 0.1 } },
+              { id: 'option-2', interventions: { 'factor-1': 0.9 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Cut Back', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Invest', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Marketing Expertise',
+                observedState: { unit: 'scale', value: 0.5 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Cut Back' })
+      // option-1 has value 0.1 → tier label "Very low"
+      const matches = screen.queryAllByText(/marketing expertise/i)
+      const differentiatorP = matches.find(el => el.tagName === 'P')
+      expect(differentiatorP).toBeDefined()
+      expect(differentiatorP!.textContent).toContain('→')
+      expect(differentiatorP!.textContent).toContain('Very low')
+    })
+
+    it('shows unique differentiator without value when factor is not shared', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Each option intervenes on a different factor
+              { id: 'option-1', interventions: { 'factor-1': 0.9 } },
+              { id: 'option-2', interventions: { 'factor-2': 0.9 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Option A', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Option B', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Headcount',
+                observedState: { unit: 'engineers', value: 0.3, raw_value: 3, cap: 10 },
+              },
+            },
+            {
+              id: 'factor-2',
+              type: 'factor',
+              data: {
+                label: 'Budget',
+                observedState: { unit: '£', value: 0.5, raw_value: 50000, cap: 100000 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Option A' })
+      // Unique factor → "Headcount is the key difference" (simple sentence)
+      expect(screen.getByText(/headcount is the key difference/i)).toBeDefined()
+    })
+  })
 })

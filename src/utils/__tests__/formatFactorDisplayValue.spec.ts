@@ -110,14 +110,24 @@ describe('formatFactorDisplayValue', () => {
       })).toBeNull()
     })
 
-    it('suppresses value=0 with no unit when factor_type is not binary', () => {
-      // Post-review tightening: contextual text only fires when factor_type is
-      // explicitly 'binary'. Without that signal, "No X in place" misrepresents
-      // continuous quality factors that happen to land at 0.
+    it('returns contextual text for value=0 with no unit and no factor_type (CEE omission)', () => {
+      // Graph v2 fix: CEE omits factor_type for binary factors (CEE-4 upstream).
+      // When factor_type is unset and value=0, assume binary-like zero.
       expect(formatFactorDisplayValue({
         label: 'Tech Lead',
         value: 0,
         raw_value: null,
+      })).toBe('No tech lead in place')
+    })
+
+    it('suppresses value=0 with explicit non-binary factor_type', () => {
+      // When factor_type IS set to something non-binary, suppress — the
+      // explicit type indicates this isn't a binary factor at zero.
+      expect(formatFactorDisplayValue({
+        label: 'Quality Score',
+        value: 0,
+        raw_value: null,
+        factor_type: 'continuous',
       })).toBeNull()
     })
 
@@ -140,12 +150,23 @@ describe('formatFactorDisplayValue', () => {
       })).toBe('Tech lead active')
     })
 
-    it('suppresses value=0 with unit="scale" when factor_type is not binary', () => {
+    it('returns contextual text for value=0 with unit="scale" and no factor_type', () => {
+      // Graph v2 fix: same CEE-4 workaround — unit="scale" + no factor_type + value=0
+      expect(formatFactorDisplayValue({
+        label: 'Tech Lead Hired',
+        value: 0,
+        raw_value: null,
+        unit: 'scale',
+      })).toBe('No tech lead hired in place')
+    })
+
+    it('suppresses value=0 with unit="scale" when factor_type is explicitly non-binary', () => {
       expect(formatFactorDisplayValue({
         label: 'Some metric',
         value: 0,
         raw_value: null,
         unit: 'scale',
+        factor_type: 'continuous',
       })).toBeNull()
     })
 
@@ -156,6 +177,43 @@ describe('formatFactorDisplayValue', () => {
         raw_value: 5,
         unit: 'engineers',
       })).toBe('5 engineers')
+    })
+
+    // Graph v2 fix: raw_value + unit="scale" (synthesized from cap) must suppress
+    it('suppresses raw_value with unit="scale" in [0,1] range (synthesized from cap)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Marketing Expertise Available',
+        value: 0.2,
+        raw_value: 2,   // 0.2 * cap(10) — not a real measurement
+        unit: 'scale',
+      })).toBeNull()
+    })
+
+    it('suppresses raw_value with unit="index" (generic placeholder)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Long-Term Capability',
+        value: 0.1,
+        raw_value: 1,   // 0.1 * cap(10)
+        unit: 'index',
+      })).toBeNull()
+    })
+
+    it('does not suppress raw_value with meaningful unit', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Headcount',
+        value: 0.5,
+        raw_value: 5,
+        unit: 'engineers',
+      })).toBe('5 engineers')
+    })
+
+    it('renders £0 for raw_value: 0 with currency unit (real measured zero)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Budget',
+        value: 0,
+        raw_value: 0,
+        unit: '£',
+      })).toBe('£0')
     })
   })
 

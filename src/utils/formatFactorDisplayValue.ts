@@ -69,7 +69,12 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
   }
 
   // Pattern 1: raw_value + unit → formatted display
-  if (raw_value != null && unit) {
+  // Graph v2 fix: when unit is a generic placeholder (scale, index, score, …),
+  // raw_value is just the denormalised normalised value (value × cap) — not a
+  // real-world measurement. Skip Pattern 1 entirely so Pattern 2 can apply
+  // the binary heuristic or return null (suppression).
+  const unitKind = unit ? classifyUnit(unit).kind : null
+  if (raw_value != null && unit && unitKind !== 'placeholder') {
     const numericRaw = typeof raw_value === 'number' ? raw_value : Number(raw_value)
     if (!isNaN(numericRaw)) {
       // Cost factor at zero → contextual
@@ -89,7 +94,7 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       if (kind === 'percent') {
         return `${Math.round(numericRaw)}%`
       }
-      // 'other' | 'placeholder' | 'none' (unreachable here — unit is truthy)
+      // 'other' | 'none' (unreachable here — unit is truthy)
       return `${formatNumber(numericRaw)} ${canonical || unit}`
     }
     // raw_value is a non-numeric string with unit
@@ -105,8 +110,11 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     return String(raw_value)
   }
 
-  // Pattern 2: value only (no raw_value) → binary heuristic
-  if (value != null && raw_value == null) {
+  // Pattern 2: value only (no raw_value) → binary heuristic.
+  // Also applies when raw_value is present but the unit is a generic placeholder
+  // (scale, index, …) — the raw_value is just a denormalised normalised value
+  // and carries no real-world meaning, so treat it as value-only.
+  if (value != null && (raw_value == null || unitKind === 'placeholder')) {
     // Graph v1.1 polish 4 Task 1 + review feedback: when the unit is
     // meaningless ("scale" or undefined), a normalised value tells the user
     // nothing real. The contextual "No X in place" / "X active" text is only
@@ -115,7 +123,22 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
     // suppress entirely so the dashed/amber border + StatusPill (or the
     // higher-fidelity Detailed view) carry the meaning.
     const isExplicitlyBinary = factor_type?.toLowerCase().trim() === 'binary'
+    const factorTypeUnset = factor_type == null
+    // Graph v2 fix: when value === 0 and factor_type is not set, CEE likely
+    // omitted factor_type for a binary factor (CEE-4 upstream issue). Treat
+    // as binary-like zero and produce contextual "No X in place" text.
+    // When factor_type IS set to something non-binary (e.g. 'continuous'),
+    // suppress — the explicit type indicates this isn't binary.
     if (isMeaninglessUnit(unit) && !isExplicitlyBinary) {
+      if (value === 0 && factorTypeUnset) {
+        const stripped = stripSuffixes(label).toLowerCase()
+        return `No ${stripped} in place`
+      }
+      // NOTE: the value === 1 mirror case is deliberately NOT implemented yet.
+      // If CEE starts providing binary factors with value=1 and no factor_type,
+      // extend this heuristic to produce "[Label] in place" or "[Label] active".
+      // Do not add a mismatched pattern (e.g. "No X" for 1) here without
+      // considering both branches together.
       return null
     }
     const stripped = stripSuffixes(label).toLowerCase()
