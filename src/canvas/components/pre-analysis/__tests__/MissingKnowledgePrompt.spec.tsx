@@ -1,30 +1,38 @@
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MissingKnowledgePrompt } from '../MissingKnowledgePrompt'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 
 describe('MissingKnowledgePrompt', () => {
-  it('renders the prompt text and Tell the AI button', () => {
-    render(<MissingKnowledgePrompt />)
-    expect(screen.getByText(/Something missing from the model/)).toBeInTheDocument()
-    expect(screen.getByText(/Tell the AI/)).toBeInTheDocument()
+  const sendMock = vi.fn()
+
+  beforeEach(() => {
+    sendMock.mockClear()
+    // Register _sendMessage so DiscussWithAiButton renders
+    useGuidanceStore.setState({ _sendMessage: sendMock })
   })
 
-  it('sends pre-filled message when Tell the AI is clicked', () => {
-    const onSend = vi.fn()
-    render(<MissingKnowledgePrompt onSendMessage={onSend} />)
+  it('renders the prompt text and sparkle button', () => {
+    render(<MissingKnowledgePrompt />)
+    expect(screen.getByText(/Something missing from the model/)).toBeInTheDocument()
+    expect(screen.getByTestId('discuss-with-ai')).toBeInTheDocument()
+  })
 
-    fireEvent.click(screen.getByText(/Tell the AI/))
+  it('sends pre-filled message when sparkle is clicked', () => {
+    render(<MissingKnowledgePrompt />)
 
-    expect(onSend).toHaveBeenCalledTimes(1)
-    expect(onSend).toHaveBeenCalledWith(
+    fireEvent.click(screen.getByTestId('discuss-with-ai'))
+
+    expect(sendMock).toHaveBeenCalledTimes(1)
+    expect(sendMock).toHaveBeenCalledWith(
       expect.stringContaining('add something to the model'),
     )
   })
 
-  it('does not crash when onSendMessage is not provided', () => {
+  it('does not render sparkle when guidance store has no sendMessage', () => {
+    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null })
     render(<MissingKnowledgePrompt />)
-    // Should not throw when clicked without handler
-    fireEvent.click(screen.getByText(/Tell the AI/))
+    expect(screen.queryByTestId('discuss-with-ai')).not.toBeInTheDocument()
   })
 
   it('dismisses on X click', () => {

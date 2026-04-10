@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useRef } from 'react'
-import { Check, Pencil, Sparkles } from 'lucide-react'
+import { Check, Pencil } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
@@ -233,6 +233,7 @@ function InlineValueControls({
           }}
           className={`w-14 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
           aria-label={`Value for ${title}`}
+          placeholder="Set value"
         />
         {unitSuffix && (
           <span className={`${typography.panelMeta} text-text-light`}>{unitSuffix}</span>
@@ -266,8 +267,6 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
   const influencePct = influence != null ? Math.round(influence * 100) : null
   const isEdge = action?.targetType === 'edge'
   const isBrief = sourcePill?.label === 'From brief'
-  const isAiEstimate = sourcePill?.label === 'AI estimate'
-
   return (
     <div
       className="flex flex-col gap-1 py-1.5 px-2 rounded-lg hover:bg-panel-hover cursor-pointer"
@@ -284,15 +283,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
           {ordinal}
         </span>
         {renderTriageTitle(title, `flex-1 min-w-0 ${typography.panelMeta} text-info font-medium`)}
-        {isAiEstimate && (
-          <Sparkles
-            size={12}
-            className="ml-auto text-info flex-shrink-0"
-            title="Olumi estimated this value"
-            aria-label="Olumi estimated this value"
-          />
-        )}
-        {sourcePill && !isAiEstimate && (
+        {sourcePill && (
           <span className={`ml-auto shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
             {sourcePill.label}
           </span>
@@ -390,9 +381,6 @@ export function TriageCard(props: TriageCardProps) {
   const badgeColor = BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
   const isBrief = sourcePill?.label === 'From brief'
-  // Task 1a: "AI estimate" pill → Sparkles icon
-  const isAiEstimate = sourcePill?.label === 'AI estimate'
-
   // Display text: detail (subtitle is removed per Task 1b)
   const displayDetail = detail
 
@@ -414,15 +402,7 @@ export function TriageCard(props: TriageCardProps) {
         </span>
         {renderTriageTitle(title, `${typography.panelBody} font-semibold text-text-header flex-1 min-w-0`)}
         {/* Source indicator — pinned top-right */}
-        {isAiEstimate && (
-          <Sparkles
-            size={13}
-            className="text-info flex-shrink-0 mt-0.5"
-            title="Olumi estimated this value"
-            aria-label="Olumi estimated this value"
-          />
-        )}
-        {sourcePill && !isAiEstimate && (
+        {sourcePill && (
           <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
             {sourcePill.label}
           </span>

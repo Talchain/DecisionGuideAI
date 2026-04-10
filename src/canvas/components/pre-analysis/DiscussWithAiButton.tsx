@@ -79,6 +79,7 @@ function buildDefaultAriaLabel(el: AiDiscussElement): string {
     case 'option': return `Discuss ${el.label} with AI`
     case 'bias':   return `Discuss ${el.biasType} with AI`
     case 'goal':   return `Discuss the goal ${el.label} with AI`
+    case 'missing': return `Tell AI about something missing from the model`
   }
 }
 

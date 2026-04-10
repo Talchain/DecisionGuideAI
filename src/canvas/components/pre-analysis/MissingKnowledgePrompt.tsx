@@ -1,19 +1,20 @@
 /**
- * MissingKnowledgePrompt — "Something missing from the model?" + "◎ Tell the AI"
+ * MissingKnowledgePrompt — "Something missing from the model?" + sparkle icon.
  *
- * Compact card. Dismissible per session. On click: sends pre-filled message
- * to conversation panel via onSendMessage.
+ * Compact card. Dismissible per session. On click of sparkle: sends pre-filled
+ * message to conversation panel via the shared DiscussWithAiButton.
  */
 
 import { useState } from 'react'
 import { X } from 'lucide-react'
 import { typography } from '@/styles/typography'
+import { DiscussWithAiButton } from './DiscussWithAiButton'
 
 interface MissingKnowledgePromptProps {
   onSendMessage?: (text: string) => void
 }
 
-export function MissingKnowledgePrompt({ onSendMessage }: MissingKnowledgePromptProps) {
+export function MissingKnowledgePrompt(_props: MissingKnowledgePromptProps) {
   const [dismissed, setDismissed] = useState(false)
 
   if (dismissed) return null
@@ -23,13 +24,7 @@ export function MissingKnowledgePrompt({ onSendMessage }: MissingKnowledgePrompt
       <p className={`${typography.panelBody} text-text-light flex-1`}>
         Something missing from the model?
       </p>
-      <button
-        type="button"
-        onClick={() => onSendMessage?.("I'd like to add something to the model that's not currently captured: ")}
-        className={`${typography.panelMeta} text-info hover:underline cursor-pointer shrink-0`}
-      >
-        ◎ Tell the AI
-      </button>
+      <DiscussWithAiButton element={{ kind: 'missing' }} />
       <button
         type="button"
         onClick={() => setDismissed(true)}

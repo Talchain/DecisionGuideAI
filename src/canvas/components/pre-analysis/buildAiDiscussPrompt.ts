@@ -11,6 +11,7 @@ export type AiDiscussElement =
   | { kind: 'option'; label: string }
   | { kind: 'bias'; biasType: string }
   | { kind: 'goal'; label: string }
+  | { kind: 'missing' }
 
 export function buildAiDiscussPrompt(el: AiDiscussElement): string {
   switch (el.kind) {
@@ -24,5 +25,7 @@ export function buildAiDiscussPrompt(el: AiDiscussElement): string {
       return `Tell me more about ${el.biasType} and how it might affect my thinking.`
     case 'goal':
       return `Help me define what success looks like for this decision and suggest a measurable target.`
+    case 'missing':
+      return `I'd like to add something to the model that's not currently captured: `
   }
 }
