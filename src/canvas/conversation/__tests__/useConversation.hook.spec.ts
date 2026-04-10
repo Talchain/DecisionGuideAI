@@ -903,6 +903,146 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
     expect(request.graph_state.nodes).toEqual([])
     expect(request.graph_state.edges).toEqual([])
   })
+
+  // -------------------------------------------------------------------------
+  // analysisStateReady freshness gate — covers in-flight, error, cancelled,
+  // reset, and scenario-switch paths. Regression guard for 2026-04-09 fix.
+  // -------------------------------------------------------------------------
+
+  it('omits analysis_state when analysis is in-flight (resultsStart called, resultsComplete not yet)', async () => {
+    // Simulate: a previous run completed, then a new run was started.
+    // resultsStart preserves prior hash/rawV2Response for continuity but
+    // sets analysisStateReady: false so buildRequest won't ship stale data.
+    useCanvasStore.setState({
+      results: { status: 'preparing', progress: 0, hash: 'hash-previous-run' } as any,
+      graphEditedSinceLastRun: false,
+      analysisStateReady: false, // resultsStart sets this
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: [{ option_id: 'o1', option_label: 'Stale Option', win_probability: 0.9 }],
+        robustness_status: 'computed',
+        robustness: null,
+        drivers_status: 'computed',
+        drivers: [],
+        meta: { seed_used: '1' },
+      } as any,
+    })
+
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r-inflight' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Compare the options')
+    })
+
+    const request = mockStreamTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeUndefined()
+  })
+
+  it('omits analysis_state after a failed analysis run (resultsError)', async () => {
+    // Simulate: resultsStart → resultsError. The prior rawV2Response is
+    // preserved but analysisStateReady stays false.
+    useCanvasStore.setState({
+      results: { status: 'error', progress: 0, hash: 'hash-before-error' } as any,
+      graphEditedSinceLastRun: false,
+      analysisStateReady: false, // resultsError preserves the false from resultsStart
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: [{ option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 }],
+        robustness_status: 'computed',
+        robustness: null,
+        drivers_status: 'computed',
+        drivers: [],
+        meta: { seed_used: '2' },
+      } as any,
+    })
+
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r-error' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('What happened?')
+    })
+
+    const request = mockStreamTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeUndefined()
+  })
+
+  it('omits analysis_state after a cancelled analysis run (resultsCancelled)', async () => {
+    // Simulate: resultsStart → resultsCancelled. Same reasoning as error.
+    useCanvasStore.setState({
+      results: { status: 'idle', progress: 0, hash: 'hash-before-cancel' } as any,
+      graphEditedSinceLastRun: false,
+      analysisStateReady: false, // resultsCancelled sets this
+      rawV2Response: {
+        analysis_status: 'computed',
+        option_comparison_status: 'computed',
+        option_comparison: [{ option_id: 'o1', option_label: 'Opt A', win_probability: 0.7 }],
+        robustness_status: 'computed',
+        robustness: null,
+        drivers_status: 'computed',
+        drivers: [],
+        meta: { seed_used: '3' },
+      } as any,
+    })
+
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r-cancel' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Try again?')
+    })
+
+    const request = mockStreamTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeUndefined()
+  })
+
+  it('omits analysis_state after results are cleared (resultsReset)', async () => {
+    // Simulate: resultsComplete → resultsReset. No valid snapshot.
+    useCanvasStore.setState({
+      results: { status: 'idle', progress: 0 } as any,
+      graphEditedSinceLastRun: false,
+      analysisStateReady: false, // resultsReset sets this
+      rawV2Response: null, // cleared by reset
+    })
+
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r-reset' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('Start fresh')
+    })
+
+    const request = mockStreamTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeUndefined()
+  })
+
+  it('omits analysis_state after scenario switch (analysisStateReady reset by loadScenario)', async () => {
+    // Simulate: resultsComplete in scenario A → switch to scenario B.
+    // loadScenario now unconditionally sets analysisStateReady: false —
+    // this test pins the buildRequest contract given that reset.
+    // The real store action (loadScenario) is regression-tested in
+    // src/canvas/store/__tests__/analysisReady.invalidation.spec.ts.
+    useCanvasStore.setState({
+      results: { status: 'idle', progress: 0 } as any,
+      graphEditedSinceLastRun: false,
+      analysisStateReady: false, // post-loadScenario state
+      rawV2Response: null,
+      currentScenarioId: 'scenario-b',
+    })
+
+    mockCallTurn.mockResolvedValue({ assistant_text: 'ok', client_turn_id: 'r-switch' })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('What is this scenario?')
+    })
+
+    const request = mockStreamTurn.mock.calls[0][0]
+    expect(request.analysis_state).toBeUndefined()
+  })
 })
 
 // ---------------------------------------------------------------------------

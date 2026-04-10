@@ -299,4 +299,86 @@ describe('Canvas Store – ceeAnalysisReady invalidation', () => {
       expect(useCanvasStore.getState().analysisStateReady).toBe(false)
     })
   })
+
+  // ────────────────────────────────────────────────────────────────────
+  // loadScenario → analysis freshness reset (regression, 2026-04-10)
+  //
+  // When switching to a scenario that has no prior run history, the
+  // old loadScenario set({}) did not include analysisStateReady or
+  // rawV2Response. tryRestoreResultsFromHistory returned false (no hash),
+  // so neither field was ever reset. buildRequest would then ship the
+  // previous scenario's analysis on the first turn of the new scenario.
+  //
+  // Fix: loadScenario always sets analysisStateReady: false and
+  // rawV2Response: null unconditionally. This test calls the real store
+  // action (not direct state injection) to catch regressions.
+  // ────────────────────────────────────────────────────────────────────
+  describe('loadScenario — analysis freshness reset', () => {
+    it('resets analysisStateReady and rawV2Response when switching to a scenario with no run history', () => {
+      // Step 1: Simulate Scenario A with completed analysis.
+      useCanvasStore.setState({
+        nodes: [
+          { id: 'g1', type: 'goal', position: { x: 0, y: 0 }, data: { label: 'Goal A' } },
+        ] as any,
+        edges: [],
+        analysisStateReady: true,
+        rawV2Response: {
+          analysis_status: 'computed',
+          option_comparison_status: 'computed',
+          option_comparison: [{ option_id: 'o1', option_label: 'Old Option', win_probability: 0.8 }],
+          robustness_status: 'computed',
+          robustness: null,
+          drivers_status: 'computed',
+          drivers: [],
+          meta: { seed_used: '1' },
+        } as any,
+        results: { status: 'complete', progress: 100, hash: 'hash-scenario-a' } as any,
+        graphEditedSinceLastRun: false,
+      })
+
+      // Save Scenario A to local storage so we can load a different one.
+      const idA = useCanvasStore.getState().saveCurrentScenario('Scenario A')
+      expect(idA).toBeTruthy()
+
+      // Step 2: Switch to a clean scenario (no prior run).
+      // Clear graph and save Scenario B (no analysis history).
+      useCanvasStore.setState({
+        nodes: [] as any,
+        edges: [],
+      })
+      const idB = useCanvasStore.getState().saveCurrentScenario('Scenario B')
+      expect(idB).toBeTruthy()
+
+      // Step 3: Load Scenario A (which has completed analysis).
+      useCanvasStore.getState().loadScenario(idA as string)
+      // analysisStateReady stays false (historical load doesn't populate rawV2Response)
+      expect(useCanvasStore.getState().analysisStateReady).toBe(false)
+      expect(useCanvasStore.getState().rawV2Response).toBeNull()
+
+      // Step 4: Bring back the completed analysis state (simulating a fresh run on A).
+      useCanvasStore.setState({
+        analysisStateReady: true,
+        rawV2Response: {
+          analysis_status: 'computed',
+          option_comparison_status: 'computed',
+          option_comparison: [{ option_id: 'o1', option_label: 'Old Option', win_probability: 0.8 }],
+          robustness_status: 'computed',
+          robustness: null,
+          drivers_status: 'computed',
+          drivers: [],
+          meta: { seed_used: '1' },
+        } as any,
+        results: { status: 'complete', progress: 100, hash: 'hash-scenario-a' } as any,
+      })
+      expect(useCanvasStore.getState().analysisStateReady).toBe(true)
+
+      // Step 5: Switch to Scenario B (no run history — the failing case pre-fix).
+      useCanvasStore.getState().loadScenario(idB as string)
+
+      // The fix: loadScenario must clear analysisStateReady and rawV2Response
+      // unconditionally, regardless of whether run history is found.
+      expect(useCanvasStore.getState().analysisStateReady).toBe(false)
+      expect(useCanvasStore.getState().rawV2Response).toBeNull()
+    })
+  })
 })

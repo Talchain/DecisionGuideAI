@@ -404,12 +404,21 @@ export function useScenario(): UseScenarioReturn {
         currentScenarioId: row.id,
       })
 
-      // Hydrate framing + stage
+      // Hydrate framing + stage.
+      // Also unconditionally clear analysis freshness fields — hydrateGraphSlice
+      // only touches graph/history/selection and does not reset these. Without
+      // this reset, switching to a scenario whose analysis_status is not 'ready'
+      // (e.g. 'none', 'running', 'failed') would leave analysisStateReady: true
+      // and rawV2Response from the previous scenario, causing buildRequest to
+      // ship stale analysis on the first turn. If analysis_status IS 'ready',
+      // resultsHydrateFromSupabase below overlays the same false/null values.
       useCanvasStore.setState({
         currentScenarioFraming: (row.framing as Record<string, unknown> | null) ?? null,
         currentStage: row.stage,  // A.15: Hydrate lifecycle stage from Supabase
         isDirty: false,
         lastSavedAt: new Date(row.updated_at).getTime(),
+        analysisStateReady: false,
+        rawV2Response: null,
       })
 
       if (mountedRef.current) {

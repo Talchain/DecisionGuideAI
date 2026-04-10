@@ -2605,6 +2605,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       currentScenarioLastRunAt: scenario.last_run_at ?? null,
       currentScenarioLastRunSeed: scenario.last_run_seed ?? null,
       previousReport: null, // A1: Clear stale deltas on scenario switch
+      // Scenario switch always invalidates analysis freshness. If run history
+      // is found below, resultsLoadHistorical will overlay (also sets false/null).
+      // Without this, switching to a scenario with no last_result_hash leaves
+      // analysisStateReady: true and rawV2Response from the previous scenario,
+      // causing buildRequest to ship stale analysis on the first turn.
+      analysisStateReady: false,
+      rawV2Response: null,
       isDirty: false,
       history: { past: [], future: [] },
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
