@@ -1731,6 +1731,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: [...s.edges, ...newEdges],
       selection: { nodeIds: new Set(newNodes.map(n => n.id)), edgeIds: new Set(), anchorPosition: null }
     }))
+    invalidateAnalysisReady(get, set, `duplicate_selected (${newNodes.length} nodes)`)
   },
 
   copySelected: () => {
@@ -1771,6 +1772,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: [...s.edges, ...newEdges],
       selection: { nodeIds: new Set(newNodes.map(n => n.id)), edgeIds: new Set(), anchorPosition: null }
     }))
+    invalidateAnalysisReady(get, set, `paste_clipboard (${newNodes.length} nodes)`)
   },
 
   cutSelected: () => {
@@ -1790,6 +1792,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
     }))
+    maybeInvalidateOnNodeDelete(get, set, [...selection.nodeIds])
   },
 
   selectAll: () => {
@@ -3240,6 +3243,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
 
     set({ nodes: repairedNodes, edges: typedEdges })
+    invalidateAnalysisReady(get, set, `apply_repair (${issueId})`)
 
     // Re-validate after repair
     get().validateGraph()
@@ -3267,6 +3271,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
 
     set({ nodes: repairedNodes, edges: typedEdges })
+    invalidateAnalysisReady(get, set, `apply_all_repairs (${fixableIssues.length} issues)`)
 
     // Re-validate after repairs
     get().validateGraph()
@@ -3294,6 +3299,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }
 
     set(updates)
+    invalidateAnalysisReady(get, set, 'apply_auto_fix_changes')
 
     // Re-validate after auto-fix
     get().validateGraph()
