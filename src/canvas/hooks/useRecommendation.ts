@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
+import { useComparisonStore } from '../stores/comparisonStore'
 import type {
   GenerateRecommendationRequest,
   GenerateRecommendationResponse,
@@ -64,7 +65,7 @@ export function useRecommendation(
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const results = useCanvasStore((s) => s.results)
-  const comparisonMode = useCanvasStore((s) => s.comparisonMode)
+  const comparisonMode = useComparisonStore((s) => s.comparisonMode)
 
   /**
    * Build ranked options from comparison data or current analysis

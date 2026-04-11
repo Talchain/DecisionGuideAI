@@ -12,6 +12,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
+import { useComparisonStore } from '../stores/comparisonStore'
 import type {
   ConditionalRecommendRequest,
   ConditionalRecommendResponse,
@@ -65,7 +66,7 @@ export function useConditionalRecommendations(
   // Store selectors
   const nodes = useCanvasStore((s) => s.nodes)
   const results = useCanvasStore((s) => s.results)
-  const comparisonMode = useCanvasStore((s) => s.comparisonMode)
+  const comparisonMode = useComparisonStore((s) => s.comparisonMode)
 
   /**
    * Build ranked options from comparison or current analysis

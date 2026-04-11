@@ -30,8 +30,28 @@ vi.mock('../../../store', () => ({
           model_card: { response_hash: 'hash-123' },
         },
       },
-      comparisonMode: null,
       setHighlightedNodes: mockSetHighlightedNodes,
+    }
+    return selector(state)
+  }),
+}))
+
+// Mock the comparison store (C3-3: comparisonMode lives here now)
+vi.mock('../../../stores/comparisonStore', () => ({
+  useComparisonStore: vi.fn((selector) => {
+    const state = {
+      comparisonMode: {
+        active: false,
+        scenarios: [],
+        labels: [],
+        selectedIndices: [0, 1],
+        hasMoreOptions: false,
+        allOptionsCount: 0,
+        comparison: null,
+        apiResponse: null,
+      },
+      selectedSnapshotsForComparison: [],
+      currentDecisionRationale: null,
     }
     return selector(state)
   }),

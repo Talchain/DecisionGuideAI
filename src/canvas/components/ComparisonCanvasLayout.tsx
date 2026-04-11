@@ -9,6 +9,7 @@ import { useState, useMemo, useRef, useCallback } from 'react'
 import { ReactFlowProvider, type ReactFlowInstance } from '@xyflow/react'
 import { X, Link2, Link2Off, Maximize2, Plus, Minus, RefreshCw, Equal, Target } from 'lucide-react'
 import { useCanvasStore } from '../store'
+import { useComparisonStore } from '../stores/comparisonStore'
 import { MiniCanvas } from './MiniCanvas'
 import { typography } from '../../styles/typography'
 import type { ComparisonResult } from '../snapshots/types'
@@ -356,7 +357,7 @@ function ChangesView({ comparison }: { comparison: ComparisonResult }) {
  * Side-by-side comparison layout replacing the main canvas
  */
 export function ComparisonCanvasLayout() {
-  const comparisonMode = useCanvasStore((s) => s.comparisonMode)
+  const comparisonMode = useComparisonStore((s) => s.comparisonMode)
   const exitComparisonMode = useCanvasStore((s) => s.exitComparisonMode)
 
   const [selectedView, setSelectedView] = useState<'split' | 'changes'>('split')

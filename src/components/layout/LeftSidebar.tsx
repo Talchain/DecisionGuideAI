@@ -12,6 +12,7 @@ import styles from './LeftSidebar.module.css'
 import { LensDropdown } from '../../canvas/components/LensDropdown'
 import { LENS_TOGGLE_EVENT } from '../../canvas/hooks/useCanvasKeyboardShortcuts'
 import { useCanvasStore } from '../../canvas/store'
+import { useComparisonStore } from '../../canvas/stores/comparisonStore'
 import { isGraphLensEnabled } from '../../flags'
 
 /** Custom event: request all open menus to close (except the source). */
@@ -66,7 +67,7 @@ export function LeftSidebar({
   }, [handleLensToggle])
 
   // Close lens dropdown when comparison mode hides the chip
-  const comparisonActive = useCanvasStore(s => s.comparisonMode.active)
+  const comparisonActive = useComparisonStore(s => s.comparisonMode.active)
   useEffect(() => {
     if (comparisonActive) setLensOpen(false)
   }, [comparisonActive])

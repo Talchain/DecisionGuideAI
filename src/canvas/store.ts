@@ -38,6 +38,7 @@ import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { isCompareTabEnabled } from '../flags'
 import { useAnalysisSnapshotStore } from './stores/analysisSnapshotStore'
 import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
+import { useComparisonStore } from './stores/comparisonStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
@@ -391,27 +392,12 @@ interface CanvasState {
   documentSearchQuery: string
   documentSortField: 'name' | 'date' | 'size' | 'type'
   documentSortDirection: 'asc' | 'desc'
-  // M6: Compare & Decision Rationale
-  selectedSnapshotsForComparison: string[] // Snapshot IDs
+  // M6: Compare — showComparePanel stays here (panel flag cluster in canvas store)
   showComparePanel: boolean
-  currentDecisionRationale: DecisionRationale | null
-  // M6: Scenario Comparison Mode (replaces main canvas with side-by-side view)
-  comparisonMode: {
-    active: boolean
-    scenarios: Array<{ nodes: Node[]; edges: Edge<EdgeData>[]; label: string; optionId?: string }>
-    labels: string[]
-    selectedIndices?: [number, number]
-    hasMoreOptions?: boolean
-    allOptionsCount?: number
-    comparison: ComparisonResult | null // Diff data for stats bar and changes view
-    // ISL/legacy compare API response with outcome predictions per scenario
-    apiResponse?: {
-      base_scenario?: { id: string; name: string; outcome_predictions: Record<string, number> }
-      alternative_scenarios?: Array<{ id: string; name: string; outcome_predictions: Record<string, number> }>
-      option_comparison?: Array<{ option_id: string; option_label: string; outcome?: { mean: number; p10: number; p50: number; p90: number }; expected_outcome?: number; win_probability?: number }>
-      analysis_status?: string
-    } | null
-  }
+  // Comparison state (comparisonMode, selectedSnapshotsForComparison,
+  // currentDecisionRationale) lives in src/canvas/stores/comparisonStore.ts
+  // as of C3-3. enterComparisonMode/exitComparisonMode orchestrators remain
+  // here because they write lens atomically alongside comparisonMode.
   // Week 3: AI Clarifier
   showAIClarifier: boolean
   clarifierSession: {
@@ -623,12 +609,12 @@ interface CanvasState {
   setShowProvenanceHub: (show: boolean) => void
   setShowDocumentsDrawer: (show: boolean) => void
   toggleProvenanceRedaction: () => void
-  // M6: Compare & Snapshots actions
-  setSelectedSnapshotsForComparison: (snapshotIds: string[]) => void
+  // M6: Compare panel flag + local export
   setShowComparePanel: (show: boolean) => void
-  setDecisionRationale: (rationale: DecisionRationale | null) => void
   exportLocal: () => string
-  // M6: Scenario Comparison Mode actions
+  // M6: Scenario Comparison Mode orchestrators — write lens atomically, stay here.
+  // Simple comparison setters (setSelectedSnapshotsForComparison, setDecisionRationale,
+  // setComparisonSelectedIndices) live in src/canvas/stores/comparisonStore.ts.
   enterComparisonMode: (
     scenariosOrScenarioA:
       | Array<{ nodes: Node[]; edges: Edge<EdgeData>[]; label: string; optionId?: string }>
@@ -638,7 +624,6 @@ interface CanvasState {
     apiResponse?: { base_scenario?: { id: string; name: string; outcome_predictions: Record<string, number> }; alternative_scenarios?: Array<{ id: string; name: string; outcome_predictions: Record<string, number> }>; option_comparison?: Array<{ option_id: string; option_label: string; outcome?: { mean: number; p10: number; p50: number; p90: number }; expected_outcome?: number; win_probability?: number }>; analysis_status?: string } | null,
     meta?: { hasMoreOptions?: boolean; allOptionsCount?: number }
   ) => void
-  setComparisonSelectedIndices: (indices: [number, number]) => void
   exitComparisonMode: () => void
   // P2: Hydration hygiene
   hydrateGraphSlice: (loaded: { nodes?: Node[]; edges?: Edge<EdgeData>[]; currentScenarioId?: string | null }) => void
@@ -1123,17 +1108,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   engineLimitsLoading: true,
   engineLimitsError: null,
   engineLimitsFetchedAt: null,
-  // M6: Scenario Comparison Mode
-  comparisonMode: {
-    active: false,
-    scenarios: [],
-    labels: [],
-    selectedIndices: [0, 1],
-    hasMoreOptions: false,
-    allOptionsCount: 0,
-    comparison: null,
-    apiResponse: null,
-  },
+  // M6: Scenario Comparison Mode state lives in useComparisonStore as of C3-3.
   templatesPanelInvoker: null,
   // M4: Graph Health & Repair
   graphHealth: null,
@@ -1160,9 +1135,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // S7-FILEOPS: Document management initial state
   documentSearchQuery: loadSearchQuery(),
   ...loadSortPreferences(),
-  // M6: Compare & Decision Rationale
-  selectedSnapshotsForComparison: [],
-  currentDecisionRationale: null,
   // A.7: External mutation suppression reference count (0 = inactive)
   _externalMutationActive: 0,
   _suppressHistory: false,
@@ -2095,15 +2067,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       needleMovers: [],
       // Close results panel
       showResultsPanel: false,
-      // M6: Exit comparison mode if active
-      comparisonMode: {
-        active: false,
-        scenarios: [],
-        labels: [],
-        selectedIndices: [0, 1],
-        comparison: null,
-        apiResponse: null,
-      },
       // Clear scenario tracking in store state
       currentScenarioId: null,
       scenarioPersistedToDb: false,
@@ -2119,6 +2082,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Graph Lens: reset on canvas clear
       lens: createDefaultLensState(),
     })
+    // Reset comparison state on canvas clear (lives in useComparisonStore as of C3-3)
+    useComparisonStore.getState().resetComparison()
   },
 
   deleteEdge: (id) => {
@@ -2728,16 +2693,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Composer draft is scoped to a scenario — clear it on switch so a draft
       // for "buy vs build" can't bleed into "hire vs contract".
       draftComposerText: null,
-      // M6: Exit comparison mode when switching scenarios
-      comparisonMode: {
-        active: false,
-        scenarios: [],
-        labels: [],
-        selectedIndices: [0, 1],
-        comparison: null,
-        apiResponse: null,
-      },
     })
+
+    // Exit comparison mode when switching scenarios (lives in useComparisonStore as of C3-3)
+    useComparisonStore.getState().resetComparison()
 
     scenarios.setCurrentScenarioId(id)
 
@@ -3568,32 +3527,15 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set(s => ({ provenanceRedactionEnabled: !s.provenanceRedactionEnabled }))
   },
 
-  // M6: Compare & Snapshots actions
-  setSelectedSnapshotsForComparison: (snapshotIds: string[]) => {
-    // De-duplicate: Keep most recent two unique IDs, maintain order
-    const unique = Array.from(new Set(snapshotIds))
-    const capped = unique.slice(-2) // Most recent two
-
-    // Ignore no-op re-selects (same IDs in same order)
-    const current = get().selectedSnapshotsForComparison
-    if (capped.length === current.length &&
-        capped.every((id, i) => id === current[i])) {
-      return // No-op
-    }
-
-    set({ selectedSnapshotsForComparison: capped })
-  },
-
   setShowComparePanel: (show: boolean) => {
     set({ showComparePanel: show })
     saveUIPreference('showComparePanel', show)
   },
 
-  setDecisionRationale: (rationale: DecisionRationale | null) => {
-    set({ currentDecisionRationale: rationale })
-  },
-
-  // M6: Scenario Comparison Mode actions
+  // M6: Scenario Comparison Mode orchestrators.
+  // These reset lens atomically alongside the comparison-mode write, so they
+  // stay in canvas store. They call useComparisonStore for the comparison-state
+  // write (canvas -> extracted store direction is allowed).
   enterComparisonMode: (scenariosOrScenarioA, scenarioB, comparison = null, apiResponse = null, meta = {}) => {
     const scenarios = (Array.isArray(scenariosOrScenarioA)
       ? scenariosOrScenarioA
@@ -3602,46 +3544,31 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     const labels = scenarios.map((scenario) => scenario.label)
 
-    set({
-      comparisonMode: {
-        active: true,
-        scenarios,
-        labels,
-        selectedIndices: [0, 1],
-        hasMoreOptions: meta.hasMoreOptions ?? false,
-        allOptionsCount: meta.allOptionsCount ?? scenarios.length,
-        comparison,
-        apiResponse,
-      },
-      // Graph Lens: auto-reset on comparison mode entry
-      lens: createDefaultLensState(),
+    useComparisonStore.getState().setComparisonMode({
+      active: true,
+      scenarios,
+      labels,
+      selectedIndices: [0, 1],
+      hasMoreOptions: meta.hasMoreOptions ?? false,
+      allOptionsCount: meta.allOptionsCount ?? scenarios.length,
+      comparison,
+      apiResponse,
     })
-  },
-
-  setComparisonSelectedIndices: (indices) => {
-    set((state) => ({
-      comparisonMode: {
-        ...state.comparisonMode,
-        selectedIndices: indices,
-      },
-    }))
+    set({ lens: createDefaultLensState() })
   },
 
   exitComparisonMode: () => {
-    set({
-      comparisonMode: {
-        active: false,
-        scenarios: [],
-        labels: [],
-        selectedIndices: [0, 1],
-        hasMoreOptions: false,
-        allOptionsCount: 0,
-        comparison: null,
-        apiResponse: null,
-      },
-      // Graph Lens: reset on comparison mode exit (mirrors enterComparisonMode reset)
-      lens: createDefaultLensState(),
+    useComparisonStore.getState().setComparisonMode({
+      active: false,
+      scenarios: [],
+      labels: [],
+      selectedIndices: [0, 1],
+      hasMoreOptions: false,
+      allOptionsCount: 0,
+      comparison: null,
+      apiResponse: null,
     })
+    set({ lens: createDefaultLensState() })
   },
 
   // Pending fit view setter
@@ -3940,7 +3867,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   },
 
   exportLocal: () => {
-    const { nodes, edges, results, currentDecisionRationale } = get()
+    const { nodes, edges, results } = get()
+    const currentDecisionRationale = useComparisonStore.getState().currentDecisionRationale
 
     const exportData = {
       version: '1.0',

@@ -13,6 +13,7 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Layers, Check, ChevronDown } from 'lucide-react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
+import { useComparisonStore } from '../stores/comparisonStore'
 import type { LensMode } from '../store'
 
 // ─── Dropdown trigger chip ───────────────────────────────────────────────────
@@ -89,7 +90,7 @@ export function LensDropdown({ isOpen, onClose, onToggle, anchorRef, hideChip }:
   const setLens = useCanvasStore(s => s.setLens)
   const resultsStatus = useCanvasStore(selectResultsStatus)
   const report = useCanvasStore(selectReport)
-  const comparisonActive = useCanvasStore(s => s.comparisonMode.active)
+  const comparisonActive = useComparisonStore(s => s.comparisonMode.active)
 
   // Get options from report
   const options = (report as Record<string, unknown> | null | undefined)

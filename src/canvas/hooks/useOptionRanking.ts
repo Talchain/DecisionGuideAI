@@ -10,7 +10,7 @@
  */
 
 import { useMemo } from 'react'
-import { useCanvasStore } from '../store'
+import { useComparisonStore } from '../stores/comparisonStore'
 import type { RankingData } from '../components/DecisionSummary'
 
 interface OutcomePredictions {
@@ -27,7 +27,7 @@ interface ScenarioData {
  * Hook to compute ranking data from comparison results
  */
 export function useOptionRanking(): RankingData | null {
-  const comparisonMode = useCanvasStore(s => s.comparisonMode)
+  const comparisonMode = useComparisonStore(s => s.comparisonMode)
 
   return useMemo(() => {
     // Only compute when comparison mode is active

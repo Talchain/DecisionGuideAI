@@ -16,6 +16,7 @@ import { renderHook, act, waitFor } from '@testing-library/react'
 import { useScenarioComparison } from '../useScenarioComparison'
 import * as plotV2 from '../../../adapters/plot/v2'
 import { useCanvasStore } from '../../store'
+import { useComparisonStore } from '../../stores/comparisonStore'
 import type { Node, Edge } from '@xyflow/react'
 
 // Mock the PLoT v2 adapter
@@ -100,17 +101,9 @@ describe('useScenarioComparison', () => {
       nodes: [],
       edges: [],
       outcomeNodeId: null,
-      comparisonMode: {
-        active: false,
-        scenarios: [],
-        labels: [],
-        selectedIndices: [0, 1],
-        hasMoreOptions: false,
-        allOptionsCount: 0,
-        comparison: null,
-        apiResponse: null,
-      },
     })
+    // Comparison state lives in useComparisonStore as of C3-3
+    useComparisonStore.getState().resetComparison()
   })
 
   describe('PLoT routing', () => {

@@ -5,6 +5,7 @@ import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
 import { useCanvasStore } from './store'
+import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
 import { nodeTypes } from './nodes/registry'
@@ -304,8 +305,8 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const showAIClarifier = useCanvasStore(s => s.showAIClarifier)
   const setShowAIClarifier = useCanvasStore(s => s.setShowAIClarifier)
 
-  // M6: Scenario Comparison Mode
-  const comparisonModeActive = useCanvasStore(s => s.comparisonMode.active)
+  // M6: Scenario Comparison Mode (lives in useComparisonStore as of C3-3)
+  const comparisonModeActive = useComparisonStore(s => s.comparisonMode.active)
   const viewMode = useCanvasStore(s => s.viewMode)
 
   // Phase 5: Ghost option node — positioned adjacent to the rightmost option node
