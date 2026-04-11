@@ -162,52 +162,27 @@ describe('SuggestedChips — error handling', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Role dots (v2 only)
+// Role dots removed — chips render label text only
 // ---------------------------------------------------------------------------
 
-describe('SuggestedChips — role dots', () => {
-  it('renders an info-coloured dot for facilitator role', () => {
+describe('SuggestedChips — no role dots', () => {
+  it('does not render role dot for facilitator role', () => {
     const c = chip({ id: 'c1', role: 'facilitator' })
     render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    const dot = screen.getByTestId('chip-role-dot-c1')
-    expect(dot).toBeInTheDocument()
-    expect(dot).toHaveClass('bg-info')
+    expect(screen.queryByTestId('chip-role-dot-c1')).not.toBeInTheDocument()
+    expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
   })
 
-  it('renders a danger-coloured dot for challenger role', () => {
+  it('preserves role in aria-label for accessibility', () => {
+    const c = chip({ id: 'c1', role: 'facilitator', label: 'Explain results' })
+    render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
+    expect(screen.getByLabelText('Facilitator: Explain results')).toBeInTheDocument()
+  })
+
+  it('preserves data-chip-role attribute for styling hooks', () => {
     const c = chip({ id: 'c1', role: 'challenger' })
     render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    const dot = screen.getByTestId('chip-role-dot-c1')
-    expect(dot).toHaveClass('bg-danger')
-  })
-
-  it('renders a goal-coloured dot for scientist role', () => {
-    const c = chip({ id: 'c1', role: 'scientist' })
-    render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    const dot = screen.getByTestId('chip-role-dot-c1')
-    expect(dot).toHaveClass('bg-goal')
-  })
-
-  it('renders chip without dot when role is missing', () => {
-    const c = chip({ id: 'c1', role: undefined })
-    render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.queryByTestId('chip-role-dot-c1')).not.toBeInTheDocument()
-    expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
-  })
-
-  it('renders chip without dot for unrecognised role string (graceful fallback)', () => {
-    const c = chip({ id: 'c1', role: 'unknown_future_role' })
-    render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.queryByTestId('chip-role-dot-c1')).not.toBeInTheDocument()
-    expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
-  })
-
-  it('does not render role dots when feature flag is off (legacy path)', () => {
-    mockFlagEnabled.mockReturnValue(false)
-    const c = chip({ id: 'c1', role: 'facilitator' })
-    render(<SuggestedChips chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.queryByTestId('chip-role-dot-c1')).not.toBeInTheDocument()
-    expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
+    expect(screen.getByTestId('suggested-chip-c1')).toHaveAttribute('data-chip-role', 'challenger')
   })
 })
 

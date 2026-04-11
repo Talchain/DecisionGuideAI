@@ -385,6 +385,13 @@
 
 .graphPatchSummary {
   font-weight: 500;
+  color: var(--text-body, #404040);
+}
+
+/* Entity names in summaries render as label token (DS v5: 14px, semibold) */
+.graphPatchSummary strong {
+  font-weight: 600;
+  font-size: 14px;
   color: var(--text-header, #262626);
 }
 

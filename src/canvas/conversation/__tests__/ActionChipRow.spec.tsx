@@ -3,11 +3,10 @@
  *
  * Covers:
  * - Retry chip rendered (intent=primary, no message — undo-or-message guard)
- * - Role dot rendered for facilitator, challenger, scientist roles
- * - Role-prefixed aria-label for known roles
- * - No role dot for missing/unrecognised role (graceful fallback)
- * - Historical role parity: chips that become historical (disabled=true) keep
- *   role dots and aria-labels — visual parity with SuggestedChips first render
+ * - Role dots removed — no visible role indicators
+ * - Role-prefixed aria-label preserved for accessibility
+ * - data-chip-role attribute preserved for styling hooks
+ * - Historical chip parity: disabled=true chips keep aria-labels, non-interactive
  * - disabled prop: chips visible but non-interactive
  * - Chips without message AND not undo intent are filtered out
  */
@@ -66,42 +65,21 @@ describe('ActionChipRow — retry chip visibility', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Role dots (parity with SuggestedChips — DS v5 §21.4)
+// Role dots removed — chips render label text only
 // ---------------------------------------------------------------------------
 
-describe('ActionChipRow — role dots', () => {
-  it('renders an info-coloured dot for facilitator role', () => {
+describe('ActionChipRow — no role dots', () => {
+  it('does not render role dot for any role', () => {
     const c = chip({ id: 'c1', role: 'facilitator' })
     render(<ActionChipRow chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    const dot = screen.getByTestId('chip-role-dot-c1')
-    expect(dot).toBeInTheDocument()
-    expect(dot).toHaveClass('bg-info')
+    expect(screen.queryByTestId('chip-role-dot-c1')).not.toBeInTheDocument()
+    expect(screen.getByTestId('chip-c1')).toBeInTheDocument()
   })
 
-  it('renders a danger-coloured dot for challenger role', () => {
+  it('preserves data-chip-role attribute for styling hooks', () => {
     const c = chip({ id: 'c1', role: 'challenger' })
     render(<ActionChipRow chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getByTestId('chip-role-dot-c1')).toHaveClass('bg-danger')
-  })
-
-  it('renders a goal-coloured dot for scientist role', () => {
-    const c = chip({ id: 'c1', role: 'scientist' })
-    render(<ActionChipRow chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getByTestId('chip-role-dot-c1')).toHaveClass('bg-goal')
-  })
-
-  it('renders chip without dot when role is missing', () => {
-    const c = chip({ id: 'c1', role: undefined })
-    render(<ActionChipRow chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.queryByTestId('chip-role-dot-c1')).not.toBeInTheDocument()
-    expect(screen.getByTestId('chip-c1')).toBeInTheDocument()
-  })
-
-  it('renders chip without dot for unrecognised role string', () => {
-    const c = chip({ id: 'c1', role: 'unknown_future_role' })
-    render(<ActionChipRow chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.queryByTestId('chip-role-dot-c1')).not.toBeInTheDocument()
-    expect(screen.getByTestId('chip-c1')).toBeInTheDocument()
+    expect(screen.getByTestId('chip-c1')).toHaveAttribute('data-chip-role', 'challenger')
   })
 })
 
@@ -131,21 +109,14 @@ describe('ActionChipRow — aria-labels', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Historical role parity (P1 regression guard)
+// Historical chip parity (P1 regression guard)
 //
 // When a new turn arrives, the previous turn's chips become historical
-// (disabled=true). They must keep role dots and aria-labels — same visual
-// treatment as when first rendered, but non-interactive.
+// (disabled=true). They must keep aria-labels — same treatment as when
+// first rendered, but non-interactive.
 // ---------------------------------------------------------------------------
 
 describe('ActionChipRow — historical chip parity (disabled=true)', () => {
-  it('retains role dot when disabled (historical)', () => {
-    const c = chip({ id: 'c1', role: 'facilitator' })
-    render(<ActionChipRow chips={[c]} onChipClick={vi.fn()} disabled />)
-    expect(screen.getByTestId('chip-role-dot-c1')).toBeInTheDocument()
-    expect(screen.getByTestId('chip-role-dot-c1')).toHaveClass('bg-info')
-  })
-
   it('retains role-prefixed aria-label when disabled (historical)', () => {
     const c = chip({ id: 'c1', label: 'Review risk', role: 'challenger' })
     render(<ActionChipRow chips={[c]} onChipClick={vi.fn()} disabled />)
@@ -164,17 +135,6 @@ describe('ActionChipRow — historical chip parity (disabled=true)', () => {
     const c = chip({ id: 'c1' })
     render(<ActionChipRow chips={[c]} onChipClick={vi.fn()} disabled />)
     expect(screen.getByRole('button')).toHaveAttribute('aria-disabled', 'true')
-  })
-
-  it('role dot colour does not change between active and historical states', () => {
-    const c = chip({ id: 'c1', role: 'scientist' })
-    const { rerender } = render(
-      <ActionChipRow chips={[c]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
-    )
-    expect(screen.getByTestId('chip-role-dot-c1')).toHaveClass('bg-goal')
-
-    rerender(<ActionChipRow chips={[c]} onChipClick={vi.fn()} disabled />)
-    expect(screen.getByTestId('chip-role-dot-c1')).toHaveClass('bg-goal')
   })
 })
 

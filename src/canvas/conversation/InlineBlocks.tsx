@@ -1122,7 +1122,11 @@ function GraphPatchBlockRenderer({
           </span>
         </div>
         {summaryText && (
-          <div className={`${typography.body} ${styles.graphPatchSummary}`}>{summaryText}</div>
+          <div
+            className={`${typography.bodySmall} ${styles.graphPatchSummary}`}
+            // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li)
+            dangerouslySetInnerHTML={{ __html: safeRichText(summaryText) }}
+          />
         )}
       </div>
 

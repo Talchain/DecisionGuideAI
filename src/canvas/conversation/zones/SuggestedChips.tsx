@@ -4,8 +4,8 @@
  * Each chip fades in + slides up with 70ms delay between.
  * Up to 4 chips (0-3 suggested actions by default). DS v5 §21.4.
  * Chip base: bg-panel, border border-panel-border, hover:bg-panel-hover.
- * Role dot (8px, DS main colour): facilitator=info, challenger=danger, scientist=goal.
- * Missing/unknown role renders chip without dot (graceful fallback).
+ * Role metadata preserved via data-chip-role and aria-label for styling/accessibility.
+ * Role dots removed — chips render label text only.
  *
  * In-flight behaviour: when isThinking=true all chips in this turn are disabled
  * (greyed out, not clickable). Re-enabled if request fails.
@@ -14,7 +14,7 @@
  * Click failures show a brief inline error that auto-dismisses after 5s.
  *
  * Feature flag: ORCHESTRATOR_RENDERING_V2
- * When OFF: legacy behaviour (no role dots, no in-flight disable, max 2 visible).
+ * When OFF: legacy behaviour (no in-flight disable, max 2 visible).
  */
 
 import { useState, useEffect } from 'react'
@@ -32,24 +32,6 @@ interface SuggestedChipsProps {
    * Historical chips are visible but non-interactive.
    */
   isHistorical?: boolean
-}
-
-// ---------------------------------------------------------------------------
-// Role dot colour map (DS v5 §21.4 + §21.2 block type badge pattern)
-// 8px diameter, main colour fill, no border.
-// ---------------------------------------------------------------------------
-
-type KnownRole = 'facilitator' | 'challenger' | 'scientist'
-
-const ROLE_DOT_CLASS: Record<KnownRole, string> = {
-  facilitator: 'bg-info',
-  challenger: 'bg-danger',
-  scientist: 'bg-goal',
-}
-
-function getRoleDotClass(role: string | undefined): string | null {
-  if (!role) return null
-  return ROLE_DOT_CLASS[role as KnownRole] ?? null
 }
 
 // ---------------------------------------------------------------------------
@@ -147,7 +129,7 @@ export function SuggestedChips({
     )
   }
 
-  // v2 layout: horizontal flex-wrap, role dots, in-flight disable
+  // v2 layout: horizontal flex-wrap, role metadata, in-flight disable
   return (
     <div className="flex flex-col self-start" style={{ gap: 4, marginBottom: 8 }}>
       <div
@@ -156,7 +138,6 @@ export function SuggestedChips({
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {
-          const dotClass = getRoleDotClass(chip.role)
           const roleLabel = chip.role
             ? chip.role.charAt(0).toUpperCase() + chip.role.slice(1)
             : null
@@ -192,14 +173,6 @@ export function SuggestedChips({
               data-testid={`suggested-chip-${chip.id}`}
               data-chip-role={chip.role ?? undefined}
             >
-              {dotClass && (
-                <span
-                  className={`inline-block rounded-full flex-shrink-0 ${dotClass}`}
-                  style={{ width: 8, height: 8 }}
-                  aria-hidden="true"
-                  data-testid={`chip-role-dot-${chip.id}`}
-                />
-              )}
               {chip.label}
             </button>
           )
