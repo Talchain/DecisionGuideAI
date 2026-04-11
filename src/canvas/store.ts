@@ -3116,18 +3116,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         sessionStorage.setItem('olumi-cee-analysis-ready-node-ids', JSON.stringify(nodeIds))
       } catch {}
     } else {
-      set({
-        ceeAnalysisReady: null,
-        ceeAnalysisReadyNodeIds: null,
-        ceeQuality: null,
-        goalConstraints: null,
-        // Phase 1b: Clear extended CEE data
-        ceeExtendedWarnings: null,
-        ceeGoalConnectivity: null,
-        ceeModelQualityFactors: null,
-        ceeInterventionHints: null,
-        preAnalysisSensitivity: null,
-      })
+      set(READINESS_CLEAR_FIELDS)
       try {
         sessionStorage.removeItem('olumi-cee-analysis-ready')
         sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
