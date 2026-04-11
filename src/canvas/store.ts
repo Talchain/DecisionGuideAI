@@ -820,6 +820,19 @@ function shouldInvalidateOnNodeDelete(
  * operation. Any new external producer must either set fresh
  * ceeAnalysisReady or call invalidateAnalysisReady().
  */
+/** Canonical set of fields to clear when CEE readiness is invalidated. */
+const READINESS_CLEAR_FIELDS = {
+  ceeAnalysisReady: null,
+  ceeAnalysisReadyNodeIds: null,
+  ceeQuality: null,
+  goalConstraints: null,
+  ceeExtendedWarnings: null,
+  ceeGoalConnectivity: null,
+  ceeModelQualityFactors: null,
+  ceeInterventionHints: null,
+  preAnalysisSensitivity: null,
+} as const
+
 function invalidateAnalysisReady(
   get: () => CanvasState,
   set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
@@ -833,18 +846,7 @@ function invalidateAnalysisReady(
       console.warn('[Canvas] Had options:', ceeAnalysisReady.options?.length)
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
-    set(() => ({
-      ceeAnalysisReady: null,
-      ceeAnalysisReadyNodeIds: null,
-      ceeQuality: null,
-      goalConstraints: null,
-      // Phase 1b: Clear extended CEE data
-      ceeExtendedWarnings: null,
-      ceeGoalConnectivity: null,
-      ceeModelQualityFactors: null,
-      ceeInterventionHints: null,
-      preAnalysisSensitivity: null,
-    }))
+    set(() => ({ ...READINESS_CLEAR_FIELDS }))
   }
 }
 
@@ -1613,9 +1615,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = history.past.slice(0, -1)
     // Preserve label from the entry being undone so redo can show it
     const future = [{ nodes, edges, label: prev.label }, ...history.future]
-    // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
-    // Graph Lens: auto-reset on undo (graph shape changed)
-    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null, lens: createDefaultLensState() })
+    // Clear full readiness bundle + reset lens on undo (graph shape changed)
+    set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, lens: createDefaultLensState() })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1627,9 +1628,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const next = history.future[0]
     const past = [...history.past, { nodes, edges, label: next.label }]
     const future = history.future.slice(1)
-    // Invalidate ceeAnalysisReady so panel re-evaluates from restored graph state
-    // Graph Lens: auto-reset on redo (graph shape changed)
-    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ceeAnalysisReady: null, goalConstraints: null, lens: createDefaultLensState() })
+    // Clear full readiness bundle + reset lens on redo (graph shape changed)
+    set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, lens: createDefaultLensState() })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
     set(() => ({ _internal: { lastHistoryHash: historyHash(newNodes, newEdges) } }))
@@ -1792,13 +1792,20 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   cutSelected: () => {
     // Atomic operation: copy + delete in single history frame
     // This prevents double-frame if copySelected ever mutates in future
-    const { nodes, edges, selection } = get()
+    const { nodes, edges, selection, ceeAnalysisReady } = get()
     const selectedNodes = nodes.filter(n => selection.nodeIds.has(n.id))
     const selectedEdges = edges.filter(e => selection.nodeIds.has(e.source) && selection.nodeIds.has(e.target))
-    
+
+    // Collect all edges being deleted (by node or by direct selection)
+    const deletedEdges = edges.filter(
+      e => selection.edgeIds.has(e.id) ||
+           selection.nodeIds.has(e.source) ||
+           selection.nodeIds.has(e.target)
+    )
+
     // Push history once before mutation
     pushToHistory(get, set)
-    
+
     // Set clipboard and delete in same transaction
     set((s) => ({
       clipboard: { nodes: selectedNodes, edges: selectedEdges },
@@ -1806,7 +1813,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       edges: s.edges.filter(e => !selection.nodeIds.has(e.source) && !selection.nodeIds.has(e.target) && !selection.edgeIds.has(e.id)),
       selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
     }))
-    maybeInvalidateOnNodeDelete(get, set, [...selection.nodeIds])
+
+    // Mirror deleteSelected invalidation: check nodes first, then edges
+    if (selection.nodeIds.size > 0) {
+      maybeInvalidateOnNodeDelete(get, set, [...selection.nodeIds])
+    } else if (ceeAnalysisReady) {
+      for (const edge of deletedEdges) {
+        if (shouldInvalidateOnEdgeDelete(edge, ceeAnalysisReady)) {
+          invalidateAnalysisReady(get, set, `cut_edge connecting critical nodes: ${edge.source} → ${edge.target}`)
+          break
+        }
+      }
+    }
   },
 
   selectAll: () => {
@@ -3048,11 +3066,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       nodes: draftChatPreDraftSnapshot.nodes,
       edges: draftChatPreDraftSnapshot.edges,
       draftChatPreDraftSnapshot: null,
-      // Clear analysis state from the undone draft
-      ceeAnalysisReady: null,
-      ceeAnalysisReadyNodeIds: null,
+      // Clear full readiness bundle + pipeline trace on draft undo
+      ...READINESS_CLEAR_FIELDS,
       ceePipelineTrace: null,
-      ceeQuality: null,
       // Graph Lens: auto-reset on draft undo (graph shape changed)
       lens: createDefaultLensState(),
     })

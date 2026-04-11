@@ -579,6 +579,23 @@ describe('Canvas Store – ceeAnalysisReady invalidation', () => {
       expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
     })
 
+    it('cutSelected invalidates ceeAnalysisReady when critical edge is cut (edge-only selection)', () => {
+      // Select only edge_1 (factor_price → goal_node) — no nodes
+      useCanvasStore.setState({
+        selection: {
+          nodeIds: new Set(),
+          edgeIds: new Set(['edge_1']),
+          anchorPosition: null,
+        },
+      })
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().cutSelected()
+
+      // Edge connected critical nodes (factor_price is an intervention target)
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
     it('applyAutoFixChanges invalidates ceeAnalysisReady', () => {
       expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
 
