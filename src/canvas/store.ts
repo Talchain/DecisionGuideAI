@@ -800,9 +800,11 @@ function shouldInvalidateOnNodeDelete(
 }
 
 /**
- * Invalidate ceeAnalysisReady when critical nodes are deleted.
- * Critical nodes: goal_node_id, option nodes, intervention target nodes.
- * Adding nodes or editing labels does NOT invalidate.
+ * Invalidate ceeAnalysisReady when the analytical model changes.
+ * Triggers: node/edge addition, node/edge deletion (critical), analytical
+ * field edits (weight, confidence, observedState, interventions, etc.),
+ * edge endpoint rewiring, goal threshold change.
+ * Does NOT trigger for cosmetic changes (label, position, description).
  */
 function invalidateAnalysisReady(
   get: () => CanvasState,
@@ -877,6 +879,60 @@ function maybeInvalidateOnEdgeDelete(
   if (shouldInvalidateOnEdgeDelete(edge, ceeAnalysisReady)) {
     invalidateAnalysisReady(get, set, `Deleted edge connecting critical nodes: ${edge.source} → ${edge.target}`)
     return true
+  }
+  return false
+}
+
+/**
+ * Detect whether an edge update touches analytically meaningful fields.
+ * Used to decide if ceeAnalysisReady should be invalidated.
+ */
+function hasAnalyticalEdgeChange(
+  oldEdge: Edge<EdgeData>,
+  updates: Partial<Edge<EdgeData>>,
+): boolean {
+  const oldData = oldEdge.data ?? {}
+  const newData = updates.data
+  if (!newData) return false
+
+  const ANALYTICAL_EDGE_FIELDS = [
+    'weight', 'direction', 'strengthStd',
+    'confidence', 'beliefExists', 'beliefStrength', 'belief',
+    'exists_probability',
+  ] as const
+
+  for (const field of ANALYTICAL_EDGE_FIELDS) {
+    if (field in newData && (newData as Record<string, unknown>)[field] !== (oldData as Record<string, unknown>)[field]) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Detect whether a node update touches analytically meaningful fields.
+ * Checks both node-level fields (type/kind) and data-level fields.
+ */
+function hasAnalyticalNodeChange(
+  oldNode: Node,
+  updates: Partial<Node>,
+): boolean {
+  // Node-level: kind change (ReactFlow type field)
+  if (updates.type !== undefined && updates.type !== oldNode.type) return true
+
+  const oldData = (oldNode.data ?? {}) as Record<string, unknown>
+  const newData = updates.data as Record<string, unknown> | undefined
+  if (!newData) return false
+
+  const ANALYTICAL_NODE_DATA_FIELDS = [
+    'observedState', 'interventions', 'is_baseline',
+    'prior', 'kind', 'success_threshold', 'goalThreshold',
+  ] as const
+
+  for (const field of ANALYTICAL_NODE_DATA_FIELDS) {
+    if (field in newData && newData[field] !== oldData[field]) {
+      return true
+    }
   }
   return false
 }
@@ -1148,8 +1204,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (limitKind) return limitKind
 
     pushToHistory(get, set, `Added ${type}`)
-    // Note: Adding nodes does NOT invalidate ceeAnalysisReady
-    // Only deletion of critical nodes (goal, option, intervention targets) invalidates
+    invalidateAnalysisReady(get, set, `add_node (${type})`)
     const id = get().createNodeId()
     set((s) => ({ nodes: [...s.nodes, { id, type, position: pos || { x: 200, y: 200 }, data: { label: `Node ${id}` } }] }))
     return null
@@ -1162,6 +1217,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (limitKind) return limitKind
 
     pushToHistory(get, set, `Added connected ${type}`)
+    invalidateAnalysisReady(get, set, `add_node_with_edge (${type})`)
     const nodeId = get().createNodeId()
     const edgeId = get().createEdgeId()
     const [source, target] =
@@ -1202,13 +1258,18 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       console.warn(`[Canvas] Invalid node type: ${updates.type}`)
       return
     }
+    const oldNode = get().nodes.find(n => n.id === id)
     pushToHistory(get, set)
-    set((s) => ({ 
-      nodes: s.nodes.map(n => n.id === id ? { ...n, ...updates, data: { ...n.data, ...updates.data } } : n) 
+    set((s) => ({
+      nodes: s.nodes.map(n => n.id === id ? { ...n, ...updates, data: { ...n.data, ...updates.data } } : n)
     }))
+    if (oldNode && hasAnalyticalNodeChange(oldNode, updates)) {
+      invalidateAnalysisReady(get, set, `update_node analytical field (${id})`)
+    }
   },
 
   updateEdge: (id, updates) => {
+    const oldEdge = get().edges.find(e => e.id === id)
     pushToHistory(get, set)
     let confidenceChanged = false
 
@@ -1239,6 +1300,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
       return { edges, touchedNodeIds }
     })
+
+    if (oldEdge && hasAnalyticalEdgeChange(oldEdge, updates)) {
+      invalidateAnalysisReady(get, set, `update_edge analytical field (${id})`)
+    }
 
     // Phase 3: Re-validate graph when confidence changes to update ValidationPanel
     if (confidenceChanged) {
@@ -1496,8 +1561,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const sourceLabel = (nodes.find(n => n.id === edge.source)?.data as Record<string, unknown>)?.label as string ?? edge.source
     const targetLabel = (nodes.find(n => n.id === edge.target)?.data as Record<string, unknown>)?.label as string ?? edge.target
     pushToHistory(get, set, `Connected ${sourceLabel} \u2192 ${targetLabel}`)
-    // Note: Adding edges does NOT invalidate ceeAnalysisReady
-    // Only deletion of critical nodes (goal, option, intervention targets) invalidates
+    invalidateAnalysisReady(get, set, `add_edge (${edge.source} → ${edge.target})`)
     const id = get().createEdgeId()
     set((s) => {
       const touchedNodeIds = new Set(s.touchedNodeIds)
@@ -2074,10 +2138,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         : e
     )
 
-    set({ 
+    set({
       edges: newEdges,
       selection: { ...get().selection, edgeIds: new Set([id]) }
     })
+    invalidateAnalysisReady(get, set, `update_edge_endpoints (${id}: ${newSource} → ${newTarget})`)
   },
 
   beginReconnect: (edgeId, end) => {
@@ -2150,6 +2215,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           : n
       ),
     }))
+    invalidateAnalysisReady(get, set, `goal_threshold_change (${goalNodeId})`)
   },
 
   // Results actions

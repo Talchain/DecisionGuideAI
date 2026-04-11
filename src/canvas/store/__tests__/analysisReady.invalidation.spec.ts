@@ -381,4 +381,119 @@ describe('Canvas Store – ceeAnalysisReady invalidation', () => {
       expect(useCanvasStore.getState().rawV2Response).toBeNull()
     })
   })
+
+  // ────────────────────────────────────────────────────────────────────
+  // C2a: Analytical mutation invalidation (2026-04-11)
+  //
+  // updateEdge, updateNode, addEdge, updateEdgeEndpoints, and
+  // setGoalThresholdAndUpdateNode must invalidate ceeAnalysisReady
+  // when analytical fields change. Cosmetic-only changes (label,
+  // position, description) must NOT invalidate.
+  // ────────────────────────────────────────────────────────────────────
+
+  describe('analytical mutation invalidation', () => {
+    it('updateEdge with weight change invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().updateEdge('edge_1', { data: { weight: 1.5 } } as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('updateEdge with confidence change invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().updateEdge('edge_1', { data: { confidence: 0.9 } } as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('updateEdge with beliefExists change invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().updateEdge('edge_1', { data: { beliefExists: 0.3 } } as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('updateEdgeEndpoints invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().updateEdgeEndpoints(
+        'edge_1', 'factor_quality', 'goal_node'
+      )
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('updateNode with label-only change does NOT invalidate ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().updateNode('factor_price', {
+        data: { label: 'Renamed Price' },
+      } as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+    })
+
+    it('updateNode with observedState change invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().updateNode('factor_price', {
+        data: { observedState: { value: 42, unit: 'USD' } },
+      } as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('updateNode with interventions change invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().updateNode('option_a', {
+        data: { interventions: { factor_price: 50 } },
+      } as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('updateNode with is_baseline change invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().updateNode('option_a', {
+        data: { is_baseline: true },
+      } as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('onNodesChange with position-only drag does NOT invalidate ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().onNodesChange([
+        { id: 'factor_price', type: 'position', position: { x: 500, y: 500 }, dragging: true },
+      ] as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+    })
+
+    it('setGoalThresholdAndUpdateNode invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().setGoalThresholdAndUpdateNode('goal_node', 0.75)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('addEdge invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().addEdge({
+        source: 'cosmetic_node',
+        target: 'option_a',
+        data: {},
+      } as any)
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+  })
 })
