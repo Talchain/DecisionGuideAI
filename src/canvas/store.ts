@@ -891,6 +891,10 @@ function hasAnalyticalEdgeChange(
   oldEdge: Edge<EdgeData>,
   updates: Partial<Edge<EdgeData>>,
 ): boolean {
+  // Top-level endpoint changes (defence-in-depth; primary path is updateEdgeEndpoints)
+  if (updates.source !== undefined && updates.source !== oldEdge.source) return true
+  if (updates.target !== undefined && updates.target !== oldEdge.target) return true
+
   const oldData = oldEdge.data ?? {}
   const newData = updates.data
   if (!newData) return false
@@ -2109,6 +2113,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     const newSource = updates.source ?? edge.source
     const newTarget = updates.target ?? edge.target
+
+    // No-op guard: skip history + invalidation if endpoints unchanged
+    if (newSource === edge.source && newTarget === edge.target) return
 
     // Validate: no self-loops
     if (newSource === newTarget) {

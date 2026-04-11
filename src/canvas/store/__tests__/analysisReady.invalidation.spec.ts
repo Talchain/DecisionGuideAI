@@ -419,9 +419,37 @@ describe('Canvas Store – ceeAnalysisReady invalidation', () => {
     it('updateEdgeEndpoints invalidates ceeAnalysisReady', () => {
       expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
 
+      // edge_1 was factor_price → goal_node; rewire source to cosmetic_node
+      // (factor_quality → goal_node already exists as edge_2, so can't use that)
       useCanvasStore.getState().updateEdgeEndpoints(
-        'edge_1', 'factor_quality', 'goal_node'
+        'edge_1', { source: 'cosmetic_node' }
       )
+
+      // Verify the endpoint actually changed
+      const rewired = useCanvasStore.getState().edges.find(e => e.id === 'edge_1')
+      expect(rewired?.source).toBe('cosmetic_node')
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('updateEdgeEndpoints with unchanged endpoints does NOT invalidate (no-op guard)', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      // edge_1 is factor_price → goal_node; pass same endpoints
+      useCanvasStore.getState().updateEdgeEndpoints(
+        'edge_1', { source: 'factor_price', target: 'goal_node' }
+      )
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+    })
+
+    it('updateEdge with source/target change invalidates via hasAnalyticalEdgeChange', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      // Rewire edge_1 source through updateEdge (defence-in-depth path)
+      useCanvasStore.getState().updateEdge('edge_1', {
+        source: 'factor_quality',
+      } as any)
 
       expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
     })
