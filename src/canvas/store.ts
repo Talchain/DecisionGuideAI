@@ -800,11 +800,25 @@ function shouldInvalidateOnNodeDelete(
 }
 
 /**
- * Invalidate ceeAnalysisReady when the analytical model changes.
- * Triggers: node/edge addition, node/edge deletion (critical), analytical
- * field edits (weight, confidence, observedState, interventions, etc.),
- * edge endpoint rewiring, goal threshold change.
- * Does NOT trigger for cosmetic changes (label, position, description).
+ * Clears ceeAnalysisReady and related CEE readiness fields.
+ *
+ * Call this when a graph mutation changes analytical meaning:
+ * structural changes (add/remove/duplicate/paste/cut nodes and edges),
+ * analytical field changes (weight, confidence, observedState,
+ * interventions, is_baseline, kind, goal threshold, edge endpoints),
+ * and repair/auto-fix operations that replace node/edge arrays.
+ *
+ * Do NOT call for cosmetic changes: label text, description,
+ * position/drag, layout, selection, panel state.
+ *
+ * Undo/redo clear ceeAnalysisReady directly (not via this function)
+ * because they replace the entire graph from the history stack.
+ *
+ * External producer paths (applyDraftResult, applyPatch,
+ * ConversationPanel, DraftChat, TemplatesPanel) are exempt
+ * because they set fresh ceeAnalysisReady as part of their
+ * operation. Any new external producer must either set fresh
+ * ceeAnalysisReady or call invalidateAnalysisReady().
  */
 function invalidateAnalysisReady(
   get: () => CanvasState,

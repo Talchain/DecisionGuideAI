@@ -524,4 +524,71 @@ describe('Canvas Store – ceeAnalysisReady invalidation', () => {
       expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
     })
   })
+
+  // ────────────────────────────────────────────────────────────────────
+  // F3: Clipboard / repair action invalidation (2026-04-11)
+  // ────────────────────────────────────────────────────────────────────
+
+  describe('clipboard and repair action invalidation', () => {
+    it('duplicateSelected invalidates ceeAnalysisReady', () => {
+      // Select a node so there's something to duplicate
+      useCanvasStore.setState({
+        selection: {
+          nodeIds: new Set(['factor_price']),
+          edgeIds: new Set(),
+          anchorPosition: null,
+        },
+      })
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().duplicateSelected()
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('pasteClipboard invalidates ceeAnalysisReady', () => {
+      // Set up clipboard with a node
+      useCanvasStore.setState({
+        clipboard: {
+          nodes: [
+            { id: 'clip_1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Clipped' } },
+          ] as any,
+          edges: [],
+        },
+      })
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().pasteClipboard()
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('cutSelected invalidates ceeAnalysisReady when critical node is cut', () => {
+      // Select the goal node (critical)
+      useCanvasStore.setState({
+        selection: {
+          nodeIds: new Set(['goal_node']),
+          edgeIds: new Set(),
+          anchorPosition: null,
+        },
+      })
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      useCanvasStore.getState().cutSelected()
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+
+    it('applyAutoFixChanges invalidates ceeAnalysisReady', () => {
+      expect(useCanvasStore.getState().ceeAnalysisReady).not.toBeNull()
+
+      // Apply a fix that replaces edges with modified data
+      const currentEdges = useCanvasStore.getState().edges
+      useCanvasStore.getState().applyAutoFixChanges({
+        edges: currentEdges.map(e => ({ ...e, data: { ...e.data, weight: 0.9 } })),
+      })
+
+      expect(useCanvasStore.getState().ceeAnalysisReady).toBeNull()
+    })
+  })
 })
