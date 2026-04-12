@@ -7,7 +7,7 @@
  * always stay visible — budget is enforced upstream in useConversation).
  */
 
-import { useState, useCallback, useEffect, memo } from 'react'
+import { useState, useCallback, memo } from 'react'
 import { Lightbulb, AlertTriangle, ChevronDown, ChevronUp, ExternalLink, Wand2 } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -39,8 +39,8 @@ import { ModelReceiptBlock } from './ModelReceiptBlock'
 import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/ArtefactBlock'
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
-import { GraphPatchBlockRenderer } from './blocks/GraphPatchBlockRenderer'
-import { safeRichText, plainTextPreview, normaliseDashes } from '../utils/safeRichText'
+import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
+import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
 
@@ -929,76 +929,6 @@ function FlipAnalysisBlockRenderer({ block }: { block: FlipAnalysisBlockType }) 
   )
 }
 
-function ProposalBlockRenderer({ block, onProposalConfirm }: { block: ProposalBlockType; onProposalConfirm?: (proposalId: string) => void }) {
-  const [state, setState] = useState<'pending' | 'accepted' | 'cancelled'>(
-    // Auto-apply when confirmation is not required (false or absent)
-    block.confirmation_required === true ? 'pending' : 'accepted',
-  )
-  const needsButtons = block.confirmation_required === true && state === 'pending'
-
-  const handleApply = useCallback(() => {
-    setState('accepted')
-    onProposalConfirm?.(block.proposal_id)
-  }, [block.proposal_id, onProposalConfirm])
-
-  return (
-    <div className={styles.proposalBlock} data-testid="block-proposal">
-      <span className={`${typography.panelMeta} ${styles.graphPatchProposalEyebrow}`}>
-        {state === 'accepted' ? 'Applied' : state === 'cancelled' ? 'Cancelled' : 'Proposed change'}
-      </span>
-      <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.description}</p>
-      {block.changes.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          {block.changes.map((c, i) => (
-            <div key={`${c.target}-${i}`} className={styles.graphPatchProposalItem}>
-              <span className={typography.panelBody}>{c.detail}</span>
-              <div style={{ display: 'flex', gap: 4 }}>
-                {c.operation && (
-                  <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{c.operation}</span>
-                )}
-                {c.target && (
-                  <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.target}</span>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-      {block.consequences && block.consequences.length > 0 && (
-        <div className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
-          {block.consequences.map((c) => <div key={c}>· {c}</div>)}
-        </div>
-      )}
-      {needsButtons && (
-        <div className={styles.graphPatchActions}>
-          <button
-            type="button"
-            className={styles.graphPatchAccept}
-            onClick={handleApply}
-            aria-label="Apply proposed changes"
-            data-testid="proposal-apply"
-          >
-            Apply
-          </button>
-          <button
-            type="button"
-            className={styles.graphPatchDismiss}
-            onClick={() => setState('cancelled')}
-            aria-label="Dismiss proposed changes"
-            data-testid="proposal-cancel"
-          >
-            Cancel
-          </button>
-        </div>
-      )}
-      {state !== 'pending' && (
-        <span className={`${typography.panelBody} ${state === 'accepted' ? styles.graphPatchStatusApplied : styles.graphPatchStatusDismissed}`} style={{ fontWeight: 500 }}>
-          {state === 'accepted' ? 'Applied' : 'Cancelled'}
-        </span>
-      )}
-    </div>
-  )
-}
 
 /** CSP meta tag injected into exercise srcDoc to restrict script/resource capabilities */
 const EXERCISE_CSP = '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; style-src \'unsafe-inline\'; script-src \'unsafe-inline\'; img-src data:;">'

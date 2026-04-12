@@ -66,7 +66,7 @@ describe('CommentaryBlock — citations', () => {
 
   it('renders tone warning class for warning tone', () => {
     const { container } = render(<InlineBlocks blocks={[makeCommentaryBlock({ tone: 'warning' })]} />)
-    // Block renders without crashing
-    expect(container.querySelector('p')).toBeInTheDocument()
+    // Block renders without crashing — CommentaryBlock renders a div, not p
+    expect(container.querySelector('[class*="commentaryBlock"]')).toBeInTheDocument()
   })
 })

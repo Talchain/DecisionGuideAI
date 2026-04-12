@@ -15,24 +15,24 @@ import type { NodeType } from '../../domain/nodes'
 
 const SHAPES: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome']
 
-/** Main brand fill colours (matches NodeShapeIndicator SHAPE_FILLS). */
+/** Main brand fill colours (DS v5 semantic tokens with hex fallbacks). */
 const MAIN_FILLS: Record<string, string> = {
-  goal:     '#F5C433',
-  decision: '#2B7FA2',
-  option:   '#AAA7E4',
-  factor:   '#B0A899',
-  risk:     '#EA7B4B',
-  outcome:  '#67C89E',
+  goal:     'var(--goal, #F5C433)',
+  decision: 'var(--info-hover, #2B7FA2)',
+  option:   'var(--option, #AAA7E4)',
+  factor:   'var(--factor, #B0A899)',
+  risk:     'var(--danger, #EA7B4B)',
+  outcome:  'var(--success, #67C89E)',
 }
 
-/** Light fill colours (DS v4 -light variants). */
+/** Light fill colours (DS v5 semantic tokens with hex fallbacks). */
 const LIGHT_FILLS: Record<string, string> = {
-  goal:     '#F4DB92',
-  decision: '#BAD7E4',
-  option:   '#DDDCF5',
-  factor:   '#EEE6D8',
-  risk:     '#FFB393',
-  outcome:  '#B8E2D0',
+  goal:     'var(--goal-light, #F4DB92)',
+  decision: 'var(--info-light, #BAD7E4)',
+  option:   'var(--option-light, #DDDCF5)',
+  factor:   'var(--factor-light, #EEE6D8)',
+  risk:     'var(--danger-light, #FFB393)',
+  outcome:  'var(--success-light, #B8E2D0)',
 }
 
 /** Base size for most shapes. Goal (diamond) and decision (hexagon) are 27px
@@ -44,8 +44,8 @@ function DashedArrow() {
   return (
     <div className="flex items-center justify-center flex-shrink-0" style={{ width: 18, height: 10 }}>
       <svg width="16" height="8" viewBox="0 0 16 8" aria-hidden="true">
-        <line x1="2" y1="4" x2="11" y2="4" stroke="#EEE6D8" strokeWidth="1" strokeDasharray="2.5 2" />
-        <polyline points="9.5,1.8 12.5,4 9.5,6.2" fill="none" stroke="#EEE6D8" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+        <line x1="2" y1="4" x2="11" y2="4" stroke="var(--factor-light, #EEE6D8)" strokeWidth="1" strokeDasharray="2.5 2" />
+        <polyline points="9.5,1.8 12.5,4 9.5,6.2" fill="none" stroke="var(--factor-light, #EEE6D8)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
   )

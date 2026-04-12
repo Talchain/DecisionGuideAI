@@ -17,8 +17,8 @@ describe('EmptyState', () => {
   })
 
   it('renders 6 node shapes', () => {
-    const { container } = render(<EmptyState />)
-    // Each shape has a main colour layer with class empty-state-main
+    // animate=true enables the shape classes (isActive → empty-state-main)
+    const { container } = render(<EmptyState animate />)
     const shapes = container.querySelectorAll('.empty-state-main')
     expect(shapes.length).toBe(6)
   })

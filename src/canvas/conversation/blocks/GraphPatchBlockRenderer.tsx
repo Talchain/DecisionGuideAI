@@ -6,14 +6,20 @@
  * items, reveal-on-graph highlighting, and action button rendering.
  * Acceptance, dismissal, store mutation, and system event wiring remain in
  * ConversationPanel.tsx (the parent that provides onAccept/onDismiss).
+ *
+ * Typography (DS v5 §21.2): card header uses panelHeader (14px semibold) per
+ * the panel token table — body (16px) would be oversized in the 360px card.
+ * Summary/fallback text uses bodySmall (14px) with text-text-light via the
+ * graphPatchSummary CSS class. Both match the DS v5 panel rendering spec.
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
-import { Check, X as XIcon, ChevronDown, ChevronUp, AlertTriangle } from 'lucide-react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import type {
   GraphPatchBlock as GraphPatchBlockType,
+  ProposalBlock as ProposalBlockType,
   BlockAction,
   ProposalReviewItem,
   RelatedElementRef,
@@ -27,23 +33,8 @@ import { safeRichText, normaliseDashes } from '../../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../../flags'
 import { describeOperation, RAW_ID_PATTERN } from '../friendlyOperation'
 import type { DescribeOpDeps } from '../friendlyOperation'
-import type { CardBadge } from '../utils/getPatchCardLabels'
+import { BadgeIcon } from './BadgeIcon'
 import styles from '../Conversation.module.css'
-
-// ---------------------------------------------------------------------------
-// Badge icon resolver — maps cardBadge metadata to Lucide component + colour
-// ---------------------------------------------------------------------------
-
-const BADGE_ICONS = {
-  'check': Check,
-  'x': XIcon,
-  'alert-triangle': AlertTriangle,
-} as const
-
-function BadgeIcon({ badge }: { badge: CardBadge }) {
-  const Icon = BADGE_ICONS[badge.icon]
-  return <Icon size={14} aria-hidden="true" className={badge.colour} />
-}
 
 // ---------------------------------------------------------------------------
 // Display helpers
@@ -557,6 +548,94 @@ export function GraphPatchBlockRenderer({
             </>
           )}
         </div>
+      )}
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ProposalBlockRenderer — simpler variant using the same label/badge system.
+// Shares getPatchCardLabels + BadgeIcon with GraphPatchBlockRenderer above.
+// ---------------------------------------------------------------------------
+
+interface ProposalBlockRendererProps {
+  block: ProposalBlockType
+  onProposalConfirm?: (proposalId: string) => void
+}
+
+export function ProposalBlockRenderer({
+  block,
+  onProposalConfirm,
+}: ProposalBlockRendererProps) {
+  const [state, setState] = useState<'pending' | 'accepted' | 'cancelled'>(
+    block.confirmation_required === true ? 'pending' : 'accepted',
+  )
+  const needsButtons = block.confirmation_required === true && state === 'pending'
+
+  const cardState = state === 'accepted' ? 'accepted' as const
+    : state === 'cancelled' ? 'dismissed' as const
+    : 'proposed' as const
+  const { header: cardHeader, badge: cardBadge } = getPatchCardLabels(cardState)
+
+  const handleApply = useCallback(() => {
+    setState('accepted')
+    onProposalConfirm?.(block.proposal_id)
+  }, [block.proposal_id, onProposalConfirm])
+
+  return (
+    <div className={styles.proposalBlock} data-testid="block-proposal">
+      <span className={`${typography.panelMeta} ${styles.graphPatchProposalEyebrow}`}>
+        {cardHeader}
+      </span>
+      <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.description}</p>
+      {block.changes.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+          {block.changes.map((c, i) => (
+            <div key={`${c.target}-${i}`} className={styles.graphPatchProposalItem}>
+              <span className={typography.panelBody}>{c.detail}</span>
+              <div style={{ display: 'flex', gap: 4 }}>
+                {c.operation && (
+                  <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{c.operation}</span>
+                )}
+                {c.target && (
+                  <span className={`${typography.panelMeta} ${styles.graphPatchProposalBadge}`}>{c.target}</span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+      {block.consequences && block.consequences.length > 0 && (
+        <div className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+          {block.consequences.map((c) => <div key={c}>· {c}</div>)}
+        </div>
+      )}
+      {needsButtons && (
+        <div className={styles.graphPatchActions}>
+          <button
+            type="button"
+            className={styles.graphPatchAccept}
+            onClick={handleApply}
+            aria-label="Apply proposed changes"
+            data-testid="proposal-apply"
+          >
+            Apply
+          </button>
+          <button
+            type="button"
+            className={styles.graphPatchDismiss}
+            onClick={() => setState('cancelled')}
+            aria-label="Dismiss proposed changes"
+            data-testid="proposal-cancel"
+          >
+            Cancel
+          </button>
+        </div>
+      )}
+      {state !== 'pending' && (
+        <span className={`${typography.panelBody} ${state === 'accepted' ? styles.graphPatchStatusApplied : styles.graphPatchStatusDismissed}`} style={{ fontWeight: 500 }}>
+          {cardBadge && <BadgeIcon badge={cardBadge} />} {cardHeader}
+        </span>
       )}
     </div>
   )

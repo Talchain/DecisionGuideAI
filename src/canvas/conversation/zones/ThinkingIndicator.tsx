@@ -12,24 +12,24 @@ import type { NodeType } from '../../domain/nodes'
 
 const SHAPES: NodeType[] = ['goal', 'decision', 'option', 'factor', 'risk', 'outcome']
 
-/** Light colour fills per node type (DS v4 -light variants). */
+/** Light colour fills per node type (DS v5 semantic tokens with hex fallbacks). */
 const LIGHT_FILLS: Record<NodeType, string> = {
-  goal:       '#F4DB92',
-  decision:   '#BAD7E4',
-  option:     '#DDDCF5',
-  factor:     '#EEE6D8',
-  risk:       '#FFB393',
-  outcome:    '#B8E2D0',
-  action:     '#B8E2D0',
-  constraint: '#EEE6D8',
+  goal:       'var(--goal-light, #F4DB92)',
+  decision:   'var(--info-light, #BAD7E4)',
+  option:     'var(--option-light, #DDDCF5)',
+  factor:     'var(--factor-light, #EEE6D8)',
+  risk:       'var(--danger-light, #FFB393)',
+  outcome:    'var(--success-light, #B8E2D0)',
+  action:     'var(--success-light, #B8E2D0)',
+  constraint: 'var(--factor-light, #EEE6D8)',
 }
 
 function DashedArrow() {
   return (
     <div className="flex items-center justify-center flex-shrink-0" style={{ width: 16, height: 10 }}>
       <svg width="14" height="8" viewBox="0 0 16 8" aria-hidden="true">
-        <line x1="2" y1="4" x2="11" y2="4" stroke="#EEE6D8" strokeWidth="1" strokeDasharray="2.5 2" />
-        <polyline points="9.5,1.8 12.5,4 9.5,6.2" fill="none" stroke="#EEE6D8" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
+        <line x1="2" y1="4" x2="11" y2="4" stroke="var(--factor-light, #EEE6D8)" strokeWidth="1" strokeDasharray="2.5 2" />
+        <polyline points="9.5,1.8 12.5,4 9.5,6.2" fill="none" stroke="var(--factor-light, #EEE6D8)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     </div>
   )

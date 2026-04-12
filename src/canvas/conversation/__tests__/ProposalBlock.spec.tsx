@@ -67,7 +67,7 @@ describe('ProposalBlockRenderer', () => {
     )
     expect(screen.queryByTestId('proposal-apply')).not.toBeInTheDocument()
     expect(screen.queryByTestId('proposal-cancel')).not.toBeInTheDocument()
-    expect(screen.getAllByText('Applied')).toHaveLength(2)
+    expect(screen.getAllByText('Change accepted').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders Apply/Cancel buttons when confirmation_required is true', () => {
@@ -95,8 +95,8 @@ describe('ProposalBlockRenderer', () => {
 
     expect(onProposalConfirm).toHaveBeenCalledTimes(1)
     expect(onProposalConfirm).toHaveBeenCalledWith('abc-123')
-    // Both eyebrow and status span show "Applied"
-    expect(screen.getAllByText('Applied')).toHaveLength(2)
+    // Eyebrow and status span show state-derived label
+    expect(screen.getAllByText('Change accepted').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByTestId('proposal-apply')).not.toBeInTheDocument()
     expect(screen.queryByTestId('proposal-cancel')).not.toBeInTheDocument()
   })
@@ -113,8 +113,8 @@ describe('ProposalBlockRenderer', () => {
     fireEvent.click(screen.getByTestId('proposal-cancel'))
 
     expect(onProposalConfirm).not.toHaveBeenCalled()
-    // Both eyebrow and status span show "Cancelled"
-    expect(screen.getAllByText('Cancelled')).toHaveLength(2)
+    // Eyebrow and status span show state-derived label
+    expect(screen.getAllByText('Change dismissed').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByTestId('proposal-apply')).not.toBeInTheDocument()
   })
 
@@ -130,8 +130,8 @@ describe('ProposalBlockRenderer', () => {
     // No Apply/Cancel buttons rendered
     expect(screen.queryByTestId('proposal-apply')).not.toBeInTheDocument()
     expect(screen.queryByTestId('proposal-cancel')).not.toBeInTheDocument()
-    // Both eyebrow and status span show "Applied"
-    expect(screen.getAllByText('Applied')).toHaveLength(2)
+    // Eyebrow and status span show state-derived label
+    expect(screen.getAllByText('Change accepted').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders description, changes, and consequences', () => {

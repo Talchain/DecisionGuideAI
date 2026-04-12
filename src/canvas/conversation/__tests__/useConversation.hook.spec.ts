@@ -1693,3 +1693,81 @@ describe('cancelTurn — T6 Stop button', () => {
     expect(result.current.isThinking).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Session state round-trip (P0 contract)
+// ---------------------------------------------------------------------------
+
+describe('session state round-trip', () => {
+  it('captures updated_session_state from envelope and resends on next turn', async () => {
+    const sessionPayload = { predictions: [{ factor_id: 'fac_1', predicted: 0.5 }] }
+
+    // First call returns envelope with updated_session_state
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'First response',
+      client_turn_id: 'turn-1',
+      updated_session_state: sessionPayload,
+    })
+
+    // Second call captures the request for inspection
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Second response',
+      client_turn_id: 'turn-2',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    // First turn — envelope delivers session state
+    await act(async () => {
+      await result.current.sendMessage('first message')
+    })
+
+    // Second turn — request should include session_state
+    await act(async () => {
+      await result.current.sendMessage('second message')
+    })
+
+    // The second call to mockCallTurn should have session_state in the request
+    const secondCallArgs = mockCallTurn.mock.calls[1]
+    const secondRequest = secondCallArgs[0]
+    expect(secondRequest.session_state).toEqual(sessionPayload)
+  })
+
+  it('resets session state on scenario change', async () => {
+    const sessionPayload = { turn_count: 3 }
+
+    // First call returns envelope with updated_session_state
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'Response',
+      client_turn_id: 'turn-1',
+      updated_session_state: sessionPayload,
+    })
+
+    // Second call (after scenario switch) — no session_state expected
+    mockCallTurn.mockResolvedValueOnce({
+      assistant_text: 'New scenario response',
+      client_turn_id: 'turn-2',
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    // First turn — captures session state
+    await act(async () => {
+      await result.current.sendMessage('message in scenario A')
+    })
+
+    // Switch scenario — should clear session state
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'b1b1b1b1-c2c2-4d3d-9e4e-f5f5f5f5f5f5' })
+    })
+
+    // Next turn — session_state should be absent
+    await act(async () => {
+      await result.current.sendMessage('message in scenario B')
+    })
+
+    const secondCallArgs = mockCallTurn.mock.calls[1]
+    const secondRequest = secondCallArgs[0]
+    expect(secondRequest.session_state).toBeUndefined()
+  })
+})

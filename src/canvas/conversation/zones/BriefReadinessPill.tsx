@@ -9,9 +9,9 @@
 import type { BriefReadiness } from '../hooks/useBriefSignals'
 
 const READINESS_CONFIG: Record<BriefReadiness, { label: string; dotColor: string; borderColor: string }> = {
-  low:    { label: 'Low readiness',    dotColor: '#B0A899', borderColor: 'rgba(176,168,153,0.3)' },
-  medium: { label: 'Medium readiness', dotColor: '#FFA656', borderColor: 'rgba(255,166,86,0.3)' },
-  high:   { label: 'High readiness',   dotColor: '#67C89E', borderColor: 'rgba(103,200,158,0.3)' },
+  low:    { label: 'Low readiness',    dotColor: 'var(--factor, #B0A899)', borderColor: 'var(--factor-light, rgba(176,168,153,0.3))' },
+  medium: { label: 'Medium readiness', dotColor: 'var(--warning, #FFA656)', borderColor: 'var(--warning-light, rgba(255,166,86,0.3))' },
+  high:   { label: 'High readiness',   dotColor: 'var(--success, #67C89E)', borderColor: 'var(--success-light, rgba(103,200,158,0.3))' },
 }
 
 interface BriefReadinessPillProps {
