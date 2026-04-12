@@ -131,8 +131,7 @@ function logCanvasBreadcrumb(message: string, data?: Record<string, any>) {
   } catch {}
 }
 
-// Layout: new canvas-first layout is permanent (C5: VITE_FEATURE_CONTEXT_BAR retired)
-const USE_NEW_LAYOUT = true
+// New layout is permanent (old layout removed in C5, April 2026).
 
 export interface BlueprintInsertResult {
   error?: string
