@@ -48,7 +48,7 @@ import type {
 } from './types'
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
-import { backfillInterventionsOntoOptionNodes, backfillGoalThresholdOntoGoalNode } from '../utils/applyDraftResult'
+import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { logger } from '../../lib/logger'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
@@ -1159,6 +1159,10 @@ export function useConversation(): UseConversationReturn {
   // committed value — avoids stale closure when addMessage + buildRequest run
   // in the same synchronous block (React batches the state update).
   const messagesRef = useRef<ConversationMessage[]>([])
+  // Opaque CEE session state — stored from envelope.updated_session_state,
+  // sent back on every turn request as session_state. Never persisted to
+  // message history, analytics, or debug bundles. Transient only.
+  const sessionStateRef = useRef<Record<string, unknown> | null>(null)
 
   // Cleanup timers on unmount
   useEffect(() => {
@@ -1273,6 +1277,7 @@ export function useConversation(): UseConversationReturn {
       }
 
       messagesRef.current = []
+      sessionStateRef.current = null
       setMessages([])
       setIsThinking(false)
       useDraftStore.getState().setIsGenerating(false)
@@ -1696,6 +1701,13 @@ export function useConversation(): UseConversationReturn {
 
   const handleEnvelope = useCallback(
     (envelope: OrchestratorResponseEnvelopeV2, requestId?: string) => {
+      // Always capture session state, even on silent system events.
+      // CEE session-level coaching (chip suppression, play deduplication, convergence
+      // detection) depends on this surviving across all turn types.
+      if (envelope.updated_session_state !== undefined) {
+        sessionStateRef.current = envelope.updated_session_state
+      }
+
       // Silent system event routing: CEE may mark system event responses as silent.
       // Process blocks (structural data) but skip message storage and history.
       const turnPlan = (envelope as Record<string, unknown>).turn_plan as Record<string, unknown> | undefined
@@ -2035,37 +2047,13 @@ export function useConversation(): UseConversationReturn {
           }
         }
 
-        // ceeAnalysisReady must go through the canonical setter (not raw setState)
-        // because it also captures ceeAnalysisReadyNodeIds and persists to sessionStorage.
+        // Apply analysis_ready via shared utility — identical store mutations
+        // as the manual-accept path in ConversationPanel.tsx.
         if (resolvedAnalysisReady) {
-          useCanvasStore.getState().setCeeAnalysisReady(resolvedAnalysisReady)
-
-          // Backfill interventions onto option nodes. See applyDraftResult.ts
-          // for the full rationale; this branch is the conversational-turn
-          // counterpart to the draft path. Timing assumption: applyAutoApplyPatch
-          // ran synchronously above, so option nodes are already in the store.
-          //
-          // Per-turn observability mirrors applyDraftResult: emits a structured
-          // log when any node received an intervention backfill, so we can
-          // track whether the backfill is still load-bearing post-2026-04-08
-          // envelope fix. The intervention metric is split from the
-          // baseline-only metric so the latter doesn't poison the former
-          // (is_baseline backfill will outlive intervention backfill until
-          // is_baseline gets a dedicated source). See
-          // docs/intervention-authority-contract.md.
-          const turnBackfillResult = backfillInterventionsOntoOptionNodes(resolvedAnalysisReady)
-          if (turnBackfillResult.interventionBackfilledCount > 0) {
-            logger.warn('handle_envelope.intervention_backfill', {
-              scenarioId: useCanvasStore.getState().currentScenarioId ?? null,
-              interventionBackfilledCount: turnBackfillResult.interventionBackfilledCount,
-              baselineOnlyUpdatedCount: turnBackfillResult.baselineOnlyUpdatedCount,
-              totalOptionsInPayload: resolvedAnalysisReady.options?.length ?? 0,
-            })
-          }
-
-          // Backfill goal_threshold_raw/unit/cap onto goal node for GoalNode display.
-          // CEE sends these on analysis_ready, but GoalNode reads from node.data.
-          backfillGoalThresholdOntoGoalNode(resolvedAnalysisReady)
+          applyAnalysisReadyPatch(
+            { ceeAnalysisReady: resolvedAnalysisReady },
+            { scenarioId: useCanvasStore.getState().currentScenarioId },
+          )
         }
       }
 
@@ -2503,6 +2491,10 @@ export function useConversation(): UseConversationReturn {
           systemEventWire: systemEventWire ?? undefined,
           chipMeta,
         })
+        // Inject opaque CEE session state into every turn request.
+        if (sessionStateRef.current != null) {
+          ;(request as Record<string, unknown>).session_state = sessionStateRef.current
+        }
         const payloadSummary = summariseRequestPayload(request, triggerSurface, hidden === true, systemEvent?.type)
         bindRequestToInteraction(turnClientId, {
           chainId: interactionChainId,
@@ -3005,6 +2997,7 @@ export function useConversation(): UseConversationReturn {
 
   const clearHistory = useCallback(() => {
     messagesRef.current = []
+    sessionStateRef.current = null
     setMessages([])
     setIsThinking(false)
     useDraftStore.getState().setIsGenerating(false)

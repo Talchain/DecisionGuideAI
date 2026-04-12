@@ -2,7 +2,7 @@
  * Tests for SuggestedChips.
  *
  * Verifies:
- * - Chip count: 0, 1, 2, 3, 4 chips; 0 chips renders no container
+ * - Chip count: 0, 1, 2 (max); 0 chips renders no container
  * - Chips without message field are not rendered
  * - Click dispatches chip.message (not chip.label) — verified via onChipClick call arg
  * - Click failure shows inline error that auto-dismisses after 5s
@@ -10,7 +10,7 @@
  * - Role dots: facilitator=info, challenger=danger, scientist=goal, missing/unknown=no dot
  * - In-flight: isThinking=true disables all chips; re-enable when false
  * - Historical: isHistorical=true renders chips non-interactive
- * - Feature flag: v2 path (mocked as enabled) vs legacy path (mocked as disabled)
+ * - Legacy chip path removed — V2 is the only path
  * - Layout: flex-wrap container rendered
  * - Accessibility: aria-label includes role, keyboard activatable
  * - XML escaping: labels/messages with &amp; &lt; &gt; render correctly
@@ -21,20 +21,7 @@ import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import { SuggestedChips } from '../zones/SuggestedChips'
 import type { ActionChip } from '../types'
 
-// ---------------------------------------------------------------------------
-// Flag mock — default to v2 enabled; individual tests override as needed
-// ---------------------------------------------------------------------------
-
-vi.mock('../../../flags', () => ({
-  isOrchestratorRenderingV2Enabled: vi.fn(() => true),
-}))
-
-import { isOrchestratorRenderingV2Enabled } from '../../../flags'
-const mockFlagEnabled = isOrchestratorRenderingV2Enabled as ReturnType<typeof vi.fn>
-
-beforeEach(() => {
-  mockFlagEnabled.mockReturnValue(true)
-})
+// No feature flag mock needed — legacy path removed, V2 is the only path.
 
 // ---------------------------------------------------------------------------
 // Fixture helper
@@ -85,19 +72,13 @@ describe('SuggestedChips — chip count', () => {
     expect(screen.getAllByRole('button')).toHaveLength(2)
   })
 
-  it('renders 3 chips', () => {
-    const chips = [chip({ id: 'c1' }), chip({ id: 'c2' }), chip({ id: 'c3' })]
-    render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getAllByRole('button')).toHaveLength(3)
-  })
-
-  it('renders at most 3 chips even when more are supplied', () => {
+  it('caps at 2 chips even when more are supplied (DS v5 §21.4)', () => {
     const chips = [
       chip({ id: 'c1' }), chip({ id: 'c2' }), chip({ id: 'c3' }),
       chip({ id: 'c4' }), chip({ id: 'c5' }),
     ]
     render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getAllByRole('button')).toHaveLength(3)
+    expect(screen.getAllByRole('button')).toHaveLength(2)
   })
 
   it('does not render chips without a message field', () => {
@@ -288,30 +269,6 @@ describe('SuggestedChips — XML escaping in labels and messages', () => {
     render(<SuggestedChips chips={[c]} onChipClick={onChipClick} />)
     fireEvent.click(screen.getByTestId('suggested-chip-c1'))
     expect(onChipClick.mock.calls[0][0].message).toBe(fullMessage)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Feature flag — legacy path cap at 2
-// ---------------------------------------------------------------------------
-
-describe('SuggestedChips — feature flag legacy path', () => {
-  beforeEach(() => {
-    mockFlagEnabled.mockReturnValue(false)
-  })
-
-  it('caps at 2 chips in legacy mode even with 4 supplied', () => {
-    const chips = [
-      chip({ id: 'c1' }), chip({ id: 'c2' }), chip({ id: 'c3' }), chip({ id: 'c4' }),
-    ]
-    render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getAllByRole('button')).toHaveLength(2)
-  })
-
-  it('legacy chips are enabled regardless of isThinking', () => {
-    render(<SuggestedChips chips={[chip()]} onChipClick={vi.fn().mockResolvedValue(undefined)} isThinking />)
-    // Legacy path does not check isThinking — chip remains enabled
-    expect(screen.getByRole('button')).not.toBeDisabled()
   })
 })
 

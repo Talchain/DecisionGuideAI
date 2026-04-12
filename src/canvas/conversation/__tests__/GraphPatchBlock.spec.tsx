@@ -6,7 +6,7 @@
  * - Accept calls onPatchAccept
  * - Dismiss calls onPatchDismiss
  * - Buttons disabled after state transition from 'proposed'
- * - Block shows "Applied", "Rejected", "Dismissed" status labels
+ * - Block shows state-derived status labels (via getPatchCardLabels)
  * - Rejection info displays inline
  * - Respects DS v2.1 tokens (CSS variables, not raw Tailwind)
  */
@@ -85,7 +85,34 @@ describe('GraphPatchBlock', () => {
     // Block shows CEE's semantic summary (block.summary) when present —
     // coaching-grade language wins over the count-based opSummary fallback.
     expect(screen.getByText("Add 'competitor response' as a risk factor")).toBeInTheDocument()
-    expect(screen.getByText('Review suggested changes')).toBeInTheDocument()
+    expect(screen.getByText('Suggested change')).toBeInTheDocument()
+    expect(screen.getByTestId('patch-accept')).toBeInTheDocument()
+    expect(screen.getByTestId('patch-dismiss')).toBeInTheDocument()
+  })
+
+  it('proposed state: header "Suggested change", no badge, Accept/Dismiss visible, summary shows CEE text', () => {
+    const block = makePatchBlock({ summary: 'This adds a market risk factor to your model.' })
+    render(<InlineBlocks blocks={[block]} />)
+
+    // Header derived from proposed state
+    expect(screen.getByText('Suggested change')).toBeInTheDocument()
+    // No status badge (no patch-status-* testid rendered)
+    expect(screen.queryByTestId('patch-status-applied')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('patch-status-auto-applied')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('patch-status-rejected')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('patch-status-dismissed')).not.toBeInTheDocument()
+    // Accept/Dismiss buttons visible
+    expect(screen.getByTestId('patch-accept')).toBeInTheDocument()
+    expect(screen.getByTestId('patch-dismiss')).toBeInTheDocument()
+    // Summary shows CEE text
+    expect(screen.getByText('This adds a market risk factor to your model.')).toBeInTheDocument()
+  })
+
+  it('proposed state: contextual fallback when CEE summary is empty', () => {
+    const block = makePatchBlock({ summary: '' })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.getByText('Suggested change')).toBeInTheDocument()
     expect(screen.getByTestId('patch-accept')).toBeInTheDocument()
     expect(screen.getByTestId('patch-dismiss')).toBeInTheDocument()
   })
@@ -149,7 +176,7 @@ describe('GraphPatchBlock', () => {
     })
     render(<InlineBlocks blocks={[block]} />)
 
-    expect(screen.getByText('Changes applied')).toBeInTheDocument()
+    expect(screen.getAllByText('Model updated').length).toBeGreaterThanOrEqual(1)
     expect(screen.queryByTestId('patch-proposal-list')).not.toBeInTheDocument()
     expect(screen.getByTestId('patch-proposal-details-toggle')).toBeInTheDocument()
   })
@@ -176,7 +203,7 @@ describe('GraphPatchBlock', () => {
     expect(onDismiss).toHaveBeenCalledWith('patch-1')
   })
 
-  it('shows "Applied" status and hides buttons when accepted', () => {
+  it('shows "Change accepted" status and hides buttons when accepted', () => {
     // n-new is the target; provide enough canvas nodes so coverage < 80%
     storeMocks.canvasNodes = canvasNodes('n-new', 'n-existing-1', 'n-existing-2', 'n-existing-3')
     const block = makePatchBlock()
@@ -189,7 +216,7 @@ describe('GraphPatchBlock', () => {
     expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
     expect(screen.queryByTestId('patch-dismiss')).not.toBeInTheDocument()
     expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
-    expect(screen.getByText('Changes applied')).toBeInTheDocument()
+    expect(screen.getAllByText('Change accepted').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders accepted receipt when backend marks the patch accepted', () => {
@@ -198,7 +225,7 @@ describe('GraphPatchBlock', () => {
 
     expect(screen.getByTestId('patch-status-applied')).toBeInTheDocument()
     expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
-    expect(screen.getByText('Changes applied')).toBeInTheDocument()
+    expect(screen.getAllByText('Change accepted').length).toBeGreaterThanOrEqual(1)
   })
 
   it('reveals applied node changes using existing canvas focus/highlight hooks', () => {
@@ -325,29 +352,26 @@ describe('GraphPatchBlock', () => {
     expect(screen.getByText('Show 2 more')).toBeInTheDocument()
   })
 
-  it('renders multiple operations count via opSummary fallback when block summary is empty', () => {
-    // When block.summary is empty, opSummary takes over as the visible text.
-    // The test was originally written before the precedence inversion and
-    // implicitly relied on the bug; we explicitly clear summary now so the
-    // test still asserts the count-based path.
+  it('uses contextual fallback for empty summary — incremental patch', () => {
     const block = makePatchBlock({
       summary: '',
       operations: [
         { op: 'add_node', target_id: 'n1', data: {} },
         { op: 'add_edge', target_id: 'e1', data: { source: 'n1', target: 'n2' } },
-        { op: 'update_node', target_id: 'n2', data: { label: 'Updated' } },
       ],
     })
-    render(
-      <InlineBlocks blocks={[block]} />,
-    )
+    render(<InlineBlocks blocks={[block]} />)
 
-    expect(screen.getByText('2 nodes, 1 edge')).toBeInTheDocument()
+    // Contextual fallback, never count-based
+    expect(screen.getByText('Review the suggested change.')).toBeInTheDocument()
+    expect(screen.queryByText(/\d+ node/)).not.toBeInTheDocument()
   })
 
-  it('falls back to op-summary as primary text when block summary is empty', () => {
+  it('uses full_draft fallback for empty summary on full_draft patch', () => {
     const block = makePatchBlock({
       summary: '',
+      patch_type: 'full_draft',
+      auto_apply: true,
       operations: [
         { op: 'add_node', target_id: 'n1', data: { kind: 'factor', label: 'Revenue' } },
         { op: 'add_node', target_id: 'n2', data: { kind: 'factor', label: 'Churn' } },
@@ -356,13 +380,11 @@ describe('GraphPatchBlock', () => {
     })
     render(<InlineBlocks blocks={[block]} />)
 
-    // Op summary should appear as the primary text (since summary is empty)
-    expect(screen.getByText('2 factors, 1 option')).toBeInTheDocument()
+    expect(screen.getByText('Review the proposed model.')).toBeInTheDocument()
+    expect(screen.queryByText(/\d+ factors?/)).not.toBeInTheDocument()
   })
 
-  it('prefers CEE summary over op-summary when both are present', () => {
-    // Precedence inversion: block.summary (CEE coaching text) wins over the
-    // count-based summarisePatchOps fallback. This is the core Task 3 fix.
+  it('prefers CEE summary over contextual fallback when both are possible', () => {
     const block = makePatchBlock({
       summary: 'Restructured the model around customer churn',
       operations: [
@@ -373,14 +395,11 @@ describe('GraphPatchBlock', () => {
     render(<InlineBlocks blocks={[block]} />)
 
     expect(screen.getByText('Restructured the model around customer churn')).toBeInTheDocument()
-    // The count-based fallback must NOT also be rendered.
-    expect(screen.queryByText('1 node, 1 edge')).not.toBeInTheDocument()
+    // Neither count-based nor contextual fallback should appear
+    expect(screen.queryByText('Review the suggested change.')).not.toBeInTheDocument()
   })
 
-  it('collapses the summary row entirely when both summary and operations are empty', () => {
-    // Both-empty case: no summary div in the DOM, no blank space, no trailing
-    // colon in aria-label. The patch header ("Review suggested changes")
-    // continues to render as a sibling.
+  it('shows contextual fallback when CEE summary is empty (never shows counts)', () => {
     const block = makePatchBlock({
       summary: '',
       operations: [],
@@ -388,12 +407,12 @@ describe('GraphPatchBlock', () => {
     render(<InlineBlocks blocks={[block]} />)
 
     // Header still renders.
-    expect(screen.getByText('Review suggested changes')).toBeInTheDocument()
-    // The aria-label has no trailing colon when both are empty.
-    const blockEl = screen.getByTestId('block-graph-patch-patch-1')
-    expect(blockEl.getAttribute('aria-label')).toBe('Proposed changes')
-    // No '0 operations' or other empty-shell text in the DOM.
+    expect(screen.getByText('Suggested change')).toBeInTheDocument()
+    // Contextual fallback shown instead of count-based summary
+    expect(screen.getByText('Review the suggested change.')).toBeInTheDocument()
+    // No count-based noise
     expect(screen.queryByText(/0 operations/)).not.toBeInTheDocument()
+    expect(screen.queryByText(/\d+ factors?/)).not.toBeInTheDocument()
   })
 
   it('shows retry button on network error (block stays proposed)', () => {
@@ -545,5 +564,126 @@ describe('Show on graph — full-graph suppression', () => {
     render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
     fireEvent.click(screen.getByTestId('patch-show-changes'))
     expect(storeMocks.mockSetHighlightedNodes).toHaveBeenCalledWith(['node-a', 'node-b'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Render matrix: all 6 patch states → header text, badge icon, badge colour
+// ---------------------------------------------------------------------------
+
+describe('GraphPatchBlock — render matrix (all states)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    storeMocks.canvasNodes = canvasNodes('n-new', 'n-x1', 'n-x2', 'n-x3')
+  })
+
+  it.each([
+    {
+      name: 'proposed',
+      overrides: {},
+      stateMap: undefined as Map<string, PatchBlockState> | undefined,
+      rejections: undefined as Map<string, PatchRejectionInfo> | undefined,
+      expectedHeader: 'Suggested change',
+      expectedBadgeTestId: null,
+      expectedBadgeIcon: null,
+      expectedBadgeColour: null,
+      buttonsVisible: true,
+    },
+    {
+      name: 'accepted (user click)',
+      overrides: {},
+      stateMap: new Map([['patch-1', 'accepted' as PatchBlockState]]),
+      rejections: undefined,
+      expectedHeader: 'Change accepted',
+      expectedBadgeTestId: 'patch-status-applied',
+      expectedBadgeIcon: 'lucide-check',
+      expectedBadgeColour: 'text-success',
+      buttonsVisible: false,
+    },
+    {
+      name: 'auto_applied',
+      overrides: { auto_apply: true },
+      stateMap: undefined,
+      rejections: undefined,
+      expectedHeader: 'Model updated',
+      expectedBadgeTestId: 'patch-status-auto-applied',
+      expectedBadgeIcon: 'lucide-check',
+      expectedBadgeColour: 'text-success',
+      buttonsVisible: false,
+    },
+    {
+      name: 'rejected',
+      overrides: {},
+      stateMap: new Map([['patch-1', 'rejected' as PatchBlockState]]),
+      rejections: new Map([['patch-1', { code: 'VALIDATION_FAILED', message: 'Bad patch' }]]),
+      expectedHeader: 'Change rejected',
+      expectedBadgeTestId: 'patch-status-rejected',
+      expectedBadgeIcon: 'lucide-x',
+      expectedBadgeColour: 'text-danger',
+      buttonsVisible: false,
+    },
+    {
+      name: 'dismissed',
+      overrides: {},
+      stateMap: new Map([['patch-1', 'dismissed' as PatchBlockState]]),
+      rejections: undefined,
+      expectedHeader: 'Change dismissed',
+      expectedBadgeTestId: 'patch-status-dismissed',
+      expectedBadgeIcon: null,
+      expectedBadgeColour: null,
+      buttonsVisible: false,
+    },
+    {
+      name: 'error (NETWORK_ERROR)',
+      overrides: {},
+      stateMap: new Map([['patch-1', 'proposed' as PatchBlockState]]),
+      rejections: new Map([['patch-1', { code: 'NETWORK_ERROR', message: 'Failed to apply' }]]),
+      expectedHeader: 'Something went wrong',
+      expectedBadgeTestId: 'patch-retry-error',
+      expectedBadgeIcon: 'lucide-alert-triangle',
+      expectedBadgeColour: 'text-danger',
+      buttonsVisible: false,
+    },
+  ])('$name: header="$expectedHeader", icon=$expectedBadgeIcon, colour=$expectedBadgeColour', ({
+    overrides,
+    stateMap,
+    rejections,
+    expectedHeader,
+    expectedBadgeTestId,
+    expectedBadgeIcon,
+    expectedBadgeColour,
+    buttonsVisible,
+  }) => {
+    const block = makePatchBlock(overrides)
+    render(
+      <InlineBlocks
+        blocks={[block]}
+        patchBlockStates={stateMap}
+        patchRejections={rejections}
+      />,
+    )
+
+    // Header text appears (may appear in both header span and status area)
+    expect(screen.getAllByText(expectedHeader).length).toBeGreaterThanOrEqual(1)
+
+    // Badge icon + colour
+    if (expectedBadgeTestId && expectedBadgeIcon) {
+      const statusEl = screen.getByTestId(expectedBadgeTestId)
+      const svg = statusEl.querySelector('svg')
+      expect(svg).not.toBeNull()
+      expect(svg!.classList.contains(expectedBadgeIcon)).toBe(true)
+      if (expectedBadgeColour) {
+        expect(svg!.classList.contains(expectedBadgeColour)).toBe(true)
+      }
+    }
+
+    // Accept/Dismiss buttons
+    if (buttonsVisible) {
+      expect(screen.getByTestId('patch-accept')).toBeInTheDocument()
+      expect(screen.getByTestId('patch-dismiss')).toBeInTheDocument()
+    } else {
+      expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('patch-dismiss')).not.toBeInTheDocument()
+    }
   })
 })

@@ -588,6 +588,14 @@ export interface OrchestratorResponseEnvelopeV2 {
    * Read-only debug metadata; passthrough to debug bundle.
    */
   _pipeline_outcome?: unknown
+  /**
+   * Opaque session state from CEE. Store as-is, send back on the next turn
+   * request as `session_state`. Enables session-level coaching (chip
+   * suppression, play deduplication, convergence detection, calibration
+   * tracking). Never persist to message history or analytics — transient
+   * orchestration context only.
+   */
+  updated_session_state?: Record<string, unknown> | null
 }
 
 // ---------------------------------------------------------------------------

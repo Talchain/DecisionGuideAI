@@ -64,6 +64,8 @@ type TurnBase = {
   scenario_id: string
   client_turn_id: string
   conversation_history: ConversationTurnPair[]
+  /** Opaque CEE session state — transient orchestration context, never persisted. */
+  session_state?: Record<string, unknown> | null
   _turn_type?: TurnType
 }
 
@@ -128,13 +130,13 @@ export type TurnRequestPayload =
 // detect post-analysis stage and surface results in the prompt. Still omitted
 // from explicit_generate and system_event where it adds no value.
 const TURN_ALLOW_LIST: Record<TurnType, readonly string[]> = {
-  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'chip_metadata', 'analysis_state', '_turn_type'],
-  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', '_turn_type'],
-  run_analysis: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_inputs', '_turn_type'],
-  system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', '_turn_type'],
-  patch_followup: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_state', '_turn_type'],
-  explain: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'analysis_state', '_turn_type'],
-  clarification_response: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', '_turn_type'],
+  conversation: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'chip_metadata', 'analysis_state', 'session_state', '_turn_type'],
+  explicit_generate: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'generate_model', 'session_state', '_turn_type'],
+  run_analysis: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_inputs', 'session_state', '_turn_type'],
+  system_event: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'system_event', 'session_state', '_turn_type'],
+  patch_followup: ['scenario_id', 'client_turn_id', 'conversation_history', 'graph_state', 'analysis_state', 'session_state', '_turn_type'],
+  explain: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'graph_state', 'selected_elements', 'analysis_state', 'session_state', '_turn_type'],
+  clarification_response: ['scenario_id', 'client_turn_id', 'conversation_history', 'message', 'session_state', '_turn_type'],
 }
 
 const TURN_REQUIRED_FIELDS: Record<TurnType, readonly string[]> = {

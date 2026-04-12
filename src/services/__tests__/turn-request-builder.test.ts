@@ -635,4 +635,35 @@ describe('validateTurnRequestBoundary (dev-mode)', () => {
     validateTurnRequestBoundary(req)
     expect(consoleErrorSpy).not.toHaveBeenCalled()
   })
+
+  it('accepts session_state on conversation turns (no violation)', () => {
+    const req = {
+      ...buildConversationTurnRequest({
+        scenario_id: VALID_UUID,
+        conversation_history: [...history],
+        message: 'hello',
+        graph_state: graphState,
+      }),
+      session_state: { chip_suppression: ['explore'], turn_count: 3 },
+    } as any
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
+
+  it('accepts session_state on system_event turns (no violation)', () => {
+    const req = {
+      ...buildSystemEventTurnRequest({
+        scenario_id: VALID_UUID,
+        conversation_history: [...history],
+        message: '[system]',
+        graph_state: graphState,
+        system_event: { type: 'patch_accepted', payload: {} },
+      }),
+      session_state: { turn_count: 5 },
+    } as any
+
+    validateTurnRequestBoundary(req)
+    expect(consoleErrorSpy).not.toHaveBeenCalled()
+  })
 })

@@ -75,8 +75,7 @@ describe('GraphPatchBlock — auto_apply', () => {
     expect(screen.queryByTestId('patch-accept')).not.toBeInTheDocument()
     expect(screen.queryByTestId('patch-dismiss')).not.toBeInTheDocument()
     expect(screen.getByTestId('patch-show-changes')).toBeInTheDocument()
-    expect(screen.getByText('Changes applied')).toBeInTheDocument()
-    expect(screen.getByText('Applied')).toBeInTheDocument()
+    expect(screen.getAllByText('Model updated').length).toBeGreaterThanOrEqual(1)
   })
 
   it('reveals auto-applied changes on canvas', () => {
