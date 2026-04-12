@@ -421,7 +421,6 @@ export const pocFlags = {
   sse: on(env?.VITE_FEATURE_SSE),
   orchestratorStreaming: on(env?.VITE_FEATURE_ORCHESTRATOR_STREAMING),
   scenarioSandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
-  contextBar: on(env?.VITE_FEATURE_CONTEXT_BAR),
 }
 
 // Debug helper: dump all flags for inspection

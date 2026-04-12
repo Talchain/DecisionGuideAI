@@ -6,7 +6,7 @@
  * - Connectivity (outgoing influences, incoming influences)
  * - Top sensitivity driver pill (post-analysis only, from results store)
  *
- * Feature-gated by VITE_FEATURE_NODE_INTELLIGENCE.
+ * Always rendered (VITE_FEATURE_NODE_INTELLIGENCE flag retired in C5).
  * Used by FactorControllablePanel, FactorObservablePanel, FactorExternalPanel.
  */
 

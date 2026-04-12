@@ -253,7 +253,6 @@ export default function SandboxStreamPanel() {
   const lastArgsRef = useRef<{ seed?: string | number; budget?: number; model?: string } | null>(null)
   const [replayedFrom, setReplayedFrom] = useState<string | null>(null)
   const reportFlag = isRunReportEnabled()
-  const chipsFlag = false // C5: confidence chips permanently disabled, flag retired
   const hintsFlag = isHintsEnabled()
   const paramsFlag = isParamsEnabled()
   const historyFlag = isHistoryEnabled()
@@ -286,7 +285,7 @@ export default function SandboxStreamPanel() {
   // Initialize stream connection hook
   const streamConfig: StreamConfig = {
     historyEnabled: historyFlag,
-    chipsEnabled: chipsFlag,
+    chipsEnabled: false,
     paramsEnabled: paramsFlag,
     mdEnabled: mdFlag,
     bufferEnabled,
@@ -303,7 +302,6 @@ export default function SandboxStreamPanel() {
   const reconnecting = streamState.reconnecting
   const resumedOnce = streamState.resumedOnce
   const started = streamState.started
-  const reportData = streamState.reportData
   const diagLastId = streamState.metrics.lastSseId
   const diagTokenCount = streamState.metrics.tokenCount
   const diagTtfbMs = streamState.metrics.ttfbMs
@@ -1332,54 +1330,6 @@ export default function SandboxStreamPanel() {
             Tip: Increase your budget or reduce the scope, then try again.
           </p>
         )}
-        {chipsFlag && (status === 'done' || status === 'aborted' || status === 'error' || status === 'limited') && (
-          <div className="flex items-center gap-1 ml-2">
-            {reportData?.confidence?.identifiability != null && (
-              <span
-                data-testid="chip-identifiability"
-                tabIndex={0}
-                className="text-xs px-2 py-1 rounded-full border border-gray-300 bg-gray-50"
-                aria-label={`Identifiability: ${String(reportData.confidence.identifiability)}`}
-              >
-                Identifiability: {String(reportData.confidence.identifiability)}
-              </span>
-            )}
-            {reportData?.confidence?.linearity != null && (
-              <span
-                data-testid="chip-linearity"
-                tabIndex={0}
-                title="Linearity: consistency as inputs change."
-                className="text-xs px-2 py-1 rounded-full border border-gray-300 bg-gray-50"
-                aria-label={`Linearity: ${String(reportData.confidence.linearity)}`}
-              >
-                Linearity: {String(reportData.confidence.linearity)}
-              </span>
-            )}
-            {reportData?.confidence?.calibration != null && (
-              <span
-                data-testid="chip-calibration"
-                tabIndex={0}
-                title="Calibration: alignment of confidence with outcomes."
-                className="text-xs px-2 py-1 rounded-full border border-gray-300 bg-gray-50"
-                aria-label={`Calibration: ${String(reportData.confidence.calibration)}`}
-              >
-                Calibration: {String(reportData.confidence.calibration)}
-              </span>
-            )}
-            {reportData?.confidence?.diversity != null && (
-              <span
-                data-testid="chip-diversity"
-                tabIndex={0}
-                title="Diversity: variety in explored approaches."
-                className="text-xs px-2 py-1 rounded-full border border-gray-300 bg-gray-50"
-                aria-label={`Diversity: ${String(reportData.confidence.diversity)}`}
-              >
-                Diversity: {String(reportData.confidence.diversity)}
-              </span>
-            )}
-          </div>
-        )}
-
         {scorecardFlag && (
           <div data-testid="scorecard-panel" className="mt-2 p-2 border rounded bg-white">
             <div className="text-[11px] text-gray-500 mb-1">Scorecard</div>

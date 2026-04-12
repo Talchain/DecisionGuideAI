@@ -51,7 +51,7 @@ export function mockFlags(overrides: Partial<FlagFns> = {}) {
   vi.doMock('../../flags', () => ({
     ...flags,
     isOnboardingTourEnabled: () => false,
-    pocFlags: { contextBar: false },
+    pocFlags: {},
   }))
   return flags
 }
