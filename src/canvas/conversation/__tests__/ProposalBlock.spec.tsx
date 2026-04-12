@@ -161,3 +161,91 @@ describe('ProposalBlockRenderer', () => {
     expect(screen.getByTestId('proposal-cancel')).toHaveAttribute('aria-label', 'Dismiss proposed changes')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Render matrix: all ProposalBlock states → header text, badge icon, colour
+// ---------------------------------------------------------------------------
+
+describe('ProposalBlockRenderer — render matrix (all states)', () => {
+  it.each([
+    {
+      name: 'pending (confirmation_required)',
+      overrides: { confirmation_required: true } as Partial<ProposalBlock>,
+      clickAction: null as 'apply' | 'cancel' | null,
+      expectedHeader: 'Suggested change',
+      expectedBadgeIcon: null as string | null,
+      expectedBadgeColour: null as string | null,
+      buttonsVisible: true,
+    },
+    {
+      name: 'accepted (auto-apply, confirmation absent)',
+      overrides: {} as Partial<ProposalBlock>,
+      clickAction: null,
+      expectedHeader: 'Change accepted',
+      expectedBadgeIcon: 'lucide-check',
+      expectedBadgeColour: 'text-success',
+      buttonsVisible: false,
+    },
+    {
+      name: 'accepted (user clicks Apply)',
+      overrides: { confirmation_required: true } as Partial<ProposalBlock>,
+      clickAction: 'apply' as const,
+      expectedHeader: 'Change accepted',
+      expectedBadgeIcon: 'lucide-check',
+      expectedBadgeColour: 'text-success',
+      buttonsVisible: false,
+    },
+    {
+      name: 'cancelled (user clicks Cancel)',
+      overrides: { confirmation_required: true } as Partial<ProposalBlock>,
+      clickAction: 'cancel' as const,
+      expectedHeader: 'Change dismissed',
+      expectedBadgeIcon: null,
+      expectedBadgeColour: null,
+      buttonsVisible: false,
+    },
+  ])('$name: header="$expectedHeader", icon=$expectedBadgeIcon, colour=$expectedBadgeColour', ({
+    overrides,
+    clickAction,
+    expectedHeader,
+    expectedBadgeIcon,
+    expectedBadgeColour,
+    buttonsVisible,
+  }) => {
+    const onConfirm = vi.fn()
+    const block = makeProposal(overrides)
+    render(
+      <InlineBlocks
+        blocks={[block as unknown as ConversationBlock]}
+        onProposalConfirm={onConfirm}
+      />,
+    )
+
+    if (clickAction === 'apply') fireEvent.click(screen.getByTestId('proposal-apply'))
+    if (clickAction === 'cancel') fireEvent.click(screen.getByTestId('proposal-cancel'))
+
+    // Header text
+    expect(screen.getAllByText(expectedHeader).length).toBeGreaterThanOrEqual(1)
+
+    // Badge icon + colour on the status span (only rendered when not pending)
+    if (expectedBadgeIcon) {
+      const statusSpans = screen.getAllByText(expectedHeader)
+      const statusWithIcon = statusSpans.find(el => el.querySelector('svg'))
+      expect(statusWithIcon).toBeDefined()
+      const svg = statusWithIcon!.querySelector('svg')!
+      expect(svg.classList.contains(expectedBadgeIcon)).toBe(true)
+      if (expectedBadgeColour) {
+        expect(svg.classList.contains(expectedBadgeColour)).toBe(true)
+      }
+    }
+
+    // Buttons
+    if (buttonsVisible) {
+      expect(screen.getByTestId('proposal-apply')).toBeInTheDocument()
+      expect(screen.getByTestId('proposal-cancel')).toBeInTheDocument()
+    } else {
+      expect(screen.queryByTestId('proposal-apply')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('proposal-cancel')).not.toBeInTheDocument()
+    }
+  })
+})

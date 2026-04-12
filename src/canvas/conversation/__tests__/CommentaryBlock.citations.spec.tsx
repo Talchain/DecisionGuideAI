@@ -2,10 +2,16 @@
  * Tests for CommentaryBlock citation legend in InlineBlocks
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import type { CommentaryBlock } from '../types'
+
+// jsdom lacks scrollIntoView — mock it so citation click/keyboard tests
+// exercise the real handler path instead of relying on not.toThrow().
+beforeAll(() => {
+  Element.prototype.scrollIntoView = vi.fn()
+})
 
 function makeCommentaryBlock(overrides?: Partial<CommentaryBlock>): CommentaryBlock {
   return {

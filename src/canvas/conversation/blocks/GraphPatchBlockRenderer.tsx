@@ -9,8 +9,8 @@
  *
  * Typography (DS v5 §21.2): card header uses panelHeader (14px semibold) per
  * the panel token table — body (16px) would be oversized in the 360px card.
- * Summary/fallback text uses bodySmall (14px) with text-text-light via the
- * graphPatchSummary CSS class. Both match the DS v5 panel rendering spec.
+ * Summary/fallback text uses bodySmall (14px); the graphPatchSummary CSS
+ * class applies text-body colour (not text-light) for readable contrast.
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
