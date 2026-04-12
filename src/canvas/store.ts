@@ -18,7 +18,7 @@ import * as scenarios from './store/scenarios'
 import type { Scenario, ScenarioFraming } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
 import type { Document, Citation } from './share/types'
-import type { Snapshot, DecisionRationale, ComparisonResult } from './snapshots/types'
+import type { ComparisonResult } from './snapshots/types'
 import type { CeeDecisionReviewPayload, CeeTraceMeta, CeeErrorViewModel } from './decisionReview/types'
 import type { CeeDecisionReviewPayloadV1, CeeTrace, CeeError, M1Review, M1Coaching, ErrorDetail } from '../types/cee'
 import { sanitizeCeeReviewPayload, sanitizeM1Review } from './utils/ceeDataAdapter'
@@ -1866,8 +1866,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Graph Lens: auto-reset on canvas import (full graph replaced)
       lens: createDefaultLensState(),
     })
-    // Reset draft slice (models, lastDraftDescription, lastDraftError, etc.) on import
-    useDraftStore.getState().resetDraft()
+    // Historical behaviour: importCanvas cleared only the three model-selection
+    // fields. Preserving that narrow reset (not full resetDraft, which would also
+    // clear lastDraftError, lastDraftDescription, isGenerating, fullDraftAppliedAt).
+    useDraftStore.getState().resetAllModels()
 
     return true
   },
