@@ -478,7 +478,6 @@ graph LR
     subgraph "Shared Stores"
         CanvasStore[useCanvasStore]
         ResultsStore[useResultsStore]
-        DocsStore[useDocumentsStore]
     end
 
     subgraph "Shared Hooks"

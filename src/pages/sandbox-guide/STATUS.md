@@ -603,9 +603,8 @@ npm run test:guide
 - `LoadingSpinner` - Loading states
 
 **Stores** (READ ONLY):
-- `useCanvasStore` - nodes, edges, outcomeNodeId
+- `useCanvasStore` - nodes, edges, outcomeNodeId, documents
 - `useResultsStore` - report, ceeReview, status
-- `useDocumentsStore` - (future: evidence)
 
 **Hooks**:
 - `useResultsRun` - Run analysis
