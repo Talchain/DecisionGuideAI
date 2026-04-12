@@ -1275,21 +1275,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return raw ? sanitizeCoachingText(raw) : undefined
       })(),
       // B2: Dominant factor — prefer PLoT top-level field when both fields are non-empty strings
-      dominantFactorId: (() => {
+      ...(() => {
         const df = report?.dominant_factor
-        if (typeof df?.factor_id === 'string' && df.factor_id && typeof df?.factor_label === 'string' && df.factor_label) return df.factor_id
-        // DEPRECATION FALLBACK: Remove after 2026-05-12 — m1Coaching path is effectively dead per B1 investigation.
-        return m1Coaching?.key_drivers?.dominant_factor
-      })(),
-      dominantFactorLabel: (() => {
-        const df = report?.dominant_factor
-        if (typeof df?.factor_id === 'string' && df.factor_id && typeof df?.factor_label === 'string' && df.factor_label) return df.factor_label
+        if (typeof df?.factor_id === 'string' && df.factor_id && typeof df?.factor_label === 'string' && df.factor_label) {
+          return { dominantFactorId: df.factor_id, dominantFactorLabel: df.factor_label }
+        }
         // DEPRECATION FALLBACK: Remove after 2026-05-12 — m1Coaching path is effectively dead per B1 investigation.
         const dominantId = m1Coaching?.key_drivers?.dominant_factor
-        if (!dominantId) return undefined
+        if (!dominantId) return { dominantFactorId: undefined, dominantFactorLabel: undefined }
         const driver = m1Coaching?.key_drivers?.drivers?.find((d: any) => d.factor_id === dominantId)
-        if (driver?.factor_label) return driver.factor_label
-        return nodeLabelMap.get(dominantId) ?? dominantId
+        const label = driver?.factor_label ?? nodeLabelMap.get(dominantId) ?? dominantId
+        return { dominantFactorId: dominantId, dominantFactorLabel: label }
       })(),
       // Task 6: Ready + warnings consistency
       // Check if there are warnings/uncertainties that need attention
