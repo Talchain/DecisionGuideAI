@@ -149,6 +149,21 @@ describe('ProposalBlockRenderer', () => {
     expect(screen.getByText(/May increase model complexity/)).toBeInTheDocument()
   })
 
+  it('settled-state status row renders without inline style attributes', () => {
+    const block = makeProposal()
+    const { container } = render(
+      <InlineBlocks
+        blocks={[block as unknown as ConversationBlock]}
+        onProposalConfirm={onProposalConfirm}
+      />,
+    )
+    // Auto-applied → settled state, status span should use CSS module classes only
+    const statusSpans = container.querySelectorAll('[data-testid="block-proposal"] span')
+    const statusRow = Array.from(statusSpans).find(el => el.textContent?.includes('Change accepted'))
+    expect(statusRow).toBeDefined()
+    expect(statusRow!.getAttribute('style')).toBeNull()
+  })
+
   it('Apply button has aria-label for accessibility', () => {
     const block = makeProposal({ confirmation_required: true })
     render(

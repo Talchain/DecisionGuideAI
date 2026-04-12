@@ -587,13 +587,13 @@ export function ProposalBlockRenderer({
       <span className={`${typography.panelMeta} ${styles.graphPatchProposalEyebrow}`}>
         {cardHeader}
       </span>
-      <p className={typography.panelBody} style={{ color: 'var(--text-body)' }}>{block.description}</p>
+      <p className={`${typography.panelBody} ${styles.graphPatchProposalDescription}`}>{block.description}</p>
       {block.changes.length > 0 && (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div className={styles.graphPatchProposalList}>
           {block.changes.map((c, i) => (
             <div key={`${c.target}-${i}`} className={styles.graphPatchProposalItem}>
               <span className={typography.panelBody}>{c.detail}</span>
-              <div style={{ display: 'flex', gap: 4 }}>
+              <div className="flex gap-1">
                 {c.operation && (
                   <span className={`${typography.panelMeta} ${styles.outlinedPill}`}>{c.operation}</span>
                 )}
@@ -606,7 +606,7 @@ export function ProposalBlockRenderer({
         </div>
       )}
       {block.consequences && block.consequences.length > 0 && (
-        <div className={typography.panelMeta} style={{ color: 'var(--text-light)' }}>
+        <div className={`${typography.panelMeta} ${styles.graphPatchProposalLabel}`}>
           {block.consequences.map((c) => <div key={c}>· {c}</div>)}
         </div>
       )}
@@ -633,7 +633,7 @@ export function ProposalBlockRenderer({
         </div>
       )}
       {state !== 'pending' && (
-        <span className={`${typography.panelBody} ${state === 'accepted' ? styles.graphPatchStatusApplied : styles.graphPatchStatusDismissed}`} style={{ fontWeight: 500 }}>
+        <span className={`${typography.panelBody} ${state === 'accepted' ? styles.graphPatchStatusApplied : styles.graphPatchStatusDismissed}`}>
           {cardBadge && <BadgeIcon badge={cardBadge} />} {cardHeader}
         </span>
       )}
