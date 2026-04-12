@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, ChevronDown, ChevronRight, Loader2 } from 'lucide-react'
-import { useCanvasStore } from '../store'
+import { useDraftStore } from '../stores/draftStore'
 import { DEFAULT_MODELS, formatTier, type ModelInfo, type OperationType } from '../../config/aiModels'
 import { useAvailableModels } from '../../hooks/useAvailableModels'
 import { typography } from '../../styles/typography'
@@ -37,11 +37,11 @@ export function ModelSettingsPopover({ isOpen, onClose, anchorRef }: ModelSettin
   // Fetch available models from API
   const { getCuratedModels, getAllModels, getDefaultModelId, isLoading, isFallback } = useAvailableModels()
 
-  // Get model selection state from store
-  const selectedGenerationModel = useCanvasStore((s) => s.selectedGenerationModel)
-  const selectedEnrichmentModel = useCanvasStore((s) => s.selectedEnrichmentModel)
-  const setSelectedGenerationModel = useCanvasStore((s) => s.setSelectedGenerationModel)
-  const setSelectedEnrichmentModel = useCanvasStore((s) => s.setSelectedEnrichmentModel)
+  // Get model selection state from the draft store (C3-5)
+  const selectedGenerationModel = useDraftStore((s) => s.selectedGenerationModel)
+  const selectedEnrichmentModel = useDraftStore((s) => s.selectedEnrichmentModel)
+  const setSelectedGenerationModel = useDraftStore((s) => s.setSelectedGenerationModel)
+  const setSelectedEnrichmentModel = useDraftStore((s) => s.setSelectedEnrichmentModel)
 
   // Get effective default model IDs from API (fallback to hardcoded)
   const defaultGeneration = getDefaultModelId('generation') || DEFAULT_MODELS.generation

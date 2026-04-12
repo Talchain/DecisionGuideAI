@@ -9,6 +9,7 @@
 
 import { useMemo } from 'react'
 import { useCanvasStore } from '../store'
+import { useDraftStore } from '../stores/draftStore'
 import type { ScenarioStage } from '../../types/scenario'
 
 export interface StagePillData {
@@ -64,7 +65,7 @@ export function useStagePill(): StagePillData {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const resultsStatus = useCanvasStore((s) => s.results.status)
   const hasCompletedFirstRun = useCanvasStore((s) => s.hasCompletedFirstRun)
-  const isGenerating = useCanvasStore((s) => s.isGenerating)
+  const isGenerating = useDraftStore((s) => s.isGenerating)
 
   return useMemo(() => {
     const hasNodes = nodeCount > 0

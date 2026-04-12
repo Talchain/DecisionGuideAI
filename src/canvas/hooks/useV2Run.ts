@@ -7,6 +7,7 @@
 
 import { useCallback, useRef, useState } from 'react'
 import { useCanvasStore } from '../store'
+import { useDraftStore } from '../stores/draftStore'
 import { useResultsStore } from '../stores/resultsStore'
 import { getEdgeKey } from '../domain/edgeUtils'
 import {
@@ -195,7 +196,6 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       ceeAnalysisReady,
       ceeAnalysisReadyNodeIds,
       goalConstraints,
-      lastDraftDescription,
       resultsStart,
       resultsComplete,
       resultsError,
@@ -205,6 +205,7 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
       setGoalConstraints,
       captureErrorDetail,
     } = useCanvasStore.getState()
+    const lastDraftDescription = useDraftStore.getState().lastDraftDescription
 
     // Validate goal is selected
     if (!outcomeNodeId) {

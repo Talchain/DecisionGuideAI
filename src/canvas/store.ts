@@ -39,6 +39,7 @@ import { isCompareTabEnabled } from '../flags'
 import { useAnalysisSnapshotStore } from './stores/analysisSnapshotStore'
 import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
 import { useComparisonStore } from './stores/comparisonStore'
+import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
 import { loadUIPreferences, saveUIPreference } from './store/uiPreferences'
 import { validateCeeAnalysisReady } from './utils/ceeAnalysisReadyValidation'
@@ -285,7 +286,6 @@ interface CanvasState {
   isDirty: boolean  // Has unsaved changes
   isSaving: boolean  // P0-2: Currently saving
   lastSavedAt: number | null  // P0-2: Timestamp of last successful save
-  isGenerating: boolean  // True while conversation turn is in flight (for stage pill overlay)
   // Panel visibility
   showResultsPanel: boolean
   showInspectorPanel: boolean
@@ -299,30 +299,12 @@ interface CanvasState {
   // scenario switch (loadScenario / importCanvas), and explicit reset.
   // Distinct from currentBriefText, which is the readiness-signal mirror.
   draftComposerText: string | null
-  // AI Model Selection (session-only, not persisted to localStorage)
-  // Only non-default models are sent to API to keep payloads clean
-  selectedGenerationModel: string | null  // null = use default (gpt-4o)
-  selectedRepairModel: string | null      // null = use default (claude-sonnet-4-20250514)
-  selectedEnrichmentModel: string | null  // null = use default (claude-sonnet-4-20250514)
-  // A.5+: Pre-draft canvas snapshot for undo-draft capability
+  // Draft slice extracted to useDraftStore as of C3-5:
+  //   selectedGenerationModel, selectedRepairModel, selectedEnrichmentModel
+  //   isGenerating, lastDraftDescription, lastDraftError, fullDraftAppliedAt
+  // draftChatPreDraftSnapshot stays here because undoDraft writes it atomically
+  // alongside nodes/edges/readiness/lens in a single set() call.
   draftChatPreDraftSnapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null
-  // Last draft description (persisted to maintain context across panel close/reopen)
-  lastDraftDescription: string
-  // Last draft error (NOT cleared in resetCanvas — survives retry cycles)
-  lastDraftError: {
-    message: string
-    status?: number
-    correlationId?: string
-    timestamp: number
-    /** Whether the error is retryable. false = deterministic validation failure. */
-    retryable?: boolean
-    /**
-     * CEE-side error code (e.g. 'MISSING_INTERVENTIONS', 'OPTIONS_NEED_MAPPING')
-     * extracted from err.details.code. Used to filter redundant blockers from the
-     * Must fix list when the draft error card already covers the same signal.
-     */
-    code?: string
-  } | null
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
@@ -422,11 +404,7 @@ interface CanvasState {
   repairsApplied: V2RunResponse['repairs_applied'] | null
   /** Raw V2RunResponse from PLoT — preserved for debug, analysis_state construction, and typed field access */
   rawV2Response: V2RunResponse | null
-  // Task 2: Signal for AI panel auto-collapse. Set when a full_draft auto_apply patch
-  // is applied for the first time. DraftChat watches this to collapse without
-  // reacting to every incremental node change.
-  fullDraftAppliedAt: number | null
-  setFullDraftAppliedAt: (ts: number) => void
+  // fullDraftAppliedAt lives in useDraftStore as of C3-5.
   // Debug: Raw CEE output mode (bypasses post-processing repairs)
   // Set via URL param ?rawCee=1 or Debug Panel checkbox
   debugRawCeeOutput: boolean
@@ -543,18 +521,16 @@ interface CanvasState {
   openTemplatesPanel: (invoker?: HTMLElement) => void
   closeTemplatesPanel: () => void
   setShowDraftChat: (show: boolean) => void
-  setSelectedGenerationModel: (modelId: string | null) => void
-  setSelectedRepairModel: (modelId: string | null) => void
-  setSelectedEnrichmentModel: (modelId: string | null) => void
-  resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => void
+  // Draft actions (setSelectedGenerationModel, setSelectedRepairModel,
+  // setSelectedEnrichmentModel, resetModelToDefault, setIsGenerating,
+  // setLastDraftDescription, setLastDraftError, setFullDraftAppliedAt)
+  // live in useDraftStore as of C3-5.
   // A.15: Stage setter
   setCurrentStage: (stage: ScenarioStage | null) => void
-  setIsGenerating: (v: boolean) => void
-  // A.5+: Draft snapshot + undo
+  // A.5+: Draft snapshot + undo (draftChatPreDraftSnapshot stays here because
+  // undoDraft writes it atomically alongside nodes/edges/readiness/lens).
   setDraftChatPreDraftSnapshot: (snapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null) => void
   undoDraft: () => void
-  setLastDraftDescription: (description: string) => void
-  setLastDraftError: (error: { message: string; status?: number; correlationId?: string; timestamp: number; retryable?: boolean; code?: string } | null) => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
@@ -1063,7 +1039,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   isDirty: false,
   isSaving: false,  // P0-2: Initially not saving
   lastSavedAt: null,  // P0-2: No save yet
-  isGenerating: false,
+  // isGenerating lives in useDraftStore as of C3-5.
   // Phase 3: Panel visibility with persistence
   ...{
     showResultsPanel: false,
@@ -1072,13 +1048,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     showDraftChat: false,
     currentBriefText: null,
     draftComposerText: null,
-    // AI Model Selection (session-only, start with defaults)
-    selectedGenerationModel: null,
-    selectedRepairModel: null,
-    selectedEnrichmentModel: null,
+    // Model selection, lastDraftDescription, lastDraftError live in useDraftStore (C3-5)
     draftChatPreDraftSnapshot: null,
-    lastDraftDescription: '',
-    lastDraftError: null,
     showIssuesPanel: false,
     showProvenanceHub: false,
     showDocumentsDrawer: false,
@@ -1164,7 +1135,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   lastQualityMode: null,
   repairsApplied: null,
   rawV2Response: null,
-  fullDraftAppliedAt: null,
   // Debug: Raw CEE output mode (initialized from URL param ?rawCee=1)
   debugRawCeeOutput: getInitialRawCeeMode(),
 
@@ -1884,14 +1854,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       showDraftChat: false,
       currentBriefText: null,
       draftComposerText: null,
-      // Reset model selection on import
-      selectedGenerationModel: null,
-      selectedRepairModel: null,
-      selectedEnrichmentModel: null,
       // Graph Lens: auto-reset on canvas import (full graph replaced)
       lens: createDefaultLensState(),
     })
-    
+    // Reset draft slice (models, lastDraftDescription, lastDraftError, etc.) on import
+    useDraftStore.getState().resetDraft()
+
     return true
   },
 
@@ -2038,10 +2006,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       touchedNodeIds: new Set(),
       nextNodeId: 1,
       nextEdgeId: 1,
-      // Clear AI model selections but keep panel visible
-      selectedGenerationModel: null,
-      selectedRepairModel: null,
-      selectedEnrichmentModel: null,
       // Clear CEE analysis_ready payload, pipeline trace, quality, and constraints
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
@@ -2084,6 +2048,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
     // Reset comparison state on canvas clear (lives in useComparisonStore as of C3-3)
     useComparisonStore.getState().resetComparison()
+    // Clear AI model selections (lives in useDraftStore as of C3-5).
+    // Historical behaviour: resetCanvas cleared only the three selectedXxxModel
+    // fields, not the broader draft state. Preserving that narrow reset.
+    useDraftStore.getState().resetAllModels()
   },
 
   deleteEdge: (id) => {
@@ -2189,11 +2157,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       _internal: { lastHistoryHash: historyHash(initialNodes, initialEdges) },
       hasCompletedFirstRun: false,
       showDraftChat: false,
-      // Reset model selection on canvas reset
-      selectedGenerationModel: null,
-      selectedRepairModel: null,
-      selectedEnrichmentModel: null,
     })
+    // Reset AI model selections (lives in useDraftStore as of C3-5)
+    useDraftStore.getState().resetAllModels()
   },
 
   setOutcomeNode: (nodeId) => {
@@ -2986,34 +2952,14 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
   },
 
-  // AI Model Selection setters (session-only, no localStorage persistence)
-  setSelectedGenerationModel: (modelId: string | null) => {
-    set({ selectedGenerationModel: modelId })
-  },
-
-  setSelectedRepairModel: (modelId: string | null) => {
-    set({ selectedRepairModel: modelId })
-  },
-
-  setSelectedEnrichmentModel: (modelId: string | null) => {
-    set({ selectedEnrichmentModel: modelId })
-  },
-
-  // Reset a specific model to default (used for error recovery)
-  resetModelToDefault: (operation: 'generation' | 'repair' | 'enrichment') => {
-    const resetMap = {
-      generation: { selectedGenerationModel: null },
-      repair: { selectedRepairModel: null },
-      enrichment: { selectedEnrichmentModel: null },
-    }
-    set(resetMap[operation])
-  },
+  // AI Model Selection, setIsGenerating, lastDraftDescription, lastDraftError
+  // moved to useDraftStore as of C3-5.
 
   // A.15: Stage setter
   setCurrentStage: (stage) => set({ currentStage: stage }),
-  setIsGenerating: (v) => set({ isGenerating: v }),
 
-  // A.5+: Draft snapshot + undo
+  // A.5+: Draft snapshot + undo (stays here because undoDraft writes the
+  // snapshot atomically alongside graph + readiness + lens).
   setDraftChatPreDraftSnapshot: (snapshot) => set({ draftChatPreDraftSnapshot: snapshot }),
   undoDraft: () => {
     const { draftChatPreDraftSnapshot } = get()
@@ -3037,16 +2983,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       draftChatPreDraftSnapshot.nodes,
       draftChatPreDraftSnapshot.edges,
     )
-  },
-
-  // Store last draft description for persistence across panel close/reopen
-  setLastDraftDescription: (description: string) => {
-    set({ lastDraftDescription: description })
-    saveUIPreference('lastDraftDescription', description)
-  },
-
-  setLastDraftError: (error) => {
-    set({ lastDraftError: error })
   },
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
@@ -3574,10 +3510,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // Pending fit view setter
   setPendingFitView: (value: boolean) => {
     set({ pendingFitView: value })
-  },
-
-  setFullDraftAppliedAt: (ts: number) => {
-    set({ fullDraftAppliedAt: ts })
   },
 
   // Debug: Raw CEE output mode setter

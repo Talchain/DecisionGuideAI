@@ -26,6 +26,7 @@ import { StickyFooter } from './StickyFooter'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
+import { useDraftStore } from '../../stores/draftStore'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
@@ -419,7 +420,7 @@ export function PreAnalysisPanel({
   const canRetryDraft = canRetry && !data.isReady && !!ceeStatus && SOFT_BYPASS_STATUSES.has(ceeStatus)
 
   // Draft error state for error card
-  const lastDraftError = useCanvasStore(s => s.lastDraftError)
+  const lastDraftError = useDraftStore(s => s.lastDraftError)
 
   // CEE analysis ready for feasibility + constraints
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)

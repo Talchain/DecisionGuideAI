@@ -49,6 +49,45 @@ vi.mock('../../../../utils/clipboard', () => ({
 // Mock useCanvasStore — return ceeAnalysisReady.status via selector
 let mockCeeStatus: string | undefined = undefined
 let mockLastDraftError: any = null
+
+// Draft slice (C3-5) lives in useDraftStore — mock alongside the canvas-store mock
+vi.mock('../../../stores/draftStore', () => ({
+  useDraftStore: Object.assign(
+    (selector: (state: any) => any) => {
+      const state = {
+        lastDraftError: mockLastDraftError,
+        lastDraftDescription: '',
+        selectedGenerationModel: null,
+        selectedRepairModel: null,
+        selectedEnrichmentModel: null,
+        isGenerating: false,
+        fullDraftAppliedAt: null,
+      }
+      return selector(state)
+    },
+    {
+      getState: () => ({
+        lastDraftError: mockLastDraftError,
+        lastDraftDescription: '',
+        selectedGenerationModel: null,
+        selectedRepairModel: null,
+        selectedEnrichmentModel: null,
+        isGenerating: false,
+        fullDraftAppliedAt: null,
+        setLastDraftError: vi.fn(),
+        setLastDraftDescription: vi.fn(),
+        setIsGenerating: vi.fn(),
+        setFullDraftAppliedAt: vi.fn(),
+        setSelectedGenerationModel: vi.fn(),
+        setSelectedRepairModel: vi.fn(),
+        setSelectedEnrichmentModel: vi.fn(),
+        resetModelToDefault: vi.fn(),
+        resetAllModels: vi.fn(),
+        resetDraft: vi.fn(),
+      }),
+    },
+  ),
+}))
 const mockSelectNodeWithoutHistory = vi.fn()
 const mockSelectEdgeWithoutHistory = vi.fn()
 vi.mock('../../../store', () => ({

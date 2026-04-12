@@ -8,6 +8,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../store'
+import { useDraftStore } from '../stores/draftStore'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
@@ -1236,7 +1237,7 @@ export function useConversation(): UseConversationReturn {
             setMessages(hydrated)
             setPatchBlockStates(result.blockStates)
             setIsThinking(false)
-            useCanvasStore.getState().setIsGenerating(false)
+            useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastFailedInput(null)
 
@@ -1260,7 +1261,7 @@ export function useConversation(): UseConversationReturn {
             messagesRef.current = []
             setMessages([])
             setIsThinking(false)
-            useCanvasStore.getState().setIsGenerating(false)
+            useDraftStore.getState().setIsGenerating(false)
             setLongRunningHint(null)
             setLastFailedInput(null)
           } finally {
@@ -1274,7 +1275,7 @@ export function useConversation(): UseConversationReturn {
       messagesRef.current = []
       setMessages([])
       setIsThinking(false)
-      useCanvasStore.getState().setIsGenerating(false)
+      useDraftStore.getState().setIsGenerating(false)
       setLongRunningHint(null)
       setLastFailedInput(null)
     }
@@ -1939,7 +1940,7 @@ export function useConversation(): UseConversationReturn {
             // A "full draft" is a patch that adds ≥3 nodes — distinguishes initial
             // graph generation from small incremental edits.
             if (patchResult.addedNodeCount >= 3) {
-              useCanvasStore.getState().setFullDraftAppliedAt?.(Date.now())
+              useDraftStore.getState().setFullDraftAppliedAt?.(Date.now())
             }
 
             if (import.meta.env.DEV) {
@@ -2428,7 +2429,7 @@ export function useConversation(): UseConversationReturn {
 
       // Start thinking state
       setIsThinking(true)
-      useCanvasStore.getState().setIsGenerating(true)
+      useDraftStore.getState().setIsGenerating(true)
 
       // Abort any previous request
       abortRef.current?.abort()
@@ -2460,7 +2461,7 @@ export function useConversation(): UseConversationReturn {
         clearTimeout(longRunningTimerRef.current)
         clearInterval(elapsedIntervalRef.current)
         setIsThinking(false)
-        useCanvasStore.getState().setIsGenerating(false)
+        useDraftStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
         if (inputForRestore) setLastFailedInput(inputForRestore)
         // Only visible user sends show a timeout error bubble.
@@ -2805,7 +2806,7 @@ export function useConversation(): UseConversationReturn {
         }
         cleanupStreamRefs()
         setIsThinking(false)
-        useCanvasStore.getState().setIsGenerating(false)
+        useDraftStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
         inFlightRef.current = false
       }
@@ -3006,7 +3007,7 @@ export function useConversation(): UseConversationReturn {
     messagesRef.current = []
     setMessages([])
     setIsThinking(false)
-    useCanvasStore.getState().setIsGenerating(false)
+    useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
     setLastFailedInput(null)
     setPatchBlockStates(new Map())
@@ -3072,7 +3073,7 @@ export function useConversation(): UseConversationReturn {
     clearTimeout(timeoutTimerRef.current)
     clearInterval(elapsedIntervalRef.current)
     setIsThinking(false)
-    useCanvasStore.getState().setIsGenerating(false)
+    useDraftStore.getState().setIsGenerating(false)
     setLongRunningHint(null)
   }, [updateMessage, cleanupStreamRefs])
 

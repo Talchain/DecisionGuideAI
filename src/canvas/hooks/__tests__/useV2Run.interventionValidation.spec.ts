@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach, vi, type Mock } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
 import { useV2Run } from '../useV2Run'
 import { useCanvasStore } from '../../store'
+import { useDraftStore } from '../../stores/draftStore'
 import { useResultsStore } from '../../stores/resultsStore'
 
 // Mock the V2 adapter module
@@ -88,12 +89,13 @@ function setupCanvasWithOptions(options: {
     goalConstraints: null,
     goalThreshold: null,
     currentScenarioFraming: null,
-    lastDraftDescription: null,
     results: {
       ...baseResults,
       status: 'idle',
     },
   } as any)
+  // lastDraftDescription lives in useDraftStore as of C3-5
+  useDraftStore.getState().setLastDraftDescription('')
 }
 
 beforeEach(() => {

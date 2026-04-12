@@ -3,6 +3,7 @@ import { CEEClient, CEEError } from '../adapters/cee/client'
 import type { CEEDraftResponse, CEEv2Response, CEEv3Response } from '../adapters/cee/types'
 import { isSchemaV2Enabled } from '../flags'
 import { useCanvasStore } from '../canvas/store'
+import { useDraftStore } from '../canvas/stores/draftStore'
 
 export interface DraftGuidance {
   level: 'ready' | 'needs_clarification' | 'not_ready'
@@ -47,14 +48,14 @@ export function useCEEDraft() {
         // Brief v2.2: Use schema v2 when feature flag is enabled
         const schemaVersion = isSchemaV2Enabled() ? 'v2' : 'v1'
 
-        // Get model selection from store (null = use default, so not sent to API)
-        const state = useCanvasStore.getState()
-        const selectedGenerationModel = state.selectedGenerationModel
-        const selectedRepairModel = state.selectedRepairModel
-        const selectedEnrichmentModel = state.selectedEnrichmentModel
+        // Get model selection from draft store (null = use default, so not sent to API)
+        const draftState = useDraftStore.getState()
+        const selectedGenerationModel = draftState.selectedGenerationModel
+        const selectedRepairModel = draftState.selectedRepairModel
+        const selectedEnrichmentModel = draftState.selectedEnrichmentModel
 
-        // Debug: Get raw_output mode from store (bypasses CEE post-processing repairs)
-        const debugRawCeeOutput = state.debugRawCeeOutput
+        // Debug: Get raw_output mode from canvas store (bypasses CEE post-processing repairs)
+        const debugRawCeeOutput = useCanvasStore.getState().debugRawCeeOutput
         const data = await client.draftModel(description, {
           schemaVersion,
           raw_output: debugRawCeeOutput || undefined,
@@ -110,17 +111,17 @@ export function useCEEDraft() {
             detailsStr.includes('blocked model')
 
           if (isModelError) {
-            const store = useCanvasStore.getState()
+            const draftStore = useDraftStore.getState()
 
             // Reset all non-default models to defaults as we can't determine which specific model failed
-            if (store.selectedGenerationModel !== null) {
-              store.resetModelToDefault('generation')
+            if (draftStore.selectedGenerationModel !== null) {
+              draftStore.resetModelToDefault('generation')
             }
-            if (store.selectedRepairModel !== null) {
-              store.resetModelToDefault('repair')
+            if (draftStore.selectedRepairModel !== null) {
+              draftStore.resetModelToDefault('repair')
             }
-            if (store.selectedEnrichmentModel !== null) {
-              store.resetModelToDefault('enrichment')
+            if (draftStore.selectedEnrichmentModel !== null) {
+              draftStore.resetModelToDefault('enrichment')
             }
 
             // Update error message to inform user

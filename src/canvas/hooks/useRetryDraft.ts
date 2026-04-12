@@ -15,7 +15,7 @@
 import { useState, useCallback } from 'react'
 import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { CEEError } from '../../adapters/cee/client'
-import { useCanvasStore } from '../store'
+import { useDraftStore } from '../stores/draftStore'
 import { applyDraftResult } from '../utils/applyDraftResult'
 
 export interface RetryDraftResult {
@@ -36,7 +36,7 @@ export function useRetryDraft() {
   })
 
   const retryDraft = useCallback(async (): Promise<RetryDraftResult> => {
-    const store = useCanvasStore.getState()
+    const store = useDraftStore.getState()
     const description = store.lastDraftDescription
 
     if (!description?.trim()) {
@@ -92,7 +92,7 @@ export function useRetryDraft() {
   }, [draft])
 
   /** Whether retry is available (lastDraftDescription exists) */
-  const canRetry = useCanvasStore((s) => !!s.lastDraftDescription?.trim())
+  const canRetry = useDraftStore((s) => !!s.lastDraftDescription?.trim())
 
   return {
     retryDraft,

@@ -39,6 +39,32 @@ vi.mock('../../../store', () => {
   return { useCanvasStore: store }
 })
 
+// Draft slice (C3-5) lives in useDraftStore — PreAnalysisPanel reads lastDraftError from it
+vi.mock('../../../stores/draftStore', () => {
+  const draftState: Record<string, unknown> = {
+    lastDraftError: null,
+    lastDraftDescription: '',
+    selectedGenerationModel: null,
+    selectedRepairModel: null,
+    selectedEnrichmentModel: null,
+    isGenerating: false,
+    fullDraftAppliedAt: null,
+    setLastDraftError: vi.fn(),
+    setLastDraftDescription: vi.fn(),
+    setIsGenerating: vi.fn(),
+    setFullDraftAppliedAt: vi.fn(),
+    setSelectedGenerationModel: vi.fn(),
+    setSelectedRepairModel: vi.fn(),
+    setSelectedEnrichmentModel: vi.fn(),
+    resetModelToDefault: vi.fn(),
+    resetAllModels: vi.fn(),
+    resetDraft: vi.fn(),
+  }
+  const store = (selector: (s: Record<string, unknown>) => unknown) => selector(draftState)
+  store.getState = () => draftState
+  return { useDraftStore: store }
+})
+
 // Mock useShowToast
 const mockShowToast = vi.fn()
 vi.mock('../../../ToastContext', () => ({

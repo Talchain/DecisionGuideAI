@@ -4,6 +4,7 @@ import { useCEEDraft } from '../../hooks/useCEEDraft'
 import { DraftLoadingAnimation } from './DraftLoadingAnimation'
 import { ErrorAlert } from '../../components/ErrorAlert'
 import { useCanvasStore } from '../store'
+import { useDraftStore } from '../stores/draftStore'
 import { useAnalysisSnapshotStore } from '../stores/analysisSnapshotStore'
 import { useLayoutStore } from '../layoutStore'
 import { typography } from '../../styles/typography'
@@ -48,7 +49,7 @@ export function DraftChat() {
   const isOrchV2 = useOrchestratorV2Flag()
 
   // Initialize description from stored value to maintain context across panel close/reopen
-  const lastDraftDescription = useCanvasStore(s => s.lastDraftDescription)
+  const lastDraftDescription = useDraftStore(s => s.lastDraftDescription)
   const [description, setDescription] = useState(lastDraftDescription || '')
   const [showSettingsPopover, setShowSettingsPopover] = useState(false)
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
@@ -113,7 +114,7 @@ export function DraftChat() {
   // React #185 FIX: Use individual selectors instead of destructuring from useCanvasStore()
   const showDraftChat = useCanvasStore(s => s.showDraftChat)
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
-  const setLastDraftDescription = useCanvasStore(s => s.setLastDraftDescription)
+  const setLastDraftDescription = useDraftStore(s => s.setLastDraftDescription)
   const pushHistory = useCanvasStore(s => s.pushHistory)
   const applyLayout = useCanvasStore(s => s.applyLayout)
   const setCanvasSize = useLayoutStore(s => s.setCanvasSize)
@@ -124,7 +125,7 @@ export function DraftChat() {
   const edgeCount = useCanvasStore(s => s.edges.length)
   const hasGraph = nodeCount > 0 || edgeCount > 0
   // Task 2: Watch for full_draft signal (set by useConversation when ≥3 nodes added at once)
-  const fullDraftAppliedAt = useCanvasStore(s => s.fullDraftAppliedAt)
+  const fullDraftAppliedAt = useDraftStore(s => s.fullDraftAppliedAt)
 
 
   // A.5+ Conversation mode (feature-flagged)
@@ -268,7 +269,7 @@ export function DraftChat() {
         // Clear UI input state (brief stays in store for /v2/run)
         setDescription('')
         // Clear any previous draft error on success
-        useCanvasStore.getState().setLastDraftError(null)
+        useDraftStore.getState().setLastDraftError(null)
       }
     } catch (err) {
       console.error('Draft failed:', err)
@@ -293,7 +294,7 @@ export function DraftChat() {
         const ceeCode = details?.code ?? details?.details?.code
         if (typeof ceeCode === 'string') draftError.code = ceeCode
       }
-      useCanvasStore.getState().setLastDraftError(draftError)
+      useDraftStore.getState().setLastDraftError(draftError)
 
       // Capture error detail for debug drawer expansion
       if (err instanceof CEEError) {
