@@ -255,7 +255,16 @@ interface CanvasState {
   nextNodeId: number
   nextEdgeId: number
   _internal: { lastHistoryHash: string }
-  results: ResultsState  // Analysis results panel state
+  /**
+   * Analysis results panel state for the main canvas app.
+   * Authoritative source for src/canvas/ and src/components/results/.
+   * New code should use the named selectors in
+   * src/canvas/selectors/results.ts rather than subscribing directly.
+   * The sandbox-guide surfaces (src/pages/sandbox-guide/) use a
+   * separate useResultsStore with the same schema. See the JSDoc on
+   * useResultsStore for the split rationale.
+   */
+  results: ResultsState
   runMeta: RunMetaState
   /** A1: Snapshot of key values from the previous analysis run for delta display */
   previousReport: PreviousReportSnapshot | null

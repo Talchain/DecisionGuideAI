@@ -1,8 +1,20 @@
 /**
- * Results Store - Manages analysis results state
+ * Results Store — analysis results state for the sandbox-guide surfaces.
  *
- * Extracted from src/canvas/store.ts for better modularity.
- * See docs/STORE_MODULARIZATION_PLAN.md for migration details.
+ * The main canvas app (`src/canvas/`, `src/components/results/`) reads
+ * results from `useCanvasStore` instead (see the `results` and `runMeta`
+ * fields on CanvasState, and the named selectors in
+ * `src/canvas/selectors/results.ts`).
+ *
+ * The two stores hold the same shape but are not currently synchronised.
+ * This reflects the current architecture, not necessarily the target
+ * state. Consolidation would require migrating every sandbox-guide
+ * consumer (src/pages/sandbox-guide/, useV2Run, useResultsRun,
+ * useConversation, useThreadPersistence, IntelligenceSection) and is
+ * out of scope for the C3/C4 slice-extraction work.
+ *
+ * New main-canvas code should use the selectors in
+ * `src/canvas/selectors/results.ts` rather than touching this store.
  */
 import { create } from 'zustand'
 import type { ReportV1 } from '../../adapters/plot/types'
