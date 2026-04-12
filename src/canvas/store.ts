@@ -55,6 +55,19 @@ import {
 // Task C: Panel coordination — opening one right panel closes others
 import { useUIStore } from '../stores/uiStore'
 
+/**
+ * Main canvas store. Holds graph, history, CEE readiness, results,
+ * scenario, and tightly coupled UI state (lens, panels, documents).
+ *
+ * Independent slices extracted:
+ *   useComparisonStore — passive comparison state
+ *   useDraftStore — model selection, draft status, generation state
+ *
+ * See also:
+ *   useResultsStore — sandbox-guide results (separate surface, not synchronised)
+ *   src/canvas/selectors/results.ts — named selectors for canvas-app results
+ */
+
 /** A1: Lightweight snapshot of key values for delta display between analysis runs */
 export interface OptionSnapshot {
   winProbability?: number

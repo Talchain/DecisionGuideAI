@@ -1,32 +1,18 @@
 /**
- * Canvas Stores - Modular state management
+ * Canvas Stores — modular state management barrel.
  *
- * This module exports individual stores that were extracted from
- * the monolithic src/canvas/store.ts for better modularity.
+ * Extracted slices:
+ *   useComparisonStore — passive comparison state (C3-3)
+ *   useDraftStore — model selection, draft status, generation state (C3-5)
+ *   useResultsStore — sandbox-guide results surface (pre-existing)
  *
- * Migration Status:
- * - panelsStore: ✅ Extracted (panel visibility flags)
- * - resultsStore: ✅ Extracted (analysis results state)
- * - documentsStore: ✅ Extracted (documents and citations)
- * - graphHealthStore: ✅ Extracted (validation and repair)
- * - graphStore: 🔄 Pending (nodes, edges, history - largest slice)
- * - scenarioStore: 🔄 Pending (scenario management)
- *
- * See docs/STORE_MODULARIZATION_PLAN.md for full migration plan.
+ * Dormant shadow stores (useDocumentsStore, usePanelsStore) deleted as of
+ * C3/C4 follow-up: they had zero production consumers. Documents, panels,
+ * and lens state remain in useCanvasStore because their setters are coupled
+ * to graph history, panel-coordination side effects, or atomic lens resets.
  */
 
-// Panel visibility store
-export {
-  usePanelsStore,
-  type PanelsState,
-  type PanelsActions,
-  selectShowResultsPanel,
-  selectShowInspectorPanel,
-  selectShowTemplatesPanel,
-  selectShowIssuesPanel,
-} from './panelsStore'
-
-// Analysis results store
+// Analysis results store (sandbox-guide authoritative source)
 export {
   useResultsStore,
   type ResultsState,
@@ -42,17 +28,6 @@ export {
   selectResultsHash,
   selectHasCompletedFirstRun,
 } from './resultsStore'
-
-// Documents and citations store
-export {
-  useDocumentsStore,
-  type DocumentsState,
-  type DocumentsActions,
-  selectDocuments,
-  selectCitations,
-  selectDocumentSearchQuery,
-  selectDocumentSort,
-} from './documentsStore'
 
 // Graph health and validation store
 export {
@@ -94,16 +69,8 @@ export {
 } from './readinessStore'
 
 /**
- * IMPORTANT: For backward compatibility, the main store.ts still exists
- * and provides the combined useCanvasStore hook. New code should prefer
- * using the individual stores above for better performance (fewer re-renders)
- * and easier testing.
- *
- * Migration guide:
- *
- * // Before (triggers re-render on any store change)
- * const showResultsPanel = useCanvasStore(s => s.showResultsPanel)
- *
- * // After (only re-renders when panel state changes)
- * const showResultsPanel = usePanelsStore(s => s.showResultsPanel)
+ * The main store.ts holds graph, history, CEE readiness, results (for the
+ * main canvas surface), scenario, and tightly coupled UI state (lens,
+ * panels, documents). New results code in the canvas app should use the
+ * named selectors in src/canvas/selectors/results.ts.
  */
