@@ -728,6 +728,10 @@ export interface ResultsReport extends Omit<ReportV1, 'option_probabilities'> {
   quality_factors?: Array<Record<string, unknown>>
   improvement_guidance?: Array<Record<string, unknown>>
   analysis_state?: string
+  /** PLoT-classified confidence tier (B2, optional for cached pre-B1 results) */
+  confidence_tier?: 'strong' | 'fair' | 'needs_work'
+  /** PLoT-classified dominant factor (B2, optional for cached pre-B1 results) */
+  dominant_factor?: { factor_id: string; factor_label: string }
   drivers_error?: string
   sensitivity?: { factors?: Array<Record<string, unknown>>; error?: string }
   isl_error?: string

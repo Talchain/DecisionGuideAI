@@ -508,7 +508,15 @@ export function mapV2ResponseToReportV1(
     // P0 Fix: Pass through robustness object for UI display (fragile/robust edges).
     // P2 Fix: Use safeArrayWithMeta() to preserve truncation metadata for UI display
     robustness: v2Response.robustness ? (() => {
-      const fragile = safeArrayWithMeta(v2Response.robustness!.fragile_edges)
+      const rawFragile = safeArrayWithMeta(v2Response.robustness!.fragile_edges)
+      // B2: Normalise fragile edge items — bare strings become { edge_id: str }
+      // so downstream code always receives objects, never bare strings.
+      const fragile = {
+        ...rawFragile,
+        items: rawFragile.items.map((item: unknown) =>
+          typeof item === 'string' ? { edge_id: item } : item
+        ),
+      }
       const robust = safeArrayWithMeta(v2Response.robustness!.robust_edges)
       // P0 Fix: Extract is_robust for TopBar stability chip (may exist in response but not in TS type)
       const robustnessRaw = v2Response.robustness as Record<string, unknown>
@@ -641,6 +649,9 @@ export function mapV2ResponseToReportV1(
     ],
     // Include anomaly flags for gate logic
     _computedButEmptyAnomalies: anomalies.length > 0 ? anomalies : undefined,
+    // B2: Pass through PLoT-classified fields for UI consumption
+    confidence_tier: v2Response.confidence_tier,
+    dominant_factor: v2Response.dominant_factor,
   }
 }
 

@@ -20,6 +20,9 @@ import {
   mapReadinessLevel,
   mapConfidenceLevel,
   getConfidenceTier,
+  deriveConfidenceTierLegacy,
+  classifySeverityLegacy,
+  detectDominantFactorLegacy,
   normaliseImprovements,
   normalizeOutcomeValues,
   determineWinnerSelection,
@@ -488,8 +491,27 @@ describe('mapConfidenceLevel', () => {
 })
 
 describe('getConfidenceTier', () => {
-  it('prefers graphReadiness.readiness_level', () => {
+  it('prefers PLoT confidence_tier over all fallbacks', () => {
     const result = getConfidenceTier(
+      'fair',
+      { readiness_level: 'ready', readiness_score: 90 },
+      { confidence: { level: 'high' } }
+    )
+    expect(result).toBe('fair')
+  })
+
+  it('ignores invalid PLoT confidence_tier values', () => {
+    const result = getConfidenceTier(
+      'excellent' as any,
+      { readiness_level: 'ready' },
+      undefined
+    )
+    expect(result).toBe('strong') // Falls through to graphReadiness
+  })
+
+  it('falls back to graphReadiness.readiness_level when plotTier absent', () => {
+    const result = getConfidenceTier(
+      undefined,
       { readiness_level: 'ready', readiness_score: 50 },
       { confidence: { level: 'low' } }
     )
@@ -498,6 +520,7 @@ describe('getConfidenceTier', () => {
 
   it('falls back to graphReadiness.readiness_score', () => {
     const result = getConfidenceTier(
+      undefined,
       { readiness_score: 75 },
       { confidence: { level: 'low' } }
     )
@@ -505,26 +528,112 @@ describe('getConfidenceTier', () => {
   })
 
   it('maps readiness_score thresholds correctly', () => {
-    expect(getConfidenceTier({ readiness_score: 70 }, undefined)).toBe('strong')
-    expect(getConfidenceTier({ readiness_score: 69 }, undefined)).toBe('fair')
-    expect(getConfidenceTier({ readiness_score: 40 }, undefined)).toBe('fair')
-    expect(getConfidenceTier({ readiness_score: 39 }, undefined)).toBe('needs_work')
-    expect(getConfidenceTier({ readiness_score: 0 }, undefined)).toBe('needs_work')
+    expect(getConfidenceTier(undefined, { readiness_score: 70 }, undefined)).toBe('strong')
+    expect(getConfidenceTier(undefined, { readiness_score: 69 }, undefined)).toBe('fair')
+    expect(getConfidenceTier(undefined, { readiness_score: 40 }, undefined)).toBe('fair')
+    expect(getConfidenceTier(undefined, { readiness_score: 39 }, undefined)).toBe('needs_work')
+    expect(getConfidenceTier(undefined, { readiness_score: 0 }, undefined)).toBe('needs_work')
   })
 
   it('falls back to report.confidence.level', () => {
-    const result = getConfidenceTier(undefined, { confidence: { level: 'high' } })
+    const result = getConfidenceTier(undefined, undefined, { confidence: { level: 'high' } })
     expect(result).toBe('strong')
   })
 
   it('falls back to report.graph_quality.score', () => {
-    const result = getConfidenceTier(undefined, { graph_quality: { score: 80 } })
+    const result = getConfidenceTier(undefined, undefined, { graph_quality: { score: 80 } })
     expect(result).toBe('strong')
   })
 
   it('returns unknown when no data available', () => {
-    expect(getConfidenceTier(undefined, undefined)).toBe('unknown')
-    expect(getConfidenceTier({}, {})).toBe('unknown')
+    expect(getConfidenceTier(undefined, undefined, undefined)).toBe('unknown')
+    expect(getConfidenceTier(undefined, {}, {})).toBe('unknown')
+  })
+})
+
+// =============================================================================
+// B2: classifySeverityLegacy
+// =============================================================================
+
+describe('classifySeverityLegacy', () => {
+  it('returns critical for switch_probability > 0.7', () => {
+    expect(classifySeverityLegacy(0.71)).toBe('critical')
+    expect(classifySeverityLegacy(0.9)).toBe('critical')
+  })
+
+  it('returns error for switch_probability > 0.5 and <= 0.7', () => {
+    expect(classifySeverityLegacy(0.51)).toBe('error')
+    expect(classifySeverityLegacy(0.7)).toBe('error')
+  })
+
+  it('returns warning for switch_probability <= 0.5', () => {
+    expect(classifySeverityLegacy(0.5)).toBe('warning')
+    expect(classifySeverityLegacy(0.3)).toBe('warning')
+    expect(classifySeverityLegacy(0)).toBe('warning')
+  })
+
+  it('returns warning when flipProbability is undefined', () => {
+    expect(classifySeverityLegacy(undefined)).toBe('warning')
+  })
+
+  it('returns warning when flipProbability is null', () => {
+    expect(classifySeverityLegacy(null)).toBe('warning')
+  })
+})
+
+// =============================================================================
+// B2: deriveConfidenceTierLegacy
+// =============================================================================
+
+describe('deriveConfidenceTierLegacy', () => {
+  it('preserves existing cascade: readiness_level > score > confidence > quality', () => {
+    expect(deriveConfidenceTierLegacy({ readiness_level: 'ready' }, undefined)).toBe('strong')
+    expect(deriveConfidenceTierLegacy({ readiness_score: 75 }, undefined)).toBe('strong')
+    expect(deriveConfidenceTierLegacy(undefined, { confidence: { level: 'low' } })).toBe('needs_work')
+    expect(deriveConfidenceTierLegacy(undefined, { graph_quality: { score: 50 } })).toBe('fair')
+    expect(deriveConfidenceTierLegacy(undefined, undefined)).toBe('unknown')
+  })
+})
+
+// =============================================================================
+// B2: detectDominantFactorLegacy
+// =============================================================================
+
+describe('detectDominantFactorLegacy', () => {
+  it('detects dominant factor when top driver > 0.5 influence and ratio > 2:1', () => {
+    const drivers = [
+      { factorKey: 'fac_1', factorLabel: 'Market size', influenceScore: 0.8 },
+      { factorKey: 'fac_2', factorLabel: 'Regulation', influenceScore: 0.2 },
+    ]
+    const result = detectDominantFactorLegacy(drivers)
+    expect(result).toEqual({ dominantFactorId: 'fac_1', dominantFactorLabel: 'Market size' })
+  })
+
+  it('returns undefined when no dominance (ratio < 2:1)', () => {
+    const drivers = [
+      { factorKey: 'fac_1', factorLabel: 'Market size', influenceScore: 0.6 },
+      { factorKey: 'fac_2', factorLabel: 'Regulation', influenceScore: 0.4 },
+    ]
+    expect(detectDominantFactorLegacy(drivers)).toBeUndefined()
+  })
+
+  it('returns undefined with fewer than 2 drivers', () => {
+    expect(detectDominantFactorLegacy([{ factorKey: 'a', factorLabel: 'A', influenceScore: 0.9 }])).toBeUndefined()
+    expect(detectDominantFactorLegacy([])).toBeUndefined()
+  })
+
+  it('server wins: PLoT dominant_factor takes priority over local heuristic', () => {
+    // This test validates the priority chain in the hook:
+    // report.dominant_factor (fac_2) should win over what detectDominantFactorLegacy would return (fac_1).
+    // The legacy function itself just does the heuristic, so here we verify it WOULD produce fac_1.
+    const drivers = [
+      { factorKey: 'fac_1', factorLabel: 'Market size', influenceScore: 0.8 },
+      { factorKey: 'fac_2', factorLabel: 'Regulation', influenceScore: 0.2 },
+    ]
+    const legacyResult = detectDominantFactorLegacy(drivers)
+    expect(legacyResult?.dominantFactorId).toBe('fac_1')
+    // In the hook, report.dominant_factor = { factor_id: 'fac_2', factor_label: 'Regulation' }
+    // would override this. See "server wins" integration test below.
   })
 })
 
@@ -1212,5 +1321,47 @@ describe('resolveBaselineId', () => {
     const result = resolveBaselineId(options, nodes as any, undefined)
 
     expect(result).toBeNull()
+  })
+})
+
+// =============================================================================
+// B2: "Server wins" integration tests — PLoT classified fields override local computation
+// =============================================================================
+
+describe('B2: dominant factor server wins', () => {
+  beforeEach(() => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { fragile_edges: [] },
+          option_comparison: [],
+          // B2: PLoT says fac_2 is dominant
+          dominant_factor: { factor_id: 'fac_2', factor_label: 'Regulation' },
+          factor_sensitivity: [
+            // Local heuristic would pick fac_1 (0.8 influence, ratio > 2:1 vs fac_2's 0.2)
+            { factor_id: 'fac_1', sensitivity_score: 0.8, importance_rank: 1 },
+            { factor_id: 'fac_2', sensitivity_score: 0.2, importance_rank: 2 },
+          ],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [
+        { id: 'goal_1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
+        { id: 'fac_1', type: 'factor', data: { label: 'Market size', kind: 'factor' }, position: { x: 0, y: 0 } },
+        { id: 'fac_2', type: 'factor', data: { label: 'Regulation', kind: 'factor' }, position: { x: 0, y: 0 } },
+      ] as any,
+      edges: [],
+    })
+  })
+
+  it('uses PLoT dominant_factor over local heuristic', () => {
+    const { result } = renderHook(() => useResultsSectionData())
+    // Server says fac_2 (Regulation); local heuristic would say fac_1 (Market size)
+    expect(result.current.drivers.dominantFactorId).toBe('fac_2')
+    expect(result.current.drivers.dominantFactorLabel).toBe('Regulation')
   })
 })

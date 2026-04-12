@@ -841,8 +841,12 @@ describe('robustness passthrough to report (P0 Fix)', () => {
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
     // P0 Fix: robustness object should be passed through
+    // B2: bare string fragile edges are normalised to { edge_id: str } objects
     expect((report as any).robustness).toBeDefined()
-    expect((report as any).robustness.fragile_edges).toEqual(['edge1::edge2', 'edge3::edge4'])
+    expect((report as any).robustness.fragile_edges).toEqual([
+      { edge_id: 'edge1::edge2' },
+      { edge_id: 'edge3::edge4' },
+    ])
     expect((report as any).robustness.robust_edges).toEqual(['edge5::edge6'])
   })
 
@@ -882,8 +886,8 @@ describe('robustness passthrough to report (P0 Fix)', () => {
 
     const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
 
-    // safeArray should unwrap the truncated format
-    expect((report as any).robustness.fragile_edges).toEqual(['edge1', 'edge2'])
+    // safeArray should unwrap the truncated format; B2: strings normalised to objects
+    expect((report as any).robustness.fragile_edges).toEqual([{ edge_id: 'edge1' }, { edge_id: 'edge2' }])
     expect((report as any).robustness.robust_edges).toEqual(['edge3'])
   })
 
@@ -1047,5 +1051,67 @@ describe('createEnrichmentFromV2Response - P0 Fix: Robustness with empty edge_se
     const enrichment = createEnrichmentFromV2Response(v2Response)
 
     expect(enrichment).toBeNull()
+  })
+})
+
+// ============================================================================
+// B2: PLoT classified field pass-through
+// ============================================================================
+
+describe('B2: PLoT classified field pass-through', () => {
+  it('passes through confidence_tier from V2 response', () => {
+    const v2Response = makeSuccessResponse({ confidence_tier: 'fair' })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    expect((report as any).confidence_tier).toBe('fair')
+  })
+
+  it('passes through dominant_factor from V2 response', () => {
+    const v2Response = makeSuccessResponse({
+      dominant_factor: { factor_id: 'fac_1', factor_label: 'Market size' },
+    })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    expect((report as any).dominant_factor).toEqual({ factor_id: 'fac_1', factor_label: 'Market size' })
+  })
+
+  it('confidence_tier is undefined when absent from V2 response', () => {
+    const v2Response = makeSuccessResponse()
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    expect((report as any).confidence_tier).toBeUndefined()
+  })
+
+  it('dominant_factor is undefined when absent from V2 response', () => {
+    const v2Response = makeSuccessResponse()
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    expect((report as any).dominant_factor).toBeUndefined()
+  })
+
+  it('fragile edge item with severity survives mapV2ResponseToReportV1', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: {
+        fragile_edges: [
+          { edge_id: 'e1', severity: 'error', switch_probability: 0.6 } as any,
+        ],
+        robust_edges: ['e2'],
+      },
+    })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    const fragileEdges = (report as any).robustness?.fragile_edges
+    expect(fragileEdges).toHaveLength(1)
+    expect(fragileEdges[0].severity).toBe('error')
+    expect(fragileEdges[0].edge_id).toBe('e1')
+    expect(fragileEdges[0].switch_probability).toBe(0.6)
+  })
+
+  it('normalises bare string fragile edges to objects with edge_id', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: {
+        fragile_edges: ['edge_abc'] as any,
+        robust_edges: [],
+      },
+    })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    const fragileEdges = (report as any).robustness?.fragile_edges
+    expect(fragileEdges).toHaveLength(1)
+    expect(fragileEdges[0]).toEqual({ edge_id: 'edge_abc' })
   })
 })

@@ -577,10 +577,11 @@ function mapConfidenceLevel(level: string): ConfidenceTier {
 }
 
 /**
- * Get confidence tier with full fallback chain.
- * Priority: Graph readiness level > readiness score > report confidence > graph quality score
+ * Legacy confidence tier derivation via fallback cascade.
+ * UI-SEM-015: Score-based thresholds (>=70 strong, >=40 fair, else needs_work).
+ * @deprecated Remove after 2026-05-12 — PLoT B1 now provides confidence_tier on the response.
  */
-function getConfidenceTier(
+function deriveConfidenceTierLegacy(
   graphReadiness: { readiness_level?: string; readiness_score?: number } | undefined,
   report: { confidence?: { level?: string }; graph_quality?: { score?: number } } | undefined
 ): ConfidenceTier {
@@ -588,9 +589,6 @@ function getConfidenceTier(
   if (graphReadiness?.readiness_level) {
     return mapReadinessLevel(graphReadiness.readiness_level)
   }
-
-  // UI-SEM-015: Confidence tier score-based fallback (>=70 strong, >=40 fair, else needs_work).
-  // Estimated — PLoT does not provide tier thresholds for numeric readiness/quality scores.
 
   // 2. Fallback: Graph readiness readiness_score (0-100)
   if (typeof graphReadiness?.readiness_score === 'number') {
@@ -612,6 +610,69 @@ function getConfidenceTier(
   }
 
   return 'unknown'
+}
+
+/**
+ * Get confidence tier — reads PLoT-classified tier first, falls back to legacy cascade.
+ * Presentation-tier classification from PLoT V2, derived from coaching readiness.
+ * Not the same as robustness.level or ISL inference confidence.
+ */
+function getConfidenceTier(
+  plotTier: 'strong' | 'fair' | 'needs_work' | undefined,
+  graphReadiness: { readiness_level?: string; readiness_score?: number } | undefined,
+  report: { confidence?: { level?: string }; graph_quality?: { score?: number } } | undefined
+): ConfidenceTier {
+  // 0. Highest priority: PLoT-classified confidence_tier (B1+)
+  if (plotTier === 'strong' || plotTier === 'fair' || plotTier === 'needs_work') {
+    return plotTier
+  }
+  // DEPRECATION FALLBACK: Remove after 2026-05-12
+  // Pre-B1 cached results lack confidence_tier; use legacy cascade.
+  return deriveConfidenceTierLegacy(graphReadiness, report)
+}
+
+// =============================================================================
+// B2 Deprecation Fallbacks — Remove after 2026-05-12
+// =============================================================================
+
+/**
+ * Classify fragile edge severity from switch_probability thresholds.
+ * UI-SEM-012: >0.7 critical, >0.5 error, else warning.
+ * @deprecated Remove after 2026-05-12 — PLoT B1 now provides severity on fragile_edges items.
+ */
+function classifySeverityLegacy(
+  flipProbability: number | undefined | null
+): 'critical' | 'error' | 'warning' {
+  if (typeof flipProbability === 'number') {
+    if (flipProbability > 0.7) return 'critical'
+    if (flipProbability > 0.5) return 'error'
+  }
+  return 'warning'
+}
+
+/**
+ * Detect dominant factor via local heuristic: top driver influence > 0.5
+ * AND ratio vs second driver > 2:1.
+ * UI-SEM-040.
+ * @deprecated Remove after 2026-05-12 — PLoT B1 now provides dominant_factor on the response.
+ */
+function detectDominantFactorLegacy(
+  nonZeroImpactDrivers: Array<{ factorKey: string; factorLabel: string; influenceScore?: number; normalisedInfluence?: number }>
+): { dominantFactorId: string; dominantFactorLabel: string } | undefined {
+  if (nonZeroImpactDrivers.length < 2) return undefined
+  const top1 = nonZeroImpactDrivers[0]
+  const top2 = nonZeroImpactDrivers[1]
+  const top1Influence = top1.influenceScore ?? top1.normalisedInfluence
+  const top2Influence = top2.influenceScore ?? top2.normalisedInfluence
+  if (typeof top1Influence !== 'number' || typeof top2Influence !== 'number') return undefined
+  const isDominant = top1Influence > 0.5 && (top2Influence > 0 ? top1Influence / top2Influence > 2 : true)
+  if (isDominant) {
+    return {
+      dominantFactorId: top1.factorKey,
+      dominantFactorLabel: top1.factorLabel,
+    }
+  }
+  return undefined
 }
 
 // =============================================================================
@@ -1213,16 +1274,18 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const raw = reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined
         return raw ? sanitizeCoachingText(raw) : undefined
       })(),
-      // M1 Coaching: Dominant factor from key_drivers (factor with >50% influence)
-      // Use PLoT's computed dominant_factor if available
-      dominantFactorId: m1Coaching?.key_drivers?.dominant_factor,
+      // B2: Dominant factor — prefer PLoT top-level field, fall back to m1Coaching, then local heuristic
+      dominantFactorId: report?.dominant_factor?.factor_id
+        // DEPRECATION FALLBACK: Remove after 2026-05-12 — m1Coaching path is effectively dead per B1 investigation.
+        ?? m1Coaching?.key_drivers?.dominant_factor,
       dominantFactorLabel: (() => {
+        // B2: PLoT top-level dominant_factor provides both id and label
+        if (report?.dominant_factor?.factor_label) return report.dominant_factor.factor_label
+        // DEPRECATION FALLBACK: Remove after 2026-05-12 — m1Coaching path is effectively dead per B1 investigation.
         const dominantId = m1Coaching?.key_drivers?.dominant_factor
         if (!dominantId) return undefined
-        // Look up label from key_drivers.drivers
         const driver = m1Coaching?.key_drivers?.drivers?.find((d: any) => d.factor_id === dominantId)
         if (driver?.factor_label) return driver.factor_label
-        // Fallback: look up from nodeLabelMap
         return nodeLabelMap.get(dominantId) ?? dominantId
       })(),
       // Task 6: Ready + warnings consistency
@@ -1570,15 +1633,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       islError: islErrorMessage,
       // Task 2: Track hidden zero-impact factors
       hiddenZeroImpactCount: zeroImpactCount > 0 ? zeroImpactCount : undefined,
-      // Task 3 (M1 Coaching): Detect dominant factor
-      // Priority: Use PLoT's m1Coaching.key_drivers.dominant_factor if available
-      // Fallback: Local heuristic (>50% influence AND top 2 ratio > 2:1)
-      // This ensures consistency with RecommendationSection which also uses m1Coaching
+      // B2: Detect dominant factor
+      // Priority: PLoT top-level dominant_factor > m1Coaching > local heuristic
       ...(() => {
-        // First, check if PLoT provided a dominant factor
+        // B2: Prefer PLoT top-level dominant_factor (has both id and label)
+        if (report?.dominant_factor) {
+          return {
+            dominantFactorId: report.dominant_factor.factor_id,
+            dominantFactorLabel: report.dominant_factor.factor_label,
+          }
+        }
+        // DEPRECATION FALLBACK: Remove after 2026-05-12 — m1Coaching path is effectively dead per B1 investigation.
         const plotDominantId = m1Coaching?.key_drivers?.dominant_factor
         if (plotDominantId) {
-          // Look up the driver item to get the label
           const dominantDriver = nonZeroImpactDrivers.find((d: any) => d.factorKey === plotDominantId)
           if (dominantDriver) {
             return {
@@ -1586,30 +1653,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
               dominantFactorLabel: dominantDriver.factorLabel,
             }
           }
-          // Driver not in our list - use PLoT's key_drivers for label
           const plotDriver = m1Coaching?.key_drivers?.drivers?.find((d: any) => d.factor_id === plotDominantId)
           return {
             dominantFactorId: plotDominantId,
             dominantFactorLabel: plotDriver?.factor_label ?? plotDominantId,
           }
         }
-
-        // Fallback: Local heuristic when PLoT doesn't provide dominant_factor
-        if (nonZeroImpactDrivers.length < 2) return {}
-        const top1 = nonZeroImpactDrivers[0]
-        const top2 = nonZeroImpactDrivers[1]
-        const top1Influence = top1.influenceScore ?? top1.normalisedInfluence
-        const top2Influence = top2.influenceScore ?? top2.normalisedInfluence
-        // UI-SEM-040: Dominance detection heuristic (>0.5 influence AND ratio >2:1).
-        // Remove when PLoT provides dominant_factor in all responses.
-        const isDominant = top1Influence > 0.5 && (top2Influence > 0 ? top1Influence / top2Influence > 2 : true)
-        if (isDominant) {
-          return {
-            dominantFactorId: top1.factorKey,
-            dominantFactorLabel: top1.factorLabel,
-          }
-        }
-        return {}
+        // DEPRECATION FALLBACK: Remove after 2026-05-12 — local heuristic (UI-SEM-040).
+        const legacy = detectDominantFactorLegacy(nonZeroImpactDrivers as any)
+        return legacy ? { dominantFactorId: legacy.dominantFactorId, dominantFactorLabel: legacy.dominantFactorLabel } : {}
       })(),
     }
   }, [report, nodes, edges, goalNodeId, outcomeNodeIds])
@@ -1626,7 +1678,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     } : undefined
 
     // Get confidence tier with full fallback chain
-    const tier = getConfidenceTier(graphReadiness, report ?? undefined)
+    const tier = getConfidenceTier(report?.confidence_tier, graphReadiness, report ?? undefined)
 
     // Derive quality score - only use actual computed values, never fabricate
     // When only tier is known, qualityScore remains null and UI shows tier label only
@@ -1975,18 +2027,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       const friendlyMessage = fe.description ||
         `If "${edgeLabel}" changes significantly, "${alternativeWinnerLabel}" could become the better choice`
 
-      // UI-SEM-012: Edge severity derived from switch_probability thresholds (>0.7 critical, >0.5 error).
-      // Remains because PLoT does not provide a severity field for fragile edges.
-      // Upstream fix: PLoT returns severity on fragile_edges/edge_sensitivity items.
-      let severity: 'critical' | 'error' | 'warning' = 'warning'
-      const flipProbability = fe.switch_probability ?? fe.marginal_switch_probability
-      if (typeof flipProbability === 'number') {
-        if (flipProbability > 0.7) {
-          severity = 'critical'  // Task 4: Use 'critical' instead of 'blocker' for fragile edges
-        } else if (flipProbability > 0.5) {
-          severity = 'error'
-        }
-      }
+      // UI-SEM-012: Read PLoT-classified severity (B1+); fall back to local heuristic for pre-B1 cached results.
+      const severity: 'critical' | 'error' | 'warning' =
+        (fe.severity === 'critical' || fe.severity === 'error' || fe.severity === 'warning')
+          ? fe.severity
+          // DEPRECATION FALLBACK: Remove after 2026-05-12
+          // Pre-B1 cached results lack severity field; compute locally via classifySeverityLegacy.
+          : classifySeverityLegacy(fe.switch_probability ?? fe.marginal_switch_probability)
 
       // Look up factor confidence from driver items for confidence pill display
       const factorConfidence = (() => {
@@ -2399,5 +2446,8 @@ export {
   mapReadinessLevel,
   mapConfidenceLevel,
   getConfidenceTier,
+  deriveConfidenceTierLegacy,
+  classifySeverityLegacy,
+  detectDominantFactorLegacy,
   normaliseImprovements,
 }

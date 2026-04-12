@@ -258,10 +258,30 @@ export interface V2Robustness {
 }
 
 /**
+ * Fragile edge item from PLoT V2 robustness response (B1+).
+ * Pre-B1 responses return bare edge ID strings; post-B1 returns objects.
+ */
+export interface V2FragileEdgeItem {
+  edge_id?: string
+  severity?: 'critical' | 'error' | 'warning'
+  switch_probability?: number
+  marginal_switch_probability?: number
+  from_id?: string
+  to_id?: string
+  from_label?: string
+  to_label?: string
+  alternative_winner_id?: string
+  alternative_winner_label?: string
+  description?: string
+  label?: string
+  [key: string]: unknown
+}
+
+/**
  * V2 robustness info (actual PLoT response format).
  */
 export interface V2RobustnessActual {
-  fragile_edges: string[]
+  fragile_edges: Array<string | V2FragileEdgeItem>
   robust_edges: string[]
   /** Ranking stability - how stable the overall ranking is (0-1) */
   ranking_stability?: number
@@ -377,6 +397,15 @@ export interface V2RunResponse {
   meta?: V2Meta
   /** Echoed from request for tracing */
   request_id?: string
+
+  // ==========================================================================
+  // B1 Classified Fields (PLoT-computed, optional for cached pre-B1 results)
+  // ==========================================================================
+
+  /** PLoT-classified confidence tier (B1 field). Not the same as robustness.level. */
+  confidence_tier?: 'strong' | 'fair' | 'needs_work'
+  /** PLoT-classified dominant factor (B1 field). Absent when no factor dominates. */
+  dominant_factor?: { factor_id: string; factor_label: string }
 
   // ==========================================================================
   // M1 CEE Review Fields (optional enrichment)
