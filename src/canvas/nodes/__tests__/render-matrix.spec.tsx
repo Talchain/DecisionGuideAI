@@ -42,9 +42,7 @@ vi.mock('../../layoutStore', () => ({
 }))
 vi.mock('../../../flags', () => ({
   isGraphBadgesEnabled: vi.fn(() => false),
-  isNodeIntelligenceEnabled: vi.fn(() => false),
   isCrossHighlightEnabled: vi.fn(() => false),
-  isContextMenuEnabled: vi.fn(() => false),
   isGraphLensEnabled: vi.fn(() => false),
 }))
 vi.mock('../../hooks/useScienceIcons', () => ({

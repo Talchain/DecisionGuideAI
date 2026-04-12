@@ -21,7 +21,6 @@ import { isStructuralEdge } from './domain/edgeUtils'
 import { isSelfLoop, isDuplicateEdge, wouldCreateCycle, wouldExceedLimits, limitExceededMessage } from './validation/graphGuardrails'
 import type { ContextTarget } from './contextMenu/types'
 import type { NodeType } from './domain/nodes'
-import { CanvasToolbar } from './CanvasToolbar'
 import { LeftSidebar } from '../components/layout/LeftSidebar'
 import { CanvasViewportControls } from '../components/layout/CanvasViewportControls'
 import { RightPanel } from '../components/layout/RightPanel'
@@ -75,7 +74,7 @@ import { OutputsDock } from './components/OutputsDock'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
-import { isInputsOutputsEnabled, isCommandPaletteEnabled, isDegradedBannerEnabled, isOnboardingTourEnabled, isCrossHighlightEnabled, pocFlags } from '../flags'
+import { isOnboardingTourEnabled, isCrossHighlightEnabled, pocFlags } from '../flags'
 import { HighlightProvider, useHighlightContext } from './highlighting/HighlightContext'
 import { useEngineLimits } from './hooks/useEngineLimits'
 import { useRunEligibilityCheck } from './hooks/useRunEligibilityCheck'
@@ -132,17 +131,8 @@ function logCanvasBreadcrumb(message: string, data?: Record<string, any>) {
   } catch {}
 }
 
-// Week 2 Layout Migration: New layout is NOW THE DEFAULT
-// Old dock layout (InputsDock, OutputsDock, CanvasToolbar) is deprecated
-// Set VITE_FEATURE_CONTEXT_BAR=0 to temporarily revert to old layout
-// Note: pocFlags.contextBar requires VITE_POC_ONLY=1 or explicit opt-in
-// So we hardcode true and only check for explicit opt-OUT
-const USE_NEW_LAYOUT = (import.meta as any)?.env?.VITE_FEATURE_CONTEXT_BAR !== '0'
-
-// Debug: Log layout mode once on module load
-if (typeof window !== 'undefined') {
-  console.warn('[LAYOUT]', USE_NEW_LAYOUT ? 'NEW (canvas-first)' : 'OLD (docks)')
-}
+// Layout: new canvas-first layout is permanent (C5: VITE_FEATURE_CONTEXT_BAR retired)
+const USE_NEW_LAYOUT = true
 
 export interface BlueprintInsertResult {
   error?: string
@@ -565,15 +555,11 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
   // Results run hook
   const { run: runAnalysis } = useResultsRun()
-  const inputsOutputsEnabled = isInputsOutputsEnabled()
-  const dockLayoutEnabled = inputsOutputsEnabled && !USE_NEW_LAYOUT
-  const paletteEnabled = isCommandPaletteEnabled()
-  const degradedBannerEnabled = isDegradedBannerEnabled()
   useEngineLimits()
   const checkRunEligibility = useRunEligibilityCheck()
 
   useEffect(() => {
-    if (!USE_NEW_LAYOUT || typeof document === 'undefined') return
+    if (typeof document === 'undefined') return
 
     const root = document.documentElement
     const computed = getComputedStyle(root).getPropertyValue('--bottombar-h')
@@ -616,22 +602,14 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   // REACT #185 DEBUG: Disabled to isolate root cause
   // useRunDiagnosticsToast()
 
-  // E2E-only helper: when dock layout is OFF, auto-open the legacy documents drawer
-  // so that documents flows remain testable without relying on shortcut ordering.
+  // E2E-only helper: inputsOutputs is permanently enabled (C5), so this is a no-op.
+  // The legacy documents drawer auto-open path is dead code.
+  // Kept as minimal stub for E2E debug breadcrumb.
   useEffect(() => {
     if (debugMode !== 'normal') {
-      logCanvasBreadcrumb('e2e-docs:skip', { debugMode, inputsOutputsEnabled })
-      return
+      logCanvasBreadcrumb('e2e-docs:skip', { debugMode })
     }
-
-    if (!inputsOutputsEnabled && typeof window !== 'undefined') {
-      const win = window as any
-      if (win.__E2E === '1') {
-        setShowDocumentsDrawer(true)
-        logCanvasBreadcrumb('e2e-docs:auto-open', { debugMode })
-      }
-    }
-  }, [inputsOutputsEnabled, setShowDocumentsDrawer, debugMode])
+  }, [debugMode])
 
   // Autosave hook - saves graph every 30s when dirty
   useAutosave()
@@ -1035,32 +1013,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }, [showToast])
 
   const showDocuments = useCallback(() => {
-    if (dockLayoutEnabled) {
-      if (typeof document === 'undefined') return
-
-      const dock = document.querySelector('[data-testid="inputs-dock"]') as HTMLElement | null
-      if (!dock) return
-
-      const toggleButton = dock.querySelector('[data-testid="inputs-dock-toggle"]') as HTMLButtonElement | null
-      if (toggleButton && toggleButton.getAttribute('aria-label')?.includes('Expand')) {
-        toggleButton.click()
-      }
-
-      const documentsTab = dock.querySelector('[data-testid="inputs-dock-tab-documents"]') as HTMLButtonElement | null
-      if (documentsTab) {
-        documentsTab.click()
-      }
-
-      // Focus the documents panel body for keyboard users
-      requestAnimationFrame(() => {
-        const panel = document.querySelector('[data-testid="documents-panel"]') as HTMLElement | null
-        panel?.focus()
-      })
-
-      return
-    }
-
-    // Legacy drawer path: ensure drawer is open and focus it
     if (!useCanvasStore.getState().showDocumentsDrawer) {
       setShowDocumentsDrawer(true)
     }
@@ -1070,7 +1022,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       const drawer = document.querySelector('[data-testid="documents-drawer"]') as HTMLElement | null
       drawer?.focus()
     })
-  }, [dockLayoutEnabled, setShowDocumentsDrawer])
+  }, [setShowDocumentsDrawer])
 
   // Shift+F10: Open context menu at focused element position
   const handleKeyboardContextMenu = useCallback((screenPos: { x: number; y: number }) => {
@@ -2051,7 +2003,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {contextMenuTarget && <CanvasContextMenu target={contextMenuTarget} onClose={handleCloseContextMenu} screenToFlowPosition={screenToFlowPosition} />}
       {reconnecting && <ReconnectBanner />}
 
-      {!USE_NEW_LAYOUT && <CanvasToolbar />}
       <LeftSidebar
         interactionMode={interactionMode}
         onSelectClick={() => setInteractionMode(prev => prev === 'select' ? 'hand' : 'select')}
@@ -2081,7 +2032,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           className="absolute z-[1200] flex flex-col items-end gap-3"
           style={{
             top: 'calc(var(--topbar-h, 0px) + 1rem)',
-            right: dockLayoutEnabled ? 'calc(var(--dock-right-offset, 0rem) + 1rem)' : '1rem',
+            right: '1rem',
           }}
         >
           <InfluenceExplainer forceShow={isInfluenceExplainerForced} onDismiss={hideInfluenceExplainer} compact />
@@ -2105,13 +2056,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {/* M4: Graph Health UI - HealthStatusBar removed, consolidated into OutputsDock */}
       {/* NeedleMoversOverlay removed - Key Factors consolidated into DriversSignal */}
 
-      {paletteEnabled && showCommandPalette && (
+      {showCommandPalette && (
         <CommandPalette
           isOpen={showCommandPalette}
           onClose={() => setShowCommandPalette(false)}
         />
       )}
-      {degradedBannerEnabled && <DegradedBanner />}
+      <DegradedBanner />
       <KeyboardLegend isOpen={isKeyboardLegendOpen} onClose={closeKeyboardLegend} />
       {showIssuesPanel && graphHealth && (
         <Suspense fallback={<div className="fixed inset-0 flex items-center justify-center bg-black/20"><div className="text-sm text-white">Loading...</div></div>}>
@@ -2125,7 +2076,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
 
       {/* M5: Documents drawer (left side). When inputs/outputs layout is enabled, the
           DocumentsManager is rendered inside the InputsDock instead of this drawer. */}
-      {!dockLayoutEnabled && showDocumentsDrawer && (
+      {showDocumentsDrawer && (
         <div
           className="fixed left-0 w-96 bg-white border-r border-gray-200 shadow-panel overflow-hidden"
           style={{ zIndex: 2000, top: 'var(--topbar-h)', bottom: 'var(--bottombar-h)' }}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { isSseEnabled, isRunReportEnabled, isConfidenceChipsEnabled, isHintsEnabled, isParamsEnabled, isHistoryEnabled, isExportEnabled, isScenariosEnabled } from '../flags'
+import { isSseEnabled, isRunReportEnabled, isHintsEnabled, isParamsEnabled, isHistoryEnabled, isExportEnabled, isScenariosEnabled } from '../flags'
 import * as Flags from '../flags'
 import { useStreamFlags } from './StreamFlagsProvider'
 import { isJobsProgressEnabled } from '../flags'
@@ -253,7 +253,7 @@ export default function SandboxStreamPanel() {
   const lastArgsRef = useRef<{ seed?: string | number; budget?: number; model?: string } | null>(null)
   const [replayedFrom, setReplayedFrom] = useState<string | null>(null)
   const reportFlag = isRunReportEnabled()
-  const chipsFlag = isConfidenceChipsEnabled()
+  const chipsFlag = false // C5: confidence chips permanently disabled, flag retired
   const hintsFlag = isHintsEnabled()
   const paramsFlag = isParamsEnabled()
   const historyFlag = isHistoryEnabled()

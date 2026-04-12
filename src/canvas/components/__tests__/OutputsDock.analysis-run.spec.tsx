@@ -32,7 +32,6 @@ vi.mock('../../../flags', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../flags')>()
   return {
     ...actual,
-    isDecisionReviewEnabled: vi.fn(() => true),
     isTelemetryEnabled: () => true,
     isCompareEnabled: () => true,
     isOrchestratorV2Enabled: mockIsOrchestratorV2Enabled,

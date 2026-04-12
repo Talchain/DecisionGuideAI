@@ -7,8 +7,7 @@ import { STORAGE_KEY as RUN_HISTORY_STORAGE_KEY, type StoredRun } from '../../st
 import { __resetTelemetryCounters, __getTelemetryCounters } from '../../../lib/telemetry'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 
-const { mockIsDecisionReviewEnabled, mockIsOrchestratorV2Enabled, mockIsLegacyDirectRunEnabled, mockUseV2Run } = vi.hoisted(() => ({
-  mockIsDecisionReviewEnabled: vi.fn(() => true),
+const { mockIsOrchestratorV2Enabled, mockIsLegacyDirectRunEnabled, mockUseV2Run } = vi.hoisted(() => ({
   mockIsOrchestratorV2Enabled: vi.fn(() => false),
   mockIsLegacyDirectRunEnabled: vi.fn(() => true),
   mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
@@ -25,7 +24,6 @@ vi.mock('react-router-dom', async (importOriginal) => {
 
 // Mock flags module with all required exports
 vi.mock('../../../flags', () => ({
-  isDecisionReviewEnabled: mockIsDecisionReviewEnabled,
   isTelemetryEnabled: () => true,
   isCompareEnabled: () => true,
   isOrchestratorV2Enabled: mockIsOrchestratorV2Enabled,
@@ -83,14 +81,9 @@ describe('OutputsDock DOM', () => {
       _sendChip: null,
       _scrollToPatch: null,
     })
-    mockIsDecisionReviewEnabled.mockReturnValue(true)
     mockIsOrchestratorV2Enabled.mockReturnValue(false)
     mockIsLegacyDirectRunEnabled.mockReturnValue(true)
     mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })
-
-    // Reset the flag mock to default (true) before each test
-    const { isDecisionReviewEnabled } = await import('../../../flags')
-    vi.mocked(isDecisionReviewEnabled).mockReturnValue(true)
   })
 
   it('renders with correct ARIA attributes and sections', () => {
@@ -592,51 +585,8 @@ describe('OutputsDock DOM', () => {
     expect(trace).toHaveTextContent('req-xyz')
   })
 
-  it('does NOT render Decision Review when feature flag is disabled', async () => {
-    // Mock the flag to return false for this test
-    const { isDecisionReviewEnabled } = await import('../../../flags')
-    vi.mocked(isDecisionReviewEnabled).mockReturnValue(false)
-
-    const baseResults = useCanvasStore.getState().results
-
-    const fakeReport: any = {
-      results: {
-        conservative: 10,
-        likely: 20,
-        optimistic: 30,
-        units: 'percent',
-        unitSymbol: '%',
-      },
-      run: {
-        bands: { p10: 10, p50: 20, p90: 30 },
-      },
-    }
-
-    useCanvasStore.setState({
-      hasCompletedFirstRun: true,
-      results: {
-        ...baseResults,
-        status: 'complete',
-        report: fakeReport,
-      },
-      runMeta: {
-        ceeReview: {
-          story: {
-            headline: 'This should not render',
-            key_drivers: [],
-            next_actions: [],
-          },
-          journey: { is_complete: true, missing_envelopes: [] },
-        },
-      } as any,
-    } as any)
-
-    render(<OutputsDock />)
-
-    // Decision Review section should not exist in DOM when flag is off
-    expect(screen.queryByTestId('outputs-decision-review')).not.toBeInTheDocument()
-    expect(screen.queryByText('Decision Review')).not.toBeInTheDocument()
-  })
+  // C5: isDecisionReviewEnabled retired — decision review is always on.
+  // Test "does NOT render Decision Review when flag disabled" removed.
 
   it('renders Decision Review empty state when ceeTrace exists but no review or error', () => {
     const baseResults = useCanvasStore.getState().results
@@ -1615,7 +1565,6 @@ describe('I.2a: Secondary action button interaction', () => {
 
     // Re-mock flags with journey enabled
     vi.doMock('../../../flags', () => ({
-      isDecisionReviewEnabled: vi.fn(() => true),
       isTelemetryEnabled: () => true,
       isCompareEnabled: () => true,
       isOrchestratorV2Enabled: () => false,

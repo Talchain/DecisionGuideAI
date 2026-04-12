@@ -67,10 +67,4 @@ describe('EdgePanel causal claims — data contract', () => {
   })
 })
 
-describe('EdgePanel causal claims — flag gate', () => {
-  it('isCausalClaimsEnabled returns false by default (OFF)', async () => {
-    // Dynamic import to get fresh flag state
-    const { isCausalClaimsEnabled } = await import('../../../../flags')
-    expect(isCausalClaimsEnabled()).toBe(false)
-  })
-})
+// C5: isCausalClaimsEnabled flag retired — causal claims are unconditionally available

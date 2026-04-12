@@ -11,7 +11,7 @@
 // EXAMPLES:
 //   - isCompareEnabled()      → Show compare feature
 //   - isScenariosEnabled()    → Enable scenario management
-//   - isDecisionReviewEnabled → Show CEE decision review UI
+//   - isGraphLensEnabled       → Show graph lens modes
 //
 // DO NOT USE FOR:
 //   - Environment detection (dev/prod/E2E) → use lib/featureFlags.ts
@@ -56,23 +56,10 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_SCORECARD',
     storageKey: 'feature.scorecard',
   },
-  decisionReview: {
-    envKey: 'VITE_FEATURE_DECISION_REVIEW',
-    storageKey: 'feature.decisionReview',
-    defaultValue: true,
-  },
   diagnostics: {
     envKey: 'VITE_FEATURE_DIAGNOSTICS',
     storageKey: 'feature.diagnostics',
     defaultValue: true,
-  },
-  scenariosV2: {
-    envKey: 'VITE_FEATURE_SCENARIOS_V2',
-    storageKey: 'feature.scenariosV2',
-  },
-  a11yPolish: {
-    envKey: 'VITE_FEATURE_A11Y_POLISH',
-    storageKey: 'feature.a11yPolish',
   },
   perfProbes: {
     envKey: 'VITE_FEATURE_PERF_PROBES',
@@ -106,17 +93,9 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_REAL_REPORT',
     storageKey: 'feature.realReport',
   },
-  confidenceChips: {
-    envKey: 'VITE_FEATURE_CONFIDENCE_CHIPS',
-    storageKey: 'feature.confidenceChips',
-  },
   telemetry: {
     envKey: 'VITE_FEATURE_TELEMETRY',
     storageKey: 'feature.telemetry',
-  },
-  sseAuto: {
-    envKey: '', // localStorage-only flag (no env var)
-    storageKey: 'feature.sseAuto',
   },
   ghost: {
     envKey: 'VITE_FEATURE_GHOST_PANEL',
@@ -190,57 +169,6 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_SCENARIO_IMPORT_PREVIEW',
     storageKey: 'feature.scenarioImportPreview',
   },
-  sandboxDecisionCta: {
-    envKey: 'VITE_FEATURE_SANDBOX_DECISION_CTA',
-    storageKey: 'feature.sandboxDecisionCta',
-  },
-  sandboxMapping: {
-    envKey: 'VITE_FEATURE_SANDBOX_MAPPING',
-    storageKey: 'feature.sandboxMapping',
-  },
-  sandboxProjections: {
-    envKey: 'VITE_FEATURE_SANDBOX_PROJECTIONS',
-    storageKey: 'feature.sandboxProjections',
-  },
-  sandboxRealtime: {
-    envKey: 'VITE_FEATURE_SANDBOX_REALTIME',
-    storageKey: 'feature.sandboxRealtime',
-  },
-  sandboxStrategyBridge: {
-    envKey: 'VITE_FEATURE_SANDBOX_STRATEGY_BRIDGE',
-    storageKey: 'feature.sandboxStrategyBridge',
-  },
-  sandboxTriggersBasic: {
-    envKey: 'VITE_FEATURE_SANDBOX_TRIGGERS_BASIC',
-    storageKey: 'feature.sandboxTriggersBasic',
-  },
-  sandboxVoting: {
-    envKey: 'VITE_FEATURE_SANDBOX_VOTING',
-    storageKey: 'feature.sandboxVoting',
-  },
-  whiteboard: {
-    envKey: 'VITE_FEATURE_WHITEBOARD',
-    storageKey: 'feature.whiteboard',
-  },
-  inputsOutputs: {
-    envKey: 'VITE_FEATURE_INPUTS_OUTPUTS',
-    storageKey: 'feature.inputsOutputs',
-    defaultValue: true,
-  },
-  commandPalette: {
-    envKey: 'VITE_FEATURE_COMMAND_PALETTE',
-    storageKey: 'feature.commandPalette',
-    defaultValue: true,
-  },
-  degradedBanner: {
-    envKey: 'VITE_FEATURE_DEGRADED_BANNER',
-    storageKey: 'feature.degradedBanner',
-    defaultValue: true,
-  },
-  optimiseBeta: {
-    envKey: 'VITE_FEATURE_OPTIMISE_BETA',
-    storageKey: 'feature.optimiseBeta',
-  },
   debug: {
     envKey: 'VITE_FEATURE_DEBUG',
     storageKey: 'feature.debug',
@@ -278,13 +206,6 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_ENABLE_ORCHESTRATOR_V2',
     storageKey: 'feature.orchestratorV2',
   },
-  // A.7: CEE v3 system event wire format
-  // When ON, system_event is serialised to { event_type, timestamp, event_id, details }
-  // matching CEE Brief C v3 Zod schema. Default OFF until CEE Brief C is on staging.
-  v3SystemEvents: {
-    envKey: 'VITE_ENABLE_V3_SYSTEM_EVENTS',
-    storageKey: 'feature.v3SystemEvents',
-  },
   // Transition flag: flip OFF once orchestrator path is confirmed on staging.
   // Pilot users should only get results via orchestrator.
   // When OFF and orchestratorV2 is ON: Play button triggers only the orchestrator path.
@@ -292,12 +213,6 @@ const FLAGS_CONFIG = {
   legacyDirectRun: {
     envKey: 'VITE_ENABLE_LEGACY_DIRECT_RUN',
     storageKey: 'feature.legacyDirectRun',
-    defaultValue: true,
-  },
-  // Context menu v2: context-sensitive right-click menu with DS v4 compliance
-  contextMenu: {
-    envKey: 'VITE_FEATURE_CONTEXT_MENU',
-    storageKey: 'feature.contextMenu',
     defaultValue: true,
   },
   // Track 1: Decision Journey tab in OutputsDock right panel
@@ -334,30 +249,15 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_BIL',
     storageKey: 'feature.bil',
   },
-  // Phase 2A: Model Card Lite + Results trust strip
-  modelCardLite: {
-    envKey: 'VITE_FEATURE_MODEL_CARD_LITE',
-    storageKey: 'feature.modelCardLite',
-  },
   // Phase 2B: Pre-analysis enrichment (receipt block, evidence gaps, model notes, one-click fixes)
   preAnalysisEnriched: {
     envKey: 'VITE_FEATURE_PRE_ANALYSIS_ENRICHED',
     storageKey: 'feature.preAnalysisEnriched',
   },
-  // Phase 2A: Causal claims in edge inspector
-  causalClaims: {
-    envKey: 'VITE_FEATURE_CAUSAL_CLAIMS',
-    storageKey: 'feature.causalClaims',
-  },
   // Phase 3A: Evidence gap badge on factor nodes with no observed data
   graphBadges: {
     envKey: 'VITE_FEATURE_GRAPH_BADGES',
     storageKey: 'feature.graphBadges',
-  },
-  // Phase 3A: Intelligence section in node inspector (connectivity, driver status)
-  nodeIntelligence: {
-    envKey: 'VITE_FEATURE_NODE_INTELLIGENCE',
-    storageKey: 'feature.nodeIntelligence',
   },
   // Phase 3A: Cross-surface bidirectional hover highlighting (canvas ↔ panel)
   crossHighlight: {
@@ -397,11 +297,8 @@ const flags = {
   comments: makeFlag(FLAGS_CONFIG.comments),
   snapshots: makeFlag(FLAGS_CONFIG.snapshots),
   compare: makeFlag(FLAGS_CONFIG.compare),
-  decisionReview: makeFlag(FLAGS_CONFIG.decisionReview),
   scorecard: makeFlag(FLAGS_CONFIG.scorecard),
   diagnostics: makeFlag(FLAGS_CONFIG.diagnostics),
-  scenariosV2: makeFlag(FLAGS_CONFIG.scenariosV2),
-  a11yPolish: makeFlag(FLAGS_CONFIG.a11yPolish),
   perfProbes: makeFlag(FLAGS_CONFIG.perfProbes),
   canvasSimplify: makeFlag(FLAGS_CONFIG.canvasSimplify),
   listView: makeFlag(FLAGS_CONFIG.listView),
@@ -410,9 +307,7 @@ const flags = {
   configDrawer: makeFlag(FLAGS_CONFIG.configDrawer),
   e2e: makeFlag(FLAGS_CONFIG.e2e),
   realReport: makeFlag(FLAGS_CONFIG.realReport),
-  confidenceChips: makeFlag(FLAGS_CONFIG.confidenceChips),
   telemetry: makeFlag(FLAGS_CONFIG.telemetry),
-  sseAuto: makeFlag(FLAGS_CONFIG.sseAuto),
   ghost: makeFlag(FLAGS_CONFIG.ghost),
   jobsProgress: makeFlag(FLAGS_CONFIG.jobsProgress),
   errorBanners: makeFlag(FLAGS_CONFIG.errorBanners),
@@ -431,38 +326,21 @@ const flags = {
   tldraw: makeFlag(FLAGS_CONFIG.tldraw),
   scenarios: makeFlag(FLAGS_CONFIG.scenarios),
   scenarioImportPreview: makeFlag(FLAGS_CONFIG.scenarioImportPreview),
-  sandboxDecisionCta: makeFlag(FLAGS_CONFIG.sandboxDecisionCta),
-  sandboxMapping: makeFlag(FLAGS_CONFIG.sandboxMapping),
-  sandboxProjections: makeFlag(FLAGS_CONFIG.sandboxProjections),
-  sandboxRealtime: makeFlag(FLAGS_CONFIG.sandboxRealtime),
-  sandboxStrategyBridge: makeFlag(FLAGS_CONFIG.sandboxStrategyBridge),
-  sandboxTriggersBasic: makeFlag(FLAGS_CONFIG.sandboxTriggersBasic),
-  sandboxVoting: makeFlag(FLAGS_CONFIG.sandboxVoting),
-  whiteboard: makeFlag(FLAGS_CONFIG.whiteboard),
-  inputsOutputs: makeFlag(FLAGS_CONFIG.inputsOutputs),
-  commandPalette: makeFlag(FLAGS_CONFIG.commandPalette),
-  degradedBanner: makeFlag(FLAGS_CONFIG.degradedBanner),
-  optimiseBeta: makeFlag(FLAGS_CONFIG.optimiseBeta),
   debug: makeFlag(FLAGS_CONFIG.debug),
   snapshotsV2: makeFlag(FLAGS_CONFIG.snapshotsV2),
   onboardingTour: makeFlag(FLAGS_CONFIG.onboardingTour),
   schemaV2: makeFlag(FLAGS_CONFIG.schemaV2),
   plotEnrichment: makeFlag(FLAGS_CONFIG.plotEnrichment),
   orchestratorV2: makeFlag(FLAGS_CONFIG.orchestratorV2),
-  v3SystemEvents: makeFlag(FLAGS_CONFIG.v3SystemEvents),
   legacyDirectRun: makeFlag(FLAGS_CONFIG.legacyDirectRun),
   orchestratorStreaming: makeFlag(FLAGS_CONFIG.orchestratorStreaming),
-  contextMenu: makeFlag(FLAGS_CONFIG.contextMenu),
   journeyTab: makeFlag(FLAGS_CONFIG.journeyTab),
   compareTab: makeFlag(FLAGS_CONFIG.compareTab),
   threadPersist: makeFlag(FLAGS_CONFIG.threadPersist),
   threadHydrate: makeFlag(FLAGS_CONFIG.threadHydrate),
   bil: makeFlag(FLAGS_CONFIG.bil),
-  modelCardLite: makeFlag(FLAGS_CONFIG.modelCardLite),
   preAnalysisEnriched: makeFlag(FLAGS_CONFIG.preAnalysisEnriched),
-  causalClaims: makeFlag(FLAGS_CONFIG.causalClaims),
   graphBadges: makeFlag(FLAGS_CONFIG.graphBadges),
-  nodeIntelligence: makeFlag(FLAGS_CONFIG.nodeIntelligence),
   crossHighlight: makeFlag(FLAGS_CONFIG.crossHighlight),
   graphLens: makeFlag(FLAGS_CONFIG.graphLens),
   orchestratorRenderingV2: makeFlag(FLAGS_CONFIG.orchestratorRenderingV2),
@@ -476,11 +354,8 @@ export const isGuidedV1Enabled = flags.guidedV1
 export const isCommentsEnabled = flags.comments
 export const isSnapshotsEnabled = flags.snapshots
 export const isCompareEnabled = flags.compare
-export const isDecisionReviewEnabled = flags.decisionReview
 export const isScorecardEnabled = flags.scorecard
 export const isDiagnosticsEnabled = flags.diagnostics
-export const isScenariosV2Enabled = flags.scenariosV2
-export const isA11yPolishEnabled = flags.a11yPolish
 export const isPerfProbesEnabled = flags.perfProbes
 export const isCanvasSimplifyEnabled = flags.canvasSimplify
 export const isListViewEnabled = flags.listView
@@ -489,9 +364,7 @@ export const isMobileGuardrailsEnabled = flags.mobileGuardrails
 export const isConfigDrawerEnabled = flags.configDrawer
 export const isE2EEnabled = flags.e2e
 export const isRealReportEnabled = flags.realReport
-export const isConfidenceChipsEnabled = flags.confidenceChips
 export const isTelemetryEnabled = flags.telemetry
-export const isSseAutoEnabled = flags.sseAuto
 export const isGhostEnabled = flags.ghost
 export const isJobsProgressEnabled = flags.jobsProgress
 export const isErrorBannersEnabled = flags.errorBanners
@@ -510,18 +383,6 @@ export const isCanvasDefaultEnabled = flags.canvasDefault
 export const isTldrawEnabled = flags.tldraw
 export const isScenariosEnabled = flags.scenarios
 export const isScenarioImportPreviewEnabled = flags.scenarioImportPreview
-export const isSandboxDecisionCtaEnabled = flags.sandboxDecisionCta
-export const isSandboxMappingEnabled = flags.sandboxMapping
-export const isSandboxProjectionsEnabled = flags.sandboxProjections
-export const isSandboxRealtimeEnabled = flags.sandboxRealtime
-export const isSandboxStrategyBridgeEnabled = flags.sandboxStrategyBridge
-export const isSandboxTriggersBasicEnabled = flags.sandboxTriggersBasic
-export const isSandboxVotingEnabled = flags.sandboxVoting
-export const isWhiteboardEnabled = flags.whiteboard
-export const isInputsOutputsEnabled = flags.inputsOutputs
-export const isCommandPaletteEnabled = flags.commandPalette
-export const isDegradedBannerEnabled = flags.degradedBanner
-export const isOptimiseBetaEnabled = flags.optimiseBeta
 export const isDebugEnabled = flags.debug
 export const isSnapshotsV2Enabled = flags.snapshotsV2
 export const isOnboardingTourEnabled = flags.onboardingTour
@@ -531,17 +392,13 @@ export const isOrchestratorV2Enabled = flags.orchestratorV2
 export const isLegacyDirectRunEnabled = flags.legacyDirectRun
 export const isOrchestratorStreamingEnabled = flags.orchestratorStreaming
 export const diagnoseOrchestratorStreaming = () => diagnoseFlagState(FLAGS_CONFIG.orchestratorStreaming)
-export const isContextMenuEnabled = flags.contextMenu
 export const isJourneyTabEnabled = flags.journeyTab
 export const isCompareTabEnabled = flags.compareTab
 export const isThreadPersistEnabled = flags.threadPersist
 export const isThreadHydrateEnabled = flags.threadHydrate
 export const isBilPreviewEnabled = flags.bil
-export const isModelCardLiteEnabled = flags.modelCardLite
 export const isPreAnalysisEnrichedEnabled = flags.preAnalysisEnriched
-export const isCausalClaimsEnabled = flags.causalClaims
 export const isGraphBadgesEnabled = flags.graphBadges
-export const isNodeIntelligenceEnabled = flags.nodeIntelligence
 export const isCrossHighlightEnabled = flags.crossHighlight
 export const isGraphLensEnabled = flags.graphLens
 export const isOrchestratorRenderingV2Enabled = flags.orchestratorRenderingV2
@@ -564,14 +421,6 @@ export const pocFlags = {
   sse: on(env?.VITE_FEATURE_SSE),
   orchestratorStreaming: on(env?.VITE_FEATURE_ORCHESTRATOR_STREAMING),
   scenarioSandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
-  decisionCta: on(env?.VITE_FEATURE_SANDBOX_DECISION_CTA),
-  mapping: on(env?.VITE_FEATURE_SANDBOX_MAPPING),
-  projections: on(env?.VITE_FEATURE_SANDBOX_PROJECTIONS),
-  realtime: on(env?.VITE_FEATURE_SANDBOX_REALTIME),
-  strategyBridge: on(env?.VITE_FEATURE_SANDBOX_STRATEGY_BRIDGE),
-  triggersBasic: on(env?.VITE_FEATURE_SANDBOX_TRIGGERS_BASIC),
-  voting: on(env?.VITE_FEATURE_SANDBOX_VOTING),
-  whiteboard: on(env?.VITE_FEATURE_WHITEBOARD),
   contextBar: on(env?.VITE_FEATURE_CONTEXT_BAR),
 }
 
@@ -585,25 +434,7 @@ export function dumpFlags() {
       isPoc,
       sse: on(env?.VITE_FEATURE_SSE),
       sandbox: on(env?.VITE_FEATURE_SCENARIO_SANDBOX),
-      mapping: on(env?.VITE_FEATURE_SANDBOX_MAPPING),
-      projections: on(env?.VITE_FEATURE_SANDBOX_PROJECTIONS),
-      realtime: on(env?.VITE_FEATURE_SANDBOX_REALTIME),
-      strategyBridge: on(env?.VITE_FEATURE_SANDBOX_STRATEGY_BRIDGE),
-      triggers: on(env?.VITE_FEATURE_SANDBOX_TRIGGERS_BASIC),
-      voting: on(env?.VITE_FEATURE_SANDBOX_VOTING),
-      whiteboard: on(env?.VITE_FEATURE_WHITEBOARD),
     }
   }
 }
 
-// ============================================================================
-// MIGRATION COMPLETE ✅
-// ============================================================================
-//
-// BEFORE: 751 lines (47 standard flag functions × ~16 lines each + pocFlags + dumpFlags)
-// AFTER:  ~355 lines (47 flags refactored via factory + pocFlags + dumpFlags preserved)
-// SAVINGS: ~396 lines eliminated (~53% reduction)
-// PATTERN: Each standard flag is now just 3 lines instead of 16 (13 lines saved per flag)
-//
-// All 47 standard flags have been migrated to the factory pattern.
-// Special-case flags (pocFlags, dumpFlags) preserved as-is.
