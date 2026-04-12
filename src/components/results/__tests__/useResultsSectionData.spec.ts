@@ -909,35 +909,13 @@ describe('switch_probability filtering (primary over marginal)', () => {
     expect(filtered).toHaveLength(0)
   })
 
-  it('severity derivation uses switch_probability when present', () => {
-    // Helper that mirrors severity logic in useResultsSectionData
-    const deriveSeverity = (fe: any): 'blocker' | 'error' | 'warning' => {
-      const flipProbability = fe.switch_probability ?? fe.marginal_switch_probability
-      if (typeof flipProbability === 'number') {
-        if (flipProbability > 0.7) return 'blocker'
-        if (flipProbability > 0.5) return 'error'
-      }
-      return 'warning'
-    }
-
-    // High switch (blocker) with low marginal
-    const blockerEdge = {
-      switch_probability: 0.8,
-      marginal_switch_probability: 0.2,
-    }
-    // Medium switch (error) with high marginal
-    const errorEdge = {
-      switch_probability: 0.6,
-      marginal_switch_probability: 0.9,
-    }
-    // No switch, falls back to marginal (blocker)
-    const fallbackEdge = {
-      marginal_switch_probability: 0.75,
-    }
-
-    expect(deriveSeverity(blockerEdge)).toBe('blocker')
-    expect(deriveSeverity(errorEdge)).toBe('error')
-    expect(deriveSeverity(fallbackEdge)).toBe('blocker')
+  it('severity derivation uses switch_probability via classifySeverityLegacy', () => {
+    // B2: Tests the actual exported legacy function (replaces stale blocker-taxonomy mirror)
+    // switch_probability is the primary field; classifySeverityLegacy receives the resolved value
+    expect(classifySeverityLegacy(0.8)).toBe('critical')  // >0.7
+    expect(classifySeverityLegacy(0.6)).toBe('error')     // >0.5
+    expect(classifySeverityLegacy(0.75)).toBe('critical')  // marginal fallback resolved by caller
+    expect(classifySeverityLegacy(0.3)).toBe('warning')   // <=0.5
   })
 })
 
@@ -1363,5 +1341,117 @@ describe('B2: dominant factor server wins', () => {
     // Server says fac_2 (Regulation); local heuristic would say fac_1 (Market size)
     expect(result.current.drivers.dominantFactorId).toBe('fac_2')
     expect(result.current.drivers.dominantFactorLabel).toBe('Regulation')
+  })
+
+  it('falls back to legacy when dominant_factor has empty fields', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          robustness: { fragile_edges: [] },
+          option_comparison: [],
+          // Malformed: empty factor_label
+          dominant_factor: { factor_id: 'fac_x', factor_label: '' },
+          factor_sensitivity: [
+            { factor_id: 'fac_1', sensitivity_score: 0.8, importance_rank: 1 },
+            { factor_id: 'fac_2', sensitivity_score: 0.2, importance_rank: 2 },
+          ],
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [
+        { id: 'goal_1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
+        { id: 'fac_1', type: 'factor', data: { label: 'Market size', kind: 'factor' }, position: { x: 0, y: 0 } },
+        { id: 'fac_2', type: 'factor', data: { label: 'Regulation', kind: 'factor' }, position: { x: 0, y: 0 } },
+      ] as any,
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    // Server dominant_factor is malformed (empty label) — should NOT use it
+    expect(result.current.drivers.dominantFactorId).not.toBe('fac_x')
+  })
+})
+
+// =============================================================================
+// B2: Hook-level severity — server severity wins
+// =============================================================================
+
+describe('B2: hook-level fragile edge severity', () => {
+  it('uses PLoT severity when present on fragile edge', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          option_comparison: [],
+          robustness: {
+            fragile_edges: [
+              {
+                edge_id: 'fac_a::goal_1',
+                from_id: 'fac_a', to_id: 'goal_1',
+                from_label: 'Factor A', to_label: 'Goal',
+                switch_probability: 0.3,  // Local heuristic would produce 'warning'
+                severity: 'critical',      // Server says critical
+              },
+            ],
+          },
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [
+        { id: 'goal_1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
+        { id: 'fac_a', type: 'factor', data: { label: 'Factor A', kind: 'factor' }, position: { x: 0, y: 0 } },
+      ] as any,
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const uncertainties = result.current.confidence.uncertainties
+    const saEdge = uncertainties.find((u: any) => u.code === 'SENSITIVE_ASSUMPTION')
+    // Server severity wins over what local heuristic (0.3 → 'warning') would produce
+    expect(saEdge?.severity).toBe('critical')
+  })
+
+  it('falls back to legacy severity when PLoT severity absent', () => {
+    useCanvasStore.setState({
+      results: {
+        status: 'complete',
+        progress: 100,
+        report: {
+          run: { critique: [] },
+          option_comparison: [],
+          robustness: {
+            fragile_edges: [
+              {
+                edge_id: 'fac_b::goal_1',
+                from_id: 'fac_b', to_id: 'goal_1',
+                from_label: 'Factor B', to_label: 'Goal',
+                switch_probability: 0.71,
+                // No severity field — pre-B1 cached result
+              },
+            ],
+          },
+        },
+      } as any,
+      hasCompletedFirstRun: true,
+      runMeta: {},
+      nodes: [
+        { id: 'goal_1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
+        { id: 'fac_b', type: 'factor', data: { label: 'Factor B', kind: 'factor' }, position: { x: 0, y: 0 } },
+      ] as any,
+      edges: [],
+    })
+
+    const { result } = renderHook(() => useResultsSectionData())
+    const uncertainties = result.current.confidence.uncertainties
+    const saEdge = uncertainties.find((u: any) => u.code === 'SENSITIVE_ASSUMPTION')
+    // 0.71 > 0.7 → legacy classifies as 'critical'
+    expect(saEdge?.severity).toBe('critical')
   })
 })

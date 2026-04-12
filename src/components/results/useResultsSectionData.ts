@@ -1274,13 +1274,16 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         const raw = reviewStatus === 'complete' ? m1ReviewAssumptions?.narrative_summary : undefined
         return raw ? sanitizeCoachingText(raw) : undefined
       })(),
-      // B2: Dominant factor — prefer PLoT top-level field, fall back to m1Coaching, then local heuristic
-      dominantFactorId: report?.dominant_factor?.factor_id
+      // B2: Dominant factor — prefer PLoT top-level field when both fields are non-empty strings
+      dominantFactorId: (() => {
+        const df = report?.dominant_factor
+        if (typeof df?.factor_id === 'string' && df.factor_id && typeof df?.factor_label === 'string' && df.factor_label) return df.factor_id
         // DEPRECATION FALLBACK: Remove after 2026-05-12 — m1Coaching path is effectively dead per B1 investigation.
-        ?? m1Coaching?.key_drivers?.dominant_factor,
+        return m1Coaching?.key_drivers?.dominant_factor
+      })(),
       dominantFactorLabel: (() => {
-        // B2: PLoT top-level dominant_factor provides both id and label
-        if (report?.dominant_factor?.factor_label) return report.dominant_factor.factor_label
+        const df = report?.dominant_factor
+        if (typeof df?.factor_id === 'string' && df.factor_id && typeof df?.factor_label === 'string' && df.factor_label) return df.factor_label
         // DEPRECATION FALLBACK: Remove after 2026-05-12 — m1Coaching path is effectively dead per B1 investigation.
         const dominantId = m1Coaching?.key_drivers?.dominant_factor
         if (!dominantId) return undefined
@@ -1636,11 +1639,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // B2: Detect dominant factor
       // Priority: PLoT top-level dominant_factor > m1Coaching > local heuristic
       ...(() => {
-        // B2: Prefer PLoT top-level dominant_factor (has both id and label)
-        if (report?.dominant_factor) {
+        // B2: Prefer PLoT top-level dominant_factor when both fields are non-empty strings
+        const df = report?.dominant_factor
+        if (typeof df?.factor_id === 'string' && df.factor_id && typeof df?.factor_label === 'string' && df.factor_label) {
           return {
-            dominantFactorId: report.dominant_factor.factor_id,
-            dominantFactorLabel: report.dominant_factor.factor_label,
+            dominantFactorId: df.factor_id,
+            dominantFactorLabel: df.factor_label,
           }
         }
         // DEPRECATION FALLBACK: Remove after 2026-05-12 — m1Coaching path is effectively dead per B1 investigation.

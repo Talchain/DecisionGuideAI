@@ -1114,4 +1114,19 @@ describe('B2: PLoT classified field pass-through', () => {
     expect(fragileEdges).toHaveLength(1)
     expect(fragileEdges[0]).toEqual({ edge_id: 'edge_abc' })
   })
+
+  it('discards null and numeric items from fragile_edges', () => {
+    const v2Response = makeSuccessResponse({
+      robustness: {
+        fragile_edges: [null, 42, { edge_id: 'e1', severity: 'warning' }, undefined, 'e2'] as any,
+        robust_edges: [],
+      },
+    })
+    const report = mapV2ResponseToReportV1(v2Response, { seed: 42 })
+    const fragileEdges = (report as any).robustness?.fragile_edges
+    // Only the object and the string (normalised) survive
+    expect(fragileEdges).toHaveLength(2)
+    expect(fragileEdges[0]).toEqual({ edge_id: 'e1', severity: 'warning' })
+    expect(fragileEdges[1]).toEqual({ edge_id: 'e2' })
+  })
 })

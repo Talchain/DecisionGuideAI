@@ -509,13 +509,15 @@ export function mapV2ResponseToReportV1(
     // P2 Fix: Use safeArrayWithMeta() to preserve truncation metadata for UI display
     robustness: v2Response.robustness ? (() => {
       const rawFragile = safeArrayWithMeta(v2Response.robustness!.fragile_edges)
-      // B2: Normalise fragile edge items — bare strings become { edge_id: str }
-      // so downstream code always receives objects, never bare strings.
+      // B2: Normalise fragile edge items — bare strings become { edge_id: str },
+      // nullish/primitive items are discarded so downstream always receives objects.
       const fragile = {
         ...rawFragile,
-        items: rawFragile.items.map((item: unknown) =>
-          typeof item === 'string' ? { edge_id: item } : item
-        ),
+        items: rawFragile.items
+          .filter((item: unknown) => typeof item === 'string' || (item != null && typeof item === 'object'))
+          .map((item: unknown) =>
+            typeof item === 'string' ? { edge_id: item } : item
+          ),
       }
       const robust = safeArrayWithMeta(v2Response.robustness!.robust_edges)
       // P0 Fix: Extract is_robust for TopBar stability chip (may exist in response but not in TS type)
