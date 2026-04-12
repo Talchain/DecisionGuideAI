@@ -2,7 +2,7 @@
  * Tests for CommentaryBlock citation legend in InlineBlocks
  */
 
-import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { InlineBlocks } from '../InlineBlocks'
 import type { CommentaryBlock } from '../types'
