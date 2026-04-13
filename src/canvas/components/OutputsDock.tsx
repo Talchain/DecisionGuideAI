@@ -1031,7 +1031,7 @@ export function OutputsDock() {
         bottom: 'calc(var(--bottombar-h) + 1rem)',
         background: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(8px)',
-        border: '1px solid var(--sand-200)',
+        border: '1px solid var(--border-default)',
         borderRadius: 16,
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
         zIndex: 900,
@@ -1044,16 +1044,16 @@ export function OutputsDock() {
         <div
           aria-hidden="true"
           onMouseDown={handleResizeStart}
-          className="absolute inset-y-0 left-0 w-1 cursor-col-resize bg-transparent hover:bg-sand-200/60"
+          className="absolute inset-y-0 left-0 w-1 cursor-col-resize bg-transparent hover:bg-panel-border/60"
         />
       )}
-      <div className="sticky top-0 z-10 border-b border-sand-200 rounded-t-2xl" style={{ background: 'rgba(255, 255, 255, 0.95)' }}>
+      <div className="sticky top-0 z-10 border-b border-panel-border rounded-t-2xl" style={{ background: 'rgba(255, 255, 255, 0.95)' }}>
         {!state.isOpen && (
           <div className="flex items-center justify-end px-2 py-2">
             <button
               type="button"
               onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-sand-200 ${typography.caption} text-ink-900/70 hover:bg-paper-50`}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
               aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
             >
               {state.isOpen ? '>' : '<'}
@@ -1076,7 +1076,7 @@ export function OutputsDock() {
                   className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     state.activeTab === tab.id
                       ? 'text-info border-b-2 border-info'
-                      : 'text-ink-900/70 hover:bg-paper-50 hover:text-ink-900 border-b-2 border-transparent'
+                      : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
                   }`}
                   style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
                 >
@@ -1085,7 +1085,7 @@ export function OutputsDock() {
                     {tab.id === 'diagnostics' && factorsToVerify > 0 && (
                       <span
                         className="inline-flex items-center justify-center rounded-full bg-warning text-text-on-color"
-                        style={{ fontSize: 10, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }}
+                        style={{ fontSize: 11, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }}
                         title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
                         data-testid="model-tab-verify-badge"
                       >
@@ -1113,7 +1113,7 @@ export function OutputsDock() {
             <button
               type="button"
               onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-sand-200 ${typography.caption} text-ink-900/70 hover:bg-paper-50`}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
               aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
             >
               {state.isOpen ? '>' : '<'}
@@ -1144,7 +1144,7 @@ export function OutputsDock() {
                 className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                   state.activeTab === tab.id
                     ? 'text-info border-info'
-                    : 'text-ink-900/70 bg-paper-50 border-sand-200 hover:bg-paper-50 hover:text-ink-900'
+                    : 'text-text-header/70 bg-panel border-panel-border hover:bg-panel hover:text-text-header'
                 }`}
                 style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
                 aria-label={tab.label}
@@ -1158,7 +1158,7 @@ export function OutputsDock() {
       )}
 
       {state.isOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-ink-900/70 ${state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header/70 ${state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
                 <div className={`flex-1 min-h-0 ${isPreRun && nodes.length > 0 ? 'flex flex-col' : 'olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6'}`}>
@@ -1258,10 +1258,10 @@ export function OutputsDock() {
                         </div>
                         {import.meta.env.DEV && (
                           <details className="mt-2">
-                            <summary className={`${typography.code} text-ink-500 cursor-pointer`}>
+                            <summary className={`${typography.code} text-text-light cursor-pointer`}>
                               Debug info
                             </summary>
-                            <div className={`${typography.code} text-ink-500 mt-1 text-xs`}>
+                            <div className={`${typography.code} text-text-light mt-1 text-xs`}>
                               Code: {error.code} | Request ID: {error.request_id || 'n/a'}
                             </div>
                           </details>
@@ -1305,7 +1305,7 @@ export function OutputsDock() {
                       }`}>
                         {friendlyError.headline}
                       </div>
-                      <div className={`${typography.caption} text-ink-900/80`}>
+                      <div className={`${typography.caption} text-text-header/80`}>
                         {friendlyError.explanation}
                       </div>
                       <div className="flex flex-col gap-2 mt-1">
@@ -1319,8 +1319,8 @@ export function OutputsDock() {
                                 friendlyError.severity === 'error'
                                   ? 'bg-danger-600 text-text-on-color hover:bg-danger-700'
                                   : friendlyError.severity === 'warning'
-                                    ? 'bg-sun-600 text-white hover:bg-sun-700'
-                                    : 'bg-sky-600 text-white hover:bg-sky-700'
+                                    ? 'bg-warning text-text-on-color hover:bg-warning-hover'
+                                    : 'bg-info text-text-on-color hover:bg-info-hover'
                               } disabled:opacity-50`}
                             >
                               {friendlyError.actionText}
@@ -1359,17 +1359,17 @@ export function OutputsDock() {
                           )}
                         </div>
                         {/* Task P.3.5: Coaching text for repeated failures */}
-                        <p className={`${typography.caption} text-ink-900/70`}>
+                        <p className={`${typography.caption} text-text-header/70`}>
                           If analysis keeps failing, try simplifying to 8-10 of the most important factors.
                         </p>
                       </div>
                       {/* Debug info (only in dev mode) */}
                       {import.meta.env.DEV && (
                         <details className="mt-2">
-                          <summary className={`${typography.code} text-ink-500 cursor-pointer`}>
+                          <summary className={`${typography.code} text-text-light cursor-pointer`}>
                             Debug info
                           </summary>
-                          <div className={`${typography.code} text-ink-500 mt-1 text-xs`}>
+                          <div className={`${typography.code} text-text-light mt-1 text-xs`}>
                             Code: {error.code} | Request ID: {error.request_id || 'n/a'}
                           </div>
                         </details>
@@ -1395,13 +1395,13 @@ export function OutputsDock() {
                 {/* Phase 2 Sprint 1B: Slow-run UX feedback */}
                 {slowRunMessage && (
                   <div
-                    className="flex items-center gap-2 px-3 py-2 bg-sky-50 border border-sky-200 rounded text-sky-800"
+                    className="flex items-center gap-2 px-3 py-2 bg-info-bg border border-info/30 rounded text-text-header"
                     role="status"
                     aria-live="polite"
                     data-testid="slow-run-message"
                   >
                     <Clock className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-                    <span className={`${typography.caption} text-sky-900`}>{slowRunMessage}</span>
+                    <span className={`${typography.caption} text-text-header`}>{slowRunMessage}</span>
                   </div>
                 )}
                 {/* I.2b: Cancel button during active analysis */}
@@ -1410,7 +1410,7 @@ export function OutputsDock() {
                     <button
                       type="button"
                       onClick={cancelRun}
-                      className={`${typography.caption} font-medium px-3 py-1.5 rounded border border-ink-200 text-ink-600 hover:bg-sand-100 flex items-center gap-1.5`}
+                      className={`${typography.caption} font-medium px-3 py-1.5 rounded border border-panel-border text-text-body hover:bg-panel-hover flex items-center gap-1.5`}
                       data-testid="cancel-analysis-button"
                     >
                       <XCircle className="w-3.5 h-3.5" aria-hidden="true" />
@@ -1496,12 +1496,12 @@ export function OutputsDock() {
                     but previous results are still visible */}
                 {isError && report && (
                   <div
-                    className="flex items-center gap-2 px-3 py-2 bg-sun-50 border border-sun-200 rounded"
+                    className="flex items-center gap-2 px-3 py-2 bg-warning-bg border border-warning/30 rounded"
                     role="status"
                     data-testid="stale-results-banner"
                   >
-                    <AlertTriangle className="w-4 h-4 text-sun-600 flex-shrink-0" aria-hidden="true" />
-                    <span className={`${typography.caption} text-sun-800`}>
+                    <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
+                    <span className={`${typography.caption} text-text-header`}>
                       Showing results from previous analysis
                     </span>
                   </div>
@@ -1648,8 +1648,8 @@ export function OutputsDock() {
             data-testid="scenario-comparison-loading"
           >
             <div className="bg-white px-6 py-4 rounded-lg shadow-3 flex items-center gap-3">
-              <div className="w-5 h-5 border-2 border-sky-500 border-t-transparent rounded-full animate-spin" />
-              <span className={`${typography.body} text-ink-900`}>Generating comparison...</span>
+              <div className="w-5 h-5 border-2 border-info border-t-transparent rounded-full animate-spin" />
+              <span className={`${typography.body} text-text-header`}>Generating comparison...</span>
             </div>
           </div>
         )}
@@ -1714,8 +1714,8 @@ function CompareTabBody() {
   if (runs.length === 0) {
     return (
       <div className="space-y-2" data-testid="compare-tab-empty">
-        <p className={`${typography.body} text-ink-900/80`}>{contextLine}</p>
-        <p className={`${typography.caption} text-ink-900/70`}>
+        <p className={`${typography.body} text-text-header/80`}>{contextLine}</p>
+        <p className={`${typography.caption} text-text-header/70`}>
           No runs to compare yet. Run an analysis to build history for this canvas.
         </p>
       </div>
@@ -1726,11 +1726,11 @@ function CompareTabBody() {
     const [onlyRun] = runs
     return (
       <div className="space-y-2" data-testid="compare-tab-single">
-        <p className={`${typography.body} text-ink-900/80`}>{contextLine}</p>
-        <p className={`${typography.caption} text-ink-900/70`}>
+        <p className={`${typography.body} text-text-header/80`}>{contextLine}</p>
+        <p className={`${typography.caption} text-text-header/70`}>
           Only one run is available. Run analysis again to compare changes over time.
         </p>
-        <p className={`${typography.code} text-ink-900/70`}>Latest run: {formatRunLabel(onlyRun)}</p>
+        <p className={`${typography.code} text-text-header/70`}>Latest run: {formatRunLabel(onlyRun)}</p>
       </div>
     )
   }
@@ -1789,13 +1789,13 @@ function CompareTabBody() {
 
   return (
     <div className="space-y-3" data-testid="compare-tab-body">
-      <p className={`${typography.body} text-ink-900/80`} data-testid="compare-context">{contextLine}</p>
+      <p className={`${typography.body} text-text-header/80`} data-testid="compare-context">{contextLine}</p>
 
       <div className="space-y-2">
         <label className="flex flex-col gap-1">
-          <span className={`${typography.code} font-medium text-ink-900`}>Reference run</span>
+          <span className={`${typography.code} font-medium text-text-header`}>Reference run</span>
           <select
-            className={`rounded border border-sand-200 px-2 py-1 ${typography.caption} text-ink-900 bg-white`}
+            className={`rounded border border-panel-border px-2 py-1 ${typography.caption} text-text-header bg-white`}
             value={resolvedBaselineRun?.id ?? ''}
             onChange={handleBaselineChange}
             data-testid="compare-baseline-select"
@@ -1809,9 +1809,9 @@ function CompareTabBody() {
         </label>
 
         <label className="flex flex-col gap-1">
-          <span className={`${typography.code} font-medium text-ink-900`}>Current run</span>
+          <span className={`${typography.code} font-medium text-text-header`}>Current run</span>
           <select
-            className={`rounded border border-sand-200 px-2 py-1 ${typography.caption} text-ink-900 bg-white`}
+            className={`rounded border border-panel-border px-2 py-1 ${typography.caption} text-text-header bg-white`}
             value={resolvedCurrentRun?.id ?? ''}
             onChange={handleCurrentChange}
             data-testid="compare-current-select"
@@ -1838,7 +1838,7 @@ interface OutcomeComparisonProps {
 function OutcomeComparison({ baselineRun, currentRun }: OutcomeComparisonProps) {
   if (!baselineRun || !currentRun) {
     return (
-      <div className={`${typography.caption} text-ink-900/70`} data-testid="compare-outcome">
+      <div className={`${typography.caption} text-text-header/70`} data-testid="compare-outcome">
         Select two runs to see an outcome comparison.
       </div>
     )
@@ -1880,11 +1880,11 @@ function OutcomeComparison({ baselineRun, currentRun }: OutcomeComparisonProps) 
         />
       )}
 
-      <div className={`grid grid-cols-1 gap-2 ${typography.caption} text-ink-900/80`}>
+      <div className={`grid grid-cols-1 gap-2 ${typography.caption} text-text-header/80`}>
         <OutcomeSummary label="Reference run" run={baselineRun} bands={baselineBands} />
         <OutcomeSummary label="Current run" run={currentRun} bands={currentBands} />
       </div>
-      <p className={`${typography.code} text-ink-900/80`} data-testid="compare-delta-text">
+      <p className={`${typography.code} text-text-header/80`} data-testid="compare-delta-text">
         {describeDelta(baselineBands.p50, currentBands.p50, units, unitSymbol)}
       </p>
     </div>
@@ -1905,16 +1905,16 @@ function OutcomeSummary({ label, run, bands }: OutcomeSummaryProps) {
   ]
 
   return (
-    <div className="rounded-lg border border-sand-200 p-2.5 bg-paper-50">
-      <div className={`${typography.code} font-medium text-ink-900`}>{label}</div>
-      <div className={`${typography.code} text-ink-900/70 mb-1 tabular-nums`}>{formatRunLabel(run)}</div>
+    <div className="rounded-lg border border-panel-border p-2.5 bg-panel">
+      <div className={`${typography.code} font-medium text-text-header`}>{label}</div>
+      <div className={`${typography.code} text-text-header/70 mb-1 tabular-nums`}>{formatRunLabel(run)}</div>
       <div className="grid grid-cols-3 gap-1.5 text-center">
         {cells.map(cell => (
-          <div key={`${label}-${cell.label}`} className="rounded bg-white/80 border border-sand-100 p-1">
-            <div className={`${typography.code} font-medium text-ink-900/70`}>
+          <div key={`${label}-${cell.label}`} className="rounded bg-white/80 border border-panel-border p-1">
+            <div className={`${typography.code} font-medium text-text-header/70`}>
               {cell.label}
             </div>
-            <div className={`${typography.code} font-semibold text-ink-900`}>
+            <div className={`${typography.code} font-semibold text-text-header`}>
               {formatOutcomeValue(cell.value, bands.units, bands.unitSymbol)}
             </div>
           </div>
