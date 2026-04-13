@@ -41,7 +41,7 @@ export function TargetProbabilityBars({
         const pct = Math.round(c.prob_satisfied * 100)
         return (
           <Tooltip key={c.node_id} content="Probability of meeting this target">
-            <div className="flex items-center gap-2" style={{ fontSize: 11 }}>
+            <div className={`flex items-center gap-2 ${typography.panelMeta}`}>
               <span className={`${typography.panelMeta} text-text-body flex-1 min-w-0 truncate`} title={c.label}>
                 {c.label}
               </span>
@@ -70,7 +70,6 @@ export function TargetProbabilityBars({
         <Tooltip content="Probability of hitting all targets simultaneously">
           <div
             className="flex items-center gap-2 pt-1.5 border-t border-panel-border"
-            style={{ fontSize: 12 }}
             data-testid="target-joint-row"
           >
             <span className={`${typography.panelBody} font-semibold text-text-header flex-1`}>

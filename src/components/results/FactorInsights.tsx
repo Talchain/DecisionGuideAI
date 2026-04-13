@@ -55,7 +55,7 @@ export function FactorInsights({ enrichment }: FactorInsightsProps) {
     enrichment.confidence_question.trim().length > 0
 
   return (
-    <div className="mt-2 border-t border-sand-200 pt-2">
+    <div className="mt-2 border-t border-panel-border pt-2">
       {/* Toggle button */}
       <button
         type="button"

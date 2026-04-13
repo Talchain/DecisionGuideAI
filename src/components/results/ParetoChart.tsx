@@ -191,12 +191,12 @@ export function ParetoChart({
   if (isLoading) {
     return (
       <div
-        className={`p-4 bg-paper-50 border border-sand-200 rounded-xl ${className}`}
+        className={`p-4 bg-panel border border-panel-border rounded-xl ${className}`}
         data-testid="pareto-chart-loading"
       >
         <div className="animate-pulse space-y-3">
-          <div className="h-5 bg-sand-200 rounded w-40" />
-          <div className="h-64 bg-sand-100 rounded" />
+          <div className="h-5 bg-panel-border rounded w-40" />
+          <div className="h-64 bg-panel rounded" />
         </div>
       </div>
     )
@@ -206,23 +206,23 @@ export function ParetoChart({
   if (error) {
     return (
       <div
-        className={`p-4 bg-carrot-50 border border-carrot-200 rounded-xl ${className}`}
+        className={`p-4 bg-danger-bg border border-danger/30 rounded-xl ${className}`}
         data-testid="pareto-chart-error"
         role="alert"
       >
         <div className="flex items-start gap-3">
-          <AlertCircle className="w-5 h-5 text-carrot-600 flex-shrink-0 mt-0.5" />
+          <AlertCircle className="w-5 h-5 text-danger flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className={`${typography.panelHeader} text-carrot-800`}>
+            <p className={`${typography.panelHeader} text-text-header`}>
               Pareto analysis unavailable
             </p>
-            <p className={`${typography.panelBody} text-carrot-600 mt-1`}>
+            <p className={`${typography.panelBody} text-text-body mt-1`}>
               {error.message}
             </p>
             <button
               type="button"
               onClick={() => refetch()}
-              className={`${typography.panelBody} mt-2 inline-flex items-center gap-1 text-carrot-700 hover:text-carrot-800`}
+              className={`${typography.panelBody} mt-2 inline-flex items-center gap-1 text-info hover:text-info-hover`}
             >
               <RefreshCw className="w-3 h-3" />
               Retry
@@ -237,10 +237,10 @@ export function ParetoChart({
   if (options.length < 3 || criteria.length < 2) {
     return (
       <div
-        className={`p-4 bg-sand-50 border border-sand-200 rounded-xl ${className}`}
+        className={`p-4 bg-panel border border-panel-border rounded-xl ${className}`}
         data-testid="pareto-chart-empty"
       >
-        <p className={`${typography.panelBody} text-sand-600`}>
+        <p className={`${typography.panelBody} text-text-light`}>
           {options.length < 3
             ? 'Add more options to see Pareto frontier'
             : 'Need at least 2 criteria for Pareto analysis'}
@@ -293,7 +293,7 @@ export function ParetoChart({
         return (
           <div
             key={optId}
-            className="p-3 rounded-lg bg-sand-50 border border-sand-200"
+            className="p-3 rounded-lg bg-panel border border-panel-border"
           >
             <button
               type="button"
@@ -301,21 +301,21 @@ export function ParetoChart({
               className="w-full text-left flex items-center gap-2"
             >
               {isExpanded ? (
-                <ChevronDown className="w-4 h-4 text-sand-500" />
+                <ChevronDown className="w-4 h-4 text-text-light" />
               ) : (
-                <ChevronRight className="w-4 h-4 text-sand-500" />
+                <ChevronRight className="w-4 h-4 text-text-light" />
               )}
-              <span className={`${typography.panelHeader} text-sand-700`}>
+              <span className={`${typography.panelHeader} text-text-body`}>
                 {opt.label}
               </span>
-              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-sand-200 text-sand-600`}>
+              <span className={`${typography.panelBody} ml-auto px-2 py-0.5 rounded-full bg-panel-border text-text-light`}>
                 Dominated
               </span>
             </button>
 
             {isExpanded && (
               <div className="mt-2 pl-6 space-y-2">
-                <div className={`${typography.panelBody} text-sand-600 grid grid-cols-2 gap-1`}>
+                <div className={`${typography.panelBody} text-text-light grid grid-cols-2 gap-1`}>
                   {criteria.map((c) => (
                     <span key={c}>
                       {c}: {formatScore(opt.scores[c] ?? 0)}
@@ -323,7 +323,7 @@ export function ParetoChart({
                   ))}
                 </div>
                 {dominators.length > 0 && (
-                  <div className={`${typography.panelBody} text-sand-500`}>
+                  <div className={`${typography.panelBody} text-text-light`}>
                     <span className="font-medium">Why dominated?</span>
                     <p className="mt-0.5">
                       Outperformed by:{' '}
@@ -347,12 +347,12 @@ export function ParetoChart({
       {/* Axis selectors (when >2 criteria) */}
       {criteria.length > 2 && (
         <div className="flex gap-4 mb-3">
-          <label className={`${typography.panelBody} text-ink-600`}>
+          <label className={`${typography.panelBody} text-text-body`}>
             X-Axis:
             <select
               value={effectiveXAxis}
               onChange={(e) => setXAxis(e.target.value)}
-              className={`ml-2 px-2 py-1 border border-sand-300 rounded ${typography.panelBody}`}
+              className={`ml-2 px-2 py-1 border border-panel-border rounded ${typography.panelBody}`}
             >
               {criteria.map((c) => (
                 <option key={c} value={c}>
@@ -361,12 +361,12 @@ export function ParetoChart({
               ))}
             </select>
           </label>
-          <label className={`${typography.panelBody} text-ink-600`}>
+          <label className={`${typography.panelBody} text-text-body`}>
             Y-Axis:
             <select
               value={effectiveYAxis}
               onChange={(e) => setYAxis(e.target.value)}
-              className={`ml-2 px-2 py-1 border border-sand-300 rounded ${typography.panelBody}`}
+              className={`ml-2 px-2 py-1 border border-panel-border rounded ${typography.panelBody}`}
             >
               {criteria.map((c) => (
                 <option key={c} value={c}>
@@ -423,7 +423,7 @@ export function ParetoChart({
           x={PADDING.left + PLOT_WIDTH / 2}
           y={CHART_HEIGHT - 5}
           textAnchor="middle"
-          className="text-xs fill-ink-600"
+          className="text-xs fill-text-body"
         >
           {effectiveXAxis}
         </text>
@@ -432,7 +432,7 @@ export function ParetoChart({
           y={PADDING.top + PLOT_HEIGHT / 2}
           textAnchor="middle"
           transform={`rotate(-90, 15, ${PADDING.top + PLOT_HEIGHT / 2})`}
-          className="text-xs fill-ink-600"
+          className="text-xs fill-text-body"
         >
           {effectiveYAxis}
         </text>
@@ -537,7 +537,7 @@ export function ParetoChart({
                   <text
                     x={tooltipX + 8}
                     y={tooltipY + 16}
-                    className="text-xs fill-ink-900 font-medium"
+                    className="text-xs fill-text-header font-medium"
                   >
                     {point.label.length > 18
                       ? point.label.slice(0, 15) + '...'
@@ -548,7 +548,7 @@ export function ParetoChart({
                       key={c}
                       x={tooltipX + 8}
                       y={tooltipY + 32 + i * 16}
-                      className="text-xs fill-ink-600"
+                      className="text-xs fill-text-body"
                     >
                       {c}: {formatScore(point.scores[c] ?? 0)}
                     </text>
@@ -562,11 +562,11 @@ export function ParetoChart({
 
       {/* Legend */}
       <div className="flex gap-4 mt-2 justify-center">
-        <span className={`${typography.panelBody} text-ink-600 flex items-center gap-1`}>
+        <span className={`${typography.panelBody} text-text-body flex items-center gap-1`}>
           <span className="w-3 h-3 rounded-full bg-success" />
           Pareto optimal ({frontier.length})
         </span>
-        <span className={`${typography.panelBody} text-ink-500 flex items-center gap-1`}>
+        <span className={`${typography.panelBody} text-text-light flex items-center gap-1`}>
           <span className="w-2 h-2 rounded-full bg-gray-400 opacity-50" />
           Dominated ({dominated.length})
         </span>
@@ -576,10 +576,10 @@ export function ParetoChart({
 
   return (
     <div
-      className={`p-4 bg-paper-50 border border-sand-200 rounded-xl ${className}`}
+      className={`p-4 bg-panel border border-panel-border rounded-xl ${className}`}
       data-testid="pareto-chart"
     >
-      <h3 className={`${typography.panelHeader} text-ink-800 mb-3`}>
+      <h3 className={`${typography.panelHeader} text-text-header mb-3`}>
         Pareto Frontier Analysis
       </h3>
 

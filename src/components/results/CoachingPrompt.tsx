@@ -45,7 +45,7 @@ export function CoachingPrompt() {
         <button
           type="button"
           onClick={focusChatInput}
-          className={`${typography.panelMeta} text-info font-medium hover:underline flex items-center gap-1 flex-shrink-0`}
+          className={`${typography.panelMeta} text-info hover:underline flex items-center gap-1 flex-shrink-0`}
         >
           <Target className="w-3.5 h-3.5" />
           Tell the AI

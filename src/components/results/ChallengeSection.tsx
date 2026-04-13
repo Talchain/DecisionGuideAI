@@ -160,7 +160,7 @@ function ChallengeCard({
                   nodeId={nodeId}
                   label={resolveFactorLabel(nodeId, evidenceGaps, drivers)}
                   onFocus={onFocusNode}
-                  className="inline text-xs"
+                  className={`inline ${typography.panelBody}`}
                 />
               </span>
             ))}
@@ -218,7 +218,7 @@ function FragileEdgeGroupCard({
             ? <>{edges.length} fragile relationships from {cleanSource}</>
             : hasEValue ? 'Fragile result, verify key assumptions' : 'Fragile relationship'}
         </p>
-        <span className={`rounded-full border ${hasEValue ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
+        <span className={`rounded-full border ${hasEValue ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}>
           Stability
         </span>
       </div>
@@ -280,7 +280,7 @@ function RootNodeWarningCard({ warning }: { warning: ChallengeInferenceWarning }
         <p className={`${typography.panelBody} text-text-body flex-1`}>
           Root node using default value
         </p>
-        <span className={`rounded-full border border-danger/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
+        <span className={`rounded-full border border-danger/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}>
           Validity
         </span>
       </div>
@@ -308,7 +308,7 @@ function InferenceWarningCard({
         <p className={`${typography.panelBody} text-text-body flex-1`}>
           {message}
         </p>
-        <span className={`rounded-full border border-info/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
+        <span className={`rounded-full border border-info/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}>
           Scientific
         </span>
       </div>
@@ -339,7 +339,7 @@ function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string)
         <p className={`${typography.panelBody} text-text-body flex-1`}>
           The success target relies on a default baseline
         </p>
-        <span className={`rounded-full border border-info/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} font-medium text-text-body leading-none`}>
+        <span className={`rounded-full border border-info/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}>
           Validity
         </span>
       </div>

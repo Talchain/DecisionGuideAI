@@ -980,7 +980,6 @@ export function HeroSection({
         {coachingHeadline && !isExpanded && !shouldSuppressContradictoryExecutiveCopy(coachingHeadline, robustnessLevel) && (
           <p
             className={`${typography.panelMeta} text-text-light mb-3 line-clamp-1`}
-            style={{ fontSize: 11 }}
           >
             {coachingHeadline}
           </p>

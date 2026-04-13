@@ -403,13 +403,13 @@ export const ResultsBody = memo(function ResultsBody({
       {/* Adjustments Made: Show any strength corrections applied during this run */}
       {strengthCorrections.length > 0 && (
         <SectionErrorBoundary section="Adjustments">
-          <details className="border border-sand-200 rounded-lg overflow-hidden">
-            <summary className={`px-3 py-2 bg-sand-50 cursor-pointer hover:bg-sand-100 ${typography.caption} text-ink-600`}>
+          <details className="border border-panel-border rounded-lg overflow-hidden">
+            <summary className={`px-3 py-2 bg-panel cursor-pointer hover:bg-panel-hover ${typography.caption} text-text-body`}>
               {strengthCorrections.length} edge strength{strengthCorrections.length > 1 ? 's' : ''} adjusted
             </summary>
             <div className="p-3 space-y-1">
               {strengthCorrections.map((c, idx) => (
-                <div key={idx} className={`${typography.code} text-ink-500 text-xs`}>
+                <div key={idx} className={`${typography.code} text-text-light`}>
                   &quot;{c.from} → {c.to}&quot;: {c.original.toFixed(2)} → {c.clamped.toFixed(1)}
                 </div>
               ))}

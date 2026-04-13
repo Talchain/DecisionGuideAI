@@ -231,7 +231,7 @@ function OptionRangeBar({
           />
         )}
       </div>
-      <div className="flex justify-between mt-0.5" style={{ fontSize: 10 }}>
+      <div className={`flex justify-between mt-0.5 ${typography.panelMeta}`}>
         <span className="text-text-light">{formatRangeValue(p10)}</span>
         {p50 != null && (
           <span className="font-semibold text-text-header">{formatRangeValue(p50)}</span>

@@ -84,7 +84,7 @@ export function CappedList<T>({
   // Empty state
   if (processedItems.length === 0) {
     return (
-      <p className={`${typography.panelBody} text-ink-400 italic`}>
+      <p className={`${typography.panelBody} text-text-light italic`}>
         {emptyMessage}
       </p>
     )

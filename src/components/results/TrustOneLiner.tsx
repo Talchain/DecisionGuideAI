@@ -111,7 +111,7 @@ export function TrustOneLiner({
           </svg>
           {stabilityPct != null && (
             <span
-              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] font-bold text-text-header"
+              className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[11px] font-bold text-text-header"
             >
               {stabilityPct}
             </span>
