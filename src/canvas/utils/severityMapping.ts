@@ -69,49 +69,49 @@ export interface SeverityDisplay {
  * Unified severity display mapping.
  * Single source of truth for severity styling across all surfaces.
  *
- * Colour scheme:
- * - blocker/high: carrot (red-orange) - critical issues
- * - medium: banana (yellow) - warnings
- * - low: sand (grey) - informational
+ * Colour scheme (DS v5 semantic tokens):
+ * - blocker/high: danger channel — critical issues
+ * - medium: warning channel — warnings
+ * - low: neutral (panel) — informational
  */
 export const SEVERITY_DISPLAY: Record<DraftWarningSeverity, SeverityDisplay> = {
   blocker: {
     label: 'Blocker',
-    bg: 'bg-carrot-50',
-    border: 'border-carrot-200',
-    text: 'text-carrot-800',
-    icon: 'text-carrot-600',
-    caption: 'text-carrot-700',
+    bg: 'bg-danger-bg',
+    border: 'border-danger/30',
+    text: 'text-text-header',
+    icon: 'text-danger',
+    caption: 'text-text-body',
     blocksAnalysis: true,
     sortOrder: 0,
   },
   high: {
     label: 'High',
-    bg: 'bg-carrot-50',
-    border: 'border-carrot-200',
-    text: 'text-carrot-800',
-    icon: 'text-carrot-600',
-    caption: 'text-carrot-700',
+    bg: 'bg-danger-bg',
+    border: 'border-danger/30',
+    text: 'text-text-header',
+    icon: 'text-danger',
+    caption: 'text-text-body',
     blocksAnalysis: false,
     sortOrder: 1,
   },
   medium: {
     label: 'Medium',
-    bg: 'bg-banana-50',
-    border: 'border-banana-200',
-    text: 'text-banana-800',
-    icon: 'text-banana-600',
-    caption: 'text-banana-700',
+    bg: 'bg-warning-bg',
+    border: 'border-warning/30',
+    text: 'text-text-header',
+    icon: 'text-warning',
+    caption: 'text-text-body',
     blocksAnalysis: false,
     sortOrder: 2,
   },
   low: {
     label: 'Low',
-    bg: 'bg-sand-50',
-    border: 'border-sand-200',
-    text: 'text-sand-800',
-    icon: 'text-sand-600',
-    caption: 'text-sand-700',
+    bg: 'bg-panel',
+    border: 'border-panel-border',
+    text: 'text-text-header',
+    icon: 'text-text-light',
+    caption: 'text-text-body',
     blocksAnalysis: false,
     sortOrder: 3,
   },
@@ -126,7 +126,7 @@ export const SEVERITY_DISPLAY: Record<DraftWarningSeverity, SeverityDisplay> = {
  * @example
  * const display = getSeverityDisplay('blocker')
  * // display.label === 'Blocker'
- * // display.bg === 'bg-carrot-50'
+ * // display.bg === 'bg-danger-bg'
  * // display.blocksAnalysis === true
  */
 export function getSeverityDisplay(severity: DraftWarningSeverity): SeverityDisplay {
@@ -372,25 +372,25 @@ export interface SeverityClasses {
 
 const SEVERITY_CLASS_MAP: Record<'error' | 'warning' | 'info', SeverityClasses> = {
   error: {
-    container: 'border-carrot-200 bg-carrot-50',
-    icon: 'text-carrot-600',
-    text: 'text-carrot-900',
-    caption: 'text-carrot-700',
-    button: 'bg-carrot-500 hover:bg-carrot-600',
+    container: 'border-danger/30 bg-danger-bg',
+    icon: 'text-danger',
+    text: 'text-text-header',
+    caption: 'text-text-body',
+    button: 'bg-danger hover:bg-danger-hover',
   },
   warning: {
-    container: 'border-sun-200 bg-sun-50',
-    icon: 'text-sun-600',
-    text: 'text-sun-900',
-    caption: 'text-sun-700',
-    button: 'bg-sun-500 hover:bg-sun-600',
+    container: 'border-warning/30 bg-warning-bg',
+    icon: 'text-warning',
+    text: 'text-text-header',
+    caption: 'text-text-body',
+    button: 'bg-warning hover:bg-warning-hover',
   },
   info: {
-    container: 'border-sky-200 bg-sky-50',
-    icon: 'text-sky-600',
-    text: 'text-sky-900',
-    caption: 'text-sky-700',
-    button: 'bg-sky-500 hover:bg-sky-600',
+    container: 'border-info/30 bg-info-bg',
+    icon: 'text-info',
+    text: 'text-text-header',
+    caption: 'text-text-body',
+    button: 'bg-info hover:bg-info-hover',
   },
 }
 

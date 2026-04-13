@@ -410,8 +410,8 @@ describe('severityMapping', () => {
   describe('getSeverityContainerClass', () => {
     it('returns combined bg and border classes', () => {
       const classes = getSeverityContainerClass('blocker')
-      expect(classes).toContain('bg-carrot-50')
-      expect(classes).toContain('border-carrot-200')
+      expect(classes).toContain('bg-danger-bg')
+      expect(classes).toContain('border-danger/30')
     })
   })
 
