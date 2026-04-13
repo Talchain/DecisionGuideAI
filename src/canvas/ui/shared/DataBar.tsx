@@ -81,7 +81,7 @@ export function DataBar({ value, label, colour, colourVar, size = 'compact', tra
 
   // showPercent only applies in standard mode — compact bars use trailingLabel for any suffix
   const percentSuffix = (showPercent && size === 'standard') ? (
-    <span className={`${typography.panelBody} font-mono text-slate-600 w-9 text-right shrink-0`}>
+    <span className={`${typography.panelBody} font-mono text-text-body w-9 text-right shrink-0`}>
       {percent}%
     </span>
   ) : trailingLabel !== undefined ? (
@@ -114,7 +114,7 @@ export function DataBar({ value, label, colour, colourVar, size = 'compact', tra
   // standard — full-width panel row bar
   // showPercent=true uses the DriversSection visual: h-2 bg-sand-200 track, tighter gap
   // showPercent=false (default) uses the canvas panel visual: h-1.5 bg-panel-border track
-  const trackClass = showPercent ? 'h-2 bg-sand-200' : 'h-1.5 bg-panel-border'
+  const trackClass = showPercent ? 'h-2 bg-panel-border' : 'h-1.5 bg-panel-border'
   const gapClass = showPercent ? 'gap-1' : 'gap-1.5'
   const transitionClass = showPercent ? 'transition-all' : 'transition-all duration-300'
 

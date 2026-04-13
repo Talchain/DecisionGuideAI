@@ -52,9 +52,9 @@ export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPan
       {/* Header */}
       <div className="px-4 py-3 border-b border-panel-border">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-slate-900">Graph Issues</h3>
-          <button onClick={onClose} className="p-1 hover:bg-slate-100 rounded" aria-label="Close issues panel">
-            <X className="w-4 h-4 text-slate-600" />
+          <h3 className="font-semibold text-text-header">Graph Issues</h3>
+          <button onClick={onClose} className="p-1 hover:bg-panel-hover rounded" aria-label="Close issues panel">
+            <X className="w-4 h-4 text-text-body" />
           </button>
         </div>
 
@@ -73,7 +73,7 @@ export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPan
             {onFixAll && fixableIssues.length > 1 && (
               <button
                 onClick={onFixAll}
-                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-slate-600 text-white rounded-lg ${typography.panelBody} hover:bg-slate-700 transition-colors`}
+                className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-text-body text-text-on-color rounded-lg ${typography.panelBody} hover:bg-text-header transition-colors`}
                 type="button"
                 aria-label="Fix all issues"
               >
@@ -88,7 +88,7 @@ export function IssuesPanel({ issues, onFixIssue, onFixAll, onClose }: IssuesPan
       {/* Issues list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {issues.length === 0 ? (
-          <div className="text-center py-8 text-slate-500">
+          <div className="text-center py-8 text-text-light">
             <AlertCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
             <p className={typography.panelBody}>No issues found</p>
             <p className={`${typography.panelMeta} mt-1`}>Your graph is healthy!</p>
@@ -136,7 +136,7 @@ function IssueSection({
 }) {
   return (
     <div className="space-y-2">
-      <h4 className={`${typography.panelMeta} text-slate-500 uppercase tracking-wide`}>
+      <h4 className={`${typography.panelMeta} text-text-light uppercase tracking-wide`}>
         {title} ({issues.length})
       </h4>
       {issues.map((issue) => (
@@ -161,13 +161,13 @@ function IssueCard({
       <div className="flex items-start gap-2">
         {severityIcons[issue.severity]}
         <div className="flex-1 min-w-0">
-          <div className={`${typography.panelBody} text-slate-900`}>{issue.message}</div>
+          <div className={`${typography.panelBody} text-text-header`}>{issue.message}</div>
 
           {/* Why this matters explainer */}
           {explainer && (
             <button
               onClick={() => setShowExplainer(!showExplainer)}
-              className={`mt-1 flex items-center gap-1 ${typography.panelMeta} text-slate-600 hover:text-slate-900 transition-colors`}
+              className={`mt-1 flex items-center gap-1 ${typography.panelMeta} text-text-body hover:text-text-header transition-colors`}
               type="button"
               aria-expanded={showExplainer}
               aria-label="Toggle why this matters"
@@ -182,14 +182,14 @@ function IssueCard({
           )}
 
           {showExplainer && explainer && (
-            <div className={`mt-2 px-2 py-1.5 bg-white bg-opacity-50 rounded ${typography.panelMeta} text-slate-700 border border-panel-border`}>
+            <div className={`mt-2 px-2 py-1.5 bg-white bg-opacity-50 rounded ${typography.panelMeta} text-text-body border border-panel-border`}>
               {explainer}
             </div>
           )}
 
           {/* Affected elements */}
           {(issue.nodeIds || issue.edgeIds) && (
-            <div className={`mt-1 ${typography.panelMeta} text-slate-600`}>
+            <div className={`mt-1 ${typography.panelMeta} text-text-body`}>
               {issue.nodeIds && issue.nodeIds.length > 0 && (
                 <div>Nodes: {issue.nodeIds.join(', ')}</div>
               )}
