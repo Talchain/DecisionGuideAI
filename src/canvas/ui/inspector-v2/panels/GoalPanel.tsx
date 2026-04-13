@@ -348,7 +348,7 @@ export const GoalPanel = memo(function GoalPanel({
       <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
         {isResultsMode && typeof probGoal === 'number' && (
           <div className="flex items-center gap-4 py-2">
-            <ProbabilityArc value={probGoal} color="var(--color-success)" />
+            <ProbabilityArc value={probGoal} color="var(--success)" />
             <div>
               <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
               <div className={`${typography.panelMeta} text-text-light mt-0.5`}>Based on 1,000 simulations</div>

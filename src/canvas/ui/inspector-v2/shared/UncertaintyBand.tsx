@@ -24,8 +24,8 @@ export function UncertaintyBand({ strength, std, sliderWidth = 100 }: Uncertaint
   const width = right - left
 
   const color = strength >= 0
-    ? 'var(--color-success, #67C89E)'
-    : 'var(--color-danger, #EA7B4B)'
+    ? 'var(--success)'
+    : 'var(--danger)'
 
   return (
     <div

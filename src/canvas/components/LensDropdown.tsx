@@ -38,7 +38,7 @@ function LensChip({ isActive, onClick, chipRef }: LensChipProps) {
         gap: 4,
         height: 30,
         padding: '0 8px',
-        color: isActive ? 'var(--semantic-info, #3b82f6)' : 'var(--text-light, #908D8D)',
+        color: isActive ? 'var(--info)' : 'var(--text-light, #908D8D)',
         fontSize: 13,
         fontWeight: 500,
         whiteSpace: 'nowrap' as const,
@@ -56,7 +56,7 @@ function LensChip({ isActive, onClick, chipRef }: LensChipProps) {
           width: 6,
           height: 6,
           borderRadius: '50%',
-          background: 'var(--semantic-info, #3b82f6)',
+          background: 'var(--info)',
           opacity: isActive ? 1 : 0,
           transition: 'opacity 200ms ease',
         }}
@@ -331,7 +331,7 @@ function LensMenuItem({ label, description, isActive, onClick, dotColor, disable
         fontWeight: isActive ? 500 : 400,
         color: disabled
           ? 'var(--text-disabled, #C5C0B8)'
-          : isActive ? 'var(--semantic-info, #3b82f6)' : 'var(--text-body, #3F3F3E)',
+          : isActive ? 'var(--info)' : 'var(--text-body, #3F3F3E)',
         textAlign: 'left',
         transition: 'background 100ms ease',
         opacity: disabled ? 0.6 : 1,

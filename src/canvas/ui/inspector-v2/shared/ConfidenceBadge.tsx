@@ -12,9 +12,9 @@ interface ConfidenceBadgeProps {
 }
 
 const LEVELS = {
-  high:   { glyph: '\u2713', colorClass: 'text-success', borderStyle: 'solid'  as const, borderColor: 'var(--color-success, #67C89E)' },
-  medium: { glyph: '~',      colorClass: 'text-warning', borderStyle: 'dashed' as const, borderColor: 'var(--color-warning, #FFA656)' },
-  low:    { glyph: '?',      colorClass: 'text-danger',  borderStyle: 'dotted' as const, borderColor: 'var(--color-danger,  #EA7B4B)' },
+  high:   { glyph: '\u2713', colorClass: 'text-success', borderStyle: 'solid'  as const, borderColor: 'var(--success)' },
+  medium: { glyph: '~',      colorClass: 'text-warning', borderStyle: 'dashed' as const, borderColor: 'var(--warning)' },
+  low:    { glyph: '?',      colorClass: 'text-danger',  borderStyle: 'dotted' as const, borderColor: 'var(--danger)' },
 } as const
 
 export function ConfidenceBadge({ level, value }: ConfidenceBadgeProps) {

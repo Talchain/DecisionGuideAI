@@ -227,9 +227,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
   const evidenceBgStyle = (() => {
     if (lensMode !== 'evidence' || !evidenceClass) return undefined
     switch (evidenceClass) {
-      case 'grounded': return 'var(--semantic-success-light, #dcfce7)'
-      case 'assumed': return 'var(--semantic-warning-light, #fef9c3)'
-      case 'none': return 'var(--semantic-danger-light, #fee2e2)'
+      case 'grounded': return 'var(--success-light)'
+      case 'assumed': return 'var(--warning-light)'
+      case 'none': return 'var(--danger-light)'
       case 'na': return undefined
     }
   })()

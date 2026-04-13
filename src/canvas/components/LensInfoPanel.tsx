@@ -130,15 +130,15 @@ function EvidencePanel() {
       </div>
       <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 10 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--semantic-success-light, #dcfce7)', border: '1px solid var(--semantic-success, #22c55e)' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--success-light)', border: '1px solid var(--success)' }} />
           Grounded
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--semantic-warning-light, #fef9c3)', border: '1px solid var(--semantic-warning, #eab308)' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--warning-light)', border: '1px solid var(--warning)' }} />
           Assumed
         </span>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--semantic-danger-light, #fee2e2)', border: '1px solid var(--semantic-danger, #ef4444)' }} />
+          <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--danger-light)', border: '1px solid var(--danger)' }} />
           No data
         </span>
       </div>

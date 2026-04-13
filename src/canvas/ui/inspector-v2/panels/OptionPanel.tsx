@@ -245,7 +245,7 @@ export const OptionPanel = memo(function OptionPanel({
             {displayMetadata.winRate !== null && (
               <div className="flex items-center gap-3">
                 <div className="text-center">
-                  <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--color-option)' }}>
+                  <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
                     {Math.round(displayMetadata.winRate * 100)}%
                   </div>
                   <div className={`${typography.panelMeta} text-text-light`}>Chance of leading</div>
@@ -274,7 +274,7 @@ export const OptionPanel = memo(function OptionPanel({
 
             {/* Story headline */}
             {headline && (
-              <div className="bg-panel border rounded-lg p-2.5 mt-2" style={{ borderColor: 'var(--color-option)4D' }}>
+              <div className="bg-panel border rounded-lg p-2.5 mt-2" style={{ borderColor: 'var(--option)4D' }}>
                 <p className={`${typography.panelBody} italic text-text-body`}>&ldquo;{headline}&rdquo;</p>
               </div>
             )}
@@ -294,7 +294,7 @@ export const OptionPanel = memo(function OptionPanel({
                         className="h-full rounded-full"
                         style={{
                           width: `${o.winPct ?? 0}%`,
-                          background: o.isCurrent ? 'var(--color-option)' : 'var(--color-text-light)',
+                          background: o.isCurrent ? 'var(--option)' : 'var(--text-light)',
                         }}
                       />
                     </div>

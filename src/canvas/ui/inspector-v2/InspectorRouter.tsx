@@ -27,23 +27,23 @@ import { RiskPanel } from './panels/RiskPanel'
 
 // Entity colour map — used as fallback for inspector header entity colour
 const TOP_BAR_COLORS: Record<string, string> = {
-  goal:       'var(--color-goal,    #F5C433)',
-  decision:   'var(--color-info,    #2B7FA2)',
-  option:     'var(--color-option,  #AAA7E4)',
-  factor:     'var(--color-factor,  #B0A899)',
-  outcome:    'var(--color-success, #67C89E)',
-  risk:       'var(--color-danger,  #EA7B4B)',
-  edge:       'var(--color-factor,  #B0A899)',
+  goal:       'var(--goal)',
+  decision:   'var(--info)',
+  option:     'var(--option)',
+  factor:     'var(--factor)',
+  outcome:    'var(--success)',
+  risk:       'var(--danger)',
+  edge:       'var(--factor)',
 }
 
 // Pill border colour classes (30% opacity via hex suffix)
 const PILL_COLORS: Record<string, string> = {
-  goal:       'var(--color-goal,    #F5C433)',
-  decision:   'var(--color-info,    #2B7FA2)',
-  option:     'var(--color-option,  #AAA7E4)',
-  factor:     'var(--color-factor,  #B0A899)',
-  outcome:    'var(--color-success, #67C89E)',
-  risk:       'var(--color-danger,  #EA7B4B)',
+  goal:       'var(--goal)',
+  decision:   'var(--info)',
+  option:     'var(--option)',
+  factor:     'var(--factor)',
+  outcome:    'var(--success)',
+  risk:       'var(--danger)',
 }
 
 interface InspectorRouterProps {

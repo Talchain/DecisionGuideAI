@@ -15,7 +15,7 @@ interface ProbabilityArcProps {
 export function ProbabilityArc({
   value,
   size = 80,
-  color = 'var(--color-success, #67C89E)',
+  color = 'var(--success)',
 }: ProbabilityArcProps) {
   const strokeWidth = 6
   const r = (size - strokeWidth) / 2
@@ -30,7 +30,7 @@ export function ProbabilityArc({
         cy={size / 2}
         r={r}
         fill="none"
-        stroke="var(--color-panel-border, #EEE6D8)"
+        stroke="var(--border-default)"
         strokeWidth={strokeWidth}
       />
       {/* Fill arc */}
@@ -56,7 +56,7 @@ export function ProbabilityArc({
         style={{
           fontSize: size * 0.28,
           fontWeight: 700,
-          fill: 'var(--color-text-header, #262626)',
+          fill: 'var(--text-header)',
           fontFamily: 'Inter, sans-serif',
         }}
       >

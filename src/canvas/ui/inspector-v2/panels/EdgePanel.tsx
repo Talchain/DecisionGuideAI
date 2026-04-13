@@ -268,7 +268,7 @@ export const EdgePanel = memo(function EdgePanel({
               <span
                 className={`${typography.panelMeta} font-medium inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
                 style={{
-                  border: `1px solid ${localStrength >= 0 ? 'var(--color-success)' : 'var(--color-danger)'}4D`,
+                  border: `1px solid ${localStrength >= 0 ? 'var(--success)' : 'var(--danger)'}4D`,
                 }}
               >
                 {localStrength >= 0 ? '\u2191' : '\u2193'} {getStrengthDescription(localStrength)}
@@ -411,7 +411,7 @@ export const EdgePanel = memo(function EdgePanel({
           <div className="bg-panel border border-panel-border rounded-lg p-2.5">
             <span
               className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
-              style={{ border: '1px solid var(--color-warning, #FFA656)4D' }}
+              style={{ border: '1px solid var(--warning)4D' }}
             >
               {getProvenanceLabel(provenance)}
             </span>

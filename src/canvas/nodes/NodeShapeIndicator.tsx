@@ -20,14 +20,14 @@ interface NodeShapeIndicatorProps {
  * Using CSS custom properties defined by Tailwind colour tokens.
  */
 const SHAPE_FILLS: Record<NodeType, string> = {
-  factor:     'var(--color-factor,     #B0A899)',
-  option:     'var(--color-option,     #AAA7E4)',
-  goal:       'var(--color-goal,       #F5C433)',
-  decision:   'var(--color-info,       #2B7FA2)',
-  risk:       'var(--color-danger,     #EA7B4B)',
-  outcome:    'var(--color-success,    #67C89E)',
-  action:     'var(--color-success,    #67C89E)',
-  constraint: 'var(--color-text-light, #94A3B8)',
+  factor:     'var(--factor)',
+  option:     'var(--option)',
+  goal:       'var(--goal)',
+  decision:   'var(--info)',
+  risk:       'var(--danger)',
+  outcome:    'var(--success)',
+  action:     'var(--success)',
+  constraint: 'var(--text-light)',
 }
 
 export function NodeShapeIndicator({ nodeKind, size = 12, className, fillOverride }: NodeShapeIndicatorProps) {

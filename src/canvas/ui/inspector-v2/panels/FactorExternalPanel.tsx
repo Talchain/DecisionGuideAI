@@ -224,7 +224,7 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
               style={{
                 left: `${rangeMin * 100}%`,
                 width: `${(rangeMax - rangeMin) * 100}%`,
-                background: 'linear-gradient(to right, var(--color-success) 40%, var(--color-factor), var(--color-danger) 80%)',
+                background: 'linear-gradient(to right, var(--success) 40%, var(--factor), var(--danger) 80%)',
                 opacity: 0.6,
               }}
             />

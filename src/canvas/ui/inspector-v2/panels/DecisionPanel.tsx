@@ -132,7 +132,7 @@ export const DecisionPanel = memo(function DecisionPanel({
             <div className="flex items-center gap-2 mt-1.5">
               <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
                 {opt.winPct != null && (
-                  <div className="h-full rounded-full" style={{ width: `${opt.winPct}%`, background: 'var(--color-option)' }} />
+                  <div className="h-full rounded-full" style={{ width: `${opt.winPct}%`, background: 'var(--option)' }} />
                 )}
               </div>
               <span className={`${typography.panelMeta} text-text-light`}>

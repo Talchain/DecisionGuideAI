@@ -40,7 +40,7 @@ export const InspectorShell = memo(function InspectorShell({
   }, [onClose])
 
   const isDragging = dragHandlers?.isDragging ?? false
-  const entityColor = typePillColor ?? topBarColor ?? 'var(--color-factor)'
+  const entityColor = typePillColor ?? topBarColor ?? 'var(--factor)'
 
   // Confidence-coded border colour (30% opacity) — falls back to panel-border
   const borderColorMap = {

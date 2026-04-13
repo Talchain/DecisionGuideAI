@@ -269,7 +269,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
               <span
                 key={i}
                 className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
-                style={{ border: '1px solid var(--color-warning)4D' }}
+                style={{ border: '1px solid var(--warning)4D' }}
               >
                 {d}
               </span>
