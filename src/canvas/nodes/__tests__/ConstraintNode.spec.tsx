@@ -60,7 +60,7 @@ describe('ConstraintNode', () => {
       )
 
       const node = screen.getByTestId('constraint-node')
-      expect(node).toHaveClass('border-carrot-400')
+      expect(node).toHaveClass('border-danger')
     })
   })
 

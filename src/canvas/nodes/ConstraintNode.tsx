@@ -64,10 +64,10 @@ export const ConstraintNode = memo((props: NodeProps) => {
       className={`
         relative px-4 py-3 rounded-lg min-w-[160px] max-w-[220px]
         border-2
-        ${selected ? 'border-carrot-500 ring-2 ring-carrot-200' : 'border-carrot-400'}
+        ${selected ? 'border-danger ring-2 ring-danger-light' : 'border-danger'}
         shadow-1 hover:shadow-2 transition-shadow
       `}
-      style={{ backgroundColor: '#FEFEFE' }}
+      style={{ backgroundColor: 'var(--bg-panel)' }}
       data-testid="constraint-node"
       role="group"
       aria-label={`Constraint: ${nodeData.label}`}
@@ -76,46 +76,46 @@ export const ConstraintNode = memo((props: NodeProps) => {
       <Handle
         type="target"
         position={Position.Top}
-        className="w-3 h-3 !bg-carrot-400 !border-carrot-500"
+        className="w-3 h-3 !bg-danger !border-danger"
       />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="w-3 h-3 !bg-carrot-400 !border-carrot-500"
+        className="w-3 h-3 !bg-danger !border-danger"
       />
 
       {/* Header with icon */}
       <div className="flex items-center gap-2 mb-2">
-        <div className="p-1.5 rounded bg-carrot-100">
-          <Shield className="h-4 w-4 text-carrot-600" aria-hidden="true" />
+        <div className="p-1.5 rounded bg-danger-light">
+          <Shield className="h-4 w-4 text-danger" aria-hidden="true" />
         </div>
         <div className="flex-1 min-w-0">
-          <span className={`${typography.caption} text-carrot-600 font-medium uppercase tracking-wide`}>
+          <span className={`${typography.caption} text-danger font-medium uppercase tracking-wide`}>
             {typeConfig.label}
           </span>
         </div>
         {!isHard && (
-          <span className={`${typography.caption} px-1.5 py-0.5 rounded bg-banana-100 text-banana-700`}>
+          <span className={`${typography.caption} px-1.5 py-0.5 rounded bg-warning-light text-text-body`}>
             Soft
           </span>
         )}
       </div>
 
       {/* Label */}
-      <p className={`${typography.bodySmall} font-medium text-ink-900 truncate`}>
+      <p className={`${typography.bodySmall} font-medium text-text-header truncate`}>
         {nodeData.label}
       </p>
 
       {/* Constraint value */}
       {valueDisplay && (
-        <p className={`${typography.body} font-semibold text-carrot-700 mt-1`}>
+        <p className={`${typography.body} font-semibold text-danger mt-1`}>
           {valueDisplay}
         </p>
       )}
 
       {/* Description */}
       {nodeData.description && (
-        <p className={`${typography.caption} text-ink-500 mt-1 line-clamp-2`}>
+        <p className={`${typography.caption} text-text-light mt-1 line-clamp-2`}>
           {nodeData.description}
         </p>
       )}
@@ -124,7 +124,7 @@ export const ConstraintNode = memo((props: NodeProps) => {
       {isHard && (
         <div className="absolute -top-1 -right-1">
           <div
-            className="w-4 h-4 rounded-full bg-carrot-500 flex items-center justify-center"
+            className="w-4 h-4 rounded-full bg-danger flex items-center justify-center"
             title="Hard constraint - must be met"
           >
             <AlertCircle className="h-3 w-3 text-white" />

@@ -779,8 +779,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             className={`nodrag nopan border shadow-panel ${typography.edgeLabel} ${
               isDark
                 ? 'bg-gray-900 text-gray-100 border-gray-600'
-                : 'bg-paper-50/95 text-ink-900 border-sand-200'
-            } ${hasSuggestion ? 'ring-2 ring-sky-400 ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
+                : 'bg-panel/95 text-text-header border-panel-border'
+            } ${hasSuggestion ? 'ring-2 ring-info ring-offset-1' : ''} ${isFirstEdge && showEdgeHint ? 'edge-hint-active' : ''}`}
             role="note"
             aria-label={ariaLabel}
             title={(() => {
@@ -799,7 +799,7 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
                   {/* Weight suggestion indicator */}
                   {hasSuggestion && (
                     <Lightbulb
-                      className="w-3 h-3 text-sky-500 flex-shrink-0"
+                      className="w-3 h-3 text-info flex-shrink-0"
                       aria-label="Weight suggestion available"
                       data-testid="edge-suggestion-indicator"
                     />

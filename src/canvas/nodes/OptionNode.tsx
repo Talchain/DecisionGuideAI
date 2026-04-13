@@ -912,7 +912,7 @@ export const OptionNode = memo((props: NodeProps) => {
               <span
                 key={d.factorId}
                 className="inline-flex items-center gap-0.5 font-sans leading-tight px-[5px] py-[1px] rounded-full border border-panel-border bg-transparent text-text-body"
-                style={{ fontSize: 10, borderWidth: '0.5px' }}
+                style={{ fontSize: 11, borderWidth: '0.5px' }}
               >
                 {d.direction === 'up' ? (
                   <ArrowUp size={10} className="text-success flex-shrink-0" />
