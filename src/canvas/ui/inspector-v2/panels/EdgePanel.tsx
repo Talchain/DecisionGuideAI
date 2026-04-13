@@ -274,7 +274,7 @@ export const EdgePanel = memo(function EdgePanel({
                 {localStrength >= 0 ? '\u2191' : '\u2193'} {getStrengthDescription(localStrength)}
               </span>
               {techMode && (
-                <span className={`${typography.panelHeader} text-xs`}>
+                <span className={`${typography.panelBody}`}>
                   {localStrength >= 0 ? '+' : ''}{localStrength.toFixed(2)}
                 </span>
               )}
@@ -345,7 +345,7 @@ export const EdgePanel = memo(function EdgePanel({
                   aria-label="Connection existence probability"
                 />
               </div>
-              <span className={`${typography.panelHeader} text-xs min-w-[32px] text-right ${thresholdColor(localBelief)}`}>
+              <span className={`${typography.panelBody} min-w-[32px] text-right ${thresholdColor(localBelief)}`}>
                 {Math.round(localBelief * 100)}%
               </span>
             </div>

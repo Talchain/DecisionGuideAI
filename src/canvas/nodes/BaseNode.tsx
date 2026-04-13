@@ -259,7 +259,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         ${isLensDimmed ? 'opacity-20' : isDimmed ? 'opacity-60' : ''}
       `}
       style={{
-        backgroundColor: evidenceBgStyle ?? '#FEFEFE',
+        backgroundColor: evidenceBgStyle ?? 'var(--bg-panel)',
         // Footer padding reserved only on node types that actually render
         // ActionIcons (factor, option). Other types keep symmetric padding.
         padding: (nodeType === 'factor' || nodeType === 'option') && !isCausalLens && !isEvidenceLens

@@ -58,14 +58,14 @@ function CausalPanel() {
           type="button"
           onClick={() => setShowTable(p => !p)}
           className="flex items-center gap-1 mt-2 cursor-pointer"
-          style={{ fontSize: 10, fontWeight: 500, color: 'var(--semantic-info, #3b82f6)', background: 'none', border: 'none', padding: 0 }}
+          style={{ fontSize: 11, fontWeight: 500, color: 'var(--info)', background: 'none', border: 'none', padding: 0 }}
         >
           {showTable ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
           {showTable ? 'Hide' : 'Show'} edge table
         </button>
       )}
       {showTable && (
-        <div className="mt-2 max-h-[200px] overflow-y-auto" style={{ fontSize: 10, fontFamily: 'ui-monospace, monospace' }}>
+        <div className="mt-2 max-h-[200px] overflow-y-auto" style={{ fontSize: 11, fontFamily: 'ui-monospace, monospace' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ color: 'var(--text-light, #908D8D)', textAlign: 'left' }}>
@@ -128,7 +128,7 @@ function EvidencePanel() {
         {nodeCounts.grounded} of {nodeCounts.total} factor{nodeCounts.total !== 1 ? 's' : ''} have evidence.{' '}
         {assumedEdgeCount} edge{assumedEdgeCount !== 1 ? 's are' : ' is'} model-assumed.
       </div>
-      <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 10 }}>
+      <div style={{ display: 'flex', gap: 12, marginTop: 6, fontSize: 11 }}>
         <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
           <span style={{ width: 8, height: 8, borderRadius: 2, background: 'var(--success-light)', border: '1px solid var(--success)' }} />
           Grounded
@@ -199,7 +199,7 @@ function RobustnessPanel() {
       </div>
       {/* Ranked fragile edge list */}
       {fragileList.length > 0 && (
-        <div className="mt-2 space-y-1" style={{ fontSize: 10 }}>
+        <div className="mt-2 space-y-1" style={{ fontSize: 11 }}>
           {fragileList.map((fe, i) => (
             <div key={i} className="flex items-center gap-1">
               <span className="text-danger font-semibold" style={{ minWidth: 32 }}>{Math.round(fe.switchProb * 100)}%</span>
