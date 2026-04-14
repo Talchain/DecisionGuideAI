@@ -687,3 +687,67 @@ describe('GraphPatchBlock — render matrix (all states)', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// Tense cleanup: defensive "Proposing to " prefix stripping on accepted cards
+// ---------------------------------------------------------------------------
+
+describe('GraphPatchBlock — tense cleanup on accepted cards', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    storeMocks.canvasNodes = canvasNodes('n-new', 'n-x1', 'n-x2', 'n-x3')
+  })
+
+  it('strips leading "Proposing to " from block.summary when card is accepted', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const block = makePatchBlock({ summary: 'Proposing to update Existing Team Seniority' })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+
+    expect(screen.getByText('update Existing Team Seniority')).toBeInTheDocument()
+    expect(screen.queryByText(/^Proposing to /)).not.toBeInTheDocument()
+    expect(warnSpy).toHaveBeenCalledWith('[UI-TENSE] Stripped proposal prefix on accepted card')
+    warnSpy.mockRestore()
+  })
+
+  it('strips leading "Proposing to " from proposal_items[].description when accepted', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const block = makePatchBlock({
+      summary: 'Updated factor',
+      proposal_items: [
+        { description: 'Proposing to update Existing Team Seniority', changeLabel: 'Update', elementLabel: 'Existing Team Seniority' },
+      ],
+      proposal_items_source: 'backend',
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+
+    fireEvent.click(screen.getByTestId('patch-proposal-details-toggle'))
+    expect(screen.getByText('update Existing Team Seniority')).toBeInTheDocument()
+    expect(warnSpy).toHaveBeenCalledWith('[UI-TENSE] Stripped proposal prefix on accepted card')
+    warnSpy.mockRestore()
+  })
+
+  it('preserves "Proposing to " prefix when card is still proposed', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const block = makePatchBlock({ summary: 'Proposing to update Existing Team Seniority' })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.getByText('Proposing to update Existing Team Seniority')).toBeInTheDocument()
+    expect(warnSpy).not.toHaveBeenCalledWith('[UI-TENSE] Stripped proposal prefix on accepted card')
+    warnSpy.mockRestore()
+  })
+
+  it('strips prefix on auto_applied cards as well', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const block = makePatchBlock({
+      summary: 'Proposing to update Existing Team Seniority',
+      auto_apply: true,
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.getByText('update Existing Team Seniority')).toBeInTheDocument()
+    expect(warnSpy).toHaveBeenCalledWith('[UI-TENSE] Stripped proposal prefix on accepted card')
+    warnSpy.mockRestore()
+  })
+})

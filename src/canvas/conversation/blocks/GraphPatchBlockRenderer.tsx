@@ -47,6 +47,20 @@ function getContextualFallback(block: GraphPatchBlockType): string {
   return 'Review the suggested change.'
 }
 
+const PROPOSAL_PREFIX_RE = /^Proposing to /i
+
+/**
+ * Defensive tense cleanup: once a card is accepted/auto-applied, CEE should
+ * emit past-tense copy, but if a stale "Proposing to …" string slips through
+ * we strip the prefix rather than show mismatched tense. Remove when CEE
+ * reliably emits state-appropriate strings.
+ */
+function stripProposalPrefix(text: string, isApplied: boolean): string {
+  if (!isApplied || !text || !PROPOSAL_PREFIX_RE.test(text)) return text
+  console.warn('[UI-TENSE] Stripped proposal prefix on accepted card')
+  return text.replace(PROPOSAL_PREFIX_RE, '')
+}
+
 function getProposalItems(block: GraphPatchBlockType): ProposalReviewItem[] {
   return Array.isArray(block.proposal_items) ? block.proposal_items.filter((item) => !!item?.description) : []
 }
@@ -157,7 +171,7 @@ export function GraphPatchBlockRenderer({
 
   // Prefer CEE's semantic block.summary; fall back to contextual text by patch type.
   const ceeSummaryText = normaliseDashes(block.summary || '')
-  const summaryText = ceeSummaryText || getContextualFallback(block)
+  const rawSummaryText = ceeSummaryText || getContextualFallback(block)
   const rawProposalItems = getProposalItems(block)
   const proposalItemsSource = getProposalItemsSource(block)
   const operationMeta = Array.isArray(block.operation_meta) ? block.operation_meta : []
@@ -173,36 +187,44 @@ export function GraphPatchBlockRenderer({
     || (block.patch_type == null && isAutoApplied && addNodeOpCount >= 3 && addNodeOpCount > block.operations.length / 2)
   const hasRevealTargets = !isWholeGraphTarget && !isGenerativeDraft && (uniqueTargetNodeIds.length > 0 || edgeIds.length > 0)
   const isApplied = isAutoApplied || resolvedState === 'accepted'
+  const summaryText = useMemo(
+    () => stripProposalPrefix(rawSummaryText, isApplied),
+    [rawSummaryText, isApplied],
+  )
   const cardState = resolveCardState(resolvedState, isAutoApplied, rejectionInfo?.code === 'NETWORK_ERROR')
   const { header: cardHeader, badge: cardBadge } = getPatchCardLabels(cardState)
   const relatedElements = block.related_elements
 
   const proposalItems = useMemo<ProposalReviewItem[]>(() => {
-    if (rawProposalItems.length > 0) {
-      return rawProposalItems.map((item, idx) => {
-        const op = block.operations[idx]
-        const deps: DescribeOpDeps = { proposalItem: item, relatedElements, nodeLabels, edgeEndpoints }
-        const descNeedsClean = RAW_ID_PATTERN.test(item.description)
-        const labelNeedsClean = item.elementLabel ? RAW_ID_PATTERN.test(item.elementLabel) : false
-        if (!descNeedsClean && !labelNeedsClean) return item
-        return {
-          ...item,
-          description: op
-            ? describeOperation(op, deps)
-            : item.description.replace(new RegExp(RAW_ID_PATTERN.source, 'gi'), '[item]'),
-          elementLabel: labelNeedsClean ? undefined : item.elementLabel,
-        }
-      })
-    }
-    return block.operations.map((op) => {
-      const deps: DescribeOpDeps = { relatedElements, nodeLabels, edgeEndpoints }
-      return {
-        description: describeOperation(op, deps),
-        elementLabel: typeof op.data?.kind === 'string' ? op.data.kind : undefined,
-        changeLabel: undefined,
-      }
+    const base: ProposalReviewItem[] = rawProposalItems.length > 0
+      ? rawProposalItems.map((item, idx) => {
+          const op = block.operations[idx]
+          const deps: DescribeOpDeps = { proposalItem: item, relatedElements, nodeLabels, edgeEndpoints }
+          const descNeedsClean = RAW_ID_PATTERN.test(item.description)
+          const labelNeedsClean = item.elementLabel ? RAW_ID_PATTERN.test(item.elementLabel) : false
+          if (!descNeedsClean && !labelNeedsClean) return item
+          return {
+            ...item,
+            description: op
+              ? describeOperation(op, deps)
+              : item.description.replace(new RegExp(RAW_ID_PATTERN.source, 'gi'), '[item]'),
+            elementLabel: labelNeedsClean ? undefined : item.elementLabel,
+          }
+        })
+      : block.operations.map((op) => {
+          const deps: DescribeOpDeps = { relatedElements, nodeLabels, edgeEndpoints }
+          return {
+            description: describeOperation(op, deps),
+            elementLabel: typeof op.data?.kind === 'string' ? op.data.kind : undefined,
+            changeLabel: undefined,
+          }
+        })
+    if (!isApplied) return base
+    return base.map((item) => {
+      const cleaned = stripProposalPrefix(item.description, true)
+      return cleaned === item.description ? item : { ...item, description: cleaned }
     })
-  }, [rawProposalItems, block.operations, relatedElements, nodeLabels, edgeEndpoints])
+  }, [rawProposalItems, block.operations, relatedElements, nodeLabels, edgeEndpoints, isApplied])
 
   const shouldCollapseProposalItems =
     proposalItems.length > 2
