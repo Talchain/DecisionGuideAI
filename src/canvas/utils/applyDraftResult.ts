@@ -17,6 +17,9 @@ import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCEEv3Response } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
 import { logger } from '../../lib/logger'
+import { validateNodesBatch } from '../domain/nodes'
+import { devLog } from '../../utils/debugLog'
+import { detectBaseline } from './baselineDetection'
 
 /**
  * Apply a CEE draft response to the canvas, replacing the current graph.
@@ -134,6 +137,10 @@ export function applyDraftResult(
     nodes,
     edges,
   })
+
+  // Warning-only schema validation at the mutation boundary. Non-throwing —
+  // shape drift is logged via devWarn in DEV builds only.
+  validateNodesBatch(nodes)
 
   // Trigger layout (all new nodes start at 0,0)
   void store
@@ -297,79 +304,81 @@ export function backfillInterventionsOntoOptionNodes(
   }
   if (!analysisReady?.options?.length) return empty
 
-  // TODO: type narrowing — useCanvasStore.getState().nodes typed as Node[]
-  // but node.type/data shape varies by kind. Cast to any for now.
   const currentNodes = useCanvasStore.getState().nodes as any[]
-  let needsUpdate = false
   let interventionBackfilledCount = 0
   let baselineOnlyUpdatedCount = 0
 
-  const updatedNodes = currentNodes.map((n) => {
-    if (n.data?.kind !== 'option' && n.data?.type !== 'option') return n
+  type PatchEntry = { id: string; data: Record<string, unknown> }
+  const patches: PatchEntry[] = []
+
+  for (const n of currentNodes) {
+    if (n.data?.kind !== 'option' && n.data?.type !== 'option') continue
     const optEntry = analysisReady.options!.find((o) => o.id === n.id)
-    if (!optEntry) return n
+    if (!optEntry) continue
 
     const hasInterventions = optEntry.interventions && Object.keys(optEntry.interventions).length > 0
 
-    // Backfill is_baseline from analysis_ready onto option node data.
-    // Always write the boolean so that non-baseline options clear a stale true.
+    // Backfill is_baseline from analysis_ready. Emit regex-fallback telemetry
+    // at this normalisation boundary (NOT from render code) when CEE omits
+    // is_baseline but the label matches the baseline regex.
     const existingBaseline = (n.data?.is_baseline as boolean | undefined) ?? false
-    const newBaseline = optEntry.is_baseline === true
+    let newBaseline: boolean
+    if (optEntry.is_baseline === true || optEntry.is_baseline === false) {
+      newBaseline = optEntry.is_baseline
+    } else {
+      // CEE omitted the flag — consult the regex fallback and record if it fires.
+      const label = (n.data?.label as string | undefined) ?? ''
+      const regexHit = detectBaseline(label).isBaseline
+      if (regexHit) {
+        devLog('canvas/baseline', 'regex fallback fired (CEE omitted is_baseline)', {
+          optionId: n.id,
+          label,
+        })
+      }
+      newBaseline = regexHit
+    }
     const baselineChanged = newBaseline !== existingBaseline
 
-    if (!hasInterventions && !baselineChanged) return n
+    if (!hasInterventions && !baselineChanged) continue
 
-    // Determine whether the intervention map actually changed (vs. an
-    // identical re-write that the JSON.stringify guard catches). This is the
-    // load-bearing distinction for the telemetry split: an idempotent
-    // re-write that ALSO has a baseline change is a "baseline-only update"
-    // for our counter, even though the cloned node carries the intervention
-    // payload too.
     const existing = n.data?.interventions as Record<string, unknown> | undefined
     const newKeys = hasInterventions ? Object.keys(optEntry.interventions!) : undefined
     let interventionMapChanged = hasInterventions && !existing
     if (hasInterventions && existing) {
       try {
         const same = JSON.stringify(existing) === JSON.stringify(optEntry.interventions)
-        // Same map AND no baseline change → fully idempotent, skip the update.
-        if (same && !baselineChanged) return n
+        if (same && !baselineChanged) continue
         interventionMapChanged = !same
       } catch {
-        // Serialisation failed — fall through and treat as a real change so
-        // we don't drop the update. Counter accuracy degrades by at most one.
         interventionMapChanged = true
       }
     }
 
-    needsUpdate = true
     if (interventionMapChanged) {
       interventionBackfilledCount += 1
     } else {
-      // Reached only when the node was updated, hasInterventions is false (or
-      // the map was identical), and baselineChanged is true.
       baselineOnlyUpdatedCount += 1
     }
 
-    return {
-      ...n,
+    patches.push({
+      id: n.id,
       data: {
-        ...n.data,
         ...(hasInterventions ? { interventions: optEntry.interventions, interventionKeys: newKeys } : {}),
         is_baseline: newBaseline,
       },
-    }
-  })
-
-  if (needsUpdate) {
-    useCanvasStore.setState({ nodes: updatedNodes as any })
-    if (import.meta.env.DEV) {
-      console.warn(
-        '[backfillInterventionsOntoOptionNodes]',
-        `intervention=${interventionBackfilledCount}`,
-        `baseline-only=${baselineOnlyUpdatedCount}`,
-      )
-    }
+    })
   }
+
+  if (patches.length) {
+    // Single history entry; diff-aware no-op if shallow-equal to current state.
+    useCanvasStore.getState().batchUpdateNodes(patches, 'backfill-interventions')
+    // Warning-only schema validation after the write. Use a Set for O(1)
+    // membership checks instead of quadratic patches.some lookups.
+    const patchedIds = new Set(patches.map(p => p.id))
+    const updated = useCanvasStore.getState().nodes
+    validateNodesBatch(updated.filter(n => patchedIds.has(n.id)) as any)
+  }
+
   return {
     interventionBackfilledCount,
     baselineOnlyUpdatedCount,

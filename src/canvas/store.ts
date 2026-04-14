@@ -445,6 +445,16 @@ interface CanvasState {
   ) => string | LimitExceeded
   updateNodeLabel: (id: string, label: string) => void
   updateNode: (id: string, updates: Partial<Node>) => void
+  /**
+   * Apply multiple node data updates as a single history entry. Diff-aware:
+   * no-op (zero history entries) when no node actually changes. Preserves
+   * identity for untouched nodes. Use for backfills / coordinated updates
+   * that should undo/redo together.
+   */
+  batchUpdateNodes: (
+    updates: Array<{ id: string; data: Partial<Node['data']> }>,
+    label?: string,
+  ) => { updatedCount: number }
   updateEdge: (id: string, updates: Partial<Edge<EdgeData>>) => void
   updateEdgeData: (id: string, data: Partial<EdgeData>) => void
   onNodesChange: (changes: NodeChange[]) => void
@@ -1250,6 +1260,35 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     if (oldNode && hasAnalyticalNodeChange(oldNode, updates)) {
       invalidateAnalysisReady(get, set, `update_node analytical field (${id})`)
     }
+  },
+
+  batchUpdateNodes: (updates, label) => {
+    if (!updates.length) return { updatedCount: 0 }
+    const currentNodes = get().nodes
+    // Build an index once; avoid nested find() and O(N*M) lookups.
+    const updatesById = new Map<string, Partial<Node['data']>>()
+    for (const u of updates) updatesById.set(u.id, u.data)
+
+    let changedCount = 0
+    const nextNodes = currentNodes.map(n => {
+      const patch = updatesById.get(n.id)
+      if (!patch) return n // preserve identity for untouched nodes
+      // Shallow compare merged data vs existing to detect no-ops.
+      const merged = { ...n.data, ...patch }
+      let changed = false
+      for (const k of Object.keys(patch)) {
+        if ((n.data as any)?.[k] !== (merged as any)[k]) { changed = true; break }
+      }
+      if (!changed) return n
+      changedCount += 1
+      return { ...n, data: merged }
+    })
+
+    if (changedCount === 0) return { updatedCount: 0 }
+
+    pushToHistory(get, set, label ?? `Batch updated ${changedCount} node${changedCount !== 1 ? 's' : ''}`)
+    set(() => ({ nodes: nextNodes }))
+    return { updatedCount: changedCount }
   },
 
   updateEdge: (id, updates) => {

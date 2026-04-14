@@ -5,7 +5,7 @@
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { useCanvasStore } from '../../../store'
-import type { NodeType } from '../../../domain/nodes'
+import type { NodeType, OptionNodeData } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
@@ -16,6 +16,7 @@ import {
   EMPTY_STATES,
 } from '../inspectorStrings'
 import { formatFactorValue, unwrapInterventionValue } from '../../../utils/labelUtils'
+import { detectBaseline } from '../../../utils/baselineDetection'
 import { SectionTitle } from '../shared/SectionTitle'
 import { InterventionRow } from '../shared/InterventionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
@@ -139,10 +140,24 @@ export const OptionPanel = memo(function OptionPanel({
     ? (storyHeadlines as Record<string, string>)[nodeId]
     : undefined
 
+  // Baseline indication — mirrors OptionNode.tsx. Explicit `is_baseline` wins;
+  // regex fallback only fires when the flag is absent (null/undefined).
+  const optionData = node?.data as OptionNodeData | undefined
+  const explicitIsBaseline = optionData?.is_baseline
+  const isBaselineOption =
+    explicitIsBaseline ?? detectBaseline(String(optionData?.label ?? '')).isBaseline
+
   if (!nodeId || !node) return null
 
   return (
     <div>
+      {isBaselineOption && (
+        <div className="mt-2.5" data-testid="option-baseline-badge">
+          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-panel-border`}>
+            Baseline option
+          </span>
+        </div>
+      )}
       {/* Description */}
       <div className="mt-3">
         <textarea

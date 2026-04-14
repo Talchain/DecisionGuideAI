@@ -7,13 +7,14 @@
 import { memo, useMemo } from 'react'
 import { Link } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
-import type { NodeType } from '../../../domain/nodes'
+import type { NodeType, ObservedState, FactorNodeData } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
 import { shouldShowNormalised } from '../normalisedDisplay'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
+import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import { SECTION_TITLES, getExtractionLabel, getProvenanceLabel } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
 import { ConnectionRow } from '../shared/ConnectionRow'
@@ -39,7 +40,11 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
-  const obs = (node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+  // Shared display text with FactorNode — `display_value` takes priority.
+  const canonicalDisplayText = factorDisplayText(node?.data as Record<string, unknown> | undefined)
+
+  const factorData = node?.data as FactorNodeData | undefined
+  const obs = factorData?.observedState as ObservedState | undefined
   // Defensive unwrap: observedState.raw_value / value / cap should be plain
   // numbers, but CEE/legacy paths can wrap them in `{ value, unit, ... }`
   // objects. Casting unknown→number lies; the values then reach
@@ -147,6 +152,11 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
       {/* Value */}
       <SectionTitle icon={SECTION_TITLES.value.icon} label={SECTION_TITLES.value.label} />
       <div className="bg-panel border border-panel-border rounded-lg p-3">
+        {canonicalDisplayText && (
+          <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
+            {canonicalDisplayText}
+          </div>
+        )}
         {rawValue != null ? (
           <span className={`${typography.panelHeader} text-xl`}>{formatValue(rawValue)}</span>
         ) : value != null ? (

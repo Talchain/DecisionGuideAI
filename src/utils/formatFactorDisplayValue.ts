@@ -16,7 +16,7 @@
  * trailing suffix ("500 CHF") — inconsistent with the rest of the codebase.
  */
 
-import { classifyUnit } from '../canvas/utils/labelUtils'
+import { classifyUnit, unwrapInterventionValue } from '../canvas/utils/labelUtils'
 
 const KNOWN_SUFFIXES = /\s*(Presence|Capacity|Level|Status|State|Added|Rate)\s*$/i
 
@@ -30,7 +30,7 @@ function formatNumber(value: number): string {
     : String(value)
 }
 
-interface FactorDisplayInput {
+export interface FactorDisplayInput {
   label: string
   value?: number | null
   raw_value?: number | string | null
@@ -40,6 +40,56 @@ interface FactorDisplayInput {
   category?: string | null
   /** CEE-provided display text. When present, returned verbatim (no heuristic). */
   display_value?: string | null
+}
+
+/**
+ * Render the CEE-canonical factor display text for a node's data.
+ *
+ * Shared entry point for BOTH graph (FactorNode) and inspector panels —
+ * guarantees they use the identical fallback chain, including the
+ * `display_value`-verbatim short-circuit.
+ *
+ * Accepts the raw `node.data` shape (with `observedState` and `category`) and
+ * returns a string suitable for direct display, or null if no meaningful text
+ * can be produced. Callers decide whether to render anything on null.
+ */
+export function factorDisplayText(
+  data: Record<string, unknown> | null | undefined,
+  fallbackLabel?: string,
+): string | null {
+  if (!data || typeof data !== 'object') return null
+  const label = (data.label as string | undefined) ?? fallbackLabel ?? ''
+  const observedState = (data.observedState as Record<string, unknown> | undefined) ?? undefined
+  const category = (data.category as string | undefined) ?? null
+  const unit = observedState?.unit as string | null | undefined
+  // Defensive unwrap: `value` / `raw_value` can be compound `{ value, unit }`
+  // objects from legacy or wrapped shapes. Coercing to string would produce
+  // "[object Object]". unwrapInterventionValue handles both plain numbers and
+  // wrapped forms and returns null when the input cannot resolve.
+  const rawValueUnwrapped = unwrapInterventionValue(observedState?.raw_value)
+  const valueUnwrapped = unwrapInterventionValue(observedState?.value)
+  // raw_value is allowed to be a string (e.g. "£49"), so preserve strings as-is.
+  const rawValueForFormatter: number | string | null =
+    rawValueUnwrapped ??
+    (typeof observedState?.raw_value === 'string' ? (observedState!.raw_value as string) : null)
+  // `display_value` may arrive at either top level (CEE wire shape, see
+  // golden-path-staging-2026-04-05.json) or inside observedState. Prefer
+  // top-level (canonical CEE emission) and fall back to observedState for
+  // legacy/in-flight shapes.
+  const displayValue =
+    (data.display_value as string | null | undefined) ??
+    (observedState?.display_value as string | null | undefined) ??
+    null
+  return formatFactorDisplayValue({
+    label,
+    value: valueUnwrapped,
+    raw_value: rawValueForFormatter,
+    unit: unit ?? null,
+    factor_type: (observedState?.factor_type as string | null | undefined) ?? null,
+    cap: unwrapInterventionValue(observedState?.cap),
+    category,
+    display_value: displayValue,
+  })
 }
 
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {

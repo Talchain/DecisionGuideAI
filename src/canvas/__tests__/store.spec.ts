@@ -895,4 +895,90 @@ describe('Canvas Store', () => {
       expect(counters['sandbox.issues.opened']).toBe(1)
     })
   })
+
+  // -------------------------------------------------------------------------
+  // batchUpdateNodes — added 2026-04-14 for intervention backfill + other
+  // coordinated multi-node mutations. Load-bearing invariants:
+  //   1. Multiple updates produce a SINGLE history entry
+  //   2. Undo reverts all affected nodes together; redo restores them together
+  //   3. No-op (zero history) when no node actually changes
+  //   4. Identity preserved for untouched nodes
+  // -------------------------------------------------------------------------
+  describe('batchUpdateNodes', () => {
+    it('applies multiple node data updates as a single history entry', () => {
+      seedDemoGraph()
+      const historyBefore = useCanvasStore.getState().history.past.length
+      const { batchUpdateNodes } = useCanvasStore.getState()
+
+      const result = batchUpdateNodes([
+        { id: '3', data: { is_baseline: true, interventions: { f1: 0.5 } } },
+        { id: '4', data: { is_baseline: false, interventions: { f1: 0.8 } } },
+      ], 'backfill-interventions')
+
+      expect(result.updatedCount).toBe(2)
+      const historyAfter = useCanvasStore.getState().history.past.length
+      expect(historyAfter - historyBefore).toBe(1) // single entry, not two
+    })
+
+    it('undo + redo revert/restore all affected nodes together in one step', () => {
+      seedDemoGraph()
+      const { batchUpdateNodes, undo, redo } = useCanvasStore.getState()
+
+      batchUpdateNodes([
+        { id: '3', data: { is_baseline: true } },
+        { id: '4', data: { is_baseline: false, interventions: { f1: 0.5 } } },
+      ], 'backfill')
+
+      const afterApply = useCanvasStore.getState().nodes
+      expect((afterApply.find(n => n.id === '3')?.data as any).is_baseline).toBe(true)
+      expect((afterApply.find(n => n.id === '4')?.data as any).is_baseline).toBe(false)
+
+      // One undo reverts BOTH option nodes together
+      undo()
+      const afterUndo = useCanvasStore.getState().nodes
+      expect((afterUndo.find(n => n.id === '3')?.data as any).is_baseline).toBeUndefined()
+      expect((afterUndo.find(n => n.id === '4')?.data as any).is_baseline).toBeUndefined()
+      expect((afterUndo.find(n => n.id === '4')?.data as any).interventions).toBeUndefined()
+
+      // One redo restores BOTH together
+      redo()
+      const afterRedo = useCanvasStore.getState().nodes
+      expect((afterRedo.find(n => n.id === '3')?.data as any).is_baseline).toBe(true)
+      expect((afterRedo.find(n => n.id === '4')?.data as any).is_baseline).toBe(false)
+      expect((afterRedo.find(n => n.id === '4')?.data as any).interventions).toEqual({ f1: 0.5 })
+    })
+
+    it('no-ops (zero history entries) when patches produce no change', () => {
+      seedDemoGraph()
+      // Seed option 3 with is_baseline: true already
+      useCanvasStore.setState({
+        nodes: useCanvasStore.getState().nodes.map(n =>
+          n.id === '3' ? { ...n, data: { ...n.data, is_baseline: true } } : n
+        ) as any,
+      })
+      const historyBefore = useCanvasStore.getState().history.past.length
+      const { batchUpdateNodes } = useCanvasStore.getState()
+
+      const result = batchUpdateNodes([
+        { id: '3', data: { is_baseline: true } }, // identical to current
+      ])
+
+      expect(result.updatedCount).toBe(0)
+      expect(useCanvasStore.getState().history.past.length).toBe(historyBefore)
+    })
+
+    it('preserves node identity for untouched nodes', () => {
+      seedDemoGraph()
+      const beforeNodes = useCanvasStore.getState().nodes
+      const goalBefore = beforeNodes.find(n => n.id === '1')
+      const { batchUpdateNodes } = useCanvasStore.getState()
+
+      batchUpdateNodes([{ id: '3', data: { is_baseline: true } }])
+
+      const afterNodes = useCanvasStore.getState().nodes
+      const goalAfter = afterNodes.find(n => n.id === '1')
+      // Untouched node retains the same object reference
+      expect(goalAfter).toBe(goalBefore)
+    })
+  })
 })

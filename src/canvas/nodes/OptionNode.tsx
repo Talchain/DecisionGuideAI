@@ -49,8 +49,11 @@ function computeAllDifferentiators(
   // Build option id → factorId → numeric value
   const optionInterventions = new Map<string, Map<string, number>>()
   for (const optNode of optionNodes) {
-    const isBaseline = (optNode.data as any)?.is_baseline === true
-      || detectBaseline((optNode.data?.label as string) ?? '').isBaseline
+    // Explicit flag wins; regex fallback only fires when flag is null/undefined.
+    // Explicit `false` must suppress the regex (prevents "Status Quo" labels on
+    // non-baseline options from being treated as baseline).
+    const explicit = (optNode.data as any)?.is_baseline as boolean | null | undefined
+    const isBaseline = explicit ?? detectBaseline((optNode.data?.label as string) ?? '').isBaseline
     if (isBaseline) continue
     const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === optNode.id)
     const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
@@ -370,7 +373,9 @@ export const OptionNode = memo((props: NodeProps) => {
   }, [ceeAnalysisReady, props.id, nodes])
 
   const isBaselineOption = useMemo(() => {
-    if ((props.data as any)?.is_baseline === true) return true
+    // Explicit flag wins; regex only fires when flag absent (null/undefined).
+    const explicit = (props.data as any)?.is_baseline as boolean | null | undefined
+    if (typeof explicit === 'boolean') return explicit
     const label = (props.data?.label as string | undefined) ?? ''
     return detectBaseline(label).isBaseline
   }, [props.data])
@@ -382,7 +387,8 @@ export const OptionNode = memo((props: NodeProps) => {
     const baselineNode = nodes.find(n => {
       if (n.id === props.id) return false
       if (n.type !== 'option' && n.data?.type !== 'option') return false
-      if ((n.data as any)?.is_baseline === true) return true
+      const explicit = (n.data as any)?.is_baseline as boolean | null | undefined
+      if (typeof explicit === 'boolean') return explicit
       const lbl = (n.data?.label as string | undefined) ?? ''
       return detectBaseline(lbl).isBaseline
     })

@@ -9,6 +9,7 @@
 import { useCanvasStore } from '../../store'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { saveAutosave } from '../../store/scenarios'
+import { validateNodesBatch } from '../../domain/nodes'
 import type { PatchOperation, GraphPatchBlock } from '../types'
 import type { EffectDirection, CEEAnalysisReady, CEEInterventionV3 } from '../../../adapters/cee/types'
 
@@ -294,6 +295,18 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
     edges: mergedEdges as any,
   })
 
+  // Warning-only schema validation at the mutation boundary.
+  // Validate added + updated nodes only (skip untouched carry-overs).
+  const touchedNodeIdsForValidation = new Set<string>([
+    ...newNodes.map((n: any) => n.id),
+    ...nodeUpdates.keys(),
+  ])
+  if (touchedNodeIdsForValidation.size > 0) {
+    validateNodesBatch(
+      (mergedNodes as any[]).filter((n) => touchedNodeIdsForValidation.has(n.id)),
+    )
+  }
+
   result.addedNodeCount = newNodes.length
   result.addedEdgeCount = newEdges.length
 
@@ -353,6 +366,24 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   }
 
   return result
+}
+
+/**
+ * Apply a pre-validated graph returned by the PLoT validatePatch adapter.
+ *
+ * Used by the validated-graph branch of patch-accept. Pushes history, commits
+ * nodes+edges in a single setState, and runs warning-only schema validation
+ * at the mutation boundary. Caller is responsible for wrapping in
+ * beginExternalGraphMutation / endExternalGraphMutation when needed.
+ */
+export function applyValidatedGraph(validated: { nodes: unknown[]; edges: unknown[] }): void {
+  const store = useCanvasStore.getState()
+  store.pushHistory()
+  useCanvasStore.setState({
+    nodes: validated.nodes as any,
+    edges: validated.edges as any,
+  })
+  validateNodesBatch(validated.nodes as any)
 }
 
 // ---------------------------------------------------------------------------

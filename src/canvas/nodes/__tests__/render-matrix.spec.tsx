@@ -897,3 +897,175 @@ describe('Render matrix — RiskNode chip audit', () => {
     expect(screen.getByText('Add mitigation')).toBeDefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// display_value + is_baseline render coverage (audit 2026-04-14, §4A/§4B)
+//
+// Prior to this block, 125 FactorNode assertions covered zero display_value
+// paths. These pin the CEE-verbatim path end-to-end.
+// ---------------------------------------------------------------------------
+describe('FactorNode — display_value rendering', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: false,
+    } as any)
+  })
+
+  const singleFactorTopology = (viewMode: ViewMode, phase: Phase, factorData: Record<string, unknown>): MatrixState => ({
+    viewMode,
+    phase,
+    nodes: [
+      { id: 'factor-1', type: 'factor', data: { type: 'factor', ...factorData } },
+      { id: 'outcome-1', type: 'outcome', data: { type: 'outcome', label: 'Revenue' } },
+    ],
+    edges: [
+      { id: 'e1', source: 'factor-1', target: 'outcome-1', data: { weight: 1, direction: 'positive' } },
+    ],
+  })
+
+  it('Standard pre: binary factor with value 0 renders display_value verbatim, NOT "0"', () => {
+    const data = {
+      label: 'Dedicated Tech Lead',
+      category: 'controllable',
+      observedState: {
+        value: 0,
+        display_value: 'No tech lead in place',
+        factor_type: 'binary',
+      },
+    }
+    applyStore(singleFactorTopology('standard', 'pre', data))
+    renderFactor(data)
+    expect(screen.getByText('No tech lead in place')).toBeDefined()
+    // "0" alone must not appear as the rendered value — display_value took priority.
+    expect(screen.queryByText('0', { exact: true })).toBeNull()
+  })
+
+  it('Standard pre: currency display_value takes priority over raw/value formatting', () => {
+    const data = {
+      label: 'Salary offer',
+      category: 'controllable',
+      observedState: {
+        value: 0.49,
+        raw_value: 49000,
+        unit: '£',
+        display_value: '£49,000',
+      },
+    }
+    applyStore(singleFactorTopology('standard', 'pre', data))
+    renderFactor(data)
+    expect(screen.getByText('£49,000')).toBeDefined()
+  })
+
+  it('Standard pre: display_value=null falls back to heuristic (value suppressed for scale with no raw)', () => {
+    const data = {
+      label: 'Capability score',
+      category: 'controllable',
+      observedState: {
+        value: 0.3,
+        unit: 'scale',
+        display_value: null,
+      },
+    }
+    applyStore(singleFactorTopology('standard', 'pre', data))
+    renderFactor(data)
+    // No display_value → heuristic suppresses scale-only normalised value.
+    expect(screen.queryByText(/0\.3/)).toBeNull()
+  })
+
+  // Golden-fixture-derived test — pins the real production-wire shape against
+  // rendering. CEE emits `display_value` at the top level of the factor node,
+  // parallel to `observed_state` (not inside it).
+  // Brief Task 4C: "Use a factor from that fixture with its actual display_value
+  // to verify the production data shape renders correctly."
+  it('Standard pre: renders top-level display_value from golden fixture (real CEE wire shape)', async () => {
+    // Import the fixture at test time (dynamic import keeps the matrix top-level
+    // synchronous). Pick a factor with display_value at the top of the node.
+    const fixture = await import('../../../test/fixtures/golden-path-staging-2026-04-05.json')
+    type FixtureNode = {
+      id: string
+      kind?: string
+      label?: string
+      display_value?: string
+      observed_state?: Record<string, unknown>
+      [key: string]: unknown
+    }
+    const graphNodes = (fixture as any).default?.cee_request?.graph_state?.nodes as FixtureNode[]
+    expect(graphNodes).toBeDefined()
+    const fac = graphNodes.find(
+      (n) => n.kind === 'factor' && typeof n.display_value === 'string' && n.display_value.length > 0,
+    )
+    expect(fac).toBeDefined()
+    // Map snake_case observed_state → camelCase observedState, matching
+    // applyDraftResult's node normalisation (src/canvas/utils/applyDraftResult.ts:54).
+    const { observed_state, kind, id: _id, ...rest } = fac!
+    const data: Record<string, unknown> = {
+      ...rest,
+      type: kind,
+      ...(observed_state ? { observedState: observed_state } : {}),
+    }
+    applyStore(singleFactorTopology('standard', 'pre', data))
+    renderFactor(data)
+    expect(screen.getByText(fac!.display_value!)).toBeDefined()
+  })
+})
+
+describe('OptionNode — is_baseline rendering', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: null,
+      isResultsMode: false,
+    } as any)
+  })
+
+  const optionOnlyTopology = (viewMode: ViewMode, phase: Phase, optionData: Record<string, unknown>): MatrixState => ({
+    viewMode,
+    phase,
+    nodes: [
+      { id: 'option-1', type: 'option', data: { type: 'option', ...optionData } },
+      { id: 'option-2', type: 'option', data: { type: 'option', label: 'Alternative' } },
+      { id: 'decision-1', type: 'decision', data: { type: 'decision', label: 'D' } },
+    ],
+    edges: [],
+  })
+
+  it('Standard pre: is_baseline=true renders "No changes to factors"', () => {
+    const data = { label: 'Any Label', is_baseline: true }
+    applyStore(optionOnlyTopology('standard', 'pre', data))
+    renderOption(data)
+    // Rendered in both the body text and the popover; both are the baseline
+    // treatment path so we assert presence (length > 0), not uniqueness.
+    expect(screen.getAllByText(/No changes to factors/i).length).toBeGreaterThan(0)
+  })
+
+  it('Standard pre: is_baseline=null + "Status Quo" label fires regex fallback (baseline treatment)', () => {
+    const data = { label: 'Status Quo', is_baseline: null }
+    applyStore(optionOnlyTopology('standard', 'pre', data))
+    renderOption(data)
+    expect(screen.getAllByText(/No changes to factors/i).length).toBeGreaterThan(0)
+  })
+
+  // Correction #7 — critical: explicit `false` must suppress the regex, even
+  // if the label happens to match. This is why the detection changed from OR
+  // to nullish-coalesce (OptionNode:52-59, 375-379).
+  it('Standard pre: is_baseline=false + "Status Quo" label does NOT render baseline treatment', () => {
+    const data = { label: 'Status Quo', is_baseline: false }
+    applyStore(optionOnlyTopology('standard', 'pre', data))
+    renderOption(data)
+    expect(screen.queryByText(/No changes to factors/i)).toBeNull()
+  })
+})

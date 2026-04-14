@@ -4,7 +4,7 @@ import { BaseNode } from './BaseNode'
 import { EvidenceGapBadge } from './EvidenceGapBadge'
 import type { EvidenceGapEscalation } from './EvidenceGapBadge'
 import { ConstraintBadge } from './ConstraintBadge'
-import { NODE_REGISTRY } from '../domain/nodes'
+import { NODE_REGISTRY, type ObservedState } from '../domain/nodes'
 import { useCanvasStore } from '../store'
 import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
@@ -22,20 +22,6 @@ import { useScienceIcons } from '../hooks/useScienceIcons'
 import { ConnRow, Sep, NodeChip, ActionIcons, MetricPills, NodePopover, ScienceIcon, EdgePills } from './shared'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { computeSignedMean } from '../domain/edges'
-
-interface ObservedState {
-  value?: number
-  raw_value?: string | number
-  baseline?: number
-  unit?: string
-  source?: string
-  extractionType?: 'explicit' | 'inferred'
-  factor_type?: string
-  cap?: number
-  uncertainty_drivers?: string[]
-  /** CEE-provided display text. When present, UI renders verbatim. */
-  display_value?: string | null
-}
 
 export const FactorNode = memo((props: NodeProps) => {
   const metadata = NODE_REGISTRY.factor
@@ -217,6 +203,14 @@ export const FactorNode = memo((props: NodeProps) => {
     return { rows, overflow }
   }, [nodes, props.id, nodeCategory, isPostAnalysis, resultsReport, observedState, ceeAnalysisReady])
 
+  // CEE currently emits `display_value` at the top level of node.data (see
+  // golden-path fixture). ObservedStateSchema also allows it, so we check
+  // top-level first and fall back to observedState for legacy data.
+  const topLevelDisplayValue = (props.data as Record<string, unknown> | undefined)?.display_value as
+    | string
+    | null
+    | undefined
+
   // Contextual value display via formatFactorDisplayValue
   const valueDisplay = useMemo(() => {
     if (!observedState) return null
@@ -228,9 +222,9 @@ export const FactorNode = memo((props: NodeProps) => {
       factor_type: observedState.factor_type ?? null,
       cap: observedState.cap ?? null,
       category: nodeCategory ?? null,
-      display_value: observedState.display_value ?? null,
+      display_value: topLevelDisplayValue ?? observedState.display_value ?? null,
     })
-  }, [observedState, cleanedLabel, nodeCategory])
+  }, [observedState, cleanedLabel, nodeCategory, topLevelDisplayValue])
 
   // Prior range for external factors (only the range values, no "Variable" prefix)
   const priorRangeDisplay = useMemo(() => {

@@ -21,6 +21,7 @@ import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorExternalEditor } from '../editors/FactorExternalEditor'
+import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 
 // Quick-set presets
 const QUICK_SET = {
@@ -49,6 +50,9 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
+
+  // Shared display text with FactorNode — `display_value` takes priority.
+  const canonicalDisplayText = factorDisplayText(node?.data as Record<string, unknown> | undefined)
 
   // Prior range
   const prior = (node?.data as Record<string, unknown>)?.prior as Record<string, unknown> | number | undefined
@@ -189,6 +193,11 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
       {/* §9.1 Your estimate — QuickSetButtons ABOVE range display */}
       <SectionTitle icon={SECTION_TITLES.yourEstimate.icon} label={SECTION_TITLES.yourEstimate.label} />
       <div className="bg-panel border border-panel-border rounded-lg p-3">
+        {canonicalDisplayText && (
+          <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
+            {canonicalDisplayText}
+          </div>
+        )}
         <div className={`${typography.panelBody} mb-2`}>How would you describe the level?</div>
 
         {/* Quick-set buttons */}

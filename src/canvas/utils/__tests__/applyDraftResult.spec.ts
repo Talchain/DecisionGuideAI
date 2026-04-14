@@ -41,6 +41,27 @@ vi.mock('../../store', () => ({
         setCeeQuality: mockSetCeeQuality,
         setGoalConstraints: mockSetGoalConstraints,
         currentScenarioId: null,
+        // Diff-aware batch updater mirroring store.batchUpdateNodes. Preserves
+        // identity for untouched nodes and no-ops when nothing changes.
+        batchUpdateNodes: vi.fn((updates: Array<{ id: string; data: Record<string, unknown> }>) => {
+          if (!updates?.length) return { updatedCount: 0 }
+          const byId = new Map(updates.map(u => [u.id, u.data]))
+          let changed = 0
+          const next = storeNodes.map(n => {
+            const patch = byId.get(n.id)
+            if (!patch) return n
+            const merged = { ...n.data, ...patch }
+            let diff = false
+            for (const k of Object.keys(patch)) {
+              if ((n.data as any)?.[k] !== (merged as any)[k]) { diff = true; break }
+            }
+            if (!diff) return n
+            changed += 1
+            return { ...n, data: merged }
+          })
+          if (changed > 0) storeNodes = next
+          return { updatedCount: changed }
+        }),
       }),
       setState: vi.fn((update: any) => {
         if (update.nodes) storeNodes = update.nodes

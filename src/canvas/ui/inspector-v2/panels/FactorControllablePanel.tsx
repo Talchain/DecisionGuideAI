@@ -6,7 +6,7 @@
 import { memo, useState, useMemo, useCallback } from 'react'
 import { Link } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
-import type { NodeType } from '../../../domain/nodes'
+import type { NodeType, ObservedState, FactorNodeData } from '../../../domain/nodes'
 import { useEditConfirmation } from '../useEditConfirmation'
 import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
@@ -17,6 +17,7 @@ import { useNodeMutations } from '../useInspectorMutations'
 import { useStaleGuard } from '../useStaleGuard'
 import { shouldShowNormalised } from '../normalisedDisplay'
 import { unwrapInterventionValue } from '../../../utils/labelUtils'
+import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
   SECTION_TITLES,
   getExtractionLabel,
@@ -64,7 +65,16 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
-  const obs = (node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+  // Shared display text with FactorNode — routes through formatFactorDisplayValue.
+  // When CEE provides `display_value`, this returns it verbatim; otherwise falls
+  // back to the identical heuristic used by the graph node.
+  const canonicalDisplayText = factorDisplayText(node?.data as Record<string, unknown> | undefined)
+
+  // Canonical typing via FactorNodeData / ObservedState (canvas/domain/nodes).
+  // The store still holds legacy extras beyond the schema, so we keep unwrap
+  // helpers for defensive numeric coercion below.
+  const factorData = node?.data as FactorNodeData | undefined
+  const obs = factorData?.observedState as ObservedState | undefined
   // Defensive unwrap: observedState.raw_value / value / cap should be plain
   // numbers, but CEE/legacy paths can wrap them in `{ value, unit, ... }`
   // objects. Casting unknown→number lies; the values then reach the editable
@@ -76,7 +86,14 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const cap = unwrapInterventionValue(obs?.cap) ?? undefined
   const unit = obs?.unit as string | undefined
   const source = obs?.source as string | undefined
-  const uncertaintyDrivers = (node?.data as Record<string, unknown>)?.uncertainty_drivers as string[] | undefined
+  // Canonical location is observedState.uncertainty_drivers (per ObservedStateSchema).
+  // Fall back to legacy top-level node.data.uncertainty_drivers for in-flight data
+  // that predates the schema consolidation.
+  const uncertaintyDrivers =
+    (obs?.uncertainty_drivers ??
+      ((factorData as unknown as { uncertainty_drivers?: string[] })?.uncertainty_drivers)) as
+      | string[]
+      | undefined
 
   // Local draft for editable value input
   const displayValue = rawValue ?? value
@@ -229,6 +246,13 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       {/* §7.2 Value — editable */}
       <SectionTitle icon={SECTION_TITLES.value.icon} label={SECTION_TITLES.value.label} />
       <div className="bg-panel border border-panel-border rounded-lg p-3">
+        {/* CEE-canonical display text (display_value first, else heuristic).
+            Shown above the numeric input so graph and inspector agree. */}
+        {canonicalDisplayText && (
+          <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
+            {canonicalDisplayText}
+          </div>
+        )}
         <div className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}>
           {unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') && (
             <span className={`${typography.panelHeader} text-xl`}>{unit}</span>

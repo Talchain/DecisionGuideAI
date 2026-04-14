@@ -6,6 +6,7 @@
 import { z } from 'zod'
 import { Target, Crosshair, Lightbulb, Settings, AlertTriangle, TrendingUp, Zap, Shield } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { devWarn } from '../../utils/debugLog'
 
 /*
  * Node type taxonomy for decision trees
@@ -62,10 +63,67 @@ export const DecisionNodeDataSchema = NodeDataSchema.extend({
 })
 
 /**
+ * ObservedState — canonical runtime shape for factor observed values.
+ *
+ * Canvas uses `observedState` (camelCase) on node.data; CEE/PLoT wire format
+ * uses `observed_state` (snake_case). Fields inside are consistent across both.
+ *
+ * `display_value` is CEE-provided text that UI renders verbatim when present
+ * (see formatFactorDisplayValue in src/utils/formatFactorDisplayValue.ts).
+ *
+ * All fields are optional because factor observed state is progressively filled
+ * in as the user confirms brief content. Validation is warning-only at the
+ * mutation boundary — do not reject drafts that omit fields.
+ */
+export const ObservedStateSchema = z.object({
+  display_value: z.string().nullable().optional(),
+  value: z.number().nullable().optional(),
+  raw_value: z.union([z.string(), z.number()]).nullable().optional(),
+  baseline: z.number().nullable().optional(),
+  unit: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
+  factor_type: z.string().nullable().optional(),
+  cap: z.number().nullable().optional(),
+  extractionType: z.enum(['explicit', 'inferred', 'external']).nullable().optional(),
+  uncertainty_drivers: z.array(z.string()).nullable().optional(),
+}).passthrough()
+export type ObservedState = z.infer<typeof ObservedStateSchema>
+
+/**
+ * Intervention — rich CEE V3 intervention object.
+ *
+ * Mirrors CEEInterventionV3 in src/adapters/cee/types.ts:261-271. Canvas
+ * tolerates both this object shape and plain numbers (the platform-canonical
+ * `Record<string, number>` wire shape) via the union below on OptionNodeData.
+ */
+export const InterventionSchema = z.object({
+  value: z.number(),
+  source: z.enum(['brief_extraction', 'user_specified', 'cee_hypothesis']).optional(),
+  target_match: z.object({
+    node_id: z.string(),
+    match_type: z.enum(['exact_id', 'exact_label', 'semantic']),
+    confidence: z.enum(['high', 'medium', 'low']),
+  }).optional(),
+  value_confidence: z.enum(['high', 'medium', 'low']).optional(),
+  reasoning: z.string().optional(),
+}).passthrough()
+export type Intervention = z.infer<typeof InterventionSchema>
+
+/**
  * Option node: represents alternative
+ *
+ * - `is_baseline` is authoritative; the 13-keyword regex in
+ *   src/canvas/utils/baselineDetection.ts runs only as nullish fallback.
+ * - `interventions` is a union: canonical wire shape is `Record<string, number>`;
+ *   CEE V3 object form is tolerated for backward compat.
  */
 export const OptionNodeDataSchema = NodeDataSchema.extend({
   type: z.literal('option'),
+  is_baseline: z.boolean().nullable().optional(),
+  interventions: z.record(
+    z.string(),
+    z.union([z.number(), InterventionSchema]),
+  ).nullable().optional(),
 })
 
 /**
@@ -89,7 +147,15 @@ export const FactorCategoryEnum = z.enum(['controllable', 'observable', 'externa
 export type FactorCategory = z.infer<typeof FactorCategoryEnum>
 
 /**
- * Factor node: represents intermediate variable or driver
+ * Factor node: represents intermediate variable or driver.
+ *
+ * `observedState` carries the runtime value/unit/source shape. `uncertainty_drivers`
+ * lives inside observedState (not duplicated at the top level) to keep a single
+ * source of truth — see ObservedStateSchema above.
+ *
+ * `display_value` is allowed at the top level because CEE emits it alongside
+ * `observed_state` (see golden-path fixture). Readers should prefer top-level
+ * and fall back to observedState for legacy data.
  */
 export const FactorNodeDataSchema = NodeDataSchema.extend({
   type: z.literal('factor'),
@@ -97,6 +163,9 @@ export const FactorNodeDataSchema = NodeDataSchema.extend({
   controllability: ControllabilityEnum.optional(),
   /** CEE V12.4: Explicit category from CEE analysis (takes precedence over derived controllability) */
   category: FactorCategoryEnum.optional(),
+  observedState: ObservedStateSchema.nullable().optional(),
+  /** CEE wire-shape top-level display text (mirrored in ObservedStateSchema for legacy reads). */
+  display_value: z.string().nullable().optional(),
 })
 
 /**
@@ -265,4 +334,49 @@ export function suggestCategory(label: string): 'controllable' | 'observable' | 
     }
   }
   return null
+}
+
+// ---------------------------------------------------------------------------
+// Schema validation (warning-only)
+// ---------------------------------------------------------------------------
+
+/**
+ * Validate a node's `data` against its type-specific schema. Warning-only —
+ * logs via devWarn in DEV builds, never throws. Call at mutation boundaries
+ * (applyDraftResult, backfill, patch-apply), never on the render hot path.
+ *
+ * Unknown node types silently pass — we only validate types we have schemas for.
+ */
+export function validateNodeData(nodeId: string, data: unknown): void {
+  if (!data || typeof data !== 'object') return
+  const type = (data as { type?: unknown }).type
+  let schema: z.ZodTypeAny | null = null
+  switch (type) {
+    case 'factor': schema = FactorNodeDataSchema; break
+    case 'option': schema = OptionNodeDataSchema; break
+    case 'goal': schema = GoalNodeDataSchema; break
+    case 'decision': schema = DecisionNodeDataSchema; break
+    case 'risk': schema = RiskNodeDataSchema; break
+    case 'outcome': schema = OutcomeNodeDataSchema; break
+    case 'action': schema = ActionNodeDataSchema; break
+    case 'constraint': schema = ConstraintNodeDataSchema; break
+    default: return
+  }
+  const result = schema.safeParse(data)
+  if (!result.success) {
+    devWarn('canvas/schema', `Node ${nodeId} (${String(type)}) data shape drift`, {
+      nodeId,
+      type,
+      issues: result.error.issues,
+    })
+  }
+}
+
+/**
+ * Validate a batch of nodes. Convenience wrapper — iterates and validates each.
+ */
+export function validateNodesBatch(nodes: Array<{ id: string; data?: unknown }>): void {
+  for (const n of nodes) {
+    if (n?.data) validateNodeData(n.id, n.data)
+  }
 }

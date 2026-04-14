@@ -448,6 +448,10 @@ export function denormaliseInterventionValue(
 /**
  * Format a factor's observed state value for display on the factor node card.
  *
+ * @deprecated Use `formatFactorDisplayValue` (src/utils/formatFactorDisplayValue.ts)
+ * or the `factorDisplayText` helper. This function predates the CEE `display_value`
+ * field and does not short-circuit on it; consumers are being migrated.
+ *
  * Priority order:
  *  1. `raw_value` + `unit` — user-stated baseline (e.g. "£49/mo", "12 engineers")
  *  2. Denormalisation via `cap` — when raw_value absent but value + cap present

@@ -14,7 +14,7 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { useStagePill } from '../hooks/useStagePill'
 import type { ActionChip, GraphPatchBlock } from './types'
 import type { UseConversationReturn } from './useConversation'
-import { applyAutoApplyPatch } from './utils/applyPatch'
+import { applyAutoApplyPatch, applyValidatedGraph } from './utils/applyPatch'
 import { buildAnalysisReadyPatch, applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 import { plot } from '../../adapters/plot'
@@ -190,12 +190,8 @@ export const ConversationPanel = memo(function ConversationPanel({
             useCanvasStore.getState().beginExternalGraphMutation('patch_apply')
             try {
               if (validatedGraph?.nodes && validatedGraph?.edges) {
-                const store = useCanvasStore.getState()
-                store.pushHistory()
-                useCanvasStore.setState({
-                  nodes: validatedGraph.nodes,
-                  edges: validatedGraph.edges,
-                })
+                // Runs warning-only schema validation at the mutation boundary.
+                applyValidatedGraph({ nodes: validatedGraph.nodes, edges: validatedGraph.edges })
               } else {
                 if (import.meta.env.DEV) {
                   console.warn('[olumi] op-replay fallback: PLoT did not return full graph, applying operations individually')
