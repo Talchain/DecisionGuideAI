@@ -171,6 +171,7 @@ export function GraphPatchBlockRenderer({
 
   // Prefer CEE's semantic block.summary; fall back to contextual text by patch type.
   const ceeSummaryText = normaliseDashes(block.summary || '')
+  const ceeAppliedSummaryText = normaliseDashes(block.applied_summary || '')
   const rawSummaryText = ceeSummaryText || getContextualFallback(block)
   const rawProposalItems = getProposalItems(block)
   const proposalItemsSource = getProposalItemsSource(block)
@@ -188,8 +189,10 @@ export function GraphPatchBlockRenderer({
   const hasRevealTargets = !isWholeGraphTarget && !isGenerativeDraft && (uniqueTargetNodeIds.length > 0 || edgeIds.length > 0)
   const isApplied = isAutoApplied || resolvedState === 'accepted'
   const summaryText = useMemo(
-    () => stripProposalPrefix(rawSummaryText, isApplied),
-    [rawSummaryText, isApplied],
+    () => (isApplied && ceeAppliedSummaryText
+      ? ceeAppliedSummaryText
+      : stripProposalPrefix(rawSummaryText, isApplied)),
+    [rawSummaryText, ceeAppliedSummaryText, isApplied],
   )
   const cardState = resolveCardState(resolvedState, isAutoApplied, rejectionInfo?.code === 'NETWORK_ERROR')
   const { header: cardHeader, badge: cardBadge } = getPatchCardLabels(cardState)

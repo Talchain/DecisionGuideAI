@@ -222,6 +222,11 @@ export interface GraphPatchBlock {
   type: 'graph_patch'
   patch_id: string
   summary: string
+  /**
+   * Past-tense summary emitted by CEE for accepted/auto-applied cards.
+   * When present, supersedes `summary` once the card transitions to applied.
+   */
+  applied_summary?: string
   operations: PatchOperation[]
   target_graph_hash: string
   status?: string

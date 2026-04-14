@@ -817,6 +817,9 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           type: 'graph_patch',
           patch_id: String(dataObj.patch_id ?? block_id ?? ''),
           summary: String(dataObj.description ?? dataObj.summary ?? ''),
+          ...(typeof dataObj.applied_summary === 'string' && dataObj.applied_summary.trim().length > 0
+            ? { applied_summary: dataObj.applied_summary }
+            : {}),
           operations: normOps as any,
           target_graph_hash: String(dataObj.applied_graph_hash ?? dataObj.target_graph_hash ?? ''),
           status: asOptionalString(dataObj.status),

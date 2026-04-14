@@ -738,6 +738,55 @@ describe('GraphPatchBlock — tense cleanup on accepted cards', () => {
     warnSpy.mockRestore()
   })
 
+  it('uses applied_summary instead of summary when card is accepted', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const block = makePatchBlock({
+      summary: 'Proposing to update Existing Team Seniority',
+      applied_summary: 'Updated Existing Team Seniority',
+    })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+
+    expect(screen.getByText('Updated Existing Team Seniority')).toBeInTheDocument()
+    expect(screen.queryByText('Proposing to update Existing Team Seniority')).not.toBeInTheDocument()
+    expect(screen.queryByText(/^update Existing Team/)).not.toBeInTheDocument()
+    // Defensive prefix-strip path is bypassed when applied_summary is present.
+    expect(warnSpy).not.toHaveBeenCalledWith('[UI-TENSE] Stripped proposal prefix on accepted card')
+    warnSpy.mockRestore()
+  })
+
+  it('uses applied_summary on auto_applied cards', () => {
+    const block = makePatchBlock({
+      summary: 'Proposing to update Existing Team Seniority',
+      applied_summary: 'Updated Existing Team Seniority',
+      auto_apply: true,
+    })
+    render(<InlineBlocks blocks={[block]} />)
+    expect(screen.getByText('Updated Existing Team Seniority')).toBeInTheDocument()
+  })
+
+  it('falls back to defensive prefix-strip when applied_summary is absent', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const block = makePatchBlock({ summary: 'Proposing to update Existing Team Seniority' })
+    const states = new Map<string, PatchBlockState>([['patch-1', 'accepted']])
+    render(<InlineBlocks blocks={[block]} patchBlockStates={states} />)
+
+    expect(screen.getByText('update Existing Team Seniority')).toBeInTheDocument()
+    expect(warnSpy).toHaveBeenCalledWith('[UI-TENSE] Stripped proposal prefix on accepted card')
+    warnSpy.mockRestore()
+  })
+
+  it('always uses summary on proposed cards even when applied_summary is present', () => {
+    const block = makePatchBlock({
+      summary: 'Proposing to update Existing Team Seniority',
+      applied_summary: 'Updated Existing Team Seniority',
+    })
+    render(<InlineBlocks blocks={[block]} />)
+
+    expect(screen.getByText('Proposing to update Existing Team Seniority')).toBeInTheDocument()
+    expect(screen.queryByText('Updated Existing Team Seniority')).not.toBeInTheDocument()
+  })
+
   it('strips prefix on auto_applied cards as well', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const block = makePatchBlock({
