@@ -827,7 +827,17 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
           ...(patchType ? { patch_type: patchType } : {}),
           actions: Array.isArray(actions) ? actions as any : undefined,
           block_id: typeof block_id === 'string' ? block_id : undefined,
-          analysis_ready: normaliseAnalysisReady(dataObj.analysis_ready),
+          // CEE places analysis_ready inside applied_graph (not at data top-level) on
+          // draft_graph responses. Prefer top-level when present; fall back to
+          // applied_graph. Without this fallback, handleEnvelope receives
+          // analysis_ready=undefined, synthesises from edge weight+direction (all
+          // option→factor edges default to weight 1 / positive), and every option
+          // ends up with identical interventions — PLoT then blocks with
+          // IDENTICAL_OPTIONS. See debug bundle 523dc15a (2026-04-14).
+          analysis_ready: normaliseAnalysisReady(
+            dataObj.analysis_ready
+            ?? (dataObj.applied_graph as Record<string, unknown> | undefined)?.analysis_ready,
+          ),
           goal_constraints: Array.isArray(dataObj.goal_constraints) && dataObj.goal_constraints.length > 0
             ? dataObj.goal_constraints as CEEGoalConstraint[]
             : undefined,
@@ -1008,7 +1018,10 @@ export function adaptCEEBlock(raw: unknown): ConversationBlock {
       operations: obj.operations.map((op: unknown) =>
         op != null && typeof op === 'object' ? normalisePatchOp(op as Record<string, unknown>) : op
       ),
-      analysis_ready: normaliseAnalysisReady(obj.analysis_ready),
+      analysis_ready: normaliseAnalysisReady(
+        obj.analysis_ready
+        ?? (obj.applied_graph as Record<string, unknown> | undefined)?.analysis_ready,
+      ),
       ...(status ? { status } : {}),
       ...(relatedElements ? { related_elements: relatedElements } : {}),
       ...(proposalItems.length > 0 ? { proposal_items: proposalItems } : {}),

@@ -259,6 +259,66 @@ describe('adaptCEEBlock — malformed input resilience', () => {
     expect(result.type).toBe('fact')
   })
 
+  // Regression: debug bundle 523dc15a (2026-04-14). CEE places analysis_ready
+  // inside applied_graph on draft_graph responses, not at data top-level.
+  // Without this fallback, handleEnvelope synthesises interventions from edge
+  // weights (all 1) and every option becomes identical → PLoT IDENTICAL_OPTIONS.
+  it('reads analysis_ready from applied_graph when absent at data top-level', () => {
+    const analysisReady = {
+      status: 'ready',
+      goal_node_id: 'goal_1',
+      options: [
+        {
+          id: 'opt_a',
+          label: 'A',
+          status: 'ready',
+          interventions: { fac_x: { value: 1, source: 'brief_extraction' } },
+        },
+        {
+          id: 'opt_b',
+          label: 'B',
+          status: 'ready',
+          interventions: { fac_x: { value: 0, source: 'brief_extraction' } },
+        },
+      ],
+    }
+    const result = adaptCEEBlock({
+      block_type: 'graph_patch',
+      data: {
+        operations: [],
+        auto_apply: true,
+        applied_graph: { analysis_ready: analysisReady },
+      },
+    }) as any
+    expect(result.type).toBe('graph_patch')
+    expect(result.analysis_ready).toBeDefined()
+    expect(result.analysis_ready.goal_node_id).toBe('goal_1')
+    expect(result.analysis_ready.options).toHaveLength(2)
+    expect(result.analysis_ready.options[1].interventions.fac_x.value).toBe(0)
+  })
+
+  it('prefers top-level analysis_ready over applied_graph.analysis_ready', () => {
+    const topLevel = {
+      status: 'ready',
+      goal_node_id: 'goal_top',
+      options: [{ id: 'o', label: 'O', status: 'ready', interventions: {} }],
+    }
+    const nested = {
+      status: 'ready',
+      goal_node_id: 'goal_nested',
+      options: [{ id: 'o', label: 'O', status: 'ready', interventions: {} }],
+    }
+    const result = adaptCEEBlock({
+      block_type: 'graph_patch',
+      data: {
+        operations: [],
+        analysis_ready: topLevel,
+        applied_graph: { analysis_ready: nested },
+      },
+    }) as any
+    expect(result.analysis_ready.goal_node_id).toBe('goal_top')
+  })
+
   it('handles graph_patch with non-array operations gracefully', () => {
     const result = adaptCEEBlock({
       block_type: 'graph_patch',

@@ -423,23 +423,78 @@ export function synthesiseCeeAnalysisReady(): CEEAnalysisReady | null {
 
   // For each option, find outgoing edges to factor nodes and build interventions
   const options = optionNodes.map((optNode) => {
-    const interventions: Record<string, CEEInterventionV3> = {}
-
     // Find edges where this option is the source and target is a factor
     const outgoingEdges = edges.filter(
       (e) => e.source === optNode.id && factorNodeIds.has(e.target)
     )
 
-    for (const edge of outgoingEdges) {
+    // Collect signed values from edges
+    const edgeSignedValues = outgoingEdges.map((edge) => {
       // Value: reconstruct signed value from unsigned weight + direction
       // (buildEdge stores Math.abs(rawWeight) as weight, sign in direction)
       const edgeData = edge.data as Record<string, unknown> | undefined
       const weight = typeof edgeData?.weight === 'number' ? edgeData.weight : 1
       const direction = edgeData?.direction as string | undefined
-      const signedValue = direction === 'negative' ? -weight : weight
+      return direction === 'negative' ? -weight : weight
+    })
 
+    // Detect uniform: all edges share the same signed value (typically all 1).
+    // When uniform, edge synthesis cannot distinguish between options and will
+    // produce identical intervention maps → PLoT IDENTICAL_OPTIONS (422).
+    const isUniform =
+      outgoingEdges.length > 0 &&
+      edgeSignedValues.every((v) => v === edgeSignedValues[0])
+
+    // When edges are uniform, prefer canvas node.data.interventions which may
+    // carry the real option-specific values written by backfillInterventionsOntoOptionNodes.
+    const canvasInterventions = (optNode.data as any)?.interventions as
+      | Record<string, unknown>
+      | undefined
+    const hasCanvasInterventions =
+      canvasInterventions != null &&
+      typeof canvasInterventions === 'object' &&
+      Object.keys(canvasInterventions).length > 0
+
+    if (isUniform) {
+      if (hasCanvasInterventions) {
+        // Rebuild interventions from canvas-stored values rather than fabricating
+        const interventions: Record<string, CEEInterventionV3> = {}
+        for (const [targetId, raw] of Object.entries(canvasInterventions)) {
+          const value =
+            typeof raw === 'number'
+              ? raw
+              : typeof (raw as any)?.value === 'number'
+                ? (raw as any).value
+                : 1
+          interventions[targetId] = {
+            value,
+            source: 'cee_hypothesis',
+            target_match: { node_id: targetId, match_type: 'exact_id', confidence: 'high' },
+          }
+        }
+        return {
+          id: optNode.id,
+          label: (optNode.data as any)?.label ?? optNode.id,
+          status: 'ready' as const,
+          interventions,
+        }
+      }
+
+      // Uniform edges AND no canvas interventions — synthesised values will be
+      // identical across options. Warn rather than silently fabricate.
+      console.warn(
+        `[synthesiseCeeAnalysisReady] option "${optNode.id}" has uniform-weight ` +
+          `outgoing edges and no canvas interventions — synthesis may produce ` +
+          `identical intervention maps (PLoT IDENTICAL_OPTIONS risk).`
+      )
+    }
+
+    // Default path: build from edge data (non-uniform, or no outgoing edges)
+    const interventions: Record<string, CEEInterventionV3> = {}
+    for (let i = 0; i < outgoingEdges.length; i++) {
+      const edge = outgoingEdges[i]
       interventions[edge.target] = {
-        value: signedValue,
+        value: edgeSignedValues[i],
         source: 'cee_hypothesis',
         target_match: {
           node_id: edge.target,
