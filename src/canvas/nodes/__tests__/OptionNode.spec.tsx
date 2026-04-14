@@ -1037,7 +1037,7 @@ describe('OptionNode — QA Brief C-series', () => {
       expect(differentiatorP).toBeUndefined()
     })
 
-    it('disambiguates with tier label when shared factor is a scale unit (preserveTierLabel)', () => {
+    it('uses directional language (not tier labels) when shared factor is a scale unit', () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -1055,8 +1055,8 @@ describe('OptionNode — QA Brief C-series', () => {
               type: 'factor',
               data: {
                 label: 'Marketing Expertise',
-                // scale unit, no raw_value → formatInterventionValue with
-                // preserveTierLabel returns "Very high" / "Very low"
+                // scale unit, no raw_value → meaningless without anchor;
+                // differentiator should use directional language against baseline.
                 observedState: { unit: 'scale', value: 0.5 },
               },
             },
@@ -1065,16 +1065,52 @@ describe('OptionNode — QA Brief C-series', () => {
         }) as any),
       )
       renderOption({ label: 'Aggressive' })
-      // option-1 has value 0.9 → tier label "Very high"
-      // Shared factor → "Marketing expertise → Very high"
+      // option-1 has value 0.9, baseline 0.5 → "Increases Marketing expertise"
       const matches = screen.queryAllByText(/marketing expertise/i)
       const differentiatorP = matches.find(el => el.tagName === 'P')
       expect(differentiatorP).toBeDefined()
-      expect(differentiatorP!.textContent).toContain('→')
-      expect(differentiatorP!.textContent).toContain('Very high')
+      expect(differentiatorP!.textContent).toMatch(/^Increases /)
+      // Negative assertions: no tier labels, no "scale" unit leaking through.
+      expect(differentiatorP!.textContent).not.toMatch(/\b(Very high|Very low|Moderate)\b/)
+      expect(differentiatorP!.textContent).not.toContain('→')
+      expect(differentiatorP!.textContent!.toLowerCase()).not.toContain('scale')
     })
 
-    it('disambiguates lower-value scale factor with tier label', () => {
+    it('uses "Does not change" when scale-unit intervention is within ±0.1 of baseline', () => {
+      vi.mocked(useCanvasStore).mockImplementation((selector) =>
+        selector(makeStoreState({
+          ceeAnalysisReady: {
+            options: [
+              // Option A sits 0.05 above baseline (< 0.1 threshold);
+              // Option B is far below. Shared factor → differentiator fires
+              // for A via the neutral branch.
+              { id: 'option-1', interventions: { 'factor-1': 0.55 } },
+              { id: 'option-2', interventions: { 'factor-1': 0.1 } },
+            ],
+          },
+          nodes: [
+            { id: 'option-1', type: 'option', data: { label: 'Hold Steady', type: 'option' } },
+            { id: 'option-2', type: 'option', data: { label: 'Cut Back', type: 'option' } },
+            {
+              id: 'factor-1',
+              type: 'factor',
+              data: {
+                label: 'Marketing Expertise',
+                observedState: { unit: 'scale', value: 0.5 },
+              },
+            },
+          ],
+          viewMode: 'standard',
+        }) as any),
+      )
+      renderOption({ label: 'Hold Steady' })
+      const matches = screen.queryAllByText(/marketing expertise/i)
+      const differentiatorP = matches.find(el => el.tagName === 'P')
+      expect(differentiatorP).toBeDefined()
+      expect(differentiatorP!.textContent).toMatch(/^Does not change /)
+    })
+
+    it('uses "Decreases" when scale-unit intervention is below baseline', () => {
       vi.mocked(useCanvasStore).mockImplementation((selector) =>
         selector(makeStoreState({
           ceeAnalysisReady: {
@@ -1099,12 +1135,14 @@ describe('OptionNode — QA Brief C-series', () => {
         }) as any),
       )
       renderOption({ label: 'Cut Back' })
-      // option-1 has value 0.1 → tier label "Very low"
+      // option-1 has value 0.1, baseline 0.5 → "Decreases Marketing expertise"
       const matches = screen.queryAllByText(/marketing expertise/i)
       const differentiatorP = matches.find(el => el.tagName === 'P')
       expect(differentiatorP).toBeDefined()
-      expect(differentiatorP!.textContent).toContain('→')
-      expect(differentiatorP!.textContent).toContain('Very low')
+      expect(differentiatorP!.textContent).toMatch(/^Decreases /)
+      // Negative assertions: no tier labels, no "scale" unit leaking through.
+      expect(differentiatorP!.textContent).not.toMatch(/\b(Very high|Very low|High|Low|Moderate)\b/)
+      expect(differentiatorP!.textContent!.toLowerCase()).not.toContain('scale')
     })
 
     it('shows unique differentiator without value when factor is not shared', () => {

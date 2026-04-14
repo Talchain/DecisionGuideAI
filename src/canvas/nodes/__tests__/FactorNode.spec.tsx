@@ -955,7 +955,7 @@ describe('FactorNode — intervention hover', () => {
       observedState: { value: 0.5, factor_type: 'quality' },
     })
     // qualitativeTierLabel(0.7) === 'High'
-    expect(screen.getByText('Intervention: High')).toBeDefined()
+    expect(screen.getByText('→ High')).toBeDefined()
   })
 
   it('unwraps a CEEInterventionV3 {value} object and renders the same result', () => {
@@ -966,7 +966,7 @@ describe('FactorNode — intervention hover', () => {
       category: 'controllable',
       observedState: { value: 0.5, factor_type: 'quality' },
     })
-    expect(screen.getByText('Intervention: High')).toBeDefined()
+    expect(screen.getByText('→ High')).toBeDefined()
     // Regression assertion: none of the pre-fix corrupt strings should appear anywhere.
     expect(screen.queryByText(/\[object Object\]/)).toBeNull()
     expect(screen.queryByText(/NaN/)).toBeNull()
@@ -984,7 +984,7 @@ describe('FactorNode — intervention hover', () => {
     })
     expect(screen.queryByText(/£NaN/)).toBeNull()
     // Denormalised via raw_value/observedValue: 5000 × (0.5 / 0.1) = 25000.
-    expect(screen.getByText('Intervention: £25,000')).toBeDefined()
+    expect(screen.getByText('→ £25,000')).toBeDefined()
   })
 
   it('suppresses the hover chip entirely when the intervention entry is malformed', () => {
@@ -1008,9 +1008,8 @@ describe('FactorNode — intervention hover', () => {
   })
 
   // Polish 4 self-assessment fix #3: scale-unit factor with no raw_value
-  // anchor used to render "Intervention: " (empty) because
-  // formatInterventionValue returns ''. The overlay must fall back to a
-  // direction-only cue.
+  // anchor used to render an empty value because formatInterventionValue
+  // returns ''. The overlay must fall back to a direction-only cue.
   it('falls back to direction-only intervention text for scale-unit factors with no raw anchor', () => {
     mountWithHoveredOption(0.7, {
       label: 'Marketing Expertise Available',
@@ -1022,8 +1021,9 @@ describe('FactorNode — intervention hover', () => {
     expect(screen.queryByText(/scale/i)).toBeNull()
     expect(screen.queryByText(/0\.7/)).toBeNull()
     // Falls back to "↑ Increase" (intervention 0.7 > observed 0.3).
-    expect(screen.getByText(/Intervention:/)).toBeDefined()
     expect(screen.getByText(/Increase/)).toBeDefined()
+    // Never render a bare arrow with no trailing text.
+    expect(screen.queryByText(/^→\s*$/)).toBeNull()
   })
 
   it('falls back to "↓ Decrease" when intervention is below observed for scale unit', () => {

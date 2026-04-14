@@ -132,6 +132,22 @@ export function compactFactorLabel(label: string, maxLength = 15): string {
 }
 
 /**
+ * Format a raw win probability (0–1) for display as a percentage string.
+ *
+ * Explicit thresholds avoid ambiguity around values like 0.005 that sit on
+ * JS Math.round boundaries. Non-zero probabilities below 1% surface as
+ * "< 1%" so baseline options with very low but non-zero win share do not
+ * appear as a misleading "0%".
+ */
+export function formatWinProbability(rawProb: number): string {
+  if (!Number.isFinite(rawProb)) return '—'
+  if (rawProb <= 0) return '0%'
+  if (rawProb < 0.01) return '< 1%'
+  if (rawProb >= 0.995) return '100%'
+  return `${Math.round(rawProb * 100)}%`
+}
+
+/**
  * Map a sensitivity score (0–1) to a descriptive tier label.
  * Used for the Sensitivity bar on factor nodes (T6).
  *
@@ -617,6 +633,10 @@ export function formatInterventionValue(
   observedRawValue?: string | number | null,
   opts?: { preserveTierLabel?: boolean },
 ): string {
+  // TODO: When CEE ships intervention_display_value, check it first (same pattern
+  // as display_value on factors). Return verbatim if present and non-empty,
+  // fall through to heuristic formatting only if absent.
+  // Tracked: cross-workstream-issues CEE intervention_display_value
   // Defensive guard: callers must pass a finite number. Object/NaN/undefined
   // inputs previously produced "[object Object]" and "£NaN" strings on factor
   // nodes (see FactorNode.tsx interventionValue memo). Fail visibly instead.

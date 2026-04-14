@@ -21,6 +21,7 @@ import { InspectorGuidanceSection } from './inspector/InspectorGuidanceSection'
 import { typography } from '../../styles/typography'
 import { detectBaseline } from '../utils/baselineDetection'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
+import { formatWinProbability } from '../utils/labelUtils'
 import { formatTargetValue } from '../../components/results/utils/formatTargetValue'
 
 interface ObservedState {
@@ -461,7 +462,7 @@ export const NodeInspector = memo(({ nodeId, onClose }: NodeInspectorProps) => {
           <div className="flex items-center justify-between px-2 py-1 bg-panel rounded border border-panel-border">
             <span className={`${typography.panelMeta} text-text-light`}>Win probability</span>
             <span className={`${typography.panelBody} text-text-body tabular-nums`}>
-              {Math.round(displayMetadata.winRate * 100)}%
+              {formatWinProbability(displayMetadata.winRate)}
             </span>
           </div>
         </div>

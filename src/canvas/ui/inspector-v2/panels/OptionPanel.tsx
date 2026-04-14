@@ -15,7 +15,7 @@ import {
   SECTION_TITLES,
   EMPTY_STATES,
 } from '../inspectorStrings'
-import { formatFactorValue, unwrapInterventionValue } from '../../../utils/labelUtils'
+import { formatFactorValue, unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
 import { detectBaseline } from '../../../utils/baselineDetection'
 import { SectionTitle } from '../shared/SectionTitle'
 import { InterventionRow } from '../shared/InterventionRow'
@@ -131,7 +131,11 @@ export const OptionPanel = memo(function OptionPanel({
     return (optionComparison as Array<{ option_id: string; win_probability?: number; label?: string }>).map(o => ({
       id: o.option_id,
       label: String(nodes.find(n => n.id === o.option_id)?.data?.label ?? o.label ?? o.option_id),
+      // winPct: integer percent used for bar width + close-call gap arithmetic.
+      // winLabel: user-facing string; routes through formatWinProbability so a
+      // non-zero probability that rounds to 0 renders as "< 1%" rather than "0%".
       winPct: typeof o.win_probability === 'number' ? Math.round(o.win_probability * 100) : null,
+      winLabel: typeof o.win_probability === 'number' ? formatWinProbability(o.win_probability) : null,
       isCurrent: o.option_id === nodeId,
     }))
   }, [optionComparison, nodes, nodeId])
@@ -261,7 +265,7 @@ export const OptionPanel = memo(function OptionPanel({
               <div className="flex items-center gap-3">
                 <div className="text-center">
                   <div className={`${typography.panelHeader} text-2xl`} style={{ color: 'var(--option)' }}>
-                    {Math.round(displayMetadata.winRate * 100)}%
+                    {formatWinProbability(displayMetadata.winRate)}
                   </div>
                   <div className={`${typography.panelMeta} text-text-light`}>Chance of leading</div>
                   <ResultsLink label="Compare all options" tab="compare" />
@@ -314,7 +318,7 @@ export const OptionPanel = memo(function OptionPanel({
                       />
                     </div>
                     <span className={`${typography.panelMeta} w-7 text-right ${o.isCurrent ? 'font-semibold' : ''} text-text-light`}>
-                      {o.winPct != null ? `${o.winPct}%` : '—'}
+                      {o.winLabel ?? '—'}
                     </span>
                   </div>
                 ))}

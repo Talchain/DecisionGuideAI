@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue, classifyUnit, formatWinProbability } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -121,32 +121,43 @@ function computeAllDifferentiators(
       // Unique factor — simple sentence
       candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} is the key difference`)
     } else {
-      // Shared factor — disambiguate with formatted value
+      // Shared factor — disambiguate. Placeholder-unit factors (scale, index, score, …)
+      // have no real-world anchor, so tier labels like "Very high" are meaningless.
+      // For those, skip formatting entirely and use directional language against
+      // the observed baseline. For units with genuine anchors, format the value.
       const obs = (factorNode?.data as any)?.observedState as {
         unit?: string; factor_type?: string; cap?: number; value?: number; raw_value?: string | number
       } | undefined
       const unit = (factorNode?.data?.unit as string | undefined) ?? obs?.unit
       const effectiveUnit = unit && !isSuppressedUnit(unit) ? unit : undefined
-      const formatted = formatInterventionValue(
-        myValue,
-        effectiveUnit,
-        obs?.factor_type,
-        obs?.cap,
-        obs?.value,
-        obs?.raw_value,
-        { preserveTierLabel: true },
-      )
-      if (formatted) {
-        candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${formatted}`)
-      } else {
-        // Empty formatted value (scale-no-raw suppression) → directional fallback
+      const unitKind = classifyUnit(effectiveUnit).kind
+      const directional = (): string => {
         const baseline = observedBaselineFor(factorId)
-        if (myValue > baseline + 0.1) {
-          candidateLabels.set(optionId, `Increases ${compactLabel}`)
-        } else if (myValue < baseline - 0.1) {
-          candidateLabels.set(optionId, `Decreases ${compactLabel}`)
+        if (myValue > baseline + 0.1) return `Increases ${compactLabel}`
+        if (myValue < baseline - 0.1) return `Decreases ${compactLabel}`
+        return `Does not change ${compactLabel}`
+      }
+      if (unitKind === 'placeholder') {
+        candidateLabels.set(optionId, directional())
+      } else {
+        const formatted = formatInterventionValue(
+          myValue,
+          effectiveUnit,
+          obs?.factor_type,
+          obs?.cap,
+          obs?.value,
+          obs?.raw_value,
+        )
+        // A unitless qualitative factor (e.g. factor_type="quality", no unit)
+        // still reaches formatInterventionValue's qualitativeTierLabel branch
+        // and returns "Very high" / "High" / …. These tier labels are just as
+        // meaningless in differentiator text as the placeholder-unit ones,
+        // so force directional phrasing whenever the formatter returned one.
+        const isTierLabel = /^(Very high|Very low|High|Low|Medium|Moderate)$/i.test(formatted)
+        if (formatted && !isTierLabel) {
+          candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${formatted}`)
         } else {
-          candidateLabels.set(optionId, `Does not change ${compactLabel}`)
+          candidateLabels.set(optionId, directional())
         }
       }
     }
@@ -413,8 +424,10 @@ export const OptionNode = memo((props: NodeProps) => {
     return interventionChips
       .map(c => {
         const baseline = baselineOptionInterventions?.[c.factorId] ?? c.observedValue
-        // Graph v1.1 Task 6: aggressive compaction for pre-analysis pills.
-        const shortLabel = compactFactorLabel(c.label, 15)
+        // Graph v1.1 Task 6: compaction for pre-analysis pills. Bumped from 15
+        // to 22 so multi-word factor labels (e.g. "Senior technical leadership")
+        // read more meaningfully before truncation; still fits MAX_NODE_W=300.
+        const shortLabel = compactFactorLabel(c.label, 22)
 
         if (baseline === undefined) {
           // No baseline to compare — show as "up" (intervention exists)
@@ -755,7 +768,7 @@ export const OptionNode = memo((props: NodeProps) => {
           <p className={`${typography.nodeLabel} text-text-body m-0`}>Current baseline. No changes to factors.</p>
           {isPostAnalysis && displayMetadata.winRate !== null && (
             <p className={`${typography.edgeLabel} text-text-light mt-0.5 m-0`}>
-              {Math.round((displayMetadata.winRate ?? 0) * 100)}% win rate across simulations
+              {formatWinProbability(displayMetadata.winRate ?? 0)} win rate across simulations
             </p>
           )}
         </>
@@ -865,7 +878,7 @@ export const OptionNode = memo((props: NodeProps) => {
         {displayMetadata.isResultsMode && displayMetadata.winRate !== null && (
           <div className="mt-1.5 mb-1">
             <div className={`${typography.nodeLabel} text-text-body`}>
-              {Math.round(displayMetadata.winRate * 100)}% win probability
+              {formatWinProbability(displayMetadata.winRate)} win probability
             </div>
             <div className="h-1 bg-panel-border rounded-full overflow-hidden mt-0.5">
               <div

@@ -19,6 +19,7 @@ import {
   isCurrencyUnit,
   formatFactorValue,
   unwrapInterventionValue,
+  formatWinProbability,
 } from '../labelUtils'
 import { describeEdgeInfluence } from '../../domain/edges'
 
@@ -1224,5 +1225,42 @@ describe('ISO currency normalisation across formatters', () => {
       expect(isCurrencyUnit(' USD ')).toBe(true)
       expect(isCurrencyUnit('eur')).toBe(true)
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// formatWinProbability — "< 1%" for non-zero rounded-to-zero values
+// ---------------------------------------------------------------------------
+describe('formatWinProbability', () => {
+  it('returns "0%" only for exact zero', () => {
+    expect(formatWinProbability(0)).toBe('0%')
+  })
+
+  it('returns "< 1%" for any non-zero value below 1%', () => {
+    expect(formatWinProbability(0.0001)).toBe('< 1%')
+    expect(formatWinProbability(0.004)).toBe('< 1%')
+    expect(formatWinProbability(0.005)).toBe('< 1%')
+    expect(formatWinProbability(0.009)).toBe('< 1%')
+  })
+
+  it('returns integer percent for values between 1% and 99%', () => {
+    expect(formatWinProbability(0.01)).toBe('1%')
+    expect(formatWinProbability(0.5)).toBe('50%')
+    expect(formatWinProbability(0.99)).toBe('99%')
+  })
+
+  it('returns "100%" for values at or above 99.5%', () => {
+    expect(formatWinProbability(0.995)).toBe('100%')
+    expect(formatWinProbability(1.0)).toBe('100%')
+  })
+
+  it('returns "—" for non-finite inputs', () => {
+    expect(formatWinProbability(NaN)).toBe('—')
+    expect(formatWinProbability(Infinity)).toBe('—')
+    expect(formatWinProbability(-Infinity)).toBe('—')
+  })
+
+  it('treats negative values as "0%"', () => {
+    expect(formatWinProbability(-0.1)).toBe('0%')
   })
 })

@@ -562,11 +562,10 @@ export const FactorNode = memo((props: NodeProps) => {
           )
         })()}
       >
-        {/* Intervention highlight when option hovered. Polish 4 review fix:
-            formatInterventionValue can return '' for scale-unit factors
-            with no raw_value anchor (the meaningless-unit suppression
-            path). When that happens we fall back to a directional cue
-            ("Intervention: ↑" / "↓") instead of leaving a dangling label. */}
+        {/* Intervention highlight when option hovered. Renders "→ {value}"
+            when formatInterventionValue returns a non-empty string; otherwise
+            falls back to a direction-only cue ("↑ Increase" / "↓ Decrease" /
+            "No change"). Never renders a bare arrow with no trailing text. */}
         {isAffectedByHover && (() => {
           const formatted = formatInterventionValue(
             interventionValue,
@@ -579,16 +578,19 @@ export const FactorNode = memo((props: NodeProps) => {
           if (formatted) {
             return (
               <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-                Intervention: {formatted}
+                → {formatted}
               </div>
             )
           }
           // Empty formatter result → fall back to a direction-only cue.
+          // Guard: without a known intervention value there is no direction to
+          // communicate, so render nothing rather than a bare arrow.
+          if (interventionValue == null) return null
           const baseline = observedState?.value ?? 0
-          const direction = interventionValue! > baseline ? '↑ Increase' : interventionValue! < baseline ? '↓ Decrease' : 'No change'
+          const direction = interventionValue > baseline ? '↑ Increase' : interventionValue < baseline ? '↓ Decrease' : 'No change'
           return (
             <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-              Intervention: {direction}
+              {direction}
             </div>
           )
         })()}
