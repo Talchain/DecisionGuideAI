@@ -139,7 +139,6 @@ function makeGraphData(): FullGraphData {
           direction: 'positive',
           beliefExists: 0.9,
           beliefStrength: 0.8,
-          strength_mean: 0.65,
           strength_std: 0.1,
         },
       },
@@ -208,10 +207,13 @@ describe('Debug Bundle V1.5', () => {
       graphData: makeGraphData(),
     })
     const edge = bundle.full_graph!.edges[0] as Record<string, unknown>
+    // strength_mean is the canonical causal-coefficient name; weight is a
+    // deprecated alias emitted with the same value during the transition.
+    expect(edge.strength_mean).toBe(0.7)
     expect(edge.weight).toBe(0.7)
+    expect(edge.strength_mean).toBe(edge.weight)
     expect(edge.direction).toBe('positive')
     expect(edge.beliefStrength).toBe(0.8)
-    expect(edge.strength_mean).toBe(0.65)
     expect(edge.strength_std).toBe(0.1)
     expect(edge.belief_exists).toBe(0.9)
   })

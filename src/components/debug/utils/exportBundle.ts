@@ -912,10 +912,11 @@ function transformGraphDataEnriched(graphData: FullGraphData): EnrichedFullGraph
     target: edge.target,
     label: edge.data?.label ?? edge.label,
     strength: edge.data?.strength_mean ?? edge.data?.strength ?? edge.data?.confidence,
-    strength_mean: edge.data?.strength_mean,
+    strength_mean: edge.data?.weight ?? edge.data?.strength_mean,
     strength_std: edge.data?.strength_std ?? edge.data?.strengthStd,
     belief_exists: edge.data?.belief_exists ?? edge.data?.beliefExists,
     effect_direction: edge.data?.effect_direction ?? edge.data?.direction,
+    // DEPRECATED: use strength_mean. Remove after 2026-05-15.
     weight: edge.data?.weight,
     direction: edge.data?.direction,
     beliefStrength: edge.data?.beliefStrength,
