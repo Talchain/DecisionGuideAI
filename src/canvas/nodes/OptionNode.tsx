@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue, classifyUnit, formatWinProbability } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -131,12 +131,9 @@ function computeAllDifferentiators(
       const unit = (factorNode?.data?.unit as string | undefined) ?? obs?.unit
       const effectiveUnit = unit && !isSuppressedUnit(unit) ? unit : undefined
       const unitKind = classifyUnit(effectiveUnit).kind
-      const directional = (): string => {
-        const baseline = observedBaselineFor(factorId)
-        if (myValue > baseline + 0.1) return `Increases ${compactLabel}`
-        if (myValue < baseline - 0.1) return `Decreases ${compactLabel}`
-        return `Does not change ${compactLabel}`
-      }
+      const directional = (): string =>
+        placeholderDirectionLabel(myValue, observedBaselineFor(factorId), compactLabel)
+          ?? `Does not change ${compactLabel}`
       if (unitKind === 'placeholder') {
         candidateLabels.set(optionId, directional())
       } else {
@@ -153,8 +150,7 @@ function computeAllDifferentiators(
         // and returns "Very high" / "High" / …. These tier labels are just as
         // meaningless in differentiator text as the placeholder-unit ones,
         // so force directional phrasing whenever the formatter returned one.
-        const isTierLabel = /^(Very high|Very low|High|Low|Medium|Moderate)$/i.test(formatted)
-        if (formatted && !isTierLabel) {
+        if (formatted && !isTierLabel(formatted)) {
           candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${formatted}`)
         } else {
           candidateLabels.set(optionId, directional())
@@ -214,7 +210,7 @@ function formatChipValue(chip: { label: string; value: number; unit?: string; fa
   // Fallback: prefer numeric formatting over qualitative tier labels and raw normalised values
   const fallback = formatInterventionValue(chip.value, chip.unit, chip.factorType, chip.cap, chip.observedValue, chip.observedRawValue)
   // Tier labels and raw normalised decimals → percentage
-  if (/^(Very low|Low|Medium|High|Very high)$/i.test(fallback)) {
+  if (isTierLabel(fallback)) {
     return `${Math.round(chip.value * 100)}%`
   }
   // Raw normalised number (no unit, value in [0,1] like "0.15" or "0.85") → percentage

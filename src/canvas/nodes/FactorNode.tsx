@@ -10,7 +10,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
@@ -562,35 +562,54 @@ export const FactorNode = memo((props: NodeProps) => {
           )
         })()}
       >
-        {/* Intervention highlight when option hovered. Renders "→ {value}"
-            when formatInterventionValue returns a non-empty string; otherwise
-            falls back to a direction-only cue ("↑ Increase" / "↓ Decrease" /
-            "No change"). Never renders a bare arrow with no trailing text. */}
+        {/* Intervention highlight when option hovered. Placeholder-unit
+            factors (scale, index, score, …) and qualitative tier labels have
+            no real-world anchor, so we render directional language against
+            the observed baseline instead of the raw number. For currency /
+            percentage / time / count units we keep the formatted value.
+            Never renders a bare arrow with no trailing text. */}
         {isAffectedByHover && (() => {
+          if (interventionValue == null) return null
+          const rawUnit = observedState?.unit
+          const effectiveUnit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : undefined
+          const unitKind = classifyUnit(effectiveUnit).kind
+          // Must pass the cleaned label — compactFactorLabel expects scale
+          // metadata like "(0–1 scale)" to have already been stripped (see
+          // its docstring). Raw props.data.label can contain those fragments
+          // and they would leak into the teal strip otherwise.
+          const compactLabel = compactFactorLabel(cleanedLabel, 22)
+          const directional = placeholderDirectionLabel(
+            interventionValue,
+            observedState?.value,
+            compactLabel,
+          )
+          if (unitKind === 'placeholder') {
+            if (!directional) return null
+            return (
+              <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
+                → {directional}
+              </div>
+            )
+          }
           const formatted = formatInterventionValue(
             interventionValue,
-            observedState?.unit,
+            effectiveUnit,
             observedState?.factor_type,
             observedState?.cap,
             observedState?.value,
             observedState?.raw_value,
           )
-          if (formatted) {
+          if (formatted && !isTierLabel(formatted)) {
             return (
               <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
                 → {formatted}
               </div>
             )
           }
-          // Empty formatter result → fall back to a direction-only cue.
-          // Guard: without a known intervention value there is no direction to
-          // communicate, so render nothing rather than a bare arrow.
-          if (interventionValue == null) return null
-          const baseline = observedState?.value ?? 0
-          const direction = interventionValue > baseline ? '↑ Increase' : interventionValue < baseline ? '↓ Decrease' : 'No change'
+          if (!directional) return null
           return (
             <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
-              {direction}
+              → {directional}
             </div>
           )
         })()}

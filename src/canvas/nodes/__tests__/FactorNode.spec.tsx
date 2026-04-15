@@ -947,18 +947,20 @@ describe('FactorNode — intervention hover', () => {
     return renderFactor(factorData)
   }
 
-  it('renders the hover chip with a primitive number intervention (qualitative tier)', () => {
+  it('renders the hover chip with a primitive number intervention (qualitative tier → directional)', () => {
     mountWithHoveredOption(0.7, {
       label: 'Marketing Expertise Available',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.5, factor_type: 'quality' },
     })
-    // qualitativeTierLabel(0.7) === 'High'
-    expect(screen.getByText('→ High')).toBeDefined()
+    // Tier labels ("High", "Very high", …) are suppressed in favour of
+    // directional phrasing against the observed baseline (0.7 > 0.5 + ε).
+    expect(screen.queryByText(/High/)).toBeNull()
+    expect(screen.getByText(/Increases/)).toBeDefined()
   })
 
-  it('unwraps a CEEInterventionV3 {value} object and renders the same result', () => {
+  it('unwraps a CEEInterventionV3 {value} object and renders directional phrasing', () => {
     // Minimal V3 shape — extra fields (source, target_match) are irrelevant to the unwrap.
     mountWithHoveredOption({ value: 0.7 }, {
       label: 'Marketing Expertise Available',
@@ -966,7 +968,7 @@ describe('FactorNode — intervention hover', () => {
       category: 'controllable',
       observedState: { value: 0.5, factor_type: 'quality' },
     })
-    expect(screen.getByText('→ High')).toBeDefined()
+    expect(screen.getByText(/Increases/)).toBeDefined()
     // Regression assertion: none of the pre-fix corrupt strings should appear anywhere.
     expect(screen.queryByText(/\[object Object\]/)).toBeNull()
     expect(screen.queryByText(/NaN/)).toBeNull()
@@ -1010,23 +1012,23 @@ describe('FactorNode — intervention hover', () => {
   // Polish 4 self-assessment fix #3: scale-unit factor with no raw_value
   // anchor used to render an empty value because formatInterventionValue
   // returns ''. The overlay must fall back to a direction-only cue.
-  it('falls back to direction-only intervention text for scale-unit factors with no raw anchor', () => {
+  it('falls back to directional language for scale-unit factors with no raw anchor', () => {
     mountWithHoveredOption(0.7, {
       label: 'Marketing Expertise Available',
       type: 'factor',
       category: 'controllable',
       observedState: { value: 0.3, unit: 'scale' },
     })
-    // No "scale", no number — direction cue only.
+    // No "scale", no number — directional language only.
     expect(screen.queryByText(/scale/i)).toBeNull()
     expect(screen.queryByText(/0\.7/)).toBeNull()
-    // Falls back to "↑ Increase" (intervention 0.7 > observed 0.3).
-    expect(screen.getByText(/Increase/)).toBeDefined()
+    // intervention 0.7 > observed 0.3 + ε → "Increases <label>".
+    expect(screen.getByText(/Increases/)).toBeDefined()
     // Never render a bare arrow with no trailing text.
     expect(screen.queryByText(/^→\s*$/)).toBeNull()
   })
 
-  it('falls back to "↓ Decrease" when intervention is below observed for scale unit', () => {
+  it('renders "Decreases" when intervention is below observed for scale unit', () => {
     mountWithHoveredOption(0.1, {
       label: 'Marketing Expertise Available',
       type: 'factor',
@@ -1034,7 +1036,128 @@ describe('FactorNode — intervention hover', () => {
       observedState: { value: 0.5, unit: 'scale' },
     })
     expect(screen.queryByText(/scale/i)).toBeNull()
-    expect(screen.getByText(/Decrease/)).toBeDefined()
+    expect(screen.getByText(/Decreases/)).toBeDefined()
+  })
+
+  // ---- Placeholder-unit directional language (extracted helper) ----
+
+  // Shared negative assertions for every placeholder-unit case: the teal strip
+  // must never leak unit tokens, tier labels, or a bare arrow.
+  const assertNoPlaceholderLeaks = (unitRegex: RegExp) => {
+    expect(screen.queryAllByText(unitRegex)).toHaveLength(0)
+    expect(screen.queryAllByText(/\b(Very high|Very low|High|Low|Medium|Moderate)\b/)).toHaveLength(0)
+    expect(screen.queryAllByText(/^→\s*$/)).toHaveLength(0)
+  }
+
+  it('renders "Increases" for index-unit factor with intervention above baseline', () => {
+    mountWithHoveredOption(0.9, {
+      label: 'Team morale',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.2, unit: 'index' },
+    })
+    expect(screen.getByText(/Increases/)).toBeDefined()
+    assertNoPlaceholderLeaks(/index/i)
+  })
+
+  it('renders "Decreases" for score-unit factor with intervention below baseline', () => {
+    mountWithHoveredOption(0.1, {
+      label: 'Churn risk',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.8, unit: 'score' },
+    })
+    expect(screen.getByText(/Decreases/)).toBeDefined()
+    assertNoPlaceholderLeaks(/score/i)
+  })
+
+  it('renders "Does not change" when intervention is within ε of baseline (scale)', () => {
+    mountWithHoveredOption(0.55, {
+      label: 'Process maturity',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.5, unit: 'scale' },
+    })
+    expect(screen.getByText(/Does not change/)).toBeDefined()
+    assertNoPlaceholderLeaks(/scale/i)
+  })
+
+  it('renders directional phrasing for norm-unit factor (full placeholder coverage)', () => {
+    mountWithHoveredOption(0.8, {
+      label: 'Product quality',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.2, unit: 'norm' },
+    })
+    expect(screen.getByText(/Increases/)).toBeDefined()
+    assertNoPlaceholderLeaks(/norm/i)
+  })
+
+  it('strips scale metadata like "(0–1 scale)" from the directional label', () => {
+    mountWithHoveredOption(0.9, {
+      // Raw label still carries the CEE normalisation artefact — it must be
+      // cleaned before being compacted into the teal strip text.
+      label: 'Hiring rate (0–1 scale)',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.2, unit: 'scale' },
+    })
+    expect(screen.getByText(/Increases/)).toBeDefined()
+    // The cleaned label ("Hiring rate") must appear; the parenthetical must not.
+    expect(screen.queryByText(/0–1/)).toBeNull()
+    expect(screen.queryByText(/\(.*scale.*\)/i)).toBeNull()
+    assertNoPlaceholderLeaks(/\bscale\b/i)
+  })
+
+  it('preserves formatted value for currency-unit factor (non-placeholder path)', () => {
+    mountWithHoveredOption({ value: 0.5 }, {
+      label: 'Marketing Budget',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.1, raw_value: 5000, unit: '£', cap: 10000 },
+    })
+    expect(screen.getByText('→ £25,000')).toBeDefined()
+    expect(screen.queryByText(/Increases/)).toBeNull()
+  })
+
+  it('renders nothing when baseline is null for a placeholder-unit factor', () => {
+    mountWithHoveredOption(0.7, {
+      label: 'Unknown scale thing',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: null, unit: 'scale' },
+    })
+    // No directional phrasing, no raw value, no bare arrow.
+    expect(screen.queryByText(/Increases|Decreases|Does not change/)).toBeNull()
+    expect(screen.queryByText(/^→/)).toBeNull()
+  })
+
+  it('renders nothing when the option does not intervene on this factor', () => {
+    vi.mocked(useCanvasStore).mockImplementation((selector: any) =>
+      selector({
+        hoveredOptionId: 'option-1',
+        nodes: [
+          // interventions map does not contain 'factor-1'
+          { id: 'option-1', type: 'option', data: { interventions: { 'factor-other': 0.7 } } },
+        ],
+        edges: [],
+        ceeAnalysisReady: null,
+        results: { status: 'idle', report: null },
+        highlightedNodes: new Set(),
+        dimmedNodeIds: new Set(),
+        goalThreshold: null,
+        goalConstraints: [],
+        viewMode: 'expert',
+      })
+    )
+    renderFactor({
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.3, unit: 'scale' },
+    })
+    expect(screen.queryByText(/Increases|Decreases|Does not change/)).toBeNull()
+    expect(screen.queryByText(/^→/)).toBeNull()
   })
 
   // Graph v1.1 Task 2: low-priority factors are visually quieted in Standard

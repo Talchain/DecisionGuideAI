@@ -353,6 +353,39 @@ export function classifyUnit(unit: string | null | undefined): { kind: UnitClass
 }
 
 /**
+ * Epsilon used when deciding if an intervention value is "the same as" the
+ * observed baseline for placeholder-unit factors (scale, index, score, …).
+ * Values within ±epsilon of baseline are treated as "does not change".
+ */
+export const PLACEHOLDER_DIRECTION_EPSILON = 0.1
+
+/**
+ * Direction-only phrasing for placeholder-unit factors, where the raw number
+ * ("0.33 scale") carries no meaning for a user. Returns null if the baseline
+ * is unknown — callers should render nothing in that case.
+ */
+export function placeholderDirectionLabel(
+  interventionValue: number,
+  baseline: number | null | undefined,
+  compactLabel: string,
+): string | null {
+  if (baseline == null) return null
+  if (interventionValue > baseline + PLACEHOLDER_DIRECTION_EPSILON) return `Increases ${compactLabel}`
+  if (interventionValue < baseline - PLACEHOLDER_DIRECTION_EPSILON) return `Decreases ${compactLabel}`
+  return `Does not change ${compactLabel}`
+}
+
+/**
+ * Qualitative tier labels returned by formatInterventionValue for unitless
+ * quality factors. These are just as meaningless as placeholder-unit values
+ * in differentiator/highlight text, so callers fall through to directional
+ * phrasing when this returns true.
+ */
+export function isTierLabel(text: string): boolean {
+  return /^(Very high|Very low|High|Low|Medium|Moderate)$/i.test(text)
+}
+
+/**
  * Returns true if the given unit string represents ANY kind of currency
  * (single-char symbol or multi-char ISO code / label).
  *
