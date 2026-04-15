@@ -19,6 +19,7 @@ import {
   isCurrencyUnit,
   formatFactorValue,
   unwrapInterventionValue,
+  extractInterventionDisplay,
   formatWinProbability,
 } from '../labelUtils'
 import { describeEdgeInfluence } from '../../domain/edges'
@@ -452,6 +453,40 @@ describe('unwrapInterventionValue', () => {
     it('returns null for empty objects', () => {
       expect(unwrapInterventionValue({})).toBeNull()
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// extractInterventionDisplay
+// ---------------------------------------------------------------------------
+describe('extractInterventionDisplay', () => {
+  it('returns value and displayValue together from V3 object', () => {
+    const raw = { value: 0.85, display_value: 'High', source: 'cee' }
+    expect(extractInterventionDisplay(raw)).toEqual({ value: 0.85, displayValue: 'High' })
+  })
+  it('returns value with undefined displayValue when display_value absent', () => {
+    expect(extractInterventionDisplay({ value: 0.5 })).toEqual({ value: 0.5 })
+  })
+  it('returns null value with undefined displayValue for malformed records', () => {
+    expect(extractInterventionDisplay({ value: null })).toEqual({ value: null })
+  })
+  it('returns null value but preserves displayValue when present even if value invalid', () => {
+    // Guards future CEE output where a string-only display is emitted.
+    const raw = { value: null, display_value: 'no change' }
+    expect(extractInterventionDisplay(raw)).toEqual({ value: null, displayValue: 'no change' })
+  })
+  it('ignores empty string display_value', () => {
+    expect(extractInterventionDisplay({ value: 0.3, display_value: '' })).toEqual({ value: 0.3 })
+  })
+  it('ignores non-string display_value', () => {
+    expect(extractInterventionDisplay({ value: 0.3, display_value: 42 })).toEqual({ value: 0.3 })
+  })
+  it('handles primitive number (legacy scalar)', () => {
+    expect(extractInterventionDisplay(0.5)).toEqual({ value: 0.5 })
+  })
+  it('handles null and undefined', () => {
+    expect(extractInterventionDisplay(null)).toEqual({ value: null })
+    expect(extractInterventionDisplay(undefined)).toEqual({ value: null })
   })
 })
 

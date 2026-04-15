@@ -637,6 +637,25 @@ export function unwrapInterventionValue(raw: unknown): number | null {
 }
 
 /**
+ * Extract both the numeric value and any CEE-provided `display_value` string
+ * from an intervention record. `display_value` is the human-readable form
+ * CEE emits (e.g. "High", "£50k", "no change") — when present, UI display
+ * paths should render it verbatim rather than re-formatting the number.
+ *
+ * Centralises the extraction so every call site handles the V3 object form
+ * (`{ value, display_value, ... }`) uniformly. Legacy scalar form returns
+ * `{ value, displayValue: undefined }`.
+ */
+export function extractInterventionDisplay(raw: unknown): { value: number | null; displayValue?: string } {
+  const value = unwrapInterventionValue(raw)
+  if (raw != null && typeof raw === 'object' && 'display_value' in raw) {
+    const dv = (raw as { display_value: unknown }).display_value
+    if (typeof dv === 'string' && dv.length > 0) return { value, displayValue: dv }
+  }
+  return { value }
+}
+
+/**
  * Format an intervention value for display as a human-readable chip.
  * Used in OptionNode intervention chips (T8/J1).
  *

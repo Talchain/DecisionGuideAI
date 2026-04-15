@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue, extractInterventionDisplay, classifyUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -46,8 +46,12 @@ function computeAllDifferentiators(
   const optionNodes = nodes.filter(n => n.type === 'option' || n.data?.type === 'option')
   if (optionNodes.length < 2) return result
 
-  // Build option id → factorId → numeric value
-  const optionInterventions = new Map<string, Map<string, number>>()
+  // Build option id → factorId → { value, displayValue }. The displayValue
+  // field carries CEE's `display_value` through to Phase 3 so the
+  // disambiguation sentence ("X → {value}") can render the CEE string
+  // verbatim instead of re-formatting the numeric value.
+  type InterventionEntry = { value: number; displayValue?: string }
+  const optionInterventions = new Map<string, Map<string, InterventionEntry>>()
   for (const optNode of optionNodes) {
     // Explicit flag wins; regex fallback only fires when flag is null/undefined.
     // Explicit `false` must suppress the regex (prevents "Status Quo" labels on
@@ -58,10 +62,10 @@ function computeAllDifferentiators(
     const ceeOpt = ceeAnalysisReady?.options?.find(o => o.id === optNode.id)
     const interventions = ceeOpt?.interventions ?? (optNode.data as any)?.interventions
     if (!interventions || typeof interventions !== 'object') continue
-    const map = new Map<string, number>()
+    const map = new Map<string, InterventionEntry>()
     for (const [fid, raw] of Object.entries(interventions)) {
-      const v = unwrapInterventionValue(raw)
-      if (v != null) map.set(fid, v)
+      const { value, displayValue } = extractInterventionDisplay(raw)
+      if (value != null) map.set(fid, { value, displayValue })
     }
     optionInterventions.set(optNode.id, map)
   }
@@ -76,19 +80,22 @@ function computeAllDifferentiators(
   }
 
   // Phase 1: find each option's best differentiating factor
-  const bestFactors = new Map<string, { factorId: string; diff: number; myValue: number }>()
+  const bestFactors = new Map<string, { factorId: string; diff: number; myValue: number; myDisplayValue?: string }>()
   for (const [optionId, myValues] of optionInterventions.entries()) {
     if (myValues.size === 0) continue
     let bestFactorId: string | null = null
     let bestDiff = 0
     let bestMyValue = 0
-    for (const [factorId, myValue] of myValues.entries()) {
+    let bestMyDisplayValue: string | undefined
+    for (const [factorId, entry] of myValues.entries()) {
+      const myValue = entry.value
       const baseline = observedBaselineFor(factorId)
       let sum = 0
       let count = 0
       for (const [otherId, otherValues] of optionInterventions.entries()) {
         if (otherId === optionId) continue
-        sum += otherValues.has(factorId) ? otherValues.get(factorId)! : baseline
+        const other = otherValues.get(factorId)
+        sum += other !== undefined ? other.value : baseline
         count += 1
       }
       if (count === 0) continue
@@ -98,10 +105,11 @@ function computeAllDifferentiators(
         bestDiff = diff
         bestFactorId = factorId
         bestMyValue = myValue
+        bestMyDisplayValue = entry.displayValue
       }
     }
     if (bestFactorId == null || bestDiff < 0.1) continue
-    bestFactors.set(optionId, { factorId: bestFactorId, diff: bestDiff, myValue: bestMyValue })
+    bestFactors.set(optionId, { factorId: bestFactorId, diff: bestDiff, myValue: bestMyValue, myDisplayValue: bestMyDisplayValue })
   }
 
   // Phase 2: count how many options claim each factor as their top differentiator
@@ -112,7 +120,7 @@ function computeAllDifferentiators(
 
   // Phase 3: build label for each option
   const candidateLabels = new Map<string, string>()
-  for (const [optionId, { factorId, myValue }] of bestFactors.entries()) {
+  for (const [optionId, { factorId, myValue, myDisplayValue }] of bestFactors.entries()) {
     const factorNode = nodes.find(n => n.id === factorId)
     const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
     const compactLabel = compactFactorLabel(cleanFactorLabel(rawLabel), 20)
@@ -120,6 +128,9 @@ function computeAllDifferentiators(
     if ((factorClaimCount.get(factorId) ?? 0) <= 1) {
       // Unique factor — simple sentence
       candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} is the key difference`)
+    } else if (myDisplayValue) {
+      // Shared factor with CEE display_value — render verbatim, skip unit/tier inference.
+      candidateLabels.set(optionId, `${compactLabel.charAt(0).toUpperCase()}${compactLabel.slice(1)} \u2192 ${myDisplayValue}`)
     } else {
       // Shared factor — disambiguate. Placeholder-unit factors (scale, index, score, …)
       // have no real-world anchor, so tier labels like "Very high" are meaningless.
@@ -191,7 +202,9 @@ function stripEcho(label: string, displayValue: string): string {
 }
 
 /** Format an intervention value contextually, avoiding banned "On"/"Off" content. */
-function formatChipValue(chip: { label: string; value: number; unit?: string; factorType?: string; cap?: number; observedValue?: number; observedRawValue?: string | number }): string {
+function formatChipValue(chip: { label: string; value: number; displayValue?: string; unit?: string; factorType?: string; cap?: number; observedValue?: number; observedRawValue?: string | number }): string {
+  // CEE-provided display_value wins over any UI-side formatting.
+  if (chip.displayValue) return chip.displayValue
   // Denormalize intervention value when cap is available (intervention values are 0-1 normalized)
   const effectiveUnit = chip.unit && !isSuppressedUnit(chip.unit) ? chip.unit : null
   let rawValue: number | string | null = null
@@ -224,6 +237,9 @@ interface InterventionChip {
   factorId: string
   label: string
   value: number
+  /** CEE-provided display_value, if present. Rendered verbatim in preference
+   * to numeric formatting (see formatChipValue). */
+  displayValue?: string
   unit?: string
   factorType?: string
   cap?: number
@@ -326,7 +342,7 @@ export const OptionNode = memo((props: NodeProps) => {
         // Drop entries that fail to unwrap. Prior to this fix, malformed
         // entries (e.g. { value: null }) were coerced to 0 via Number(...)
         // and rendered as deliberate-looking zero chips.
-        const value = unwrapInterventionValue(rawValue)
+        const { value, displayValue } = extractInterventionDisplay(rawValue)
         if (value == null) return []
         const factorNode = nodes.find(n => n.id === factorId)
         const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
@@ -347,7 +363,7 @@ export const OptionNode = memo((props: NodeProps) => {
         } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
         return [{
-          factorId, label: cleanedLabel, value, unit,
+          factorId, label: cleanedLabel, value, displayValue, unit,
           factorType: observedState?.factor_type, cap: observedState?.cap,
           observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
         }]
@@ -723,7 +739,8 @@ export const OptionNode = memo((props: NodeProps) => {
                       if (Math.abs(denormedBaseline) > 0.01) {
                         const pct = ((denormedTarget - denormedBaseline) / Math.abs(denormedBaseline)) * 100
                         const sign = pct >= 0 ? '+' : ''
-                        const baselineFormatted = formatChipValue({ ...chip, value: baselineNorm })
+                        // Strip displayValue — it describes the target intervention, not the baseline.
+                        const baselineFormatted = formatChipValue({ ...chip, value: baselineNorm, displayValue: undefined })
                         // Polish 4 review fix: only build the delta string when
                         // both formatChipValue calls produced meaningful output.
                         // Otherwise we'd render " → ()" for scale-unit factors

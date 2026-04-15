@@ -10,7 +10,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, extractInterventionDisplay, classifyUnit, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
@@ -120,6 +120,7 @@ export const FactorNode = memo((props: NodeProps) => {
       node: typeof optionNodes[number]
       hasIntervention: boolean
       value: number | null
+      displayValue?: string
       isStatusQuo: boolean
       winProb: number
     }
@@ -136,7 +137,7 @@ export const FactorNode = memo((props: NodeProps) => {
       }
       const raw = interventions?.[props.id]
       const hasIntervention = raw !== undefined
-      const value = unwrapInterventionValue(raw)
+      const { value, displayValue } = extractInterventionDisplay(raw)
       // Prefer explicit is_baseline; fall back to epsilon delta against factor value
       const explicitBaseline = (opt.data as any)?.is_baseline === true
       const epsilonStatusQuo =
@@ -147,7 +148,7 @@ export const FactorNode = memo((props: NodeProps) => {
         && Math.abs(value - observedState.value) < 1e-6
       const isStatusQuo = explicitBaseline || epsilonStatusQuo
       const winProb = (winProbs[opt.id] as any)?.win_probability ?? -1
-      return { id: opt.id, node: opt, hasIntervention, value, isStatusQuo, winProb }
+      return { id: opt.id, node: opt, hasIntervention, value, displayValue, isStatusQuo, winProb }
     })
 
     // Sort
@@ -181,6 +182,9 @@ export const FactorNode = memo((props: NodeProps) => {
         // ("○ No New Hire   no change") even when an explicit intervention
         // value is present that happens to equal the baseline.
         displayValue = 'no change'
+      } else if (r.displayValue) {
+        // CEE-provided display_value wins — render verbatim.
+        displayValue = r.displayValue
       } else if (r.value != null) {
         const formatted = formatInterventionValue(
           r.value,
