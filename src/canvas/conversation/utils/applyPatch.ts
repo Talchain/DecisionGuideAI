@@ -438,15 +438,15 @@ export function synthesiseCeeAnalysisReady(): CEEAnalysisReady | null {
       return direction === 'negative' ? -weight : weight
     })
 
-    // Detect uniform: all edges share the same signed value (typically all 1).
-    // When uniform, edge synthesis cannot distinguish between options and will
-    // produce identical intervention maps → PLoT IDENTICAL_OPTIONS (422).
-    const isUniform =
-      outgoingEdges.length > 0 &&
-      edgeSignedValues.every((v) => v === edgeSignedValues[0])
+    // Detect fabricated-default values: all outgoing edges carry weight=1/positive
+    // (the canvas default), meaning they hold no option-specific information.
+    // Only meaningful when there are multiple options — a single option cannot
+    // cause IDENTICAL_OPTIONS regardless of edge values.
+    const allDefaultWeight = edgeSignedValues.length > 0 && edgeSignedValues.every((v) => v === 1)
+    const isUniform = optionNodes.length > 1 && allDefaultWeight
 
-    // When edges are uniform, prefer canvas node.data.interventions which may
-    // carry the real option-specific values written by backfillInterventionsOntoOptionNodes.
+    // When edges are uniform defaults, prefer canvas node.data.interventions which
+    // may carry the real option-specific values written by backfillInterventionsOntoOptionNodes.
     const canvasInterventions = (optNode.data as any)?.interventions as
       | Record<string, unknown>
       | undefined
@@ -457,20 +457,22 @@ export function synthesiseCeeAnalysisReady(): CEEAnalysisReady | null {
 
     if (isUniform) {
       if (hasCanvasInterventions) {
-        // Rebuild interventions from canvas-stored values rather than fabricating
+        // Restore from canvas-stored values. Preserve the original CEEInterventionV3
+        // shape (source, target_match etc.) when present; only fill defaults for
+        // plain-number entries (older backfill format).
         const interventions: Record<string, CEEInterventionV3> = {}
         for (const [targetId, raw] of Object.entries(canvasInterventions)) {
-          const value =
-            typeof raw === 'number'
-              ? raw
-              : typeof (raw as any)?.value === 'number'
-                ? (raw as any).value
-                : 1
-          interventions[targetId] = {
-            value,
-            source: 'cee_hypothesis',
-            target_match: { node_id: targetId, match_type: 'exact_id', confidence: 'high' },
+          if (typeof raw === 'number') {
+            interventions[targetId] = {
+              value: raw,
+              source: 'cee_hypothesis',
+              target_match: { node_id: targetId, match_type: 'exact_id', confidence: 'high' },
+            }
+          } else if (raw != null && typeof raw === 'object' && typeof (raw as any).value === 'number') {
+            // Full CEEInterventionV3 stored by backfill — spread to preserve source/target_match
+            interventions[targetId] = raw as CEEInterventionV3
           }
+          // Skip malformed entries silently; they'll be absent from the map
         }
         return {
           id: optNode.id,
@@ -480,8 +482,8 @@ export function synthesiseCeeAnalysisReady(): CEEAnalysisReady | null {
         }
       }
 
-      // Uniform edges AND no canvas interventions — synthesised values will be
-      // identical across options. Warn rather than silently fabricate.
+      // Uniform default edges AND no canvas interventions — synthesised values will
+      // be identical across options. Warn rather than silently fabricate.
       console.warn(
         `[synthesiseCeeAnalysisReady] option "${optNode.id}" has uniform-weight ` +
           `outgoing edges and no canvas interventions — synthesis may produce ` +
@@ -489,7 +491,7 @@ export function synthesiseCeeAnalysisReady(): CEEAnalysisReady | null {
       )
     }
 
-    // Default path: build from edge data (non-uniform, or no outgoing edges)
+    // Default path: build from edge data (non-uniform edges, single option, or no edges)
     const interventions: Record<string, CEEInterventionV3> = {}
     for (let i = 0; i < outgoingEdges.length; i++) {
       const edge = outgoingEdges[i]
