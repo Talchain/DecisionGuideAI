@@ -727,7 +727,11 @@ export const OptionNode = memo((props: NodeProps) => {
                 if (isNoChange) return null
                 const targetFormatted = formatChipValue(chip)
                 let deltaDisplay: string | null = null
-                if (!isBaselineOption) {
+                // Skip delta arithmetic when CEE provided a qualitative displayValue
+                // for the target — pairing "Doubled capacity" with "(+70%)" produces
+                // scale mismatch (numeric delta on a non-numeric framing). The
+                // verbatim target string already conveys the change.
+                if (!isBaselineOption && !chip.displayValue) {
                   const baselineNorm = baselineOptionInterventions?.[chip.factorId] ?? chip.observedValue
                   if (baselineNorm !== undefined) {
                     const scaleBase = inferInterventionScaleBase(chip.cap, chip.observedValue, chip.observedRawValue)

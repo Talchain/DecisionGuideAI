@@ -466,6 +466,77 @@ describe('OptionNode', () => {
     expect(screen.getByText('50%')).toBeDefined()
   })
 
+  it('suppresses (+X%) delta when target chip has CEE display_value (scale-mismatch guard)', () => {
+    // Post-analysis: non-baseline option with displayValue. Previously the
+    // delta block would render "50% → Doubled capacity (+70.0%)" — a numeric
+    // delta paired with a qualitative string. The delta must be suppressed.
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.7,
+      isResultsMode: true,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: { option_probabilities: { 'option-1': { win_probability: 0.7 } } },
+        },
+        ceeAnalysisReady: {
+          options: [
+            { id: 'option-1', interventions: { 'factor-1': { value: 0.85, display_value: 'Doubled capacity' } } },
+            // Baseline option so baselineOptionInterventions resolves to 0.5
+            { id: 'option-baseline', interventions: { 'factor-1': 0.5 } },
+          ],
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'option-baseline', type: 'option', data: { type: 'option', is_baseline: true, label: 'Baseline' } },
+          { id: 'factor-1', data: { label: 'Capacity', observedState: { unit: 'fraction', value: 0.5 } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // Verbatim displayValue renders...
+    expect(screen.getByText('Doubled capacity')).toBeDefined()
+    // ...and the delta arrow with percentage does NOT.
+    expect(screen.queryByText(/\(\+/)).toBeNull()
+    expect(screen.queryByText(/→.*\(\+\d/)).toBeNull()
+  })
+
+  it('differentiator sentence renders CEE display_value verbatim for shared-factor options', () => {
+    // Two non-baseline options both intervening on the same factor with
+    // distinct display_values. Phase 3 de-disambiguation should use the
+    // verbatim CEE string rather than fabricating a tier label from the
+    // scale-unit factor (which would produce "Very high" / "Very low").
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        viewMode: 'standard', // differentiator line shows in Standard pre-analysis
+        ceeAnalysisReady: {
+          options: [
+            { id: 'option-1', interventions: { 'factor-1': { value: 0.9, display_value: 'Best in class' } } },
+            { id: 'option-2', interventions: { 'factor-1': { value: 0.1, display_value: 'Barely adequate' } } },
+          ],
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option', label: 'Premium' } },
+          { id: 'option-2', type: 'option', data: { type: 'option', label: 'Budget' } },
+          { id: 'factor-1', type: 'factor', data: { label: 'Quality', observedState: { unit: 'scale', value: 0.5 } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // Differentiator sentence uses compactFactorLabel → "→ Best in class"
+    expect(screen.getByText(/Best in class/)).toBeDefined()
+    // Must NOT fabricate a tier label.
+    expect(screen.queryByText(/Very high/)).toBeNull()
+    expect(screen.queryByText(/^High$/)).toBeNull()
+  })
+
   it('does not show win probability when winRate is null in results mode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,

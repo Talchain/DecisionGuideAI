@@ -644,7 +644,16 @@ export function unwrapInterventionValue(raw: unknown): number | null {
  *
  * Centralises the extraction so every call site handles the V3 object form
  * (`{ value, display_value, ... }`) uniformly. Legacy scalar form returns
- * `{ value, displayValue: undefined }`.
+ * `{ value, displayValue: undefined }`. Whitespace-only display_value is
+ * ignored (treated as absent); surrounding whitespace is trimmed.
+ *
+ * Cross-surface policy for `{ value: null, display_value: "..." }` records:
+ * FactorNode comparison rows render the displayValue (they only display a
+ * label — no math). OptionNode intervention chips and the differentiator
+ * pipeline drop records with `value == null` because both sort by numeric
+ * value and compute deltas. This asymmetry is intentional — do not "unify"
+ * by rendering a null-value chip; it would crash the sort and produce NaN
+ * deltas.
  */
 export function extractInterventionDisplay(raw: unknown): { value: number | null; displayValue?: string } {
   const value = unwrapInterventionValue(raw)
