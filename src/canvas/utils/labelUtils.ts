@@ -700,10 +700,16 @@ export function formatInterventionValue(
   observedRawValue?: string | number | null,
   opts?: { preserveTierLabel?: boolean },
 ): string {
-  // TODO: When CEE ships intervention_display_value, check it first (same pattern
-  // as display_value on factors). Return verbatim if present and non-empty,
-  // fall through to heuristic formatting only if absent.
-  // Tracked: cross-workstream-issues CEE intervention_display_value
+  // F.6 passthrough for CEE-authored display_value is implemented at the
+  // caller boundary, not here. `unwrapInterventionValue` returns both the
+  // numeric value and displayValue; rendering surfaces (FactorNode hover +
+  // comparison, OptionNode chips + differentiator + Detailed inline,
+  // OptionPanel, FactorControllablePanel, OptionsSection model-tab) render
+  // displayValue verbatim when present and only fall through to this
+  // function when it is absent. Do NOT re-introduce display_value handling
+  // here — the pattern intentionally keeps this function pure numeric
+  // formatting so callers stay in control of precedence.
+  //
   // Defensive guard: callers must pass a finite number. Object/NaN/undefined
   // inputs previously produced "[object Object]" and "£NaN" strings on factor
   // nodes (see FactorNode.tsx interventionValue memo). Fail visibly instead.

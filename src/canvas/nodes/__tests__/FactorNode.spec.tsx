@@ -1009,6 +1009,35 @@ describe('FactorNode — intervention hover', () => {
     expect(screen.queryByText(/^Intervention:/)).toBeNull()
   })
 
+  it('renders CEE display_value verbatim on the hover chip, overriding placeholder-unit formatting', () => {
+    // Scale-unit factor would normally fall back to directional language
+    // ("Increases X"). With CEE-authored display_value present, render the
+    // string verbatim — F.6 passthrough.
+    mountWithHoveredOption({ value: 0.7, display_value: 'Top decile' }, {
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.3, unit: 'scale' },
+    })
+    expect(screen.getByText('→ Top decile')).toBeDefined()
+    // UI-side fallbacks must not also render.
+    expect(screen.queryByText(/Increases/)).toBeNull()
+    expect(screen.queryByText(/scale/i)).toBeNull()
+  })
+
+  it('renders CEE display_value even when numeric value is null (displayValue-only intervention)', () => {
+    // Regression guard: previously the hover useMemo returned null when
+    // unwrapped.value was null, suppressing the chip entirely. A CEE record
+    // like { value: null, display_value: "no change" } must still render.
+    mountWithHoveredOption({ value: null, display_value: 'no change' }, {
+      label: 'Marketing Expertise Available',
+      type: 'factor',
+      category: 'controllable',
+      observedState: { value: 0.5, factor_type: 'quality' },
+    })
+    expect(screen.getByText('→ no change')).toBeDefined()
+  })
+
   // Polish 4 self-assessment fix #3: scale-unit factor with no raw_value
   // anchor used to render an empty value because formatInterventionValue
   // returns ''. The overlay must fall back to a direction-only cue.

@@ -761,7 +761,13 @@ export const OptionNode = memo((props: NodeProps) => {
                 // (scale-unit factor with no raw_value anchor), suppress the
                 // "→" separator and show only the label so the row reads as
                 // a discovery cue rather than misleading "→ 0.1 scale".
-                const echoStripped = displayVal ? stripEcho(chip.label, displayVal) : ''
+                // F.6 passthrough: skip echo stripping for CEE display_value so
+                // the string renders exactly as authored (e.g. "Engineers added 5"
+                // must not be rewritten to "added 5" when the factor label is
+                // "Engineers"). Echo strip only applies to UI-formatted text.
+                const echoStripped = chip.displayValue
+                  ? chip.displayValue
+                  : (displayVal ? stripEcho(chip.label, displayVal) : '')
                 return (
                   <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                     <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
@@ -832,7 +838,10 @@ export const OptionNode = memo((props: NodeProps) => {
           <div className="flex flex-col gap-0.5">
             {interventionChips.map(chip => {
               const targetFormatted = formatChipValue(chip)
-              const echoStripped = targetFormatted ? stripEcho(chip.label, targetFormatted) : ''
+              // F.6 passthrough: skip echo stripping for CEE display_value.
+              const echoStripped = chip.displayValue
+                ? chip.displayValue
+                : (targetFormatted ? stripEcho(chip.label, targetFormatted) : '')
               return (
                 <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                   <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>
@@ -1001,7 +1010,10 @@ export const OptionNode = memo((props: NodeProps) => {
                 <div className="flex flex-col gap-0.5">
                   {interventionChips.map(chip => {
                     const targetFormatted = formatChipValue(chip)
-                    const echoStripped = targetFormatted ? stripEcho(chip.label, targetFormatted) : ''
+                    // F.6 passthrough: skip echo stripping for CEE display_value.
+                    const echoStripped = chip.displayValue
+                      ? chip.displayValue
+                      : (targetFormatted ? stripEcho(chip.label, targetFormatted) : '')
                     return (
                       <div key={chip.factorId} className={`${typography.edgeLabel} text-text-body`}>
                         <span className="text-text-body">{truncateAtWord(chip.label, 30)}</span>

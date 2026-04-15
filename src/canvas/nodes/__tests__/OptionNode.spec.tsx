@@ -508,6 +508,74 @@ describe('OptionNode', () => {
     expect(screen.queryByText(/→.*\(\+\d/)).toBeNull()
   })
 
+  it('passthrough: displayValue is NOT mutated by stripEcho when it starts with the factor label (post-analysis intervention list)', () => {
+    // stripEcho rewrites "Engineers added 5" → "added 5" when the factor
+    // label is "Engineers". This is a UI heuristic — it must be bypassed
+    // for CEE-authored display_value per F.6 passthrough.
+    vi.mocked(useNodeDisplayMetadata).mockReturnValue({
+      sensitivityRank: null,
+      influence: null,
+      confidence: null,
+      inSensitivityAnalysis: false,
+      achievementProbability: null,
+      stabilityPercentage: null,
+      winRate: 0.7,
+      isResultsMode: true,
+    })
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        results: {
+          status: 'complete',
+          report: { option_probabilities: { 'option-1': { win_probability: 0.7 } } },
+        },
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': { value: 0.8, display_value: 'Engineers added 5' } },
+          }],
+        },
+        nodes: [
+          { id: 'option-1', type: 'option', data: { type: 'option' } },
+          { id: 'factor-1', data: { label: 'Engineers', observedState: { unit: 'fraction', value: 0.2 } } },
+        ],
+      }) as any)
+    )
+    renderOption()
+    // Verbatim CEE string must appear intact — including the leading word
+    // that matches the factor label.
+    expect(screen.getByText('Engineers added 5')).toBeDefined()
+    // Must NOT be rewritten to the stripped form.
+    expect(screen.queryByText('added 5')).toBeNull()
+  })
+
+  it('passthrough: displayValue is NOT mutated by stripEcho in Detailed inline pre-analysis list', () => {
+    // Detailed view (viewMode='expert', !isPostAnalysis, !isBaseline) routes
+    // through the Layer 2 inline render path around line 1011. Must also
+    // bypass stripEcho for the CEE string.
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        viewMode: 'expert',
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': { value: 0.8, display_value: 'Headcount raised to 12' } },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Headcount', observedState: { unit: 'fraction', value: 0.2 } },
+        }],
+      }) as any)
+    )
+    renderOption()
+    // The Detailed inline list renders "Interventions:" header + each chip.
+    // At least one rendering of the verbatim string must appear.
+    const matches = screen.getAllByText('Headcount raised to 12')
+    expect(matches.length).toBeGreaterThan(0)
+    // Stripped form must NOT appear.
+    expect(screen.queryByText(/^raised to 12$/)).toBeNull()
+  })
+
   it('differentiator sentence renders CEE display_value verbatim for shared-factor options', () => {
     // Two non-baseline options both intervening on the same factor with
     // distinct display_values. Phase 3 de-disambiguation should use the

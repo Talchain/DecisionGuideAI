@@ -89,13 +89,18 @@ export const FactorNode = memo((props: NodeProps) => {
     if (!hoveredOption?.data?.interventions) return null
     const interventions = hoveredOption.data.interventions as Record<string, unknown>
     const unwrapped = unwrapInterventionValue(interventions[props.id])
-    if (unwrapped.value == null) return null
+    // Highlight is visible when EITHER a numeric value or a CEE-authored
+    // displayValue is present. A `{ value: null, display_value: "..." }`
+    // record is still meaningful to the user — the factor was targeted,
+    // even if the numeric magnitude isn't known. Computation paths
+    // downstream still guard on `value != null` separately.
+    if (unwrapped.value == null && unwrapped.displayValue == null) return null
     return unwrapped
   }, [hoveredOptionId, nodes, props.id])
 
   const interventionValue = interventionPayload?.value ?? null
   const interventionDisplayValue = interventionPayload?.displayValue ?? null
-  const isAffectedByHover = interventionValue !== null
+  const isAffectedByHover = interventionPayload !== null
 
   // Graph v2 Task 3: per-option comparison table for the popover.
   // Suppressed for external factors and rendered in both phases. Ordering:
@@ -577,9 +582,10 @@ export const FactorNode = memo((props: NodeProps) => {
             percentage / time / count units we keep the formatted value.
             Never renders a bare arrow with no trailing text. */}
         {isAffectedByHover && (() => {
-          if (interventionValue == null) return null
           // F.6 passthrough: CEE-authored display_value wins over any UI
-          // formatting or directional inference. Render verbatim.
+          // formatting or directional inference. Render verbatim. This also
+          // handles the { value: null, display_value: "..." } case — numeric
+          // paths below require a finite value, so we short-circuit first.
           if (interventionDisplayValue) {
             return (
               <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
@@ -587,6 +593,7 @@ export const FactorNode = memo((props: NodeProps) => {
               </div>
             )
           }
+          if (interventionValue == null) return null
           const rawUnit = observedState?.unit
           const effectiveUnit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : undefined
           const unitKind = classifyUnit(effectiveUnit).kind
