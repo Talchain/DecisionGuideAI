@@ -223,8 +223,18 @@ export function applyDraftResult(
   if (isCEEv3Response(draftData)) {
     if (Array.isArray(draftData.goal_constraints) && draftData.goal_constraints.length > 0) {
       useCanvasStore.getState().setGoalConstraints(draftData.goal_constraints)
+      logger.info('[constraint-trace] store-write', {
+        source: 'applyDraftResult',
+        count: draftData.goal_constraints.length,
+        constraint_ids: draftData.goal_constraints.map((c) => c.constraint_id),
+      })
     } else {
       useCanvasStore.getState().setGoalConstraints(null)
+      logger.info('[constraint-trace] store-write', {
+        source: 'applyDraftResult',
+        count: 0,
+        constraint_ids: [],
+      })
     }
   }
 

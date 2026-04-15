@@ -207,6 +207,13 @@ export function useV2Run(persistence?: V2RunPersistence): UseV2RunReturn {
     } = useCanvasStore.getState()
     const lastDraftDescription = useDraftStore.getState().lastDraftDescription
 
+    console.info('[constraint-trace] run-snapshot', {
+      source: 'useV2Run',
+      count: goalConstraints?.length ?? 0,
+      constraint_ids: goalConstraints?.map((c) => c.constraint_id) ?? [],
+      goal_threshold_present: goalThreshold != null,
+    })
+
     // Validate goal is selected
     if (!outcomeNodeId) {
       setError('No goal node selected')

@@ -826,6 +826,26 @@ const READINESS_CLEAR_FIELDS = {
   preAnalysisSensitivity: null,
 } as const
 
+/**
+ * Observability hook for constraint passthrough investigation.
+ * Logs when goalConstraints are about to be cleared so we can correlate
+ * the clearing trigger with the downstream PLoT auto_goal_threshold symptom.
+ */
+function logConstraintClearIfPresent(
+  get: () => CanvasState,
+  trigger: string,
+) {
+  const prev = get().goalConstraints
+  if (prev && prev.length > 0) {
+    console.info('[constraint-trace] store-clear', {
+      source: 'READINESS_CLEAR_FIELDS',
+      cleared_count: prev.length,
+      constraint_ids: prev.map((c) => c.constraint_id),
+      trigger,
+    })
+  }
+}
+
 function invalidateAnalysisReady(
   get: () => CanvasState,
   set: (fn: (s: CanvasState) => Partial<CanvasState>) => void,
@@ -839,6 +859,7 @@ function invalidateAnalysisReady(
       console.warn('[Canvas] Had options:', ceeAnalysisReady.options?.length)
       console.trace('[Canvas] invalidateAnalysisReady call stack')
     }
+    logConstraintClearIfPresent(get, `invalidateAnalysisReady:${reason ?? 'unspecified'}`)
     set(() => ({ ...READINESS_CLEAR_FIELDS }))
   }
 }
@@ -1619,6 +1640,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Preserve label from the entry being undone so redo can show it
     const future = [{ nodes, edges, label: prev.label }, ...history.future]
     // Clear full readiness bundle + reset lens on undo (graph shape changed)
+    logConstraintClearIfPresent(get, 'undo')
     set({ nodes: prev.nodes, edges: prev.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, lens: createDefaultLensState() })
     // Reset hash after undo
     const { nodes: newNodes, edges: newEdges } = get()
@@ -1632,6 +1654,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     const past = [...history.past, { nodes, edges, label: next.label }]
     const future = history.future.slice(1)
     // Clear full readiness bundle + reset lens on redo (graph shape changed)
+    logConstraintClearIfPresent(get, 'redo')
     set({ nodes: next.nodes, edges: next.edges, history: { past, future }, ...READINESS_CLEAR_FIELDS, lens: createDefaultLensState() })
     // Reset hash after redo
     const { nodes: newNodes, edges: newEdges } = get()
@@ -3030,6 +3053,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     pushToHistory(get, set)
 
+    logConstraintClearIfPresent(get, 'undoDraftChatDraft')
     set({
       nodes: draftChatPreDraftSnapshot.nodes,
       edges: draftChatPreDraftSnapshot.edges,
@@ -3074,6 +3098,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         sessionStorage.setItem('olumi-cee-analysis-ready-node-ids', JSON.stringify(nodeIds))
       } catch {}
     } else {
+      logConstraintClearIfPresent(get, 'setCeeAnalysisReady(null)')
       set(READINESS_CLEAR_FIELDS)
       try {
         sessionStorage.removeItem('olumi-cee-analysis-ready')
