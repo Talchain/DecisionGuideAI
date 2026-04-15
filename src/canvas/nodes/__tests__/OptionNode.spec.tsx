@@ -422,6 +422,50 @@ describe('OptionNode', () => {
     expect(screen.getByText('50%')).toBeDefined()
   })
 
+  it('renders CEE display_value verbatim on intervention chip, overriding numeric formatting', () => {
+    // A value of 0.5 with unit="fraction" would normally render "50%". The
+    // CEE-provided display_value must win over the numeric formatter.
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': { value: 0.5, display_value: 'Doubled capacity' } },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Capacity', observedState: { unit: 'fraction' } },
+        }],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText('Doubled capacity')).toBeDefined()
+    // The numeric fallback must NOT also render.
+    expect(screen.queryByText('50%')).toBeNull()
+  })
+
+  it('falls back to numeric formatting when display_value is absent (precedence gate)', () => {
+    // Same shape as the verbatim test but without display_value — proves the
+    // new gate does not break the legacy formatter path.
+    vi.mocked(useCanvasStore).mockImplementation((selector) =>
+      selector(makeStoreState({
+        ceeAnalysisReady: {
+          options: [{
+            id: 'option-1',
+            interventions: { 'factor-1': { value: 0.5 } },
+          }],
+        },
+        nodes: [{
+          id: 'factor-1',
+          data: { label: 'Capacity', observedState: { unit: 'fraction' } },
+        }],
+      }) as any)
+    )
+    renderOption()
+    expect(screen.getByText('50%')).toBeDefined()
+  })
+
   it('does not show win probability when winRate is null in results mode', () => {
     vi.mocked(useNodeDisplayMetadata).mockReturnValue({
       sensitivityRank: null,

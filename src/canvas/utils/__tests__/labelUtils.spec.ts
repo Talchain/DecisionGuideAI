@@ -478,6 +478,16 @@ describe('extractInterventionDisplay', () => {
   it('ignores empty string display_value', () => {
     expect(extractInterventionDisplay({ value: 0.3, display_value: '' })).toEqual({ value: 0.3 })
   })
+  it('ignores whitespace-only display_value', () => {
+    // Would otherwise render as visually-empty label text.
+    expect(extractInterventionDisplay({ value: 0.3, display_value: '   ' })).toEqual({ value: 0.3 })
+    expect(extractInterventionDisplay({ value: 0.3, display_value: '\t\n' })).toEqual({ value: 0.3 })
+  })
+  it('trims surrounding whitespace on display_value', () => {
+    expect(extractInterventionDisplay({ value: 0.3, display_value: '  High  ' })).toEqual({
+      value: 0.3, displayValue: 'High',
+    })
+  })
   it('ignores non-string display_value', () => {
     expect(extractInterventionDisplay({ value: 0.3, display_value: 42 })).toEqual({ value: 0.3 })
   })

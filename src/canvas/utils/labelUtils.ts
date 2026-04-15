@@ -650,7 +650,10 @@ export function extractInterventionDisplay(raw: unknown): { value: number | null
   const value = unwrapInterventionValue(raw)
   if (raw != null && typeof raw === 'object' && 'display_value' in raw) {
     const dv = (raw as { display_value: unknown }).display_value
-    if (typeof dv === 'string' && dv.length > 0) return { value, displayValue: dv }
+    if (typeof dv === 'string') {
+      const trimmed = dv.trim()
+      if (trimmed.length > 0) return { value, displayValue: trimmed }
+    }
   }
   return { value }
 }

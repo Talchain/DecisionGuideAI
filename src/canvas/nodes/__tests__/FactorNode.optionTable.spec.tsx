@@ -441,6 +441,69 @@ describe('FactorNode — option comparison popover (Graph v2 Task 3)', () => {
     expect(screen.queryByTestId('factor-node-popover')).toBeNull()
   })
 
+  it('Post Standard: CEE-provided display_value renders verbatim, overriding numeric formatting', () => {
+    // Scale-no-raw factor would normally fabricate a tier label ("Very high")
+    // via preserveTierLabel. With CEE's display_value present the row must
+    // render the CEE string verbatim instead.
+    const tieredFactor = {
+      type: 'factor',
+      label: 'Quality',
+      category: 'controllable',
+      observedState: { value: 0.5, unit: 'scale' },
+    }
+    applyStore({
+      viewMode: 'standard',
+      phase: 'post',
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: tieredFactor },
+        { id: 'option-1', type: 'option', data: { type: 'option', label: 'Premium' } },
+      ],
+      ceeAnalysisReady: {
+        options: [
+          { id: 'option-1', interventions: { 'factor-1': { value: 0.85, display_value: 'Best in class' } } },
+        ],
+      },
+      report: {
+        robustness: { recommended_option_id: 'option-1' },
+        option_probabilities: { 'option-1': { win_probability: 0.9 } },
+      },
+    })
+    renderFactor(tieredFactor)
+    const popover = screen.getByTestId('factor-node-popover')
+    const premiumRow = within(popover).getByText('Premium').parentElement!
+    expect(premiumRow.lastElementChild?.textContent).toBe('Best in class')
+  })
+
+  it('Post Standard: missing display_value falls back to existing numeric formatting', () => {
+    // Mirror of the verbatim test with display_value absent — proves the new
+    // precedence gate doesn't break the legacy path.
+    applyStore({
+      viewMode: 'standard',
+      phase: 'post',
+      nodes: [
+        { id: 'factor-1', type: 'factor', data: baseFactorData },
+        { id: 'option-1', type: 'option', data: { type: 'option', label: 'Premium' } },
+      ],
+      ceeAnalysisReady: {
+        options: [
+          { id: 'option-1', interventions: { 'factor-1': { value: 60000 } } },
+        ],
+      },
+      report: {
+        robustness: { recommended_option_id: 'option-1' },
+        option_probabilities: { 'option-1': { win_probability: 0.9 } },
+      },
+    })
+    renderFactor(baseFactorData)
+    const popover = screen.getByTestId('factor-node-popover')
+    const premiumRow = within(popover).getByText('Premium').parentElement!
+    const rendered = premiumRow.lastElementChild?.textContent ?? ''
+    // No verbatim CEE string — must be numeric/unit formatted (£60,000 or similar)
+    expect(rendered).not.toBe('Best in class')
+    expect(rendered).not.toBe('set')
+    expect(rendered).toMatch(/60/) // formatRawSmartNumber renders "60,000 £" or similar
+  })
+
   it('Pre Standard, controllable factor with interventions: option values table renders in canvas order', () => {
     applyStore({
       viewMode: 'standard',
