@@ -15,6 +15,9 @@ interface InterventionRowProps {
   baseline?: number
   /** Current intervention value */
   currentValue: number
+  /** CEE-authored display_value for the intervention — rendered verbatim when
+   * present, replacing the "Currently: X → editable" numeric formatter. */
+  displayValue?: string
   unit?: string
   onChange: (newValue: number) => void
   onNavigate?: () => void
@@ -28,6 +31,7 @@ export function InterventionRow({
   factorLabel,
   baseline,
   currentValue,
+  displayValue,
   unit = '',
   onChange,
   onNavigate,
@@ -115,6 +119,13 @@ export function InterventionRow({
           }`}
         />
       </div>
+
+      {/* CEE-authored display_value — passthrough per F.6 ("UI = passthrough"). */}
+      {displayValue && (
+        <div className={`${typography.panelMeta} text-text-body mt-1 italic`}>
+          {displayValue}
+        </div>
+      )}
 
       {/* Tech mode: normalised value */}
       {techMode && normalisedValue != null && (

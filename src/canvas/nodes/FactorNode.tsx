@@ -10,7 +10,7 @@ import { deriveControllability } from '../utils/graphDisplayCalculations'
 import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { hasObservedData, isFactorNeedsInput } from '../utils/observedStateHelpers'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, extractInterventionDisplay, classifyUnit, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, isSuppressedUnit, unwrapInterventionValue, classifyUnit, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { isGraphBadgesEnabled } from '../../flags'
 import { SlidersHorizontal, Eye, Cloud } from 'lucide-react'
@@ -83,14 +83,18 @@ export const FactorNode = memo((props: NodeProps) => {
   const isHighPriority = priorityRank != null && priorityRank <= 3
   const isLowPriority = !isHighPriority
 
-  const interventionValue = useMemo(() => {
+  const interventionPayload = useMemo(() => {
     if (!hoveredOptionId) return null
     const hoveredOption = nodes.find(n => n.id === hoveredOptionId)
     if (!hoveredOption?.data?.interventions) return null
     const interventions = hoveredOption.data.interventions as Record<string, unknown>
-    return unwrapInterventionValue(interventions[props.id])
+    const unwrapped = unwrapInterventionValue(interventions[props.id])
+    if (unwrapped.value == null) return null
+    return unwrapped
   }, [hoveredOptionId, nodes, props.id])
 
+  const interventionValue = interventionPayload?.value ?? null
+  const interventionDisplayValue = interventionPayload?.displayValue ?? null
   const isAffectedByHover = interventionValue !== null
 
   // Graph v2 Task 3: per-option comparison table for the popover.
@@ -137,7 +141,7 @@ export const FactorNode = memo((props: NodeProps) => {
       }
       const raw = interventions?.[props.id]
       const hasIntervention = raw !== undefined
-      const { value, displayValue } = extractInterventionDisplay(raw)
+      const { value, displayValue } = unwrapInterventionValue(raw)
       // Prefer explicit is_baseline; fall back to epsilon delta against factor value
       const explicitBaseline = (opt.data as any)?.is_baseline === true
       const epsilonStatusQuo =
@@ -286,7 +290,7 @@ export const FactorNode = memo((props: NodeProps) => {
     for (const opt of options) {
       // unwrapInterventionValue handles plain numbers, V3 objects, and
       // returns null for malformed/missing entries (no Number() coercion).
-      const v = unwrapInterventionValue((opt.interventions as Record<string, unknown> | undefined)?.[props.id])
+      const { value: v } = unwrapInterventionValue((opt.interventions as Record<string, unknown> | undefined)?.[props.id])
       if (v != null) vals.push(v)
     }
     if (vals.length < 3) return null
@@ -574,6 +578,15 @@ export const FactorNode = memo((props: NodeProps) => {
             Never renders a bare arrow with no trailing text. */}
         {isAffectedByHover && (() => {
           if (interventionValue == null) return null
+          // F.6 passthrough: CEE-authored display_value wins over any UI
+          // formatting or directional inference. Render verbatim.
+          if (interventionDisplayValue) {
+            return (
+              <div className={`${typography.nodeTitle} text-info mb-1 bg-panel px-1.5 py-0.5 rounded border border-info/30`}>
+                → {interventionDisplayValue}
+              </div>
+            )
+          }
           const rawUnit = observedState?.unit
           const effectiveUnit = rawUnit && !isSuppressedUnit(rawUnit) ? rawUnit : undefined
           const unitKind = classifyUnit(effectiveUnit).kind

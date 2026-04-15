@@ -74,7 +74,7 @@ export const OptionPanel = memo(function OptionPanel({
     const raw = (node?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
     if (!raw) return []
     return Object.entries(raw).flatMap(([factorId, rawValue]) => {
-      const value = unwrapInterventionValue(rawValue)
+      const { value, displayValue } = unwrapInterventionValue(rawValue)
       if (value == null) return []
       const factorNode = nodes.find(n => n.id === factorId)
       const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
@@ -86,10 +86,11 @@ export const OptionPanel = memo(function OptionPanel({
       return [{
         factorId,
         factorLabel: String(factorNode?.data?.label ?? factorId),
-        baseline: unwrapInterventionValue(obs?.value) ?? undefined,
-        rawBaseline: unwrapInterventionValue(obs?.raw_value) ?? undefined,
+        baseline: unwrapInterventionValue(obs?.value).value ?? undefined,
+        rawBaseline: unwrapInterventionValue(obs?.raw_value).value ?? undefined,
         unit: obs?.unit as string | undefined,
         value,
+        displayValue: displayValue ?? undefined,
       }]
     })
   }, [node?.data, nodes])
@@ -115,7 +116,7 @@ export const OptionPanel = memo(function OptionPanel({
           // into mutations.setIntervention as the initial intervention value
           // for newly-added factor changes; passing an object would corrupt the
           // store and propagate "[object Object]" through downstream renders.
-          baseline: unwrapInterventionValue(obs?.value) ?? undefined,
+          baseline: unwrapInterventionValue(obs?.value).value ?? undefined,
         }
       })
   }, [nodes, nodeId])
@@ -192,6 +193,7 @@ export const OptionPanel = memo(function OptionPanel({
             factorLabel={iv.factorLabel}
             baseline={iv.baseline}
             currentValue={iv.value}
+            displayValue={iv.displayValue}
             unit={iv.unit}
             onChange={v => mutations.setIntervention(iv.factorId, v)}
             onNavigate={() => onNavigate(iv.factorId)}

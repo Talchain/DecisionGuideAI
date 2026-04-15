@@ -531,8 +531,8 @@ export function formatFactorValue(observedState: {
   const rRaw: unknown = observedState.raw_value
   const rValue: unknown = observedState.value
   const raw_value: string | number | undefined =
-    typeof rRaw === 'string' ? rRaw : (unwrapInterventionValue(rRaw) ?? undefined)
-  const value: number | undefined = unwrapInterventionValue(rValue) ?? undefined
+    typeof rRaw === 'string' ? rRaw : (unwrapInterventionValue(rRaw).value ?? undefined)
+  const value: number | undefined = unwrapInterventionValue(rValue).value ?? undefined
   const { cap, factor_type } = observedState
   const unit = sanitiseUnit(observedState.unit)
 
@@ -591,16 +591,33 @@ export function formatFactorValue(observedState: {
 }
 
 /**
- * Unwrap an intervention value to a finite number, accepting both legacy
- * scalar form and the V3 object form `{ value, source, ... }` produced by
- * `normaliseOptionFromCEE` (see `src/types/options.ts`).
+ * Unwrap an intervention record into its numeric value AND its optional
+ * CEE-authored `display_value` string. Returns both so rendering paths can
+ * show CEE's human-readable label verbatim (F.6 passthrough) while
+ * computation paths use the numeric value.
  *
- * Returns null when:
+ * Handles:
+ * - Legacy scalar form (plain number) → `{ value: n, displayValue: null }`
+ * - V3 object form `{ value, display_value?, source?, ... }` produced by
+ *   `normaliseOptionFromCEE` (see `src/types/options.ts`)
+ * - Observed-state metadata fields (obs.value, obs.raw_value, obs.cap, etc.)
+ *   which share the same `number | {value}` shape
+ *
+ * Returns `value: null` when:
  * - input is null / undefined
  * - input is a number that is NaN or Infinity
  * - input is an object whose `.value` is not a finite number (covers
  *   missing field, null, undefined, string, NaN, Infinity)
  * - input is any other type (string, boolean, array, etc.)
+ *
+ * Returns `displayValue: null` when:
+ * - no `display_value` property is present
+ * - `display_value` is not a string
+ * - `display_value` trims to an empty string
+ * Otherwise returns the trimmed string. `displayValue` may be non-null even
+ * when `value` is null — renderers tolerant of null numerics (e.g. FactorNode
+ * comparison rows) can still show the CEE string; computation sites drop the
+ * entry on `value == null`.
  *
  * Strictly typed: this helper does NOT coerce strings, null, or undefined
  * into numbers via `Number(...)`. A previous version did, which produced
@@ -608,63 +625,49 @@ export function formatFactorValue(observedState: {
  * — that rendered "Intervention: £0" for unset interventions and short-
  * circuited the legacy fallback chain in OptionsSection.extractInterventionNumeric.
  *
- * Sites that need to render string interventions verbatim must check the
- * raw value separately (see FactorControllablePanel for an example) — the
- * brief explicitly says strings should "display directly", but the three
- * numeric display paths (OptionPanel InterventionRow, OptionAdvancedEditor
- * AdvancedField type=number, FactorNode formatInterventionValue) cannot
- * render strings without breaking their arithmetic / editable input
- * contracts. Those sites correctly drop string entries; only the
- * FactorControllablePanel connections badge passes them through.
+ * Sites that need to render string interventions verbatim (the qualitative
+ * `{value: "low"}` shape, distinct from CEE's display_value) must check the
+ * raw value separately via `extractStringIntervention` (see
+ * FactorControllablePanel for an example).
  *
  * Centralises the unwrap logic so every UI display path converges on one
- * source of truth. Inspector panels previously cast the `interventions`
- * map as `Record<string, number>` and rendered objects directly, producing
- * "[object Object]" / "£NaN" on hover, in connections lists, and in
- * advanced editors. The hover-tooltip path on FactorNode was fixed inline
- * in commits b053c82b / fafe62eb; this helper extracts that pattern so
- * every other display path can share it.
+ * source of truth. The earlier shadow helper `extractInterventionDisplay`
+ * was folded into this function (feat/refactor commits, 2026-04-15).
  */
-export function unwrapInterventionValue(raw: unknown): number | null {
-  if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null
-  if (raw != null && typeof raw === 'object' && 'value' in raw) {
-    // Strict numeric check on `.value` — no Number(...) coercion, since
-    // `Number(null) === 0` and `Number('foo') === NaN` cause subtle bugs.
-    const v = (raw as { value: unknown }).value
-    return typeof v === 'number' && Number.isFinite(v) ? v : null
-  }
-  return null
+export interface UnwrappedIntervention {
+  /** Finite numeric value, or null if none can be extracted. */
+  value: number | null
+  /** CEE-authored human-readable label (trimmed), or null when absent. */
+  displayValue: string | null
 }
 
-/**
- * Extract both the numeric value and any CEE-provided `display_value` string
- * from an intervention record. `display_value` is the human-readable form
- * CEE emits (e.g. "High", "£50k", "no change") — when present, UI display
- * paths should render it verbatim rather than re-formatting the number.
- *
- * Centralises the extraction so every call site handles the V3 object form
- * (`{ value, display_value, ... }`) uniformly. Legacy scalar form returns
- * `{ value, displayValue: undefined }`. Whitespace-only display_value is
- * ignored (treated as absent); surrounding whitespace is trimmed.
- *
- * Cross-surface policy for `{ value: null, display_value: "..." }` records:
- * FactorNode comparison rows render the displayValue (they only display a
- * label — no math). OptionNode intervention chips and the differentiator
- * pipeline drop records with `value == null` because both sort by numeric
- * value and compute deltas. This asymmetry is intentional — do not "unify"
- * by rendering a null-value chip; it would crash the sort and produce NaN
- * deltas.
- */
-export function extractInterventionDisplay(raw: unknown): { value: number | null; displayValue?: string } {
-  const value = unwrapInterventionValue(raw)
-  if (raw != null && typeof raw === 'object' && 'display_value' in raw) {
-    const dv = (raw as { display_value: unknown }).display_value
-    if (typeof dv === 'string') {
-      const trimmed = dv.trim()
-      if (trimmed.length > 0) return { value, displayValue: trimmed }
-    }
+export function unwrapInterventionValue(raw: unknown): UnwrappedIntervention {
+  // Scalar form (legacy).
+  if (typeof raw === 'number') {
+    return { value: Number.isFinite(raw) ? raw : null, displayValue: null }
   }
-  return { value }
+  // Object form ({ value, display_value?, ... }) — CEE V3 shape, but also
+  // used for observed_state metadata fields (obs.value, obs.raw_value, etc.)
+  // which may arrive as scalar or wrapped.
+  if (raw != null && typeof raw === 'object') {
+    // Strict numeric check on `.value` — no Number(...) coercion, since
+    // `Number(null) === 0` and `Number('foo') === NaN` cause subtle bugs.
+    let value: number | null = null
+    if ('value' in raw) {
+      const v = (raw as { value: unknown }).value
+      if (typeof v === 'number' && Number.isFinite(v)) value = v
+    }
+    let displayValue: string | null = null
+    if ('display_value' in raw) {
+      const dv = (raw as { display_value: unknown }).display_value
+      if (typeof dv === 'string') {
+        const trimmed = dv.trim()
+        if (trimmed.length > 0) displayValue = trimmed
+      }
+    }
+    return { value, displayValue }
+  }
+  return { value: null, displayValue: null }
 }
 
 /**

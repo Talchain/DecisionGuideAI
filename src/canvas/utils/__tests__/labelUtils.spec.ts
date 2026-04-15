@@ -19,7 +19,6 @@ import {
   isCurrencyUnit,
   formatFactorValue,
   unwrapInterventionValue,
-  extractInterventionDisplay,
   formatWinProbability,
 } from '../labelUtils'
 import { describeEdgeInfluence } from '../../domain/edges'
@@ -368,33 +367,33 @@ describe('denormaliseInterventionValue', () => {
 
 describe('unwrapInterventionValue', () => {
   describe('null and undefined', () => {
-    it('returns null for undefined', () => {
-      expect(unwrapInterventionValue(undefined)).toBeNull()
+    it('returns { value: null, displayValue: null } for undefined', () => {
+      expect(unwrapInterventionValue(undefined)).toEqual({ value: null, displayValue: null })
     })
-    it('returns null for null', () => {
-      expect(unwrapInterventionValue(null)).toBeNull()
+    it('returns { value: null, displayValue: null } for null', () => {
+      expect(unwrapInterventionValue(null)).toEqual({ value: null, displayValue: null })
     })
   })
 
   describe('primitive number', () => {
-    it('returns finite numbers unchanged', () => {
-      expect(unwrapInterventionValue(0.1)).toBe(0.1)
-      expect(unwrapInterventionValue(0)).toBe(0)
-      expect(unwrapInterventionValue(-7)).toBe(-7)
-      expect(unwrapInterventionValue(1_000_000)).toBe(1_000_000)
+    it('returns finite numbers with null displayValue', () => {
+      expect(unwrapInterventionValue(0.1)).toEqual({ value: 0.1, displayValue: null })
+      expect(unwrapInterventionValue(0)).toEqual({ value: 0, displayValue: null })
+      expect(unwrapInterventionValue(-7)).toEqual({ value: -7, displayValue: null })
+      expect(unwrapInterventionValue(1_000_000)).toEqual({ value: 1_000_000, displayValue: null })
     })
-    it('returns null for NaN', () => {
-      expect(unwrapInterventionValue(NaN)).toBeNull()
+    it('returns value:null for NaN', () => {
+      expect(unwrapInterventionValue(NaN).value).toBeNull()
     })
-    it('returns null for Infinity and -Infinity', () => {
-      expect(unwrapInterventionValue(Infinity)).toBeNull()
-      expect(unwrapInterventionValue(-Infinity)).toBeNull()
+    it('returns value:null for Infinity and -Infinity', () => {
+      expect(unwrapInterventionValue(Infinity).value).toBeNull()
+      expect(unwrapInterventionValue(-Infinity).value).toBeNull()
     })
   })
 
   describe('CEEInterventionV3 / UIInterventionValue object', () => {
     it('extracts .value when raw is a {value} object', () => {
-      expect(unwrapInterventionValue({ value: 0.1 })).toBe(0.1)
+      expect(unwrapInterventionValue({ value: 0.1 })).toEqual({ value: 0.1, displayValue: null })
     })
     it('extracts .value from a full CEEInterventionV3 shape', () => {
       const intervention = {
@@ -404,99 +403,80 @@ describe('unwrapInterventionValue', () => {
         value_confidence: 'high',
         reasoning: 'Extracted from "£25k marketing budget"',
       }
-      expect(unwrapInterventionValue(intervention)).toBe(25000)
+      expect(unwrapInterventionValue(intervention)).toEqual({ value: 25000, displayValue: null })
     })
-    it('returns null when .value is missing', () => {
-      expect(unwrapInterventionValue({ source: 'brief_extraction' })).toBeNull()
+    it('returns value:null when .value is missing', () => {
+      expect(unwrapInterventionValue({ source: 'brief_extraction' }).value).toBeNull()
     })
-    it('returns null when .value is non-finite', () => {
-      expect(unwrapInterventionValue({ value: NaN })).toBeNull()
-      expect(unwrapInterventionValue({ value: Infinity })).toBeNull()
+    it('returns value:null when .value is non-finite', () => {
+      expect(unwrapInterventionValue({ value: NaN }).value).toBeNull()
+      expect(unwrapInterventionValue({ value: Infinity }).value).toBeNull()
     })
-    it('returns null when .value is undefined', () => {
-      expect(unwrapInterventionValue({ value: undefined })).toBeNull()
+    it('returns value:null when .value is undefined', () => {
+      expect(unwrapInterventionValue({ value: undefined }).value).toBeNull()
     })
-    it('returns null when .value is null (not coerced to 0)', () => {
+    it('returns value:null when .value is null (not coerced to 0)', () => {
       // Strict typeof check on .value: null is not a finite number, so the
       // entry is treated as missing. A previous version coerced via
       // `Number(null) === 0`, which rendered "Intervention: £0" for unset
-      // interventions and short-circuited the legacy fallback chain in
-      // OptionsSection.extractInterventionNumeric (raw_target / target_value).
-      expect(unwrapInterventionValue({ value: null })).toBeNull()
+      // interventions.
+      expect(unwrapInterventionValue({ value: null }).value).toBeNull()
     })
-    it('returns null when .value is a string (no Number coercion)', () => {
-      // Both numeric-looking and non-numeric strings drop. Sites that need
-      // to render string interventions verbatim must read the raw entry
-      // separately (see FactorControllablePanel connections badge).
-      expect(unwrapInterventionValue({ value: '0.5' })).toBeNull()
-      expect(unwrapInterventionValue({ value: 'low' })).toBeNull()
-      expect(unwrapInterventionValue({ value: '' })).toBeNull()
+    it('returns value:null when .value is a string (no Number coercion)', () => {
+      expect(unwrapInterventionValue({ value: '0.5' }).value).toBeNull()
+      expect(unwrapInterventionValue({ value: 'low' }).value).toBeNull()
+      expect(unwrapInterventionValue({ value: '' }).value).toBeNull()
     })
-    it('returns null when .value is a boolean', () => {
-      expect(unwrapInterventionValue({ value: true })).toBeNull()
-      expect(unwrapInterventionValue({ value: false })).toBeNull()
+    it('returns value:null when .value is a boolean', () => {
+      expect(unwrapInterventionValue({ value: true }).value).toBeNull()
+      expect(unwrapInterventionValue({ value: false }).value).toBeNull()
+    })
+  })
+
+  describe('display_value extraction (CEE-authored labels)', () => {
+    it('returns value and displayValue together from V3 object', () => {
+      expect(unwrapInterventionValue({ value: 0.85, display_value: 'High', source: 'cee' }))
+        .toEqual({ value: 0.85, displayValue: 'High' })
+    })
+    it('returns displayValue:null when display_value absent', () => {
+      expect(unwrapInterventionValue({ value: 0.5 })).toEqual({ value: 0.5, displayValue: null })
+    })
+    it('preserves displayValue even when .value is null', () => {
+      // Renderers that tolerate null value (e.g. FactorNode comparison rows)
+      // can still show the CEE string. Computation sites drop on value==null.
+      expect(unwrapInterventionValue({ value: null, display_value: 'no change' }))
+        .toEqual({ value: null, displayValue: 'no change' })
+    })
+    it('returns displayValue:null for empty string display_value', () => {
+      expect(unwrapInterventionValue({ value: 0.3, display_value: '' }).displayValue).toBeNull()
+    })
+    it('returns displayValue:null for whitespace-only display_value', () => {
+      expect(unwrapInterventionValue({ value: 0.3, display_value: '   ' }).displayValue).toBeNull()
+      expect(unwrapInterventionValue({ value: 0.3, display_value: '\t\n' }).displayValue).toBeNull()
+    })
+    it('trims surrounding whitespace on display_value', () => {
+      expect(unwrapInterventionValue({ value: 0.3, display_value: '  High  ' }))
+        .toEqual({ value: 0.3, displayValue: 'High' })
+    })
+    it('returns displayValue:null for non-string display_value', () => {
+      expect(unwrapInterventionValue({ value: 0.3, display_value: 42 }).displayValue).toBeNull()
     })
   })
 
   describe('other types', () => {
-    it('returns null for plain strings', () => {
-      expect(unwrapInterventionValue('0.1')).toBeNull()
+    it('returns value:null for plain strings', () => {
+      expect(unwrapInterventionValue('0.1').value).toBeNull()
     })
-    it('returns null for booleans', () => {
-      expect(unwrapInterventionValue(true)).toBeNull()
-      expect(unwrapInterventionValue(false)).toBeNull()
+    it('returns value:null for booleans', () => {
+      expect(unwrapInterventionValue(true).value).toBeNull()
+      expect(unwrapInterventionValue(false).value).toBeNull()
     })
-    it('returns null for arrays', () => {
-      // Arrays are objects but lack a `.value` property.
-      expect(unwrapInterventionValue([0.1])).toBeNull()
+    it('returns value:null for arrays (no .value property)', () => {
+      expect(unwrapInterventionValue([0.1]).value).toBeNull()
     })
-    it('returns null for empty objects', () => {
-      expect(unwrapInterventionValue({})).toBeNull()
+    it('returns value:null for empty objects', () => {
+      expect(unwrapInterventionValue({}).value).toBeNull()
     })
-  })
-})
-
-// ---------------------------------------------------------------------------
-// extractInterventionDisplay
-// ---------------------------------------------------------------------------
-describe('extractInterventionDisplay', () => {
-  it('returns value and displayValue together from V3 object', () => {
-    const raw = { value: 0.85, display_value: 'High', source: 'cee' }
-    expect(extractInterventionDisplay(raw)).toEqual({ value: 0.85, displayValue: 'High' })
-  })
-  it('returns value with undefined displayValue when display_value absent', () => {
-    expect(extractInterventionDisplay({ value: 0.5 })).toEqual({ value: 0.5 })
-  })
-  it('returns null value with undefined displayValue for malformed records', () => {
-    expect(extractInterventionDisplay({ value: null })).toEqual({ value: null })
-  })
-  it('returns null value but preserves displayValue when present even if value invalid', () => {
-    // Guards future CEE output where a string-only display is emitted.
-    const raw = { value: null, display_value: 'no change' }
-    expect(extractInterventionDisplay(raw)).toEqual({ value: null, displayValue: 'no change' })
-  })
-  it('ignores empty string display_value', () => {
-    expect(extractInterventionDisplay({ value: 0.3, display_value: '' })).toEqual({ value: 0.3 })
-  })
-  it('ignores whitespace-only display_value', () => {
-    // Would otherwise render as visually-empty label text.
-    expect(extractInterventionDisplay({ value: 0.3, display_value: '   ' })).toEqual({ value: 0.3 })
-    expect(extractInterventionDisplay({ value: 0.3, display_value: '\t\n' })).toEqual({ value: 0.3 })
-  })
-  it('trims surrounding whitespace on display_value', () => {
-    expect(extractInterventionDisplay({ value: 0.3, display_value: '  High  ' })).toEqual({
-      value: 0.3, displayValue: 'High',
-    })
-  })
-  it('ignores non-string display_value', () => {
-    expect(extractInterventionDisplay({ value: 0.3, display_value: 42 })).toEqual({ value: 0.3 })
-  })
-  it('handles primitive number (legacy scalar)', () => {
-    expect(extractInterventionDisplay(0.5)).toEqual({ value: 0.5 })
-  })
-  it('handles null and undefined', () => {
-    expect(extractInterventionDisplay(null)).toEqual({ value: null })
-    expect(extractInterventionDisplay(undefined)).toEqual({ value: null })
   })
 })
 

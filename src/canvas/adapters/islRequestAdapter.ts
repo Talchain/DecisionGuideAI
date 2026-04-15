@@ -249,7 +249,7 @@ function extractInterventions(
   // display paths in commit ca4793a1).
   if (node.data?.interventions && typeof node.data.interventions === 'object') {
     for (const [key, rawValue] of Object.entries(node.data.interventions)) {
-      const value = unwrapInterventionValue(rawValue)
+      const { value } = unwrapInterventionValue(rawValue)
       if (value == null) continue
       // P0 Fix: Validate intervention key exists in graph
       if (validNodeIds && !validNodeIds.has(key)) {

@@ -181,7 +181,7 @@ function extractInterventionsForISL(option: unknown): Record<string, number> {
 
   for (const [key, value] of Object.entries(rawInterventions)) {
     // Canonical numeric path (handles plain numbers + { value: number } V3 objects).
-    const unwrapped = unwrapInterventionValue(value)
+    const { value: unwrapped } = unwrapInterventionValue(value)
     if (unwrapped != null) {
       interventions[key] = unwrapped
       continue

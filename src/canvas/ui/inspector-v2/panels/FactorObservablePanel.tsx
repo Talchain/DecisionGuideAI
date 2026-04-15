@@ -51,9 +51,9 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   // .toLocaleString() and render as "[object Object]". unwrapInterventionValue
   // is generic numeric defense (handles both number and `{ value: number }`)
   // and returns null when the input cannot resolve to a finite number.
-  const rawValue = unwrapInterventionValue(obs?.raw_value) ?? undefined
-  const value = unwrapInterventionValue(obs?.value) ?? undefined
-  const cap = unwrapInterventionValue(obs?.cap) ?? undefined
+  const rawValue = unwrapInterventionValue(obs?.raw_value).value ?? undefined
+  const value = unwrapInterventionValue(obs?.value).value ?? undefined
+  const cap = unwrapInterventionValue(obs?.cap).value ?? undefined
   const unit = obs?.unit as string | undefined
   const source = obs?.source as string | undefined
 

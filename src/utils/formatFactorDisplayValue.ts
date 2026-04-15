@@ -66,8 +66,8 @@ export function factorDisplayText(
   // objects from legacy or wrapped shapes. Coercing to string would produce
   // "[object Object]". unwrapInterventionValue handles both plain numbers and
   // wrapped forms and returns null when the input cannot resolve.
-  const rawValueUnwrapped = unwrapInterventionValue(observedState?.raw_value)
-  const valueUnwrapped = unwrapInterventionValue(observedState?.value)
+  const rawValueUnwrapped = unwrapInterventionValue(observedState?.raw_value).value
+  const valueUnwrapped = unwrapInterventionValue(observedState?.value).value
   // raw_value is allowed to be a string (e.g. "£49"), so preserve strings as-is.
   const rawValueForFormatter: number | string | null =
     rawValueUnwrapped ??
@@ -86,7 +86,7 @@ export function factorDisplayText(
     raw_value: rawValueForFormatter,
     unit: unit ?? null,
     factor_type: (observedState?.factor_type as string | null | undefined) ?? null,
-    cap: unwrapInterventionValue(observedState?.cap),
+    cap: unwrapInterventionValue(observedState?.cap).value,
     category,
     display_value: displayValue,
   })

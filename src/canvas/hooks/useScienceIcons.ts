@@ -81,7 +81,7 @@ export function useScienceIcons(nodeId: string, nodeType: NodeType): ScienceIcon
           // Use the shared helper so the unwrap is consistent with display
           // paths and never coerces null/string into a fake 0 (which would
           // pollute the spread calculation and falsely trigger anchoring).
-          const v = unwrapInterventionValue(interventions[nodeId])
+          const { value: v } = unwrapInterventionValue(interventions[nodeId])
           if (v != null) vals.push(v)
         }
         if (vals.length >= 3) {

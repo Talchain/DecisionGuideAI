@@ -56,11 +56,11 @@ export function FactorControllableEditor({ nodeId }: FactorControllableEditorPro
   // unconditionally, which produces "[object Object]" in the editor input
   // for compound shapes. unwrapInterventionValue is generic numeric defense.
   // Same fix class as the panel-level unwraps in Task 2.
-  const obsValue = unwrapInterventionValue(obs?.value) ?? undefined
-  const obsRawValue = unwrapInterventionValue(obs?.raw_value) ?? undefined
-  const obsBaseline = unwrapInterventionValue(obs?.baseline) ?? undefined
-  const obsStd = unwrapInterventionValue(obs?.std) ?? undefined
-  const obsCap = unwrapInterventionValue(obs?.cap) ?? undefined
+  const obsValue = unwrapInterventionValue(obs?.value).value ?? undefined
+  const obsRawValue = unwrapInterventionValue(obs?.raw_value).value ?? undefined
+  const obsBaseline = unwrapInterventionValue(obs?.baseline).value ?? undefined
+  const obsStd = unwrapInterventionValue(obs?.std).value ?? undefined
+  const obsCap = unwrapInterventionValue(obs?.cap).value ?? undefined
 
   const [newDriver, setNewDriver] = useState('')
 

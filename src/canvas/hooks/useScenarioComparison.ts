@@ -381,7 +381,7 @@ export function useScenarioComparison(): UseScenarioComparisonReturn {
             if (data?.interventions && typeof data.interventions === 'object') {
               for (const [key, rawValue] of Object.entries(data.interventions as Record<string, unknown>)) {
                 if (validNodeIds.has(key) && key !== node.id) {
-                  const unwrapped = unwrapInterventionValue(rawValue)
+                  const { value: unwrapped } = unwrapInterventionValue(rawValue)
                   if (unwrapped != null) {
                     interventions[key] = unwrapped
                   }

@@ -427,7 +427,7 @@ function hasInterventionTargeting(
     for (const ceeOption of ceeOptions) {
       const interventions = ceeOption.interventions
       if (interventions && Object.prototype.hasOwnProperty.call(interventions, factorId)) {
-        if (unwrapInterventionValue(interventions[factorId]) != null) return true
+        if (unwrapInterventionValue(interventions[factorId]).value != null) return true
       }
     }
   }
@@ -436,7 +436,7 @@ function hasInterventionTargeting(
   for (const option of optionNodes) {
     const interventions = (option.data as { interventions?: Record<string, unknown> })?.interventions
     if (interventions && Object.prototype.hasOwnProperty.call(interventions, factorId)) {
-      if (unwrapInterventionValue(interventions[factorId]) != null) return true
+      if (unwrapInterventionValue(interventions[factorId]).value != null) return true
     }
   }
   return false
@@ -774,7 +774,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (os.raw_value == null && os.cap == null && os.unit == null) {
         const interventionValues: number[] = []
         for (const opt of ceeOptions) {
-          const numericIv = unwrapInterventionValue((opt.interventions ?? {})[factor.id])
+          const { value: numericIv } = unwrapInterventionValue((opt.interventions ?? {})[factor.id])
           if (numericIv != null) interventionValues.push(numericIv)
         }
         if (interventionValues.length > 0 && interventionValues.every(v => v === 0 || v === 1)) {
@@ -1462,7 +1462,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (os.raw_value == null && os.cap == null && os.unit == null) {
         const ivValues: number[] = []
         for (const opt of options) {
-          const numericIv = unwrapInterventionValue((opt.interventions ?? {})[factor.id])
+          const { value: numericIv } = unwrapInterventionValue((opt.interventions ?? {})[factor.id])
           if (numericIv != null) ivValues.push(numericIv)
         }
         if (ivValues.length > 0 && ivValues.every(v => v === 0 || v === 1)) {

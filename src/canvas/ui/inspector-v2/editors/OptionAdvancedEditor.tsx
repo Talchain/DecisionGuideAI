@@ -30,7 +30,7 @@ export function OptionAdvancedEditor({ nodeId }: OptionAdvancedEditorProps) {
   // Build intervention rows with factor labels
   const rows = useMemo(() => {
     return Object.entries(interventions).flatMap(([factorId, rawValue]) => {
-      const value = unwrapInterventionValue(rawValue)
+      const { value } = unwrapInterventionValue(rawValue)
       if (value == null) return []
       const factor = nodes.find(n => n.id === factorId)
       const factorData = factor?.data as Record<string, unknown> | undefined

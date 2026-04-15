@@ -7,7 +7,7 @@ import { useNodeDisplayMetadata } from '../hooks/useNodeDisplayMetadata'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useCanvasStore } from '../store'
 import { typography } from '../../styles/typography'
-import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue, extractInterventionDisplay, classifyUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
+import { cleanFactorLabel, compactFactorLabel, formatInterventionValue, denormaliseInterventionValue, inferInterventionScaleBase, isSuppressedUnit, isCurrencyUnit, unwrapInterventionValue, classifyUnit, formatWinProbability, placeholderDirectionLabel, isTierLabel } from '../utils/labelUtils'
 import { formatFactorDisplayValue } from '../../utils/formatFactorDisplayValue'
 import { detectBaseline } from '../utils/baselineDetection'
 import { usePopoverHover } from '../hooks/usePopoverHover'
@@ -64,8 +64,8 @@ function computeAllDifferentiators(
     if (!interventions || typeof interventions !== 'object') continue
     const map = new Map<string, InterventionEntry>()
     for (const [fid, raw] of Object.entries(interventions)) {
-      const { value, displayValue } = extractInterventionDisplay(raw)
-      if (value != null) map.set(fid, { value, displayValue })
+      const { value, displayValue } = unwrapInterventionValue(raw)
+      if (value != null) map.set(fid, { value, displayValue: displayValue ?? undefined })
     }
     optionInterventions.set(optNode.id, map)
   }
@@ -342,7 +342,7 @@ export const OptionNode = memo((props: NodeProps) => {
         // Drop entries that fail to unwrap. Prior to this fix, malformed
         // entries (e.g. { value: null }) were coerced to 0 via Number(...)
         // and rendered as deliberate-looking zero chips.
-        const { value, displayValue } = extractInterventionDisplay(rawValue)
+        const { value, displayValue } = unwrapInterventionValue(rawValue)
         if (value == null) return []
         const factorNode = nodes.find(n => n.id === factorId)
         const rawLabel = (factorNode?.data?.label as string | undefined) ?? factorId
@@ -363,7 +363,7 @@ export const OptionNode = memo((props: NodeProps) => {
         } | undefined
         const unit = (factorNode?.data?.unit as string | undefined) ?? observedState?.unit
         return [{
-          factorId, label: cleanedLabel, value, displayValue, unit,
+          factorId, label: cleanedLabel, value, displayValue: displayValue ?? undefined, unit,
           factorType: observedState?.factor_type, cap: observedState?.cap,
           observedValue: observedState?.value, observedRawValue: observedState?.raw_value,
         }]
@@ -424,7 +424,7 @@ export const OptionNode = memo((props: NodeProps) => {
     // a Number()-coerced 0.
     return Object.fromEntries(
       Object.entries(baseCeeOption.interventions).flatMap(([fid, rv]) => {
-        const v = unwrapInterventionValue(rv)
+        const { value: v } = unwrapInterventionValue(rv)
         return v != null ? [[fid, v] as const] : []
       })
     )
@@ -596,8 +596,8 @@ export const OptionNode = memo((props: NodeProps) => {
     if (winnerHasFactor && thisHasFactor) {
       // unwrapInterventionValue returns null for malformed entries; treat
       // those as "no comparable value" and skip the lower-than message.
-      const winnerVal = unwrapInterventionValue(winnerInterventions[topFactor.id])
-      const thisVal = unwrapInterventionValue(thisInterventions[topFactor.id])
+      const { value: winnerVal } = unwrapInterventionValue(winnerInterventions[topFactor.id])
+      const { value: thisVal } = unwrapInterventionValue(thisInterventions[topFactor.id])
       if (winnerVal != null && thisVal != null && Math.abs(winnerVal - thisVal) >= 1e-6) {
         return `${strippedLabel.toLowerCase()} lower`
       }

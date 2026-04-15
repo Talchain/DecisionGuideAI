@@ -30,10 +30,10 @@ export function FactorObservableEditor({ nodeId }: FactorObservableEditorProps) 
   // Defensive unwrap: same fix class as the panel-level unwraps in Task 2.
   // Compound `{ value: number, unit?: string }` shapes would otherwise reach
   // AdvancedField's `String(value ?? '')` and render as "[object Object]".
-  const obsValue = unwrapInterventionValue(obs?.value) ?? undefined
-  const obsRawValue = unwrapInterventionValue(obs?.raw_value) ?? undefined
-  const obsBaseline = unwrapInterventionValue(obs?.baseline) ?? undefined
-  const obsCap = unwrapInterventionValue(obs?.cap) ?? undefined
+  const obsValue = unwrapInterventionValue(obs?.value).value ?? undefined
+  const obsRawValue = unwrapInterventionValue(obs?.raw_value).value ?? undefined
+  const obsBaseline = unwrapInterventionValue(obs?.baseline).value ?? undefined
+  const obsCap = unwrapInterventionValue(obs?.cap).value ?? undefined
 
   if (!node) return null
 

@@ -81,9 +81,9 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   // input via `String(displayValue)` and render as "[object Object]".
   // unwrapInterventionValue is generic numeric defense (handles both number
   // and `{ value: number }`) and returns null when the input cannot resolve.
-  const rawValue = unwrapInterventionValue(obs?.raw_value) ?? undefined
-  const value = unwrapInterventionValue(obs?.value) ?? undefined
-  const cap = unwrapInterventionValue(obs?.cap) ?? undefined
+  const rawValue = unwrapInterventionValue(obs?.raw_value).value ?? undefined
+  const value = unwrapInterventionValue(obs?.value).value ?? undefined
+  const cap = unwrapInterventionValue(obs?.cap).value ?? undefined
   const unit = obs?.unit as string | undefined
   const source = obs?.source as string | undefined
   // Canonical location is observedState.uncertainty_drivers (per ObservedStateSchema).
@@ -125,13 +125,14 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         // numbers and correctly drop string entries.
         const ivs = (src?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
         const raw = ivs?.[nodeId]
-        const interventionValue = unwrapInterventionValue(raw)
+        const { value: interventionValue, displayValue: interventionDisplayValue } = unwrapInterventionValue(raw)
         const interventionStringValue =
           interventionValue == null ? extractStringIntervention(raw) : null
         return {
           nodeId: e.source,
           label: String(src?.data?.label ?? e.source),
           interventionValue,
+          interventionDisplayValue,
           interventionStringValue,
           unit,
         }
@@ -140,6 +141,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         nodeId: string
         label: string
         interventionValue: number | null
+        interventionDisplayValue: string | null
         interventionStringValue: string | null
         unit?: string
       }>
@@ -323,15 +325,16 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         <>
           <div className={`${typography.panelMeta} text-text-light mb-1`}>Set by options:</div>
           {setByOptions.map(o => {
-            // Numeric badge → unit-prefixed (or bare for no-unit factors).
-            // String badge → render verbatim (qualitative interventions per
-            // brief instruction "If the value is a string, display it directly").
-            // Drop the badge entirely when neither resolves.
-            const badgeContent = o.interventionValue != null
-              ? (o.unit ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
-              : o.interventionStringValue != null
-                ? o.interventionStringValue
-                : null
+            // Precedence: CEE display_value (verbatim) > numeric (unit-prefixed
+            // or bare) > qualitative string fallback. F.6 passthrough: when CEE
+            // authored a label, render it without numeric re-formatting.
+            const badgeContent = o.interventionDisplayValue
+              ? o.interventionDisplayValue
+              : o.interventionValue != null
+                ? (o.unit ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
+                : o.interventionStringValue != null
+                  ? o.interventionStringValue
+                  : null
             return (
               <ConnectionRow
                 key={o.nodeId}

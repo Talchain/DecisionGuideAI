@@ -56,6 +56,9 @@ interface InterventionItem {
   currentValue: number
   /** True when the factor has a raw_value with a real unit — target is in a different unit space */
   hasRawUnit: boolean
+  /** CEE-authored display_value for the intervention target — rendered
+   * verbatim in preference to numeric/unit formatting (F.6 passthrough). */
+  displayValue?: string
 }
 
 /**
@@ -77,7 +80,7 @@ interface InterventionItem {
  */
 function extractInterventionNumeric(value: unknown): number | undefined {
   // Primary: V3-shape unwrap (handles plain numbers, {value} objects).
-  const unwrapped = unwrapInterventionValue(value)
+  const unwrapped = unwrapInterventionValue(value).value
   if (unwrapped != null) return unwrapped
   // Fallback: numeric string
   if (typeof value === 'string' && value.trim() !== '') {
@@ -99,6 +102,11 @@ function buildInterventions(optionNode: Node, allNodes: Node[]): InterventionIte
   return Object.entries(raw).flatMap(([factorId, rawValue]) => {
     const numericValue = extractInterventionNumeric(rawValue)
     if (numericValue === undefined) return []
+    // displayValue flows separately: extractInterventionNumeric has legacy
+    // fallbacks (raw_target, target_value) that unwrapInterventionValue does
+    // not, so we pull the numeric through that; we extract displayValue via
+    // the canonical helper on the same raw input.
+    const { displayValue } = unwrapInterventionValue(rawValue)
     const factorNode = allNodes.find(n => n.id === factorId)
     const obs = (factorNode?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
     const rawBaseline = obs?.raw_value as number | undefined
@@ -120,6 +128,7 @@ function buildInterventions(optionNode: Node, allNodes: Node[]): InterventionIte
       unit,
       currentValue: numericValue,
       hasRawUnit: looksNormalised,
+      displayValue: displayValue ?? undefined,
     }]
   })
 }
@@ -262,12 +271,15 @@ function OptionCard({ option, allNodes, conditionalWinners, hasAnalysisData }: {
               : iv.baseline !== undefined
                 ? formatSmartNumber(iv.baseline)
                 : undefined
-            // Target display: when the target looks normalised (0-1 while
-            // baseline is large), show it as normalised without raw units.
-            // Otherwise show it with the same unit as the baseline.
-            const targetDisplay = iv.hasRawUnit
-              ? `${iv.currentValue.toFixed(2)} (normalised)`
-              : formatRawValueWithUnit(iv.currentValue, iv.unit)
+            // Target display precedence (F.6 passthrough):
+            // 1. CEE-authored display_value — render verbatim
+            // 2. Cross-unit-space normalised indicator
+            // 3. formatRawValueWithUnit numeric formatter
+            const targetDisplay = iv.displayValue
+              ? iv.displayValue
+              : iv.hasRawUnit
+                ? `${iv.currentValue.toFixed(2)} (normalised)`
+                : formatRawValueWithUnit(iv.currentValue, iv.unit)
 
             return (
               <div key={iv.factorId} className="flex items-center gap-1.5 flex-wrap">
