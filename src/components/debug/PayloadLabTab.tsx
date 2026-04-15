@@ -16,6 +16,7 @@ import { CEEClient } from '../../adapters/cee/client'
 import { usePayloadTraceStore } from '../../lib/payload-trace-store'
 import { useCanvasStore } from '../../canvas/store'
 import { DEFAULT_EDGE_DATA } from '../../canvas/domain/edges'
+import { unwrapInterventionValue } from '../../canvas/utils/labelUtils'
 import type { Edge } from '@xyflow/react'
 import type { EdgeData } from '../../canvas/domain/edges'
 import { buildISLConformalRequest, type UINode, type UIEdge } from '../../canvas/adapters/islRequestAdapter'
@@ -179,16 +180,19 @@ function extractInterventionsForISL(option: unknown): Record<string, number> {
   if (!rawInterventions || typeof rawInterventions !== 'object') return interventions
 
   for (const [key, value] of Object.entries(rawInterventions)) {
-    if (typeof value === 'number') {
-      interventions[key] = value
-    } else if (typeof value === 'boolean') {
+    // Canonical numeric path (handles plain numbers + { value: number } V3 objects).
+    const unwrapped = unwrapInterventionValue(value)
+    if (unwrapped != null) {
+      interventions[key] = unwrapped
+      continue
+    }
+    // Legacy boolean support: true→1, false→0, plus { value: boolean } form.
+    // Retained for dev-tool back-compat; unwrapInterventionValue rejects booleans.
+    if (typeof value === 'boolean') {
       interventions[key] = value ? 1 : 0
     } else if (value && typeof value === 'object') {
-      // Handle nested { value: ... } format from CEE
       const nested = (value as Record<string, unknown>).value
-      if (typeof nested === 'number') {
-        interventions[key] = nested
-      } else if (typeof nested === 'boolean') {
+      if (typeof nested === 'boolean') {
         interventions[key] = nested ? 1 : 0
       }
     }

@@ -18,7 +18,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import { useShallow } from 'zustand/shallow'
-import { CURRENCY_SYMBOLS, classifyUnit } from '../../../utils/labelUtils'
+import { CURRENCY_SYMBOLS, classifyUnit, unwrapInterventionValue } from '../../../utils/labelUtils'
 import type { Node, Edge } from '@xyflow/react'
 import type { BiasType } from '../primitives/BiasIcon'
 // Import existing readiness hook for canonical canRun/hasBlockers logic
@@ -427,18 +427,7 @@ function hasInterventionTargeting(
     for (const ceeOption of ceeOptions) {
       const interventions = ceeOption.interventions
       if (interventions && Object.prototype.hasOwnProperty.call(interventions, factorId)) {
-        const value = interventions[factorId]
-        // Handle simple format (number)
-        if (typeof value === 'number') {
-          return true
-        }
-        // Handle nested format ({ value: number }) - CEE V3 format
-        if (value && typeof value === 'object' && 'value' in value) {
-          const nestedValue = value.value
-          if (typeof nestedValue === 'number') {
-            return true
-          }
-        }
+        if (unwrapInterventionValue(interventions[factorId]) != null) return true
       }
     }
   }
@@ -447,18 +436,7 @@ function hasInterventionTargeting(
   for (const option of optionNodes) {
     const interventions = (option.data as { interventions?: Record<string, unknown> })?.interventions
     if (interventions && Object.prototype.hasOwnProperty.call(interventions, factorId)) {
-      const value = interventions[factorId]
-      // Handle simple format (number)
-      if (typeof value === 'number') {
-        return true
-      }
-      // Handle nested format ({ value: number })
-      if (value && typeof value === 'object' && 'value' in value) {
-        const nestedValue = (value as { value: unknown }).value
-        if (typeof nestedValue === 'number') {
-          return true
-        }
-      }
+      if (unwrapInterventionValue(interventions[factorId]) != null) return true
     }
   }
   return false
@@ -796,11 +774,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (os.raw_value == null && os.cap == null && os.unit == null) {
         const interventionValues: number[] = []
         for (const opt of ceeOptions) {
-          const iv = (opt.interventions ?? {})[factor.id]
-          if (iv != null) {
-            const numericIv = typeof iv === 'number' ? iv : (iv as { value?: number })?.value
-            if (numericIv != null) interventionValues.push(numericIv)
-          }
+          const numericIv = unwrapInterventionValue((opt.interventions ?? {})[factor.id])
+          if (numericIv != null) interventionValues.push(numericIv)
         }
         if (interventionValues.length > 0 && interventionValues.every(v => v === 0 || v === 1)) {
           continue
@@ -1487,11 +1462,8 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       if (os.raw_value == null && os.cap == null && os.unit == null) {
         const ivValues: number[] = []
         for (const opt of options) {
-          const iv = (opt.interventions ?? {})[factor.id]
-          if (iv != null) {
-            const numericIv = typeof iv === 'number' ? iv : (iv as { value?: number })?.value
-            if (numericIv != null) ivValues.push(numericIv)
-          }
+          const numericIv = unwrapInterventionValue((opt.interventions ?? {})[factor.id])
+          if (numericIv != null) ivValues.push(numericIv)
         }
         if (ivValues.length > 0 && ivValues.every(v => v === 0 || v === 1)) {
           continue
