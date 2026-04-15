@@ -1292,11 +1292,12 @@ export function buildV2RequestFromAnalysisReady(
     delete request.goal_threshold
   }
 
+  const requestConstraintCount = request.goal_constraints?.length ?? 0
   console.info('[constraint-trace] plot-request', {
     source: 'adapter.buildRunRequest',
-    goal_constraints_count: request.goal_constraints?.length ?? 0,
+    goal_constraints_count: requestConstraintCount,
     goal_threshold_present: 'goal_threshold' in request,
-    xor_applied: !!(goalConstraints?.length) && !('goal_threshold' in request),
+    xor_applied: requestConstraintCount > 0 && !('goal_threshold' in request),
   })
 
   return { request, reverseIdMap: normalised.reverseIdMap }
