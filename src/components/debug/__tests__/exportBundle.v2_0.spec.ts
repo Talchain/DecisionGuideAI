@@ -612,6 +612,73 @@ describe('Debug Bundle v2.0', () => {
       expect(bundle.analysis_ready).toBeNull()
     })
 
+    it('extracts analysis_ready from block.data.applied_graph (draft_graph wire shape)', () => {
+      // CEE places analysis_ready inside data.applied_graph on draft_graph responses.
+      // Regression: debug bundle was showing null for these responses even though the
+      // production path (adaptCEEBlock) read it correctly.
+      const analysisReady = {
+        status: 'ready',
+        goal_node_id: 'goal_1',
+        options: [
+          { id: 'opt_a', label: 'A', status: 'ready', interventions: { fac_x: { value: 1, source: 'brief_extraction' } } },
+          { id: 'opt_b', label: 'B', status: 'ready', interventions: { fac_x: { value: 0, source: 'brief_extraction' } } },
+        ],
+      }
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: {
+            assistant_text: 'ok',
+            blocks: [
+              {
+                block_type: 'graph_patch',
+                data: {
+                  operations: [],
+                  auto_apply: true,
+                  applied_graph: { analysis_ready: analysisReady },
+                },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect(bundle.analysis_ready).toEqual(analysisReady)
+    })
+
+    it('prefers block.data.analysis_ready over block.data.applied_graph.analysis_ready', () => {
+      const topLevel = { status: 'ready', goal_node_id: 'goal_top', options: [] }
+      const nested = { status: 'ready', goal_node_id: 'goal_nested', options: [] }
+      const bundle = buildDebugBundle(makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: {
+            assistant_text: 'ok',
+            blocks: [
+              {
+                block_type: 'graph_patch',
+                data: {
+                  operations: [],
+                  analysis_ready: topLevel,
+                  applied_graph: { analysis_ready: nested },
+                },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }))
+
+      expect((bundle.analysis_ready as any).goal_node_id).toBe('goal_top')
+    })
+
     it('llm_calls populated from _diagnostic_trace when cee_response has trace', () => {
       const trace = makeDiagnosticTrace()
       const bundle = buildDebugBundle(makeDebugData({

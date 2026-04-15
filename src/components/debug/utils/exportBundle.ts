@@ -234,6 +234,13 @@ function extractGoalConstraintsFromBlocks(envelope: Record<string, unknown> | nu
 /**
  * Extract analysis_ready from graph_patch blocks in the envelope.
  * Falls back to searching blocks when not present at envelope root.
+ *
+ * CEE may place analysis_ready at:
+ *   block.data.analysis_ready          (standard location)
+ *   block.data.applied_graph.analysis_ready  (draft_graph responses)
+ *
+ * Both locations are checked so the debug bundle matches what adaptCEEBlock
+ * reads in production (useConversation.ts, adaptCEEBlock).
  */
 function extractAnalysisReadyFromBlocks(envelope: Record<string, unknown> | null): unknown | null {
   if (!envelope) return null
@@ -242,8 +249,14 @@ function extractAnalysisReadyFromBlocks(envelope: Record<string, unknown> | null
     const b = asRecord(block)
     if (!b) continue
     const data = asRecord(b.data)
-    if (data && data.analysis_ready != null) {
+    if (!data) continue
+    if (data.analysis_ready != null) {
       return data.analysis_ready
+    }
+    // Fallback: draft_graph responses nest analysis_ready inside applied_graph
+    const appliedGraph = asRecord(data.applied_graph)
+    if (appliedGraph && appliedGraph.analysis_ready != null) {
+      return appliedGraph.analysis_ready
     }
   }
   return null

@@ -201,6 +201,64 @@ describe('handleEnvelope — analysis_ready arbitration', () => {
     expect(mockSetCeeAnalysisReady.mock.calls[0][0].goal_node_id).toBe('goal_synth')
   })
 
+  it('uses analysis_ready from applied_graph (draft_graph wire shape) and does NOT call synthesis', async () => {
+    // Regression: CEE places analysis_ready at data.applied_graph.analysis_ready on
+    // draft_graph responses. adaptCEEBlock must extract it so handleEnvelope takes the
+    // primary path and synthesis is not called.
+    const ceeAnalysisReady = {
+      status: 'ready',
+      goal_node_id: 'goal_1',
+      options: [
+        {
+          id: 'opt_a',
+          label: 'A',
+          status: 'ready',
+          interventions: { fac_x: { value: 1, source: 'brief_extraction' } },
+        },
+        {
+          id: 'opt_b',
+          label: 'B',
+          status: 'ready',
+          interventions: { fac_x: { value: 0, source: 'brief_extraction' } },
+        },
+      ],
+    }
+
+    mockCallTurn.mockResolvedValue({
+      assistant_text: 'Here is your model.',
+      blocks: [
+        {
+          block_type: 'graph_patch',
+          block_id: 'patch-nested',
+          data: {
+            operations: [
+              { op: 'add_node', target_id: 'node-1', data: { kind: 'goal', label: 'Goal' } },
+            ],
+            auto_apply: true,
+            // analysis_ready nested inside applied_graph — the draft_graph wire shape
+            applied_graph: { analysis_ready: ceeAnalysisReady },
+          },
+        },
+      ],
+    })
+
+    const { result } = renderHook(() => useConversation())
+
+    await act(async () => {
+      await result.current.sendMessage('Build a model')
+    })
+
+    // Primary path: setCeeAnalysisReady called with CEE data extracted from applied_graph
+    expect(mockSetCeeAnalysisReady).toHaveBeenCalledTimes(1)
+    const storedReady = mockSetCeeAnalysisReady.mock.calls[0][0]
+    expect(storedReady.goal_node_id).toBe('goal_1')
+    expect(storedReady.options).toHaveLength(2)
+    expect(storedReady.options[1].interventions.fac_x.value).toBe(0)
+
+    // Synthesis must NOT have been called — nested analysis_ready is valid
+    expect(mockSynthesise).not.toHaveBeenCalled()
+  })
+
   it('falls back to synthesis when analysis_ready fails contract validation', async () => {
     vi.spyOn(console, 'error').mockImplementation(() => {})
 
