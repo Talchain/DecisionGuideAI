@@ -438,9 +438,7 @@ export const EdgePanel = memo(function EdgePanel({
           {/* ── Expert-only model detail ───────────────────────── */}
           <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
             {fragileEdgeSwitchProb !== null && (
-              <ExpertAnnotation techMode={techMode}>
-                switch_probability: {fragileEdgeSwitchProb.toFixed(2)} · in fragile_edges[]
-              </ExpertAnnotation>
+              <div>switch_probability: {fragileEdgeSwitchProb.toFixed(2)} · in fragile_edges[]</div>
             )}
             <EdgeAdvancedEditor edgeId={edgeId} />
           </TechnicalDisclosure>

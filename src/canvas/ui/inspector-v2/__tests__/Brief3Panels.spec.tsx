@@ -202,6 +202,13 @@ describe('GoalPanel v6.2', () => {
     expect(container.querySelector('[data-panel-group="impact"]')).toBeNull()
   })
 
+  it('post-analysis without probability data: impact PanelGroup still not rendered', () => {
+    setGoalStore({ results: { status: 'complete', report: {} } })
+    // probGoal is undefined — group must stay suppressed to avoid empty-group
+    const { container } = render(<GoalPanel {...goalProps} />)
+    expect(container.querySelector('[data-panel-group="impact"]')).toBeNull()
+  })
+
   it('post-analysis: ImportanceBar is present in context group when influence data is present', () => {
     setGoalStore({ results: { status: 'complete', report: {} } })
     mockDisplayMetadata.mockReturnValue({
