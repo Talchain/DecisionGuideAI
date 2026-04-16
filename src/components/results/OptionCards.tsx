@@ -519,9 +519,9 @@ export function OptionCards({
   // Task 6b: Segment fill colour map for coloured fill bars inside option cards
   const segmentColorMap = buildSegmentColorMap(options, winnerId, decisionState)
 
-  // V16.1: Truncate to top 2 when there are 4+ options; show toggle below
+  // Brief 3 ST2: Truncate to top 2 whenever there are more than 2 options
   const TOP_N = 2
-  const shouldTruncate = sorted.length >= 4
+  const shouldTruncate = sorted.length > TOP_N
   const [showAllOptions, setShowAllOptions] = useState(false)
   const visibleOptions = shouldTruncate && !showAllOptions ? sorted.slice(0, TOP_N) : sorted
   const hiddenCount = sorted.length - TOP_N
@@ -597,7 +597,7 @@ export function OptionCards({
           />
         )
       })}
-      {/* V16.1: Show all / show fewer toggle (only when 4+ options) */}
+      {/* Brief 3 ST2: Show all / show fewer toggle (when 3+ options) */}
       {shouldTruncate && (
         <button
           type="button"

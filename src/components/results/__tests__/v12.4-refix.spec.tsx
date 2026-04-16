@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { AttentionBanner } from '../AttentionBanner'
 import { OptionCards } from '../OptionCards'
 import { HeroSection } from '../HeroSection'
@@ -208,6 +208,8 @@ describe('V12.4 Task 4: Wins bars removed from OptionCards', () => {
     )
     expect(screen.getByTestId('win-pct-opt-a')).toBeInTheDocument()
     expect(screen.getByTestId('win-pct-opt-b')).toBeInTheDocument()
+    // Third option is hidden by default; expand to verify
+    fireEvent.click(screen.getByTestId('option-cards-toggle'))
     expect(screen.getByTestId('win-pct-opt-c')).toBeInTheDocument()
   })
 
@@ -222,6 +224,8 @@ describe('V12.4 Task 4: Wins bars removed from OptionCards', () => {
     )
     expect(screen.getByText('Option A')).toBeInTheDocument()
     expect(screen.getByText('Option B')).toBeInTheDocument()
+    // Third option hidden by default; expand to verify
+    fireEvent.click(screen.getByTestId('option-cards-toggle'))
     expect(screen.getByText('Option C')).toBeInTheDocument()
   })
 

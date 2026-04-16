@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult, HingeInfo } from '../types'
 
@@ -577,6 +577,8 @@ describe('OptionCards', () => {
         />
       )
 
+      // With 3 options only 2 show by default; expand to see the third
+      fireEvent.click(screen.getByTestId('option-cards-toggle'))
       expect(screen.getByText('Behind by 55 percentage points')).toBeInTheDocument()
     })
 

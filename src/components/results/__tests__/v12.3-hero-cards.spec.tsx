@@ -320,6 +320,9 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
         />
       )
 
+      // Top 2 visible by default; expand to see all 3
+      fireEvent.click(screen.getByTestId('option-cards-toggle'))
+
       const winner = screen.getByTestId('option-card-opt-a')
       expect(winner.className).toContain('border-success/60')
       // Runner-up and third get their ordinal chart colour borders
@@ -340,6 +343,9 @@ describe('V12.3 Task 3: Option card border colours match wins bar segments', () 
           runnerId="opt-b"
         />
       )
+
+      // Top 2 visible by default; expand to see all 3
+      fireEvent.click(screen.getByTestId('option-cards-toggle'))
 
       expect(screen.getByTestId('option-card-opt-a').className).toContain('border-panel-border')
       expect(screen.getByTestId('option-card-opt-b').className).toContain('border-panel-border')
@@ -506,9 +512,14 @@ describe('V16.1 P1-10: OptionCards truncation UX', () => {
     expect(screen.getByTestId('rank-badge-opt-d').textContent).toBe('#4 of 4')
   })
 
-  it('no toggle button when fewer than 4 options', () => {
-    render(<OptionCards options={threeOptions} winnerId="opt-a" />)
+  it('toggle shows when 3+ options; no toggle for exactly 2 options', () => {
+    // 3 options → toggle present (Brief 3 ST2: truncate at > 2)
+    const { unmount } = render(<OptionCards options={threeOptions} winnerId="opt-a" />)
+    expect(screen.getByTestId('option-cards-toggle')).toBeInTheDocument()
+    unmount()
 
+    // 2 options → no toggle
+    render(<OptionCards options={[threeOptions[0], threeOptions[1]]} winnerId="opt-a" />)
     expect(screen.queryByTestId('option-cards-toggle')).not.toBeInTheDocument()
   })
 })
