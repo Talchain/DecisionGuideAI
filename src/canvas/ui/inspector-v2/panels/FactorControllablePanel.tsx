@@ -1,6 +1,8 @@
 /**
  * FactorControllablePanel — Inspector for controllable factors (spec §7)
- * Phase 2. No confidence slider — provenance indicators only (spec §14).
+ * v6.2 Pattern B three-group layout: Context → Your input → Connections.
+ * ImportanceBar + VoI fold into Context group (post-analysis), replacing
+ * the separate Impact / Investigation value sections.
  */
 
 import { memo, useState, useMemo, useCallback } from 'react'
@@ -19,11 +21,15 @@ import { shouldShowNormalised } from '../normalisedDisplay'
 import { unwrapInterventionValue, classifyUnit } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
-  SECTION_TITLES,
+  GROUP_LABELS,
+  DESCRIPTION_PLACEHOLDERS,
   getExtractionLabel,
   getProvenanceLabel,
 } from '../inspectorStrings'
-import { SectionTitle } from '../shared/SectionTitle'
+import { PanelGroup } from '../shared/PanelGroup'
+import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
+import { ImportanceBar } from '../shared/ImportanceBar'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
@@ -31,7 +37,6 @@ import { DataBar } from '../../shared/DataBar'
 import type { InspectorPanelProps } from '../types'
 import { resolveCoaching } from '../coachingConfig'
 import { FactorControllableEditor } from '../editors/FactorControllableEditor'
-import { ResultsLink } from '../shared/ResultsLink'
 
 /**
  * Extract a non-empty string intervention value, accepting either a bare
@@ -95,9 +100,13 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
       | string[]
       | undefined
 
+  // Description — EmptyDescriptionPrompt pattern (Pattern B parity)
+  const [description, setDescription] = useState(String(node?.data?.description ?? ''))
+  const [isEditingDescription, setIsEditingDescription] = useState(false)
+
   // Local draft for editable value input
-  const displayValue = rawValue ?? value
-  const [draftValue, setDraftValue] = useState<string>(displayValue != null ? String(displayValue) : '')
+  const inputDisplayValue = rawValue ?? value
+  const [draftValue, setDraftValue] = useState<string>(inputDisplayValue != null ? String(inputDisplayValue) : '')
   const handleValueBlur = useCallback(() => {
     const parsed = parseFloat(draftValue)
     if (!isNaN(parsed) && parsed !== value) {
@@ -124,7 +133,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
         // (OptionPanel, OptionAdvancedEditor, FactorNode hover) require finite
         // numbers and correctly drop string entries.
         const ivs = (src?.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
-        const raw = ivs?.[nodeId]
+        const raw = ivs?.[nodeId ?? '']
         const { value: interventionValue, displayValue: interventionDisplayValue } = unwrapInterventionValue(raw)
         const interventionStringValue =
           interventionValue == null ? extractStringIntervention(raw) : null
@@ -165,11 +174,6 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
   if (!nodeId || !node) return null
 
-  const formatValue = (v: number) => {
-    if (unit === '\u00A3' || unit === '$' || unit === '\u20AC') return `${unit}${v.toLocaleString()}`
-    return unit ? `${v.toLocaleString()} ${unit}` : `${v}`
-  }
-
   // Contextual guidance sentence based on sensitivity rank
   const sensitivityGuidance = isResultsMode && displayMetadata.sensitivityRank != null
     ? displayMetadata.sensitivityRank <= 2
@@ -181,196 +185,214 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
 
   return (
     <div>
-      {/* §7.1 Type badges */}
-      <div className="flex gap-1.5 mt-2.5">
-        {node.data?.factorType && (
-          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
-            {String(node.data.factorType)}
-          </span>
+      {/* ── Context group ─────────────────────────────────────── */}
+      <PanelGroup kind="context" label={GROUP_LABELS.context}>
+        {/* Description — Pattern B (EmptyDescriptionPrompt) */}
+        {description || isEditingDescription ? (
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            onBlur={() => {
+              mutations.setDescription(description)
+              if (!description.trim()) setIsEditingDescription(false)
+            }}
+            autoFocus={isEditingDescription && !description}
+            placeholder={DESCRIPTION_PLACEHOLDERS.factor}
+            rows={2}
+            maxLength={500}
+            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+          />
+        ) : (
+          <EmptyDescriptionPrompt
+            placeholder={DESCRIPTION_PLACEHOLDERS.factor}
+            onStartEditing={() => setIsEditingDescription(true)}
+          />
         )}
-        <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
-          {getExtractionLabel(source)}
-        </span>
-      </div>
 
-      {/* §7.4 Impact context — shown ABOVE value to motivate editing */}
-      <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />
-      <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
-        {isResultsMode && displayMetadata.inSensitivityAnalysis && (
-          <div className="flex items-center gap-3">
-            {displayMetadata.sensitivityRank !== null && (
-              <div className="text-center">
-                <div className={`${typography.panelHeader} text-lg text-info`}>
-                  {displayMetadata.sensitivityRank === 1 ? '1st'
-                    : displayMetadata.sensitivityRank === 2 ? '2nd'
-                    : displayMetadata.sensitivityRank === 3 ? '3rd'
-                    : `${displayMetadata.sensitivityRank}th`}
+        {/* Provenance pills: factor type identity + extraction source */}
+        <div className="mt-2 flex gap-1.5 flex-wrap">
+          {node.data?.factorType && (
+            <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+              {String(node.data.factorType)}
+            </span>
+          )}
+          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
+            {getExtractionLabel(source)}
+          </span>
+        </div>
+
+        {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
+        {isResultsMode && (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
+          <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+            <div className="mt-2 space-y-2">
+              <ImportanceBar
+                importanceScore={displayMetadata.influence}
+                sensitivityRank={displayMetadata.sensitivityRank}
+              />
+              {displayMetadata.valueOfInformation !== null && (
+                <div>
+                  <DataBar
+                    value={displayMetadata.valueOfInformation}
+                    label="Investigation value"
+                    colour="info"
+                    trailingLabel={
+                      displayMetadata.valueOfInformation >= 0.7 ? 'High'
+                      : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
+                      : 'Low'
+                    }
+                  />
+                  <p className={`${typography.panelMeta} text-text-light mt-1`}>
+                    {displayMetadata.valueOfInformation >= 0.7
+                      ? 'Gathering more evidence here could significantly improve confidence.'
+                      : displayMetadata.valueOfInformation >= 0.4
+                      ? 'Additional evidence here would moderately sharpen the analysis.'
+                      : 'Further investigation here is unlikely to change the outcome.'}
+                  </p>
                 </div>
-                <div className={`${typography.panelMeta} text-text-light`}>most influential</div>
-                <ResultsLink label="See all drivers" tab="results" />
-              </div>
+              )}
+            </div>
+          </StaleGuardBanner>
+        )}
+
+        {/* Contextual guidance */}
+        {sensitivityGuidance && (
+          <p className={`${typography.panelBody} text-text-body mt-2`}>{sensitivityGuidance}</p>
+        )}
+      </PanelGroup>
+
+      {/* ── Your input group ──────────────────────────────────── */}
+      <PanelGroup kind="input" label={GROUP_LABELS.input}>
+        <PrimaryControlCard>
+          {canonicalDisplayText && (
+            <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
+              {canonicalDisplayText}
+            </div>
+          )}
+          <div className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}>
+            {unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') && (
+              <span className={`${typography.panelHeader} text-xl`}>{unit}</span>
+            )}
+            <input
+              type="number"
+              value={draftValue}
+              onChange={e => setDraftValue(e.target.value)}
+              onBlur={handleValueBlur}
+              onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
+              placeholder="Enter value"
+              className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
+            />
+            {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
+              <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>
             )}
           </div>
-        )}
-      </StaleGuardBanner>
+          {/* Provenance inline below value (no separate section title) */}
+          {source && (
+            <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
+              <Link size={12} className="text-info" />
+              <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
+            </div>
+          )}
+          {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
+            <div className="flex gap-1.5 flex-wrap mt-1.5">
+              {uncertaintyDrivers.map((d, i) => (
+                <span
+                  key={i}
+                  className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
+                  style={{ border: '1px solid var(--warning)4D' }}
+                >
+                  {d}
+                </span>
+              ))}
+            </div>
+          )}
+        </PrimaryControlCard>
 
-      {/* Investigation value (post-analysis, VoI) */}
-      {isResultsMode && displayMetadata.valueOfInformation !== null && (
-        <>
-          <SectionTitle icon={SECTION_TITLES.investigationValue.icon} label={SECTION_TITLES.investigationValue.label} />
-          <div className="bg-panel border border-panel-border rounded-lg p-2.5">
-            <DataBar
-              value={displayMetadata.valueOfInformation}
-              label="Investigation value"
-              colour="info"
-              trailingLabel={
-                displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                : 'Low'
-              }
-            />
-            <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-              {displayMetadata.valueOfInformation >= 0.7
-                ? 'Gathering more evidence here could significantly improve confidence.'
-                : displayMetadata.valueOfInformation >= 0.4
-                ? 'Additional evidence here would moderately sharpen the analysis.'
-                : 'Further investigation here is unlikely to change the outcome.'}
-            </p>
-          </div>
-        </>
-      )}
-
-      {/* Contextual guidance — why this factor matters */}
-      {sensitivityGuidance && (
-        <p className={`${typography.panelBody} text-text-body mt-2`}>{sensitivityGuidance}</p>
-      )}
-
-      {/* §7.2 Value — editable */}
-      <SectionTitle icon={SECTION_TITLES.value.icon} label={SECTION_TITLES.value.label} />
-      <div className="bg-panel border border-panel-border rounded-lg p-3">
-        {/* CEE-canonical display text (display_value first, else heuristic).
-            Shown above the numeric input so graph and inspector agree. */}
-        {canonicalDisplayText && (
-          <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
-            {canonicalDisplayText}
+        {/* Edit feedback */}
+        {lastConfirmed?.field === 'value' && (
+          <div className="flex items-center gap-2 mt-1">
+            <EditConfirmation trigger={lastConfirmed.ts} />
+            <InlineRerunPrompt visible={isStaleAfterEdit} />
           </div>
         )}
-        <div className={`flex items-center ${unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') ? 'gap-0' : 'gap-1.5'}`}>
-          {unit && (unit === '\u00A3' || unit === '$' || unit === '\u20AC') && (
-            <span className={`${typography.panelHeader} text-xl`}>{unit}</span>
-          )}
-          <input
-            type="number"
-            value={draftValue}
-            onChange={e => setDraftValue(e.target.value)}
-            onBlur={handleValueBlur}
-            onKeyDown={e => { if (e.key === 'Enter') { e.currentTarget.blur() } }}
-            placeholder="Enter value"
-            className={`${typography.panelHeader} text-xl w-full bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 transition-colors`}
-          />
-          {unit && unit !== '\u00A3' && unit !== '$' && unit !== '\u20AC' && (
-            <span className={`${typography.panelMeta} text-text-light`}>{unit}</span>
-          )}
-        </div>
+
+        {/* Coaching — within Your input group, below the card */}
+        <InspectorCoaching
+          elementId={nodeId}
+          panelType="factor-controllable"
+          fallbackText={resolveCoaching('factorControllableEvidence', { factorName: String(node.data?.label ?? '') })}
+          labelContext={{ label: String(node.data?.label ?? '') }}
+        />
+      </PanelGroup>
+
+      {/* ── Connections group ─────────────────────────────────── */}
+      <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
+        {setByOptions.length > 0 && (
+          <>
+            <div className={`${typography.panelMeta} text-text-light mb-1`}>Set by options:</div>
+            {setByOptions.map(o => {
+              // Precedence: CEE display_value (verbatim) > numeric (unit-prefixed
+              // or bare) > qualitative string fallback. F.6 passthrough: when CEE
+              // authored a label, render it without numeric re-formatting.
+              const badgeContent = o.interventionDisplayValue
+                ? o.interventionDisplayValue
+                : o.interventionValue != null
+                  ? (o.unit && classifyUnit(o.unit).kind !== 'placeholder' ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
+                  : o.interventionStringValue != null
+                    ? o.interventionStringValue
+                    : null
+              return (
+                <ConnectionRow
+                  key={o.nodeId}
+                  nodeKind="option"
+                  label={o.label}
+                  badge={badgeContent != null ? (
+                    <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent text-text-body border border-option/30`}>
+                      {badgeContent}
+                    </span>
+                  ) : undefined}
+                  fullLabel
+                  techMode={techMode}
+                  onClick={() => onNavigate(o.nodeId)}
+                />
+              )
+            })}
+          </>
+        )}
+        {influences.length > 0 && (
+          <>
+            <div className={`${typography.panelMeta} text-text-light mb-1 ${setByOptions.length > 0 ? 'mt-2' : ''}`}>Influences:</div>
+            {influences.map(conn => (
+              <ConnectionRow
+                key={conn.edgeId}
+                nodeKind={conn.nodeKind}
+                label={conn.label}
+                strength={conn.strength}
+                fullLabel
+                techMode={techMode}
+                onClick={() => onNavigate(conn.nodeId)}
+              />
+            ))}
+          </>
+        )}
+        {setByOptions.length === 0 && influences.length === 0 && (
+          <p className={`${typography.panelMeta} text-text-light`}>No connections yet.</p>
+        )}
+      </PanelGroup>
+
+      {/* ── Expert-only model detail ──────────────────────────── */}
+      <TechnicalDisclosure visible={techMode}>
+        <FactorControllableEditor nodeId={nodeId} />
+        {/* Raw model values moved here from the value card — tech-mode only */}
         {shouldShowNormalised(techMode, rawValue) && value != null && (
-          <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
+          <div className={`${typography.panelMeta} text-text-light mt-2`}>
             System: model value: {value.toFixed(3)}
           </div>
         )}
-        {techMode && cap != null && (
+        {cap != null && (
           <div className={`${typography.panelMeta} text-text-light mt-0.5`}>
             Cap: {cap.toLocaleString()}{unit ? ` ${unit}` : ''}
           </div>
         )}
-        {/* Provenance inline below value (no separate section title) */}
-        {source && (
-          <div className="flex items-center gap-1 mt-2 pt-2 border-t border-panel-border">
-            <Link size={12} className="text-info" />
-            <span className={`${typography.panelMeta} text-info`}>{getProvenanceLabel(source)}</span>
-          </div>
-        )}
-        {uncertaintyDrivers && uncertaintyDrivers.length > 0 && (
-          <div className="flex gap-1.5 flex-wrap mt-1.5">
-            {uncertaintyDrivers.map((d, i) => (
-              <span
-                key={i}
-                className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
-                style={{ border: '1px solid var(--warning)4D' }}
-              >
-                {d}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      {/* Edit feedback */}
-      {lastConfirmed?.field === 'value' && (
-        <div className="flex items-center gap-2 mt-1">
-          <EditConfirmation trigger={lastConfirmed.ts} />
-          <InlineRerunPrompt visible={isStaleAfterEdit} />
-        </div>
-      )}
-
-      {/* Coaching + Guidance — positioned after value for evidence quality nudges */}
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="factor-controllable"
-        fallbackText={resolveCoaching('factorControllableEvidence', { factorName: String(node.data?.label ?? '') })}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-      />
-
-      {/* §7.5 Connections */}
-      <SectionTitle icon={SECTION_TITLES.connections.icon} label={SECTION_TITLES.connections.label} />
-      {setByOptions.length > 0 && (
-        <>
-          <div className={`${typography.panelMeta} text-text-light mb-1`}>Set by options:</div>
-          {setByOptions.map(o => {
-            // Precedence: CEE display_value (verbatim) > numeric (unit-prefixed
-            // or bare) > qualitative string fallback. F.6 passthrough: when CEE
-            // authored a label, render it without numeric re-formatting.
-            const badgeContent = o.interventionDisplayValue
-              ? o.interventionDisplayValue
-              : o.interventionValue != null
-                ? (o.unit && classifyUnit(o.unit).kind !== 'placeholder' ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
-                : o.interventionStringValue != null
-                  ? o.interventionStringValue
-                  : null
-            return (
-              <ConnectionRow
-                key={o.nodeId}
-                nodeKind="option"
-                label={o.label}
-                badge={badgeContent != null ? (
-                  <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent text-text-body border border-option/30`}>
-                    {badgeContent}
-                  </span>
-                ) : undefined}
-                techMode={techMode}
-                onClick={() => onNavigate(o.nodeId)}
-              />
-            )
-          })}
-        </>
-      )}
-      {influences.length > 0 && (
-        <>
-          <div className={`${typography.panelMeta} text-text-light mb-1 ${setByOptions.length > 0 ? 'mt-2' : ''}`}>Influences:</div>
-          {influences.map(conn => (
-            <ConnectionRow
-              key={conn.edgeId}
-              nodeKind={conn.nodeKind}
-              label={conn.label}
-              strength={conn.strength}
-              techMode={techMode}
-              onClick={() => onNavigate(conn.nodeId)}
-            />
-          ))}
-        </>
-      )}
-
-      {/* Technical disclosure — structured advanced editor */}
-      <TechnicalDisclosure visible={techMode}>
-        <FactorControllableEditor nodeId={nodeId} />
       </TechnicalDisclosure>
     </div>
   )
