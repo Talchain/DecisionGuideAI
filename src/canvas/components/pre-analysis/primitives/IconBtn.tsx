@@ -43,19 +43,19 @@ const variantStyles: Record<IconBtnVariant, { enabled: string; disabled: string 
     disabled: 'text-text-light/50 cursor-not-allowed',
   },
   confirm: {
-    enabled: 'text-success hover:bg-success-light',
+    enabled: 'text-success hover:bg-panel-hover',
     disabled: 'text-text-light/50 cursor-not-allowed',
   },
   edit: {
-    enabled: 'text-info hover:bg-info-light',
+    enabled: 'text-info hover:bg-panel-hover',
     disabled: 'text-text-light/50 cursor-not-allowed',
   },
   assume: {
-    enabled: 'text-warning hover:bg-warning-light',
+    enabled: 'text-warning hover:bg-panel-hover',
     disabled: 'text-text-light/50 cursor-not-allowed',
   },
   primary: {
-    enabled: 'text-info hover:bg-info-light',
+    enabled: 'text-info hover:bg-panel-hover',
     disabled: 'text-text-light/50 cursor-not-allowed',
   },
   ghost: {
