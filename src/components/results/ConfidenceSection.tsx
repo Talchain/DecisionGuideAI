@@ -20,6 +20,7 @@ import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { typography } from '../../styles/typography'
+import { classifyUnit } from '../../canvas/utils/labelUtils'
 import { MIN_STABLE_RECOMMENDATION_STABILITY, isStableRobustnessLevel } from './constants'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { groupActionItems, type ActionGroup, type ActionItem } from './utils/groupActionItems'
@@ -1084,7 +1085,8 @@ function FlipThresholdCards({
         const formatVal = (v: number) => {
           if (ft.unit === '$' || ft.unit === '\u00A3' || ft.unit === '\u20AC') return `${ft.unit}${v.toLocaleString()}`
           if (ft.unit === '%') return `${v.toLocaleString()}%`
-          return ft.unit ? `${v.toLocaleString()} ${ft.unit}` : v.toLocaleString()
+          const suffixKind = ft.unit ? classifyUnit(ft.unit).kind : 'none'
+          return ft.unit && suffixKind !== 'placeholder' ? `${v.toLocaleString()} ${ft.unit}` : v.toLocaleString()
         }
 
         return (

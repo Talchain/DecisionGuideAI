@@ -16,7 +16,7 @@ import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useStaleGuard } from '../useStaleGuard'
 import { shouldShowNormalised } from '../normalisedDisplay'
-import { unwrapInterventionValue } from '../../../utils/labelUtils'
+import { unwrapInterventionValue, classifyUnit } from '../../../utils/labelUtils'
 import { factorDisplayText } from '../../../../utils/formatFactorDisplayValue'
 import {
   SECTION_TITLES,
@@ -331,7 +331,7 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
             const badgeContent = o.interventionDisplayValue
               ? o.interventionDisplayValue
               : o.interventionValue != null
-                ? (o.unit ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
+                ? (o.unit && classifyUnit(o.unit).kind !== 'placeholder' ? `${o.unit}${o.interventionValue.toLocaleString()}` : o.interventionValue)
                 : o.interventionStringValue != null
                   ? o.interventionStringValue
                   : null

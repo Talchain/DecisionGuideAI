@@ -109,36 +109,13 @@ describe('WorthInvestigating component', () => {
     expect(screen.getByLabelText('Worth investigating')).toBeInTheDocument()
   })
 
-  it('fires onAskAI callback with factorId and factorLabel when Ask AI button is clicked', () => {
-    const onAskAI = vi.fn()
+  // UI-BUG-6: the "Ask AI to research" text pill was replaced by the standard
+  // DiscussWithAiButton sparkle icon. The affordance is now rendered via the
+  // guidance-store sendMessage handler; there is no per-gap onAskAI prop.
+  it('never renders the deprecated "Ask AI to research" text pill', () => {
     const gaps = [
       { factorId: 'f99', factorLabel: 'Customer Acquisition Cost', description: 'Desc', connectivityScore: 1 },
     ]
-
-    render(<WorthInvestigating gaps={gaps} onAskAI={onAskAI} />)
-
-    fireEvent.click(screen.getByText('Ask AI to research'))
-    expect(onAskAI).toHaveBeenCalledTimes(1)
-    expect(onAskAI).toHaveBeenCalledWith('f99', 'Customer Acquisition Cost')
-  })
-
-  it('fires onAskAI with correct payload for labels containing special characters', () => {
-    const onAskAI = vi.fn()
-    const gaps = [
-      { factorId: 'f_special', factorLabel: 'ROI (%) – Year 1', description: 'Desc', connectivityScore: 1 },
-    ]
-
-    render(<WorthInvestigating gaps={gaps} onAskAI={onAskAI} />)
-
-    fireEvent.click(screen.getByText('Ask AI to research'))
-    expect(onAskAI).toHaveBeenCalledWith('f_special', 'ROI (%) – Year 1')
-  })
-
-  it('does not render Ask AI button when onAskAI prop is not provided', () => {
-    const gaps = [
-      { factorId: 'f1', factorLabel: 'Revenue', description: 'Desc', connectivityScore: 1 },
-    ]
-
     render(<WorthInvestigating gaps={gaps} />)
     expect(screen.queryByText('Ask AI to research')).not.toBeInTheDocument()
   })

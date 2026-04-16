@@ -1,37 +1,20 @@
 /**
  * CoachingPrompt — dismissible "Something missing?" prompt above Advanced section.
  *
- * CTA focuses the conversation input so the user can tell the AI
- * about factors, risks, or information the model might be missing.
- * Coaching one-liner — dismiss is allowed per dismissibility rules.
+ * AI affordance is the standard DiscussWithAiButton sparkle (UI-BUG-7), matching
+ * every other AI affordance across the Analysis tab. Coaching one-liner — dismiss
+ * is allowed per dismissibility rules.
  */
 
 import { useState } from 'react'
-import { X, Target } from 'lucide-react'
+import { X } from 'lucide-react'
 import { typography } from '../../styles/typography'
-import Tooltip from '../Tooltip'
+import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 
 export function CoachingPrompt() {
   const [visible, setVisible] = useState(true)
 
   if (!visible) return null
-
-  const focusChatInput = () => {
-    const input = document.querySelector<HTMLTextAreaElement | HTMLInputElement>('[data-testid="chat-input"]')
-    if (input) {
-      // Preload context so the user can continue the thought
-      if (!input.value) {
-        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-          window.HTMLTextAreaElement.prototype, 'value',
-        )?.set ?? Object.getOwnPropertyDescriptor(
-          window.HTMLInputElement.prototype, 'value',
-        )?.set
-        nativeInputValueSetter?.call(input, 'I think the model is missing ')
-        input.dispatchEvent(new Event('input', { bubbles: true }))
-      }
-      input.focus()
-    }
-  }
 
   return (
     <div
@@ -41,16 +24,10 @@ export function CoachingPrompt() {
       <span className={`${typography.panelBody} text-text-body flex-1`}>
         Something missing from the results?
       </span>
-      <Tooltip content="Tell the AI about factors, risks, or information the model might be missing">
-        <button
-          type="button"
-          onClick={focusChatInput}
-          className={`${typography.panelMeta} text-info hover:underline flex items-center gap-1 flex-shrink-0`}
-        >
-          <Target className="w-3.5 h-3.5" />
-          Tell the AI
-        </button>
-      </Tooltip>
+      <DiscussWithAiButton
+        element={{ kind: 'missing' }}
+        ariaLabel="Tell AI about something missing from the results"
+      />
       <button
         type="button"
         onClick={() => setVisible(false)}

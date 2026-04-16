@@ -12,8 +12,9 @@
  */
 
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { TriageCard } from '../TriageCard'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 
 describe('TriageCard — icon-group spacing (P1.3)', () => {
   it('default variant action-icon group uses gap-2 (8px)', () => {
@@ -92,6 +93,91 @@ describe('TriageCard — compact variant subtitle (P1.4)', () => {
     )
     // No icon group when there's no action
     expect(screen.queryByTestId('triage-card-icon-group')).not.toBeInTheDocument()
+  })
+})
+
+describe('TriageCard — AI affordance count (UI-BUG-5)', () => {
+  beforeEach(() => {
+    useGuidanceStore.setState({ _sendMessage: vi.fn() })
+  })
+  afterEach(() => {
+    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null })
+  })
+
+  it('renders exactly one Discuss-with-AI button per card when aiDiscuss is set', () => {
+    render(
+      <TriageCard
+        cardKey="k1"
+        ordinal={1}
+        title="Customer Satisfaction"
+        detail="Sample detail"
+        subtitle="AI estimate. Does this match?"
+        category="verify"
+        action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
+        sourcePill={{ label: 'AI estimate', borderClass: 'border-info/30' }}
+        aiDiscuss={{ kind: 'factor', label: 'Customer Satisfaction' }}
+        onConfirm={() => {}}
+        onEdit={() => {}}
+        onSendMessage={() => {}}
+      />,
+    )
+    // The only AI affordance on a triage card is the bottom-right sparkle.
+    // Guards against regressing a second top-right sparkle badge.
+    expect(screen.getAllByTestId('discuss-with-ai')).toHaveLength(1)
+  })
+
+  it('renders zero Discuss-with-AI buttons when aiDiscuss is absent', () => {
+    render(
+      <TriageCard
+        cardKey="k1"
+        ordinal={1}
+        title="Factor A"
+        detail="Sample detail"
+        category="verify"
+        sourcePill={{ label: 'AI estimate', borderClass: 'border-info/30' }}
+      />,
+    )
+    expect(screen.queryAllByTestId('discuss-with-ai')).toHaveLength(0)
+  })
+})
+
+describe('TriageCard — placeholder unit suffix (UI-BUG-1)', () => {
+  const placeholderUnits = ['scale', 'index', 'score', 'norm', 'normalised', 'normalized']
+
+  for (const unit of placeholderUnits) {
+    it(`does not render "${unit}" as a unit suffix on the inline editor`, () => {
+      render(
+        <TriageCard
+          cardKey="k1"
+          ordinal={1}
+          title="Factor A"
+          detail="Sample detail"
+          subtitle="AI estimate. Does this match?"
+          category="verify"
+          action={{ kind: 'set_value', label: 'Set value', targetId: 'n1', targetType: 'node' }}
+          editorConfig={{ kind: 'factor', rawValue: 0, cap: null, unit, onSave: () => {}, onCancel: () => {} }}
+          onConfirm={() => {}}
+          onEdit={() => {}}
+        />,
+      )
+      // Placeholder unit must not appear anywhere in rendered output
+      expect(screen.queryByText(new RegExp(`\\b${unit}\\b`, 'i'))).not.toBeInTheDocument()
+    })
+  }
+
+  it('still renders a real unit suffix (e.g. "months")', () => {
+    render(
+      <TriageCard
+        cardKey="k1"
+        ordinal={1}
+        title="Factor A"
+        detail="Sample detail"
+        category="verify"
+        action={{ kind: 'set_value', label: 'Set value', targetId: 'n1', targetType: 'node' }}
+        editorConfig={{ kind: 'factor', rawValue: 9, cap: null, unit: 'months', onSave: () => {}, onCancel: () => {} }}
+      />,
+    )
+    expect(screen.getByText('months')).toBeInTheDocument()
   })
 })
 

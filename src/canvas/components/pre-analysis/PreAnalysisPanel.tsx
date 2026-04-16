@@ -422,6 +422,11 @@ export function PreAnalysisPanel({
   // Draft error state for error card
   const lastDraftError = useDraftStore(s => s.lastDraftError)
 
+  // Run error code (e.g. MISSING_INTERVENTIONS from V2 run) — surfaced by
+  // OutputsDock's coached-recovery banner. Used to suppress Must fix blockers
+  // whose message is already carried by that banner (UI-BUG-2).
+  const runErrorCode = useCanvasStore(s => s.results?.error?.code ?? null)
+
   // CEE analysis ready for feasibility + constraints
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
 
@@ -989,8 +994,8 @@ export function PreAnalysisPanel({
   // validation state. Lifted above mustFixCount so the count and the rendered
   // list stay consistent.
   const visibleEnrichedBlockers = useMemo(
-    () => filterRedundantBlockers(data.enrichedBlockers, lastDraftError),
-    [data.enrichedBlockers, lastDraftError],
+    () => filterRedundantBlockers(data.enrichedBlockers, lastDraftError, runErrorCode),
+    [data.enrichedBlockers, lastDraftError, runErrorCode],
   )
 
   const enrichedBlockerCount = !data.isReady ? visibleEnrichedBlockers.length : 0

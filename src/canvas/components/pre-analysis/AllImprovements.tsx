@@ -20,6 +20,7 @@ import { Check, Pencil, Plus, HelpCircle, ChevronDown, ChevronRight, Info } from
 import Tooltip from '../../../components/Tooltip'
 import type { ImprovementItem, ImprovementCategory, TiersData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
+import { classifyUnit } from '@/canvas/utils/labelUtils'
 import { ContestedEdgeCard } from '../model-tab/ContestedEdgeCard'
 import { DetailToggleContext } from '../model-tab/DetailToggleContext'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
@@ -1018,7 +1019,7 @@ function ImprovementRow({ item, onFocus, actionHandlers, isRemoving, onHoverEnte
                 if (e.key === 'Escape') handleValueCancel()
               }}
             />
-            {item.unit && (
+            {item.unit && classifyUnit(item.unit).kind !== 'placeholder' && (
               <span className={`${typography.panelMeta} text-text-light`}>{item.unit}</span>
             )}
             <button

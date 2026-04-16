@@ -344,11 +344,33 @@ export function OptionPreview({
         </div>
       </button>
 
-      {/* Coaching line — visible in collapsed state only */}
-      {!isExpanded && hasSameLeversCheck && (
-        <p className={`${typography.panelMeta} text-text-light px-3 pb-2`}>
-          Your options work through similar factors.
-        </p>
+      {/* UI-BUG-3: option names + coaching line are visible in collapsed
+          state so users always see what they're comparing. Only the
+          per-option intervention details collapse. */}
+      {!isExpanded && (
+        <div className="px-3 pb-2 space-y-0.5">
+          <ul className="flex flex-wrap gap-x-3 gap-y-0.5" data-testid="option-preview-collapsed-names">
+            {options.map(opt => (
+              <li key={opt.id}>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    onFocusNode?.(opt.id)
+                  }}
+                  className={`${typography.panelBody} text-text-body hover:underline cursor-pointer`}
+                >
+                  {opt.label}
+                </button>
+              </li>
+            ))}
+          </ul>
+          {hasSameLeversCheck && (
+            <p className={`${typography.panelMeta} text-text-light`}>
+              Your options work through similar factors.
+            </p>
+          )}
+        </div>
       )}
 
       {/* Content */}

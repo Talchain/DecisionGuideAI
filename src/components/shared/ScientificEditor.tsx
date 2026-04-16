@@ -14,6 +14,7 @@ import { useState, useCallback, useMemo } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import type { ValidationMetadata } from '@/canvas/domain/validation'
+import { classifyUnit } from '@/canvas/utils/labelUtils'
 
 // ── Strength band helpers ───────────────────────────────────────────────────
 
@@ -246,7 +247,9 @@ function FactorValueEditor({ rawValue, cap, unit, extractionType, onSave, onCanc
             if (e.key === 'Escape') onCancel()
           }}
         />
-        {unit && <span className={`${typography.panelMeta} text-text-light shrink-0`}>{unit}</span>}
+        {unit && classifyUnit(unit).kind !== 'placeholder' && (
+          <span className={`${typography.panelMeta} text-text-light shrink-0`}>{unit}</span>
+        )}
       </div>
       <SaveCancelButtons
         onSave={handleSave}

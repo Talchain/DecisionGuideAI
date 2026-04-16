@@ -21,6 +21,7 @@ import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { formatSmartNumber, formatValueWithUnit, getPrimaryValue, countFactorsToVerify } from './utils'
+import { classifyUnit } from '../../utils/labelUtils'
 import { InlineEdit } from './InlineEdit'
 import { SourceProvenancePill } from './SourceProvenancePill'
 import { DataBar } from '../../ui/shared/DataBar'
@@ -413,7 +414,7 @@ function FactorCard({
                 validate={validateNumeric}
                 maxWidth="max-w-[80px]"
                 numeric
-                suffix={obs.unit}
+                suffix={obs.unit && classifyUnit(obs.unit).kind !== 'placeholder' ? obs.unit : undefined}
                 testId={`factor-${node.id}-baseline`}
               />
             </div>

@@ -17,8 +17,8 @@ import { useHighlightContext } from '../../highlighting/HighlightContext'
 import { isCrossHighlightEnabled } from '../../../flags'
 import { trackGuidance } from '../../../telemetry/guidanceEvents'
 import { useCanvasStore } from '../../store'
-import { useGuidanceStore } from '../../stores/guidanceStore'
 import type { Node, Edge } from '@xyflow/react'
+import { DiscussWithAiButton } from './DiscussWithAiButton'
 
 // ---------------------------------------------------------------------------
 // § 1 — Types
@@ -36,7 +36,6 @@ export interface EvidenceGap {
 export interface WorthInvestigatingProps {
   gaps: EvidenceGap[]
   onSetValue?: (factorId: string) => void
-  onAskAI?: (factorId: string, factorLabel: string) => void
   /** Factor influence map for "Drives N%" labels (Task 4b) */
   factorInfluenceMap?: Map<string, number>
 }
@@ -102,7 +101,7 @@ export function deriveEvidenceGaps(nodes: Node[], edges: Edge[], voiMap?: Map<st
 
 const MAX_VISIBLE = 3
 
-export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSetValue, onAskAI, factorInfluenceMap }: WorthInvestigatingProps) {
+export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSetValue, factorInfluenceMap }: WorthInvestigatingProps) {
   const [expanded, setExpanded] = useState(false)
 
   // Hide entirely if zero gaps
@@ -129,7 +128,6 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
             key={gap.factorId}
             gap={gap}
             onSetValue={onSetValue}
-            onAskAI={onAskAI}
             factorInfluence={factorInfluenceMap?.get(gap.factorId)}
           />
         ))}
@@ -164,7 +162,7 @@ export const WorthInvestigating = memo(function WorthInvestigating({ gaps, onSet
 // § 4 — Individual gap row
 // ---------------------------------------------------------------------------
 
-function GapRow({ gap, onSetValue, onAskAI, factorInfluence }: { gap: EvidenceGap; onSetValue?: (id: string) => void; onAskAI?: (factorId: string, factorLabel: string) => void; factorInfluence?: number }) {
+function GapRow({ gap, onSetValue, factorInfluence }: { gap: EvidenceGap; onSetValue?: (id: string) => void; factorInfluence?: number }) {
   const { setHoveredFromPanel, hoveredElementId } = useHighlightContext()
   const crossHighlight = isCrossHighlightEnabled()
 
@@ -257,27 +255,10 @@ function GapRow({ gap, onSetValue, onAskAI, factorInfluence }: { gap: EvidenceGa
           Set value
         </button>
       )}
-      {(onAskAI || useGuidanceStore.getState()._dispatchAction) && (
-        <button
-          type="button"
-          onClick={() => {
-            const dispatch = useGuidanceStore.getState()._dispatchAction
-            if (dispatch) {
-              dispatch({
-                label: `Research ${gap.factorLabel}`,
-                message: `Can you research ${gap.factorLabel} and suggest a reasonable estimate with sources?`,
-                source: 'pre_analysis',
-                parameters: { target_id: gap.factorId, target_label: gap.factorLabel },
-              })
-            } else {
-              onAskAI?.(gap.factorId, gap.factorLabel)
-            }
-          }}
-          className={`${typography.panelMeta} text-info border border-info/30 bg-transparent px-2 py-1 rounded-full hover:bg-info/5 transition-colors`}
-        >
-          Ask AI to research
-        </button>
-      )}
+      <DiscussWithAiButton
+        element={{ kind: 'factor', label: gap.factorLabel }}
+        ariaLabel={`Discuss ${gap.factorLabel} with AI`}
+      />
     </li>
   )
 }
