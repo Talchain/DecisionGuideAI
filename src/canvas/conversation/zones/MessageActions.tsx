@@ -13,10 +13,11 @@ interface MessageActionsProps {
   role: 'user' | 'assistant'
   content: string
   onRetry?: () => void
+  /** @deprecated No longer used — kept for caller compatibility. */
   isFirst?: boolean
 }
 
-export function MessageActions({ role, content, onRetry, isFirst = false }: MessageActionsProps) {
+export function MessageActions({ role, content, onRetry }: MessageActionsProps) {
   const handleCopy = () => {
     navigator.clipboard.writeText(content).catch(() => {
       // Fallback silently
@@ -27,8 +28,8 @@ export function MessageActions({ role, content, onRetry, isFirst = false }: Mess
     <div
       className={`
         flex absolute z-10 pointer-events-auto
-        ${role === 'user' ? 'right-0' : 'left-0'}
-        ${isFirst ? 'top-2' : '-top-2.5'}
+        ${role === 'user' ? 'right-1' : 'left-1'}
+        top-1
       `}
       style={{ gap: 3 }}
       role="toolbar"

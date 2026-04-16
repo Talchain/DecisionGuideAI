@@ -405,3 +405,41 @@ describe('firstChangedKey', () => {
     expect(firstChangedKey({})).toBeUndefined()
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// Fix 1: add_edge resolves labels from same-patch add_node operations
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('describeOperation — add_edge with same-patch node labels (Fix 1)', () => {
+  it('resolves edge labels from add_node ops in the same patch via pre-indexed nodeLabels', () => {
+    // Simulates the GraphPatchBlockRenderer pre-indexing behaviour:
+    // add_node operations inject their labels into nodeLabels so that
+    // add_edge operations in the same patch can resolve them.
+    const nodeLabels = new Map<string, string>()
+    const ops: PatchOperation[] = [
+      { op: 'add_node', target_id: 'fac_pricing', data: { kind: 'factor', label: 'Pricing Strategy' } },
+      { op: 'add_node', target_id: 'fac_revenue', data: { kind: 'factor', label: 'Revenue' } },
+      { op: 'add_edge', target_id: 'edge_1', data: { source: 'fac_pricing', target: 'fac_revenue' } },
+    ]
+    // Pre-index add_node labels (mirrors GraphPatchBlockRenderer useMemo)
+    for (const op of ops) {
+      if (op.op === 'add_node' && !nodeLabels.has(op.target_id)) {
+        const label = typeof op.data?.label === 'string' ? op.data.label : ''
+        if (label) nodeLabels.set(op.target_id, label)
+      }
+    }
+    const deps = makeDeps({ nodeLabels })
+    const edgeOp = ops[2]
+    expect(describeOperation(edgeOp, deps)).toBe('Connect **Pricing Strategy** → **Revenue**')
+  })
+
+  it('without pre-indexing, the same edge falls through to generic "Add connection"', () => {
+    const deps = makeDeps() // empty nodeLabels
+    const op: PatchOperation = {
+      op: 'add_edge',
+      target_id: 'edge_1',
+      data: { source: 'fac_pricing', target: 'fac_revenue' },
+    }
+    expect(describeOperation(op, deps)).toBe('Add connection')
+  })
+})

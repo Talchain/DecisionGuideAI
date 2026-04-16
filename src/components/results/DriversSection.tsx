@@ -844,12 +844,37 @@ export function DriversSection({
   const displayDrivers = showAll ? visibleDrivers : visibleDrivers.slice(0, TOP_DRIVERS_COUNT)
   const hiddenCount = showAll ? 0 : Math.max(0, visibleDrivers.length - TOP_DRIVERS_COUNT)
 
-  // Get dominant factor's influence percentage
-  // Clamp to [0,1] before converting to percentage to handle out-of-range values
+  // Dominant factor warning: fire when top driver has ≥80% influence
+  const topDriver = visibleDrivers[0]
+  const topInfluence = topDriver ? (topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0) : 0
+  const showDominantWarning = topInfluence >= 0.8
+  const rawDominantLabel = data.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
+  const dominantLabel = cleanFactorLabel(rawDominantLabel).label
+  const dominantPct = Math.round(Math.min(1, topInfluence) * 100)
+
   return (
     <div className="space-y-4">
       {/* Ranking explainer */}
       <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
+
+      {/* Dominant factor warning — persistent, not dismissible */}
+      {showDominantWarning && dominantLabel && (
+        <div
+          className="p-3 bg-panel border border-warning/30 rounded-lg"
+          role="alert"
+          aria-label="Dominant factor warning"
+          data-testid="dominant-factor-warning"
+        >
+          <p className={`${typography.panelHeader} text-warning flex items-center gap-1.5 mb-1`}>
+            <TriangleAlert className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
+            Your result depends heavily on one factor
+          </p>
+          <p className={`${typography.panelBody} text-text-body`}>
+            {dominantLabel} drives {dominantPct}% of the outcome. If your assumptions about this factor are wrong, the recommendation could change. Consider gathering more evidence before committing.
+          </p>
+        </div>
+      )}
+
       {/* Column headers - right-aligned above bars only */}
       {/* NOTE: Panel title rendered by parent (OutputsDock section header) */}
       <div className={`grid ${GRID_COLS} gap-3 px-3`}>

@@ -107,9 +107,10 @@ export const ChatThread = memo(function ChatThread({
         // Hide user messages and the streaming placeholder while EmptyState is the loading hub
         if (showEmptyState && (msg.role === 'user' || msg.isStreaming)) return null
         const isLastAssistant = msg === lastAssistantMsg
-        return msg.sessionDivider ? (
-          <SessionDivider key={msg.id} text={msg.sessionDivider} />
-        ) : (
+        if (msg.sessionDivider) {
+          return <SessionDivider key={msg.id} text={msg.sessionDivider} />
+        }
+        const chatMsg = (
           <ChatMessage
             key={msg.id}
             message={msg}
@@ -127,12 +128,18 @@ export const ChatThread = memo(function ChatThread({
             onProposalConfirm={onProposalConfirm}
           />
         )
+        // Attach suggested chips directly below the last assistant message
+        // so they read as one visual unit rather than floating orphans.
+        if (isLastAssistant && suggestedChips.length > 0) {
+          return (
+            <div key={msg.id} data-testid="response-chip-group">
+              {chatMsg}
+              <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} isThinking={isThinking} />
+            </div>
+          )
+        }
+        return chatMsg
       })}
-
-      {/* Suggested chips after last assistant message (visible even while thinking; isThinking disables them) */}
-      {suggestedChips.length > 0 && (
-        <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} isThinking={isThinking} />
-      )}
 
       {/* ThinkingIndicator: only when EmptyState is NOT handling the loading display */}
       {isThinking && !showEmptyState && !messages.some(m => m.isStreaming) && (

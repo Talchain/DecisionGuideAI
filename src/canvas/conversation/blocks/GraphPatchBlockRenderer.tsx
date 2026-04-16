@@ -160,10 +160,18 @@ export function GraphPatchBlockRenderer({
   const canvasNodes = useCanvasStore(s => s.nodes)
   const canvasEdges = useCanvasStore(s => s.edges)
   const canvasNodeIds = useMemo(() => new Set(canvasNodes.map((n: { id: string }) => n.id)), [canvasNodes])
-  const nodeLabels = useMemo<Map<string, string>>(
-    () => new Map((canvasNodes ?? []).map((n) => [n.id, (n.data?.label as string) ?? ''])),
-    [canvasNodes],
-  )
+  const nodeLabels = useMemo<Map<string, string>>(() => {
+    const map = new Map((canvasNodes ?? []).map((n) => [n.id, (n.data?.label as string) ?? '']))
+    // Pre-index add_node operations so edges in the same patch can resolve labels
+    // for nodes that don't exist in the canvas store yet (e.g. full_draft patches).
+    for (const op of block.operations) {
+      if (op.op === 'add_node' && !map.has(op.target_id)) {
+        const label = typeof op.data?.label === 'string' ? op.data.label : ''
+        if (label) map.set(op.target_id, label)
+      }
+    }
+    return map
+  }, [canvasNodes, block.operations])
   const edgeEndpoints = useMemo<Map<string, { from: string; to: string }>>(
     () => new Map((canvasEdges ?? []).map((e) => [e.id, { from: e.source, to: e.target }])),
     [canvasEdges],
