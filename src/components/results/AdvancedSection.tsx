@@ -254,7 +254,7 @@ export function AdvancedSection({
               <p className="flex items-start gap-1.5">
                 <Info size={14} className="text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
                 <span>
-                  Olumi applied {modelAdjustmentsCount} model adjustment{modelAdjustmentsCount === 1 ? '' : 's'} before analysis — see Model tab.
+                  Olumi applied {modelAdjustmentsCount} model adjustment{modelAdjustmentsCount === 1 ? '' : 's'} before analysis. See Model tab for details.
                 </span>
               </p>
             )}
