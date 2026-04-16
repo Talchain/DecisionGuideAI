@@ -27,6 +27,8 @@ interface ConnectionRowProps {
   strength?: { weight: number; direction: 'positive' | 'negative' }
   techMode?: boolean
   onClick?: () => void
+  /** When true, label is not truncated (used by DriversList where full names matter) */
+  fullLabel?: boolean
 }
 
 export function ConnectionRow({
@@ -36,6 +38,7 @@ export function ConnectionRow({
   strength,
   techMode = false,
   onClick,
+  fullLabel = false,
 }: ConnectionRowProps) {
   const hoverClass = HOVER_BG[nodeKind] ?? 'hover:bg-panel-hover'
 
@@ -56,7 +59,7 @@ export function ConnectionRow({
       }`}
     >
       <NodeShapeIndicator nodeKind={nodeKind} size={16} />
-      <span className={`${typography.panelBody} text-text-body flex-1 truncate`}>{label}</span>
+      <span className={`${typography.panelBody} text-text-body flex-1 ${fullLabel ? 'break-words' : 'truncate'}`}>{label}</span>
       {badge}
       {strength && signedValue !== null && (
         <div className="flex items-center gap-1.5 min-w-[90px]">

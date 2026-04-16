@@ -331,9 +331,9 @@ export const EdgePanel = memo(function EdgePanel({
                     <SignedStrengthSlider value={localStrength} onChange={handleStrengthChange} onBlur={handleStrengthBlur} std={localStd} techMode={techMode} />
                   </div>
                   <div className="flex justify-between">
-                    <span className={`${typography.panelMeta} text-text-light`}>Strong negative</span>
-                    <span className={`${typography.panelMeta} text-text-light`}>No effect</span>
-                    <span className={`${typography.panelMeta} text-text-light`}>Strong positive</span>
+                    <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderStrongNegative}</span>
+                    <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderNoEffect}</span>
+                    <span className={`${typography.panelMeta} text-text-light`}>{EDGE_COPY.sliderStrongPositive}</span>
                   </div>
                 </div>
               </details>
@@ -404,18 +404,18 @@ export const EdgePanel = memo(function EdgePanel({
 
           {/* ── Evidence group ─────────────────────────────────── */}
           <PanelGroup kind="evidence" label={GROUP_LABELS.evidence}>
+            {/* Per-edge provenance is stripped by DraftChat (known limitation).
+                Default to fixed copy for all edges until un-stripped. */}
             <div className="bg-panel border border-panel-border rounded-lg p-2.5">
               <span
                 className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
                 style={{ border: '1px solid var(--warning)4D' }}
               >
-                {provenance ? getProvenanceLabel(provenance) : EDGE_COPY.noEvidenceTitle}
+                {EDGE_COPY.noEvidenceTitle}
               </span>
-              {!provenance && (
-                <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-                  {EDGE_COPY.noEvidenceBody}
-                </p>
-              )}
+              <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
+                {EDGE_COPY.noEvidenceBody}
+              </p>
             </div>
 
             {/* Calibration — contested validation */}
@@ -427,7 +427,7 @@ export const EdgePanel = memo(function EdgePanel({
                 <div className="mt-2 bg-panel border border-warning/30 rounded-lg p-2.5">
                   <div className={`${typography.panelBody} font-medium text-warning flex items-center gap-1`}>
                     <AlertTriangle size={13} className="text-warning" />
-                    Needs your judgement
+                    {EDGE_COPY.needsYourJudgement}
                   </div>
                   {validation.contested_reasons?.length > 0 && (
                     <p className={`${typography.panelMeta} text-text-light mt-1`}>

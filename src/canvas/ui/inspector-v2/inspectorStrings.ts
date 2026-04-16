@@ -116,6 +116,8 @@ export const EMPTY_STATES = {
   noInterventions:  'This option doesn\'t change any factors yet',
   noThreshold:      'Adding a specific target unlocks probability calculations',
   noEvidence:       'No calibration or external data. Providing evidence would improve trust in this connection.',
+  noInboundConnections: 'No inbound connections yet.',
+  noPrediction:     'No prediction available',
 } as const
 
 // ─── Group labels (v6.2 three-group layout) ───────────────────────
@@ -186,6 +188,10 @@ export const EDGE_COPY = {
   sliderMinPrecise: 'Precise',
   sliderMaxUncertain: 'Uncertain',
   existenceTooltip: 'How confident are you that this causal link is real?',
+  sliderStrongNegative: 'Strong negative',
+  sliderNoEffect: 'No effect',
+  sliderStrongPositive: 'Strong positive',
+  needsYourJudgement: 'Needs your judgement',
 } as const
 
 // ─── Baseline / option badges ─────────────────────────────────────

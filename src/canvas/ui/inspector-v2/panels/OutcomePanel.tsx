@@ -15,6 +15,7 @@ import {
   SECTION_TITLES,
   GROUP_LABELS,
   INLINE_LABELS,
+  EMPTY_STATES,
   DESCRIPTION_PLACEHOLDERS,
 } from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
@@ -115,7 +116,7 @@ function OptionComparisonSection({
               </div>
             )}
             {!hasPrediction && (
-              <div className={`${typography.panelMeta} text-text-light mt-1`}>—</div>
+              <div className={`${typography.panelMeta} text-text-light mt-1`}>{EMPTY_STATES.noPrediction}</div>
             )}
             {opt.win_probability != null && (
               <div className="mt-1">
@@ -237,7 +238,7 @@ export const OutcomePanel = memo(function OutcomePanel({
       <PanelGroup kind="connections" label={INLINE_LABELS.drivers}>
         <DriversList drivers={inboundFactors} techMode={techMode} onNavigate={onNavigate} />
         {inboundFactors.length === 0 && (
-          <p className={`${typography.panelMeta} text-text-light`}>No inbound connections yet.</p>
+          <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noInboundConnections}</p>
         )}
         <InspectorCoaching
           elementId={nodeId}

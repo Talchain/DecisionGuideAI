@@ -35,6 +35,7 @@ export function DriversList({ drivers, techMode, onNavigate }: DriversListProps)
           label={conn.label}
           strength={conn.strength}
           techMode={techMode}
+          fullLabel
           onClick={onNavigate ? () => onNavigate(conn.nodeId) : undefined}
         />
       ))}

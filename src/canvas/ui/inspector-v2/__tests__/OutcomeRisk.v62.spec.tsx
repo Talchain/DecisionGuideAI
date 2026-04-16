@@ -110,6 +110,30 @@ describe('OutcomePanel v6.2', () => {
   })
 })
 
+describe('DriversList v6.2 — no truncation, no badges', () => {
+  it('renders driver labels without truncate class', () => {
+    setOutcomeStore()
+    const { container } = render(<OutcomePanel {...outcomeProps} />)
+    const driverLabels = container.querySelectorAll('[data-testid="drivers-list"] span')
+    // Label spans should have break-words, not truncate
+    const labelSpans = Array.from(driverLabels).filter(el => el.textContent === 'Marketing budget' || el.textContent === 'Customer acquisition cost')
+    for (const span of labelSpans) {
+      expect(span.className).toContain('break-words')
+      expect(span.className).not.toContain('truncate')
+    }
+  })
+
+  it('does not render category badges on driver rows', () => {
+    setOutcomeStore()
+    const { container } = render(<OutcomePanel {...outcomeProps} />)
+    const driversList = container.querySelector('[data-testid="drivers-list"]')
+    // No badge text like "You can change this", "Outside your control", etc.
+    expect(driversList?.textContent).not.toContain('You can change this')
+    expect(driversList?.textContent).not.toContain('Outside your control')
+    expect(driversList?.textContent).not.toContain('You measure this')
+  })
+})
+
 describe('RiskPanel v6.2', () => {
   it('shows description when present', () => {
     setRiskStore()
