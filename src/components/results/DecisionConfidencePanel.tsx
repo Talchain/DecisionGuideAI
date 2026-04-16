@@ -457,6 +457,15 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       {/* 3. Trust summary + item count */}
       <TrustSummary actionCount={top3.length} />
 
+      {/* Empty state when all evidence gaps had zero impact (Brief 4 Task 9). */}
+      {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (
+        <div className="rounded-lg border border-panel-border bg-panel px-3 py-2">
+          <p className={`${typography.panelBody} text-text-light`}>
+            No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
+          </p>
+        </div>
+      )}
+
       {/* 4. Top 3 action cards */}
       {top3.length > 0 && (
         <div className="flex flex-col gap-1.5">

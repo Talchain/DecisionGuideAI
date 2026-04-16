@@ -2177,9 +2177,17 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           targetNodeId: gap.target_node_id,
         }))
 
+        // Brief 4 Task 9: Only gaps with strictly positive EVPI percentage
+        // points are worth surfacing — a card that says "gathering data on this
+        // factor would change nothing" is anti-coaching.
+        const positiveEvpi = evidenceGaps.filter(g => (g.evpiPp ?? 0) > 0)
+        const topEvidenceGaps = positiveEvpi.slice(0, 3)
+        const topEvidenceGapsEmpty = evidenceGaps.length > 0 && positiveEvpi.length === 0
+
         return {
           evidenceGaps,
-          topEvidenceGaps: evidenceGaps.slice(0, 3),
+          topEvidenceGaps,
+          topEvidenceGapsEmpty,
         }
       })(),
       // Task 5 (M1 Coaching): Next actions - sorted by priority, deduped against fragile edges

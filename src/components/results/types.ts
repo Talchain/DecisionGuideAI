@@ -471,8 +471,13 @@ export interface ConfidenceSectionData {
 
   /** M1 Coaching evidence gaps - areas where more data would improve decision confidence */
   evidenceGaps?: EvidenceGapItem[]
-  /** M1 Coaching top evidence gaps (max 3, sorted by VOI) */
+  /** M1 Coaching top evidence gaps (max 3, sorted by VOI, filtered by EVPI > 0) */
   topEvidenceGaps?: EvidenceGapItem[]
+  /**
+   * True when evidenceGaps existed but none had positive EVPI percentage points.
+   * Drives an empty-state card instead of an empty silent section.
+   */
+  topEvidenceGapsEmpty?: boolean
   /** M1 Coaching next actions - prioritised recommendations */
   nextActions?: NextActionItem[]
   /** M1 Coaching top next actions (max 3, sorted by priority) */

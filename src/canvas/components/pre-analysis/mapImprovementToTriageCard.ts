@@ -67,10 +67,24 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
     return item.hint
   }
 
-  // Phase 4 (Task 8) extends this to derive deterministic per-factor context
-  // from factor_sensitivity / graph degree. Until then, fall through so the
-  // pill (AI estimate / From brief / No data) carries the source signal
-  // without being echoed in the body.
+  // Brief 4 Task 8: deterministic per-factor context when no CEE hint.
+  // Priority: influence → EVPI → graph degree. All values trace to data
+  // already in the envelope or the canvas graph — no fabrication.
+  const ctx = item.sensitivityContext
+  if (ctx) {
+    if (typeof ctx.voi === 'number' && ctx.voi > 0.5) {
+      return `Drives ${Math.round(ctx.voi * 100)}% of outcome variance`
+    }
+    if (typeof ctx.evpiPp === 'number' && ctx.evpiPp > 0.3) {
+      const pp = Math.round(ctx.evpiPp * 10) / 10
+      return `Resolving could improve confidence by ${pp}pp`
+    }
+    if (typeof ctx.downstreamDegree === 'number' && ctx.downstreamDegree > 0) {
+      const suffix = ctx.downstreamDegree === 1 ? 'relationship' : 'relationships'
+      return `Connects to ${ctx.downstreamDegree} downstream ${suffix}`
+    }
+  }
+
   return undefined
 }
 
