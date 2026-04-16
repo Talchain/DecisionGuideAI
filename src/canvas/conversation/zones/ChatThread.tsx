@@ -132,7 +132,7 @@ export const ChatThread = memo(function ChatThread({
         // so they read as one visual unit rather than floating orphans.
         if (isLastAssistant && suggestedChips.length > 0) {
           return (
-            <div key={msg.id} data-testid="response-chip-group">
+            <div key={msg.id} className="response-chip-group" data-testid="response-chip-group">
               {chatMsg}
               <SuggestedChips chips={suggestedChips} onChipClick={onChipClick} isThinking={isThinking} />
             </div>
@@ -167,6 +167,9 @@ export const ChatThread = memo(function ChatThread({
       )}
 
       <div ref={listEndRef} />
+
+      {/* Collapse ChatMessage bottom margin when chips are attached to form one visual unit */}
+      <style>{`.response-chip-group > [data-testid^="chat-message-"] { margin-bottom: 0; }`}</style>
     </div>
   )
 })

@@ -50,7 +50,7 @@ describe('DriversSection: dominant-factor warning', () => {
 
     const warning = screen.getByTestId('dominant-factor-warning')
     expect(warning).toBeInTheDocument()
-    expect(warning).toHaveAttribute('role', 'alert')
+    expect(warning).toHaveAttribute('role', 'status')
     expect(warning.textContent).toContain('Your result depends heavily on one factor')
     expect(warning.textContent).toContain('Market Size')
     expect(warning.textContent).toContain('95%')

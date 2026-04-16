@@ -861,7 +861,7 @@ export function DriversSection({
       {showDominantWarning && dominantLabel && (
         <div
           className="p-3 bg-panel border border-warning/30 rounded-lg"
-          role="alert"
+          role="status"
           aria-label="Dominant factor warning"
           data-testid="dominant-factor-warning"
         >

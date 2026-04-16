@@ -2,8 +2,8 @@
  * MessageActions — hover/focus action bar on messages.
  *
  * User messages: Copy. AI messages: Copy, Retry.
- * Individual 26px circle buttons, bg-panel, border-default, shadow-s1.
- * Hover: border transitions to info. Positioned absolute above message.
+ * 26px visual circle inside 44px touch target (DS v5 §8.11).
+ * Hover: border transitions to info. Positioned absolute inside message card.
  * User: right-aligned. AI: left-aligned.
  */
 
@@ -28,10 +28,10 @@ export function MessageActions({ role, content, onRetry }: MessageActionsProps) 
     <div
       className={`
         flex absolute z-10 pointer-events-auto
-        ${role === 'user' ? 'right-1' : 'left-1'}
-        top-1
+        ${role === 'user' ? 'right-0' : 'left-0'}
+        top-0
       `}
-      style={{ gap: 3 }}
+      style={{ margin: '-9px' }}
       role="toolbar"
       aria-label="Message actions"
       data-testid="message-actions"
@@ -59,19 +59,29 @@ function ActionButton({
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={`
-        w-[26px] h-[26px] flex items-center justify-center rounded-full
-        bg-panel text-text-light cursor-pointer
-        hover:border-info hover:text-info
-        transition-all duration-100
+      className="
+        group/action w-[44px] h-[44px] flex items-center justify-center
+        cursor-pointer
         focus-visible:ring-2 focus-visible:ring-info focus-visible:outline-none
-      `}
-      style={{
-        border: '1px solid var(--border-default, #EEE6D8)',
-        boxShadow: '0 1px 2px rgba(38,38,38,0.06)',
-      }}
+        rounded-full
+      "
     >
-      <Icon className="w-3 h-3" strokeWidth={1.8} aria-hidden="true" />
+      {/* 26px visual circle inside 44px touch target (DS v5 §8.11) */}
+      <span
+        className="
+          w-[26px] h-[26px] flex items-center justify-center rounded-full
+          bg-panel text-text-light
+          group-hover/action:border-info group-hover/action:text-info
+          transition-all duration-100
+        "
+        style={{
+          border: '1px solid var(--border-default, #EEE6D8)',
+          boxShadow: '0 1px 2px rgba(38,38,38,0.06)',
+        }}
+        aria-hidden="true"
+      >
+        <Icon className="w-3 h-3" strokeWidth={1.8} />
+      </span>
     </button>
   )
 }

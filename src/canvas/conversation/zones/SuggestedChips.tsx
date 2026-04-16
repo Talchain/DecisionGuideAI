@@ -65,10 +65,9 @@ export function SuggestedChips({
   }
 
   return (
-    <div className="flex flex-col self-start" style={{ gap: 4, marginBottom: 8 }}>
+    <div className="flex flex-col self-start gap-1 mb-2">
       <div
-        className="flex flex-wrap"
-        style={{ gap: 8, marginTop: 8 }}
+        className="flex flex-wrap gap-2 mt-1"
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {
