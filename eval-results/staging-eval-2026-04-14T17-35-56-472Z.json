@@ -1,0 +1,1244 @@
+{
+  "version": 1,
+  "mode": "stream",
+  "startedAt": "2026-04-14T17:35:11.262Z",
+  "finishedAt": "2026-04-14T17:35:56.471Z",
+  "env": {
+    "CEE_BASE_URL": "https://cee-staging.onrender.com",
+    "node": "v20.19.5"
+  },
+  "scenarios": [
+    {
+      "name": "s1-add-option",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s1-add-option",
+          "turn_type": "explicit_generate",
+          "message": "Should I raise £250k or £750k for my startup?",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 9992,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Your core trade-off is capital efficiency versus growth runway: £250k keeps you lean and preserves equity, while £750k buys more time and firepower but dilutes more and raises the bar for your next round.\n\nTo build a useful model, I need a bit more context on two things: what stage is your startup a",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "d7b10f51-03e1-4bec-b85a-daf3e64b3926",
+            "client_turn_id": "7cfe1d49-7730-40c8-9c2b-ac193af34195",
+            "conversation_history": [],
+            "message": "Should I raise £250k or £750k for my startup?",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "e5d2b90b-390c-459a-b636-5917a2d1c216",
+            "assistant_text": "Your core trade-off is capital efficiency versus growth runway: £250k keeps you lean and preserves equity, while £750k buys more time and firepower but dilutes more and raises the bar for your next round.\n\nTo build a useful model, I need a bit more context on two things: what stage is your startup at and what would each raise actually fund, and what outcome are you optimising for (extending runway, hitting a specific milestone, minimising dilution)?\n\n- \"Pre-revenue SaaS, optimising for runway to product-market fit\"\n- \"Early traction, optimising for growth milestone to raise Series A\"\n- \"Draft with assumptions, I'll refine after\"",
+            "blocks": [],
+            "suggested_actions": [],
+            "lineage": {
+              "context_hash": "c3fd70bd3e2e2e19e131fc9bc19b0d7aa76cc311c0dfe9ef0348f7f0a1c7a566"
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false,
+              "tool_latency_ms": 9701,
+              "executed_tools": [],
+              "deferred_tools": []
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "high",
+              "source": "inferred"
+            },
+            "response_version": 2,
+            "guidance_items": [],
+            "updated_session_state": {
+              "prediction": null,
+              "calibrations_provided": [],
+              "plays_fired": [],
+              "questions_asked": [],
+              "accepted_patches": 0,
+              "dismissed_patches": 0,
+              "last_chip_ids_shown": [],
+              "chip_ids_shown_prev_turn": [],
+              "chip_ids_clicked": [],
+              "last_question_turn": 0,
+              "preferred_option": null,
+              "convergence_signal": "exploring"
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 361
+            },
+            {
+              "seq": 1,
+              "type": "text_delta",
+              "t_ms": 6123
+            },
+            {
+              "seq": 2,
+              "type": "text_delta",
+              "t_ms": 6402
+            },
+            {
+              "seq": 3,
+              "type": "text_delta",
+              "t_ms": 6812
+            },
+            {
+              "seq": 4,
+              "type": "text_delta",
+              "t_ms": 7179
+            },
+            {
+              "seq": 5,
+              "type": "text_delta",
+              "t_ms": 7602
+            },
+            {
+              "seq": 6,
+              "type": "text_delta",
+              "t_ms": 7974
+            },
+            {
+              "seq": 7,
+              "type": "text_delta",
+              "t_ms": 8340
+            },
+            {
+              "seq": 8,
+              "type": "text_delta",
+              "t_ms": 8751
+            },
+            {
+              "seq": 9,
+              "type": "text_delta",
+              "t_ms": 9094
+            },
+            {
+              "seq": 10,
+              "type": "text_delta",
+              "t_ms": 9488
+            },
+            {
+              "seq": 11,
+              "type": "text_delta",
+              "t_ms": 9864
+            },
+            {
+              "seq": 12,
+              "type": "text_delta",
+              "t_ms": 9961
+            },
+            {
+              "seq": 13,
+              "type": "turn_complete",
+              "t_ms": 9991
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s2-fix-connection",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s2-fix-connection",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two developers?",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 7141,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Your core trade-off is leadership depth versus delivery capacity. To model this well, I need a little more context on what you're optimising for and what constraints you're working within.\n\nYou're weighing a single senior hire against two mid-level developers. I can see the options clearly, but I'm ",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "bbb6ebe3-a65a-4fc0-b4ab-7656ac6313fb",
+            "client_turn_id": "ad1011b8-b0c4-4fc9-b9cb-55b4b4ca6ce5",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two developers?",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "f36557b4-8ad5-4961-94db-9b9458833a35",
+            "assistant_text": "Your core trade-off is leadership depth versus delivery capacity. To model this well, I need a little more context on what you're optimising for and what constraints you're working within.\n\nYou're weighing a single senior hire against two mid-level developers. I can see the options clearly, but I'm missing the goal and key constraints. What outcome matters most, and what are your limits?\n\nWhat's your primary goal, and what constraints apply?\n- What are you trying to achieve: ship faster, build long-term capability, or stay within a budget?\n- Do you have a budget ceiling, a deadline, or both?\n\nOr I can draft with assumptions and you refine after.\n\nQuick paths:\n- \"Budget £150k, need to ship in 6 months, optimising for speed\"\n- \"Budget $200k, building a team for the long term\"\n- \"Draft with assumptions, I'll refine\"",
+            "blocks": [],
+            "suggested_actions": [],
+            "lineage": {
+              "context_hash": "c3fd70bd3e2e2e19e131fc9bc19b0d7aa76cc311c0dfe9ef0348f7f0a1c7a566"
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false,
+              "tool_latency_ms": 6862,
+              "executed_tools": [],
+              "deferred_tools": []
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "high",
+              "source": "inferred"
+            },
+            "response_version": 2,
+            "guidance_items": [],
+            "updated_session_state": {
+              "prediction": null,
+              "calibrations_provided": [],
+              "plays_fired": [],
+              "questions_asked": [],
+              "accepted_patches": 0,
+              "dismissed_patches": 0,
+              "last_chip_ids_shown": [],
+              "chip_ids_shown_prev_turn": [],
+              "chip_ids_clicked": [],
+              "last_question_turn": 0,
+              "preferred_option": null,
+              "convergence_signal": "exploring"
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 324
+            },
+            {
+              "seq": 1,
+              "type": "text_delta",
+              "t_ms": 2036
+            },
+            {
+              "seq": 2,
+              "type": "text_delta",
+              "t_ms": 2422
+            },
+            {
+              "seq": 3,
+              "type": "text_delta",
+              "t_ms": 2799
+            },
+            {
+              "seq": 4,
+              "type": "text_delta",
+              "t_ms": 3176
+            },
+            {
+              "seq": 5,
+              "type": "text_delta",
+              "t_ms": 3559
+            },
+            {
+              "seq": 6,
+              "type": "text_delta",
+              "t_ms": 3993
+            },
+            {
+              "seq": 7,
+              "type": "text_delta",
+              "t_ms": 4346
+            },
+            {
+              "seq": 8,
+              "type": "text_delta",
+              "t_ms": 4686
+            },
+            {
+              "seq": 9,
+              "type": "text_delta",
+              "t_ms": 5091
+            },
+            {
+              "seq": 10,
+              "type": "text_delta",
+              "t_ms": 5566
+            },
+            {
+              "seq": 11,
+              "type": "text_delta",
+              "t_ms": 5858
+            },
+            {
+              "seq": 12,
+              "type": "text_delta",
+              "t_ms": 6220
+            },
+            {
+              "seq": 13,
+              "type": "text_delta",
+              "t_ms": 6659
+            },
+            {
+              "seq": 14,
+              "type": "text_delta",
+              "t_ms": 7141
+            },
+            {
+              "seq": 15,
+              "type": "turn_complete",
+              "t_ms": 7141
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s3-update-factor",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s3-update-factor",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two developers?",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 5888,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Your core trade-off is leadership depth versus delivery capacity. To model this well, I need a little more context on what you're optimising for and what constraints are in play.\n\nYou're weighing a single senior hire against two mid-level developers. What's the goal and situation here?\n\n- What are y",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "31915781-4e78-4ef0-94d5-15e53f13c89c",
+            "client_turn_id": "3fba7018-ebdc-40ae-9d51-d0b538c92870",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two developers?",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "fcf8e250-6811-4057-83cc-39d1aeac3aaf",
+            "assistant_text": "Your core trade-off is leadership depth versus delivery capacity. To model this well, I need a little more context on what you're optimising for and what constraints are in play.\n\nYou're weighing a single senior hire against two mid-level developers. What's the goal and situation here?\n\n- What are you optimising for? Shipping speed, code quality, team growth, or something else?\n- Any budget or timeline constraints? A hard ceiling or deadline would shape the recommendation significantly.\n\nQuick paths to get started:\n\n- \"200k budget, need to ship in 6 months, optimising for speed\"\n- \"No hard budget, building a long-term engineering team\"\n- \"Draft with assumptions, I'll refine after\"",
+            "blocks": [],
+            "suggested_actions": [],
+            "lineage": {
+              "context_hash": "c3fd70bd3e2e2e19e131fc9bc19b0d7aa76cc311c0dfe9ef0348f7f0a1c7a566"
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false,
+              "tool_latency_ms": 5671,
+              "executed_tools": [],
+              "deferred_tools": []
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "high",
+              "source": "inferred"
+            },
+            "response_version": 2,
+            "guidance_items": [],
+            "updated_session_state": {
+              "prediction": null,
+              "calibrations_provided": [],
+              "plays_fired": [],
+              "questions_asked": [],
+              "accepted_patches": 0,
+              "dismissed_patches": 0,
+              "last_chip_ids_shown": [],
+              "chip_ids_shown_prev_turn": [],
+              "chip_ids_clicked": [],
+              "last_question_turn": 0,
+              "preferred_option": null,
+              "convergence_signal": "exploring"
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 219
+            },
+            {
+              "seq": 1,
+              "type": "text_delta",
+              "t_ms": 1717
+            },
+            {
+              "seq": 2,
+              "type": "text_delta",
+              "t_ms": 2093
+            },
+            {
+              "seq": 3,
+              "type": "text_delta",
+              "t_ms": 2457
+            },
+            {
+              "seq": 4,
+              "type": "text_delta",
+              "t_ms": 2796
+            },
+            {
+              "seq": 5,
+              "type": "text_delta",
+              "t_ms": 3189
+            },
+            {
+              "seq": 6,
+              "type": "text_delta",
+              "t_ms": 3670
+            },
+            {
+              "seq": 7,
+              "type": "text_delta",
+              "t_ms": 3984
+            },
+            {
+              "seq": 8,
+              "type": "text_delta",
+              "t_ms": 4349
+            },
+            {
+              "seq": 9,
+              "type": "text_delta",
+              "t_ms": 4799
+            },
+            {
+              "seq": 10,
+              "type": "text_delta",
+              "t_ms": 5107
+            },
+            {
+              "seq": 11,
+              "type": "text_delta",
+              "t_ms": 5538
+            },
+            {
+              "seq": 12,
+              "type": "text_delta",
+              "t_ms": 5847
+            },
+            {
+              "seq": 13,
+              "type": "turn_complete",
+              "t_ms": 5887
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s4-pros-cons",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s4-pros-cons",
+          "turn_type": "explicit_generate",
+          "message": "Should I raise £250k or £750k?",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 5644,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "You're weighing a smaller, faster raise against a larger, more ambitious one. I can see the options clearly, but I'm missing two things that would shape the model significantly.\n\nWhat are you optimising for? Runway, equity dilution, growth speed, or hitting a specific milestone?\n\nWhat's the context?",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "14b97cd1-2907-4543-bd76-57b313ac1328",
+            "client_turn_id": "506a7eb4-9012-47e0-91d0-9f543dfe3f4d",
+            "conversation_history": [],
+            "message": "Should I raise £250k or £750k?",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "235d3428-cdc7-47fa-888f-a606c92cfdb0",
+            "assistant_text": "You're weighing a smaller, faster raise against a larger, more ambitious one. I can see the options clearly, but I'm missing two things that would shape the model significantly.\n\nWhat are you optimising for? Runway, equity dilution, growth speed, or hitting a specific milestone?\n\nWhat's the context? Pre-product, post-revenue, bridge round, or something else?\n\nOr I can draft with assumptions and you refine after.\n\n- \"Pre-revenue SaaS, optimising for runway\"\n- \"Post-revenue, optimising for growth speed\"\n- \"Draft with assumptions, I'll refine\"",
+            "blocks": [],
+            "suggested_actions": [],
+            "lineage": {
+              "context_hash": "c3fd70bd3e2e2e19e131fc9bc19b0d7aa76cc311c0dfe9ef0348f7f0a1c7a566"
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false,
+              "tool_latency_ms": 5399,
+              "executed_tools": [],
+              "deferred_tools": []
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "high",
+              "source": "inferred"
+            },
+            "response_version": 2,
+            "guidance_items": [],
+            "updated_session_state": {
+              "prediction": null,
+              "calibrations_provided": [],
+              "plays_fired": [],
+              "questions_asked": [],
+              "accepted_patches": 0,
+              "dismissed_patches": 0,
+              "last_chip_ids_shown": [],
+              "chip_ids_shown_prev_turn": [],
+              "chip_ids_clicked": [],
+              "last_question_turn": 0,
+              "preferred_option": null,
+              "convergence_signal": "exploring"
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 214
+            },
+            {
+              "seq": 1,
+              "type": "text_delta",
+              "t_ms": 2106
+            },
+            {
+              "seq": 2,
+              "type": "text_delta",
+              "t_ms": 2511
+            },
+            {
+              "seq": 3,
+              "type": "text_delta",
+              "t_ms": 3191
+            },
+            {
+              "seq": 4,
+              "type": "text_delta",
+              "t_ms": 3295
+            },
+            {
+              "seq": 5,
+              "type": "text_delta",
+              "t_ms": 3705
+            },
+            {
+              "seq": 6,
+              "type": "text_delta",
+              "t_ms": 4071
+            },
+            {
+              "seq": 7,
+              "type": "text_delta",
+              "t_ms": 4594
+            },
+            {
+              "seq": 8,
+              "type": "text_delta",
+              "t_ms": 4838
+            },
+            {
+              "seq": 9,
+              "type": "text_delta",
+              "t_ms": 5225
+            },
+            {
+              "seq": 10,
+              "type": "text_delta",
+              "t_ms": 5548
+            },
+            {
+              "seq": 11,
+              "type": "turn_complete",
+              "t_ms": 5644
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s5-run-analysis",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s5-run-analysis",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two developers?",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 4822,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Your core trade-off is leadership depth versus delivery throughput. A tech lead brings direction and architecture; two developers bring raw capacity. The right answer depends heavily on where your bottleneck actually sits.\n\nA couple of things would help me build a useful model straight away:\n\nWhat's",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "28454ce9-0657-4e63-bf83-0e4a14a5432e",
+            "client_turn_id": "65702443-1400-4f89-a969-7177bd5f0bd3",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two developers?",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "41e2b606-5339-429d-baaa-2dd1d94e9e1d",
+            "assistant_text": "Your core trade-off is leadership depth versus delivery throughput. A tech lead brings direction and architecture; two developers bring raw capacity. The right answer depends heavily on where your bottleneck actually sits.\n\nA couple of things would help me build a useful model straight away:\n\nWhat's your context here? Specifically: what's your budget and timeline, and what are you optimising for, shipping speed, code quality, or team scalability?\n\n- \"£150k budget, 6-month deadline, optimising for shipping speed\"\n- \"£200k budget, building a team long-term, quality matters most\"\n- \"Draft with assumptions, I'll refine after\"",
+            "blocks": [],
+            "suggested_actions": [],
+            "lineage": {
+              "context_hash": "c3fd70bd3e2e2e19e131fc9bc19b0d7aa76cc311c0dfe9ef0348f7f0a1c7a566"
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false,
+              "tool_latency_ms": 4590,
+              "executed_tools": [],
+              "deferred_tools": []
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "high",
+              "source": "inferred"
+            },
+            "response_version": 2,
+            "guidance_items": [],
+            "updated_session_state": {
+              "prediction": null,
+              "calibrations_provided": [],
+              "plays_fired": [],
+              "questions_asked": [],
+              "accepted_patches": 0,
+              "dismissed_patches": 0,
+              "last_chip_ids_shown": [],
+              "chip_ids_shown_prev_turn": [],
+              "chip_ids_clicked": [],
+              "last_question_turn": 0,
+              "preferred_option": null,
+              "convergence_signal": "exploring"
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 238
+            },
+            {
+              "seq": 1,
+              "type": "text_delta",
+              "t_ms": 1126
+            },
+            {
+              "seq": 2,
+              "type": "text_delta",
+              "t_ms": 1570
+            },
+            {
+              "seq": 3,
+              "type": "text_delta",
+              "t_ms": 1895
+            },
+            {
+              "seq": 4,
+              "type": "text_delta",
+              "t_ms": 2257
+            },
+            {
+              "seq": 5,
+              "type": "text_delta",
+              "t_ms": 2661
+            },
+            {
+              "seq": 6,
+              "type": "text_delta",
+              "t_ms": 3038
+            },
+            {
+              "seq": 7,
+              "type": "text_delta",
+              "t_ms": 3405
+            },
+            {
+              "seq": 8,
+              "type": "text_delta",
+              "t_ms": 3805
+            },
+            {
+              "seq": 9,
+              "type": "text_delta",
+              "t_ms": 4223
+            },
+            {
+              "seq": 10,
+              "type": "text_delta",
+              "t_ms": 4716
+            },
+            {
+              "seq": 11,
+              "type": "text_delta",
+              "t_ms": 4797
+            },
+            {
+              "seq": 12,
+              "type": "turn_complete",
+              "t_ms": 4822
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s6-explain-after-analysis",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s6-explain-after-analysis",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two developers?",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 6189,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Your core trade-off is leadership depth versus delivery capacity. To model this well, I need a little more context on what you're optimising for and what constraints are in play.\n\nYou're weighing a single senior hire (direction, architecture, mentorship) against two mid-level hires (raw throughput, ",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "894e8d18-9c3a-4884-a45d-c5541fffcb54",
+            "client_turn_id": "38247233-31c8-4f52-becb-6a89e53bae09",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two developers?",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "6ee33439-ebb2-4b38-86d9-46408965cdc0",
+            "assistant_text": "Your core trade-off is leadership depth versus delivery capacity. To model this well, I need a little more context on what you're optimising for and what constraints are in play.\n\nYou're weighing a single senior hire (direction, architecture, mentorship) against two mid-level hires (raw throughput, parallel workstreams). The right answer depends heavily on your timeline, budget, and whether your team already has technical direction covered.\n\nWhat's the situation? Pick the closest fit:\n\n- \"6-month deadline, 200k budget, need to ship AI features fast\"\n- \"Early-stage startup, no senior tech on the team yet, runway is 18 months\"\n- \"Scaling an existing team, architecture is sorted, need more hands\"\n- \"Draft with assumptions, I'll refine after\"",
+            "blocks": [],
+            "suggested_actions": [],
+            "lineage": {
+              "context_hash": "c3fd70bd3e2e2e19e131fc9bc19b0d7aa76cc311c0dfe9ef0348f7f0a1c7a566"
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false,
+              "tool_latency_ms": 5980,
+              "executed_tools": [],
+              "deferred_tools": []
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "high",
+              "source": "inferred"
+            },
+            "response_version": 2,
+            "guidance_items": [],
+            "updated_session_state": {
+              "prediction": null,
+              "calibrations_provided": [],
+              "plays_fired": [],
+              "questions_asked": [],
+              "accepted_patches": 0,
+              "dismissed_patches": 0,
+              "last_chip_ids_shown": [],
+              "chip_ids_shown_prev_turn": [],
+              "chip_ids_clicked": [],
+              "last_question_turn": 0,
+              "preferred_option": null,
+              "convergence_signal": "exploring"
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 222
+            },
+            {
+              "seq": 1,
+              "type": "text_delta",
+              "t_ms": 1478
+            },
+            {
+              "seq": 2,
+              "type": "text_delta",
+              "t_ms": 1842
+            },
+            {
+              "seq": 3,
+              "type": "text_delta",
+              "t_ms": 2245
+            },
+            {
+              "seq": 4,
+              "type": "text_delta",
+              "t_ms": 2634
+            },
+            {
+              "seq": 5,
+              "type": "text_delta",
+              "t_ms": 3039
+            },
+            {
+              "seq": 6,
+              "type": "text_delta",
+              "t_ms": 3563
+            },
+            {
+              "seq": 7,
+              "type": "text_delta",
+              "t_ms": 3819
+            },
+            {
+              "seq": 8,
+              "type": "text_delta",
+              "t_ms": 4212
+            },
+            {
+              "seq": 9,
+              "type": "text_delta",
+              "t_ms": 4514
+            },
+            {
+              "seq": 10,
+              "type": "text_delta",
+              "t_ms": 4871
+            },
+            {
+              "seq": 11,
+              "type": "text_delta",
+              "t_ms": 5253
+            },
+            {
+              "seq": 12,
+              "type": "text_delta",
+              "t_ms": 5692
+            },
+            {
+              "seq": 13,
+              "type": "text_delta",
+              "t_ms": 6066
+            },
+            {
+              "seq": 14,
+              "type": "text_delta",
+              "t_ms": 6182
+            },
+            {
+              "seq": 15,
+              "type": "turn_complete",
+              "t_ms": 6189
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s7-chip-starvation",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s7-chip-starvation",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two developers?",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 5518,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Your core trade-off is leadership depth versus delivery throughput. A tech lead brings direction and architecture; two developers bring raw capacity. The right answer depends heavily on where your bottleneck actually sits.\n\nA couple of things would help me build a useful model straight away:\n\nWhat's",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "40f5fd74-a2f6-4fb4-a2cd-b0c4ee47b339",
+            "client_turn_id": "b4e326cc-a4bc-4b71-a401-2299bd79bdf7",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two developers?",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "8b6467aa-7d1d-43a5-bdb1-086e4ebcb0db",
+            "assistant_text": "Your core trade-off is leadership depth versus delivery throughput. A tech lead brings direction and architecture; two developers bring raw capacity. The right answer depends heavily on where your bottleneck actually sits.\n\nA couple of things would help me build a useful model straight away:\n\nWhat's your context here? Specifically: what's your budget and timeline, and what are you optimising for, shipping speed, code quality, or team scalability?\n\n- \"£150k budget, 6-month deadline, optimising for shipping speed\"\n- \"£200k budget, building a team long-term, quality matters most\"\n- \"Draft with assumptions, I'll refine after\"",
+            "blocks": [],
+            "suggested_actions": [],
+            "lineage": {
+              "context_hash": "c3fd70bd3e2e2e19e131fc9bc19b0d7aa76cc311c0dfe9ef0348f7f0a1c7a566"
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false,
+              "tool_latency_ms": 5295,
+              "executed_tools": [],
+              "deferred_tools": []
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "high",
+              "source": "inferred"
+            },
+            "response_version": 2,
+            "guidance_items": [],
+            "updated_session_state": {
+              "prediction": null,
+              "calibrations_provided": [],
+              "plays_fired": [],
+              "questions_asked": [],
+              "accepted_patches": 0,
+              "dismissed_patches": 0,
+              "last_chip_ids_shown": [],
+              "chip_ids_shown_prev_turn": [],
+              "chip_ids_clicked": [],
+              "last_question_turn": 0,
+              "preferred_option": null,
+              "convergence_signal": "exploring"
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 214
+            },
+            {
+              "seq": 1,
+              "type": "text_delta",
+              "t_ms": 1756
+            },
+            {
+              "seq": 2,
+              "type": "text_delta",
+              "t_ms": 2131
+            },
+            {
+              "seq": 3,
+              "type": "text_delta",
+              "t_ms": 2514
+            },
+            {
+              "seq": 4,
+              "type": "text_delta",
+              "t_ms": 2979
+            },
+            {
+              "seq": 5,
+              "type": "text_delta",
+              "t_ms": 3400
+            },
+            {
+              "seq": 6,
+              "type": "text_delta",
+              "t_ms": 3737
+            },
+            {
+              "seq": 7,
+              "type": "text_delta",
+              "t_ms": 4039
+            },
+            {
+              "seq": 8,
+              "type": "text_delta",
+              "t_ms": 4412
+            },
+            {
+              "seq": 9,
+              "type": "text_delta",
+              "t_ms": 4825
+            },
+            {
+              "seq": 10,
+              "type": "text_delta",
+              "t_ms": 5239
+            },
+            {
+              "seq": 11,
+              "type": "text_delta",
+              "t_ms": 5470
+            },
+            {
+              "seq": 12,
+              "type": "turn_complete",
+              "t_ms": 5518
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    }
+  ]
+}

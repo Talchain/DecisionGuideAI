@@ -1,0 +1,447 @@
+
+> decision-mind@2.0.0 test
+> vitest run --reporter=verbose --reporter=verbose
+
+
+ RUN  v1.6.1 /Users/paulslee/Documents/GitHub/DecisionGuideAI
+
+[baseline-browser-mapping] The data in this module is over two months old.  To ensure accurate Baseline data, please update: `npm i baseline-browser-mapping@latest -D`
+stderr | src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > includes factor regardless of intervention format
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+
+stderr | src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 5: many_ai_estimates suppression > fires many_ai_estimates when all factors are AI-sourced with values
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+
+stderr | src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 5: many_ai_estimates suppression > shows many_ai_estimates check when reviewable assumptions exist
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+
+stderr | src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 5: many_ai_estimates suppression > fires many_ai_estimates even when all factors are binary levers
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+
+stderr | src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 1: brief_extraction intervention targets excluded > excludes brief_extraction factors when targeted by interventions
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+
+stderr | src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 3: coaching_summary from CEE > uses CEE coaching_summary as primary coaching line when present
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+[V2Adapter] Unknown option status "undefined", returning 'unknown'
+
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Improvement Categorisation > baseline nudge appears only in Model quality, not duplicated in Strengthen
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Improvement Categorisation > adds fewer_than_2_options to Fix when <2 options
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Improvement Categorisation > adds AI-inferred factors to Verify category
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Improvement Categorisation > adds edges without evidence to Add evidence category
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Improvement Categorisation > adds no_risks to Strengthen when no risk nodes (coaching format)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns Low when 0% factors are confirmed
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns Medium when 50% factors are confirmed
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns High when ≥70% factors are confirmed
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns High when 3/4 factors are brief_extraction (1 cee_inference)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns Medium when 2/4 factors are brief_extraction (2 cee_inference)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns High when 1 factor is user_confirmed
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns Low when 1/4 factors are non-AI (1 brief_extraction + 3 cee_inference)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns Low when 0 total factors (no data)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns Low when 0/3 factors are non-AI (all cee_inference)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns High when factors have no observed_state (undefined source)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns High when factors have default source
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Evidence Quality > returns nonAiCount and totalCount for source distribution tooltip
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Loading State > returns isLoading=true when ceeAnalysisReady is null and nodes exist
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Loading State > returns isLoading=false when ceeAnalysisReady is null and no nodes exist
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Loading State > returns isLoading=false when ceeAnalysisReady has data
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Top Actions > returns max 3 items
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Top Actions > prioritises Fix items first
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > isReady and hasBlockers > hasBlockers is true when existing hook reports hasBlockers
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > isReady and hasBlockers > isReady is false when existing hook reports canRun is false
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > isReady and hasBlockers > isReady is true when existing hook reports canRun is true
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > formats fractional percentage values correctly (0.04 → "4%")
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > handles percentage values already in percent form (75 → "75%")
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > renders raw_value 0.04 with unit "%" literally as "0.04%" (not 4%)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > renders raw_value 0.5 with unit "%" literally as "0.5%" (not 50%)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > renders raw_value 85 with unit "%" as "85%" (canonical canvas pattern)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > formats pound values with thousand separators (20000 → "£20,000")
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > formats dollar values with thousand separators (5000 → "$5,000")
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > formats qualitative factors without unit as level names (0.75 → "high")
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > formats factor with empty string unit and cap=1 as qualitative level
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > formats factor with cap=1, unit="" and raw_value as qualitative level
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > formats factor with cap=1, unit="" and out-of-range value as numeric (with thousand separators)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > renders "Not set" for inferred-zero factor with observedState.extractionType
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > renders "Not set" for inferred-zero factor with node.data.extractionType (inspector path)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > renders "Not set" for inferred-zero factor with placeholder unit "index"
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > renders "Not set" for inferred-zero factor with placeholder unit "score"
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > does NOT render "Not set" when unit is a meaningful real-world unit (e.g. "users")
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > does NOT render "Not set" when extractionType is "explicit" (user-provided zero)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Value Formatting > excludes factors with null observed_state value from verify
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Success Threshold Auto-Population > auto-fills threshold from goal_threshold
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Success Threshold Auto-Population > auto-fills threshold from observed_state.value when goal_threshold missing
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Success Threshold Auto-Population > prefers goal_threshold over observed_state.value
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Success Threshold Auto-Population > returns null when no threshold values exist
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Success Threshold Auto-Population > isThresholdAutoDerived is false when threshold_source is user
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P0-1: Header/Footer Blocked State Sync > hasBlockers is true when the canonical readiness hook reports blockers
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P0-1: Header/Footer Blocked State Sync > hasBlockers is false when mustAddress tier is empty
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P0-1: Header/Footer Blocked State Sync > isReady remains true when the canonical readiness hook allows running even if mustAddress tier has items
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P0-2: Progress Counter — observed_state value based > counts factors with observed_state value in totalReviewableFactorsCount
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P0-2: Progress Counter — observed_state value based > counts user_confirmed and user_assumption as reviewed
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P0-2: Progress Counter — observed_state value based > counts brief_extraction factors as reviewable
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P1-1: cleanFactorLabel Applied to Tier Items > strips encoding notation from verify category labels
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P1-1: cleanFactorLabel Applied to Tier Items > strips encoding notation from add_evidence category labels
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P1-2: Binary Factor Display > displays qualitative level for binary factor with value 1
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P1-2: Binary Factor Display > displays qualitative level for binary factor with value 0
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P1-2: Binary Factor Display > displays qualitative level for binary factor with value 0.3
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P1-2: Binary Factor Display > displays qualitative level for binary factor with value 0.6
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > P1-2: Binary Factor Display > displays qualitative level for non-binary AI factors without raw_value
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > includes factors with observed_state value in verify regardless of interventions
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > includes controllable factor without interventions in verify category
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > includes external factor with interventions in verify category
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > includes factors targeted by multiple options in verify
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > excludes factors with null observed_state value
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > counts all factors with observed_state values in progress
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > includes factors from ceeAnalysisReady.options regardless of interventions
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Verify filter: observed_state value inclusion > includes factor regardless of intervention format
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.1: verification_prompts from CEE > uses verification_prompts as hint, raw_value/normalised as detail
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.1: verification_prompts from CEE > falls back to qualitative level when verification_prompt not available
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.1: verification_prompts from CEE > falls back to normalised value when ceeAnalysisReady is null
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.1: verification_prompts from CEE > uses verification_prompts as hint with multiple factors
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.2: goal_threshold from CEE > uses CEE goal_threshold as successThreshold when available
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.2: goal_threshold from CEE > prioritizes CEE goal_threshold over node goal_threshold
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.2: goal_threshold from CEE > falls back to node goal_threshold when CEE goal_threshold is null
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.2: goal_threshold from CEE > falls back to node threshold when ceeAnalysisReady is null
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.2: goal_threshold from CEE > marks CEE threshold as auto-derived
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.3: low_confidence_edges from CEE > adds low-confidence edges to verify category
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.3: low_confidence_edges from CEE > limits to max 3 low-confidence edges
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.3: low_confidence_edges from CEE > skips edges that do not exist in the graph
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.3: low_confidence_edges from CEE > handles empty low_confidence_edges array
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Phase 3.3: low_confidence_edges from CEE > cleans factor labels in edge display
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 1: Nested intervention format > includes factor with nested intervention format { value: number }
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 1: Nested intervention format > includes factor with simple intervention format (number)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 1: Nested intervention format > does not exclude factor when intervention key exists but value is null
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 1: Nested intervention format > does not exclude factor when nested intervention has { value: null }
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 2: raw_value display for currency factors > displays formatted raw_value with unit when raw_value is available
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 2: raw_value display for currency factors > falls back to normalised value when raw_value not available
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 3: factor_target_* success threshold fallback > uses factor_target_* node value as success threshold when no other sources
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 3: factor_target_* success threshold fallback > uses factor_value_* node value as success threshold
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 3: factor_target_* success threshold fallback > ignores factor_target_* with non-brief_extraction source
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > Task 3: factor_target_* success threshold fallback > prioritizes goal node threshold over factor_target_* fallback
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > P2-3: thresholdProvenance > returns provenance from factor_target_* node label when threshold from brief_extraction
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > P2-3: thresholdProvenance > returns reasoning from factor_target_* node when available
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > P2-3: thresholdProvenance > returns null when no provenance available
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Bug Fixes > P2-3: thresholdProvenance > returns provenance.reasoning from goal node when available
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > V3 field format: factors with category + observed_state > shows observable factor with AI-sourced observedState in review tier
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > V3 field format: factors with category + observed_state > shows controllable factor without interventions in review tier
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > V3 field format: factors with category + observed_state > excludes external factor with observed_state.value=None from verify when source is not AI
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > V3 field format: negative edge detection (direction field) > suppresses no_negative_effects coaching when edges have direction=negative
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > V3 field format: negative edge detection (direction field) > shows no_negative_effects coaching when all edges have direction=positive
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > V3 field format: negative edge detection (direction field) > shows no_negative_effects coaching when edges have no direction (legacy)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > M1 Review: key_assumptions in Review assumptions tier > adds key_assumptions items to verify category and reviewAssumptions tier
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > M1 Review: key_assumptions in Review assumptions tier > renders no m1_assumption items when key_assumptions is empty
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > M1 Review: key_assumptions in Review assumptions tier > renders no m1_assumption items when m1ReviewAssumptions is null
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > M1 Review: key_assumptions in Review assumptions tier > exposes preMortem from m1ReviewAssumptions
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > M1 Review: key_assumptions in Review assumptions tier > preMortem is null when not provided
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 5: many_ai_estimates suppression > fires many_ai_estimates when all factors are AI-sourced with values
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 5: many_ai_estimates suppression > shows many_ai_estimates check when reviewable assumptions exist
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 5: many_ai_estimates suppression > fires many_ai_estimates even when all factors are binary levers
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 1: brief_extraction intervention targets excluded > excludes brief_extraction factors when targeted by interventions
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 3: coaching_summary from CEE > uses CEE coaching_summary as primary coaching line when present
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 3: coaching_summary from CEE > returns null fallback when coaching_summary is absent and no graph is loaded
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 3: coaching_summary from CEE > returns null coaching summary when coaching_summary is null
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 1 (v12): goal_baseline_missing fires when goal has no observed_state > fires when goal node has NO observed_state at all
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 1 (v12): goal_baseline_missing fires when goal has no observed_state > does NOT fire when goal has observed_state.value (even without explicit baseline)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 1 (v12): goal_baseline_missing fires when goal has no observed_state > does NOT fire when goal has an explicit baseline different from value
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 2 (v12): unchanged intervention suppression > omits intervention when qualitative value equals current value
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 2 (v12): unchanged intervention suppression > keeps intervention when qualitative value differs from current
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 2 (v12): unchanged intervention suppression > keeps intervention when current value is unknown (no observed_state)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 2 (v12): unchanged intervention suppression > shows only changed intervention when one matches baseline and one does not
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 2 (v12): unchanged intervention suppression > omits dimensional intervention when direction is same (currentRawValue known, equal)
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 2 (v12): unchanged intervention suppression > keeps dimensional intervention when currentRawValue is unknown
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 6: same_levers quality check detail > includes detail text in same_levers quality check
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 6: same_levers quality check detail > Task 2 (v13) many_ai_estimates + goal_baseline_missing both fire with total count 2
+ ✓ src/canvas/components/pre-analysis/__tests__/usePreAnalysisData.spec.ts > usePreAnalysisData > Task 6: same_levers quality check detail > Task 5 (v13) €49 currency suppression — shows €49 not €49 of 100
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Merged Headline > shows partial analysis message when status is partial (rule 1)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Merged Headline > shows "no clear leading option" when stability < 0.70 (rule 2)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Merged Headline > shows "[winner] performs best" for standard case (rule 4)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Merged Headline > shows "[winner] is your only option" for single option
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Merged Headline > includes goal label in Goal line
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Merged Headline > falls back to "your goal" when no goal label
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Merged Headline > precedence rule 2 overrides normal headline (low stability)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > M2 Headline Override > uses M2 headline when available and stability is high
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > M2 Headline Override > keeps M1 headline when stability < 0.70 even if M2 is available
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Goal Probability Line > shows probability line when goalThreshold and winnerGoalProbability are set
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Goal Probability Line > hides probability line when goalThreshold is null
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Goal Probability Line > hides probability line when winnerGoalProbability is null
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Goal Probability Line > hides probability line when both are absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Condition Card > shows specific condition card when fragile edge has resolved labels
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Condition Card > does not render condition card when labels are unresolved
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Condition Card > does not render condition card when no fragile edges
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Condition Card > condition card GraphLink calls onFocusNode on click
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Condition Card > cleans encoding notation from condition card labels
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Coaching Narrative > shows 1-line coaching narrative when provided and collapsed
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Coaching Narrative > hides coaching narrative when More is expanded
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Coaching Narrative > does not render narrative when coachingHeadline is absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Stability Label > shows "Stable result" for stability >= 0.85
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Stability Label > shows "Mostly stable" for stability >= 0.70
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Stability Label > shows "Sensitive to assumptions" for stability >= 0.40
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Stability Label > shows "Highly sensitive" for stability < 0.40
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > More / Less Expand > shows "More" toggle button
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > More / Less Expand > expands to show stability summary on click
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > More / Less Expand > shows coaching paragraph when expanded
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > More / Less Expand > collapses when "Less" is clicked
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > More / Less Expand > does not show "Technical detail" (moved to Advanced in Phase 4)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Edge Cases > handles missing stability gracefully
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Edge Cases > renders without crashing when no optional props provided
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Accessibility > has correct aria-expanded attribute
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Accessibility > has data-testid for component identification
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Accessibility > condition card GraphLink is a button with aria-label
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Structured Hero Rows > Robust state > V14: renders winner in green in headline (GraphLink)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Structured Hero Rows > Robust state > V16: renders next action in insight-bullets (bullet 3)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Structured Hero Rows > Robust state > V16: omits insight bullets when no sources provided
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Structured Hero Rows > Sensitive state > renders winner in headline for sensitive state
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Structured Hero Rows > Indeterminate state > does not render decision-state-dot
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Structured Hero Rows > Indeterminate state > V16: renders next action in insight-bullets for indeterminate state
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Structured Hero Rows > Indeterminate state > V14: headline does not use success colour for indeterminate state
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Meta Strip > V12.3: does NOT render evidence badge in hero for robust state
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Meta Strip > V12.3: does NOT render evidence badge in hero for sensitive state
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Meta Strip > V12.3: does NOT render evidence badge in hero for indeterminate state
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Meta Strip > V14: shows target in baseline-target-row when goalThreshold is set
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V11: Trust One-Liner (replaces stats grid) > shows inline trust one-liner with stability score instead of More expand
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > Win Gauge removed from hero (moved to options section) > does not render WinGauge inside the hero
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.5: Target-unset Prompt removed > does NOT show verbose target-unset prompt when goalThreshold is null
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.5: Target-unset Prompt removed > V14: shows target value in baseline-target-row when goalThreshold is set
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: No insight bullets when all sources absent > sensitive state: no insight-bullets when no qualifier, no fragile edge, no action
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: No insight bullets when all sources absent > indeterminate state: no insight-bullets when all sources absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Insight bullet 3 — next action with GraphLink > shows next action in insight-bullets with Market Size as GraphLink
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Insight bullet 3 — next action with GraphLink > shows next action in insight-bullets with Customer Growth as GraphLink
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14: Goal Target Unit Display in BaselineTargetRow > shows currency symbol + formatted threshold in baseline-target-row
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14: Goal Target Unit Display in BaselineTargetRow > shows percentage suffix in baseline-target-row for percent unit
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Insight bullet 1 — key qualifier > renders key qualifier as bullet 1
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Insight bullet 1 — key qualifier > no bullet 1 when key qualifier is absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Insight bullet 1 — key qualifier > coachingParagraph renders inline (2-line clamp, no More expand)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Insight bullet 1 — key qualifier > suppresses contradictory executive copy when robustness is low
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12: Identifiability advisory (moved to Advanced) > does not show identifiability advisory in hero (moved to Advanced)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12: Identifiability advisory (moved to Advanced) > does not show advisory for identifiable
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12: Identifiability advisory (moved to Advanced) > does not show advisory when identifiabilityTag absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.4: Stability tier override (indeterminate + readiness downgrade) > shows "Sensitive to assumptions" in trust-one-liner when decisionState is indeterminate (stability=0.40)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.4: Stability tier override (indeterminate + readiness downgrade) > preserves "Stable result" in trust-one-liner for robust state
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.4: Stability tier override (indeterminate + readiness downgrade) > preserves "Mostly stable" in trust-one-liner for sensitive state (stability=0.75)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.4: Stability tier override (indeterminate + readiness downgrade) > trust-one-liner shows "Highly sensitive" for indeterminate (stability=0.35)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.4: Stability tier override (indeterminate + readiness downgrade) > trust-one-liner shows "Stable result" when decisionState=sensitive but stability=0.90
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.4: Stability tier override (indeterminate + readiness downgrade) > trust-one-liner shows "Mostly stable" for stability=0.75
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.4: Stability tier override (indeterminate + readiness downgrade) > trust-one-liner renders in V16 path (no decision-state-pill)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V12.4: Stability tier override (indeterminate + readiness downgrade) > trust-one-liner shows "Mostly stable" for stability=0.75 (natural tier)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 2: Near-tie headline > shows near-tie headline when nearTie.isTie is true
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 2: Near-tie headline > shows standard winner headline when not near-tie
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 2: Near-tie headline > derives near-tie from win probability gap when nearTie absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Insight bullets — all combinations > renders 3 bullets when all sources present
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Insight bullets — all combinations > renders 2 bullets when qualifier missing
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Insight bullets — all combinations > renders 1 bullet when only qualifier present
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Insight bullets — all combinations > renders no bullet list when all sources empty
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Insight bullets — all combinations > no structured-executive in default view
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Trust summary (via TrustOneLiner) > always renders trust-one-liner in V16 path
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Trust summary (via TrustOneLiner) > shows "Stable result" when stability is high (readiness=ready, robustness=high)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Trust summary (via TrustOneLiner) > shows "Stable result" when stability is high (readiness=ready, robustness=moderate)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Trust summary (via TrustOneLiner) > shows "Sensitive to assumptions" for low stability (needs_evidence, low robustness)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Trust summary (via TrustOneLiner) > shows evidence suffix when default estimates dominate
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Trust summary (via TrustOneLiner) > shows "Stable result" with "more" link for high stability
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1+5: Condition card and hinge bullet > hinge bullet 2 shows "Could change if {factor} shifts" when fragile edge present
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1+5: Condition card and hinge bullet > condition card is in "Show more" expansion when fragile edge present
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1+5: Condition card and hinge bullet > condition card uses "differs" copy when direction is not positive
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1+5: Condition card and hinge bullet > condition card detail in show-more when qualifying fragile edge exists
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1+5: Condition card and hinge bullet > no show-more button when switchProbability <= 0.25
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1+5: Condition card and hinge bullet > no show-more button when topFragileEdge is absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1+5: Condition card and hinge bullet > promotes condition card to default bullets when switchProbability <= 0.25 but edge exists
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1+5: Condition card and hinge bullet > does not promote condition card when labels are unresolved
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: TrustOneLiner — evidence suffix branches > shows "most values are AI estimates" when default ratio > 75%
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: TrustOneLiner — evidence suffix branches > shows "evidence is limited" when default ratio > 50% but <= 75%
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: TrustOneLiner — evidence suffix branches > no evidence suffix when default ratio <= 50%
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: TrustOneLiner — evidence suffix branches > trust-one-liner is always present in V16 path
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Layout order > baseline/target row renders in hero (gauge moved to options section)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: Layout order > trust-one-liner replaces decision-state-pill in V16 path
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: No standalone executive statement or coaching CTA in default view > decisionState="robust" — no standalone coaching-next-action or decision-statement
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: No standalone executive statement or coaching CTA in default view > decisionState="sensitive" — no standalone coaching-next-action or decision-statement
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16: No standalone executive statement or coaching CTA in default view > decisionState="indeterminate" — no standalone coaching-next-action or decision-statement
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 5: Readiness bars + narrative (moved to Advanced) > readiness bars NOT present in hero (moved to Advanced section)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 5: Readiness bars + narrative (moved to Advanced) > readiness bars NOT present when dimensions not provided
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 5: Readiness bars + narrative (moved to Advanced) > renders M2 narrative inline with line-clamp-2
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 5: Readiness bars + narrative (moved to Advanced) > falls back to M1 paragraph inline when M2 absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 6: Win gauge removed from hero > does not render WinGauge in hero (moved to options section)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V14 Task 7: BaselineTargetRow > renders baseline-target-row in V14 path
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Bullet 3 — next action replaces standalone coaching CTA > renders next action with GraphLink in insight-bullets
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Bullet 3 — next action replaces standalone coaching CTA > suppresses bullet 3 when topNextAction has no targetLabel
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Bullet 3 — next action replaces standalone coaching CTA > no bullets when topNextAction is undefined and other sources absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Bullet 3 — next action replaces standalone coaching CTA > no bullets when action text is empty and other sources absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 1: Bullet 3 — next action replaces standalone coaching CTA > P1-7: clicking "Next step" scrolls to #mvs-card
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > P1-8: bullet suppression when source data absent > no bullet 2 when topFragileEdge absent (no v14ConditionCard)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > P1-8: bullet suppression when source data absent > no bullet 3 when topNextAction targetLabel absent
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V15 Task 1: Winner colour assignment > winner GraphLink is text-success for clear winner (robust)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V15 Task 1: Winner colour assignment > both options are text-info in indeterminate (near-tie)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V15 Task 1: Winner colour assignment > V16: condition card alt option is text-success for non-indeterminate (in show-more expansion)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V15 Task 1: Winner colour assignment > V16: condition card alt option is text-info for indeterminate (in show-more expansion)
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V15 Task 2: Goal label + clickable goal node > renders "Goal" label (not "Objective")
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V15 Task 2: Goal label + clickable goal node > goal content is clickable button when goalNodeId provided
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V15 Task 2: Goal label + clickable goal node > goal content is plain text when goalNodeId not provided
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V15 Task 3: Too close to call phrase > uses "too close to call" not "too close to separate" in near-tie headline
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 4: M2 narrative inline with line-clamp-2 > renders M2 narrative inline with "Read more" link for long text
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 4: M2 narrative inline with line-clamp-2 > Read more link scrolls to #trust-narrative
+ ✓ src/components/results/__tests__/HeroSection.spec.tsx > HeroSection > V16 Task 4: M2 narrative inline with line-clamp-2 > no Read more button for short single-sentence narrative
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > extracts options from nodes with kind=option
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > extracts options from nodes with type=option (legacy)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > skips interventions targeting non-existent nodes
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > skips self-targeting interventions
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > marks options without valid interventions as needs_user_mapping
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > handles UIInterventionValue format
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > returns empty array when no option nodes exist
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > produces valid interventions from backfilled node.data.interventions (rerun fallback path)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > uiOptionToV2Option > flattens UIInterventionValue to simple numbers
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformNodeToV2 > transforms basic node
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformNodeToV2 > extracts observed_state from observedState object
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformNodeToV2 > extracts observed_state from value field
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformNodeToV2 > uses type fallback for kind
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformNodeToV2 > defaults kind to factor when not specified
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformNodeToV2 > uses node id as label fallback
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > transforms edge with positive direction
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > transforms edge with negative direction
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > enforces STD_FLOOR on strength.std
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > uses beliefExists fallbacks (confidence, belief)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > defaults to 0.5 mean and omits exists_probability for missing values
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > UI→PLoT default leakage prevention > forwards explicit zero strength (not treated as falsy)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > UI→PLoT default leakage prevention > forwards explicit negative strength from direction
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > UI→PLoT default leakage prevention > omits exists_probability when CEE provides no belief values
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > UI→PLoT default leakage prevention > preserves CEE-provided strength values exactly
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > exists_probability omit-when-unset > edge with no belief fields must not serialise exists_probability
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > exists_probability omit-when-unset > edge with explicit beliefExists forwards the value
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > buildV2Request > builds request with goal_node_id
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > buildV2Request > extracts options from nodes when not provided
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > buildV2Request > uses provided options over extraction
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > buildV2Request > returns reverseIdMap for response translation
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isBlockedResponse > returns true for blocked status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isBlockedResponse > returns false for failed status (NOT blocked - it is a 200)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isBlockedResponse > returns false for computed status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isFailedAnalysis > returns true for failed status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isFailedAnalysis > returns false for blocked status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isFailedAnalysis > returns false for computed status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isSuccessfulAnalysis > returns true for computed status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isSuccessfulAnalysis > returns true for partial status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isSuccessfulAnalysis > returns false for failed status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > isSuccessfulAnalysis > returns false for blocked status
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > Request Payload Validation - intervention flattening > flattens rich intervention objects to simple numbers
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > Request Payload Validation - intervention flattening > handles mixed input: some numbers, some rich objects
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > Request Payload Validation - intervention flattening > preserves intervention values exactly (no rounding or mutation)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > Request Payload Validation - intervention flattening > buildV2Request produces numeric interventions in final request
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > Request Payload Validation - intervention flattening > request payload structure matches /v2/run contract
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 observed_state field pass-through > preserves V3 fields (raw_value, cap, factor_type, uncertainty_drivers, extractionType)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 observed_state field pass-through > preserves CEE-provided source (does not overwrite)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 observed_state field pass-through > uses CEE-provided std when present (does not overwrite with computed)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 observed_state field pass-through > computes std only when CEE did not provide it
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 node-level field pass-through > preserves goal_threshold_* fields on goal nodes (node path)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 node-level field pass-through > preserves prior field on external factor nodes
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 node-level field pass-through > preserves unknown category values for forward compatibility
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 node-level field pass-through > omits category when not present on node
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 node-level field pass-through > excludes React Flow internal fields from V2 output
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V3 node-level field pass-through > excludes UI-only fields (uncertainty, interventions) from V2 output
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > observed_state / observedState naming boundary > transformNodeToV2 outputs snake_case key (observed_state) for PLoT
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > observed_state / observedState naming boundary > camelCase observedState on canvas node does not leak as-is into V2 output
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > buildV2RequestFromAnalysisReady — display metadata exclusion > excludes goal_threshold_raw, _unit, _cap from request top level
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > buildV2RequestFromAnalysisReady — display metadata exclusion > request contains only PLoT-accepted top-level keys
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > buildV2RequestFromAnalysisReady — display metadata exclusion > unknown analysisReady fields do not leak to request
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > XOR: goal_threshold vs goal_constraints > removes goal_threshold when goal_constraints are present (non-empty array)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > XOR: goal_threshold vs goal_constraints > preserves goal_threshold when goal_constraints is empty array
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > XOR: goal_threshold vs goal_constraints > preserves goal_threshold when goal_constraints is absent
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > XOR: goal_threshold vs goal_constraints > preserves goal_constraints when goal_threshold is absent
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > XOR: goal_threshold vs goal_constraints > execute path: goal_threshold re-injected via parameter is removed when goal_constraints exist
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > buildV2Request (scenario comparison path) > does not include goal_constraints in request
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > builds a request where both a drafted option and an AI-added option carry their interventions
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > backfills from node.data.interventions when analysisReady entry has an empty intervention map
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > does not invent interventions for a manually-added option that has none anywhere
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > skips self-targeting and stale intervention targets
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > returns empty interventions when both sources are empty (stale-clear path)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > uses analysisReady values when the same option id has different values on the node
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > treats undefined, empty object, and null-valued interventions as absent
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > produces identical outbound options for a draft-only graph (regression guard, no fallback path)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > falls back to canvas when analysisReady has only null/undefined intervention values
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > reconcileOptionsWithCanvasNodes integration > silent flag suppresses fallback warnings without changing the returned options
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > passes through bare numbers
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > extracts .value from complex {value, unit, source} objects
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > handles mixed shapes in the same map
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > returns an empty object for empty input
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > returns empty for null / undefined / non-object
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > skips entries with {value: null}
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > skips entries with non-numeric .value (e.g. "tbd")
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > skips entries that are bare null / undefined
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > skips NaN and Infinity rather than smuggling them through
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > drops object entries that are missing the `value` field entirely
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > flattenInterventions > drops array values (not a valid intervention shape)
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > validateOptionsHaveInterventions — alignment with flattenInterventions > rejects an option whose only intervention is { value: 'tbd' }
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > validateOptionsHaveInterventions — alignment with flattenInterventions > rejects an option whose only intervention has a NaN .value
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > validateOptionsHaveInterventions — alignment with flattenInterventions > rejects an option whose only intervention is a bare NaN
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > validateOptionsHaveInterventions — alignment with flattenInterventions > rejects an option whose only intervention is missing the value field entirely
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > validateOptionsHaveInterventions — alignment with flattenInterventions > accepts an option with a finite numeric .value
+ ✓ src/adapters/plot/v2/__tests__/adapter.spec.ts > V2 request assembly — intervention payload boundary > strips nested {value, unit, source} from canvas option nodes before reaching V2RunRequest
+stderr | src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > skips interventions targeting non-existent nodes
+[V2Adapter] Skipping stale intervention key "missing_target" in option "Option"
+
+stderr | src/adapters/plot/v2/__tests__/adapter.spec.ts > extractOptionsFromNodes > skips self-targeting interventions
+[V2Adapter] Skipping self-targeting intervention in option "Self-Target Option"
+
+stderr | src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > transforms edge with positive direction
+[Adapter] Edge to PLoT: {
+  edge: 'n1 → n2',
+  canvas_beliefExists: 0.9,
+  canvas_confidence: undefined,
+  canvas_belief: undefined,
+  canvas_strengthStd: undefined,
+  computed_defaultStd: 0.10400000000000001,
+  output_exists_probability: 0.9,
+  output_strength_std: 0.10400000000000001,
+  fallback_used: 'beliefExists'
+}
+
+stderr | src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > transforms edge with negative direction
+[Adapter] Edge to PLoT: {
+  edge: 'n1 → n2',
+  canvas_beliefExists: 0.7,
+  canvas_confidence: undefined,
+  canvas_belief: undefined,
+  canvas_strengthStd: undefined,
+  computed_defaultStd: 0.11399999999999999,
+  output_exists_probability: 0.7,
+  output_strength_std: 0.11399999999999999,
+  fallback_used: 'beliefExists'
+}
+
+stderr | src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > enforces STD_FLOOR on strength.std
+[Adapter] Edge to PLoT: {
+  edge: 'n1 → n2',
+  canvas_beliefExists: undefined,
+  canvas_confidence: undefined,
+  canvas_belief: undefined,
+  canvas_strengthStd: 0,
+  computed_defaultStd: 'N/A (used canvas)',
+  output_exists_probability: 'omitted (PLoT defaults to 0.8)',
+  output_strength_std: 0.001,
+  fallback_used: 'omitted (PLoT applies DEFAULT_EXISTS_PROBABILITY)'
+}
+
+stderr | src/adapters/plot/v2/__tests__/adapter.spec.ts > transformEdgeToV2 > uses beliefExists fallbacks (confidence, belief)
+[Adapter] Edge to PLoT: {
+  edge: 'n1 → n2',
+  canvas_beliefExists: undefined,
+  canvas_confidence: 0.75,
+  canvas_belief: undefined,
+  canvas_strengthStd: undefined,
+  computed_defaultStd: 0.0875,
+  output_exists_probability: 0.75,
+  output_strength_std: 0.0875,
+  fallback_used: 'confidence'
+}
+[Adapter] Edge to PLoT: {
+  edge: 'n1 → n2',
+  canvas_beliefExists: undefined,
+  canvas_confidence: undefined,
+  canvas_belief: 0.65,
+  canvas_strengthStd: undefined,
+  computed_defaultStd: 0.10250000000000001,
+  output_exists_probability: 0.65,
+  output_strength_std: 0.10250000000000001,
+  fallback_used: 'belief'
+}
+

@@ -1,0 +1,803 @@
+{
+  "version": 1,
+  "mode": "stream",
+  "startedAt": "2026-04-15T09:15:14.354Z",
+  "finishedAt": "2026-04-15T09:15:20.760Z",
+  "env": {
+    "CEE_BASE_URL": "https://cee-staging.onrender.com",
+    "node": "v20.19.5"
+  },
+  "scenarios": [
+    {
+      "name": "s1-add-option",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s1-add-option",
+          "turn_type": "explicit_generate",
+          "message": "Should I raise £250k or £750k for my seed-stage SaaS startup? We have 8 months of runway, £18k MRR growing 10% month-on-month, a team of 4, and need to reach Series A readiness (target £50k MRR) within 12 months. Primary goal: maximise probability of raising Series A at a strong valuation.",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 4816,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Something went wrong while processing your request. Please try again.",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "3aba7897-783a-41ed-8dcb-392479f9b29e",
+            "client_turn_id": "da21a167-93b9-417f-9b6e-1ceacfe65e07",
+            "conversation_history": [],
+            "message": "Should I raise £250k or £750k for my seed-stage SaaS startup? We have 8 months of runway, £18k MRR growing 10% month-on-month, a team of 4, and need to reach Series A readiness (target £50k MRR) within 12 months. Primary goal: maximise probability of raising Series A at a strong valuation.",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "99af3f61-8085-4b39-868a-210a02f8095a",
+            "assistant_text": "Something went wrong while processing your request. Please try again.",
+            "blocks": [],
+            "lineage": {
+              "context_hash": ""
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "low",
+              "source": "inferred"
+            },
+            "suggested_actions": [],
+            "response_version": 2,
+            "guidance_items": [],
+            "error": {
+              "code": "PIPELINE_ERROR",
+              "message": "Something went wrong while processing your request. Please try again.",
+              "recoverable": false
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 372
+            },
+            {
+              "seq": 1,
+              "type": "error",
+              "t_ms": 4811,
+              "error": {
+                "code": "PIPELINE_ERROR",
+                "message": "Something went wrong while processing your request. Please try again."
+              }
+            },
+            {
+              "seq": 2,
+              "type": "turn_complete",
+              "t_ms": 4811
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s2-fix-connection",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s2-fix-connection",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 392,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Something went wrong while processing your request. Please try again.",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "3ee92ec4-2dba-4c7f-bd7e-fa1e9facf59f",
+            "client_turn_id": "1502201e-ce03-4635-bfe6-3219d2587a72",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "deca4d29-e98d-47cd-942b-0c2a2153ce4f",
+            "assistant_text": "Something went wrong while processing your request. Please try again.",
+            "blocks": [],
+            "lineage": {
+              "context_hash": ""
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "low",
+              "source": "inferred"
+            },
+            "suggested_actions": [],
+            "response_version": 2,
+            "guidance_items": [],
+            "error": {
+              "code": "PIPELINE_ERROR",
+              "message": "Something went wrong while processing your request. Please try again.",
+              "recoverable": false
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 259
+            },
+            {
+              "seq": 1,
+              "type": "error",
+              "t_ms": 392,
+              "error": {
+                "code": "PIPELINE_ERROR",
+                "message": "Something went wrong while processing your request. Please try again."
+              }
+            },
+            {
+              "seq": 2,
+              "type": "turn_complete",
+              "t_ms": 392
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s3-update-factor",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s3-update-factor",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 270,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Something went wrong while processing your request. Please try again.",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "d854ffd7-a486-4b9b-bf04-11784f9b6be1",
+            "client_turn_id": "a7345674-850c-4d33-a20a-e6e9c4169914",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "9153c16b-e0bd-4ee9-afb6-45ebb9ad6914",
+            "assistant_text": "Something went wrong while processing your request. Please try again.",
+            "blocks": [],
+            "lineage": {
+              "context_hash": ""
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "low",
+              "source": "inferred"
+            },
+            "suggested_actions": [],
+            "response_version": 2,
+            "guidance_items": [],
+            "error": {
+              "code": "PIPELINE_ERROR",
+              "message": "Something went wrong while processing your request. Please try again.",
+              "recoverable": false
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 99
+            },
+            {
+              "seq": 1,
+              "type": "error",
+              "t_ms": 270,
+              "error": {
+                "code": "PIPELINE_ERROR",
+                "message": "Something went wrong while processing your request. Please try again."
+              }
+            },
+            {
+              "seq": 2,
+              "type": "turn_complete",
+              "t_ms": 270
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s4-pros-cons",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s4-pros-cons",
+          "turn_type": "explicit_generate",
+          "message": "Should I raise £250k or £750k for my seed-stage SaaS startup? We have 8 months of runway, £18k MRR growing 10% month-on-month, a team of 4, and need to reach Series A readiness (target £50k MRR) within 12 months. Primary goal: maximise probability of raising Series A at a strong valuation.",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 210,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Something went wrong while processing your request. Please try again.",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "3a9ca3a4-e5a7-4d8a-b3d4-e78d94b00466",
+            "client_turn_id": "40ab400a-9c0e-484a-9bfa-d7ae9be8501a",
+            "conversation_history": [],
+            "message": "Should I raise £250k or £750k for my seed-stage SaaS startup? We have 8 months of runway, £18k MRR growing 10% month-on-month, a team of 4, and need to reach Series A readiness (target £50k MRR) within 12 months. Primary goal: maximise probability of raising Series A at a strong valuation.",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "8d3b8c92-bc33-4c23-9d86-868b56dfe047",
+            "assistant_text": "Something went wrong while processing your request. Please try again.",
+            "blocks": [],
+            "lineage": {
+              "context_hash": ""
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "low",
+              "source": "inferred"
+            },
+            "suggested_actions": [],
+            "response_version": 2,
+            "guidance_items": [],
+            "error": {
+              "code": "PIPELINE_ERROR",
+              "message": "Something went wrong while processing your request. Please try again.",
+              "recoverable": false
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 107
+            },
+            {
+              "seq": 1,
+              "type": "error",
+              "t_ms": 210,
+              "error": {
+                "code": "PIPELINE_ERROR",
+                "message": "Something went wrong while processing your request. Please try again."
+              }
+            },
+            {
+              "seq": 2,
+              "type": "turn_complete",
+              "t_ms": 210
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s5-run-analysis",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s5-run-analysis",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 287,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Something went wrong while processing your request. Please try again.",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "a619d2c6-9d14-40b1-a42f-dd5a38c9eb92",
+            "client_turn_id": "ee5281d2-88f4-47d3-bf1c-f0f04ca202fc",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "9b4dd069-fe7d-4942-8734-14f82edc2c04",
+            "assistant_text": "Something went wrong while processing your request. Please try again.",
+            "blocks": [],
+            "lineage": {
+              "context_hash": ""
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "low",
+              "source": "inferred"
+            },
+            "suggested_actions": [],
+            "response_version": 2,
+            "guidance_items": [],
+            "error": {
+              "code": "PIPELINE_ERROR",
+              "message": "Something went wrong while processing your request. Please try again.",
+              "recoverable": false
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 106
+            },
+            {
+              "seq": 1,
+              "type": "error",
+              "t_ms": 286,
+              "error": {
+                "code": "PIPELINE_ERROR",
+                "message": "Something went wrong while processing your request. Please try again."
+              }
+            },
+            {
+              "seq": 2,
+              "type": "turn_complete",
+              "t_ms": 286
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s6-explain-after-analysis",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s6-explain-after-analysis",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 208,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Something went wrong while processing your request. Please try again.",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "d72291a4-affa-417e-b2cd-95a2f36abb46",
+            "client_turn_id": "dcb01a60-8024-4009-a0e8-305066b5315a",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "8107fd45-e780-4f55-a4ad-006f75761ed0",
+            "assistant_text": "Something went wrong while processing your request. Please try again.",
+            "blocks": [],
+            "lineage": {
+              "context_hash": ""
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "low",
+              "source": "inferred"
+            },
+            "suggested_actions": [],
+            "response_version": 2,
+            "guidance_items": [],
+            "error": {
+              "code": "PIPELINE_ERROR",
+              "message": "Something went wrong while processing your request. Please try again.",
+              "recoverable": false
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 138
+            },
+            {
+              "seq": 1,
+              "type": "error",
+              "t_ms": 208,
+              "error": {
+                "code": "PIPELINE_ERROR",
+                "message": "Something went wrong while processing your request. Please try again."
+              }
+            },
+            {
+              "seq": 2,
+              "type": "turn_complete",
+              "t_ms": 208
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    },
+    {
+      "name": "s7-chip-starvation",
+      "pass": false,
+      "logs": [
+        {
+          "turn": 1,
+          "scenario": "s7-chip-starvation",
+          "turn_type": "explicit_generate",
+          "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+          "executed_tools": [],
+          "tool_source": "synthesized",
+          "prompt_version": null,
+          "model": null,
+          "provider": null,
+          "latency_ms": 215,
+          "cache_hit": false,
+          "transport": "stream",
+          "assistant_text_preview": "Something went wrong while processing your request. Please try again.",
+          "blocks": [],
+          "suggested_actions": [],
+          "stage_indicator": "frame",
+          "graph_delta": {
+            "nodes_before": 0,
+            "nodes_after": 0,
+            "edges_before": 0,
+            "edges_after": 0,
+            "added_node_ids": [],
+            "removed_node_ids": [],
+            "added_edge_ids": [],
+            "removed_edge_ids": []
+          },
+          "flags": {
+            "action_language_without_block": false,
+            "contains_html_or_code": false,
+            "graph_validity_pass": true,
+            "orphaned_new_nodes": []
+          },
+          "raw_request": {
+            "scenario_id": "1a19f663-684d-4c6e-8352-e944a71446a0",
+            "client_turn_id": "5ea657df-fe43-43f2-b47a-4e04eda82d15",
+            "conversation_history": [],
+            "message": "Should I hire a tech lead or two junior developers? We have 18 months of runway, a team of 5 mid-weight developers and 1 senior, and need to ship a product rewrite. Budget is £85,000 per year.",
+            "graph_state": {
+              "nodes": [],
+              "edges": []
+            },
+            "generate_model": true
+          },
+          "raw_response": {
+            "turn_id": "d3590353-8d9e-4544-baea-2b4a44003f0c",
+            "assistant_text": "Something went wrong while processing your request. Please try again.",
+            "blocks": [],
+            "lineage": {
+              "context_hash": ""
+            },
+            "turn_plan": {
+              "selected_tool": null,
+              "routing": "llm",
+              "long_running": false
+            },
+            "stage_indicator": {
+              "stage": "frame",
+              "confidence": "low",
+              "source": "inferred"
+            },
+            "suggested_actions": [],
+            "response_version": 2,
+            "guidance_items": [],
+            "error": {
+              "code": "PIPELINE_ERROR",
+              "message": "Something went wrong while processing your request. Please try again.",
+              "recoverable": false
+            }
+          },
+          "raw_stream_events": [
+            {
+              "seq": 0,
+              "type": "turn_start",
+              "t_ms": 92
+            },
+            {
+              "seq": 1,
+              "type": "error",
+              "t_ms": 214,
+              "error": {
+                "code": "PIPELINE_ERROR",
+                "message": "Something went wrong while processing your request. Please try again."
+              }
+            },
+            {
+              "seq": 2,
+              "type": "turn_complete",
+              "t_ms": 215
+            }
+          ],
+          "pass": false,
+          "failures": [
+            "draft_missing_graph_patch",
+            "draft_not_structural",
+            "draft_missing_goal",
+            "draft_needs_at_least_two_options",
+            "draft_needs_at_least_one_factor"
+          ]
+        }
+      ],
+      "failures": [
+        "draft_missing_graph_patch",
+        "draft_not_structural",
+        "draft_missing_goal",
+        "draft_needs_at_least_two_options",
+        "draft_needs_at_least_one_factor"
+      ]
+    }
+  ]
+}
