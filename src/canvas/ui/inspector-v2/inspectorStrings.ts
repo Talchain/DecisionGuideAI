@@ -257,6 +257,11 @@ export function resolveAskTemplate(
   return resolved
 }
 
+// ─── Goal panel strings ──────────────────────────────────────────
+export const GOAL_STRINGS = {
+  impactUnavailable: 'Probability data unavailable for this analysis run.',
+} as const
+
 // --- Goal constraint UI copy -------------------------------------------
 // All user-facing strings for GoalPanel constraint section.
 export const GOAL_CONSTRAINT_COPY = {
