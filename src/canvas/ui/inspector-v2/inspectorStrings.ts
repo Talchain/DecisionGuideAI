@@ -135,6 +135,7 @@ export const INLINE_LABELS = {
   setByOptions: 'Set by options',
   influences:   'Influences',
   drivers:      'What drives this',
+  influenceOnResults: 'Influence on results',
 } as const
 
 // ─── Edge link-kind notices (migrated from EdgePanel JSX) ─────────
@@ -145,7 +146,8 @@ export const EDGE_LINK_NOTICES = {
   },
   intervention: {
     title: 'Intervention link',
-    // {sourceLabel}, {targetLabel} substituted at render
+    // TODO(Brief 2): Add resolveEdgeLinkTemplate() analogous to resolveAskTemplate()
+    // to substitute {sourceLabel} and {targetLabel} at render time.
     bodyTemplate: 'This connection shows how {sourceLabel} sets {targetLabel} in the analysed scenario. It affects analysis.',
   },
 } as const

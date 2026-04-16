@@ -14,6 +14,7 @@
  */
 
 import { typography } from '../../../../styles/typography'
+import { INLINE_LABELS } from '../inspectorStrings'
 
 interface ImportanceBarProps {
   /** 0..1 normalised importance score. Null → pre-analysis empty state. */
@@ -46,10 +47,7 @@ export function ImportanceBar({ importanceScore, sensitivityRank }: ImportanceBa
       {/* Single row: rank | bar | percentage */}
       <div className="flex items-center gap-2">
         {rankLabel && (
-          <span
-            className="font-semibold text-primary flex-shrink-0"
-            style={{ fontSize: 16 }}
-          >
+          <span className="text-base font-semibold text-primary flex-shrink-0">
             {rankLabel}
           </span>
         )}
@@ -71,7 +69,7 @@ export function ImportanceBar({ importanceScore, sensitivityRank }: ImportanceBa
         </span>
       </div>
       <div className={`${typography.panelMeta} text-text-light mt-1`}>
-        Influence on results
+        {INLINE_LABELS.influenceOnResults}
       </div>
     </div>
   )

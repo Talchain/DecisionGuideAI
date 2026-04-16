@@ -156,13 +156,14 @@ describe('EmptyDescriptionPrompt', () => {
     expect(el.getAttribute('tabindex')).toBeNull()
   })
 
-  it('interactive with role=button when onStartEditing is provided', () => {
+  it('interactive with role=button and aria-label when onStartEditing is provided', () => {
     const onStart = vi.fn()
     const { container } = render(
       <EmptyDescriptionPrompt placeholder="Describe..." onStartEditing={onStart} />,
     )
     const el = container.firstElementChild as HTMLElement
     expect(el.getAttribute('role')).toBe('button')
+    expect(el.getAttribute('aria-label')).toBe('Describe...')
     expect(el.getAttribute('tabindex')).toBe('0')
   })
 

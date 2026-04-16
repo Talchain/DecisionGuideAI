@@ -209,7 +209,9 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       const target = item.target_object
       if (!target) return true // no target → never cleared by this mechanism
       if (!CLEARABLE_TYPES.has(target.type)) return true // only clear node/edge targets
-      // Clear if target_object.id matches
+      // Clear if target_object.id matches. Items with clearable type but no
+      // target.id are preserved (orphaned/graph-level items should not be
+      // cleared by element-specific edits).
       if (target.id && idSet.has(target.id)) return false
       // Also clear if any related_elements[].id matches — prevents stale
       // coaching when a related node/edge is edited (e.g. WEAKLY_CONNECTED_NODE

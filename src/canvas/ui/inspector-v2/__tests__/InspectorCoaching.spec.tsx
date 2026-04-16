@@ -181,6 +181,30 @@ describe('InspectorCoaching', () => {
     expect(screen.queryByText(/Related high priority/)).toBeNull()
   })
 
+  it('direct match wins over related match even at identical priority', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        makeGuidanceItem({
+          item_id: 'related-same-pri',
+          target_object: { type: 'node', id: 'other-node' },
+          related_elements: [{ id: 'node-1', type: 'node' }],
+          title: 'Related same priority',
+          priority: 80,
+        }),
+        makeGuidanceItem({
+          item_id: 'direct-same-pri',
+          target_object: { type: 'node', id: 'node-1' },
+          title: 'Direct same priority',
+          priority: 80,
+        }),
+      ],
+      _prefillChat: vi.fn(),
+    })
+    render(<InspectorCoaching {...defaultProps} />)
+    expect(screen.getByText(/Direct same priority/)).toBeTruthy()
+    expect(screen.queryByText(/Related same priority/)).toBeNull()
+  })
+
   it('falls back to static coaching when related_elements has no id match', () => {
     useGuidanceStore.setState({
       guidanceItems: [

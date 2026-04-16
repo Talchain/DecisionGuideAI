@@ -30,6 +30,7 @@ export function EmptyDescriptionPrompt({
   return (
     <div
       role={interactive ? 'button' : undefined}
+      aria-label={interactive ? placeholder : undefined}
       tabIndex={interactive ? 0 : undefined}
       onClick={handleClick}
       onKeyDown={interactive
