@@ -13,6 +13,7 @@ import { PrimaryControlCard } from '../shared/PrimaryControlCard'
 import { ExpertAnnotation } from '../shared/ExpertAnnotation'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ImportanceBar } from '../shared/ImportanceBar'
+import { AdvancedFieldGroup } from '../shared/AdvancedFieldGroup'
 
 // ── PanelGroup ───────────────────────────────────────────────────────
 
@@ -179,6 +180,27 @@ describe('EmptyDescriptionPrompt', () => {
     render(<EmptyDescriptionPrompt placeholder="Describe..." onStartEditing={onStart} />)
     fireEvent.keyDown(screen.getByText('Describe...'), { key: 'Enter' })
     expect(onStart).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ── AdvancedFieldGroup ───────────────────────────────────────────────
+
+describe('AdvancedFieldGroup', () => {
+  it('renders the title in sentence case (no uppercase CSS class)', () => {
+    const { container } = render(
+      <AdvancedFieldGroup title="Effect parameters"><div /></AdvancedFieldGroup>,
+    )
+    // Title div is the first child of the outer card
+    const titleDiv = container.firstElementChild?.firstElementChild as HTMLElement
+    expect(titleDiv?.textContent).toBe('Effect parameters')
+    expect(titleDiv?.className).not.toContain('uppercase')
+  })
+
+  it('renders children below the title', () => {
+    const { container } = render(
+      <AdvancedFieldGroup title="Metadata"><span data-testid="child">value</span></AdvancedFieldGroup>,
+    )
+    expect(container.querySelector('[data-testid="child"]')).not.toBeNull()
   })
 })
 

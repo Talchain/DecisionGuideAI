@@ -1,6 +1,6 @@
 /**
  * AdvancedFieldGroup — section divider with label for technical detail editor.
- * Renders a thin hr + uppercase label + children.
+ * Renders a card with a sentence-case label header + children.
  */
 
 interface AdvancedFieldGroupProps {
