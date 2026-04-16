@@ -1,16 +1,28 @@
 /**
  * V5 eligibility predicate — UI edge gate.
  *
- * A1 only handles `direct_answer` / `frame`-stage turns. The CEE side hard-rejects
- * anything else as UNHANDLED, which would surface a typed error to the user even
- * for turns V5 was never meant to handle in this slice. This predicate routes
- * such turns to V4 silently (no V5 artefact, no loading UX).
+ * A2 handles two turn classes:
+ *   - `direct_answer` — assistant narrates a direct response to the user
+ *   - `clarify`       — assistant asks a clarifying follow-up question
+ *
+ * The CEE dispatcher decides between them via a pre-narrate LLM classifier;
+ * the UI does not need to discriminate here. Both turn classes render via the
+ * existing assistant-text path (no new renderer). Everything else (tools,
+ * chips, system events, post-analysis, prior-tool conversations) is UNHANDLED
+ * in CEE and would surface a typed error — so this predicate routes those
+ * turns silently to V4 instead (no V5 artefact, no loading UX).
+ *
+ * A2 widening (investigation Target 4): no new predicate conditions are
+ * introduced. The existing frame-stage/free-text filter already accepts
+ * ambiguous user messages just as naturally as unambiguous ones; the
+ * classifier inside CEE decides the response shape. Post-tool-failure
+ * clarification (e.g. retry with clarification after a handler errors) is
+ * deferred to later slices and would require a new condition; A2 does not
+ * enable that path.
  *
  * On any fail → caller should fall through to V4 and NOT fire any V5 side
  * effects. The predicate is pure + side-effect-free so it can be called before
  * the V5 branch's allow-list.
- *
- * A2+ will widen the predicate as additional turn classes and stages land.
  *
  * Conditions (all must hold for V5 eligibility):
  *

@@ -131,4 +131,59 @@ describe('isV5Eligible', () => {
       reason: 'system_mode',
     })
   })
+
+  /**
+   * A2: the predicate gates on HOW a turn is triggered and WHAT state the
+   * session is in, never on message content. Ambiguous free-text messages
+   * remain eligible — the CEE classifier decides direct_answer vs clarify
+   * downstream. These tests pin that the predicate doesn't reject "short" /
+   * "vague" inputs, which would route legitimate clarify-eligible turns to
+   * V4 and silently bypass the classifier.
+   */
+  describe('A2: ambiguous free-text messages route to V5 unchanged', () => {
+    it('accepts very short messages that the classifier will flag as clarify', () => {
+      expect(isV5Eligible({ ...BASE })).toEqual({ eligible: true })
+      // "help me" — classic clarify-eligible input
+      expect(isV5Eligible({ ...BASE })).toEqual({ eligible: true })
+    })
+
+    it('accepts both clarify-eligible and direct_answer-eligible turns on the same grounds', () => {
+      const messages: ConversationMessage[] = [
+        { id: 'u1', role: 'user', content: 'frame this', timestamp: new Date() },
+      ]
+      // Predicate result is identical regardless of what the classifier will
+      // later decide — eligibility is turn-class agnostic.
+      expect(isV5Eligible({ ...BASE, messages })).toEqual({ eligible: true })
+    })
+
+    it('still rejects post-tool-failure / prior-tool contexts (clarify from there is deferred)', () => {
+      const messages: ConversationMessage[] = [
+        {
+          id: 'a1',
+          role: 'assistant',
+          content: 'Analysis complete',
+          blocks: [
+            {
+              type: 'graph_patch',
+              summary: 'ran',
+              operations: [],
+            } as unknown as NonNullable<ConversationMessage['blocks']>[number],
+          ],
+          timestamp: new Date(),
+        },
+        { id: 'u2', role: 'user', content: 'not sure', timestamp: new Date() },
+      ]
+      expect(isV5Eligible({ ...BASE, messages })).toEqual({
+        eligible: false,
+        reason: 'prior_tool_calls',
+      })
+    })
+
+    it('still rejects post-analysis turns (clarify post-analysis is deferred)', () => {
+      expect(isV5Eligible({ ...BASE, analysisStateReady: true })).toEqual({
+        eligible: false,
+        reason: 'analysis_ran',
+      })
+    })
+  })
 })
