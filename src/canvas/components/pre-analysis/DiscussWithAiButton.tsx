@@ -22,13 +22,20 @@ import { buildAiDiscussPrompt, type AiDiscussElement } from './buildAiDiscussPro
 
 interface DiscussWithAiButtonProps {
   element: AiDiscussElement
+  /**
+   * Optional send override — called with the contextual prompt instead of the
+   * guidanceStore. Use when the caller manages its own message handler (e.g.
+   * ChallengeSection passing onSendMessage as a prop). When provided, the
+   * guidanceStore is bypassed entirely.
+   */
+  onSend?: (prompt: string) => void
   /** Optional ARIA label override; defaults to "Discuss {label} with AI" */
   ariaLabel?: string
   /** Optional className extension for positioning context */
   className?: string
 }
 
-function DiscussWithAiButtonImpl({ element, ariaLabel, className }: DiscussWithAiButtonProps) {
+function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className }: DiscussWithAiButtonProps) {
   // Subscribe to primitive references only — no inline selectors that return
   // new arrays each call (would cause infinite loops per project guidance).
   const prefillChat = useGuidanceStore(s => s._prefillChat)
@@ -37,6 +44,11 @@ function DiscussWithAiButtonImpl({ element, ariaLabel, className }: DiscussWithA
   const handleClick = useCallback((e: React.MouseEvent) => {
     e.stopPropagation()
     const text = buildAiDiscussPrompt(element)
+    // When caller provides onSend, bypass the store entirely.
+    if (onSend) {
+      onSend(text)
+      return
+    }
     // Auto-submit preferred: message lands immediately. Fall back to pre-fill
     // only when sendMessage is not registered (e.g. during onboarding flow).
     if (sendMessage) {
@@ -44,10 +56,10 @@ function DiscussWithAiButtonImpl({ element, ariaLabel, className }: DiscussWithA
     } else if (prefillChat) {
       prefillChat(text)
     }
-  }, [element, prefillChat, sendMessage])
+  }, [element, onSend, prefillChat, sendMessage])
 
-  // If neither callback is registered, render nothing — no dead button.
-  if (!sendMessage && !prefillChat) return null
+  // If neither callback is registered and no onSend override, render nothing — no dead button.
+  if (!onSend && !sendMessage && !prefillChat) return null
 
   const computedAriaLabel = ariaLabel ?? buildDefaultAriaLabel(element)
 

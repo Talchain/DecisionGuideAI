@@ -23,6 +23,7 @@ import { GraphLink } from './GraphLink'
 import { HelpCircle, AlertTriangle, Info } from 'lucide-react'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { EvidenceGapItem, DriverItem } from './types'
+import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 
 /** E-value entry for an edge */
 export interface EdgeEValue {
@@ -130,13 +131,10 @@ function ChallengeCard({
           Run this exercise to challenge the recommendation.
         </p>
         {onSendMessage && (
-          <button
-            type="button"
-            onClick={() => onSendMessage(ctaPrompt)}
-            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
-          >
-            Explore this
-          </button>
+          <DiscussWithAiButton
+            element={{ kind: 'missing' }}
+            onSend={() => onSendMessage(ctaPrompt)}
+          />
         )}
       </div>
     )
@@ -177,13 +175,10 @@ function ChallengeCard({
           <p className={`${typography.panelMeta} text-text-body`}>{item.whatToDo}</p>
         )}
         {onSendMessage && (
-          <button
-            type="button"
-            onClick={() => onSendMessage(ctaPrompt)}
-            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer mt-0.5`}
-          >
-            Explore this
-          </button>
+          <DiscussWithAiButton
+            element={{ kind: 'missing' }}
+            onSend={() => onSendMessage(ctaPrompt)}
+          />
         )}
       </div>
     </details>
@@ -323,18 +318,11 @@ function InferenceWarningCard({
           Scientific
         </span>
       </div>
-      {onSendMessage ? (
-        <button
-          type="button"
-          onClick={() => onSendMessage(`Can you explain this inference warning: ${message}`)}
-          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
-        >
-          Discuss with AI
-        </button>
-      ) : (
-        <p className={`${typography.panelMeta} text-info`}>
-          &#9678; Discuss with AI
-        </p>
+      {onSendMessage && (
+        <DiscussWithAiButton
+          element={{ kind: 'missing' }}
+          onSend={() => onSendMessage(`Can you explain this inference warning: ${message}`)}
+        />
       )}
     </div>
   )
@@ -358,13 +346,10 @@ function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string)
         Does this inadvertently anchor expectations? Consider setting an observed baseline.
       </p>
       {onSendMessage && (
-        <button
-          type="button"
-          onClick={() => onSendMessage('What baseline should I use for the success target? The current one is a default.')}
-          className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
-        >
-          Explore this
-        </button>
+        <DiscussWithAiButton
+          element={{ kind: 'goal', label: 'success target' }}
+          onSend={() => onSendMessage('What baseline should I use for the success target? The current one is a default.')}
+        />
       )}
     </div>
   )
