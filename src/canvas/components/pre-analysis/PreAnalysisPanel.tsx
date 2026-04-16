@@ -1112,7 +1112,7 @@ export function PreAnalysisPanel({
   // triage cards, Your expertise, missing knowledge prompt.
   // The accordion always renders so users can adjust the goal target and review
   // their expertise — even when nothing else is pending.
-  const improveConfidenceCards = triageQuickFix.filter(c => !mustFixCardKeys.has(c.key))
+  const improveConfidenceCards = triageQuickFix.filter(c => !mustFixCardKeys.has(c.signal_id ?? c.key))
   const expertiseHasItems =
     (data.improvementsByCategory.verify?.length ?? 0) > 0
     || (data.improvementsByCategory.add_evidence?.length ?? 0) > 0

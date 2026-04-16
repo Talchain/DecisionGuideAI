@@ -102,7 +102,7 @@ export function IconBtn({
               ${className}
             `}
           >
-            <Icon className="w-4 h-4" aria-hidden="true" />
+            <Icon className="w-3.5 h-3.5" aria-hidden="true" />
           </button>
         </span>
       </Tooltip>
@@ -121,7 +121,7 @@ export function IconBtn({
           ${className}
         `}
       >
-        <Icon className="w-4 h-4" aria-hidden="true" />
+        <Icon className="w-3.5 h-3.5" aria-hidden="true" />
       </button>
     </Tooltip>
   )

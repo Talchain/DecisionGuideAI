@@ -5,7 +5,8 @@
  * across triage cards, expertise rows, and option preview current-state display.
  *
  * Rules (unified spec §2.4):
- * - Currency symbols prefix the number: £5,000 not 5000 £
+ * - Currency symbol (£, $, €) prefix without space: £5,000
+ * - ISO currency code (GBP, USD, CHF) prefix with space: GBP 5,000
  * - Percentage suffix: 4.5% not % 4.5
  * - Time/generic units suffix with a space: 3 months, 500 users
  * - Numbers ≥ 1000 get thousand separators (en-GB locale)
@@ -19,9 +20,9 @@
  * formatInterventionDisplay which has its own discrete/cap logic.
  */
 
-import { classifyUnit, isCurrencyUnit } from './labelUtils'
+import { classifyUnit } from './labelUtils'
 
-/** Qualitative label for 0–1 scale values (inclusive boundaries). */
+/** Qualitative label for 0–1 scale values (exclusive upper boundary). */
 export function qualitativeLabel(v: number): string {
   if (v < 0.2) return 'very low'
   if (v < 0.4) return 'low'
@@ -42,17 +43,18 @@ export function formatNumber(n: number): string {
  *
  * @param rawValue - The denormalised real-world value (not a 0–1 normalised value,
  *                   unless the factor genuinely lives on a 0–1 scale).
- * @param unit     - Optional unit string (e.g. "£", "%", "months", "scale").
+ * @param unit     - Optional unit string (e.g. "£", "%", "months", "GBP", "scale").
  */
 export function formatValueWithUnit(rawValue: number, unit: string | undefined | null): string {
-  const unitKind = classifyUnit(unit ?? null).kind
-  const isPlaceholder = unitKind === 'placeholder'
+  const { kind, canonical } = classifyUnit(unit ?? null)
 
-  if ((!unit || isPlaceholder) && rawValue >= 0 && rawValue <= 1) {
+  if ((kind === 'none' || kind === 'placeholder') && rawValue >= 0 && rawValue <= 1) {
     return qualitativeLabel(rawValue)
   }
-  if (!unit || isPlaceholder) return formatNumber(rawValue)
-  if (isCurrencyUnit(unit)) return `${unit}${formatNumber(rawValue)}`
-  if (unit === '%') return `${formatNumber(rawValue)}%`
-  return `${formatNumber(rawValue)} ${unit}`
+  if (kind === 'none' || kind === 'placeholder') return formatNumber(rawValue)
+  if (kind === 'symbol') return `${canonical}${formatNumber(rawValue)}`
+  if (kind === 'iso') return `${canonical} ${formatNumber(rawValue)}`
+  if (kind === 'percent') return `${formatNumber(rawValue)}%`
+  // kind === 'other' — generic unit (months, users, etc.)
+  return `${formatNumber(rawValue)} ${canonical}`
 }
