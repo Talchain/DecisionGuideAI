@@ -683,6 +683,9 @@ export function PreAnalysisPanel({
     if (!snapshot) return
     const { updateNode } = useCanvasStore.getState()
     updateNode(snapshot.nodeId, { data: snapshot.previousData as any })
+    // UI-BUG-8: clear draft error so the Analyse button re-enables after undo.
+    // The value change that triggered the error has been reverted.
+    useDraftStore.getState().setLastDraftError(null)
   }, [])
 
   // Edit action - focus node on canvas for editing
@@ -1095,13 +1098,11 @@ export function PreAnalysisPanel({
       ?.review?.dominant_factor_low_confidence?.factor_id
 
   const startHereSignal = pickStartHere(allReviewNextSignals, {
-    hasMustFix: mustFixCount > 0,
     dominantFactorId,
   })
   if (import.meta.env.DEV) {
     console.debug('[PreAnalysis] pickStartHere', {
       signalCount: allReviewNextSignals.length,
-      hasMustFix: mustFixCount > 0,
       mustFixCount,
       picked: startHereSignal ? { kind: startHereSignal.kind, id: startHereSignal.id, score: startHereSignal.score } : null,
     })
@@ -1592,7 +1593,7 @@ export function PreAnalysisPanel({
 
               {/* Option similarity / quality card — interventions collapsed per option (v2 brief).
                   Suppressed here when it was promoted into the Start here slot. */}
-              {showOptionQualityCardAfterStart && data.optionPreviews.length > 0 && (
+              {showOptionQualityCard && data.optionPreviews.length > 0 && (
                 <OptionPreview
                   options={data.optionPreviews}
                   onFocusNode={handleFocusNode}

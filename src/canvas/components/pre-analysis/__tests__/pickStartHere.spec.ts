@@ -59,13 +59,15 @@ function optionQuality(overlap = false, labels = ['Option 1']): OptionQualitySig
 }
 
 describe('pickStartHere', () => {
-  it('returns null when hasMustFix is true', () => {
-    const signals: ReviewNextSignal[] = [triage(0.9)]
-    expect(pickStartHere(signals, { hasMustFix: true })).toBeNull()
+  it('returns null when signals are empty', () => {
+    expect(pickStartHere([], {})).toBeNull()
   })
 
-  it('returns null when signals are empty', () => {
-    expect(pickStartHere([], { hasMustFix: false })).toBeNull()
+  // UI-BUG-9: hasMustFix guard was removed — Start here renders in Review next
+  // regardless of Must fix state. Must fix and Review next are separate sections.
+  it('returns a signal even when must-fix items would exist (UI-BUG-9)', () => {
+    const signals: ReviewNextSignal[] = [triage(0.9)]
+    expect(pickStartHere(signals, {})).not.toBeNull()
   })
 
   it('CEE dominantFactorId overrides score ranking', () => {
@@ -73,14 +75,14 @@ describe('pickStartHere', () => {
       triage(0.2, 'Dominant', 'fac_dominant'),
       triage(0.9, 'High', 'fac_high'),
     ]
-    const pick = pickStartHere(signals, { hasMustFix: false, dominantFactorId: 'fac_dominant' })
+    const pick = pickStartHere(signals, { dominantFactorId: 'fac_dominant' })
     expect(pick?.kind).toBe('triage')
     expect((pick as TriageSignal).focusId).toBe('fac_dominant')
   })
 
   it('dominantFactorId is ignored when no matching signal present', () => {
     const signals: ReviewNextSignal[] = [triage(0.9, 'High', 'fac_high')]
-    const pick = pickStartHere(signals, { hasMustFix: false, dominantFactorId: 'fac_missing' })
+    const pick = pickStartHere(signals, { dominantFactorId: 'fac_missing' })
     expect((pick as TriageSignal).focusId).toBe('fac_high')
   })
 
@@ -90,7 +92,7 @@ describe('pickStartHere', () => {
       optionQuality(true),        // 0.9
       triage(0.95, 'Very high'),  // 0.95 — should win
     ]
-    const pick = pickStartHere(signals, { hasMustFix: false })
+    const pick = pickStartHere(signals, {})
     expect(pick?.kind).toBe('triage')
   })
 
@@ -99,7 +101,7 @@ describe('pickStartHere', () => {
       triage(0.1, 'Low influence'),
       bias('high'),  // 0.85
     ]
-    const pick = pickStartHere(signals, { hasMustFix: false })
+    const pick = pickStartHere(signals, {})
     expect(pick?.kind).toBe('bias')
     expect((pick as BiasSignal).biasType).toBe('confirmation')
   })
@@ -110,7 +112,7 @@ describe('pickStartHere', () => {
       bias('low'),              // 0.45
       optionQuality(true),      // 0.9
     ]
-    const pick = pickStartHere(signals, { hasMustFix: false })
+    const pick = pickStartHere(signals, {})
     expect(pick?.kind).toBe('option_quality')
   })
 
@@ -120,16 +122,13 @@ describe('pickStartHere', () => {
       triage(0.8, 'Apple', 'fac_a'),
       triage(0.8, 'Mango', 'fac_m'),
     ]
-    const pick = pickStartHere(signals, { hasMustFix: false })
+    const pick = pickStartHere(signals, {})
     expect((pick as TriageSignal).card.title).toBe('Apple')
   })
 
   it('defaultedScore triage signals can still be picked when nothing else exists', () => {
-    // Picker itself does not filter defaulted scores — that's P1-3's job for
-    // coaching lines. Here we just assert it's returned when it's the only
-    // candidate.
     const signals: ReviewNextSignal[] = [triage(0.5, 'Default scored', 'fac_d', true)]
-    const pick = pickStartHere(signals, { hasMustFix: false })
+    const pick = pickStartHere(signals, {})
     expect(pick).not.toBeNull()
     expect((pick as TriageSignal).defaultedScore).toBe(true)
   })

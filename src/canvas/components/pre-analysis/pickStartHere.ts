@@ -1,7 +1,13 @@
 /**
  * pickStartHere — unified priority ranking across ALL Review next signals
  * (triage factors/edges, option quality, bias triggers). Returns the single
- * highest-priority signal, or null when Must fix is populated.
+ * highest-priority signal, or null when no signals exist.
+ *
+ * UI-BUG-9: the hasMustFix guard was removed. Must fix and Review next are
+ * separate sections; the Start here card is a visual highlight within Review
+ * next that guides the user to the most impactful review item. Suppressing it
+ * when blockers exist prevented the card from ever rendering on typical fresh
+ * drafts (which always have OPTIONS_NEED_MAPPING blockers).
  *
  * P1-4: the picker re-evaluates on every render so a newly important item
  * promotes automatically when state changes. No caching across renders.
@@ -76,8 +82,6 @@ export const BIAS_SEVERITY_SCORE: Record<string, number> = {
 export interface PickStartHereOptions {
   /** CEE-provided dominant factor id — highest-priority override when present */
   dominantFactorId?: string | null
-  /** When true, Start here is suppressed (Must fix owns the top slot) */
-  hasMustFix: boolean
 }
 
 function signalLabel(s: ReviewNextSignal): string {
@@ -92,7 +96,6 @@ export function pickStartHere(
   signals: readonly ReviewNextSignal[],
   opts: PickStartHereOptions,
 ): ReviewNextSignal | null {
-  if (opts.hasMustFix) return null
   if (signals.length === 0) return null
 
   // 1. CEE dominant_factor_low_confidence override — only wins if the matching

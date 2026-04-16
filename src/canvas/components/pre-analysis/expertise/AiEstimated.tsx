@@ -89,7 +89,7 @@ export function AiEstimated({
                 <button
                   type="button"
                   onClick={() => nodeId && onConfirm?.(nodeId)}
-                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-success hover:text-success/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 rounded-full cursor-pointer"
+                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-success hover:text-success/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 cursor-pointer"
                   aria-label={`Confirm value for ${item.label}`}
                 >
                   <Check className="w-3.5 h-3.5" aria-hidden="true" />
@@ -99,7 +99,7 @@ export function AiEstimated({
                 <button
                   type="button"
                   onClick={() => nodeId && onEdit?.(nodeId)}
-                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 rounded-full cursor-pointer"
+                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 cursor-pointer"
                   aria-label={`Edit value for ${item.label}`}
                 >
                   <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
