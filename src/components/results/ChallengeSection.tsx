@@ -20,10 +20,11 @@ import { typography } from '../../styles/typography'
 import type { ActionItem } from './utils/groupActionItems'
 import { CappedList } from './CappedList'
 import { GraphLink } from './GraphLink'
-import { HelpCircle, AlertTriangle, Info } from 'lucide-react'
+import { HelpCircle, AlertTriangle, Info, PanelRight } from 'lucide-react'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { EvidenceGapItem, DriverItem } from './types'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
+import Tooltip from '../Tooltip'
 
 /** E-value entry for an edge */
 export interface EdgeEValue {
@@ -244,31 +245,31 @@ function FragileEdgeGroupCard({
         )
       })}
 
-      {/* CTA pills */}
+      {/* CTA icons */}
       <div className="flex items-center gap-1 pt-0.5">
         {onFocusNode && !consolidated && (
-          <button
-            type="button"
-            onClick={() => onFocusNode(focusId)}
-            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
-          >
-            Review in inspector
-          </button>
+          <Tooltip content="Open in inspector" delay={200}>
+            <button
+              type="button"
+              onClick={() => onFocusNode(focusId)}
+              aria-label="Open in inspector"
+              className="inline-flex items-center justify-center w-6 h-6 rounded-full text-text-light hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 transition-colors"
+            >
+              <PanelRight size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
         )}
         {onSendMessage && (
-          <button
-            type="button"
-            onClick={() => onSendMessage(
+          <DiscussWithAiButton
+            element={{ kind: 'missing' }}
+            onSend={() => onSendMessage(
               consolidated
                 ? `Are these ${edges.length} fragile relationships in my model reliable?`
                 : multiple
                   ? `Are the relationships from ${cleanSource} reliable? It has ${edges.length} fragile connections.`
                   : `Is the relationship between ${cleanSource} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
             )}
-            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
-          >
-            Discuss with AI
-          </button>
+          />
         )}
       </div>
     </div>
