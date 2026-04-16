@@ -88,7 +88,7 @@ describe('Fixture 1 — Normal scenario', () => {
     expect(entries[5].headline).toBe('Suggestion dismissed: Skip competitor analysis')
     expect(entries[6].headline).toBe('Moved to ideate stage')
     expect(entries[7].headline).toBe('Moved to evaluate stage')
-    expect(entries[8].headline).toBe('Analysis complete - Option A recommended at 72% (robust)')
+    expect(entries[8].headline).toBe('Analysis complete - Option A leads at 72% (robust)')
     expect(entries[9].headline).toBe('Decision brief generated')
   })
 
