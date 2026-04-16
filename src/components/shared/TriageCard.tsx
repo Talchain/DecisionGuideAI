@@ -212,17 +212,22 @@ function InlineValueControls({
     }
   }, [draft, editorConfig.onSave])
 
-  // Suppress placeholder units (scale, score, index, norm…) from the inline
-  // editor — they carry no real-world scale and would render as "0 scale".
-  const unitSuffix = editorConfig.unit === '%'
-    ? '%'
-    : editorConfig.unit && classifyUnit(editorConfig.unit).kind !== 'placeholder'
-      ? editorConfig.unit
-      : ''
+  // Classify unit for currency-aware prefix/suffix rendering.
+  // Suppress placeholder units (scale, score, index, norm…) — no real-world scale.
+  const unitClassification = editorConfig.unit ? classifyUnit(editorConfig.unit) : null
+  const unitKind = editorConfig.unit === '%' ? 'percent' as const : unitClassification?.kind ?? 'none'
+  const unitDisplay = unitKind === 'percent' ? '%'
+    : unitKind === 'symbol' || unitKind === 'iso' ? (unitClassification?.canonical ?? editorConfig.unit!)
+    : unitKind === 'other' ? editorConfig.unit!
+    : ''
+  const isCurrencyPrefix = unitKind === 'symbol' || unitKind === 'iso'
 
   return (
     <div className="flex items-center gap-2 flex-shrink-0">
       <div className="inline-flex items-center gap-0.5">
+        {isCurrencyPrefix && unitDisplay && (
+          <span className={`${typography.panelMeta} text-text-light`}>{unitDisplay}</span>
+        )}
         <input
           ref={inputRef}
           type="number"
@@ -231,12 +236,12 @@ function InlineValueControls({
           onKeyDown={e => {
             if (e.key === 'Enter') handleUpdate()
           }}
-          className={`w-14 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+          className={`w-16 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
           aria-label={`Value for ${title}`}
           placeholder="Set value"
         />
-        {unitSuffix && (
-          <span className={`${typography.panelMeta} text-text-light`}>{unitSuffix}</span>
+        {!isCurrencyPrefix && unitDisplay && (
+          <span className={`${typography.panelMeta} text-text-light`}>{unitDisplay}</span>
         )}
       </div>
       <div className="inline-flex items-center gap-2" data-testid="triage-card-icon-group">

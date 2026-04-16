@@ -106,14 +106,20 @@ describe('pickStartHere', () => {
     expect((pick as BiasSignal).biasType).toBe('confirmation')
   })
 
-  it('option quality wins when triage and bias are both low-priority', () => {
+  it('option_quality signals are excluded — bias wins over low triage', () => {
     const signals: ReviewNextSignal[] = [
       triage(0.1, 'Minor'),
       bias('low'),              // 0.45
-      optionQuality(true),      // 0.9
+      optionQuality(true),      // 0.9 — excluded from Start here candidacy
     ]
     const pick = pickStartHere(signals, {})
-    expect(pick?.kind).toBe('option_quality')
+    // option_quality excluded; bias (0.45) beats triage (0.1)
+    expect(pick?.kind).toBe('bias')
+  })
+
+  it('returns null when only option_quality signals exist', () => {
+    const signals: ReviewNextSignal[] = [optionQuality(true)]
+    expect(pickStartHere(signals, {})).toBeNull()
   })
 
   it('tie-break is alphabetical by label', () => {

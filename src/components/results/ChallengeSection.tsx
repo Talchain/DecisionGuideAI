@@ -206,6 +206,8 @@ function FragileEdgeGroupCard({
 }) {
   const cleanSource = stripEncodingNotation(sourceLabel)
   const hasEValue = edges.some(e => e.e_value != null)
+  // Consolidated mode: empty sourceLabel means edges from mixed sources
+  const consolidated = !sourceLabel
   const multiple = edges.length > 1
   const focusId = edges[0].from_id ?? edges[0].from_label
 
@@ -214,9 +216,11 @@ function FragileEdgeGroupCard({
       <div className="flex items-center gap-2">
         <AlertTriangle className={`w-3.5 h-3.5 ${hasEValue ? 'text-danger' : 'text-warning'} flex-shrink-0`} aria-hidden="true" />
         <p className={`${typography.panelBody} text-text-body flex-1`}>
-          {multiple
-            ? <>{edges.length} fragile relationships from {cleanSource}</>
-            : hasEValue ? 'Fragile result, verify key assumptions' : 'Fragile relationship'}
+          {consolidated
+            ? <>{edges.length} fragile relationships</>
+            : multiple
+              ? <>{edges.length} fragile relationships from {cleanSource}</>
+              : hasEValue ? 'Fragile result, verify key assumptions' : 'Fragile relationship'}
         </p>
         <span className={`rounded-full border ${hasEValue ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}>
           Stability
@@ -224,25 +228,30 @@ function FragileEdgeGroupCard({
       </div>
 
       {/* Edge target list */}
-      {edges.map((edge, i) => (
-        <p key={`${edge.from_label}-${edge.to_label}-${i}`} className={`${typography.panelMeta} text-text-light`}>
-          {multiple && <>&rarr; {stripEncodingNotation(edge.to_label)}: </>}
-          {edge.e_value != null
-            ? <>
-                {!multiple && <>{cleanSource} &rarr; {stripEncodingNotation(edge.to_label)}: </>}
-                would only need to be {edge.e_value.toFixed(1)}x wrong to flip the recommendation.
-              </>
-            : <>
-                {!multiple && <>{cleanSource} &rarr; {stripEncodingNotation(edge.to_label)} is fragile. </>}
-                A shift could change the recommendation.
-              </>
-          }
-        </p>
-      ))}
+      {edges.map((edge, i) => {
+        const edgeSource = stripEncodingNotation(edge.from_label)
+        const edgeTarget = stripEncodingNotation(edge.to_label)
+        return (
+          <p key={`${edge.from_label}-${edge.to_label}-${i}`} className={`${typography.panelMeta} text-text-light`}>
+            {consolidated
+              ? <>{edgeSource} &rarr; {edgeTarget}: </>
+              : multiple
+                ? <>&rarr; {edgeTarget}: </>
+                : <>{cleanSource} &rarr; {edgeTarget}: </>
+            }
+            {edge.e_value != null
+              ? <>would only need to be {edge.e_value.toFixed(1)}x wrong to flip the recommendation.</>
+              : consolidated || multiple
+                ? <>a shift could change the recommendation.</>
+                : <>is fragile. A shift could change the recommendation.</>
+            }
+          </p>
+        )
+      })}
 
       {/* CTA pills */}
       <div className="flex items-center gap-1 pt-0.5">
-        {onFocusNode && (
+        {onFocusNode && !consolidated && (
           <button
             type="button"
             onClick={() => onFocusNode(focusId)}
@@ -255,9 +264,11 @@ function FragileEdgeGroupCard({
           <button
             type="button"
             onClick={() => onSendMessage(
-              multiple
-                ? `Are the relationships from ${cleanSource} reliable? It has ${edges.length} fragile connections.`
-                : `Is the relationship between ${cleanSource} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
+              consolidated
+                ? `Are these ${edges.length} fragile relationships in my model reliable?`
+                : multiple
+                  ? `Are the relationships from ${cleanSource} reliable? It has ${edges.length} fragile connections.`
+                  : `Is the relationship between ${cleanSource} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
             )}
             className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer`}
           >
@@ -411,16 +422,33 @@ export function ChallengeSection({
       {/* ── Model structure items (Task 8: no sub-header) ───────────────── */}
       {modelStructureCount > 0 && (
         <div className="space-y-2">
-          {/* Fragile edges grouped by source node */}
-          {Object.entries(fragileBySource).map(([sourceLabel, cards]) => (
-            <FragileEdgeGroupCard
-              key={`fragile-group-${sourceLabel}`}
-              sourceLabel={sourceLabel}
-              edges={cards}
-              onFocusNode={onFocusNode}
-              onSendMessage={onSendMessage}
-            />
-          ))}
+          {/* Fragile edges grouped by source node.
+              When grouping by source produces only singletons (no source has 2+
+              edges), consolidate into one card to avoid N identical-looking cards. */}
+          {(() => {
+            const entries = Object.entries(fragileBySource)
+            const allSingletons = entries.length > 1 && entries.every(([, cards]) => cards.length === 1)
+            if (allSingletons) {
+              return (
+                <FragileEdgeGroupCard
+                  key="fragile-group-consolidated"
+                  sourceLabel=""
+                  edges={mergedFragileCards}
+                  onFocusNode={onFocusNode}
+                  onSendMessage={onSendMessage}
+                />
+              )
+            }
+            return entries.map(([sourceLabel, cards]) => (
+              <FragileEdgeGroupCard
+                key={`fragile-group-${sourceLabel}`}
+                sourceLabel={sourceLabel}
+                edges={cards}
+                onFocusNode={onFocusNode}
+                onSendMessage={onSendMessage}
+              />
+            ))
+          })()}
           {rootWarnings.map((warning, i) => (
             <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} onSendMessage={onSendMessage} />
           ))}

@@ -107,9 +107,15 @@ export function pickStartHere(
     if (hit) return hit
   }
 
-  // 2. Highest scored signal across all kinds.
+  // 2. Exclude option_quality signals — option concerns are communicated by the
+  //    OptionPreview card itself. Including them here produces a duplicate
+  //    "Your options" card (signal registry violation: one signal, one home).
+  const eligible = signals.filter(s => s.kind !== 'option_quality')
+  if (eligible.length === 0) return null
+
+  // 3. Highest scored signal across eligible kinds.
   //    Tie-break: alphabetical by label so order is deterministic across renders.
-  const sorted = [...signals].sort((a, b) => {
+  const sorted = [...eligible].sort((a, b) => {
     if (b.score !== a.score) return b.score - a.score
     return signalLabel(a).localeCompare(signalLabel(b))
   })

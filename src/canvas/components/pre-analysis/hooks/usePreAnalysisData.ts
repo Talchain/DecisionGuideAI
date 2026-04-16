@@ -819,6 +819,9 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       const isInferred =
         os.extractionType === 'inferred'
         || factorData?.extractionType === 'inferred'
+        // CEE may omit extractionType while still setting source to an AI value.
+        // An AI-sourced zero with no meaningful unit is equally "not set".
+        || isAi
       const rawValueNum = os.raw_value != null ? Number(os.raw_value) : null
       const valueNum = os.value != null ? Number(os.value) : null
       // A "meaningful" unit is one that carries real-world scale (currency,
@@ -829,7 +832,10 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       const unitKind = classifyUnit(os.unit).kind
       const hasMeaningfulUnit = unitKind !== 'none' && unitKind !== 'placeholder'
       const isZeroValue = (rawValueNum === 0) || (rawValueNum == null && valueNum === 0)
-      const isInferredZero = isInferred && isZeroValue && !hasMeaningfulUnit
+      // Binary factors (0/1, yes/no, etc.) use 0 as a valid semantic value
+      // ("not hired", "disabled"), not as "unknown". Exclude from Not set override.
+      const isBinary = /\(0[/–—-]1\)|\(yes\/no\)|\(binary\)|\(on\/off\)|\(true\/false\)/i.test(rawLabel)
+      const isInferredZero = isInferred && isZeroValue && !hasMeaningfulUnit && !isBinary
 
       // Build context line: raw_value + unit always primary, verification_prompt → hint.
       // "Not set" replaces the formatter output for inferred-zero factors.

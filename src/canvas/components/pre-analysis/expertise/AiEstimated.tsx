@@ -59,17 +59,31 @@ export function AiEstimated({
               >
                 {item.label}
               </button>
-              {item.rawValue != null && item.detail !== 'Not set' && (
-                <button
-                  type="button"
-                  onClick={() => nodeId && onEdit?.(nodeId)}
-                  className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
-                >
-                  {item.unit && classifyUnit(item.unit).kind !== 'placeholder'
-                    ? `${item.rawValue} ${item.unit}`
-                    : String(item.rawValue)}
-                </button>
-              )}
+              {item.rawValue != null && item.detail !== 'Not set' && (() => {
+                const { kind, canonical } = item.unit ? classifyUnit(item.unit) : { kind: 'none' as const, canonical: '' }
+                // Suppress placeholder units (scale, score, etc.) — no real-world scale
+                if (kind === 'placeholder') return null
+                const num = typeof item.rawValue === 'number' ? item.rawValue : Number(item.rawValue)
+                const formatted = num.toLocaleString('en-GB')
+                const display = kind === 'symbol'
+                  ? `${canonical}${formatted}`
+                  : kind === 'iso'
+                    ? `${canonical} ${formatted}`
+                    : kind === 'other'
+                      ? `${formatted} ${canonical}`
+                      : kind === 'percent'
+                        ? `${formatted}%`
+                        : formatted // 'none' — just the number
+                return (
+                  <button
+                    type="button"
+                    onClick={() => nodeId && onEdit?.(nodeId)}
+                    className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
+                  >
+                    {display}
+                  </button>
+                )
+              })()}
               <Pill size="small" variant="warning">Estimated</Pill>
               {influencePct != null && (
                 <div className="flex items-center gap-1 shrink-0" style={{ width: 60 }}>
