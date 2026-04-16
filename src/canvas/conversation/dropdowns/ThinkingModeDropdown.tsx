@@ -6,11 +6,10 @@
  * Matches prototype: 14px padding, no header border, 12px mode name.
  */
 
-import { useRef, useEffect, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { ChevronDown } from 'lucide-react'
 import { NodeShape } from '../primitives/NodeShape'
 import type { NodeType } from '../../domain/nodes'
+import { FlipDropdown } from '../../../components/ui/FlipDropdown'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Mode definitions
@@ -88,57 +87,15 @@ interface ThinkingModeDropdownProps {
 export function ThinkingModeDropdown({
   isOpen, onClose, selectedMode, onSelectMode, anchorRef,
 }: ThinkingModeDropdownProps) {
-  const popoverRef = useRef<HTMLDivElement>(null)
-  const [pos, setPos] = useState({ bottom: 0, right: 0 })
-
-  // Compute anchor position when opening
-  useEffect(() => {
-    if (!isOpen || !anchorRef.current) return
-    const r = anchorRef.current.getBoundingClientRect()
-    setPos({
-      bottom: window.innerHeight - r.top + 6,
-      right: window.innerWidth - r.right,
-    })
-  }, [isOpen, anchorRef])
-
-  useEffect(() => {
-    if (!isOpen) return
-    const handle = (e: MouseEvent) => {
-      if (
-        popoverRef.current && !popoverRef.current.contains(e.target as Node) &&
-        anchorRef.current && !anchorRef.current.contains(e.target as Node)
-      ) {
-        onClose()
-      }
-    }
-    const esc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose()
-        anchorRef.current?.focus()
-      }
-    }
-    const tid = setTimeout(() => document.addEventListener('mousedown', handle), 0)
-    document.addEventListener('keydown', esc)
-    return () => {
-      clearTimeout(tid)
-      document.removeEventListener('mousedown', handle)
-      document.removeEventListener('keydown', esc)
-    }
-  }, [isOpen, onClose, anchorRef])
-
-  if (!isOpen) return null
-
-  return createPortal(
-    <div
-      ref={popoverRef}
-      role="menu"
-      aria-label="Thinking mode"
+  return (
+    <FlipDropdown
+      isOpen={isOpen}
+      onClose={onClose}
+      anchorRef={anchorRef}
+      align="right"
+      ariaLabel="Thinking mode"
       className="bg-panel"
       style={{
-        position: 'fixed',
-        bottom: pos.bottom,
-        right: pos.right,
-        zIndex: 9000,
         padding: 14,
         minWidth: 240,
         borderRadius: 12,
@@ -146,7 +103,7 @@ export function ThinkingModeDropdown({
         boxShadow: '0 8px 24px rgba(38,38,38,0.14)',
         animation: 'thinkingModeIn 150ms cubic-bezier(0.0, 0, 0.2, 1) both',
       }}
-      data-testid="thinking-mode-dropdown"
+      testId="thinking-mode-dropdown"
     >
       {/* Header */}
       <div className="flex items-center" style={{ gap: 8, marginBottom: 12 }}>
@@ -230,7 +187,6 @@ export function ThinkingModeDropdown({
           }
         }
       `}</style>
-    </div>,
-    document.body,
+    </FlipDropdown>
   )
 }

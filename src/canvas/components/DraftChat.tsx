@@ -62,18 +62,20 @@ export function DraftChat() {
   const initialHasGraph = useCanvasStore.getState().nodes.length > 0 || useCanvasStore.getState().edges.length > 0
   const [isMinimized, setIsMinimized] = useState(initialHasGraph)
 
-  // Panel width state (persisted to localStorage)
+  // Panel width state (persisted to localStorage).
+  // Tranche 1 item 19: rendered range 360–600px (DS v5 conversation spec),
+  // stored directly (no rendering multiplier). Default 480 = middle of range.
   const [panelWidth, setPanelWidth] = useState<number>(() => {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(DRAFT_PANEL_WIDTH_KEY)
       if (stored) {
         const parsed = parseInt(stored, 10)
-        if (Number.isFinite(parsed) && parsed >= 320 && parsed <= 1014) {
+        if (Number.isFinite(parsed) && parsed >= 360 && parsed <= 600) {
           return parsed
         }
       }
     }
-    return 676 // default width (30% increase from 520)
+    return 480
   })
 
   // Panel height state (persisted to localStorage, clamped to 20vh – 90vh)
@@ -777,7 +779,9 @@ export function DraftChat() {
 
   }, [pushHistory, applyLayout, setPendingFitView])
 
-  // Handle panel resize via drag
+  // Handle panel resize via drag.
+  // Tranche 1 item 19: left-edge handle. Panel is anchored right, so dragging
+  // the left edge leftward increases width (delta sign is inverted).
   const handleResizeStart = useCallback((event: React.MouseEvent) => {
     if (typeof window === 'undefined') return
     event.preventDefault()
@@ -787,7 +791,8 @@ export function DraftChat() {
 
     const handleMove = (e: MouseEvent) => {
       const deltaX = e.clientX - startX
-      const newWidth = Math.max(320, Math.min(1014, startWidth + deltaX))
+      // Left-edge: dragging leftward (negative delta) GROWS the panel.
+      const newWidth = Math.max(360, Math.min(600, startWidth - deltaX))
       setPanelWidth(newWidth)
     }
 
@@ -862,7 +867,9 @@ export function DraftChat() {
       const deltaX = e.clientX - startX
       const deltaY = startY - e.clientY // up = taller
       const minH = Math.floor(window.innerHeight * 0.2)
-      latestWidth = Math.max(320, Math.min(1014, startWidth + deltaX))
+      // Corner handle is top-RIGHT; panel is anchored right so dragging left
+      // grows width (invert sign to match left-edge handle semantics).
+      latestWidth = Math.max(360, Math.min(600, startWidth - deltaX))
       latestHeight = Math.max(minH, Math.min(maxH, startHeight + deltaY))
       setPanelWidth(latestWidth)
       setPanelHeight(latestHeight)
@@ -935,7 +942,7 @@ export function DraftChat() {
         left: dockOffset > 0 ? `calc(50% - ${dockOffset / 2}px)` : '50%',
         transform: 'translateX(-50%)',
         bottom: 'calc(var(--bottombar-h, 0) + 1rem)',
-        width: `${panelWidth * 1.44}px`,
+        width: `${panelWidth}px`,
         // Constrain max width when dock is expanded
         maxWidth: dockOffset > 0
           ? `calc(100vw - ${dockOffset}px - 112px - 52px - 24px)`
@@ -946,11 +953,14 @@ export function DraftChat() {
       aria-labelledby="draft-chat-title"
     >
       <div className="relative">
+        {/* Tranche 1 item 19: left-edge 4px resize handle (was 1.5px right edge). */}
         <div
           aria-hidden="true"
           onMouseDown={handleResizeStart}
-          className="absolute inset-y-0 right-0 w-1.5 cursor-col-resize bg-transparent hover:bg-sky-200/60 transition-colors z-10"
+          className="absolute inset-y-0 left-0 cursor-col-resize bg-transparent hover:bg-info/20 transition-colors z-10"
+          style={{ width: 4 }}
           title="Drag to resize panel"
+          data-testid="draft-chat-resize-handle"
         />
         {/* Task 7: Corner resize handle — top-right for diagonal resize */}
         <div
@@ -966,20 +976,16 @@ export function DraftChat() {
         />
         {isMinimized ? (
           isOrchV2 ? (
-          /* Orchestrator V2 minimized bar — clean rounded pill matching new design */
-          <div
-            className="flex items-center gap-2 rounded-[20px] border border-panel-border px-4 py-2.5 bg-panel"
-            style={{ boxShadow: 'var(--shadow-2, 0 4px 12px rgba(0,0,0,0.08))' }}
+          /* Orchestrator V2 minimized bar — full-bar click expands panel (items 17, 18).
+             Placeholder copy removed; shapes and ambient context carry meaning. */
+          <button
+            type="button"
+            onClick={() => setIsMinimized(false)}
+            aria-label="Expand panel"
+            className="flex items-center justify-end gap-2 rounded-[20px] border border-panel-border px-4 py-2.5 bg-panel cursor-pointer transition-colors hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+            style={{ boxShadow: 'var(--shadow-2, 0 4px 12px rgba(0,0,0,0.08))', minHeight: 50 }}
             data-testid="chat-minimized"
           >
-            <button
-              type="button"
-              onClick={() => setIsMinimized(false)}
-              className={`${typography.body} text-text-light flex-1 text-left cursor-pointer bg-transparent border-none outline-none`}
-              aria-label="Expand panel"
-            >
-              {hasGraph ? 'Describe changes or rebuild…' : 'Describe your decision…'}
-            </button>
             <div
               className="w-[34px] h-[34px] flex-shrink-0 rounded-full flex items-center justify-center bg-panel-hover text-text-light"
               style={{ border: '1px solid var(--border-default, #E8E5E1)' }}
@@ -987,7 +993,7 @@ export function DraftChat() {
             >
               <ChevronUp className="w-4 h-4" />
             </div>
-          </div>
+          </button>
           ) : (
           <>
           <div
@@ -1014,7 +1020,7 @@ export function DraftChat() {
                     handleDraft()
                   }
                 }}
-                placeholder={hasGraph ? 'Describe changes to your model...' : 'Describe your decision...'}
+                placeholder=""
                 className={`${typography.body} w-full h-full pr-12 bg-transparent resize-none placeholder:text-ink-400`}
                 style={{
                   minHeight: '24px',
@@ -1092,7 +1098,7 @@ export function DraftChat() {
                 style={{ height: 2, background: 'var(--border-default, #EEE6D8)' }}
               />
             </div>
-            {/* Header — hidden when orchestrator V2 is active (ChatTopBar replaces it) */}
+            {/* Header — hidden when orchestrator V2 is active (ConversationPanel renders its own header) */}
             {!isOrchV2 && (
             <div className="flex items-center justify-between px-4 py-3 border-b border-sand-100" style={{ backgroundColor: '#FEFEFE' }}>
               <div className="flex items-center gap-2">

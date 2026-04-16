@@ -65,9 +65,9 @@ export function SuggestedChips({
   }
 
   return (
-    <div className="flex flex-col self-start gap-1 mb-2">
+    <div className="flex flex-col self-start gap-1 mb-4">
       <div
-        className="flex flex-wrap gap-2 mt-1"
+        className="flex flex-wrap gap-2 mt-4"
         data-testid="suggested-chips"
       >
         {visible.map((chip, i) => {
@@ -92,7 +92,7 @@ export function SuggestedChips({
                 'bg-panel border border-panel-border rounded-full',
                 'px-4 py-2 min-h-[44px]',
                 'hover:bg-panel-hover active:bg-panel-border/30',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',
                 'text-text-body cursor-pointer font-sans',
                 typography.bodySmall,
                 'disabled:opacity-40 disabled:pointer-events-none',

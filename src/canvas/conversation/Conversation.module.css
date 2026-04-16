@@ -28,6 +28,7 @@
 /* Markdown content inside message bubbles */
 .markdownContent {
   white-space: normal;
+  line-height: 1.65;
 }
 .markdownContent p {
   margin: 0 0 14px;
@@ -239,7 +240,9 @@
 }
 
 .commentaryBlock {
-  color: var(--text-body, #3F3F3E);
+  /* DS v5 §21.2 — Commentary is inline: no border, muted text, slight indent. */
+  color: var(--text-light, #908D8D);
+  padding-left: 12px;
 }
 
 .commentaryBlockWarning {

@@ -39,7 +39,9 @@ import type { PatchOperation, ProposalReviewItem, RelatedElementRef } from './ty
 export const RAW_ID_PATTERN =
   /\b(?:opt|fac|goal|dec|out|risk|con|factor|option|decision|outcome|constraint)_[a-z0-9_]+/i
 
-/** Human-readable generic fallback when label resolution fails entirely. */
+/** Human-readable generic fallback when label resolution fails entirely.
+ *  Preserves the raw-ID-leak invariant guaranteed by the describeOperation
+ *  raw-ID test suite (any mono-ID fallback would violate that invariant). */
 const GENERIC_BY_OP: Record<PatchOperation['op'], string> = {
   add_node:    'Add factor',
   update_node: 'Update factor',

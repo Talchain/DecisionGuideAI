@@ -25,8 +25,10 @@ const LIGHT_FILLS: Record<NodeType, string> = {
 }
 
 function DashedArrow() {
+  // Height matches shape size (16px) so flex-row centering aligns shape+arrow
+  // pairs on a single horizontal axis — no vertical drift between pairs.
   return (
-    <div className="flex items-center justify-center flex-shrink-0" style={{ width: 16, height: 10 }}>
+    <div className="flex items-center justify-center flex-shrink-0" style={{ width: 16, height: 16 }}>
       <svg width="14" height="8" viewBox="0 0 16 8" aria-hidden="true">
         <line x1="2" y1="4" x2="11" y2="4" stroke="var(--factor-light, #EEE6D8)" strokeWidth="1" strokeDasharray="2.5 2" />
         <polyline points="9.5,1.8 12.5,4 9.5,6.2" fill="none" stroke="var(--factor-light, #EEE6D8)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
@@ -49,9 +51,9 @@ export function ThinkingIndicator({ label }: ThinkingIndicatorProps) {
       {/* Shape pipeline with two-layer wave */}
       <div className="flex items-center" style={{ gap: 0 }}>
         {SHAPES.map((kind, i) => (
-          <div key={kind} className="flex items-center" style={{ gap: 0 }}>
+          <div key={kind} className="flex items-center justify-center" style={{ gap: 0, height: 16 }}>
             <div
-              className="relative flex-shrink-0"
+              className="relative flex-shrink-0 flex items-center justify-center"
               style={{ width: 16, height: 16 }}
             >
               {/* Main colour layer — fades out during wave */}

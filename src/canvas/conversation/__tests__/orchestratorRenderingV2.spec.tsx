@@ -553,7 +553,8 @@ describe('Fixture golden-path — envelope shapes', () => {
     const env = fixtureData.envelopes.markdownInAssistantText
     const html = safeRichText(env.assistant_text)
     expect(html).toContain('<strong>Revenue at risk.</strong>')
-    expect(html).toContain('<li>Market share erosion (0.28)</li>')
+    // Tranche 1 item 9: standalone numbers wrap in .md-number for tabular styling.
+    expect(html).toContain('<li>Market share erosion (<span class="md-number">0.28</span>)</li>')
     expect(html).toContain('<li>Price elasticity</li>')
   })
 
