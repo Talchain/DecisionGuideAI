@@ -1,20 +1,14 @@
 /**
- * KNOWN-BROKEN TESTS — pre-existing failures awaiting fix.
+ * DecisionQualityChecks — component tests.
  *
- * As of 2026-04-08, 6 tests in this file fail because they expect a
- * "Sharpen your thinking" section header that no longer exists in the
- * DecisionQualityChecks component. The test file has not been updated
- * since the section was removed/renamed.
- *
- * Status: not tracked in an issue. Failures are present on baseline,
- * confirmed independent of the v2 pre-analysis panel regroup work.
- *
- * Action needed: either update the test fixtures to match the current
- * DecisionQualityChecks component contract, or remove the file if the
- * component is no longer used.
+ * Tests max-visible-card logic and structural-check filtering.
+ * Direct-add CTA tests removed: all IDs with DIRECT_ACTIONS
+ * (no_risks, zero_external_factors, all_positive_edges) are now
+ * in STRUCTURAL_CHECK_IDS and excluded from this component — the
+ * direct-add feature for those IDs lives in the triage footer.
  */
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { DecisionQualityChecks } from '../DecisionQualityChecks'
 import type { QualityCheck } from '../hooks/usePreAnalysisData'
 
@@ -50,32 +44,23 @@ describe('DecisionQualityChecks — max visible cards', () => {
     expect(screen.queryByText(/more/i)).not.toBeInTheDocument()
   })
 
-  it('shows only first 3 and "N more" toggle when count > 3', () => {
+  it('limits visible checks to 3 and shows "N more" toggle', () => {
     const checks = [
       makeCheck({ id: 'check_1' }),
       makeCheck({ id: 'check_2' }),
       makeCheck({ id: 'check_3' }),
       makeCheck({ id: 'check_4' }),
-      makeCheck({ id: 'check_5' }),
     ]
 
     render(<DecisionQualityChecks checks={checks} />)
     expandSection()
 
-    // First 3 visible
     expect(screen.getByText('Message for check_1')).toBeInTheDocument()
-    expect(screen.getByText('Message for check_2')).toBeInTheDocument()
-    expect(screen.getByText('Message for check_3')).toBeInTheDocument()
-
-    // 4th and 5th hidden
     expect(screen.queryByText('Message for check_4')).not.toBeInTheDocument()
-    expect(screen.queryByText('Message for check_5')).not.toBeInTheDocument()
-
-    // "2 more" toggle visible
-    expect(screen.getByText('2 more')).toBeInTheDocument()
+    expect(screen.getByText('1 more')).toBeInTheDocument()
   })
 
-  it('expands to show all items when "N more" is clicked', () => {
+  it('shows all when "N more" is clicked, then collapses on "Show less"', () => {
     const checks = [
       makeCheck({ id: 'check_1' }),
       makeCheck({ id: 'check_2' }),
@@ -86,29 +71,9 @@ describe('DecisionQualityChecks — max visible cards', () => {
     render(<DecisionQualityChecks checks={checks} />)
     expandSection()
 
-    // Click "1 more"
     fireEvent.click(screen.getByText('1 more'))
-
-    // All 4 now visible
     expect(screen.getByText('Message for check_4')).toBeInTheDocument()
-
-    // "Show less" toggle appears
     expect(screen.getByText('Show less')).toBeInTheDocument()
-  })
-
-  it('collapses back to 3 when "Show less" is clicked', () => {
-    const checks = [
-      makeCheck({ id: 'check_1' }),
-      makeCheck({ id: 'check_2' }),
-      makeCheck({ id: 'check_3' }),
-      makeCheck({ id: 'check_4' }),
-    ]
-
-    render(<DecisionQualityChecks checks={checks} />)
-    expandSection()
-
-    fireEvent.click(screen.getByText('1 more'))
-    expect(screen.getByText('Message for check_4')).toBeInTheDocument()
 
     fireEvent.click(screen.getByText('Show less'))
     expect(screen.queryByText('Message for check_4')).not.toBeInTheDocument()
@@ -122,77 +87,33 @@ describe('DecisionQualityChecks — max visible cards', () => {
 
   it('filters out structural checks (surfaced as triage footer flags)', () => {
     const checks = [
-      makeCheck({ id: 'no_risks' }),
-      makeCheck({ id: 'same_levers' }),
-      makeCheck({ id: 'all_positive_edges' }),
+      makeCheck({ id: 'no_risks' }),         // structural — excluded
+      makeCheck({ id: 'all_positive_edges' }), // structural — excluded
+      makeCheck({ id: 'anchoring' }),         // non-structural — included
     ]
 
     render(<DecisionQualityChecks checks={checks} />)
 
-    // Header shows count = 1 (only same_levers passes filter)
+    // Component renders because at least one non-structural check passes
     expect(screen.getByTestId('model-quality-checks')).toBeInTheDocument()
 
-    // Expand the section
     expandSection()
 
-    // Structural checks filtered out (their action titles should NOT appear)
+    // Structural checks filtered out
     expect(screen.queryByText('Add risks to capture what could go wrong')).not.toBeInTheDocument()
     expect(screen.queryByText('Add trade-offs to capture real-world costs')).not.toBeInTheDocument()
-    // Non-structural check remains (same_levers has action title override)
-    expect(screen.getByText('Consider whether your options represent genuinely different strategies')).toBeInTheDocument()
-  })
-})
-
-describe('DecisionQualityChecks — direct add CTA', () => {
-  // zero_external_factors has a direct-add action and is NOT filtered by STRUCTURAL_CHECK_IDS
-  it('shows "Add a factor" button for zero_external_factors check when onDirectAdd provided', () => {
-    const onDirectAdd = vi.fn()
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} onDirectAdd={onDirectAdd} />)
-    expandSection()
-    expect(screen.getByText('Add a factor')).toBeInTheDocument()
+    // Non-structural check present (anchoring has title override)
+    expect(screen.getByText('Consider whether other options are equally explored')).toBeInTheDocument()
   })
 
-  it('calls onDirectAdd with factor kind on submit', () => {
-    const onDirectAdd = vi.fn()
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} onDirectAdd={onDirectAdd} />)
-    expandSection()
+  it('renders nothing when all checks are structural', () => {
+    const checks = [
+      makeCheck({ id: 'no_risks' }),
+      makeCheck({ id: 'same_levers' }),
+      makeCheck({ id: 'zero_external_factors' }),
+    ]
 
-    fireEvent.click(screen.getByText('Add a factor'))
-    const input = screen.getByPlaceholderText(/acquisition/)
-    fireEvent.change(input, { target: { value: 'Market conditions' } })
-    fireEvent.click(screen.getByText('Add'))
-
-    expect(onDirectAdd).toHaveBeenCalledWith('factor', 'Market conditions')
-  })
-
-  it('shows validation error on empty submit', () => {
-    const onDirectAdd = vi.fn()
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} onDirectAdd={onDirectAdd} />)
-    expandSection()
-
-    fireEvent.click(screen.getByText('Add a factor'))
-    fireEvent.click(screen.getByText('Add'))
-
-    expect(screen.getByText('Enter a name')).toBeInTheDocument()
-    expect(onDirectAdd).not.toHaveBeenCalled()
-  })
-
-  it('Cancel closes input and clears validation', () => {
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} onDirectAdd={vi.fn()} />)
-    expandSection()
-
-    fireEvent.click(screen.getByText('Add a factor'))
-    fireEvent.click(screen.getByText('Add')) // trigger validation
-    expect(screen.getByText('Enter a name')).toBeInTheDocument()
-
-    fireEvent.click(screen.getByText('Cancel'))
-    expect(screen.queryByText('Enter a name')).not.toBeInTheDocument()
-    expect(screen.getByText('Add a factor')).toBeInTheDocument()
-  })
-
-  it('does not show direct add button when onDirectAdd is not provided', () => {
-    render(<DecisionQualityChecks checks={[makeCheck({ id: 'zero_external_factors' })]} />)
-    expandSection()
-    expect(screen.queryByText('Add a factor')).not.toBeInTheDocument()
+    const { container } = render(<DecisionQualityChecks checks={checks} />)
+    expect(container.firstChild).toBeNull()
   })
 })

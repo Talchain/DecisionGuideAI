@@ -94,7 +94,10 @@ describe('GuidanceStrip — action button behaviour', () => {
     const props = makeProps()
     render(<GuidanceStrip {...props} />)
     fireEvent.click(screen.getByRole('button', { name: /discuss/i }))
-    expect(props.onSendMessage).toHaveBeenCalledWith('Let us discuss.')
+    expect(props.onSendMessage).toHaveBeenCalledWith(
+      'Let us discuss.',
+      expect.objectContaining({ hidden: true, debugSource: 'guidance_discuss' }),
+    )
     expect(getInteractionChains()[0]?.triggerSurface).toBe('discuss_button')
     expect(getInteractionChains()[0]?.sourceSurface).toBe('ai_panel')
   })

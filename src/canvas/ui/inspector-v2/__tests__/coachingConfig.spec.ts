@@ -2,38 +2,44 @@
  * QA Brief H-series — coachingConfig structure and content tests.
  *
  * H2: COACHING object is typed with all expected keys.
- * H3: Verify count of coaching entries matches panel count (9 panels + 1 goal).
+ * H3: Every panel entity type has a corresponding coaching key.
  * H4: No known coaching phrases remain as inline strings in panel files.
  *     (Tested by verifying COACHING contains the canonical versions.)
  */
 import { describe, it, expect } from 'vitest'
 import { COACHING, type CoachingKey } from '../coachingConfig'
 
+/** Every panel type (plus goal variants) must have a coaching entry. */
+const REQUIRED_KEYS: CoachingKey[] = [
+  'edgeWeight',
+  'decisionOptions',
+  'optionCoverage',
+  'factorControllableEvidence',
+  'factorObservableData',
+  'factorExternalUncertainty',
+  'outcomeCompleteness',
+  'riskControlLevers',
+  'goalConnections',
+  'goalEvidence',
+  'goalNoTarget',
+]
+
 describe('coachingConfig (H-series)', () => {
-  // H2: Structure — all expected keys present and non-empty
-  it('H2: COACHING object has all expected keys', () => {
-    const expectedKeys: CoachingKey[] = [
-      'edgeWeight',
-      'decisionOptions',
-      'optionCoverage',
-      'factorControllableEvidence',
-      'factorObservableData',
-      'factorExternalUncertainty',
-      'outcomeCompleteness',
-      'riskControlLevers',
-      'goalConnections',
-      'goalNoTarget',
-    ]
-    for (const key of expectedKeys) {
+  // H2: Structure — all required keys present and non-empty
+  it('H2: COACHING object has all required keys', () => {
+    for (const key of REQUIRED_KEYS) {
       expect(COACHING).toHaveProperty(key)
       expect(typeof COACHING[key]).toBe('string')
       expect(COACHING[key].length).toBeGreaterThan(0)
     }
   })
 
-  // H3: Count check — 10 coaching strings (9 panels + 1 goal variant)
-  it('H3: COACHING object has exactly 10 entries (9 panels + goalNoTarget)', () => {
-    expect(Object.keys(COACHING)).toHaveLength(10)
+  // H3: Structural — every COACHING entry is a required key (no orphans)
+  it('H3: every COACHING key is in the required set', () => {
+    const requiredSet = new Set<string>(REQUIRED_KEYS)
+    for (const key of Object.keys(COACHING)) {
+      expect(requiredSet.has(key)).toBe(true)
+    }
   })
 
   // H4: Canonical phrase verification — these exact strings must live in COACHING, not inline

@@ -3,17 +3,6 @@
  *
  * Tests for the "Most valuable next step" block that appears in
  * sensitive/indeterminate states with hinge info.
- *
- * KNOWN-BROKEN — pre-existing failure awaiting fix.
- *
- * As of 2026-04-08, 1 test in this file fails:
- *   "shows 'Could change the recommendation' when topAction.couldFlip"
- *
- * Status: not tracked in an issue. Failure is present on baseline,
- * confirmed independent of the v2 pre-analysis panel regroup work.
- *
- * Action needed: investigate whether the topAction.couldFlip path or
- * its rendering changed, and update the test or component accordingly.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -133,7 +122,7 @@ describe('ConfidenceSection: V11 VOI promoted block', () => {
     expect(screen.queryByTestId('voi-promoted-block')).not.toBeInTheDocument()
   })
 
-  it('shows "Could change the recommendation" when topAction.couldFlip', () => {
+  it('shows "Could change the result" when topAction.couldFlip', () => {
     render(
       <ConfidenceSection
         data={baseData}
@@ -144,10 +133,10 @@ describe('ConfidenceSection: V11 VOI promoted block', () => {
     )
 
     expect(screen.getByTestId('voi-could-flip')).toBeInTheDocument()
-    expect(screen.getByText('Could change the recommendation')).toBeInTheDocument()
+    expect(screen.getByText('Could change the result')).toBeInTheDocument()
   })
 
-  it('hides "Could change the recommendation" when !topAction.couldFlip', () => {
+  it('hides "Could change the result" when !topAction.couldFlip', () => {
     render(
       <ConfidenceSection
         data={baseData}
@@ -160,7 +149,7 @@ describe('ConfidenceSection: V11 VOI promoted block', () => {
     expect(screen.queryByTestId('voi-could-flip')).not.toBeInTheDocument()
   })
 
-  it('hides "Could change the recommendation" when topAction is null', () => {
+  it('hides "Could change the result" when topAction is null', () => {
     render(
       <ConfidenceSection
         data={baseData}

@@ -15,17 +15,6 @@
  * - error.message (Error objects, not critique data)
  * - Non-JSX contexts: console.warn, INTERNAL_PATTERN.test, data-layer mapping
  *
- * KNOWN-BROKEN — pre-existing failure awaiting fix.
- *
- * As of 2026-04-08, 1 test in this file fails:
- *   "components/results/ChallengeSection.tsx does not render critique .message in JSX"
- *
- * Status: not tracked in an issue. Failure is present on baseline,
- * confirmed independent of the v2 pre-analysis panel regroup work.
- *
- * Action needed: ChallengeSection.tsx contains a .message render the static
- * scan flags. Either update the component to render humanised text or add
- * the call site to the allowlist if it has been verified safe.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -94,6 +83,11 @@ const SAFE_PATTERNS = [
  */
 const DEFENCE_IN_DEPTH_FILES: Record<string, RegExp> = {
   'WarningBanner.tsx': /INTERNAL_PATTERN\.test\(/,
+  // ChallengeSection.tsx: InferenceWarningCard renders warning.message with a
+  // hardcoded fallback (Inference warning: ${code}). The message comes from ISL
+  // inference warnings, not PLoT critique data — structurally different type.
+  // Guard: the fallback pattern must be present.
+  'ChallengeSection.tsx': /Inference warning.*warning\.code/,
 }
 
 /** V14.3b: Additional files that render warning/critique-like data */
