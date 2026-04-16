@@ -197,10 +197,9 @@ describe('Visual contract: Robust state', () => {
       />
     )
 
-    // Leading rank uses text-text-light font-semibold (no pill border)
+    // Leading rank uses panelBody text-text-light (no pill border, no raw font-weight)
     const badge = screen.getByTestId('rank-badge-opt-a')
     expect(badge.className).toContain('text-text-light')
-    expect(badge.className).toContain('font-semibold')
   })
 
   it('V16.2: VOI block shown for robust state (scroll-link target)', () => {

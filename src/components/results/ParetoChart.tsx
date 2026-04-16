@@ -324,7 +324,7 @@ export function ParetoChart({
                 </div>
                 {dominators.length > 0 && (
                   <div className={`${typography.panelBody} text-text-light`}>
-                    <span className="font-medium">Why dominated?</span>
+                    <span className="text-text-body">Why dominated?</span>
                     <p className="mt-0.5">
                       Outperformed by:{' '}
                       {dominators
@@ -423,7 +423,7 @@ export function ParetoChart({
           x={PADDING.left + PLOT_WIDTH / 2}
           y={CHART_HEIGHT - 5}
           textAnchor="middle"
-          className="text-xs fill-text-body"
+          className={`${typography.panelMeta} fill-text-body`}
         >
           {effectiveXAxis}
         </text>
@@ -432,7 +432,7 @@ export function ParetoChart({
           y={PADDING.top + PLOT_HEIGHT / 2}
           textAnchor="middle"
           transform={`rotate(-90, 15, ${PADDING.top + PLOT_HEIGHT / 2})`}
-          className="text-xs fill-text-body"
+          className={`${typography.panelMeta} fill-text-body`}
         >
           {effectiveYAxis}
         </text>
@@ -491,7 +491,7 @@ export function ParetoChart({
                 x={point.x}
                 y={point.y - 12}
                 textAnchor="middle"
-                className="text-xs fill-success font-medium pointer-events-none"
+                className={`${typography.panelMeta} fill-success pointer-events-none`}
               >
                 {point.label.length > 15
                   ? point.label.slice(0, 12) + '...'
@@ -537,7 +537,7 @@ export function ParetoChart({
                   <text
                     x={tooltipX + 8}
                     y={tooltipY + 16}
-                    className="text-xs fill-text-header font-medium"
+                    className={`${typography.panelMeta} fill-text-header`}
                   >
                     {point.label.length > 18
                       ? point.label.slice(0, 15) + '...'
@@ -548,7 +548,7 @@ export function ParetoChart({
                       key={c}
                       x={tooltipX + 8}
                       y={tooltipY + 32 + i * 16}
-                      className="text-xs fill-text-body"
+                      className={`${typography.panelMeta} fill-text-body`}
                     >
                       {c}: {formatScore(point.scores[c] ?? 0)}
                     </text>

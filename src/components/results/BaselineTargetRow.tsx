@@ -87,7 +87,7 @@ export function BaselineTargetRow({
         {hasTarget ? (
           <>
             <span className={`${typography.panelMeta} text-text-light`}>
-              Target: <span className="text-text-body font-medium">{formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}</span>
+              Target: <span className="text-text-body">{formatTargetValue(goalThreshold!, outcomeUnit, outcomeUnitSymbol)}</span>
             </span>
             {onEditTarget && (
               <>

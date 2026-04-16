@@ -234,7 +234,7 @@ function OptionRangeBar({
       <div className={`flex justify-between mt-0.5 ${typography.panelMeta}`}>
         <span className="text-text-light">{formatRangeValue(p10)}</span>
         {p50 != null && (
-          <span className="font-semibold text-text-header">{formatRangeValue(p50)}</span>
+          <span className="text-text-header">{formatRangeValue(p50)}</span>
         )}
         <span className="text-text-light">{formatRangeValue(p90)}</span>
       </div>
@@ -321,7 +321,7 @@ function OptionCard({
         {rank != null && totalOptions > 1 && (
           <Tooltip content={`Leading-option ranking across ${totalOptions} scenarios`}>
             <span
-              className={`${typography.panelBody} font-semibold text-text-light flex-shrink-0 whitespace-nowrap`}
+              className={`${typography.panelBody} text-text-light flex-shrink-0 whitespace-nowrap`}
               data-testid={`rank-badge-${option.id}`}
             >
               {neutralised && option.winProbability != null
@@ -392,7 +392,7 @@ function OptionCard({
           {typeof option.goalProbability === 'number' && option.goalProbability < 0.10 && (
             <div className="flex items-center gap-1.5">
               <span
-                className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
+                className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border border-danger/30 text-text-body`}
                 data-testid={`low-goal-warning-${option.id}`}
               >
                 {option.goalProbability < 0.01

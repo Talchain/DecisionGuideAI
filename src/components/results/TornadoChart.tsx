@@ -634,7 +634,7 @@ export function TornadoChart({
             <button
               type="button"
               onClick={resetDrag}
-              className="rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] text-[11px] font-medium cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0"
+              className={`${typography.panelMeta} rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0`}
               data-testid="tornado-reset-preview"
             >
               Reset preview
@@ -644,7 +644,7 @@ export function TornadoChart({
             <button
               type="button"
               onClick={onApplyAndRerun}
-              className="rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] text-[11px] font-medium cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0"
+              className={`${typography.panelMeta} rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0`}
               data-testid="tornado-apply-rerun"
             >
               Apply and rerun

@@ -581,7 +581,7 @@ export function ConfidenceSection({
       {evidenceCoverage && (
         <div className="p-3 border border-info/30 rounded-lg">
           <p className={`${typography.panelBody} text-text-body`}>
-            <span className="font-medium">Model evidence:</span>{' '}
+            <span className="text-text-body">Model evidence:</span>{' '}
             {evidenceCoverage.backedByData} assumptions backed by data,{' '}
             {evidenceCoverage.needsValidation} need validation
           </p>
