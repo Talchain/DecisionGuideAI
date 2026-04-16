@@ -22,9 +22,7 @@ import { useEdgeMutations } from '../useInspectorMutations'
 import { useStaleGuard } from '../useStaleGuard'
 import {
   SECTION_TITLES,
-  getProvenanceLabel,
   getStrengthDescription,
-  EMPTY_STATES,
   GROUP_LABELS,
   INLINE_LABELS,
   EDGE_LINK_NOTICES,
@@ -196,9 +194,6 @@ export const EdgePanel = memo(function EdgePanel({
       robustness.fragile_edges as unknown[],
     )
   }, [isFragile, robustness, edgeId, edge?.source, edge?.target])
-
-  // Provenance
-  const provenance = edge?.data?.provenance as string | undefined
 
   // Edit impact preview
   const { previewEdit, clearPreview } = useEditImpactPreview()
