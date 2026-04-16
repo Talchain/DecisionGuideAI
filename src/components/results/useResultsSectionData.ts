@@ -2393,13 +2393,56 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           typeof fe?.switch_probability === 'number'
         )
         if (valid.length === 0) return undefined
-        return valid.map((fe: any) => ({
-          edge_id: fe.edge_id ? String(fe.edge_id) : undefined,
-          from_id: fe.from_id ?? fe.fromId ?? fe.source ?? undefined,
-          from_label: String(fe.from_label),
-          to_label: String(fe.to_label),
-          switch_probability: Number(fe.switch_probability),
-        }))
+        // Option-label lookup for alternative_winner_id → label resolution.
+        const optionLabelMap = new Map<string, string>()
+        for (const o of safeArray(report?.option_comparison)) {
+          if (o?.option_id && typeof o?.option_label === 'string') {
+            optionLabelMap.set(o.option_id, o.option_label)
+          }
+        }
+        const enriched = valid.map((fe: any) => {
+          const altId: string | undefined = fe.alternative_winner_id ?? fe.alternativeWinnerId ?? undefined
+          const rawAltLabel: string | undefined =
+            typeof fe.alternative_winner_label === 'string' && fe.alternative_winner_label.trim().length > 0
+              ? fe.alternative_winner_label
+              : typeof fe.alternativeWinnerLabel === 'string' && fe.alternativeWinnerLabel.trim().length > 0
+                ? fe.alternativeWinnerLabel
+                : undefined
+          const resolvedLabel = rawAltLabel
+            ?? (altId ? optionLabelMap.get(altId) : undefined)
+            ?? (altId ? nodeLabelMap.get(altId) : undefined)
+          if (!resolvedLabel) {
+            if (import.meta.env.DEV) {
+              console.warn('[brief-4] fragile edge dropped — no alternative winner label resolved', {
+                edge_id: fe.edge_id,
+                from_label: fe.from_label,
+                to_label: fe.to_label,
+                alternative_winner_id: altId,
+              })
+            }
+            return null
+          }
+          return {
+            edge_id: fe.edge_id ? String(fe.edge_id) : undefined,
+            from_id: fe.from_id ?? fe.fromId ?? fe.source ?? undefined,
+            from_label: String(fe.from_label),
+            to_label: String(fe.to_label),
+            switch_probability: Number(fe.switch_probability),
+            marginal_switch_probability: typeof fe.marginal_switch_probability === 'number'
+              ? Number(fe.marginal_switch_probability)
+              : undefined,
+            alternative_winner_id: altId,
+            alternative_winner_label: stripEncodingNotation(resolvedLabel),
+          }
+        }).filter((fe): fe is NonNullable<typeof fe> => fe != null)
+        if (enriched.length === 0) return undefined
+        // Sort: marginal_switch_probability desc, fallback switch_probability desc.
+        enriched.sort((a, b) => {
+          const aKey = a.marginal_switch_probability ?? a.switch_probability
+          const bKey = b.marginal_switch_probability ?? b.switch_probability
+          return bKey - aKey
+        })
+        return enriched
       })(),
     }
   }, [report, m1Coaching, drivers, reviewStatus, m1ReviewAssumptions, nodeLabelMap])
