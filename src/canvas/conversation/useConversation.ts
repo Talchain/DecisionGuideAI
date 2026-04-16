@@ -11,6 +11,9 @@ import { useCanvasStore } from '../store'
 import { useDraftStore } from '../stores/draftStore'
 import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
+import { callV5Turn } from '../../v5/v5Adapter'
+import { routeV5Response } from '../../v5/responseRouter'
+import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
@@ -2379,6 +2382,96 @@ export function useConversation(): UseConversationReturn {
         submittedText: message,
         stateBefore: interactionStateBefore,
       })
+
+      // -------------------------------------------------------------------
+      // V5 orchestrator branch (slice A1).
+      //
+      // Runs only when VITE_ENABLE_V5_ORCHESTRATOR === 'true'. Side-effect
+      // allow-list per Docs/v5/slice-a1-investigation.md (Pre-impl B):
+      //   Run:  inFlightRef (already set at L2364), beginInteractionChain
+      //         (already run above), addMessage(user bubble),
+      //         setIsThinking(true), bindRequestToInteraction.
+      //   Skip: recordUserAction, setLastFailedInput(null), setIsGenerating,
+      //         AbortController/timeout setup, recordRequestContext.
+      //
+      // On fall_through_v4 → continue into the V4 path unchanged (no early
+      // return, no V5 side effects). On any other result → render and exit.
+      if (import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR === 'true' && mode === 'user' && message.trim().length > 0) {
+        // V5 allow-list: user bubble
+        if (!hidden && !skipUserBubble) {
+          addMessage({
+            id: crypto.randomUUID(),
+            role: 'user',
+            content: displayText ?? message,
+            displayContent: displayText,
+            submittedPrompt: message,
+            timestamp: new Date(),
+            ...(chipInitiated ? { chipInitiated: true } : {}),
+          })
+        }
+        // V5 allow-list: loading state
+        setIsThinking(true)
+        // V5 allow-list: bind request ID to trace chain
+        bindRequestToInteraction(turnClientId, {
+          chainId: interactionChainId,
+          endpoint: '/bff/orchestrate/v2/turn',
+          triggerSurface,
+          sourceSurface: resolvedSourceSurface,
+          initiatedBy: initiatedBy ?? 'user',
+          visibleTextSubmitted: hidden ? null : (displayText ?? message),
+          submittedText: message,
+          payloadShapeSummary: { v5: true },
+          rightPanelAccidentallySubmittedComposerContent,
+          stateBefore: interactionStateBefore,
+        })
+
+        const currentScenarioId = useCanvasStore.getState().currentScenarioId
+        if (!currentScenarioId) {
+          // No scenario — cannot build OrchestratorTurnPayload. Fall through
+          // to V4 (which allocates a scenario id). The V5 allow-list effects
+          // above are harmless pre-work V4 will repeat or ignore.
+          setIsThinking(false)
+        } else {
+          try {
+            // A1 wire payload. turn_class and stage default to 'frame' for
+            // now — full stage routing lands in later slices.
+            const v5Result = await callV5Turn({
+              turn_id: turnClientId,
+              scenario_id: currentScenarioId,
+              message,
+              turn_class: 'frame',
+              stage: 'frame',
+            })
+            if (v5Result.kind !== 'fall_through_v4') {
+              const target = routeV5Response(v5Result)
+              if (target.kind === 'text_only' || target.kind === 'blocks') {
+                addMessage({
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  content: target.response.assistant_text,
+                  timestamp: new Date(),
+                })
+              } else if (target.kind === 'typed_error') {
+                addMessage({
+                  id: crypto.randomUUID(),
+                  role: 'assistant',
+                  content: FAILURE_USER_TEXT[target.code],
+                  timestamp: new Date(),
+                })
+              }
+              setIsThinking(false)
+              inFlightRef.current = false
+              return
+            }
+            // fall_through_v4 → unwind V5 loading state and let V4 continue.
+            setIsThinking(false)
+          } catch (err) {
+            if (import.meta.env.DEV) console.warn('[V5 branch] call failed, falling through to V4:', err)
+            setIsThinking(false)
+          }
+        }
+      }
+      // -------------------------------------------------------------------
 
       if (mode === 'user') {
         if (!message.trim() || isThinkingRef.current) {
