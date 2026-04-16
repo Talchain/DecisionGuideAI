@@ -167,8 +167,11 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
           />
         )}
 
-        {/* Extraction label pill — provenance of this factor's data */}
-        <div className="mt-2">
+        {/* Provenance pills: category identity + data source */}
+        <div className="mt-2 flex gap-1.5 flex-wrap">
+          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+            Outside your control
+          </span>
           <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
             {getExtractionLabel(source)}
           </span>

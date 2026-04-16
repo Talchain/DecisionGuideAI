@@ -1,5 +1,5 @@
 /**
- * Inspector v2 — centralised string table
+ * Inspector v2 - centralised string table
  * All user-facing labels. Exact strings from spec §3. No deviation.
  */
 
@@ -53,7 +53,7 @@ export function getTypeLabel(nodeType: NodeType, category?: FactorCategory | str
   return labels[nodeType] ?? 'Node'
 }
 
-/** Edge type label — always "Relationship" in user-facing UI */
+/** Edge type label - always "Relationship" in user-facing UI */
 export const EDGE_TYPE_LABEL = 'Relationship'
 
 // ─── Badge / tooltip labels (spec §3.2) ────────────────────────────
@@ -255,3 +255,23 @@ export function resolveAskTemplate(
   }
   return resolved
 }
+
+// --- Goal constraint UI copy -------------------------------------------
+// All user-facing strings for GoalPanel constraint section.
+export const GOAL_CONSTRAINT_COPY = {
+  extractedFromBrief: (count: number) =>
+    `${count} constraint${count !== 1 ? 's' : ''} extracted from your brief`,
+  selectFactor:        'Select a factor...',
+  alreadyConstrained:  '(already constrained)',
+  targetValue:         'Target value',
+  operatorLabel:       'Constraint operator',
+  factorLabel:         'Constraint target factor',
+  addButton:           'Add',
+  cancelButton:        'Cancel',
+  errorSelectFactor:   'Select a factor',
+  errorInvalidNumber:  'Enter a valid number',
+  jointProbability:    'Chance of hitting every target',
+  addConstraintButton: '+ Add constraint',
+  runForProbability:   'Run the simulation to see the probability of reaching this target.',
+  targetUnlocks:       'Adding a specific target unlocks probability calculations.',
+} as const

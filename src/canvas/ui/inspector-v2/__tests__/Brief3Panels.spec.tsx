@@ -205,13 +205,12 @@ describe('FactorExternalPanel v6.2', () => {
     expect(screen.getByText('What is this factor and why does it matter?')).toBeTruthy()
   })
 
-  it('renders extraction label pill in context group', () => {
+  it('renders both category pill and extraction label in context group', () => {
     setExternalStore()
     // No observedState source → getExtractionLabel(undefined) → 'Estimated by Olumi'
     const { container } = render(<FactorExternalPanel {...externalProps} />)
     const contextGroup = container.querySelector('[data-panel-group="context"]')
-    // InspectorShell renders 'Outside your control' as typePill (not tested here)
-    // Panel Context group renders the extraction label pill
+    expect(contextGroup?.textContent).toContain('Outside your control')
     expect(contextGroup?.textContent).toContain('Estimated by Olumi')
   })
 
@@ -354,5 +353,70 @@ describe('FactorObservablePanel v6.2', () => {
     expect(screen.queryByText('VALUE OF INVESTIGATION')).toBeNull()
     expect(screen.queryByText('VALUE')).toBeNull()
     expect(screen.queryByText('CONNECTIONS')).toBeNull()
+  })
+})
+
+// ─── Provenance pill semantics ─────────────────────────────────────
+
+describe('Provenance pill semantics', () => {
+  it('FactorExternalPanel context group shows "Outside your control" pill', () => {
+    setExternalStore()
+    const { container } = render(<FactorExternalPanel {...externalProps} />)
+    const contextGroup = container.querySelector('[data-panel-group="context"]')
+    expect(contextGroup?.textContent).toContain('Outside your control')
+  })
+
+  it('FactorObservablePanel context group shows "You measure this" pill', () => {
+    setObservableStore()
+    const { container } = render(<FactorObservablePanel {...observableProps} />)
+    const contextGroup = container.querySelector('[data-panel-group="context"]')
+    expect(contextGroup?.textContent).toContain('You measure this')
+  })
+
+  it('FactorExternalPanel context group also shows extraction label alongside category pill', () => {
+    setExternalStore()
+    const { container } = render(<FactorExternalPanel {...externalProps} />)
+    const contextGroup = container.querySelector('[data-panel-group="context"]')
+    // Both category pill and extraction label should be present
+    expect(contextGroup?.textContent).toContain('Outside your control')
+    expect(contextGroup?.textContent).toContain('Estimated by Olumi')
+  })
+
+  it('FactorObservablePanel context group shows extraction label when source present', () => {
+    setObservableStore()
+    // source = 'brief_extraction' -> 'From your brief'
+    const { container } = render(<FactorObservablePanel {...observableProps} />)
+    const contextGroup = container.querySelector('[data-panel-group="context"]')
+    expect(contextGroup?.textContent).toContain('You measure this')
+    expect(contextGroup?.textContent).toContain('From your brief')
+  })
+})
+
+// ─── Em-dash enforcement ───────────────────────────────────────────
+
+describe('Em-dash enforcement — no em-dash in rendered panel output', () => {
+  const EM_DASH = '\u2014'
+
+  it('GoalPanel renders no em-dash characters', () => {
+    setGoalStore()
+    const { container } = render(<GoalPanel {...goalProps} />)
+    expect(container.textContent).not.toContain(EM_DASH)
+  })
+
+  it('FactorExternalPanel renders no em-dash characters', () => {
+    setExternalStore()
+    const { container } = render(<FactorExternalPanel {...externalProps} />)
+    expect(container.textContent).not.toContain(EM_DASH)
+  })
+
+  it('FactorObservablePanel renders no em-dash characters (including empty value copy)', () => {
+    // Use a node with no value to trigger the "No value set" copy
+    setObservableStore()
+    const store = useCanvasStore.getState()
+    const node = store.nodes.find(n => n.id === 'fac1')!
+    ;(node.data as any).observedState = { raw_value: null, value: null, unit: '', source: null }
+    useCanvasStore.setState({ nodes: [...store.nodes] })
+    const { container } = render(<FactorObservablePanel {...observableProps} />)
+    expect(container.textContent).not.toContain(EM_DASH)
   })
 })

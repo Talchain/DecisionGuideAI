@@ -77,7 +77,8 @@ describe('InspectorRouter', () => {
     ])
     render(<InspectorRouter nodeId="f2" edgeId={null} onClose={onClose} />)
     expect(screen.getByText('Competition')).toBeTruthy()
-    expect(screen.getByText('Outside your control')).toBeTruthy()
+    // "Outside your control" appears in both InspectorShell typePill and the panel Context pill
+    expect(screen.getAllByText('Outside your control').length).toBeGreaterThanOrEqual(1)
   })
 
   it('renders edge panel when edge selected', () => {

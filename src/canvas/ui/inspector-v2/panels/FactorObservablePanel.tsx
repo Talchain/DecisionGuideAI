@@ -144,14 +144,17 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
           />
         )}
 
-        {/* Extraction label pill — provenance of this factor's data */}
-        {source && (
-          <div className="mt-2">
+        {/* Provenance pills: category identity + data source */}
+        <div className="mt-2 flex gap-1.5 flex-wrap">
+          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
+            You measure this
+          </span>
+          {source && (
             <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
               {getExtractionLabel(source)}
             </span>
-          </div>
-        )}
+          )}
+        </div>
 
         {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
         <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
@@ -210,11 +213,11 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
                 setDraftValue(String(displayValue ?? ''))
                 setIsEditingValue(true)
               }}
-              title="Click to update"
+              title="Click to enter a value"
             >
               {displayValue != null
                 ? formatValue(displayValue)
-                : <span className={`${typography.panelMeta} text-text-light italic font-normal text-sm`}>No value set — click to enter</span>
+                : <span className={`${typography.panelMeta} text-text-light italic font-normal text-sm`}>No value set. Click to enter.</span>
               }
             </button>
           ) : (

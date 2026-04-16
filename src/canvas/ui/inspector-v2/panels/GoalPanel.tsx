@@ -19,6 +19,7 @@ import {
   INLINE_LABELS,
   EMPTY_STATES,
   DESCRIPTION_PLACEHOLDERS,
+  GOAL_CONSTRAINT_COPY,
 } from '../inspectorStrings'
 import { PanelGroup } from '../shared/PanelGroup'
 import { PrimaryControlCard } from '../shared/PrimaryControlCard'
@@ -94,11 +95,11 @@ export const GoalPanel = memo(function GoalPanel({
   const handleAddConstraint = useCallback(() => {
     const value = parseFloat(newConstraintValue)
     if (!newConstraintLabel) {
-      setConstraintError('Select a factor')
+      setConstraintError(GOAL_CONSTRAINT_COPY.errorSelectFactor)
       return
     }
     if (Number.isNaN(value)) {
-      setConstraintError('Enter a valid number')
+      setConstraintError(GOAL_CONSTRAINT_COPY.errorInvalidNumber)
       return
     }
     const base = preAnalysisConstraints ?? []
@@ -194,7 +195,7 @@ export const GoalPanel = memo(function GoalPanel({
                 </p>
               ) : (
                 <p className={`${typography.panelMeta} text-text-light mt-1`}>
-                  Run the simulation to see the probability of reaching this target.
+                  {GOAL_CONSTRAINT_COPY.runForProbability}
                 </p>
               )}
             </div>
@@ -202,7 +203,7 @@ export const GoalPanel = memo(function GoalPanel({
             <div>
               <GoalThresholdEditor unit={thresholdUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
               <p className={`${typography.panelMeta} text-info mt-1.5`}>
-                Adding a specific target unlocks probability calculations.
+                {GOAL_CONSTRAINT_COPY.targetUnlocks}
               </p>
             </div>
           )}
@@ -214,7 +215,7 @@ export const GoalPanel = memo(function GoalPanel({
               <div className="space-y-1.5">
                 {!isResultsMode && (
                   <p className={`${typography.panelMeta} text-text-light mb-1`}>
-                    {goalConstraints.length} constraint{goalConstraints.length !== 1 ? 's' : ''} extracted from your brief
+                    {GOAL_CONSTRAINT_COPY.extractedFromBrief(goalConstraints.length)}
                   </p>
                 )}
                 {goalConstraints.map((c, i) => {
@@ -284,7 +285,7 @@ export const GoalPanel = memo(function GoalPanel({
                 })}
                 {typeof probJoint === 'number' && (
                   <p className={`${typography.panelBody} text-text-body mt-1`}>
-                    Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
+                    {GOAL_CONSTRAINT_COPY.jointProbability}: <strong>{Math.round(probJoint * 100)}%</strong>
                   </p>
                 )}
               </div>
@@ -301,7 +302,7 @@ export const GoalPanel = memo(function GoalPanel({
               className={`${typography.panelMeta} w-full mt-2 py-2 rounded-lg border border-dashed border-panel-border bg-transparent text-info hover:bg-panel-hover transition-colors`}
               data-testid="add-constraint-button"
             >
-              + Add constraint
+              {GOAL_CONSTRAINT_COPY.addConstraintButton}
             </button>
           ) : (
             <div className="mt-2 p-2.5 bg-panel border border-panel-border rounded-lg space-y-2" data-testid="add-constraint-form">
@@ -310,14 +311,14 @@ export const GoalPanel = memo(function GoalPanel({
                 value={newConstraintLabel}
                 onChange={e => { setNewConstraintLabel(e.target.value); setConstraintError('') }}
                 className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel text-text-body`}
-                aria-label="Constraint target factor"
+                aria-label={GOAL_CONSTRAINT_COPY.factorLabel}
               >
-                <option value="">Select a factor...</option>
+                <option value="">{GOAL_CONSTRAINT_COPY.selectFactor}</option>
                 {factorNodes.map(f => {
                   const alreadyConstrained = constrainedLabels.has(f.label.toLowerCase().trim())
                   return (
                     <option key={f.id} value={f.label} disabled={alreadyConstrained}>
-                      {f.label}{alreadyConstrained ? ' (already constrained)' : ''}
+                      {f.label}{alreadyConstrained ? ` ${GOAL_CONSTRAINT_COPY.alreadyConstrained}` : ''}
                     </option>
                   )
                 })}
@@ -328,7 +329,7 @@ export const GoalPanel = memo(function GoalPanel({
                   value={newConstraintOperator}
                   onChange={e => setNewConstraintOperator(e.target.value as '>=' | '<=' | '=')}
                   className={`${typography.panelMeta} w-16 border border-panel-border rounded-lg px-1.5 py-1.5 bg-panel text-text-body`}
-                  aria-label="Constraint operator"
+                  aria-label={GOAL_CONSTRAINT_COPY.operatorLabel}
                 >
                   <option value=">=">{'\u2265'}</option>
                   <option value="<=">{'\u2264'}</option>
@@ -338,9 +339,9 @@ export const GoalPanel = memo(function GoalPanel({
                   type="number"
                   value={newConstraintValue}
                   onChange={e => { setNewConstraintValue(e.target.value); setConstraintError('') }}
-                  placeholder="Target value"
+                  placeholder={GOAL_CONSTRAINT_COPY.targetValue}
                   className={`${typography.panelMeta} flex-1 border border-panel-border rounded px-1.5 py-1.5 bg-panel text-text-body`}
-                  aria-label="Constraint target value"
+                  aria-label={GOAL_CONSTRAINT_COPY.factorLabel}
                 />
               </div>
               {/* Error message */}
@@ -355,14 +356,14 @@ export const GoalPanel = memo(function GoalPanel({
                   className={`${typography.panelMeta} bg-primary text-text-on-color rounded-lg px-3 py-1 font-medium`}
                   data-testid="confirm-add-constraint"
                 >
-                  Add
+                  {GOAL_CONSTRAINT_COPY.addButton}
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowAddConstraint(false); setConstraintError('') }}
                   className={`${typography.panelMeta} text-text-light hover:text-text-body`}
                 >
-                  Cancel
+                  {GOAL_CONSTRAINT_COPY.cancelButton}
                 </button>
               </div>
             </div>
