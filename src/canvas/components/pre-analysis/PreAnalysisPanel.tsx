@@ -1115,9 +1115,6 @@ export function PreAnalysisPanel({
   const isExcluded = (id: string) => id === startHereId || resolvedSignals.has(id)
   const reviewNextTriageAfterStart = reviewNextTriageAll.filter(c => !isExcluded(`triage:${c.key}`))
   const biasTriggersAfterStart = biasTriggers.filter(t => !isExcluded(`bias:${t.id}`))
-  const showOptionQualityCardAfterStart =
-    showOptionQualityCard && !isExcluded('option_quality')
-
   const reviewNextTriageVisible = reviewNextTriageAfterStart.slice(0, REVIEW_NEXT_TRIAGE_BUDGET)
   const reviewNextTriageOverflow = reviewNextTriageAfterStart.slice(REVIEW_NEXT_TRIAGE_BUDGET)
   const reviewNextBiasVisible = biasTriggersAfterStart.slice(0, REVIEW_NEXT_BIAS_BUDGET)
