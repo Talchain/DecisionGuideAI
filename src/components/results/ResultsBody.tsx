@@ -364,6 +364,7 @@ export const ResultsBody = memo(function ResultsBody({
                     fragileEdges={resultsSectionData.confidence.challengeFragileEdges}
                     inferenceWarnings={resultsSectionData.confidence.inferenceWarnings}
                     identifiabilityTag={identifiability}
+                    expertMode={expertMode}
                   />
                 </Accordion>
               </div>

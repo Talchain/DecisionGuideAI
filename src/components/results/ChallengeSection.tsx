@@ -25,6 +25,7 @@ import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import type { EvidenceGapItem, DriverItem } from './types'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import Tooltip from '../Tooltip'
+import { ExpertBlock } from './ExpertBlock'
 
 /** E-value entry for an edge */
 export interface EdgeEValue {
@@ -70,6 +71,8 @@ export interface ChallengeSectionProps {
   inferenceWarnings?: ChallengeInferenceWarning[]
   /** Task 6: Identifiability tag from ISL — shown in Scientific notes */
   identifiabilityTag?: string | null
+  /** Expert mode: gates E-value raw numbers in fragile edge cards */
+  expertMode?: boolean
 }
 
 /**
@@ -194,14 +197,16 @@ function FragileEdgeGroupCard({
   edges,
   onFocusNode,
   onSendMessage,
+  expertMode,
 }: {
   sourceLabel: string
   edges: Array<ChallengeFragileEdge & { e_value?: number }>
   onFocusNode?: (nodeId: string) => void
   onSendMessage?: (text: string) => void
+  expertMode?: boolean
 }) {
   const cleanSource = stripEncodingNotation(sourceLabel)
-  const hasEValue = edges.some(e => e.e_value != null)
+  const hasEValue = expertMode && edges.some(e => e.e_value != null)
   // Consolidated mode: empty sourceLabel means edges from mixed sources
   const consolidated = !sourceLabel
   const multiple = edges.length > 1
@@ -228,20 +233,27 @@ function FragileEdgeGroupCard({
         const edgeSource = stripEncodingNotation(edge.from_label)
         const edgeTarget = stripEncodingNotation(edge.to_label)
         return (
-          <p key={`${edge.from_label}-${edge.to_label}-${i}`} className={`${typography.panelMeta} text-text-light`}>
-            {consolidated
-              ? <>{edgeSource} &rarr; {edgeTarget}: </>
-              : multiple
-                ? <>&rarr; {edgeTarget}: </>
-                : <>{cleanSource} &rarr; {edgeTarget}: </>
-            }
-            {edge.e_value != null
-              ? <>would only need to be {edge.e_value.toFixed(1)}x wrong to flip the recommendation.</>
-              : consolidated || multiple
+          <div key={`${edge.from_label}-${edge.to_label}-${i}`}>
+            <p className={`${typography.panelMeta} text-text-light`}>
+              {consolidated
+                ? <>{edgeSource} &rarr; {edgeTarget}: </>
+                : multiple
+                  ? <>&rarr; {edgeTarget}: </>
+                  : <>{cleanSource} &rarr; {edgeTarget}: </>
+              }
+              {consolidated || multiple
                 ? <>a shift could change the recommendation.</>
                 : <>is fragile. A shift could change the recommendation.</>
-            }
-          </p>
+              }
+            </p>
+            {edge.e_value != null && expertMode && (
+              <ExpertBlock>
+                <p className={`${typography.panelMeta} text-text-light`}>
+                  E-value: {edge.e_value.toFixed(1)} — assumptions would only need to be {edge.e_value.toFixed(1)}x wrong to flip the recommendation.
+                </p>
+              </ExpertBlock>
+            )}
+          </div>
         )
       })}
 
@@ -369,6 +381,7 @@ export function ChallengeSection({
   fragileEdges: fragileEdgesProp,
   inferenceWarnings,
   identifiabilityTag,
+  expertMode,
 }: ChallengeSectionProps) {
   // ── Model structure items ──────────────────────────────────────────────
   // Merge fragile edges with E-value data per edge, group by source node, sort by switch_probability, cap at 3
@@ -422,6 +435,7 @@ export function ChallengeSection({
                   edges={mergedFragileCards}
                   onFocusNode={onFocusNode}
                   onSendMessage={onSendMessage}
+                  expertMode={expertMode}
                 />
               )
             }
@@ -432,6 +446,7 @@ export function ChallengeSection({
                 edges={cards}
                 onFocusNode={onFocusNode}
                 onSendMessage={onSendMessage}
+                expertMode={expertMode}
               />
             ))
           })()}
