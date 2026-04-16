@@ -1589,7 +1589,10 @@ export function PreAnalysisPanel({
               )}
 
               {/* Option similarity / quality card — interventions collapsed per option (v2 brief).
-                  Suppressed here when it was promoted into the Start here slot. */}
+                  Always renders regardless of Start here: the Start here card for
+                  option_quality is a one-line coaching nudge, while OptionPreview
+                  is the structural option list with names and intervention details.
+                  Different content, different purpose. Accepted duplication (UI-BUG-9). */}
               {showOptionQualityCard && data.optionPreviews.length > 0 && (
                 <OptionPreview
                   options={data.optionPreviews}

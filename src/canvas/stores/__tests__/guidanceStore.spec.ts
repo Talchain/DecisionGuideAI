@@ -381,3 +381,45 @@ describe('guidanceStore — clearItemsByTargetIds', () => {
     expect(useGuidanceStore.getState().activeGuidanceItemId).toBeNull()
   })
 })
+
+describe('guidanceStore — dismissItem (TD2)', () => {
+  beforeEach(() => {
+    useGuidanceStore.setState({ guidanceItems: [], activeGuidanceItemId: null })
+  })
+
+  it('removes the item matching the given item_id', () => {
+    const items = [
+      makeItem({ item_id: 'keep' }),
+      makeItem({ item_id: 'remove' }),
+    ]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().dismissItem('remove')
+    expect(useGuidanceStore.getState().guidanceItems.map(i => i.item_id)).toEqual(['keep'])
+  })
+
+  it('clears activeGuidanceItemId when the dismissed item is active', () => {
+    const items = [makeItem({ item_id: 'active-one' })]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().setActiveGuidanceItem('active-one')
+    useGuidanceStore.getState().dismissItem('active-one')
+    expect(useGuidanceStore.getState().activeGuidanceItemId).toBeNull()
+  })
+
+  it('preserves activeGuidanceItemId when a different item is dismissed', () => {
+    const items = [
+      makeItem({ item_id: 'stays-active' }),
+      makeItem({ item_id: 'dismissed' }),
+    ]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().setActiveGuidanceItem('stays-active')
+    useGuidanceStore.getState().dismissItem('dismissed')
+    expect(useGuidanceStore.getState().activeGuidanceItemId).toBe('stays-active')
+  })
+
+  it('is a no-op when the item_id does not exist', () => {
+    const items = [makeItem({ item_id: 'existing' })]
+    useGuidanceStore.getState().setGuidanceItems(items)
+    useGuidanceStore.getState().dismissItem('nonexistent')
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(1)
+  })
+})

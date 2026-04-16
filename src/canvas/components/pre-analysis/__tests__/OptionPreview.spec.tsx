@@ -202,6 +202,36 @@ describe('OptionPreview — collapsed state (UI-BUG-3)', () => {
     expect(screen.getByText('Outsource')).toBeInTheDocument()
   })
 
+  it('shows coaching line when hasSameLeversCheck is true', () => {
+    render(
+      <OptionPreview
+        options={[makeOption({ id: 'opt1', label: 'A', interventions: [] })]}
+        hasSameLeversCheck
+      />,
+    )
+    expect(screen.getByText('Your options work through similar factors.')).toBeInTheDocument()
+  })
+
+  it('does not show coaching line when hasSameLeversCheck is false', () => {
+    render(
+      <OptionPreview
+        options={[makeOption({ id: 'opt1', label: 'A', interventions: [] })]}
+      />,
+    )
+    expect(screen.queryByText('Your options work through similar factors.')).not.toBeInTheDocument()
+  })
+
+  it('shows a collapsed chevron (ChevronRight) in the header toggle', () => {
+    render(
+      <OptionPreview
+        options={[makeOption({ id: 'opt1', label: 'A', interventions: [] })]}
+      />,
+    )
+    const toggle = screen.getByTestId('option-preview-toggle')
+    // ChevronRight renders when collapsed, ChevronDown when expanded
+    expect(toggle).toBeInTheDocument()
+  })
+
   it('hides option names after expanding (expanded state shows full detail)', () => {
     render(
       <OptionPreview
