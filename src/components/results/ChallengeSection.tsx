@@ -129,28 +129,30 @@ function ChallengeCard({
 
   if (!hasExpandContent) {
     return (
-      <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+      <div className="relative border border-panel-border rounded-lg px-3 py-2 pb-7 space-y-1.5">
         <p className={`${typography.panelBody} text-text-body`}>{cleanTitle}</p>
         <p className={`${typography.panelBody} text-text-light`}>
           Run this exercise to challenge the recommendation.
         </p>
         {onSendMessage && (
-          <DiscussWithAiButton
-            element={{ kind: 'missing' }}
-            onSend={() => onSendMessage(ctaPrompt)}
-          />
+          <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
+            <DiscussWithAiButton
+              element={{ kind: 'missing' }}
+              onSend={() => onSendMessage(ctaPrompt)}
+            />
+          </div>
         )}
       </div>
     )
   }
 
   return (
-    <details className="border border-panel-border rounded-lg overflow-hidden">
+    <details className="relative border border-panel-border rounded-lg overflow-hidden">
       <summary className={`px-3 py-2 cursor-pointer hover:bg-panel-hover ${typography.panelBody} text-text-body list-none [&::-webkit-details-marker]:hidden flex items-center gap-2`}>
         <HelpCircle className="w-3.5 h-3.5 text-text-light flex-shrink-0" aria-hidden="true" />
         {cleanTitle}
       </summary>
-      <div className="px-3 pb-2 space-y-1">
+      <div className="px-3 pb-7 space-y-1">
         {/* V12 B4: Affected elements as graph links */}
         {item.affectedNodeIds && item.affectedNodeIds.length > 0 && (
           <p className={`${typography.panelMeta} text-text-body`}>
@@ -179,10 +181,12 @@ function ChallengeCard({
           <p className={`${typography.panelMeta} text-text-body`}>{item.whatToDo}</p>
         )}
         {onSendMessage && (
-          <DiscussWithAiButton
-            element={{ kind: 'missing' }}
-            onSend={() => onSendMessage(ctaPrompt)}
-          />
+          <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
+            <DiscussWithAiButton
+              element={{ kind: 'missing' }}
+              onSend={() => onSendMessage(ctaPrompt)}
+            />
+          </div>
         )}
       </div>
     </details>
@@ -213,7 +217,7 @@ function FragileEdgeGroupCard({
   const focusId = edges[0].from_id ?? edges[0].from_label
 
   return (
-    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+    <div className={`relative border border-panel-border rounded-lg px-3 py-2 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
       <div className="flex items-center gap-2">
         <AlertTriangle className={`w-3.5 h-3.5 ${hasEValue ? 'text-danger' : 'text-warning'} flex-shrink-0`} aria-hidden="true" />
         <p className={`${typography.panelBody} text-text-body flex-1`}>
@@ -257,9 +261,9 @@ function FragileEdgeGroupCard({
         )
       })}
 
-      {/* CTA icons */}
-      <div className="flex items-center gap-1 pt-0.5">
-        {onFocusNode && !consolidated && (
+      {/* Inspector icon — inline (structural action, not sparkle) */}
+      {onFocusNode && !consolidated && (
+        <div className="flex items-center gap-1 pt-0.5">
           <Tooltip content="Open in inspector" delay={200}>
             <button
               type="button"
@@ -270,8 +274,12 @@ function FragileEdgeGroupCard({
               <PanelRight size={14} aria-hidden="true" />
             </button>
           </Tooltip>
-        )}
-        {onSendMessage && (
+        </div>
+      )}
+
+      {/* Sparkle CTA — bottom-right, matching shared pattern */}
+      {onSendMessage && (
+        <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
           <DiscussWithAiButton
             element={{ kind: 'missing' }}
             onSend={() => onSendMessage(
@@ -282,8 +290,8 @@ function FragileEdgeGroupCard({
                   : `Is the relationship between ${cleanSource} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
             )}
           />
-        )}
-      </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -321,7 +329,7 @@ function InferenceWarningCard({
 }) {
   const message = warning.message ?? `Inference warning: ${warning.code}`
   return (
-    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+    <div className={`relative border border-panel-border rounded-lg px-3 py-2 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
       <div className="flex items-center gap-2">
         <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
         <p className={`${typography.panelBody} text-text-body flex-1`}>
@@ -332,10 +340,12 @@ function InferenceWarningCard({
         </span>
       </div>
       {onSendMessage && (
-        <DiscussWithAiButton
-          element={{ kind: 'missing' }}
-          onSend={() => onSendMessage(`Can you explain this inference warning: ${message}`)}
-        />
+        <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
+          <DiscussWithAiButton
+            element={{ kind: 'missing' }}
+            onSend={() => onSendMessage(`Can you explain this inference warning: ${message}`)}
+          />
+        </div>
       )}
     </div>
   )
@@ -345,7 +355,7 @@ function InferenceWarningCard({
 
 function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string) => void }) {
   return (
-    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
+    <div className={`relative border border-panel-border rounded-lg px-3 py-2 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
       <div className="flex items-center gap-2">
         <Info className="w-3.5 h-3.5 text-info flex-shrink-0" aria-hidden="true" />
         <p className={`${typography.panelBody} text-text-body flex-1`}>
@@ -359,10 +369,12 @@ function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string)
         Does this inadvertently anchor expectations? Consider setting an observed baseline.
       </p>
       {onSendMessage && (
-        <DiscussWithAiButton
-          element={{ kind: 'goal', label: 'success target' }}
-          onSend={() => onSendMessage('What baseline should I use for the success target? The current one is a default.')}
-        />
+        <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
+          <DiscussWithAiButton
+            element={{ kind: 'goal', label: 'success target' }}
+            onSend={() => onSendMessage('What baseline should I use for the success target? The current one is a default.')}
+          />
+        </div>
       )}
     </div>
   )
@@ -451,7 +463,7 @@ export function ChallengeSection({
             ))
           })()}
           {rootWarnings.map((warning, i) => (
-            <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} onSendMessage={onSendMessage} />
+            <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} />
           ))}
         </div>
       )}

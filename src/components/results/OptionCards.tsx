@@ -291,18 +291,6 @@ function OptionCard({
   // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
   const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
-  // V11: Rank badge — show "58%" in stone when neutralised (with winProbability), "#1 of N" otherwise
-  const rankBadgeContent = neutralised && option.winProbability != null
-    ? formatPct(option.winProbability, { fromDecimal: true })
-    : rank != null ? `#${rank} of ${totalOptions}` : null
-
-  // §8.5 outlined variant: metadata labels use border + text-text-body (main-on-light fails contrast)
-  const rankBadgeClass = neutralised
-    ? 'border border-factor/30 text-text-body'
-    : isWinner
-      ? 'border border-success/30 text-text-body'
-      : 'border border-factor/30 text-text-body'
-
   return (
     <div
       ref={cardRef}
