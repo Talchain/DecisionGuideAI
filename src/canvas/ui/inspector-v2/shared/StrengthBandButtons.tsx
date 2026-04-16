@@ -57,7 +57,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
   }, [isNegative, onChange])
 
   return (
-    <div className="flex flex-wrap gap-1 mb-2" role="group" aria-label="Strength presets">
+    <div className="flex gap-1 mb-2" role="group" aria-label="Strength presets">
       {BANDS.map((band, i) => {
         const isActive = activeBandIndex === i
         return (
@@ -65,7 +65,7 @@ export const StrengthBandButtons = memo(function StrengthBandButtons({
             key={band.label}
             type="button"
             onClick={() => handleClick(band.midpoint)}
-            className={`${typography.panelMeta} px-3.5 py-1.5 rounded-full bg-transparent border transition-colors cursor-pointer
+            className={`${typography.panelMeta} px-2 py-1 rounded-full bg-transparent border transition-colors cursor-pointer
               ${isActive
                 ? 'border-primary text-primary font-semibold'
                 : 'border-panel-border text-text-light hover:border-text-light hover:bg-panel-hover'

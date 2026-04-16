@@ -18,7 +18,7 @@ import {
   EMPTY_STATES,
   DESCRIPTION_PLACEHOLDERS,
 } from '../inspectorStrings'
-import { SectionTitle } from '../shared/SectionTitle'
+import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { PanelGroup } from '../shared/PanelGroup'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { DriversList, type DriverItem } from '../shared/DriversList'
@@ -219,7 +219,7 @@ export const OutcomePanel = memo(function OutcomePanel({
       {/* ── Predicted range group ─────────────────────────────── */}
       {(!isResultsMode || (!isOptionComparisonFailed(resultsReport) && hasOptionComparisonData(resultsReport))) && (
         <PanelGroup kind="impact">
-          <SectionTitle icon={SECTION_TITLES.predictedRange.icon} label={SECTION_TITLES.predictedRange.label} />
+          <InlineSectionLabel>{SECTION_TITLES.predictedRange.label}</InlineSectionLabel>
           <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
             {isResultsMode ? (
               <OptionComparisonSection report={resultsReport} techMode={techMode} onNavigate={onNavigate} />

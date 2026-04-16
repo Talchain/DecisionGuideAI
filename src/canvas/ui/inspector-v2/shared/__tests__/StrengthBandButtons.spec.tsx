@@ -89,4 +89,13 @@ describe('StrengthBandButtons', () => {
     expect(group).not.toBeNull()
     expect(group?.getAttribute('aria-label')).toBe('Strength presets')
   })
+
+  // Layout guard: the button container must not use flex-wrap so all four buttons
+  // stay on one row at default panel width (~350px). CSS layout is not computed in
+  // jsdom, but this class-presence check catches if flex-wrap is re-added.
+  it('button container does not use flex-wrap (single-row layout guard)', () => {
+    const { container } = render(<StrengthBandButtons value={0.5} onChange={() => {}} />)
+    const group = container.querySelector('[role="group"]')
+    expect(group?.className).not.toContain('flex-wrap')
+  })
 })

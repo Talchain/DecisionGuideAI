@@ -6,7 +6,7 @@
  */
 
 import { memo, useState, useMemo, useCallback, useRef, useEffect } from 'react'
-import { ArrowRight, AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 import { useCanvasStore } from '../../../store'
 import { useRobustness, useEdgeEValues } from '../useAnalysisResults'
 import { useEditConfirmation } from '../useEditConfirmation'
@@ -14,7 +14,6 @@ import { EditConfirmation } from '../shared/EditConfirmation'
 import { InlineRerunPrompt } from '../shared/InlineRerunPrompt'
 import { EDGE_CONSTRAINTS } from '../../../domain/edges'
 import type { NodeType } from '../../../domain/nodes'
-import { NodeShapeIndicator } from '../../../nodes/NodeShapeIndicator'
 import { SignedStrengthSlider } from '../../inspector/SignedStrengthSlider'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
@@ -22,7 +21,6 @@ import { useEdgeMutations } from '../useInspectorMutations'
 import { useStaleGuard } from '../useStaleGuard'
 import {
   SECTION_TITLES,
-  getStrengthDescription,
   GROUP_LABELS,
   INLINE_LABELS,
   EDGE_LINK_NOTICES,
@@ -43,7 +41,7 @@ import { trackGuidance } from '../../../../telemetry/guidanceEvents'
 import { resolveCoaching } from '../coachingConfig'
 import { useEditImpactPreview } from '../../../hooks/useEditImpactPreview'
 import { StrengthBandButtons } from '../shared/StrengthBandButtons'
-import { SectionTitle } from '../shared/SectionTitle'
+import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { EdgeAdvancedEditor } from '../editors/EdgeAdvancedEditor'
 
 // ─── Slider component for confidence and uncertainty ───────────────
@@ -229,15 +227,6 @@ export const EdgePanel = memo(function EdgePanel({
 
   return (
     <div>
-      {/* ── Relationship header ──────────────────────────────────── */}
-      <div className="flex items-center gap-2 mt-3 px-3 py-2 bg-panel-hover rounded-lg">
-        <NodeShapeIndicator nodeKind={sourceKind} size={16} />
-        <span className={`${typography.panelBody} text-text-body truncate`}>{sourceLabel}</span>
-        <ArrowRight size={12} className="text-text-light flex-shrink-0" />
-        <NodeShapeIndicator nodeKind={targetKind} size={16} />
-        <span className={`${typography.panelBody} text-text-body truncate`}>{targetLabel}</span>
-      </div>
-
       {/* ── Organisational / intervention link notices ────────── */}
       {isOrganisational ? (
         <div className="mt-3">
@@ -299,15 +288,6 @@ export const EdgePanel = memo(function EdgePanel({
               </p>
               <StrengthBandButtons value={localStrength} onChange={handleStrengthChange} />
               <ExpertAnnotation techMode={techMode} editable value={localStrength} onChange={(v) => { handleStrengthChange(v); }} suffix="β =" step={0.01} min={-1} max={1} />
-              {/* Strength pill */}
-              <div className="flex justify-between items-center mt-2">
-                <span
-                  className={`${typography.panelMeta} font-medium inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-transparent text-text-body`}
-                  style={{ border: `1px solid ${localStrength >= 0 ? 'var(--success)' : 'var(--danger)'}4D` }}
-                >
-                  {localStrength >= 0 ? '\u2191' : '\u2193'} {getStrengthDescription(localStrength)}
-                </span>
-              </div>
               {/* Edit feedback */}
               {lastConfirmed?.field === 'strength' && (
                 <div className="flex items-center gap-2 mt-1">
@@ -506,7 +486,7 @@ export function CausalClaimsSection({ edgeId, edgeData }: { edgeId: string; edge
 
   return (
     <>
-      <SectionTitle icon={SECTION_TITLES.scientificBasis.icon} label={SECTION_TITLES.scientificBasis.label} />
+      <InlineSectionLabel>{SECTION_TITLES.scientificBasis.label}</InlineSectionLabel>
 
       {claims.length === 0 ? (
         <p className={`${typography.panelMeta} text-text-light`}>

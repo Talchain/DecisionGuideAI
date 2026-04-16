@@ -18,7 +18,7 @@ import {
   EMPTY_STATES,
   DESCRIPTION_PLACEHOLDERS,
 } from '../inspectorStrings'
-import { SectionTitle } from '../shared/SectionTitle'
+import { InlineSectionLabel } from '../shared/InlineSectionLabel'
 import { PanelGroup } from '../shared/PanelGroup'
 import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { DriversList, type DriverItem } from '../shared/DriversList'
@@ -75,7 +75,7 @@ export const RiskPanel = memo(function RiskPanel({
 
       {/* ── Risk exposure group ────────────────────────────────── */}
       <PanelGroup kind="impact">
-        <SectionTitle icon={SECTION_TITLES.riskExposure.icon} label={SECTION_TITLES.riskExposure.label} />
+        <InlineSectionLabel>{SECTION_TITLES.riskExposure.label}</InlineSectionLabel>
         <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
           {isResultsMode ? (
             <div className="bg-panel border border-panel-border rounded-lg p-3">

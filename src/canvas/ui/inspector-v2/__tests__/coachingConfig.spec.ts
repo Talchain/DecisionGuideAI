@@ -7,7 +7,7 @@
  *     (Tested by verifying COACHING contains the canonical versions.)
  */
 import { describe, it, expect } from 'vitest'
-import { COACHING, type CoachingKey } from '../coachingConfig'
+import { COACHING, resolveCoaching, type CoachingKey } from '../coachingConfig'
 
 /** Every panel type (plus goal variants) must have a coaching entry. */
 const REQUIRED_KEYS: CoachingKey[] = [
@@ -69,6 +69,28 @@ describe('coachingConfig (H-series)', () => {
       expect(typeof value).toBe('string')
       expect(value.length).toBeGreaterThan(0)
       expect(key.length).toBeGreaterThan(0)
+    }
+  })
+
+  // H5: No em-dashes in source strings — guards against re-introducing the broken
+  // sentence pattern that Brief 2.5 was created to fix. Also checks resolved templates.
+  it('H5: no COACHING source string contains an em-dash', () => {
+    const EM_DASH = '\u2014'
+    for (const [key, value] of Object.entries(COACHING)) {
+      expect(value, `COACHING.${key} contains em-dash`).not.toContain(EM_DASH)
+    }
+  })
+
+  it('H5: no resolved coaching template contains an em-dash', () => {
+    const EM_DASH = '\u2014'
+    const templateKeys: CoachingKey[] = [
+      'factorControllableEvidence',
+      'factorExternalUncertainty',
+      'factorObservableData',
+    ]
+    for (const key of templateKeys) {
+      const resolved = resolveCoaching(key, { factorName: 'Test Factor' })
+      expect(resolved, `resolveCoaching('${key}') contains em-dash`).not.toContain(EM_DASH)
     }
   })
 })
