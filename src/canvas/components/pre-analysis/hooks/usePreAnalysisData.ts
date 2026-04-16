@@ -314,20 +314,20 @@ function getNodeLabel(node: Node): string {
 }
 
 /**
- * Check if a factor has AI-inferred source
+ * AI sources blocklist — shared by isAiInferred and isAiSource.
  *
  * Canonical source types for observed_state.source (from CEE/adapters):
- * - 'ai' | 'cee_inference' | 'inferred' — AI-estimated values (need user verification)
- * - 'user' — User-confirmed values
- * - 'default' — Default/placeholder values
- *
- * Note: No enum exists in the codebase; ObservedState.source is typed as string.
- * See: src/adapters/cee/types.ts → ObservedState interface
- *
- * IMPORTANT: Evidence quality uses BLOCKLIST approach for AI sources.
- * Only EXPLICIT AI sources count as AI-inferred. Everything else is non-AI:
- * - AI sources (blocklist): 'ai', 'cee_inference', 'inferred'
+ * - AI sources: 'ai' | 'cee_inference' | 'inferred' | 'engine' | 'ai_estimate'
  * - Non-AI sources: 'brief_extraction', 'user', 'user_confirmed', 'user_assumption', 'default', undefined
+ *
+ * Blocklist approach — everything NOT listed is treated as non-AI. Keeping both
+ * isAiInferred and isAiSource routed through the same Set prevents drift.
+ */
+const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'engine', 'ai_estimate'])
+
+/**
+ * Check if a factor has AI-inferred source (used by the verify section and
+ * the "Not set" / isInferred detection path).
  */
 function isAiInferred(node: Node): boolean {
   // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
@@ -335,22 +335,12 @@ function isAiInferred(node: Node): boolean {
   const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }
   const observedState = data?.observed_state ?? data?.observedState
   const source = observedState?.source ?? data?.source
-  return source === 'ai' || source === 'cee_inference' || source === 'inferred'
+  return source !== undefined && AI_SOURCES.has(source)
 }
 
 /**
- * AI sources blocklist for evidence quality calculation.
- *
- * A factor is "AI-inferred" if its source is in this blocklist.
- * Everything NOT in this blocklist is considered non-AI (user-provided),
- * including: 'brief_extraction', 'user', 'user_confirmed', 'user_assumption',
- * 'default', undefined, or any other value.
- *
- * This blocklist approach ensures we don't accidentally exclude valid
- * non-AI sources that may be added in the future.
+ * Check if a factor has AI-inferred source (used by evidence quality scoring).
  */
-const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred'])
-
 function isAiSource(node: Node): boolean {
   // Check both snake_case (observed_state) and camelCase (observedState) for compatibility
   const data = node.data as { observed_state?: { source?: string }; observedState?: { source?: string }; source?: string }

@@ -107,8 +107,12 @@ function formatBeforeValue(
   const isDiscrete = cap != null && Number.isInteger(cap) && Number.isInteger(currentRawValue)
   const display = isDiscrete ? Math.round(currentRawValue) : +currentRawValue.toFixed(1)
   if (placeholder) return `${display}`
-  if (unit === '$' || unit === '£') return `${unit}${display.toLocaleString()}`
   if (unit === '%') return `${display}%`
+  if (unit) {
+    const { kind, canonical } = classifyUnit(unit)
+    if (kind === 'symbol') return `${canonical}${display.toLocaleString('en-GB')}`
+    if (kind === 'iso') return `${canonical} ${display.toLocaleString('en-GB')}`
+  }
   if (unit) return `${display} ${pluraliseUnit(unit, display)}`
   return `${display}`
 }
@@ -191,9 +195,13 @@ function formatInterventionDisplay(
   // Placeholder unit → drop the suffix; the scale "scale" / "index" / "score"
   // would add no meaning to a denormalised number.
   if (placeholder) return `to ${approx}${display}`
-  if (unit === '$' || unit === '£') return `to ${approx}${unit}${display.toLocaleString()}`
   if (unit === '%') return `to ${approx}${display}%`
-  if (unit) return `to ${approx}${display} ${pluraliseUnit(unit, display)}`
+  if (unit) {
+    const { kind, canonical } = classifyUnit(unit)
+    if (kind === 'symbol') return `to ${approx}${canonical}${display.toLocaleString('en-GB')}`
+    if (kind === 'iso') return `to ${approx}${canonical} ${display.toLocaleString('en-GB')}`
+    return `to ${approx}${display} ${pluraliseUnit(unit, display)}`
+  }
   return `to ${approx}${display}`
 }
 

@@ -792,8 +792,12 @@ export function PreAnalysisPanel({
     // regardless of whether rawValue/value is present. When both are null (including
     // inferred-zero "Not set" items) rawValue is passed as null so the input renders
     // empty with placeholder text rather than pre-filling with a misleading value.
+    //
+    // Inferred-zero items: rawValue is 0 in the data but semantically "not set".
+    // Using `??` would pass 0 through (0 is not null/undefined). When the item's
+    // detail is 'Not set' we force null so the inline editor starts empty.
     const targetId = item.action?.targetId
-    const numericValue = item.rawValue ?? item.value ?? null
+    const numericValue = item.detail === 'Not set' ? null : (item.rawValue ?? null)
     if (targetId && item.focus?.type === 'node' && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
       return {
         ...mapped,
