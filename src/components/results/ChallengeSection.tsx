@@ -206,7 +206,7 @@ function FragileEdgeGroupCard({
   expertMode?: boolean
 }) {
   const cleanSource = stripEncodingNotation(sourceLabel)
-  const hasEValue = expertMode && edges.some(e => e.e_value != null)
+  const hasEValue = edges.some(e => e.e_value != null)
   // Consolidated mode: empty sourceLabel means edges from mixed sources
   const consolidated = !sourceLabel
   const multiple = edges.length > 1
@@ -249,7 +249,7 @@ function FragileEdgeGroupCard({
             {edge.e_value != null && expertMode && (
               <ExpertBlock>
                 <p className={`${typography.panelMeta} text-text-light`}>
-                  E-value: {edge.e_value.toFixed(1)} — assumptions would only need to be {edge.e_value.toFixed(1)}x wrong to flip the recommendation.
+                  E-value {edge.e_value.toFixed(1)}: assumptions would only need to be {edge.e_value.toFixed(1)}x wrong to flip the recommendation.
                 </p>
               </ExpertBlock>
             )}

@@ -298,8 +298,11 @@ export function OutputsDock() {
     persistAnalysisSuccess,
     persistAnalysisFailure,
     isPersistenceActive: _isPersistenceActive,
-    analysisStale,
   } = useScenario()
+
+  // C.1b: Show stale banner whenever graph is edited after a completed run,
+  // regardless of whether Supabase persistence is active (canvas store is unconditional)
+  const analysisStale = useCanvasStore(s => s.graphEditedSinceLastRun)
 
   // Build persistence object only when Supabase persistence is active
   const v2Persistence = useMemo<V2RunPersistence | undefined>(() => {
