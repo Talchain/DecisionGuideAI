@@ -16,6 +16,7 @@ import {
   GROUP_LABELS,
   DESCRIPTION_PLACEHOLDERS,
   EMPTY_STATES,
+  OPTION_STRINGS,
 } from '../inspectorStrings'
 import { formatFactorValue, unwrapInterventionValue, formatWinProbability } from '../../../utils/labelUtils'
 import { detectBaseline } from '../../../utils/baselineDetection'
@@ -303,10 +304,20 @@ export const OptionPanel = memo(function OptionPanel({
         )}
       </PanelGroup>
 
-      {/* ── Impact group — post-analysis only, absent from DOM otherwise ── */}
-      {isResultsMode && (
+      {/* ── Impact group — post-analysis only, absent from DOM otherwise ──
+          When results are complete but impact data is missing (winRate null,
+          no headline, no comparison bars) the group still renders with a
+          fallback message rather than showing an empty bordered section —
+          mirrors GoalPanel Task 1 pattern. */}
+      {isResultsMode && (() => {
+        const hasImpactContent =
+          displayMetadata.winRate !== null
+          || !!headline
+          || (allOptions.length > 1 && allOptions.some(o => o.winPct != null))
+        return (
         <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
           <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+            {hasImpactContent ? (
             <div>
               {/* Win probability hero */}
               {displayMetadata.winRate !== null && (
@@ -373,9 +384,13 @@ export const OptionPanel = memo(function OptionPanel({
                 </div>
               )}
             </div>
+            ) : (
+              <p className={`${typography.panelMeta} text-text-light`}>{OPTION_STRINGS.impactUnavailable}</p>
+            )}
           </StaleGuardBanner>
         </PanelGroup>
-      )}
+        )
+      })()}
 
       {/* ── Connections group ─────────────────────────────────── */}
       <PanelGroup kind="connections" label={GROUP_LABELS.connections}>

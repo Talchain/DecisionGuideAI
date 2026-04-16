@@ -262,6 +262,11 @@ export const GOAL_STRINGS = {
   impactUnavailable: 'Probability data unavailable for this analysis run.',
 } as const
 
+// ─── Option panel strings ────────────────────────────────────────
+export const OPTION_STRINGS = {
+  impactUnavailable: 'Option impact data unavailable for this analysis run.',
+} as const
+
 // --- Goal constraint UI copy -------------------------------------------
 // All user-facing strings for GoalPanel constraint section.
 export const GOAL_CONSTRAINT_COPY = {

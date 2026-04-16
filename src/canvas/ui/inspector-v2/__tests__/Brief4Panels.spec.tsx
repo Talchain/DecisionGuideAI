@@ -15,7 +15,7 @@ import { OptionPanel } from '../panels/OptionPanel'
 import { FactorControllablePanel } from '../panels/FactorControllablePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
-import { GOAL_STRINGS } from '../inspectorStrings'
+import { GOAL_STRINGS, OPTION_STRINGS } from '../inspectorStrings'
 
 // ─── Mock useNodeDisplayMetadata so we can drive ImportanceBar from tests ──
 
@@ -252,6 +252,49 @@ describe('FactorControllablePanel — no raw normalised value in default mode (B
     setFactorControllableStore()
     const { container } = render(<FactorControllablePanel {...factorProps} />)
     expect(container.textContent).not.toMatch(/System: model value:/)
+  })
+})
+
+// ─── Regression: OptionPanel Impact group non-empty in results mode ─
+
+describe('OptionPanel — Impact group has fallback when results are complete but impact data missing', () => {
+  it('renders OPTION_STRINGS.impactUnavailable instead of an empty impact group', () => {
+    // Results mode, no option_comparison in report, no winRate on metadata → all
+    // content branches are false. Group must render fallback copy, not an
+    // empty bordered section.
+    setOptionStore({ results: { status: 'complete', report: {} } })
+    mockDisplayMetadata.mockReturnValue({
+      ...baseMetadata,
+      winRate: null,
+    })
+    const { container } = render(<OptionPanel {...optionProps} />)
+    const impactGroup = container.querySelector('[data-panel-group="impact"]')
+    expect(impactGroup).not.toBeNull()
+    expect(impactGroup?.textContent).toContain(OPTION_STRINGS.impactUnavailable)
+  })
+})
+
+// ─── Regression: intervention display_value is canonical default-mode text ──
+
+describe('OptionPanel — intervention with display_value does not expose raw numeric text in default mode', () => {
+  it('shows display_value and hides the "Currently: X →" numeric editor when techMode=false', () => {
+    setOptionStoreWithDisplayValue()
+    const { container } = render(<OptionPanel {...optionProps} />)
+    // display_value must be visible
+    expect(screen.getByText('Increase by 20%')).toBeTruthy()
+    // Raw "Currently:" label must NOT appear in default mode
+    expect(container.textContent).not.toMatch(/Currently:/)
+    // No editable number input surfaced
+    const numericInputs = container.querySelectorAll('input[type="text"]')
+    expect(numericInputs.length).toBe(0)
+  })
+
+  it('exposes the numeric editor in tech mode alongside display_value', () => {
+    setOptionStoreWithDisplayValue()
+    const techProps = { ...optionProps, techMode: true }
+    const { container } = render(<OptionPanel {...techProps} />)
+    expect(screen.getByText('Increase by 20%')).toBeTruthy()
+    expect(container.textContent).toMatch(/Currently:/)
   })
 })
 

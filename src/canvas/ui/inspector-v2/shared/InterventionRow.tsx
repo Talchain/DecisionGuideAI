@@ -76,9 +76,17 @@ export function InterventionRow({
     return unit ? `${v.toLocaleString()} ${unit}` : v.toLocaleString()
   }
 
+  // F.6 passthrough: when CEE provides display_value, it IS the canonical
+  // default-mode user-facing text. Raw numeric baseline/delta/editable input
+  // only surface in tech mode to preserve editability for operators. This
+  // also satisfies the Brief 4 constraint "InterventionRow reading
+  // intervention.value directly when intervention.display_value is present".
+  const hasDisplayValue = !!displayValue
+  const showNumericSurface = !hasDisplayValue || techMode
+
   return (
     <div className="bg-panel border border-panel-border rounded-lg p-2.5 mb-1.5">
-      {/* Factor label + change indicator */}
+      {/* Factor label + change indicator (delta hidden when displayValue is primary) */}
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
           <NodeShapeIndicator nodeKind="factor" size={14} />
@@ -91,39 +99,41 @@ export function InterventionRow({
             {factorLabel}
           </button>
         </div>
-        {delta != null && (
+        {delta != null && showNumericSurface && (
           <span className={`${typography.panelMeta} ${deltaColor}`}>
             {deltaSign} {Math.abs(delta).toFixed(0)}%
           </span>
         )}
       </div>
 
-      {/* Baseline → editable input */}
-      <div className="flex items-center gap-2 mt-2">
-        <div className="flex-1">
-          <div className={`${typography.panelMeta} text-text-light`}>
-            Currently: {baseline != null ? formatValue(baseline) : 'N/A'}
-          </div>
-        </div>
-        <ArrowRight size={10} className="text-text-light flex-shrink-0" aria-hidden="true" />
-        <input
-          ref={inputRef}
-          type="text"
-          value={draft}
-          onChange={e => setDraft(e.target.value)}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-          disabled={disabled}
-          className={`${typography.panelHeader} text-xs w-[110px] px-2 py-1 border rounded-lg text-center bg-panel ${
-            disabled ? 'border-panel-border text-text-light' : 'border-info'
-          }`}
-        />
-      </div>
-
-      {/* CEE-authored display_value — passthrough per F.6 ("UI = passthrough"). */}
-      {displayValue && (
-        <div className={`${typography.panelMeta} text-text-body mt-1 italic`}>
+      {/* CEE-authored display_value — canonical default-mode text when present */}
+      {hasDisplayValue && (
+        <div className={`${typography.panelBody} text-text-body mt-1 ${techMode ? 'italic text-text-light' : ''}`}>
           {displayValue}
+        </div>
+      )}
+
+      {/* Baseline → editable input (default mode when no displayValue, or always in techMode) */}
+      {showNumericSurface && (
+        <div className="flex items-center gap-2 mt-2">
+          <div className="flex-1">
+            <div className={`${typography.panelMeta} text-text-light`}>
+              Currently: {baseline != null ? formatValue(baseline) : 'N/A'}
+            </div>
+          </div>
+          <ArrowRight size={10} className="text-text-light flex-shrink-0" aria-hidden="true" />
+          <input
+            ref={inputRef}
+            type="text"
+            value={draft}
+            onChange={e => setDraft(e.target.value)}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+            disabled={disabled}
+            className={`${typography.panelHeader} text-xs w-[110px] px-2 py-1 border rounded-lg text-center bg-panel ${
+              disabled ? 'border-panel-border text-text-light' : 'border-info'
+            }`}
+          />
         </div>
       )}
 

@@ -168,16 +168,11 @@ export const DecisionPanel = memo(function DecisionPanel({
                     </span>
                   )}
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className={`${typography.panelMeta} font-medium px-2 py-0.5 rounded-full bg-transparent text-text-body border border-factor/30`}>
-                    {opt.ivCount} change{opt.ivCount !== 1 ? 's' : ''}
+                {isResultsMode && opt.winProb != null && (
+                  <span className={`${typography.panelMeta} font-medium text-text-body tabular-nums`}>
+                    {formatWinProbability(opt.winProb)}
                   </span>
-                  {isResultsMode && opt.winProb != null && (
-                    <span className={`${typography.panelMeta} font-medium text-text-body tabular-nums`}>
-                      {formatWinProbability(opt.winProb)}
-                    </span>
-                  )}
-                </div>
+                )}
               </div>
               {isResultsMode && opt.winProb != null && (
                 <div className="mt-1.5">
