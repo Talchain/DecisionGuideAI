@@ -27,7 +27,6 @@ import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
-import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
@@ -1584,21 +1583,14 @@ export function PreAnalysisPanel({
               )}
 
               {/* Bias trigger cards. Each card shows: icon, title, truncated
-                  explanation (full text on hover via the title attribute),
-                  optional "Try this" chip from the CEE micro_intervention,
-                  and a generic "Ask AI" chip that drops the askAiPrompt into
-                  the conversation. P1-8: budget capped at 2 visible; overflow
-                  appears when the user expands Show more. */}
+                  explanation (full text on hover via tooltip), sparkle bottom-right
+                  (auto-submits; incorporates micro_intervention when present).
+                  No text pills — unified spec §3.3. P1-8: budget capped at 2
+                  visible; overflow appears when the user expands Show more. */}
               {(reviewNextExpanded ? biasTriggersAfterStart : reviewNextBiasVisible).length > 0 && (
                 <div className="space-y-1.5" data-testid="review-next-nudges">
                   {(reviewNextExpanded ? biasTriggersAfterStart : reviewNextBiasVisible).map(trigger => {
                     const Icon = trigger.icon
-                    const handleTryThis = () => {
-                      if (!trigger.microInterventionStep) return
-                      const prefill = useGuidanceStore.getState()._prefillChat
-                      if (prefill) prefill(trigger.microInterventionStep)
-                      else onSendMessage?.(trigger.microInterventionStep)
-                    }
                     // Only attach the DS tooltip when the explanation was
                     // actually truncated — otherwise the hover would just
                     // repeat the visible text. truncateExplanation appends
@@ -1613,7 +1605,7 @@ export function PreAnalysisPanel({
                     return (
                       <div
                         key={trigger.id}
-                        className="relative px-3 pr-7 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover space-y-1"
+                        className="relative px-3 pr-7 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover"
                         data-testid={`bias-trigger-${trigger.id}`}
                       >
                         <div className="flex items-start gap-2">
@@ -1631,23 +1623,12 @@ export function PreAnalysisPanel({
                             ) : (
                               subtitleEl
                             )}
-                            {trigger.microInterventionStep && (
-                              <div className="flex flex-wrap items-center gap-1 mt-1">
-                                <button
-                                  type="button"
-                                  onClick={handleTryThis}
-                                  className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer flex-shrink-0`}
-                                  data-testid={`bias-trigger-try-${trigger.id}`}
-                                >
-                                  Try this
-                                </button>
-                              </div>
-                            )}
                           </div>
                         </div>
-                        {/* P1-2: Discuss-with-AI sparkle, bottom-right of the bias card */}
+                        {/* Sparkle bottom-right — auto-submits prompt including micro-intervention
+                            technique when present (unified spec §3.3: no text pills on bias cards). */}
                         <div className="absolute bottom-1 right-1">
-                          <DiscussWithAiButton element={{ kind: 'bias', biasType: trigger.title }} />
+                          <DiscussWithAiButton element={{ kind: 'bias', biasType: trigger.title, microInterventionStep: trigger.microInterventionStep }} />
                         </div>
                       </div>
                     )

@@ -9,7 +9,17 @@ export type AiDiscussElement =
   | { kind: 'factor'; label: string }
   | { kind: 'edge'; from: string; to: string }
   | { kind: 'option'; label: string }
-  | { kind: 'bias'; biasType: string }
+  | {
+      kind: 'bias'
+      biasType: string
+      /**
+       * Optional micro-intervention text from CEE (e.g. a debiasing technique).
+       * When present, the sparkle prompt includes it so the AI can expand on
+       * the technique in context. Replaces the removed "Try this" text pill
+       * per unified spec §3.3: bias cards have sparkle only, no text pills.
+       */
+      microInterventionStep?: string
+    }
   | { kind: 'goal'; label: string }
   | { kind: 'missing' }
 
@@ -22,9 +32,12 @@ export function buildAiDiscussPrompt(el: AiDiscussElement): string {
     case 'option':
       return `Tell me about ${el.label}. What are its strengths and weaknesses?`
     case 'bias':
+      if (el.microInterventionStep) {
+        return `I'm noticing ${el.biasType} in my thinking. One suggested technique: "${el.microInterventionStep}". Can you help me apply this to my decision?`
+      }
       return `Tell me more about ${el.biasType} and how it might affect my thinking.`
     case 'goal':
-      return `Help me define what success looks like for this decision and suggest a measurable target.`
+      return `Tell me about the goal "${el.label}". How should I think about success here?`
     case 'missing':
       return `I'd like to add something to the model that's not currently captured: `
   }
