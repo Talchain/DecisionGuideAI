@@ -13,8 +13,14 @@ function makeOption(overrides: Partial<OptionPreviewData> & { interventions: Opt
   }
 }
 
+// Helper: OptionPreview defaults to collapsed (isExpanded=false).
+// Tests that need intervention content must expand first.
+function expandOptionPreview() {
+  fireEvent.click(screen.getByTestId('option-preview-toggle'))
+}
+
 describe('OptionPreview — intervention display', () => {
-  it('interventions are always visible', () => {
+  it('interventions are visible after expanding the section', () => {
     render(
       <OptionPreview
         options={[makeOption({
@@ -32,9 +38,8 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
-    // Interventions should be visible without needing to expand
+    expandOptionPreview()
     expect(screen.getByText('to very high')).toBeInTheDocument()
-    expect(screen.queryByText('Show interventions')).not.toBeInTheDocument()
   })
 
   it('shows qualitative level for cap=1, unit="" intervention (0.8 → "to very high")', () => {
@@ -55,6 +60,7 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
+    expandOptionPreview()
     expect(screen.getByText('to very high')).toBeInTheDocument()
   })
 
@@ -76,6 +82,7 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
+    expandOptionPreview()
     expect(screen.getByText('to moderate')).toBeInTheDocument()
   })
 
@@ -97,6 +104,7 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
+    expandOptionPreview()
     expect(screen.getByText('to 5000')).toBeInTheDocument()
   })
 
@@ -118,6 +126,7 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
+    expandOptionPreview()
     expect(screen.getByText('to low')).toBeInTheDocument()
   })
 
@@ -150,6 +159,7 @@ describe('OptionPreview — intervention display', () => {
         })]}
       />,
     )
+    expandOptionPreview()
     expect(screen.getByText(expectedLabel)).toBeInTheDocument()
   })
 
@@ -171,7 +181,35 @@ describe('OptionPreview — intervention display', () => {
       />,
     )
 
+    expandOptionPreview()
     expect(screen.getByText('to 9 months')).toBeInTheDocument()
+  })
+})
+
+describe('OptionPreview — collapsed state (UI-BUG-3)', () => {
+  it('shows option names without expanding', () => {
+    render(
+      <OptionPreview
+        options={[
+          makeOption({ id: 'opt1', label: 'Hire Now', interventions: [] }),
+          makeOption({ id: 'opt2', label: 'Outsource', interventions: [] }),
+        ]}
+      />,
+    )
+    const nameList = screen.getByTestId('option-preview-collapsed-names')
+    expect(nameList).toBeInTheDocument()
+    expect(screen.getByText('Hire Now')).toBeInTheDocument()
+    expect(screen.getByText('Outsource')).toBeInTheDocument()
+  })
+
+  it('hides option names after expanding (expanded state shows full detail)', () => {
+    render(
+      <OptionPreview
+        options={[makeOption({ id: 'opt1', label: 'Hire Now', interventions: [] })]}
+      />,
+    )
+    expandOptionPreview()
+    expect(screen.queryByTestId('option-preview-collapsed-names')).not.toBeInTheDocument()
   })
 })
 
@@ -196,13 +234,14 @@ describe('OptionPreview — click-to-inspector', () => {
       />,
     )
 
-    // Click the factor label button — should fire with the factor's id, not the option id
+    // Factor labels are inside the expanded content — expand first
+    expandOptionPreview()
     fireEvent.click(screen.getByText('Market Size'))
     expect(onFocusNode).toHaveBeenCalledTimes(1)
     expect(onFocusNode).toHaveBeenCalledWith('fac_market')
   })
 
-  it('calls onFocusNode with the option id when the option name is clicked', () => {
+  it('calls onFocusNode with the option id when the option name is clicked (collapsed state)', () => {
     const onFocusNode = vi.fn()
     const option = makeOption({
       id: 'opt_expand',
@@ -213,7 +252,7 @@ describe('OptionPreview — click-to-inspector', () => {
       <OptionPreview options={[option]} onFocusNode={onFocusNode} />,
     )
 
-    // The option header/name should be clickable
+    // Option names are visible in collapsed state (UI-BUG-3 fix)
     fireEvent.click(screen.getByText('Expand Now'))
     expect(onFocusNode).toHaveBeenCalledWith('opt_expand')
   })

@@ -112,6 +112,8 @@ export interface GuidanceActions {
    * Items without target_object or with other target types are never cleared.
    */
   clearItemsByTargetIds: (ids: string[]) => void
+  /** Remove a single guidance item by item_id (e.g. after user acts on a chip). */
+  dismissItem: (itemId: string) => void
 }
 
 const initialGuidanceState: GuidanceState = {
@@ -194,6 +196,16 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       activeGuidanceItemId: activeGuidanceItemId && survivingIds.has(activeGuidanceItemId)
         ? activeGuidanceItemId
         : null,
+    })
+  },
+
+  dismissItem: (itemId) => {
+    const { guidanceItems, activeGuidanceItemId } = get()
+    const surviving = guidanceItems.filter((item) => item.item_id !== itemId)
+    if (surviving.length === guidanceItems.length) return
+    set({
+      guidanceItems: surviving,
+      activeGuidanceItemId: activeGuidanceItemId === itemId ? null : activeGuidanceItemId,
     })
   },
 
