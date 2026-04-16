@@ -31,6 +31,14 @@ interface DecisionHealthRingProps {
   /** Override the centre score (0-100) instead of computing from dimensions.
    *  Used post-analysis to display ISL recommendation_stability directly. */
   overrideScore?: number | null
+  /**
+   * Rendering mode.
+   * - 'composite' (default): three concentric arcs for Structure/Evidence/Coverage.
+   *   Used pre-analysis where a readiness breakdown is meaningful.
+   * - 'single': one outer arc filled to `overrideScore`. Used post-analysis for
+   *   unambiguous single-value displays (e.g. winner win probability).
+   */
+  mode?: 'composite' | 'single'
 }
 
 // Arc geometry: 270 degree arc
@@ -67,6 +75,7 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
   size = DEFAULT_SIZE,
   centerLabel = 'ready',
   overrideScore,
+  mode = 'composite',
 }: DecisionHealthRingProps) {
   const clamp = (v: number) => Math.max(0, Math.min(1, v))
   const s = clamp(dimensions.structure)
@@ -88,11 +97,15 @@ export const DecisionHealthRing = memo(function DecisionHealthRing({
   const scoreFontSize = Math.max(11, 16 * scale)
   const labelFontSize = Math.max(7, 9 * scale)
 
-  const arcs: ArcConfig[] = [
-    { label: 'Structure', value: s, radius: 28 * scale },
-    { label: 'Evidence', value: e, radius: 22 * scale },
-    { label: 'Coverage', value: cov, radius: 16 * scale },
-  ]
+  const singleArcValue = clamp(overallScore / 100)
+
+  const arcs: ArcConfig[] = mode === 'single'
+    ? [{ label: 'Score', value: singleArcValue, radius: 28 * scale }]
+    : [
+      { label: 'Structure', value: s, radius: 28 * scale },
+      { label: 'Evidence', value: e, radius: 22 * scale },
+      { label: 'Coverage', value: cov, radius: 16 * scale },
+    ]
 
   return (
     <svg

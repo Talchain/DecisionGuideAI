@@ -14,6 +14,7 @@ import { Check, Pencil } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
+import { ExpandableCoachingText } from './ExpandableCoachingText'
 import Tooltip from '@/components/Tooltip'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import type { AiDiscussElement } from '@/canvas/components/pre-analysis/buildAiDiscussPrompt'
@@ -440,20 +441,17 @@ export function TriageCard(props: TriageCardProps) {
         )}
       </div>
 
-      {/* Collapsed subtitle + value row.
-          The subtitle (coaching line) and the value controls share a single
-          row for factor cards. When no editorConfig is available, the
-          action-icon group replaces the input + icons on the right side.
-          Subtitle truncates first so the right-side controls never get
-          pushed off-screen. */}
-      {!isEdge && (
-        <div className="flex items-center gap-2 pl-7 mt-0.5 min-w-0">
-          <p
-            className={`${typography.panelMeta} text-text-light truncate flex-1 min-w-0`}
-            title={subtitle || displayDetail}
-          >
-            {subtitle || displayDetail}
-          </p>
+      {/* Coaching line + value controls row.
+          The coaching text uses ExpandableCoachingText so long CEE strings
+          aren't silently truncated — two lines visible by default, full text
+          on "More". Right-side controls stay vertically centred with the
+          text block (controls hug the column's middle via items-center). */}
+      {!isEdge && (subtitle || displayDetail) && (
+        <div className="flex items-start gap-2 pl-7 mt-0.5 min-w-0">
+          <ExpandableCoachingText
+            text={subtitle || displayDetail}
+            className="text-text-light"
+          />
           {editorConfig ? (
             <InlineValueControls
               editorConfig={editorConfig}
@@ -485,12 +483,17 @@ export function TriageCard(props: TriageCardProps) {
         </div>
       )}
 
-      {/* Edge cards keep the two-row layout: subtitle, then strength quick-select */}
+      {/* Edge cards keep the two-row layout: coaching line, then strength quick-select */}
       {isEdge && (
         <>
-          <p className={`${typography.panelMeta} text-text-light truncate pl-7`} title={subtitle || displayDetail}>
-            {subtitle || displayDetail}
-          </p>
+          {(subtitle || displayDetail) && (
+            <div className="pl-7">
+              <ExpandableCoachingText
+                text={subtitle || displayDetail}
+                className="text-text-light"
+              />
+            </div>
+          )}
           {action?.targetId && onUpdateEdgeStrength && (
             <div className="mt-1.5 pl-7">
               <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />

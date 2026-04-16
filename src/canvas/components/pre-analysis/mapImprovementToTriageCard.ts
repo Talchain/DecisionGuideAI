@@ -39,26 +39,19 @@ function parseEdgeTitle(title: string): { source: string; target: string } | nul
   return null
 }
 
-/** Cap subtitle length to keep cards single-line and avoid ellipsis truncation. */
-const MAX_SUBTITLE_LEN = 60
-
-function trimSubtitle(s: string): string {
-  return s.length <= MAX_SUBTITLE_LEN ? s : s.slice(0, MAX_SUBTITLE_LEN - 1).trimEnd()
-}
-
-/** Derive contextual coaching subtitle from item metadata */
+/**
+ * Derive contextual coaching subtitle from item metadata.
+ *
+ * Brief 4 Task 2: no character cap. ExpandableCoachingText in TriageCard
+ * handles overflow via two-line clamp + expand toggle.
+ */
 function deriveSubtitle(item: ImprovementItem): string | undefined {
   // Edge / relationship items
   if (item.focus?.type === 'edge') {
     if (item.subgroup === 'contested') return 'Needs your judgement: estimates disagree'
     const parsed = parseEdgeTitle(item.label)
     if (parsed) {
-      // P0-1: previously rendered "How strongly does {source} ({rawValue} {unit})
-      // affect {target}?" — but ImprovementItem.rawValue belongs to the *target*
-      // factor of the verify item, not the source referenced in the question.
-      // The parenthetical was showing the wrong factor's value. Drop it entirely
-      // rather than reach into the canvas store from a pure mapper.
-      return trimSubtitle(`How strongly does ${parsed.source} affect ${parsed.target}?`)
+      return `How strongly does ${parsed.source} affect ${parsed.target}?`
     }
     return 'Set whether this relationship is weak, moderate, or strong'
   }
@@ -71,7 +64,7 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
 
   // Use CEE hint when available (richest contextual coaching)
   if (item.hint) {
-    return trimSubtitle(item.hint)
+    return item.hint
   }
 
   // Phase 4 (Task 8) extends this to derive deterministic per-factor context

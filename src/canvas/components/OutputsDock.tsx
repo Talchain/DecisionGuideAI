@@ -657,16 +657,28 @@ export function OutputsDock() {
   // semantic IDs from PLoT evidence gaps (e.g. "fac_current_mrr") can also resolve.
   // Heuristic fallback — remove when PLoT guarantees target_node_id on all evidence gaps.
   const nodeValueLookup = useMemo(() => {
-    const lookup: Record<string, { value: number | null; unit: string | null; cap: number | null }> = {}
+    const lookup: Record<
+      string,
+      { value: number | null; unit: string | null; cap: number | null; displayValue: string | null }
+    > = {}
     for (const n of nodes) {
       const nd = n.data as Record<string, unknown>
       const obs = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
       const raw = obs?.raw_value as number | undefined
       const val = obs?.value as number | undefined
+      // intervention_details[factor_id].display_value — pre-formatted string
+      // supplied by CEE/PLoT, preferred over raw-value formatting (Brief 4 T7).
+      const intervention = (nd?.intervention_details ?? {}) as Record<string, { display_value?: unknown; unit?: unknown }>
+      const ownIntervention = intervention[n.id]
+      const interventionDisplay = typeof ownIntervention?.display_value === 'string'
+        ? ownIntervention.display_value
+        : null
+      const interventionUnit = typeof ownIntervention?.unit === 'string' ? ownIntervention.unit : null
       const entry = {
         value: raw ?? val ?? null,
-        unit: (obs?.unit as string | undefined) ?? null,
+        unit: interventionUnit ?? ((obs?.unit as string | undefined) ?? null),
         cap: (obs?.cap as number | undefined) ?? null,
+        displayValue: interventionDisplay,
       }
       lookup[n.id] = entry
       // Secondary key: derive fac_ snake_case ID from label so PLoT semantic IDs match

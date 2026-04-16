@@ -89,7 +89,7 @@ export interface ResultsBodyProps {
   /** Whether expert mode is active (shows technical details) */
   expertMode?: boolean
   /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
-  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null }>
+  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>
 }
 
 export const ResultsBody = memo(function ResultsBody({

@@ -17,7 +17,6 @@
 import { useMemo, memo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight, Lightbulb } from 'lucide-react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
-import type { TriageDimension } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
@@ -47,62 +46,14 @@ interface DecisionConfidencePanelProps {
   /** Show influence/EVOI metrics on triage cards */
   expertMode?: boolean
   /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
-  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null }>
+  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>
 }
 
-// ── Dimension computation (same 4 labels as pre-analysis) ───────────────────
-
-function computePostAnalysisDimensions(data: ResultsSectionDataReturn): {
-  ringDimensions: DecisionHealthRingDimensions
-  dimensionBars: TriageDimension[]
-} {
-  const rec = data.recommendation
-  const conf = data.confidence
-
-  // Structure: robustness-based — how complete the model is post-analysis
-  const structure = rec.recommendationStability ?? 0.5
-
-  // Evidence: from coaching readiness dimensions
-  const evidence = rec.coachingReadinessDimensions?.evidence ?? 0.5
-
-  // Coverage: clarity/breadth of the analysis
-  const coverage = rec.coachingReadinessDimensions?.clarity ?? (conf.rankingStability ?? 0.5)
-
-  // Verified: user-reviewed fraction (from coaching robustness or ranking stability)
-  const verified = rec.coachingReadinessDimensions?.robustness ?? (conf.rankingStability ?? structure)
-
-  const ringDimensions: DecisionHealthRingDimensions = {
-    structure,
-    evidence,
-    coverage,
-    verified,
-  }
-
-  const dimensionBars: TriageDimension[] = [
-    {
-      label: 'Structure',
-      value: structure,
-      tooltip: 'How well-structured and complete the decision model is',
-    },
-    {
-      label: 'Evidence',
-      value: evidence,
-      tooltip: 'Proportion of model values backed by your data versus AI estimates',
-    },
-    {
-      label: 'Coverage',
-      value: coverage,
-      tooltip: 'Whether the model captures all key trade-offs, risks, and alternatives',
-    },
-    {
-      label: 'Verified',
-      value: verified,
-      tooltip: 'Factors and relationships you have personally reviewed or confirmed',
-    },
-  ]
-
-  return { ringDimensions, dimensionBars }
-}
+// Post-analysis uses a single-value ring (winner's win probability).
+// The 4-dimension composite (Structure/Evidence/Coverage/Verified) is a
+// pre-analysis readiness concept; conflating it with post-analysis trust
+// misled users into reading the percentage as win probability.
+// See Brief 4 Task 1 + UI-Data_Audit "hero disambiguation".
 
 // ── Action item mapping ─────────────────────────────────────────────────────
 
@@ -130,7 +81,7 @@ function getSourcePill(confidence: number): { label: string; borderClass: string
 function mapEvidenceGapsToActions(
   data: ResultsSectionDataReturn,
   onSetValue?: (nodeId: string, rawValue: number) => void,
-  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null }>,
+  nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>,
 ): MappedActionItem[] {
   const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
   return gaps.map((gap, i) => {
@@ -144,7 +95,7 @@ function mapEvidenceGapsToActions(
     return {
       key: `gap-${gap.factorId}-${i}`,
       title: gap.factorLabel,
-      detail: gap.suggestion || `This factor has ${gap.confidence}% confidence \u2014 improving it could change the recommendation`,
+      detail: gap.suggestion || `This factor has ${gap.confidence}% confidence. Improving it could change the recommendation.`,
       subtitle,
       category: 'add_evidence' as const,
       influence: gap.voi > 0 ? gap.voi : null,
@@ -438,10 +389,22 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   expertMode,
   nodeValueLookup,
 }: DecisionConfidencePanelProps) {
-  const { ringDimensions, dimensionBars } = useMemo(
-    () => computePostAnalysisDimensions(data),
-    [data],
-  )
+  // Post-analysis ring shows winner's win probability directly. The readiness
+  // composite (Structure/Evidence/Coverage/Verified) is pre-analysis-only.
+  const winProbability = data.recommendation.recommendedOption?.winProbability
+  const hasWinProbability = typeof winProbability === 'number' && Number.isFinite(winProbability)
+  const winProbabilityScore = hasWinProbability ? Math.round(winProbability! * 100) : null
+
+  // ringDimensions is required by the DecisionHealthRing prop contract even
+  // in 'single' mode (it's used for the composite fallback / a11y label).
+  // Pass the win-probability value across so any aria-label computation is
+  // consistent with the score shown.
+  const ringDimensions: DecisionHealthRingDimensions = {
+    structure: hasWinProbability ? winProbability! : 0,
+    evidence: hasWinProbability ? winProbability! : 0,
+    coverage: hasWinProbability ? winProbability! : 0,
+    verified: hasWinProbability ? winProbability! : 0,
+  }
 
   // Headline from coaching data (confirmed: no decision_review.narrative_summary.winner
   // field exists — using available M1 coaching fields)
@@ -476,16 +439,15 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       {/* Transition bridge */}
       <TransitionBridge verifiedCount={verifiedCount} influenceCoverage={influenceCoverage} />
 
-      {/* 1. Health header — ring shows ISL recommendation_stability directly */}
+      {/* 1. Health header — ring shows the winner's win probability. */}
       <TriageHealthHeader
         title="Current result"
         ringLabel="%"
         ringDimensions={ringDimensions}
-        dimensions={dimensionBars}
         headline={headline}
-        overrideScore={data.recommendation.recommendationStability != null
-          ? Math.round(data.recommendation.recommendationStability * 100)
-          : undefined}
+        overrideScore={winProbabilityScore}
+        mode="single"
+        ringCaption={hasWinProbability ? 'win probability' : undefined}
         testId="confidence-health-header"
       />
 
