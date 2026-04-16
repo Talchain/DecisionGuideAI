@@ -15,6 +15,7 @@ import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
+import { ExpertBlock } from './ExpertBlock'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
 
@@ -248,7 +249,7 @@ export function AdvancedSection({
 
         {/* ── Analysis Details — expert mode only (Task 10) ──────────── */}
         {expertMode && (
-        <div>
+        <ExpertBlock>
           <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
             Analysis details
           </h4>
@@ -322,7 +323,7 @@ export function AdvancedSection({
               </>
             )}
           </dl>
-        </div>
+        </ExpertBlock>
         )}
       </div>
     </Accordion>

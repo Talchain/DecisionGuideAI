@@ -28,6 +28,7 @@ import { formatPercent } from '../../utils/formatPercent'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
+import { ExpertBlock } from './ExpertBlock'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -712,11 +713,13 @@ function DriverRow({
 
       {/* Expert mode: raw ISL values */}
       {expertMode && (
-        <div className={`${typography.panelMeta} text-text-light px-3 pb-1 flex gap-3`}>
-          <span>elasticity: {typeof driver.rawElasticity === 'number' ? driver.rawElasticity.toFixed(3) : '-'}</span>
-          <span>stability: {driver.attributionStability ?? '-'}</span>
-          <span>influence: {typeof (driver.influenceScore ?? driver.normalisedInfluence) === 'number' ? ((driver.influenceScore ?? driver.normalisedInfluence)! * 100).toFixed(1) + '%' : '-'}</span>
-        </div>
+        <ExpertBlock>
+          <div className={`${typography.panelMeta} text-text-light flex gap-3`}>
+            <span>elasticity: {typeof driver.rawElasticity === 'number' ? driver.rawElasticity.toFixed(3) : '-'}</span>
+            <span>stability: {driver.attributionStability ?? '-'}</span>
+            <span>influence: {typeof (driver.influenceScore ?? driver.normalisedInfluence) === 'number' ? ((driver.influenceScore ?? driver.normalisedInfluence)! * 100).toFixed(1) + '%' : '-'}</span>
+          </div>
+        </ExpertBlock>
       )}
 
       {/* V12.2: Microline overtake warning inside card */}

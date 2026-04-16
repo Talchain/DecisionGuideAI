@@ -17,6 +17,7 @@
 import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
+import { ExpertBlock } from './ExpertBlock'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
@@ -406,19 +407,21 @@ function OptionCard({
 
       {/* Range bar: p10 / p50 / p90 visual — expert mode only */}
       {expertMode && (
-        option.outcome && typeof option.outcome.p10 === 'number' && typeof option.outcome.p90 === 'number' ? (
-          <OptionRangeBar
-            p10={option.outcome.p10}
-            p50={option.outcome.p50 ?? option.outcome.mean ?? undefined}
-            p90={option.outcome.p90}
-            globalMin={globalMin}
-            globalMax={globalMax}
-          />
-        ) : option.outcome?.mean != null ? (
-          <p className={`${typography.panelMeta} text-text-light`}>
-            Expected: {option.outcome.mean.toLocaleString()}
-          </p>
-        ) : null
+        <ExpertBlock>
+          {option.outcome && typeof option.outcome.p10 === 'number' && typeof option.outcome.p90 === 'number' ? (
+            <OptionRangeBar
+              p10={option.outcome.p10}
+              p50={option.outcome.p50 ?? option.outcome.mean ?? undefined}
+              p90={option.outcome.p90}
+              globalMin={globalMin}
+              globalMax={globalMax}
+            />
+          ) : option.outcome?.mean != null ? (
+            <p className={`${typography.panelMeta} text-text-light`}>
+              Expected: {option.outcome.mean.toLocaleString()}
+            </p>
+          ) : null}
+        </ExpertBlock>
       )}
 
       {/* Multi-constraint joint probability line */}
