@@ -1,5 +1,6 @@
 /**
  * FactorExternalPanel — Inspector for external factors (spec §9)
+ * v6.2 three-group layout: Context → Your input → Influences
  * QuickSetButtons ABOVE range display as primary input affordance.
  */
 
@@ -12,8 +13,17 @@ import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useStaleGuard } from '../useStaleGuard'
-import { SECTION_TITLES } from '../inspectorStrings'
-import { SectionTitle } from '../shared/SectionTitle'
+import {
+  GROUP_LABELS,
+  INLINE_LABELS,
+  DESCRIPTION_PLACEHOLDERS,
+  getExtractionLabel,
+} from '../inspectorStrings'
+import { PanelGroup } from '../shared/PanelGroup'
+import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { InlineSectionLabel } from '../shared/InlineSectionLabel'
+import { ImportanceBar } from '../shared/ImportanceBar'
+import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
@@ -49,17 +59,22 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const { isStale } = useStaleGuard()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
+  // Description — conditional edit state for EmptyDescriptionPrompt pattern
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
+  const [isEditingDescription, setIsEditingDescription] = useState(false)
 
   // Shared display text with FactorNode — `display_value` takes priority.
   const canonicalDisplayText = factorDisplayText(node?.data as Record<string, unknown> | undefined)
+
+  // Source for extraction label (from observedState if present)
+  const obs = (node?.data as Record<string, unknown>)?.observedState as Record<string, unknown> | undefined
+  const source = obs?.source as string | undefined
 
   // Prior range
   const prior = (node?.data as Record<string, unknown>)?.prior as Record<string, unknown> | number | undefined
   const rangeMin = typeof prior === 'object' ? (prior as Record<string, unknown>)?.range_min as number | undefined : undefined
   const rangeMax = typeof prior === 'object' ? (prior as Record<string, unknown>)?.range_max as number | undefined : undefined
 
-  // Determine current quick-set selection
   // Local drafts for tech mode editable inputs
   const [localMin, setLocalMin] = useState<string>(rangeMin != null ? rangeMin.toFixed(2) : '')
   const [localMax, setLocalMax] = useState<string>(rangeMax != null ? rangeMax.toFixed(2) : '')
@@ -128,172 +143,183 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
 
   return (
     <div>
-      {/* Description */}
-      <div className="mt-3">
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          onBlur={() => mutations.setDescription(description)}
-          placeholder="Describe this external factor..."
-          rows={2}
-          maxLength={500}
-          className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
-        />
-      </div>
+      {/* ── Context group ─────────────────────────────────────── */}
+      <PanelGroup kind="context" label={GROUP_LABELS.context}>
+        {/* Description — textarea when editing or content exists, EmptyDescriptionPrompt when empty */}
+        {description || isEditingDescription ? (
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            onBlur={() => {
+              mutations.setDescription(description)
+              if (!description.trim()) setIsEditingDescription(false)
+            }}
+            autoFocus={isEditingDescription && !description}
+            placeholder="Describe this external factor..."
+            rows={2}
+            maxLength={500}
+            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+          />
+        ) : (
+          <EmptyDescriptionPrompt
+            placeholder={DESCRIPTION_PLACEHOLDERS.factor}
+            onStartEditing={() => setIsEditingDescription(true)}
+          />
+        )}
 
-      {/* §9.2 Impact — shown ABOVE estimate to motivate editing */}
-      <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />
-      <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
-        {isResultsMode && displayMetadata.sensitivityRank !== null && (
-          <div className="bg-panel border border-danger/30 p-2.5 rounded-lg">
-            <div className={`${typography.panelBody} font-medium`}>
-              Responsible for significant uncertainty in your results
-            </div>
-            {displayMetadata.sensitivityRank != null && (
-              <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                Ranked {displayMetadata.sensitivityRank === 1 ? '1st'
-                  : displayMetadata.sensitivityRank === 2 ? '2nd'
-                  : displayMetadata.sensitivityRank === 3 ? '3rd'
-                  : `${displayMetadata.sensitivityRank}th`} in influence
+        {/* Extraction label pill — provenance of this factor's data */}
+        <div className="mt-2">
+          <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2.5 py-0.5 rounded-full bg-transparent text-text-body border border-success/30`}>
+            {getExtractionLabel(source)}
+          </span>
+        </div>
+
+        {/* Post-analysis: ImportanceBar + VoI folded in (no separate bordered card) */}
+        <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+          <div className="mt-2 space-y-2">
+            <ImportanceBar
+              importanceScore={displayMetadata.influence}
+              sensitivityRank={displayMetadata.sensitivityRank}
+            />
+            {displayMetadata.valueOfInformation !== null && (
+              <div>
+                <DataBar
+                  value={displayMetadata.valueOfInformation}
+                  label="Investigation value"
+                  colour="info"
+                  trailingLabel={
+                    displayMetadata.valueOfInformation >= 0.7 ? 'High'
+                    : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
+                    : 'Low'
+                  }
+                />
+                <p className={`${typography.panelMeta} text-text-light mt-1`}>
+                  {displayMetadata.valueOfInformation >= 0.7
+                    ? 'Gathering more evidence here could significantly improve confidence.'
+                    : displayMetadata.valueOfInformation >= 0.4
+                    ? 'Additional evidence here would moderately sharpen the analysis.'
+                    : 'Further investigation here is unlikely to change the outcome.'}
+                </p>
               </div>
             )}
           </div>
-        )}
-      </StaleGuardBanner>
+        </StaleGuardBanner>
 
-      {/* Investigation value (post-analysis, VoI) */}
-      {isResultsMode && displayMetadata.valueOfInformation !== null && (
-        <>
-          <SectionTitle icon={SECTION_TITLES.investigationValue.icon} label={SECTION_TITLES.investigationValue.label} />
-          <div className="bg-panel border border-panel-border rounded-lg p-2.5">
-            <DataBar
-              value={displayMetadata.valueOfInformation}
-              label="Investigation value"
-              colour="info"
-              trailingLabel={
-                displayMetadata.valueOfInformation >= 0.7 ? 'High'
-                : displayMetadata.valueOfInformation >= 0.4 ? 'Medium'
-                : 'Low'
-              }
-            />
-            <p className={`${typography.panelMeta} text-text-light mt-1.5`}>
-              {displayMetadata.valueOfInformation >= 0.7
-                ? 'Gathering more evidence here could significantly improve confidence.'
-                : displayMetadata.valueOfInformation >= 0.4
-                ? 'Additional evidence here would moderately sharpen the analysis.'
-                : 'Further investigation here is unlikely to change the outcome.'}
-            </p>
-          </div>
-        </>
-      )}
+        {/* Contextual guidance */}
+        <p className={`${typography.panelBody} text-text-body mt-2`}>{externalGuidance}</p>
+      </PanelGroup>
 
-      {/* Contextual guidance */}
-      <p className={`${typography.panelBody} text-text-body mt-2`}>{externalGuidance}</p>
-
-      {/* §9.1 Your estimate — QuickSetButtons ABOVE range display */}
-      <SectionTitle icon={SECTION_TITLES.yourEstimate.icon} label={SECTION_TITLES.yourEstimate.label} />
-      <div className="bg-panel border border-panel-border rounded-lg p-3">
-        {canonicalDisplayText && (
-          <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
-            {canonicalDisplayText}
-          </div>
-        )}
-        <div className={`${typography.panelBody} mb-2`}>How would you describe the level?</div>
-
-        {/* Quick-set buttons */}
-        <div className="flex gap-1.5 flex-wrap mb-2.5">
-          {(Object.keys(QUICK_SET) as QuickSetKey[]).map(key => (
-            <button
-              key={key}
-              onClick={() => handleQuickSet(key)}
-              className={`${typography.panelMeta} px-2.5 py-1 rounded-full cursor-pointer capitalize transition-colors ${
-                selected === key
-                  ? 'border border-primary text-primary font-semibold bg-panel'
-                  : 'border border-panel-border text-text-light bg-panel hover:bg-panel-hover'
-              }`}
-            >
-              {QUICK_SET[key].label}
-            </button>
-          ))}
-        </div>
-
-        {/* Qualitative summary */}
-        {selected && (
-          <p className={`${typography.panelBody} text-text-body italic mb-2`}>
-            {QUICK_SET[selected].description}
-          </p>
-        )}
-
-        {/* Range bar visualisation */}
-        <div className="relative h-5">
-          <div className="absolute top-2 left-0 right-0 h-1 bg-panel-border rounded-full" />
-          {rangeMin != null && rangeMax != null && (
-            <div
-              className="absolute top-2 h-1 rounded-full transition-all duration-300"
-              style={{
-                left: `${rangeMin * 100}%`,
-                width: `${(rangeMax - rangeMin) * 100}%`,
-                background: 'linear-gradient(to right, var(--success) 40%, var(--factor), var(--danger) 80%)',
-                opacity: 0.6,
-              }}
-            />
+      {/* ── Your input group ──────────────────────────────────── */}
+      <PanelGroup kind="input" label={GROUP_LABELS.input}>
+        <PrimaryControlCard>
+          {canonicalDisplayText && (
+            <div className={`${typography.panelBody} text-text-body mb-1.5`} data-testid="factor-display-text">
+              {canonicalDisplayText}
+            </div>
           )}
-        </div>
+          <div className={`${typography.panelBody} mb-2`}>How would you describe the level?</div>
 
-        {/* Tech mode: editable numerical inputs */}
-        {techMode && (
-          <div className="flex gap-2 mt-2">
-            <label className="flex-1">
-              <span className={`${typography.panelMeta} text-text-light`}>Min</span>
-              <input
-                type="number"
-                step="0.01"
-                value={localMin}
-                onChange={e => setLocalMin(e.target.value)}
-                onBlur={handleMinBlur}
-                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                className={`${typography.panelMeta} w-full mt-0.5 bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 tabular-nums transition-colors`}
-              />
-            </label>
-            <label className="flex-1">
-              <span className={`${typography.panelMeta} text-text-light`}>Max</span>
-              <input
-                type="number"
-                step="0.01"
-                value={localMax}
-                onChange={e => setLocalMax(e.target.value)}
-                onBlur={handleMaxBlur}
-                onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                className={`${typography.panelMeta} w-full mt-0.5 bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 tabular-nums transition-colors`}
-              />
-            </label>
+          {/* Quick-set buttons */}
+          <div className="flex gap-1.5 flex-wrap mb-2.5">
+            {(Object.keys(QUICK_SET) as QuickSetKey[]).map(key => (
+              <button
+                key={key}
+                onClick={() => handleQuickSet(key)}
+                className={`${typography.panelMeta} px-2.5 py-1 rounded-full cursor-pointer capitalize transition-colors ${
+                  selected === key
+                    ? 'border border-primary text-primary font-semibold bg-panel'
+                    : 'border border-panel-border text-text-light bg-panel hover:bg-panel-hover'
+                }`}
+              >
+                {QUICK_SET[key].label}
+              </button>
+            ))}
           </div>
-        )}
-      </div>
 
-      {/* Coaching + Guidance — after estimate, before connections */}
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="factor-external"
-        fallbackText={resolveCoaching('factorExternalUncertainty', { factorName: String(node.data?.label ?? '') })}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-        actionLabel="Narrow the range"
-      />
+          {/* Qualitative summary */}
+          {selected && (
+            <p className={`${typography.panelBody} text-text-body italic mb-2`}>
+              {QUICK_SET[selected].description}
+            </p>
+          )}
 
-      {/* §9.3 Connections */}
-      <SectionTitle icon={SECTION_TITLES.connections.icon} label="Influences" />
-      {influences.map(conn => (
-        <ConnectionRow
-          key={conn.edgeId}
-          nodeKind={conn.nodeKind}
-          label={conn.label}
-          strength={conn.strength}
-          techMode={techMode}
-          onClick={() => onNavigate(conn.nodeId)}
+          {/* Range bar visualisation */}
+          <div className="relative h-5">
+            <div className="absolute top-2 left-0 right-0 h-1 bg-panel-border rounded-full" />
+            {rangeMin != null && rangeMax != null && (
+              <div
+                className="absolute top-2 h-1 rounded-full transition-all duration-300"
+                style={{
+                  left: `${rangeMin * 100}%`,
+                  width: `${(rangeMax - rangeMin) * 100}%`,
+                  background: 'linear-gradient(to right, var(--success) 40%, var(--factor), var(--danger) 80%)',
+                  opacity: 0.6,
+                }}
+              />
+            )}
+          </div>
+
+          {/* Tech mode: editable numerical inputs */}
+          {techMode && (
+            <div className="flex gap-2 mt-2">
+              <label className="flex-1">
+                <span className={`${typography.panelMeta} text-text-light`}>Min</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={localMin}
+                  onChange={e => setLocalMin(e.target.value)}
+                  onBlur={handleMinBlur}
+                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  className={`${typography.panelMeta} w-full mt-0.5 bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 tabular-nums transition-colors`}
+                />
+              </label>
+              <label className="flex-1">
+                <span className={`${typography.panelMeta} text-text-light`}>Max</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={localMax}
+                  onChange={e => setLocalMax(e.target.value)}
+                  onBlur={handleMaxBlur}
+                  onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                  className={`${typography.panelMeta} w-full mt-0.5 bg-transparent border-b border-panel-border focus:border-primary outline-none py-0.5 tabular-nums transition-colors`}
+                />
+              </label>
+            </div>
+          )}
+        </PrimaryControlCard>
+
+        {/* Coaching — within Your input group, below the card */}
+        <InspectorCoaching
+          elementId={nodeId}
+          panelType="factor-external"
+          fallbackText={resolveCoaching('factorExternalUncertainty', { factorName: String(node.data?.label ?? '') })}
+          labelContext={{ label: String(node.data?.label ?? '') }}
+          actionLabel="Narrow the range"
         />
-      ))}
+      </PanelGroup>
 
-      {/* Technical disclosure — structured advanced editor */}
+      {/* ── Influences group ──────────────────────────────────── */}
+      <PanelGroup kind="connections" label={GROUP_LABELS.connections}>
+        <InlineSectionLabel>{INLINE_LABELS.influences}</InlineSectionLabel>
+        {influences.map(conn => (
+          <ConnectionRow
+            key={conn.edgeId}
+            nodeKind={conn.nodeKind}
+            label={conn.label}
+            strength={conn.strength}
+            fullLabel
+            techMode={techMode}
+            onClick={() => onNavigate(conn.nodeId)}
+          />
+        ))}
+        {influences.length === 0 && (
+          <p className={`${typography.panelMeta} text-text-light`}>No outbound influences</p>
+        )}
+      </PanelGroup>
+
+      {/* ── Expert-only model detail ──────────────────────────── */}
       <TechnicalDisclosure visible={techMode}>
         <FactorExternalEditor nodeId={nodeId} />
       </TechnicalDisclosure>

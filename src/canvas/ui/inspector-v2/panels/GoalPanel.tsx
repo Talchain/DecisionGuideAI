@@ -1,6 +1,6 @@
 /**
  * GoalPanel — Inspector panel for goal nodes (spec §4)
- * Phase 2 priority.
+ * v6.2 three-group layout: Context → Your input → Impact → What drives this
  */
 
 import { memo, useState, useMemo, useCallback } from 'react'
@@ -13,22 +13,29 @@ import { useNodeDisplayMetadata } from '../../../hooks/useNodeDisplayMetadata'
 import { typography } from '../../../../styles/typography'
 import { useNodeMutations } from '../useInspectorMutations'
 import { useStaleGuard } from '../useStaleGuard'
-import { getEdgeConfidence } from '../../../domain/edges'
 import type { NodeType } from '../../../domain/nodes'
-import { SECTION_TITLES } from '../inspectorStrings'
-import { SectionTitle } from '../shared/SectionTitle'
-// CoachingCard removed — no-target guidance is now inline text
+import {
+  GROUP_LABELS,
+  INLINE_LABELS,
+  EMPTY_STATES,
+  DESCRIPTION_PLACEHOLDERS,
+} from '../inspectorStrings'
+import { PanelGroup } from '../shared/PanelGroup'
+import { PrimaryControlCard } from '../shared/PrimaryControlCard'
+import { InlineSectionLabel } from '../shared/InlineSectionLabel'
+import { ImportanceBar } from '../shared/ImportanceBar'
+import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { ConnectionRow } from '../shared/ConnectionRow'
 import { ProbabilityArc } from '../shared/ProbabilityArc'
 import { DataBar } from '../../shared/DataBar'
+import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import type { CEEGoalConstraint } from '../../../../adapters/cee/types'
 import type { ConditionalProbability } from '../../../../types/constraints'
 import { resolveCoaching } from '../coachingConfig'
 import { GoalAdvancedEditor } from '../editors/GoalAdvancedEditor'
-import { ResultsLink } from '../shared/ResultsLink'
 
 export const GoalPanel = memo(function GoalPanel({
   nodeId,
@@ -58,7 +65,10 @@ export const GoalPanel = memo(function GoalPanel({
 
   const thresholdUnit = (node?.data as Record<string, unknown>)?.goal_threshold_unit as string | undefined
   const thresholdRaw = (node?.data as Record<string, unknown>)?.goal_threshold_raw as string | number | null | undefined
+
+  // Description — conditional edit state for EmptyDescriptionPrompt pattern
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
+  const [isEditingDescription, setIsEditingDescription] = useState(false)
 
   // B.5: Add constraint form state
   const [showAddConstraint, setShowAddConstraint] = useState(false)
@@ -129,265 +139,291 @@ export const GoalPanel = memo(function GoalPanel({
 
   return (
     <div>
-      {/* Description */}
-      <div className="mt-3">
-        <textarea
-          value={description}
-          onChange={e => setDescription(e.target.value)}
-          onBlur={() => mutations.setDescription(description)}
-          placeholder="Describe what achieving this goal looks like..."
-          rows={2}
-          maxLength={500}
-          className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
-        />
-      </div>
+      {/* ── Context group ─────────────────────────────────────── */}
+      <PanelGroup kind="context" label={GROUP_LABELS.context}>
+        {/* Description — textarea when editing or content exists, EmptyDescriptionPrompt when empty */}
+        {description || isEditingDescription ? (
+          <textarea
+            value={description}
+            onChange={e => setDescription(e.target.value)}
+            onBlur={() => {
+              mutations.setDescription(description)
+              if (!description.trim()) setIsEditingDescription(false)
+            }}
+            autoFocus={isEditingDescription && !description}
+            placeholder="Describe what achieving this goal looks like..."
+            rows={2}
+            maxLength={500}
+            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel resize-none`}
+          />
+        ) : (
+          <EmptyDescriptionPrompt
+            placeholder={DESCRIPTION_PLACEHOLDERS.goal}
+            onStartEditing={() => setIsEditingDescription(true)}
+          />
+        )}
 
-      {/* §4.2 Success target */}
-      <SectionTitle icon={SECTION_TITLES.successTarget.icon} label={SECTION_TITLES.successTarget.label} />
-      {goalThreshold != null ? (
-        <div className="bg-panel border border-panel-border rounded-lg p-2.5">
-          <p className={`${typography.panelBody} text-text-body`}>
-            Success means reaching {'\u2265'} {goalThreshold}{thresholdUnit ? ` ${thresholdUnit}` : ''}
-          </p>
-          {/* Contextual probability when analysis exists */}
-          {typeof probGoal === 'number' ? (
-            <p className={`${typography.panelBody} text-text-body mt-1`}>
-              {Math.round(probGoal * 100)}% chance of reaching this target based on the current model.
-            </p>
+        {/* Post-analysis: ImportanceBar. Pre-analysis: GoalProgressChecklist. */}
+        {isResultsMode ? (
+          <div className="mt-2">
+            <ImportanceBar
+              importanceScore={displayMetadata.influence}
+              sensitivityRank={displayMetadata.sensitivityRank}
+            />
+          </div>
+        ) : (
+          <div className="mt-2">
+            <GoalProgressChecklist nodeId={nodeId} />
+          </div>
+        )}
+      </PanelGroup>
+
+      {/* ── Your input group ──────────────────────────────────── */}
+      <PanelGroup kind="input" label={GROUP_LABELS.input}>
+        <PrimaryControlCard>
+          {/* §4.2 Success target */}
+          {goalThreshold != null ? (
+            <div>
+              <p className={`${typography.panelBody} text-text-body`}>
+                Success means reaching {'\u2265'} {goalThreshold}{thresholdUnit ? ` ${thresholdUnit}` : ''}
+              </p>
+              {/* Contextual probability when analysis exists */}
+              {typeof probGoal === 'number' ? (
+                <p className={`${typography.panelBody} text-text-body mt-1`}>
+                  {Math.round(probGoal * 100)}% chance of reaching this target based on the current model.
+                </p>
+              ) : (
+                <p className={`${typography.panelMeta} text-text-light mt-1`}>
+                  Run the simulation to see the probability of reaching this target.
+                </p>
+              )}
+            </div>
           ) : (
-            <p className={`${typography.panelMeta} text-text-light mt-1`}>
-              Run the simulation to see the probability of reaching this target.
-            </p>
+            <div>
+              <GoalThresholdEditor unit={thresholdUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
+              <p className={`${typography.panelMeta} text-info mt-1.5`}>
+                Adding a specific target unlocks probability calculations.
+              </p>
+            </div>
           )}
-        </div>
-      ) : (
-        <div className="mt-1">
-          <GoalThresholdEditor unit={thresholdUnit} nodeId={nodeId} thresholdRaw={thresholdRaw} />
-          <p className={`${typography.panelMeta} text-info mt-1.5`}>
-            Adding a specific target unlocks probability calculations.
-          </p>
-        </div>
-      )}
 
-      {/* Coaching — after threshold section */}
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="goal"
-        fallbackText={resolveCoaching('goalEvidence', { goalName: String(node.data?.label ?? '') })}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-      />
-
-      {/* §4.3 Constraints — pre-analysis preview or post-analysis with probability DataBars */}
-      {goalConstraints && Array.isArray(goalConstraints) && goalConstraints.length > 0 && (
-        <div className="mt-2 space-y-1.5">
-          {!isResultsMode && (
-            <p className={`${typography.panelMeta} text-text-light mb-1`}>
-              {goalConstraints.length} constraint{goalConstraints.length !== 1 ? 's' : ''} extracted from your brief
-            </p>
-          )}
-          {goalConstraints.map((c, i) => {
-            const prob = typeof c.probability === 'number' ? c.probability : null
-            const colourClass = prob === null
-              ? 'border-info/30'
-              : prob >= 0.7 ? 'border-success/30' : prob >= 0.4 ? 'border-warning/30' : 'border-danger/30'
-            return (
-              <div key={c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
-                <div className="flex items-center justify-between gap-2">
-                  <span className={`${typography.panelBody} text-text-body truncate`}>{c.label ?? `Constraint ${i + 1}`}</span>
-                  {prob !== null && (
-                    <span className={`${typography.panelMeta} shrink-0 ${
-                      prob >= 0.7 ? 'text-success' : prob >= 0.4 ? 'text-warning' : 'text-danger'
-                    }`}>{Math.round(prob * 100)}%</span>
-                  )}
-                </div>
-                {prob !== null && (
-                  <div className="mt-1">
-                    <DataBar
-                      value={prob}
-                      label={c.label ?? `Constraint ${i + 1}`}
-                      size="standard"
-                    />
-                  </div>
+          {/* §4.3 Constraints */}
+          {goalConstraints && Array.isArray(goalConstraints) && goalConstraints.length > 0 && (
+            <div className="mt-3">
+              <InlineSectionLabel>Constraints</InlineSectionLabel>
+              <div className="space-y-1.5">
+                {!isResultsMode && (
+                  <p className={`${typography.panelMeta} text-text-light mb-1`}>
+                    {goalConstraints.length} constraint{goalConstraints.length !== 1 ? 's' : ''} extracted from your brief
+                  </p>
                 )}
-                {/* Conditional probabilities — show when P(B|A) differs >5pp from marginal */}
-                {prob !== null && conditionalProbabilities && conditionalProbabilities.length > 0 && (() => {
-                  const related = conditionalProbabilities.filter(
-                    cp => (cp.constraint_a_label === (c.label ?? ''))
-                      && Math.abs(cp.conditional_probability - cp.marginal_probability) > 0.05
-                  )
-                  if (related.length === 0) return null
+                {goalConstraints.map((c, i) => {
+                  const prob = typeof c.probability === 'number' ? c.probability : null
+                  const colourClass = prob === null
+                    ? 'border-info/30'
+                    : prob >= 0.7 ? 'border-success/30' : prob >= 0.4 ? 'border-warning/30' : 'border-danger/30'
                   return (
-                    <div className="mt-1 space-y-0.5">
-                      {related.map(cp => (
-                        <p key={`${cp.constraint_a_id}-${cp.constraint_b_id}`} className={`${typography.panelMeta} text-text-light`}>
-                          If {cp.constraint_a_label} is met, probability of {cp.constraint_b_label} changes to {Math.round(cp.conditional_probability * 100)}%
-                        </p>
-                      ))}
+                    <div key={c.id ?? i} className={`px-2.5 py-1.5 bg-panel border ${colourClass} rounded-lg`}>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`${typography.panelBody} text-text-body truncate`}>{c.label ?? `Constraint ${i + 1}`}</span>
+                        {prob !== null && (
+                          <span className={`${typography.panelMeta} shrink-0 ${
+                            prob >= 0.7 ? 'text-success' : prob >= 0.4 ? 'text-warning' : 'text-danger'
+                          }`}>{Math.round(prob * 100)}%</span>
+                        )}
+                      </div>
+                      {prob !== null && (
+                        <div className="mt-1">
+                          <DataBar
+                            value={prob}
+                            label={c.label ?? `Constraint ${i + 1}`}
+                            size="standard"
+                          />
+                        </div>
+                      )}
+                      {/* Conditional probabilities — show when P(B|A) differs >5pp from marginal */}
+                      {prob !== null && conditionalProbabilities && conditionalProbabilities.length > 0 && (() => {
+                        const related = conditionalProbabilities.filter(
+                          cp => (cp.constraint_a_label === (c.label ?? ''))
+                            && Math.abs(cp.conditional_probability - cp.marginal_probability) > 0.05
+                        )
+                        if (related.length === 0) return null
+                        return (
+                          <div className="mt-1 space-y-0.5">
+                            {related.map(cp => (
+                              <p key={`${cp.constraint_a_id}-${cp.constraint_b_id}`} className={`${typography.panelMeta} text-text-light`}>
+                                If {cp.constraint_a_label} is met, probability of {cp.constraint_b_label} changes to {Math.round(cp.conditional_probability * 100)}%
+                              </p>
+                            ))}
+                          </div>
+                        )
+                      })()}
+                      {prob === null && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`${typography.panelMeta} text-text-light shrink-0`}>{c.operator}</span>
+                          <input
+                            type="number"
+                            defaultValue={c.value}
+                            onBlur={e => {
+                              const parsed = parseFloat(e.target.value)
+                              if (Number.isNaN(parsed) || parsed === c.value) return
+                              const base = preAnalysisConstraints ?? []
+                              const updated = base.map((pc, idx) =>
+                                (c.id !== undefined ? pc.id === c.id : idx === i)
+                                  ? { ...pc, value: parsed }
+                                  : pc
+                              )
+                              setGoalConstraints(updated)
+                            }}
+                            className={`${typography.panelMeta} w-20 border border-panel-border rounded px-1.5 py-0.5 bg-panel text-text-body`}
+                          />
+                        </div>
+                      )}
                     </div>
                   )
-                })()}
-                {prob === null && (
-                  <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className={`${typography.panelMeta} text-text-light shrink-0`}>{c.operator}</span>
-                    <input
-                      type="number"
-                      defaultValue={c.value}
-                      onBlur={e => {
-                        const parsed = parseFloat(e.target.value)
-                        if (Number.isNaN(parsed) || parsed === c.value) return
-                        const base = preAnalysisConstraints ?? []
-                        const updated = base.map((pc, idx) =>
-                          // Match by id when available, fall back to index position
-                          (c.id !== undefined ? pc.id === c.id : idx === i)
-                            ? { ...pc, value: parsed }
-                            : pc
-                        )
-                        setGoalConstraints(updated)
-                      }}
-                      className={`${typography.panelMeta} w-20 border border-panel-border rounded px-1.5 py-0.5 bg-panel text-text-body`}
-                    />
+                })}
+                {typeof probJoint === 'number' && (
+                  <p className={`${typography.panelBody} text-text-body mt-1`}>
+                    Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
+                  </p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* B.5: Add constraint button + inline form.
+              Disabled in results mode — mutations write to preAnalysisConstraints but
+              results mode renders postAnalysisConstraints, causing state mismatch. */}
+          {isResultsMode ? null : !showAddConstraint ? (
+            <button
+              type="button"
+              onClick={() => setShowAddConstraint(true)}
+              className={`${typography.panelMeta} w-full mt-2 py-2 rounded-lg border border-dashed border-panel-border bg-transparent text-info hover:bg-panel-hover transition-colors`}
+              data-testid="add-constraint-button"
+            >
+              + Add constraint
+            </button>
+          ) : (
+            <div className="mt-2 p-2.5 bg-panel border border-panel-border rounded-lg space-y-2" data-testid="add-constraint-form">
+              {/* Factor dropdown */}
+              <select
+                value={newConstraintLabel}
+                onChange={e => { setNewConstraintLabel(e.target.value); setConstraintError('') }}
+                className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel text-text-body`}
+                aria-label="Constraint target factor"
+              >
+                <option value="">Select a factor...</option>
+                {factorNodes.map(f => {
+                  const alreadyConstrained = constrainedLabels.has(f.label.toLowerCase().trim())
+                  return (
+                    <option key={f.id} value={f.label} disabled={alreadyConstrained}>
+                      {f.label}{alreadyConstrained ? ' (already constrained)' : ''}
+                    </option>
+                  )
+                })}
+              </select>
+              {/* Operator + value row */}
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={newConstraintOperator}
+                  onChange={e => setNewConstraintOperator(e.target.value as '>=' | '<=' | '=')}
+                  className={`${typography.panelMeta} w-16 border border-panel-border rounded-lg px-1.5 py-1.5 bg-panel text-text-body`}
+                  aria-label="Constraint operator"
+                >
+                  <option value=">=">{'\u2265'}</option>
+                  <option value="<=">{'\u2264'}</option>
+                  <option value="=">=</option>
+                </select>
+                <input
+                  type="number"
+                  value={newConstraintValue}
+                  onChange={e => { setNewConstraintValue(e.target.value); setConstraintError('') }}
+                  placeholder="Target value"
+                  className={`${typography.panelMeta} flex-1 border border-panel-border rounded px-1.5 py-1.5 bg-panel text-text-body`}
+                  aria-label="Constraint target value"
+                />
+              </div>
+              {/* Error message */}
+              {constraintError && (
+                <p className={`${typography.panelMeta} text-danger`}>{constraintError}</p>
+              )}
+              {/* Action buttons */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleAddConstraint}
+                  className={`${typography.panelMeta} bg-primary text-text-on-color rounded-lg px-3 py-1 font-medium`}
+                  data-testid="confirm-add-constraint"
+                >
+                  Add
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddConstraint(false); setConstraintError('') }}
+                  className={`${typography.panelMeta} text-text-light hover:text-text-body`}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </PrimaryControlCard>
+
+        {/* Coaching — within Your input group, below the card */}
+        <InspectorCoaching
+          elementId={nodeId}
+          panelType="goal"
+          fallbackText={resolveCoaching('goalEvidence', { goalName: String(node.data?.label ?? '') })}
+          labelContext={{ label: String(node.data?.label ?? '') }}
+        />
+      </PanelGroup>
+
+      {/* ── Impact group (post-analysis) ──────────────────────── */}
+      <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
+        <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+          {isResultsMode && typeof probGoal === 'number' && (
+            <div className="flex items-center gap-4 py-2">
+              <ProbabilityArc value={probGoal} color="var(--success)" />
+              <div>
+                <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
+                <div className={`${typography.panelMeta} text-text-light mt-0.5`}>Based on 1,000 simulations</div>
+                <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
+                {typeof probJoint === 'number' && (
+                  <div className={`${typography.panelBody} text-text-body mt-1.5`}>
+                    Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
+                  </div>
+                )}
+                {techMode && (
+                  <div className={`${typography.panelMeta} text-text-light mt-1`}>
+                    System: probability_of_goal: {probGoal.toFixed(2)}
+                    {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
                   </div>
                 )}
               </div>
-            )
-          })}
-          {typeof probJoint === 'number' && (
-            <p className={`${typography.panelBody} text-text-body mt-1`}>
-              Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
-            </p>
-          )}
-        </div>
-      )}
-
-      {/* B.5: Add constraint button + inline form.
-          Disabled in results mode — mutations write to preAnalysisConstraints but
-          results mode renders postAnalysisConstraints, causing state mismatch. */}
-      {isResultsMode ? null : !showAddConstraint ? (
-        <button
-          type="button"
-          onClick={() => setShowAddConstraint(true)}
-          className={`${typography.panelMeta} w-full mt-2 py-2 rounded-lg border border-dashed border-panel-border bg-transparent text-info hover:bg-panel-hover transition-colors`}
-          data-testid="add-constraint-button"
-        >
-          + Add constraint
-        </button>
-      ) : (
-        <div className="mt-2 p-2.5 bg-panel border border-panel-border rounded-lg space-y-2" data-testid="add-constraint-form">
-          {/* Factor dropdown */}
-          <select
-            value={newConstraintLabel}
-            onChange={e => { setNewConstraintLabel(e.target.value); setConstraintError('') }}
-            className={`${typography.panelBody} w-full border border-panel-border rounded-lg px-2.5 py-1.5 bg-panel text-text-body`}
-            aria-label="Constraint target factor"
-          >
-            <option value="">Select a factor...</option>
-            {factorNodes.map(f => {
-              const alreadyConstrained = constrainedLabels.has(f.label.toLowerCase().trim())
-              return (
-                <option key={f.id} value={f.label} disabled={alreadyConstrained}>
-                  {f.label}{alreadyConstrained ? ' (already constrained)' : ''}
-                </option>
-              )
-            })}
-          </select>
-          {/* Operator + value row */}
-          <div className="flex items-center gap-1.5">
-            <select
-              value={newConstraintOperator}
-              onChange={e => setNewConstraintOperator(e.target.value as '>=' | '<=' | '=')}
-              className={`${typography.panelMeta} w-16 border border-panel-border rounded-lg px-1.5 py-1.5 bg-panel text-text-body`}
-              aria-label="Constraint operator"
-            >
-              <option value=">=">{'\u2265'}</option>
-              <option value="<=">{'\u2264'}</option>
-              <option value="=">=</option>
-            </select>
-            <input
-              type="number"
-              value={newConstraintValue}
-              onChange={e => { setNewConstraintValue(e.target.value); setConstraintError('') }}
-              placeholder="Target value"
-              className={`${typography.panelMeta} flex-1 border border-panel-border rounded px-1.5 py-1.5 bg-panel text-text-body`}
-              aria-label="Constraint target value"
-            />
-          </div>
-          {/* Error message */}
-          {constraintError && (
-            <p className={`${typography.panelMeta} text-danger`}>{constraintError}</p>
-          )}
-          {/* Action buttons */}
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={handleAddConstraint}
-              className={`${typography.panelMeta} bg-primary text-text-on-color rounded-lg px-3 py-1 font-medium`}
-              data-testid="confirm-add-constraint"
-            >
-              Add
-            </button>
-            <button
-              type="button"
-              onClick={() => { setShowAddConstraint(false); setConstraintError('') }}
-              className={`${typography.panelMeta} text-text-light hover:text-text-body`}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Pre-analysis checklist */}
-      {!isResultsMode && (
-        <div className="mt-2">
-          <GoalProgressChecklist nodeId={nodeId} />
-        </div>
-      )}
-
-      {/* §4.4 Impact (post-analysis, StaleGuard) */}
-      <SectionTitle icon={SECTION_TITLES.impact.icon} label={SECTION_TITLES.impact.label} />
-      <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
-        {isResultsMode && typeof probGoal === 'number' && (
-          <div className="flex items-center gap-4 py-2">
-            <ProbabilityArc value={probGoal} color="var(--success)" />
-            <div>
-              <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
-              <div className={`${typography.panelMeta} text-text-light mt-0.5`}>Based on 1,000 simulations</div>
-              <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
-              {typeof probJoint === 'number' && (
-                <div className={`${typography.panelBody} text-text-body mt-1.5`}>
-                  Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
-                </div>
-              )}
-              {techMode && (
-                <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                  System: probability_of_goal: {probGoal.toFixed(2)}
-                  {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
-                </div>
-              )}
             </div>
-          </div>
+          )}
+        </StaleGuardBanner>
+      </PanelGroup>
+
+      {/* ── What drives this group ────────────────────────────── */}
+      <PanelGroup kind="connections" label={INLINE_LABELS.drivers}>
+        {inboundConnections.map(conn => (
+          <ConnectionRow
+            key={conn.edgeId}
+            nodeKind={conn.nodeKind}
+            label={conn.label}
+            strength={conn.strength}
+            fullLabel
+            techMode={techMode}
+            onClick={() => onNavigate(conn.nodeId)}
+          />
+        ))}
+        {inboundConnections.length === 0 && (
+          <p className={`${typography.panelMeta} text-text-light`}>{EMPTY_STATES.noInboundConnections}</p>
         )}
-      </StaleGuardBanner>
+      </PanelGroup>
 
-      {/* §4.5 Contributing factors */}
-      <SectionTitle icon={SECTION_TITLES.whatDrivesThis.icon} label={SECTION_TITLES.whatDrivesThis.label} />
-      {inboundConnections.map(conn => (
-        <ConnectionRow
-          key={conn.edgeId}
-          nodeKind={conn.nodeKind}
-          label={conn.label}
-          strength={conn.strength}
-          techMode={techMode}
-          onClick={() => onNavigate(conn.nodeId)}
-        />
-      ))}
-      {inboundConnections.length === 0 && (
-        <p className={`${typography.panelMeta} text-text-light py-2`}>No contributing factors connected yet</p>
-      )}
-
-      {/* Coaching moved to after threshold section */}
-
-      {/* Technical disclosure — structured advanced editor */}
+      {/* ── Expert-only model detail ──────────────────────────── */}
       <TechnicalDisclosure visible={techMode}>
         <GoalAdvancedEditor nodeId={nodeId} />
       </TechnicalDisclosure>
