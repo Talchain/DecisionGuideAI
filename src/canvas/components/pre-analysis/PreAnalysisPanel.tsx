@@ -58,6 +58,7 @@ import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
+import { SectionHeader } from '@/components/results/SectionHeader'
 import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
 
 /** AI source provenance labels */
@@ -300,34 +301,7 @@ function StatusBanner({
   )
 }
 
-/** Section header used by Must fix and Review next sections */
-function SectionHeader({
-  title,
-  count,
-  tone,
-  testId,
-}: {
-  title: string
-  count: number
-  tone: 'danger' | 'info' | 'factor'
-  testId?: string
-}) {
-  if (count <= 0) return null
-  const borderClass =
-    tone === 'danger' ? 'border-danger/30' :
-    tone === 'info' ? 'border-info/30' :
-    'border-factor/30'
-  return (
-    <div className="flex items-center gap-2" data-testid={testId}>
-      <p className={`${typography.panelHeader} text-text-header`}>{title}</p>
-      <span
-        className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border ${borderClass} ${typography.panelMeta} text-text-body`}
-      >
-        {count}
-      </span>
-    </div>
-  )
-}
+// SectionHeader is imported from @/components/results/SectionHeader (shared component, unified spec §2.1).
 
 /**
  * Improve confidence — collapsible accordion (collapsed by default).
@@ -1398,7 +1372,7 @@ export function PreAnalysisPanel({
               No internal subheader from BlockersSection — Must fix owns the header. */}
           {mustFixCount > 0 && (
             <section className="space-y-2" data-testid="section-must-fix">
-              <SectionHeader title="Must fix" count={mustFixCount} tone="danger" testId="section-must-fix-header" />
+              <SectionHeader title="Must fix" count={mustFixCount} borderClass="border-danger/30" className="" testId="section-must-fix-header" />
 
               {/* 1. Enriched blockers (e.g. Options need configuration). P0-2:
                   filtered to drop entries that the Draft failed card already covers. */}
@@ -1488,7 +1462,7 @@ export function PreAnalysisPanel({
           {/* Section 2: Review next */}
           {reviewNextCount > 0 && (
             <section className="space-y-2" data-testid="section-review-next">
-              <SectionHeader title="Review next" count={reviewNextCount} tone="info" testId="section-review-next-header" />
+              <SectionHeader title="Review next" count={reviewNextCount} borderClass="border-info/30" className="" testId="section-review-next-header" />
 
               {/* P1-3: Per-section coaching line derived from the SAME picked
                   Start here signal. Suppressed when redundant with the Start
