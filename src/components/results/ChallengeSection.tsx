@@ -301,61 +301,6 @@ function FragileEdgeGroupCard({
   )
 }
 
-/* ── Root node warning card ───────────────────────────────────────────────── */
-
-function RootNodeWarningCard({ warning }: { warning: ChallengeInferenceWarning }) {
-  const label = warning.affected_labels?.[0] ?? warning.affected_nodes[0] ?? 'Unknown node'
-  return (
-    <div className="border border-panel-border rounded-lg px-3 py-2 space-y-1.5">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="w-3.5 h-3.5 text-danger flex-shrink-0" aria-hidden="true" />
-        <p className={`${typography.panelBody} text-text-body flex-1`}>
-          Root node using default value
-        </p>
-        <span className={`rounded-full border border-danger/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}>
-          Validity
-        </span>
-      </div>
-      <p className={`${typography.panelMeta} text-text-light`}>
-        {label} has no value set. The analysis used 0.0 as a default, reducing overall confidence.
-      </p>
-    </div>
-  )
-}
-
-/* ── Generic inference warning card (Scientific notes) ────────────────────── */
-
-function InferenceWarningCard({
-  warning,
-  onSendMessage,
-}: {
-  warning: ChallengeInferenceWarning
-  onSendMessage?: (text: string) => void
-}) {
-  const message = warning.message ?? `Inference warning: ${warning.code}`
-  return (
-    <div className={`relative border border-panel-border rounded-lg px-3 py-2 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
-        <p className={`${typography.panelBody} text-text-body flex-1`}>
-          {message}
-        </p>
-        <span className={`rounded-full border border-info/30 bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}>
-          Scientific
-        </span>
-      </div>
-      {onSendMessage && (
-        <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
-          <DiscussWithAiButton
-            element={{ kind: 'missing' }}
-            onSend={() => onSendMessage(`Can you explain this inference warning: ${message}`)}
-          />
-        </div>
-      )}
-    </div>
-  )
-}
-
 /* ── Identifiability card ─────────────────────────────────────────────────── */
 
 function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string) => void }) {
@@ -421,20 +366,15 @@ export function ChallengeSection({
     acc[key].push(card)
     return acc
   }, {})
-  const allWarnings = inferenceWarnings ?? []
-  const rootWarnings = allWarnings.filter(w => w.code === 'MISSING_ROOT_VALUE')
-  const modelStructureCount = mergedFragileCards.length + rootWarnings.length
-
-  // ── Thinking patterns items ────────────────────────────────────────────
+  // Brief 4 Task 12: ChallengeSection no longer renders inference warnings —
+  // they now live once in ConfidenceSection's InferenceWarningCard (compact,
+  // with Show-all overflow). ChallengeSection retains fragile edges,
+  // bias/pre-mortem, and identifiability.
+  const modelStructureCount = mergedFragileCards.length
   const thinkingPatternsCount = biasFindings.length + preMortemItems.length
-
-  // ── Scientific notes items ─────────────────────────────────────────────
-  // Warnings not handled by Model structure go to Scientific notes
-  const otherWarnings = allWarnings.filter(w => w.code !== 'MISSING_ROOT_VALUE')
   const hasIdentifiability = identifiabilityTag != null && identifiabilityTag !== ''
-  const scientificNotesCount = otherWarnings.length + (hasIdentifiability ? 1 : 0)
+  const scientificNotesCount = hasIdentifiability ? 1 : 0
 
-  // If all 3 subgroups empty, parent accordion handles hiding
   if (modelStructureCount === 0 && thinkingPatternsCount === 0 && scientificNotesCount === 0) {
     return null
   }
@@ -473,9 +413,6 @@ export function ChallengeSection({
               />
             ))
           })()}
-          {rootWarnings.map((warning, i) => (
-            <RootNodeWarningCard key={`root-warn-${warning.affected_nodes[0] ?? i}`} warning={warning} />
-          ))}
         </div>
       )}
 
@@ -504,9 +441,6 @@ export function ChallengeSection({
       {/* ── Scientific notes (Task 8: no sub-header) ──────────────────── */}
       {scientificNotesCount > 0 && (
         <div className="space-y-2">
-          {otherWarnings.map((warning, i) => (
-            <InferenceWarningCard key={`warn-${warning.code}-${i}`} warning={warning} onSendMessage={onSendMessage} />
-          ))}
           {hasIdentifiability && <IdentifiabilityCard onSendMessage={onSendMessage} />}
         </div>
       )}

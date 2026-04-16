@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest'
 import { ModelAdjustments } from '../ModelAdjustments'
 
 describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
-  it('shows "N model adjustments applied" header for multiple adjustments', () => {
+  it('shows "Olumi adjusted N factors" header for multiple adjustments', () => {
     render(
       <ModelAdjustments
         adjustments={[
@@ -13,7 +13,7 @@ describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
       />,
     )
 
-    expect(screen.getByText(/2 model adjustments applied/)).toBeInTheDocument()
+    expect(screen.getByText(/Olumi adjusted 2 factors/)).toBeInTheDocument()
   })
 
   it('renders Constraints applied sub-label when constraint codes are present', () => {
@@ -28,7 +28,7 @@ describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
     )
 
     // Expand the section
-    fireEvent.click(screen.getByText(/3 model adjustments applied/))
+    fireEvent.click(screen.getByText(/Olumi adjusted 3 factors/))
 
     expect(screen.getByText('Constraints applied (2)')).toBeInTheDocument()
   })
@@ -43,7 +43,7 @@ describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
       />,
     )
 
-    fireEvent.click(screen.getByText(/2 model adjustments applied/))
+    fireEvent.click(screen.getByText(/Olumi adjusted 2 factors/))
 
     expect(screen.getByText('Auto-fixes applied (1)')).toBeInTheDocument()
   })
@@ -58,7 +58,7 @@ describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
       />,
     )
 
-    fireEvent.click(screen.getByText(/2 model adjustments applied/))
+    fireEvent.click(screen.getByText(/Olumi adjusted 2 factors/))
 
     expect(screen.getByText('Constraints applied (2)')).toBeInTheDocument()
     expect(screen.queryByText(/Auto-fixes applied/)).not.toBeInTheDocument()
@@ -74,7 +74,7 @@ describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
       />,
     )
 
-    fireEvent.click(screen.getByText(/2 model adjustments applied/))
+    fireEvent.click(screen.getByText(/Olumi adjusted 2 factors/))
 
     expect(screen.queryByText(/Constraints applied/)).not.toBeInTheDocument()
     expect(screen.getByText('Auto-fixes applied (2)')).toBeInTheDocument()
@@ -90,7 +90,7 @@ describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
       />,
     )
 
-    const toggle = screen.getByText(/2 model adjustments applied/)
+    const toggle = screen.getByText(/Olumi adjusted 2 factors/)
 
     // Expand
     fireEvent.click(toggle)
