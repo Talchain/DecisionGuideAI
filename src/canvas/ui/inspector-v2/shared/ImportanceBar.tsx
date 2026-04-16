@@ -1,9 +1,12 @@
 /**
  * ImportanceBar — compact ISL sensitivity bar for factor panels.
  *
- * Renders a single horizontal bar plus rank label (e.g. "2nd most influential")
- * driven by `factor_sensitivity[id].importance_score`. Replaces the
- * WhatIfChart approach from the v6.1 wireframe — single scalar, no trend line.
+ * v6.2 layout: single horizontal row — rank on left (16px semibold, primary),
+ * bar in middle (6px height, primary fill on panel-border track), percentage
+ * on right (panelMeta, medium weight). Below the row: descriptive text
+ * "Influence on results".
+ *
+ * Replaces the WhatIfChart approach from v6.1 — single scalar, no trend line.
  *
  * The score is consumed via `useNodeDisplayMetadata().influence`, which
  * already normalises across `influence_score` / `elasticity` /
@@ -40,24 +43,35 @@ export function ImportanceBar({ importanceScore, sensitivityRank }: ImportanceBa
 
   return (
     <div data-testid="importance-bar">
-      {rankLabel && (
-        <div className="flex items-baseline gap-1.5">
-          <span className={`${typography.panelHeader} text-primary`}>{rankLabel}</span>
-          <span className={`${typography.panelMeta} text-text-light`}>most influential</span>
-        </div>
-      )}
-      <div
-        className="mt-1.5 h-1.5 rounded-full bg-panel-border overflow-hidden"
-        role="progressbar"
-        aria-valuenow={Math.round(pct)}
-        aria-valuemin={0}
-        aria-valuemax={100}
-        aria-label="Relative influence"
-      >
+      {/* Single row: rank | bar | percentage */}
+      <div className="flex items-center gap-2">
+        {rankLabel && (
+          <span
+            className="font-semibold text-primary flex-shrink-0"
+            style={{ fontSize: 16 }}
+          >
+            {rankLabel}
+          </span>
+        )}
         <div
-          className="h-full bg-primary rounded-full transition-[width] duration-200"
-          style={{ width: `${pct}%` }}
-        />
+          className="flex-1 h-1.5 rounded-full bg-panel-border overflow-hidden"
+          role="progressbar"
+          aria-valuenow={Math.round(pct)}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label="Relative influence"
+        >
+          <div
+            className="h-full bg-primary rounded-full transition-[width] duration-200"
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className={`${typography.panelMeta} font-medium text-text-body flex-shrink-0`}>
+          {Math.round(pct)}%
+        </span>
+      </div>
+      <div className={`${typography.panelMeta} text-text-light mt-1`}>
+        Influence on results
       </div>
     </div>
   )

@@ -55,7 +55,9 @@ export function ExpertAnnotation(props: ExpertAnnotationProps) {
           min={min}
           max={max}
           onChange={e => {
-            const v = Number(e.target.value)
+            const raw = e.target.value
+            if (raw === '') return // cleared field — don't push 0
+            const v = Number(raw)
             if (Number.isFinite(v)) onChange(v)
           }}
           className={`${typography.panelMeta} font-mono text-right bg-panel border border-panel-border rounded px-1 py-0.5 text-text-body focus:outline-none focus:border-primary`}
