@@ -1071,6 +1071,7 @@ export function PreAnalysisPanel({
     dominantFactorId,
   })
   if (import.meta.env.DEV) {
+    // eslint-disable-next-line no-console
     console.debug('[PreAnalysis] pickStartHere', {
       signalCount: allReviewNextSignals.length,
       mustFixCount,
@@ -1218,6 +1219,7 @@ export function PreAnalysisPanel({
     mustFixCount,
     mustFixCards,
     data.enrichedBlockers,
+    visibleEnrichedBlockers,
     fewerThanTwoOptionsCheck,
     noBaselineCheck,
     reviewNextCount,
