@@ -2,7 +2,7 @@
  * ConversationPanel — Multi-turn conversation surface (v2 three-zone layout)
  *
  * Renders inside DraftChat's expanded panel when VITE_ENABLE_ORCHESTRATOR_V2
- * is ON. Delegates to three zones: ChatTopBar (Zone 1), ChatThread (Zone 2),
+ * is ON. Renders a minimal header (collapse control) + ChatThread (Zone 2),
  * and ChatComposer (Zone 3).
  *
  * This component retains all patch handler callbacks and guidance store wiring.
@@ -11,7 +11,6 @@
 import { useRef, useState, useEffect, useCallback, useMemo, memo } from 'react'
 import { useCanvasStore, selectResultsStatus } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
-import { useStagePill } from '../hooks/useStagePill'
 import type { ActionChip, GraphPatchBlock } from './types'
 import type { UseConversationReturn } from './useConversation'
 import { applyAutoApplyPatch, applyValidatedGraph } from './utils/applyPatch'
@@ -19,7 +18,7 @@ import { buildAnalysisReadyPatch, applyAnalysisReadyPatch } from './utils/mirror
 import { extractTargetIdsFromPatch } from './utils/extractTargetIds'
 import { plot } from '../../adapters/plot'
 import { logger } from '../../lib/logger'
-import { ChatTopBar } from './zones/ChatTopBar'
+import { ChevronsRight } from 'lucide-react'
 import { ChatThread } from './zones/ChatThread'
 import { ChatComposer, type ChatComposerHandle } from './zones/ChatComposer'
 import type { BriefReadiness } from './hooks/useBriefSignals'
@@ -78,7 +77,6 @@ export const ConversationPanel = memo(function ConversationPanel({
 
   const nodeCount = useCanvasStore((s) => s.nodes.length)
   const scenarioId = useCanvasStore((s) => s.currentScenarioId)
-  const { stage } = useStagePill()
   const composerRef = useRef<ChatComposerHandle>(null)
   const pendingBriefRef = useRef<string | null>(null)
   const generateInFlightRef = useRef(false)
@@ -489,19 +487,41 @@ export const ConversationPanel = memo(function ConversationPanel({
     }
   }, [isThinking, nodeCount])
 
-  // ── Render three zones ────────────────────────────────────────────────
+  // ── Render panel header + thread + composer ────────────────────────────
+  // Tranche 1 item 30: ChatTopBar removed. Attach · Voice · Run analysis move
+  // to the composer left cluster (item 31). Guide + Thinking mode move into
+  // ComposerTools on the composer right. Collapse control moves to the
+  // panel header corner.
   return (
     <>
-      <ChatTopBar
-        stage={stage}
-        isThinking={isThinking}
-        canRunAnalysis={runGateResult.allowed}
-        runBlockedReason={runBlockedReason}
-        onCollapse={onCollapse}
-        onAttach={onAttach}
-        onRunAnalysis={handleRunAnalysis}
-        onInsertText={handleInsertText}
-      />
+      <div
+        className="flex items-center justify-end bg-panel flex-shrink-0"
+        style={{
+          height: 32,
+          padding: '0 6px',
+          borderBottom: '1px solid var(--border-default, #EEE6D8)',
+        }}
+        data-testid="chat-panel-header"
+      >
+        <button
+          type="button"
+          onClick={onCollapse}
+          aria-label="Collapse panel"
+          title="Collapse panel"
+          className="flex items-center justify-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+          style={{
+            width: 28, height: 28,
+            background: 'transparent',
+            border: 'none',
+            color: 'var(--text-light, #908D8D)',
+            cursor: 'pointer',
+            transition: 'all 150ms',
+          }}
+          data-testid="chat-panel-collapse"
+        >
+          <ChevronsRight className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+        </button>
+      </div>
 
       <ChatThread
         messages={messages}
@@ -527,6 +547,11 @@ export const ConversationPanel = memo(function ConversationPanel({
         onOpenInspector={handleOpenInspector}
         onGenerateModel={handleGenerateModel}
         onBriefStateChange={handleBriefStateChange}
+        onInsertText={handleInsertText}
+        onAttach={onAttach}
+        onRunAnalysis={handleRunAnalysis}
+        canRunAnalysis={runGateResult.allowed}
+        runBlockedReason={runBlockedReason}
       />
     </>
   )

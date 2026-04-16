@@ -41,8 +41,10 @@ const SIZE = 26
 const SIZES: Partial<Record<string, number>> = { goal: 27, decision: 27 }
 
 function DashedArrow() {
+  // Height matches max shape size (27px for goal/decision) so every shape+arrow
+  // pair has a uniform row height. Flex centring keeps the arrow on-axis.
   return (
-    <div className="flex items-center justify-center flex-shrink-0" style={{ width: 18, height: 10 }}>
+    <div className="flex items-center justify-center flex-shrink-0" style={{ width: 18, height: 27 }}>
       <svg width="16" height="8" viewBox="0 0 16 8" aria-hidden="true">
         <line x1="2" y1="4" x2="11" y2="4" stroke="var(--factor-light, #EEE6D8)" strokeWidth="1" strokeDasharray="2.5 2" />
         <polyline points="9.5,1.8 12.5,4 9.5,6.2" fill="none" stroke="var(--factor-light, #EEE6D8)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" />
@@ -96,7 +98,7 @@ export function EmptyState({ animate = false, statusLabel, streamingText }: Empt
           const size = SIZES[kind] ?? SIZE
           const delay = `${i * STAGGER}s`
           return (
-            <div key={kind} className="flex items-center" style={{ gap: 0 }}>
+            <div key={kind} className="flex items-center justify-center" style={{ gap: 0, height: 27 }}>
               <div
                 className="relative flex-shrink-0 flex items-center justify-center"
                 style={{ width: size, height: size }}
@@ -108,10 +110,11 @@ export function EmptyState({ animate = false, statusLabel, streamingText }: Empt
                 >
                   <NodeShape kind={kind} size={size} fill={MAIN_FILLS[kind]} />
                 </div>
-                {/* Light colour layer — fades in during flash */}
+                {/* Light colour layer — visible at idle (DS v5 §3.8 entity-light);
+                    animation fades it out momentarily during the flash tick. */}
                 <div
                   className={`absolute inset-0 flex items-center justify-center${isActive ? ' empty-state-light' : ''}`}
-                  style={isActive ? { opacity: 0, animationDelay: delay } : { opacity: 0 }}
+                  style={isActive ? { opacity: 1, animationDelay: delay } : { opacity: 1 }}
                 >
                   <NodeShape kind={kind} size={size} fill={LIGHT_FILLS[kind]} />
                 </div>
@@ -134,13 +137,15 @@ export function EmptyState({ animate = false, statusLabel, streamingText }: Empt
       )}
 
       <style>{`
+        /* Idle state (DS v5 §3.8): light-fill shapes dominate. The flash tick
+           briefly crossfades to main, then back to light. */
         @keyframes emptyStateMain {
-          0%, 20%, 100% { opacity: 1; }
-          10%            { opacity: 0; }
-        }
-        @keyframes emptyStateLight {
           0%, 20%, 100% { opacity: 0; }
           10%            { opacity: 1; }
+        }
+        @keyframes emptyStateLight {
+          0%, 20%, 100% { opacity: 1; }
+          10%            { opacity: 0; }
         }
         .empty-state-main {
           animation: emptyStateMain ${PERIOD}s ease-in-out infinite;
@@ -149,8 +154,8 @@ export function EmptyState({ animate = false, statusLabel, streamingText }: Empt
           animation: emptyStateLight ${PERIOD}s ease-in-out infinite;
         }
         @media (prefers-reduced-motion: reduce) {
-          .empty-state-main  { animation: none !important; opacity: 1 !important; }
-          .empty-state-light { animation: none !important; opacity: 0 !important; }
+          .empty-state-main  { animation: none !important; opacity: 0 !important; }
+          .empty-state-light { animation: none !important; opacity: 1 !important; }
         }
       `}</style>
     </div>

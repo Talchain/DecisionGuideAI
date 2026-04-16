@@ -613,7 +613,15 @@
 /* SafeRichText gap spacer — paragraph breaks and horizontal rule degradation (injected via dangerouslySetInnerHTML) */
 .md-gap {
   display: block;
-  margin: 1em 0;
+  height: 0;
+  margin-bottom: 0.75em;
+}
+
+/* Tabular numerics for metrics embedded in AI prose (§2 DS v5 numeric rhythm) */
+.md-number {
+  font-variant-numeric: tabular-nums;
+  font-weight: 500;
+  color: var(--text-header, #262626);
 }
 
 /* Graph Editing Experience Task 4a: Edge drag feedback */

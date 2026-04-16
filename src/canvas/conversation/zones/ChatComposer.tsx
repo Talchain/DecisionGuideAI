@@ -9,8 +9,8 @@
  * 5. Input container: textarea + send button
  */
 
-import { useState, useCallback, useImperativeHandle, useEffect, useMemo, forwardRef, memo } from 'react'
-import { ArrowUp, Play, Square } from 'lucide-react'
+import { useState, useCallback, useImperativeHandle, useEffect, useMemo, useRef, forwardRef, memo } from 'react'
+import { ArrowUp, Paperclip, Mic, Play, Square } from 'lucide-react'
 import { useGuidanceStore } from '../../stores/guidanceStore'
 import { useStagePill } from '../../hooks/useStagePill'
 import { useCanvasStore } from '../../store'
@@ -24,15 +24,18 @@ import { GuidanceStrip } from '../GuidanceStrip'
 import { CoachingTip } from './CoachingTip'
 import { BriefGuidanceStrip } from './BriefGuidanceStrip'
 import { BriefReadinessPill } from './BriefReadinessPill'
+import { ComposerTools, type ThinkingMode } from './ComposerTools'
 import { recordUiSurfaceState } from '../../../lib/debug-state'
 import type { BriefElementKind } from '../primitives/NodeShape'
 import type { BriefReadiness } from '../hooks/useBriefSignals'
 import type { UseConversationReturn } from '../useConversation'
-import type { GenerateState } from './ChatTopBar'
 import type { ScenarioStage } from '../../../types/scenario'
 
+// ChatTopBar is removed (Tranche 1 item 30); GenerateState now lives here.
+export type GenerateState = 'disabled' | 'active' | 'loading'
+
 // ─────────────────────────────────────────────────────────────────────────────
-// Imperative handle for text insertion from ChatTopBar
+// Imperative handle for text insertion from external callers (e.g. Guide tool)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface ChatComposerHandle {
@@ -53,6 +56,16 @@ interface ChatComposerProps {
   onOpenInspector: (nodeId: string) => void
   onGenerateModel: () => void
   onBriefStateChange?: (readiness: BriefReadiness | null, hasText: boolean) => void
+  /** Insert text at cursor (from ComposerTools guide shortcuts). */
+  onInsertText: (text: string) => void
+  /** Attachment uploader trigger. */
+  onAttach: () => void
+  /** Run PLoT analysis. Gated by canRunAnalysis + stage. */
+  onRunAnalysis: () => void
+  /** Unified readiness gate (mirrors OutputsDock canRunAnalysis). */
+  canRunAnalysis?: boolean
+  /** Human-readable reason when run is blocked (tooltip). */
+  runBlockedReason?: string
 }
 
 const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
@@ -64,9 +77,15 @@ const STAGE_PLACEHOLDERS: Record<ScenarioStage, string> = {
 }
 
 export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProps>(
-  function ChatComposer({ conversation, onCollapse, onScrollToPatch, onOpenInspector, onGenerateModel, onBriefStateChange }, ref) {
+  function ChatComposer({
+    conversation, onCollapse, onScrollToPatch, onOpenInspector, onGenerateModel, onBriefStateChange,
+    onInsertText, onAttach, onRunAnalysis, canRunAnalysis, runBlockedReason,
+  }, ref) {
     const { sendMessage, isThinking, cancelTurn } = conversation
     const { stage } = useStagePill()
+    const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('normal')
+    const showRunAnalysis = stage === 'ideate' || stage === 'evaluate'
+    const runDisabled = isThinking || canRunAnalysis === false
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
     const hasGraph = useCanvasStore(s => s.nodes.length > 0 || s.edges.length > 0)
     const hasAnalysis = useCanvasStore(s => s.results?.status === 'complete' && Boolean(s.results?.hash ?? s.currentScenarioLastResultHash))
@@ -236,18 +255,87 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
           />
         )}
 
-        {/* 5. Input container */}
+        {/* 5. Input container — Claude-pattern composer row:
+              left: attach · voice · (run analysis when gated)
+              centre: textarea
+              right: composer tools (⚙︎) · send/stop */}
         <div
           className="composer-input-box flex items-end bg-panel"
           style={{
-            gap: 8,
+            gap: 6,
             borderRadius: 20,
             border: '1px solid var(--border-default, #EEE6D8)',
-            padding: '4px 5px 4px 12px',
+            padding: '4px 5px 4px 8px',
             transition: 'border-color 200ms, box-shadow 200ms',
           }}
           data-composer-input=""
         >
+          {/* Left cluster */}
+          <button
+            type="button"
+            onClick={onAttach}
+            aria-label="Attach evidence"
+            title="Attach evidence"
+            className="composer-icon-btn flex-shrink-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+            style={{
+              width: 34, height: 34, borderRadius: '50%',
+              marginBottom: 2, background: 'transparent',
+              border: 'none', color: 'var(--text-light, #908D8D)', cursor: 'pointer',
+              transition: 'all 150ms',
+            }}
+            data-testid="composer-attach-button"
+          >
+            <Paperclip className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            disabled
+            aria-label="Voice input (coming soon)"
+            title="Voice input (coming soon)"
+            className="composer-icon-btn flex-shrink-0 flex items-center justify-center"
+            style={{
+              width: 34, height: 34, borderRadius: '50%',
+              marginBottom: 2, background: 'transparent',
+              border: 'none', color: 'var(--text-light, #908D8D)',
+              cursor: 'not-allowed', opacity: 0.5, transition: 'all 150ms',
+            }}
+            data-testid="composer-voice-button"
+          >
+            <Mic className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
+          </button>
+          {showRunAnalysis && (
+            <button
+              type="button"
+              onClick={onRunAnalysis}
+              disabled={runDisabled}
+              title={runDisabled && runBlockedReason ? runBlockedReason : undefined}
+              aria-label={runDisabled && runBlockedReason ? `Run analysis (blocked: ${runBlockedReason})` : 'Run analysis'}
+              className="composer-run-chip flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                height: 30,
+                padding: '0 10px',
+                marginBottom: 4,
+                borderRadius: 999,
+                background: 'transparent',
+                border: '1px solid var(--border-default, #EEE6D8)',
+                color: 'var(--text-body, #3F3F3E)',
+                fontSize: 13,
+                fontWeight: 500,
+                whiteSpace: 'nowrap' as const,
+                transition: 'all 100ms',
+                opacity: runDisabled ? 0.5 : 1,
+                cursor: runDisabled ? 'not-allowed' : 'pointer',
+              }}
+              data-testid="run-analysis-chip"
+            >
+              <Play className="w-3.5 h-3.5 text-text-light" strokeWidth={1.8} aria-hidden="true" />
+              <span>Run analysis</span>
+            </button>
+          )}
+
           <textarea
             ref={composer.textareaRef}
             value={composer.value}
@@ -266,6 +354,13 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               minHeight: 88,
               maxHeight: 180,
             }}
+          />
+
+          {/* Right cluster: composer tools (⚙︎) + send/stop */}
+          <ComposerTools
+            onInsertText={onInsertText}
+            selectedMode={thinkingMode}
+            onSelectMode={setThinkingMode}
           />
 
           {/* Send / Stop button (T6).
@@ -342,6 +437,13 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
           }
           .stop-btn:active {
             transform: scale(0.92);
+          }
+          .composer-icon-btn:not(:disabled):hover {
+            background: var(--bg-panel-hover, #FEF9F3);
+            color: var(--text-body, #3F3F3E);
+          }
+          .composer-run-chip:not(:disabled):hover {
+            background: var(--bg-panel-hover, #FEF9F3);
           }
         `}</style>
       </div>

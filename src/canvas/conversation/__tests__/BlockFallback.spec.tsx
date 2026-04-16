@@ -59,6 +59,22 @@ describe('InlineBlocks — block budget', () => {
     }
   }
 
+  // Tranche 1 item 9: standalone digits wrap in .md-number, so "Block 5" is
+  // rendered as two adjacent nodes within a <p>. Match the immediate parent
+  // element whose own textContent (after trimming) equals the expected text.
+  const hasText = (text: string) =>
+    (_content: string, node: Element | null) => {
+      if (!node) return false
+      const own = (node.textContent ?? '').trim()
+      if (own !== text) return false
+      // Prefer the innermost matching element: only accept this node if NO
+      // child element has the same textContent (i.e. we're at the leaf
+      // container that wraps the text + any inline spans).
+      return !Array.from(node.children).some(
+        (child) => (child.textContent ?? '').trim() === text,
+      )
+    }
+
   it('shows 4 blocks when 5 provided + "Show 1 more" toggle', () => {
     const blocks: ConversationBlock[] = [
       makeCommentary('Block 1'),
@@ -69,9 +85,9 @@ describe('InlineBlocks — block budget', () => {
     ]
     render(<InlineBlocks blocks={blocks} />)
 
-    expect(screen.getByText('Block 1')).toBeInTheDocument()
-    expect(screen.getByText('Block 4')).toBeInTheDocument()
-    expect(screen.queryByText('Block 5')).not.toBeInTheDocument()
+    expect(screen.getByText(hasText('Block 1'))).toBeInTheDocument()
+    expect(screen.getByText(hasText('Block 4'))).toBeInTheDocument()
+    expect(screen.queryByText(hasText('Block 5'))).not.toBeInTheDocument()
     expect(screen.getByText('Show 1 more')).toBeInTheDocument()
   })
 
@@ -83,7 +99,7 @@ describe('InlineBlocks — block budget', () => {
 
     fireEvent.click(screen.getByText('Show 1 more'))
 
-    expect(screen.getByText('Block 5')).toBeInTheDocument()
+    expect(screen.getByText(hasText('Block 5'))).toBeInTheDocument()
     expect(screen.getByText('Show less')).toBeInTheDocument()
   })
 
