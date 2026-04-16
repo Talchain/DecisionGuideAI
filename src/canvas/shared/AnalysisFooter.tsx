@@ -46,7 +46,7 @@ export function AnalysisFooter({
       <div className="flex items-center justify-between gap-3">
         <div className={`flex min-w-0 items-center gap-2 ${typography.panelMeta}`}>
           <StatusIcon className={`h-4 w-4 flex-shrink-0 ${statusIconClassName}`} aria-hidden="true" />
-          <span className="truncate text-text-body">{statusText}</span>
+          <span className="text-text-body">{statusText}</span>
           {metaText ? (
             <>
               <span className="text-text-light" aria-hidden="true">·</span>

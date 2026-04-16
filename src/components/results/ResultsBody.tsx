@@ -421,10 +421,6 @@ export const ResultsBody = memo(function ResultsBody({
       {/* Footer metadata — replaces the 56px spacer */}
       <ResultsFooter
         stability={resultsSectionData.recommendation.recommendationStability}
-        resolvedCount={0}
-        totalCount={hasGuidanceItems
-          ? (guidanceItems?.length ?? 0)
-          : resultsSectionData.confidence.nextActions?.length ?? 0}
       />
 
       {/* V14.3b: Dev-only build marker for deploy verification */}

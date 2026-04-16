@@ -1,5 +1,5 @@
 /**
- * ResultsFooter — metadata row showing stability, addressed count, and influence.
+ * ResultsFooter — metadata row showing stability and influence.
  *
  * Renders inside the scroll container (not sticky) with the same 56px height
  * as the previous spacer, providing footer clearance.
@@ -12,18 +12,12 @@ import Tooltip from '../Tooltip'
 export interface ResultsFooterProps {
   /** Recommendation stability (0-1) */
   stability?: number | null
-  /** Number of resolved action items */
-  resolvedCount: number
-  /** Total addressable action items */
-  totalCount: number
   /** Cumulative normalised influence of resolved factors (0-1), omit when unavailable */
   influencePct?: number | null
 }
 
 export function ResultsFooter({
   stability,
-  resolvedCount,
-  totalCount,
   influencePct,
 }: ResultsFooterProps) {
   const stabilityPct = stability != null ? Math.round(stability * 100) : null
@@ -31,7 +25,6 @@ export function ResultsFooter({
 
   const parts: string[] = []
   if (stabilityLabel) parts.push(stabilityLabel)
-  if (totalCount > 0) parts.push(`${resolvedCount}/${totalCount} addressed`)
   if (influencePct != null) parts.push(`${Math.round(influencePct * 100)}% of influence`)
   if (stabilityPct != null) parts.push(`${stabilityPct}%`)
 
