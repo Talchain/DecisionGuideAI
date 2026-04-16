@@ -69,21 +69,15 @@ function deriveSubtitle(item: ImprovementItem): string | undefined {
     return 'No data yet. Set a value to include in analysis.'
   }
 
-  // Use CEE suggestion when available (most contextual coaching)
+  // Use CEE hint when available (richest contextual coaching)
   if (item.hint) {
     return trimSubtitle(item.hint)
   }
 
-  // AI-estimated factor
-  if (item.sourceBadge === 'ai') {
-    return 'AI estimate. Does this match?'
-  }
-
-  // Brief-sourced factor
-  if (item.sourceBadge === 'brief') {
-    return 'From your brief. Does this look right?'
-  }
-
+  // Phase 4 (Task 8) extends this to derive deterministic per-factor context
+  // from factor_sensitivity / graph degree. Until then, fall through so the
+  // pill (AI estimate / From brief / No data) carries the source signal
+  // without being echoed in the body.
   return undefined
 }
 

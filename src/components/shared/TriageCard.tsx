@@ -442,11 +442,10 @@ export function TriageCard(props: TriageCardProps) {
 
       {/* Collapsed subtitle + value row.
           The subtitle (coaching line) and the value controls share a single
-          row for factor cards so AI-estimate cards look like:
-            "AI estimate. Does this match? [input] ✏ ✓ ✦"
-          When no editorConfig is available, the action-icon group replaces
-          the input + icons on the right side. Subtitle truncates first so
-          the right-side controls never get pushed off-screen. */}
+          row for factor cards. When no editorConfig is available, the
+          action-icon group replaces the input + icons on the right side.
+          Subtitle truncates first so the right-side controls never get
+          pushed off-screen. */}
       {!isEdge && (
         <div className="flex items-center gap-2 pl-7 mt-0.5 min-w-0">
           <p

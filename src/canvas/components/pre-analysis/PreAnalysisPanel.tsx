@@ -1748,22 +1748,6 @@ export function PreAnalysisPanel({
                 edges={edges}
                 factorInfluenceMap={compositeInfluenceMap}
                 edgeInfluenceMap={edgeInfluenceMap}
-                reviewedCount={data.reviewedFactorsCount}
-                allItems={[
-                  ...(data.improvementsByCategory.verify ?? []),
-                  ...(data.improvementsByCategory.add_evidence ?? []),
-                ]}
-                onFocusNode={handleFocusNode}
-                onFocusEdge={handleFocusEdgeById}
-                onConfirm={handleConfirm}
-                onEdit={handleEdit}
-                onSetValue={handleSetValueForGap}
-                onSendMessage={onSendMessage}
-                onResolveEdge={handleResolveContestedEdge}
-                onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                onAddEvidence={handleAddEvidence}
-                onHoverEnter={handleHoverElement}
-                onHoverLeave={handleHoverClear}
               />
             </SectionErrorBoundary>
 

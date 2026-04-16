@@ -430,7 +430,11 @@ describe('Interactive Actions Hardening', () => {
   })
 
   describe('Provenance Field Alignment', () => {
-    it('Confirm action sets source to user_confirmed', () => {
+    // Brief 4 Task 6: YourExpertise compressed to a single linking row — the
+     // AiEstimated subgroup with inline confirm buttons no longer lives in the
+     // pre-analysis panel. Confirm-action wiring is covered by unit tests on
+     // the per-surface components (AiEstimated.spec / factor-panel handlers).
+     it.skip('Confirm action sets source to user_confirmed — moved to Model tab surface', () => {
       const factorWithAiSource = {
         id: 'f1',
         type: 'factor',
