@@ -12,6 +12,8 @@ import { formatValueWithUnit } from '@/canvas/utils/formatValueWithUnit'
 
 export interface TriageCardItem {
   key: string
+  /** Canonical signal_id from Signal Registry v3 §7 (optional — deferred population). */
+  signal_id?: string
   title: string
   detail: string
   /** One-line action-oriented subtitle shown below the title */
@@ -116,6 +118,7 @@ export function mapImprovementToTriageCard(
 
   return {
     key: item.key,
+    signal_id: item.signal_id,
     title: item.label,
     detail: item.detail,
     subtitle,

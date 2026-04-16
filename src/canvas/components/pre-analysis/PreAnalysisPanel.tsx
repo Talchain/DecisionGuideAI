@@ -946,11 +946,13 @@ export function PreAnalysisPanel({
   // Must fix: critical 'fix' category triage cards (filtered on category from
   // the mapper output) plus enriched blockers. Triage cards are already
   // ordered by priority; cards with category === 'fix' represent blockers.
+  // Dedup key: signal_id (Signal Registry v3 §7) when populated, else item key.
+  // signal_id population is deferred — see ImprovementItem.signal_id comment.
   const mustFixCardKeys = new Set<string>()
   const mustFixCards: typeof triageCards = []
   for (const c of triageCards) {
     if (c.category === 'fix') {
-      mustFixCardKeys.add(c.key)
+      mustFixCardKeys.add(c.signal_id ?? c.key)
       mustFixCards.push(c)
     }
   }
@@ -995,7 +997,7 @@ export function PreAnalysisPanel({
   // NOT migrate to Improve confidence — that would mix semantic ownership.
   const REVIEW_NEXT_TRIAGE_BUDGET = 3
   const REVIEW_NEXT_BIAS_BUDGET = 2
-  const reviewNextTriageAll = triageTop3.filter(c => !mustFixCardKeys.has(c.key))
+  const reviewNextTriageAll = triageTop3.filter(c => !mustFixCardKeys.has(c.signal_id ?? c.key))
   const showOptionQualityCard = data.optionPreviews.length > 0
     && (data.qualityChecks.some(c => c.id === 'same_levers') || data.optionPreviews.length < 3)
 

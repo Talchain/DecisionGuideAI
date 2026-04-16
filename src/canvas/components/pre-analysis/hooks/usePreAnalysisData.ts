@@ -114,6 +114,13 @@ export interface ImprovementItem {
   cap?: number | null
   /** Factor's display unit (for inline editing) */
   unit?: string | null
+  /**
+   * Canonical signal_id from Signal Registry v3 §7. When present, dedup
+   * enforces "same signal_id never renders twice on the same surface."
+   * Currently optional — population deferred until registry IDs are
+   * mapped per Signal Registry addendum v3 canonical list.
+   */
+  signal_id?: string
 }
 
 /** Option preview data for Task 3 */
