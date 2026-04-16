@@ -123,12 +123,13 @@ export const EMPTY_STATES = {
 // ─── Group labels (v6.2 three-group layout) ───────────────────────
 // Quiet headers for the Context / Your input / Connections layout.
 export const GROUP_LABELS = {
-  context:     'Context',
-  input:       'Your input',
-  connections: 'Connections',
-  evidence:    'Evidence',
-  impact:      'Impact',
-  comparison:  'Comparison',
+  context:         'Context',
+  input:           'Your input',
+  connections:     'Connections',
+  whatDrivesThis:  'What drives this',
+  evidence:        'Evidence',
+  impact:          'Impact',
+  comparison:      'Comparison',
   whatThisChanges: 'What this option changes',
 } as const
 

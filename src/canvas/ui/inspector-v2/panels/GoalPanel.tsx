@@ -166,12 +166,14 @@ export const GoalPanel = memo(function GoalPanel({
 
         {/* Post-analysis: ImportanceBar. Pre-analysis: GoalProgressChecklist. */}
         {isResultsMode ? (
-          <div className="mt-2">
-            <ImportanceBar
-              importanceScore={displayMetadata.influence}
-              sensitivityRank={displayMetadata.sensitivityRank}
-            />
-          </div>
+          (displayMetadata.influence != null || displayMetadata.sensitivityRank != null) && (
+            <div className="mt-2">
+              <ImportanceBar
+                importanceScore={displayMetadata.influence}
+                sensitivityRank={displayMetadata.sensitivityRank}
+              />
+            </div>
+          )
         ) : (
           <div className="mt-2">
             <GoalProgressChecklist nodeId={nodeId} />
@@ -379,35 +381,37 @@ export const GoalPanel = memo(function GoalPanel({
         />
       </PanelGroup>
 
-      {/* ── Impact group (post-analysis) ──────────────────────── */}
-      <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
-        <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
-          {isResultsMode && typeof probGoal === 'number' && (
-            <div className="flex items-center gap-4 py-2">
-              <ProbabilityArc value={probGoal} color="var(--success)" />
-              <div>
-                <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
-                <div className={`${typography.panelMeta} text-text-light mt-0.5`}>Based on 1,000 simulations</div>
-                <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
-                {typeof probJoint === 'number' && (
-                  <div className={`${typography.panelBody} text-text-body mt-1.5`}>
-                    Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
-                  </div>
-                )}
-                {techMode && (
-                  <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                    System: probability_of_goal: {probGoal.toFixed(2)}
-                    {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
-                  </div>
-                )}
+      {/* ── Impact group (post-analysis only) ────────────────── */}
+      {isResultsMode && (
+        <PanelGroup kind="impact" label={GROUP_LABELS.impact}>
+          <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+            {typeof probGoal === 'number' && (
+              <div className="flex items-center gap-4 py-2">
+                <ProbabilityArc value={probGoal} color="var(--success)" />
+                <div>
+                  <div className={`${typography.panelHeader}`}>{Math.round(probGoal * 100)}% chance of success</div>
+                  <div className={`${typography.panelMeta} text-text-light mt-0.5`}>Based on 1,000 simulations</div>
+                  <div className="mt-1"><ResultsLink label="View full results" tab="results" /></div>
+                  {typeof probJoint === 'number' && (
+                    <div className={`${typography.panelBody} text-text-body mt-1.5`}>
+                      Chance of hitting every target: <strong>{Math.round(probJoint * 100)}%</strong>
+                    </div>
+                  )}
+                  {techMode && (
+                    <div className={`${typography.panelMeta} text-text-light mt-1`}>
+                      System: probability_of_goal: {probGoal.toFixed(2)}
+                      {typeof probJoint === 'number' && ` \u00B7 probability_of_joint_goal: ${probJoint.toFixed(2)}`}
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
-        </StaleGuardBanner>
-      </PanelGroup>
+            )}
+          </StaleGuardBanner>
+        </PanelGroup>
+      )}
 
       {/* ── What drives this group ────────────────────────────── */}
-      <PanelGroup kind="connections" label={INLINE_LABELS.drivers}>
+      <PanelGroup kind="connections" label={GROUP_LABELS.whatDrivesThis}>
         {inboundConnections.map(conn => (
           <ConnectionRow
             key={conn.edgeId}

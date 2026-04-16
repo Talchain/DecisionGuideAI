@@ -12,6 +12,7 @@ import { FactorExternalPanel } from '../panels/FactorExternalPanel'
 import { FactorObservablePanel } from '../panels/FactorObservablePanel'
 import { useCanvasStore } from '../../../store'
 import { useGuidanceStore } from '../../../stores/guidanceStore'
+import { GROUP_LABELS } from '../inspectorStrings'
 
 // ─── Mock useNodeDisplayMetadata for ImportanceBar tests ───────────
 vi.mock('../../../hooks/useNodeDisplayMetadata', () => ({
@@ -193,6 +194,32 @@ describe('GoalPanel v6.2', () => {
     const connectionsGroup = container.querySelector('[data-panel-group="connections"]')
     expect(connectionsGroup).not.toBeNull()
     expect(connectionsGroup?.textContent).toContain('Revenue')
+  })
+
+  it('pre-analysis: impact PanelGroup is not rendered', () => {
+    setGoalStore({ results: { status: 'idle', report: null } })
+    const { container } = render(<GoalPanel {...goalProps} />)
+    expect(container.querySelector('[data-panel-group="impact"]')).toBeNull()
+  })
+
+  it('post-analysis: ImportanceBar is present in context group when influence data is present', () => {
+    setGoalStore({ results: { status: 'complete', report: {} } })
+    mockDisplayMetadata.mockReturnValue({
+      sensitivityRank: 2,
+      influence: 0.7,
+      confidence: null,
+      valueOfInformation: null,
+      inSensitivityAnalysis: true,
+    })
+    const { container } = render(<GoalPanel {...goalProps} />)
+    const contextGroup = container.querySelector('[data-panel-group="context"]')
+    expect(contextGroup?.querySelector('[data-testid="importance-bar"]')).not.toBeNull()
+  })
+
+  it('connections PanelGroup has visible label matching GROUP_LABELS.whatDrivesThis', () => {
+    setGoalStore()
+    render(<GoalPanel {...goalProps} />)
+    expect(screen.getByText(GROUP_LABELS.whatDrivesThis)).toBeTruthy()
   })
 })
 

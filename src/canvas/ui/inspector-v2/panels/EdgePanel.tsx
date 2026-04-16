@@ -268,9 +268,6 @@ export const EdgePanel = memo(function EdgePanel({
                       {!techMode && `. This assumption would need to be ${edgeEValue.toFixed(1)}x wrong to change the result`}
                     </p>
                   )}
-                  <ExpertAnnotation techMode={techMode}>
-                    switch_probability: {fragileEdgeSwitchProb?.toFixed(2) ?? 'n/a'} · in fragile_edges[]
-                  </ExpertAnnotation>
                 </div>
               </StaleGuardBanner>
               <div className="mt-2">
@@ -440,6 +437,11 @@ export const EdgePanel = memo(function EdgePanel({
 
           {/* ── Expert-only model detail ───────────────────────── */}
           <TechnicalDisclosure visible={techMode} label={INLINE_LABELS.modelDetail}>
+            {fragileEdgeSwitchProb !== null && (
+              <ExpertAnnotation techMode={techMode}>
+                switch_probability: {fragileEdgeSwitchProb.toFixed(2)} · in fragile_edges[]
+              </ExpertAnnotation>
+            )}
             <EdgeAdvancedEditor edgeId={edgeId} />
           </TechnicalDisclosure>
         </>
