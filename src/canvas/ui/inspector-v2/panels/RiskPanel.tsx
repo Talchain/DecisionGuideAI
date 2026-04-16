@@ -1,19 +1,26 @@
 /**
- * RiskPanel — Inspector for risk nodes (spec §12)
- * Same structure as outcome but negative framing.
- * Simple horizontal bars for exposure (no density charts for PoC).
+ * RiskPanel — Inspector for risk nodes (v6.2 three-group layout)
+ *
+ * Mirrors OutcomePanel structure. Danger-themed where appropriate.
+ * Groups: Context → Risk exposure → What drives this
  */
 
-import { memo, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { memo, useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
-import { SECTION_TITLES } from '../inspectorStrings'
+import {
+  SECTION_TITLES,
+  GROUP_LABELS,
+  INLINE_LABELS,
+  DESCRIPTION_PLACEHOLDERS,
+} from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
-import { ConnectionRow } from '../shared/ConnectionRow'
+import { PanelGroup } from '../shared/PanelGroup'
+import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
+import { DriversList, type DriverItem } from '../shared/DriversList'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import type { InspectorPanelProps } from '../types'
@@ -34,10 +41,8 @@ export const RiskPanel = memo(function RiskPanel({
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const { isStale } = useStaleGuard()
 
-  const [driversOpen, setDriversOpen] = useState(false)
-
-  // Inbound factors
-  const inboundFactors = useMemo(() => {
+  // Inbound factors (drivers)
+  const inboundFactors: DriverItem[] = useMemo(() => {
     return edges
       .filter(e => e.target === nodeId)
       .map(e => {
@@ -59,63 +64,49 @@ export const RiskPanel = memo(function RiskPanel({
 
   return (
     <div>
-      {description && (
-        <p className={`${typography.panelBody} text-text-body mt-3`}>{description}</p>
-      )}
+      {/* ── Context group ─────────────────────────────────────── */}
+      <PanelGroup kind="context" label={GROUP_LABELS.context}>
+        {description
+          ? <p className={`${typography.panelBody} text-text-body`}>{description}</p>
+          : <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.risk} />
+        }
+      </PanelGroup>
 
-      {/* Risk exposure by option */}
-      <SectionTitle icon={SECTION_TITLES.riskExposure.icon} label={SECTION_TITLES.riskExposure.label} />
-      <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
-        {isResultsMode ? (
-          <div className="bg-panel border border-panel-border rounded-lg p-3">
-            <p className={`${typography.panelMeta} text-text-light`}>
-              Risk exposure data will be displayed here when available from analysis results.
-            </p>
-          </div>
-        ) : null}
-      </StaleGuardBanner>
+      {/* ── Risk exposure group ────────────────────────────────── */}
+      <PanelGroup kind="impact">
+        <SectionTitle icon={SECTION_TITLES.riskExposure.icon} label={SECTION_TITLES.riskExposure.label} />
+        <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
+          {isResultsMode ? (
+            <div className="bg-panel border border-panel-border rounded-lg p-3">
+              <p className={`${typography.panelMeta} text-text-light`}>
+                {INLINE_LABELS.riskExposurePlaceholder}
+              </p>
+            </div>
+          ) : null}
+        </StaleGuardBanner>
+        {!isResultsMode && (
+          <p className={`${typography.panelMeta} text-text-light mt-2`}>
+            {INLINE_LABELS.runAnalysisRisk}
+          </p>
+        )}
+      </PanelGroup>
 
-      {/* Goal drag — shows only when analysis provides real risk data */}
-      {!isResultsMode && (
-        <p className={`${typography.panelMeta} text-text-light mt-3 px-3`}>
-          Run analysis to see how this risk affects the goal.
-        </p>
-      )}
+      {/* ── What drives this group ────────────────────────────── */}
+      <PanelGroup kind="connections" label={INLINE_LABELS.drivers}>
+        <DriversList drivers={inboundFactors} techMode={techMode} onNavigate={onNavigate} />
+        {inboundFactors.length === 0 && (
+          <p className={`${typography.panelMeta} text-text-light`}>No inbound connections yet.</p>
+        )}
+        <InspectorCoaching
+          elementId={nodeId}
+          panelType="risk"
+          fallbackText={COACHING.riskControlLevers}
+          labelContext={{ label: String(node.data?.label ?? '') }}
+          actionLabel="Explore trade-off"
+        />
+      </PanelGroup>
 
-      {/* What drives this (behind disclosure for PoC) */}
-      <button
-        type="button"
-        onClick={() => setDriversOpen(o => !o)}
-        className={`${typography.panelMeta} mt-3 bg-transparent border-none cursor-pointer text-info flex items-center gap-1 p-0 hover:underline`}
-        aria-expanded={driversOpen}
-      >
-        {driversOpen ? <ChevronDown size={12} className="text-info" /> : <ChevronRight size={12} className="text-info" />}
-        What drives this
-      </button>
-      {driversOpen && (
-        <div className="mt-1">
-          {inboundFactors.map(conn => (
-            <ConnectionRow
-              key={conn.edgeId}
-              nodeKind={conn.nodeKind}
-              label={conn.label}
-              strength={conn.strength}
-              techMode={techMode}
-              onClick={() => onNavigate(conn.nodeId)}
-            />
-          ))}
-        </div>
-      )}
-
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="risk"
-        fallbackText={COACHING.riskControlLevers}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-        actionLabel="Explore trade-off"
-      />
-
-      {/* Technical disclosure — structured advanced editor */}
+      {/* ── Expert-only model detail ──────────────────────────── */}
       <TechnicalDisclosure visible={techMode}>
         <RiskAdvancedEditor nodeId={nodeId} />
       </TechnicalDisclosure>

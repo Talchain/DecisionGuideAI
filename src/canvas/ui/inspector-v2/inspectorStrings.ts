@@ -136,6 +136,21 @@ export const INLINE_LABELS = {
   influences:   'Influences',
   drivers:      'What drives this',
   influenceOnResults: 'Influence on results',
+  sensitiveAssumption: 'Sensitive assumption',
+  flipRisk:     '{pct}% flip risk',
+  strengthQuestion: 'How strong is this effect?',
+  existenceQuestion: 'Does this connection exist?',
+  strengthUncertainty: 'Strength uncertainty',
+  contributesToGoal: 'Contributes to your goal',
+  basedOnModelStructure: 'Based on model structure',
+  seeContributions: 'See all contributions',
+  seeSensitivity: 'See sensitivity analysis',
+  runAnalysisOutcome: 'Run analysis to see predicted outcome ranges per option.',
+  runAnalysisRisk: 'Run analysis to see how this risk affects the goal.',
+  riskExposurePlaceholder: 'Risk exposure data will be displayed here when available from analysis results.',
+  fineTune: 'Fine-tune',
+  fineTuneUncertainty: 'Fine-tune uncertainty',
+  modelDetail: 'Model detail',
 } as const
 
 // ─── Edge link-kind notices (migrated from EdgePanel JSX) ─────────
@@ -146,10 +161,31 @@ export const EDGE_LINK_NOTICES = {
   },
   intervention: {
     title: 'Intervention link',
-    // TODO(Brief 2): Add resolveEdgeLinkTemplate() analogous to resolveAskTemplate()
-    // to substitute {sourceLabel} and {targetLabel} at render time.
     bodyTemplate: 'This connection shows how {sourceLabel} sets {targetLabel} in the analysed scenario. It affects analysis.',
   },
+} as const
+
+/** Resolve edge link template with source/target labels. */
+export function resolveEdgeLinkTemplate(
+  context: { sourceLabel: string; targetLabel: string },
+): string {
+  return EDGE_LINK_NOTICES.intervention.bodyTemplate
+    .replace('{sourceLabel}', context.sourceLabel)
+    .replace('{targetLabel}', context.targetLabel)
+}
+
+// ─── Edge panel copy (v6.2) ───────────────────────────────────────
+export const EDGE_COPY = {
+  sensitiveContext: 'Small changes here could shift which option performs best.',
+  flipRiskTooltip: (pct: number) =>
+    `If this edge's strength changes significantly, there is a ${pct}% probability the leading option would change.`,
+  noEvidenceBody: 'Olumi estimated this from your brief. Providing evidence would improve trust.',
+  noEvidenceTitle: 'No evidence yet',
+  sliderMinUnlikely: 'Unlikely',
+  sliderMaxVeryLikely: 'Very likely',
+  sliderMinPrecise: 'Precise',
+  sliderMaxUncertain: 'Uncertain',
+  existenceTooltip: 'How confident are you that this causal link is real?',
 } as const
 
 // ─── Baseline / option badges ─────────────────────────────────────

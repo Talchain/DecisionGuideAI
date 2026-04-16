@@ -1,34 +1,42 @@
 /**
- * OutcomePanel — Inspector for outcome nodes (spec §11)
- * Primarily read surface. Simple range bars + text (no density charts for PoC).
+ * OutcomePanel — Inspector for outcome nodes (v6.2 three-group layout)
+ *
+ * Read-first panel. No primary editing surface (outcomes are computed).
+ * Groups: Context → Predicted range → What drives this
  */
 
-import { memo, useMemo, useState } from 'react'
-import { ChevronDown, ChevronRight } from 'lucide-react'
+import { memo, useMemo } from 'react'
 import { useCanvasStore } from '../../../store'
 import type { NodeType } from '../../../domain/nodes'
 import { InspectorCoaching } from '../shared/InspectorCoaching'
 import { typography } from '../../../../styles/typography'
 import { useStaleGuard } from '../useStaleGuard'
-import { SECTION_TITLES } from '../inspectorStrings'
+import {
+  SECTION_TITLES,
+  GROUP_LABELS,
+  INLINE_LABELS,
+  DESCRIPTION_PLACEHOLDERS,
+} from '../inspectorStrings'
 import { SectionTitle } from '../shared/SectionTitle'
-import { ConnectionRow } from '../shared/ConnectionRow'
+import { PanelGroup } from '../shared/PanelGroup'
+import { EmptyDescriptionPrompt } from '../shared/EmptyDescriptionPrompt'
+import { DriversList, type DriverItem } from '../shared/DriversList'
 import { StaleGuardBanner } from '../shared/StaleGuardBanner'
 import { TechnicalDisclosure } from '../shared/TechnicalDisclosure'
 import { DataBar } from '../../shared/DataBar'
+import { ResultsLink } from '../shared/ResultsLink'
 import type { InspectorPanelProps } from '../types'
 import { COACHING } from '../coachingConfig'
 import { OutcomeAdvancedEditor } from '../editors/OutcomeAdvancedEditor'
-import { ResultsLink } from '../shared/ResultsLink'
 
-/** Check if option comparison analysis failed (used to hide entire section) */
+// ─── Option comparison helpers ─────────────────────────────────────
+
 function isOptionComparisonFailed(report: unknown): boolean {
   const r = report as Record<string, unknown> | null
   const status = r?.option_comparison_status as string | undefined
   return status === 'error' || status === 'failed'
 }
 
-/** Check if there is any option comparison data to display */
 function hasOptionComparisonData(report: unknown): boolean {
   const r = report as Record<string, unknown> | null
   const status = r?.option_comparison_status as string | undefined
@@ -37,7 +45,8 @@ function hasOptionComparisonData(report: unknown): boolean {
   return Array.isArray(comparisons) && comparisons.length > 0
 }
 
-// ─── Option comparison sub-component (A.3) ────────────────────────
+// ─── Option comparison sub-component ───────────────────────────────
+
 interface OptionComparisonEntry {
   option_id: string
   option_label?: string
@@ -59,10 +68,8 @@ function OptionComparisonSection({
   const status = r?.option_comparison_status as string | undefined
   const comparisons = r?.option_comparison as OptionComparisonEntry[] | undefined
 
-  // Failed analysis: hide section
   if (status === 'error' || status === 'failed') return null
 
-  // pending/running: outer gate passed this through, show progress state
   if (!comparisons || !Array.isArray(comparisons) || comparisons.length === 0) {
     return (
       <div className="bg-panel border border-panel-border rounded-lg p-3">
@@ -73,9 +80,8 @@ function OptionComparisonSection({
     )
   }
 
-  // Sort by win probability descending
   const sorted = [...comparisons].sort((a, b) =>
-    (b.win_probability ?? 0) - (a.win_probability ?? 0)
+    (b.win_probability ?? 0) - (a.win_probability ?? 0),
   )
 
   return (
@@ -102,13 +108,9 @@ function OptionComparisonSection({
             </div>
             {hasPrediction && (
               <div className={`${typography.panelMeta} text-text-light mt-1`}>
-                {outcome!.mean != null && (
-                  <span>~{outcome!.mean.toFixed(1)}</span>
-                )}
+                {outcome!.mean != null && <span>~{outcome!.mean.toFixed(1)}</span>}
                 {outcome!.p10 != null && outcome!.p90 != null && (
-                  <span className="ml-1">
-                    ({outcome!.p10.toFixed(1)} – {outcome!.p90.toFixed(1)})
-                  </span>
+                  <span className="ml-1">({outcome!.p10.toFixed(1)} – {outcome!.p90.toFixed(1)})</span>
                 )}
               </div>
             )}
@@ -132,6 +134,8 @@ function OptionComparisonSection({
   )
 }
 
+// ─── Main panel ────────────────────────────────────────────────────
+
 export const OutcomePanel = memo(function OutcomePanel({
   nodeId,
   techMode,
@@ -147,8 +151,6 @@ export const OutcomePanel = memo(function OutcomePanel({
   const node = nodeId ? nodes.find(n => n.id === nodeId) : undefined
   const { isStale } = useStaleGuard()
 
-  const [driversOpen, setDriversOpen] = useState(false)
-
   // Outbound edge to goal — for contribution bar
   const goalContribution = useMemo(() => {
     const goalEdge = edges.find(e => {
@@ -161,8 +163,8 @@ export const OutcomePanel = memo(function OutcomePanel({
     return Math.round((goalEdge.data.weight as number) * 100)
   }, [edges, nodes, nodeId])
 
-  // Inbound factors
-  const inboundFactors = useMemo(() => {
+  // Inbound factors (drivers)
+  const inboundFactors: DriverItem[] = useMemo(() => {
     return edges
       .filter(e => e.target === nodeId)
       .map(e => {
@@ -184,13 +186,38 @@ export const OutcomePanel = memo(function OutcomePanel({
 
   return (
     <div>
-      {description && (
-        <p className={`${typography.panelBody} text-text-body mt-3`}>{description}</p>
-      )}
+      {/* ── Context group ─────────────────────────────────────── */}
+      <PanelGroup kind="context" label={GROUP_LABELS.context}>
+        {description
+          ? <p className={`${typography.panelBody} text-text-body`}>{description}</p>
+          : <EmptyDescriptionPrompt placeholder={DESCRIPTION_PLACEHOLDERS.outcome} />
+        }
 
-      {/* Predicted range by option: shown pre-analysis always; post-analysis only when data exists */}
+        {/* Goal contribution bar */}
+        {goalContribution != null && (
+          <div className="mt-2 px-3 py-2 bg-panel border border-success/30 rounded-lg">
+            <div className="flex items-center gap-2">
+              <span className={`${typography.panelMeta} font-medium text-text-body`}>
+                {INLINE_LABELS.contributesToGoal}
+              </span>
+              <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
+                <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(goalContribution, 100)}%` }} />
+              </div>
+              <span className={`${typography.panelMeta} font-medium text-text-body`}>{goalContribution}%</span>
+            </div>
+            {!isResultsMode && (
+              <p className={`${typography.panelMeta} text-text-light mt-1`}>{INLINE_LABELS.basedOnModelStructure}</p>
+            )}
+            {isResultsMode && (
+              <div className="mt-1"><ResultsLink label={INLINE_LABELS.seeContributions} tab="results" /></div>
+            )}
+          </div>
+        )}
+      </PanelGroup>
+
+      {/* ── Predicted range group ─────────────────────────────── */}
       {(!isResultsMode || (!isOptionComparisonFailed(resultsReport) && hasOptionComparisonData(resultsReport))) && (
-        <>
+        <PanelGroup kind="impact">
           <SectionTitle icon={SECTION_TITLES.predictedRange.icon} label={SECTION_TITLES.predictedRange.label} />
           <StaleGuardBanner isStale={isStale} hasResults={isResultsMode}>
             {isResultsMode ? (
@@ -198,66 +225,29 @@ export const OutcomePanel = memo(function OutcomePanel({
             ) : (
               <div className="bg-panel border border-panel-border rounded-lg p-3">
                 <p className={`${typography.panelMeta} text-text-light`}>
-                  Run analysis to see predicted outcome ranges per option.
+                  {INLINE_LABELS.runAnalysisOutcome}
                 </p>
               </div>
             )}
           </StaleGuardBanner>
-        </>
+        </PanelGroup>
       )}
 
-      {/* Goal contribution bar — sourced from outcome→goal edge weight */}
-      {goalContribution != null && (
-        <div className="mt-3 px-3 py-2 bg-panel border border-success/30 rounded-lg">
-          <div className="flex items-center gap-2">
-            <span className={`${typography.panelHeader} text-xs`}>Contributes to your goal</span>
-            <div className="flex-1 h-1.5 bg-panel-border rounded-full overflow-hidden">
-              <div className="h-full bg-success rounded-full" style={{ width: `${Math.min(goalContribution, 100)}%` }} />
-            </div>
-            <span className={`${typography.panelHeader} text-sm`}>{goalContribution}%</span>
-          </div>
-          {!isResultsMode && (
-            <p className={`${typography.panelMeta} text-text-light mt-1`}>Based on model structure</p>
-          )}
-          {isResultsMode && (
-            <div className="mt-1"><ResultsLink label="See all contributions" tab="results" /></div>
-          )}
-        </div>
-      )}
+      {/* ── What drives this group ────────────────────────────── */}
+      <PanelGroup kind="connections" label={INLINE_LABELS.drivers}>
+        <DriversList drivers={inboundFactors} techMode={techMode} onNavigate={onNavigate} />
+        {inboundFactors.length === 0 && (
+          <p className={`${typography.panelMeta} text-text-light`}>No inbound connections yet.</p>
+        )}
+        <InspectorCoaching
+          elementId={nodeId}
+          panelType="outcome"
+          fallbackText={COACHING.outcomeCompleteness}
+          labelContext={{ label: String(node.data?.label ?? '') }}
+        />
+      </PanelGroup>
 
-      {/* What drives this (behind disclosure for PoC) */}
-      <button
-        type="button"
-        onClick={() => setDriversOpen(o => !o)}
-        className={`${typography.panelMeta} mt-3 bg-transparent border-none cursor-pointer text-info flex items-center gap-1 p-0 hover:underline`}
-        aria-expanded={driversOpen}
-      >
-        {driversOpen ? <ChevronDown size={12} className="text-info" /> : <ChevronRight size={12} className="text-info" />}
-        What drives this
-      </button>
-      {driversOpen && (
-        <div className="mt-1">
-          {inboundFactors.map(conn => (
-            <ConnectionRow
-              key={conn.edgeId}
-              nodeKind={conn.nodeKind}
-              label={conn.label}
-              strength={conn.strength}
-              techMode={techMode}
-              onClick={() => onNavigate(conn.nodeId)}
-            />
-          ))}
-        </div>
-      )}
-
-      <InspectorCoaching
-        elementId={nodeId}
-        panelType="outcome"
-        fallbackText={COACHING.outcomeCompleteness}
-        labelContext={{ label: String(node.data?.label ?? '') }}
-      />
-
-      {/* Technical disclosure — structured advanced editor */}
+      {/* ── Expert-only model detail ──────────────────────────── */}
       <TechnicalDisclosure visible={techMode}>
         <OutcomeAdvancedEditor nodeId={nodeId} />
       </TechnicalDisclosure>
