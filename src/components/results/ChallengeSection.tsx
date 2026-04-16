@@ -129,7 +129,7 @@ function ChallengeCard({
 
   if (!hasExpandContent) {
     return (
-      <div className="relative border border-panel-border rounded-lg px-3 py-2 pb-7 space-y-1.5">
+      <div className={`relative border border-panel-border rounded-lg px-3 py-2 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
         <p className={`${typography.panelBody} text-text-body`}>{cleanTitle}</p>
         <p className={`${typography.panelBody} text-text-light`}>
           Run this exercise to challenge the recommendation.
@@ -147,12 +147,12 @@ function ChallengeCard({
   }
 
   return (
-    <details className="relative border border-panel-border rounded-lg overflow-hidden">
+    <details className="relative border border-panel-border rounded-lg">
       <summary className={`px-3 py-2 cursor-pointer hover:bg-panel-hover ${typography.panelBody} text-text-body list-none [&::-webkit-details-marker]:hidden flex items-center gap-2`}>
         <HelpCircle className="w-3.5 h-3.5 text-text-light flex-shrink-0" aria-hidden="true" />
         {cleanTitle}
       </summary>
-      <div className="px-3 pb-7 space-y-1">
+      <div className={`px-3 space-y-1 ${onSendMessage ? 'pb-7' : 'pb-2'}`}>
         {/* V12 B4: Affected elements as graph links */}
         {item.affectedNodeIds && item.affectedNodeIds.length > 0 && (
           <p className={`${typography.panelMeta} text-text-body`}>
