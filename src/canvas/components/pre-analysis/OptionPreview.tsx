@@ -17,6 +17,7 @@ import Tooltip from '../../../components/Tooltip'
 import type { OptionPreviewData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 import { classifyUnit } from '../../utils/labelUtils'
+import { qualitativeLabel, formatNumber } from '../../utils/formatValueWithUnit'
 import { DiscussWithAiButton } from './DiscussWithAiButton'
 
 /**
@@ -98,11 +99,9 @@ function formatBeforeValue(
 ): string | null {
   if (currentRawValue == null) return null
   const placeholder = isPlaceholderUnit(unit)
-  // Qualitative: placeholder unit AND no meaningful cap — show level label
+  // Qualitative: placeholder unit AND no meaningful cap — show level label via shared utility
   if (placeholder && (cap == null || cap === 1)) {
-    const v = currentRawValue
-    const level = v < 0.2 ? 'very low' : v < 0.4 ? 'low' : v < 0.6 ? 'moderate' : v < 0.8 ? 'high' : 'very high'
-    return level
+    return qualitativeLabel(currentRawValue)
   }
   const isDiscrete = cap != null && Number.isInteger(cap) && Number.isInteger(currentRawValue)
   const display = isDiscrete ? Math.round(currentRawValue) : +currentRawValue.toFixed(1)
@@ -156,12 +155,7 @@ function formatInterventionDisplay(
 
   if (isQualitative) {
     if (normalisedValue >= 0 && normalisedValue <= 1) {
-      const level = normalisedValue < 0.2 ? 'very low'
-        : normalisedValue < 0.4 ? 'low'
-        : normalisedValue < 0.6 ? 'moderate'
-        : normalisedValue < 0.8 ? 'high'
-        : 'very high'
-      return `to ${level}`
+      return `to ${qualitativeLabel(normalisedValue)}`
     } else {
       // Out-of-range value with no cap/unit — display numeric as-is
       rawValue = normalisedValue

@@ -10,7 +10,7 @@ import { Pill } from '../primitives'
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import { typography } from '@/styles/typography'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
-import { classifyUnit } from '@/canvas/utils/labelUtils'
+import { formatValueWithUnit } from '@/canvas/utils/formatValueWithUnit'
 import { DiscussWithAiButton } from '../DiscussWithAiButton'
 import Tooltip from '../../../../components/Tooltip'
 
@@ -60,20 +60,11 @@ export function AiEstimated({
                 {item.label}
               </button>
               {item.rawValue != null && item.detail !== 'Not set' && (() => {
-                const { kind, canonical } = item.unit ? classifyUnit(item.unit) : { kind: 'none' as const, canonical: '' }
-                // Suppress placeholder units (scale, score, etc.) — no real-world scale
-                if (kind === 'placeholder') return null
                 const num = typeof item.rawValue === 'number' ? item.rawValue : Number(item.rawValue)
-                const formatted = num.toLocaleString('en-GB')
-                const display = kind === 'symbol'
-                  ? `${canonical}${formatted}`
-                  : kind === 'iso'
-                    ? `${canonical} ${formatted}`
-                    : kind === 'other'
-                      ? `${formatted} ${canonical}`
-                      : kind === 'percent'
-                        ? `${formatted}%`
-                        : formatted // 'none' — just the number
+                // Uses shared formatValueWithUnit: placeholder units (scale, score, etc.) with
+                // 0–1 values render as qualitative labels; other placeholder values render bare
+                // numbers; currency prefixes, percent suffixes, and thousand separators applied.
+                const display = formatValueWithUnit(num, item.unit)
                 return (
                   <button
                     type="button"
