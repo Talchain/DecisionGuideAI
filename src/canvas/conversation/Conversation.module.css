@@ -1820,3 +1820,11 @@
   transform: scale(0.97);
   opacity: 0.85;
 }
+
+/* ---------------------------------------------------------------------------
+ * § Response chip group — collapse message margin when chips are attached
+ * ---------------------------------------------------------------------------*/
+
+:global(.response-chip-group) > [data-testid^="chat-message-"] {
+  margin-bottom: 0;
+}

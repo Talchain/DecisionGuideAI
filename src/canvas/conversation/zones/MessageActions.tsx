@@ -31,7 +31,6 @@ export function MessageActions({ role, content, onRetry }: MessageActionsProps) 
         ${role === 'user' ? 'right-0' : 'left-0'}
         top-0
       `}
-      style={{ margin: '-9px' }}
       role="toolbar"
       aria-label="Message actions"
       data-testid="message-actions"
@@ -70,14 +69,11 @@ function ActionButton({
       <span
         className="
           w-[26px] h-[26px] flex items-center justify-center rounded-full
-          bg-panel text-text-light
+          bg-panel text-text-light shadow-1
+          border border-panel-border
           group-hover/action:border-info group-hover/action:text-info
           transition-all duration-100
         "
-        style={{
-          border: '1px solid var(--border-default, #EEE6D8)',
-          boxShadow: '0 1px 2px rgba(38,38,38,0.06)',
-        }}
         aria-hidden="true"
       >
         <Icon className="w-3 h-3" strokeWidth={1.8} />

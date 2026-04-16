@@ -167,9 +167,6 @@ export const ChatThread = memo(function ChatThread({
       )}
 
       <div ref={listEndRef} />
-
-      {/* Collapse ChatMessage bottom margin when chips are attached to form one visual unit */}
-      <style>{`.response-chip-group > [data-testid^="chat-message-"] { margin-bottom: 0; }`}</style>
     </div>
   )
 })
