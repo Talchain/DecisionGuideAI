@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import type { OlumiResponse } from '@talchain/schemas/boundary';
+import { OlumiResponseSchema, type OlumiResponse } from '@talchain/schemas/boundary';
 
 import { routeV5Response } from '../responseRouter';
 
@@ -32,13 +32,15 @@ describe('routeV5Response', () => {
     if (t.kind === 'typed_error') expect(t.code).toBe('FEATURE_NOT_ENABLED');
   });
 
-  it('routes non-error block → blocks', () => {
-    const t = routeV5Response({
-      kind: 'response',
-      response: baseResponse({
-        blocks: [{ type: 'text', text: 'hi' }],
-      }),
+  it('routes non-error block → blocks (block payload passes OlumiResponseSchema)', () => {
+    // Canonical text-block field is `content` per @talchain/schemas/boundary
+    // blocks.ts:7-9. Prove the whole response parses before asserting routing.
+    const response = baseResponse({
+      blocks: [{ type: 'text', content: 'hi' }],
     });
+    expect(() => OlumiResponseSchema.parse(response)).not.toThrow();
+
+    const t = routeV5Response({ kind: 'response', response });
     expect(t.kind).toBe('blocks');
   });
 

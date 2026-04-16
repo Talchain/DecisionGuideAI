@@ -22,9 +22,32 @@ export interface TypedErrorRendererProps {
   boundaryError?: BoundaryError;
 }
 
+// Exhaustive switch over FailureType. If a new member is added to
+// BoundaryErrorCode / FailureType, the default branch stops narrowing to
+// `never` and TypeScript raises a compile error here — forcing the renderer
+// to be updated before the new code can ship.
+function resolveUserText(code: FailureTypeLiteral): string {
+  switch (code) {
+    case 'INGRESS_CONTRACT_VIOLATION':
+    case 'EGRESS_CONTRACT_VIOLATION':
+    case 'FEATURE_NOT_ENABLED':
+    case 'TURN_BUDGET_EXCEEDED':
+    case 'UPSTREAM_TIMEOUT':
+    case 'UPSTREAM_UNAVAILABLE':
+    case 'LLM_UNAVAILABLE':
+    case 'INTERNAL_ERROR':
+      return FAILURE_USER_TEXT[code];
+    default: {
+      // Exhaustiveness guard — see block comment above.
+      const _exhaustive: never = code;
+      return _exhaustive;
+    }
+  }
+}
+
 export function TypedErrorRenderer(props: TypedErrorRendererProps): ReactElement {
   const { code, requestId, severity = 'error', boundaryError } = props;
-  const text = FAILURE_USER_TEXT[code] ?? code;
+  const text = resolveUserText(code);
 
   return (
     <section

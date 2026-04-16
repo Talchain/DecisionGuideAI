@@ -7,14 +7,19 @@
  *   - 'blocks'    : response has non-error blocks (A1+ renderer work; A0 stubs)
  *   - 'typed_error' : response contains an error block OR a BoundaryError OR a parse_error
  */
-import type { OlumiResponse } from '@talchain/schemas/boundary';
+import type { OlumiResponse, FailureTypeLiteral } from '@talchain/schemas/boundary';
 
 import type { V5CallResult } from './v5Adapter';
 
 export type RenderTarget =
   | { kind: 'text_only'; response: OlumiResponse }
   | { kind: 'blocks'; response: OlumiResponse }
-  | { kind: 'typed_error'; code: string; requestId?: string; boundaryError?: unknown }
+  | {
+      kind: 'typed_error';
+      code: FailureTypeLiteral;
+      requestId?: string;
+      boundaryError?: unknown;
+    }
   | { kind: 'fall_through_v4' };
 
 export function routeV5Response(result: V5CallResult): RenderTarget {
