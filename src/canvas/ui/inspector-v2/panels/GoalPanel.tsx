@@ -341,7 +341,7 @@ export const GoalPanel = memo(function GoalPanel({
                   onChange={e => { setNewConstraintValue(e.target.value); setConstraintError('') }}
                   placeholder={GOAL_CONSTRAINT_COPY.targetValue}
                   className={`${typography.panelMeta} flex-1 border border-panel-border rounded px-1.5 py-1.5 bg-panel text-text-body`}
-                  aria-label={GOAL_CONSTRAINT_COPY.factorLabel}
+                  aria-label={GOAL_CONSTRAINT_COPY.valueInputLabel}
                 />
               </div>
               {/* Error message */}

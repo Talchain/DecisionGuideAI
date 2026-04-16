@@ -266,6 +266,7 @@ export const GOAL_CONSTRAINT_COPY = {
   targetValue:         'Target value',
   operatorLabel:       'Constraint operator',
   factorLabel:         'Constraint target factor',
+  valueInputLabel:     'Constraint target value',
   addButton:           'Add',
   cancelButton:        'Cancel',
   errorSelectFactor:   'Select a factor',
