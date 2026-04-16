@@ -220,11 +220,16 @@ function InlineValueControls({
     : unitKind === 'symbol' || unitKind === 'iso' ? (unitClassification?.canonical ?? editorConfig.unit!)
     : unitKind === 'other' ? editorConfig.unit!
     : ''
-  const isCurrencyPrefix = unitKind === 'symbol' || unitKind === 'iso'
+  // Symbol (£/$) prefix with no gap; ISO code (GBP/USD) prefix with a small gap.
+  // Both are prefixes; suffix applies to %, other units.
+  const isSymbolPrefix = unitKind === 'symbol'
+  const isIsoPrefix = unitKind === 'iso'
+  const isCurrencyPrefix = isSymbolPrefix || isIsoPrefix
 
   return (
     <div className="flex items-center gap-2 flex-shrink-0">
-      <div className="inline-flex items-center gap-0.5">
+      {/* gap-0 for symbols (£49), gap-0.5 for ISO codes (GBP 49) */}
+      <div className={`inline-flex items-center ${isSymbolPrefix ? 'gap-0' : 'gap-0.5'}`}>
         {isCurrencyPrefix && unitDisplay && (
           <span className={`${typography.panelMeta} text-text-light`}>{unitDisplay}</span>
         )}
@@ -236,7 +241,7 @@ function InlineValueControls({
           onKeyDown={e => {
             if (e.key === 'Enter') handleUpdate()
           }}
-          className={`w-16 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+          className={`w-20 px-1.5 py-0.5 ${typography.panelMeta} border border-panel-border rounded bg-panel text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
           aria-label={`Value for ${title}`}
           placeholder="Set value"
         />

@@ -717,6 +717,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (optionNodes.length < 2) {
       result.fix.push({
         key: 'fewer_than_2_options',
+        signal_id: 'blocker.fewer_than_2_options',
         category: 'fix',
         label: 'Add options',
         detail: 'At least 2 required',
@@ -728,6 +729,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (nodesByKind.goal.length === 0) {
       result.fix.push({
         key: 'missing_goal',
+        signal_id: 'blocker.goal_missing',
         category: 'fix',
         label: 'Add goal',
         detail: 'Define what you want to achieve',
@@ -745,6 +747,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       const cleanedLabel = cleanFactorLabel(getNodeLabel(node)).label
       result.fix.push({
         key: `disconnected_${node.id}`,
+        signal_id: 'blocker.graph_too_small',
         category: 'fix',
         label: `Connect "${cleanedLabel}"`,
         detail: 'Node has no relationships',
@@ -855,6 +858,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
       result.verify.push({
         key: `verify_${factor.id}`,
+        signal_id: `review.factor_unreviewed_top3`,
         category: 'verify',
         label: cleanedLabel,
         detail: contextLine || value || 'Value needed',
@@ -884,6 +888,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
         result.verify.push({
           key: `verify_edge_${edge.id}`,
+          signal_id: 'review.edge_calibration_top',
           category: 'verify',
           label: edgeLabel,
           detail: edgeItem.prompt,
@@ -912,6 +917,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
       result.verify.push({
         key: `contested_${edge.id}`,
+        signal_id: 'truth.contested_edge',
         category: 'verify',
         label: edgeLabel,
         detail: `Contested: two AI passes disagree (divergence ${Math.round(validation.max_divergence * 100)}%)`,
@@ -983,6 +989,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
 
         result.add_evidence.push({
           key: `evidence_${edge.id}`,
+          signal_id: 'confidence.edge_calibration_lower',
           category: 'add_evidence',
           label: `${sourceLabel} → ${targetLabel}`,
           detail: 'No evidence',
@@ -1002,6 +1009,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (optionNodes.length <= 1) {
       result.strengthen.push({
         key: 'few_options',
+        signal_id: 'review.narrow_framing',
         category: 'strengthen',
         label: optionNodes.length === 0
           ? 'What options are you considering? Add at least two alternatives to compare.'
@@ -1017,6 +1025,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (nodesByKind.risk.length === 0) {
       result.strengthen.push({
         key: 'no_risks',
+        signal_id: 'review.missing_risks',
         category: 'strengthen',
         label: 'Are there constraints you need to stay within? Budget limits or timeline boundaries make results more realistic.',
         detail: '',
@@ -1031,6 +1040,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
       const focusNode = optionNodes[0]
       result.strengthen.push({
         key: 'no_negative_effects',
+        signal_id: 'review.missing_risks',
         category: 'strengthen',
         label: 'Could any of these changes have downsides? Adding risks or negative relationships helps avoid over-confidence.',
         detail: '',
