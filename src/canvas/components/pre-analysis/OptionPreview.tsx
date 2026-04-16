@@ -17,7 +17,7 @@ import Tooltip from '../../../components/Tooltip'
 import type { OptionPreviewData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 import { classifyUnit } from '../../utils/labelUtils'
-import { qualitativeLabel, formatNumber } from '../../utils/formatValueWithUnit'
+import { qualitativeLabel } from '../../utils/formatValueWithUnit'
 import { DiscussWithAiButton } from './DiscussWithAiButton'
 
 /**

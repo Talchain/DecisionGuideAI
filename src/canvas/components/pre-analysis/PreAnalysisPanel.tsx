@@ -133,10 +133,9 @@ interface NormalisedBiasTrigger {
   subtitle: string
   fullExplanation: string
   severity: string
-  /** First step text from micro_intervention.steps, when present. Drives the "Try this" chip. */
+  /** First step text from micro_intervention.steps, when present. Enriches the sparkle prompt
+   *  with a specific debiasing technique (unified spec §3.3: sparkle only, no text pills). */
   microInterventionStep: string | null
-  /** Generic "Ask AI" prompt for the secondary chip. */
-  askAiPrompt: string
 }
 
 function normaliseCeeBiasFinding(raw: RawBiasFinding, idx: number): NormalisedBiasTrigger | null {
@@ -168,7 +167,6 @@ function normaliseCeeBiasFinding(raw: RawBiasFinding, idx: number): NormalisedBi
     fullExplanation,
     severity: raw.severity ?? 'medium',
     microInterventionStep: microStep ?? null,
-    askAiPrompt: `I may have a ${config.title.toLowerCase()} in my decision model. Can you help me think through it?`,
   }
 }
 
@@ -794,8 +792,8 @@ export function PreAnalysisPanel({
   // Bias trigger cards — CEE findings take precedence when available.
   // Falls back to UI-side deterministic checks when CEE provides no findings.
   // Max 2 cards. Trigger shape is shared across both paths so the render layer
-  // can treat them uniformly. The CEE path also surfaces a "Try this" chip
-  // when the finding includes a micro_intervention.steps[0] action.
+  // can treat them uniformly. The CEE path includes micro_intervention.steps[0]
+  // when present, which enriches the sparkle prompt with a debiasing technique.
   const biasTriggers = useMemo<NormalisedBiasTrigger[]>(() => {
     const triggers: NormalisedBiasTrigger[] = []
 
@@ -816,15 +814,13 @@ export function PreAnalysisPanel({
     }
 
     // Deterministic fallback — graph-signal-only checks. Each check produces
-    // a trigger in the shared NormalisedBiasTrigger shape (no micro_intervention,
-    // generic askAiPrompt drives the single Ask AI chip).
+    // a trigger in the shared NormalisedBiasTrigger shape (no micro_intervention).
 
     const pushDeterministic = (
       id: string,
       icon: typeof Frame,
       title: string,
       explanation: string,
-      askAiPrompt: string,
     ) => {
       triggers.push({
         id,
@@ -834,7 +830,6 @@ export function PreAnalysisPanel({
         fullExplanation: explanation,
         severity: 'medium',
         microInterventionStep: null,
-        askAiPrompt,
       })
     }
 
@@ -846,7 +841,6 @@ export function PreAnalysisPanel({
         Frame,
         'Narrow framing',
         'Consider structurally different approaches. What would a competitor do?',
-        'What other options should I consider?',
       )
     }
 
@@ -857,7 +851,6 @@ export function PreAnalysisPanel({
         ShieldAlert,
         'Missing risks',
         'Your model has few risks. Consider what could go wrong with each option.',
-        'What risks am I missing?',
       )
     }
 
@@ -883,7 +876,6 @@ export function PreAnalysisPanel({
               Gauge,
               'Overconfidence',
               `${label} drives most of the outcome but has no supporting evidence. Validate it before relying on it.`,
-              `Help me validate ${label}.`,
             )
           }
         }
@@ -927,7 +919,6 @@ export function PreAnalysisPanel({
               Anchor,
               'Anchoring',
               'Your options are similar. Try a wider range of approaches.',
-              'How could I make my options more different from each other?',
             )
           }
         }

@@ -8,8 +8,6 @@
 
 import type { ImprovementItem } from './hooks/usePreAnalysisData'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
-import { formatValueWithUnit } from '@/canvas/utils/formatValueWithUnit'
-
 export interface TriageCardItem {
   key: string
   /** Canonical signal_id from Signal Registry v3 §7 (optional — deferred population). */
@@ -23,8 +21,6 @@ export interface TriageCardItem {
   action: TriageCardAction | undefined
   sourcePill: { label: string; borderClass: string } | null
 }
-
-// formatValueWithUnit is imported from @/canvas/utils/formatValueWithUnit (shared utility, unified spec §2.4).
 
 /** Map ImprovementActionKind → TriageCardAction.kind */
 function mapActionKind(kind: string): TriageCardAction['kind'] {
