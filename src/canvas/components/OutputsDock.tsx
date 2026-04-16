@@ -1515,9 +1515,17 @@ export function OutputsDock() {
                     data-testid="graph-stale-banner"
                   >
                     <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
-                    <span className={`${typography.caption} text-warning`}>
-                      Results may be outdated. Run analysis again.
+                    <span className={`${typography.panelBody} text-text-body flex-1`}>
+                      Model changed since last analysis.
                     </span>
+                    <button
+                      type="button"
+                      onClick={handleRunAnalysis}
+                      disabled={isRunning || !canRunAnalysis}
+                      className={`${typography.panelBody} text-info hover:underline disabled:opacity-50 disabled:cursor-not-allowed shrink-0`}
+                    >
+                      Rerun
+                    </button>
                   </div>
                 )}
                 {/* A.9: Conversation-triggered analysis indicator — auto-dismisses after 5s */}
