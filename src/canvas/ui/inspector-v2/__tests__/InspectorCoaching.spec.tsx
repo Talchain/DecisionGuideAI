@@ -138,4 +138,99 @@ describe('InspectorCoaching', () => {
     const card = container.firstElementChild as HTMLElement
     expect(card.style.border).toContain('rgba(82, 163, 200, 0.3)')
   })
+
+  // ── related_elements matching ──────────────────────────────────────
+
+  it('surfaces guidance item when elementId matches a related_elements entry', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        makeGuidanceItem({
+          item_id: 'related-match',
+          target_object: { type: 'node', id: 'other-node' },
+          related_elements: [{ id: 'node-1', type: 'node' }],
+          title: 'Weakly connected guidance',
+        }),
+      ],
+      _prefillChat: vi.fn(),
+    })
+    render(<InspectorCoaching {...defaultProps} />)
+    expect(screen.getByText(/Weakly connected guidance/)).toBeTruthy()
+  })
+
+  it('prefers direct target_object.id match over higher-priority related_elements match', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        makeGuidanceItem({
+          item_id: 'related-high',
+          target_object: { type: 'node', id: 'other-node' },
+          related_elements: [{ id: 'node-1', type: 'node' }],
+          title: 'Related high priority',
+          priority: 99,
+        }),
+        makeGuidanceItem({
+          item_id: 'direct-low',
+          target_object: { type: 'node', id: 'node-1' },
+          title: 'Direct low priority',
+          priority: 10,
+        }),
+      ],
+      _prefillChat: vi.fn(),
+    })
+    render(<InspectorCoaching {...defaultProps} />)
+    expect(screen.getByText(/Direct low priority/)).toBeTruthy()
+    expect(screen.queryByText(/Related high priority/)).toBeNull()
+  })
+
+  it('falls back to static coaching when related_elements has no id match', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        makeGuidanceItem({
+          item_id: 'unrelated',
+          target_object: { type: 'node', id: 'other-node' },
+          related_elements: [{ id: 'different-node', type: 'node' }],
+          title: 'Unrelated guidance',
+        }),
+      ],
+      _prefillChat: vi.fn(),
+    })
+    render(<InspectorCoaching {...defaultProps} />)
+    expect(screen.getByText('Static coaching fallback text')).toBeTruthy()
+    expect(screen.queryByText('Unrelated guidance')).toBeNull()
+  })
+})
+
+// ── clearItemsByTargetIds + related_elements ──────────────────────────
+
+describe('clearItemsByTargetIds — related_elements', () => {
+  it('clears items when a related_elements[].id matches the edited node', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        makeGuidanceItem({
+          item_id: 'related-item',
+          target_object: { type: 'node', id: 'primary-node' },
+          related_elements: [{ id: 'edited-node', type: 'node' }],
+        }),
+      ],
+    })
+
+    useGuidanceStore.getState().clearItemsByTargetIds(['edited-node'])
+
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(0)
+  })
+
+  it('preserves items when neither target_object.id nor related_elements match', () => {
+    useGuidanceStore.setState({
+      guidanceItems: [
+        makeGuidanceItem({
+          item_id: 'unrelated',
+          target_object: { type: 'node', id: 'safe-node' },
+          related_elements: [{ id: 'also-safe', type: 'node' }],
+        }),
+      ],
+    })
+
+    useGuidanceStore.getState().clearItemsByTargetIds(['edited-node'])
+
+    expect(useGuidanceStore.getState().guidanceItems).toHaveLength(1)
+  })
 })

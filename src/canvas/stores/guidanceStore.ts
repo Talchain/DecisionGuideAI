@@ -36,6 +36,13 @@ export interface GuidanceItem {
   detail?: string
   primary_action: GuidanceAction
   target_object?: GuidanceTargetObject
+  /**
+   * Optional additional elements this item is relevant to (e.g. a
+   * WEAKLY_CONNECTED_NODE signal referencing both the weakly-connected node
+   * and its isolated neighbours). Inspectors match `id` against the currently
+   * selected element in addition to `target_object.id`.
+   */
+  related_elements?: Array<{ id?: string; type?: string; label?: string }>
   valid_while?: { analysis_hash?: string; graph_hash?: string }
   fact_ids?: string[]
   citations?: string[]
@@ -202,8 +209,13 @@ export const useGuidanceStore = create<GuidanceState & GuidanceActions>((set, ge
       const target = item.target_object
       if (!target) return true // no target → never cleared by this mechanism
       if (!CLEARABLE_TYPES.has(target.type)) return true // only clear node/edge targets
-      if (!target.id) return true // no id → can't match
-      return !idSet.has(target.id)
+      // Clear if target_object.id matches
+      if (target.id && idSet.has(target.id)) return false
+      // Also clear if any related_elements[].id matches — prevents stale
+      // coaching when a related node/edge is edited (e.g. WEAKLY_CONNECTED_NODE
+      // referencing isolated neighbours).
+      if (item.related_elements?.some(r => r.id && idSet.has(r.id))) return false
+      return true
     })
 
     if (surviving.length === guidanceItems.length) return // nothing to clear

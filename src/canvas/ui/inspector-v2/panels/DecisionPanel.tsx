@@ -52,7 +52,10 @@ export const DecisionPanel = memo(function DecisionPanel({
         const ivs = (optNode.data as Record<string, unknown>)?.interventions as Record<string, unknown> | undefined
         const ivCount = ivs ? Object.keys(ivs).length : 0
         const label = String(optNode.data?.label ?? e.target)
-        const isBaseline = detectBaseline(label).isBaseline
+        // Explicit `is_baseline` wins; regex fallback only fires when the flag is
+        // absent — mirrors OptionNode.tsx / OptionPanel.tsx.
+        const explicitIsBaseline = (optNode.data as { is_baseline?: boolean | null })?.is_baseline
+        const isBaseline = explicitIsBaseline ?? detectBaseline(label).isBaseline
         // Win probability from results
         const winPct = optionComparison && Array.isArray(optionComparison)
           ? (optionComparison as Array<{ option_id: string; win_probability?: number }>).find(o => o.option_id === e.target)?.win_probability

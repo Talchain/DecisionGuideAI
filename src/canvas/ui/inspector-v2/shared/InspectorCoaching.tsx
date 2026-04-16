@@ -41,10 +41,22 @@ export function InspectorCoaching({
   // Get guidance items for this element (sorted by priority, take top 1)
   const guidanceItems = useGuidanceStore(s => s.guidanceItems)
   const topGuidanceItem = useMemo(() => {
-    const items = guidanceItems.filter(i => i.target_object?.id === elementId)
+    // Match by target_object.id OR any related_elements[].id. The latter surfaces
+    // element-targeted items (e.g. WEAKLY_CONNECTED_NODE) whose primary target
+    // is a different element but which carry additional element refs.
+    const items = guidanceItems.filter(i =>
+      i.target_object?.id === elementId
+      || i.related_elements?.some(r => r.id === elementId),
+    )
     if (items.length === 0) return null
-    // Highest priority first
-    return [...items].sort((a, b) => b.priority - a.priority)[0]
+    // Direct target_object.id matches take precedence over related_elements
+    // matches. Within each group, highest priority wins.
+    return [...items].sort((a, b) => {
+      const aDirect = a.target_object?.id === elementId ? 1 : 0
+      const bDirect = b.target_object?.id === elementId ? 1 : 0
+      if (bDirect !== aDirect) return bDirect - aDirect
+      return b.priority - a.priority
+    })[0]
   }, [guidanceItems, elementId])
 
   // Resolve the question text

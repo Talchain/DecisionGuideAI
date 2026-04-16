@@ -118,6 +118,60 @@ export const EMPTY_STATES = {
   noEvidence:       'No calibration or external data. Providing evidence would improve trust in this connection.',
 } as const
 
+// ─── Group labels (v6.2 three-group layout) ───────────────────────
+// Quiet headers for the Context / Your input / Connections layout.
+export const GROUP_LABELS = {
+  context:     'Context',
+  input:       'Your input',
+  connections: 'Connections',
+  evidence:    'Evidence',
+  impact:      'Impact',
+  comparison:  'Comparison',
+  whatThisChanges: 'What this option changes',
+} as const
+
+// ─── Inline section labels (v6.2 subordinate rows) ────────────────
+export const INLINE_LABELS = {
+  setByOptions: 'Set by options',
+  influences:   'Influences',
+  drivers:      'What drives this',
+} as const
+
+// ─── Edge link-kind notices (migrated from EdgePanel JSX) ─────────
+export const EDGE_LINK_NOTICES = {
+  organisational: {
+    title: 'Organisational link',
+    body:  'This connection shows how options relate to the decision. It does not affect analysis.',
+  },
+  intervention: {
+    title: 'Intervention link',
+    // {sourceLabel}, {targetLabel} substituted at render
+    bodyTemplate: 'This connection shows how {sourceLabel} sets {targetLabel} in the analysed scenario. It affects analysis.',
+  },
+} as const
+
+// ─── Baseline / option badges ─────────────────────────────────────
+export const BASELINE_BADGE_LABEL = 'Baseline option'
+
+// ─── Action button labels (migrated hardcoded strings) ────────────
+export const ACTION_LABELS = {
+  addChange:     '+ Add a change',
+  addOption:     '+ Add option',
+  addConstraint: '+ Add constraint',
+  seeAllDrivers: 'See all drivers',
+  compareOptions: 'Compare all options',
+} as const
+
+// ─── Empty description placeholders ───────────────────────────────
+export const DESCRIPTION_PLACEHOLDERS = {
+  decision: "What's the decision you're facing and why does it matter now?",
+  option:   'What would choosing this option actually mean in practice?',
+  goal:     'Describe what achieving this goal looks like for your team.',
+  factor:   'What is this factor and why does it matter?',
+  outcome:  'What does this outcome represent in your decision?',
+  risk:     'What could go wrong and how would it affect the decision?',
+} as const
+
 // ─── "Ask about this" question templates (Task 2) ────────────────────
 export const ASK_TEMPLATES: Record<string, string> = {
   goal:                  'Tell me about the chances of achieving {label}',
