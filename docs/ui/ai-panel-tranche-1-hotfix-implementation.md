@@ -3,6 +3,32 @@
 **Date:** 2026-04-17
 **Branch:** `ui/ai-panel-tranche-1-hotfix` (off `staging`)
 **Brief:** CC Brief — AI panel follow-up (Tranche 1 hotfix)
+**Merged to staging:** 2026-04-17 (merge commit `4ecf00e7`)
+
+---
+
+## ⚠️ No-touch list exception — sanctioned, recorded here for future sessions
+
+The Tranche 1 hotfix brief included `src/canvas/conversation/useConversation.ts`
+on the no-touch list (A1-owned; V5 scaffolding). **For item 6 only (removing
+the 3-second "Thinking…" sentinel timer at lines 2680-2684), Paul explicitly
+relaxed this constraint in the live session on 2026-04-17.**
+
+Conditions that made the relaxation safe:
+- V5 is paused at Phase 0 (schemas-only; no runtime branching in
+  `useConversation.ts`), so no A1/V5 collision risk
+- The change is a single-block deletion with zero dependencies on surrounding
+  conversation-flow logic (tool/progress labels still flow through
+  `toolLoadingState` untouched)
+- Reversible via the inline comment at the deletion site, which documents the
+  exact removal conditions under which the sentinel could be reintroduced
+
+Future sessions: **do not take this as general permission to edit
+`useConversation.ts`.** The no-touch list still applies. Any further edit
+needs a fresh explicit authorisation in-session, and must re-verify that V5
+hasn't moved past Phase 0. See the inline comment block at
+`src/canvas/conversation/useConversation.ts:2679-2693` for the
+removal-condition record at the code site itself.
 **Scope:** items 3, 4, 6, 7, 9 (five of the brief's nine items; see Tranche 1b deferrals below)
 
 ---
