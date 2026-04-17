@@ -61,7 +61,9 @@ import { ModelAdjustments } from './ModelAdjustments'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { SectionHeader } from '@/components/results/SectionHeader'
-import type { ValidationMetadata, UserAction, ResolvedValue } from '../../domain/validation'
+// ValidationMetadata / UserAction / ResolvedValue were consumed by the
+// removed handleResolveContestedEdge handler. Remove after Brief 4 Task 6
+// compressed YourExpertise and orphaned those types at this call site.
 
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
@@ -527,48 +529,9 @@ export function PreAnalysisPanel({
     }
   }, [data.goalNode])
 
-  // === CONTESTED EDGE RESOLVE HANDLER (Task 2c) ===
-  const handleResolveContestedEdge = useCallback((edgeId: string, action: UserAction, customMean?: number) => {
-    const { edges: storeEdges, updateEdge } = useCanvasStore.getState()
-    const edge = storeEdges.find(e => e.id === edgeId)
-    if (!edge) return
-    const edgeData = edge.data as Record<string, unknown>
-    const validation = edgeData?.validation as ValidationMetadata | undefined
-    if (!validation) return
-
-    let resolvedValue: ResolvedValue | null = null
-    const updates: Record<string, unknown> = {
-      ...edgeData,
-      validation: {
-        ...validation,
-        user_action: action,
-        resolved_by: 'user' as const,
-        was_shown: true,
-        resolved_value: null as ResolvedValue | null,
-      },
-    }
-
-    if (action === 'accepted_pass2') {
-      resolvedValue = {
-        strength_mean: validation.pass2.strength_mean,
-        strength_std: validation.pass2.strength_std,
-        exists_probability: validation.pass2.exists_probability,
-      }
-      ;(updates.validation as Record<string, unknown>).resolved_value = resolvedValue
-      updates.weight = Math.abs(validation.pass2.strength_mean)
-      updates.direction = validation.pass2.strength_mean >= 0 ? 'positive' : 'negative'
-    } else if (action === 'overridden' && customMean !== undefined) {
-      resolvedValue = { strength_mean: customMean }
-      ;(updates.validation as Record<string, unknown>).resolved_value = resolvedValue
-      updates.weight = Math.abs(customMean)
-      updates.direction = customMean >= 0 ? 'positive' : 'negative'
-    } else {
-      // accepted_pass1 or dismissed — no value changes
-      ;(updates.validation as Record<string, unknown>).resolved_value = null
-    }
-
-    updateEdge(edgeId, { data: updates })
-  }, [])
+  // Brief 4 Task 6 compressed YourExpertise to a single linking row and
+  // removed the contested-edge resolve handler that used to live here.
+  // Handler deleted in the post-hotfix dead-code sweep.
 
   // === SENSITIVITY MAPS (Task 4) ===
   const preAnalysisSensitivity = useCanvasStore(s => s.preAnalysisSensitivity)

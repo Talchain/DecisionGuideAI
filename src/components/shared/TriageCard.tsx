@@ -282,7 +282,6 @@ function InlineValueControls({
 function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onSendMessage, onUpdateEdgeStrength, sourcePill, subtitle }: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
   const isEdge = action?.targetType === 'edge'
-  const isBrief = sourcePill?.label === 'From brief'
   return (
     <div
       className="flex flex-col gap-1 py-1.5 px-2 rounded-lg hover:bg-panel-hover cursor-pointer"
@@ -410,7 +409,6 @@ export function TriageCard(props: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
   const badgeColor = BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
-  const isBrief = sourcePill?.label === 'From brief'
   // Display text: detail (subtitle is removed per Task 1b)
   const displayDetail = detail
 

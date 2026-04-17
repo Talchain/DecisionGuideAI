@@ -125,14 +125,6 @@ function sanitiseDetail(detail: string): string {
     .trim()
 }
 
-/** Humanise adjustment type/code for display (fallback for ungrouped items) */
-function formatAdjustmentType(type: string | undefined): string {
-  if (!type || typeof type !== 'string') return 'System adjustment'
-  return type
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, c => c.toUpperCase())
-}
-
 interface GroupedAdjustment extends ModelAdjustment {
   /** User-facing headline from REPAIR_COPY map */
   headline?: string

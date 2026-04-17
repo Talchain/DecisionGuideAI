@@ -189,3 +189,38 @@ Brief 4 Task 11's "Olumi adjusted N factors" copy was applied to `adjustments.le
 
 Commit `8e2ff4e3` (`chore(v5): vendored @talchain/schemas 0.4.0 -> 0.5.0`) is Paul's own commit that landed on this branch during hotfix work. It's unrelated to the pre-analysis UI fixes. Paul's decision at push time whether to keep it on this branch or split it to a separate release.
 
+---
+
+## Addendum — post-deploy verification (2026-04-17)
+
+### Item 1 — card body vs editor mismatch (applied in this deploy)
+
+Chosen option (a) from the verification list: surface the cap figure as a subtitle hint ("From brief: £70,000") without prefilling the input. `resolveCapHintSubtitle` in `utils/resolveEditorRawValue.ts` shares the `isBriefExtractedWithCap` predicate with the editor resolver, so the two always fire together. PreAnalysisPanel routes the hint into `mapped.subtitle` at the editorConfig branch so TriageCard's `subtitle || displayDetail` chain picks the hint over the upstream "$0" formatting. Four unit tests lock the helper.
+
+### Item 2 — variant-coverage audit
+
+Checked every Brief 4 Phase 8 change that touches TriageCard for default-vs-compact divergence. Structure: `TriageCard.tsx:408` branches `if (variant === 'compact') return <CompactTriageCard {...props} />` once; everything else is the default variant. Only one branch point.
+
+| Brief 4 Phase 8 item | Surface | Default variant | Compact variant | Result |
+|---|---|---|---|---|
+| Task 2 — `ExpandableCoachingText` subtitles | TriageCard body | ✓ (Phase 8) | ✓ (hotfix Phase 3) | Consistent |
+| Task 3 — `display_value` / cap-fallback | `editorConfig.rawValue` | ✓ | ✓ (compact doesn't render editor — deliberate) | Consistent |
+| Task 4 — remove "AI estimate. Does this match?" | `mapImprovementToTriageCard.deriveSubtitle` | ✓ | ✓ (subtitle is a prop, mapper-agnostic) | Consistent |
+| Task 8 — per-factor context derivation | Same mapper | ✓ | ✓ | Consistent |
+| P1 #2 — EVPI `pp` pill always visible | TriageCard Row 1 | ✓ (Phase 8) | ✓ (hotfix ed17fa6f) | Consistent |
+| Task 4 hotfix — optional ordinal | TriageCard Row 1 | ✓ (hotfix ff8c21e1) | ✓ (hotfix ff8c21e1) | Consistent |
+| Task 1 hotfix — ModelAdjustments count | ModelAdjustments (not TriageCard) | n/a | n/a | out of scope |
+| Task 6 hotfix — Options coaching | OptionPreview (not TriageCard) | n/a | n/a | out of scope |
+
+Deliberate (not-bug) compact-variant differences: no `editorConfig` / `InlineValueControls`, no `displayDetail` fallback on subtitle, no `DiscussWithAiButton` sparkle — the variant is visually stripped by design for ranks 4-6.
+
+**Conclusion: no further variant-coverage gaps after ed17fa6f.** The audit hit the remaining Brief-4-era divergence and closed it.
+
+### Item 3 — dead-code cleanup
+
+`handleResolveContestedEdge` traced to Brief 4 Task 6: it was the resolve-contested-edge handler passed into the expanded "Contested relationships" subgroup of `YourExpertise`. Brief 4 compressed `YourExpertise` to a single linking row, so the subgroup and its handler prop are gone. The local `handleResolveContestedEdge` in `PreAnalysisPanel` has no live consumer. Deleted.
+
+`formatAdjustmentType` in `ModelAdjustments` pre-dates Brief 4. Grep confirms zero call sites. Deleted.
+
+Also removed the two `isBrief` destructuring-only declarations in `TriageCard` (both variants) — declared but never read. Minor cleanup in the same commit.
+
