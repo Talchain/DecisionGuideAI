@@ -466,7 +466,7 @@ describe('SeverityStyledCritiques', () => {
     it('handles empty critiques array', () => {
       const { container } = render(<SeverityStyledCritiques critiques={[]} />)
 
-      expect(screen.getByText('Issues & Recommendations')).toBeInTheDocument()
+      expect(screen.getByText('Issues and suggestions')).toBeInTheDocument()
       expect(container.querySelectorAll('[aria-label$="issues"]')).toHaveLength(0)
     })
 
