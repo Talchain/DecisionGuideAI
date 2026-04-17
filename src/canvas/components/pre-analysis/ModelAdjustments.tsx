@@ -246,7 +246,12 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   if (adjustments.length === 0 && repairActions.length === 0 && postRunRepairs.length === 0) return null
 
   const grouped = groupAdjustments(adjustments)
-  const totalCount = grouped.length + repairActions.length
+  // Brief 4 hotfix Task 1: header must match the number of rows the user sees
+  // when expanded. `grouped.length` collapses entries sharing a code into one
+  // row each, even though perItemDetails still renders one row per raw entry
+  // inside AdjustmentRow. Count raw adjustments so header and expanded-row
+  // count agree.
+  const totalCount = adjustments.length + repairActions.length
   const constraintAdj = grouped.filter(a => CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
   const autoFixAdj = grouped.filter(a => !CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
 

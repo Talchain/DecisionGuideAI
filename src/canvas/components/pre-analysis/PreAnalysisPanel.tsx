@@ -1110,10 +1110,12 @@ export function PreAnalysisPanel({
     (data.improvementsByCategory.verify?.length ?? 0) > 0
     || (data.improvementsByCategory.add_evidence?.length ?? 0) > 0
     || (data.contestedEdges?.length ?? 0) > 0
-  // Count: goal target (always 1) + remaining cards + expertise (when present).
-  // The "1" for SuccessTarget keeps the accordion from disappearing in the
-  // ready/clean state — users still need to be able to refine the threshold.
-  const improveConfidenceCount = 1
+  // Brief 4 hotfix Task 5: the goal target is only an improvement item when
+  // the user hasn't confirmed the threshold yet. Once confirmed, drop it from
+  // the count so header and subtitle stop over-reporting. Apply the same
+  // include-goal rule to the subtitle at the accordion render below.
+  const includeGoalAsImprovement = data.isThresholdConfirmed ? 0 : 1
+  const improveConfidenceCount = includeGoalAsImprovement
     + improveConfidenceCards.length
     + (expertiseHasItems ? 1 : 0)
 
@@ -1694,7 +1696,14 @@ export function PreAnalysisPanel({
           <ImproveConfidenceAccordion
             count={improveConfidenceCount}
             highestValueLabel={highestValueLabel}
-            coachingLine={getImproveConfidenceCoachingLine(improveConfidenceCards.length + (expertiseHasItems ? 1 : 0))}
+            coachingLine={
+              // Brief 4 hotfix Task 5: subtitle must match header pill. Use the
+              // same count and render the complete-state message when there
+              // are no actionable improvement items left.
+              improveConfidenceCount === 0
+                ? 'Your model looks well-calibrated.'
+                : getImproveConfidenceCoachingLine(improveConfidenceCount)
+            }
           >
             {/* Goal target inline edit */}
             <SuccessTarget

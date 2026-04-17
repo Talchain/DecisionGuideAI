@@ -16,6 +16,47 @@ describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
     expect(screen.getByText(/Olumi adjusted 2 factors/)).toBeInTheDocument()
   })
 
+  // Brief 4 hotfix Task 1: header count must equal the number of raw
+  // adjustments, not the number of collapsed group entries.
+  it('reports raw adjustment count when two entries share the same code (collapsed group)', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[
+          { code: 'factor_reclassified', reason: 'Moved "Onboarding Duration" to external' },
+          { code: 'factor_reclassified', reason: 'Moved "Current Team Skill Level" to external' },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText(/Olumi adjusted 2 factors/)).toBeInTheDocument()
+  })
+
+  // Heterogeneous regression (Paul's correction): 2× same code + 1× different
+  // code → header must show "3 factors" and detail (after expand) must show
+  // all three raw adjustments, not just the 2 groups.
+  it('reports raw count with mixed codes (2× same + 1× different)', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[
+          { code: 'factor_reclassified', reason: 'Moved "A" to external' },
+          { code: 'factor_reclassified', reason: 'Moved "B" to external' },
+          { code: 'risk_coefficient_corrected', reason: 'Direction mismatch' },
+        ]}
+      />,
+    )
+
+    expect(screen.getByText(/Olumi adjusted 3 factors/)).toBeInTheDocument()
+  })
+
+  it('shows "1 factor" (singular) when a single adjustment is provided', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[{ code: 'factor_reclassified', reason: 'Moved "A" to external' }]}
+      />,
+    )
+    expect(screen.getByText(/Olumi adjusted 1 factor/)).toBeInTheDocument()
+  })
+
   it('renders Constraints applied sub-label when constraint codes are present', () => {
     render(
       <ModelAdjustments
