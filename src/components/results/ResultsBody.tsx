@@ -397,6 +397,7 @@ export const ResultsBody = memo(function ResultsBody({
           winnerWinProbability={resultsSectionData.recommendation.recommendedOption?.winProbability}
           robustnessLevel={resultsSectionData.recommendation.robustnessLevel}
           expertMode={expertMode}
+          inferenceWarnings={resultsSectionData.confidence.inferenceWarnings}
         />
       </div>
       </SectionErrorBoundary>

@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Copy, Check, Info } from 'lucide-react'
+import { Copy, Check, Info, AlertTriangle } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
@@ -61,6 +61,8 @@ export interface AdvancedSectionProps {
   robustnessLevel?: string
   /** Task 10: Show analysis details (expert mode gate) */
   expertMode?: boolean
+  /** Brief 4 Task 12: inference warnings surfaced inside the trust narrative. */
+  inferenceWarnings?: Array<{ code: string; message?: string }>
 }
 
 const PRESET_ORDER: RiskPresetKey[] = ['risk_averse', 'neutral', 'risk_seeking']
@@ -86,10 +88,12 @@ export function AdvancedSection({
   totalFactorCount,
   robustnessLevel,
   expertMode = false,
+  inferenceWarnings,
 }: AdvancedSectionProps) {
   const { profile, selectPreset, loading } = useRiskProfile()
   const [copiedHash, setCopiedHash] = useState(false)
   const [narrativeExpanded, setNarrativeExpanded] = useState(false)
+  const [showAllWarnings, setShowAllWarnings] = useState(false)
   const narrativeRef = useRef<HTMLParagraphElement>(null)
   const [narrativeClamped, setNarrativeClamped] = useState(false)
   // Brief 4 Task 11: pre-analysis CEE may have applied model adjustments.
@@ -248,6 +252,50 @@ export function AdvancedSection({
             {identifiabilityTag === 'not_backdoor_identifiable' && (
               <p className="text-warning">Structural validity: Treat results as directional only.</p>
             )}
+
+            {/* Brief 4 Task 12: inference warnings surfaced verbatim, capped
+                at 3 with Show-all overflow. One AlertTriangle per warning. */}
+            {(() => {
+              const relevant = (inferenceWarnings ?? []).filter(
+                w => typeof w.message === 'string' && w.message.trim().length > 0,
+              )
+              if (relevant.length === 0) return null
+              const visible = showAllWarnings ? relevant : relevant.slice(0, 3)
+              const hidden = relevant.length - visible.length
+              return (
+                <div data-testid="trust-inference-warnings">
+                  <ul className="space-y-1">
+                    {visible.map((w, i) => (
+                      <li
+                        key={`${w.code}-${i}`}
+                        className="flex items-start gap-2"
+                      >
+                        <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+                        <span>{w.message}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {hidden > 0 && !showAllWarnings && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllWarnings(true)}
+                      className={`${typography.panelMeta} text-info hover:underline mt-1`}
+                    >
+                      Show all ({relevant.length})
+                    </button>
+                  )}
+                  {showAllWarnings && relevant.length > 3 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowAllWarnings(false)}
+                      className={`${typography.panelMeta} text-info hover:underline mt-1`}
+                    >
+                      Show fewer
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
 
             {/* Brief 4 Task 11: model-adjustments pointer to Model tab */}
             {modelAdjustmentsCount > 0 && (
