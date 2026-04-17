@@ -81,7 +81,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   const pendingBriefRef = useRef<string | null>(null)
   const generateInFlightRef = useRef(false)
   const wasThinkingRef = useRef(false)
-  const { runV2Analysis } = useV2Run()
+  const { runV2Analysis, isRunning: isV2RunInFlight } = useV2Run()
   const { readiness } = useGraphReadiness()
 
   // Track 2: Thread persistence (best-effort, flag-gated)
@@ -550,7 +550,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onInsertText={handleInsertText}
         onAttach={onAttach}
         onRunAnalysis={handleRunAnalysis}
-        canRunAnalysis={runGateResult.allowed}
+        canRunAnalysis={runGateResult.allowed && !isV2RunInFlight}
         runBlockedReason={runBlockedReason}
       />
     </>
