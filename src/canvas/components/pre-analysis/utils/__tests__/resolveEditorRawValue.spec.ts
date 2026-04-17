@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { resolveEditorRawValue } from '../resolveEditorRawValue'
+import { resolveEditorRawValue, resolveCapHintSubtitle } from '../resolveEditorRawValue'
+import { formatValueWithUnit } from '../../../../utils/formatValueWithUnit'
 
 describe('resolveEditorRawValue — TriageCard inline editor pre-fill (Brief 4 hotfix Task 3)', () => {
   it('returns null when detail is "Not set" (inferred-zero placeholder)', () => {
@@ -111,5 +112,63 @@ describe('resolveEditorRawValue — TriageCard inline editor pre-fill (Brief 4 h
         sourceBadge: 'brief',
       }),
     ).toBeNull()
+  })
+})
+
+describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards', () => {
+  it('returns a formatted "From brief: …" string when the brief-extracted-with-cap predicate fires', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: 'Annual Assistant Cost',
+        rawValue: 0,
+        cap: 70000,
+        unit: '£',
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBe('From brief: £70,000')
+  })
+
+  it('returns null for AI-sourced factors (no brief provenance)', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: 'Some value',
+        rawValue: 0,
+        cap: 70000,
+        unit: '£',
+        sourceBadge: 'ai',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBeNull()
+  })
+
+  it('returns null when rawValue is non-zero (cap is not the suggested default)', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: '£5000',
+        rawValue: 5000,
+        cap: 70000,
+        unit: '£',
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBeNull()
+  })
+
+  it('returns null when cap is missing', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: 'Some value',
+        rawValue: 0,
+        cap: null,
+        unit: '£',
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBeNull()
   })
 })

@@ -30,19 +30,53 @@ export interface EditorRawValueInput {
   detail: string
   rawValue: number | null
   cap: number | null
+  /** Unit string (e.g. "$", "£", "%"); used by resolveCapHintSubtitle only. */
+  unit?: string | null
   sourceBadge?: 'brief' | 'ai'
 }
 
-export function resolveEditorRawValue(item: EditorRawValueInput): number | null {
-  if (item.detail === 'Not set') return null
-  const isBriefExtractedWithCap =
+/**
+ * True for the triple we can't disambiguate from the envelope:
+ * sourceBadge='brief' + rawValue=0 + cap>0. Shared between the editor
+ * pre-fill branch and the subtitle-hint branch so the two behaviours stay
+ * coupled. If one day CEE publishes `intervention_details[id].display_value`
+ * through to ImprovementItem, both consumers should read that instead and
+ * this predicate can retire.
+ */
+export function isBriefExtractedWithCap(item: EditorRawValueInput): boolean {
+  return (
     item.sourceBadge === 'brief' &&
     item.rawValue === 0 &&
     typeof item.cap === 'number' &&
     item.cap > 0
+  )
+}
+
+export function resolveEditorRawValue(item: EditorRawValueInput): number | null {
+  if (item.detail === 'Not set') return null
   // Narrowed from returning `cap` to returning `null` after review:
   // cap cannot be used as a safe default without an explicit "baseline
   // missing" sentinel (see doc comment above).
-  if (isBriefExtractedWithCap) return null
+  if (isBriefExtractedWithCap(item)) return null
   return item.rawValue ?? null
 }
+
+/**
+ * Build the subtitle hint shown below a brief-extracted factor's title
+ * when the editor is left empty (isBriefExtractedWithCap case). Surfaces
+ * the extracted ceiling so the user still sees the figure the brief
+ * carried — without writing it into the input (which would risk the
+ * genuine-zero overwrite documented in resolveEditorRawValue).
+ *
+ * Returns null when the predicate doesn't fire, so callers can preserve
+ * their existing subtitle path for all other items.
+ */
+export function resolveCapHintSubtitle(
+  item: EditorRawValueInput,
+  format: (value: number, unit: string | null | undefined) => string,
+): string | null {
+  if (!isBriefExtractedWithCap(item)) return null
+  const formatted = format(item.cap as number, item.unit ?? null)
+  return `From brief: ${formatted}`
+}
+

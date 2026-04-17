@@ -55,7 +55,8 @@ import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
-import { resolveEditorRawValue } from './utils/resolveEditorRawValue'
+import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
+import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { ModelAdjustments } from './ModelAdjustments'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
@@ -772,15 +773,26 @@ export function PreAnalysisPanel({
     const targetId = item.action?.targetId
     // Brief 4 hotfix Task 3: priority chain extracted into resolveEditorRawValue
     // so the brief-extraction cap-fallback is unit-testable in isolation.
-    const numericValue = resolveEditorRawValue({
+    const resolverInput = {
       detail: item.detail,
       rawValue: item.rawValue ?? null,
       cap: item.cap ?? null,
+      unit: item.unit ?? null,
       sourceBadge: item.sourceBadge,
-    })
+    }
+    const numericValue = resolveEditorRawValue(resolverInput)
+    // Follow-up to the P0 #1 narrowing: when the editor is left empty in the
+    // brief-extracted-with-cap case, surface the extracted ceiling as a
+    // subtitle hint so the card body doesn't fall back to "$0" via the
+    // upstream formatObservedStateDetail. `mapped.subtitle` is overridden
+    // only when the predicate fires; other items keep their existing subtitle
+    // (CEE hint / deterministic derived context / generic fallback).
+    const capHintSubtitle = resolveCapHintSubtitle(resolverInput, formatValueWithUnit)
+    const subtitle = capHintSubtitle ?? mapped.subtitle
     if (targetId && item.focus?.type === 'node' && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
       return {
         ...mapped,
+        subtitle,
         editorConfig: {
           kind: 'factor' as const,
           rawValue: numericValue,
