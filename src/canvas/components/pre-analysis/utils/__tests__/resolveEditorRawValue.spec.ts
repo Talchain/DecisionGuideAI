@@ -116,7 +116,7 @@ describe('resolveEditorRawValue — TriageCard inline editor pre-fill (Brief 4 h
 })
 
 describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards', () => {
-  it('returns a formatted "From brief: …" string when the brief-extracted-with-cap predicate fires', () => {
+  it('returns a formatted "Brief suggests up to: …" string when the brief-extracted-with-cap predicate fires', () => {
     const hint = resolveCapHintSubtitle(
       {
         detail: 'Annual Assistant Cost',
@@ -127,7 +127,7 @@ describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards
       },
       formatValueWithUnit,
     )
-    expect(hint).toBe('From brief: £70,000')
+    expect(hint).toBe('Brief suggests up to: £70,000')
   })
 
   it('returns null for AI-sourced factors (no brief provenance)', () => {
@@ -170,5 +170,69 @@ describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards
       formatValueWithUnit,
     )
     expect(hint).toBeNull()
+  })
+
+  it('returns null when unit is missing (bare numeric cap is misleading)', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: 'Some value',
+        rawValue: 0,
+        cap: 70000,
+        unit: null,
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBeNull()
+  })
+
+  it('returns null when unit is an empty string', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: 'Some value',
+        rawValue: 0,
+        cap: 70000,
+        unit: '',
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBeNull()
+  })
+
+  it('returns null when unit is whitespace-only', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: 'Some value',
+        rawValue: 0,
+        cap: 70000,
+        unit: '   ',
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBeNull()
+  })
+
+  // Genuine-zero regression: brief literally said "0% churn". The hint
+  // copy "Brief suggests up to: X" is defensible for this case too — the
+  // cap is still the upper bound the brief allows, and the hedged wording
+  // never claims the brief stated X as the current value.
+  it('renders defensible copy even in the genuine-zero-from-brief case', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: '0%',
+        rawValue: 0,
+        cap: 5,
+        unit: '%',
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBe('Brief suggests up to: 5%')
+    // Critically, the copy never says "the brief said 5%" — only that
+    // the brief allows up to 5%, which is true whether the current value
+    // is genuinely 0 or just not recorded.
+    expect(hint).not.toMatch(/^From brief:/)
   })
 })

@@ -308,3 +308,104 @@ describe('TriageCard — edge title truncation (P1.5 follow-up)', () => {
     )
   })
 })
+
+// ── Parametrised variant-parity (Brief 4 hotfix self-review P1.3) ──────────
+//
+// Locks behaviour that MUST be present in BOTH default and compact variants.
+// Individual variant tests above exercise each side once; this block asserts
+// parity for the same props across both variants so a regression on one
+// variant can't slip past unit tests that only touched the other.
+//
+// Axes covered:
+//   - Task 2: ExpandableCoachingText renders the full subtitle (no "…")
+//   - Task 4: ordinal badge is hidden when ordinal is undefined
+//   - Task 8 / EVPI pill: Npp pill renders when evoiImpact is set, is absent when null
+//
+// Task 3 (editor pre-fill / cap hint subtitle) is deliberately excluded —
+// the compact variant has no inline editor by design, so the subtitle-hint
+// override only applies in the default variant. Panel-level behaviour for
+// Task 3 is covered by the resolveEditorRawValue / resolveCapHintSubtitle
+// unit tests and by the PreAnalysisPanel editorConfig wiring.
+describe.each(['default', 'compact'] as const)(
+  'TriageCard parity — variant="%s"',
+  variant => {
+    it('renders the full subtitle (Task 2 — ExpandableCoachingText)', () => {
+      const subtitle = 'Connects to 2 downstream relationships'
+      render(
+        <TriageCard
+          cardKey="k-parity-subtitle"
+          ordinal={1}
+          title="Factor A"
+          detail="Detail"
+          subtitle={subtitle}
+          category="verify"
+          variant={variant}
+          action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
+          onConfirm={() => {}}
+        />,
+      )
+      expect(screen.getByText(subtitle)).toBeInTheDocument()
+      // Guard the truncation regression: the literal "…" ellipsis from the
+      // old single-line truncate path must never appear in the DOM text.
+      const body = document.body.textContent ?? ''
+      expect(body).not.toMatch(/Connects to 2 downstream\.\.\./)
+    })
+
+    it('omits the ordinal badge when ordinal is undefined (Task 4)', () => {
+      render(
+        <TriageCard
+          cardKey="k-parity-no-ordinal"
+          title="Start here"
+          detail="Detail"
+          category="verify"
+          variant={variant}
+        />,
+      )
+      expect(screen.queryByText('0')).not.toBeInTheDocument()
+      expect(screen.getByText('Start here')).toBeInTheDocument()
+    })
+
+    it('renders the ordinal badge when ordinal is provided (Task 4 inverse)', () => {
+      render(
+        <TriageCard
+          cardKey="k-parity-with-ordinal"
+          ordinal={3}
+          title="Factor C"
+          detail="Detail"
+          category="verify"
+          variant={variant}
+        />,
+      )
+      expect(screen.getByText('3')).toBeInTheDocument()
+    })
+
+    it('renders the Npp EVPI pill when evoiImpact is set (Phase 8 P1 #2)', () => {
+      render(
+        <TriageCard
+          cardKey="k-parity-evpi"
+          ordinal={2}
+          title="Factor D"
+          detail="Detail"
+          category="add_evidence"
+          variant={variant}
+          evoiImpact={2.5}
+        />,
+      )
+      expect(screen.getByText('2.5pp')).toBeInTheDocument()
+    })
+
+    it('omits the Npp pill when evoiImpact is null', () => {
+      render(
+        <TriageCard
+          cardKey="k-parity-no-evpi"
+          ordinal={2}
+          title="Factor E"
+          detail="Detail"
+          category="add_evidence"
+          variant={variant}
+        />,
+      )
+      expect(screen.queryByText(/\d+\.\d+pp$/)).not.toBeInTheDocument()
+    })
+  },
+)

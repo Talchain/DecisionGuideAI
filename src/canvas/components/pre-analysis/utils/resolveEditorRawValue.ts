@@ -68,6 +68,14 @@ export function resolveEditorRawValue(item: EditorRawValueInput): number | null 
  * carried — without writing it into the input (which would risk the
  * genuine-zero overwrite documented in resolveEditorRawValue).
  *
+ * Copy is deliberately hedged ("Brief suggests up to") because the cap
+ * is an upper bound, not necessarily a verbatim figure the brief stated.
+ * This phrasing is defensible for both the "up to £X" case and the
+ * "genuine 0 current value with ceiling £X" case.
+ *
+ * Gated on a non-empty unit: without a unit the cap figure is just a
+ * bare number, which can be misleading for low-cap or placeholder shapes.
+ *
  * Returns null when the predicate doesn't fire, so callers can preserve
  * their existing subtitle path for all other items.
  */
@@ -76,7 +84,9 @@ export function resolveCapHintSubtitle(
   format: (value: number, unit: string | null | undefined) => string,
 ): string | null {
   if (!isBriefExtractedWithCap(item)) return null
-  const formatted = format(item.cap as number, item.unit ?? null)
-  return `From brief: ${formatted}`
+  const unit = item.unit
+  if (typeof unit !== 'string' || unit.trim() === '') return null
+  const formatted = format(item.cap as number, unit)
+  return `Brief suggests up to: ${formatted}`
 }
 
