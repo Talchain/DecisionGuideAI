@@ -18,11 +18,28 @@ import type { RunRequest, ReportV1, ErrorV1 } from '../types'
 // Setup MSW server
 const server = setupServer()
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
 const PROXY_BASE = '/api/plot'
+
+// The adapter reads the proxy base from VITE_PLOT_PROXY_BASE, falling back to
+// '/bff/engine' (see getProxyBase() in src/adapters/plot/v1/sseClient.ts). The
+// MSW handlers below are registered under `${PROXY_BASE}/v1/*`; without an
+// explicit stub, CI (no .env.local) resolves the env to undefined, the adapter
+// fetches /bff/engine/v1/stream, MSW doesn't match → "intercepted a request
+// without a matching request handler" + onHello spy called 0 times.
+//
+// Locally masked by `.env.local: VITE_PLOT_PROXY_BASE=/api/plot`.
+//
+// Mirrors the pattern in src/adapters/plot/v1/__tests__/probe.test.ts
+// (vi.stubEnv at test-time, vi.unstubAllEnvs on teardown).
+beforeAll(() => {
+  vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)
+  server.listen({ onUnhandledRequest: 'error' })
+})
+afterEach(() => server.resetHandlers())
+afterAll(() => {
+  vi.unstubAllEnvs()
+  server.close()
+})
 
 describe('httpV1Adapter Streaming Tests', () => {
   const runRequest: RunRequest = {
