@@ -107,20 +107,39 @@ describe('Items 15, 16 — Empty-state shapes show light fill and align on row h
 // ---------------------------------------------------------------------------
 
 describe('Item 19 — DraftChat resize handle', () => {
-  it('exposes the resize handle via data-testid', () => {
-    // Shallow check: import the module and assert the constant clamp values
-    // round-trip through the public render path. A full render of DraftChat
-    // drags in the whole canvas store; the presence of the testid is
-    // sufficient for the brief's regression signal.
-    //
-    // This test exists so a future contributor accidentally reverting the
-    // left-edge handle would see a failing test pointing at item 19.
-    const html = `<div data-testid="draft-chat-resize-handle" style="width: 4px; left: 0;"></div>`
-    const div = document.createElement('div')
-    div.innerHTML = html
-    const handle = div.querySelector('[data-testid="draft-chat-resize-handle"]') as HTMLElement
-    expect(handle.style.width).toBe('4px')
-    expect(handle.style.left).toBe('0px')
+  // Fully mounting DraftChat pulls in the canvas store, CEE draft hook, and
+  // layout store. These tests assert the brief's observable contract via
+  // source inspection (real regression signal) plus a behavioural clamp
+  // test that matches the resize handler's inlined math.
+
+  it('resize handle JSX declares left-edge 4px with matching testid', async () => {
+    const fs = await import('node:fs/promises')
+    const path = await import('node:path')
+    // Resolved from this spec's directory — canvas/conversation/__tests__/ → canvas/components/
+    const src = await fs.readFile(
+      path.resolve(__dirname, '../../components/DraftChat.tsx'),
+      'utf8',
+    )
+    // Regression tripwire: reverting to right-edge / 1.5px would remove these.
+    expect(src).toMatch(/data-testid="draft-chat-resize-handle"/)
+    expect(src).toMatch(/left-0/)
+    expect(src).toMatch(/width: 4\b/)
+    // Confirm the clamp range the brief specifies (360–600, not 320–1014).
+    expect(src).toMatch(/Math\.max\(360,\s*Math\.min\(600,/)
+    // Confirm the 1.44 render multiplier was removed (storage == rendered).
+    expect(src).not.toMatch(/\*\s*1\.44\b/)
+  })
+
+  it('resize clamp math respects 360–600 bounds', () => {
+    // Mirrors the inlined expression in DraftChat's handleResizeStart:
+    //   Math.max(360, Math.min(600, startWidth - deltaX))
+    const clamp = (startWidth: number, deltaX: number) =>
+      Math.max(360, Math.min(600, startWidth - deltaX))
+    // Left-edge: negative delta (drag left) GROWS panel.
+    expect(clamp(480, -200)).toBe(600) // clamps at upper bound
+    expect(clamp(480, 200)).toBe(360)  // clamps at lower bound
+    expect(clamp(480, -40)).toBe(520)  // mid-range grows by |delta|
+    expect(clamp(480, 40)).toBe(440)   // mid-range shrinks by delta
   })
 })
 

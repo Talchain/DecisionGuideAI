@@ -12,7 +12,7 @@
  * Escape. Uses `createPortal` to escape stacking context of clipping parents.
  */
 
-import { useRef, useEffect, useState, useLayoutEffect } from 'react'
+import { useCallback, useRef, useEffect, useState, useLayoutEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { CSSProperties, ReactNode, RefObject } from 'react'
 
@@ -67,9 +67,11 @@ export function FlipDropdown({
   const popoverRef = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState<Position | null>(null)
 
-  // Recompute position when the dropdown opens or its content size changes.
-  useLayoutEffect(() => {
-    if (!isOpen || !anchorRef.current || !popoverRef.current) return
+  // Shared position calculation — invoked on open, viewport resize, scroll
+  // (capture phase so ancestor-container scrolls are caught), and content
+  // size change via ResizeObserver.
+  const updatePosition = useCallback(() => {
+    if (!anchorRef.current || !popoverRef.current) return
     const anchorRect = anchorRef.current.getBoundingClientRect()
     const contentHeight = popoverRef.current.offsetHeight || 0
     const required = minRoomForUpward ?? contentHeight + offset
@@ -98,7 +100,34 @@ export function FlipDropdown({
         ...horizontal,
       })
     }
-  }, [isOpen, anchorRef, align, offset, minRoomForUpward])
+  }, [anchorRef, align, offset, minRoomForUpward])
+
+  // Initial placement + recompute when props change.
+  useLayoutEffect(() => {
+    if (!isOpen) return
+    updatePosition()
+  }, [isOpen, updatePosition])
+
+  // Recompute on viewport resize, capturing scroll, and content growth.
+  // Without these, the dropdown drifts off-screen if the anchor moves or
+  // popover content grows after open.
+  useEffect(() => {
+    if (!isOpen) return
+    window.addEventListener('resize', updatePosition)
+    window.addEventListener('scroll', updatePosition, true)
+
+    let ro: ResizeObserver | null = null
+    if (typeof ResizeObserver !== 'undefined' && popoverRef.current) {
+      ro = new ResizeObserver(() => updatePosition())
+      ro.observe(popoverRef.current)
+    }
+
+    return () => {
+      window.removeEventListener('resize', updatePosition)
+      window.removeEventListener('scroll', updatePosition, true)
+      ro?.disconnect()
+    }
+  }, [isOpen, updatePosition])
 
   // Click-outside and Escape handlers.
   useEffect(() => {
