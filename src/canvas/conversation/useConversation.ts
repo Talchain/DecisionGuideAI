@@ -2676,12 +2676,10 @@ export function useConversation(): UseConversationReturn {
 
           let streamEnvelope: OrchestratorResponseEnvelopeV2 | undefined
 
-          // Show local "Thinking..." if no progress/text_delta within 3s
-          const thinkingTimerId = setTimeout(() => {
-            if (streamingMsgIdRef.current === msgId && !streamTextRef.current) {
-              updateMessage(msgId, { toolLoadingState: 'Thinking\u2026' })
-            }
-          }, 3000)
+          // Tranche 1 hotfix item 6: removed the 3s "Thinking…" card-level
+          // placeholder. Activity is signalled by the composer stop button
+          // (isThinking). Tool-specific labels ("Running simulations…", etc.)
+          // and CEE progress messages still flow through toolLoadingState.
 
           for await (const event of streamOrchestratorTurn(request, controller.signal)) {
             switch (event.type) {
@@ -2696,7 +2694,6 @@ export function useConversation(): UseConversationReturn {
                 break
 
               case 'text_delta':
-                clearTimeout(thinkingTimerId)
                 // Clear progress/thinking status when real content starts arriving
                 if (frameBufRef.current.length === 0 && !streamTextRef.current) {
                   updateMessage(msgId, { toolLoadingState: null })
@@ -2729,7 +2726,6 @@ export function useConversation(): UseConversationReturn {
                 break
 
               case 'turn_complete':
-                clearTimeout(thinkingTimerId)
                 // Final flush of any pending RAF buffer
                 if (rafIdRef.current != null) {
                   if (typeof cancelAnimationFrame === 'function' && rafIdRef.current !== -1) {

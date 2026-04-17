@@ -260,9 +260,14 @@ export function safeRichText(markdown: string): string {
       result += part
     } else {
       if (result !== '') {
-        // Paragraph break (blank line between parts) → md-gap for visible spacing.
-        // Also use gap spacer between consecutive bold-lead paragraphs.
-        const useGap = blankSeen || (isBoldLead(prevPart) && isBoldLead(part))
+        // Gap spacer between paragraphs when any of:
+        //   · blank line was seen (explicit paragraph break)
+        //   · the following part starts with a bold lead (header-style)
+        //   · the preceding part was a bold lead (header → body transition)
+        // Hotfix item 7: the second condition was missing, so streamed
+        //   "**Header**\nbody\n**Next header**\nbody" rendered with plain
+        //   <br> between header and body. DS v5 §2.4 requires ~12–16px.
+        const useGap = blankSeen || isBoldLead(part) || isBoldLead(prevPart)
         result += useGap ? '<br class="md-gap">' : '<br>'
       }
       blankSeen = false
