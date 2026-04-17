@@ -51,14 +51,27 @@ vi.mock('../turnService', () => ({
   },
 }))
 
-// Pin the orchestrator-streaming flag ON: the buildRequest payload block
-// asserts against mockStreamTurn (streaming path). Without this, the flag
-// resolves from env/localStorage and the non-streaming branch runs on any
-// machine without VITE_FEATURE_ORCHESTRATOR_STREAMING=1, making 21 tests
-// env-dependent. See docs/ui/useconversation-spec-diagnosis.md.
+// Pin both flags ON:
+//   - isOrchestratorStreamingEnabled: the buildRequest payload block asserts
+//     against mockStreamTurn (streaming path). Without this, the flag
+//     resolves from env/localStorage and the non-streaming branch runs on
+//     any machine without VITE_FEATURE_ORCHESTRATOR_STREAMING=1, making 20
+//     sendMessage tests env-dependent.
+//   - isOrchestratorV2Enabled: sendSystemEvent guards on this flag at
+//     useConversation.ts:2984 and early-returns if it's false. Without
+//     pinning, the "system event turn also transforms graph_state correctly"
+//     test exits sendSystemEvent before the streaming path and
+//     mockStreamTurn is never called. sendMessage has no V2 guard, which is
+//     why the 20 user-message tests passed with streaming alone.
+// Mirrors the pattern in sibling specs (streamingLifecycle, systemEvents).
+// See docs/ui/useconversation-spec-diagnosis.md.
 vi.mock('../../../flags', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../../flags')>()
-  return { ...actual, isOrchestratorStreamingEnabled: () => true }
+  return {
+    ...actual,
+    isOrchestratorStreamingEnabled: () => true,
+    isOrchestratorV2Enabled: () => true,
+  }
 })
 
 // ---------------------------------------------------------------------------
