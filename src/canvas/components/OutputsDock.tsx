@@ -1619,6 +1619,7 @@ export function OutputsDock() {
                     onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
                     nodeValueLookup={nodeValueLookup}
+                    isStale={analysisStale && !isError}
                   />
                   </div>
                 )}

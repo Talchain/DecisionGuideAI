@@ -90,6 +90,8 @@ export interface ResultsBodyProps {
   expertMode?: boolean
   /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
   nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>
+  /** When true, suppress mutation affordances (Set value, Confirm, action buttons) until rerun completes. */
+  isStale?: boolean
 }
 
 export const ResultsBody = memo(function ResultsBody({
@@ -123,7 +125,17 @@ export const ResultsBody = memo(function ResultsBody({
   onSetFactorValue,
   expertMode,
   nodeValueLookup,
+  isStale,
 }: ResultsBodyProps) {
+  // Brief 4 Task 13 + Phase 8 P0 #4: suppress mutation affordances while
+  // results are stale so users don't edit a factor based on a display that
+  // no longer matches the analysis. Read-only affordances (focus node,
+  // hover highlights, AI discuss) remain active. Baseline/threshold
+  // handlers are declared on this component but not currently wired to
+  // the children that consume them, so we only gate the two that are.
+  const staleOnConfirmFactor = isStale ? undefined : onConfirmFactor
+  const staleOnSetFactorValue = isStale ? undefined : onSetFactorValue
+
   // Risk appetite toggle — Conservative: highest p10, Neutral: highest win prob, Aggressive: highest p90
   const [riskAppetite, setRiskAppetite] = useState<RiskAppetite>('neutral')
 
@@ -176,8 +188,8 @@ export const ResultsBody = memo(function ResultsBody({
           verifiedCount={verifiedCount}
           influenceCoverage={influenceCoverage}
           onSendMessage={onSendMessage}
-          onConfirm={onConfirmFactor}
-          onSetValue={onSetFactorValue}
+          onConfirm={staleOnConfirmFactor}
+          onSetValue={staleOnSetFactorValue}
           expertMode={expertMode}
           nodeValueLookup={nodeValueLookup}
         />
