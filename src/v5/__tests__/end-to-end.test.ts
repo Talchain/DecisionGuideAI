@@ -111,4 +111,64 @@ describe('V5 A1 end-to-end: callV5Turn → routeV5Response', () => {
     expect(result.kind).toBe('fall_through_v4');
     expect(fetchImpl).not.toHaveBeenCalled();
   });
+
+  /**
+   * A2: ambiguous user input gets a clarify envelope from CEE. The wire
+   * shape is structurally identical to direct_answer — text-only, empty
+   * blocks/actions/insights — so the router reports text_only, and the
+   * existing assistant-text render path handles it. No new renderer is
+   * needed (the clarify turn class is carried in CEE telemetry only, not
+   * on the wire OlumiResponse).
+   */
+  it('flag=true + ambiguous input → clarify envelope renders as text_only', async () => {
+    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+    const clarify: OlumiResponse = {
+      response_version: 2,
+      assistant_text: 'What decision are you weighing right now?',
+      blocks: [],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const fetchImpl = mockFetchReturning(clarify);
+    const result = await callV5Turn(
+      { ...VALID_PAYLOAD, message: 'help me' },
+      { fetchImpl: fetchImpl as unknown as typeof fetch },
+    );
+    expect(fetchImpl).toHaveBeenCalledOnce();
+
+    const target = routeV5Response(result);
+    expect(target.kind).toBe('text_only');
+    if (target.kind === 'text_only') {
+      expect(target.response.assistant_text).toBe('What decision are you weighing right now?');
+      expect(target.response.blocks).toEqual([]);
+    }
+  });
+
+  /**
+   * A2: LLM_UNAVAILABLE envelope — CEE uses this wire code when the classifier
+   * returns unparseable structured output (internal name LLM_SCHEMA_VIOLATION,
+   * mapped to LLM_UNAVAILABLE per CEE types.ts). The UI treats it as any
+   * other typed error; TypedErrorRenderer renders the declared user text.
+   */
+  it('flag=true + LLM_UNAVAILABLE envelope → renders typed_error with LLM_UNAVAILABLE', async () => {
+    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+    const fail: OlumiResponse = {
+      response_version: 2,
+      assistant_text: 'The model is temporarily unavailable. Please retry shortly.',
+      blocks: [
+        { type: 'error', error_code: 'LLM_UNAVAILABLE', severity: 'error' },
+      ],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const fetchImpl = mockFetchReturning(fail);
+    const result = await callV5Turn(VALID_PAYLOAD, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const target = routeV5Response(result);
+    expect(target.kind).toBe('typed_error');
+    if (target.kind === 'typed_error') {
+      expect(target.code).toBe('LLM_UNAVAILABLE');
+    }
+  });
 });

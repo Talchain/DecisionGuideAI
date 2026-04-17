@@ -13,6 +13,7 @@ import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
 import { callV5Turn } from '../../v5/v5Adapter'
 import { routeV5Response } from '../../v5/responseRouter'
+import { isV5Eligible } from '../../v5/eligibility'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
@@ -2386,8 +2387,16 @@ export function useConversation(): UseConversationReturn {
       // -------------------------------------------------------------------
       // V5 orchestrator branch (slice A1).
       //
-      // Runs only when VITE_ENABLE_V5_ORCHESTRATOR === 'true'. Side-effect
-      // allow-list per Docs/v5/slice-a1-investigation.md (Pre-impl B):
+      // Runs only when `isV5Eligible(...)` returns eligible. A1 only handles
+      // direct_answer / frame-stage turns; the CEE side hard-rejects anything
+      // else as UNHANDLED which would surface a typed error for turns V5 was
+      // never meant to handle. The predicate routes ineligible turns to V4
+      // silently (no V5 artefact, no loading UX). See src/v5/eligibility.ts
+      // and Docs/v5/slice-a1-implementation.md (Known Gaps section) for the
+      // full condition list and rationale.
+      //
+      // Side-effect allow-list per Docs/v5/slice-a1-investigation.md
+      // (Pre-impl B):
       //   Run:  inFlightRef (already set at L2364), beginInteractionChain
       //         (already run above), addMessage(user bubble),
       //         setIsThinking(true), bindRequestToInteraction.
@@ -2396,7 +2405,17 @@ export function useConversation(): UseConversationReturn {
       //
       // On fall_through_v4 → continue into the V4 path unchanged (no early
       // return, no V5 side effects). On any other result → render and exit.
-      if (import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR === 'true' && mode === 'user' && message.trim().length > 0) {
+      const v5Eligibility = isV5Eligible({
+        flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR,
+        chipMeta,
+        turnType,
+        source,
+        mode,
+        messages,
+        analysisStateReady: useCanvasStore.getState().analysisStateReady,
+        resultsStatus: useCanvasStore.getState().results.status,
+      })
+      if (v5Eligibility.eligible && message.trim().length > 0) {
         // V5 allow-list: user bubble
         if (!hidden && !skipUserBubble) {
           addMessage({

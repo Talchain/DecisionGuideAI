@@ -120,8 +120,8 @@ const HEADLINE_BUILDERS: Partial<Record<ScenarioEventType, HeadlineBuilder>> = {
     const robust = str(d, 'robustness')
     if (winner && prob) {
       return robust
-        ? `Analysis complete - ${winner} leads at ${prob}% (${robust})`
-        : `Analysis complete - ${winner} leads at ${prob}%`
+        ? `Analysis complete - ${winner} performs best at ${prob}% (${robust})`
+        : `Analysis complete - ${winner} performs best at ${prob}%`
     }
     return sentenceCase('analysis_run')
   },

@@ -31,8 +31,9 @@ describe('sanitizeMarkdown', () => {
     it('converts unordered lists', () => {
       const result = sanitizeMarkdown('- Item 1\n- Item 2')
       expect(result).toContain('<ul>')
-      expect(result).toContain('<li>Item 1')
-      expect(result).toContain('<li>Item 2')
+      // Tranche 1 item 9: standalone integers wrap in .md-number for tabular styling.
+      expect(result).toContain('<li>Item <span class="md-number">1</span></li>')
+      expect(result).toContain('<li>Item <span class="md-number">2</span></li>')
     })
 
     it('converts ordered lists', () => {

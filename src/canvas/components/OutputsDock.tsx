@@ -378,7 +378,7 @@ export function OutputsDock() {
   const isRunning = resultsStatus === 'preparing' || resultsStatus === 'connecting' || resultsStatus === 'streaming'
   const { readiness } = useGraphReadiness()
 
-  // Unified run gating — same function used by ConversationPanel/ChatTopBar.
+  // Unified run gating — same function used by ConversationPanel/ChatComposer.
   const hasValidationBlockers = useCanvasStore(s =>
     s.graphHealth?.issues?.some((i: { severity: string }) => i.severity === 'error' || i.severity === 'blocker') ?? false
   )

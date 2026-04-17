@@ -9,6 +9,8 @@
 
 // Phase 1A Components
 export { FieldLabel } from './FieldLabel'
+export { FlipDropdown } from './FlipDropdown'
+export type { FlipDropdownProps } from './FlipDropdown'
 
 // Phase 1A Canvas Components (re-exported for convenience)
 export { ScoreChip } from '../../canvas/components/ScoreChip'

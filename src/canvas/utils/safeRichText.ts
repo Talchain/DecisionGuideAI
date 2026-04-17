@@ -27,7 +27,7 @@
  */
 
 /** Allowlisted HTML tag names. Nothing else may appear in the output. */
-const ALLOWED_TAGS = new Set(['strong', 'br', 'ul', 'li'])
+const ALLOWED_TAGS = new Set(['strong', 'br', 'ul', 'li', 'span'])
 
 /**
  * Conservative emoji strip pattern.
@@ -84,12 +84,27 @@ function stripDisallowedTags(html: string): string {
 
 /**
  * Convert a single non-bullet line to HTML.
- * Applies bold transform then emits as-is (no wrapper element).
+ * Applies bold and numeric transforms; emits plain text otherwise.
+ *
+ * Numeric transform wraps standalone integers, decimals, and percentages in
+ * <span class="md-number"> so they render with tabular-nums + medium weight
+ * per DS v5 §2 prose rhythm. Word-boundary constrained to avoid matching
+ * digits inside identifiers (e.g. "opt_raise_59" stays untouched).
  */
 function convertInline(text: string): string {
+  // Numeric: \d+(.\d+)?%? — applied first so bold markers don't interfere.
+  // Lookbehind excludes:
+  //   · mid-identifier digits ([A-Za-z_\d])
+  //   · HTML numeric entities (&#123;, &#x1F;) which contain digits that
+  //     must not be wrapped — the entity sequence is produced by escapeHtml.
+  // Lookahead excludes semicolon (tail of a numeric entity) and identifier chars.
+  const withNumbers = text.replace(
+    /(?<![A-Za-z_\d]|&#[xX]?)(\d+(?:\.\d+)?%?)(?![A-Za-z_;])/g,
+    '<span class="md-number">$1</span>',
+  )
   // Bold: **text** → <strong>text</strong>
   // Non-greedy to handle multiple bold spans per line.
-  return text.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  return withNumbers.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
 }
 
 /**
