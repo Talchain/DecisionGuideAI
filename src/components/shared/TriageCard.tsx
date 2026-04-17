@@ -317,6 +317,15 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
             <span className={`${typography.panelMeta} text-text-light`}>{influencePct}%</span>
           </div>
         )}
+        {/* Brief 4 Phase 8 P1 #2 applied to compact variant too: surfaced
+            evidence-gap cards ranked 4+ live in the compact AlsoConsider
+            disclosure. They need the Npp pill for the same reason the
+            default variant does — motivates the Set-value action. */}
+        {evoiImpact != null && (
+          <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
+            {evoiImpact.toFixed(1)}pp
+          </span>
+        )}
       </div>
       {/* Row 2: subtitle (truncating) on the left, edge quick-select OR action
           icons on the right. The subtitle is new in this variant — it was

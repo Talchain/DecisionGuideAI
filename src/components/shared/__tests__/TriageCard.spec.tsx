@@ -16,6 +16,40 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { TriageCard } from '../TriageCard'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 
+describe('TriageCard — compact EVPI pp pill (consistency with default variant)', () => {
+  it('renders Npp pill in compact variant when evoiImpact is provided', () => {
+    // Surfaced evidence-gap cards ranked 4-6 live in the compact variant via
+    // AlsoConsiderDisclosure. They need the Npp signal for the same reason
+    // the default variant's top-3 cards do (Brief 4 Phase 8 P1 #2).
+    render(
+      <TriageCard
+        cardKey="k1"
+        ordinal={4}
+        title="Factor X"
+        detail="Detail"
+        category="add_evidence"
+        variant="compact"
+        evoiImpact={2.5}
+      />,
+    )
+    expect(screen.getByText('2.5pp')).toBeInTheDocument()
+  })
+
+  it('omits the EVPI pill in compact when evoiImpact is null', () => {
+    render(
+      <TriageCard
+        cardKey="k1"
+        ordinal={4}
+        title="Factor X"
+        detail="Detail"
+        category="add_evidence"
+        variant="compact"
+      />,
+    )
+    expect(screen.queryByText(/pp$/)).not.toBeInTheDocument()
+  })
+})
+
 describe('TriageCard — compact subtitle no longer truncates (Brief 4 hotfix Task 2)', () => {
   it('renders the full compact subtitle instead of single-line truncating', () => {
     // 40-char subtitle that used to end in "Connects to 2 downstream..."
