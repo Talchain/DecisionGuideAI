@@ -433,8 +433,11 @@ export function TriageCard(props: TriageCardProps) {
             <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{influencePct}%</span>
           </div>
         )}
-        {/* EVOI impact pill — only when no influence% */}
-        {evoiImpact != null && influencePct == null && (
+        {/* EVPI percentage-point pill — always visible on surfaced gap cards
+            (Brief 4 Task 9 + P1 #2). The prior gate suppressed the pill when
+            an influence% existed, but evidence cards need the Npp signal to
+            motivate the "Set value" action regardless of influence weight. */}
+        {evoiImpact != null && (
           <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
             {evoiImpact.toFixed(1)}pp
           </span>
