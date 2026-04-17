@@ -55,6 +55,7 @@ import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
+import { ModelAdjustments } from './ModelAdjustments'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { SectionHeader } from '@/components/results/SectionHeader'
@@ -1679,6 +1680,13 @@ export function PreAnalysisPanel({
                 </button>
               )}
             </section>
+          )}
+
+          {/* Model notes: surface CEE model_adjustments between Review next
+              and Improve confidence (Brief 4 Task 11). Component hides itself
+              when the array is empty. */}
+          {data.modelAdjustments.length > 0 && (
+            <ModelAdjustments adjustments={data.modelAdjustments} />
           )}
 
           {/* Section 3: Improve confidence — collapsed by default.
