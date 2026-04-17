@@ -19,6 +19,76 @@ function expandOptionPreview() {
   fireEvent.click(screen.getByTestId('option-preview-toggle'))
 }
 
+describe('OptionPreview — narrow-framing coaching (Brief 4 hotfix Task 6)', () => {
+  const basicOption = makeOption({
+    interventions: [{
+      factorId: 'fac1',
+      factorLabel: 'Some factor',
+      interventionValue: 0.5,
+      currentValue: 0.3,
+      direction: 'up',
+      cap: 1,
+      unit: '',
+      currentRawValue: null,
+    }],
+  })
+
+  it('renders the full narrow-framing copy in the collapsed state when hasSameLeversCheck is true', () => {
+    render(
+      <OptionPreview
+        options={[basicOption]}
+        hasSameLeversCheck
+        onSendMessage={vi.fn()}
+      />,
+    )
+    // Collapsed by default. Full copy + link visible without expanding.
+    expect(
+      screen.getByTestId('option-quality-narrow-framing'),
+    ).toHaveTextContent(/all work through similar factors/i)
+    expect(screen.getByText('Explore alternatives')).toBeInTheDocument()
+  })
+
+  it('renders the full narrow-framing copy in the expanded state too (data-driven, not state-driven)', () => {
+    render(
+      <OptionPreview
+        options={[basicOption]}
+        hasSameLeversCheck
+        onSendMessage={vi.fn()}
+      />,
+    )
+    expandOptionPreview()
+    // Both instances render the same full sentence. Use getAllByTestId so the
+    // collapsed version's residual layout presence (if any) doesn't trip up
+    // the assertion.
+    const coaching = screen.getAllByTestId('option-quality-narrow-framing')
+    expect(coaching.length).toBeGreaterThan(0)
+    coaching.forEach(el => {
+      expect(el).toHaveTextContent(/all work through similar factors/i)
+    })
+  })
+
+  it('omits "Explore alternatives" link when onSendMessage is not provided', () => {
+    render(
+      <OptionPreview
+        options={[basicOption]}
+        hasSameLeversCheck
+      />,
+    )
+    expect(screen.getByTestId('option-quality-narrow-framing')).toBeInTheDocument()
+    expect(screen.queryByText('Explore alternatives')).not.toBeInTheDocument()
+  })
+
+  it('does not render any narrow-framing coaching when hasSameLeversCheck is false', () => {
+    render(
+      <OptionPreview
+        options={[basicOption]}
+        onSendMessage={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('option-quality-narrow-framing')).not.toBeInTheDocument()
+  })
+})
+
 describe('OptionPreview — intervention display', () => {
   it('interventions are visible after expanding the section', () => {
     render(
@@ -209,7 +279,9 @@ describe('OptionPreview — collapsed state (UI-BUG-3)', () => {
         hasSameLeversCheck
       />,
     )
-    expect(screen.getByText('Your options work through similar factors.')).toBeInTheDocument()
+    // Brief 4 hotfix Task 6: unified copy (collapsed and expanded states share
+    // the same sentence). Match by testid which both states render.
+    expect(screen.getByTestId('option-quality-narrow-framing')).toBeInTheDocument()
   })
 
   it('does not show coaching line when hasSameLeversCheck is false', () => {
@@ -218,7 +290,7 @@ describe('OptionPreview — collapsed state (UI-BUG-3)', () => {
         options={[makeOption({ id: 'opt1', label: 'A', interventions: [] })]}
       />,
     )
-    expect(screen.queryByText('Your options work through similar factors.')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('option-quality-narrow-framing')).not.toBeInTheDocument()
   })
 
   it('shows a collapsed chevron (ChevronRight) in the header toggle', () => {

@@ -206,6 +206,36 @@ function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' })
 }
 
 /**
+ * SameLeversCoaching — shared narrow-framing coaching rendered whenever the
+ * same_levers quality signal fires. Rendered both in the collapsed and the
+ * expanded OptionPreview states so the copy is data-driven, not state-driven
+ * (Brief 4 hotfix Task 6).
+ */
+function SameLeversCoaching({
+  onSendMessage,
+}: {
+  onSendMessage?: (text: string) => void
+}) {
+  return (
+    <p className={`${typography.panelMeta} text-text-light`} data-testid="option-quality-narrow-framing">
+      Your options all work through similar factors. Consider a structurally different approach.
+      {onSendMessage && (
+        <>
+          {' '}
+          <button
+            type="button"
+            onClick={() => onSendMessage('My options seem similar. Can you suggest a structurally different approach?')}
+            className="text-info hover:underline cursor-pointer"
+          >
+            Explore alternatives
+          </button>
+        </>
+      )}
+    </p>
+  )
+}
+
+/**
  * Per-option intervention rows.
  *
  * Default (collapsedByDefault=false): the intervention list is always visible.
@@ -367,10 +397,14 @@ export function OptionPreview({
               </li>
             ))}
           </ul>
+          {/* Brief 4 hotfix Task 6: unified narrow-framing coaching. Previously
+              the collapsed state rendered a short stub ("Your options work
+              through similar factors.") while the expanded state rendered a
+              longer variant with the "Explore alternatives" CTA. Normalise to
+              the full sentence + link in both states so the coaching is data-
+              driven (hasSameLeversCheck), not state-driven. */}
           {hasSameLeversCheck && (
-            <p className={`${typography.panelMeta} text-text-light`}>
-              Your options work through similar factors.
-            </p>
+            <SameLeversCoaching onSendMessage={onSendMessage} />
           )}
         </div>
       )}
@@ -412,20 +446,13 @@ export function OptionPreview({
             </div>
           ))}
 
-          {/* Structural similarity coaching line */}
+          {/* Structural similarity coaching line — uses the same shared
+              SameLeversCoaching component as the collapsed state so copy
+              stays identical across expansion. */}
           {hasSameLeversCheck && (
-            <p className={`${typography.panelBody} text-text-light mt-2`}>
-              Your options all work through similar factors. Consider a structurally different approach.{' '}
-              {onSendMessage && (
-                <button
-                  type="button"
-                  onClick={() => onSendMessage('My options seem similar. Can you suggest a structurally different approach?')}
-                  className="text-info hover:underline cursor-pointer"
-                >
-                  Explore alternatives
-                </button>
-              )}
-            </p>
+            <div className="mt-2">
+              <SameLeversCoaching onSendMessage={onSendMessage} />
+            </div>
           )}
 
           {/* Ideation CTA */}
