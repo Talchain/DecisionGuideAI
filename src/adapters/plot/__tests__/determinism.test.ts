@@ -19,11 +19,21 @@ import type { RunRequest, ReportV1 } from '../types'
 // Setup MSW server
 const server = setupServer()
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
 const PROXY_BASE = '/api/plot'
+
+// The adapter reads VITE_PLOT_PROXY_BASE (fallback '/bff/engine'). Locally
+// `.env.local` sets it to '/api/plot'; in CI it is unset and MSW handlers
+// registered under '/api/plot' never match. Explicit stub + unstub keeps the
+// spec env-independent. Mirrors probe.test.ts and httpV1Adapter.stream.test.ts.
+beforeAll(() => {
+  vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)
+  server.listen({ onUnhandledRequest: 'warn' })
+})
+afterEach(() => server.resetHandlers())
+afterAll(() => {
+  vi.unstubAllEnvs()
+  server.close()
+})
 
 // Check if streaming is available
 const hasStreaming = !!(httpV1Adapter as any).stream

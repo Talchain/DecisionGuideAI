@@ -17,14 +17,22 @@ import type { LimitsFetch } from '../types'
 // Setup MSW server
 const server = setupServer()
 
+const PROXY_BASE = '/api/plot'
+
+// The adapter reads VITE_PLOT_PROXY_BASE (fallback '/bff/engine'). Locally
+// `.env.local` sets it to '/api/plot'; in CI it is unset and MSW handlers
+// registered under '/api/plot' never match. Stubbed in beforeEach so tests
+// that stub additional env vars (DEV/PROD) can rely on afterEach's
+// vi.unstubAllEnvs() without losing the proxy-base pin between tests.
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+beforeEach(() => {
+  vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)
+})
 afterEach(() => {
   server.resetHandlers()
   vi.unstubAllEnvs()
 })
 afterAll(() => server.close())
-
-const PROXY_BASE = '/api/plot'
 
 describe('httpV1Adapter.limits() - LimitsFetch contract', () => {
   describe('Live endpoint success', () => {

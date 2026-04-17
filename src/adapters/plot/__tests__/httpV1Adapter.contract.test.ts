@@ -9,7 +9,7 @@
  * - Error handling (BAD_INPUT, LIMIT_EXCEEDED, RATE_LIMITED, SERVER_ERROR)
  */
 
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
@@ -30,11 +30,21 @@ const server = setupServer(
   })
 )
 
-beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
 const PROXY_BASE = '/api/plot'
+
+// The adapter reads VITE_PLOT_PROXY_BASE (fallback '/bff/engine'). Locally
+// `.env.local` sets it to '/api/plot'; in CI it is unset and MSW handlers
+// registered under '/api/plot' never match. Explicit stub + unstub keeps the
+// spec env-independent. Mirrors probe.test.ts and httpV1Adapter.stream.test.ts.
+beforeAll(() => {
+  vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)
+  server.listen({ onUnhandledRequest: 'error' })
+})
+afterEach(() => server.resetHandlers())
+afterAll(() => {
+  vi.unstubAllEnvs()
+  server.close()
+})
 
 describe('httpV1Adapter MSW Contract Tests', () => {
   describe('Health (GET /v1/health)', () => {
