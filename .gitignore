@@ -25,6 +25,13 @@ yarn-error.log*
 .DS_Store
 Thumbs.db
 
+# macOS Finder duplicate cruft — " 2.ext" files appear from Finder copy/paste
+# and iCloud sync conflicts. They shadow real sources if accidentally imported.
+**/* 2.ts
+**/* 2.tsx
+**/* 2.css
+**/* 2.md
+
 # IDE
 .vscode/
 .idea/
