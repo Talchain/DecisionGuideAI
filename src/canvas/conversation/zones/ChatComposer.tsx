@@ -86,6 +86,15 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('normal')
     const showRunAnalysis = stage === 'ideate' || stage === 'evaluate'
     const runDisabled = isThinking || canRunAnalysis === false
+    // Disabled-state reason priority: panel-supplied reason (in-flight +
+    // structural) → local isThinking → undefined (enabled). Keeps tooltip
+    // meaningful for every disable source.
+    const runDisabledReason = runBlockedReason
+      ?? (isThinking ? 'Turn in progress' : undefined)
+    const runTitle = runDisabled && runDisabledReason ? runDisabledReason : 'Run analysis'
+    const runAriaLabel = runDisabled && runDisabledReason
+      ? `Run analysis (blocked: ${runDisabledReason})`
+      : 'Run analysis'
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
     const hasGraph = useCanvasStore(s => s.nodes.length > 0 || s.edges.length > 0)
     const hasAnalysis = useCanvasStore(s => s.results?.status === 'complete' && Boolean(s.results?.hash ?? s.currentScenarioLastResultHash))
@@ -303,25 +312,13 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
           >
             <Mic className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
           </button>
-          {showRunAnalysis && (() => {
-            // Compose the disabled-state reason locally. Priority order:
-            //   1. runBlockedReason from the panel (covers in-flight + structural)
-            //   2. 'Turn in progress' when isThinking (CEE turn, no panel reason)
-            //   3. undefined — button is enabled
-            // This keeps the tooltip meaningful for every disable source.
-            const disabledReason = runBlockedReason
-              ?? (isThinking ? 'Turn in progress' : undefined)
-            const title = runDisabled && disabledReason ? disabledReason : 'Run analysis'
-            const ariaLabel = runDisabled && disabledReason
-              ? `Run analysis (blocked: ${disabledReason})`
-              : 'Run analysis'
-            return (
+          {showRunAnalysis && (
             <button
               type="button"
               onClick={onRunAnalysis}
               disabled={runDisabled}
-              title={title}
-              aria-label={ariaLabel}
+              title={runTitle}
+              aria-label={runAriaLabel}
               className="composer-icon-btn flex-shrink-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
               style={{
                 width: 34,
@@ -339,8 +336,7 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             >
               <Play className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
             </button>
-            )
-          })()}
+          )}
 
           <textarea
             ref={composer.textareaRef}

@@ -127,9 +127,10 @@ describe('Hotfix item 3 — Run analysis is icon-only', () => {
     // …but no <span>Run analysis</span> label inside the button.
     expect(src).not.toMatch(/<span>Run analysis<\/span>/)
     // aria-label still announces the affordance for screen readers — either
-    // inline (aria-label={…'Run analysis'}) or via a local variable reference.
+    // inline (aria-label={…'Run analysis'}) or via a local variable reference
+    // (aria-label={runAriaLabel}).
     expect(src).toMatch(/'Run analysis'/)
-    expect(src).toMatch(/aria-label=\{ariaLabel\}|aria-label=\{.*'Run analysis'/)
+    expect(src).toMatch(/aria-label=\{runAriaLabel\}|aria-label=\{ariaLabel\}|aria-label=\{.*'Run analysis'/)
   })
 
   it('renders the run-analysis chip with no visible text, only the icon + aria-label', () => {
