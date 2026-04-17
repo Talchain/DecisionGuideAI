@@ -57,6 +57,27 @@ describe('ModelAdjustments — sub-section grouping (Task 8)', () => {
     expect(screen.getByText(/Olumi adjusted 1 factor/)).toBeInTheDocument()
   })
 
+  // P1 #2: 0-case regression. Component must render nothing when every
+  // input list is empty — no empty card, no stray wrapper.
+  it('renders nothing when adjustments, repairActions, and postRunRepairs are all empty', () => {
+    const { container } = render(<ModelAdjustments adjustments={[]} />)
+    expect(container.firstChild).toBeNull()
+  })
+
+  // P1 #1: "factors" copy must only apply when we actually have factor-level
+  // adjustments. When only pipeline-level repairActions are present, use
+  // "adjustments" terminology so we don't mislabel.
+  it('labels the header as "adjustment" when only pipeline repairActions are present', () => {
+    render(
+      <ModelAdjustments
+        adjustments={[]}
+        repairActions={['Reclassified factor A to external']}
+      />,
+    )
+    expect(screen.getByText(/Olumi applied 1 adjustment/)).toBeInTheDocument()
+    expect(screen.queryByText(/Olumi adjusted 1 factor/)).not.toBeInTheDocument()
+  })
+
   it('renders Constraints applied sub-label when constraint codes are present', () => {
     render(
       <ModelAdjustments

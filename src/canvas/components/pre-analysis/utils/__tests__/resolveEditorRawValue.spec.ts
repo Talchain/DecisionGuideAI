@@ -8,10 +8,13 @@ describe('resolveEditorRawValue — TriageCard inline editor pre-fill (Brief 4 h
     ).toBeNull()
   })
 
-  it('pre-fills with cap for brief-extracted factors with zero raw value', () => {
+  it('returns null for brief-extracted factors with zero raw value and a cap', () => {
     // Annual Assistant Cost from the hiring bundle: brief-extracted, cap=70000,
-    // raw_value=0 because no live baseline was recorded. Input must NOT show
-    // "$ 0" — it should pre-fill with 70000 so "$70,000" renders.
+    // raw_value=0 because no live baseline was recorded. Returning the cap
+    // would overwrite a genuine-zero case (e.g. brief that said "0% churn")
+    // which is structurally identical from sourceBadge/rawValue/cap alone.
+    // Null → empty input with "Set value" placeholder; the "From brief"
+    // pill keeps the provenance, user re-enters the figure deliberately.
     expect(
       resolveEditorRawValue({
         detail: 'Some value',
@@ -19,7 +22,22 @@ describe('resolveEditorRawValue — TriageCard inline editor pre-fill (Brief 4 h
         cap: 70000,
         sourceBadge: 'brief',
       }),
-    ).toBe(70000)
+    ).toBeNull()
+  })
+
+  it('genuine-zero scenario is not overwritten (regression for the narrowing)', () => {
+    // Simulates a brief that literally said "current churn rate: 0%".
+    // Structurally indistinguishable from the previous case — same guard
+    // must apply: return null, never the cap. The user reconfirms 0 if
+    // that's the true value.
+    expect(
+      resolveEditorRawValue({
+        detail: '0%',
+        rawValue: 0,
+        cap: 1,
+        sourceBadge: 'brief',
+      }),
+    ).toBeNull()
   })
 
   it('passes rawValue through unchanged for brief factors with non-zero rawValue', () => {

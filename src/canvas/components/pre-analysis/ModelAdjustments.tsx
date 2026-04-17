@@ -251,7 +251,16 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   // row each, even though perItemDetails still renders one row per raw entry
   // inside AdjustmentRow. Count raw adjustments so header and expanded-row
   // count agree.
-  const totalCount = adjustments.length + repairActions.length
+  //
+  // Post-review refinement (P1 #1): exclude `repairActions.length` from the
+  // "factors" total. Repair actions are pipeline-level fixes, not factor-level
+  // adjustments, so counting them under "Olumi adjusted N factors" is
+  // misleading. They still render as separate rows in the expanded list;
+  // they just don't inflate the factor count.
+  const factorCount = adjustments.length
+  // totalCount keeps its historic meaning (all visible rows) for any gating
+  // logic that depends on whether anything at all is present.
+  const totalCount = factorCount + repairActions.length
   const constraintAdj = grouped.filter(a => CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
   const autoFixAdj = grouped.filter(a => !CONSTRAINT_CODES.has(a.type ?? a.code ?? ''))
 
@@ -259,13 +268,19 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
   if (totalCount === 1) {
     const singleAdj = grouped[0]
     const singleRepair = repairActions[0]
+    // Header uses factor-specific copy only when the sole item is a factor
+    // adjustment; otherwise show the generic "applied 1 adjustment" copy so
+    // we don't mislabel a pipeline repair as a factor change.
+    const headerCopy = singleAdj
+      ? 'Olumi adjusted 1 factor'
+      : 'Olumi applied 1 adjustment'
     return (
       <div className="rounded-lg border border-info/30 bg-panel px-3 py-2" data-testid="model-adjustments">
         <div className="flex items-start gap-2">
           <Wrench size={14} className="text-info flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
             <p className={`${typography.panelHeader} text-text-header mb-0.5`}>
-              Olumi adjusted 1 factor
+              {headerCopy}
             </p>
             {singleAdj ? (
               <AdjustmentRow adj={singleAdj} />
@@ -290,7 +305,9 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
         <Wrench size={14} className="text-info flex-shrink-0" />
         <div className="flex-1 min-w-0">
           <span className={`${typography.panelHeader} text-text-header`}>
-            Olumi adjusted {totalCount} {totalCount === 1 ? 'factor' : 'factors'}
+            {factorCount > 0
+              ? `Olumi adjusted ${factorCount} ${factorCount === 1 ? 'factor' : 'factors'}`
+              : `Olumi applied ${repairActions.length} ${repairActions.length === 1 ? 'adjustment' : 'adjustments'}`}
           </span>
         </div>
         {isExpanded ? (

@@ -152,4 +152,40 @@ The two screenshots show the same coaching rendering differently because the car
 - `isThresholdConfirmed` on `PreAnalysisData` is the right signal for Task 5's conditional `+1`.
 - `onSendMessage` is fully wired; Task 6 is a pure rendering fix.
 - `ExpandableCoachingText` component exists and handles the line-clamp + expand logic for Task 2.
-- No new UI-SEM semantic-transform entries. Task 3's cap-fallback is display-only, not an inference.
+- No new UI-SEM semantic-transform entries. Task 3's fallback is display-only, not an inference.
+
+---
+
+## Addendum — post-review follow-ups (ChatGPT feedback)
+
+### P0 #1 refinement (applied in this hotfix)
+
+Original Task 3 fix returned `cap` when `sourceBadge === 'brief' && rawValue === 0 && typeof cap === 'number' && cap > 0`. Review caught that this triple cannot distinguish two structurally-identical cases:
+
+- (a) CEE extracted an upper bound (e.g. "up to £70,000") and left `raw_value` at 0 because no live baseline is recorded. → Want cap as suggested default.
+- (b) Brief literally stated a 0 value (e.g. "current churn: 0%") and `raw_value=0` is the real figure. → Cap overwrite silently destroys the user's data.
+
+Narrowed the fallback to return `null` instead of `cap`. Input renders empty with "Set value" placeholder; the "From brief" pill keeps the provenance signal; user re-enters the figure deliberately. Original "$ 0" bug still fixed (no misleading digit); zero-value scenarios no longer silently clobbered.
+
+### P1 #1 refinement (applied in this hotfix)
+
+Brief 4 Task 11's "Olumi adjusted N factors" copy was applied to `adjustments.length + repairActions.length`. Repair actions are pipeline-level fixes, not factor-level adjustments, so counting them under "factors" mislabels the aggregate. Switched to:
+
+- `factorCount = adjustments.length` drives the "factors" pluralised count.
+- When `factorCount === 0` but `repairActions.length > 0`, fall back to "Olumi applied N adjustments" copy — neutral terminology matching the actual row type.
+- `totalCount` keeps its historic meaning (all visible rows) for the single-row / multi-row branch selector only.
+
+### Known partial — out of scope for this hotfix
+
+- **P1 #3 (Task 3 editor-only fix).** My resolver fixes the inline editor pre-fill but `item.detail` upstream in `usePreAnalysisData` may still format `raw_value=0` as a currency-prefixed zero for brief-extracted factors. The card body text ("$0") is therefore still inconsistent with the editor (which is now empty). Addressing this end-to-end requires plumbing `intervention_details[factor_id].display_value` from CEE through `ImprovementItem` → triage mapper → both the card body AND the editor, with one formatter sharing the priority chain. That's a pre-analysis refactor rather than a hotfix, so it's documented here as a known partial and scheduled as Improvement #1 below.
+
+### Improvements (follow-up direction, not in this hotfix)
+
+1. **Unified display-value pipeline.** Introduce `intervention_details[id].display_value` on `ImprovementItem`; route the card body text (detail / subtitle) and the editor pre-fill through a single formatter that prefers display_value → raw+unit → "Not set". Closes the detail-text gap from P1 #3 and obviates the cap fallback entirely.
+2. **Fixture integration tests.** Render `PreAnalysisPanel` against both staging debug bundles (mid-market + hiring) and assert: no "0" circle badge, no single-line truncation ellipsis on subtitles ≤ 2 lines, no "$0" displayed for brief-extracted cost factors. Lock the three bug classes at the integration layer, not just at component unit-test level.
+3. **Prune dead start-here branch.** `PreAnalysisPanel.tsx` still renders a `startHereSignal.kind === 'option_quality'` branch that `pickStartHere` (post-Brief 4) may never produce. Confirm and delete to cut dead-path drift.
+
+### Scope note — vendor/schema commit
+
+Commit `8e2ff4e3` (`chore(v5): vendored @talchain/schemas 0.4.0 -> 0.5.0`) is Paul's own commit that landed on this branch during hotfix work. It's unrelated to the pre-analysis UI fixes. Paul's decision at push time whether to keep it on this branch or split it to a separate release.
+
