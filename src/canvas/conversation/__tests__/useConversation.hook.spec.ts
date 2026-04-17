@@ -51,6 +51,16 @@ vi.mock('../turnService', () => ({
   },
 }))
 
+// Pin the orchestrator-streaming flag ON: the buildRequest payload block
+// asserts against mockStreamTurn (streaming path). Without this, the flag
+// resolves from env/localStorage and the non-streaming branch runs on any
+// machine without VITE_FEATURE_ORCHESTRATOR_STREAMING=1, making 21 tests
+// env-dependent. See docs/ui/useconversation-spec-diagnosis.md.
+vi.mock('../../../flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../flags')>()
+  return { ...actual, isOrchestratorStreamingEnabled: () => true }
+})
+
 // ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
