@@ -171,3 +171,33 @@ $ VITE_FEATURE_ORCHESTRATOR_STREAMING=0 npx vitest run src/canvas/conversation/_
 $ VITE_FEATURE_ORCHESTRATOR_STREAMING=0 npx vitest run src/canvas/conversation/__tests__/useConversation.hook.spec.ts -t "buildRequest payload"
 Tests  21 failed | 34 skipped (55)
 ```
+
+---
+
+## 7. Amendment (2026-04-17, post-PR-#122-merge)
+
+PR #122 landed commit `331c972a` which pinned **only** `isOrchestratorStreamingEnabled`. That made 20 of the 21 originally-failing tests pass. CI on the merge commit (`a656bd1a`) then surfaced a 21st failure with the same "spy called 0 times" symptom but a distinct root cause — different enough that the original diagnosis missed it.
+
+**Why the original fix was incomplete:**
+
+- **`sendMessage`** (used by the 20 tests that passed) delegates straight to `sendTurn` at [`useConversation.ts:2959`](../../src/canvas/conversation/useConversation.ts#L2959) — no V2 guard. Streaming flag pin alone is sufficient.
+- **`sendSystemEvent`** (used by `system event turn also transforms graph_state correctly`) guards on `isOrchestratorV2Enabled()` at [`useConversation.ts:2984`](../../src/canvas/conversation/useConversation.ts#L2984) and early-returns if false. `sendTurn` is never reached; streaming branch never fires; `mockStreamTurn.mock.calls[0]` is `undefined`.
+
+The PR #122 mock used `importOriginal` + override, which preserved the real `isOrchestratorV2Enabled`. In CI without `VITE_ENABLE_ORCHESTRATOR_V2=1`, that flag resolves `false` → system-event test bypasses the asserted path.
+
+**Amended fix** (PR #123, branch `ui/useconversation-hook-spec-system-event-fix`): pin both flags. Mirrors the pattern already used in sibling specs [`useConversation.systemEvents.spec.ts:37-40`](../../src/canvas/conversation/__tests__/useConversation.systemEvents.spec.ts#L37-L40) and [`streamingLifecycle.spec.ts:41-45`](../../src/canvas/conversation/__tests__/streamingLifecycle.spec.ts#L41-L45).
+
+```ts
+vi.mock('../../../flags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../../flags')>()
+  return {
+    ...actual,
+    isOrchestratorStreamingEnabled: () => true,
+    isOrchestratorV2Enabled: () => true,
+  }
+})
+```
+
+Verified locally: 54 passed + 1 skipped with `VITE_FEATURE_ORCHESTRATOR_STREAMING=0` **AND** `=1`. The spec is now fully env-independent for both `sendMessage` and `sendSystemEvent` paths.
+
+**Lesson to carry forward:** when fixing a whole `describe` block that failed with a single symptom, don't assume every test in the block uses the same code path. The 21st test's assertion looked identical but the function under test (`sendSystemEvent`) has a distinct guard that `sendMessage` doesn't. Targeted mock pinning needs to cover every guard on every code path the tests exercise.
