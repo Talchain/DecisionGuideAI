@@ -2155,7 +2155,8 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           return true
         })
 
-        // Sort by EVPI when available (ISL), otherwise by VOI
+        // Default sort (full evidenceGaps list): EVPI → VOI. Preserves
+        // existing consumers that iterate all gaps (e.g. debug/admin views).
         const sortedGaps = uniqueGaps.sort((a: any, b: any) => {
           const aEvpi = typeof a.evpi === 'number' ? a.evpi : -1
           const bEvpi = typeof b.evpi === 'number' ? b.evpi : -1
@@ -2177,10 +2178,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           targetNodeId: gap.target_node_id,
         }))
 
-        // Brief 4 Task 9: Only gaps with strictly positive EVPI percentage
-        // points are worth surfacing — a card that says "gathering data on this
-        // factor would change nothing" is anti-coaching.
-        const positiveEvpi = evidenceGaps.filter(g => (g.evpiPp ?? 0) > 0)
+        // Brief 4 Task 9 (revised per review): filter to positive EVPI
+        // percentage points FIRST, then sort by evpi_pp descending, then take
+        // the top 3. Sort-key mismatch previously let a gap with high `evpi`
+        // but zero `evpi_pp` rank ahead of a meaningful 1pp gap.
+        const positiveEvpi = evidenceGaps
+          .filter(g => (g.evpiPp ?? 0) > 0)
+          .sort((a, b) => (b.evpiPp ?? 0) - (a.evpiPp ?? 0))
         const topEvidenceGaps = positiveEvpi.slice(0, 3)
         const topEvidenceGapsEmpty = evidenceGaps.length > 0 && positiveEvpi.length === 0
 
