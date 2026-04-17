@@ -2676,12 +2676,21 @@ export function useConversation(): UseConversationReturn {
 
           let streamEnvelope: OrchestratorResponseEnvelopeV2 | undefined
 
-          // Show local "Thinking..." if no progress/text_delta within 3s
-          const thinkingTimerId = setTimeout(() => {
-            if (streamingMsgIdRef.current === msgId && !streamTextRef.current) {
-              updateMessage(msgId, { toolLoadingState: 'Thinking\u2026' })
-            }
-          }, 3000)
+          // Tranche 1 hotfix item 6: the 3-second "Thinking…" toolLoadingState
+          // timer was removed from this location. The composer Send→Stop swap
+          // (driven by isThinking) is the canonical in-flight signal; duplicate
+          // card-level text produced a confusing dual indicator. Tool-specific
+          // labels ("Running simulations…") and CEE `progress` event messages
+          // continue to flow through toolLoadingState — those carry useful
+          // information and stay.
+          //
+          // DO NOT reintroduce a generic "Thinking…" sentinel here. Removal
+          // condition for changing this decision: (a) user research confirms a
+          // card-level indicator is needed in addition to the composer stop
+          // button, AND (b) the indicator is distinguishable from tool-specific
+          // labels (e.g. uses a dedicated UI surface, not the toolLoadingState
+          // field). Until both hold, this path emits no placeholder.
+          // See docs/ui/ai-panel-tranche-1-hotfix-implementation.md §Item 6.
 
           for await (const event of streamOrchestratorTurn(request, controller.signal)) {
             switch (event.type) {
@@ -2696,7 +2705,6 @@ export function useConversation(): UseConversationReturn {
                 break
 
               case 'text_delta':
-                clearTimeout(thinkingTimerId)
                 // Clear progress/thinking status when real content starts arriving
                 if (frameBufRef.current.length === 0 && !streamTextRef.current) {
                   updateMessage(msgId, { toolLoadingState: null })
@@ -2729,7 +2737,6 @@ export function useConversation(): UseConversationReturn {
                 break
 
               case 'turn_complete':
-                clearTimeout(thinkingTimerId)
                 // Final flush of any pending RAF buffer
                 if (rafIdRef.current != null) {
                   if (typeof cancelAnimationFrame === 'function' && rafIdRef.current !== -1) {

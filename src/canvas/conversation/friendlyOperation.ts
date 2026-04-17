@@ -39,16 +39,74 @@ import type { PatchOperation, ProposalReviewItem, RelatedElementRef } from './ty
 export const RAW_ID_PATTERN =
   /\b(?:opt|fac|goal|dec|out|risk|con|factor|option|decision|outcome|constraint)_[a-z0-9_]+/i
 
-/** Human-readable generic fallback when label resolution fails entirely.
- *  Preserves the raw-ID-leak invariant guaranteed by the describeOperation
- *  raw-ID test suite (any mono-ID fallback would violate that invariant). */
-const GENERIC_BY_OP: Record<PatchOperation['op'], string> = {
-  add_node:    'Add factor',
-  update_node: 'Update factor',
-  remove_node: 'Remove factor',
-  add_edge:    'Add connection',
-  update_edge: 'Update connection',
-  remove_edge: 'Remove connection',
+/**
+ * Human-readable generic fallback when label resolution fails entirely.
+ *
+ * Only used when every tier of resolveNodeLabel / resolveEdgeLabel has failed.
+ * Returns `"{verb} {elementType}"` where elementType is derived from the
+ * target_id prefix (item 9 Path B). E.g.:
+ *   - `opt_…` → "Update option", `goal_…` → "Update goal", etc.
+ * Falls back to "factor" / "connection" when the prefix is unrecognised.
+ *
+ * Emits only word-form element types ("option", "goal", "factor", "decision",
+ * "outcome", "constraint") — NEVER the raw prefix or id. This keeps the
+ * RAW_ID_PATTERN security invariant intact: the output is checked by
+ * friendlyOperation.spec.ts against both RAW_ID_PATTERN and
+ * `not.toContain(op.target_id)`.
+ */
+const VERB_BY_OP: Record<PatchOperation['op'], string> = {
+  add_node:    'Add',
+  update_node: 'Update',
+  remove_node: 'Remove',
+  add_edge:    'Add',
+  update_edge: 'Update',
+  remove_edge: 'Remove',
+}
+
+/**
+ * Map id prefix → human element-type word. Supports both short prefixes
+ * (envelope convention: fac_, opt_, goal_, …) and full-word prefixes
+ * (action handler convention: factor_, option_, goal_, …).
+ * Order matters only for lookup; we match the full prefix, so "option_foo"
+ * resolves via "option" not "opt".
+ */
+const ID_PREFIX_TO_TYPE: readonly { pattern: RegExp; type: string }[] = [
+  { pattern: /^option_|^opt_/i,      type: 'option' },
+  { pattern: /^factor_|^fac_/i,      type: 'factor' },
+  { pattern: /^goal_/i,              type: 'goal' },
+  { pattern: /^decision_|^dec_/i,    type: 'decision' },
+  { pattern: /^outcome_|^out_/i,     type: 'outcome' },
+  { pattern: /^constraint_|^con_/i,  type: 'constraint' },
+  { pattern: /^risk_/i,              type: 'risk' },
+]
+
+/**
+ * Derive a human element-type word from an id. Returns `fallback` (default
+ * "factor" for nodes, "connection" for edges) when no prefix matches.
+ *
+ * Never returns any substring of the input id — only the literal type words
+ * defined in ID_PREFIX_TO_TYPE, which are safe by construction.
+ */
+function elementTypeFromId(id: string, fallback: string): string {
+  for (const { pattern, type } of ID_PREFIX_TO_TYPE) {
+    if (pattern.test(id)) return type
+  }
+  return fallback
+}
+
+/**
+ * Produce the generic fallback for an op, using element-type derivation when
+ * the target_id carries a recognisable prefix. Never emits the raw id.
+ */
+function genericForOp(op: PatchOperation): string {
+  const verb = VERB_BY_OP[op.op]
+  const isEdge = op.op === 'add_edge' || op.op === 'update_edge' || op.op === 'remove_edge'
+  if (isEdge) {
+    // Edges don't carry a meaningful type prefix — keep "connection" verbatim.
+    return `${verb} connection`
+  }
+  const type = elementTypeFromId(op.target_id, 'factor')
+  return `${verb} ${type}`
 }
 
 /**
@@ -178,11 +236,12 @@ function resolveEdgeLabel(
  * Output uses markdown `**bold**` for element names — the existing
  * ReactMarkdown / safeRichText rendering pipeline preserves it.
  *
- * Raw IDs are never emitted. The GENERIC_BY_OP map provides the final
- * safety net.
+ * Raw IDs are never emitted. When label resolution fails entirely, the
+ * generic fallback derives element type from the id prefix (e.g. "Update
+ * option" vs "Update goal") while emitting only the literal type word.
  */
 export function describeOperation(op: PatchOperation, deps: DescribeOpDeps): string {
-  const generic = GENERIC_BY_OP[op.op]
+  const generic = genericForOp(op)
 
   switch (op.op) {
     case 'add_node': {

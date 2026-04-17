@@ -86,6 +86,15 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
     const [thinkingMode, setThinkingMode] = useState<ThinkingMode>('normal')
     const showRunAnalysis = stage === 'ideate' || stage === 'evaluate'
     const runDisabled = isThinking || canRunAnalysis === false
+    // Disabled-state reason priority: panel-supplied reason (in-flight +
+    // structural) → local isThinking → undefined (enabled). Keeps tooltip
+    // meaningful for every disable source.
+    const runDisabledReason = runBlockedReason
+      ?? (isThinking ? 'Turn in progress' : undefined)
+    const runTitle = runDisabled && runDisabledReason ? runDisabledReason : 'Run analysis'
+    const runAriaLabel = runDisabled && runDisabledReason
+      ? `Run analysis (blocked: ${runDisabledReason})`
+      : 'Run analysis'
     const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
     const hasGraph = useCanvasStore(s => s.nodes.length > 0 || s.edges.length > 0)
     const hasAnalysis = useCanvasStore(s => s.results?.status === 'complete' && Boolean(s.results?.hash ?? s.currentScenarioLastResultHash))
@@ -308,31 +317,24 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
               type="button"
               onClick={onRunAnalysis}
               disabled={runDisabled}
-              title={runDisabled && runBlockedReason ? runBlockedReason : undefined}
-              aria-label={runDisabled && runBlockedReason ? `Run analysis (blocked: ${runBlockedReason})` : 'Run analysis'}
-              className="composer-run-chip flex-shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
+              title={runTitle}
+              aria-label={runAriaLabel}
+              className="composer-icon-btn flex-shrink-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: 5,
-                height: 30,
-                padding: '0 10px',
-                marginBottom: 4,
-                borderRadius: 999,
+                width: 34,
+                height: 34,
+                borderRadius: '50%',
+                marginBottom: 2,
                 background: 'transparent',
-                border: '1px solid var(--border-default, #EEE6D8)',
-                color: 'var(--text-body, #3F3F3E)',
-                fontSize: 13,
-                fontWeight: 500,
-                whiteSpace: 'nowrap' as const,
-                transition: 'all 100ms',
-                opacity: runDisabled ? 0.5 : 1,
+                border: 'none',
+                color: 'var(--text-light, #908D8D)',
                 cursor: runDisabled ? 'not-allowed' : 'pointer',
+                opacity: runDisabled ? 0.5 : 1,
+                transition: 'all 150ms',
               }}
               data-testid="run-analysis-chip"
             >
-              <Play className="w-3.5 h-3.5 text-text-light" strokeWidth={1.8} aria-hidden="true" />
-              <span>Run analysis</span>
+              <Play className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
             </button>
           )}
 

@@ -81,7 +81,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   const pendingBriefRef = useRef<string | null>(null)
   const generateInFlightRef = useRef(false)
   const wasThinkingRef = useRef(false)
-  const { runV2Analysis } = useV2Run()
+  const { runV2Analysis, isRunning: isV2RunInFlight } = useV2Run()
   const { readiness } = useGraphReadiness()
 
   // Track 2: Thread persistence (best-effort, flag-gated)
@@ -390,11 +390,23 @@ export const ConversationPanel = memo(function ConversationPanel({
     isRunning: isAnalysisRunning,
   }), [graphHealth, readiness, hasBlockers, nodeCount, isAnalysisRunning])
 
-  const runBlockedReason = getRunButtonTooltip(runGateResult) ?? undefined
+  // In-flight takes priority over structural reasons: the composer button
+  // is disabled for either cause, but the user-visible tooltip should explain
+  // the active reason, not just the structural one.
+  const runBlockedReason = isV2RunInFlight
+    ? 'Analysis in progress'
+    : (getRunButtonTooltip(runGateResult) ?? undefined)
 
   // ── Top bar callbacks ─────────────────────────────────────────────────
   const handleRunAnalysis = useCallback(() => {
-    if (!runGateResult.allowed) return
+    // Hotfix item 4 hardening: guard all run-trigger paths (composer button,
+    // guidance store callback, any future caller) against structural readiness
+    // AND in-flight state. The button's disabled prop already blocks the UI
+    // path, but guidance chips route through useGuidanceStore's registered
+    // _runAnalysis reference and must not bypass the in-flight check. F-77
+    // inside useV2Run also aborts the prior run, but hard-blocking here is
+    // the correct defensive pattern.
+    if (!runGateResult.allowed || isV2RunInFlight) return
     const composerText = composerRef.current?.peekText().trim() ?? ''
     beginInteractionChain({
       triggerSurface: 'analyse_now',
@@ -409,7 +421,7 @@ export const ConversationPanel = memo(function ConversationPanel({
       },
     })
     void runV2Analysis()
-  }, [messages.length, runGateResult.allowed, runV2Analysis])
+  }, [messages.length, runGateResult.allowed, isV2RunInFlight, runV2Analysis])
 
   useEffect(() => {
     const sendChipByLabelMessage = (label: string, message: string) =>
@@ -550,7 +562,7 @@ export const ConversationPanel = memo(function ConversationPanel({
         onInsertText={handleInsertText}
         onAttach={onAttach}
         onRunAnalysis={handleRunAnalysis}
-        canRunAnalysis={runGateResult.allowed}
+        canRunAnalysis={runGateResult.allowed && !isV2RunInFlight}
         runBlockedReason={runBlockedReason}
       />
     </>
