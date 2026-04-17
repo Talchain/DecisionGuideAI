@@ -55,6 +55,7 @@ import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
+import { resolveEditorRawValue } from './utils/resolveEditorRawValue'
 import { ModelAdjustments } from './ModelAdjustments'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
@@ -769,7 +770,14 @@ export function PreAnalysisPanel({
     // Using `??` would pass 0 through (0 is not null/undefined). When the item's
     // detail is 'Not set' we force null so the inline editor starts empty.
     const targetId = item.action?.targetId
-    const numericValue = item.detail === 'Not set' ? null : (item.rawValue ?? null)
+    // Brief 4 hotfix Task 3: priority chain extracted into resolveEditorRawValue
+    // so the brief-extraction cap-fallback is unit-testable in isolation.
+    const numericValue = resolveEditorRawValue({
+      detail: item.detail,
+      rawValue: item.rawValue ?? null,
+      cap: item.cap ?? null,
+      sourceBadge: item.sourceBadge,
+    })
     if (targetId && item.focus?.type === 'node' && (mapped.action?.kind === 'set_value' || mapped.action?.kind === 'confirm')) {
       return {
         ...mapped,
