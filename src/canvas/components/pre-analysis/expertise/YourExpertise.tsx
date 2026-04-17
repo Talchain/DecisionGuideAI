@@ -1,25 +1,17 @@
 /**
- * YourExpertise — Unified section replacing AllImprovements, EdgeAssumptionsTable,
- * WorthInvestigating, and EdgeSummarySection (v6 wireframe).
+ * YourExpertise — Compressed single-row summary with deep-link to Model tab.
  *
- * 6 subgroups: Contested relationships, Estimated, Missing data,
- * From your brief (collapsed), Key relationships (collapsed), Edge evidence gaps (collapsed).
- *
- * Badge and progress denominator = contested + AI-estimated + missing-data (actionable items).
- * Edge gaps, brief items, and key relationships are sub-counts but don't inflate the badge.
+ * Pre-analysis only. Brief 4 Task 6: collapse the previous 6-subgroup panel
+ * into one row showing counts + a chevron that opens the Model tab where the
+ * full factor/relationship audit lives. Progress bar removed (gamification
+ * of the wrong thing). Post-analysis does not render this section at all.
  */
 
-import { useState, useMemo } from 'react'
-import { ChevronDown, ChevronRight, Info } from 'lucide-react'
-import { Pill } from '../primitives'
+import { useMemo } from 'react'
+import { ChevronRight, Info } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography } from '@/styles/typography'
-import { ContestedRelationships } from './ContestedRelationships'
-import { AiEstimated } from './AiEstimated'
-import { MissingData } from './MissingData'
-import { FromBrief } from './FromBrief'
-import { KeyRelationshipsSubgroup } from './KeyRelationshipsSubgroup'
-import { EdgeEvidenceGaps } from './EdgeEvidenceGaps'
+import { useUIStore } from '@/stores/uiStore'
 import { deriveExpertiseGroups, type ExpertiseGroups } from '../hooks/deriveExpertiseGroups'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
 import type { Edge, Node } from '@xyflow/react'
@@ -31,21 +23,6 @@ interface YourExpertiseProps {
   edges: Edge[]
   factorInfluenceMap?: Map<string, number>
   edgeInfluenceMap?: Map<string, number>
-  reviewedCount: number
-  /** All improvement items for the confidence spectrum */
-  allItems: ImprovementItem[]
-  // Action handlers
-  onFocusNode?: (nodeId: string) => void
-  onFocusEdge?: (edgeId: string) => void
-  onConfirm?: (nodeId: string) => void
-  onEdit?: (nodeId: string) => void
-  onSetValue?: (nodeId: string) => void
-  onSendMessage?: (text: string) => void
-  onResolveEdge?: (edgeId: string, action: string, customMean?: number) => void
-  onUpdateEdgeStrength?: (edgeId: string, value: number) => void
-  onAddEvidence?: (edgeId: string, evidence: string) => void
-  onHoverEnter?: (type: 'node' | 'edge', id: string) => void
-  onHoverLeave?: () => void
 }
 
 export function YourExpertise({
@@ -55,167 +32,65 @@ export function YourExpertise({
   edges,
   factorInfluenceMap,
   edgeInfluenceMap,
-  reviewedCount,
-  // allItems was consumed by ConfidenceSpectrum, removed in P1-1; keep the
-  // prop on the interface for caller compatibility but ignore it here.
-  allItems: _allItems,
-  onFocusNode,
-  onFocusEdge,
-  onConfirm,
-  onEdit,
-  onSetValue,
-  onSendMessage,
-  onResolveEdge,
-  onUpdateEdgeStrength,
-  onAddEvidence,
-  onHoverEnter,
-  onHoverLeave,
 }: YourExpertiseProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
-
-  // Denominator is derived from groups.actionableCount after groups are computed below
-
-  const groups: ExpertiseGroups = useMemo(() =>
-    deriveExpertiseGroups(
-      improvementsByCategory,
-      contestedEdges,
-      nodes,
-      edges,
-      factorInfluenceMap,
-      edgeInfluenceMap,
-    ),
+  const groups: ExpertiseGroups = useMemo(
+    () =>
+      deriveExpertiseGroups(
+        improvementsByCategory,
+        contestedEdges,
+        nodes,
+        edges,
+        factorInfluenceMap,
+        edgeInfluenceMap,
+      ),
     [improvementsByCategory, contestedEdges, nodes, edges, factorInfluenceMap, edgeInfluenceMap],
   )
 
-  // Badge and progress use actionableCount: contested + AI-estimated + missing-data
-  const badgeCount = groups.actionableCount
-  const denominator = groups.actionableCount
-  const allEmpty = groups.contestedCount === 0 &&
-    groups.aiEstimated.length === 0 &&
-    groups.missingData.length === 0 &&
-    groups.fromBrief.length === 0 &&
-    groups.keyRelationships.length === 0 &&
-    groups.edgeGaps.length === 0
+  const briefN = groups.fromBrief.length
+  const aiN = groups.aiEstimated.length
+  const missingN = groups.missingData.length
+
+  const parts: string[] = []
+  if (briefN > 0) parts.push(`${briefN} from brief`)
+  if (aiN > 0) parts.push(`${aiN} AI ${aiN === 1 ? 'estimate' : 'estimates'}`)
+  if (missingN > 0) parts.push(`${missingN} missing data`)
+  const summary = parts.join(', ')
+  const hasContent = parts.length > 0
+
+  const handleOpenModelTab = () => {
+    useUIStore.getState().setActiveOutputTab('diagnostics')
+  }
 
   return (
-    <div className="rounded-lg border border-panel-border bg-panel" data-testid="your-expertise-section">
-      {/* Header */}
-      <button
-        type="button"
-        onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-panel-hover"
-      >
-        <div className="flex items-center gap-2">
-          <span className={`${typography.panelHeader} text-text-header`}>Your expertise</span>
-          <Tooltip delay={300} content="Items where your input improves model accuracy, grouped by type and sorted by impact on the decision">
-            <Info size={14} className="text-text-light" />
-          </Tooltip>
-          {badgeCount > 0 && (
-            <Pill size="small" variant="default">{badgeCount}</Pill>
-          )}
-        </div>
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-text-light" />
+    <button
+      type="button"
+      onClick={handleOpenModelTab}
+      className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-panel-border bg-panel hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1"
+      data-testid="your-expertise-section"
+      aria-label="Open Model tab to review factors and relationships"
+    >
+      <div className="flex items-center gap-2 min-w-0">
+        <span className={`${typography.panelHeader} text-text-header`}>Your expertise</span>
+        <Tooltip
+          delay={300}
+          content="Review factors and relationships on the Model tab"
+        >
+          <Info size={14} className="text-text-light" />
+        </Tooltip>
+        {hasContent ? (
+          <span
+            className={`${typography.panelMeta} text-text-light truncate`}
+            data-testid="expertise-summary"
+          >
+            {summary}
+          </span>
         ) : (
-          <ChevronRight className="w-4 h-4 text-text-light" />
+          <span className={`${typography.panelMeta} text-text-light`}>
+            Your model looks well-calibrated
+          </span>
         )}
-      </button>
-
-      {isExpanded && (
-        <div className="px-3 pb-3 space-y-3">
-          {/* Progress bar — numerator counts resolved items within the actionable set */}
-          {denominator > 0 && (
-            <div className="space-y-1">
-              <p className={`${typography.panelMeta} text-text-light`}>
-                You've contributed to {Math.min(reviewedCount, denominator)} of {denominator}
-              </p>
-              <div className="w-full h-1.5 bg-panel-border rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-success rounded-full transition-all duration-300"
-                  style={{ width: `${denominator > 0 ? Math.min(100, (Math.min(reviewedCount, denominator) / denominator) * 100) : 0}%` }}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* P1-1: lighter summary line in place of the spectrum bar.
-              "{N} from brief, {N} AI estimates, {N} missing data" — only mentions
-              non-zero buckets so the line stays terse. */}
-          {(() => {
-            const briefN = groups.fromBrief.length
-            const aiN = groups.aiEstimated.length
-            const missingN = groups.missingData.length
-            const parts: string[] = []
-            if (briefN > 0) parts.push(`${briefN} from brief`)
-            if (aiN > 0) parts.push(`${aiN} AI ${aiN === 1 ? 'estimate' : 'estimates'}`)
-            if (missingN > 0) parts.push(`${missingN} missing data`)
-            if (parts.length === 0) return null
-            return (
-              <p className={`${typography.panelMeta} text-text-light`} data-testid="expertise-summary">
-                {parts.join(', ')}
-              </p>
-            )
-          })()}
-
-          {/* Empty state */}
-          {allEmpty ? (
-            <p className={`${typography.panelBody} text-text-light py-2`}>
-              No items to review. Your model looks well-calibrated.
-            </p>
-          ) : (
-            <>
-              <ContestedRelationships
-                contestedEdges={contestedEdges}
-                nodes={nodes}
-                onFocusEdge={onFocusEdge}
-                onResolveEdge={onResolveEdge}
-                factorInfluenceMap={factorInfluenceMap}
-                onHoverEnter={onHoverEnter}
-                onHoverLeave={onHoverLeave}
-              />
-              <AiEstimated
-                items={groups.aiEstimated}
-                onFocusNode={onFocusNode}
-                onConfirm={onConfirm}
-                onEdit={onEdit}
-                onSendMessage={onSendMessage}
-                factorInfluenceMap={factorInfluenceMap}
-                onHoverEnter={onHoverEnter}
-                onHoverLeave={onHoverLeave}
-              />
-              <MissingData
-                items={groups.missingData}
-                onFocusNode={onFocusNode}
-                onSetValue={onSetValue}
-                onSendMessage={onSendMessage}
-                factorInfluenceMap={factorInfluenceMap}
-                onHoverEnter={onHoverEnter}
-                onHoverLeave={onHoverLeave}
-              />
-              <FromBrief
-                items={groups.fromBrief}
-                onFocusNode={onFocusNode}
-                onHoverEnter={onHoverEnter}
-                onHoverLeave={onHoverLeave}
-              />
-              <KeyRelationshipsSubgroup
-                items={groups.keyRelationships}
-                onFocusEdge={onFocusEdge}
-                onUpdateEdgeStrength={onUpdateEdgeStrength}
-                onHoverEnter={onHoverEnter}
-                onHoverLeave={onHoverLeave}
-              />
-              <EdgeEvidenceGaps
-                items={groups.edgeGaps}
-                onFocusEdge={onFocusEdge}
-                onAddEvidence={onAddEvidence}
-                onHoverEnter={onHoverEnter}
-                onHoverLeave={onHoverLeave}
-              />
-            </>
-          )}
-        </div>
-      )}
-    </div>
+      </div>
+      <ChevronRight className="w-4 h-4 text-text-light flex-shrink-0" aria-hidden="true" />
+    </button>
   )
 }

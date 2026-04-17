@@ -657,16 +657,28 @@ export function OutputsDock() {
   // semantic IDs from PLoT evidence gaps (e.g. "fac_current_mrr") can also resolve.
   // Heuristic fallback — remove when PLoT guarantees target_node_id on all evidence gaps.
   const nodeValueLookup = useMemo(() => {
-    const lookup: Record<string, { value: number | null; unit: string | null; cap: number | null }> = {}
+    const lookup: Record<
+      string,
+      { value: number | null; unit: string | null; cap: number | null; displayValue: string | null }
+    > = {}
     for (const n of nodes) {
       const nd = n.data as Record<string, unknown>
       const obs = (nd?.observedState ?? nd?.observed_state ?? {}) as Record<string, unknown>
       const raw = obs?.raw_value as number | undefined
       const val = obs?.value as number | undefined
+      // intervention_details[factor_id].display_value — pre-formatted string
+      // supplied by CEE/PLoT, preferred over raw-value formatting (Brief 4 T7).
+      const intervention = (nd?.intervention_details ?? {}) as Record<string, { display_value?: unknown; unit?: unknown }>
+      const ownIntervention = intervention[n.id]
+      const interventionDisplay = typeof ownIntervention?.display_value === 'string'
+        ? ownIntervention.display_value
+        : null
+      const interventionUnit = typeof ownIntervention?.unit === 'string' ? ownIntervention.unit : null
       const entry = {
         value: raw ?? val ?? null,
-        unit: (obs?.unit as string | undefined) ?? null,
+        unit: interventionUnit ?? ((obs?.unit as string | undefined) ?? null),
         cap: (obs?.cap as number | undefined) ?? null,
+        displayValue: interventionDisplay,
       }
       lookup[n.id] = entry
       // Secondary key: derive fac_ snake_case ID from label so PLoT semantic IDs match
@@ -1509,26 +1521,38 @@ export function OutputsDock() {
                     </span>
                   </div>
                 )}
-                {/* C.1b: Graph-staleness indicator — shown when graph has been
-                    edited after the last successful analysis */}
+                {/* Brief 4 Task 13: top-level stale card.
+                    Full border-warning/30 + bg-warning/5; the results body
+                    below dims to 0.6 so the user sees stale data but can't
+                    miss that it's stale. Scroll and selection remain usable
+                    (no pointer-events:none) — only mutation affordances are
+                    disabled inside ResultsBody via aria-disabled. */}
                 {analysisStale && !isError && report && (
                   <div
-                    className="flex items-center gap-2 px-3 py-2 bg-panel border border-warning/30 rounded"
+                    className="px-3 py-2.5 rounded-lg border border-warning/30"
+                    style={{ backgroundColor: 'rgb(255 166 86 / 0.05)' }}
                     role="status"
                     data-testid="graph-stale-banner"
                   >
-                    <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
-                    <span className={`${typography.panelBody} text-text-body flex-1`}>
-                      Model changed since last analysis.
-                    </span>
-                    <button
-                      type="button"
-                      onClick={handleRunAnalysis}
-                      disabled={isRunning || !canRunAnalysis}
-                      className={`${typography.panelBody} text-info hover:underline disabled:opacity-50 disabled:cursor-not-allowed shrink-0`}
-                    >
-                      Rerun
-                    </button>
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-1" aria-hidden="true" />
+                      <div className="flex-1 min-w-0">
+                        <p className={`${typography.panelHeader} text-text-header`}>
+                          You've updated the model since this analysis ran
+                        </p>
+                        <p className={`${typography.panelBody} text-text-light`}>
+                          Results may not reflect your current graph.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRunAnalysis}
+                        disabled={isRunning || !canRunAnalysis}
+                        className={`${typography.panelBody} bg-primary text-text-on-color rounded-md px-3 py-1 hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0`}
+                      >
+                        Rerun analysis
+                      </button>
+                    </div>
                   </div>
                 )}
                 {/* A.9: Conversation-triggered analysis indicator — auto-dismisses after 5s */}
@@ -1554,6 +1578,11 @@ export function OutputsDock() {
                     from Results tab — they are not in the v7 prototype.
                     ====================================================================== */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
+                  <div
+                    style={{ opacity: analysisStale && !isError ? 0.6 : 1 }}
+                    aria-disabled={analysisStale && !isError ? true : undefined}
+                    data-testid="results-body-stale-wrapper"
+                  >
                   <ResultsBody
                     resultsSectionData={resultsSectionData}
                     tornadoData={tornadoData}
@@ -1590,7 +1619,9 @@ export function OutputsDock() {
                     onSetFactorValue={handleTriageSetValue}
                     expertMode={expertMode}
                     nodeValueLookup={nodeValueLookup}
+                    isStale={analysisStale && !isError}
                   />
+                  </div>
                 )}
                 </div>
                 {!isPreRun && hasInlineSummary && resultsSectionData && (

@@ -24,7 +24,7 @@ describe('TriageCard — icon-group spacing (P1.3)', () => {
         ordinal={1}
         title="Factor A"
         detail="Sample detail"
-        subtitle="AI estimate. Does this match?"
+        subtitle="Calibrate this factor for the outcome you expect"
         category="verify"
         action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
         sourcePill={{ label: 'AI estimate', borderClass: 'border-info/30' }}
@@ -46,7 +46,7 @@ describe('TriageCard — icon-group spacing (P1.3)', () => {
         ordinal={4}
         title="Factor B"
         detail="Sample detail"
-        subtitle="From your brief. Does this look right?"
+        subtitle="Verify the baseline captured from your brief"
         category="verify"
         variant="compact"
         action={{ kind: 'confirm', label: 'Confirm', targetId: 'n2', targetType: 'node' }}
@@ -68,7 +68,7 @@ describe('TriageCard — compact variant subtitle (P1.4)', () => {
         ordinal={4}
         title="Customer Satisfaction"
         detail="Fallback detail"
-        subtitle="AI estimate. Does this match?"
+        subtitle="Calibrate this factor for the outcome you expect"
         category="verify"
         variant="compact"
         action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
@@ -77,7 +77,7 @@ describe('TriageCard — compact variant subtitle (P1.4)', () => {
     )
     // Subtitle must be visible in the rendered output — previously it was
     // destructured from props and never rendered in compact mode.
-    expect(screen.getByText('AI estimate. Does this match?')).toBeInTheDocument()
+    expect(screen.getByText('Calibrate this factor for the outcome you expect')).toBeInTheDocument()
   })
 
   it('omits the subtitle row when subtitle, action, and edge strength are all absent', () => {
@@ -111,7 +111,7 @@ describe('TriageCard — AI affordance count (UI-BUG-5)', () => {
         ordinal={1}
         title="Customer Satisfaction"
         detail="Sample detail"
-        subtitle="AI estimate. Does this match?"
+        subtitle="Calibrate this factor for the outcome you expect"
         category="verify"
         action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
         sourcePill={{ label: 'AI estimate', borderClass: 'border-info/30' }}
@@ -152,7 +152,7 @@ describe('TriageCard — placeholder unit suffix (UI-BUG-1)', () => {
           ordinal={1}
           title="Factor A"
           detail="Sample detail"
-          subtitle="AI estimate. Does this match?"
+          subtitle="Calibrate this factor for the outcome you expect"
           category="verify"
           action={{ kind: 'set_value', label: 'Set value', targetId: 'n1', targetType: 'node' }}
           editorConfig={{ kind: 'factor', rawValue: 0, cap: null, unit, onSave: () => {}, onCancel: () => {} }}

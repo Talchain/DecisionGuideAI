@@ -14,7 +14,8 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction, FlipThreshold, ConditionalWinner, InferenceWarning } from './types'
+import type { ConfidenceSectionData, UncertaintyItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction, FlipThreshold, InferenceWarning } from './types'
+import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -1134,131 +1135,64 @@ function FlipThresholdCards({
   )
 }
 
-// =============================================================================
-// ConditionalWinnerCards — factor-dependent recommendation splits (ISL)
-// =============================================================================
-
-const MAX_CONDITIONAL_CARDS = 3
-
-/**
- * Renders conditional winner cards showing where the recommendation changes
- * based on factor values. Gated on conditional_winners[] being non-empty.
- */
-function ConditionalWinnerCards({
-  winners,
-  onFocusNode,
-}: {
-  winners: ConditionalWinner[]
-  onFocusNode?: (nodeId: string) => void
-}) {
-  const visible = winners.slice(0, MAX_CONDITIONAL_CARDS)
-
-  return (
-    <div className="space-y-2 pt-2 border-t border-panel-border/50" data-testid="conditional-winner-cards">
-      <div className="flex items-center gap-2 mb-1">
-        <GitBranch className="w-4 h-4 text-info flex-shrink-0" />
-        <h4 className={`${typography.panelHeader} text-text-header`}>
-          Conditional results
-        </h4>
-      </div>
-      {visible.map((w, idx) => {
-        const canFocus = !!w.factor_id
-        const handleFocus = () => {
-          if (w.factor_id) {
-            if (onFocusNode) onFocusNode(w.factor_id)
-            else focusNodeById(w.factor_id)
-          }
-        }
-        return (
-          <div
-            key={`${w.factor_id}-${idx}`}
-            className={`p-3 bg-panel border border-info/30 rounded-lg ${canFocus ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all' : ''}`}
-            onClick={canFocus ? handleFocus : undefined}
-            role={canFocus ? 'button' : undefined}
-            tabIndex={canFocus ? 0 : undefined}
-            onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
-          >
-            <p className={`${typography.panelHeader} text-text-header`}>
-              When {w.factor_label} rises above {w.split_value.toLocaleString()}{w.split_unit ?? ''}, {w.high_bucket.winner_label} overtakes {w.low_bucket.winner_label}
-            </p>
-            <div className={`${typography.panelMeta} text-text-light mt-1 flex gap-4`}>
-              <span>Above: {w.high_bucket.winner_label} ({Math.round(w.high_bucket.win_probability * 100)}%)</span>
-              <span>Below: {w.low_bucket.winner_label} ({Math.round(w.low_bucket.win_probability * 100)}%)</span>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
+// ConditionalWinnerCards — moved to ./ConditionalWinnerCards.tsx so the
+// active post-analysis path (DecisionConfidencePanel) can render it directly.
 
 // =============================================================================
 // InferenceWarningCard — model gap warnings (ISL)
 // =============================================================================
 
 /**
- * Renders inference warning card when ISL reports MISSING_ROOT_VALUE entries.
- * Shows count of affected factors with action chip to navigate.
+ * Renders inference warnings as compact meta lines.
+ * Brief 4 Task 12: show ALL warnings verbatim (no mutation), cap 3 visible
+ * with "Show all" overflow, one AlertTriangle icon per line.
  */
 function InferenceWarningCard({
   warnings,
-  onFocusNode,
+  // onFocusNode kept in the signature for future row-level focus actions but
+  // unused in the compact list variant.
+  onFocusNode: _onFocusNode,
 }: {
   warnings: InferenceWarning[]
   onFocusNode?: (nodeId: string) => void
 }) {
-  // Only show MISSING_ROOT_VALUE warnings
-  const relevant = warnings.filter(w => w.code === 'MISSING_ROOT_VALUE')
+  const [showAll, setShowAll] = useState(false)
+  const relevant = warnings.filter(w => typeof w.message === 'string' && w.message.trim().length > 0)
   if (relevant.length === 0) return null
-
-  // Build ID→label map from all warnings
-  const labelMap = useMemo(() => {
-    const map = new Map<string, string>()
-    for (const w of relevant) {
-      const ids = w.affected_nodes ?? []
-      const labels = w.affected_labels ?? []
-      ids.forEach((id, i) => {
-        if (!map.has(id)) map.set(id, labels[i] ?? id)
-      })
-    }
-    return map
-  }, [relevant])
-  const allLabels = [...labelMap.entries()].map(([id, label]) => ({ id, label }))
+  const visible = showAll ? relevant : relevant.slice(0, 3)
+  const hidden = relevant.length - visible.length
 
   return (
     <div className="pt-2 border-t border-panel-border/50" data-testid="inference-warnings">
-      <div
-        className="p-3 bg-panel border border-warning/30 rounded-lg"
-      >
-        <div className="flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" />
-          <div className="flex-1 min-w-0">
-            <p className={`${typography.panelHeader} text-text-header`}>
-              Model gaps: {uniqueNodes.length} factor{uniqueNodes.length !== 1 ? 's' : ''} used default values
-            </p>
-            {/* List affected factor labels with focus action */}
-            {allLabels.length > 0 && (
-              <ul className={`${typography.panelMeta} text-text-light mt-1 space-y-0.5`}>
-                {allLabels.map((entry, i) => (
-                  <li key={entry.id} className="flex items-center gap-1">
-                    <span className="text-warning">{'\u2022'}</span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (onFocusNode) onFocusNode(entry.id)
-                        else focusNodeById(entry.id)
-                      }}
-                      className="text-info hover:underline text-left"
-                    >
-                      {entry.label}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      </div>
+      <ul className="space-y-1">
+        {visible.map((w, i) => (
+          <li
+            key={`${w.code}-${i}`}
+            className={`flex items-start gap-2 ${typography.panelMeta} text-text-light`}
+          >
+            <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+            <span>{w.message}</span>
+          </li>
+        ))}
+      </ul>
+      {hidden > 0 && !showAll && (
+        <button
+          type="button"
+          onClick={() => setShowAll(true)}
+          className={`${typography.panelMeta} text-info hover:underline mt-1`}
+        >
+          Show all ({relevant.length})
+        </button>
+      )}
+      {showAll && relevant.length > 3 && (
+        <button
+          type="button"
+          onClick={() => setShowAll(false)}
+          className={`${typography.panelMeta} text-info hover:underline mt-1`}
+        >
+          Show fewer
+        </button>
+      )}
     </div>
   )
 }

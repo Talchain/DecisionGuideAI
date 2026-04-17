@@ -121,6 +121,18 @@ export interface ImprovementItem {
    * mapped per Signal Registry addendum v3 canonical list.
    */
   signal_id?: string
+  /**
+   * Brief 4 Task 8: per-factor context used to derive a deterministic
+   * subtitle when the CEE `hint` is absent. Populated by usePreAnalysisData
+   * from m1_coaching.evidence_gaps and the graph structure. Consumers
+   * should pick the first populated field in the priority order:
+   * voi → evpiPp → downstreamDegree.
+   */
+  sensitivityContext?: {
+    voi?: number
+    evpiPp?: number
+    downstreamDegree?: number
+  }
 }
 
 /** Option preview data for Task 3 */
@@ -856,6 +868,26 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         subgroup = 'user_reviewed'
       }
 
+      // Brief 4 Task 8: derive deterministic context for the mapper's fallback
+      // subtitle. VoI + EVPI come from m1 coaching when present; downstream
+      // degree is always available from the graph.
+      const factorEvidenceGap = Array.isArray(m1EvidenceGaps)
+        ? (m1EvidenceGaps as Array<{ factor_id?: string; voi_score?: number; voi?: number; evpi_percentage_points?: number }>).find(
+          g => g.factor_id === factor.id,
+        )
+        : undefined
+      const factorInfluence = preAnalysisSensitivity?.factor_influence?.[factor.id]
+      const downstreamDegree = edges.filter(e => e.source === factor.id).length
+      const sensitivityContext = {
+        voi: typeof factorInfluence === 'number'
+          ? factorInfluence
+          : (factorEvidenceGap?.voi_score ?? factorEvidenceGap?.voi),
+        evpiPp: typeof factorEvidenceGap?.evpi_percentage_points === 'number'
+          ? factorEvidenceGap.evpi_percentage_points
+          : undefined,
+        downstreamDegree: downstreamDegree > 0 ? downstreamDegree : undefined,
+      }
+
       result.verify.push({
         key: `verify_${factor.id}`,
         signal_id: `review.factor_unreviewed_top3`,
@@ -872,6 +904,7 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
         rawValue: os.raw_value ?? null,
         cap: os.cap ?? null,
         unit: os.unit ?? null,
+        sensitivityContext,
       })
     }
 

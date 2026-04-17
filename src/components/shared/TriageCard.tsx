@@ -14,6 +14,7 @@ import { Check, Pencil } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
+import { ExpandableCoachingText } from './ExpandableCoachingText'
 import Tooltip from '@/components/Tooltip'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import type { AiDiscussElement } from '@/canvas/components/pre-analysis/buildAiDiscussPrompt'
@@ -432,29 +433,28 @@ export function TriageCard(props: TriageCardProps) {
             <span className={`${typography.panelMeta} text-text-light tabular-nums`}>{influencePct}%</span>
           </div>
         )}
-        {/* EVOI impact pill — only when no influence% */}
-        {evoiImpact != null && influencePct == null && (
+        {/* EVPI percentage-point pill — always visible on surfaced gap cards
+            (Brief 4 Task 9 + P1 #2). The prior gate suppressed the pill when
+            an influence% existed, but evidence cards need the Npp signal to
+            motivate the "Set value" action regardless of influence weight. */}
+        {evoiImpact != null && (
           <span className={`shrink-0 px-1.5 py-0.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}>
             {evoiImpact.toFixed(1)}pp
           </span>
         )}
       </div>
 
-      {/* Collapsed subtitle + value row.
-          The subtitle (coaching line) and the value controls share a single
-          row for factor cards so AI-estimate cards look like:
-            "AI estimate. Does this match? [input] ✏ ✓ ✦"
-          When no editorConfig is available, the action-icon group replaces
-          the input + icons on the right side. Subtitle truncates first so
-          the right-side controls never get pushed off-screen. */}
-      {!isEdge && (
-        <div className="flex items-center gap-2 pl-7 mt-0.5 min-w-0">
-          <p
-            className={`${typography.panelMeta} text-text-light truncate flex-1 min-w-0`}
-            title={subtitle || displayDetail}
-          >
-            {subtitle || displayDetail}
-          </p>
+      {/* Coaching line + value controls row.
+          The coaching text uses ExpandableCoachingText so long CEE strings
+          aren't silently truncated — two lines visible by default, full text
+          on "More". Right-side controls stay vertically centred with the
+          text block (controls hug the column's middle via items-center). */}
+      {!isEdge && (subtitle || displayDetail) && (
+        <div className="flex items-start gap-2 pl-7 mt-0.5 min-w-0">
+          <ExpandableCoachingText
+            text={subtitle || displayDetail}
+            className="text-text-light"
+          />
           {editorConfig ? (
             <InlineValueControls
               editorConfig={editorConfig}
@@ -486,12 +486,17 @@ export function TriageCard(props: TriageCardProps) {
         </div>
       )}
 
-      {/* Edge cards keep the two-row layout: subtitle, then strength quick-select */}
+      {/* Edge cards keep the two-row layout: coaching line, then strength quick-select */}
       {isEdge && (
         <>
-          <p className={`${typography.panelMeta} text-text-light truncate pl-7`} title={subtitle || displayDetail}>
-            {subtitle || displayDetail}
-          </p>
+          {(subtitle || displayDetail) && (
+            <div className="pl-7">
+              <ExpandableCoachingText
+                text={subtitle || displayDetail}
+                className="text-text-light"
+              />
+            </div>
+          )}
           {action?.targetId && onUpdateEdgeStrength && (
             <div className="mt-1.5 pl-7">
               <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />

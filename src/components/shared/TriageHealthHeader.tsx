@@ -31,8 +31,8 @@ export interface TriageHealthHeaderProps {
   ringLabel: string
   /** Four 0-1 dimension values for the ring arcs + overall score */
   ringDimensions: DecisionHealthRingDimensions
-  /** Dimension bars to display (4 items in 2×2 grid) */
-  dimensions: TriageDimension[]
+  /** Dimension bars to display (omitted in 'single' mode) */
+  dimensions?: TriageDimension[]
   /** Optional headline below the ring (e.g. decision summary sentence) */
   headline?: string | null
   /** Optional coaching line — dismissible per session */
@@ -47,6 +47,15 @@ export interface TriageHealthHeaderProps {
    * a visually-hidden title for tests/screen readers.
    */
   hideTitle?: boolean
+  /**
+   * Ring rendering mode.
+   * - 'composite' (default): composite readiness ring + 4 dimension bars.
+   * - 'single': single-value ring (caller supplies overrideScore) with an
+   *   optional ringCaption. No dimension bars render.
+   */
+  mode?: 'composite' | 'single'
+  /** Caption rendered below the ring in single mode (e.g. "win probability"). */
+  ringCaption?: string
 }
 
 function DimensionBar({ dim }: { dim: TriageDimension }) {
@@ -80,10 +89,13 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
   overrideScore,
   testId = 'triage-health-header',
   hideTitle = false,
+  mode = 'composite',
+  ringCaption,
 }: TriageHealthHeaderProps) {
   const [coachingDismissed, setCoachingDismissed] = useState(false)
 
   const showCoaching = !coachingDismissed && coaching != null && !hideTitle
+  const showBars = mode === 'composite' && dimensions != null && dimensions.length > 0
 
   return (
     <div
@@ -98,19 +110,32 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
 
       {/* Ring + headline + dimensions layout */}
       <div className="flex items-start gap-3">
-        <DecisionHealthRing dimensions={ringDimensions} size={72} centerLabel={ringLabel} overrideScore={overrideScore} />
+        <div className="flex flex-col items-center gap-1 flex-shrink-0">
+          <DecisionHealthRing
+            dimensions={ringDimensions}
+            size={72}
+            centerLabel={ringLabel}
+            overrideScore={overrideScore}
+            mode={mode}
+          />
+          {ringCaption && (
+            <p className={`${typography.panelMeta} text-text-light`}>{ringCaption}</p>
+          )}
+        </div>
 
         <div className="flex-1 min-w-0 space-y-2">
           {headline && (
             <p className={`${typography.panelHeader} text-text-body`}>{headline}</p>
           )}
 
-          {/* 2×2 dimension bars — always show all four */}
-          <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-            {dimensions.map((dim) => (
-              <DimensionBar key={dim.label} dim={dim} />
-            ))}
-          </div>
+          {/* 2×2 dimension bars — composite mode only */}
+          {showBars && (
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {dimensions!.map((dim) => (
+                <DimensionBar key={dim.label} dim={dim} />
+              ))}
+            </div>
+          )}
         </div>
       </div>
 

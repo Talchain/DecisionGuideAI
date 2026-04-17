@@ -255,10 +255,13 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
     const singleAdj = grouped[0]
     const singleRepair = repairActions[0]
     return (
-      <div className="rounded-lg border border-panel-border bg-panel px-3 py-2" data-testid="model-adjustments">
+      <div className="rounded-lg border border-info/30 bg-panel px-3 py-2" data-testid="model-adjustments">
         <div className="flex items-start gap-2">
-          <Wrench size={14} className="text-text-light flex-shrink-0 mt-0.5" />
+          <Wrench size={14} className="text-info flex-shrink-0 mt-0.5" />
           <div className="flex-1 min-w-0">
+            <p className={`${typography.panelHeader} text-text-header mb-0.5`}>
+              Olumi adjusted 1 factor
+            </p>
             {singleAdj ? (
               <AdjustmentRow adj={singleAdj} />
             ) : (
@@ -270,22 +273,20 @@ export function ModelAdjustments({ adjustments, repairActions = [], postRunRepai
     )
   }
 
-  // Multiple fixes: collapsible section
+  // Multiple fixes: collapsible section (Brief 4 Task 11 — info-tinted full border)
   return (
-    <div className="rounded-lg border border-panel-border bg-panel" data-testid="model-adjustments">
+    <div className="rounded-lg border border-info/30 bg-panel" data-testid="model-adjustments">
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
         className="flex items-center gap-2 w-full px-3 py-2 text-left hover:bg-panel-hover transition-colors rounded-lg"
+        aria-expanded={isExpanded}
       >
-        <Wrench size={14} className="text-text-light flex-shrink-0" />
+        <Wrench size={14} className="text-info flex-shrink-0" />
         <div className="flex-1 min-w-0">
-          <span className={`${typography.panelHeader} text-text-body`}>
-            {totalCount} model {totalCount === 1 ? 'adjustment' : 'adjustments'} applied
+          <span className={`${typography.panelHeader} text-text-header`}>
+            Olumi adjusted {totalCount} {totalCount === 1 ? 'factor' : 'factors'}
           </span>
-          <p className={`${typography.panelMeta} text-text-light leading-tight`}>
-            We fixed small issues without changing your intent.
-          </p>
         </div>
         {isExpanded ? (
           <ChevronDown size={14} className="text-text-light" />

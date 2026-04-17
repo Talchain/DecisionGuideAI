@@ -33,6 +33,7 @@ import { GAP_THRESHOLD } from './buildResultsVM'
 import { DeltaIndicator } from '../shared/DeltaIndicator'
 import { useCanvasStore, selectPreviousReport } from '../../canvas/store'
 import type { DecisionState, HingeInfo, NextActionItem, RobustnessLevel } from './types'
+import { isExpertField } from './utils/isExpertField'
 import type { NearTieInfo } from '../../lib/mappers/types'
 import { getStabilityClassification, getStabilityBorderClass } from '../../lib/stability'
 
@@ -152,6 +153,8 @@ export interface HeroSectionProps {
   allOptionGoalProbabilities?: OptionGoalProbability[]
   /** Constraint analysis from the winning option (for target probability bars) */
   winnerConstraintAnalysis?: import('../../types/constraints').ConstraintAnalysis
+  /** Gate expert-only fields (nSamples, fragileEdgeCount in the More panel) */
+  expertMode?: boolean
 }
 
 // =============================================================================
@@ -320,6 +323,7 @@ export function HeroSection({
   totalFactorCount,
   allOptionGoalProbabilities,
   winnerConstraintAnalysis,
+  expertMode = false,
 }: HeroSectionProps) {
   // A1: Previous report snapshot for delta indicators
   const previousReport = useCanvasStore(selectPreviousReport)
@@ -1061,7 +1065,8 @@ export function HeroSection({
               </p>
             )}
 
-            {/* 3-row stability summary */}
+            {/* Stability summary — stability itself is a standard display,
+                simulation counts and fragile-edge counts are expert-only. */}
             <dl className={`grid grid-cols-2 gap-x-4 gap-y-1 ${typography.panelMeta}`}>
               {stabilityPct != null && (
                 <>
@@ -1069,13 +1074,13 @@ export function HeroSection({
                   <dd className="text-text-header">{stabilityPct}%</dd>
                 </>
               )}
-              {fragileEdgeCount != null && (
+              {expertMode && isExpertField('fragileEdgeCount') && fragileEdgeCount != null && (
                 <>
                   <dt className="text-text-light">Sensitive assumptions</dt>
                   <dd className="text-text-header">{fragileEdgeCount}</dd>
                 </>
               )}
-              {nSamples != null && (
+              {expertMode && isExpertField('nSamples') && nSamples != null && (
                 <>
                   <dt className="text-text-light">Simulation quality</dt>
                   <dd className="text-text-header">{nSamples.toLocaleString()} simulations</dd>

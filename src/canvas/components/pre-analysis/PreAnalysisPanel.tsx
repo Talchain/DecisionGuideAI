@@ -55,6 +55,7 @@ import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
+import { ModelAdjustments } from './ModelAdjustments'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { SectionHeader } from '@/components/results/SectionHeader'
@@ -1681,6 +1682,13 @@ export function PreAnalysisPanel({
             </section>
           )}
 
+          {/* Model notes: surface CEE model_adjustments between Review next
+              and Improve confidence (Brief 4 Task 11). Component hides itself
+              when the array is empty. */}
+          {data.modelAdjustments.length > 0 && (
+            <ModelAdjustments adjustments={data.modelAdjustments} />
+          )}
+
           {/* Section 3: Improve confidence — collapsed by default.
               P1-3: coaching line derived from actionable count. */}
           <ImproveConfidenceAccordion
@@ -1748,22 +1756,6 @@ export function PreAnalysisPanel({
                 edges={edges}
                 factorInfluenceMap={compositeInfluenceMap}
                 edgeInfluenceMap={edgeInfluenceMap}
-                reviewedCount={data.reviewedFactorsCount}
-                allItems={[
-                  ...(data.improvementsByCategory.verify ?? []),
-                  ...(data.improvementsByCategory.add_evidence ?? []),
-                ]}
-                onFocusNode={handleFocusNode}
-                onFocusEdge={handleFocusEdgeById}
-                onConfirm={handleConfirm}
-                onEdit={handleEdit}
-                onSetValue={handleSetValueForGap}
-                onSendMessage={onSendMessage}
-                onResolveEdge={handleResolveContestedEdge}
-                onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                onAddEvidence={handleAddEvidence}
-                onHoverEnter={handleHoverElement}
-                onHoverLeave={handleHoverClear}
               />
             </SectionErrorBoundary>
 

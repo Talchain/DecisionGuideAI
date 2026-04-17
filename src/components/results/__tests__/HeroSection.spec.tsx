@@ -415,9 +415,28 @@ describe('HeroSection', () => {
       const expandButton = screen.getByRole('button', { name: /More/i })
       fireEvent.click(expandButton)
 
-      // V9.2: Stability summary rows
+      // Standard view exposes Stability only; simulation counts and fragile-edge
+      // counts are expert-only (Brief 4 Task 3).
       expect(screen.getByText('Stability')).toBeInTheDocument()
       expect(screen.getByText('90%')).toBeInTheDocument()
+      expect(screen.queryByText('Sensitive assumptions')).not.toBeInTheDocument()
+      expect(screen.queryByText('Simulation quality')).not.toBeInTheDocument()
+    })
+
+    it('expands to show expert rows only when expertMode=true', () => {
+      render(
+        <HeroSection
+          {...baseProps}
+          recommendationStability={0.9}
+          nSamples={10000}
+          fragileEdgeCount={3}
+          expertMode
+        />
+      )
+
+      const expandButton = screen.getByRole('button', { name: /More/i })
+      fireEvent.click(expandButton)
+
       expect(screen.getByText('Sensitive assumptions')).toBeInTheDocument()
       expect(screen.getByText('3')).toBeInTheDocument()
       expect(screen.getByText('Simulation quality')).toBeInTheDocument()
