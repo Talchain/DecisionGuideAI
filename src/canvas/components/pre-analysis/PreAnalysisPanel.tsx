@@ -1514,7 +1514,10 @@ export function PreAnalysisPanel({
                   {startHereSignal.kind === 'triage' && (
                     <TriageCard
                       cardKey={startHereSignal.card.key}
-                      ordinal={0}
+                      // Brief 4 hotfix Task 4: Start Here card does not show a
+                      // numeric badge — the green 3px left border + "Start here"
+                      // framing already signal primacy. Previously `ordinal={0}`
+                      // rendered a "0" circle that users read as "nothing".
                       title={startHereSignal.card.title}
                       detail={startHereSignal.card.detail}
                       subtitle={startHereSignal.card.subtitle}

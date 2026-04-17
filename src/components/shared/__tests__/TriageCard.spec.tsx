@@ -16,6 +16,51 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { TriageCard } from '../TriageCard'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 
+describe('TriageCard — optional ordinal badge (Brief 4 hotfix Task 4)', () => {
+  it('renders a numeric badge when ordinal is provided', () => {
+    render(
+      <TriageCard
+        cardKey="k1"
+        ordinal={3}
+        title="Factor A"
+        detail="Detail"
+        category="verify"
+      />,
+    )
+    // The badge renders the ordinal text verbatim
+    expect(screen.getByText('3')).toBeInTheDocument()
+  })
+
+  it('omits the numeric badge when ordinal is undefined (Start Here card)', () => {
+    render(
+      <TriageCard
+        cardKey="start-here"
+        title="Factor A"
+        detail="Detail"
+        category="verify"
+      />,
+    )
+    // No "0" or any other numeric badge next to the title
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
+    // Title still renders
+    expect(screen.getByText('Factor A')).toBeInTheDocument()
+  })
+
+  it('compact variant also omits the badge when ordinal is undefined', () => {
+    render(
+      <TriageCard
+        cardKey="start-here-compact"
+        title="Factor B"
+        detail="Detail"
+        category="verify"
+        variant="compact"
+      />,
+    )
+    expect(screen.queryByText('0')).not.toBeInTheDocument()
+    expect(screen.getByText('Factor B')).toBeInTheDocument()
+  })
+})
+
 describe('TriageCard — icon-group spacing (P1.3)', () => {
   it('default variant action-icon group uses gap-2 (8px)', () => {
     render(

@@ -35,7 +35,12 @@ export interface TriageCardProps {
   /** Unique key */
   cardKey: string
   /** Display index (1-based) */
-  ordinal: number
+  /**
+   * 1-indexed priority badge shown as a numeric circle at the card's top-left.
+   * Omit (undefined) to hide the badge — used by the Start Here card, whose
+   * green-left-border already signals primacy.
+   */
+  ordinal?: number
   /** Card title */
   title: string
   /** Detail/explanation text */
@@ -288,11 +293,13 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      {/* Row 1: badge + title + source indicator pinned right + meta */}
+      {/* Row 1: badge (optional) + title + source indicator pinned right + meta */}
       <div className="flex items-center gap-2">
-        <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
-          {ordinal}
-        </span>
+        {ordinal != null && (
+          <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
+            {ordinal}
+          </span>
+        )}
         {renderTriageTitle(title, `flex-1 min-w-0 ${typography.panelMeta} text-info font-medium`)}
         {sourcePill && (
           <span className={`ml-auto shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
@@ -318,7 +325,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
           on having at least one of subtitle / edge-strength / icon action so
           we don't render an empty placeholder row. */}
       {(subtitle || (isEdge && action?.targetId && onUpdateEdgeStrength) || (!isEdge && action)) && (
-        <div className="flex items-center gap-2 pl-7 min-w-0">
+        <div className={`flex items-center gap-2 min-w-0 ${ordinal != null ? 'pl-7' : ''}`}>
           <p
             className={`${typography.panelMeta} text-text-light truncate flex-1 min-w-0`}
             title={subtitle || ''}
@@ -406,11 +413,13 @@ export function TriageCard(props: TriageCardProps) {
       }}
       onMouseLeave={() => onHoverLeave?.()}
     >
-      {/* Top row: ordinal + title ... source indicator pinned top-right */}
+      {/* Top row: ordinal (optional) + title ... source indicator pinned top-right */}
       <div className="flex items-start gap-2 mb-0.5">
-        <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center mt-0.5`}>
-          {ordinal}
-        </span>
+        {ordinal != null && (
+          <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center mt-0.5`}>
+            {ordinal}
+          </span>
+        )}
         {renderTriageTitle(title, `${typography.panelBody} font-semibold text-text-header flex-1 min-w-0`)}
         {/* Source indicator — pinned top-right */}
         {sourcePill && (
@@ -450,7 +459,7 @@ export function TriageCard(props: TriageCardProps) {
           on "More". Right-side controls stay vertically centred with the
           text block (controls hug the column's middle via items-center). */}
       {!isEdge && (subtitle || displayDetail) && (
-        <div className="flex items-start gap-2 pl-7 mt-0.5 min-w-0">
+        <div className={`flex items-start gap-2 mt-0.5 min-w-0 ${ordinal != null ? 'pl-7' : ''}`}>
           <ExpandableCoachingText
             text={subtitle || displayDetail}
             className="text-text-light"
@@ -490,7 +499,7 @@ export function TriageCard(props: TriageCardProps) {
       {isEdge && (
         <>
           {(subtitle || displayDetail) && (
-            <div className="pl-7">
+            <div className={ordinal != null ? 'pl-7' : ''}>
               <ExpandableCoachingText
                 text={subtitle || displayDetail}
                 className="text-text-light"
@@ -498,7 +507,7 @@ export function TriageCard(props: TriageCardProps) {
             </div>
           )}
           {action?.targetId && onUpdateEdgeStrength && (
-            <div className="mt-1.5 pl-7">
+            <div className={`mt-1.5 ${ordinal != null ? 'pl-7' : ''}`}>
               <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />
             </div>
           )}
