@@ -14,7 +14,8 @@
  */
 
 import { useState, useCallback, useMemo } from 'react'
-import type { ConfidenceSectionData, UncertaintyItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction, FlipThreshold, ConditionalWinner, InferenceWarning } from './types'
+import type { ConfidenceSectionData, UncertaintyItem, CritiqueSeverity, ConfidenceTier, EvidenceGapItem, AssumptionItem, DecisionState, HingeInfo, TopAction, FlipThreshold, InferenceWarning } from './types'
+import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import type { ConstraintAnalysis } from '../../types/constraints'
 import { focusNodeById, focusByTarget, type FocusTargetType } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -1134,79 +1135,8 @@ function FlipThresholdCards({
   )
 }
 
-// =============================================================================
-// ConditionalWinnerCards — factor-dependent recommendation splits (ISL)
-// =============================================================================
-
-const MAX_CONDITIONAL_CARDS = 3
-
-/**
- * Renders conditional winner cards showing where the recommendation changes
- * based on factor values. Gated on conditional_winners[] being non-empty.
- */
-function ConditionalWinnerCards({
-  winners,
-  onFocusNode,
-}: {
-  winners: ConditionalWinner[]
-  onFocusNode?: (nodeId: string) => void
-}) {
-  // Brief 4 Task 10: only show entries where the winner actually flips
-  // between the low and high buckets. Entries where both buckets have the
-  // same winner are not "scenarios" — they're just splits.
-  const flipping = useMemo(
-    () => winners.filter(w => w.high_bucket.winner_label !== w.low_bucket.winner_label),
-    [winners],
-  )
-  if (flipping.length === 0) return null
-  const visible = flipping.slice(0, MAX_CONDITIONAL_CARDS)
-
-  return (
-    <div className="space-y-2 pt-2 border-t border-panel-border/50" data-testid="conditional-winner-cards">
-      <div className="flex items-center gap-2 mb-1">
-        <GitBranch className="w-4 h-4 text-info flex-shrink-0" />
-        <h4 className={`${typography.panelHeader} text-text-header`}>
-          Conditional scenarios
-        </h4>
-        <span
-          className={`${typography.panelMeta} text-text-light`}
-          title="Factors that change the recommendation when they shift"
-        >
-          <Info className="w-3.5 h-3.5" aria-hidden="true" />
-          <span className="sr-only">Factors that change the recommendation when they shift</span>
-        </span>
-      </div>
-      {visible.map((w, idx) => {
-        const canFocus = !!w.factor_id
-        const handleFocus = () => {
-          if (w.factor_id) {
-            if (onFocusNode) onFocusNode(w.factor_id)
-            else focusNodeById(w.factor_id)
-          }
-        }
-        const splitSuffix = w.split_unit ? w.split_unit : ''
-        return (
-          <div
-            key={`${w.factor_id}-${idx}`}
-            className={`p-3 bg-panel border border-info/30 rounded-lg ${canFocus ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all' : ''}`}
-            onClick={canFocus ? handleFocus : undefined}
-            role={canFocus ? 'button' : undefined}
-            tabIndex={canFocus ? 0 : undefined}
-            onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
-          >
-            <p className={`${typography.panelBody} text-text-body`}>
-              When <span className="text-text-header">{w.factor_label}</span> exceeds {w.split_value.toLocaleString()}{splitSuffix}, <span className="text-text-header">{w.high_bucket.winner_label}</span> leads instead.
-            </p>
-            <div className={`${typography.panelMeta} text-text-light mt-1 flex gap-4`}>
-              <span>Above: {w.high_bucket.winner_label} ({Math.round(w.high_bucket.win_probability * 100)}%)</span>
-              <span>Below: {w.low_bucket.winner_label} ({Math.round(w.low_bucket.win_probability * 100)}%)</span>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
+// ConditionalWinnerCards — moved to ./ConditionalWinnerCards.tsx so the
+// active post-analysis path (DecisionConfidencePanel) can render it directly.
 
 // =============================================================================
 // InferenceWarningCard — model gap warnings (ISL)

@@ -18,6 +18,7 @@ import { useMemo, memo, useState } from 'react'
 import { AlertTriangle, ChevronDown, ChevronRight, Lightbulb } from 'lucide-react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
+import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
@@ -453,6 +454,16 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
 
       {/* 2. Result checks — target probabilities + fragility condition */}
       <ResultChecks data={data} onFocusNode={onFocusNode} />
+
+      {/* 2b. Conditional scenarios (Brief 4 Task 10) — between the flip-risk
+          callout and the evidence-gap triage cards, per brief. */}
+      {data.confidence.conditionalWinners && data.confidence.conditionalWinners.length > 0 && (
+        <ConditionalWinnerCards
+          winners={data.confidence.conditionalWinners}
+          recommendedLabel={data.recommendation.recommendedOption?.label}
+          onFocusNode={onFocusNode}
+        />
+      )}
 
       {/* 3. Trust summary + item count */}
       <TrustSummary actionCount={top3.length} />
