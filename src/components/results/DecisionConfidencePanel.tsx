@@ -19,6 +19,7 @@ import { AlertTriangle, ChevronDown, ChevronRight, Lightbulb } from 'lucide-reac
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
+import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
@@ -91,13 +92,17 @@ function mapEvidenceGapsToActions(
     const currentValue = nodeMeta?.value ?? null
     const currentUnit = nodeMeta?.unit ?? null
     const currentCap = nodeMeta?.cap ?? null
-    // Post-analysis cards: no subtitle — detail line shows contextual suggestion
-    const subtitle = undefined
+    // Post-analysis body precedence (coaching → generic fallback) goes
+    // through the shared resolver so pre- and post-analysis agree.
+    const { text: detail } = resolveTriageBodyText({
+      coaching: gap.suggestion,
+      generic: `This factor has ${gap.confidence}% confidence. Improving it could change the recommendation.`,
+    })
     return {
       key: `gap-${gap.factorId}-${i}`,
       title: gap.factorLabel,
-      detail: gap.suggestion || `This factor has ${gap.confidence}% confidence. Improving it could change the recommendation.`,
-      subtitle,
+      detail,
+      subtitle: undefined,
       category: 'add_evidence' as const,
       influence: gap.voi > 0 ? gap.voi : null,
       evoiImpact: gap.evpiPp ?? null,

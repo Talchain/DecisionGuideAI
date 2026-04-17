@@ -8,6 +8,7 @@
 
 import type { ImprovementItem } from './hooks/usePreAnalysisData'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
+import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
 export interface TriageCardItem {
   key: string
   /** Canonical signal_id from Signal Registry v3 §7 (optional — deferred population). */
@@ -40,52 +41,62 @@ function parseEdgeTitle(title: string): { source: string; target: string } | nul
 }
 
 /**
- * Derive contextual coaching subtitle from item metadata.
- *
- * Brief 4 Task 2: no character cap. ExpandableCoachingText in TriageCard
- * handles overflow via two-line clamp + expand toggle.
+ * Structural / category-specific body text that is not "coaching" per se —
+ * edge relationship prompts, no-data placeholders — always take precedence
+ * over coaching because they describe the item's nature.
  */
-function deriveSubtitle(item: ImprovementItem): string | undefined {
-  // Edge / relationship items
+function deriveStructuralContext(item: ImprovementItem): string | undefined {
   if (item.focus?.type === 'edge') {
     if (item.subgroup === 'contested') return 'Needs your judgement: estimates disagree'
     const parsed = parseEdgeTitle(item.label)
-    if (parsed) {
-      return `How strongly does ${parsed.source} affect ${parsed.target}?`
-    }
+    if (parsed) return `How strongly does ${parsed.source} affect ${parsed.target}?`
     return 'Set whether this relationship is weak, moderate, or strong'
   }
-
-  // Factor with no data (only when focus is a node — structural fix items like
-  // "fewer than 2 options" don't have a focus target and shouldn't get this subtitle)
   if (item.detail === 'No observed data' || (item.category === 'fix' && item.focus?.type === 'node')) {
     return 'No data yet. Set a value to include in analysis.'
   }
-
-  // Use CEE hint when available (richest contextual coaching)
-  if (item.hint) {
-    return item.hint
-  }
-
-  // Brief 4 Task 8: deterministic per-factor context when no CEE hint.
-  // Priority: influence → EVPI → graph degree. All values trace to data
-  // already in the envelope or the canvas graph — no fabrication.
-  const ctx = item.sensitivityContext
-  if (ctx) {
-    if (typeof ctx.voi === 'number' && ctx.voi > 0.5) {
-      return `Drives ${Math.round(ctx.voi * 100)}% of outcome variance`
-    }
-    if (typeof ctx.evpiPp === 'number' && ctx.evpiPp > 0.3) {
-      const pp = Math.round(ctx.evpiPp * 10) / 10
-      return `Resolving could improve confidence by ${pp}pp`
-    }
-    if (typeof ctx.downstreamDegree === 'number' && ctx.downstreamDegree > 0) {
-      const suffix = ctx.downstreamDegree === 1 ? 'relationship' : 'relationships'
-      return `Connects to ${ctx.downstreamDegree} downstream ${suffix}`
-    }
-  }
-
   return undefined
+}
+
+/**
+ * Deterministic sensitivity-context subtitle — used only when CEE has no
+ * richer coaching string. Priority: influence → EVPI → graph degree. Every
+ * value traces to data already in the envelope or the canvas graph.
+ */
+function deriveSensitivityContext(item: ImprovementItem): string | undefined {
+  const ctx = item.sensitivityContext
+  if (!ctx) return undefined
+  if (typeof ctx.voi === 'number' && ctx.voi > 0.5) {
+    return `Drives ${Math.round(ctx.voi * 100)}% of outcome variance`
+  }
+  if (typeof ctx.evpiPp === 'number' && ctx.evpiPp > 0.3) {
+    const pp = Math.round(ctx.evpiPp * 10) / 10
+    return `Resolving could improve confidence by ${pp}pp`
+  }
+  if (typeof ctx.downstreamDegree === 'number' && ctx.downstreamDegree > 0) {
+    const suffix = ctx.downstreamDegree === 1 ? 'relationship' : 'relationships'
+    return `Connects to ${ctx.downstreamDegree} downstream ${suffix}`
+  }
+  return undefined
+}
+
+/**
+ * Brief 4 Task 2 + P0 #3 remediation: resolve the single body string via
+ * resolveTriageBodyText so pre-analysis and post-analysis cards share the
+ * same precedence rule (coaching → derived context → generic).
+ *
+ * Structural context (edge prompts, No data placeholders) still short-circuits
+ * before coaching, because it describes the item's nature rather than
+ * coaching about it.
+ */
+function deriveSubtitle(item: ImprovementItem): string | undefined {
+  const structural = deriveStructuralContext(item)
+  if (structural) return structural
+  const { text } = resolveTriageBodyText({
+    coaching: item.hint,
+    context: deriveSensitivityContext(item),
+  })
+  return text.length > 0 ? text : undefined
 }
 
 export function mapImprovementToTriageCard(
