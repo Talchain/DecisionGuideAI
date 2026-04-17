@@ -341,7 +341,9 @@ export function ChallengeSection({
   drivers,
   edgeEValues,
   fragileEdges: fragileEdgesProp,
-  inferenceWarnings,
+  // inferenceWarnings is accepted for caller-site compatibility but no longer
+  // rendered here — AdvancedSection's trust narrative is the single surface.
+  inferenceWarnings: _inferenceWarnings,
   identifiabilityTag,
   expertMode,
 }: ChallengeSectionProps) {
