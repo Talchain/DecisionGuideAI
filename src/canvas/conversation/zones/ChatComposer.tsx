@@ -303,13 +303,25 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
           >
             <Mic className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
           </button>
-          {showRunAnalysis && (
+          {showRunAnalysis && (() => {
+            // Compose the disabled-state reason locally. Priority order:
+            //   1. runBlockedReason from the panel (covers in-flight + structural)
+            //   2. 'Turn in progress' when isThinking (CEE turn, no panel reason)
+            //   3. undefined — button is enabled
+            // This keeps the tooltip meaningful for every disable source.
+            const disabledReason = runBlockedReason
+              ?? (isThinking ? 'Turn in progress' : undefined)
+            const title = runDisabled && disabledReason ? disabledReason : 'Run analysis'
+            const ariaLabel = runDisabled && disabledReason
+              ? `Run analysis (blocked: ${disabledReason})`
+              : 'Run analysis'
+            return (
             <button
               type="button"
               onClick={onRunAnalysis}
               disabled={runDisabled}
-              title={runDisabled && runBlockedReason ? runBlockedReason : 'Run analysis'}
-              aria-label={runDisabled && runBlockedReason ? `Run analysis (blocked: ${runBlockedReason})` : 'Run analysis'}
+              title={title}
+              aria-label={ariaLabel}
               className="composer-icon-btn flex-shrink-0 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2"
               style={{
                 width: 34,
@@ -327,7 +339,8 @@ export const ChatComposer = memo(forwardRef<ChatComposerHandle, ChatComposerProp
             >
               <Play className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
             </button>
-          )}
+            )
+          })()}
 
           <textarea
             ref={composer.textareaRef}
