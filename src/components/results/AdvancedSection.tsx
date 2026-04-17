@@ -135,10 +135,19 @@ export function AdvancedSection({
     ? identifiability.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase())
     : null
 
+  // Phase 8 hotfix (Item 4): when the envelope includes inference warnings,
+  // auto-expand so stability caveats aren't hidden inside a collapsed
+  // accordion. Warnings live inside the trust narrative in this section
+  // per brief Task 12, so the collapse default would otherwise suppress
+  // them until the user clicks.
+  const hasInferenceWarnings = (inferenceWarnings ?? []).some(
+    w => typeof w.message === 'string' && w.message.trim().length > 0,
+  )
+
   return (
     <Accordion
       title="Advanced"
-      defaultExpanded={false}
+      defaultExpanded={hasInferenceWarnings}
       testId="accordion-advanced"
     >
       <div className="space-y-4">

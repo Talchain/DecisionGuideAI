@@ -12,7 +12,8 @@
  *
  * Data sources:
  * - Groups 3 (bias findings) and 4 (pre-mortem) from groupActionItems
- * - edgeEValues, inferenceWarnings, identifiabilityTag from ISL/PLoT
+ * - edgeEValues, identifiabilityTag from ISL/PLoT (inference warnings
+ *   moved to AdvancedSection's trust narrative)
  */
 
 import { type ReactNode } from 'react'
@@ -49,14 +50,6 @@ export interface ChallengeFragileEdge {
   alternative_winner_id?: string
 }
 
-/** Inference warning from ISL */
-export interface ChallengeInferenceWarning {
-  code: string
-  affected_nodes: string[]
-  affected_labels?: string[]
-  message?: string
-}
-
 export interface ChallengeSectionProps {
   /** M2 bias findings (Group 3: "Worth reflecting on") */
   biasFindings: ActionItem[]
@@ -73,8 +66,6 @@ export interface ChallengeSectionProps {
   edgeEValues?: EdgeEValue[]
   /** Fragile edges from robustness — shown in Model structure, enriched with E-values when available */
   fragileEdges?: ChallengeFragileEdge[]
-  /** Task 6: Inference warnings (root node defaults, etc.) */
-  inferenceWarnings?: ChallengeInferenceWarning[]
   /** Task 6: Identifiability tag from ISL — shown in Scientific notes */
   identifiabilityTag?: string | null
   /** Expert mode: gates E-value raw numbers in fragile edge cards */
@@ -341,9 +332,6 @@ export function ChallengeSection({
   drivers,
   edgeEValues,
   fragileEdges: fragileEdgesProp,
-  // inferenceWarnings is accepted for caller-site compatibility but no longer
-  // rendered here — AdvancedSection's trust narrative is the single surface.
-  inferenceWarnings: _inferenceWarnings,
   identifiabilityTag,
   expertMode,
 }: ChallengeSectionProps) {
