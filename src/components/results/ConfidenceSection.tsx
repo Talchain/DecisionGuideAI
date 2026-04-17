@@ -1,16 +1,24 @@
 /**
- * ConfidenceSection Component (renamed: "What Needs Attention")
+ * ConfidenceSection — ARCHIVED, NOT RENDERED IN PRODUCTION.
  *
- * Merged section displaying confidence tier, uncertainties, and improvements.
- * Part of the Results Panel redesign - "coaching over gates" approach.
+ * The live post-analysis triage path is DecisionConfidencePanel, rendered
+ * directly by ResultsBody. This file is retained solely because it is still
+ * imported by a handful of spec files (visualContracts.spec, banned-strings.spec,
+ * ConfidenceSection.voi.spec, ConfidenceSection.spec, v12.4-refix.spec). Those
+ * specs treat the component as a legacy integration fixture for assertions
+ * that pre-date the triage-panel rewrite.
  *
- * Features:
+ * Do NOT add new call sites. New features belong on DecisionConfidencePanel
+ * (triage flow) or inside ConditionalWinnerCards / AdvancedSection (trust
+ * narrative). When the remaining specs are rewritten against the active
+ * components, this file can be deleted outright.
+ *
+ * Historical context (pre-rewrite features, for readers of old tests):
  * - Confidence tier from Graph Readiness with full fallback chain
  * - Tier descriptions: Strong/Fair/Needs Work
  * - Uncertainties from critiques and sensitivity analysis
  * - Evidence coverage (if available)
  * - Merged improvements with priority ordering
- * - Conditional display based on status fields
  */
 
 import { useState, useCallback, useMemo } from 'react'
