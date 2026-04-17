@@ -325,13 +325,16 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
           on having at least one of subtitle / edge-strength / icon action so
           we don't render an empty placeholder row. */}
       {(subtitle || (isEdge && action?.targetId && onUpdateEdgeStrength) || (!isEdge && action)) && (
-        <div className={`flex items-center gap-2 min-w-0 ${ordinal != null ? 'pl-7' : ''}`}>
-          <p
-            className={`${typography.panelMeta} text-text-light truncate flex-1 min-w-0`}
-            title={subtitle || ''}
-          >
-            {subtitle || ''}
-          </p>
+        <div className={`flex items-start gap-2 min-w-0 ${ordinal != null ? 'pl-7' : ''}`}>
+          {/* Brief 4 hotfix Task 2: use ExpandableCoachingText so short 40-char
+              subtitles like "Connects to 2 downstream relationships" render in
+              full over two lines instead of single-line truncating with "...". */}
+          {subtitle && (
+            <ExpandableCoachingText
+              text={subtitle}
+              className="text-text-light"
+            />
+          )}
           {isEdge && action?.targetId && onUpdateEdgeStrength && (
             <div className="flex-shrink-0">
               <EdgeStrengthQuickSelect edgeId={action.targetId} onUpdateEdgeStrength={onUpdateEdgeStrength} />

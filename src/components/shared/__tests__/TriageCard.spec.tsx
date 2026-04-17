@@ -16,6 +16,28 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { TriageCard } from '../TriageCard'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 
+describe('TriageCard — compact subtitle no longer truncates (Brief 4 hotfix Task 2)', () => {
+  it('renders the full compact subtitle instead of single-line truncating', () => {
+    // 40-char subtitle that used to end in "Connects to 2 downstream..."
+    const subtitle = 'Connects to 2 downstream relationships'
+    render(
+      <TriageCard
+        cardKey="k1"
+        ordinal={1}
+        title="Annual Assistant Cost"
+        detail="Detail"
+        subtitle={subtitle}
+        category="verify"
+        variant="compact"
+        action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
+        onConfirm={() => {}}
+      />,
+    )
+    // Full subtitle present in DOM, not replaced by "..."
+    expect(screen.getByText(subtitle)).toBeInTheDocument()
+  })
+})
+
 describe('TriageCard — optional ordinal badge (Brief 4 hotfix Task 4)', () => {
   it('renders a numeric badge when ordinal is provided', () => {
     render(
