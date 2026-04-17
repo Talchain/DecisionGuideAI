@@ -1556,29 +1556,22 @@ export function PreAnalysisPanel({
                       </div>
                     </div>
                   )}
-                  {startHereSignal.kind === 'option_quality' && (
-                    <div className="relative px-3 pr-7 py-2.5 border border-panel-border rounded-[10px] hover:bg-panel-hover">
-                      <p className={`${typography.panelHeader} text-text-header`}>
-                        Your options
-                      </p>
-                      <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-                        {startHereSignal.hasInterventionOverlap
-                          ? 'Your options work through similar factors.'
-                          : 'You have fewer than 3 options to compare.'}
-                      </p>
-                      <div className="absolute bottom-1 right-1">
-                        <DiscussWithAiButton element={{ kind: 'option', label: startHereSignal.optionLabels[0] ?? 'your options' }} />
-                      </div>
-                    </div>
-                  )}
+                  {/*
+                    Note: the `option_quality` kind is deliberately excluded
+                    from Start here by pickStartHere.ts:113
+                    (`.filter(s => s.kind !== 'option_quality')`), so a
+                    render branch for that kind would be unreachable and was
+                    removed to prevent dead-path drift. Option-quality
+                    concerns are communicated by the OptionPreview card
+                    below rather than by a Start here one-liner.
+                  */}
                 </div>
               )}
 
-              {/* Option similarity / quality card — interventions collapsed per option (v2 brief).
-                  Always renders regardless of Start here: the Start here card for
-                  option_quality is a one-line coaching nudge, while OptionPreview
-                  is the structural option list with names and intervention details.
-                  Different content, different purpose. Accepted duplication (UI-BUG-9). */}
+              {/* Option similarity / quality card — interventions collapsed per option.
+                  The narrow-framing coaching lives inside OptionPreview (see
+                  SameLeversCoaching in that file); Start here never surfaces
+                  option_quality signals (excluded by pickStartHere). */}
               {showOptionQualityCard && data.optionPreviews.length > 0 && (
                 <OptionPreview
                   options={data.optionPreviews}
