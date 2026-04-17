@@ -151,6 +151,83 @@ All 26 pre-existing failures are infrastructure (Supabase env-var missing in tes
 
 None new. Item 7's `0.75em` `md-gap` translates to ~12px at 16px body — at the lower end of DS v5 §2.4's "12-16px between bold-led paragraphs" range. Upgrading to 1em (~16px) is a DS v5.1 consideration, not a hotfix.
 
+## Follow-up: ChatGPT review hardening (2026-04-17, same branch)
+
+After the initial five-item hotfix landed, a code-review pass surfaced five
+real findings plus three improvements. All five findings and all three
+improvements were addressed in a follow-up commit on the same branch.
+
+### P0 — handler-level guard
+`ConversationPanel.tsx:396` — `handleRunAnalysis` previously guarded only on
+`runGateResult.allowed`. The button's `disabled` prop blocked UI clicks, but
+the guidance store's `_runAnalysis` callback (registered at line 422) routed
+around the button and could fire a second run during the flip-gap. Added
+`isV2RunInFlight` to the handler's early-return condition and its dep array.
+Belt-and-braces defence in addition to F-77's abort-and-restart behaviour.
+
+### P1 — in-flight tooltip
+`ConversationPanel.tsx:393` — `runBlockedReason` was derived only from the
+structural gate, so when the button was disabled by `isV2RunInFlight` the
+tooltip fell back to the default "Run analysis" (meaningless on a disabled
+button). In-flight now takes priority: "Analysis in progress" surfaces as
+both `title` and the blocked-state `aria-label` suffix.
+
+### P1 — direct sentinel regression for item 6
+Added a source-level tripwire that asserts `useConversation.ts` no longer
+writes the literal `toolLoadingState: 'Thinking\u2026'` and no longer
+references `clearTimeout(thinkingTimerId)`. The existing
+`MessageBubble.streaming.spec.tsx` null-state assertion continues to
+exercise the always-null pre-text-delta path; the tripwire is the barrier
+preventing reintroduction.
+
+### P1 — rendered-DOM test for item 3
+The original item 3 regression was a source-file assertion. Added a
+lightweight DOM test that renders `ChatComposer` in isolation with the
+existing mock harness and asserts:
+  · `chip.textContent.trim() === ''` (no visible label text)
+  · `chip.querySelector('svg') !== null` (icon still present)
+  · `chip.getAttribute('aria-label') === 'Run analysis'`
+The source-file tripwire remains as defence against refactor-to-span-split
+cases that a DOM text query could miss.
+
+### Improvement — double-click button-disable test
+Render ChatComposer with `canRunAnalysis={true}`, click the chip, re-render
+with `canRunAnalysis={false}` (simulating ConversationPanel's in-flight
+flip), click again. Asserts `onRunAnalysis` is called exactly once — the
+disabled attribute swallows the second click.
+
+### Improvement — safeRichText join-logic matrix
+Replaced the original five single-case bold-lead tests with an `it.each`
+matrix covering all eight transition combinations between body, bold-lead,
+list, and blank-line parts. Locks the intended paragraph rhythm so future
+changes to the predicate surface as concrete assertions rather than silent
+visual drift.
+
+### Improvement — inline removal-condition comment
+Widened the comment at `useConversation.ts:2679-2693` to document explicit
+removal conditions under which the Thinking sentinel could be reintroduced
+(user-research-confirmed need + dedicated UI surface), and cross-references
+this implementation doc.
+
+### Deferred from the review
+- **Over-spacing concern on non-section bold-lead paragraphs.** The
+  `isBoldLead(s)` predicate matches any `<strong>`-opening part, including
+  edge cases like `"**Yes**, that works."`. The over-spacing in those cases
+  is bounded (one extra ~12px) and the orchestrator convention uses bold at
+  paragraph start for section leads specifically. Tightening to `**word**:`
+  or `**word**\nbody` adds complexity for a low-frequency edge. The join
+  matrix test locks whatever behaviour is current; revisit if Paul observes
+  over-spacing in real streamed output.
+
+### Tests — net change after follow-up
+Target-file spec files:
+  · Baseline (staging): 103 passed / 26 failed
+  · With five-item hotfix: 119 passed / 26 failed (+16)
+  · With follow-up hardening: **129 passed / 26 failed** (+26 vs baseline)
+
+All 26 failures remain pre-existing (Supabase env + markdown-spec drift).
+Zero regressions introduced. Typecheck clean.
+
 ## What Paul needs to verify
 
 1. **Dev server smoke** — `npm run dev`, open a conversation:
