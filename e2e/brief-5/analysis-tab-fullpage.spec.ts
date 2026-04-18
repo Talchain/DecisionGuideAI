@@ -23,12 +23,11 @@ import { gotoSandbox } from '../_helpers'
 const VIEWPORT = { width: 1280, height: 900 }
 
 test.describe('Brief 5 full-page visual baselines', () => {
-  test.skip(
-    !process.env.BRIEF5_FULLPAGE,
-    'Set BRIEF5_FULLPAGE=1 to run Brief 5 full-page captures.',
-  )
-
   test.beforeEach(async ({ page }) => {
+    test.skip(
+      !process.env.BRIEF5_FULLPAGE,
+      'Set BRIEF5_FULLPAGE=1 to run Brief 5 full-page captures.',
+    )
     await page.setViewportSize(VIEWPORT)
     // Disable CSS animations + transitions + reduced-motion so screenshots
     // are byte-stable across runs. Applied before navigation so it covers

@@ -9,6 +9,7 @@ coverage/
 
 # Playwright
 .playwright/
+.playwright-cli/
 playwright-report/
 test-results/
 

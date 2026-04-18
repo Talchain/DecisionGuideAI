@@ -27,14 +27,18 @@ describe('Brief 5 P1-3 — TornadoChart apply-rerun dormancy', () => {
   it('ResultsBody does NOT currently pass onApplyAndRerun to TornadoChart (dormant pending PLoT bounds)', () => {
     const src = readFileSync(RESULTS_BODY, 'utf-8')
 
-    // Find the TornadoChart JSX block (everything from the opening tag up to
-    // the matching /> that closes it). The block is small and stable; we
-    // scan for "onApplyAndRerun=" anywhere inside it.
+    // Find the TornadoChart JSX block. Supports both self-closing
+    // (`<TornadoChart ... />`) and open/close (`<TornadoChart ...>...` followed
+    // by `</TornadoChart>`). We only need the opening tag's prop list, so we
+    // take everything from `<TornadoChart` up to the first `>` that is not
+    // part of `=>` (arrow functions in prop expressions would contain `>`,
+    // but the opening-tag closer is either `>` after a prop value or `/>`).
     const openIdx = src.indexOf('<TornadoChart')
     expect(openIdx, 'TornadoChart is mounted in ResultsBody').toBeGreaterThan(-1)
-    const closeIdx = src.indexOf('/>', openIdx)
-    expect(closeIdx).toBeGreaterThan(openIdx)
-    const tornadoBlock = src.slice(openIdx, closeIdx + 2)
+    const tail = src.slice(openIdx)
+    const openerMatch = tail.match(/<TornadoChart[\s\S]*?\/?>/)
+    expect(openerMatch, 'TornadoChart opening tag parses cleanly').not.toBeNull()
+    const tornadoBlock = openerMatch![0]
 
     expect(
       tornadoBlock.includes('onApplyAndRerun='),

@@ -23,10 +23,12 @@ import { test, expect } from '@playwright/test'
 import { gotoSandbox } from '../_helpers'
 
 test.describe('Brief 5 brief-only YourExpertise smoke', () => {
-  test.skip(
-    !process.env.BRIEF5_FULLPAGE,
-    'Set BRIEF5_FULLPAGE=1 to run Brief 5 Playwright smokes.',
-  )
+  test.beforeEach(() => {
+    test.skip(
+      !process.env.BRIEF5_FULLPAGE,
+      'Set BRIEF5_FULLPAGE=1 to run Brief 5 Playwright smokes.',
+    )
+  })
 
   test('brief-only row is a button with no chevron and deep-links to Model tab @brief-5', async ({ page }) => {
     await gotoSandbox(page)
