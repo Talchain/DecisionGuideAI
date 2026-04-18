@@ -39,7 +39,7 @@ function makeVerifyItem(nodeId: string, label: string): ImprovementItem {
 }
 
 function makeFactorNode(id: string, label: string, observedValue: number | null = null): Node {
-  return {
+  const node: Node = {
     id,
     position: { x: 0, y: 0 },
     data: {
@@ -47,7 +47,8 @@ function makeFactorNode(id: string, label: string, observedValue: number | null 
       label,
       observedState: observedValue == null ? {} : { value: observedValue },
     },
-  } as unknown as Node
+  }
+  return node
 }
 
 describe('YourExpertise — Brief 5 Task 1 expand-in-place', () => {

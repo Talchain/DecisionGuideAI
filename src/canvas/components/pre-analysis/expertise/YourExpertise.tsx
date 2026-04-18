@@ -34,7 +34,7 @@ interface YourExpertiseProps {
   edges: Edge[]
   factorInfluenceMap?: Map<string, number>
   edgeInfluenceMap?: Map<string, number>
-  /** Shared with TriageCard — Confirm a factor's current AI estimate. */
+  /** Shared with TriageCard — confirms a factor's AI-assigned value. */
   onConfirm?: (nodeId: string) => void
   /** Shared with TriageCard — open the inline editor for a factor. */
   onEdit?: (nodeId: string) => void
