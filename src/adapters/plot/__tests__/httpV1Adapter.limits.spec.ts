@@ -7,15 +7,18 @@
  * - PROD mode failure → {ok: false, error, fetchedAt}
  */
 
-import { describe, it, expect, beforeAll, afterEach, afterAll, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
 import { V1_LIMITS } from '../v1/types'
 import type { LimitsFetch } from '../types'
+import { pinPlotProxyBase, PLOT_PROXY_BASE as PROXY_BASE } from '../../../../tests/setup/msw-env'
 
 // Setup MSW server
 const server = setupServer()
+
+pinPlotProxyBase()
 
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {
@@ -23,8 +26,6 @@ afterEach(() => {
   vi.unstubAllEnvs()
 })
 afterAll(() => server.close())
-
-const PROXY_BASE = '/api/plot'
 
 describe('httpV1Adapter.limits() - LimitsFetch contract', () => {
   describe('Live endpoint success', () => {

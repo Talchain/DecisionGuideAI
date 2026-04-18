@@ -9,16 +9,17 @@
  * - Error handling (BAD_INPUT, LIMIT_EXCEEDED, RATE_LIMITED, SERVER_ERROR)
  */
 
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
 import type { RunRequest } from '../types'
+import { pinPlotProxyBase, PLOT_PROXY_BASE as PROXY_BASE } from '../../../../tests/setup/msw-env'
 
 // Setup MSW server with default /version handler for capability negotiation
 const server = setupServer(
   // Sprint N P1: Default handler for capability negotiation endpoint
-  http.get(`/api/plot/version`, () => {
+  http.get(`${PROXY_BASE}/version`, () => {
     return HttpResponse.json({
       version: '1.5.0',
       build: 'test',
@@ -30,11 +31,14 @@ const server = setupServer(
   })
 )
 
+pinPlotProxyBase()
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
-const PROXY_BASE = '/api/plot'
+afterAll(() => {
+  vi.unstubAllEnvs()
+  server.close()
+})
 
 describe('httpV1Adapter MSW Contract Tests', () => {
   describe('Health (GET /v1/health)', () => {

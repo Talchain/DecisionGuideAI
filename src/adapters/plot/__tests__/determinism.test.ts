@@ -15,15 +15,19 @@ import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
 import type { RunRequest, ReportV1 } from '../types'
+import { pinPlotProxyBase, PLOT_PROXY_BASE as PROXY_BASE } from '../../../../tests/setup/msw-env'
 
 // Setup MSW server
 const server = setupServer()
 
+pinPlotProxyBase()
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
 afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
-const PROXY_BASE = '/api/plot'
+afterAll(() => {
+  vi.unstubAllEnvs()
+  server.close()
+})
 
 // Check if streaming is available
 const hasStreaming = !!(httpV1Adapter as any).stream

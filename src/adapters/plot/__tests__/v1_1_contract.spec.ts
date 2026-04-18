@@ -8,7 +8,7 @@
  * - Provenance summary
  */
 
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
@@ -21,11 +21,12 @@ import {
   getBlockers,
   isBlocked,
 } from '../__fixtures__/v1_1_responses'
+import { pinPlotProxyBase, PLOT_PROXY_BASE as PROXY_BASE } from '../../../../tests/setup/msw-env'
 
 // Setup MSW server
 const server = setupServer(
   // Default version handler
-  http.get('/api/plot/version', () => {
+  http.get(`${PROXY_BASE}/version`, () => {
     return HttpResponse.json({
       version: '1.5.0',
       build: 'test',
@@ -37,11 +38,14 @@ const server = setupServer(
   })
 )
 
+pinPlotProxyBase()
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => server.resetHandlers())
-afterAll(() => server.close())
-
-const PROXY_BASE = '/api/plot'
+afterAll(() => {
+  vi.unstubAllEnvs()
+  server.close()
+})
 
 // Helper to setup run handlers
 function setupRunHandlers(response: object) {
