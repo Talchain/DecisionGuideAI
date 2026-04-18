@@ -9,7 +9,10 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { normaliseDomSnapshot } from './utils'
+import { render } from '@testing-library/react'
+import React from 'react'
+import { normaliseDomSnapshot, captureByTestId } from './utils'
+import { ResultsFooter } from '@/components/results/ResultsFooter'
 
 describe('visual-regression scaffold (Brief 5)', () => {
   it('normaliseDomSnapshot is deterministic', () => {
@@ -32,7 +35,18 @@ describe('visual-regression scaffold (Brief 5)', () => {
   // time. The phase that owns the surface replaces `it.todo` with a real
   // render + snapshot.
 
-  it.todo('Phase 1 / Task 4 — footer (stability + influence, no leaked hash)')
+  it('Phase 1 / Task 4 — footer (stability + influence, no leaked hash)', () => {
+    const { container } = render(
+      React.createElement(ResultsFooter, { stability: 0.82, influencePct: 0.91 }),
+    )
+    const snap = captureByTestId(container, 'results-footer')
+    // Contains the two metadata parts
+    expect(snap).toContain('91% of influence')
+    expect(snap).toContain('82%')
+    // Does NOT contain any hash-shaped token (7+ hex chars) — footer is intentionally
+    // stability + influence only; any hash leak regressions would show up here.
+    expect(snap).not.toMatch(/[0-9a-f]{7,}/i)
+  })
   it.todo('Phase 2 / Task 6 — risk control in Your options (display filter)')
   it.todo('Phase 2 / Task 6 — risk control in Advanced (persistent profile)')
   it.todo('Phase 3 / Task 2 — drivers section headers + first row grid alignment')

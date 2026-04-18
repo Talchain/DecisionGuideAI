@@ -388,6 +388,7 @@ export function AdvancedSection({
                     onClick={handleCopyHash}
                     className="text-text-light hover:text-info flex-shrink-0"
                     aria-label="Copy hash to clipboard"
+                    title="Copy hash to clipboard"
                   >
                     {copiedHash ? (
                       <Check className="w-3 h-3 text-success" />

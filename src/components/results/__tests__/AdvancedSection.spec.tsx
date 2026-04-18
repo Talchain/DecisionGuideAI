@@ -100,6 +100,26 @@ describe('AdvancedSection', () => {
     expect(screen.getByLabelText('Copy hash to clipboard')).toBeInTheDocument()
   })
 
+  // Brief 5 Phase 1 (Task 4): DS v5 icon-only interactive — both aria-label AND tooltip.
+  it('copy-hash button has both aria-label and native title (DS v5 a11y parity)', () => {
+    render(<AdvancedSection responseHash="abc123def456ghi789" expertMode />)
+    fireEvent.click(screen.getByText('Advanced'))
+
+    const copyBtn = screen.getByLabelText('Copy hash to clipboard')
+    expect(copyBtn).toHaveAttribute('aria-label', 'Copy hash to clipboard')
+    expect(copyBtn).toHaveAttribute('title', 'Copy hash to clipboard')
+  })
+
+  // Brief 5 Phase 1 (Task 4): hash must stay gated behind expert mode.
+  it('does NOT render hash when expertMode is false, even when responseHash is supplied', () => {
+    render(<AdvancedSection responseHash="abc123def456ghi789" />)
+    fireEvent.click(screen.getByText('Advanced'))
+
+    expect(screen.queryByText('Hash')).not.toBeInTheDocument()
+    expect(screen.queryByText('abc123def456…')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Copy hash to clipboard')).not.toBeInTheDocument()
+  })
+
   it('hides detail rows when values are not provided', () => {
     render(<AdvancedSection expertMode />)
     fireEvent.click(screen.getByText('Advanced'))

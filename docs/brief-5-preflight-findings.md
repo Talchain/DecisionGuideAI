@@ -132,6 +132,28 @@ Phase 1 begins with an investigation step:
 
 Do not invent a fix for a leak that may not exist.
 
+### Phase 1 investigation outcome (2026-04-18)
+
+**No leak exists.** Trace of every hash-rendering site in the Analysis tab:
+
+- **`src/components/results/AdvancedSection.tsx:379-400`** — only live hash-rendering path. Wrapped in `{expertMode && (<ExpertBlock>...)}` at line 327. Gate holds.
+- **`src/components/results/RecommendationSection.tsx`** — accepts `responseHash` as a prop but is **dead code** in the Analysis-tab render path. `ResultsBody.tsx:198` comment documents the replacement: "Old RecommendationSection/HeroSection suppressed — triage panel replaces it". Zero `<RecommendationSection ...>` JSX mounts in `src/` outside tests.
+- **`src/components/results/ResultsFooter.tsx`** — renders stability + influence only. Component ends at line 45 with no hash mention.
+- **`src/components/results/HeroSection.tsx`** — zero `hash` occurrences.
+- **`expertMode` initialisation** — `OutputsDock.tsx:371` sets `useState(false)`. Must be toggled via the expert-mode UI to surface the hash row. No default-true path found.
+
+Paul's screenshot showing the hash therefore reflects a legitimate state: the Advanced accordion was expanded with expert mode on. No gating fix required.
+
+**Tiny a11y polish delivered (DS v5 compliance — Paul correction: icon-only interactive requires both aria-label AND tooltip):**
+
+- `AdvancedSection.tsx:386-398` Copy button gains `title="Copy hash to clipboard"` alongside the existing `aria-label`. One-line change.
+- Two regression tests added in `AdvancedSection.spec.tsx`:
+  - Copy button has both `aria-label` AND `title` (DS v5 parity).
+  - Hash is NOT rendered when `expertMode === false`, even when `responseHash` is supplied (locks in the gate).
+- Visual-regression Phase 1 slot populated: footer DOM snapshot asserts stability + influence are present and no hash-shaped token (7+ hex chars) appears in the footer's rendered output.
+
+**Outcome classification:** "already-compliant" with a very small polish commit, per the brief's investigate-first rule.
+
 ---
 
 ## Task 5 — Top evidence IA dedup (DEFERRED)
