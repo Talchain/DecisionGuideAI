@@ -522,16 +522,19 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
 
   return (
     <>
-      {/* Invisible hitbox for hover detection - wider than visual edge.
-          Structural edges nest a native <title> for the hover tooltip so we
-          don't need a custom popover overlay. */}
+      {/* Wrapper captures hover for the entire edge hit area. Hover handlers live
+          here so they fire regardless of whether the pointer is over the custom
+          hitbox path or BaseEdge's interaction path (which renders on top in SVG
+          paint order). Both paths bubble mouseenter/mouseleave to this <g>. */}
+      <g onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+      {/* Invisible hitbox — wider than visual stroke; carries test-id and
+          structural tooltip. pointer-events:stroke so the <g> receives events
+          from this area even when no visual fill is present. */}
       <path
         d={edgePath}
         fill="none"
         stroke="transparent"
         strokeWidth={20}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
         style={{ pointerEvents: 'stroke', cursor: 'pointer' }}
         {...(isPreRunIncompleteEdge ? { 'data-testid': 'overlay-missing-confidence' } : {})}
       >
@@ -540,7 +543,6 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
       <BaseEdge
         id={id}
         path={edgePath}
-        interactionWidth={0}
         style={{
           // Graph Interaction P1: Highlighted edges get thicker stroke
           strokeWidth: (() => {
@@ -626,7 +628,8 @@ export const StyledEdge = memo(({ id, source, target, sourceX, sourceY, targetX,
             : 'stroke 200ms ease, stroke-width 200ms ease, stroke-dasharray 300ms ease-out, opacity 300ms ease',
         }}
       />
-      
+      </g>
+
       {/* Causal lens: numeric parameter label (strength.mean + exists_probability).
           Structural edges have no causal parameters to show. */}
       {lensMode === 'causal' && causalEdgeParams && !isStructuralEdge && (

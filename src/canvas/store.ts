@@ -752,6 +752,43 @@ function scheduleHistoryPush(get: () => CanvasState, set: (fn: (s: CanvasState) 
 }
 
 /**
+ * Compute the inspector popover anchor for the current selection.
+ * Single source of truth shared by onNodesChange, onEdgesChange, and onSelectionChange
+ * so all code paths produce identical positions.
+ */
+function computeAnchorPosition(
+  allNodes: Node[],
+  selectedNodes: Node[],
+  selectedEdges: Edge<EdgeData>[],
+): { x: number; y: number } | null {
+  if (selectedNodes.length === 1 && selectedEdges.length === 0) {
+    const node = selectedNodes[0]
+    const nodeWidth = node.measured?.width ?? node.width ?? 180
+    const nodeHeight = node.measured?.height ?? node.height ?? 60
+    return {
+      x: node.position.x + nodeWidth,
+      y: node.position.y + nodeHeight / 2,
+    }
+  }
+  if (selectedEdges.length === 1 && selectedNodes.length === 0) {
+    const edge = selectedEdges[0]
+    const sourceNode = allNodes.find(n => n.id === edge.source)
+    const targetNode = allNodes.find(n => n.id === edge.target)
+    if (sourceNode && targetNode) {
+      const sourceWidth = sourceNode.measured?.width ?? sourceNode.width ?? 180
+      const sourceHeight = sourceNode.measured?.height ?? sourceNode.height ?? 60
+      const targetWidth = targetNode.measured?.width ?? targetNode.width ?? 180
+      const targetHeight = targetNode.measured?.height ?? targetNode.height ?? 60
+      return {
+        x: (sourceNode.position.x + sourceWidth / 2 + targetNode.position.x + targetWidth / 2) / 2,
+        y: (sourceNode.position.y + sourceHeight / 2 + targetNode.position.y + targetHeight / 2) / 2,
+      }
+    }
+  }
+  return null
+}
+
+/**
  * Get all node IDs that are critical to ceeAnalysisReady.
  * Returns goal_node_id + all option intervention target IDs.
  */
@@ -1371,6 +1408,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Guard no-op changes
     if (!changes || changes.length === 0) return
 
+    // Selection toggles are non-structural; skip history churn on pure select changes.
+    const isSelectOnly = changes.every(c => c.type === 'select' || c.type === 'dimensions')
+
     // Debounce history for drag operations
     const isDrag = changes.some(c => c.type === 'position' && (c as any).dragging)
 
@@ -1381,10 +1421,31 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       maybeInvalidateOnNodeDelete(get, set, deletedNodeIds)
     }
 
+    const hasSelectChange = changes.some(c => c.type === 'select')
+
     set((s) => {
       const updatedNodes = applyNodeChanges(changes, s.nodes)
 
       let selection = s.selection
+
+      // Reconcile Zustand selection (ids + anchor) from React Flow's `selected` flags
+      // whenever a select change arrives. Single source of truth prevents drift.
+      if (hasSelectChange) {
+        const selectedNodes = updatedNodes.filter(n => n.selected)
+        const nextNodeIds = new Set(selectedNodes.map(n => n.id))
+        const selectedEdges = s.edges.filter(e => e.selected)
+        const nextAnchor = computeAnchorPosition(updatedNodes, selectedNodes, selectedEdges)
+        if (
+          !setsEqual(nextNodeIds, selection.nodeIds)
+          || nextAnchor?.x !== selection.anchorPosition?.x
+          || nextAnchor?.y !== selection.anchorPosition?.y
+        ) {
+          selection = { ...selection, nodeIds: nextNodeIds, anchorPosition: nextAnchor }
+        }
+      }
+
+      // Drag-tracking: single-selection anchor must follow the node position even
+      // without a select change.
       if (isDrag && selection.nodeIds.size === 1) {
         const selectedId = selection.nodeIds.values().next().value as string | undefined
         if (selectedId) {
@@ -1408,8 +1469,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
     if (isDrag) {
       scheduleHistoryPush(get, set)
-    } else {
-      // Immediate push for non-drag changes (select, remove, add)
+    } else if (!isSelectOnly) {
+      // Immediate push for structural changes (remove, add, replace, position commit)
       pushToHistory(get, set)
     }
   },
@@ -1422,65 +1483,51 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Only deletion of critical nodes (goal, option, intervention targets) invalidates
     // Causal path validation is handled separately by usePreRunValidation
 
-    set((s) => ({ edges: applyEdgeChanges(changes, s.edges) as Edge<EdgeData>[] }))
+    const isSelectOnly = changes.every(c => c.type === 'select')
+    const hasSelectChange = changes.some(c => c.type === 'select')
 
-    // Edges don't have position changes, always push immediately
-    pushToHistory(get, set)
+    set((s) => {
+      const updatedEdges = applyEdgeChanges(changes, s.edges) as Edge<EdgeData>[]
+      let selection = s.selection
+      if (hasSelectChange) {
+        const selectedEdges = updatedEdges.filter(e => e.selected)
+        const nextEdgeIds = new Set(selectedEdges.map(e => e.id))
+        const selectedNodes = s.nodes.filter(n => n.selected)
+        const nextAnchor = computeAnchorPosition(s.nodes, selectedNodes, selectedEdges)
+        if (
+          !setsEqual(nextEdgeIds, selection.edgeIds)
+          || nextAnchor?.x !== selection.anchorPosition?.x
+          || nextAnchor?.y !== selection.anchorPosition?.y
+        ) {
+          selection = { ...selection, edgeIds: nextEdgeIds, anchorPosition: nextAnchor }
+        }
+      }
+      return { edges: updatedEdges, selection }
+    })
+
+    if (!isSelectOnly) {
+      pushToHistory(get, set)
+    }
   },
 
   onSelectionChange: ({ nodes, edges }) => {
+    // Defensive backstop: onNodesChange/onEdgesChange already reconcile selection
+    // from React Flow's `selected` flags. This handler covers paths where React Flow
+    // invokes onSelectionChange without a matching change batch (rare, but guards
+    // against upstream divergence).
     const newNodeIds = new Set(nodes.map(n => n.id))
-    const newEdgeIds = new Set(edges.map(e => e.id))
+    const newEdgeIds = new Set((edges as Edge<EdgeData>[]).map(e => e.id))
 
     const { selection, nodes: allNodes } = get()
 
-    // Handle initial state safely
-    const prevNodeIds = selection?.nodeIds ?? new Set<string>()
-    const prevEdgeIds = selection?.edgeIds ?? new Set<string>()
-
-    // Compare by value using setsEqual utility
-    const nodeIdsChanged = !setsEqual(newNodeIds, prevNodeIds)
-    const edgeIdsChanged = !setsEqual(newEdgeIds, prevEdgeIds)
-
-    // Early return if selection didn't actually change (prevents render loop)
+    const nodeIdsChanged = !setsEqual(newNodeIds, selection?.nodeIds ?? new Set<string>())
+    const edgeIdsChanged = !setsEqual(newEdgeIds, selection?.edgeIds ?? new Set<string>())
     if (!nodeIdsChanged && !edgeIdsChanged) return
 
-    // Calculate anchor position for contextual inspector popover
-    let anchorPosition: { x: number; y: number } | null = null
+    const anchorPosition = computeAnchorPosition(allNodes, nodes, edges as Edge<EdgeData>[])
 
-    if (nodes.length === 1) {
-      // Single node selected - anchor to right-center of node
-      const node = nodes[0]
-      const nodeWidth = node.measured?.width ?? node.width ?? 180
-      const nodeHeight = node.measured?.height ?? node.height ?? 60
-      anchorPosition = {
-        x: node.position.x + nodeWidth,
-        y: node.position.y + nodeHeight / 2,
-      }
-    } else if (edges.length === 1 && nodes.length === 0) {
-      // Single edge selected - anchor to midpoint between source and target
-      const edge = edges[0]
-      const sourceNode = allNodes.find(n => n.id === edge.source)
-      const targetNode = allNodes.find(n => n.id === edge.target)
-      if (sourceNode && targetNode) {
-        const sourceWidth = sourceNode.measured?.width ?? sourceNode.width ?? 180
-        const sourceHeight = sourceNode.measured?.height ?? sourceNode.height ?? 60
-        const targetWidth = targetNode.measured?.width ?? targetNode.width ?? 180
-        const targetHeight = targetNode.measured?.height ?? targetNode.height ?? 60
-        anchorPosition = {
-          x: (sourceNode.position.x + sourceWidth / 2 + targetNode.position.x + targetWidth / 2) / 2,
-          y: (sourceNode.position.y + sourceHeight / 2 + targetNode.position.y + targetHeight / 2) / 2,
-        }
-      }
-    }
-
-    // Only commit when different
     set({
-      selection: {
-        nodeIds: newNodeIds,
-        edgeIds: newEdgeIds,
-        anchorPosition,
-      },
+      selection: { nodeIds: newNodeIds, edgeIds: newEdgeIds, anchorPosition },
     })
   },
 
@@ -1488,67 +1535,35 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   selectNodeWithoutHistory: (nodeId) => {
     const { nodes } = get()
     const node = nodes.find(n => n.id === nodeId)
-    let anchorPosition: { x: number; y: number } | null = null
-    if (node) {
-      const nodeWidth = node.measured?.width ?? node.width ?? 180
-      const nodeHeight = node.measured?.height ?? node.height ?? 60
-      anchorPosition = {
-        x: node.position.x + nodeWidth,
-        y: node.position.y + nodeHeight / 2,
-      }
-    }
+    const anchorPosition = node ? computeAnchorPosition(nodes, [node], []) : null
     set(s => ({
-      nodes: s.nodes.map(n => ({
-        ...n,
-        selected: n.id === nodeId
-      })),
-      selection: {
-        nodeIds: new Set([nodeId]),
-        edgeIds: new Set(),
-        anchorPosition,
-      }
+      nodes: s.nodes.map(n => ({ ...n, selected: n.id === nodeId })),
+      selection: { nodeIds: new Set([nodeId]), edgeIds: new Set(), anchorPosition },
     }))
   },
 
   selectEdgeWithoutHistory: (edgeId) => {
-    set(s => ({
-      nodes: s.nodes.map(n => ({ ...n, selected: false })),
-      edges: s.edges.map(e => ({ ...e, selected: e.id === edgeId })),
-      selection: {
-        nodeIds: new Set(),
-        edgeIds: new Set([edgeId]),
-        anchorPosition: null,
+    set(s => {
+      const edge = s.edges.find(e => e.id === edgeId)
+      const anchorPosition = edge ? computeAnchorPosition(s.nodes, [], [edge]) : null
+      return {
+        nodes: s.nodes.map(n => ({ ...n, selected: false })),
+        edges: s.edges.map(e => ({ ...e, selected: e.id === edgeId })),
+        selection: { nodeIds: new Set(), edgeIds: new Set([edgeId]), anchorPosition },
       }
-    }))
+    })
   },
 
   // Select multiple nodes (for probability editor navigation)
   selectNodes: (nodeIds) => {
-    const { nodes } = get()
-    // Calculate anchor for first node if single selection
-    let anchorPosition: { x: number; y: number } | null = null
-    if (nodeIds.length === 1) {
-      const node = nodes.find(n => n.id === nodeIds[0])
-      if (node) {
-        const nodeWidth = node.measured?.width ?? node.width ?? 180
-        const nodeHeight = node.measured?.height ?? node.height ?? 60
-        anchorPosition = {
-          x: node.position.x + nodeWidth,
-          y: node.position.y + nodeHeight / 2,
-        }
+    set(s => {
+      const selectedNodes = s.nodes.filter(n => nodeIds.includes(n.id))
+      const anchorPosition = computeAnchorPosition(s.nodes, selectedNodes, [])
+      return {
+        nodes: s.nodes.map(n => ({ ...n, selected: nodeIds.includes(n.id) })),
+        selection: { nodeIds: new Set(nodeIds), edgeIds: new Set(), anchorPosition },
       }
-    }
-    set(s => ({
-      nodes: s.nodes.map(n => ({
-        ...n,
-        selected: nodeIds.includes(n.id)
-      })),
-      selection: {
-        nodeIds: new Set(nodeIds),
-        edgeIds: new Set(),
-        anchorPosition,
-      }
-    }))
+    })
   },
 
   // Clear all selection

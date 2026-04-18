@@ -624,6 +624,18 @@
   color: var(--text-header, #262626);
 }
 
+/* Expand handle hit target without changing visual size. Fitts's Law:
+   the 12x12 visual is too small for reliable connection starts on trackpad/touch.
+   position:absolute on ::before is relative to the handle (already position:absolute). */
+.react-flow__handle {
+  position: relative;
+}
+.react-flow__handle::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
 /* Graph Editing Experience Task 4a: Edge drag feedback */
 /* During connection, valid target handles glow; invalid ones dim */
 .react-flow .connecting .react-flow__handle.connectingto {
