@@ -12,7 +12,8 @@
 |---|---|---|---|---|---|
 | Audit push | `ui/ci-test-coverage-audit` | (no PR) | pushed 2026-04-18 | — | n/a (docs-only, reference branch) |
 | Hub push | `ui/overnight-ci-and-tests` | (PR opens in morning) | pushed 2026-04-18 | — | REQUIRED — morning review |
-| D2 | `ui/ci-coverage-fix` | `<PENDING>` | `<PENDING>` | — | REQUIRED — morning review |
+| D2 | `ui/ci-coverage-fix` | [#125](https://github.com/Talchain/DecisionGuideAI/pull/125) | 2026-04-18 | — | REQUIRED — morning review |
+| D3 enumeration | `ui/test-cascade-enumeration` | TBD (docs-only; may fold into hub) | — | — | — |
 
 (Extended per deliverable as work proceeds.)
 
