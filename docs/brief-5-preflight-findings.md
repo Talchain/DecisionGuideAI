@@ -257,5 +257,11 @@ No static baseline files committed in Phase 0; the vitest snapshot mechanism sto
 - [x] Copy-freeze drafts for Task 3 and Task 6 — awaiting Paul approval before Phase 2 / Phase 4 code.
 - [x] Visual-regression scaffold delivered (see `tests/visual-regression/`).
 - [x] Gate outcomes recorded with rationale.
-- [ ] Paul approves Task 3 + Task 6 copy freezes (blocks Phase 2 and Phase 4).
-- [ ] Phase 1 begins as investigation-first (Task 4 hard gate).
+- [x] Paul approves Task 3 + Task 6 copy freezes (Phase 2 and Phase 4 unblocked).
+- [x] Phase 1 completed — investigation confirmed no leak, tiny a11y polish delivered.
+- [x] Phase 2 completed — risk-control labels + helper copy landed with Paul-frozen strings (em dash → colon substitution per brief rule 11).
+- [x] Phase 3 completed — drivers column headers bound to card grid, title a11y locked.
+- [x] Phase 4 completed — tornado intro copy + relocated legend + promoted apply-and-rerun button.
+- [x] Phase 5 completed — Task 5 deferral documented, follow-up stub at `docs/follow-ups/top-evidence-ia-dedup.md`.
+- [ ] Phase 6 — Your expertise expand-in-place.
+- [ ] Phase 7 — final pass + final-review doc.
