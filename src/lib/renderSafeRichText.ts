@@ -13,10 +13,16 @@
  *    - Security: Manual HTML escaping, URL scheme validation (http/https/mailto only)
  *
  * 2. sanitizeMarkdown (from ../canvas/utils/markdown.ts)
- *    - Uses DOMPurify + marked (battle-tested libraries)
- *    - Best for: Static content display, untrusted user input
- *    - Features: Full GFM support, strictest sanitization
- *    - Security: DOMPurify with allowlist (no links/images by default)
+ *    - Deprecated shim — delegates to safeRichText (see Brief A+B, 2026-03-19).
+ *    - Dependency-free, restricted-allowlist renderer
+ *    - Allowlist: <strong>, <br>, <ul>, <li>, <span> only
+ *    - Best for: Short node descriptions and orchestrator-supplied copy
+ *    - Features: bold, bullets, headings (rendered as bold), <br> line breaks
+ *    - NOT supported: italic, inline code, code blocks, blockquotes, links, images
+ *    - Security: HTML-escape-first, then apply allowlisted transforms, then
+ *      strip any residual disallowed tags (belt-and-braces). No DOMPurify
+ *      dependency. XSS via escape-not-strip — dangerous tags appear as
+ *      escaped text (&lt;script&gt;), never as live HTML.
  *
  * Usage Guidelines:
  * - For streaming AI output: use renderMarkdownSafe (preserves links, code styling)
@@ -74,7 +80,8 @@ export function renderSafeRichText(
     return _renderMarkdownSafe(content)
   }
 
-  // Use DOMPurify-based sanitizer for strictest security
+  // Use safeRichText-backed sanitizer (via sanitizeMarkdown shim) for
+  // strictest allowlist rendering — no links, no code, no images.
   return _sanitizeMarkdown(content)
 }
 
