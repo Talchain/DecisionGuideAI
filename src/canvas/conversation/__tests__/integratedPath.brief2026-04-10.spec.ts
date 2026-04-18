@@ -32,6 +32,30 @@ const mockGetState = () => ({
   graphEditedSinceLastRun: false,
   results: { status: 'idle' },
   rawV2Response: null,
+  // Diff-aware batch updater mirroring store.batchUpdateNodes. Added 2026-04-14
+  // (commit a1b68fcf) — backfillInterventionsOntoOptionNodes routes through
+  // this action so undo/redo reverts affected nodes in one step. Mock mirrors
+  // the pattern in applyDraftResult.spec.ts: apply patches to storeNodes so
+  // the subsequent getState().nodes read sees the written state.
+  batchUpdateNodes: (updates: Array<{ id: string; data: Record<string, unknown> }>) => {
+    if (!updates?.length) return { updatedCount: 0 }
+    const byId = new Map(updates.map(u => [u.id, u.data]))
+    let changed = 0
+    const next = storeNodes.map(n => {
+      const patch = byId.get(n.id)
+      if (!patch) return n
+      const merged = { ...n.data, ...patch }
+      let diff = false
+      for (const k of Object.keys(patch)) {
+        if ((n.data as any)?.[k] !== (merged as any)[k]) { diff = true; break }
+      }
+      if (!diff) return n
+      changed += 1
+      return { ...n, data: merged }
+    })
+    if (changed > 0) storeNodes = next
+    return { updatedCount: changed }
+  },
 })
 
 vi.mock('../../store', () => ({

@@ -404,7 +404,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
       {!isCausalLens && !isEvidenceLens && isExpanded && description && (
         <div
           className={`${typography.nodeLabel} text-text-body opacity-85 mt-3 max-h-[200px] overflow-y-auto node-description`}
-          // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised via DOMPurify (sanitizeMarkdown)
+          // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised via safeRichText (sanitizeMarkdown shim)
           dangerouslySetInnerHTML={{
             __html: sanitizeMarkdown(description)
           }}
