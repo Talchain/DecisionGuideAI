@@ -126,7 +126,40 @@ describe('visual-regression scaffold (Brief 5)', () => {
     // Same grid-cols token across header and row = columns align structurally.
     expect(headerCols).toBe(rowCols)
   })
-  it.todo('Phase 4 / Task 3 — tornado card: intro copy + legend above first bar + apply/rerun button')
+  it('Phase 4 / Task 3 — tornado card: intro copy + legend above first bar + apply/rerun button', async () => {
+    const { TornadoChart } = await import('@/components/results/TornadoChart')
+    const row = {
+      factorKey: 'f1',
+      label: 'Design expertise',
+      rawElasticity: 0.5,
+      lowOutcome: 50,
+      highOutcome: 80,
+      midOutcome: 65,
+    }
+    const { container } = render(
+      React.createElement(TornadoChart, {
+        rows: [row],
+        expectedOutcome: 65,
+        onApplyAndRerun: () => {},
+      }),
+    )
+
+    const root = container.querySelector('[data-testid="tornado-chart"]')!
+    const snap = normaliseDomSnapshot(root.outerHTML)
+
+    // Paul-approved intro copy present
+    expect(snap).toContain(
+      'Win-likelihood range if this factor turns out weaker or stronger than expected. Drag to preview.',
+    )
+    // Legend relocated above the first bar
+    expect(snap).toContain('data-testid="tornado-legend"')
+    // Apply button elevated + disabled-state tooltip attached
+    expect(snap).toContain('data-testid="tornado-apply-rerun"')
+    expect(snap).toContain('Drag a bar to preview a change before running.')
+    // Old surfaces gone
+    expect(snap).not.toContain('data-testid="tornado-pp-clarification"')
+    expect(snap).not.toContain('data-testid="tornado-interaction-strip"')
+  })
   it.todo('Phase 6 / Task 1 — Your-expertise row collapsed (parity with Brief 4 Task 6)')
   it.todo('Phase 6 / Task 1 — Your-expertise row expanded (AI estimates + Missing data groups)')
 })

@@ -359,13 +359,40 @@ export function TornadoChart({
         }
       }}
     >
-      {/* Clarification line — above bars so users understand before reading */}
+      {/* Brief 5 Task 3: card intro above bars (Paul-approved frozen copy).
+          Replaces the old technical clarification — Paul's intro frames the
+          chart as a range-preview with explicit drag interaction. */}
       <p
-        className={`${typography.panelMeta} text-text-light mb-2`}
-        data-testid="tornado-pp-clarification"
+        className={`${typography.panelBody} text-text-body mb-2`}
+        data-testid="tornado-intro"
       >
-        Numbers show percentage point change in win likelihood when each factor varies across its plausible range
+        Win-likelihood range if this factor turns out weaker or stronger than expected. Drag to preview.
       </p>
+
+      {/* Brief 5 Task 3: axis legend relocated from below the bars to above
+          the first bar so users read it before interpreting any bar. */}
+      <div
+        className={`flex items-baseline gap-2 mb-1 ml-[162px] ${typography.panelMeta} text-text-light`}
+        data-testid="tornado-legend"
+      >
+        <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-left">
+          {outcomeUnitSymbol && outcomeUnit === 'count'
+            ? `← Fewer ${outcomeUnitSymbol}`
+            : '← Weaker'}
+        </span>
+        <span
+          className="flex-1 text-center truncate"
+          data-testid="tornado-expected-display"
+          title={formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
+        >
+          {formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
+        </span>
+        <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-right">
+          {outcomeUnitSymbol && outcomeUnit === 'count'
+            ? `More ${outcomeUnitSymbol} →`
+            : 'Stronger →'}
+        </span>
+      </div>
 
       {/* Tornado rows */}
       <div className="divide-y divide-panel-border/70">
@@ -589,47 +616,19 @@ export function TornadoChart({
         })}
       </div>
 
-      {/* Axis labels — outcome updates during drag. V11: unit-aware when count unit available. */}
-      <div className="flex items-baseline gap-2 mt-1.5 ml-[162px] text-[10px] leading-tight text-text-light">
-        <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-left">
-          {outcomeUnitSymbol && outcomeUnit === 'count'
-            ? `← Fewer ${outcomeUnitSymbol}`
-            : '← Weaker'}
-        </span>
-        <span className="flex-1 text-center truncate" data-testid="tornado-expected-display" title={formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}>
-          {formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
-        </span>
-        <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-right">
-          {outcomeUnitSymbol && outcomeUnit === 'count'
-            ? `More ${outcomeUnitSymbol} →`
-            : 'Stronger →'}
-        </span>
-      </div>
-
-      {/* Interaction strip — drag-to-preview guidance */}
-      {rows.length > 0 && (
-        <div
-          className="mt-2 px-2.5 py-1.5 bg-panel border border-info/20 rounded-lg flex items-center gap-2"
-          data-testid="tornado-interaction-strip"
-        >
-          <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="var(--info)" strokeWidth={2} className="flex-shrink-0">
-            <circle cx={12} cy={12} r={10} />
-            <polyline points="12 6 12 12 16 14" />
-          </svg>
-          <span className={`${typography.panelMeta} text-text-light`}>
-            Drag bars to preview, then <strong className="text-text-header">apply and rerun</strong> for confirmed results
-          </span>
-        </div>
-      )}
+      {/* Brief 5 Task 3: former below-bars axis labels + inline info strip
+          are gone. Legend moved above the first bar; intro copy replaces the
+          info strip; the Apply button below now carries the interaction
+          affordance via its disabled-state tooltip. */}
 
       {/* Preview disclaimer + action buttons */}
-      <div className="flex items-center justify-between mt-2">
+      <div className="flex items-center justify-between mt-3">
         {dragState.hasUserDragged && (
           <p className={`${typography.panelMeta} text-text-light italic`}>
             Preview only
           </p>
         )}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 ml-auto">
           {dragState.hasUserDragged && (
             <button
               type="button"
@@ -644,7 +643,18 @@ export function TornadoChart({
             <button
               type="button"
               onClick={onApplyAndRerun}
-              className={`${typography.panelMeta} rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0`}
+              disabled={!dragState.hasUserDragged}
+              aria-disabled={!dragState.hasUserDragged}
+              title={
+                dragState.hasUserDragged
+                  ? 'Apply drag preview and rerun the analysis'
+                  : 'Drag a bar to preview a change before running.'
+              }
+              className={`${typography.panelBody} rounded-full px-[16px] py-[6px] leading-none flex-shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+                dragState.hasUserDragged
+                  ? 'bg-primary text-text-on-color border border-primary cursor-pointer hover:bg-info-hover hover:border-info-hover'
+                  : 'bg-transparent text-text-light border border-panel-border cursor-not-allowed opacity-60'
+              }`}
               data-testid="tornado-apply-rerun"
             >
               Apply and rerun
