@@ -10,13 +10,17 @@
  *
  * Subsequent runs without --update-snapshots compare against the baseline.
  *
- * The spec deliberately targets the canvas sandbox route: it loads fully
- * without external network (the repo's existing e2e patterns install a fake
- * EventSource) and exercises the Analysis-tab surfaces this brief touched.
+ * Follow-up P0 + IMP-1: navigate through the shared gotoSandbox helper so
+ * the spec actually lands on the sandbox panel (the earlier `page.goto('/')`
+ * landed on the auth/Decisions shell). Screenshot stability hardened with a
+ * fixed 1280x900 viewport (DS v5 desktop minimum) and prefers-reduced-motion
+ * so animation/font-rendering noise doesn't produce false diffs.
  */
 
 import { test, expect } from '@playwright/test'
-import { installFakeEventSource, waitForPanel } from '../_helpers'
+import { gotoSandbox } from '../_helpers'
+
+const VIEWPORT = { width: 1280, height: 900 }
 
 test.describe('Brief 5 full-page visual baselines', () => {
   test.skip(
@@ -24,13 +28,40 @@ test.describe('Brief 5 full-page visual baselines', () => {
     'Set BRIEF5_FULLPAGE=1 to run Brief 5 full-page captures.',
   )
 
-  test('Analysis tab — pre-analysis surface @brief-5', async ({ page }) => {
-    await installFakeEventSource(page)
-    await page.goto('/')
-    await waitForPanel(page)
+  test.beforeEach(async ({ page }) => {
+    await page.setViewportSize(VIEWPORT)
+    // Disable CSS animations + transitions + reduced-motion so screenshots
+    // are byte-stable across runs. Applied before navigation so it covers
+    // every element mounted afterwards.
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    await page.addStyleTag({
+      content: `
+        *, *::before, *::after {
+          animation-duration: 0s !important;
+          animation-delay: 0s !important;
+          transition-duration: 0s !important;
+          transition-delay: 0s !important;
+          caret-color: transparent !important;
+        }
+      `,
+    }).catch(() => { /* page may not be loaded yet; inject again after goto */ })
+  })
 
-    // Tolerance 0.1 % per README — absorbs font rendering / antialias noise.
-    await expect(page).toHaveScreenshot('analysis-tab-pre-analysis.png', {
+  test('Analysis tab — sandbox panel @brief-5', async ({ page }) => {
+    await gotoSandbox(page)
+    // Re-inject the stability styles after navigation (the before-each
+    // injection may have raced the goto).
+    await page.addStyleTag({
+      content: `
+        *, *::before, *::after {
+          animation-duration: 0s !important;
+          transition-duration: 0s !important;
+          caret-color: transparent !important;
+        }
+      `,
+    }).catch(() => {})
+
+    await expect(page).toHaveScreenshot('analysis-tab-sandbox.png', {
       fullPage: true,
       maxDiffPixelRatio: 0.001,
     })

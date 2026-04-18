@@ -404,9 +404,13 @@ export function PreAnalysisPanel({
   const runErrorCode = useCanvasStore(s => s.results?.error?.code ?? null)
 
   // Brief 5 Task 1: drives YourExpertise's "collapse on analysis rerun" rule.
-  // Hash changes once per completed analysis run; passing it as a key makes
-  // the expansion state reset whenever a new run lands.
-  const analysisRunKey = useCanvasStore(s => s.results?.hash ?? undefined)
+  // Compound of runId + hash: runId changes on every run START (cleared to
+  // undefined in startRun, set in resultsConnecting), hash changes on COMPLETE.
+  // A deterministic same-hash rerun still produces a runId transition, so the
+  // expansion always resets per rerun regardless of output stability.
+  const analysisRunId = useCanvasStore(s => s.results?.runId)
+  const analysisRunHash = useCanvasStore(s => s.results?.hash)
+  const analysisRunKey = `${analysisRunId ?? ''}:${analysisRunHash ?? ''}`
 
   // CEE analysis ready for feasibility + constraints
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)

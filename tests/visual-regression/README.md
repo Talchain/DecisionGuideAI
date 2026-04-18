@@ -41,30 +41,31 @@ not render-order noise.
 
 ## Running full-page diffs (Playwright)
 
-Full-page captures use the existing Playwright setup. They require the dev server.
+Full-page captures use the existing Playwright setup. Specs live in
+`e2e/brief-5/`:
 
-```bash
-# start dev server in one terminal
-npm run dev
+- `analysis-tab-fullpage.spec.ts` — full-page screenshot of the sandbox
+  Analysis surface. Fixed 1280×900 viewport, `prefers-reduced-motion: reduce`,
+  and a `*` CSS override that zeroes animation/transition durations so the
+  capture is byte-stable.
+- `your-expertise-brief-only.spec.ts` — Playwright smoke for the brief-only
+  YourExpertise branch (P1-2 follow-up): row is a button, no chevron,
+  deep-links to the Model tab.
 
-# in another terminal, capture baseline
-npx playwright test e2e/brief-5/full-page.spec.ts --update-snapshots
-
-# subsequent runs compare against the baseline
-npx playwright test e2e/brief-5/full-page.spec.ts
-```
-
-A minimal Playwright spec lives at `e2e/brief-5/analysis-tab-fullpage.spec.ts`.
-It's gated on `BRIEF5_FULLPAGE=1` so it does not add load to the default CI
-run. Enable locally:
+Both specs are gated on `BRIEF5_FULLPAGE=1` so they do not add load to the
+default CI run. Enable locally:
 
 ```bash
 npm run dev -- --port 5177 --strictPort    # terminal 1
-BRIEF5_FULLPAGE=1 npx playwright test e2e/brief-5/ --update-snapshots  # terminal 2
+
+# capture baselines (first run)
+BRIEF5_FULLPAGE=1 npx playwright test e2e/brief-5/ --update-snapshots
+
+# subsequent runs compare against the stored baselines
+BRIEF5_FULLPAGE=1 npx playwright test e2e/brief-5/
 ```
 
-Subsequent runs (without `--update-snapshots`) compare against the stored
-baseline. Tolerance is 0.1 % pixel difference.
+Tolerance is 0.1 % pixel difference.
 
 ## Diff tolerance
 

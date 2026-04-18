@@ -138,6 +138,39 @@ describe('YourExpertise — Brief 5 Task 1 expand-in-place', () => {
     expect(screen.queryByTestId('your-expertise-expanded')).not.toBeInTheDocument()
   })
 
+  // Follow-up IMP-2: simulates the same-hash rerun case (deterministic input
+  // reproduces the same response_hash). The parent passes a compound
+  // `${runId}:${hash}` key, so a runId transition collapses the expansion
+  // even when the hash is unchanged.
+  it('collapses when runId changes even if the response_hash is identical across runs', () => {
+    const ai = makeVerifyItem('f1', 'X')
+    const HASH = 'hash-deterministic'
+    const { rerender } = render(
+      <YourExpertise
+        improvementsByCategory={{ verify: [ai] }}
+        contestedEdges={[]}
+        nodes={[]}
+        edges={[]}
+        analysisRunKey={`run-alpha:${HASH}`}
+      />
+    )
+    fireEvent.click(screen.getByTestId('your-expertise-header'))
+    expect(screen.getByTestId('your-expertise-header')).toHaveAttribute('aria-expanded', 'true')
+
+    // Same hash, new runId — mirrors what the store does on rerun START.
+    rerender(
+      <YourExpertise
+        improvementsByCategory={{ verify: [ai] }}
+        contestedEdges={[]}
+        nodes={[]}
+        edges={[]}
+        analysisRunKey={`run-beta:${HASH}`}
+      />
+    )
+    expect(screen.getByTestId('your-expertise-header')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByTestId('your-expertise-expanded')).not.toBeInTheDocument()
+  })
+
   it('offers an expandable header when there are AI estimates, and toggles aria-expanded on click', () => {
     const ai = makeVerifyItem('f1', 'Dedicated Design Expertise')
     render(
