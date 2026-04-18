@@ -432,6 +432,59 @@ All three are captured in the morning handoff §Questions for Paul and §Next di
 
 ---
 
-## §Stash safety
+## §Reassessment round 2 (2026-04-18 10:30) — improvements upgraded from "follow-up" to "implement now"
+
+Paul directed a second pass on the three ChatGPT improvements: "implement if genuinely improves the solution." Reassessment outcomes:
+
+### Improvement #1 — shared `pinPlotProxyBase` helper → IMPLEMENTED
+
+**Reason to implement:** P0.1 (the `determinism.test.ts` mid-file unstub bug) demonstrated the value: hand-rolled stub patterns drift. Three of the five D4 files had the proxy-base stub only in `beforeAll`, which would silently fail if any future test added an inner `vi.stubEnv`/`vi.unstubAllEnvs`. A helper makes the correct `beforeEach` pattern the default by import. Also honours the original audit §170 suggestion: *"codified via a shared tests/setup/msw-env.ts"*.
+
+**Implementation:** commit `9120ebc2` on `ui/msw-env-drift-batch-fix-v2`.
+- New file: `tests/setup/msw-env.ts` (30 lines, exports `PLOT_PROXY_BASE` const + `pinPlotProxyBase(base?)` function)
+- All 5 D4 files refactored to import and call `pinPlotProxyBase()` at module scope
+- Side-benefit: `httpV1Adapter.contract.test.ts` and `v1_1_contract.spec.ts` previously had hardcoded `'/api/plot/version'` paths at module scope; now both use `${PROXY_BASE}/version`.
+
+**Verification (all 3 green):**
+- Env-set (local): `Test Files 4 passed | 1 skipped (5)`, `Tests 49 passed | 3 skipped`
+- Env-unset (`.env.local` renamed): same 49/49
+- Adjacent dir cross-leakage: `Test Files 8 passed | 1 skipped (9)`, `Tests 139 passed | 4 skipped`
+
+### Improvement #2 — CI guard for bail-like under-reporting → IMPLEMENTED
+
+**Reason to implement:** direct defence-in-depth for D2. Without it, a future contributor re-adding `--bail=N` would re-create the 653-file invisible-skip problem. The whole point of D2 is visibility; a guard makes the visibility durable.
+
+**Initial attempt was wrong:** first version checked only `total < 700`, which would MISS the actual regression shape. When bail fires, total stays high (754) while skipped balloons (653). Re-scoped to assert BOTH `total >= 700` AND `skipped <= 50`.
+
+**Implementation:** commit `c9d460b5` on `ui/ci-coverage-fix`.
+- New step `Assert healthy test-file coverage (no bail-like under-reporting)` after vitest step
+- Parses both common shapes of the `Test Files` summary line
+- `if: always()` so it fires even when vitest exits non-zero
+- Thresholds chosen with margin: `min_total=700` (55 below current 755), `max_skipped=50` (46 above real 4)
+
+**Verification:**
+- Real no-bail output (755 total, 4 skipped): PASS
+- Synthetic `754 total | 653 skipped` (simulated bail regression): FAIL on skipped>50
+
+### Improvement #3 — post-cascade sharding → NOT IMPLEMENTED
+
+**Reason to skip:** requires matrix strategy + job topology change + gate logic update. Per brief §4 no-go rail: "Rewriting .github/workflows structure — only the specific lines identified in audit." Sharding is a structural rewrite. D2's fix closes the visibility gap with a single-line edit; sharding belongs in a separate scoped change once the cascade is clean (as the audit §5.3 and D2 PR description both note).
+
+### P1.1 reassessment (verified, kept split)
+
+Read `src/canvas/hooks/useGraphReadiness.ts:76` and `src/canvas/stores/readinessStore.ts:28`. The 2 files (`OutputsDock.analysis-run`, `patchAcceptLogic`) fail via:
+- Different env var: `VITE_CEE_BFF_BASE` (fallback `/bff/cee`), **not** `VITE_PLOT_PROXY_BASE`
+- Different code path: relative URL passed to `fetch()` where undici's URL parser rejects it; no MSW setup in either test file to intercept
+- Different fix shape: probably `vi.mock('../stores/readinessStore')` or `vi.stubEnv('VITE_CEE_BFF_BASE', 'http://localhost/bff/cee')` with a test-absolute URL — NOT the same `vi.stubEnv('/api/plot')` shape as the 5 D4 files
+
+ChatGPT's "same pattern" claim was based on surface similarity (env-var relative URL) but the actual fix is non-trivial. Bundling without a proper fix shape would regress the D4 PR. Kept split as "D4b candidates" — morning handoff §7 flags them for a separate PR.
+
+### P1.3 reassessment (policy, no code action)
+
+Re-read brief §2 D3 and §2 D4:
+- §2 D3: *"Halt after enumeration. Do not fix. Commit doc."* — interpretable as "halt within-D3 (no fixing inside D3)" OR "halt pipeline entirely."
+- §2 D4: *"Only dispatches if Deliverable 3 confirms env-drift is a clear cluster..."* — conditional auto-dispatch wording.
+
+My reading (continued from original): the conditional in §2 D4 implies §2 D3's "halt" is scoped to "halt fixing inside D3", not "halt everything." Strict reading is defensible but slower. No retroactive action possible (D4 PR is open). Policy question documented for Paul's review.
 
 Stash `stash@{0}` on `ui/ci-test-coverage-audit`: `P1.2 pre-analysis WIP - stashed for overnight CI work`. Fingerprint captured in the plan doc at `~/.claude/plans/overnight-brief-mossy-shore.md`. Morning restoration: verify fingerprint → `git stash pop stash@{0}`.

@@ -13,7 +13,8 @@
 | D1 | CI coverage audit | `ui/ci-test-coverage-audit` | `53bf7725` (also cherry-picked to hub as `685b75ad`) | — | Committed, pushed |
 | D2 | Remove `--bail=1` from staging-full-tests | `ui/ci-coverage-fix` | `57bc318b` | **[#125](https://github.com/Talchain/DecisionGuideAI/pull/125)** | PR open, **awaiting Paul merge** |
 | D3 | Cascade enumeration | `ui/test-cascade-enumeration` | `46189a63` | (no PR; reference branch) | Doc + cascade.json committed |
-| D4 | 5-file MSW env-drift batch fix | `ui/msw-env-drift-batch-fix-v2` | `18b42938` → `8b1af916` (amended after ChatGPT P0.1 review) | **[#126](https://github.com/Talchain/DecisionGuideAI/pull/126)** | PR open, **depends on #125 merging first** |
+| D4 | 5-file MSW env-drift batch fix + P0.1 fix + helper refactor | `ui/msw-env-drift-batch-fix-v2` | `18b42938` → `8b1af916` → `9120ebc2` | **[#126](https://github.com/Talchain/DecisionGuideAI/pull/126)** | PR open, **depends on #125 merging first** |
+| D2 guard | CI min-file + max-skipped assertion (improvement #2) | `ui/ci-coverage-fix` | `c9d460b5` (folded into PR #125) | same as [#125](https://github.com/Talchain/DecisionGuideAI/pull/125) | Same approval as D2 |
 | D1 addendum | `poc-pr.yml` + `poc-sweep.yml` added to workflow inventory (ChatGPT P1.2) | `ui/overnight-ci-and-tests` | tip | — | Rolls up into hub PR |
 | Hub | Plan doc + evidence pack + summary | `ui/overnight-ci-and-tests` | `ffd7fe2d` → tip | — | Pushed; open PR after morning cleanup |
 
@@ -55,20 +56,24 @@ See evidence pack §Deferred items for the full list. Top five:
 4. **`batchUpdateNodes` method missing (3 tests)** — was this renamed/removed intentionally? Find the replacement and decide test-update vs store-restore.
 5. **Assertion drift across 7 UI files** — per-file decision on whether current UI is intentional (update tests) or regression (restore UI).
 
-### ChatGPT external review — amendments made overnight
+### ChatGPT external review — two rounds of amendments overnight
 
-Three of ChatGPT's 8 points identified real issues and were addressed before morning:
+**Round 1 — three real P0/P1 issues addressed:**
 
 - **P0.1** `determinism.test.ts` re-stub bug → fixed in `8b1af916` on D4 branch
 - **P0.2** direct env-unset verification gap → ran with `.env.local` renamed, 49/49 green, evidence attached to PR #126
 - **P1.2** audit workflow inventory missing `poc-pr.yml` / `poc-sweep.yml` → addendum added to `docs/ui/ci-test-coverage-audit.md` §2.3
 
-Two partial-disagreements documented in evidence pack §Post-overnight review:
+**Round 2 — two improvements upgraded from "follow-up" to "implement now":**
 
-- **P1.1** (5 vs 7 env-drift files) — kept split because the 2 deferred files are a different code path (`new URL()` in `useGraphReadiness.ts`, not MSW stub). Labelled as "D4b candidates" for a follow-up PR.
-- **P1.3** (halt gating policy) — brief text is ambiguous; documented our interpretation for Paul's morning review.
+- **Improvement #1** shared `pinPlotProxyBase` helper → commit `9120ebc2` on D4 branch: new file `tests/setup/msw-env.ts`, 5 D4 specs refactored to import. Verified across env-set / env-unset / cross-leakage (all green).
+- **Improvement #2** CI guard for bail-like under-reporting → commit `c9d460b5` on D2 branch: asserts `total >= 700` AND `skipped <= 50` with `if: always()`. Verified against real (755/4 → PASS) and synthetic bail-capped (754/653 → FAIL on skipped) outputs.
 
-Three ChatGPT "improvements" (shared helper, CI guard for test-count floor, sharding) are out of overnight scope and captured as follow-ups.
+**Documented but not implemented:**
+
+- **Improvement #3** (sharding) — violates brief §4 no-go rail on workflow structural rewrites; belongs in a separate scoped change post-cascade.
+- **P1.1** (5 vs 7 env-drift files) — verified the 2 files use a different env var (`VITE_CEE_BFF_BASE`) and different code path (`fetch()` with relative URL, no MSW setup). Different fix shape. Kept split as "D4b candidates."
+- **P1.3** (halt gating policy) — brief text genuinely ambiguous; documented for morning policy call. Retroactive change not implementable.
 
 ---
 
