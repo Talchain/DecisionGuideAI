@@ -13,7 +13,8 @@
 | D1 | CI coverage audit | `ui/ci-test-coverage-audit` | `53bf7725` (also cherry-picked to hub as `685b75ad`) | — | Committed, pushed |
 | D2 | Remove `--bail=1` from staging-full-tests | `ui/ci-coverage-fix` | `57bc318b` | **[#125](https://github.com/Talchain/DecisionGuideAI/pull/125)** | PR open, **awaiting Paul merge** |
 | D3 | Cascade enumeration | `ui/test-cascade-enumeration` | `46189a63` | (no PR; reference branch) | Doc + cascade.json committed |
-| D4 | 5-file MSW env-drift batch fix | `ui/msw-env-drift-batch-fix-v2` | `18b42938` | **[#126](https://github.com/Talchain/DecisionGuideAI/pull/126)** | PR open, **depends on #125 merging first** |
+| D4 | 5-file MSW env-drift batch fix | `ui/msw-env-drift-batch-fix-v2` | `18b42938` → `8b1af916` (amended after ChatGPT P0.1 review) | **[#126](https://github.com/Talchain/DecisionGuideAI/pull/126)** | PR open, **depends on #125 merging first** |
+| D1 addendum | `poc-pr.yml` + `poc-sweep.yml` added to workflow inventory (ChatGPT P1.2) | `ui/overnight-ci-and-tests` | tip | — | Rolls up into hub PR |
 | Hub | Plan doc + evidence pack + summary | `ui/overnight-ci-and-tests` | `ffd7fe2d` → tip | — | Pushed; open PR after morning cleanup |
 
 No merges happened overnight. Paul approval needed for #125 → then #126 → then hub.
@@ -49,10 +50,25 @@ Failing-test reduction numbers are estimates: if the 5 D4 files have an average 
 See evidence pack §Deferred items for the full list. Top five:
 
 1. **Merge #125?** (required to unmask real cascade in CI.)
-2. **Merge #126 after #125?** (removes ~20 tests from cascade, test-only diff.)
+2. **Merge #126 after #125?** (removes ~20 tests from cascade, test-only diff. Includes ChatGPT P0.1 fix for `determinism.test.ts` and direct env-unset evidence per P0.2.)
 3. **Markdown spec (26 tests failing)** — is this a rendering pipeline regression or test-setup issue? Fastest diagnostic: `npx vitest run src/canvas/utils/__tests__/markdown.spec.ts -t "converts italic text"` and inspect whether raw markdown is returned vs rendered HTML.
 4. **`batchUpdateNodes` method missing (3 tests)** — was this renamed/removed intentionally? Find the replacement and decide test-update vs store-restore.
 5. **Assertion drift across 7 UI files** — per-file decision on whether current UI is intentional (update tests) or regression (restore UI).
+
+### ChatGPT external review — amendments made overnight
+
+Three of ChatGPT's 8 points identified real issues and were addressed before morning:
+
+- **P0.1** `determinism.test.ts` re-stub bug → fixed in `8b1af916` on D4 branch
+- **P0.2** direct env-unset verification gap → ran with `.env.local` renamed, 49/49 green, evidence attached to PR #126
+- **P1.2** audit workflow inventory missing `poc-pr.yml` / `poc-sweep.yml` → addendum added to `docs/ui/ci-test-coverage-audit.md` §2.3
+
+Two partial-disagreements documented in evidence pack §Post-overnight review:
+
+- **P1.1** (5 vs 7 env-drift files) — kept split because the 2 deferred files are a different code path (`new URL()` in `useGraphReadiness.ts`, not MSW stub). Labelled as "D4b candidates" for a follow-up PR.
+- **P1.3** (halt gating policy) — brief text is ambiguous; documented our interpretation for Paul's morning review.
+
+Three ChatGPT "improvements" (shared helper, CI guard for test-count floor, sharding) are out of overnight scope and captured as follow-ups.
 
 ---
 

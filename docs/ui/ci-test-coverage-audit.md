@@ -65,8 +65,12 @@ Clean. Relevant fields:
 | `ci.yml` | push to `main` / PR to `main` | `npm run test:coverage` | Full suite with v8 coverage. No bail flag → runs to completion. |
 | `contract-validation.yml` | (probably PR) | `npx vitest run tests/contracts/ --reporter=verbose --bail=1` | Narrow subtree only. Small scope, bail impact minimal. |
 | `main.yml` | on main branch events | `npm test --if-present` | Standard npm test, no bail. |
+| `poc-sweep.yml` | (scheduled / workflow_dispatch) | `npm run test:unit` (vitest) + Playwright e2e (Chromium/Firefox/WebKit) + `npm run test -- src/lib/__tests__/evidence.immutability.test.ts` | **Missed by initial audit sweep.** Runs a unit slice and a targeted vitest re-run. No bail flag on either vitest call. Impact on staging-full-tests-653-skip analysis: zero (different trigger, different command). Added as addendum on 2026-04-18. |
+| `poc-pr.yml` | PR to `main` | Playwright e2e only (no vitest) | **Missed by initial audit sweep.** Does not run any vitest. Added as addendum; relevant only for the "every workflow that runs UI tests" acceptance criterion. |
 
 Only `staging-full-tests.yml` fires on `push: staging`. That's the one this audit is about.
+
+**Addendum (2026-04-18):** post-audit review by ChatGPT identified two workflows missing from the original sweep: `poc-sweep.yml` and `poc-pr.yml`. Neither affects the 653-file skip analysis — `poc-sweep.yml` uses a different trigger and doesn't use `--bail=1`; `poc-pr.yml` runs Playwright only. The audit's root-cause conclusion is unchanged. Acceptance criteria for "every workflow that runs UI tests" is now met with both additions above.
 
 ### 2.4 Config-comment vs actual behaviour
 

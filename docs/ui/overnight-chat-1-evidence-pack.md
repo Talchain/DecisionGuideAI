@@ -333,6 +333,58 @@ Brief D6 expects: run full suite locally, compare to D3 baseline, wait for CI on
 
 ---
 
+## §Post-overnight review — ChatGPT feedback analysis (2026-04-18)
+
+External review (ChatGPT) raised 8 points: 2×P0, 3×P1, 3×improvements. Each point evaluated on merits, not wholesale accepted. Three confirmed real issues fixed before morning; remainder documented with reasoning.
+
+### P0.1 — `determinism.test.ts` mid-file `vi.unstubAllEnvs()` clears proxy-base stub — CONFIRMED, FIXED
+
+Verified: file at line 193 (debug-flag test) calls `vi.unstubAllEnvs()` in a `finally`. Original cherry-pick stubbed `VITE_PLOT_PROXY_BASE` only in `beforeAll`, so streaming-mode tests below line 193 would lose proxy-base pinning in env-unset CI.
+
+**Fix:** commit `8b1af916` on `ui/msw-env-drift-batch-fix-v2` — moves stub from `beforeAll` to `beforeEach`, matching the proven `httpV1Adapter.limits.spec.ts` pattern.
+
+**Scope check (defensive):** grepped all 5 D4 files for `unstubAllEnvs`. Only `determinism.test.ts` had the mid-file call; the other 4 use it only in `afterAll` or `afterEach`. No further fixes needed.
+
+### P0.2 — No direct env-unset verification — CONFIRMED, GAP CLOSED
+
+Original D4 evidence relied on indirect pattern-parity with merged sibling `9e4036a6`. ChatGPT asked for direct proof.
+
+**Action:** temporarily renamed `.env.local` → `.env.local.d4-verification-bak`, re-ran all 5 D4 files, captured output, restored `.env.local` with identical mtime.
+
+```
+Test Files  4 passed | 1 skipped (5)
+     Tests  49 passed | 3 skipped (52)
+  Duration  5.68s
+```
+
+0 failures in env-unset context. Evidence attached to PR #126 as a comment with full reproduction steps. `/tmp/d4-env-unset-verification.txt` preserves the output.
+
+### P1.2 — Audit missed `poc-pr.yml` and `poc-sweep.yml` — CONFIRMED, ADDENDUM ADDED
+
+Both workflows exist and one (`poc-sweep.yml`) runs vitest (`npm run test:unit`). Addendum appended to `docs/ui/ci-test-coverage-audit.md` §2.3 covering both. Neither affects the `--bail=1` analysis: `poc-sweep.yml` doesn't use bail and triggers differently; `poc-pr.yml` runs Playwright only. Audit's root-cause conclusion unchanged.
+
+### P1.1 — D4 fixes 5 files, defers 2 same-pattern candidates — PARTIAL DISAGREEMENT
+
+ChatGPT framed this as "cluster closure". Technical check: the 2 deferred files (`OutputsDock.analysis-run`, `patchAcceptLogic`) fail via `new URL()` in `src/canvas/hooks/useGraphReadiness.ts:76`, which is a **different code path** from MSW handler matching. The fix shape is likely different (wrap the URL construction, or inject a test-mode base, or stub `window.location`). Bundling an unvalidated fix into D4 expands blast radius without verification.
+
+**Kept split.** Re-labelled as "D4b candidates" in morning handoff §7. Rationale recorded here for morning review.
+
+### P1.3 — D3 halt / D4 proceed — POLICY QUESTION
+
+Brief §2 D3: "Halt after enumeration. Do not fix." — our reading: D3 stops at enumeration (no in-place fixing); D4 is a separate conditional dispatch. Brief §2 D4 explicitly says "Only dispatches if Deliverable 3 confirms env-drift is a clear cluster (≥3 tests, identical pattern)" — this is the conditional hand-off, not a hard halt.
+
+Strict reading (ChatGPT's): any "halt" means "wait for Paul". Our reading: conditional auto-dispatch is permitted when the brief defines the condition.
+
+**No action overnight.** Documented here; Paul's morning review is the right place to choose interpretation for future briefs.
+
+### Improvements (not actioned — out of overnight scope)
+
+1. **Shared `stubPlotProxyBase.ts` helper** to dedupe setup logic. Worthy follow-up; would touch all 5+ files. Not trivially test-only (introduces new test-infra). Out of D4 / D5 scope.
+2. **CI guard for min test-file count** — would have caught the 653-skip regression. Worthy follow-up for a separate PR on the CI config side.
+3. **Sharding post-cascade** — already noted in D2 PR description and audit §5.3 as the right next-step after cascade stabilises.
+
+All three are captured in the morning handoff §Questions for Paul and §Next dispatch.
+
 ## §Metrics (live, updated per deliverable)
 
 | Metric | Pre-fix baseline | Post-D2 local (pre-merge) | Post-D2 CI | Post-D4 CI | Post-D6 final |
