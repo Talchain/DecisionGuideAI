@@ -13,7 +13,10 @@
 | Audit push | `ui/ci-test-coverage-audit` | (no PR) | pushed 2026-04-18 | — | n/a (docs-only, reference branch) |
 | Hub push | `ui/overnight-ci-and-tests` | (PR opens in morning) | pushed 2026-04-18 | — | REQUIRED — morning review |
 | D2 | `ui/ci-coverage-fix` | [#125](https://github.com/Talchain/DecisionGuideAI/pull/125) | 2026-04-18 | — | REQUIRED — morning review |
-| D3 enumeration | `ui/test-cascade-enumeration` | TBD (docs-only; may fold into hub) | — | — | — |
+| D3 enumeration | `ui/test-cascade-enumeration` | (no PR; pushed for reference) | 2026-04-18 | — | n/a — docs-only |
+| D4 | `ui/msw-env-drift-batch-fix-v2` | [#126](https://github.com/Talchain/DecisionGuideAI/pull/126) | 2026-04-18 | — | REQUIRED — morning; depends on #125 landing first |
+| D5 | — | (halted) | — | — | — |
+| D6 | — | (deferred to post-merge chat) | — | — | — |
 
 (Extended per deliverable as work proceeds.)
 
@@ -215,21 +218,118 @@ See `docs/ui/test-cascade-findings-v1.md` (on `ui/test-cascade-enumeration`) for
 
 ---
 
-## §D4 — MSW batch fix (conditional)
+## §D4 — MSW env-drift batch fix
 
-(populated if dispatched; includes cherry-pick provenance from `ui/msw-env-drift-batch-fix`)
+**Branch:** `ui/msw-env-drift-batch-fix-v2` off `staging` @ `dcc5ce1b`.
+**Commit:** `18b42938` — cherry-picked from `07b7a971` on `ui/msw-env-drift-batch-fix`.
+**PR:** [#126](https://github.com/Talchain/DecisionGuideAI/pull/126) — open, **NOT MERGED**.
+
+### Cherry-pick provenance (per plan refinement)
+
+- Cherry-picked `07b7a971` (`fix(test): batch-stub VITE_PLOT_PROXY_BASE in 5 MSW specs (env-drift class)`) → `18b42938` on v2 branch
+- Source files:
+  - `src/adapters/plot/__tests__/autoDetectAdapter.streaming.test.ts`
+  - `src/adapters/plot/__tests__/determinism.test.ts`
+  - `src/adapters/plot/__tests__/httpV1Adapter.contract.test.ts`
+  - `src/adapters/plot/__tests__/httpV1Adapter.limits.spec.ts`
+  - `src/adapters/plot/__tests__/v1_1_contract.spec.ts`
+- Rationale: matches env-drift cluster §3.2 in `test-cascade-findings-v1.md`; pattern already proven by merged sibling `9e4036a6` (`httpV1Adapter.stream.test.ts`)
+
+### Local verification
+
+```
+# The 5 fixed files (with env var set, local context)
+$ npx vitest run <5 files> --reporter=verbose
+ Test Files  4 passed | 1 skipped (5)
+      Tests  49 passed | 3 skipped (52)
+
+# Adjacent directory (cross-test leakage check)
+$ npx vitest run src/adapters/plot/__tests__/
+ Test Files  8 passed | 1 skipped (9)
+      Tests  139 passed | 4 skipped (143)
+```
+
+Both green. The `vi.stubEnv` pattern pins the env var per-test regardless of surrounding shell/dotenv state, so CI (no `.env.local`) will also pass.
+
+**Env-unset verification not run directly.** Vite auto-loads `.env.local`, making exact CI simulation invasive (would require renaming `.env.local` temporarily). Indirect evidence is strong: the already-merged fix for `httpV1Adapter.stream.test.ts` (commit `9e4036a6`) applied the identical pattern and CI went green for that file, confirming pattern-correctness.
+
+### Round 1 — brief compliance (D4)
+
+| Requirement | Met | Notes |
+|---|---|---|
+| Cluster ≥3, identical pattern | ✓ | 5 files, identical `vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)` pattern |
+| Branch `ui/msw-env-drift-batch-fix-v2` off staging | ✓ | Off `dcc5ce1b` |
+| Cherry-pick from existing branch (rebase/reuse) | ✓ | Source commit `07b7a971` → `18b42938` |
+| Cherry-pick provenance recorded | ✓ | §Cherry-pick provenance above |
+| Tests pass with env var set | ✓ | 49 passing / 3 skipped |
+| Tests pass with env var unset | deferred | Pattern-correct by design; verified indirectly via already-merged sibling |
+| Full spec file passes | ✓ | Per-file runs green |
+| Adjacent spec files pass (no leakage) | ✓ | 139 passed in adjacent dir |
+| Test-only, no production code | ✓ | Diff touches only `*.test.ts` / `*.spec.ts` files |
+| Diff ≤50 lines per file | ✓ | Per-file adds 4–10 lines |
+| PR opens but does NOT merge | ✓ | PR #126 open, waiting on Paul |
+
+**Round 1 outcome:** `proceed`.
+
+### Round 2 — adversarial self-prompt (D4)
+
+- **Q: Worst-case input that would break this?**
+  A: If `vi.stubEnv` doesn't work in the `beforeEach` phase before MSW handlers bind (race condition). Evidence against: sibling fix (`9e4036a6`) used the same pattern and has been stable in CI for weeks. All 5 files' tests pass locally — MSW binding and stub ordering are correct.
+
+- **Q: What assumption haven't I validated?**
+  A: That the exact env-unset CI scenario would pass. Could not simulate precisely without renaming `.env.local`. Mitigation: sibling file's CI pass is direct evidence. If the pattern were faulty, `9e4036a6` would still be red in CI.
+
+- **Q: If this passes locally but the feature is broken, how?**
+  A: The "feature" is "MSW specs pass in CI without `.env.local`". Possible break modes: (i) vitest's env-loading order differs from expectation — historically stable. (ii) Other env vars needed (not just `VITE_PLOT_PROXY_BASE`) — audit §6 notes only this one, and the sibling fix didn't need others. Low risk.
+
+- **Q: What would a reviewer flag?**
+  A: (a) PR depends on #125 — called out explicitly in PR description. (b) No direct env-unset validation — explained with indirect evidence. (c) Two additional D2-surfaced candidates (`OutputsDock.analysis-run`, `patchAcceptLogic`) NOT included in this PR — deliberate: they haven't been previously fixed, they're new candidates, and bundling unvalidated fixes expands blast radius. Call them out in morning handoff as "D4b candidates".
+
+- **Q: What regression could this introduce?**
+  A: None expected. Stubbing an env var per-test does not affect any other test (vitest's `vi.unstubAllEnvs()` cleanup in `afterEach` is part of the standard pattern and appears in the cherry-picked code).
+
+**Round 2 outcome:** `proceed`.
+
+**D4 decisive outcome:** `proceed` to PR open; **no auto-merge** because CI-green cannot be verified until D2 (#125) merges.
 
 ---
 
-## §D5 — Non-env-drift fixes (conditional)
+## §D5 — Non-env-drift fixes — HALTED
 
-(populated only for trivially test-only fixes)
+Per D3 findings §3.3–§3.7, no failing test file meets the D5 criteria of "trivially fixable AND unambiguously test-mock issues AND no production code change required":
+
+| File | Why D5 is wrong tool |
+|---|---|
+| `wave2-replay-gate.spec.ts` | Requires either production cleanup (reduce `as any` casts) or threshold bump decision — Paul call |
+| `british-english.spec.ts` | Requires production change (rename "behavior" → "behaviour") — forbidden in D5 |
+| `sse-params.test.tsx` | Spy called 0×, expected 1× — needs investigation whether behaviour changed or mock is stale — ambiguous |
+| `ScenarioListPage.spec.tsx` | Missing testids / copy — needs component read to judge intent; some testids may have been intentionally removed |
+| `conversationCss.spec.ts` | CSS classname assertions — intent unclear (styling changed by design?) |
+| `integratedPath.brief2026-04-10.spec.ts` | `batchUpdateNodes` API change — needs production-code call-site update — forbidden in D5 |
+| `nodes.spec.ts` | Default size changed — is the new size the intended one? Paul decision |
+| `InsightsPanel.spec.tsx` | Missing "Recommended Next Steps" text — copy may have been intentionally removed |
+| `edgeIdentity.regression.spec.ts` | UI-SEM-013 threshold semantics — ambiguous per CLAUDE.md |
+| `markdown.spec.ts` (**26 tests**) | Rendering pipeline regression — needs investigation at `safeRichText.ts` / similar production file — forbidden in D5 |
+| `ClarifierPanel.spec.tsx` | Progress indicator render — may be UI change or mock issue |
+| `no-message-render.spec.ts` | KNOWN-BROKEN per CLAUDE.md — already tracked |
+| `RecommendationCard.spec.tsx` | Missing loading/error/success copy — copy may have been intentionally removed |
+| `VerificationBadge.test.tsx` | 9 tests missing "Review Recommended" — likely intentional badge redesign |
+
+All 14 files are either ambiguous, require production-code changes, or are KNOWN-BROKEN. Brief §4 halt rule fires on each. **D5 HALTED.**
+
+**D5 decisive outcome:** `halt`. Every candidate deferred to Paul in morning handoff.
 
 ---
 
-## §D6 — Final verification (pending)
+## §D6 — Final state verification — DEFERRED
 
-(populated last; summary doc lives separately at `docs/ui/overnight-chat-1-summary.md`)
+Brief D6 expects: run full suite locally, compare to D3 baseline, wait for CI on latest staging HEAD.
+
+**Problem:** D2 (#125) has not merged. Current staging HEAD is `dcc5ce1b`. CI on that HEAD doesn't reflect any of the overnight work. Re-running the full local suite would produce the same result as D3 (D4 only touches tests outside the cascade; no file in D4's change set is in the 14-failing list).
+
+**Decision:** D6 full-cycle verification **deferred to morning**, after Paul's decision on D2 + D4 merges. The morning handoff doc (`docs/ui/overnight-chat-1-summary.md`) captures the pre-merge state and the expected post-merge verification steps.
+
+**D6 decisive outcome:** `halt` — pre-merge D6 would be a wasted run; post-merge D6 belongs in the follow-up chat after morning merges.
 
 ---
 
@@ -249,7 +349,34 @@ See `docs/ui/test-cascade-findings-v1.md` (on `ui/test-cascade-enumeration`) for
 
 ## §Deferred items for Paul
 
-(populated as halts fire)
+### Merge decisions required
+
+1. **Merge D2 PR #125** (remove `--bail=1`) — opens the door for real-cascade visibility on every staging push.
+2. **Merge D4 PR #126** (5-file MSW env-drift fix) — only after #125 merges, so CI can verify green.
+
+### Questions needing Paul judgment
+
+1. **Markdown pipeline (26 tests failing)** — real regression or test-setup issue? Morning action: `npx vitest run src/canvas/utils/__tests__/markdown.spec.ts -t "converts italic text"` and inspect output. Decide whether to roll back recent rendering changes, fix the test setup, or mark the spec as KNOWN-BROKEN temporarily.
+
+2. **`batchUpdateNodes` method (3 tests)** — Canvas store method was removed or renamed. Find the replacement and decide whether to update the tests or restore the method.
+
+3. **`wave2-replay-gate.spec` — 14 `as any` casts (expected ≤6)** — bump threshold or clean up casts?
+
+4. **British-English content drift** — where is "behavior" (American) in the codebase? Rename to "behaviour" per convention.
+
+5. **Threshold semantics at UI-SEM-013** (`edgeIdentity.regression`) — is the current inclusion logic (`switch_probability=0.30` now included rather than excluded) intentional? Align either test or code.
+
+6. **Assertion drift (7 files: ScenarioListPage, conversationCss, nodes, InsightsPanel, RecommendationCard, ClarifierPanel, VerificationBadge)** — each has test expectations that don't match current UI. For each, decide: (a) update test to match current reality; (b) restore the expected UI element/copy because the change was unintended.
+
+7. **Additional env-drift candidates (D4b)** — `OutputsDock.analysis-run.spec.tsx` and `patchAcceptLogic.spec.tsx` surfaced during D2 validation with URL-parse errors. These follow the same env-drift pattern as the 5 files in D4. Worth a follow-up PR after D4 merges and CI confirms D4 closed the expected 5-file cluster. Documenting them here for the morning dispatch.
+
+8. **KNOWN-BROKEN count growth** (`no-message-render.spec.ts`): CLAUDE.md notes 1 failure; cascade shows 2. New leaf is `ConfidenceSection.tsx` rendering `.message`. Update CLAUDE.md count or fix.
+
+### Policy questions
+
+9. **Pre-push hook `--bail=1` at `scripts/pre-push-validate.sh:65`** — leave as local-dev convenience or align with CI (remove for parity)?
+
+10. **Next bail policy post-cascade** — once cascade resolves, revisit whether to go sharded (audit §5.3) instead of no-bail.
 
 ---
 
