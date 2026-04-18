@@ -23,6 +23,29 @@ import { join, relative } from 'path'
 
 const RESULTS_DIR = join(__dirname, '..')
 
+/**
+ * Files to skip at scan time — distinct from DEFENCE_IN_DEPTH_FILES.
+ *
+ * DEFENCE_IN_DEPTH_FILES: renders .message with a live runtime filter; the
+ *   scanner matches the render AND asserts the filter is still present.
+ *
+ * SKIPPED_FILES: the scanner ignores them entirely. Reserved for files that
+ *   have no production render path (archived components kept as test
+ *   fixtures). Adding a file here is a trust-on-history claim — the file
+ *   must remain un-mounted; if a component is revived, remove it from this
+ *   list immediately and either sanitise its .message usage or add it to
+ *   DEFENCE_IN_DEPTH_FILES with a proper runtime guard.
+ */
+const SKIPPED_FILES = new Set<string>([
+  // ConfidenceSection.tsx — archived 2026-04-17 (commit c88d5967). No
+  // production render path; exists solely as a legacy integration fixture
+  // for specs that pre-date the DecisionConfidencePanel rewrite. A late
+  // .message render was introduced the same day (commit 3702e773) but is
+  // never mounted. Scanner should not treat archived test fixtures as
+  // runtime risk. Remove this entry if the component is re-introduced.
+  'ConfidenceSection.tsx',
+])
+
 /** Recursively collect .tsx source files (excluding __tests__, Debug, Advanced) */
 function getSourceFiles(dir: string): string[] {
   const files: string[] = []
@@ -32,7 +55,7 @@ function getSourceFiles(dir: string): string[] {
     const stat = statSync(full)
     if (stat.isDirectory()) {
       files.push(...getSourceFiles(full))
-    } else if (/\.tsx$/.test(entry)) {
+    } else if (/\.tsx$/.test(entry) && !SKIPPED_FILES.has(entry)) {
       files.push(full)
     }
   }
@@ -88,6 +111,12 @@ const DEFENCE_IN_DEPTH_FILES: Record<string, RegExp> = {
   // inference warnings, not PLoT critique data — structurally different type.
   // Guard: the fallback pattern must be present.
   'ChallengeSection.tsx': /Inference warning.*warning\.code/,
+  // AdvancedSection.tsx: renders w.message inside the trust-narrative region
+  // for ISL inference warnings (added commit b462f7e6, 2026-04-17). Same
+  // exception class as ChallengeSection — these are ISL inference warnings,
+  // not PLoT critique data. Guard: the message must have been filtered for
+  // non-empty strings before render.
+  'AdvancedSection.tsx': /typeof w\.message === 'string' && w\.message\.trim\(\)\.length > 0/,
 }
 
 /** V14.3b: Additional files that render warning/critique-like data */
