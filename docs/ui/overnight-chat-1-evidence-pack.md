@@ -142,9 +142,76 @@ NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --reporter=verbose
 
 ---
 
-## §D3 — Cascade enumeration (pending)
+## §D3 — Cascade enumeration
 
-(populated after D3 runs)
+**Branch:** `ui/test-cascade-enumeration` off `staging` @ `dcc5ce1b`.
+**Commit:** `46189a63` — `docs(cascade): enumerate 14 failing files, 60 tests, 7 clusters`.
+**Artefacts committed:** `docs/ui/test-cascade-findings-v1.md`, `cascade.json` (3.3 MB).
+**Run command:**
+
+```bash
+NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --reporter=verbose --reporter=json --outputFile=cascade.json 2>&1 | tee /tmp/cascade-raw.txt
+```
+
+**Duration:** 19.97 min. Exit 0 via tee.
+
+### Results
+
+- 14 files failed / 734 passed / 4 skipped (755)
+- 60 tests failed / 11,565 passed / 49 skipped (11,712)
+- 5 errors (3 Worker OOM in cleanup + 2 URL-parse errors)
+
+**Key finding: local cascade ≠ CI cascade.** Local `.env.local` masks the MSW env-drift class. The 5 files on `ui/msw-env-drift-batch-fix` + 2 URL-parse candidates surfaced by D2 (`OutputsDock.analysis-run`, `patchAcceptLogic`) are the env-drift cluster that will surface in CI after D2 merges.
+
+### Cluster summary
+
+| Cluster | Files | Tests | Action |
+|---|---|---|---|
+| Env-drift (CI-visible, batchable) | 7 | n/a locally | D4 candidate — meets brief threshold |
+| Assertion drift (UI copy/structure) | 7 | ~22 | Defer to Paul |
+| Real regression / API change | 3 | ~30 | Defer — requires production code |
+| Threshold semantics (UI-SEM-013) | 1 | 3 | Defer — ambiguous |
+| British-English content drift | 1 | 1 | Defer — requires production code |
+| KNOWN-BROKEN | 1 | 2 | Already tracked in CLAUDE.md |
+
+See `docs/ui/test-cascade-findings-v1.md` (on `ui/test-cascade-enumeration`) for per-file categorisation and reasoning.
+
+### Round 1 — brief compliance (D3)
+
+| Requirement | Met | Notes |
+|---|---|---|
+| Own branch off staging | ✓ | `ui/test-cascade-enumeration` off `dcc5ce1b` |
+| Full suite with verbose + JSON reporters | ✓ | Both reporters + tee backup |
+| tee capture for OOM safety | ✓ | `/tmp/cascade-raw.txt` captured full run |
+| cascade.json committed | ✓ | 3.3 MB in commit `46189a63` |
+| Complete list of failing test files | ✓ | findings §2, 14 files enumerated |
+| Per-file root-cause category | ✓ | env-drift / mock mismatch / assertion drift / real regression / known-broken |
+| Per-file fix complexity | ✓ | trivial / small / medium / needs investigation |
+| Three clusters (Unblocker, Batch-fix, Ambiguous) | ✓ | Unblocker=none (bail already removed); Batch-fix=env-drift; Ambiguous=assertion-drift + regressions |
+| Recommended next action | ✓ | "proceed to D4 with Paul gating" |
+
+**Round 1 outcome:** `proceed`.
+
+### Round 2 — adversarial self-prompt (D3)
+
+- **Q: Worst-case input that would break the enumeration?**
+  A: JSON reporter OOM'd mid-write (tail warning: "Some tests are still running when generating the JSON report"). Mitigation: verified counts via tee text (identical to JSON's numbers). All 14 files present in JSON output; no truncation of the key failing-test records.
+
+- **Q: What assumption haven't I validated?**
+  A: That CI will show the 5 MSW env-drift failures plus the 14 local failures = 19 files failing. Could be fewer (some env-drift tests might not exercise the env-dependent code path per run) or more (other env-drift paths not captured). Real CI cascade visible only after D2 merges. Documented as a morning-review action item.
+
+- **Q: If the findings doc is "correct" but the real fix plan is wrong, how?**
+  A: If I mis-categorised any assertion drift as "real regression" (or vice versa), Paul's morning review would flag it. Markdown.spec (26 tests) is the most consequential categorisation — tagged "real regression (rendering pipeline)" because raw markdown being returned instead of HTML implies the converter isn't running, not that expected HTML changed. If test setup changed (e.g., missing import), it's a test-mock issue not a production regression. **Morning action:** Paul verifies by running `npx vitest run src/canvas/utils/__tests__/markdown.spec.ts -t "converts italic text"` and inspecting actual output.
+
+- **Q: What would a reviewer flag?**
+  A: (a) Unblocker cluster is "none" — could be confusing; addressed by findings §3.1 explanatory text. (b) Env-drift cluster doesn't appear in local cascade — called out explicitly in findings §1. (c) 3.3 MB JSON committed — unusual but brief explicitly asks for it as artefact.
+
+- **Q: What regression could this introduce?**
+  A: None — doc + data only.
+
+**Round 2 outcome:** `proceed`.
+
+**D3 decisive outcome:** `halt` per brief §2 D3 ("Halt after enumeration. Do not fix."). D4 dispatch decision deferred to Paul's morning review.
 
 ---
 
