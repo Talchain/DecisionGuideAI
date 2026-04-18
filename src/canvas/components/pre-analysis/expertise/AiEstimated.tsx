@@ -19,7 +19,6 @@ interface AiEstimatedProps {
   onFocusNode?: (nodeId: string) => void
   onConfirm?: (nodeId: string) => void
   onEdit?: (nodeId: string) => void
-  onSendMessage?: (text: string) => void
   factorInfluenceMap?: Map<string, number>
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void

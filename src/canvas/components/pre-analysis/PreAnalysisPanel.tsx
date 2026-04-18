@@ -403,6 +403,15 @@ export function PreAnalysisPanel({
   // whose message is already carried by that banner (UI-BUG-2).
   const runErrorCode = useCanvasStore(s => s.results?.error?.code ?? null)
 
+  // Brief 5 Task 1: drives YourExpertise's "collapse on analysis rerun" rule.
+  // Compound of runId + hash: runId changes on every run START (cleared to
+  // undefined in startRun, set in resultsConnecting), hash changes on COMPLETE.
+  // A deterministic same-hash rerun still produces a runId transition, so the
+  // expansion always resets per rerun regardless of output stability.
+  const analysisRunId = useCanvasStore(s => s.results?.runId)
+  const analysisRunHash = useCanvasStore(s => s.results?.hash)
+  const analysisRunKey = `${analysisRunId ?? ''}:${analysisRunHash ?? ''}`
+
   // CEE analysis ready for feasibility + constraints
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
 
@@ -1736,6 +1745,11 @@ export function PreAnalysisPanel({
             )}
 
             {/* Your expertise — unified section (v6 wireframe) */}
+            {/* Brief 5 Task 1: expand-in-place. Handlers passed through are
+                the same closures TriageCard receives above, so action
+                routing is identical from either surface. analysisRunKey
+                collapses the expansion whenever a new analysis run
+                completes, so expansion state does not survive reruns. */}
             <SectionErrorBoundary section="Your expertise">
               <YourExpertise
                 improvementsByCategory={data.improvementsByCategory}
@@ -1744,6 +1758,13 @@ export function PreAnalysisPanel({
                 edges={edges}
                 factorInfluenceMap={compositeInfluenceMap}
                 edgeInfluenceMap={edgeInfluenceMap}
+                onConfirm={handleConfirm}
+                onEdit={handleEdit}
+                onSetValue={handleSetValueForGap}
+                onFocusNode={handleFocusNode}
+                onHoverEnter={handleHoverElement}
+                onHoverLeave={handleHoverClear}
+                analysisRunKey={analysisRunKey}
               />
             </SectionErrorBoundary>
 

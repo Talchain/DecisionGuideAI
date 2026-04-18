@@ -186,7 +186,7 @@ export const DecisionPanel = memo(function DecisionPanel({
               )}
             </div>
           ))}
-          {/* "+ Add option" stub — no mutations.addOption() exists; preserves existing non-functional behavior */}
+          {/* "+ Add option" stub — no mutations.addOption() exists; preserves existing non-functional behaviour */}
           <button
             type="button"
             className={`${typography.panelMeta} w-full py-2 -mx-3 px-3 text-info border-t border-dashed border-panel-border hover:bg-panel-hover transition-colors`}

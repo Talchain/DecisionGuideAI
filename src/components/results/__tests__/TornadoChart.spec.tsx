@@ -229,7 +229,12 @@ describe('TornadoChart', () => {
     expect(screen.queryByTestId('tornado-apply-rerun')).not.toBeInTheDocument()
   })
 
-  it('apply-and-rerun button renders when callback provided', () => {
+  // Brief 5 Task 3 + follow-up P1-1: button is promoted to a proper primary
+  // button below the bars. It stays in the tab order when not-yet-usable so
+  // keyboard users can focus it and hear the guidance via aria-describedby.
+  // Native `disabled` is NOT used — onClick is guarded instead. Clicking
+  // before a drag must not fire the callback.
+  it('apply-and-rerun button is keyboard-focusable before drag, guards onClick, and exposes guidance via aria-describedby', () => {
     const onApply = vi.fn()
     render(
       <TornadoChart
@@ -242,8 +247,24 @@ describe('TornadoChart', () => {
     const btn = screen.getByTestId('tornado-apply-rerun')
     expect(btn).toBeInTheDocument()
     expect(btn).toHaveTextContent('Apply and rerun')
+    // Not natively disabled — stays in tab order for keyboard users.
+    expect(btn).not.toBeDisabled()
+    expect(btn).toHaveAttribute('aria-disabled', 'true')
+    // Mouse users: title tooltip.
+    expect(btn).toHaveAttribute(
+      'title',
+      'Drag a bar to preview a change before running.',
+    )
+    // Screen-reader / keyboard users: aria-describedby points at an sr-only
+    // hint with the same Paul-frozen disabled-state copy.
+    const hintId = btn.getAttribute('aria-describedby')
+    expect(hintId).toBe('tornado-apply-rerun-hint')
+    const hint = screen.getByTestId('tornado-apply-rerun-hint')
+    expect(hint).toHaveAttribute('id', hintId!)
+    expect(hint).toHaveTextContent('Drag a bar to preview a change before running.')
+    // Guarded handler: click before a drag does not fire the callback.
     fireEvent.click(btn)
-    expect(onApply).toHaveBeenCalledOnce()
+    expect(onApply).not.toHaveBeenCalled()
   })
 
   // ── Disclaimer tests ──
@@ -642,8 +663,10 @@ describe('TornadoChart', () => {
     expect(screen.getByTestId('tornado-expected-display')).toHaveTextContent('Expected: $100')
   })
 
-  // V14.2: pp clarification shown whenever relative mode is active
-  it('V14.2: shows pp clarification when in relative mode (no structured unit)', () => {
+  // Brief 5 Task 3: the old percentage-point clarification line is replaced
+  // by the Paul-approved intro copy shown above the bars in every outcome
+  // unit. Testid renamed from tornado-pp-clarification to tornado-intro.
+  it('shows intro copy when in relative mode (no structured unit)', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -651,11 +674,13 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
-    expect(screen.getByText('Numbers show percentage point change in win likelihood when each factor varies across its plausible range')).toBeInTheDocument()
+    expect(screen.getByTestId('tornado-intro')).toBeInTheDocument()
+    expect(screen.getByText(
+      'Win-likelihood range if this factor turns out weaker or stronger than expected. Drag to preview.'
+    )).toBeInTheDocument()
   })
 
-  it('V14.2: shows pp clarification with count unit (bars show relative, not absolute)', () => {
+  it('shows intro copy with count unit (bars show relative, not absolute)', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -665,10 +690,10 @@ describe('TornadoChart', () => {
       />
     )
 
-    expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
+    expect(screen.getByTestId('tornado-intro')).toBeInTheDocument()
   })
 
-  it('shows clarification line even with currency unit (explains win likelihood change)', () => {
+  it('shows intro copy even with currency unit', () => {
     render(
       <TornadoChart
         rows={[positiveRow]}
@@ -678,7 +703,35 @@ describe('TornadoChart', () => {
       />
     )
 
-    // Clarification always shown — explains percentage point change in win likelihood
-    expect(screen.getByTestId('tornado-pp-clarification')).toBeInTheDocument()
+    expect(screen.getByTestId('tornado-intro')).toBeInTheDocument()
+  })
+
+  // Brief 5 Task 3: legend (← Weaker / Expected / Stronger →) moves ABOVE
+  // the first bar (from the old below-bars position). Prevents users from
+  // reading bars before the legend.
+  it('renders the legend above the bar stack, not below', () => {
+    const { container } = render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+      />
+    )
+
+    const intro = container.querySelector('[data-testid="tornado-intro"]')
+    const legend = container.querySelector('[data-testid="tornado-legend"]')
+    const bars = container.querySelector('.divide-y')
+
+    expect(intro).toBeTruthy()
+    expect(legend).toBeTruthy()
+    expect(bars).toBeTruthy()
+
+    // DOM order: intro → legend → bars.
+    const root = container.querySelector('[data-testid="tornado-chart"]')!
+    const children = Array.from(root.children)
+    const introIdx = children.findIndex(n => n.contains(intro))
+    const legendIdx = children.findIndex(n => n.contains(legend))
+    const barsIdx = children.findIndex(n => n.contains(bars))
+    expect(introIdx).toBeLessThan(legendIdx)
+    expect(legendIdx).toBeLessThan(barsIdx)
   })
 })
