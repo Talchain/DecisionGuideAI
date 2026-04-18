@@ -109,9 +109,52 @@ jobs:
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Run full test suite
-        run: npx vitest run --reporter=verbose --bail=1
+        run: npx vitest run --reporter=verbose 2>&1 | tee vitest-output.txt
         env:
           NODE_OPTIONS: "--max-old-space-size=7168"
+
+      # Defence-in-depth against bail-like under-reporting regressions.
+      # Failure mode: vitest hits --bail=N and marks all files queued-but-
+      # never-started as "skipped" in the summary. The total stays high
+      # (~754) but skipped balloons (~653 from the 2026-04-18 audit).
+      # Healthy suite skips ~4 files (real it.skip()). Assert both the
+      # minimum total AND an upper bound on skipped to catch either
+      # (a) config-level exclusions removing files OR (b) bail reintroduced.
+      # if: always() so this still fires when vitest itself exits non-zero.
+      - name: Assert healthy test-file coverage (no bail-like under-reporting)
+        if: always()
+        run: |
+          if [ ! -f vitest-output.txt ]; then
+            echo "::error::vitest-output.txt missing — cannot verify test-file coverage"
+            exit 1
+          fi
+          # Summary line shape: " Test Files  14 failed | 734 passed | 4 skipped (755)"
+          summary=$(grep -oE '^\s*Test Files +[0-9]+ failed \| [0-9]+ passed \| [0-9]+ skipped \([0-9]+\)' vitest-output.txt | tail -1)
+          # Fallback shape when no failures: " Test Files 734 passed | 4 skipped (738)"
+          if [ -z "$summary" ]; then
+            summary=$(grep -oE '^\s*Test Files +[0-9]+ passed \| [0-9]+ skipped \([0-9]+\)' vitest-output.txt | tail -1)
+          fi
+          if [ -z "$summary" ]; then
+            echo "::error::could not parse 'Test Files' summary from vitest output"
+            tail -30 vitest-output.txt
+            exit 1
+          fi
+          echo "Parsed summary: ${summary}"
+          total=$(echo "$summary" | grep -oE '\([0-9]+\)' | tr -d '()')
+          skipped=$(echo "$summary" | grep -oE '[0-9]+ skipped' | grep -oE '[0-9]+')
+          min_total=700
+          max_skipped=50
+          echo "total=${total} skipped=${skipped} (thresholds: total>=${min_total}, skipped<=${max_skipped})"
+          fail=0
+          if [ "$total" -lt "$min_total" ]; then
+            echo "::error::Discovered ${total} test files, below minimum ${min_total}. Likely cause: config exclusions expanded or files removed from src/tests."
+            fail=1
+          fi
+          if [ "$skipped" -gt "$max_skipped" ]; then
+            echo "::error::${skipped} test files reported as skipped (max ${max_skipped}). Likely cause: --bail=N reintroduced (see docs/ui/ci-test-coverage-audit.md §1) or large it.skip() block added."
+            fail=1
+          fi
+          exit $fail
 
   # ── Build ────────────────────────────────────────────────────────────
   build:
