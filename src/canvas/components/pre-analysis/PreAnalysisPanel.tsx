@@ -403,6 +403,11 @@ export function PreAnalysisPanel({
   // whose message is already carried by that banner (UI-BUG-2).
   const runErrorCode = useCanvasStore(s => s.results?.error?.code ?? null)
 
+  // Brief 5 Task 1: drives YourExpertise's "collapse on analysis rerun" rule.
+  // Hash changes once per completed analysis run; passing it as a key makes
+  // the expansion state reset whenever a new run lands.
+  const analysisRunKey = useCanvasStore(s => s.results?.hash ?? undefined)
+
   // CEE analysis ready for feasibility + constraints
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
 
@@ -1738,7 +1743,9 @@ export function PreAnalysisPanel({
             {/* Your expertise — unified section (v6 wireframe) */}
             {/* Brief 5 Task 1: expand-in-place. Handlers passed through are
                 the same closures TriageCard receives above, so action
-                routing is identical from either surface. */}
+                routing is identical from either surface. analysisRunKey
+                collapses the expansion whenever a new analysis run
+                completes, so expansion state does not survive reruns. */}
             <SectionErrorBoundary section="Your expertise">
               <YourExpertise
                 improvementsByCategory={data.improvementsByCategory}
@@ -1750,10 +1757,10 @@ export function PreAnalysisPanel({
                 onConfirm={handleConfirm}
                 onEdit={handleEdit}
                 onSetValue={handleSetValueForGap}
-                onSendMessage={onSendMessage}
                 onFocusNode={handleFocusNode}
                 onHoverEnter={handleHoverElement}
                 onHoverLeave={handleHoverClear}
+                analysisRunKey={analysisRunKey}
               />
             </SectionErrorBoundary>
 

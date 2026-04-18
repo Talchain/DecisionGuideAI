@@ -54,10 +54,17 @@ npx playwright test e2e/brief-5/full-page.spec.ts --update-snapshots
 npx playwright test e2e/brief-5/full-page.spec.ts
 ```
 
-A minimal Playwright spec for full-page capture is NOT checked in as part of the
-Phase 0 scaffold — it would bloat the e2e suite for a temporary brief-scoped harness.
-When the first full-page capture is needed (Phase 0 baseline or end of Phase 6), add
-a minimal spec under `e2e/brief-5/` following the patterns in `e2e/canvas-first.spec.ts`.
+A minimal Playwright spec lives at `e2e/brief-5/analysis-tab-fullpage.spec.ts`.
+It's gated on `BRIEF5_FULLPAGE=1` so it does not add load to the default CI
+run. Enable locally:
+
+```bash
+npm run dev -- --port 5177 --strictPort    # terminal 1
+BRIEF5_FULLPAGE=1 npx playwright test e2e/brief-5/ --update-snapshots  # terminal 2
+```
+
+Subsequent runs (without `--update-snapshots`) compare against the stored
+baseline. Tolerance is 0.1 % pixel difference.
 
 ## Diff tolerance
 

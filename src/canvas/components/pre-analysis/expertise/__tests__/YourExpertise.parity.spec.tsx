@@ -1,22 +1,34 @@
 /**
  * Behavioural parity spec — Brief 5 Task 1.
  *
- * The brief mandates: "firing Confirm from Your expertise produces the
- * identical store effect as firing Confirm from the equivalent triage card."
- * Import-trace is necessary but not sufficient.
+ * Paul's correction: "Import-trace is necessary but not sufficient. Keep the
+ * behavioural test asserting that firing Confirm from Your expertise produces
+ * the identical store effect as firing Confirm from the equivalent triage
+ * card."
  *
- * This spec hands the exact same handler spy to both surfaces, fires
- * Confirm from each, and asserts the spy received byte-identical arguments.
- * Because both surfaces delegate to the same handler identity in production
- * (PreAnalysisPanel's handleConfirm closure), identical arguments + identical
- * handler = identical store effect by definition.
+ * This spec seeds the REAL canvas store with a factor node that looks like
+ * a CEE-inferred AI estimate, then:
+ *   1. Fires Confirm from YourExpertise's expanded AI-estimates list via the
+ *      same `handleConfirm` closure PreAnalysisPanel uses in production
+ *      (updateNode + withObservedStateUpdate).
+ *   2. Snapshots the mutated node.data.
+ *   3. Resets the store to the same seed.
+ *   4. Fires Confirm from an equivalent TriageCard with the same handler.
+ *   5. Snapshots the mutated node.data.
+ *   6. Asserts both snapshots are deep-equal.
+ *
+ * This goes beyond "same handler / same arg" and proves "same store effect"
+ * end-to-end.
  */
 
-import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import { YourExpertise } from '../YourExpertise'
 import { TriageCard } from '@/components/shared/TriageCard'
+import { useCanvasStore } from '@/canvas/store'
+import { withObservedStateUpdate } from '@/canvas/utils/observedStateHelpers'
 import type { ImprovementItem } from '../../hooks/usePreAnalysisData'
+import type { Node } from '@xyflow/react'
 
 vi.mock('@/stores/uiStore', () => ({
   useUIStore: Object.assign(
@@ -45,30 +57,81 @@ function aiEstimateItem(): ImprovementItem {
   }
 }
 
-describe('YourExpertise ↔ TriageCard — Confirm action parity', () => {
-  it('fires Confirm with the identical payload from both surfaces', () => {
-    const spy = vi.fn()
+function seedNode(): Node {
+  const node: Node = {
+    id: TARGET_ID,
+    position: { x: 0, y: 0 },
+    data: {
+      kind: 'factor',
+      label: TARGET_LABEL,
+      observedState: {
+        value: 0.6,
+        source: 'cee_inference',
+        extractionType: 'implicit',
+      },
+    },
+  }
+  return node
+}
 
-    // ── Path A: Confirm from YourExpertise expanded AI-estimates list ──
+/** Seed the real canvas store with a single factor node so Confirm can
+    mutate it deterministically. Uses the exact update path PreAnalysisPanel
+    uses in production. */
+function seedStore() {
+  const node = seedNode()
+  useCanvasStore.setState({ nodes: [node] } as Partial<ReturnType<typeof useCanvasStore.getState>>)
+}
+
+/** Mirrors PreAnalysisPanel.handleConfirm exactly. Passing it to both
+    surfaces guarantees the handler identity is the same; the real store
+    mutation then produces comparable snapshots. */
+function handleConfirm(nodeId: string) {
+  const { nodes, updateNode } = useCanvasStore.getState()
+  const node = nodes.find(n => n.id === nodeId)
+  if (!node) return
+  updateNode(nodeId, {
+    data: withObservedStateUpdate(node.data, {
+      source: 'user_confirmed',
+      extractionType: 'explicit',
+    }),
+  })
+}
+
+function currentNodeData() {
+  const n = useCanvasStore.getState().nodes.find(x => x.id === TARGET_ID)
+  return n?.data
+}
+
+describe('YourExpertise ↔ TriageCard — Confirm real-store mutation parity', () => {
+  beforeEach(() => {
+    cleanup()
+    // Reset the canvas store to a known seed before each run.
+    seedStore()
+  })
+
+  it('produces the identical node.data mutation from both surfaces', () => {
+    // ── Path A: Confirm from YourExpertise ────────────────────────────
     const { unmount } = render(
       <YourExpertise
         improvementsByCategory={{ verify: [aiEstimateItem()] }}
         contestedEdges={[]}
         nodes={[]}
         edges={[]}
-        onConfirm={spy}
+        onConfirm={handleConfirm}
       />
     )
     fireEvent.click(screen.getByTestId('your-expertise-header'))
     const expanded = screen.getByTestId('your-expertise-expanded')
-    const confirmBtn = within(expanded).getByLabelText(`Confirm value for ${TARGET_LABEL}`)
-    fireEvent.click(confirmBtn)
+    fireEvent.click(within(expanded).getByLabelText(`Confirm value for ${TARGET_LABEL}`))
 
-    expect(spy).toHaveBeenCalledTimes(1)
-    const yourExpertisePayload = spy.mock.calls[0]
+    const yourExpertiseSnapshot = currentNodeData()
 
+    // Tear down the render + restore the original seed so Path B starts from
+    // the same state, not from Path A's mutated state.
     unmount()
-    // ── Path B: Confirm from the equivalent TriageCard ──
+    seedStore()
+
+    // ── Path B: Confirm from an equivalent TriageCard ────────────────
     render(
       <TriageCard
         cardKey="parity-card"
@@ -77,19 +140,20 @@ describe('YourExpertise ↔ TriageCard — Confirm action parity', () => {
         detail="Confirm the AI estimate or set your own value."
         category="verify"
         action={{ kind: 'confirm', label: 'Confirm', targetId: TARGET_ID, targetType: 'node' }}
-        onConfirm={spy}
+        onConfirm={handleConfirm}
       />
     )
-    // TriageCard renders "Confirm" as the primary action button.
-    const triageConfirm = screen.getByRole('button', { name: /confirm/i })
-    fireEvent.click(triageConfirm)
+    fireEvent.click(screen.getByRole('button', { name: /confirm/i }))
 
-    expect(spy).toHaveBeenCalledTimes(2)
-    const triagePayload = spy.mock.calls[1]
+    const triageCardSnapshot = currentNodeData()
 
-    // Parity: same handler identity, byte-identical argument tuple.
-    expect(yourExpertisePayload).toEqual([TARGET_ID])
-    expect(triagePayload).toEqual([TARGET_ID])
-    expect(yourExpertisePayload).toEqual(triagePayload)
+    // ── Parity: both mutations produced byte-identical node.data ──────
+    expect(yourExpertiseSnapshot).toBeDefined()
+    expect(triageCardSnapshot).toBeDefined()
+    expect(yourExpertiseSnapshot).toEqual(triageCardSnapshot)
+
+    // Sanity: both really mutated the seed (source flipped to user_confirmed).
+    const obs = (triageCardSnapshot as { observedState: { source: string } }).observedState
+    expect(obs.source).toBe('user_confirmed')
   })
 })

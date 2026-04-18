@@ -9,10 +9,8 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, fireEvent } from '@testing-library/react'
+import { render, fireEvent, within } from '@testing-library/react'
 import React from 'react'
-import { readFileSync } from 'node:fs'
-import { resolve } from 'node:path'
 import { normaliseDomSnapshot, captureByTestId } from './utils'
 import { ResultsFooter } from '@/components/results/ResultsFooter'
 
@@ -62,20 +60,30 @@ describe('visual-regression scaffold (Brief 5)', () => {
     // stability + influence only; any hash leak regressions would show up here.
     expect(snap).not.toMatch(/[0-9a-f]{7,}/i)
   })
-  it('Phase 2 / Task 6 — risk control in Your options (display filter)', () => {
-    // ResultsBody's risk-appetite row is inline JSX (not an exported
-    // component), so we assert the approved copy and testid are present in
-    // the source. Cheap and reliable; catches copy drift on save.
-    const src = readFileSync(
-      resolve(__dirname, '../../src/components/results/ResultsBody.tsx'),
-      'utf-8',
+  it('Phase 2 / Task 6 — risk control in Your options (display filter)', async () => {
+    // Follow-up IMP-2: render the extracted RiskAppetiteFilter component so
+    // the assertion catches conditional-render regressions, not just source
+    // drift. The inline JSX was extracted from ResultsBody into an exported
+    // sub-component for exactly this purpose.
+    const { RiskAppetiteFilter } = await import('@/components/results/ResultsBody')
+    const onChange = vi.fn()
+    const { container } = render(
+      React.createElement(RiskAppetiteFilter, { value: 'neutral', onChange }),
     )
-    expect(src).toContain('data-testid="winner-by-control"')
-    expect(src).toContain('Show winner by:')
-    expect(src).toContain('Display filter: reweights which option is shown as winner.')
-    // Legacy copy removed from the render tree (comments are fine; only the
-    // user-visible span must not ship the old label).
-    expect(src).not.toMatch(/>\s*Risk appetite:\s*</)
+    const snap = captureByTestId(container, 'winner-by-control')
+
+    // Paul-frozen copy + testid present.
+    expect(snap).toContain('Show winner by:')
+    expect(snap).toContain('Display filter: reweights which option is shown as winner.')
+    expect(snap).toContain('Conservative')
+    expect(snap).toContain('Neutral')
+    expect(snap).toContain('Aggressive')
+    // Legacy copy absent from rendered output.
+    expect(snap).not.toContain('Risk appetite:')
+
+    // Wiring sanity: clicking a pill fires the change handler with the key.
+    fireEvent.click(within(container).getByRole('button', { name: /aggressive/i }))
+    expect(onChange).toHaveBeenCalledWith('aggressive')
   })
 
   it('Phase 2 / Task 6 — risk control in Advanced (persistent profile)', async () => {

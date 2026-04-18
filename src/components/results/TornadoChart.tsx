@@ -640,25 +640,46 @@ export function TornadoChart({
             </button>
           )}
           {onApplyAndRerun && (
-            <button
-              type="button"
-              onClick={onApplyAndRerun}
-              disabled={!dragState.hasUserDragged}
-              aria-disabled={!dragState.hasUserDragged}
-              title={
-                dragState.hasUserDragged
-                  ? 'Apply drag preview and rerun the analysis'
-                  : 'Drag a bar to preview a change before running.'
-              }
-              className={`${typography.panelBody} rounded-full px-[16px] py-[6px] leading-none flex-shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
-                dragState.hasUserDragged
-                  ? 'bg-primary text-text-on-color border border-primary cursor-pointer hover:bg-info-hover hover:border-info-hover'
-                  : 'bg-transparent text-text-light border border-panel-border cursor-not-allowed opacity-60'
-              }`}
-              data-testid="tornado-apply-rerun"
-            >
-              Apply and rerun
-            </button>
+            <>
+              {/* Brief 5 Task 3 + follow-up P1-1: keep the button in the tab
+                  order when not-yet-usable (aria-disabled instead of
+                  native `disabled`) so keyboard users can focus it and hear
+                  the guidance via aria-describedby. onClick is guarded to
+                  no-op until a drag has occurred. */}
+              <button
+                type="button"
+                onClick={() => {
+                  if (!dragState.hasUserDragged) return
+                  onApplyAndRerun()
+                }}
+                aria-disabled={!dragState.hasUserDragged}
+                aria-describedby={
+                  !dragState.hasUserDragged ? 'tornado-apply-rerun-hint' : undefined
+                }
+                title={
+                  dragState.hasUserDragged
+                    ? 'Apply drag preview and rerun the analysis'
+                    : 'Drag a bar to preview a change before running.'
+                }
+                className={`${typography.panelBody} rounded-full px-[16px] py-[6px] leading-none flex-shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+                  dragState.hasUserDragged
+                    ? 'bg-primary text-text-on-color border border-primary cursor-pointer hover:bg-info-hover hover:border-info-hover'
+                    : 'bg-transparent text-text-light border border-panel-border cursor-not-allowed opacity-60'
+                }`}
+                data-testid="tornado-apply-rerun"
+              >
+                Apply and rerun
+              </button>
+              {!dragState.hasUserDragged && (
+                <span
+                  id="tornado-apply-rerun-hint"
+                  className="sr-only"
+                  data-testid="tornado-apply-rerun-hint"
+                >
+                  Drag a bar to preview a change before running.
+                </span>
+              )}
+            </>
           )}
         </div>
       </div>

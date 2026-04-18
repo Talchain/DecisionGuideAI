@@ -16,7 +16,6 @@ interface MissingDataProps {
   items: ImprovementItem[]
   onFocusNode?: (nodeId: string) => void
   onSetValue?: (nodeId: string) => void
-  onSendMessage?: (text: string) => void
   factorInfluenceMap?: Map<string, number>
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void

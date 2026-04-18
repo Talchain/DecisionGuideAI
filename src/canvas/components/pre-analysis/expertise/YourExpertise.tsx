@@ -16,7 +16,7 @@
  * behavioural test in YourExpertise.parity.spec.tsx.
  */
 
-import { useMemo, useState, useCallback, type KeyboardEvent } from 'react'
+import { useMemo, useState, useCallback, useEffect, type KeyboardEvent } from 'react'
 import { ChevronRight, Info } from 'lucide-react'
 import Tooltip from '../../../../components/Tooltip'
 import { typography } from '@/styles/typography'
@@ -40,13 +40,17 @@ interface YourExpertiseProps {
   onEdit?: (nodeId: string) => void
   /** Shared with MissingData — open the editor for a missing-value factor. */
   onSetValue?: (nodeId: string) => void
-  /** Shared chat handler. */
-  onSendMessage?: (text: string) => void
   /** Focus-node helper for inline factor links. */
   onFocusNode?: (nodeId: string) => void
   /** Hover handlers for graph cross-highlight. */
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
+  /**
+   * Changes when a new analysis run completes (e.g. response hash). Used to
+   * collapse the expanded state on run transitions — per Brief 5 rule
+   * "Persistence: expansion state does not persist across analysis runs."
+   */
+  analysisRunKey?: string
 }
 
 export function YourExpertise({
@@ -59,12 +63,19 @@ export function YourExpertise({
   onConfirm,
   onEdit,
   onSetValue,
-  onSendMessage,
   onFocusNode,
   onHoverEnter,
   onHoverLeave,
+  analysisRunKey,
 }: YourExpertiseProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // Brief 5 Task 1: collapse on analysis-run transition so expansion state
+  // does not leak across runs. `useEffect` fires on initial mount (already
+  // collapsed, no-op) and on every subsequent key change.
+  useEffect(() => {
+    setIsExpanded(false)
+  }, [analysisRunKey])
 
   const groups: ExpertiseGroups = useMemo(
     () =>
@@ -131,27 +142,39 @@ export function YourExpertise({
     )
   }
 
-  // Brief-only case — summary renders but nothing to expand into. No
-  // chevron, but the row is still a static summary (Model-tab deep link
-  // stays accessible from the expanded surface when AI estimates or
-  // missing data show up later).
+  // Brief-only case — nothing actionable to expand into, but the user still
+  // needs a way to audit factors on the Model tab. Preserve the pre-Brief-5
+  // deep-link behaviour: the whole row is a button that opens the Model tab.
+  // No chevron (no expansion affordance) but the click target + aria-label
+  // make the navigation intent explicit.
   if (!canExpand) {
     return (
-      <div
-        className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-panel-border bg-panel"
+      <button
+        type="button"
+        onClick={openModelTab}
+        className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-panel-border bg-panel hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1"
         data-testid="your-expertise-section"
+        aria-label="Open Model tab to audit factors and relationships"
       >
-        <span className={`${typography.panelHeader} text-text-header`}>Your expertise</span>
-        <Tooltip delay={300} content="Review factors and relationships on the Model tab">
-          <Info size={14} className="text-text-light" />
-        </Tooltip>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className={`${typography.panelHeader} text-text-header`}>Your expertise</span>
+          <Tooltip delay={300} content="Review factors and relationships on the Model tab">
+            <Info size={14} className="text-text-light" />
+          </Tooltip>
+          <span
+            className={`${typography.panelMeta} text-text-light truncate`}
+            data-testid="expertise-summary"
+          >
+            {summary}
+          </span>
+        </div>
         <span
-          className={`${typography.panelMeta} text-text-light truncate`}
-          data-testid="expertise-summary"
+          className={`${typography.panelMeta} text-info flex-shrink-0`}
+          data-testid="your-expertise-model-link"
         >
-          {summary}
+          Audit in Model tab →
         </span>
-      </div>
+      </button>
     )
   }
 
@@ -198,7 +221,6 @@ export function YourExpertise({
               onFocusNode={onFocusNode}
               onConfirm={onConfirm}
               onEdit={onEdit}
-              onSendMessage={onSendMessage}
               factorInfluenceMap={factorInfluenceMap}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
@@ -209,7 +231,6 @@ export function YourExpertise({
               items={groups.missingData}
               onFocusNode={onFocusNode}
               onSetValue={onSetValue}
-              onSendMessage={onSendMessage}
               factorInfluenceMap={factorInfluenceMap}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}

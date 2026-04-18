@@ -130,6 +130,24 @@ None found. Every gate Brief 5 is responsible for passes.
 ### Deliberate deferrals
 - **Task 5 (Top evidence IA dedup).** Deferred after Phase 0 showed UI-side cross-source dedupe would require semantic synthesis of `next_action.target_id` → `evidence_gap.factor_id` equivalence — forbidden by the brief's stop rule. Paul approved deferring.
 - **Em-dash → colon substitution in the Task 6 frozen helpers.** Paul approved strings contained em dashes in the `AskUserQuestion` previews; substituted for colons to respect the brief's operating principle 11 ("no em dashes in UI copy"). Semantics preserved.
+- **Apply-and-rerun button is dormant in production pending upstream bounds.** Commit `2492fb15` (2026-02-12, Paul) intentionally removed the `onApplyAndRerun` wire from `ResultsBody` with the rationale "outcome-space values can't be written to factor-space `observedState.value` — needs PLoT factor_sensitivity bounds". Brief 5 Phase 4 polished the button's appearance + state handling (intro copy, legend position, promoted primary styling, keyboard-reachable disabled-state tooltip), but did NOT re-wire the callback — that would revert the February disable. The polish ships dormant; it becomes visible when PLoT ships the factor-sensitivity bounds and the wire is re-enabled. Tracked as a follow-up below.
+
+### Follow-ups landed in this branch (Brief 5 review round)
+
+Independent review (ChatGPT) flagged seven issues after Phase 7. The optimal subset was addressed in a single follow-up commit on this branch:
+
+| Finding | Outcome |
+|---------|---------|
+| P0: `onApplyAndRerun` not wired in production | Documented here as a deliberate deferral tied to commit `2492fb15`. Not re-wired. |
+| P1-1: native `disabled` breaks keyboard tooltip | Replaced with `aria-disabled` + guarded `onClick` + `aria-describedby` pointing at an `sr-only` hint carrying the Paul-frozen disabled copy. Button stays in tab order. |
+| P1-2: brief-only YourExpertise lost the Model-tab deep-link | Brief-only row is now a clickable button that opens the Model tab (preserves pre-Brief-5 audit path). No chevron (no expansion affordance). |
+| P1-3: expansion state did not reset on rerun | `analysisRunKey` prop wired to `useCanvasStore(s => s.results?.hash)`; a `useEffect` collapses on key change. Regression test asserts "expand, rerun, collapsed by default". |
+| P1-4: no Playwright full-page spec committed | Added `e2e/brief-5/analysis-tab-fullpage.spec.ts`, gated on `BRIEF5_FULLPAGE=1` so it doesn't load the default CI run. README updated with the command. |
+| IMP-1: parity test was call-args-only | Upgraded to a real canvas-store mutation snapshot: seed → fire Confirm from YourExpertise → snapshot → re-seed → fire Confirm from TriageCard → snapshot → assert deep-equal. |
+| IMP-2: source-scan in VR Your-options slot | Extracted the inline risk-appetite JSX into an exported `RiskAppetiteFilter` component; VR slot now renders it and asserts the rendered DOM + click-wiring. Source-scan removed. |
+| IMP-3: dead `onSendMessage` plumbing | Trimmed from `AiEstimated`, `MissingData`, and the `YourExpertise` passthrough. Discuss actions continue to route through `DiscussWithAiButton` as before. |
+
+All follow-up changes verified against the same gates (typecheck, eslint on touched files, targeted test sweep).
 
 ### Known pre-existing failures (not caused by Brief 5)
 

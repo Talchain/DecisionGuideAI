@@ -72,7 +72,7 @@ describe('YourExpertise — Brief 5 Task 1 expand-in-place', () => {
     expect(screen.queryByTestId('your-expertise-expanded')).not.toBeInTheDocument()
   })
 
-  it('renders brief-only summary with no expansion affordance when nothing is actionable', () => {
+  it('renders brief-only summary with no chevron but keeps a Model-tab deep-link as the row action', () => {
     const briefItem: ImprovementItem = {
       key: 'brief-f1',
       category: 'verify',
@@ -91,7 +91,50 @@ describe('YourExpertise — Brief 5 Task 1 expand-in-place', () => {
     )
 
     expect(screen.getByTestId('expertise-summary')).toHaveTextContent('1 from brief')
+    // No chevron / expansion affordance …
     expect(screen.queryByTestId('your-expertise-header')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('your-expertise-expanded')).not.toBeInTheDocument()
+    // … but the row stays clickable as a Model-tab deep-link so users can
+    // still audit factors without an expansion target.
+    const deepLinkRow = screen.getByTestId('your-expertise-section')
+    expect(deepLinkRow.tagName).toBe('BUTTON')
+    expect(deepLinkRow).toHaveAttribute(
+      'aria-label',
+      'Open Model tab to audit factors and relationships',
+    )
+    expect(screen.getByTestId('your-expertise-model-link')).toHaveTextContent(
+      'Audit in Model tab',
+    )
+    fireEvent.click(deepLinkRow)
+    expect(setActiveOutputTab).toHaveBeenCalledWith('diagnostics')
+  })
+
+  it('collapses the expanded state when analysisRunKey changes (rerun parity)', () => {
+    const ai = makeVerifyItem('f1', 'X')
+    const { rerender } = render(
+      <YourExpertise
+        improvementsByCategory={{ verify: [ai] }}
+        contestedEdges={[]}
+        nodes={[]}
+        edges={[]}
+        analysisRunKey="run-before"
+      />
+    )
+    fireEvent.click(screen.getByTestId('your-expertise-header'))
+    expect(screen.getByTestId('your-expertise-header')).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByTestId('your-expertise-expanded')).toBeInTheDocument()
+
+    // New analysis run completes → key changes → expansion collapses.
+    rerender(
+      <YourExpertise
+        improvementsByCategory={{ verify: [ai] }}
+        contestedEdges={[]}
+        nodes={[]}
+        edges={[]}
+        analysisRunKey="run-after"
+      />
+    )
+    expect(screen.getByTestId('your-expertise-header')).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByTestId('your-expertise-expanded')).not.toBeInTheDocument()
   })
 

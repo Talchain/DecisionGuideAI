@@ -229,11 +229,12 @@ describe('TornadoChart', () => {
     expect(screen.queryByTestId('tornado-apply-rerun')).not.toBeInTheDocument()
   })
 
-  // Brief 5 Task 3: button is promoted to a proper primary button below the
-  // bars and is disabled until the user drags. Clicking a disabled button
-  // must not fire the callback; the disabled-state tooltip carries the
-  // Paul-frozen micro-copy.
-  it('apply-and-rerun button renders disabled until user drags and exposes the disabled-state tooltip', () => {
+  // Brief 5 Task 3 + follow-up P1-1: button is promoted to a proper primary
+  // button below the bars. It stays in the tab order when not-yet-usable so
+  // keyboard users can focus it and hear the guidance via aria-describedby.
+  // Native `disabled` is NOT used — onClick is guarded instead. Clicking
+  // before a drag must not fire the callback.
+  it('apply-and-rerun button is keyboard-focusable before drag, guards onClick, and exposes guidance via aria-describedby', () => {
     const onApply = vi.fn()
     render(
       <TornadoChart
@@ -246,12 +247,22 @@ describe('TornadoChart', () => {
     const btn = screen.getByTestId('tornado-apply-rerun')
     expect(btn).toBeInTheDocument()
     expect(btn).toHaveTextContent('Apply and rerun')
-    expect(btn).toBeDisabled()
+    // Not natively disabled — stays in tab order for keyboard users.
+    expect(btn).not.toBeDisabled()
     expect(btn).toHaveAttribute('aria-disabled', 'true')
+    // Mouse users: title tooltip.
     expect(btn).toHaveAttribute(
       'title',
       'Drag a bar to preview a change before running.',
     )
+    // Screen-reader / keyboard users: aria-describedby points at an sr-only
+    // hint with the same Paul-frozen disabled-state copy.
+    const hintId = btn.getAttribute('aria-describedby')
+    expect(hintId).toBe('tornado-apply-rerun-hint')
+    const hint = screen.getByTestId('tornado-apply-rerun-hint')
+    expect(hint).toHaveAttribute('id', hintId!)
+    expect(hint).toHaveTextContent('Drag a bar to preview a change before running.')
+    // Guarded handler: click before a drag does not fire the callback.
     fireEvent.click(btn)
     expect(onApply).not.toHaveBeenCalled()
   })
