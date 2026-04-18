@@ -109,7 +109,7 @@ jobs:
           key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
 
       - name: Run full test suite
-        run: npx vitest run --reporter=verbose --bail=1
+        run: npx vitest run --reporter=verbose
         env:
           NODE_OPTIONS: "--max-old-space-size=7168"
 
