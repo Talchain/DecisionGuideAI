@@ -35,6 +35,9 @@ const RESULTS_DIR = join(__dirname, '..')
  *   must remain un-mounted; if a component is revived, remove it from this
  *   list immediately and either sanitise its .message usage or add it to
  *   DEFENCE_IN_DEPTH_FILES with a proper runtime guard.
+ *
+ * Paths are RELATIVE to RESULTS_DIR so a basename collision elsewhere in
+ * src/components/results/ cannot silently inherit this exemption.
  */
 const SKIPPED_FILES = new Set<string>([
   // ConfidenceSection.tsx — archived 2026-04-17 (commit c88d5967). No
@@ -55,8 +58,13 @@ function getSourceFiles(dir: string): string[] {
     const stat = statSync(full)
     if (stat.isDirectory()) {
       files.push(...getSourceFiles(full))
-    } else if (/\.tsx$/.test(entry) && !SKIPPED_FILES.has(entry)) {
-      files.push(full)
+    } else if (/\.tsx$/.test(entry)) {
+      // Skip by relative-to-RESULTS_DIR path so a basename collision in a
+      // different subdirectory does not silently inherit the exemption.
+      const rel = relative(RESULTS_DIR, full)
+      if (!SKIPPED_FILES.has(rel)) {
+        files.push(full)
+      }
     }
   }
   return files

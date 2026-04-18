@@ -13,7 +13,9 @@
  *   - Emoji characters → stripped (conservative allowlist)
  *
  * XSS safety:
- *   - Allowlist: <strong>, <br>, <ul>, <li> only
+ *   - Allowlist: <strong>, <br>, <ul>, <li>, <span> only
+ *     (<span> is emitted with class="md-number" for tabular-nums styling on
+ *     standalone integers / decimals / percentages per DS v5 §2 prose rhythm)
  *   - All other HTML is escaped before processing
  *   - No raw HTML passthrough
  *
