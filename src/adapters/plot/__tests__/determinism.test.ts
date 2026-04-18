@@ -23,11 +23,13 @@ const PROXY_BASE = '/api/plot'
 
 // The adapter reads VITE_PLOT_PROXY_BASE (fallback '/bff/engine'). Locally
 // `.env.local` sets it to '/api/plot'; in CI it is unset and MSW handlers
-// registered under '/api/plot' never match. Explicit stub + unstub keeps the
-// spec env-independent. Mirrors probe.test.ts and httpV1Adapter.stream.test.ts.
-beforeAll(() => {
+// registered under '/api/plot' never match. Re-stub in beforeEach so tests
+// below that call vi.unstubAllEnvs() (e.g. the debug-flag test that stubs
+// VITE_FEATURE_COMPARE_DEBUG and cleans up with unstubAllEnvs) do not leave
+// subsequent tests without proxy-base pinning.
+beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
+beforeEach(() => {
   vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)
-  server.listen({ onUnhandledRequest: 'warn' })
 })
 afterEach(() => server.resetHandlers())
 afterAll(() => {
