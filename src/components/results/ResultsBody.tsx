@@ -229,24 +229,32 @@ export const ResultsBody = memo(function ResultsBody({
                 }))}
               decisionState={vm.decisionState}
             />
-            {/* Risk appetite toggle — only shown when p10/p90 data available */}
+            {/* Brief 5 Task 6: display-filter control — reweights which option
+                is surfaced as winner (p10/winProb/p90). Local state, not
+                persisted. Label + helper disambiguate from the persistent
+                "Risk profile" control in AdvancedSection. */}
             {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
-              <div className="flex items-center gap-1.5">
-                <span className={`${typography.panelMeta} text-text-light`}>Risk appetite:</span>
-                {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
-                  <button
-                    key={appetite}
-                    type="button"
-                    onClick={() => setRiskAppetite(appetite)}
-                    className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer capitalize ${
-                      riskAppetite === appetite
-                        ? 'border-info/60 text-info bg-transparent'
-                        : 'border-panel-border text-text-light bg-transparent hover:border-info/30 hover:text-text-body'
-                    }`}
-                  >
-                    {appetite.charAt(0).toUpperCase() + appetite.slice(1)}
-                  </button>
-                ))}
+              <div data-testid="winner-by-control">
+                <div className="flex items-center gap-1.5">
+                  <span className={`${typography.panelMeta} text-text-light`}>Show winner by:</span>
+                  {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
+                    <button
+                      key={appetite}
+                      type="button"
+                      onClick={() => setRiskAppetite(appetite)}
+                      className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer capitalize ${
+                        riskAppetite === appetite
+                          ? 'border-info/60 text-info bg-transparent'
+                          : 'border-panel-border text-text-light bg-transparent hover:border-info/30 hover:text-text-body'
+                      }`}
+                    >
+                      {appetite.charAt(0).toUpperCase() + appetite.slice(1)}
+                    </button>
+                  ))}
+                </div>
+                <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
+                  Display filter: reweights which option is shown as winner.
+                </p>
               </div>
             )}
             <OptionCards

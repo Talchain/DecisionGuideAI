@@ -206,6 +206,22 @@ Labels alone are too subtle to disambiguate. Add a one-line inline helper or too
 | Advanced control label | "Risk profile" |
 | Advanced helper (inline sub-label or tooltip) | "Persistent profile — used when analysis is rerun." |
 
+### Phase 2 frozen copy (Paul-approved 2026-04-18)
+
+Paul approved the "Recommended set" for Task 6. Em dashes in the candidate helper
+strings were substituted for colons before shipping, to respect the brief's
+operating principle 11 ("no em dashes in UI copy"). Semantics preserved — the
+colon preserves the "X: then the explanation" reading flow.
+
+| Location | Frozen string |
+|----------|---------------|
+| Your-options control label | "Show winner by:" |
+| Your-options helper (inline sub-label) | "Display filter: reweights which option is shown as winner." |
+| Advanced control label | "Risk profile" |
+| Advanced helper (inline sub-label) | "Persistent profile: used when analysis is rerun." |
+
+Advanced radiogroup `aria-label` tracks the new visible label: "Risk profile".
+
 ---
 
 ## Visual-regression scaffold (Phase 0 deliverable)

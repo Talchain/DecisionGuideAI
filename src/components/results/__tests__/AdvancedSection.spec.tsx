@@ -23,7 +23,7 @@ describe('AdvancedSection', () => {
     expect(screen.getByText('Advanced')).toBeInTheDocument()
   })
 
-  it('renders risk tolerance preset buttons', () => {
+  it('renders risk profile preset buttons', () => {
     render(<AdvancedSection />)
 
     // Expand accordion first
@@ -32,6 +32,29 @@ describe('AdvancedSection', () => {
     expect(screen.getByRole('radio', { name: /Risk Averse/i })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /Neutral/i })).toBeInTheDocument()
     expect(screen.getByRole('radio', { name: /Risk Seeking/i })).toBeInTheDocument()
+  })
+
+  // Brief 5 Phase 2 (Task 6): disambiguate label + helper copy so users don't
+  // confuse this persistent-profile control with the local display-filter in
+  // ResultsBody's "Your options" card. Paul-approved copy frozen in
+  // docs/brief-5-preflight-findings.md.
+  it('risk-profile control uses Paul-frozen label + helper copy', () => {
+    const { container } = render(<AdvancedSection />)
+    fireEvent.click(screen.getByText('Advanced'))
+
+    const control = container.querySelector('[data-testid="risk-profile-control"]')
+    expect(control).toBeTruthy()
+    // Label (heading replaces "Risk tolerance")
+    expect(control).toHaveTextContent('Risk profile')
+    // Helper copy — semantic distinction from display-filter control
+    expect(control).toHaveTextContent(
+      /Persistent profile:\s*used when analysis is rerun\./,
+    )
+    // Radiogroup aria-label tracks the visible label
+    expect(control?.querySelector('[role="radiogroup"]')).toHaveAttribute(
+      'aria-label',
+      'Risk profile',
+    )
   })
 
   it('renders stability percentage when provided', () => {

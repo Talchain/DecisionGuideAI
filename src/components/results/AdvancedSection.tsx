@@ -151,15 +151,18 @@ export function AdvancedSection({
       testId="accordion-advanced"
     >
       <div className="space-y-4">
-        {/* ── Risk Tolerance ─────────────────────────────── */}
-        <div>
+        {/* ── Risk profile ─────────────────────────────── */}
+        {/* Brief 5 Task 6: persistent-profile control, distinct from the local
+            display-filter "Show winner by" in ResultsBody. Helper disambiguates
+            the two surfaces. */}
+        <div data-testid="risk-profile-control">
           <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
-            Risk tolerance
+            Risk profile
           </h4>
           <p className={`${typography.panelMeta} text-text-light italic mb-2`}>
-            Re-weights the existing simulation, no new run required.
+            Persistent profile: used when analysis is rerun.
           </p>
-          <div className="flex gap-1" role="radiogroup" aria-label="Risk tolerance">
+          <div className="flex gap-1" role="radiogroup" aria-label="Risk profile">
             {PRESET_ORDER.map(preset => {
               const info = RISK_PRESETS[preset]
               const isSelected = profile?.profile === preset
