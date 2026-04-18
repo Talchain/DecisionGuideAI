@@ -17,20 +17,14 @@ import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { autoDetectAdapter, reprobeCapability } from '../autoDetectAdapter'
 import type { RunRequest, ReportV1, ErrorV1 } from '../types'
+import { pinPlotProxyBase, PLOT_PROXY_BASE as PROXY_BASE } from '../../../../tests/setup/msw-env'
 
 // Setup MSW server
 const server = setupServer()
 
-const PROXY_BASE = '/api/plot'
+pinPlotProxyBase()
 
-// The adapter reads VITE_PLOT_PROXY_BASE (fallback '/bff/engine'). Locally
-// `.env.local` sets it to '/api/plot'; in CI it is unset and MSW handlers
-// registered under '/api/plot' never match. Explicit stub + unstub keeps the
-// spec env-independent. Mirrors probe.test.ts and httpV1Adapter.stream.test.ts.
-beforeAll(() => {
-  vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)
-  server.listen({ onUnhandledRequest: 'warn' })
-})
+beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
 afterEach(() => server.resetHandlers())
 afterAll(() => {
   vi.unstubAllEnvs()

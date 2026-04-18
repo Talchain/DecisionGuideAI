@@ -15,22 +15,14 @@ import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
 import type { RunRequest, ReportV1 } from '../types'
+import { pinPlotProxyBase, PLOT_PROXY_BASE as PROXY_BASE } from '../../../../tests/setup/msw-env'
 
 // Setup MSW server
 const server = setupServer()
 
-const PROXY_BASE = '/api/plot'
+pinPlotProxyBase()
 
-// The adapter reads VITE_PLOT_PROXY_BASE (fallback '/bff/engine'). Locally
-// `.env.local` sets it to '/api/plot'; in CI it is unset and MSW handlers
-// registered under '/api/plot' never match. Re-stub in beforeEach so tests
-// below that call vi.unstubAllEnvs() (e.g. the debug-flag test that stubs
-// VITE_FEATURE_COMPARE_DEBUG and cleans up with unstubAllEnvs) do not leave
-// subsequent tests without proxy-base pinning.
 beforeAll(() => server.listen({ onUnhandledRequest: 'warn' }))
-beforeEach(() => {
-  vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)
-})
 afterEach(() => server.resetHandlers())
 afterAll(() => {
   vi.unstubAllEnvs()

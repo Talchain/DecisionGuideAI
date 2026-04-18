@@ -7,27 +7,20 @@
  * - PROD mode failure → {ok: false, error, fetchedAt}
  */
 
-import { describe, it, expect, beforeAll, afterEach, afterAll, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
 import { setupServer } from 'msw/node'
 import { http, HttpResponse } from 'msw'
 import { httpV1Adapter } from '../httpV1Adapter'
 import { V1_LIMITS } from '../v1/types'
 import type { LimitsFetch } from '../types'
+import { pinPlotProxyBase, PLOT_PROXY_BASE as PROXY_BASE } from '../../../../tests/setup/msw-env'
 
 // Setup MSW server
 const server = setupServer()
 
-const PROXY_BASE = '/api/plot'
+pinPlotProxyBase()
 
-// The adapter reads VITE_PLOT_PROXY_BASE (fallback '/bff/engine'). Locally
-// `.env.local` sets it to '/api/plot'; in CI it is unset and MSW handlers
-// registered under '/api/plot' never match. Stubbed in beforeEach so tests
-// that stub additional env vars (DEV/PROD) can rely on afterEach's
-// vi.unstubAllEnvs() without losing the proxy-base pin between tests.
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
-beforeEach(() => {
-  vi.stubEnv('VITE_PLOT_PROXY_BASE', PROXY_BASE)
-})
 afterEach(() => {
   server.resetHandlers()
   vi.unstubAllEnvs()
