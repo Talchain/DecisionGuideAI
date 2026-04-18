@@ -8,9 +8,11 @@
 
 ## §Push log
 
-| Deliverable | Branch | PR | Opened (UTC) | Merged (UTC) | Paul approval |
+| Deliverable | Branch | PR | Opened | Merged | Paul approval |
 |---|---|---|---|---|---|
-| D2 | `ui/ci-coverage-fix` | — | — | — | REQUIRED — morning review |
+| Audit push | `ui/ci-test-coverage-audit` | (no PR) | pushed 2026-04-18 | — | n/a (docs-only, reference branch) |
+| Hub push | `ui/overnight-ci-and-tests` | (PR opens in morning) | pushed 2026-04-18 | — | REQUIRED — morning review |
+| D2 | `ui/ci-coverage-fix` | `<PENDING>` | `<PENDING>` | — | REQUIRED — morning review |
 
 (Extended per deliverable as work proceeds.)
 
@@ -67,9 +69,75 @@ Brief §2.D1 expects: every workflow running UI tests (name/trigger/command/matr
 
 ---
 
-## §D2 — Remove `--bail=1` (pending execution)
+## §D2 — Remove `--bail=1`
 
-(populated after D2 runs)
+**Branch:** `ui/ci-coverage-fix` off `staging` @ `dcc5ce1b`.
+**Commit:** `57bc318b` — `fix(ci): remove --bail=1 from staging-full-tests workflow`.
+**File changed:** `.github/workflows/staging-full-tests.yml:112` — one line.
+
+### Local validation run (no bail, matching new CI command)
+
+```
+NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --reporter=verbose
+```
+
+```
+ Test Files  14 failed | 734 passed | 4 skipped (755)
+      Tests  60 failed | 11565 passed | 49 skipped (11712)
+     Errors  5 errors
+     Duration  1289.03s (≈21.5 min)
+```
+
+| Metric | Pre-fix CI (bail=1, SHA `0b50e62a`) | Post-fix local (no bail) | Delta vs audit baseline |
+|---|---|---|---|
+| Total files | 754 | 755 | +1 file added since audit |
+| Files failing | 1 (bail-capped) | 14 | matches audit's 14 exactly |
+| Files skipped | 653 (bail artefact) | 4 (real `it.skip()`) | gap closed |
+| Tests passing | ~100 (bail-capped) | 11,565 | matches audit's 11,576 ± 11 |
+| Tests failing | 1 (bail-capped) | 60 | matches audit exactly |
+| Duration | ~2 min (bail-capped) | 21.5 min | — |
+
+**11-test delta** from audit's 11,576 passing baseline is immaterial (0.09%; likely a new skip or deleted test in the intervening commits). Halt condition not triggered.
+
+**5 errors** reported alongside the 60 test failures include:
+- Worker OOM (3×) — known tail-of-suite issue per CLAUDE.md; occurred in cleanup after test counts were written; does not affect count validity
+- `Failed to parse URL from /bff/cee/graph-readiness` (2×) in `OutputsDock.analysis-run.spec.tsx` and `patchAcceptLogic.spec.tsx` — **another env-drift pattern**: `useGraphReadiness.ts:76` constructs `new URL(url)` on an env-derived relative path. When the env var isn't set, URL parsing throws. This is beyond the 5 files on `ui/msw-env-drift-batch-fix` and a candidate for D3 env-drift cluster expansion.
+
+### Round 1 — brief compliance (D2)
+
+| Requirement | Met | Notes |
+|---|---|---|
+| Single minimal config change | ✓ | One line removed (`--bail=1`). No other edits. |
+| On own branch `ui/ci-coverage-fix` off staging | ✓ | Confirmed with `git branch --show-current`. |
+| Local validation before PR | ✓ | 21.5 min run; test counts captured. |
+| Capture pre-fix baseline | ✓ | Audit §1 table + §3; this evidence pack §Metrics. |
+| Compare test count change | ✓ | 60 failing matches audit exactly; file/test totals within 0.1%. |
+| No workflow restructuring / other edits | ✓ | Diff is single line; no job renames, no new jobs. |
+| PR opens but does NOT merge | pending | Immediately after push in next step. |
+| PR description per plan refinement §D2 | pending | Drafted; populating metrics + pushing next. |
+
+**Round 1 outcome:** `proceed` pending PR open.
+
+### Round 2 — adversarial self-prompt (D2)
+
+- **Q: Worst-case input that would break this?**
+  A: If CI's 7 GB heap turns out to be insufficient for the full suite without bail (local OOM'd at the very end with 4 GB), CI could mass-fail on OOM rather than real test failures. Mitigation: local tail-OOM happened AFTER the test-counts summary was written; CI has ~75% more heap. The OOM was in cleanup, not during test execution, so counts were fully captured before death.
+
+- **Q: What assumption haven't I validated?**
+  A: That CI's `ubuntu-latest` single-runner can complete a 21.5-min run within any workflow timeout. Default GitHub Actions job timeout is 6 h — 21.5 min is well under. **Non-issue.**
+
+- **Q: If this test passes but the feature is broken, how?**
+  A: "Feature" here is "CI surfaces real failure count". It could "pass" (run to completion) but still under-report if some other exclusion mechanism is in play. Audit §2.2 rules out `.vitestignore` / config excludes / project-level ignores. Progression table (402→4181→4293→755 files post-fix) is mechanically consistent only with bail, not static exclusion. Claim stands.
+
+- **Q: What would a reviewer flag?**
+  A: (a) CI runtime jumps from ~2 min to ~21 min — documented in PR description; acceptable tradeoff. (b) `scripts/pre-push-validate.sh:65` local hook still uses `--bail=1`. Intentionally left alone — different context (developer ergonomics). Could be a follow-up if Paul wants CI/local parity. (c) Existing test failures unrelated to this PR will now fail the gate. Expected and is the point — noted in PR body.
+
+- **Q: What regression could this introduce?**
+  A: (i) Flaky tests previously hidden by bail could now occasionally fail CI. Mitigation: `--bail=50` fallback per audit §5.2 if flake appears. (ii) If a vitest worker OOMs mid-run (not just tail), CI could miss some failures. Extremely rare; local ran 20+ min before OOM in cleanup with tests fully recorded.
+
+**Round 2 outcome:** `proceed`.
+
+**D2 decisive outcome:** `proceed` to PR open (do NOT merge).
 
 ---
 
@@ -99,14 +167,15 @@ Brief §2.D1 expects: every workflow running UI tests (name/trigger/command/matr
 
 ## §Metrics (live, updated per deliverable)
 
-| Metric | Pre-fix baseline | Post-D2 CI | Post-D4 CI | Post-D6 final |
-|---|---|---|---|---|
-| CI tests run (staging-full-tests) | ~100 | — | — | — |
-| CI files skipped | 653 | — | — | — |
-| CI failures reported | 1 (bail-capped) | — | — | — |
-| Local tests | 11,723 | — | — | — |
-| Local files failing | 14 | — | — | — |
-| Local tests failing | 60 | — | — | — |
+| Metric | Pre-fix baseline | Post-D2 local (pre-merge) | Post-D2 CI | Post-D4 CI | Post-D6 final |
+|---|---|---|---|---|---|
+| CI tests run (staging-full-tests) | ~100 | n/a | — | — | — |
+| CI files skipped | 653 | n/a | — | — | — |
+| CI failures reported | 1 (bail-capped) | n/a | — | — | — |
+| Local tests total | 11,723 | 11,712 | — | — | — |
+| Local files failing | 14 | 14 | — | — | — |
+| Local tests failing | 60 | 60 | — | — | — |
+| Local duration | ~19 min | 21.5 min | — | — | — |
 
 ---
 
