@@ -26,6 +26,8 @@
  * source='user_confirmed' and leave the verify list entirely.
  */
 
+import { classifyUnit } from '@/canvas/utils/labelUtils'
+
 export interface EditorRawValueInput {
   detail: string
   rawValue: number | null
@@ -73,20 +75,27 @@ export function resolveEditorRawValue(item: EditorRawValueInput): number | null 
  * This phrasing is defensible for both the "up to £X" case and the
  * "genuine 0 current value with ceiling £X" case.
  *
- * Gated on a non-empty unit: without a unit the cap figure is just a
- * bare number, which can be misleading for low-cap or placeholder shapes.
+ * When the unit is a meaningful class (symbol, iso, percent, other) we
+ * render the numeric hint verbatim. When the unit is missing or is a
+ * placeholder class ("scale", "index", "score", "norm", "normalised",
+ * "normalized") the numeric figure has no real-world scale — we render a
+ * neutral no-figure fallback instead of suppressing the subtitle, so the
+ * card never falls back to the upstream "0 of N" body text from
+ * formatObservedStateDetail (which would conflict with the empty editor).
  *
- * Returns null when the predicate doesn't fire, so callers can preserve
- * their existing subtitle path for all other items.
+ * Returns null only when the predicate doesn't fire, so callers can
+ * preserve their existing subtitle path for non-brief-extracted items.
  */
 export function resolveCapHintSubtitle(
   item: EditorRawValueInput,
   format: (value: number, unit: string | null | undefined) => string,
 ): string | null {
   if (!isBriefExtractedWithCap(item)) return null
-  const unit = item.unit
-  if (typeof unit !== 'string' || unit.trim() === '') return null
-  const formatted = format(item.cap as number, unit)
+  const unitKind = classifyUnit(item.unit).kind
+  if (unitKind === 'none' || unitKind === 'placeholder') {
+    return 'Brief suggests a value. Set it to confirm.'
+  }
+  const formatted = format(item.cap as number, item.unit ?? null)
   return `Brief suggests up to: ${formatted}`
 }
 

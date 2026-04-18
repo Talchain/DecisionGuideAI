@@ -1130,6 +1130,103 @@ describe('PreAnalysisPanel', () => {
     })
   })
 
+  // ── Brief 4 hotfix self-review P1.2: integration coverage ───────────────
+  //
+  // Unit tests in resolveEditorRawValue.spec.ts prove the predicate and copy
+  // behaviour in isolation. Variant-parity tests in TriageCard.spec.tsx prove
+  // both variants render the subtitle + ordinal + EVPI pill identically.
+  //
+  // This block glues the two together: assert the full mapping → predicate →
+  // render chain works on realistic fixtures. A regression in any of the
+  // three intermediaries (PreAnalysisPanel wiring, resolveCapHintSubtitle
+  // predicate, TriageCard render order) would surface here.
+  describe('Brief-extracted cap fallback — end-to-end render (P1.2)', () => {
+    it('renders the "Brief suggests up to: £X" hint for the Annual Assistant Cost shape', () => {
+      // Real-world shape from the hiring bundle: brief extracted "up to
+      // £70,000", no live baseline so raw_value=0. Expected end state:
+      // - editor renders empty (resolveEditorRawValue returns null)
+      // - card body shows the hint subtitle (resolveCapHintSubtitle fires)
+      // - From brief source pill still attaches
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        triageActions: {
+          top3: [{
+            key: 'verify_assistant_cost',
+            category: 'verify',
+            label: 'Annual Assistant Cost',
+            detail: '£0',
+            focus: { type: 'node', id: 'assistant_cost', label: 'Annual Assistant Cost' },
+            action: { label: 'Set value', kind: 'confirm', targetId: 'assistant_cost', targetType: 'node' },
+            rawValue: 0,
+            unit: '£',
+            cap: 70000,
+            sourceBadge: 'brief',
+          }],
+          quickFix: [],
+        },
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByText('Brief suggests up to: £70,000')).toBeInTheDocument()
+      expect(screen.getByText('From brief')).toBeInTheDocument()
+      // The editor's spinbutton renders for the target; value is empty
+      // (resolveEditorRawValue returned null for the brief+zero+cap case).
+      const input = screen.getByRole('spinbutton', { name: /Annual Assistant Cost/i })
+      expect(input).toHaveValue(null)
+    })
+
+    it('renders the neutral no-figure hint when the brief-extracted factor has a placeholder unit', () => {
+      // P1.1: when the unit is "scale" / "index" / …, the numeric figure is
+      // meaningless, but the card must still render a coaching subtitle — not
+      // fall back to the upstream "0 of N" body text that would conflict
+      // with the empty editor.
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        triageActions: {
+          top3: [{
+            key: 'verify_satisfaction',
+            category: 'verify',
+            label: 'Customer Satisfaction',
+            detail: '0 of 70',
+            focus: { type: 'node', id: 'sat', label: 'Customer Satisfaction' },
+            action: { label: 'Set value', kind: 'confirm', targetId: 'sat', targetType: 'node' },
+            rawValue: 0,
+            unit: 'score',
+            cap: 70,
+            sourceBadge: 'brief',
+          }],
+          quickFix: [],
+        },
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.getByText('Brief suggests a value. Set it to confirm.')).toBeInTheDocument()
+      // The "0 of 70" fallback must NOT appear — the subtitle override
+      // should win over the upstream formatObservedStateDetail.
+      expect(screen.queryByText('0 of 70')).not.toBeInTheDocument()
+    })
+
+    it('does not render the hint for AI-sourced (non-brief) zero-raw cards', () => {
+      // Guard: the cap fallback is brief-provenance-only. An AI-estimated
+      // factor with raw=0 + cap>0 must NOT get the "Brief suggests" copy.
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        triageActions: {
+          top3: [{
+            key: 'verify_ai_factor',
+            category: 'verify',
+            label: 'Market Share',
+            detail: '0%',
+            focus: { type: 'node', id: 'mkt', label: 'Market Share' },
+            action: { label: 'Confirm', kind: 'confirm', targetId: 'mkt', targetType: 'node' },
+            rawValue: 0,
+            unit: '%',
+            cap: 100,
+            sourceBadge: 'ai',
+          }],
+          quickFix: [],
+        },
+      }))
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      expect(screen.queryByText(/^Brief suggests/)).not.toBeInTheDocument()
+    })
+  })
+
   describe('Negative acceptance criteria (v6 wireframe)', () => {
     beforeEach(() => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({

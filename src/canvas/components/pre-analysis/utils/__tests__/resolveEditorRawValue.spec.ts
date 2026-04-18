@@ -172,7 +172,10 @@ describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards
     expect(hint).toBeNull()
   })
 
-  it('returns null when unit is missing (bare numeric cap is misleading)', () => {
+  it('returns neutral no-figure copy when unit is missing (bare numeric cap is misleading)', () => {
+    // Prevents the card from falling back to "0 of N" body text from the
+    // upstream formatObservedStateDetail — which would conflict with the
+    // empty editor the isBriefExtractedWithCap predicate forces.
     const hint = resolveCapHintSubtitle(
       {
         detail: 'Some value',
@@ -183,10 +186,10 @@ describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards
       },
       formatValueWithUnit,
     )
-    expect(hint).toBeNull()
+    expect(hint).toBe('Brief suggests a value. Set it to confirm.')
   })
 
-  it('returns null when unit is an empty string', () => {
+  it('returns neutral no-figure copy when unit is an empty string', () => {
     const hint = resolveCapHintSubtitle(
       {
         detail: 'Some value',
@@ -197,10 +200,10 @@ describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards
       },
       formatValueWithUnit,
     )
-    expect(hint).toBeNull()
+    expect(hint).toBe('Brief suggests a value. Set it to confirm.')
   })
 
-  it('returns null when unit is whitespace-only', () => {
+  it('returns neutral no-figure copy when unit is whitespace-only', () => {
     const hint = resolveCapHintSubtitle(
       {
         detail: 'Some value',
@@ -211,7 +214,7 @@ describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards
       },
       formatValueWithUnit,
     )
-    expect(hint).toBeNull()
+    expect(hint).toBe('Brief suggests a value. Set it to confirm.')
   })
 
   // Genuine-zero regression: brief literally said "0% churn". The hint
@@ -234,5 +237,61 @@ describe('resolveCapHintSubtitle — cap hint for brief-extracted-with-cap cards
     // the brief allows up to 5%, which is true whether the current value
     // is genuinely 0 or just not recorded.
     expect(hint).not.toMatch(/^From brief:/)
+  })
+
+  // Up-to-limit positive case: mirror of the genuine-zero assertion above.
+  // The brief said "up to £70,000" — structurally identical to the
+  // genuine-zero case, rendered identically by design. Locks the hint copy
+  // so a future change can't accidentally diverge the two cases.
+  it('renders the hint copy verbatim for the up-to-limit-from-brief case', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: 'Annual Assistant Cost',
+        rawValue: 0,
+        cap: 70000,
+        unit: '£',
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    expect(hint).toBe('Brief suggests up to: £70,000')
+  })
+
+  // P0: placeholder units (scale, index, score, norm, normalised, normalized)
+  // must not render the numeric hint. "Brief suggests up to: 70 score" is
+  // meaningless — the figure has no real-world scale. Mirrors the
+  // placeholder-unit suppression in InlineValueControls. Return neutral
+  // no-figure copy rather than null, so the card never falls back to the
+  // "0 of N" body text when the editor is forced empty.
+  const placeholderUnits = ['scale', 'index', 'score', 'norm', 'normalised', 'normalized']
+  for (const unit of placeholderUnits) {
+    it(`returns neutral no-figure copy for placeholder unit "${unit}" (no real-world scale)`, () => {
+      const hint = resolveCapHintSubtitle(
+        {
+          detail: 'Some value',
+          rawValue: 0,
+          cap: 70,
+          unit,
+          sourceBadge: 'brief',
+        },
+        formatValueWithUnit,
+      )
+      expect(hint).toBe('Brief suggests a value. Set it to confirm.')
+    })
+  }
+
+  it('returns a hint for non-placeholder "other" units (e.g. "months")', () => {
+    const hint = resolveCapHintSubtitle(
+      {
+        detail: 'Some value',
+        rawValue: 0,
+        cap: 12,
+        unit: 'months',
+        sourceBadge: 'brief',
+      },
+      formatValueWithUnit,
+    )
+    // "months" classifies as `other`, which is allowed.
+    expect(hint).toMatch(/^Brief suggests up to:/)
   })
 })
