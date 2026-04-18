@@ -1736,6 +1736,9 @@ export function PreAnalysisPanel({
             )}
 
             {/* Your expertise — unified section (v6 wireframe) */}
+            {/* Brief 5 Task 1: expand-in-place. Handlers passed through are
+                the same closures TriageCard receives above, so action
+                routing is identical from either surface. */}
             <SectionErrorBoundary section="Your expertise">
               <YourExpertise
                 improvementsByCategory={data.improvementsByCategory}
@@ -1744,6 +1747,13 @@ export function PreAnalysisPanel({
                 edges={edges}
                 factorInfluenceMap={compositeInfluenceMap}
                 edgeInfluenceMap={edgeInfluenceMap}
+                onConfirm={handleConfirm}
+                onEdit={handleEdit}
+                onSetValue={handleSetValueForGap}
+                onSendMessage={onSendMessage}
+                onFocusNode={handleFocusNode}
+                onHoverEnter={handleHoverElement}
+                onHoverLeave={handleHoverClear}
               />
             </SectionErrorBoundary>
 
