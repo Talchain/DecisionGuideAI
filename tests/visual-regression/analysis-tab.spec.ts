@@ -92,7 +92,40 @@ describe('visual-regression scaffold (Brief 5)', () => {
     expect(snap).not.toContain('Risk tolerance')
     expect(snap).not.toContain('Re-weights the existing simulation')
   })
-  it.todo('Phase 3 / Task 2 — drivers section headers + first row grid alignment')
+  it('Phase 3 / Task 2 — drivers section headers + first row grid alignment', async () => {
+    const { DriversSection } = await import('@/components/results/DriversSection')
+    const data = {
+      drivers: [{
+        factorKey: 'f1',
+        factorLabel: 'Dedicated Design Expertise',
+        rawElasticity: 0.5,
+        normalisedInfluence: 0.7,
+        influenceScore: 0.7,
+        rank: 1,
+        direction: 'positive' as const,
+        semanticLabel: 'major' as const,
+        confidenceScore: 0.8,
+        canFocus: true,
+        matchedNodeId: 'n1',
+      }],
+      topDrivers: [] as Array<never>,
+      driversStatus: 'computed' as const,
+      totalCount: 1,
+      hasMagnitudeData: true,
+    }
+    data.topDrivers = data.drivers.slice(0, 3) as never
+    const { container } = render(
+      React.createElement(DriversSection, { data, goalLabel: 'Win rate' }),
+    )
+    const list = container.querySelector('[data-testid="drivers-list"]')
+    expect(list).toBeTruthy()
+    const headerGrid = list!.querySelector(':scope > .grid')
+    const firstRowGrid = list!.querySelector('.space-y-2 > div .grid')
+    const headerCols = (headerGrid!.className.match(/grid-cols-\[[^\]]+\]/) ?? [])[0]
+    const rowCols = (firstRowGrid!.className.match(/grid-cols-\[[^\]]+\]/) ?? [])[0]
+    // Same grid-cols token across header and row = columns align structurally.
+    expect(headerCols).toBe(rowCols)
+  })
   it.todo('Phase 4 / Task 3 — tornado card: intro copy + legend above first bar + apply/rerun button')
   it.todo('Phase 6 / Task 1 — Your-expertise row collapsed (parity with Brief 4 Task 6)')
   it.todo('Phase 6 / Task 1 — Your-expertise row expanded (AI estimates + Missing data groups)')

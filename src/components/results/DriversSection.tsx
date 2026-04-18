@@ -878,45 +878,49 @@ export function DriversSection({
         </div>
       )}
 
-      {/* Column headers - right-aligned above bars only */}
-      {/* NOTE: Panel title rendered by parent (OutputsDock section header) */}
-      <div className={`grid ${GRID_COLS} gap-3 px-3`}>
-        {/* Empty cell for factor name column */}
-        <div />
-        {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
-        <Tooltip content="Influence: how much this factor affects the outcome">
-          <div
-            className={`${typography.panelBody} text-text-light text-right pr-6 cursor-help`}
-          >
-            Influence
-          </div>
-        </Tooltip>
-        <Tooltip content="Confidence: how stable this factor's ranking is under model variations. Click the value to update.">
-          <div
-            className={`${typography.panelBody} text-text-light text-right pr-6 cursor-help`}
-          >
-            Confidence
-          </div>
-        </Tooltip>
-        {/* Empty cell for icon column */}
-        <div />
-      </div>
+      {/* Brief 5 Task 2: headers + rows share one wrapper so column positions
+          are structural, not visual-approximation. Headers mirror the row grid
+          exactly (gap-2 items-center px-3), and pb-3 gives the brief-required
+          12px below headers. Row spacing tightened to space-y-2 (8px) per brief. */}
+      <div data-testid="drivers-list">
+        {/* Column headers — identical grid to DriverRow's inner grid */}
+        <div className={`grid ${GRID_COLS} gap-2 items-center px-3 pb-3`}>
+          {/* Empty cell for factor name column */}
+          <div aria-hidden="true" />
+          {/* v7.10 T9: Renamed "Relative influence" → "Influence" for brevity */}
+          <Tooltip content="Influence: how much this factor affects the outcome">
+            <div
+              className={`${typography.panelBody} text-text-light text-right cursor-help`}
+            >
+              Influence
+            </div>
+          </Tooltip>
+          <Tooltip content="Confidence: how stable this factor's ranking is under model variations. Click the value to update.">
+            <div
+              className={`${typography.panelBody} text-text-light text-right cursor-help`}
+            >
+              Confidence
+            </div>
+          </Tooltip>
+          {/* Empty cell for icon column */}
+          <div aria-hidden="true" />
+        </div>
 
-      {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}
-      {visibleDrivers.length >= 2 && (() => {
-        const scores = visibleDrivers.map(d => d.influenceScore ?? d.normalisedInfluence ?? 0)
-        const max = Math.max(...scores)
-        const min = Math.min(...scores)
-        return (max - min) <= 0.01 ? (
-          <p className={`${typography.panelMeta} text-text-light italic px-3`}>
-            Both factors have similar influence on the outcome.
-          </p>
-        ) : null
-      })()}
+        {/* v7.10 T9: Equal-influence note when all visible drivers are within ±0.01 */}
+        {visibleDrivers.length >= 2 && (() => {
+          const scores = visibleDrivers.map(d => d.influenceScore ?? d.normalisedInfluence ?? 0)
+          const max = Math.max(...scores)
+          const min = Math.min(...scores)
+          return (max - min) <= 0.01 ? (
+            <p className={`${typography.panelMeta} text-text-light italic px-3 pb-2`}>
+              Both factors have similar influence on the outcome.
+            </p>
+          ) : null
+        })()}
 
-      {/* Driver rows */}
-      <div className="space-y-2.5">
-        {displayDrivers.map((driver, index) => {
+        {/* Driver rows */}
+        <div className="space-y-2">
+          {displayDrivers.map((driver, index) => {
           // V11: Driver #1 microline — show overtake warning below first driver
           const showMicroline = index === 0
             && driver.fragileEdgeInfo?.switchProbability != null
@@ -940,6 +944,7 @@ export function DriversSection({
             />
           )
         })}
+        </div>
       </div>
 
       {/* Expand/collapse — always show when there are more drivers than the default count */}
