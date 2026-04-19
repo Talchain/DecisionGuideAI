@@ -87,6 +87,42 @@ describe('OptionPreview — narrow-framing coaching (Brief 4 hotfix Task 6)', ()
     )
     expect(screen.queryByTestId('option-quality-narrow-framing')).not.toBeInTheDocument()
   })
+
+  // Brief 5.2 Task 4: lock the exact byte-identical coaching output between
+  // collapsed and expanded states. A copy drift between the two branches
+  // was the Brief 4 hotfix Phase 6 regression; this guard freezes the
+  // unified rendering so any future divergence trips the suite.
+  it('Brief 5.2 Task 4: collapsed vs expanded renders byte-identical coaching text', () => {
+    const { rerender } = render(
+      <OptionPreview
+        options={[basicOption]}
+        hasSameLeversCheck
+        onSendMessage={vi.fn()}
+      />,
+    )
+    const collapsedCoaching = screen.getByTestId('option-quality-narrow-framing').textContent
+    // Re-render into expanded.
+    rerender(
+      <OptionPreview
+        options={[basicOption]}
+        hasSameLeversCheck
+        onSendMessage={vi.fn()}
+      />,
+    )
+    expandOptionPreview()
+    const expandedCoaching = screen
+      .getAllByTestId('option-quality-narrow-framing')
+      .map(el => el.textContent)
+
+    // Every expanded instance of the coaching must match the collapsed text
+    // exactly. Protects against a future revert where the two branches
+    // render slightly different phrasings ("Your options are similar" vs
+    // "All options work through similar factors").
+    expect(expandedCoaching.length).toBeGreaterThan(0)
+    expandedCoaching.forEach(txt => {
+      expect(txt).toBe(collapsedCoaching)
+    })
+  })
 })
 
 describe('OptionPreview — intervention display', () => {
