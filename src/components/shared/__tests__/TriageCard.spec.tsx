@@ -50,7 +50,7 @@ describe('TriageCard — compact EVPI pp pill (consistency with default variant)
   })
 })
 
-describe('TriageCard — compact subtitle no longer truncates (Brief 4 hotfix Task 2)', () => {
+describe('TriageCard — compact subtitle no longer truncates (Brief 4 hotfix Task 2 + Brief 5.2 Task 5 regression)', () => {
   it('renders the full compact subtitle instead of single-line truncating', () => {
     // 40-char subtitle that used to end in "Connects to 2 downstream..."
     const subtitle = 'Connects to 2 downstream relationships'
@@ -69,6 +69,33 @@ describe('TriageCard — compact subtitle no longer truncates (Brief 4 hotfix Ta
     )
     // Full subtitle present in DOM, not replaced by "..."
     expect(screen.getByText(subtitle)).toBeInTheDocument()
+  })
+
+  // Brief 5.2 Task 5: longer subtitles must also wrap (via ExpandableCoachingText
+  // two-line clamp + "More" toggle), never ellipsise. Guards against a future
+  // revert that swaps ExpandableCoachingText for a single-line truncate.
+  it('longer subtitles render fully or with a "More" toggle, never end in "…"', () => {
+    const longSubtitle = 'Connects to 2 downstream relationships and could shift the outcome'
+    render(
+      <TriageCard
+        cardKey="k-brief-5_2"
+        ordinal={1}
+        title="Test Factor"
+        detail="Detail"
+        subtitle={longSubtitle}
+        category="verify"
+        variant="compact"
+        action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
+        onConfirm={() => {}}
+      />,
+    )
+    const body = document.body.textContent ?? ''
+    // The ASCII three-dot ellipsis from the old truncate path must not
+    // appear in the rendered subtitle.
+    expect(body).not.toMatch(/Connects to 2 downstream[^…]*\.\.\./)
+    // The Unicode ellipsis U+2026 (the typeof ellipsis Tailwind's `truncate`
+    // inserts) must not appear either.
+    expect(body).not.toContain('Connects to 2 downstream relationships and could shift the outcome…')
   })
 })
 
