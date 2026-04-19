@@ -108,6 +108,41 @@ export function stripEncodingNotation(rawLabel: string): string {
 }
 
 /**
+ * Matches a trailing parenthetical "(Status Quo)" (case-insensitive, any
+ * amount of internal whitespace), optionally preceded by a space. Only
+ * applied to option card titles when a Baseline pill already communicates
+ * the same information — see formatOptionLabelForCard below.
+ */
+const STATUS_QUO_TRAILING_PATTERN = /\s*\(\s*status\s+quo\s*\)\s*$/i
+
+/**
+ * Display-only helper for option-card titles.
+ *
+ * When the baseline pill is rendering, the title no longer needs the
+ * trailing "(Status Quo)" — it would duplicate the signal and force the
+ * label to wrap to three lines on the runner-up card. Strips only the
+ * trailing occurrence, only when `hasBaselinePill === true`, and leaves
+ * the underlying option label unchanged elsewhere.
+ *
+ * Brief 5.1 Task 7. Always compose with stripEncodingNotation so the
+ * encoding suffix (0/1, 0–1, discrete) is also removed for display.
+ *
+ * @example
+ * formatOptionLabelForCard("Continue Without Dedicated Support (Status Quo)", true)
+ * // → "Continue Without Dedicated Support"
+ * formatOptionLabelForCard("Hire Tech Lead", false)
+ * // → "Hire Tech Lead"
+ */
+export function formatOptionLabelForCard(
+  rawLabel: string,
+  hasBaselinePill: boolean,
+): string {
+  const base = stripEncodingNotation(rawLabel)
+  if (!hasBaselinePill) return base
+  return base.replace(STATUS_QUO_TRAILING_PATTERN, '').trimEnd()
+}
+
+/**
  * Sanitize coaching text: strip arrow characters and encoding notation.
  * Single function for ALL coaching-facing text cleanup.
  * Use for any M1/M2 text surfaced in the coaching UI (next_actions, narrative snippets,
