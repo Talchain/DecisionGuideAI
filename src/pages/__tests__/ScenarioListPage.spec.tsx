@@ -129,7 +129,12 @@ describe('ScenarioListPage', () => {
       expect(screen.getByTestId('first-run')).toBeTruthy()
     })
 
-    fireEvent.click(screen.getByText('Start a new decision'))
+    // Role-based query: stable against copy changes. The dedicated copy
+    // assertion at line 97 (`'Welcome to Olumi'`) is the single intentional
+    // copy-coupling in this spec.
+    fireEvent.click(
+      screen.getByRole('button', { name: /start a new decision/i }),
+    )
 
     await waitFor(() => {
       expect(mockCreateScenario).toHaveBeenCalled()

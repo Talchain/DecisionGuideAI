@@ -117,6 +117,11 @@ describe('SandboxStreamPanel with params', () => {
     // Allow any microtasks to settle
     await vi.advanceTimersByTimeAsync(0)
 
+    // Packet B contract: SSE 'done' alone must NOT trigger a report fetch.
+    // RunReportDrawer is user-action-gated; locking this invariant here
+    // prevents a regression back to an implicit auto-fetch-on-done path.
+    expect(reportSpy).toHaveBeenCalledTimes(0)
+
     // Packet B (2026-04-19): RunReportDrawer doesn't auto-fetch on SSE 'done' —
     // the drawer is user-action-gated (SandboxStreamPanel.tsx:1181 view-report-btn,
     // disabled until status is done|aborted|error|limited). Click simulates the
