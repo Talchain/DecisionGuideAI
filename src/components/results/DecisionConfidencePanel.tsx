@@ -453,9 +453,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
 
   // Headline from coaching data, with a tier-calibrated fallback so the
   // panel doesn't claim "is the leading option" when evidence is weak.
-  // Brief 5.1 Task 4: certaintyCopy is the single source for the fallback
-  // headline + honesty caveat. LLM-reviewed sources (coachingHeadline,
-  // coachingDecisionStatement) keep precedence when present.
+  // Brief 5.1 Task 4: certaintyCopy is the single source for both the
+  // fallback headline AND the tier-driven caveat. Coaching sources are
+  // allowed to override the headline wording (they went through the
+  // coaching pipeline), but the caveat is derived purely from tier
+  // fields — if evidence is weak the caveat renders regardless of
+  // whatever headline text is in play. That closes the loophole where
+  // an upstream "clear leading option" string could mask a
+  // needs_work / needs_evidence bundle.
   const certainty = useMemo(() => {
     const winner = data.recommendation.recommendedOption
     if (!winner) return null
@@ -476,19 +481,16 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     data.confidence.tier.tier,
   ])
 
-  const usingCertaintyFallback =
-    data.recommendation.coachingHeadline == null
-    && data.recommendation.coachingDecisionStatement == null
-    && certainty != null
-
   const headline = data.recommendation.coachingHeadline
     ?? data.recommendation.coachingDecisionStatement
     ?? certainty?.headline
     ?? null
 
-  // Caveat only attaches to the certainty-derived fallback — when an LLM
-  // headline is present it has already been through the coaching pipeline.
-  const healthHeaderCoaching = usingCertaintyFallback ? certainty?.caveat ?? null : null
+  // Caveat is tier-driven. It attaches whenever buildCertaintyCopy
+  // returned one — the decision table only produces a caveat when
+  // confidenceTier === 'needs_work' or readiness is weak, so the
+  // presence of certainty.caveat is itself the honesty signal.
+  const healthHeaderCoaching = certainty?.caveat ?? null
 
   // Merge and rank action items by EVOI
   const allActions = useMemo(() => {
