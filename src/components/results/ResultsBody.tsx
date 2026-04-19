@@ -10,6 +10,7 @@
  */
 
 import { useRef, useCallback, useMemo, memo, useState } from 'react'
+import { Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
@@ -451,6 +452,10 @@ export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps)
   return (
     <div data-testid="winner-by-control">
       <div className="flex items-center gap-1.5">
+        {/* Brief 5.1 Task 6: eye icon signals "view filter" (what you see
+            right now), distinguishing this display-only control from the
+            persistent "Risk profile" radio group in AdvancedSection. */}
+        <Eye size={12} className="text-text-light flex-shrink-0" aria-hidden="true" />
         <span className={`${typography.panelMeta} text-text-light`}>Show winner by:</span>
         {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
           <button

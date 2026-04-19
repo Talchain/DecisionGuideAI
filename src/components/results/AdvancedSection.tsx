@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Copy, Check, Info, AlertTriangle } from 'lucide-react'
+import { Copy, Check, Info, AlertTriangle, Gauge } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
@@ -156,8 +156,13 @@ export function AdvancedSection({
             display-filter "Show winner by" in ResultsBody. Helper disambiguates
             the two surfaces. */}
         <div data-testid="risk-profile-control">
-          <h4 className={`${typography.panelHeader} text-text-header mb-1`}>
-            Risk profile
+          {/* Brief 5.1 Task 6: gauge icon signals "persistent profile"
+              (a setting applied to every rerun), differentiating this
+              from the transient "Show winner by" view filter in
+              ResultsBody. No state change — visual only. */}
+          <h4 className={`${typography.panelHeader} text-text-header mb-1 flex items-center gap-1.5`}>
+            <Gauge size={14} className="text-text-light" aria-hidden="true" />
+            <span>Risk profile</span>
           </h4>
           <p className={`${typography.panelMeta} text-text-light italic mb-2`}>
             Persistent profile: used when analysis is rerun.
