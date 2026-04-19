@@ -131,9 +131,13 @@ export function MissingData({
                 {technique.text}
               </span>
             </Tooltip>
-            {/* One sparkle — bottom-right of the row */}
+            {/* One sparkle — bottom-right of the row. Brief 5.2 Task 7:
+                secondary variant (opacity-50 at rest, opacity-100 on
+                hover/focus-within) — expertise rows are a non-primary
+                surface; sparkles here should not compete with the hero
+                and triage-card sparkles for attention. */}
             <div className="absolute bottom-1 right-1">
-              <DiscussWithAiButton element={{ kind: 'factor', label: item.label }} />
+              <DiscussWithAiButton element={{ kind: 'factor', label: item.label }} variant="secondary" />
             </div>
           </div>
         )

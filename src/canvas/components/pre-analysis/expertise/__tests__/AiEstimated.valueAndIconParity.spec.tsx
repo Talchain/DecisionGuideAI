@@ -9,11 +9,19 @@
  *   (28×28 = w-7 h-7; 14px icon) for visual parity across surfaces.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { AiEstimated } from '../AiEstimated'
 import { MissingData } from '../MissingData'
 import type { ImprovementItem } from '../../hooks/usePreAnalysisData'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+
+// DiscussWithAiButton short-circuits (returns null) when no send/prefill
+// callback is registered. Brief 5.2 Task 7 asserts sparkle variant classes,
+// so we need the button to render — seed the guidance store each test.
+beforeEach(() => {
+  useGuidanceStore.setState({ _sendMessage: vi.fn(), _prefillChat: vi.fn() })
+})
 
 function makeEstimatedItem(overrides: Partial<ImprovementItem> = {}): ImprovementItem {
   return {
@@ -85,6 +93,17 @@ describe('AiEstimated — Brief 5.1 Task 3 value slot + icon parity', () => {
       expect(btn.className).not.toContain('min-w-[44px]')
     }
   })
+
+  // Brief 5.2 Task 7: expertise rows are a non-primary surface; sparkles
+  // should not compete with the hero / triage-card sparkles for attention.
+  it('sparkle uses variant="secondary" (opacity-50 at rest, revealed on hover/focus)', () => {
+    render(<AiEstimated items={[makeEstimatedItem()]} />)
+    const sparkle = screen.getByTestId('discuss-with-ai')
+    expect(sparkle.getAttribute('data-variant')).toBe('secondary')
+    expect(sparkle.className).toContain('opacity-50')
+    expect(sparkle.className).toContain('hover:opacity-100')
+    expect(sparkle.className).toContain('focus-visible:opacity-100')
+  })
 })
 
 describe('MissingData — Brief 5.1 Task 3 copy + Brief 5.2 Task 3 default-open editor', () => {
@@ -150,5 +169,16 @@ describe('MissingData — Brief 5.1 Task 3 copy + Brief 5.2 Task 3 default-open 
     // But the row itself must still render so users see the missing-data
     // item and can click the factor label to focus the canvas node.
     expect(screen.getByTestId('missing-data-row-missing-f2')).toBeInTheDocument()
+  })
+
+  // Brief 5.2 Task 7: same secondary-variant assertion as AiEstimated so the
+  // two sibling surfaces stay in sync.
+  it('sparkle uses variant="secondary" (opacity-50 at rest, revealed on hover/focus)', () => {
+    render(<MissingData items={[makeMissingItem()]} />)
+    const sparkle = screen.getByTestId('discuss-with-ai')
+    expect(sparkle.getAttribute('data-variant')).toBe('secondary')
+    expect(sparkle.className).toContain('opacity-50')
+    expect(sparkle.className).toContain('hover:opacity-100')
+    expect(sparkle.className).toContain('focus-visible:opacity-100')
   })
 })
