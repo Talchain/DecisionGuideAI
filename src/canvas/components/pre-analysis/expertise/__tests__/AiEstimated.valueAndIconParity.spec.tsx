@@ -9,11 +9,19 @@
  *   (28×28 = w-7 h-7; 14px icon) for visual parity across surfaces.
  */
 
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { AiEstimated } from '../AiEstimated'
 import { MissingData } from '../MissingData'
 import type { ImprovementItem } from '../../hooks/usePreAnalysisData'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+
+// DiscussWithAiButton short-circuits (returns null) when no send/prefill
+// callback is registered. Brief 5.2 Task 7 asserts sparkle variant classes,
+// so we need the button to render — seed the guidance store each test.
+beforeEach(() => {
+  useGuidanceStore.setState({ _sendMessage: vi.fn(), _prefillChat: vi.fn() })
+})
 
 function makeEstimatedItem(overrides: Partial<ImprovementItem> = {}): ImprovementItem {
   return {
@@ -71,6 +79,29 @@ describe('AiEstimated — Brief 5.1 Task 3 value slot + icon parity', () => {
     expect(screen.queryByRole('button', { name: /^\d/ })).not.toBeInTheDocument()
   })
 
+  // Brief 5.2 Task 8b: a row showing "—" has nothing to confirm. Hide the
+  // Confirm affordance; keep the Pencil so users can still set a value.
+  it('hides the Confirm icon when display value is null ("—" row)', () => {
+    render(<AiEstimated items={[makeEstimatedItem({ rawValue: null })]} />)
+    expect(screen.getByTestId('expertise-value-placeholder')).toBeInTheDocument()
+    // Confirm button is absent; Edit button is still present so users can
+    // provide the missing value.
+    expect(screen.queryByRole('button', { name: /Confirm value for Task Handling Quality/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Edit value for Task Handling Quality/ })).toBeInTheDocument()
+  })
+
+  it('hides the Confirm icon when detail is "Not set" even if rawValue is a number', () => {
+    // Same-shape row: rawValue is present but the row is flagged Not set,
+    // so display computes null and the Confirm affordance should not render.
+    render(<AiEstimated items={[makeEstimatedItem({ rawValue: 50, detail: 'Not set' })]} />)
+    expect(screen.queryByRole('button', { name: /Confirm value for Task Handling Quality/ })).not.toBeInTheDocument()
+  })
+
+  it('renders the Confirm icon when display value is present', () => {
+    render(<AiEstimated items={[makeEstimatedItem({ rawValue: 75, unit: '%' })]} />)
+    expect(screen.getByRole('button', { name: /Confirm value for Task Handling Quality/ })).toBeInTheDocument()
+  })
+
   it('action buttons match Review-next parity: 28×28 button (w-7 h-7) with 14px icons', () => {
     render(<AiEstimated items={[makeEstimatedItem()]} />)
 
@@ -85,20 +116,20 @@ describe('AiEstimated — Brief 5.1 Task 3 value slot + icon parity', () => {
       expect(btn.className).not.toContain('min-w-[44px]')
     }
   })
+
+  // Brief 5.2 Task 7: expertise rows are a non-primary surface; sparkles
+  // should not compete with the hero / triage-card sparkles for attention.
+  it('sparkle uses variant="secondary" (opacity-50 at rest, revealed on hover/focus)', () => {
+    render(<AiEstimated items={[makeEstimatedItem()]} />)
+    const sparkle = screen.getByTestId('discuss-with-ai')
+    expect(sparkle.getAttribute('data-variant')).toBe('secondary')
+    expect(sparkle.className).toContain('opacity-50')
+    expect(sparkle.className).toContain('hover:opacity-100')
+    expect(sparkle.className).toContain('focus-visible:opacity-100')
+  })
 })
 
-describe('MissingData — Brief 5.1 Task 3 icon parity', () => {
-  it('Set-value button matches Review-next parity: w-7 h-7', () => {
-    render(<MissingData items={[makeMissingItem()]} />)
-
-    const setBtn = screen.getByRole('button', { name: /Set value for Churn Rate/ })
-
-    expect(setBtn.className).toContain('w-7')
-    expect(setBtn.className).toContain('h-7')
-    expect(setBtn.className).not.toContain('min-h-[44px]')
-    expect(setBtn.className).not.toContain('min-w-[44px]')
-  })
-
+describe('MissingData — Brief 5.1 Task 3 copy + Brief 5.2 Task 3 default-open editor', () => {
   it('rows without a current value read "Not set" — consistent with the AiEstimated placeholder and the brief copy spec', () => {
     render(<MissingData items={[makeMissingItem()]} />)
     expect(screen.getByText('Not set')).toBeInTheDocument()
@@ -106,5 +137,190 @@ describe('MissingData — Brief 5.1 Task 3 icon parity', () => {
     // that string (QA checklists, analytics filters) needs to see the
     // switch.
     expect(screen.queryByText('No data')).not.toBeInTheDocument()
+  })
+
+  // Brief 5.2 Task 3: the Pencil affordance is removed. The editor IS the
+  // default state for Missing-data rows; there is no separate "open editor"
+  // action to expose, and keeping one would imply closing is possible.
+  it('does not render a Pencil / Set-value button — the editor is default-open', () => {
+    render(
+      <MissingData
+        items={[makeMissingItem()]}
+        activeEditorKey={null}
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /Set value for Churn Rate/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Edit value for Churn Rate/ })).not.toBeInTheDocument()
+  })
+
+  it('renders the inline ScientificEditor by default when inline plumbing is available and no other editor is active', () => {
+    render(
+      <MissingData
+        items={[makeMissingItem()]}
+        activeEditorKey={null}
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('missing-data-editor-missing-f2')).toBeInTheDocument()
+  })
+
+  it('collapses (hides the editor) when another editor is active', () => {
+    render(
+      <MissingData
+        items={[makeMissingItem()]}
+        activeEditorKey="ai-estimated-row-42"
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('missing-data-editor-missing-f2')).not.toBeInTheDocument()
+    // Row still renders name + Not set + technique hint + sparkle even
+    // when the editor is collapsed.
+    expect(screen.getByTestId('missing-data-row-missing-f2')).toBeInTheDocument()
+    expect(screen.getByText('Not set')).toBeInTheDocument()
+  })
+
+  // Brief 5.2 follow-up round 2 (alternative to ChatGPT Improvement #1):
+  // locks the Phase 0 design decision that multiple Missing-data rows
+  // render their editors simultaneously when no AiEstimated editor is
+  // active. The one-active-editor invariant is scoped to AiEstimated vs
+  // Missing-data, not across Missing-data rows themselves — per user
+  // correction #5 ("Missing-data rows have an explicit isDefaultOpen
+  // render mode (always true)"). This positive test documents the
+  // intent so a future refactor can't silently introduce a collapse
+  // rule without the feedback loop.
+  it('multiple Missing-data rows all default-open simultaneously when activeEditorKey is null', () => {
+    const items = [
+      makeMissingItem({ key: 'missing-a', label: 'Factor Alpha', focus: { type: 'node', id: 'n-a', label: 'Factor Alpha' } }),
+      makeMissingItem({ key: 'missing-b', label: 'Factor Beta', focus: { type: 'node', id: 'n-b', label: 'Factor Beta' } }),
+      makeMissingItem({ key: 'missing-c', label: 'Factor Gamma', focus: { type: 'node', id: 'n-c', label: 'Factor Gamma' } }),
+    ]
+    render(
+      <MissingData
+        items={items}
+        activeEditorKey={null}
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    // All three editors are open simultaneously — this is the intended
+    // user-facing behaviour (zero-click data entry for empty slots).
+    expect(screen.getByTestId('missing-data-editor-missing-a')).toBeInTheDocument()
+    expect(screen.getByTestId('missing-data-editor-missing-b')).toBeInTheDocument()
+    expect(screen.getByTestId('missing-data-editor-missing-c')).toBeInTheDocument()
+  })
+
+  it('all Missing-data editors collapse as a group when an AiEstimated editor becomes active', () => {
+    const items = [
+      makeMissingItem({ key: 'missing-a', label: 'Factor Alpha', focus: { type: 'node', id: 'n-a', label: 'Factor Alpha' } }),
+      makeMissingItem({ key: 'missing-b', label: 'Factor Beta', focus: { type: 'node', id: 'n-b', label: 'Factor Beta' } }),
+    ]
+    const { rerender } = render(
+      <MissingData
+        items={items}
+        activeEditorKey={null}
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    // Baseline: both editors open.
+    expect(screen.getByTestId('missing-data-editor-missing-a')).toBeInTheDocument()
+    expect(screen.getByTestId('missing-data-editor-missing-b')).toBeInTheDocument()
+
+    // An AiEstimated row becomes active → every Missing-data editor
+    // collapses simultaneously. This is the one-active-editor invariant
+    // as scoped in Phase 0 findings.
+    rerender(
+      <MissingData
+        items={items}
+        activeEditorKey="verify-some-estimate"
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('missing-data-editor-missing-a')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('missing-data-editor-missing-b')).not.toBeInTheDocument()
+  })
+
+  it('does not render the editor when inline plumbing is not wired (graceful fallback)', () => {
+    render(<MissingData items={[makeMissingItem()]} />)
+    expect(screen.queryByTestId('missing-data-editor-missing-f2')).not.toBeInTheDocument()
+    // But the row itself must still render so users see the missing-data
+    // item and can click the factor label to focus the canvas node.
+    expect(screen.getByTestId('missing-data-row-missing-f2')).toBeInTheDocument()
+  })
+
+  // Brief 5.2 Task 7: same secondary-variant assertion as AiEstimated so the
+  // two sibling surfaces stay in sync.
+  it('sparkle uses variant="secondary" (opacity-50 at rest, revealed on hover/focus)', () => {
+    render(<MissingData items={[makeMissingItem()]} />)
+    const sparkle = screen.getByTestId('discuss-with-ai')
+    expect(sparkle.getAttribute('data-variant')).toBe('secondary')
+    expect(sparkle.className).toContain('opacity-50')
+    expect(sparkle.className).toContain('hover:opacity-100')
+    expect(sparkle.className).toContain('focus-visible:opacity-100')
+  })
+
+  // Brief 5.2 Task 8d follow-up (ChatGPT P1 #1): the technique hint is now
+  // wired when onSendMessage is provided. The fallback path (non-interactive
+  // span) still covers fixtures / Storybook / any caller that doesn't
+  // register a chat handler.
+  it('technique hint renders as a click-to-chat button when onSendMessage is wired', () => {
+    const onSendMessage = vi.fn()
+    render(
+      <MissingData
+        items={[makeMissingItem({ label: 'Churn Rate' })]}
+        onSendMessage={onSendMessage}
+      />,
+    )
+    const hint = screen.getByTestId('technique-hint-missing-f2')
+    expect(hint.tagName).toBe('BUTTON')
+    expect(hint.textContent).toBe('Try: reference class forecasting')
+    expect(hint.getAttribute('aria-label')).toContain('reference class forecasting')
+    expect(hint.getAttribute('aria-label')).toContain('Churn Rate')
+
+    fireEvent.click(hint)
+    expect(onSendMessage).toHaveBeenCalledTimes(1)
+    expect(onSendMessage).toHaveBeenCalledWith(
+      expect.stringContaining('reference class forecasting'),
+    )
+    expect(onSendMessage).toHaveBeenCalledWith(
+      expect.stringContaining('Churn Rate'),
+    )
+  })
+
+  it('technique hint falls back to a non-interactive span when onSendMessage is absent', () => {
+    render(<MissingData items={[makeMissingItem({ label: 'Churn Rate' })]} />)
+    const hint = screen.getByTestId('technique-hint-missing-f2')
+    expect(hint.tagName).toBe('SPAN')
+    expect(hint.textContent).toBe('Try: reference class forecasting')
+    expect(hint.closest('button')).toBeNull()
+  })
+
+  it('technique hint button is keyboard-focusable with focus ring classes', () => {
+    render(
+      <MissingData
+        items={[makeMissingItem({ label: 'Churn Rate' })]}
+        onSendMessage={() => {}}
+      />,
+    )
+    const hint = screen.getByTestId('technique-hint-missing-f2')
+    // DS v5 focus-visible ring present; the button can receive keyboard focus.
+    expect(hint.className).toContain('focus-visible:ring-2')
+    expect(hint.className).toContain('focus-visible:ring-info')
+  })
+
+  it('technique hint falls back to outside-view copy for non-rate/churn labels', () => {
+    render(<MissingData items={[makeMissingItem({ label: 'Team Size' })]} />)
+    expect(screen.getByText('Try: outside view technique')).toBeInTheDocument()
   })
 })

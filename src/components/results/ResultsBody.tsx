@@ -425,6 +425,8 @@ export const ResultsBody = memo(function ResultsBody({
       {/* Footer metadata — replaces the 56px spacer */}
       <ResultsFooter
         stability={resultsSectionData.recommendation.recommendationStability}
+        confidenceTier={resultsSectionData.confidence.tier.tier}
+        coachingReadiness={resultsSectionData.recommendation.coachingReadiness}
       />
 
       {/* V14.3b: Dev-only build marker for deploy verification */}

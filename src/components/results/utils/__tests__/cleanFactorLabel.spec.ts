@@ -4,7 +4,13 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { cleanFactorLabel, stripEncodingNotation, sanitizeCoachingText } from '../cleanFactorLabel'
+import {
+  cleanFactorLabel,
+  stripEncodingNotation,
+  sanitizeCoachingText,
+  stripStatusQuoSuffixForDisplay,
+  formatOptionLabelForCard,
+} from '../cleanFactorLabel'
 
 describe('cleanFactorLabel', () => {
   describe('binary patterns', () => {
@@ -301,5 +307,54 @@ describe('sanitizeCoachingText', () => {
 
   it('strips multi-entry decimal encoding from coaching text', () => {
     expect(sanitizeCoachingText('Risk (0=Low, 0.5=Med, 1=High) is uncertain')).toBe('Risk is uncertain')
+  })
+})
+
+describe('stripStatusQuoSuffixForDisplay — Brief 5.2 Task 6 shared helper', () => {
+  it('strips trailing "(Status Quo)" with various whitespace', () => {
+    expect(stripStatusQuoSuffixForDisplay('Continue Without Support (Status Quo)')).toBe('Continue Without Support')
+    expect(stripStatusQuoSuffixForDisplay('Keep Current Plan   (Status Quo)')).toBe('Keep Current Plan')
+    expect(stripStatusQuoSuffixForDisplay('Stay As-Is (  status  quo  )')).toBe('Stay As-Is')
+  })
+
+  it('is case-insensitive', () => {
+    expect(stripStatusQuoSuffixForDisplay('Option X (STATUS QUO)')).toBe('Option X')
+    expect(stripStatusQuoSuffixForDisplay('Option X (Status Quo)')).toBe('Option X')
+    expect(stripStatusQuoSuffixForDisplay('Option X (status quo)')).toBe('Option X')
+  })
+
+  it('only strips the TRAILING occurrence, not inline mentions', () => {
+    expect(stripStatusQuoSuffixForDisplay('Status Quo is fine')).toBe('Status Quo is fine')
+    expect(stripStatusQuoSuffixForDisplay('Compare vs (Status Quo) Always')).toBe('Compare vs (Status Quo) Always')
+  })
+
+  it('returns the input unchanged when no suffix is present', () => {
+    expect(stripStatusQuoSuffixForDisplay('Hire Tech Lead')).toBe('Hire Tech Lead')
+    expect(stripStatusQuoSuffixForDisplay('')).toBe('')
+  })
+
+  it('does NOT strip encoding notation — that composition is the caller\'s responsibility', () => {
+    // Intentional: fragility rows compose with stripEncodingNotation; baseline
+    // cards compose via formatOptionLabelForCard. Keeping the helpers single-
+    // purpose lets each call site choose which transforms apply.
+    expect(stripStatusQuoSuffixForDisplay('Option X (0/1) (Status Quo)')).toBe('Option X (0/1)')
+  })
+})
+
+describe('formatOptionLabelForCard — delegates to stripStatusQuoSuffixForDisplay (Brief 5.2 Task 6)', () => {
+  it('produces identical output to the old inline regex for the (Status Quo) case', () => {
+    expect(formatOptionLabelForCard('Continue Without Dedicated Support (Status Quo)', true))
+      .toBe('Continue Without Dedicated Support')
+  })
+
+  it('encoding stripping + status-quo stripping compose correctly when baseline pill is present', () => {
+    expect(formatOptionLabelForCard('Keep Current Plan (0/1) (Status Quo)', true))
+      .toBe('Keep Current Plan')
+  })
+
+  it('leaves trailing (Status Quo) in place when baseline pill is absent', () => {
+    // No pill means the suffix is the only user-visible status-quo signal.
+    expect(formatOptionLabelForCard('Keep Current Plan (Status Quo)', false))
+      .toBe('Keep Current Plan (Status Quo)')
   })
 })

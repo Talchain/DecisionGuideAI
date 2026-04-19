@@ -1,17 +1,19 @@
 /**
- * Certainty caveat cannot be overridden by upstream coaching text.
+ * Certainty copy — headline AND caveat are both tier-driven when tier is weak.
  *
- * Follow-up regression (post-ChatGPT review, P0 #2). The earlier wiring
- * had a loophole: when coachingHeadline or coachingDecisionStatement was
- * present, the tier-driven caveat was suppressed. That let an LLM
- * "clear leading option" string mask a needs_work / needs_evidence
- * bundle — exactly the staging QA failure certaintyCopy.ts was meant to
- * prevent.
+ * Brief 5.1 locked the caveat guarantee (caveat attaches whenever tier is
+ * weak, regardless of headline source). That was not enough — PLoT could
+ * still emit "Option A is the clear leader with a 95-point advantage" and
+ * the panel rendered it verbatim alongside the caveat, producing an
+ * internally-contradictory headline + caveat pair.
  *
- * Current contract: the caveat is derived purely from tier fields. If
- * buildCertaintyCopy returns a caveat, it renders, regardless of
- * whether the headline came from coachingHeadline,
- * coachingDecisionStatement, or the certainty fallback itself.
+ * Brief 5.2 Task 1 contract:
+ *   - When tier is weak (certainty.caveat is present), the headline is
+ *     replaced with the tier-aware lede "{winner} currently leads[ by N
+ *     points]". PLoT's coaching copy is suppressed — it cannot claim a
+ *     clear leader when the caveat says evidence is limited.
+ *   - When tier is strong/fair, coaching copy keeps precedence.
+ *   - The caveat is still derived purely from tier fields.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -35,19 +37,32 @@ interface FixtureOpts {
 }
 
 function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
-  const option: OptionResult = {
+  // Brief 5.2 Task 1: winner and runner-up have distinct winProbability so
+  // the gap computation (97.4 − 2.4 ≈ 95 points) exercises the new
+  // "by N points" suffix. Earlier fixtures used identical winProb on both
+  // which hid the gap suffix behaviour.
+  const winner: OptionResult = {
     id: 'opt-a',
     label: 'Option A',
     expectedValue: 0.8,
     p10: 0.6,
     p90: 0.95,
-    winProbability: 0.85,
+    winProbability: 0.974,
     goalProbability: 0.8,
+  } as OptionResult
+  const runnerUp: OptionResult = {
+    id: 'opt-b',
+    label: 'Option B',
+    expectedValue: 0.4,
+    p10: 0.2,
+    p90: 0.6,
+    winProbability: 0.024,
+    goalProbability: 0.3,
   } as OptionResult
 
   const recommendation: RecommendationSectionData = {
-    recommendedOption: option,
-    allOptions: [option, { ...option, id: 'opt-b', label: 'Option B' } as OptionResult],
+    recommendedOption: winner,
+    allOptions: [winner, runnerUp],
     goalLabel: 'Maximise success',
     isSingleOption: false,
     analysisStatus: 'computed',
@@ -55,7 +70,9 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
     robustnessLevel: 'high',
     coachingHeadline: opts.coachingHeadline,
     coachingDecisionStatement: opts.coachingDecisionStatement,
-    coachingReadiness: opts.coachingReadiness ?? 'ready',
+    // Use `in` so callers can explicitly set `coachingReadiness: undefined`
+    // to simulate missing readiness (Brief 5.2 follow-up non-caveat tests).
+    coachingReadiness: 'coachingReadiness' in opts ? opts.coachingReadiness : 'ready',
   }
 
   const drivers: DriversSectionData = {
@@ -108,30 +125,36 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
   }
 }
 
-describe('DecisionConfidencePanel — certainty caveat cannot be overridden by coaching text', () => {
-  it('coachingHeadline present AND needs_work tier: headline uses coaching text, caveat still renders from tier', () => {
+describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + caveat', () => {
+  it('needs_work tier: suppresses over-confident coachingHeadline and renders softened lede with "by N points"', () => {
     const data = makeData({
-      coachingHeadline: 'Option A is the clear leader with a 61-point advantage',
+      coachingHeadline: 'Option A is the clear leader with a 95-point advantage',
       confidenceTier: 'needs_work',
       coachingReadiness: 'ready',
     })
 
     render(<DecisionConfidencePanel data={data} />)
 
-    // Headline retains the coaching text (coaching pipeline still has precedence).
+    // Brief 5.2: "clear leader" copy is suppressed when tier is weak.
     expect(
-      screen.getByText('Option A is the clear leader with a 61-point advantage'),
+      screen.queryByText(/clear leader/),
+    ).not.toBeInTheDocument()
+
+    // Softened lede renders instead — preserves numeric lead without the
+    // over-confident framing. Gap = 97.4 − 2.4 = 95 points.
+    expect(
+      screen.getByText(/Option A currently leads by 95 points/),
     ).toBeInTheDocument()
 
-    // Caveat renders regardless — tier is needs_work.
+    // Caveat renders — tier is needs_work.
     expect(
       screen.getByText(/Result depends on factors with limited evidence/),
     ).toBeInTheDocument()
   })
 
-  it('coachingDecisionStatement present AND weak readiness: caveat still renders from tier', () => {
+  it('weak readiness: suppresses over-confident coachingDecisionStatement, renders softened lede', () => {
     const data = makeData({
-      coachingDecisionStatement: 'Proceed with Option A — the evidence supports it.',
+      coachingDecisionStatement: 'Proceed with Option A with confidence.',
       confidenceTier: 'strong',
       coachingReadiness: 'needs_evidence',
     })
@@ -139,14 +162,17 @@ describe('DecisionConfidencePanel — certainty caveat cannot be overridden by c
     render(<DecisionConfidencePanel data={data} />)
 
     expect(
-      screen.getByText('Proceed with Option A — the evidence supports it.'),
+      screen.queryByText('Proceed with Option A with confidence.'),
+    ).not.toBeInTheDocument()
+    expect(
+      screen.getByText(/Option A currently leads by 95 points/),
     ).toBeInTheDocument()
     expect(
       screen.getByText(/Result depends on factors with limited evidence/),
     ).toBeInTheDocument()
   })
 
-  it('coachingHeadline present AND strong tier + ready readiness: no caveat (correctly absent)', () => {
+  it('strong tier + ready readiness: coachingHeadline keeps precedence', () => {
     const data = makeData({
       coachingHeadline: 'Option A is the leading option',
       confidenceTier: 'strong',
@@ -161,9 +187,73 @@ describe('DecisionConfidencePanel — certainty caveat cannot be overridden by c
     ).not.toBeInTheDocument()
   })
 
+  it('fair tier + ready readiness: Brief 5.2 follow-up makes fair tier conservative — coachingHeadline suppressed', () => {
+    // ChatGPT P0 #1: fair tier emits the softened "currently leads" lede; a
+    // coachingHeadline saying "Option A has a slight edge" is conservative
+    // enough to render, but "clear leader / decisive" language would still
+    // leak through the old gate. The conservative flag now suppresses ANY
+    // coaching override on fair tier so the decision table stays authoritative.
+    const data = makeData({
+      coachingHeadline: 'Option A has a slight edge',
+      confidenceTier: 'fair',
+      coachingReadiness: 'ready',
+    })
+    render(<DecisionConfidencePanel data={data} />)
+    // The PLoT coaching copy is suppressed; certaintyCopy's "currently leads
+    // by N points" wins in fair-tier states.
+    expect(screen.queryByText('Option A has a slight edge')).not.toBeInTheDocument()
+    expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+    // No caveat — fair tier doesn't emit one.
+    expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
+  })
+
   it('no coaching text, fair tier: caveat absent (row 5 of the table)', () => {
     const data = makeData({ confidenceTier: 'fair', coachingReadiness: 'ready' })
     render(<DecisionConfidencePanel data={data} />)
     expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
+  })
+
+  // Brief 5.2 follow-up (ChatGPT P0 #1 + P1 #3): conservative certainty
+  // states without a caveat (unstable, fair tier, fallback) must ALSO
+  // suppress over-confident coachingHeadline overrides. The earlier gate
+  // only protected caveat-bearing branches, leaking "clear leader" copy
+  // into fair-tier / unstable renders even though the underlying lede
+  // was already softened.
+  describe('conservative branches without caveat still suppress coachingHeadline', () => {
+    it('fair tier: over-confident coachingHeadline is suppressed, softened lede wins', () => {
+      const data = makeData({
+        coachingHeadline: 'Option A is the clear leader',
+        confidenceTier: 'fair',
+        coachingReadiness: 'ready',
+      })
+      render(<DecisionConfidencePanel data={data} />)
+      expect(screen.queryByText(/clear leader/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+      // No caveat — the softening alone is enough for fair tier.
+      expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
+    })
+
+    it('fallback (unknown tier + absent readiness): coachingHeadline is suppressed', () => {
+      const data = makeData({
+        coachingHeadline: 'Option A is clearly the best choice',
+        confidenceTier: 'unknown',
+      })
+      render(<DecisionConfidencePanel data={data} />)
+      expect(screen.queryByText(/clearly the best choice/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+    })
+
+    it('strong tier + missing readiness: still conservative, coachingHeadline suppressed', () => {
+      // Guards the pre-fix class of bug where strong tier alone triggered
+      // coaching overrides despite readiness being absent or incomplete.
+      const data = makeData({
+        coachingHeadline: 'Option A is the clear leader with a strong advantage',
+        confidenceTier: 'strong',
+        coachingReadiness: undefined,
+      })
+      render(<DecisionConfidencePanel data={data} />)
+      expect(screen.queryByText(/clear leader/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+    })
   })
 })

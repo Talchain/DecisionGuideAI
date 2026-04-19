@@ -385,7 +385,7 @@ export function AdvancedSection({
               </>
             )}
             {responseHash && (
-              <>
+              <div className="contents" data-testid="advanced-hash-row">
                 <dt className="text-text-light">Hash</dt>
                 <dd className="text-text-header flex items-center gap-1">
                   <span className="font-mono truncate" title={responseHash}>
@@ -405,7 +405,7 @@ export function AdvancedSection({
                     )}
                   </button>
                 </dd>
-              </>
+              </div>
             )}
           </dl>
         </ExpertBlock>

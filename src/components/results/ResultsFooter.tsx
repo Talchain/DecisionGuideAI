@@ -7,6 +7,9 @@
 
 import { typography } from '../../styles/typography'
 import { getStabilityClassification } from '../../lib/stability'
+import { getStabilityDisplayLabel } from './utils/getStabilityDisplayLabel'
+import type { ConfidenceTier } from './types'
+import type { M1CoachingReadiness } from '../../types/cee'
 import Tooltip from '../Tooltip'
 
 export interface ResultsFooterProps {
@@ -14,14 +17,29 @@ export interface ResultsFooterProps {
   stability?: number | null
   /** Cumulative normalised influence of resolved factors (0-1), omit when unavailable */
   influencePct?: number | null
+  /**
+   * Brief 5.2 Task 1: weak tier forces "Stability sensitive" even at high
+   * numeric stability. Without these, an evidence-weak analysis with
+   * stability 0.97 reads as "Stable result · 97%" — over-confident.
+   */
+  confidenceTier?: ConfidenceTier
+  coachingReadiness?: M1CoachingReadiness
 }
 
 export function ResultsFooter({
   stability,
   influencePct,
+  confidenceTier,
+  coachingReadiness,
 }: ResultsFooterProps) {
   const stabilityPct = stability != null ? Math.round(stability * 100) : null
-  const stabilityLabel = getStabilityClassification(stability ?? null)?.heroLabel
+  const classification = getStabilityClassification(stability ?? null)
+  const displayLabel = getStabilityDisplayLabel({
+    classification,
+    confidenceTier,
+    coachingReadiness,
+  })
+  const stabilityLabel = displayLabel?.heroLabel
 
   const parts: string[] = []
   if (stabilityLabel) parts.push(stabilityLabel)

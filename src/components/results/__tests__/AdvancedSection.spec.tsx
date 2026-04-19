@@ -141,6 +141,48 @@ describe('AdvancedSection', () => {
     expect(screen.queryByText('Hash')).not.toBeInTheDocument()
     expect(screen.queryByText('abc123def456…')).not.toBeInTheDocument()
     expect(screen.queryByLabelText('Copy hash to clipboard')).not.toBeInTheDocument()
+    // Brief 5.2 Task 2: precise testid assertion — no hex token leaks regardless of accordion state.
+    expect(screen.queryByTestId('advanced-hash-row')).not.toBeInTheDocument()
+  })
+
+  // Brief 5.2 Task 2: inferenceWarnings auto-expands the accordion. The hash
+  // row must stay hidden in standard view even when the section is expanded
+  // by default. Staging QA screenshot "9b1634d" appears to match the Brief
+  // 5.1 merge SHA; this test verifies the gate holds in that scenario.
+  it('does NOT render hash when expertMode is false and accordion is auto-expanded by inferenceWarnings', () => {
+    render(
+      <AdvancedSection
+        responseHash="9b1634d2abcdef"
+        inferenceWarnings={[{ code: 'weak_evidence', message: 'Low evidence on 3 factors' }]}
+      />,
+    )
+    // No click needed — accordion defaultExpanded={true} due to inferenceWarnings.
+    expect(screen.queryByTestId('advanced-hash-row')).not.toBeInTheDocument()
+    expect(screen.queryByText('Hash')).not.toBeInTheDocument()
+    expect(screen.queryByText('9b1634d2abcd…')).not.toBeInTheDocument()
+  })
+
+  // Brief 5.2 Task 2: testid-based regression guard — exact scoping beats a
+  // loose 7-hex regex on the whole DOM.
+  it('renders advanced-hash-row testid when expertMode is true', () => {
+    render(<AdvancedSection responseHash="abc123def456ghi789" expertMode />)
+    fireEvent.click(screen.getByText('Advanced'))
+    expect(screen.getByTestId('advanced-hash-row')).toBeInTheDocument()
+  })
+
+  // Brief 5.2 Task 8c: Gauge icon on the Risk profile heading was shipped
+  // in Brief 5.1 Task 6. Lock it via a regression test so future icon-dict
+  // refactors don't quietly drop it.
+  it('Risk profile heading renders the Gauge icon (Brief 5.1 Task 6 / Brief 5.2 Task 8c)', () => {
+    const { container } = render(<AdvancedSection />)
+    fireEvent.click(screen.getByText('Advanced'))
+    const heading = container.querySelector('[data-testid="risk-profile-control"] h4')
+    expect(heading).toBeTruthy()
+    // Heading contains an SVG (the Lucide Gauge). aria-hidden so it does not
+    // duplicate the visible "Risk profile" label for screen readers.
+    const icon = heading!.querySelector('svg')
+    expect(icon).toBeTruthy()
+    expect(icon).toHaveAttribute('aria-hidden', 'true')
   })
 
   it('hides detail rows when values are not provided', () => {

@@ -21,11 +21,10 @@ import { typography } from '../../styles/typography'
 import type { ActionItem } from './utils/groupActionItems'
 import { CappedList } from './CappedList'
 import { GraphLink } from './GraphLink'
-import { HelpCircle, AlertTriangle, Info, PanelRight } from 'lucide-react'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { HelpCircle, AlertTriangle, Info } from 'lucide-react'
+import { stripEncodingNotation, stripStatusQuoSuffixForDisplay } from './utils/cleanFactorLabel'
 import type { EvidenceGapItem, DriverItem } from './types'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
-import Tooltip from '../Tooltip'
 import { ExpertBlock } from './ExpertBlock'
 
 /** E-value entry for an edge */
@@ -213,10 +212,18 @@ function FragileEdgeGroupCard({
   // Consolidated mode: empty sourceLabel means edges from mixed sources
   const consolidated = !sourceLabel
   const multiple = edges.length > 1
-  const focusId = edges[0].from_id ?? edges[0].from_label
 
   return (
-    <div className={`relative border border-panel-border rounded-lg px-3 py-2 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
+    <div className={`relative border border-panel-border rounded-lg px-3 py-2 pr-16 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
+      {/* Brief 5.2 Task 6: Stability pill anchored top-right so it reads as a
+          card-level signal rather than inline with the body text. The pr-16
+          above reserves space so wrapping body text doesn't overlap. */}
+      <span
+        className={`absolute top-2 right-3 rounded-full border ${hasEValue ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}
+        data-testid="fragile-card-stability-pill"
+      >
+        Stability
+      </span>
       <div className="flex items-center gap-2">
         <AlertTriangle className={`w-3.5 h-3.5 ${hasEValue ? 'text-danger' : 'text-warning'} flex-shrink-0`} aria-hidden="true" />
         <p className={`${typography.panelBody} text-text-body flex-1`}>
@@ -226,39 +233,37 @@ function FragileEdgeGroupCard({
               ? <>{edges.length} fragile relationships from {cleanSource}</>
               : hasEValue ? 'Fragile result, verify key assumptions' : 'Fragile relationship'}
         </p>
-        <span className={`rounded-full border ${hasEValue ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}>
-          Stability
-        </span>
       </div>
 
-      {/* Brief 5.1 Task 8a — scannable three-slot layout per edge:
-            [shifting-relationship phrase]  →  [alternative winner, semibold]
-          Removes the repeated ", could overtake" phrasing; the arrow + bold
-          winner carries the "alternative winner" signal visually. Each row
-          clamps to ≤2 lines on 1280px via `flex-wrap` + short clauses.
-
-          Brief 5.1 Task 8b — per-edge "Review this relationship" chip wired
-          to the existing onFocusNode handler. Label honestly describes the
-          action (opens the relationship in the inspector for the user's
-          review); not a "Validate" claim — no calibration handler exists. */}
+      {/* Brief 5.2 Task 6 row copy structure:
+            "If {source} shifts → {alt-winner, bold, stripped} could overtake"
+          Single visible arrow per row (was two: visible inline + aria-hidden
+          between clauses). "(Status Quo)" suffix stripped from the alt-winner
+          via stripStatusQuoSuffixForDisplay so a runner-up labelled
+          "Continue Without Support (Status Quo)" reads cleanly in fragility
+          context. "could win" → "could overtake" unifies verb choice. */}
       {edges.map((edge, i) => {
         const edgeSource = stripEncodingNotation(edge.from_label)
-        const edgeTarget = stripEncodingNotation(edge.to_label)
         const altWinner = edge.alternative_winner_label
-          ? stripEncodingNotation(edge.alternative_winner_label)
+          ? stripStatusQuoSuffixForDisplay(stripEncodingNotation(edge.alternative_winner_label))
           : null
-        const edgeFocusId = edge.from_id ?? edge.from_label
+        // Brief 5.2 follow-up (ChatGPT P1 #2): onFocusNode expects a canvas
+        // node id, not a label. When PLoT omits edge.from_id the chip would
+        // previously fire with from_label and silently no-op (or worse,
+        // match a node whose id happens to equal the label). Use from_id
+        // directly — when absent, the chip is suppressed below.
+        const edgeFocusId = edge.from_id
         return (
           <div key={`${edge.from_label}-${edge.to_label}-${i}`} className="space-y-1">
             <div className={`flex items-baseline gap-2 flex-wrap ${typography.panelMeta} text-text-light`}>
               <span>
-                If <span className="text-text-body">{edgeSource} &rarr; {edgeTarget}</span> shifts
+                If <span className="text-text-body">{edgeSource}</span> shifts
               </span>
               {altWinner ? (
                 <>
                   <span aria-hidden="true" className="text-text-light">→</span>
                   <span className="text-text-body font-semibold" data-testid="fragile-alt-winner">
-                    {altWinner} could win
+                    {altWinner} could overtake
                   </span>
                 </>
               ) : (
@@ -272,13 +277,27 @@ function FragileEdgeGroupCard({
                 </p>
               </ExpertBlock>
             )}
-            {onFocusNode && !consolidated && (
+            {/* Brief 5.2 Task 6c: per-row chip also renders for consolidated
+                groups — removes the inconsistency where consolidated cards
+                only exposed an icon-only inspector button.
+
+                Brief 5.2 follow-up (ChatGPT P0 #2): always use the row's
+                own edgeFocusId. The earlier implementation fell back to
+                group-level focusId for consolidated groups, which opened
+                the first edge's source for EVERY row — row 2+ chips
+                focused the wrong node.
+
+                Brief 5.2 follow-up (ChatGPT P1 #2): chip is suppressed
+                when edge.from_id is absent. Passing from_label to
+                onFocusNode would silently no-op in the inspector and
+                mislead the user into thinking the affordance works. */}
+            {onFocusNode && edgeFocusId && (
               <button
                 type="button"
                 onClick={() => onFocusNode(edgeFocusId)}
                 data-testid={`fragile-review-chip-${i}`}
                 className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
-                aria-label={`Review ${edgeSource} to ${edgeTarget} in the inspector`}
+                aria-label={`Review ${edgeSource} in the inspector`}
               >
                 Review this relationship
               </button>
@@ -286,23 +305,6 @@ function FragileEdgeGroupCard({
           </div>
         )
       })}
-
-      {/* Consolidated-group inspector — grouped cards still need one
-          affordance at the group level when the per-edge chips are hidden. */}
-      {onFocusNode && consolidated && (
-        <div className="flex items-center gap-1 pt-0.5">
-          <Tooltip content="Open in inspector" delay={200}>
-            <button
-              type="button"
-              onClick={() => onFocusNode(focusId)}
-              aria-label="Open in inspector"
-              className="inline-flex items-center justify-center w-6 h-6 rounded-full text-text-light hover:text-info focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 transition-colors"
-            >
-              <PanelRight size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        </div>
-      )}
 
       {/* Sparkle CTA — bottom-right, matching shared pattern */}
       {onSendMessage && (

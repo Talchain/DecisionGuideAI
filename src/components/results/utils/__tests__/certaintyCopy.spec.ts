@@ -25,6 +25,7 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
       headline: 'Some analysis steps did not complete',
       sub: 'Results are partial',
       caveat: null,
+      conservative: true,
     })
   })
 
@@ -40,6 +41,7 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
       headline: 'no clear leading option, the result is sensitive to your estimates',
       sub: `${WINNER} leads slightly more often`,
       caveat: null,
+      conservative: true,
     })
   })
 
@@ -64,6 +66,7 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
       headline: `${WINNER} is your only option`,
       sub: null,
       caveat: null,
+      conservative: true,
     })
   })
 
@@ -110,6 +113,7 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
         headline: `${WINNER} currently leads`,
         sub: null,
         caveat: null,
+        conservative: true,
       })
     })
 
@@ -135,6 +139,7 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
       headline: `${WINNER} is the leading option`,
       sub: null,
       caveat: null,
+      conservative: false,
     })
   })
 
@@ -143,6 +148,7 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
       headline: `${WINNER} currently leads`,
       sub: null,
       caveat: null,
+      conservative: true,
     })
   })
 
@@ -236,5 +242,181 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
         expect(field).not.toContain('—')
       }
     }
+  })
+
+  describe('Brief 5.2 Task 1 — winProbabilityGap suffix', () => {
+    it('row 4 (weak tier): appends " by N points" when gap provided', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+        winProbabilityGap: 95,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 95 points`)
+      expect(result.caveat).toContain('limited evidence')
+    })
+
+    it('row 4 (weak readiness): appends suffix', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        coachingReadiness: 'needs_evidence',
+        winProbabilityGap: 12,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 12 points`)
+    })
+
+    it('row 5 (fair tier): appends suffix, no caveat', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'fair',
+        winProbabilityGap: 7,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 7 points`)
+      expect(result.caveat).toBeNull()
+    })
+
+    it('row 6 (strong + ready): does NOT append suffix — reserved phrasing', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'strong',
+        coachingReadiness: 'ready',
+        winProbabilityGap: 50,
+      })
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
+    })
+
+    it('row 7 fallback: appends suffix when gap provided', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        winProbabilityGap: 3,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 3 points`)
+    })
+
+    it('singular point uses "point" not "points"', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+        winProbabilityGap: 1,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 1 point`)
+    })
+
+    it('rounds fractional gaps to the nearest whole point', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+        winProbabilityGap: 4.6,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 5 points`)
+    })
+
+    it('omits suffix when gap is 0, negative, or non-finite', () => {
+      for (const gap of [0, -1, NaN, Infinity, -Infinity]) {
+        const result = buildCertaintyCopy({
+          winnerLabel: WINNER,
+          confidenceTier: 'needs_work',
+          winProbabilityGap: gap,
+        })
+        expect(result.headline).toBe(`${WINNER} currently leads`)
+      }
+    })
+
+    it('row 1 (unstable) ignores gap — canonical unstable copy is preserved', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        recommendationStability: 0.55,
+        winProbabilityGap: 95,
+      })
+      expect(result.headline).toBe(
+        'no clear leading option, the result is sensitive to your estimates',
+      )
+    })
+  })
+
+  describe('Brief 5.2 follow-up — conservative flag scopes coaching overrides', () => {
+    // The conservative flag is the single signal DecisionConfidencePanel
+    // consults to decide whether PLoT coachingHeadline may override the
+    // tier-aware lede. Only Rule 6 (strong + ready) opts in; every other
+    // branch stays conservative so unstable, partial, fair-tier, and
+    // fallback states can't regress to "clear leader" framing.
+
+    it('row 2 (partial analysis) is conservative', () => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        analysisStatus: 'partial',
+      }).conservative).toBe(true)
+    })
+
+    it('row 1 (stability < 0.70) is conservative', () => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        recommendationStability: 0.55,
+      }).conservative).toBe(true)
+    })
+
+    it('row 3 (single option) is conservative', () => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        optionCount: 1,
+      }).conservative).toBe(true)
+    })
+
+    it('row 4 (weak tier) is conservative', () => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+      }).conservative).toBe(true)
+    })
+
+    it.each([
+      ['needs_evidence' as const],
+      ['needs_framing' as const],
+      ['low' as const],
+      ['not_ready' as const],
+    ])('row 4 (weak readiness %s) is conservative', (readiness) => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        coachingReadiness: readiness,
+      }).conservative).toBe(true)
+    })
+
+    it('row 5 (fair tier) is conservative', () => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'fair',
+        coachingReadiness: 'ready',
+      }).conservative).toBe(true)
+    })
+
+    it('row 5 (close_call readiness) is conservative', () => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        coachingReadiness: 'close_call',
+      }).conservative).toBe(true)
+    })
+
+    it('row 6 (strong + ready) is NOT conservative — only branch where coaching override is allowed', () => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'strong',
+        coachingReadiness: 'ready',
+      }).conservative).toBe(false)
+    })
+
+    it('row 7 (fallback) is conservative', () => {
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+      }).conservative).toBe(true)
+    })
+
+    it('row 7 (strong but missing readiness) is conservative — does NOT opt into overrides', () => {
+      // Guards the pre-fix bug where coachingHeadline could render a "clear
+      // leader" string on any recommendation with strong tier but absent
+      // readiness data.
+      expect(buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'strong',
+      }).conservative).toBe(true)
+    })
   })
 })
