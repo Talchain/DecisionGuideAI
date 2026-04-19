@@ -91,10 +91,10 @@ describe('ScenarioListPage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByTestId('empty-state')).toBeTruthy()
+      expect(screen.getByTestId('first-run')).toBeTruthy()
     })
 
-    expect(screen.getByText('No scenarios yet')).toBeTruthy()
+    expect(screen.getByText('Welcome to Olumi')).toBeTruthy()
   })
 
   it('navigates to /scenario/:id on row click', async () => {
@@ -115,7 +115,7 @@ describe('ScenarioListPage', () => {
       expect(screen.getByText('Test')).toBeTruthy()
     })
 
-    fireEvent.click(screen.getByTestId('scenario-row'))
+    fireEvent.click(screen.getByTestId('scenario-card'))
     expect(mockNavigate).toHaveBeenCalledWith('/scenario/s1')
   })
 
@@ -126,10 +126,10 @@ describe('ScenarioListPage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByTestId('empty-state')).toBeTruthy()
+      expect(screen.getByTestId('first-run')).toBeTruthy()
     })
 
-    fireEvent.click(screen.getByText('Create scenario'))
+    fireEvent.click(screen.getByText('Start a new decision'))
 
     await waitFor(() => {
       expect(mockCreateScenario).toHaveBeenCalled()
@@ -189,7 +189,7 @@ describe('ScenarioListPage', () => {
     renderPage()
 
     await waitFor(() => {
-      expect(screen.getByText(/Analysis run — Option A won at 73%/)).toBeTruthy()
+      expect(screen.getByText(/Analysis run — Option A led at 73%/)).toBeTruthy()
     })
   })
 

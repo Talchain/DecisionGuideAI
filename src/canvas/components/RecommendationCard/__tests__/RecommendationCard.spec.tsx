@@ -152,7 +152,7 @@ describe('RecommendationCard', () => {
       render(<RecommendationCard />)
 
       expect(screen.getByTestId('recommendation-card-loading')).toBeInTheDocument()
-      expect(screen.getByText('Generating recommendation...')).toBeInTheDocument()
+      expect(screen.getByText('Generating result...')).toBeInTheDocument()
     })
   })
 
@@ -169,7 +169,7 @@ describe('RecommendationCard', () => {
       render(<RecommendationCard />)
 
       expect(screen.getByTestId('recommendation-card-error')).toBeInTheDocument()
-      expect(screen.getByText('Could not generate recommendation')).toBeInTheDocument()
+      expect(screen.getByText('Could not generate result')).toBeInTheDocument()
       expect(screen.getByText('Retry')).toBeInTheDocument()
     })
 
@@ -223,7 +223,7 @@ describe('RecommendationCard', () => {
     it('displays AI badge', () => {
       render(<RecommendationCard />)
 
-      expect(screen.getByText('Recommended Action')).toBeInTheDocument()
+      expect(screen.getByText('Suggested Action')).toBeInTheDocument()
     })
   })
 

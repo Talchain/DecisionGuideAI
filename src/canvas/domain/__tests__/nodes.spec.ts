@@ -144,6 +144,6 @@ describe('NODE_REGISTRY', () => {
   })
 
   it('action node has correct default size', () => {
-    expect(NODE_REGISTRY.action.defaultSize).toEqual({ width: 180, height: 70 })
+    expect(NODE_REGISTRY.action.defaultSize).toEqual({ width: 220, height: 100 })
   })
 })

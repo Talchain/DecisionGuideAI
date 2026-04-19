@@ -129,7 +129,7 @@ describe('InsightsPanel', () => {
 
       expect(screen.getByText('Risks to Consider')).toBeInTheDocument()
       expect(
-        screen.queryByText('Recommended Next Steps')
+        screen.queryByText('Suggested Next Steps')
       ).not.toBeInTheDocument()
     })
   })
@@ -138,8 +138,8 @@ describe('InsightsPanel', () => {
     it('shows next steps section with correct styling', () => {
       render(<InsightsPanel insights={mockFullInsights} />)
 
-      expect(screen.getByText('Recommended Next Steps')).toBeInTheDocument()
-      expect(screen.getByText('Recommended Next Steps')).toHaveClass(
+      expect(screen.getByText('Suggested Next Steps')).toBeInTheDocument()
+      expect(screen.getByText('Suggested Next Steps')).toHaveClass(
         'text-success'
       )
     })
@@ -148,7 +148,7 @@ describe('InsightsPanel', () => {
       render(<InsightsPanel insights={mockRisksOnlyInsights} />)
 
       expect(
-        screen.queryByText('Recommended Next Steps')
+        screen.queryByText('Suggested Next Steps')
       ).not.toBeInTheDocument()
     })
   })
@@ -171,7 +171,7 @@ describe('InsightsPanel', () => {
         screen.getByRole('list', { name: 'Risks to consider' })
       ).toBeInTheDocument()
       expect(
-        screen.getByRole('list', { name: 'Recommended next steps' })
+        screen.getByRole('list', { name: 'Suggested next steps' })
       ).toBeInTheDocument()
     })
   })

@@ -39,8 +39,8 @@ describe('VerificationBadge', () => {
         />
       )
 
-      expect(screen.getByText('Review Recommended')).toBeInTheDocument()
-      expect(screen.getByLabelText('Verification: Review Recommended')).toHaveClass(
+      expect(screen.getByText('Review Suggested')).toBeInTheDocument()
+      expect(screen.getByLabelText('Verification: Review Suggested')).toHaveClass(
         'text-warning'
       )
     })
@@ -116,7 +116,7 @@ describe('VerificationBadge', () => {
         />
       )
 
-      const button = screen.getByText('Review Recommended')
+      const button = screen.getByText('Review Suggested')
       expect(screen.queryByText(/Minor format issue/)).not.toBeInTheDocument()
 
       fireEvent.click(button)
@@ -142,7 +142,7 @@ describe('VerificationBadge', () => {
         />
       )
 
-      const button = screen.getByText('Review Recommended')
+      const button = screen.getByText('Review Suggested')
 
       fireEvent.click(button)
       expect(screen.getByText(/Minor format issue/)).toBeInTheDocument()
@@ -176,7 +176,7 @@ describe('VerificationBadge', () => {
         />
       )
 
-      fireEvent.click(screen.getByText('Review Recommended'))
+      fireEvent.click(screen.getByText('Review Suggested'))
 
       expect(screen.getByText(/schema:/)).toBeInTheDocument()
       expect(screen.getByText(/Minor format issue/)).toBeInTheDocument()
@@ -202,7 +202,7 @@ describe('VerificationBadge', () => {
         />
       )
 
-      fireEvent.click(screen.getByText('Review Recommended'))
+      fireEvent.click(screen.getByText('Review Suggested'))
       expect(screen.getByText(/FORMAT_ERROR/)).toBeInTheDocument()
     })
 
@@ -245,7 +245,7 @@ describe('VerificationBadge', () => {
         />
       )
 
-      const button = screen.getByText('Review Recommended')
+      const button = screen.getByText('Review Suggested')
       fireEvent.click(button)
 
       expect(screen.queryByRole('region', { name: 'Verification details' })).not.toBeInTheDocument()
@@ -281,7 +281,7 @@ describe('VerificationBadge', () => {
         />
       )
 
-      const button = screen.getByText('Review Recommended')
+      const button = screen.getByText('Review Suggested')
 
       // Initially collapsed - details not visible
       expect(screen.queryByText('Test issue')).not.toBeInTheDocument()
@@ -324,7 +324,7 @@ describe('VerificationBadge', () => {
         />
       )
 
-      fireEvent.click(screen.getByText('Review Recommended'))
+      fireEvent.click(screen.getByText('Review Suggested'))
       expect(screen.getByRole('region', { name: 'Verification details' })).toBeInTheDocument()
     })
   })
@@ -355,7 +355,7 @@ describe('VerificationBadge', () => {
         />
       )
 
-      expect(screen.getByText('Review Recommended')).toBeInTheDocument()
+      expect(screen.getByText('Review Suggested')).toBeInTheDocument()
     })
 
     it('handles empty issues_detected array', () => {
