@@ -2,8 +2,9 @@
  * C1 regression: fragile edge threshold consistency across edgeIdentity.ts
  *
  * Verifies that findFragileEdge and buildFragileEdgeLookup apply the same
- * 0.3 switch_probability threshold as isEdgeFragile in fragileEdgeMatch.ts.
- * An edge at 0.25 must be excluded everywhere.
+ * 0.15 switch_probability threshold as isEdgeFragile in fragileEdgeMatch.ts
+ * (threshold lowered from 0.3 to 0.15 in commit ec41006e — Spec Section 6.3).
+ * An edge at 0.10 must be excluded everywhere.
  */
 
 import { describe, it, expect } from 'vitest'
@@ -34,9 +35,9 @@ function makeFragile(
 }
 
 describe('findFragileEdge — C1 threshold consistency', () => {
-  it('returns undefined for edge with switch_probability=0.25 (below threshold)', () => {
+  it('returns undefined for edge with switch_probability=0.10 (below threshold)', () => {
     const edge = makeEdge('e1', 'a', 'b')
-    const fragile = [makeFragile('e1', 'a', 'b', 0.25)]
+    const fragile = [makeFragile('e1', 'a', 'b', 0.10)]
     expect(findFragileEdge(edge, fragile)).toBeUndefined()
   })
 
@@ -46,9 +47,10 @@ describe('findFragileEdge — C1 threshold consistency', () => {
     expect(findFragileEdge(edge, fragile)).toBeDefined()
   })
 
-  it('returns undefined for edge with switch_probability=0.30 (at threshold, <=)', () => {
+  it('returns undefined for edge with switch_probability=0.15 (at threshold)', () => {
     const edge = makeEdge('e1', 'a', 'b')
-    const fragile = [makeFragile('e1', 'a', 'b', 0.30)]
+    const fragile = [makeFragile('e1', 'a', 'b', 0.15)]
+    // Production uses strict >, so 0.15 > 0.15 is false → excluded.
     expect(findFragileEdge(edge, fragile)).toBeUndefined()
   })
 
@@ -60,10 +62,10 @@ describe('findFragileEdge — C1 threshold consistency', () => {
 })
 
 describe('buildFragileEdgeLookup — C1 threshold consistency', () => {
-  it('excludes edges below 0.3 threshold from lookup', () => {
+  it('excludes edges below 0.15 threshold from lookup', () => {
     const edges = [makeEdge('e1', 'a', 'b'), makeEdge('e2', 'c', 'd')]
     const fragile = [
-      makeFragile('e1', 'a', 'b', 0.25), // below threshold
+      makeFragile('e1', 'a', 'b', 0.10), // below threshold
       makeFragile('e2', 'c', 'd', 0.42), // above threshold
     ]
     const lookup = buildFragileEdgeLookup(edges, fragile)
