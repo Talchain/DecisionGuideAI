@@ -98,4 +98,13 @@ describe('MissingData — Brief 5.1 Task 3 icon parity', () => {
     expect(setBtn.className).not.toContain('min-h-[44px]')
     expect(setBtn.className).not.toContain('min-w-[44px]')
   })
+
+  it('rows without a current value read "Not set" — consistent with the AiEstimated placeholder and the brief copy spec', () => {
+    render(<MissingData items={[makeMissingItem()]} />)
+    expect(screen.getByText('Not set')).toBeInTheDocument()
+    // Old "No data" wording must not linger — anyone pattern-matching on
+    // that string (QA checklists, analytics filters) needs to see the
+    // switch.
+    expect(screen.queryByText('No data')).not.toBeInTheDocument()
+  })
 })

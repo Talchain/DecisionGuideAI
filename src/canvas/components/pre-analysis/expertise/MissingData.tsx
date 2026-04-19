@@ -69,7 +69,11 @@ export function MissingData({
               >
                 {item.label}
               </button>
-              <span className={`${typography.panelMeta} text-text-light shrink-0`}>No data</span>
+              {/* Brief 5.1 Task 3 copy: rows without a current value read
+                  "Not set" — consistent with the AiEstimated em-dash
+                  placeholder and the brief's "Not set + Set value"
+                  interaction spec. */}
+              <span className={`${typography.panelMeta} text-text-light shrink-0`}>Not set</span>
               {influencePct != null && (
                 <div className="flex items-center gap-1 shrink-0" style={{ width: 60 }}>
                   <div className="flex-1 h-1 bg-panel-border rounded-full overflow-hidden">
