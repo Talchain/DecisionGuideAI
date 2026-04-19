@@ -49,14 +49,25 @@ interface MissingDataProps {
   onSendMessage?: (text: string) => void
 }
 
-function getTechniqueHint(label: string): { text: string; tooltip: string } {
+/**
+ * Structured technique hint: the `title` is the technique name in isolation
+ * (used for the click-to-chat prompt and aria-label); `text` is the visible
+ * row copy ("Try: {title}"); `tooltip` is the disclosed explanation.
+ *
+ * Returning the name as a first-class field avoids string-stripping the
+ * "Try:" prefix in consumers — a future copy change can reword `text`
+ * without silently breaking the prompt or aria-label.
+ */
+function getTechniqueHint(label: string): { title: string; text: string; tooltip: string } {
   if (/rate|churn/i.test(label)) {
     return {
+      title: 'reference class forecasting',
       text: 'Try: reference class forecasting',
       tooltip: 'Estimate by finding similar situations and using their outcomes as a baseline',
     }
   }
   return {
+    title: 'outside view technique',
     text: 'Try: outside view technique',
     tooltip: 'Step back from the specifics and consider base rates from comparable cases',
   }
@@ -151,10 +162,10 @@ export function MissingData({
                 <button
                   type="button"
                   onClick={() => onSendMessage(
-                    `How do I apply ${technique.text.replace(/^Try:\s*/, '')} to "${item.label}"?`,
+                    `How do I apply ${technique.title} to "${item.label}"?`,
                   )}
                   data-testid={`technique-hint-${item.key}`}
-                  aria-label={`Discuss applying ${technique.text.replace(/^Try:\s*/, '')} to ${item.label}`}
+                  aria-label={`Discuss applying ${technique.title} to ${item.label}`}
                   className={`${typography.panelMeta} text-info hover:underline cursor-pointer bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded`}
                 >
                   {technique.text}
