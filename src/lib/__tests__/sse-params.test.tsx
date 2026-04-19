@@ -36,6 +36,13 @@ const reportSpy = vi.fn(async (_args: any) => ({
 }))
 vi.mock('../runReport', () => ({
   fetchRunReport: (args: any) => reportSpy(args),
+  // Packet B (2026-04-19): RunReportDrawer.tsx:87-91 prefers fetchRunReportEnhanced
+  // when it exists on the namespace import, falling back to fetchRunReport.
+  // Stub both so the ternary routes to our spy regardless of branch.
+  fetchRunReportEnhanced: async (args: any) => ({
+    report: await reportSpy(args),
+    fallback: false,
+  }),
 }))
 
 class FakeEventSource {
@@ -101,13 +108,21 @@ describe('SandboxStreamPanel with params', () => {
     expect(es.url).toContain('budget=3.5')
     expect(es.url).toContain('model=local-sim')
 
-    // Finish stream to trigger report fetch
+    // Finish stream so the view-report button becomes enabled
     act(() => {
       es.emit('open')
       es.emit('done')
     })
 
     // Allow any microtasks to settle
+    await vi.advanceTimersByTimeAsync(0)
+
+    // Packet B (2026-04-19): RunReportDrawer doesn't auto-fetch on SSE 'done' —
+    // the drawer is user-action-gated (SandboxStreamPanel.tsx:1181 view-report-btn,
+    // disabled until status is done|aborted|error|limited). Click simulates the
+    // user action that flips reportOpen=true and triggers RunReportDrawer's
+    // useEffect at RunReportDrawer.tsx:80 to fetch the report.
+    fireEvent.click(screen.getByTestId('view-report-btn'))
     await vi.advanceTimersByTimeAsync(0)
 
     // Assert report mapping received same params
