@@ -734,4 +734,27 @@ describe('TornadoChart', () => {
     expect(introIdx).toBeLessThan(legendIdx)
     expect(legendIdx).toBeLessThan(barsIdx)
   })
+
+  // Brief 5.1 Task 5: legend occupies its own full-width row and the centre
+  // span no longer truncates — "Expected: {value}" must render in full.
+  it('legend row is full-width (no ml-[162px] offset) and does not truncate the centre span', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="currency"
+        outcomeUnitSymbol="$"
+      />,
+    )
+
+    const legend = screen.getByTestId('tornado-legend')
+    expect(legend.className).not.toContain('ml-[162px]')
+
+    const expectedSpan = screen.getByTestId('tornado-expected-display')
+    expect(expectedSpan.className).not.toContain('truncate')
+    // Centre text stays on one line and never clips.
+    expect(expectedSpan.className).toContain('whitespace-nowrap')
+    // The entire label is rendered (matches the tooltip attribute).
+    expect(expectedSpan.textContent).toBe(expectedSpan.getAttribute('title'))
+  })
 })

@@ -369,10 +369,14 @@ export function TornadoChart({
         Win-likelihood range if this factor turns out weaker or stronger than expected. Drag to preview.
       </p>
 
-      {/* Brief 5 Task 3: axis legend relocated from below the bars to above
-          the first bar so users read it before interpreting any bar. */}
+      {/* Brief 5.1 Task 5: legend occupies its own full-width row above the
+          bars so the "Expected: {X}" centre text is never clipped. Previous
+          ml-[162px] offset aligned to the bar-label column but squeezed the
+          centre span into a "truncate" zone on smaller viewports. No visual
+          regression on 1280px wide panels — the new layout only removes the
+          clip risk and the clip affordance. */}
       <div
-        className={`flex items-baseline gap-2 mb-1 ml-[162px] ${typography.panelMeta} text-text-light`}
+        className={`flex items-baseline gap-2 mb-1 ${typography.panelMeta} text-text-light`}
         data-testid="tornado-legend"
       >
         <span className="flex-shrink-0 whitespace-nowrap" data-testid="tornado-axis-left">
@@ -381,7 +385,7 @@ export function TornadoChart({
             : '← Weaker'}
         </span>
         <span
-          className="flex-1 text-center truncate"
+          className="flex-1 text-center whitespace-nowrap"
           data-testid="tornado-expected-display"
           title={formatExpectedLabel(displayOutcome, outcomeUnit, outcomeUnitSymbol, isNormalised)}
         >
