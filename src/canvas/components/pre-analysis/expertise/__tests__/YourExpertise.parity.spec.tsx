@@ -49,6 +49,11 @@ function aiEstimateItem(): ImprovementItem {
     detail: 'AI estimate',
     subgroup: 'cee_inference',
     focus: { type: 'node', id: TARGET_ID, label: TARGET_LABEL },
+    // Brief 5.2 Task 8b: the Confirm affordance hides when display is null
+    // (rawValue missing + "Not set" detail). Parity test confirms a real
+    // estimate value — matches the production shape for AI-estimated rows.
+    rawValue: 0.6,
+    unit: '',
     action: {
       label: 'Confirm value',
       kind: 'confirm',

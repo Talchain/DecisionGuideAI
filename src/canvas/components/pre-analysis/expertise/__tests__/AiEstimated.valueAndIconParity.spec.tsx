@@ -79,6 +79,29 @@ describe('AiEstimated — Brief 5.1 Task 3 value slot + icon parity', () => {
     expect(screen.queryByRole('button', { name: /^\d/ })).not.toBeInTheDocument()
   })
 
+  // Brief 5.2 Task 8b: a row showing "—" has nothing to confirm. Hide the
+  // Confirm affordance; keep the Pencil so users can still set a value.
+  it('hides the Confirm icon when display value is null ("—" row)', () => {
+    render(<AiEstimated items={[makeEstimatedItem({ rawValue: null })]} />)
+    expect(screen.getByTestId('expertise-value-placeholder')).toBeInTheDocument()
+    // Confirm button is absent; Edit button is still present so users can
+    // provide the missing value.
+    expect(screen.queryByRole('button', { name: /Confirm value for Task Handling Quality/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Edit value for Task Handling Quality/ })).toBeInTheDocument()
+  })
+
+  it('hides the Confirm icon when detail is "Not set" even if rawValue is a number', () => {
+    // Same-shape row: rawValue is present but the row is flagged Not set,
+    // so display computes null and the Confirm affordance should not render.
+    render(<AiEstimated items={[makeEstimatedItem({ rawValue: 50, detail: 'Not set' })]} />)
+    expect(screen.queryByRole('button', { name: /Confirm value for Task Handling Quality/ })).not.toBeInTheDocument()
+  })
+
+  it('renders the Confirm icon when display value is present', () => {
+    render(<AiEstimated items={[makeEstimatedItem({ rawValue: 75, unit: '%' })]} />)
+    expect(screen.getByRole('button', { name: /Confirm value for Task Handling Quality/ })).toBeInTheDocument()
+  })
+
   it('action buttons match Review-next parity: 28×28 button (w-7 h-7) with 14px icons', () => {
     render(<AiEstimated items={[makeEstimatedItem()]} />)
 
@@ -180,5 +203,24 @@ describe('MissingData — Brief 5.1 Task 3 copy + Brief 5.2 Task 3 default-open 
     expect(sparkle.className).toContain('opacity-50')
     expect(sparkle.className).toContain('hover:opacity-100')
     expect(sparkle.className).toContain('focus-visible:opacity-100')
+  })
+
+  // Brief 5.2 Task 8d: technique hint is locked as non-interactive by
+  // deliberate design (Phase 0 finding). It's a tooltip-backed text hint,
+  // not a click-to-chat chip. Any future wiring would be feature work,
+  // not a bug fix — a separate brief.
+  it('technique hint renders as a non-interactive <span> (not a button, no click handler)', () => {
+    render(<MissingData items={[makeMissingItem({ label: 'Churn Rate' })]} />)
+    // "Churn Rate" matches /rate|churn/ → "Try: reference class forecasting".
+    const hint = screen.getByText('Try: reference class forecasting')
+    expect(hint.tagName).toBe('SPAN')
+    expect(hint.getAttribute('role')).toBe(null)
+    expect(hint.closest('button')).toBeNull()
+    expect(hint.closest('[role="button"]')).toBeNull()
+  })
+
+  it('technique hint falls back to outside-view copy for non-rate/churn labels', () => {
+    render(<MissingData items={[makeMissingItem({ label: 'Team Size' })]} />)
+    expect(screen.getByText('Try: outside view technique')).toBeInTheDocument()
   })
 })

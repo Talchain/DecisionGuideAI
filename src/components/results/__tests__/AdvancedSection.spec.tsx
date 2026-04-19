@@ -170,6 +170,21 @@ describe('AdvancedSection', () => {
     expect(screen.getByTestId('advanced-hash-row')).toBeInTheDocument()
   })
 
+  // Brief 5.2 Task 8c: Gauge icon on the Risk profile heading was shipped
+  // in Brief 5.1 Task 6. Lock it via a regression test so future icon-dict
+  // refactors don't quietly drop it.
+  it('Risk profile heading renders the Gauge icon (Brief 5.1 Task 6 / Brief 5.2 Task 8c)', () => {
+    const { container } = render(<AdvancedSection />)
+    fireEvent.click(screen.getByText('Advanced'))
+    const heading = container.querySelector('[data-testid="risk-profile-control"] h4')
+    expect(heading).toBeTruthy()
+    // Heading contains an SVG (the Lucide Gauge). aria-hidden so it does not
+    // duplicate the visible "Risk profile" label for screen readers.
+    const icon = heading!.querySelector('svg')
+    expect(icon).toBeTruthy()
+    expect(icon).toHaveAttribute('aria-hidden', 'true')
+  })
+
   it('hides detail rows when values are not provided', () => {
     render(<AdvancedSection expertMode />)
     fireEvent.click(screen.getByText('Advanced'))

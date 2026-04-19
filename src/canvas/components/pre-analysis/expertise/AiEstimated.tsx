@@ -69,6 +69,17 @@ export function AiEstimated({
         const influence = nodeId ? factorInfluenceMap?.get(nodeId) : undefined
         const influencePct = influence != null ? Math.round(influence * 100) : null
         const isEditing = inlineEditorAvailable && activeEditorKey === item.key
+        // Hoisted so the Confirm affordance below can gate on the same
+        // "is there a value to confirm" signal that drives the value-slot
+        // render path. Brief 5.2 Task 8b: a row showing "—" must not
+        // expose a Confirm icon — there's nothing to confirm.
+        const display = item.rawValue != null && item.detail !== 'Not set'
+          ? formatFactorDisplayValue({
+              label: item.label,
+              raw_value: item.rawValue,
+              unit: item.unit ?? null,
+            })
+          : null
 
         return (
           // P1-1: two-row layout. Row 1: name + value + pill + influence bar.
@@ -93,38 +104,25 @@ export function AiEstimated({
                   row, or an em-dash placeholder when no value is available.
                   formatFactorDisplayValue is the canonical chain — same one
                   Review-next triage cards use — so parity flows through. */}
-              {(() => {
-                const display = item.rawValue != null && item.detail !== 'Not set'
-                  ? formatFactorDisplayValue({
-                      label: item.label,
-                      raw_value: item.rawValue,
-                      unit: item.unit ?? null,
-                    })
-                  : null
-
-                if (display != null) {
-                  // The visible value text is the accessible name — no
-                  // aria-label (would duplicate with the Pencil icon below).
-                  return (
-                    <button
-                      type="button"
-                      onClick={() => nodeId && onEdit?.(nodeId)}
-                      className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
-                    >
-                      {display}
-                    </button>
-                  )
-                }
-                return (
-                  <span
-                    className={`${typography.panelBody} text-text-light shrink-0`}
-                    aria-label="No current value"
-                    data-testid="expertise-value-placeholder"
-                  >
-                    —
-                  </span>
-                )
-              })()}
+              {display != null ? (
+                // The visible value text is the accessible name — no
+                // aria-label (would duplicate with the Pencil icon below).
+                <button
+                  type="button"
+                  onClick={() => nodeId && onEdit?.(nodeId)}
+                  className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
+                >
+                  {display}
+                </button>
+              ) : (
+                <span
+                  className={`${typography.panelBody} text-text-light shrink-0`}
+                  aria-label="No current value"
+                  data-testid="expertise-value-placeholder"
+                >
+                  —
+                </span>
+              )}
               <Pill size="small" variant="warning">Estimated</Pill>
               {influencePct != null && (
                 <div className="flex items-center gap-1 shrink-0" style={{ width: 60 }}>
@@ -166,16 +164,22 @@ export function AiEstimated({
                 controls take over). */}
             {!isEditing && (
               <div className="flex items-center gap-1.5">
-                <Tooltip delay={200} content="Confirm value">
-                  <button
-                    type="button"
-                    onClick={() => nodeId && onConfirm?.(nodeId)}
-                    className="inline-flex items-center justify-center w-7 h-7 rounded text-success hover:text-success/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
-                    aria-label={`Confirm value for ${item.label}`}
-                  >
-                    <Check size={14} aria-hidden="true" />
-                  </button>
-                </Tooltip>
+                {/* Brief 5.2 Task 8b: hide Confirm when there is no current
+                    value to confirm. "—" rows still expose the Edit/Pencil
+                    so users can set a value; confirming a missing value
+                    was meaningless. */}
+                {display != null && (
+                  <Tooltip delay={200} content="Confirm value">
+                    <button
+                      type="button"
+                      onClick={() => nodeId && onConfirm?.(nodeId)}
+                      className="inline-flex items-center justify-center w-7 h-7 rounded text-success hover:text-success/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
+                      aria-label={`Confirm value for ${item.label}`}
+                    >
+                      <Check size={14} aria-hidden="true" />
+                    </button>
+                  </Tooltip>
+                )}
                 <Tooltip delay={200} content="Edit value">
                   <button
                     type="button"

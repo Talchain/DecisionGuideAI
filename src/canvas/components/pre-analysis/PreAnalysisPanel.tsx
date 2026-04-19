@@ -1126,9 +1126,15 @@ export function PreAnalysisPanel({
   // the count so header and subtitle stop over-reporting. Apply the same
   // include-goal rule to the subtitle at the accordion render below.
   const includeGoalAsImprovement = data.isThresholdConfirmed ? 0 : 1
+  // Brief 5.2 Task 8a: the header count must match what the user actually sees
+  // WITHIN the Improve-confidence section boundary — the visible goal row plus
+  // the visible factor/edge cards. Your expertise is a sibling section, not a
+  // child, so it is NOT counted here. Previously the +1-for-expertise term
+  // produced "5" in the header when only 4 items rendered inside the section.
+  // Dynamic-headline copy uses a separate improveActionable derivation below
+  // and intentionally keeps expertise in its scope.
   const improveConfidenceCount = includeGoalAsImprovement
     + improveConfidenceCards.length
-    + (expertiseHasItems ? 1 : 0)
 
   // Highest-value summary line above the accordion. Surfaces the most impactful
   // action when it lives inside Improve confidence (so it isn't hidden by the
