@@ -528,10 +528,9 @@ function DriverRow({
           {rankingShiftWarn}
         </p>
       )}
-      {/* Task 7c: Technique suggestion — in tooltip only */}
-      {techniqueSuggestion && (
-        <p className="text-info">{techniqueSuggestion}</p>
-      )}
+      {/* Brief 5.1 Task 7.5: technique suggestion promoted out of the
+          tooltip into a visible, clickable chip on the card body. Tooltip
+          no longer carries this line to avoid duplication. */}
       {/* CEE-generated insights */}
       {hasEnrichment && <FactorInsights enrichment={driver.enrichment!} />}
     </>
@@ -736,7 +735,27 @@ function DriverRow({
         </p>
       )}
 
-      {/* Task 7c: "Ranking may shift" and technique suggestion moved to tooltip — not shown by default */}
+      {/* Brief 5.1 Task 7.5: visible, clickable technique suggestion. When
+          the driver has high influence AND low confidence, the suggestion
+          renders as a chip button that, on click, sends a scoped prompt
+          into the chat so the user can continue the thread in context. */}
+      {techniqueSuggestion && onSendMessage && (
+        <div className="px-3 pb-1.5 -mt-0.5">
+          <button
+            type="button"
+            data-testid={`driver-technique-chip-${driver.factorKey}`}
+            onClick={() => {
+              onSendMessage(
+                `${techniqueSuggestion} could help with "${cleanedLabel}". How would you apply it here?`,
+              )
+            }}
+            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+            aria-label={`Discuss ${techniqueSuggestion.replace(/^Try:\s*/i, '')} for ${cleanedLabel}`}
+          >
+            {techniqueSuggestion}
+          </button>
+        </div>
+      )}
 
       {/* Quick-select for contested drivers — only when inbound edge has validation.status === 'contested' */}
       {driver.hasContestedEdge && (
