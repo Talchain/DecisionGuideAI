@@ -29,6 +29,7 @@ import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 import { ExpertBlock } from './ExpertBlock'
+import { isExpertField } from './utils/isExpertField'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -711,8 +712,11 @@ function DriverRow({
         )
       })()}
 
-      {/* Expert mode: raw ISL values */}
-      {expertMode && (
+      {/* Expert mode: raw ISL values — gated on both expertMode AND the
+          canonical expert-field allowlist (Brief 5.1 Task 1 belt-and-braces).
+          If 'elasticity' is ever removed from the allowlist, this block
+          disappears without a separate render-site audit. */}
+      {expertMode && isExpertField('elasticity') && (
         <ExpertBlock>
           <div className={`${typography.panelMeta} text-text-light flex gap-3`}>
             <span>elasticity: {typeof driver.rawElasticity === 'number' ? driver.rawElasticity.toFixed(3) : '-'}</span>
