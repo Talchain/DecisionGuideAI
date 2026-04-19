@@ -45,18 +45,40 @@ function makeData(drivers: DriverItem[]): DriversSectionData {
   }
 }
 
+/**
+ * Finds the exact expert-block container (the structural wrapper around
+ * the elasticity/stability/influence trio) so assertions can target the
+ * block itself, not just the individual strings inside it. Returns null
+ * when the block is absent.
+ */
+function findExpertTrioBlock(container: HTMLElement): HTMLElement | null {
+  // The block renders `<div>` with a side-by-side flex of three
+  // <span>s — elasticity, stability, influence — in that DOM order.
+  // Query by the first span's prefix and walk up to the flex parent.
+  const firstSpan = Array.from(container.querySelectorAll('span')).find(
+    el => el.textContent?.startsWith('elasticity:') ?? false,
+  )
+  if (!firstSpan) return null
+  return firstSpan.parentElement as HTMLElement | null
+}
+
 describe('DriversSection: Brief 5.1 Task 1 — expert leak regression', () => {
   it('standard view (expertMode unset) renders none of the expert trio', () => {
-    render(<DriversSection data={makeData([makeDriver()])} goalLabel="Win rate" />)
+    const { container } = render(
+      <DriversSection data={makeData([makeDriver()])} goalLabel="Win rate" />,
+    )
 
-    // Each expert string must be absent individually.
+    // Individual strings absent.
     expect(screen.queryByText(/^elasticity:/)).not.toBeInTheDocument()
     expect(screen.queryByText(/^stability:\s/)).not.toBeInTheDocument()
     expect(screen.queryByText(/^influence:/)).not.toBeInTheDocument()
+    // Structural check: the expert trio block itself is absent (not just
+    // the text — no empty wrapper, no hidden flex container).
+    expect(findExpertTrioBlock(container)).toBeNull()
   })
 
   it('standard view (expertMode=false) renders none of the expert trio', () => {
-    render(
+    const { container } = render(
       <DriversSection
         data={makeData([makeDriver()])}
         goalLabel="Win rate"
@@ -67,10 +89,11 @@ describe('DriversSection: Brief 5.1 Task 1 — expert leak regression', () => {
     expect(screen.queryByText(/^elasticity:/)).not.toBeInTheDocument()
     expect(screen.queryByText(/^stability:\s/)).not.toBeInTheDocument()
     expect(screen.queryByText(/^influence:/)).not.toBeInTheDocument()
+    expect(findExpertTrioBlock(container)).toBeNull()
   })
 
-  it('expert view (expertMode=true) renders all three strings with formatted values', () => {
-    render(
+  it('expert view (expertMode=true) renders all three strings inside the ExpertBlock wrapper in the canonical DOM order', () => {
+    const { container } = render(
       <DriversSection
         data={makeData([makeDriver()])}
         goalLabel="Win rate"
@@ -83,5 +106,29 @@ describe('DriversSection: Brief 5.1 Task 1 — expert leak regression', () => {
     expect(screen.getByText('elasticity: 1.000')).toBeInTheDocument()
     expect(screen.getByText('stability: negligible')).toBeInTheDocument()
     expect(screen.getByText('influence: 100.0%')).toBeInTheDocument()
+
+    // Structural: all three spans share the same parent (the expert
+    // flex container) and appear in the canonical order.
+    const block = findExpertTrioBlock(container)
+    expect(block).not.toBeNull()
+    const labels = Array.from(block!.children).map(el => el.textContent ?? '')
+    expect(labels[0]).toMatch(/^elasticity:/)
+    expect(labels[1]).toMatch(/^stability:/)
+    expect(labels[2]).toMatch(/^influence:/)
+
+    // Structural: the block is wrapped in the info-tinted ExpertBlock.
+    // ExpertBlock uses an inline background-color style rather than a
+    // class we can match directly, so assert the DS rgba string is
+    // present on a parent.
+    let cursor: HTMLElement | null = block
+    let foundExpertWrapper = false
+    while (cursor) {
+      if ((cursor.style.backgroundColor ?? '').includes('99, 173, 207')) {
+        foundExpertWrapper = true
+        break
+      }
+      cursor = cursor.parentElement
+    }
+    expect(foundExpertWrapper).toBe(true)
   })
 })
