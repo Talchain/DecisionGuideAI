@@ -26,6 +26,27 @@ import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { useUIStore } from '../../stores/uiStore'
 import type { FlipThreshold } from './types'
 
+/**
+ * Structural Apply-and-rerun dormancy gate (Brief 5.1 follow-up — P1 #1).
+ *
+ * Brief 5 (commit 2492fb15) disabled the "Apply and rerun" button
+ * because outcome-space drag values cannot be written back to
+ * factor-space observedState without misleading results. The gate was
+ * previously caller-policy only — ResultsBody simply refrained from
+ * passing `onApplyAndRerun`. That left the door open for any future
+ * caller to re-enable the button by accident.
+ *
+ * This constant hard-gates rendering in the UI path. Even if a caller
+ * passes `onApplyAndRerun`, the button does not appear until PLoT
+ * factor-space bounds are threaded through the data pipeline and this
+ * flag is explicitly flipped to true alongside that work.
+ *
+ * Tests exercise the button behaviour via the exported
+ * `ApplyAndRerunButton` subcomponent directly, so flipping this flag
+ * later does not require re-engineering the test surface.
+ */
+export const PLOT_BOUNDS_WIRED = false
+
 export interface TornadoRow {
   /** Factor key / node ID */
   factorKey: string
@@ -643,7 +664,11 @@ export function TornadoChart({
               Reset preview
             </button>
           )}
-          {onApplyAndRerun && (
+          {/* Structural dormancy: button is rendered only when BOTH the
+              caller supplies onApplyAndRerun AND the PLOT_BOUNDS_WIRED flag
+              is flipped. Without the flag the button is absent even if a
+              caller wires the handler — Brief 5.1 follow-up P1 #1. */}
+          {onApplyAndRerun && PLOT_BOUNDS_WIRED && (
             <>
               {/* Brief 5 Task 3 + follow-up P1-1: keep the button in the tab
                   order when not-yet-usable (aria-disabled instead of

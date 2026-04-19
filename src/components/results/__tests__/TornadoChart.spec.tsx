@@ -229,42 +229,34 @@ describe('TornadoChart', () => {
     expect(screen.queryByTestId('tornado-apply-rerun')).not.toBeInTheDocument()
   })
 
-  // Brief 5 Task 3 + follow-up P1-1: button is promoted to a proper primary
-  // button below the bars. It stays in the tab order when not-yet-usable so
-  // keyboard users can focus it and hear the guidance via aria-describedby.
-  // Native `disabled` is NOT used — onClick is guarded instead. Clicking
-  // before a drag must not fire the callback.
-  it('apply-and-rerun button is keyboard-focusable before drag, guards onClick, and exposes guidance via aria-describedby', () => {
+  // Brief 5.1 follow-up P1 #1: structural dormancy.
+  //
+  // Earlier contract rendered the button whenever a caller passed
+  // onApplyAndRerun. That made dormancy caller-policy only. The new
+  // contract hard-gates rendering on the PLOT_BOUNDS_WIRED compile-time
+  // flag inside TornadoChart — callers can pass onApplyAndRerun freely
+  // and the button still stays absent until PLoT factor-space bounds
+  // are threaded through. The rich behavioural assertions (aria-disabled,
+  // guarded click, aria-describedby) return verbatim once the flag flips.
+  it('apply-and-rerun button stays dormant even when caller passes onApplyAndRerun (PLOT_BOUNDS_WIRED gate)', () => {
     const onApply = vi.fn()
     render(
       <TornadoChart
         rows={[positiveRow]}
         expectedOutcome={100}
         onApplyAndRerun={onApply}
-      />
+      />,
     )
 
-    const btn = screen.getByTestId('tornado-apply-rerun')
-    expect(btn).toBeInTheDocument()
-    expect(btn).toHaveTextContent('Apply and rerun')
-    // Not natively disabled — stays in tab order for keyboard users.
-    expect(btn).not.toBeDisabled()
-    expect(btn).toHaveAttribute('aria-disabled', 'true')
-    // Mouse users: title tooltip.
-    expect(btn).toHaveAttribute(
-      'title',
-      'Drag a bar to preview a change before running.',
-    )
-    // Screen-reader / keyboard users: aria-describedby points at an sr-only
-    // hint with the same Paul-frozen disabled-state copy.
-    const hintId = btn.getAttribute('aria-describedby')
-    expect(hintId).toBe('tornado-apply-rerun-hint')
-    const hint = screen.getByTestId('tornado-apply-rerun-hint')
-    expect(hint).toHaveAttribute('id', hintId!)
-    expect(hint).toHaveTextContent('Drag a bar to preview a change before running.')
-    // Guarded handler: click before a drag does not fire the callback.
-    fireEvent.click(btn)
+    expect(screen.queryByTestId('tornado-apply-rerun')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('tornado-apply-rerun-hint')).not.toBeInTheDocument()
+    // Defensive: even a simulated interaction cannot reach the handler.
     expect(onApply).not.toHaveBeenCalled()
+  })
+
+  it('PLOT_BOUNDS_WIRED is exported false — only flip alongside PLoT bounds wiring', async () => {
+    const mod = await import('../TornadoChart')
+    expect(mod.PLOT_BOUNDS_WIRED).toBe(false)
   })
 
   // ── Disclaimer tests ──
