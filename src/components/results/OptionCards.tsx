@@ -18,7 +18,7 @@ import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
 import { formatPercent as formatPct } from '../../utils/formatPercent'
 import { ExpertBlock } from './ExpertBlock'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { isGraphLensEnabled } from '../../flags'
@@ -323,8 +323,12 @@ function OptionCard({
           <span className="text-text-light flex-shrink-0" aria-hidden="true">&middot;</span>
         )}
         <Tooltip content="Hover highlights on canvas. Click opens inspector.">
+          {/* Brief 5.1 Task 7: card title strips the trailing "(Status Quo)"
+              suffix when the Baseline pill below already carries the same
+              signal — prevents runner-up labels from wrapping to three lines
+              on 1280px. Source option.label is untouched everywhere else. */}
           <span className={`${typography.panelHeader} text-text-header`}>
-            {stripEncodingNotation(option.label)}
+            {formatOptionLabelForCard(option.label, option.isBaseline === true)}
           </span>
         </Tooltip>
         {option.isBaseline && (
@@ -428,20 +432,22 @@ function OptionCard({
       {(onSendMessage || onFocusNode) && (
         <div className="flex items-center gap-1 pt-1.5">
           {onSendMessage && (
+            // Brief 5.1 Task 7: single non-winner chip copy. The earlier
+            // baseline-specific "Why does this lose?" read as negative
+            // framing; "What would make this lead?" is forward-looking and
+            // parallel with the winner-side "What makes this lead?".
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
                 const prompt = isWinner
                   ? `What makes "${option.label}" the leading option? What are its key advantages?`
-                  : option.isBaseline
-                    ? `Why does the status quo "${option.label}" lose? What would need to change?`
-                    : `What would make "${option.label}" lead instead? What changes would be needed?`
+                  : `What would make "${option.label}" lead instead? What changes would be needed?`
                 onSendMessage(prompt)
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
-              {isWinner ? 'What makes this lead?' : option.isBaseline ? 'Why does this lose?' : 'What would make this lead?'}
+              {isWinner ? 'What makes this lead?' : 'What would make this lead?'}
             </button>
           )}
           {!option.isBaseline && onFocusNode && (

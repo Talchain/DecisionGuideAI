@@ -433,6 +433,25 @@ export function PreAnalysisPanel({
     focusNodeById(factorId)
   }, [selectNodeWithoutHistory])
 
+  // Brief 5.1 follow-up P0 #1: inline-commit handler used by the expertise
+  // expanded rows. Persists a user-provided rawValue directly via the
+  // canvas store, so Pencil-and-save inside an expertise row never routes
+  // through the inspector. Mirrors handleConfirm's observed-state write
+  // pattern but commits a value instead of a provenance flag.
+  const handleCommitValue = useCallback((nodeId: string, rawValue: number) => {
+    const { nodes, updateNode } = useCanvasStore.getState()
+    const node = nodes.find(n => n.id === nodeId)
+    if (!node) return
+
+    updateNode(nodeId, {
+      data: withObservedStateUpdate(node.data, {
+        raw_value: rawValue,
+        source: 'user_set',
+        extractionType: 'user_provided',
+      }),
+    })
+  }, [])
+
   // Retry handler with toast feedback
   const handleRetryDraft = useCallback(async () => {
     const result = await retryDraft()
@@ -1761,6 +1780,7 @@ export function PreAnalysisPanel({
                 onConfirm={handleConfirm}
                 onEdit={handleEdit}
                 onSetValue={handleSetValueForGap}
+                onCommitValue={handleCommitValue}
                 onFocusNode={handleFocusNode}
                 onHoverEnter={handleHoverElement}
                 onHoverLeave={handleHoverClear}

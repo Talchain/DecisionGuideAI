@@ -19,6 +19,9 @@ import { typography } from '../../styles/typography'
 export interface AccordionProps {
   /** Section title displayed in header */
   title: string
+  /** Optional scope line displayed under the title in panelMeta (Brief 5.1 Task 2).
+   *  Renders inside the header button so it stays visible while collapsed. */
+  subtitle?: string
   /** Optional badge count (e.g., number of items) */
   badgeCount?: number
   /** Badge state for outlined badge styling; callers can refine based on item resolution state */
@@ -63,6 +66,7 @@ const tierVariants = {
 
 export function Accordion({
   title,
+  subtitle,
   badgeCount,
   badgeState,
   badgeVariant = 'default',
@@ -136,40 +140,49 @@ export function Accordion({
         onClick={handleToggle}
         aria-expanded={isExpanded}
         aria-controls={contentId}
-        className="w-full px-3 py-2 bg-panel border-b border-panel-border flex items-center justify-between hover:bg-panel-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset"
+        className="w-full px-3 py-2 bg-panel border-b border-panel-border flex items-start justify-between hover:bg-panel-hover transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-inset"
       >
-        <div className="flex items-center gap-2 flex-1">
+        <div className="flex items-start gap-2 flex-1">
           <ChevronRight
-            className={`h-4 w-4 text-text-light transition-transform duration-200 ${
+            className={`h-4 w-4 text-text-light transition-transform duration-200 mt-0.5 ${
               isExpanded ? 'rotate-90' : ''
             }`}
             aria-hidden="true"
           />
-          <h3
-            id={headingId}
-            className={`${typography.panelHeader} text-text-header`}
-          >
-            {title}
-          </h3>
-          {badgeCount !== undefined && badgeCount > 0 && (
-            <span
-              className={`
-                inline-flex min-w-[22px] items-center justify-center rounded-full border
-                bg-transparent px-1.5 py-0.5 text-text-body
-                ${typography.panelMeta} ${resolvedBadgeState ? badgeStates[resolvedBadgeState] : ''}
-              `}
-            >
-              {badgeCount}
-            </span>
-          )}
-          {tierLabel && tierVariant && (
-            <span
-              className={`${typography.panelMeta} ml-auto px-2 py-0.5 rounded-full ${tierVariants[tierVariant]}`}
-              title="Based on the confidence levels of your key factors. Improve by gathering data on low-confidence drivers."
-            >
-              {tierLabel}
-            </span>
-          )}
+          <div className="flex flex-col gap-0.5 flex-1 min-w-0">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h3
+                id={headingId}
+                className={`${typography.panelHeader} text-text-header`}
+              >
+                {title}
+              </h3>
+              {badgeCount !== undefined && badgeCount > 0 && (
+                <span
+                  className={`
+                    inline-flex min-w-[22px] items-center justify-center rounded-full border
+                    bg-transparent px-1.5 py-0.5 text-text-body
+                    ${typography.panelMeta} ${resolvedBadgeState ? badgeStates[resolvedBadgeState] : ''}
+                  `}
+                >
+                  {badgeCount}
+                </span>
+              )}
+              {tierLabel && tierVariant && (
+                <span
+                  className={`${typography.panelMeta} ml-auto px-2 py-0.5 rounded-full ${tierVariants[tierVariant]}`}
+                  title="Based on the confidence levels of your key factors. Improve by gathering data on low-confidence drivers."
+                >
+                  {tierLabel}
+                </span>
+              )}
+            </div>
+            {subtitle && (
+              <p className={`${typography.panelMeta} text-text-light text-left`}>
+                {subtitle}
+              </p>
+            )}
+          </div>
         </div>
       </button>
 

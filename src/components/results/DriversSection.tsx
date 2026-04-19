@@ -29,6 +29,7 @@ import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 import { ExpertBlock } from './ExpertBlock'
+import { isExpertField } from './utils/isExpertField'
 
 interface DriversSectionProps {
   data: DriversSectionData
@@ -527,10 +528,9 @@ function DriverRow({
           {rankingShiftWarn}
         </p>
       )}
-      {/* Task 7c: Technique suggestion — in tooltip only */}
-      {techniqueSuggestion && (
-        <p className="text-info">{techniqueSuggestion}</p>
-      )}
+      {/* Brief 5.1 Task 7.5: technique suggestion promoted out of the
+          tooltip into a visible, clickable chip on the card body. Tooltip
+          no longer carries this line to avoid duplication. */}
       {/* CEE-generated insights */}
       {hasEnrichment && <FactorInsights enrichment={driver.enrichment!} />}
     </>
@@ -711,8 +711,11 @@ function DriverRow({
         )
       })()}
 
-      {/* Expert mode: raw ISL values */}
-      {expertMode && (
+      {/* Expert mode: raw ISL values — gated on both expertMode AND the
+          canonical expert-field allowlist (Brief 5.1 Task 1 belt-and-braces).
+          If 'elasticity' is ever removed from the allowlist, this block
+          disappears without a separate render-site audit. */}
+      {expertMode && isExpertField('elasticity') && (
         <ExpertBlock>
           <div className={`${typography.panelMeta} text-text-light flex gap-3`}>
             <span>elasticity: {typeof driver.rawElasticity === 'number' ? driver.rawElasticity.toFixed(3) : '-'}</span>
@@ -732,7 +735,27 @@ function DriverRow({
         </p>
       )}
 
-      {/* Task 7c: "Ranking may shift" and technique suggestion moved to tooltip — not shown by default */}
+      {/* Brief 5.1 Task 7.5: visible, clickable technique suggestion. When
+          the driver has high influence AND low confidence, the suggestion
+          renders as a chip button that, on click, sends a scoped prompt
+          into the chat so the user can continue the thread in context. */}
+      {techniqueSuggestion && onSendMessage && (
+        <div className="px-3 pb-1.5 -mt-0.5">
+          <button
+            type="button"
+            data-testid={`driver-technique-chip-${driver.factorKey}`}
+            onClick={() => {
+              onSendMessage(
+                `${techniqueSuggestion} could help with "${cleanedLabel}". How would you apply it here?`,
+              )
+            }}
+            className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+            aria-label={`Discuss ${techniqueSuggestion.replace(/^Try:\s*/i, '')} for ${cleanedLabel}`}
+          >
+            {techniqueSuggestion}
+          </button>
+        </div>
+      )}
 
       {/* Quick-select for contested drivers — only when inbound edge has validation.status === 'contested' */}
       {driver.hasContestedEdge && (
@@ -750,7 +773,7 @@ function DriverRow({
 
       {/* P1-2: Discuss-with-AI sparkle, bottom-right of the driver card */}
       <div className="absolute bottom-1 right-1">
-        <DiscussWithAiButton element={{ kind: 'factor', label: cleanedLabel }} />
+        <DiscussWithAiButton variant="secondary" element={{ kind: 'factor', label: cleanedLabel }} />
       </div>
     </div>
   )

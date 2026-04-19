@@ -134,6 +134,7 @@ function ChallengeCard({
         {onSendMessage && (
           <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
             <DiscussWithAiButton
+              variant="secondary"
               element={{ kind: 'missing' }}
               onSend={() => onSendMessage(ctaPrompt)}
             />
@@ -180,6 +181,7 @@ function ChallengeCard({
         {onSendMessage && (
           <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
             <DiscussWithAiButton
+              variant="secondary"
               element={{ kind: 'missing' }}
               onSend={() => onSendMessage(ctaPrompt)}
             />
@@ -229,23 +231,40 @@ function FragileEdgeGroupCard({
         </span>
       </div>
 
-      {/* Edge target list — one differentiated row per edge (Brief 4 Task 5).
-          Copy: "If {from} → {to} shifts, {alt_winner} could overtake" */}
+      {/* Brief 5.1 Task 8a — scannable three-slot layout per edge:
+            [shifting-relationship phrase]  →  [alternative winner, semibold]
+          Removes the repeated ", could overtake" phrasing; the arrow + bold
+          winner carries the "alternative winner" signal visually. Each row
+          clamps to ≤2 lines on 1280px via `flex-wrap` + short clauses.
+
+          Brief 5.1 Task 8b — per-edge "Review this relationship" chip wired
+          to the existing onFocusNode handler. Label honestly describes the
+          action (opens the relationship in the inspector for the user's
+          review); not a "Validate" claim — no calibration handler exists. */}
       {edges.map((edge, i) => {
         const edgeSource = stripEncodingNotation(edge.from_label)
         const edgeTarget = stripEncodingNotation(edge.to_label)
         const altWinner = edge.alternative_winner_label
           ? stripEncodingNotation(edge.alternative_winner_label)
           : null
+        const edgeFocusId = edge.from_id ?? edge.from_label
         return (
-          <div key={`${edge.from_label}-${edge.to_label}-${i}`}>
-            <p className={`${typography.panelMeta} text-text-light`}>
-              If <span className="text-text-body">{edgeSource} &rarr; {edgeTarget}</span> shifts
-              {altWinner
-                ? <>, <span className="text-text-body">{altWinner}</span> could overtake.</>
-                : <>, the recommendation could change.</>
-              }
-            </p>
+          <div key={`${edge.from_label}-${edge.to_label}-${i}`} className="space-y-1">
+            <div className={`flex items-baseline gap-2 flex-wrap ${typography.panelMeta} text-text-light`}>
+              <span>
+                If <span className="text-text-body">{edgeSource} &rarr; {edgeTarget}</span> shifts
+              </span>
+              {altWinner ? (
+                <>
+                  <span aria-hidden="true" className="text-text-light">→</span>
+                  <span className="text-text-body font-semibold" data-testid="fragile-alt-winner">
+                    {altWinner} could win
+                  </span>
+                </>
+              ) : (
+                <span>the recommendation could change</span>
+              )}
+            </div>
             {edge.e_value != null && expertMode && (
               <ExpertBlock>
                 <p className={`${typography.panelMeta} text-text-light`}>
@@ -253,12 +272,24 @@ function FragileEdgeGroupCard({
                 </p>
               </ExpertBlock>
             )}
+            {onFocusNode && !consolidated && (
+              <button
+                type="button"
+                onClick={() => onFocusNode(edgeFocusId)}
+                data-testid={`fragile-review-chip-${i}`}
+                className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
+                aria-label={`Review ${edgeSource} to ${edgeTarget} in the inspector`}
+              >
+                Review this relationship
+              </button>
+            )}
           </div>
         )
       })}
 
-      {/* Inspector icon — inline (structural action, not sparkle) */}
-      {onFocusNode && !consolidated && (
+      {/* Consolidated-group inspector — grouped cards still need one
+          affordance at the group level when the per-edge chips are hidden. */}
+      {onFocusNode && consolidated && (
         <div className="flex items-center gap-1 pt-0.5">
           <Tooltip content="Open in inspector" delay={200}>
             <button
@@ -277,6 +308,7 @@ function FragileEdgeGroupCard({
       {onSendMessage && (
         <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
           <DiscussWithAiButton
+            variant="secondary"
             element={{ kind: 'missing' }}
             onSend={() => onSendMessage(
               consolidated
@@ -312,6 +344,7 @@ function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string)
       {onSendMessage && (
         <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
           <DiscussWithAiButton
+            variant="secondary"
             element={{ kind: 'goal', label: 'success target' }}
             onSend={() => onSendMessage('What baseline should I use for the success target? The current one is a default.')}
           />

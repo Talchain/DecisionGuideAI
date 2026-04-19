@@ -25,6 +25,7 @@ import type { TriageCardCategory, TriageCardAction } from '@/components/shared/T
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { buildCertaintyCopy } from './utils/certaintyCopy'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 
@@ -198,12 +199,50 @@ function ResultChecks({ data, onFocusNode }: { data: ResultsSectionDataReturn; o
 
 // ── Section 3: Trust summary ────────────────────────────────────────────────
 
-function TrustSummary({ actionCount }: { actionCount: number }) {
+/**
+ * Evidence-section header.
+ *
+ * - `countLine`: "Top N by evidence value" — the original render.
+ * - `subtitle`: scope copy that always renders alongside the count so users
+ *   can reconcile this section with "What's driving this" (Brief 5.1 Task 2).
+ * - `bridge`: symmetric descriptive line that renders iff the top driver
+ *   identity and the top evidence-gap identity differ. No implication that
+ *   one section is more important — only a scope distinction.
+ */
+function TrustSummary({
+  actionCount,
+  topDriverIdentity,
+  topEvidenceGapIdentity,
+}: {
+  actionCount: number
+  topDriverIdentity: string | null
+  topEvidenceGapIdentity: string | null
+}) {
   if (actionCount === 0) return null
+
+  const showBridge =
+    topDriverIdentity != null
+    && topEvidenceGapIdentity != null
+    && topDriverIdentity !== topEvidenceGapIdentity
+
   return (
-    <p className={`${typography.panelMeta} text-text-light`}>
-      Top {actionCount} by evidence value
-    </p>
+    <div className="flex flex-col gap-0.5" data-testid="trust-summary">
+      <p className={`${typography.panelMeta} text-text-light`}>
+        Top {actionCount} by evidence value
+      </p>
+      <p className={`${typography.panelMeta} text-text-light`} data-testid="evidence-scope-subtitle">
+        Factors where new information would most reduce uncertainty
+      </p>
+      {showBridge && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="drivers-evidence-bridge"
+        >
+          Your strongest driver and your top evidence gap are different factors.
+          The driver is what currently moves the result; the evidence gap is where you do not yet know enough.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -412,13 +451,46 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     verified: hasWinProbability ? winProbability! : 0,
   }
 
-  // Headline from coaching data (confirmed: no decision_review.narrative_summary.winner
-  // field exists — using available M1 coaching fields)
+  // Headline from coaching data, with a tier-calibrated fallback so the
+  // panel doesn't claim "is the leading option" when evidence is weak.
+  // Brief 5.1 Task 4: certaintyCopy is the single source for both the
+  // fallback headline AND the tier-driven caveat. Coaching sources are
+  // allowed to override the headline wording (they went through the
+  // coaching pipeline), but the caveat is derived purely from tier
+  // fields — if evidence is weak the caveat renders regardless of
+  // whatever headline text is in play. That closes the loophole where
+  // an upstream "clear leading option" string could mask a
+  // needs_work / needs_evidence bundle.
+  const certainty = useMemo(() => {
+    const winner = data.recommendation.recommendedOption
+    if (!winner) return null
+    return buildCertaintyCopy({
+      winnerLabel: winner.label,
+      confidenceTier: data.confidence.tier.tier,
+      coachingReadiness: data.recommendation.coachingReadiness,
+      recommendationStability: data.recommendation.recommendationStability,
+      analysisStatus: data.recommendation.analysisStatus,
+      optionCount: data.recommendation.allOptions.length,
+    })
+  }, [
+    data.recommendation.recommendedOption,
+    data.recommendation.coachingReadiness,
+    data.recommendation.recommendationStability,
+    data.recommendation.analysisStatus,
+    data.recommendation.allOptions.length,
+    data.confidence.tier.tier,
+  ])
+
   const headline = data.recommendation.coachingHeadline
     ?? data.recommendation.coachingDecisionStatement
-    ?? (data.recommendation.recommendedOption
-      ? `${data.recommendation.recommendedOption.label} is the leading option`
-      : null)
+    ?? certainty?.headline
+    ?? null
+
+  // Caveat is tier-driven. It attaches whenever buildCertaintyCopy
+  // returned one — the decision table only produces a caveat when
+  // confidenceTier === 'needs_work' or readiness is weak, so the
+  // presence of certainty.caveat is itself the honesty signal.
+  const healthHeaderCoaching = certainty?.caveat ?? null
 
   // Merge and rank action items by EVOI
   const allActions = useMemo(() => {
@@ -437,6 +509,21 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)
 
+  // Brief 5.1 Task 2: canonical factor identity for the driver / evidence
+  // bridge copy. Mirrors the existing DriversSection pattern — see preflight
+  // findings §2. Null when either section is empty.
+  const topDriverIdentity = useMemo(() => {
+    const top = data.drivers.topDrivers?.[0]
+    if (!top) return null
+    return top.matchedNodeId ?? top.factorKey ?? null
+  }, [data.drivers.topDrivers])
+
+  const topEvidenceGapIdentity = useMemo(() => {
+    const top = data.confidence.topEvidenceGaps?.[0]
+    if (!top) return null
+    return top.targetNodeId ?? top.factorId ?? null
+  }, [data.confidence.topEvidenceGaps])
+
   // Task 4: science nudges integrated into triage card stack (after "Show N more")
   const scienceNudges = useMemo(() => buildScienceNudges(data), [data])
 
@@ -451,6 +538,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         ringLabel="%"
         ringDimensions={ringDimensions}
         headline={headline}
+        coaching={healthHeaderCoaching}
         overrideScore={winProbabilityScore}
         mode="single"
         ringCaption={hasWinProbability ? 'win probability' : undefined}
@@ -470,8 +558,12 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         />
       )}
 
-      {/* 3. Trust summary + item count */}
-      <TrustSummary actionCount={top3.length} />
+      {/* 3. Trust summary + item count + scope subtitle + bridge to drivers */}
+      <TrustSummary
+        actionCount={top3.length}
+        topDriverIdentity={topDriverIdentity}
+        topEvidenceGapIdentity={topEvidenceGapIdentity}
+      />
 
       {/* Empty state when all evidence gaps had zero impact (Brief 4 Task 9). */}
       {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (

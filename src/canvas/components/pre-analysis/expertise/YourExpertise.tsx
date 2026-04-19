@@ -40,6 +40,14 @@ interface YourExpertiseProps {
   onEdit?: (nodeId: string) => void
   /** Shared with MissingData — open the editor for a missing-value factor. */
   onSetValue?: (nodeId: string) => void
+  /**
+   * Brief 5.1 follow-up P0 #1: direct value-commit handler used by the
+   * inline editor inside AiEstimated / MissingData rows. When provided,
+   * the Pencil / Set-value actions open an inline ScientificEditor and
+   * route save → (nodeId, rawValue) through this callback instead of
+   * focusing the inspector.
+   */
+  onCommitValue?: (nodeId: string, rawValue: number) => void
   /** Focus-node helper for inline factor links. */
   onFocusNode?: (nodeId: string) => void
   /** Hover handlers for graph cross-highlight. */
@@ -63,6 +71,7 @@ export function YourExpertise({
   onConfirm,
   onEdit,
   onSetValue,
+  onCommitValue,
   onFocusNode,
   onHoverEnter,
   onHoverLeave,
@@ -70,11 +79,24 @@ export function YourExpertise({
 }: YourExpertiseProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
+  // Brief 5.1 follow-up P0 #1: one-active-editor invariant across the
+  // expanded surface. A single key identifies which row is currently in
+  // edit mode — opening a second row via onRequestEdit automatically
+  // collapses the first to its compact view.
+  const [activeEditorKey, setActiveEditorKey] = useState<string | null>(null)
+
+  const handleRequestEdit = useCallback((itemKey: string) => {
+    setActiveEditorKey(prev => (prev === itemKey ? null : itemKey))
+  }, [])
+  const handleCancelEdit = useCallback(() => setActiveEditorKey(null), [])
+
   // Brief 5 Task 1: collapse on analysis-run transition so expansion state
   // does not leak across runs. `useEffect` fires on initial mount (already
-  // collapsed, no-op) and on every subsequent key change.
+  // collapsed, no-op) and on every subsequent key change. The inline
+  // editor also closes — stale rawValue input would otherwise persist.
   useEffect(() => {
     setIsExpanded(false)
+    setActiveEditorKey(null)
   }, [analysisRunKey])
 
   const groups: ExpertiseGroups = useMemo(
@@ -224,6 +246,10 @@ export function YourExpertise({
               factorInfluenceMap={factorInfluenceMap}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
+              activeEditorKey={activeEditorKey}
+              onRequestEdit={handleRequestEdit}
+              onCommitValue={onCommitValue}
+              onCancelEdit={handleCancelEdit}
             />
           )}
           {missingN > 0 && (
@@ -234,6 +260,10 @@ export function YourExpertise({
               factorInfluenceMap={factorInfluenceMap}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
+              activeEditorKey={activeEditorKey}
+              onRequestEdit={handleRequestEdit}
+              onCommitValue={onCommitValue}
+              onCancelEdit={handleCancelEdit}
             />
           )}
           <div className="mt-3 pt-2 border-t border-panel-border">

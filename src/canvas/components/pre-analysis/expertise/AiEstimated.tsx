@@ -10,9 +10,10 @@ import { Pill } from '../primitives'
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import { typography } from '@/styles/typography'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
-import { formatValueWithUnit } from '@/canvas/utils/formatValueWithUnit'
+import { formatFactorDisplayValue } from '@/utils/formatFactorDisplayValue'
 import { DiscussWithAiButton } from '../DiscussWithAiButton'
 import Tooltip from '../../../../components/Tooltip'
+import { ScientificEditor } from '@/components/shared/ScientificEditor'
 
 interface AiEstimatedProps {
   items: ImprovementItem[]
@@ -22,6 +23,21 @@ interface AiEstimatedProps {
   factorInfluenceMap?: Map<string, number>
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
+  /**
+   * Brief 5.1 follow-up P0 #1 — inline editor plumbing. When a row's
+   * `item.key === activeEditorKey`, ScientificEditor renders inline
+   * instead of the compact value/pill/icons strip. `onRequestEdit`
+   * toggles that key (hoisted into YourExpertise so the one-active-
+   * editor invariant is enforced across the expanded surface — opening
+   * a second row closes the first). `onCommitValue` persists the new
+   * rawValue via the canvas store. `onCancelEdit` collapses the row.
+   * When any of these is unwired the row falls back to the prior
+   * click-through-to-external-editor behaviour.
+   */
+  activeEditorKey?: string | null
+  onRequestEdit?: (itemKey: string) => void
+  onCommitValue?: (nodeId: string, rawValue: number) => void
+  onCancelEdit?: () => void
 }
 
 export function AiEstimated({
@@ -32,8 +48,18 @@ export function AiEstimated({
   factorInfluenceMap,
   onHoverEnter,
   onHoverLeave,
+  activeEditorKey,
+  onRequestEdit,
+  onCommitValue,
+  onCancelEdit,
 }: AiEstimatedProps) {
   if (items.length === 0) return null
+
+  // Inline editor only attaches when the parent supplies the full
+  // commit pipeline. Falling back to the pre-edit behaviour if any
+  // piece is missing keeps the component usable in fixtures and
+  // Storybook without a commit handler.
+  const inlineEditorAvailable = onRequestEdit != null && onCommitValue != null && onCancelEdit != null
 
   return (
     <div className="space-y-1">
@@ -42,11 +68,16 @@ export function AiEstimated({
         const nodeId = item.focus?.id
         const influence = nodeId ? factorInfluenceMap?.get(nodeId) : undefined
         const influencePct = influence != null ? Math.round(influence * 100) : null
+        const isEditing = inlineEditorAvailable && activeEditorKey === item.key
 
         return (
           // P1-1: two-row layout. Row 1: name + value + pill + influence bar.
           // Row 2: icon-only actions at 44px touch height. One sparkle bottom-right.
-          <div key={item.key} className="relative px-1 py-2 space-y-2 pr-7">
+          //
+          // Brief 5.1 follow-up P0 #1: when isEditing, the compact row
+          // (value button + pill + icons) collapses and a ScientificEditor
+          // renders beneath the label for in-place editing.
+          <div key={item.key} className="relative px-1 py-2 space-y-2 pr-7" data-testid={`ai-estimated-row-${item.key}`}>
             {/* Row 1 */}
             <div className="flex items-start gap-2 flex-wrap">
               <button
@@ -58,20 +89,40 @@ export function AiEstimated({
               >
                 {item.label}
               </button>
-              {item.rawValue != null && item.detail !== 'Not set' && (() => {
-                const num = typeof item.rawValue === 'number' ? item.rawValue : Number(item.rawValue)
-                // Uses shared formatValueWithUnit: placeholder units (scale, score, etc.) with
-                // 0–1 values render as qualitative labels; other placeholder values render bare
-                // numbers; currency prefixes, percent suffixes, and thousand separators applied.
-                const display = formatValueWithUnit(num, item.unit)
+              {/* Brief 5.1 Task 3: render the current estimate value in the
+                  row, or an em-dash placeholder when no value is available.
+                  formatFactorDisplayValue is the canonical chain — same one
+                  Review-next triage cards use — so parity flows through. */}
+              {(() => {
+                const display = item.rawValue != null && item.detail !== 'Not set'
+                  ? formatFactorDisplayValue({
+                      label: item.label,
+                      raw_value: item.rawValue,
+                      unit: item.unit ?? null,
+                    })
+                  : null
+
+                if (display != null) {
+                  // The visible value text is the accessible name — no
+                  // aria-label (would duplicate with the Pencil icon below).
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => nodeId && onEdit?.(nodeId)}
+                      className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
+                    >
+                      {display}
+                    </button>
+                  )
+                }
                 return (
-                  <button
-                    type="button"
-                    onClick={() => nodeId && onEdit?.(nodeId)}
-                    className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
+                  <span
+                    className={`${typography.panelBody} text-text-light shrink-0`}
+                    aria-label="No current value"
+                    data-testid="expertise-value-placeholder"
                   >
-                    {display}
-                  </button>
+                    —
+                  </span>
                 )
               })()}
               <Pill size="small" variant="warning">Estimated</Pill>
@@ -87,29 +138,64 @@ export function AiEstimated({
                 </div>
               )}
             </div>
-            {/* Row 2 — icon-only actions, 44px touch targets */}
-            <div className="flex items-center gap-2">
-              <Tooltip delay={200} content="Confirm value">
-                <button
-                  type="button"
-                  onClick={() => nodeId && onConfirm?.(nodeId)}
-                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-success hover:text-success/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 cursor-pointer"
-                  aria-label={`Confirm value for ${item.label}`}
-                >
-                  <Check className="w-3.5 h-3.5" aria-hidden="true" />
-                </button>
-              </Tooltip>
-              <Tooltip delay={200} content="Edit value">
-                <button
-                  type="button"
-                  onClick={() => nodeId && onEdit?.(nodeId)}
-                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 cursor-pointer"
-                  aria-label={`Edit value for ${item.label}`}
-                >
-                  <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
-                </button>
-              </Tooltip>
-            </div>
+
+            {/* Inline editor — renders when this row is the active editor.
+                Takes over the compact value+icons row so only one editor
+                is visible per item, and only one item has an open editor
+                at a time (invariant enforced by YourExpertise). */}
+            {isEditing && nodeId && (
+              <div className="px-1" data-testid={`ai-estimated-editor-${item.key}`}>
+                <ScientificEditor
+                  kind="factor"
+                  rawValue={typeof item.rawValue === 'number' ? item.rawValue : null}
+                  cap={item.cap ?? null}
+                  unit={item.unit ?? null}
+                  onSave={(rawValue: number) => {
+                    onCommitValue?.(nodeId, rawValue)
+                    onCancelEdit?.()
+                  }}
+                  onCancel={() => onCancelEdit?.()}
+                />
+              </div>
+            )}
+
+            {/* Row 2 — icon-only actions. 28×28 buttons with 14px icons match
+                the Review-next triage-card IconActionButton (Brief 5.1 Task 3
+                icon parity). Parent padding provides generous hit-rect.
+                Hidden while the inline editor is open (its own Save/Cancel
+                controls take over). */}
+            {!isEditing && (
+              <div className="flex items-center gap-1.5">
+                <Tooltip delay={200} content="Confirm value">
+                  <button
+                    type="button"
+                    onClick={() => nodeId && onConfirm?.(nodeId)}
+                    className="inline-flex items-center justify-center w-7 h-7 rounded text-success hover:text-success/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
+                    aria-label={`Confirm value for ${item.label}`}
+                  >
+                    <Check size={14} aria-hidden="true" />
+                  </button>
+                </Tooltip>
+                <Tooltip delay={200} content="Edit value">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!nodeId) return
+                      // Inline path preferred when plumbing is wired.
+                      if (inlineEditorAvailable) {
+                        onRequestEdit(item.key)
+                      } else {
+                        onEdit?.(nodeId)
+                      }
+                    }}
+                    className="inline-flex items-center justify-center w-7 h-7 rounded text-text-light hover:text-text-body cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
+                    aria-label={`Edit value for ${item.label}`}
+                  >
+                    <Pencil size={14} aria-hidden="true" />
+                  </button>
+                </Tooltip>
+              </div>
+            )}
             {/* One sparkle — bottom-right of the row */}
             <div className="absolute bottom-1 right-1">
               <DiscussWithAiButton element={{ kind: 'factor', label: item.label }} />

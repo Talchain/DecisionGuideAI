@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { TornadoChart, type TornadoRow } from '../TornadoChart'
+import { TornadoChart, ApplyAndRerunButton, type TornadoRow } from '../TornadoChart'
 
 // Mock focusNodeById
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
@@ -229,43 +229,102 @@ describe('TornadoChart', () => {
     expect(screen.queryByTestId('tornado-apply-rerun')).not.toBeInTheDocument()
   })
 
-  // Brief 5 Task 3 + follow-up P1-1: button is promoted to a proper primary
-  // button below the bars. It stays in the tab order when not-yet-usable so
-  // keyboard users can focus it and hear the guidance via aria-describedby.
-  // Native `disabled` is NOT used — onClick is guarded instead. Clicking
-  // before a drag must not fire the callback.
-  it('apply-and-rerun button is keyboard-focusable before drag, guards onClick, and exposes guidance via aria-describedby', () => {
+  // Brief 5.1 follow-up P1 #1: structural dormancy.
+  //
+  // Earlier contract rendered the button whenever a caller passed
+  // onApplyAndRerun. That made dormancy caller-policy only. The new
+  // contract hard-gates rendering on the PLOT_BOUNDS_WIRED compile-time
+  // flag inside TornadoChart — callers can pass onApplyAndRerun freely
+  // and the button still stays absent until PLoT factor-space bounds
+  // are threaded through. The rich behavioural assertions (aria-disabled,
+  // guarded click, aria-describedby) return verbatim once the flag flips.
+  it('apply-and-rerun button stays dormant even when caller passes onApplyAndRerun (PLOT_BOUNDS_WIRED gate)', () => {
     const onApply = vi.fn()
     render(
       <TornadoChart
         rows={[positiveRow]}
         expectedOutcome={100}
         onApplyAndRerun={onApply}
-      />
+      />,
     )
+
+    expect(screen.queryByTestId('tornado-apply-rerun')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('tornado-apply-rerun-hint')).not.toBeInTheDocument()
+    // Defensive: even a simulated interaction cannot reach the handler.
+    expect(onApply).not.toHaveBeenCalled()
+  })
+
+  it('PLOT_BOUNDS_WIRED is exported false — only flip alongside PLoT bounds wiring', async () => {
+    const mod = await import('../TornadoChart')
+    expect(mod.PLOT_BOUNDS_WIRED).toBe(false)
+  })
+})
+
+// ── ApplyAndRerunButton subcomponent ──────────────────────────────────────
+//
+// Extracted alongside PLOT_BOUNDS_WIRED so the dormant button's a11y
+// contract stays covered (Brief 5.1 follow-up Imp #2 / P1 #3). When the
+// flag is flipped to re-enable the button in TornadoChart, these tests
+// guarantee the keyboard/screen-reader behaviour hasn't regressed.
+
+describe('ApplyAndRerunButton — dormant a11y + guarded-click contract', () => {
+  it('keyboard-focusable before any drag (aria-disabled, not native disabled)', () => {
+    render(<ApplyAndRerunButton hasUserDragged={false} onApplyAndRerun={() => {}} />)
 
     const btn = screen.getByTestId('tornado-apply-rerun')
     expect(btn).toBeInTheDocument()
     expect(btn).toHaveTextContent('Apply and rerun')
-    // Not natively disabled — stays in tab order for keyboard users.
+    // Not natively disabled → stays in tab order for keyboard users.
     expect(btn).not.toBeDisabled()
     expect(btn).toHaveAttribute('aria-disabled', 'true')
-    // Mouse users: title tooltip.
-    expect(btn).toHaveAttribute(
-      'title',
-      'Drag a bar to preview a change before running.',
-    )
-    // Screen-reader / keyboard users: aria-describedby points at an sr-only
-    // hint with the same Paul-frozen disabled-state copy.
+    // Mouse-hover guidance.
+    expect(btn).toHaveAttribute('title', 'Drag a bar to preview a change before running.')
+  })
+
+  it('exposes guidance to screen readers via aria-describedby → sr-only hint', () => {
+    render(<ApplyAndRerunButton hasUserDragged={false} onApplyAndRerun={() => {}} />)
+
+    const btn = screen.getByTestId('tornado-apply-rerun')
     const hintId = btn.getAttribute('aria-describedby')
     expect(hintId).toBe('tornado-apply-rerun-hint')
+
     const hint = screen.getByTestId('tornado-apply-rerun-hint')
     expect(hint).toHaveAttribute('id', hintId!)
     expect(hint).toHaveTextContent('Drag a bar to preview a change before running.')
-    // Guarded handler: click before a drag does not fire the callback.
-    fireEvent.click(btn)
+    // sr-only class = visually hidden, accessible to assistive tech.
+    expect(hint.className).toContain('sr-only')
+  })
+
+  it('guards onClick so a pre-drag click does NOT fire the callback', () => {
+    const onApply = vi.fn()
+    render(<ApplyAndRerunButton hasUserDragged={false} onApplyAndRerun={onApply} />)
+
+    fireEvent.click(screen.getByTestId('tornado-apply-rerun'))
     expect(onApply).not.toHaveBeenCalled()
   })
+
+  it('after a drag, onClick fires the callback and aria-disabled drops', () => {
+    const onApply = vi.fn()
+    render(<ApplyAndRerunButton hasUserDragged onApplyAndRerun={onApply} />)
+
+    const btn = screen.getByTestId('tornado-apply-rerun')
+    expect(btn).toHaveAttribute('aria-disabled', 'false')
+    expect(btn).toHaveAttribute('title', 'Apply drag preview and rerun the analysis')
+    // sr-only hint is removed once the button is usable.
+    expect(screen.queryByTestId('tornado-apply-rerun-hint')).not.toBeInTheDocument()
+
+    fireEvent.click(btn)
+    expect(onApply).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ── TornadoChart — remaining disclaimer, axis, and display-mode tests ───
+//
+// Split from the main TornadoChart describe above so the
+// ApplyAndRerunButton suite can sit cleanly between the two. Tests below
+// are the original coverage for the chart's other render paths.
+
+describe('TornadoChart — disclaimer, axis, display modes', () => {
 
   // ── Disclaimer tests ──
 
@@ -733,5 +792,28 @@ describe('TornadoChart', () => {
     const barsIdx = children.findIndex(n => n.contains(bars))
     expect(introIdx).toBeLessThan(legendIdx)
     expect(legendIdx).toBeLessThan(barsIdx)
+  })
+
+  // Brief 5.1 Task 5: legend occupies its own full-width row and the centre
+  // span no longer truncates — "Expected: {value}" must render in full.
+  it('legend row is full-width (no ml-[162px] offset) and does not truncate the centre span', () => {
+    render(
+      <TornadoChart
+        rows={[positiveRow]}
+        expectedOutcome={100}
+        outcomeUnit="currency"
+        outcomeUnitSymbol="$"
+      />,
+    )
+
+    const legend = screen.getByTestId('tornado-legend')
+    expect(legend.className).not.toContain('ml-[162px]')
+
+    const expectedSpan = screen.getByTestId('tornado-expected-display')
+    expect(expectedSpan.className).not.toContain('truncate')
+    // Centre text stays on one line and never clips.
+    expect(expectedSpan.className).toContain('whitespace-nowrap')
+    // The entire label is rendered (matches the tooltip attribute).
+    expect(expectedSpan.textContent).toBe(expectedSpan.getAttribute('title'))
   })
 })
