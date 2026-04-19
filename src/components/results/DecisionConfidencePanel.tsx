@@ -25,6 +25,7 @@ import type { TriageCardCategory, TriageCardAction } from '@/components/shared/T
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { buildCertaintyCopy } from './utils/certaintyCopy'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 
@@ -412,13 +413,44 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     verified: hasWinProbability ? winProbability! : 0,
   }
 
-  // Headline from coaching data (confirmed: no decision_review.narrative_summary.winner
-  // field exists — using available M1 coaching fields)
+  // Headline from coaching data, with a tier-calibrated fallback so the
+  // panel doesn't claim "is the leading option" when evidence is weak.
+  // Brief 5.1 Task 4: certaintyCopy is the single source for the fallback
+  // headline + honesty caveat. LLM-reviewed sources (coachingHeadline,
+  // coachingDecisionStatement) keep precedence when present.
+  const certainty = useMemo(() => {
+    const winner = data.recommendation.recommendedOption
+    if (!winner) return null
+    return buildCertaintyCopy({
+      winnerLabel: winner.label,
+      confidenceTier: data.confidence.tier.tier,
+      coachingReadiness: data.recommendation.coachingReadiness,
+      recommendationStability: data.recommendation.recommendationStability,
+      analysisStatus: data.recommendation.analysisStatus,
+      optionCount: data.recommendation.allOptions.length,
+    })
+  }, [
+    data.recommendation.recommendedOption,
+    data.recommendation.coachingReadiness,
+    data.recommendation.recommendationStability,
+    data.recommendation.analysisStatus,
+    data.recommendation.allOptions.length,
+    data.confidence.tier.tier,
+  ])
+
+  const usingCertaintyFallback =
+    data.recommendation.coachingHeadline == null
+    && data.recommendation.coachingDecisionStatement == null
+    && certainty != null
+
   const headline = data.recommendation.coachingHeadline
     ?? data.recommendation.coachingDecisionStatement
-    ?? (data.recommendation.recommendedOption
-      ? `${data.recommendation.recommendedOption.label} is the leading option`
-      : null)
+    ?? certainty?.headline
+    ?? null
+
+  // Caveat only attaches to the certainty-derived fallback — when an LLM
+  // headline is present it has already been through the coaching pipeline.
+  const healthHeaderCoaching = usingCertaintyFallback ? certainty?.caveat ?? null : null
 
   // Merge and rank action items by EVOI
   const allActions = useMemo(() => {
@@ -451,6 +483,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         ringLabel="%"
         ringDimensions={ringDimensions}
         headline={headline}
+        coaching={healthHeaderCoaching}
         overrideScore={winProbabilityScore}
         mode="single"
         ringCaption={hasWinProbability ? 'win probability' : undefined}
