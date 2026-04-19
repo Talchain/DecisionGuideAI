@@ -240,4 +240,78 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     expect(onFocusNode).toHaveBeenNthCalledWith(1, 'shared-source')
     expect(onFocusNode).toHaveBeenNthCalledWith(2, 'shared-source')
   })
+
+  // Brief 5.2 follow-up round 2 (ChatGPT P1 #2 / Improvement #2): when an
+  // edge lacks from_id, the chip must not render — passing from_label to
+  // onFocusNode would silently no-op in the inspector and mislead the
+  // user into thinking the affordance works.
+  it('chip is suppressed when edge.from_id is absent — onFocusNode is never called with a non-id fallback', () => {
+    const onFocusNode = vi.fn()
+    const edgeWithoutId: ChallengeFragileEdge = {
+      from_label: 'Factor Without ID',
+      to_label: 'Factor Y',
+      alternative_winner_label: 'Option B',
+      alternative_winner_id: 'opt-b',
+      switch_probability: 0.4,
+      // from_id intentionally omitted.
+    }
+    render(
+      <ChallengeSection
+        biasFindings={[]}
+        preMortemItems={[]}
+        fragileEdges={[edgeWithoutId]}
+        onFocusNode={onFocusNode}
+      />,
+    )
+    // Row itself renders — the user still sees the fragility alert text —
+    // but the actionable chip is hidden because the inspector would not
+    // find a matching node.
+    expect(screen.getByTestId('fragile-alt-winner')).toBeInTheDocument()
+    expect(screen.queryByTestId('fragile-review-chip-0')).not.toBeInTheDocument()
+
+    // Nothing in the row should be able to invoke onFocusNode with the
+    // non-id fallback. Covers the whole row container.
+    expect(onFocusNode).not.toHaveBeenCalled()
+  })
+
+  it('mixed group: rows with from_id show chip, rows without from_id hide it; callback receives only valid ids', () => {
+    const onFocusNode = vi.fn()
+    // ChallengeSection sorts edges by switch_probability desc, so testid
+    // ordering is determined by score rather than input order. Use text-
+    // based assertions (aria-label) so the test is robust to reordering.
+    const edges: ChallengeFragileEdge[] = [
+      { from_id: 'node-alpha', from_label: 'Factor Alpha', to_label: 'Factor X', switch_probability: 0.9, alternative_winner_label: 'Option B' },
+      { from_label: 'Factor Orphan', to_label: 'Factor Y', switch_probability: 0.8, alternative_winner_label: 'Option B' }, // from_id missing
+      { from_id: 'node-gamma', from_label: 'Factor Gamma', to_label: 'Factor Z', switch_probability: 0.7, alternative_winner_label: 'Option B' },
+    ]
+    render(
+      <ChallengeSection
+        biasFindings={[]}
+        preMortemItems={[]}
+        fragileEdges={edges}
+        onFocusNode={onFocusNode}
+      />,
+    )
+    // Two chips render (one per valid from_id); the orphan row shows no chip.
+    const chips = screen.getAllByRole('button', { name: /Review .* in the inspector/ })
+    expect(chips).toHaveLength(2)
+    const chipLabels = chips.map(c => c.getAttribute('aria-label'))
+    expect(chipLabels).toEqual(expect.arrayContaining([
+      expect.stringContaining('Factor Alpha'),
+      expect.stringContaining('Factor Gamma'),
+    ]))
+    // Orphan row renders its alert text (user still sees the fragility
+    // signal) but its chip is suppressed. Use the panel textContent since
+    // the source factor name is wrapped in a nested span within the
+    // shifting-phrase sentence.
+    expect(document.body.textContent).toContain('Factor Orphan')
+    expect(chipLabels.some(l => l?.includes('Factor Orphan'))).toBe(false)
+
+    // Firing each chip passes its own from_id — never the label fallback.
+    for (const chip of chips) fireEvent.click(chip)
+    expect(onFocusNode).toHaveBeenCalledTimes(2)
+    const calledIds = onFocusNode.mock.calls.map(c => c[0])
+    expect(calledIds).toEqual(expect.arrayContaining(['node-alpha', 'node-gamma']))
+    expect(onFocusNode).not.toHaveBeenCalledWith('Factor Orphan')
+  })
 })

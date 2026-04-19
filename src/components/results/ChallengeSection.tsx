@@ -247,7 +247,12 @@ function FragileEdgeGroupCard({
         const altWinner = edge.alternative_winner_label
           ? stripStatusQuoSuffixForDisplay(stripEncodingNotation(edge.alternative_winner_label))
           : null
-        const edgeFocusId = edge.from_id ?? edge.from_label
+        // Brief 5.2 follow-up (ChatGPT P1 #2): onFocusNode expects a canvas
+        // node id, not a label. When PLoT omits edge.from_id the chip would
+        // previously fire with from_label and silently no-op (or worse,
+        // match a node whose id happens to equal the label). Use from_id
+        // directly — when absent, the chip is suppressed below.
+        const edgeFocusId = edge.from_id
         return (
           <div key={`${edge.from_label}-${edge.to_label}-${i}`} className="space-y-1">
             <div className={`flex items-baseline gap-2 flex-wrap ${typography.panelMeta} text-text-light`}>
@@ -280,8 +285,13 @@ function FragileEdgeGroupCard({
                 own edgeFocusId. The earlier implementation fell back to
                 group-level focusId for consolidated groups, which opened
                 the first edge's source for EVERY row — row 2+ chips
-                focused the wrong node. */}
-            {onFocusNode && (
+                focused the wrong node.
+
+                Brief 5.2 follow-up (ChatGPT P1 #2): chip is suppressed
+                when edge.from_id is absent. Passing from_label to
+                onFocusNode would silently no-op in the inspector and
+                mislead the user into thinking the affordance works. */}
+            {onFocusNode && edgeFocusId && (
               <button
                 type="button"
                 onClick={() => onFocusNode(edgeFocusId)}
