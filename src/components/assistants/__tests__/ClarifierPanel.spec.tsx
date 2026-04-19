@@ -217,7 +217,7 @@ describe('ClarifierPanel (M3)', () => {
     )
 
     // Find progress bars (should be 2 filled, 1 empty)
-    const progressBars = container.querySelectorAll('.bg-blue-600')
+    const progressBars = container.querySelectorAll('.bg-primary')
     expect(progressBars.length).toBeGreaterThanOrEqual(2)
   })
 
