@@ -109,11 +109,31 @@ export function stripEncodingNotation(rawLabel: string): string {
 
 /**
  * Matches a trailing parenthetical "(Status Quo)" (case-insensitive, any
- * amount of internal whitespace), optionally preceded by a space. Only
- * applied to option card titles when a Baseline pill already communicates
- * the same information — see formatOptionLabelForCard below.
+ * amount of internal whitespace), optionally preceded by a space.
  */
 const STATUS_QUO_TRAILING_PATTERN = /\s*\(\s*status\s+quo\s*\)\s*$/i
+
+/**
+ * Display-only helper: drop a trailing "(Status Quo)" suffix.
+ *
+ * Brief 5.2 Task 6: shared between the baseline-pill option card (via
+ * formatOptionLabelForCard) and the fragility-row alt-winner rendering.
+ * Both surfaces already communicate the status-quo / baseline via other
+ * affordances (pill / context), so the suffix is redundant at the point
+ * of display. The underlying option label on the canvas is unchanged.
+ *
+ * Does NOT compose encoding stripping — callers choose whether to compose
+ * with stripEncodingNotation (baseline cards do, fragility rows do).
+ *
+ * @example
+ * stripStatusQuoSuffixForDisplay("Continue Without Support (Status Quo)")
+ * // → "Continue Without Support"
+ * stripStatusQuoSuffixForDisplay("Hire Tech Lead")
+ * // → "Hire Tech Lead"
+ */
+export function stripStatusQuoSuffixForDisplay(label: string): string {
+  return label.replace(STATUS_QUO_TRAILING_PATTERN, '').trimEnd()
+}
 
 /**
  * Display-only helper for option-card titles.
@@ -126,6 +146,8 @@ const STATUS_QUO_TRAILING_PATTERN = /\s*\(\s*status\s+quo\s*\)\s*$/i
  *
  * Brief 5.1 Task 7. Always compose with stripEncodingNotation so the
  * encoding suffix (0/1, 0–1, discrete) is also removed for display.
+ * Brief 5.2 Task 6: the actual suffix strip is shared with fragility rows
+ * via stripStatusQuoSuffixForDisplay.
  *
  * @example
  * formatOptionLabelForCard("Continue Without Dedicated Support (Status Quo)", true)
@@ -139,7 +161,7 @@ export function formatOptionLabelForCard(
 ): string {
   const base = stripEncodingNotation(rawLabel)
   if (!hasBaselinePill) return base
-  return base.replace(STATUS_QUO_TRAILING_PATTERN, '').trimEnd()
+  return stripStatusQuoSuffixForDisplay(base)
 }
 
 /**
