@@ -237,4 +237,93 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
       }
     }
   })
+
+  describe('Brief 5.2 Task 1 — winProbabilityGap suffix', () => {
+    it('row 4 (weak tier): appends " by N points" when gap provided', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+        winProbabilityGap: 95,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 95 points`)
+      expect(result.caveat).toContain('limited evidence')
+    })
+
+    it('row 4 (weak readiness): appends suffix', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        coachingReadiness: 'needs_evidence',
+        winProbabilityGap: 12,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 12 points`)
+    })
+
+    it('row 5 (fair tier): appends suffix, no caveat', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'fair',
+        winProbabilityGap: 7,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 7 points`)
+      expect(result.caveat).toBeNull()
+    })
+
+    it('row 6 (strong + ready): does NOT append suffix — reserved phrasing', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'strong',
+        coachingReadiness: 'ready',
+        winProbabilityGap: 50,
+      })
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
+    })
+
+    it('row 7 fallback: appends suffix when gap provided', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        winProbabilityGap: 3,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 3 points`)
+    })
+
+    it('singular point uses "point" not "points"', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+        winProbabilityGap: 1,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 1 point`)
+    })
+
+    it('rounds fractional gaps to the nearest whole point', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+        winProbabilityGap: 4.6,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads by 5 points`)
+    })
+
+    it('omits suffix when gap is 0, negative, or non-finite', () => {
+      for (const gap of [0, -1, NaN, Infinity, -Infinity]) {
+        const result = buildCertaintyCopy({
+          winnerLabel: WINNER,
+          confidenceTier: 'needs_work',
+          winProbabilityGap: gap,
+        })
+        expect(result.headline).toBe(`${WINNER} currently leads`)
+      }
+    })
+
+    it('row 1 (unstable) ignores gap — canonical unstable copy is preserved', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        recommendationStability: 0.55,
+        winProbabilityGap: 95,
+      })
+      expect(result.headline).toBe(
+        'no clear leading option, the result is sensitive to your estimates',
+      )
+    })
+  })
 })

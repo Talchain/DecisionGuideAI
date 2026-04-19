@@ -23,18 +23,24 @@
  *
  *   4. confidenceTier === 'needs_work' OR coachingReadiness in the
  *      known-weak enum ({needs_evidence, needs_framing, low, not_ready})
- *      → "{winner} currently leads"
+ *      → "{winner} currently leads[ by N points]"
  *      + caveat: "Result depends on factors with limited evidence.
  *                 See Top evidence value."
  *
  *   5. confidenceTier === 'fair' OR coachingReadiness === 'close_call'
- *      → "{winner} currently leads"
+ *      → "{winner} currently leads[ by N points]"
  *
  *   6. confidenceTier === 'strong' AND coachingReadiness === 'ready'
  *      → "{winner} is the leading option"
  *
  *   7. fallback (unknown tier / absent readiness)
- *      → "{winner} currently leads"
+ *      → "{winner} currently leads[ by N points]"
+ *
+ *   The "[ by N points]" suffix is appended when the caller supplies a
+ *   positive finite winProbabilityGap (percentage-point lead vs. the next
+ *   option). Brief 5.2 Task 1: preserves the numeric lead without the
+ *   over-confident "clear leader / X-point advantage" framing that PLoT can
+ *   produce for needs_work bundles with high numeric stability.
  *
  * British English. No em dashes in UI strings (use a period to separate
  * clauses instead). See DESIGN_SYSTEM.md and Brief 5.1 §Operating
@@ -51,6 +57,13 @@ export interface CertaintyCopyInput {
   recommendationStability?: number
   analysisStatus?: 'computed' | 'partial' | 'failed' | 'blocked'
   optionCount?: number
+  /**
+   * Brief 5.2 Task 1: win-probability gap (percentage points) between the
+   * winner and the next option. When provided and > 0, Rules 4 and 5 append
+   * " by N points" to the softened lede so the numeric lead is preserved
+   * without over-confident language.
+   */
+  winProbabilityGap?: number
 }
 
 export interface CertaintyCopy {
@@ -82,7 +95,18 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     recommendationStability,
     analysisStatus,
     optionCount,
+    winProbabilityGap,
   } = input
+
+  // Brief 5.2 Task 1: "by N points" suffix preserves the numeric lead in the
+  // softened lede. Rounded to the nearest whole point; only appended when the
+  // gap is a positive finite number so callers can pass null/NaN safely.
+  const gapSuffix =
+    typeof winProbabilityGap === 'number'
+    && Number.isFinite(winProbabilityGap)
+    && winProbabilityGap > 0
+      ? ` by ${Math.round(winProbabilityGap)} point${Math.round(winProbabilityGap) === 1 ? '' : 's'}`
+      : ''
 
   if (analysisStatus === 'partial') {
     return {
@@ -110,7 +134,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
 
   if (confidenceTier === 'needs_work' || isWeakReadiness(coachingReadiness)) {
     return {
-      headline: `${winnerLabel} currently leads`,
+      headline: `${winnerLabel} currently leads${gapSuffix}`,
       sub: null,
       caveat: 'Result depends on factors with limited evidence. See Top evidence value.',
     }
@@ -118,7 +142,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
 
   if (confidenceTier === 'fair' || coachingReadiness === 'close_call') {
     return {
-      headline: `${winnerLabel} currently leads`,
+      headline: `${winnerLabel} currently leads${gapSuffix}`,
       sub: null,
       caveat: null,
     }
@@ -133,7 +157,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
   }
 
   return {
-    headline: `${winnerLabel} currently leads`,
+    headline: `${winnerLabel} currently leads${gapSuffix}`,
     sub: null,
     caveat: null,
   }

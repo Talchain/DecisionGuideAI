@@ -461,6 +461,30 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   // whatever headline text is in play. That closes the loophole where
   // an upstream "clear leading option" string could mask a
   // needs_work / needs_evidence bundle.
+  //
+  // Brief 5.2 Task 1: Brief 5.1's caveat guarantee alone wasn't enough —
+  // PLoT can still supply "Option A is the clear leader with a 95-point
+  // advantage" which rendered verbatim because coachingHeadline won the
+  // precedence chain. When the tier is weak (certainty.caveat is present),
+  // we now swap in certainty.headline instead so the headline softens with
+  // the caveat. winProbabilityGap preserves the numeric lead as "by N
+  // points" without the over-confident framing.
+  const winProbabilityGap = useMemo(() => {
+    const options = data.recommendation.allOptions
+    if (!options || options.length < 2) return undefined
+    const winner = data.recommendation.recommendedOption
+    if (!winner || typeof winner.winProbability !== 'number') return undefined
+    const runnerUp = options
+      .filter(o => o.id !== winner.id && typeof o.winProbability === 'number')
+      .reduce<typeof winner | null>((best, cur) => {
+        if (!best) return cur
+        return (cur.winProbability ?? 0) > (best.winProbability ?? 0) ? cur : best
+      }, null)
+    if (!runnerUp || typeof runnerUp.winProbability !== 'number') return undefined
+    const gapPct = (winner.winProbability - runnerUp.winProbability) * 100
+    return gapPct > 0 ? gapPct : undefined
+  }, [data.recommendation.allOptions, data.recommendation.recommendedOption])
+
   const certainty = useMemo(() => {
     const winner = data.recommendation.recommendedOption
     if (!winner) return null
@@ -471,6 +495,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       recommendationStability: data.recommendation.recommendationStability,
       analysisStatus: data.recommendation.analysisStatus,
       optionCount: data.recommendation.allOptions.length,
+      winProbabilityGap,
     })
   }, [
     data.recommendation.recommendedOption,
@@ -479,12 +504,18 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     data.recommendation.analysisStatus,
     data.recommendation.allOptions.length,
     data.confidence.tier.tier,
+    winProbabilityGap,
   ])
 
-  const headline = data.recommendation.coachingHeadline
-    ?? data.recommendation.coachingDecisionStatement
-    ?? certainty?.headline
-    ?? null
+  // Weak tier → prefer the softened tier-aware lede over whatever PLoT
+  // supplied. The caveat's presence is the weak-tier signal (per the
+  // certaintyCopy decision table, caveat only attaches at Rule 4).
+  const headline = certainty?.caveat != null
+    ? certainty.headline
+    : (data.recommendation.coachingHeadline
+       ?? data.recommendation.coachingDecisionStatement
+       ?? certainty?.headline
+       ?? null)
 
   // Caveat is tier-driven. It attaches whenever buildCertaintyCopy
   // returned one — the decision table only produces a caveat when
