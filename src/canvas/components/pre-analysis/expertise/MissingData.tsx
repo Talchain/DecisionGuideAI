@@ -82,16 +82,18 @@ export function MissingData({
                 </div>
               )}
             </div>
-            {/* Row 2 — icon-only Set value + technique hint */}
-            <div className="flex items-center gap-2 flex-wrap">
+            {/* Row 2 — icon-only Set value + technique hint. 28×28 button +
+                14px icon matches Review-next triage-card parity
+                (Brief 5.1 Task 3). */}
+            <div className="flex items-center gap-1.5 flex-wrap">
               <Tooltip delay={200} content="Set value">
                 <button
                   type="button"
                   onClick={() => nodeId && onSetValue?.(nodeId)}
-                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-info hover:text-info/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 cursor-pointer"
+                  className="inline-flex items-center justify-center w-7 h-7 rounded text-info hover:text-info/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
                   aria-label={`Set value for ${item.label}`}
                 >
-                  <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                  <Pencil size={14} aria-hidden="true" />
                 </button>
               </Tooltip>
               <Tooltip delay={300} content={technique.tooltip}>

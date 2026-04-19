@@ -10,7 +10,7 @@ import { Pill } from '../primitives'
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
 import { typography } from '@/styles/typography'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
-import { formatValueWithUnit } from '@/canvas/utils/formatValueWithUnit'
+import { formatFactorDisplayValue } from '@/utils/formatFactorDisplayValue'
 import { DiscussWithAiButton } from '../DiscussWithAiButton'
 import Tooltip from '../../../../components/Tooltip'
 
@@ -58,20 +58,40 @@ export function AiEstimated({
               >
                 {item.label}
               </button>
-              {item.rawValue != null && item.detail !== 'Not set' && (() => {
-                const num = typeof item.rawValue === 'number' ? item.rawValue : Number(item.rawValue)
-                // Uses shared formatValueWithUnit: placeholder units (scale, score, etc.) with
-                // 0–1 values render as qualitative labels; other placeholder values render bare
-                // numbers; currency prefixes, percent suffixes, and thousand separators applied.
-                const display = formatValueWithUnit(num, item.unit)
+              {/* Brief 5.1 Task 3: render the current estimate value in the
+                  row, or an em-dash placeholder when no value is available.
+                  formatFactorDisplayValue is the canonical chain — same one
+                  Review-next triage cards use — so parity flows through. */}
+              {(() => {
+                const display = item.rawValue != null && item.detail !== 'Not set'
+                  ? formatFactorDisplayValue({
+                      label: item.label,
+                      raw_value: item.rawValue,
+                      unit: item.unit ?? null,
+                    })
+                  : null
+
+                if (display != null) {
+                  // The visible value text is the accessible name — no
+                  // aria-label (would duplicate with the Pencil icon below).
+                  return (
+                    <button
+                      type="button"
+                      onClick={() => nodeId && onEdit?.(nodeId)}
+                      className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
+                    >
+                      {display}
+                    </button>
+                  )
+                }
                 return (
-                  <button
-                    type="button"
-                    onClick={() => nodeId && onEdit?.(nodeId)}
-                    className={`${typography.panelBody} text-text-body hover:text-info cursor-pointer shrink-0`}
+                  <span
+                    className={`${typography.panelBody} text-text-light shrink-0`}
+                    aria-label="No current value"
+                    data-testid="expertise-value-placeholder"
                   >
-                    {display}
-                  </button>
+                    —
+                  </span>
                 )
               })()}
               <Pill size="small" variant="warning">Estimated</Pill>
@@ -87,26 +107,28 @@ export function AiEstimated({
                 </div>
               )}
             </div>
-            {/* Row 2 — icon-only actions, 44px touch targets */}
-            <div className="flex items-center gap-2">
+            {/* Row 2 — icon-only actions. 28×28 buttons with 14px icons match
+                the Review-next triage-card IconActionButton (Brief 5.1 Task 3
+                icon parity). Parent padding provides generous hit-rect. */}
+            <div className="flex items-center gap-1.5">
               <Tooltip delay={200} content="Confirm value">
                 <button
                   type="button"
                   onClick={() => nodeId && onConfirm?.(nodeId)}
-                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-success hover:text-success/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 cursor-pointer"
+                  className="inline-flex items-center justify-center w-7 h-7 rounded text-success hover:text-success/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
                   aria-label={`Confirm value for ${item.label}`}
                 >
-                  <Check className="w-3.5 h-3.5" aria-hidden="true" />
+                  <Check size={14} aria-hidden="true" />
                 </button>
               </Tooltip>
               <Tooltip delay={200} content="Edit value">
                 <button
                   type="button"
                   onClick={() => nodeId && onEdit?.(nodeId)}
-                  className="inline-flex items-center justify-center min-h-[44px] min-w-[44px] text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 cursor-pointer"
+                  className="inline-flex items-center justify-center w-7 h-7 rounded text-text-light hover:text-text-body cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
                   aria-label={`Edit value for ${item.label}`}
                 >
-                  <Pencil className="w-3.5 h-3.5" aria-hidden="true" />
+                  <Pencil size={14} aria-hidden="true" />
                 </button>
               </Tooltip>
             </div>
