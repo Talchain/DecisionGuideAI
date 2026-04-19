@@ -3,7 +3,9 @@
  *
  * Validates cross-cutting UI contracts that must hold after Wave 2 remediation:
  * 1. Formatter behaviour (formatTargetValue, formatPercent)
- * 2. Trust-boundary cast budget (useResultsSectionData.ts ≤ 6 debug-only casts)
+ * 2. Trust-boundary cast budget (useResultsSectionData.ts ≤ 14 casts —
+ *    debug-only window access plus approved PLoT-adapter boundary reads;
+ *    see Packet A in docs/ui/cascade-triage-v3.md for rationale)
  * 3. ESLint rule activation (dangerouslySetInnerHTML)
  * 4. British English pass (customize/customise family present)
  * 5. No technical-string leakage in results surface helpers
@@ -89,6 +91,11 @@ describe('Trust boundary — cast budget', () => {
   it('all remaining "as any" casts are debug window access OR PLoT-adapter boundary reads', () => {
     // Packet A (2026-04-19): allowlist for the 5 PLoT-adapter boundary sites.
     // See preceding test for technical debt reference.
+    //
+    // Each boundary field must appear as a whole-word token on the same line
+    // as the `as any` cast — not as a substring. This prevents coincidental
+    // bypasses where a future field like `probability_of_joint_goal_xyz` or
+    // `nonZeroImpactDriversLegacy` would piggyback on the allowlist.
     const PLOT_BOUNDARY_FIELDS = [
       'probability_of_joint_goal',
       'nonZeroImpactDrivers',
@@ -100,7 +107,9 @@ describe('Trust boundary — cast budget', () => {
     const castLines = lines.filter(line => line.includes('as any'))
     for (const line of castLines) {
       const isDebugGuard = line.includes('__OLUMI_DEBUG')
-      const isPlotBoundary = PLOT_BOUNDARY_FIELDS.some(field => line.includes(field))
+      const isPlotBoundary = PLOT_BOUNDARY_FIELDS.some(field =>
+        new RegExp(`\\b${field}\\b`).test(line),
+      )
       expect(
         isDebugGuard || isPlotBoundary,
         `cast lacks both __OLUMI_DEBUG guard and PLoT-adapter boundary field: ${line.trim()}`
