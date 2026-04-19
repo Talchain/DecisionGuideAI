@@ -70,7 +70,9 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
     robustnessLevel: 'high',
     coachingHeadline: opts.coachingHeadline,
     coachingDecisionStatement: opts.coachingDecisionStatement,
-    coachingReadiness: opts.coachingReadiness ?? 'ready',
+    // Use `in` so callers can explicitly set `coachingReadiness: undefined`
+    // to simulate missing readiness (Brief 5.2 follow-up non-caveat tests).
+    coachingReadiness: 'coachingReadiness' in opts ? opts.coachingReadiness : 'ready',
   }
 
   const drivers: DriversSectionData = {
@@ -185,14 +187,23 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
     ).not.toBeInTheDocument()
   })
 
-  it('fair tier + ready readiness: coachingHeadline keeps precedence, no caveat', () => {
+  it('fair tier + ready readiness: Brief 5.2 follow-up makes fair tier conservative — coachingHeadline suppressed', () => {
+    // ChatGPT P0 #1: fair tier emits the softened "currently leads" lede; a
+    // coachingHeadline saying "Option A has a slight edge" is conservative
+    // enough to render, but "clear leader / decisive" language would still
+    // leak through the old gate. The conservative flag now suppresses ANY
+    // coaching override on fair tier so the decision table stays authoritative.
     const data = makeData({
       coachingHeadline: 'Option A has a slight edge',
       confidenceTier: 'fair',
       coachingReadiness: 'ready',
     })
     render(<DecisionConfidencePanel data={data} />)
-    expect(screen.getByText('Option A has a slight edge')).toBeInTheDocument()
+    // The PLoT coaching copy is suppressed; certaintyCopy's "currently leads
+    // by N points" wins in fair-tier states.
+    expect(screen.queryByText('Option A has a slight edge')).not.toBeInTheDocument()
+    expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+    // No caveat — fair tier doesn't emit one.
     expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
   })
 
@@ -200,5 +211,49 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
     const data = makeData({ confidenceTier: 'fair', coachingReadiness: 'ready' })
     render(<DecisionConfidencePanel data={data} />)
     expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
+  })
+
+  // Brief 5.2 follow-up (ChatGPT P0 #1 + P1 #3): conservative certainty
+  // states without a caveat (unstable, fair tier, fallback) must ALSO
+  // suppress over-confident coachingHeadline overrides. The earlier gate
+  // only protected caveat-bearing branches, leaking "clear leader" copy
+  // into fair-tier / unstable renders even though the underlying lede
+  // was already softened.
+  describe('conservative branches without caveat still suppress coachingHeadline', () => {
+    it('fair tier: over-confident coachingHeadline is suppressed, softened lede wins', () => {
+      const data = makeData({
+        coachingHeadline: 'Option A is the clear leader',
+        confidenceTier: 'fair',
+        coachingReadiness: 'ready',
+      })
+      render(<DecisionConfidencePanel data={data} />)
+      expect(screen.queryByText(/clear leader/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+      // No caveat — the softening alone is enough for fair tier.
+      expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
+    })
+
+    it('fallback (unknown tier + absent readiness): coachingHeadline is suppressed', () => {
+      const data = makeData({
+        coachingHeadline: 'Option A is clearly the best choice',
+        confidenceTier: 'unknown',
+      })
+      render(<DecisionConfidencePanel data={data} />)
+      expect(screen.queryByText(/clearly the best choice/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+    })
+
+    it('strong tier + missing readiness: still conservative, coachingHeadline suppressed', () => {
+      // Guards the pre-fix class of bug where strong tier alone triggered
+      // coaching overrides despite readiness being absent or incomplete.
+      const data = makeData({
+        coachingHeadline: 'Option A is the clear leader with a strong advantage',
+        confidenceTier: 'strong',
+        coachingReadiness: undefined,
+      })
+      render(<DecisionConfidencePanel data={data} />)
+      expect(screen.queryByText(/clear leader/)).not.toBeInTheDocument()
+      expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+    })
   })
 })

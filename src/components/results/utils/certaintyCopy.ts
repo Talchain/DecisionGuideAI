@@ -73,6 +73,16 @@ export interface CertaintyCopy {
   sub: string | null
   /** Dismissible honesty caveat rendered when evidence is weak; otherwise null. */
   caveat: string | null
+  /**
+   * Brief 5.2 follow-up: true whenever this copy is the authoritative
+   * lede — unstable, partial, single-option, weak-tier, fair-tier, or
+   * fallback branches. DecisionConfidencePanel must NOT let PLoT coaching
+   * copy override a conservative headline (the "clear leader / N-point
+   * advantage" string would contradict the softened lede even without a
+   * caveat attaching). Only the strong + ready branch (Rule 6) sets this
+   * to false, opting in to coaching overrides.
+   */
+  conservative: boolean
 }
 
 const WEAK_READINESS: readonly M1CoachingReadiness[] = [
@@ -113,6 +123,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       headline: 'Some analysis steps did not complete',
       sub: 'Results are partial',
       caveat: null,
+      conservative: true,
     }
   }
 
@@ -121,6 +132,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       headline: 'no clear leading option, the result is sensitive to your estimates',
       sub: `${winnerLabel} leads slightly more often`,
       caveat: null,
+      conservative: true,
     }
   }
 
@@ -129,6 +141,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       headline: `${winnerLabel} is your only option`,
       sub: null,
       caveat: null,
+      conservative: true,
     }
   }
 
@@ -137,6 +150,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       headline: `${winnerLabel} currently leads${gapSuffix}`,
       sub: null,
       caveat: 'Result depends on factors with limited evidence. See Top evidence value.',
+      conservative: true,
     }
   }
 
@@ -145,6 +159,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       headline: `${winnerLabel} currently leads${gapSuffix}`,
       sub: null,
       caveat: null,
+      conservative: true,
     }
   }
 
@@ -153,6 +168,7 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       headline: `${winnerLabel} is the leading option`,
       sub: null,
       caveat: null,
+      conservative: false,
     }
   }
 
@@ -160,5 +176,6 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     headline: `${winnerLabel} currently leads${gapSuffix}`,
     sub: null,
     caveat: null,
+    conservative: true,
   }
 }

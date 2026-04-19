@@ -507,10 +507,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     winProbabilityGap,
   ])
 
-  // Weak tier → prefer the softened tier-aware lede over whatever PLoT
-  // supplied. The caveat's presence is the weak-tier signal (per the
-  // certaintyCopy decision table, caveat only attaches at Rule 4).
-  const headline = certainty?.caveat != null
+  // Brief 5.2 follow-up (ChatGPT P0 #1): the earlier gate was too narrow —
+  // only caveat-bearing branches suppressed PLoT coaching overrides, which
+  // let unstable, partial, single-option, fair-tier, and fallback branches
+  // regress to strong "clear leader" language even though certaintyCopy
+  // emitted a conservative lede. The `conservative` flag marks every
+  // branch except Rule 6 (strong + ready) so coaching overrides are now
+  // scoped to the single tier combination where they are genuinely safe.
+  const headline = certainty?.conservative
     ? certainty.headline
     : (data.recommendation.coachingHeadline
        ?? data.recommendation.coachingDecisionStatement
