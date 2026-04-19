@@ -53,7 +53,10 @@ function getTechniqueHint(label: string): { text: string; tooltip: string } {
 export function MissingData({
   items,
   onFocusNode,
-  onSetValue,
+  // Brief 5.2 Task 3 removed the Pencil that routed through this callback.
+  // Kept on the prop contract for API compatibility with YourExpertise —
+  // any future deep-link flow can wire back into this handler.
+  onSetValue: _onSetValue,
   factorInfluenceMap,
   onHoverEnter,
   onHoverLeave,
