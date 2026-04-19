@@ -188,4 +188,56 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
     expect(screen.getByTestId('fragile-review-chip-0')).toBeInTheDocument()
     expect(screen.getByTestId('fragile-review-chip-1')).toBeInTheDocument()
   })
+
+  // Brief 5.2 follow-up (ChatGPT P0 #2 + P1 #2): each row's chip must focus
+  // its OWN from_id, not the group-level focusId. The earlier implementation
+  // used edges[0].from_id for every row in consolidated mode, so row 2+
+  // always opened row 1's source.
+  it('consolidated group: each chip fires onFocusNode with its OWN edge from_id (per-row callback target)', () => {
+    const onFocusNode = vi.fn()
+    const edges = [
+      makeFragileEdge({ from_id: 'node-alpha', from_label: 'Factor A' }),
+      makeFragileEdge({ from_id: 'node-beta', from_label: 'Factor B' }),
+      makeFragileEdge({ from_id: 'node-gamma', from_label: 'Factor C' }),
+    ]
+    render(
+      <ChallengeSection
+        biasFindings={[]}
+        preMortemItems={[]}
+        fragileEdges={edges}
+        onFocusNode={onFocusNode}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('fragile-review-chip-0'))
+    expect(onFocusNode).toHaveBeenLastCalledWith('node-alpha')
+    fireEvent.click(screen.getByTestId('fragile-review-chip-1'))
+    expect(onFocusNode).toHaveBeenLastCalledWith('node-beta')
+    fireEvent.click(screen.getByTestId('fragile-review-chip-2'))
+    expect(onFocusNode).toHaveBeenLastCalledWith('node-gamma')
+    expect(onFocusNode).toHaveBeenCalledTimes(3)
+  })
+
+  it('non-consolidated group (same source, multiple edges): each chip still focuses its own edge from_id', () => {
+    const onFocusNode = vi.fn()
+    const edges = [
+      makeFragileEdge({ from_id: 'shared-source', from_label: 'Factor A', to_label: 'Factor X' }),
+      makeFragileEdge({ from_id: 'shared-source', from_label: 'Factor A', to_label: 'Factor Y' }),
+    ]
+    render(
+      <ChallengeSection
+        biasFindings={[]}
+        preMortemItems={[]}
+        fragileEdges={edges}
+        onFocusNode={onFocusNode}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('fragile-review-chip-0'))
+    fireEvent.click(screen.getByTestId('fragile-review-chip-1'))
+    // Same-source rows share the from_id, so both calls map to the same
+    // node — but the callback path still runs per row (not a single shared
+    // closure), which is the invariant being protected.
+    expect(onFocusNode).toHaveBeenCalledTimes(2)
+    expect(onFocusNode).toHaveBeenNthCalledWith(1, 'shared-source')
+    expect(onFocusNode).toHaveBeenNthCalledWith(2, 'shared-source')
+  })
 })

@@ -212,7 +212,6 @@ function FragileEdgeGroupCard({
   // Consolidated mode: empty sourceLabel means edges from mixed sources
   const consolidated = !sourceLabel
   const multiple = edges.length > 1
-  const focusId = edges[0].from_id ?? edges[0].from_label
 
   return (
     <div className={`relative border border-panel-border rounded-lg px-3 py-2 pr-16 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
@@ -275,11 +274,17 @@ function FragileEdgeGroupCard({
             )}
             {/* Brief 5.2 Task 6c: per-row chip also renders for consolidated
                 groups — removes the inconsistency where consolidated cards
-                only exposed an icon-only inspector button. */}
+                only exposed an icon-only inspector button.
+
+                Brief 5.2 follow-up (ChatGPT P0 #2): always use the row's
+                own edgeFocusId. The earlier implementation fell back to
+                group-level focusId for consolidated groups, which opened
+                the first edge's source for EVERY row — row 2+ chips
+                focused the wrong node. */}
             {onFocusNode && (
               <button
                 type="button"
-                onClick={() => onFocusNode(consolidated ? focusId : edgeFocusId)}
+                onClick={() => onFocusNode(edgeFocusId)}
                 data-testid={`fragile-review-chip-${i}`}
                 className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
                 aria-label={`Review ${edgeSource} in the inspector`}
