@@ -55,13 +55,15 @@ describe('Conversation.module.css — GraphPatchBlock border token', () => {
     expect(ruleBody).toMatch(/box-shadow:\s*0\s+1px\s+2px\s+rgba\(38,\s*38,\s*38,\s*0\.06\)/)
   })
 
-  it('graphPatchBlockApplied recolours the full border to success (not a top accent)', () => {
+  it('graphPatchBlockApplied reverts the full border to neutral (DS v5 §21.2)', () => {
     const css = readFileSync(CSS_PATH, 'utf-8')
     const appliedMatch = css.match(/\.graphPatchBlockApplied\s*\{([^}]+)\}/s)
     expect(appliedMatch).toBeTruthy()
     const ruleBody = appliedMatch![1]
-    // After Paul's override, the applied state swaps the full border to success.
-    expect(ruleBody).toContain('--success')
+    // Per DS v5 §21.2 (commit e193d2d7): the applied state reverts the border
+    // to neutral; status is signalled by the muted "Changes applied" eyebrow
+    // text + Check icon, not a second colour channel.
+    expect(ruleBody).toContain('--border-default')
     expect(ruleBody).not.toMatch(/border-top-color/)
   })
 })
@@ -148,6 +150,6 @@ describe('index.css — olumi scrollbar utility', () => {
     expect(chatThreadSource).toContain('chat-thread olumi-scrollbar')
     expect(outputsDockSource).toContain('olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto')
     expect(outputsDockSource).toContain('olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6')
-    expect(preAnalysisPanelSource).toContain('olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-2 py-3 space-y-4')
+    expect(preAnalysisPanelSource).toContain('olumi-scrollbar flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3')
   })
 })
