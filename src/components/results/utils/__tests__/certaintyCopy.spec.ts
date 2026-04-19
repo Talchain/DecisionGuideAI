@@ -157,6 +157,68 @@ describe('buildCertaintyCopy — Brief 5.1 Task 4 decision table', () => {
     ).toBe(`${WINNER} currently leads`)
   })
 
+  describe('precedence policy', () => {
+    // Brief 5.1 follow-up Imp #3. Locks the decision-table ordering so
+    // future copy changes don't silently re-prioritise. The table is
+    // evaluated top-down, first match wins — the tests below pin the
+    // winners of each realistic conflict.
+
+    it('unstable (stability < 0.70) wins over weak tier — canonical unstable headline, no caveat', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        recommendationStability: 0.55,
+        confidenceTier: 'needs_work',
+        coachingReadiness: 'needs_evidence',
+      })
+      // Row 1 fires. User sees the unstable-specific framing; the
+      // weak-tier caveat is suppressed because the stability line
+      // already communicates sensitivity more directly.
+      expect(result.headline).toBe(
+        'no clear leading option, the result is sensitive to your estimates',
+      )
+      expect(result.sub).toBe(`${WINNER} leads slightly more often`)
+      expect(result.caveat).toBeNull()
+    })
+
+    it('partial analysis wins over unstable wins over weak tier (full chain)', () => {
+      // partial beats stability < 0.70 beats needs_work.
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        analysisStatus: 'partial',
+        recommendationStability: 0.55,
+        confidenceTier: 'needs_work',
+        coachingReadiness: 'needs_evidence',
+      })
+      expect(result.headline).toBe('Some analysis steps did not complete')
+      expect(result.sub).toBe('Results are partial')
+      expect(result.caveat).toBeNull()
+    })
+
+    it('stability exactly 0.70 falls through to weak-tier branch (caveat attaches)', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        recommendationStability: 0.70,
+        confidenceTier: 'needs_work',
+        coachingReadiness: 'ready',
+      })
+      // 0.70 is not < 0.70, so Row 1 does NOT fire. Row 4 wins —
+      // "currently leads" + evidence caveat.
+      expect(result.headline).toBe(`${WINNER} currently leads`)
+      expect(result.caveat).toContain('limited evidence')
+    })
+
+    it('single option wins over weak tier (no caveat attaches because there is no alternative to compare)', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        optionCount: 1,
+        confidenceTier: 'needs_work',
+        coachingReadiness: 'needs_evidence',
+      })
+      expect(result.headline).toBe(`${WINNER} is your only option`)
+      expect(result.caveat).toBeNull()
+    })
+  })
+
   it('UI copy compliance: no em dashes in any returned string', () => {
     // Brief §Operating principles: no em dashes in UI copy.
     const cases: Parameters<typeof buildCertaintyCopy>[0][] = [
