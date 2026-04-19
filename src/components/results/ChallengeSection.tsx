@@ -134,6 +134,7 @@ function ChallengeCard({
         {onSendMessage && (
           <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
             <DiscussWithAiButton
+              variant="secondary"
               element={{ kind: 'missing' }}
               onSend={() => onSendMessage(ctaPrompt)}
             />
@@ -180,6 +181,7 @@ function ChallengeCard({
         {onSendMessage && (
           <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
             <DiscussWithAiButton
+              variant="secondary"
               element={{ kind: 'missing' }}
               onSend={() => onSendMessage(ctaPrompt)}
             />
@@ -306,6 +308,7 @@ function FragileEdgeGroupCard({
       {onSendMessage && (
         <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
           <DiscussWithAiButton
+            variant="secondary"
             element={{ kind: 'missing' }}
             onSend={() => onSendMessage(
               consolidated
@@ -341,6 +344,7 @@ function IdentifiabilityCard({ onSendMessage }: { onSendMessage?: (text: string)
       {onSendMessage && (
         <div className="absolute bottom-1 right-1" onClick={(e) => e.stopPropagation()}>
           <DiscussWithAiButton
+            variant="secondary"
             element={{ kind: 'goal', label: 'success target' }}
             onSend={() => onSendMessage('What baseline should I use for the success target? The current one is a default.')}
           />

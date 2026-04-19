@@ -773,7 +773,7 @@ function DriverRow({
 
       {/* P1-2: Discuss-with-AI sparkle, bottom-right of the driver card */}
       <div className="absolute bottom-1 right-1">
-        <DiscussWithAiButton element={{ kind: 'factor', label: cleanedLabel }} />
+        <DiscussWithAiButton variant="secondary" element={{ kind: 'factor', label: cleanedLabel }} />
       </div>
     </div>
   )

@@ -33,9 +33,22 @@ interface DiscussWithAiButtonProps {
   ariaLabel?: string
   /** Optional className extension for positioning context */
   className?: string
+  /**
+   * Visual emphasis variant (Brief 5.1 Task 9).
+   *
+   * - 'primary' (default): full emphasis — preserves current behaviour at
+   *   every non-Analysis-tab call site.
+   * - 'secondary': opacity-50 at rest; reveals to full emphasis on hover,
+   *   keyboard focus (focus-visible), or parent focus (focus-within).
+   *   Reduces panel-wide sparkle density on the Analysis tab without
+   *   making the control invisible at rest (visibility floor — no
+   *   opacity-0 / sr-only). Keyboard users still see the affordance
+   *   revealed before activation.
+   */
+  variant?: 'primary' | 'secondary'
 }
 
-function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className }: DiscussWithAiButtonProps) {
+function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className, variant = 'primary' }: DiscussWithAiButtonProps) {
   // Subscribe to primitive references only — no inline selectors that return
   // new arrays each call (would cause infinite loops per project guidance).
   const prefillChat = useGuidanceStore(s => s._prefillChat)
@@ -63,6 +76,13 @@ function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className }: Disc
 
   const computedAriaLabel = ariaLabel ?? buildDefaultAriaLabel(element)
 
+  // Brief 5.1 Task 9: opacity-50 at rest for the secondary variant, with
+  // full-emphasis reveal on hover or keyboard focus. Transition-opacity is
+  // appended so the reveal animates alongside the existing colour shift.
+  const variantClasses = variant === 'secondary'
+    ? ' opacity-50 hover:opacity-100 focus-visible:opacity-100 focus-within:opacity-100 transition-opacity'
+    : ''
+
   return (
     <Tooltip content="Discuss this with AI" delay={200}>
       <button
@@ -70,11 +90,13 @@ function DiscussWithAiButtonImpl({ element, onSend, ariaLabel, className }: Disc
         onClick={handleClick}
         aria-label={computedAriaLabel}
         data-testid="discuss-with-ai"
+        data-variant={variant}
         className={
           'inline-flex items-center justify-center w-6 h-6 rounded-full ' +
           'text-text-light hover:text-info focus-visible:text-info ' +
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info/40 ' +
-          'transition-colors ' +
+          'transition-colors' +
+          variantClasses + ' ' +
           (className ?? '')
         }
       >
