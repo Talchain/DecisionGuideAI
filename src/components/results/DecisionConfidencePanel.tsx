@@ -199,12 +199,50 @@ function ResultChecks({ data, onFocusNode }: { data: ResultsSectionDataReturn; o
 
 // ── Section 3: Trust summary ────────────────────────────────────────────────
 
-function TrustSummary({ actionCount }: { actionCount: number }) {
+/**
+ * Evidence-section header.
+ *
+ * - `countLine`: "Top N by evidence value" — the original render.
+ * - `subtitle`: scope copy that always renders alongside the count so users
+ *   can reconcile this section with "What's driving this" (Brief 5.1 Task 2).
+ * - `bridge`: symmetric descriptive line that renders iff the top driver
+ *   identity and the top evidence-gap identity differ. No implication that
+ *   one section is more important — only a scope distinction.
+ */
+function TrustSummary({
+  actionCount,
+  topDriverIdentity,
+  topEvidenceGapIdentity,
+}: {
+  actionCount: number
+  topDriverIdentity: string | null
+  topEvidenceGapIdentity: string | null
+}) {
   if (actionCount === 0) return null
+
+  const showBridge =
+    topDriverIdentity != null
+    && topEvidenceGapIdentity != null
+    && topDriverIdentity !== topEvidenceGapIdentity
+
   return (
-    <p className={`${typography.panelMeta} text-text-light`}>
-      Top {actionCount} by evidence value
-    </p>
+    <div className="flex flex-col gap-0.5" data-testid="trust-summary">
+      <p className={`${typography.panelMeta} text-text-light`}>
+        Top {actionCount} by evidence value
+      </p>
+      <p className={`${typography.panelMeta} text-text-light`} data-testid="evidence-scope-subtitle">
+        Factors where new information would most reduce uncertainty
+      </p>
+      {showBridge && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="drivers-evidence-bridge"
+        >
+          Your strongest driver and your top evidence gap are different factors.
+          The driver is what currently moves the result; the evidence gap is where you do not yet know enough.
+        </p>
+      )}
+    </div>
   )
 }
 
@@ -469,6 +507,21 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)
 
+  // Brief 5.1 Task 2: canonical factor identity for the driver / evidence
+  // bridge copy. Mirrors the existing DriversSection pattern — see preflight
+  // findings §2. Null when either section is empty.
+  const topDriverIdentity = useMemo(() => {
+    const top = data.drivers.topDrivers?.[0]
+    if (!top) return null
+    return top.matchedNodeId ?? top.factorKey ?? null
+  }, [data.drivers.topDrivers])
+
+  const topEvidenceGapIdentity = useMemo(() => {
+    const top = data.confidence.topEvidenceGaps?.[0]
+    if (!top) return null
+    return top.targetNodeId ?? top.factorId ?? null
+  }, [data.confidence.topEvidenceGaps])
+
   // Task 4: science nudges integrated into triage card stack (after "Show N more")
   const scienceNudges = useMemo(() => buildScienceNudges(data), [data])
 
@@ -503,8 +556,12 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         />
       )}
 
-      {/* 3. Trust summary + item count */}
-      <TrustSummary actionCount={top3.length} />
+      {/* 3. Trust summary + item count + scope subtitle + bridge to drivers */}
+      <TrustSummary
+        actionCount={top3.length}
+        topDriverIdentity={topDriverIdentity}
+        topEvidenceGapIdentity={topEvidenceGapIdentity}
+      />
 
       {/* Empty state when all evidence gaps had zero impact (Brief 4 Task 9). */}
       {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (

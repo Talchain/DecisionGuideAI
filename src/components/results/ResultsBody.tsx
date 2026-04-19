@@ -269,6 +269,7 @@ export const ResultsBody = memo(function ResultsBody({
       {/* ── SECTION 3: DRIVERS ──────────────────────────────────── */}
       <Accordion
         title="What's driving this"
+        subtitle="Factors with the strongest current influence on the result"
         defaultExpanded={false}
         isExpanded={driversExpanded}
         onExpandChange={onDriversExpandChange}
