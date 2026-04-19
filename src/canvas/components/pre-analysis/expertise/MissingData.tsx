@@ -8,6 +8,12 @@
  * sparkle) only when another editor elsewhere in Your expertise becomes
  * active (activeEditorKey != null), preserving the one-active-editor
  * invariant from Brief 5.1 follow-up P0 #1.
+ *
+ * Brief 5.2 Task 8d follow-up (ChatGPT P1 #1): the technique hint renders
+ * as a click-to-chat button when onSendMessage is wired. Click opens chat
+ * with a prompt asking how to apply the technique to the factor label.
+ * Fallback to non-interactive span preserves the pre-analysis panel
+ * fixtures that don't register onSendMessage.
  */
 
 import { SubgroupDivider } from '../primitives/SubgroupDivider'
@@ -35,6 +41,12 @@ interface MissingDataProps {
   onRequestEdit?: (itemKey: string) => void
   onCommitValue?: (nodeId: string, rawValue: number) => void
   onCancelEdit?: () => void
+  /**
+   * Brief 5.2 Task 8d follow-up: when provided, the technique hint becomes
+   * a click-to-chat button. When absent, the hint renders as a
+   * non-interactive tooltip span (fixtures, Storybook).
+   */
+  onSendMessage?: (text: string) => void
 }
 
 function getTechniqueHint(label: string): { text: string; tooltip: string } {
@@ -64,6 +76,7 @@ export function MissingData({
   onRequestEdit,
   onCommitValue,
   onCancelEdit,
+  onSendMessage,
 }: MissingDataProps) {
   if (items.length === 0) return null
 
@@ -127,13 +140,36 @@ export function MissingData({
                 />
               </div>
             )}
-            {/* Technique hint — plain text (locked hint-only per Phase 0).
-                Renders alongside the editor, below the name row, always. */}
-            <Tooltip delay={300} content={technique.tooltip}>
-              <span className={`${typography.panelMeta} text-text-light cursor-help`}>
-                {technique.text}
-              </span>
-            </Tooltip>
+            {/* Technique hint — click-to-chat button when onSendMessage is
+                wired (Brief 5.2 Task 8d follow-up, ChatGPT P1 #1). Opens
+                chat pre-filled with a prompt asking how to apply the
+                technique to this factor. Falls back to the non-interactive
+                tooltip span for fixtures / Storybook that don't wire
+                onSendMessage. */}
+            {onSendMessage ? (
+              <Tooltip delay={300} content={technique.tooltip}>
+                <button
+                  type="button"
+                  onClick={() => onSendMessage(
+                    `How do I apply ${technique.text.replace(/^Try:\s*/, '')} to "${item.label}"?`,
+                  )}
+                  data-testid={`technique-hint-${item.key}`}
+                  aria-label={`Discuss applying ${technique.text.replace(/^Try:\s*/, '')} to ${item.label}`}
+                  className={`${typography.panelMeta} text-info hover:underline cursor-pointer bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded`}
+                >
+                  {technique.text}
+                </button>
+              </Tooltip>
+            ) : (
+              <Tooltip delay={300} content={technique.tooltip}>
+                <span
+                  className={`${typography.panelMeta} text-text-light cursor-help`}
+                  data-testid={`technique-hint-${item.key}`}
+                >
+                  {technique.text}
+                </span>
+              </Tooltip>
+            )}
             {/* One sparkle — bottom-right of the row. Brief 5.2 Task 7:
                 secondary variant (opacity-50 at rest, opacity-100 on
                 hover/focus-within) — expertise rows are a non-primary

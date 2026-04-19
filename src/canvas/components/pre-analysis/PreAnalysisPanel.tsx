@@ -1791,6 +1791,7 @@ export function PreAnalysisPanel({
                 onHoverEnter={handleHoverElement}
                 onHoverLeave={handleHoverClear}
                 analysisRunKey={analysisRunKey}
+                onSendMessage={onSendMessage}
               />
             </SectionErrorBoundary>
 

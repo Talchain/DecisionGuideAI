@@ -10,7 +10,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { AiEstimated } from '../AiEstimated'
 import { MissingData } from '../MissingData'
 import type { ImprovementItem } from '../../hooks/usePreAnalysisData'
@@ -205,18 +205,53 @@ describe('MissingData — Brief 5.1 Task 3 copy + Brief 5.2 Task 3 default-open 
     expect(sparkle.className).toContain('focus-visible:opacity-100')
   })
 
-  // Brief 5.2 Task 8d: technique hint is locked as non-interactive by
-  // deliberate design (Phase 0 finding). It's a tooltip-backed text hint,
-  // not a click-to-chat chip. Any future wiring would be feature work,
-  // not a bug fix — a separate brief.
-  it('technique hint renders as a non-interactive <span> (not a button, no click handler)', () => {
+  // Brief 5.2 Task 8d follow-up (ChatGPT P1 #1): the technique hint is now
+  // wired when onSendMessage is provided. The fallback path (non-interactive
+  // span) still covers fixtures / Storybook / any caller that doesn't
+  // register a chat handler.
+  it('technique hint renders as a click-to-chat button when onSendMessage is wired', () => {
+    const onSendMessage = vi.fn()
+    render(
+      <MissingData
+        items={[makeMissingItem({ label: 'Churn Rate' })]}
+        onSendMessage={onSendMessage}
+      />,
+    )
+    const hint = screen.getByTestId('technique-hint-missing-f2')
+    expect(hint.tagName).toBe('BUTTON')
+    expect(hint.textContent).toBe('Try: reference class forecasting')
+    expect(hint.getAttribute('aria-label')).toContain('reference class forecasting')
+    expect(hint.getAttribute('aria-label')).toContain('Churn Rate')
+
+    fireEvent.click(hint)
+    expect(onSendMessage).toHaveBeenCalledTimes(1)
+    expect(onSendMessage).toHaveBeenCalledWith(
+      expect.stringContaining('reference class forecasting'),
+    )
+    expect(onSendMessage).toHaveBeenCalledWith(
+      expect.stringContaining('Churn Rate'),
+    )
+  })
+
+  it('technique hint falls back to a non-interactive span when onSendMessage is absent', () => {
     render(<MissingData items={[makeMissingItem({ label: 'Churn Rate' })]} />)
-    // "Churn Rate" matches /rate|churn/ → "Try: reference class forecasting".
-    const hint = screen.getByText('Try: reference class forecasting')
+    const hint = screen.getByTestId('technique-hint-missing-f2')
     expect(hint.tagName).toBe('SPAN')
-    expect(hint.getAttribute('role')).toBe(null)
+    expect(hint.textContent).toBe('Try: reference class forecasting')
     expect(hint.closest('button')).toBeNull()
-    expect(hint.closest('[role="button"]')).toBeNull()
+  })
+
+  it('technique hint button is keyboard-focusable with focus ring classes', () => {
+    render(
+      <MissingData
+        items={[makeMissingItem({ label: 'Churn Rate' })]}
+        onSendMessage={() => {}}
+      />,
+    )
+    const hint = screen.getByTestId('technique-hint-missing-f2')
+    // DS v5 focus-visible ring present; the button can receive keyboard focus.
+    expect(hint.className).toContain('focus-visible:ring-2')
+    expect(hint.className).toContain('focus-visible:ring-info')
   })
 
   it('technique hint falls back to outside-view copy for non-rate/churn labels', () => {

@@ -59,6 +59,12 @@ interface YourExpertiseProps {
    * "Persistence: expansion state does not persist across analysis runs."
    */
   analysisRunKey?: string
+  /**
+   * Brief 5.2 Task 8d follow-up (ChatGPT P1 #1): forwarded to MissingData
+   * so technique hints become click-to-chat buttons when a chat send
+   * handler is wired. Leaving this undefined keeps the hint-only fallback.
+   */
+  onSendMessage?: (text: string) => void
 }
 
 export function YourExpertise({
@@ -76,6 +82,7 @@ export function YourExpertise({
   onHoverEnter,
   onHoverLeave,
   analysisRunKey,
+  onSendMessage,
 }: YourExpertiseProps) {
   const [isExpanded, setIsExpanded] = useState(false)
 
@@ -264,6 +271,7 @@ export function YourExpertise({
               onRequestEdit={handleRequestEdit}
               onCommitValue={onCommitValue}
               onCancelEdit={handleCancelEdit}
+              onSendMessage={onSendMessage}
             />
           )}
           <div className="mt-3 pt-2 border-t border-panel-border">
