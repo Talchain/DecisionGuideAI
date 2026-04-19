@@ -41,11 +41,64 @@ import type { FlipThreshold } from './types'
  * factor-space bounds are threaded through the data pipeline and this
  * flag is explicitly flipped to true alongside that work.
  *
- * Tests exercise the button behaviour via the exported
- * `ApplyAndRerunButton` subcomponent directly, so flipping this flag
- * later does not require re-engineering the test surface.
+ * To keep the dormant button's accessibility contract tested (guarded
+ * click, aria-disabled, aria-describedby, sr-only hint) so re-enable
+ * work doesn't regress keyboard/screen-reader behaviour, the button is
+ * extracted into the exported `ApplyAndRerunButton` subcomponent below.
+ * Spec files import the subcomponent directly — tests run irrespective
+ * of the PLOT_BOUNDS_WIRED flag value.
  */
 export const PLOT_BOUNDS_WIRED = false
+
+// ── ApplyAndRerunButton ─────────────────────────────────────────────────────
+//
+// Extracted so the dormant button's rich a11y + guarded-click contract
+// stays under test even when PLOT_BOUNDS_WIRED=false hides it from the
+// TornadoChart render path. The DOM output is byte-for-byte what the
+// chart itself would render once the flag flips.
+
+export interface ApplyAndRerunButtonProps {
+  hasUserDragged: boolean
+  onApplyAndRerun: () => void
+}
+
+export function ApplyAndRerunButton({ hasUserDragged, onApplyAndRerun }: ApplyAndRerunButtonProps) {
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          if (!hasUserDragged) return
+          onApplyAndRerun()
+        }}
+        aria-disabled={!hasUserDragged}
+        aria-describedby={!hasUserDragged ? 'tornado-apply-rerun-hint' : undefined}
+        title={
+          hasUserDragged
+            ? 'Apply drag preview and rerun the analysis'
+            : 'Drag a bar to preview a change before running.'
+        }
+        className={`${typography.panelBody} rounded-full px-[16px] py-[6px] leading-none flex-shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+          hasUserDragged
+            ? 'bg-primary text-text-on-color border border-primary cursor-pointer hover:bg-info-hover hover:border-info-hover'
+            : 'bg-transparent text-text-light border border-panel-border cursor-not-allowed opacity-60'
+        }`}
+        data-testid="tornado-apply-rerun"
+      >
+        Apply and rerun
+      </button>
+      {!hasUserDragged && (
+        <span
+          id="tornado-apply-rerun-hint"
+          className="sr-only"
+          data-testid="tornado-apply-rerun-hint"
+        >
+          Drag a bar to preview a change before running.
+        </span>
+      )}
+    </>
+  )
+}
 
 export interface TornadoRow {
   /** Factor key / node ID */
@@ -664,51 +717,17 @@ export function TornadoChart({
               Reset preview
             </button>
           )}
-          {/* Structural dormancy: button is rendered only when BOTH the
-              caller supplies onApplyAndRerun AND the PLOT_BOUNDS_WIRED flag
-              is flipped. Without the flag the button is absent even if a
-              caller wires the handler — Brief 5.1 follow-up P1 #1. */}
+          {/* Structural dormancy: button renders only when BOTH the caller
+              supplies onApplyAndRerun AND the PLOT_BOUNDS_WIRED flag is
+              flipped. Even if a caller wires the handler, the button is
+              absent until PLoT bounds ship. The ApplyAndRerunButton
+              subcomponent carries the full a11y contract and is tested
+              directly — see TornadoChart.spec.tsx. */}
           {onApplyAndRerun && PLOT_BOUNDS_WIRED && (
-            <>
-              {/* Brief 5 Task 3 + follow-up P1-1: keep the button in the tab
-                  order when not-yet-usable (aria-disabled instead of
-                  native `disabled`) so keyboard users can focus it and hear
-                  the guidance via aria-describedby. onClick is guarded to
-                  no-op until a drag has occurred. */}
-              <button
-                type="button"
-                onClick={() => {
-                  if (!dragState.hasUserDragged) return
-                  onApplyAndRerun()
-                }}
-                aria-disabled={!dragState.hasUserDragged}
-                aria-describedby={
-                  !dragState.hasUserDragged ? 'tornado-apply-rerun-hint' : undefined
-                }
-                title={
-                  dragState.hasUserDragged
-                    ? 'Apply drag preview and rerun the analysis'
-                    : 'Drag a bar to preview a change before running.'
-                }
-                className={`${typography.panelBody} rounded-full px-[16px] py-[6px] leading-none flex-shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
-                  dragState.hasUserDragged
-                    ? 'bg-primary text-text-on-color border border-primary cursor-pointer hover:bg-info-hover hover:border-info-hover'
-                    : 'bg-transparent text-text-light border border-panel-border cursor-not-allowed opacity-60'
-                }`}
-                data-testid="tornado-apply-rerun"
-              >
-                Apply and rerun
-              </button>
-              {!dragState.hasUserDragged && (
-                <span
-                  id="tornado-apply-rerun-hint"
-                  className="sr-only"
-                  data-testid="tornado-apply-rerun-hint"
-                >
-                  Drag a bar to preview a change before running.
-                </span>
-              )}
-            </>
+            <ApplyAndRerunButton
+              hasUserDragged={dragState.hasUserDragged}
+              onApplyAndRerun={onApplyAndRerun}
+            />
           )}
         </div>
       </div>

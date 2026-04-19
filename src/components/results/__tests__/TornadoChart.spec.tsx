@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { TornadoChart, type TornadoRow } from '../TornadoChart'
+import { TornadoChart, ApplyAndRerunButton, type TornadoRow } from '../TornadoChart'
 
 // Mock focusNodeById
 vi.mock('../../../canvas/utils/focusHelpers', () => ({
@@ -258,6 +258,73 @@ describe('TornadoChart', () => {
     const mod = await import('../TornadoChart')
     expect(mod.PLOT_BOUNDS_WIRED).toBe(false)
   })
+})
+
+// ── ApplyAndRerunButton subcomponent ──────────────────────────────────────
+//
+// Extracted alongside PLOT_BOUNDS_WIRED so the dormant button's a11y
+// contract stays covered (Brief 5.1 follow-up Imp #2 / P1 #3). When the
+// flag is flipped to re-enable the button in TornadoChart, these tests
+// guarantee the keyboard/screen-reader behaviour hasn't regressed.
+
+describe('ApplyAndRerunButton — dormant a11y + guarded-click contract', () => {
+  it('keyboard-focusable before any drag (aria-disabled, not native disabled)', () => {
+    render(<ApplyAndRerunButton hasUserDragged={false} onApplyAndRerun={() => {}} />)
+
+    const btn = screen.getByTestId('tornado-apply-rerun')
+    expect(btn).toBeInTheDocument()
+    expect(btn).toHaveTextContent('Apply and rerun')
+    // Not natively disabled → stays in tab order for keyboard users.
+    expect(btn).not.toBeDisabled()
+    expect(btn).toHaveAttribute('aria-disabled', 'true')
+    // Mouse-hover guidance.
+    expect(btn).toHaveAttribute('title', 'Drag a bar to preview a change before running.')
+  })
+
+  it('exposes guidance to screen readers via aria-describedby → sr-only hint', () => {
+    render(<ApplyAndRerunButton hasUserDragged={false} onApplyAndRerun={() => {}} />)
+
+    const btn = screen.getByTestId('tornado-apply-rerun')
+    const hintId = btn.getAttribute('aria-describedby')
+    expect(hintId).toBe('tornado-apply-rerun-hint')
+
+    const hint = screen.getByTestId('tornado-apply-rerun-hint')
+    expect(hint).toHaveAttribute('id', hintId!)
+    expect(hint).toHaveTextContent('Drag a bar to preview a change before running.')
+    // sr-only class = visually hidden, accessible to assistive tech.
+    expect(hint.className).toContain('sr-only')
+  })
+
+  it('guards onClick so a pre-drag click does NOT fire the callback', () => {
+    const onApply = vi.fn()
+    render(<ApplyAndRerunButton hasUserDragged={false} onApplyAndRerun={onApply} />)
+
+    fireEvent.click(screen.getByTestId('tornado-apply-rerun'))
+    expect(onApply).not.toHaveBeenCalled()
+  })
+
+  it('after a drag, onClick fires the callback and aria-disabled drops', () => {
+    const onApply = vi.fn()
+    render(<ApplyAndRerunButton hasUserDragged onApplyAndRerun={onApply} />)
+
+    const btn = screen.getByTestId('tornado-apply-rerun')
+    expect(btn).toHaveAttribute('aria-disabled', 'false')
+    expect(btn).toHaveAttribute('title', 'Apply drag preview and rerun the analysis')
+    // sr-only hint is removed once the button is usable.
+    expect(screen.queryByTestId('tornado-apply-rerun-hint')).not.toBeInTheDocument()
+
+    fireEvent.click(btn)
+    expect(onApply).toHaveBeenCalledTimes(1)
+  })
+})
+
+// ── TornadoChart — remaining disclaimer, axis, and display-mode tests ───
+//
+// Split from the main TornadoChart describe above so the
+// ApplyAndRerunButton suite can sit cleanly between the two. Tests below
+// are the original coverage for the chart's other render paths.
+
+describe('TornadoChart — disclaimer, axis, display modes', () => {
 
   // ── Disclaimer tests ──
 
