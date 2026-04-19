@@ -35,6 +35,16 @@ Phase 0 locked decisions for Task 8 sub-items; this table resolves "complete but
 | ChatGPT Improvement #2 — expert-trio grep/test | **Deferred** | Out of scope for Brief 5.2. Belongs to a Brief 4 Task 4 follow-up. Registered below. |
 | ChatGPT Improvement #3 — deferred-vs-implemented clarity | **Implemented** | This table. |
 
+### Round-2 ChatGPT review (after four follow-up commits)
+
+| Round-2 item | Status | Resolution |
+|---|---|---|
+| P1 — One-editor invariant across Missing-data rows | **Rejected** | Contradicts user correction #5 from the original review: "Missing-data rows have an explicit `isDefaultOpen` render mode (always true)". Multiple Missing-data rows default-open simultaneously is the intended zero-click data-entry design. New positive tests (`AiEstimated.valueAndIconParity.spec.tsx`) lock this behaviour. If a future brief wants to change the design, explicit opt-in is required. |
+| P1 — Fragility chip with missing `from_id` | **Implemented** (`ac4e7849`) | Chip is now gated on `edge.from_id` being present. Previously `from_id ?? from_label` routed a human-readable label to `onFocusNode`, which silently no-op'd in the inspector. |
+| Round-2 Improvement #1 — two-row editor switching test | **Rejected** (follow-up alternative implemented) | Same grounds as round-2 P1 above. Replaced with positive tests that document the intended "all default-open simultaneously" design (`AiEstimated.valueAndIconParity.spec.tsx`). |
+| Round-2 Improvement #2 — orphan-edge fragility test | **Implemented** (`ac4e7849`) | Single-row orphan test plus mixed-group test (some with `from_id`, some without). `onFocusNode` is proven to never receive the label fallback. |
+| Round-2 Improvement #3 — composed integration through parent path | **Implemented** | New `HeroFooterComposed.spec.tsx` mounts the full `ResultsBody` tree for weak, fair, and strong scenarios. Catches regressions in the `ResultsBody → DecisionConfidencePanel + ResultsFooter` prop threading that per-component tests would miss. |
+
 ### Registered follow-ups (not implemented in this brief)
 
 - **Expert-trio leak grep**: add a regression test that scans the rendered Analysis-tab body in standard mode for `elasticity`, `stability`, `influence` expert-only copy. Needs a test fixture with the full results tree mounted, which this brief's scope did not include.

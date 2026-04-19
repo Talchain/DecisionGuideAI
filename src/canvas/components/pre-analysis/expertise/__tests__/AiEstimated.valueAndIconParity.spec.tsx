@@ -186,6 +186,71 @@ describe('MissingData — Brief 5.1 Task 3 copy + Brief 5.2 Task 3 default-open 
     expect(screen.getByText('Not set')).toBeInTheDocument()
   })
 
+  // Brief 5.2 follow-up round 2 (alternative to ChatGPT Improvement #1):
+  // locks the Phase 0 design decision that multiple Missing-data rows
+  // render their editors simultaneously when no AiEstimated editor is
+  // active. The one-active-editor invariant is scoped to AiEstimated vs
+  // Missing-data, not across Missing-data rows themselves — per user
+  // correction #5 ("Missing-data rows have an explicit isDefaultOpen
+  // render mode (always true)"). This positive test documents the
+  // intent so a future refactor can't silently introduce a collapse
+  // rule without the feedback loop.
+  it('multiple Missing-data rows all default-open simultaneously when activeEditorKey is null', () => {
+    const items = [
+      makeMissingItem({ key: 'missing-a', label: 'Factor Alpha', focus: { type: 'node', id: 'n-a', label: 'Factor Alpha' } }),
+      makeMissingItem({ key: 'missing-b', label: 'Factor Beta', focus: { type: 'node', id: 'n-b', label: 'Factor Beta' } }),
+      makeMissingItem({ key: 'missing-c', label: 'Factor Gamma', focus: { type: 'node', id: 'n-c', label: 'Factor Gamma' } }),
+    ]
+    render(
+      <MissingData
+        items={items}
+        activeEditorKey={null}
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    // All three editors are open simultaneously — this is the intended
+    // user-facing behaviour (zero-click data entry for empty slots).
+    expect(screen.getByTestId('missing-data-editor-missing-a')).toBeInTheDocument()
+    expect(screen.getByTestId('missing-data-editor-missing-b')).toBeInTheDocument()
+    expect(screen.getByTestId('missing-data-editor-missing-c')).toBeInTheDocument()
+  })
+
+  it('all Missing-data editors collapse as a group when an AiEstimated editor becomes active', () => {
+    const items = [
+      makeMissingItem({ key: 'missing-a', label: 'Factor Alpha', focus: { type: 'node', id: 'n-a', label: 'Factor Alpha' } }),
+      makeMissingItem({ key: 'missing-b', label: 'Factor Beta', focus: { type: 'node', id: 'n-b', label: 'Factor Beta' } }),
+    ]
+    const { rerender } = render(
+      <MissingData
+        items={items}
+        activeEditorKey={null}
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    // Baseline: both editors open.
+    expect(screen.getByTestId('missing-data-editor-missing-a')).toBeInTheDocument()
+    expect(screen.getByTestId('missing-data-editor-missing-b')).toBeInTheDocument()
+
+    // An AiEstimated row becomes active → every Missing-data editor
+    // collapses simultaneously. This is the one-active-editor invariant
+    // as scoped in Phase 0 findings.
+    rerender(
+      <MissingData
+        items={items}
+        activeEditorKey="verify-some-estimate"
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('missing-data-editor-missing-a')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('missing-data-editor-missing-b')).not.toBeInTheDocument()
+  })
+
   it('does not render the editor when inline plumbing is not wired (graceful fallback)', () => {
     render(<MissingData items={[makeMissingItem()]} />)
     expect(screen.queryByTestId('missing-data-editor-missing-f2')).not.toBeInTheDocument()
