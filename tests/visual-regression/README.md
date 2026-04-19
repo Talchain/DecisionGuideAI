@@ -47,22 +47,38 @@ Full-page captures use the existing Playwright setup. Specs live in
 - `analysis-tab-fullpage.spec.ts` — full-page screenshot of the sandbox
   Analysis surface. Fixed 1280×900 viewport, `prefers-reduced-motion: reduce`,
   and a `*` CSS override that zeroes animation/transition durations so the
-  capture is byte-stable.
+  capture is byte-stable. **Always-on** (close-out item B): runs on every
+  Playwright CI shard — not env-gated — so regressions are caught by default.
 - `your-expertise-brief-only.spec.ts` — Playwright smoke for the brief-only
   YourExpertise branch (P1-2 follow-up): row is a button, no chevron,
-  deep-links to the Model tab.
+  deep-links to the Model tab. Still gated on `BRIEF5_FULLPAGE=1` because
+  reaching that branch needs a seeded brief-only scenario that isn't wired
+  into the default sandbox e2e seed yet.
 
-Both specs are gated on `BRIEF5_FULLPAGE=1` so they do not add load to the
-default CI run. Enable locally:
+### Baseline lifecycle
+
+The first run of `analysis-tab-fullpage.spec.ts` in any environment without a
+baseline will fail with "missing screenshot". This is deliberate — baselines
+are captured once, deliberately, and then committed. Generate and pin:
 
 ```bash
 npm run dev -- --port 5177 --strictPort    # terminal 1
 
-# capture baselines (first run)
-BRIEF5_FULLPAGE=1 npx playwright test e2e/brief-5/ --update-snapshots
+# capture baseline (first time only)
+npx playwright test e2e/brief-5/analysis-tab-fullpage.spec.ts --update-snapshots
 
-# subsequent runs compare against the stored baselines
-BRIEF5_FULLPAGE=1 npx playwright test e2e/brief-5/
+# the image lands in
+# e2e/brief-5/analysis-tab-fullpage.spec.ts-snapshots/analysis-tab-sandbox.png
+# commit it alongside the spec so CI has something to diff against
+git add e2e/brief-5/analysis-tab-fullpage.spec.ts-snapshots/
+git commit -m "test(vr): pin Brief 5 full-page baseline"
+```
+
+### Running the gated brief-only smoke locally
+
+```bash
+npm run dev -- --port 5177 --strictPort    # terminal 1
+BRIEF5_FULLPAGE=1 npx playwright test e2e/brief-5/your-expertise-brief-only.spec.ts
 ```
 
 Tolerance is 0.1 % pixel difference.
