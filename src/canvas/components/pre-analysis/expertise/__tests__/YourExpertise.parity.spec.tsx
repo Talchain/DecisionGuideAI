@@ -26,9 +26,10 @@ import { render, screen, fireEvent, within, cleanup } from '@testing-library/rea
 import { YourExpertise } from '../YourExpertise'
 import { TriageCard } from '@/components/shared/TriageCard'
 import { useCanvasStore } from '@/canvas/store'
-import { withObservedStateUpdate } from '@/canvas/utils/observedStateHelpers'
+import { withObservedStateUpdate, getObservedState } from '@/canvas/utils/observedStateHelpers'
 import type { ImprovementItem } from '../../hooks/usePreAnalysisData'
 import type { Node } from '@xyflow/react'
+import React from 'react'
 
 vi.mock('@/stores/uiStore', () => ({
   useUIStore: Object.assign(
@@ -155,5 +156,78 @@ describe('YourExpertise ↔ TriageCard — Confirm real-store mutation parity', 
     // Sanity: both really mutated the seed (source flipped to user_confirmed).
     const obs = (triageCardSnapshot as { observedState: { source: string } }).observedState
     expect(obs.source).toBe('user_confirmed')
+  })
+
+  // Close-out item C: store-mutation parity proves internal state matches;
+  // this second assertion proves the VISIBLE render reflects the same
+  // post-confirm state from both paths. It subscribes a consumer component
+  // to the canvas store, fires Confirm from each surface, and compares the
+  // rendered DOM those consumers produce. Catches a class of bug where
+  // store mutation is correct but UI subscribers read the wrong slice or
+  // don't re-render from one of the two surfaces.
+  it('a live store subscriber renders the identical post-confirm state from both surfaces', () => {
+    // Consumer subscribes to the target node's observedState.source —
+    // the field the Confirm mutation flips. Renders as plain text so
+    // comparison is a byte check.
+    function SourceBadge() {
+      const source = useCanvasStore(s => {
+        const n = s.nodes.find(x => x.id === TARGET_ID)
+        if (!n) return 'missing'
+        const obs = getObservedState(n.data) as { source?: string } | null
+        return obs?.source ?? 'missing'
+      })
+      return <div data-testid="source-badge">{source}</div>
+    }
+
+    // ── Path A ────────────────────────────────────────────────────────
+    const pathA = render(
+      <>
+        <YourExpertise
+          improvementsByCategory={{ verify: [aiEstimateItem()] }}
+          contestedEdges={[]}
+          nodes={[]}
+          edges={[]}
+          onConfirm={handleConfirm}
+        />
+        <SourceBadge />
+      </>
+    )
+    // Pre-confirm: subscriber shows the seed value.
+    expect(pathA.getByTestId('source-badge').textContent).toBe('cee_inference')
+    fireEvent.click(pathA.getByTestId('your-expertise-header'))
+    fireEvent.click(
+      within(pathA.getByTestId('your-expertise-expanded'))
+        .getByLabelText(`Confirm value for ${TARGET_LABEL}`),
+    )
+    // Post-confirm: subscriber shows the mutated value — proves the render
+    // path was notified, not just the store.
+    const renderedA = pathA.getByTestId('source-badge').textContent
+    expect(renderedA).toBe('user_confirmed')
+
+    pathA.unmount()
+    seedStore()
+
+    // ── Path B ────────────────────────────────────────────────────────
+    const pathB = render(
+      <>
+        <TriageCard
+          cardKey="parity-card"
+          ordinal={1}
+          title={TARGET_LABEL}
+          detail="Confirm the AI estimate or set your own value."
+          category="verify"
+          action={{ kind: 'confirm', label: 'Confirm', targetId: TARGET_ID, targetType: 'node' }}
+          onConfirm={handleConfirm}
+        />
+        <SourceBadge />
+      </>
+    )
+    expect(pathB.getByTestId('source-badge').textContent).toBe('cee_inference')
+    fireEvent.click(pathB.getByRole('button', { name: /confirm/i }))
+    const renderedB = pathB.getByTestId('source-badge').textContent
+    expect(renderedB).toBe('user_confirmed')
+
+    // Rendered DOM text is byte-identical from both surfaces.
+    expect(renderedA).toBe(renderedB)
   })
 })
