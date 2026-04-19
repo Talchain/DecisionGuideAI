@@ -135,7 +135,6 @@ export function MissingData({
                   }}
                   className="inline-flex items-center justify-center w-7 h-7 rounded text-info hover:text-info/80 cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
                   aria-label={`Set value for ${item.label}`}
-                  aria-expanded={inlineEditorAvailable ? false : undefined}
                 >
                   <Pencil size={14} aria-hidden="true" />
                 </button>

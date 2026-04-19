@@ -190,7 +190,6 @@ export function AiEstimated({
                     }}
                     className="inline-flex items-center justify-center w-7 h-7 rounded text-text-light hover:text-text-body cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
                     aria-label={`Edit value for ${item.label}`}
-                    aria-expanded={inlineEditorAvailable ? false : undefined}
                   >
                     <Pencil size={14} aria-hidden="true" />
                   </button>
