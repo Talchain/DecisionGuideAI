@@ -43,19 +43,6 @@ function makeAiItem(nodeId: string, label: string, rawValue: number | null = nul
   }
 }
 
-function makeMissingItem(nodeId: string, label: string): ImprovementItem {
-  return {
-    key: `missing-${nodeId}`,
-    category: 'verify',
-    label,
-    detail: 'Not set',
-    subgroup: 'cee_inference',
-    focus: { type: 'node', id: nodeId, label },
-    unit: '%',
-    cap: 100,
-  }
-}
-
 function makeFactorNode(id: string, label: string, observedValue: number | null = null): Node {
   return {
     id,
@@ -141,7 +128,7 @@ describe('YourExpertise — Brief 5.1 follow-up P0 #1 inline editor', () => {
     expect(screen.queryByTestId('ai-estimated-editor-verify-n1')).not.toBeInTheDocument()
   })
 
-  it('one-active-editor invariant holds across AiEstimated and MissingData groups', () => {
+  it('Brief 5.2 Task 3: MissingData editor is open by default; opening an AiEstimated editor collapses it', () => {
     const onCommitValue = vi.fn()
     // MissingData is derived from nodes with no observedState value/raw_value
     // that aren't already in verifyItems — so n2 appears ONLY as a node,
@@ -163,14 +150,36 @@ describe('YourExpertise — Brief 5.1 follow-up P0 #1 inline editor', () => {
     )
     expand('')
 
-    // Open the AiEstimated row.
-    fireEvent.click(screen.getByRole('button', { name: 'Edit value for Estimated Factor' }))
-    expect(screen.getByTestId('ai-estimated-editor-verify-n1')).toBeInTheDocument()
-
-    // Open the MissingData row — the AiEstimated editor must close.
-    fireEvent.click(screen.getByRole('button', { name: 'Set value for Missing Factor' }))
+    // On first render, the MissingData editor is visible (default-open);
+    // the AiEstimated editor is closed (needs a Pencil click).
     expect(screen.getByTestId('missing-data-editor-missing-n2')).toBeInTheDocument()
     expect(screen.queryByTestId('ai-estimated-editor-verify-n1')).not.toBeInTheDocument()
+
+    // Open the AiEstimated row via its Pencil — the MissingData editor
+    // collapses to enforce the one-active-editor invariant.
+    fireEvent.click(screen.getByRole('button', { name: 'Edit value for Estimated Factor' }))
+    expect(screen.getByTestId('ai-estimated-editor-verify-n1')).toBeInTheDocument()
+    expect(screen.queryByTestId('missing-data-editor-missing-n2')).not.toBeInTheDocument()
+    // Row still renders without its editor — name + Not set still visible.
+    expect(screen.getByTestId('missing-data-row-missing-n2')).toBeInTheDocument()
+  })
+
+  it('Brief 5.2 Task 3: MissingData row has no Pencil/Set-value button — editor IS the default state', () => {
+    const onCommitValue = vi.fn()
+    render(
+      <YourExpertise
+        improvementsByCategory={{}}
+        contestedEdges={[]}
+        nodes={[makeFactorNode('n2', 'Missing Factor')]}
+        edges={[]}
+        onCommitValue={onCommitValue}
+      />,
+    )
+    expand('')
+    expect(screen.queryByRole('button', { name: /Set value for Missing Factor/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Edit value for Missing Factor/ })).not.toBeInTheDocument()
+    // Editor is open on first render.
+    expect(screen.getByTestId('missing-data-editor-missing-n2')).toBeInTheDocument()
   })
 
   it('fallback path: with no onCommitValue wired, Pencil routes through legacy onEdit (no inline editor)', () => {

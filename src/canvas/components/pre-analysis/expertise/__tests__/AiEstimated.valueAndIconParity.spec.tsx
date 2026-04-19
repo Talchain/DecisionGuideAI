@@ -87,18 +87,7 @@ describe('AiEstimated — Brief 5.1 Task 3 value slot + icon parity', () => {
   })
 })
 
-describe('MissingData — Brief 5.1 Task 3 icon parity', () => {
-  it('Set-value button matches Review-next parity: w-7 h-7', () => {
-    render(<MissingData items={[makeMissingItem()]} />)
-
-    const setBtn = screen.getByRole('button', { name: /Set value for Churn Rate/ })
-
-    expect(setBtn.className).toContain('w-7')
-    expect(setBtn.className).toContain('h-7')
-    expect(setBtn.className).not.toContain('min-h-[44px]')
-    expect(setBtn.className).not.toContain('min-w-[44px]')
-  })
-
+describe('MissingData — Brief 5.1 Task 3 copy + Brief 5.2 Task 3 default-open editor', () => {
   it('rows without a current value read "Not set" — consistent with the AiEstimated placeholder and the brief copy spec', () => {
     render(<MissingData items={[makeMissingItem()]} />)
     expect(screen.getByText('Not set')).toBeInTheDocument()
@@ -106,5 +95,60 @@ describe('MissingData — Brief 5.1 Task 3 icon parity', () => {
     // that string (QA checklists, analytics filters) needs to see the
     // switch.
     expect(screen.queryByText('No data')).not.toBeInTheDocument()
+  })
+
+  // Brief 5.2 Task 3: the Pencil affordance is removed. The editor IS the
+  // default state for Missing-data rows; there is no separate "open editor"
+  // action to expose, and keeping one would imply closing is possible.
+  it('does not render a Pencil / Set-value button — the editor is default-open', () => {
+    render(
+      <MissingData
+        items={[makeMissingItem()]}
+        activeEditorKey={null}
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    expect(screen.queryByRole('button', { name: /Set value for Churn Rate/ })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Edit value for Churn Rate/ })).not.toBeInTheDocument()
+  })
+
+  it('renders the inline ScientificEditor by default when inline plumbing is available and no other editor is active', () => {
+    render(
+      <MissingData
+        items={[makeMissingItem()]}
+        activeEditorKey={null}
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    expect(screen.getByTestId('missing-data-editor-missing-f2')).toBeInTheDocument()
+  })
+
+  it('collapses (hides the editor) when another editor is active', () => {
+    render(
+      <MissingData
+        items={[makeMissingItem()]}
+        activeEditorKey="ai-estimated-row-42"
+        onRequestEdit={() => {}}
+        onCommitValue={() => {}}
+        onCancelEdit={() => {}}
+      />,
+    )
+    expect(screen.queryByTestId('missing-data-editor-missing-f2')).not.toBeInTheDocument()
+    // Row still renders name + Not set + technique hint + sparkle even
+    // when the editor is collapsed.
+    expect(screen.getByTestId('missing-data-row-missing-f2')).toBeInTheDocument()
+    expect(screen.getByText('Not set')).toBeInTheDocument()
+  })
+
+  it('does not render the editor when inline plumbing is not wired (graceful fallback)', () => {
+    render(<MissingData items={[makeMissingItem()]} />)
+    expect(screen.queryByTestId('missing-data-editor-missing-f2')).not.toBeInTheDocument()
+    // But the row itself must still render so users see the missing-data
+    // item and can click the factor label to focus the canvas node.
+    expect(screen.getByTestId('missing-data-row-missing-f2')).toBeInTheDocument()
   })
 })
