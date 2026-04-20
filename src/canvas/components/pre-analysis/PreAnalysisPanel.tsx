@@ -312,11 +312,14 @@ function StatusBanner({
 function ImproveConfidenceAccordion({
   count,
   highestValueLabel,
+  subtitle,
   coachingLine,
   children,
 }: {
   count: number
   highestValueLabel: string | null
+  /** Scope subtitle rendered below the header row in panelMeta/text-text-light */
+  subtitle?: string
   /** P1-3: per-section coaching line; rendered below the header when non-null */
   coachingLine?: string | null
   children: React.ReactNode
@@ -349,6 +352,11 @@ function ImproveConfidenceAccordion({
           ? <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
           : <ChevronRight className="w-4 h-4 text-text-light" aria-hidden="true" />}
       </button>
+      {subtitle && (
+        <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-subtitle">
+          {subtitle}
+        </p>
+      )}
       {coachingLine && (
         <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-coaching">
           {coachingLine}
@@ -1468,7 +1476,7 @@ export function PreAnalysisPanel({
           {/* Section 2: Review next */}
           {reviewNextCount > 0 && (
             <section className="space-y-2" data-testid="section-review-next">
-              <SectionHeader title="Review next" count={reviewNextCount} borderClass="border-info/30" className="" testId="section-review-next-header" />
+              <SectionHeader title="Review next" subtitle="Highest-impact checks. Resolving these could change your result." count={reviewNextCount} borderClass="border-info/30" className="" testId="section-review-next-header" />
 
               {/* P1-3: Per-section coaching line derived from the SAME picked
                   Start here signal. Suppressed when redundant with the Start
@@ -1701,6 +1709,7 @@ export function PreAnalysisPanel({
           <ImproveConfidenceAccordion
             count={improveConfidenceCount}
             highestValueLabel={highestValueLabel}
+            subtitle="Lower-impact checks. These sharpen the result but are unlikely to change it."
             coachingLine={
               // Brief 4 hotfix Task 5: subtitle must match header pill. Use the
               // same count and render the complete-state message when there

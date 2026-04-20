@@ -14,6 +14,8 @@ import { typography } from '../../styles/typography'
 export interface SectionHeaderProps {
   /** Section title — sentence case */
   title: string
+  /** Optional scope subtitle rendered below the title row in panelMeta/text-text-light */
+  subtitle?: string
   /** Optional count badge (e.g., number of items) */
   count?: number
   /** Badge state for outlined badge styling; callers can refine based on item resolution state */
@@ -52,6 +54,7 @@ const legacyCountStateMap = {
 
 export function SectionHeader({
   title,
+  subtitle,
   count,
   badgeState,
   countState,
@@ -67,19 +70,14 @@ export function SectionHeader({
   const badgeBorderClass = borderClass
     ?? (resolvedBadgeState ? badgeStateClasses[resolvedBadgeState] : '')
 
-  return (
-    <div
-      className={`flex items-center gap-2 ${className}`}
-      data-testid={testId}
-    >
+  const titleRow = (
+    <>
       {icon === 'option' && (
         <svg width={16} height={16} viewBox="0 0 14 14" className="flex-shrink-0">
           <rect x={1} y={1} width={12} height={12} rx={2} fill="var(--option)" stroke="var(--option)" strokeWidth={1.5} />
         </svg>
       )}
-      <h3
-        className={`${typography.panelHeader} text-text-header`}
-      >
+      <h3 className={`${typography.panelHeader} text-text-header`}>
         {title}
       </h3>
       {count != null && count > 0 && (
@@ -94,6 +92,21 @@ export function SectionHeader({
           {count}
         </span>
       )}
+    </>
+  )
+
+  if (subtitle) {
+    return (
+      <div className={className} data-testid={testId}>
+        <div className="flex items-center gap-2">{titleRow}</div>
+        <p className={`mt-0.5 ${typography.panelMeta} text-text-light`}>{subtitle}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className={`flex items-center gap-2 ${className}`} data-testid={testId}>
+      {titleRow}
     </div>
   )
 }
