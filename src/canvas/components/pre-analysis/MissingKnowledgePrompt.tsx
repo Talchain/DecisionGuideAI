@@ -9,6 +9,7 @@ import { useState } from 'react'
 import { X } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { DiscussWithAiButton } from './DiscussWithAiButton'
+import Tooltip from '@/components/Tooltip'
 
 interface MissingKnowledgePromptProps {
   onSendMessage?: (text: string) => void
@@ -25,14 +26,16 @@ export function MissingKnowledgePrompt(_props: MissingKnowledgePromptProps) {
         Something missing from the model?
       </p>
       <DiscussWithAiButton element={{ kind: 'missing' }} />
-      <button
-        type="button"
-        onClick={() => setDismissed(true)}
-        className="text-text-light hover:text-text-body shrink-0"
-        aria-label="Dismiss"
-      >
-        <X size={12} />
-      </button>
+      <Tooltip delay={300} content="Dismiss">
+        <button
+          type="button"
+          onClick={() => setDismissed(true)}
+          className="text-text-light hover:text-text-body shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded"
+          aria-label="Dismiss"
+        >
+          <X size={12} aria-hidden="true" />
+        </button>
+      </Tooltip>
     </div>
   )
 }
