@@ -329,6 +329,27 @@ function OptionInterventions({
   )
 }
 
+/**
+ * Derive the ordered list of factor labels shared by ALL non-baseline options.
+ * Returns [] when fewer than 2 non-baseline options exist or no overlap found.
+ */
+function sharedFactorLabels(options: OptionPreviewData[]): string[] {
+  const nonBaseline = options.filter(o => !o.isBaseline)
+  if (nonBaseline.length < 2) return []
+  const [first, ...rest] = nonBaseline
+  const intersection = new Set(first.interventions.map(i => i.factorId))
+  for (const opt of rest) {
+    const ids = new Set(opt.interventions.map(i => i.factorId))
+    for (const id of intersection) {
+      if (!ids.has(id)) intersection.delete(id)
+    }
+  }
+  if (intersection.size === 0) return []
+  return first.interventions
+    .filter(i => intersection.has(i.factorId))
+    .map(i => i.factorLabel)
+}
+
 export function OptionPreview({
   options,
   onFocusNode,
@@ -361,7 +382,7 @@ export function OptionPreview({
       >
         <div className="flex items-center gap-2">
           <OptionSquare />
-          <span className={`${typography.panelHeader} text-text-body`}>{OPTION_PREVIEW_TITLE}</span>
+          <span className={`${typography.panelHeader} text-text-header`}>{OPTION_PREVIEW_TITLE}</span>
           <Tooltip delay={300} content="The strategies you're choosing between. Each changes different factors by different amounts. Click any value to adjust.">
             <Info size={14} className="text-text-light" />
           </Tooltip>
@@ -397,15 +418,25 @@ export function OptionPreview({
               </li>
             ))}
           </ul>
-          {/* Brief 4 hotfix Task 6: unified narrow-framing coaching. Previously
-              the collapsed state rendered a short stub ("Your options work
-              through similar factors.") while the expanded state rendered a
-              longer variant with the "Explore alternatives" CTA. Normalise to
-              the full sentence + link in both states so the coaching is data-
-              driven (hasSameLeversCheck), not state-driven. */}
-          {hasSameLeversCheck && (
-            <SameLeversCoaching onSendMessage={onSendMessage} />
-          )}
+          {hasSameLeversCheck && (() => {
+            const shared = sharedFactorLabels(options)
+            return (
+              <>
+                {shared.length > 0 && (
+                  <p
+                    className={`${typography.panelMeta} text-text-light`}
+                    data-testid="option-preview-overlap-factors"
+                  >
+                    {`All options route through ${new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' }).format(shared)}.`}
+                  </p>
+                )}
+                {/* Brief 4 hotfix Task 6: normalised to full sentence + link
+                    in both collapsed and expanded states so coaching is
+                    data-driven, not state-driven. */}
+                <SameLeversCoaching onSendMessage={onSendMessage} />
+              </>
+            )
+          })()}
         </div>
       )}
 

@@ -398,7 +398,7 @@ function AssumptionsLedgerRow({ assumptions }: { assumptions: AssumptionLedgerIt
             const badge = SEVERITY_BADGE[a.severity] ?? SEVERITY_BADGE.low
             return (
               <div key={i} className="flex items-start gap-2 px-1">
-                <span className={`${typography.panelMeta} font-medium inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border ${badge.cls} flex-shrink-0`}>
+                <span className={`${typography.panelMeta} inline-flex items-center px-2 py-0.5 rounded-full bg-transparent border ${badge.cls} flex-shrink-0`}>
                   {badge.label}
                 </span>
                 <p className={`${typography.panelBody} text-text-body`}>{a.message}</p>

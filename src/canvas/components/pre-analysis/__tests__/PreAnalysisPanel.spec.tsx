@@ -1283,8 +1283,7 @@ describe('PreAnalysisPanel', () => {
     //   1. ceeAnalysisReady.coaching_summary (CEE override)
     //   2. First Must fix item label → "[label]. Address before analysis."
     //   3. First Review next item label → "[label] has the biggest impact. Review before running."
-    //   4. Improve confidence has actionable cards → "Ready to run. [N] checks would improve results."
-    //   5. Else → "Ready to run."
+    //   4. Ready states (Improve confidence items / clean) → null (StatusBanner already communicates readiness)
     //
     // These tests use a "clean" mock that suppresses the deterministic bias
     // triggers (which would otherwise push reviewNextCount > 0 even in a
@@ -1337,7 +1336,7 @@ describe('PreAnalysisPanel', () => {
       expect(headline).toHaveTextContent('Add baseline option. Address before analysis.')
     })
 
-    it('renders "Ready to run. N checks would improve results." in clean ready state with quick-fix cards', () => {
+    it('does not render a headline when ready with improve-confidence items only (StatusBanner already communicates readiness)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         ...cleanBaselineMock(),
         improvementsByCategory: {
@@ -1359,16 +1358,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const headline = screen.getByTestId('model-health-card-headline')
-      expect(headline).toHaveTextContent('Ready to run. 2 checks would improve results.')
+      expect(screen.queryByTestId('model-health-card-headline')).not.toBeInTheDocument()
     })
 
-    it('renders "Ready to run." in fully clean state', () => {
+    it('does not render a headline in a fully clean state (StatusBanner already communicates readiness)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData(cleanBaselineMock()))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const headline = screen.getByTestId('model-health-card-headline')
-      expect(headline).toHaveTextContent('Ready to run.')
+      expect(screen.queryByTestId('model-health-card-headline')).not.toBeInTheDocument()
     })
 
     it('does NOT render the deleted static "Your expertise makes the analysis more reliable" fallback', () => {

@@ -10,7 +10,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AllImprovements } from '../AllImprovements'
-import { ModelAdjustments } from '../ModelAdjustments'
+import { ModelAdjustments } from '../../model-tab/ModelAdjustments'
 import type { ImprovementItem } from '../hooks/usePreAnalysisData'
 
 vi.mock('../../../utils/focusHelpers', () => ({

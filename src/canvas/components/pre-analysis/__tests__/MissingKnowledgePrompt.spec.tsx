@@ -46,4 +46,27 @@ describe('MissingKnowledgePrompt', () => {
     fireEvent.click(screen.getByLabelText('Dismiss'))
     expect(container.querySelector('[class*="rounded-lg"]')).toBeNull()
   })
+
+  // ── Brief 5.3 Task 11 + 12 regressions ──────────────────────────
+
+  it('shows helper copy below the main prompt text', () => {
+    render(<MissingKnowledgePrompt />)
+    expect(screen.getByText(/Describe what's missing and Olumi will suggest/)).toBeInTheDocument()
+  })
+
+  it('dismiss button has aria-label "Dismiss"', () => {
+    render(<MissingKnowledgePrompt />)
+    const btn = screen.getByLabelText('Dismiss')
+    expect(btn).toBeInTheDocument()
+    expect(btn.tagName).toBe('BUTTON')
+  })
+
+  it('dismiss button has focus-visible ring classes (keyboard accessibility)', () => {
+    render(<MissingKnowledgePrompt />)
+    const btn = screen.getByLabelText('Dismiss')
+    // focus-visible ring applied via Tailwind — guard the class string so a
+    // future refactor cannot silently drop keyboard focus affordance.
+    expect(btn.className).toContain('focus-visible:ring-1')
+    expect(btn.className).toContain('focus-visible:ring-info')
+  })
 })

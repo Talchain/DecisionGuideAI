@@ -8,6 +8,9 @@
  *
  * CEE sends adjustments with `code` + `reason` fields; legacy format used
  * `type` + `detail`. This component accepts both shapes defensively.
+ *
+ * Signal Registry v3: truth.structural_repairs belongs on the Model tab.
+ * Wire from ModelTabBody when that surface is ready.
  */
 
 import { useState } from 'react'

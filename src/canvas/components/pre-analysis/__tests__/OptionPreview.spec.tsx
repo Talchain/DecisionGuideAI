@@ -351,6 +351,79 @@ describe('OptionPreview — collapsed state (UI-BUG-3)', () => {
   })
 })
 
+describe('OptionPreview — sharedFactorLabels (Brief 5.3 Task 3)', () => {
+  function makeIntervention(factorId: string, factorLabel: string) {
+    return {
+      factorId,
+      factorLabel,
+      interventionValue: 0.5,
+      currentValue: null,
+      direction: 'up' as const,
+      cap: null,
+      unit: null,
+      currentRawValue: null,
+    }
+  }
+
+  it('shows shared factor labels when all non-baseline options share a factor', () => {
+    const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('rev', 'Revenue'), makeIntervention('cost', 'Cost')] })
+    const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('rev', 'Revenue'), makeIntervention('staff', 'Staffing')] })
+    render(<OptionPreview options={[optA, optB]} hasSameLeversCheck />)
+    const el = screen.getByTestId('option-preview-overlap-factors')
+    expect(el).toHaveTextContent('All options route through Revenue.')
+  })
+
+  it('lists multiple shared factor labels using Intl.ListFormat conjunction', () => {
+    const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('mkt', 'Marketing'), makeIntervention('prod', 'Product'), makeIntervention('sales', 'Sales')] })
+    const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('mkt', 'Marketing'), makeIntervention('prod', 'Product')] })
+    const optC = makeOption({ id: 'c', label: 'C', interventions: [makeIntervention('mkt', 'Marketing'), makeIntervention('prod', 'Product'), makeIntervention('hr', 'HR')] })
+    render(<OptionPreview options={[optA, optB, optC]} hasSameLeversCheck />)
+    const el = screen.getByTestId('option-preview-overlap-factors')
+    // Intl.ListFormat('en-GB', conjunction): 2 items → "A and B", 3+ → "A, B, and C"
+    expect(el).toHaveTextContent('All options route through Marketing and Product.')
+  })
+
+  it('omits overlap element when no shared factor exists', () => {
+    const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('rev', 'Revenue')] })
+    const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('cost', 'Cost')] })
+    render(<OptionPreview options={[optA, optB]} hasSameLeversCheck />)
+    expect(screen.queryByTestId('option-preview-overlap-factors')).not.toBeInTheDocument()
+  })
+
+  it('omits overlap element with only one non-baseline option', () => {
+    const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('rev', 'Revenue')] })
+    render(<OptionPreview options={[optA]} hasSameLeversCheck />)
+    expect(screen.queryByTestId('option-preview-overlap-factors')).not.toBeInTheDocument()
+  })
+
+  it('excludes the baseline option from the intersection computation', () => {
+    const baseline = makeOption({ id: 'base', label: 'Status quo', isBaseline: true, interventions: [makeIntervention('rev', 'Revenue')] })
+    // Only one non-baseline → no intersection possible
+    const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('rev', 'Revenue')] })
+    render(<OptionPreview options={[baseline, optA]} hasSameLeversCheck />)
+    expect(screen.queryByTestId('option-preview-overlap-factors')).not.toBeInTheDocument()
+  })
+
+  it('omits overlap element when hasSameLeversCheck is false even with shared factors', () => {
+    const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('rev', 'Revenue')] })
+    const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('rev', 'Revenue')] })
+    render(<OptionPreview options={[optA, optB]} />)
+    expect(screen.queryByTestId('option-preview-overlap-factors')).not.toBeInTheDocument()
+  })
+
+  // Empty-return guard: sharedFactorLabels([]) must not produce "All options route through ."
+  // (i.e. the guard `shared.length > 0 &&` must be present and effective).
+  it('does not render a malformed "All options route through ." when no overlap exists', () => {
+    const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('rev', 'Revenue')] })
+    const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('cost', 'Cost')] })
+    render(<OptionPreview options={[optA, optB]} hasSameLeversCheck />)
+    // Element must be absent (guard prevents render of an empty-joined sentence)
+    expect(screen.queryByTestId('option-preview-overlap-factors')).not.toBeInTheDocument()
+    // Belt-and-suspenders: the malformed sentence must not appear anywhere in the DOM
+    expect(screen.queryByText(/All options route through\s*\./)).not.toBeInTheDocument()
+  })
+})
+
 describe('OptionPreview — click-to-inspector', () => {
   it('calls onFocusNode with the factor node id when a factor label is clicked', () => {
     const onFocusNode = vi.fn()

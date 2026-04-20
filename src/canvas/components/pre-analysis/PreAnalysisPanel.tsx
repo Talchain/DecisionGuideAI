@@ -57,7 +57,6 @@ import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
 import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
-import { ModelAdjustments } from './ModelAdjustments'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { SectionHeader } from '@/components/results/SectionHeader'
@@ -127,6 +126,7 @@ type RawBiasFinding = {
   description?: string
   explanation?: string
   citation?: string
+  target_factor_id?: string
   interventions?: Array<{ description?: string; [k: string]: unknown }>
   micro_intervention?: { steps?: Array<{ text?: string; [k: string]: unknown }>; [k: string]: unknown }
 }
@@ -312,11 +312,14 @@ function StatusBanner({
 function ImproveConfidenceAccordion({
   count,
   highestValueLabel,
+  subtitle,
   coachingLine,
   children,
 }: {
   count: number
   highestValueLabel: string | null
+  /** Scope subtitle rendered below the header row in panelMeta/text-text-light */
+  subtitle?: string
   /** P1-3: per-section coaching line; rendered below the header when non-null */
   coachingLine?: string | null
   children: React.ReactNode
@@ -338,7 +341,7 @@ function ImproveConfidenceAccordion({
         data-testid="improve-confidence-toggle"
       >
         <div className="flex items-center gap-2">
-          <p className={`${typography.panelHeader} text-text-header`}>Improve confidence</p>
+          <h3 className={`${typography.panelHeader} text-text-header`}>Improve confidence</h3>
           <span
             className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border border-factor/30 ${typography.panelMeta} text-text-body`}
           >
@@ -349,6 +352,11 @@ function ImproveConfidenceAccordion({
           ? <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
           : <ChevronRight className="w-4 h-4 text-text-light" aria-hidden="true" />}
       </button>
+      {subtitle && (
+        <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-subtitle">
+          {subtitle}
+        </p>
+      )}
       {coachingLine && (
         <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-coaching">
           {coachingLine}
@@ -647,7 +655,7 @@ export function PreAnalysisPanel({
     const snapshot = undoResolvedRef.current(signalId) as { nodeId: string; previousData: unknown } | null
     if (!snapshot) return
     const { updateNode } = useCanvasStore.getState()
-    updateNode(snapshot.nodeId, { data: snapshot.previousData as any })
+    updateNode(snapshot.nodeId, { data: snapshot.previousData as Record<string, unknown> })
     // UI-BUG-8: clear draft error so the Analyse button re-enables after undo.
     // The value change that triggered the error has been reverted.
     useDraftStore.getState().setLastDraftError(null)
@@ -683,7 +691,7 @@ export function PreAnalysisPanel({
     const { updateEdgeData } = useCanvasStore.getState()
     // Write weight through updateEdgeData (clamped). Clear strength_mean so
     // computeSignedMean falls through to weight + direction (the canvas schema path).
-    updateEdgeData(edgeId, { weight: value, strength_mean: undefined } as any)
+    updateEdgeData(edgeId, { weight: value, strength_mean: undefined })
   }, [])
 
   // Focus edge for KeyRelationships (simplified — always edge type)
@@ -817,7 +825,12 @@ export function PreAnalysisPanel({
         (a, b) => (BIAS_SEVERITY_RANK[a.severity ?? ''] ?? 9) - (BIAS_SEVERITY_RANK[b.severity ?? ''] ?? 9),
       )
       for (let i = 0; i < sorted.length; i++) {
-        const normalised = normaliseCeeBiasFinding(sorted[i], i)
+        const finding = sorted[i]
+        // target_factor_id is optional future CEE enrichment — when present, it can be
+        // used to anchor authority-bias copy to a specific factor. Its absence is not a
+        // reason to suppress the card: normaliseCeeBiasFinding already returns null when
+        // the finding has no usable description.
+        const normalised = normaliseCeeBiasFinding(finding, i)
         if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
       }
@@ -880,7 +893,8 @@ export function PreAnalysisPanel({
           const nd = topNode.data as Record<string, unknown>
           const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
           const source = os?.source as string | undefined
-          const drivers = os?.uncertainty_drivers as unknown[] | undefined
+          const rawDrivers = os?.uncertainty_drivers
+          const drivers = Array.isArray(rawDrivers) ? rawDrivers : undefined
           if (source && AI_SOURCES.has(source) && (!drivers || drivers.length === 0)) {
             const label = (nd.label as string) ?? topFactorId
             pushDeterministic(
@@ -1221,17 +1235,11 @@ export function PreAnalysisPanel({
       return 'Ready to run. Review before continuing.'
     }
 
-    // 4. Improve confidence — only count actionable items, not the always-on
-    //    SuccessTarget seat. The "+1 for goal target" baseline shouldn't push
-    //    the user toward a "checks would improve results" message when there
-    //    are no real cards or expertise items pending.
-    const improveActionable = improveConfidenceCards.length + (expertiseHasItems ? 1 : 0)
-    if (improveActionable > 0) {
-      return `Ready to run. ${improveActionable} ${improveActionable === 1 ? 'check' : 'checks'} would improve results.`
-    }
-
-    // 5. Clean ready state
-    return 'Ready to run.'
+    // 4 & 5. Ready states — suppress. The StatusBanner above the panel already
+    // communicates "Ready to run" (and the reviewNextCount where applicable).
+    // Section count badges on Improve confidence and Review next carry the
+    // item counts — echoing them here duplicates the count badge information.
+    return null
   }, [
     data.isLoading,
     data.isReady,
@@ -1246,8 +1254,6 @@ export function PreAnalysisPanel({
     reviewNextTopCards,
     biasTriggers,
     showOptionQualityCard,
-    improveConfidenceCards,
-    expertiseHasItems,
   ])
 
   // Banner state — strict precedence: failed > blocked > recommendations > ready.
@@ -1284,7 +1290,7 @@ export function PreAnalysisPanel({
             detail and is hidden from non-expert users. */}
         {isFailed && lastDraftError && (
           <div
-            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-3 py-2.5"
+            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-4 py-2.5"
             data-testid="draft-error-card"
           >
             <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
@@ -1299,7 +1305,7 @@ export function PreAnalysisPanel({
                 <button
                   type="button"
                   onClick={handleEditBrief}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
                   data-testid="draft-error-edit-brief"
                 >
                   <Pencil size={12} />
@@ -1310,7 +1316,7 @@ export function PreAnalysisPanel({
                   type="button"
                   onClick={handleRetryDraft}
                   disabled={isRetrying}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                   data-testid="draft-error-retry"
                 >
                   <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
@@ -1430,7 +1436,7 @@ export function PreAnalysisPanel({
 
               {/* 3. Critical Fix triage cards */}
               {mustFixCards.length > 0 && (
-                <div className="flex flex-col gap-1.5" data-testid="must-fix-cards">
+                <div className="flex flex-col gap-2" data-testid="must-fix-cards">
                   {mustFixCards.map((card, i) => (
                     <TriageCard
                       key={card.key}
@@ -1476,7 +1482,7 @@ export function PreAnalysisPanel({
           {/* Section 2: Review next */}
           {reviewNextCount > 0 && (
             <section className="space-y-2" data-testid="section-review-next">
-              <SectionHeader title="Review next" count={reviewNextCount} borderClass="border-info/30" className="" testId="section-review-next-header" />
+              <SectionHeader title="Review next" subtitle="Highest-impact checks. Resolving these could change your result." count={reviewNextCount} borderClass="border-info/30" className="" testId="section-review-next-header" />
 
               {/* P1-3: Per-section coaching line derived from the SAME picked
                   Start here signal. Suppressed when redundant with the Start
@@ -1553,7 +1559,7 @@ export function PreAnalysisPanel({
                     />
                   )}
                   {startHereSignal.kind === 'bias' && (
-                    <div className="relative px-3 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover">
+                    <div className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover">
                       <p className={`${typography.panelHeader} text-text-header`}>
                         {startHereSignal.biasType}
                       </p>
@@ -1616,7 +1622,7 @@ export function PreAnalysisPanel({
                     return (
                       <div
                         key={trigger.id}
-                        className="relative px-3 pr-7 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover"
+                        className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
                         data-testid={`bias-trigger-${trigger.id}`}
                       >
                         <div className="flex items-start gap-2">
@@ -1653,12 +1659,13 @@ export function PreAnalysisPanel({
                 const visibleTriage = reviewNextExpanded ? reviewNextTriageAfterStart : reviewNextTopCards
                 if (visibleTriage.length === 0) return null
                 return (
-                  <div className="flex flex-col gap-1.5" data-testid="triage-top-actions">
+                  <div className="flex flex-col gap-2" data-testid="triage-top-actions">
                     {visibleTriage.map((card, i) => (
                       <TriageCard
                         key={card.key}
                         cardKey={card.key}
                         ordinal={i + 1}
+                        badgeColor="bg-info"
                         title={card.title}
                         detail={card.detail}
                         subtitle={card.subtitle}
@@ -1697,18 +1704,12 @@ export function PreAnalysisPanel({
             </section>
           )}
 
-          {/* Model notes: surface CEE model_adjustments between Review next
-              and Improve confidence (Brief 4 Task 11). Component hides itself
-              when the array is empty. */}
-          {data.modelAdjustments.length > 0 && (
-            <ModelAdjustments adjustments={data.modelAdjustments} />
-          )}
-
           {/* Section 3: Improve confidence — collapsed by default.
               P1-3: coaching line derived from actionable count. */}
           <ImproveConfidenceAccordion
             count={improveConfidenceCount}
             highestValueLabel={highestValueLabel}
+            subtitle="Lower-impact checks. These sharpen the result but are unlikely to change it."
             coachingLine={
               // Brief 4 hotfix Task 5: subtitle must match header pill. Use the
               // same count and render the complete-state message when there
@@ -1743,12 +1744,13 @@ export function PreAnalysisPanel({
 
             {/* Remaining triage cards (quick fix) — excluding any in Must fix */}
             {improveConfidenceCards.length > 0 && (
-              <div className="flex flex-col gap-1.5" data-testid="improve-confidence-cards">
+              <div className="flex flex-col gap-2" data-testid="improve-confidence-cards">
                 {improveConfidenceCards.map((card, i) => (
                   <TriageCard
                     key={card.key}
                     cardKey={card.key}
                     ordinal={i + 1}
+                    badgeColor="bg-factor"
                     title={card.title}
                     detail={card.detail}
                     subtitle={card.subtitle}
@@ -1802,7 +1804,7 @@ export function PreAnalysisPanel({
           {/* Minimal graph coaching — pre-run guidance, not blocker */}
           {isMinimalGraph && (
             <div
-              className="flex items-start gap-2 px-3 py-2.5 bg-panel border border-info/30 rounded-md"
+              className="flex items-start gap-2 px-4 py-2.5 bg-panel border border-info/30 rounded-md"
               role="status"
               data-testid="minimal-graph-coaching"
             >

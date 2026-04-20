@@ -76,6 +76,12 @@ export interface TriageCardProps {
    * keep their original layout).
    */
   aiDiscuss?: AiDiscussElement
+  /**
+   * Override the ordinal badge fill colour (e.g. "bg-info", "bg-factor").
+   * Defaults to BADGE_COLORS[category] when omitted.
+   * Use to apply section-based colouring (Task 9) instead of category colouring.
+   */
+  badgeColor?: string
 }
 
 // ── Badge colours ───────────────────────────────────────────────────────────
@@ -279,8 +285,9 @@ function InlineValueControls({
 
 // ── Compact variant (quick-fix rows, ranks 4-6) ─────────────────────────────
 
-function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onSendMessage, onUpdateEdgeStrength, sourcePill, subtitle }: TriageCardProps) {
+function CompactTriageCard({ title, ordinal, category, badgeColor, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onSendMessage, onUpdateEdgeStrength, sourcePill, subtitle }: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
+  const resolvedBadgeColor = badgeColor ?? BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
   return (
     <div
@@ -295,11 +302,11 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
       {/* Row 1: badge (optional) + title + source indicator pinned right + meta */}
       <div className="flex items-center gap-2">
         {ordinal != null && (
-          <span className={`flex-shrink-0 w-5 h-5 rounded-full ${BADGE_COLORS[category]} text-white flex items-center justify-center ${typography.panelMeta}`}>
+          <span className={`flex-shrink-0 w-5 h-5 rounded-full ${resolvedBadgeColor} text-text-on-color flex items-center justify-center ${typography.panelMeta}`}>
             {ordinal}
           </span>
         )}
-        {renderTriageTitle(title, `flex-1 min-w-0 ${typography.panelMeta} text-info font-medium`)}
+        {renderTriageTitle(title, `flex-1 min-w-0 ${typography.panelMeta} text-info`)}
         {sourcePill && (
           <span className={`ml-auto shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
             {sourcePill.label}
@@ -407,7 +414,7 @@ export function TriageCard(props: TriageCardProps) {
   if (variant === 'compact') return <CompactTriageCard {...props} />
 
   const influencePct = influence != null ? Math.round(influence * 100) : null
-  const badgeColor = BADGE_COLORS[category]
+  const badgeColor = props.badgeColor ?? BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
   // Display text: detail (subtitle is removed per Task 1b)
   const displayDetail = detail
@@ -426,11 +433,11 @@ export function TriageCard(props: TriageCardProps) {
       {/* Top row: ordinal (optional) + title ... source indicator pinned top-right */}
       <div className="flex items-start gap-2 mb-0.5">
         {ordinal != null && (
-          <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-white ${typography.panelMeta} flex items-center justify-center mt-0.5`}>
+          <span className={`flex-shrink-0 w-5 h-5 rounded-full ${badgeColor} text-text-on-color ${typography.panelMeta} flex items-center justify-center mt-0.5`}>
             {ordinal}
           </span>
         )}
-        {renderTriageTitle(title, `${typography.panelBody} font-semibold text-text-header flex-1 min-w-0`)}
+        {renderTriageTitle(title, `${typography.panelBody} text-text-header flex-1 min-w-0`)}
         {/* Source indicator — pinned top-right */}
         {sourcePill && (
           <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>

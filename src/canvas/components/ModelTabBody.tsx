@@ -37,6 +37,7 @@ import { EntityBar } from './model-tab/EntityBar'
 import { StreamingDiagnostics } from './model-tab/StreamingDiagnostics'
 import { buildSynthesisedPriorMap } from './model-tab/synthesisedPriorHelpers'
 import { countFactorsToVerify } from './model-tab/utils'
+import { ModelAdjustments } from './model-tab/ModelAdjustments'
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -124,6 +125,7 @@ export const ModelTabBody = memo(function ModelTabBody({
     })
   }, [])
 
+  const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
   const repairsApplied = useCanvasStore(s => s.repairsApplied)
   const results = useCanvasStore(s => s.results)
@@ -283,6 +285,43 @@ export const ModelTabBody = memo(function ModelTabBody({
     () => buildSynthesisedPriorMap(ceePipelineTrace, nodes),
     [ceePipelineTrace, nodes],
   )
+
+  // ── Model adjustments — CEE structural repairs with resolved node labels ──
+  // Mirror of usePreAnalysisData Task 6 logic; kept here so ModelTabBody can
+  // own the transparency surface without importing the full pre-analysis hook.
+
+  const modelAdjustments = useMemo(() => {
+    const raw = (ceeAnalysisReady as Record<string, unknown> | null)?.model_adjustments
+    if (!Array.isArray(raw)) return []
+    return raw.map((adj: Record<string, unknown>) => {
+      const target = adj.target
+      if (!target || typeof target !== 'string') return adj
+      const node = nodes.find(n => n.id === target)
+      const nodeLabel = node ? (node.data as { label?: string })?.label : null
+      if (nodeLabel) return { ...adj, target: nodeLabel, targetNodeId: target }
+      const cleaned = target
+        .replace(/^fac_/, '')
+        .replace(/_/g, ' ')
+        .replace(/\b\w/g, (c: string) => c.toUpperCase())
+      return { ...adj, target: cleaned, targetNodeId: target }
+    })
+  }, [ceeAnalysisReady, nodes])
+
+  const modelRepairActions = useMemo<string[]>(() => {
+    if (!ceePipelineTrace) return []
+    const trace = ceePipelineTrace as unknown as Record<string, unknown>
+    const repairSummary = trace.repair_summary ?? trace.repair
+    if (!repairSummary || typeof repairSummary !== 'object') return []
+    const summary = repairSummary as Record<string, unknown>
+    const repairs = summary.deterministic_repairs
+    if (!Array.isArray(repairs)) return []
+    return repairs
+      .map((r: unknown) => {
+        if (r && typeof r === 'object' && 'action' in r) return String((r as { action: unknown }).action)
+        return null
+      })
+      .filter((s): s is string => s !== null)
+  }, [ceePipelineTrace])
 
   // ── Node groups ───────────────────────────────────────────────────────────
 
@@ -575,6 +614,14 @@ export const ModelTabBody = memo(function ModelTabBody({
             hasFragileEdges={fragileEdgeIds.size > 0}
             onSendMessage={onSendMessage}
             {...makeSectionProps('risks')}
+          />
+
+          {/* CEE structural repairs — shown whenever CEE returned model_adjustments.
+              Moved here from PreAnalysisPanel per Signal Registry v3: truth.structural_repairs
+              belongs on the Model tab. */}
+          <ModelAdjustments
+            adjustments={modelAdjustments}
+            repairActions={modelRepairActions}
           />
 
           <ModelHealthSection

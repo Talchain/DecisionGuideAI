@@ -161,7 +161,7 @@ export function BlockersSection({
             return (
               <div
                 key={`${blocker.code}-${idx}`}
-                className={`rounded-md bg-panel border px-3 py-2.5 ${
+                className={`rounded-md bg-panel border px-4 py-2.5 ${
                   isCritical ? 'border-danger/30' : 'border-warning/30'
                 }`}
                 data-testid={`blocker-card-${blocker.code}`}
@@ -205,7 +205,7 @@ export function BlockersSection({
                               e.stopPropagation()
                               onEditBrief()
                             }}
-                            className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
+                            className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
                             data-testid={`blocker-edit-brief-${blocker.code}`}
                           >
                             <Pencil size={12} />
@@ -223,7 +223,7 @@ export function BlockersSection({
                             onRetryDraft()
                           }}
                           disabled={isRetrying}
-                          className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                          className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                           data-testid={`blocker-retry-${blocker.code}`}
                         >
                           <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
@@ -263,7 +263,7 @@ export function BlockersSection({
             return (
               <div
                 key={`${blocker.code}-${idx}`}
-                className="rounded-md bg-panel border border-info/30 px-3 py-2.5"
+                className="rounded-md bg-panel border border-info/30 px-4 py-2.5"
                 data-testid={`info-card-${blocker.code}`}
               >
                 <div className="flex items-start gap-2">
@@ -311,7 +311,7 @@ function ConstraintGroupCard({ items }: { items: EnrichedBlocker[] }) {
 
   return (
     <div
-      className="rounded-md bg-panel border border-info/30 px-3 py-2.5"
+      className="rounded-md bg-panel border border-info/30 px-4 py-2.5"
       data-testid="constraint-group-card"
     >
       <div className="flex items-start gap-2">
