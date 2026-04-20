@@ -1221,17 +1221,11 @@ export function PreAnalysisPanel({
       return 'Ready to run. Review before continuing.'
     }
 
-    // 4. Improve confidence — only count actionable items, not the always-on
-    //    SuccessTarget seat. The "+1 for goal target" baseline shouldn't push
-    //    the user toward a "checks would improve results" message when there
-    //    are no real cards or expertise items pending.
-    const improveActionable = improveConfidenceCards.length + (expertiseHasItems ? 1 : 0)
-    if (improveActionable > 0) {
-      return `Ready to run. ${improveActionable} ${improveActionable === 1 ? 'check' : 'checks'} would improve results.`
-    }
-
-    // 5. Clean ready state
-    return 'Ready to run.'
+    // 4 & 5. Ready states — suppress. The StatusBanner above the panel already
+    // communicates "Ready to run" (and the reviewNextCount where applicable).
+    // Section count badges on Improve confidence and Review next carry the
+    // item counts — echoing them here duplicates the count badge information.
+    return null
   }, [
     data.isLoading,
     data.isReady,
@@ -1246,8 +1240,6 @@ export function PreAnalysisPanel({
     reviewNextTopCards,
     biasTriggers,
     showOptionQualityCard,
-    improveConfidenceCards,
-    expertiseHasItems,
   ])
 
   // Banner state — strict precedence: failed > blocked > recommendations > ready.
