@@ -717,10 +717,14 @@ export function TornadoChart({
               Reset preview
             </button>
           )}
-          {/* Structural dormancy: button renders only when BOTH the caller
-              supplies onApplyAndRerun AND the PLOT_BOUNDS_WIRED flag is
-              flipped. Even if a caller wires the handler, the button is
-              absent until PLoT bounds ship. The ApplyAndRerunButton
+          {/* Structural dormancy call site. Button renders only when BOTH
+              the caller supplies onApplyAndRerun AND the PLOT_BOUNDS_WIRED
+              flag is flipped. The flag is the single source of truth —
+              its definition at line 51 (see docblock above) names the
+              precise dependency that must ship first: PLoT factor-space
+              bounds threaded through the data pipeline, which currently
+              return only outcome-space aggregates. Flip PLOT_BOUNDS_WIRED
+              only alongside that work. The ApplyAndRerunButton
               subcomponent carries the full a11y contract and is tested
               directly — see TornadoChart.spec.tsx. */}
           {onApplyAndRerun && PLOT_BOUNDS_WIRED && (

@@ -238,7 +238,7 @@ describe('TornadoChart', () => {
   // and the button still stays absent until PLoT factor-space bounds
   // are threaded through. The rich behavioural assertions (aria-disabled,
   // guarded click, aria-describedby) return verbatim once the flag flips.
-  it('apply-and-rerun button stays dormant even when caller passes onApplyAndRerun (PLOT_BOUNDS_WIRED gate)', () => {
+  it('apply-and-rerun button stays dormant even when caller passes onApplyAndRerun (PLOT_BOUNDS_WIRED gate — only flip alongside factor-space PLoT bounds wiring)', () => {
     const onApply = vi.fn()
     render(
       <TornadoChart
