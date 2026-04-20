@@ -55,6 +55,8 @@ Each deferral now has an explicit **trigger** condition or a **closed** disposit
 
 - **Dormancy SoT, untracked files, stale CLAUDE.md** — **CLOSED**. All three completed in the Brief 5.2 close-out (commits `149281ee`, `603135d0`, and the CLAUDE.md alignment commit).
 
+- **Playwright per-platform baseline precheck** — **REGISTERED** (round-2 follow-up). Add a CI-precheck script that enumerates committed `*.png` baselines in `e2e/**/*.spec.ts-snapshots/` and verifies a matching `-${runner.os}-${project}.png` exists for each spec that would run on the current runner. Fails fast with a clear remediation message pointing at the capture workflow documented in the spec header (e.g. `analysis-tab-fullpage.spec.ts` lines 10-24). **Trigger**: next brief that ships a new Playwright visual-regression spec, OR the first `BRIEF5_FULLPAGE=1` run that captures the Linux baseline for the existing spec. **Owner**: whoever flips the always-on promise back on.
+
 ### Brief 5.2 close-out commits (2026-04-20)
 
 | Item | Commit | Summary |
@@ -164,7 +166,7 @@ Across 9 phase commits (plus the Phase 0 findings doc) and this final-pass commi
 
 ## Reporting
 
-**Brief 5.2 merged to `staging` on 2026-04-19** as merge commit `8679ea79`. Auto-deploy triggered. Close-out branch `ui/brief-5_2-closeout` followed on 2026-04-20 with the eight close-out items (see commit table above); status as of round-2 ChatGPT review: all items resolved, branch awaiting approval for push.
+**Brief 5.2 merged to `staging` on 2026-04-19** as merge commit `8679ea79`. Auto-deploy triggered. Close-out branch `ui/brief-5_2-closeout` followed on 2026-04-20 with the eight close-out items (see commit table above); status as of round-2 ChatGPT review: all items resolved, branch is local-only pending Paul's push approval.
 
 The pre-push script's earlier flagged `@talchain/schemas` file: reference failure was resolved in close-out item 3 (commit `7b7af138`) — full-suite script now mirrors the fast-gate allowlist + tarball SHA manifest check. Both scripts now agree and pass.
 
