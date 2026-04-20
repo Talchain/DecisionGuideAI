@@ -655,7 +655,7 @@ export function PreAnalysisPanel({
     const snapshot = undoResolvedRef.current(signalId) as { nodeId: string; previousData: unknown } | null
     if (!snapshot) return
     const { updateNode } = useCanvasStore.getState()
-    updateNode(snapshot.nodeId, { data: snapshot.previousData as any })
+    updateNode(snapshot.nodeId, { data: snapshot.previousData as Record<string, unknown> })
     // UI-BUG-8: clear draft error so the Analyse button re-enables after undo.
     // The value change that triggered the error has been reverted.
     useDraftStore.getState().setLastDraftError(null)
@@ -691,7 +691,7 @@ export function PreAnalysisPanel({
     const { updateEdgeData } = useCanvasStore.getState()
     // Write weight through updateEdgeData (clamped). Clear strength_mean so
     // computeSignedMean falls through to weight + direction (the canvas schema path).
-    updateEdgeData(edgeId, { weight: value, strength_mean: undefined } as any)
+    updateEdgeData(edgeId, { weight: value, strength_mean: undefined })
   }, [])
 
   // Focus edge for KeyRelationships (simplified — always edge type)
@@ -826,9 +826,10 @@ export function PreAnalysisPanel({
       )
       for (let i = 0; i < sorted.length; i++) {
         const finding = sorted[i]
-        // AUTHORITY_BIAS without a target factor has no actionable anchor — suppress it.
-        const isAuthorityBias = finding.code === 'AUTHORITY_BIAS' || finding.type === 'authority_bias'
-        if (isAuthorityBias && !finding.target_factor_id) continue
+        // target_factor_id is optional future CEE enrichment — when present, it can be
+        // used to anchor authority-bias copy to a specific factor. Its absence is not a
+        // reason to suppress the card: normaliseCeeBiasFinding already returns null when
+        // the finding has no usable description.
         const normalised = normaliseCeeBiasFinding(finding, i)
         if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
@@ -892,7 +893,8 @@ export function PreAnalysisPanel({
           const nd = topNode.data as Record<string, unknown>
           const os = (nd.observedState ?? nd.observed_state) as Record<string, unknown> | undefined
           const source = os?.source as string | undefined
-          const drivers = os?.uncertainty_drivers as unknown[] | undefined
+          const rawDrivers = os?.uncertainty_drivers
+          const drivers = Array.isArray(rawDrivers) ? rawDrivers : undefined
           if (source && AI_SOURCES.has(source) && (!drivers || drivers.length === 0)) {
             const label = (nd.label as string) ?? topFactorId
             pushDeterministic(

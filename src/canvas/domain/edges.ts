@@ -211,6 +211,10 @@ export const EdgeDataSchema = z.object({
   strengthStd: z.number().positive().optional(),
 
   // V3 edge metadata (preserved from CEE for round-trip fidelity)
+  /** CEE pre-signed strength mean (already encodes direction). When present,
+   *  computeSignedMean uses it directly; when absent, falls back to weight + direction.
+   *  Clearing it (setting to undefined) reverts the edge to the canvas schema path. */
+  strength_mean: z.number().optional(),
   /** V3 edge type: "directed", "bidirected", etc. */
   edge_type: z.string().optional(),
   /** V3 provenance source classification (string, not enum — CEE may add new values) */
@@ -456,13 +460,11 @@ export function formatConfidence(confidence: number | undefined): string {
 export function computeSignedMean(
   data: Record<string, unknown> | undefined,
 ): number {
-  const strengthMean = (data as any)?.strength_mean
+  const strengthMean = data?.strength_mean
   if (typeof strengthMean === 'number') return strengthMean
 
-  const magnitude = (typeof (data as any)?.weight === 'number')
-    ? (data as any).weight as number
-    : 0.5
-  const direction = (data as any)?.direction ?? (data as any)?.effect_direction
+  const magnitude = typeof data?.weight === 'number' ? data.weight as number : 0.5
+  const direction = data?.direction ?? data?.effect_direction
   const sign = direction === 'negative' ? -1 : 1
   return sign * magnitude
 }

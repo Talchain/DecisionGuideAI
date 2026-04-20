@@ -409,6 +409,18 @@ describe('OptionPreview — sharedFactorLabels (Brief 5.3 Task 3)', () => {
     render(<OptionPreview options={[optA, optB]} />)
     expect(screen.queryByTestId('option-preview-overlap-factors')).not.toBeInTheDocument()
   })
+
+  // Empty-return guard: sharedFactorLabels([]) must not produce "All options route through ."
+  // (i.e. the guard `shared.length > 0 &&` must be present and effective).
+  it('does not render a malformed "All options route through ." when no overlap exists', () => {
+    const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('rev', 'Revenue')] })
+    const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('cost', 'Cost')] })
+    render(<OptionPreview options={[optA, optB]} hasSameLeversCheck />)
+    // Element must be absent (guard prevents render of an empty-joined sentence)
+    expect(screen.queryByTestId('option-preview-overlap-factors')).not.toBeInTheDocument()
+    // Belt-and-suspenders: the malformed sentence must not appear anywhere in the DOM
+    expect(screen.queryByText(/All options route through\s*\./)).not.toBeInTheDocument()
+  })
 })
 
 describe('OptionPreview — click-to-inspector', () => {
