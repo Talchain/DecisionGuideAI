@@ -1663,6 +1663,7 @@ export function PreAnalysisPanel({
                         key={card.key}
                         cardKey={card.key}
                         ordinal={i + 1}
+                        badgeColor="bg-info"
                         title={card.title}
                         detail={card.detail}
                         subtitle={card.subtitle}
@@ -1747,6 +1748,7 @@ export function PreAnalysisPanel({
                     key={card.key}
                     cardKey={card.key}
                     ordinal={i + 1}
+                    badgeColor="bg-factor"
                     title={card.title}
                     detail={card.detail}
                     subtitle={card.subtitle}
