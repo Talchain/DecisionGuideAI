@@ -382,7 +382,7 @@ export function OptionPreview({
       >
         <div className="flex items-center gap-2">
           <OptionSquare />
-          <span className={`${typography.panelHeader} text-text-body`}>{OPTION_PREVIEW_TITLE}</span>
+          <span className={`${typography.panelHeader} text-text-header`}>{OPTION_PREVIEW_TITLE}</span>
           <Tooltip delay={300} content="The strategies you're choosing between. Each changes different factors by different amounts. Click any value to adjust.">
             <Info size={14} className="text-text-light" />
           </Tooltip>

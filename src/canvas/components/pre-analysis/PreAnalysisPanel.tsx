@@ -341,7 +341,7 @@ function ImproveConfidenceAccordion({
         data-testid="improve-confidence-toggle"
       >
         <div className="flex items-center gap-2">
-          <p className={`${typography.panelHeader} text-text-header`}>Improve confidence</p>
+          <h3 className={`${typography.panelHeader} text-text-header`}>Improve confidence</h3>
           <span
             className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border border-factor/30 ${typography.panelMeta} text-text-body`}
           >
