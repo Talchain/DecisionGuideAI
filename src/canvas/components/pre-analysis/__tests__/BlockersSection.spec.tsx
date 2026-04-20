@@ -235,6 +235,52 @@ describe('BlockersSection', () => {
     })
   })
 
+  // ── Brief 5.3 close-out: class token regression (P0 fix) ─────────
+  // The P0 bug produced "py-2.5border-danger/30" (missing space between
+  // padding and border class). Guard by asserting each class token is
+  // discrete — no token should contain two class names merged together.
+
+  describe('Card class token regression (Brief 5.3 P0)', () => {
+    it('critical blocker card: py-2.5 and border-danger/30 are discrete tokens', () => {
+      render(
+        <BlockersSection
+          blockers={[makeBlocker('MISSING_GOAL_NODE', 'critical')]}
+          canRetryDraft={false}
+          isRetrying={false}
+          onRetryDraft={mockRetry}
+          onEditBrief={mockEditBrief}
+        />,
+      )
+      const card = screen.getByTestId('blocker-card-MISSING_GOAL_NODE')
+      const tokens = card.className.split(/\s+/)
+      expect(tokens).toContain('py-2.5')
+      expect(tokens).toContain('border-danger/30')
+      // No token should look like two classes jammed together (e.g. "py-2.5border-...")
+      for (const tok of tokens) {
+        expect(tok).not.toMatch(/py-2\.5[a-z]/)
+      }
+    })
+
+    it('warning blocker card: py-2.5 and border-warning/30 are discrete tokens', () => {
+      render(
+        <BlockersSection
+          blockers={[makeBlocker('ANALYSIS_NOT_READY', 'warning')]}
+          canRetryDraft={false}
+          isRetrying={false}
+          onRetryDraft={mockRetry}
+          onEditBrief={mockEditBrief}
+        />,
+      )
+      const card = screen.getByTestId('blocker-card-ANALYSIS_NOT_READY')
+      const tokens = card.className.split(/\s+/)
+      expect(tokens).toContain('py-2.5')
+      expect(tokens).toContain('border-warning/30')
+      for (const tok of tokens) {
+        expect(tok).not.toMatch(/py-2\.5[a-z]/)
+      }
+    })
+  })
+
   // ── Rendering basics ─────────────────────────────────────────────
 
   describe('Rendering', () => {

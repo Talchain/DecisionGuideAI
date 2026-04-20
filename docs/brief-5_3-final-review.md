@@ -88,6 +88,18 @@ Added helper paragraph to `MissingKnowledgePrompt`: "Describe what's missing and
 
 ---
 
+## Phase 0 locks honoured
+
+Phase 0 pre-flight identified three lock decisions where the brief's stated intent conflicted with DS v5 or architectural constraints. Each lock was documented before implementation and honoured throughout:
+
+| Lock | Decision | Honoured in |
+|------|----------|-------------|
+| **Task 7 — outlined action buttons** | DS v5 §2.2: border-pill interactive elements use `panelBody` (not `panelMeta`). Brief originally implied `panelMeta`. Locked to `panelBody`. | `BlockersSection.tsx` lines 208, 226; `PreAnalysisPanel.tsx` draft-error card |
+| **Task 9 — badge text token** | DS v5 §8.5 requires `text-text-on-color` (semantic) not `text-white` (raw) on colour-filled badges. `badgeColor` prop added to `TriageCard` so caller controls background; token corrected in both compact and default variants. | `TriageCard.tsx` — `resolvedBadgeColor` + `text-text-on-color` in both render branches |
+| **Task 11 — icon size on dismiss X** | DS v5 §8.11: icon-only buttons use 14 px icons (not 12 px). Locked to `size={14}`. P1 close-out corrected a regressed `size={12}` introduced mid-brief. | `MissingKnowledgePrompt.tsx` line 41 |
+
+---
+
 ## Deferred / out of scope
 
 - `data.modelAdjustments` hook field cleanup (brief explicitly excluded)

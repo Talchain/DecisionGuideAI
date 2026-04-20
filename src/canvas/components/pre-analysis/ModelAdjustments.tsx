@@ -8,6 +8,10 @@
  *
  * CEE sends adjustments with `code` + `reason` fields; legacy format used
  * `type` + `detail`. This component accepts both shapes defensively.
+ *
+ * @deprecated Not rendered from PreAnalysisPanel as of Brief 5.3 Task 4.
+ * Signal Registry v3 places truth.structural_repairs on the Model tab only.
+ * Wire this component from ModelTabBody when that surface is ready.
  */
 
 import { useState } from 'react'
