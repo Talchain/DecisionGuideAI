@@ -62,7 +62,14 @@ header "Check 3 — Test suite (full, known-broken excluded via vitest.config.ts
 
 TEST_OUTPUT_FILE="$(mktemp /tmp/pre-push-test-XXXXXX)"
 
-NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE" || true
+# Heap budget: 6 GB matches CI (7168) closely enough to avoid the teardown
+# Worker OOMs that triggered at 4 GB. With 188 test files × jsdom + React
+# module graph × single-thread (poolOptions.threads.maxThreads=1), memory
+# accumulated near the 4 GB ceiling during vitest teardown. See
+# docs/ops/vitest-full-suite-oom-diagnosis.md for the full trace + fix
+# options if 6 GB ever becomes insufficient. The ERR_WORKER_OUT_OF_MEMORY
+# tolerance below remains as a safety net.
+NODE_OPTIONS=--max-old-space-size=6144 npx vitest run --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE" || true
 VITEST_EXIT=${PIPESTATUS[0]}
 
 if [ "$VITEST_EXIT" -eq 0 ]; then
