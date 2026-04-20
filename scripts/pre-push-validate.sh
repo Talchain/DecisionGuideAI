@@ -62,7 +62,14 @@ header "Check 3 — Test suite (full, known-broken excluded via vitest.config.ts
 
 TEST_OUTPUT_FILE="$(mktemp /tmp/pre-push-test-XXXXXX)"
 
-NODE_OPTIONS=--max-old-space-size=4096 npx vitest run --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE" || true
+# Heap budget: 6 GB matches CI (7168) closely enough to avoid the teardown
+# Worker OOMs that triggered at 4 GB. With 188 test files × jsdom + React
+# module graph × single-thread (poolOptions.threads.maxThreads=1), memory
+# accumulated near the 4 GB ceiling during vitest teardown. See
+# docs/ops/vitest-full-suite-oom-diagnosis.md for the full trace + fix
+# options if 6 GB ever becomes insufficient. The ERR_WORKER_OUT_OF_MEMORY
+# tolerance below remains as a safety net.
+NODE_OPTIONS=--max-old-space-size=6144 npx vitest run --bail=1 2>&1 | tee "$TEST_OUTPUT_FILE" || true
 VITEST_EXIT=${PIPESTATUS[0]}
 
 if [ "$VITEST_EXIT" -eq 0 ]; then
@@ -114,21 +121,49 @@ fi
 # ─── Check 5: Dependency audit ─────────────────────────────────────────
 header "Check 5 — Dependency audit (file: references)"
 
-# Zero tolerance: all dependencies must come from a package registry.
-# No file: links allowed — @talchain/schemas must be a published version.
-FILE_REFS=$(grep -n '"file:' "$REPO_ROOT/package.json" 2>/dev/null || true)
-LOCK_FILE_REFS=$(grep -n '"file:' "$REPO_ROOT/package-lock.json" 2>/dev/null || true)
+# A1 allowlist (commit b6b1222a, v5 slice A1): @talchain/schemas is
+# deliberately vendored via `file:./vendor/talchain-schemas-*.tgz`. The
+# SHA manifest check below (Check 5a) guards against drift on that
+# specific dep. Any OTHER file: reference fails. Kept in lockstep with
+# scripts/validate-prepush.sh — the two scripts must agree or they
+# emit contradictory signals (historical divergence caught in Brief 5.2
+# close-out, commit 8679ea79 run).
+FILE_REFS=$(grep -n '"file:' "$REPO_ROOT/package.json" 2>/dev/null \
+  | grep -v '"@talchain/schemas"' || true)
+LOCK_FILE_REFS=$(grep -n '"file:' "$REPO_ROOT/package-lock.json" 2>/dev/null \
+  | grep -v 'talchain-schemas' || true)
 
 if [ -n "$FILE_REFS" ]; then
-  echo "    file: dependency references found in package.json:"
+  echo "    non-allowlisted file: dependency references found in package.json:"
   echo "$FILE_REFS" | while IFS= read -r line; do echo "      $line"; done
-  fail "All dependencies must use published registry versions (no file: links)"
+  fail "Only @talchain/schemas may use a file: link (vendored)"
 elif [ -n "$LOCK_FILE_REFS" ]; then
-  echo "    file: dependency references found in package-lock.json:"
+  echo "    non-allowlisted file: dependency references found in package-lock.json:"
   echo "$LOCK_FILE_REFS" | head -5 | while IFS= read -r line; do echo "      $line"; done
-  fail "package-lock.json contains file: references — regenerate with npm install"
+  fail "package-lock.json contains unexpected file: references"
 else
-  pass "No file: dependency references"
+  pass "No non-allowlisted file: references"
+fi
+
+header "Check 5a — V5 vendored schemas tarball SHA manifest"
+
+# A1: guard against drift between vendored tarball bytes and the committed
+# SHA manifest. If someone rebuilds the tarball without updating the
+# manifest, push is blocked. Mirrors scripts/validate-prepush.sh Check 6a.
+TARBALL="$REPO_ROOT/vendor/talchain-schemas-0.5.1.tgz"
+MANIFEST="$REPO_ROOT/vendor/talchain-schemas-0.5.1.tgz.sha256"
+if [ ! -f "$TARBALL" ] || [ ! -f "$MANIFEST" ]; then
+  fail "vendored tarball or SHA manifest missing"
+else
+  ACTUAL="$(shasum -a 256 "$TARBALL" | awk '{print $1}')"
+  EXPECTED="$(tr -d '[:space:]' < "$MANIFEST")"
+  if [ "$ACTUAL" != "$EXPECTED" ]; then
+    echo "    manifest: $EXPECTED"
+    echo "    actual:   $ACTUAL"
+    fail "Vendored schemas tarball changed without manifest update. Rebuild and commit both."
+  else
+    pass "V5 vendored schemas tarball SHA matches manifest"
+  fi
 fi
 
 # Also verify the fork directory doesn't exist

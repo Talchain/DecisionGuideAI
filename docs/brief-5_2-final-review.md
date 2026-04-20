@@ -45,11 +45,31 @@ Phase 0 locked decisions for Task 8 sub-items; this table resolves "complete but
 | Round-2 Improvement #2 — orphan-edge fragility test | **Implemented** (`ac4e7849`) | Single-row orphan test plus mixed-group test (some with `from_id`, some without). `onFocusNode` is proven to never receive the label fallback. |
 | Round-2 Improvement #3 — composed integration through parent path | **Implemented** | New `HeroFooterComposed.spec.tsx` mounts the full `ResultsBody` tree for weak, fair, and strong scenarios. Catches regressions in the `ResultsBody → DecisionConfidencePanel + ResultsFooter` prop threading that per-component tests would miss. |
 
-### Registered follow-ups (not implemented in this brief)
+### Follow-ups — decided in Brief 5.2 close-out (2026-04-20)
 
-- **Expert-trio leak grep**: add a regression test that scans the rendered Analysis-tab body in standard mode for `elasticity`, `stability`, `influence` expert-only copy. Needs a test fixture with the full results tree mounted, which this brief's scope did not include.
-- **Target-factor tooltip on fragility rows**: Brief 5.2 Task 6 dropped the inline `source → target` arrow; the target factor is no longer in the row text. Power users who want the full edge identity could benefit from a hover tooltip exposing the target label.
-- **Dormancy SoT, untracked files, stale CLAUDE.md**: close-out items carried over from Brief 5.1; not folded in.
+Each deferral now has an explicit **trigger** condition or a **closed** disposition. No vague "future opportunity" parking.
+
+- **Expert-trio leak grep** — **REGISTERED** (tracked follow-up). Add a regression test that mounts `ResultsBody` with `expertMode={false}` and asserts no `elasticity`, `stability`, or `influence` numeric tokens leak into the standard-view DOM. The `HeroFooterComposed.spec.tsx` fixture shipped in Brief 5.2 makes this cheap (~30 min). **Trigger**: any edit to `AdvancedSection.tsx` or other expert-gated fields, OR first reported regression of a standard-view user seeing expert-only numerics. **Owner**: next brief that touches the expert-mode surface.
+
+- **Target-factor tooltip on fragility rows** — **CLOSED, not planned**. Brief 5.2 Task 6 deliberately removed the inline `{source} → {target}` arrow to keep fragility rows at ≤2 lines. Re-adding the target factor via tooltip would partially undo that deliberate simplification. No user-reported need. **Re-open condition**: a user explicitly reports inability to identify the target factor of a fragile edge from the Analysis tab.
+
+- **Dormancy SoT, untracked files, stale CLAUDE.md** — **CLOSED**. All three completed in the Brief 5.2 close-out (commits `149281ee`, `603135d0`, and the CLAUDE.md alignment commit).
+
+- **Playwright per-platform baseline precheck** — **REGISTERED** (round-2 follow-up). Add a CI-precheck script that enumerates committed `*.png` baselines in `e2e/**/*.spec.ts-snapshots/` and verifies a matching `-${runner.os}-${project}.png` exists for each spec that would run on the current runner. Fails fast with a clear remediation message pointing at the capture workflow documented in the spec header (e.g. `analysis-tab-fullpage.spec.ts` lines 10-24). **Trigger**: next brief that ships a new Playwright visual-regression spec, OR the first `BRIEF5_FULLPAGE=1` run that captures the Linux baseline for the existing spec. **Owner**: whoever flips the always-on promise back on.
+
+### Brief 5.2 close-out commits (2026-04-20)
+
+| Item | Commit | Summary |
+|---|---|---|
+| 1 — verification | (verification only) | 9 acceptance checks verified at code + test level on 8679ea79; 146 regression tests pass; visual QA on deploy remains for Paul to walk |
+| 2 — vitest OOM | `01508c87` | Local full-suite heap 4 GB → 6 GB + ops diagnosis doc with close conditions |
+| 3 — script divergence | `7b7af138` | Full-suite script aligned with fast-gate `@talchain/schemas` allowlist |
+| 4 — tornado test | `0811fd1e` | Tornado VR spec flipped to dormancy tripwire matching `PLOT_BOUNDS_WIRED` gate |
+| 5 — untracked files | `603135d0` | AGENTS.md, canvas-interaction runbook, and Brief 5 VR baseline committed |
+| 6 — dormancy terminology | `149281ee` | PLOT_BOUNDS_WIRED wording unified across SoT + tripwire + call-site |
+| 7 — deferred triggers | `0728c2f1` | Deferred items each assigned a trigger or closed |
+| 8 — CLAUDE.md alignment | `9e65ca1e` | CLAUDE.md aligned with actual `scripts/validate-prepush.sh` hook behaviour (heap, two-script disambiguation, test counts, `@talchain/schemas` allowlist, CI-vs-local split) |
+| Round 2 — VR spec gate | `1f6393d3` | VR spec gated behind `BRIEF5_FULLPAGE=1` until Linux baseline committed (fixes ChatGPT P0 — CI would otherwise block on missing linux snapshot) |
 
 ## Grep gates — final
 
@@ -142,13 +162,13 @@ Across 9 phase commits (plus the Phase 0 findings doc) and this final-pass commi
 - ✅ Improve-confidence header count matches visible rows within the section (expertise excluded).
 - ✅ Confirm icon hidden on `—` rows; Edit/Pencil remains.
 - ✅ Gauge icon present at Risk profile heading; regression-guarded.
-- ✅ Technique hint locked as non-interactive (by-design decision documented).
+- ✅ Technique hint wired as click-to-chat button (via `onSendMessage` thread through `PreAnalysisPanel → YourExpertise → MissingData`). Firing opens chat pre-filled with "How do I apply {technique title} to \"{factor label}\"?". Refactored to structured `{ title, text, tooltip }` in commit `05d7d8d6` so prompt and aria-label compose from first-class fields rather than string-stripping. The non-interactive fallback remains for fixtures that don't wire `onSendMessage`. *(Originally locked as non-interactive in Phase 0; flipped during round-1 ChatGPT review to match the brief's "If decorative: wire it" direction — commits `eee41ba2`, `05d7d8d6`.)*
 
 ## Reporting
 
-Branch is ready to push to `staging` when you give the go-ahead. No push performed yet — awaiting approval per the brief's commit policy.
+**Brief 5.2 merged to `staging` on 2026-04-19** as merge commit `8679ea79`. Auto-deploy triggered. Close-out branch `ui/brief-5_2-closeout` followed on 2026-04-20 with the eight close-out items (see commit table above); status as of round-2 ChatGPT review: all items resolved, branch is local-only pending Paul's push approval.
 
-The pre-push script's one failing check (dependency audit on `@talchain/schemas` file: reference) exists identically on `staging`, so pushing this branch will not make any check *worse*. If the repo wants that dependency audit to pass for future pushes, address it in a separate commit — it is outside this brief's scope.
+The pre-push script's earlier flagged `@talchain/schemas` file: reference failure was resolved in close-out item 3 (commit `7b7af138`) — full-suite script now mirrors the fast-gate allowlist + tarball SHA manifest check. Both scripts now agree and pass.
 
 ---
 

@@ -48,19 +48,24 @@ npm run build        # Production build
 npm run lint         # ESLint
 npm run typecheck    # TypeScript check (tsc -p tsconfig.ci.json --noEmit)
 npm test             # Run tests (vitest run --reporter=verbose)
-npm run test:full    # Full suite with increased memory (NODE_OPTIONS=--max-old-space-size=4096)
+npm run test:full    # Full suite with increased memory (NODE_OPTIONS=--max-old-space-size=6144)
 ```
 
 ## Git & Deployment
 
 - Always push to `staging`. Never push to `main` without explicit user confirmation.
-- Run `bash scripts/pre-push-validate.sh` before every push.
 - Run `git status` and `git diff --staged` before committing to verify only intended changes are staged.
 - If there are uncommitted changes from previous sessions, flag them and get user approval before including.
 - Actually execute every git command — do not present commands as a summary without running them.
 - After push, verify it succeeded by checking the output.
 - Never bundle unrelated uncommitted changes into a deployment commit.
 - No simultaneous Claude Code sessions on this repository.
+
+### Pre-push validation — two scripts, different scopes
+
+- **`.git/hooks/pre-push`** (git hook, auto-runs on `git push`) delegates to `scripts/validate-prepush.sh`. This is the **fast gate** (~3 min): branch guard, typecheck, lint (changed files only), 8-file smoke suite, stale-.js detection, dependency audit with `@talchain/schemas` allowlist + vendored-tarball SHA manifest check. Blocks the push on failure.
+- **`bash scripts/pre-push-validate.sh`** (manual, optional) is the **full gate** (~15 min): runs the same checks but replaces the smoke suite with the full ~6,284-test vitest run. Used only when you want the full suite locally. Not invoked automatically — CI covers the full suite via `.github/workflows/staging-full-tests.yml` (7 GB heap, dedicated runner).
+- **`@talchain/schemas` file: dependency is allowlisted** deliberately (v5 A1 policy, commit `b6b1222a`). Both pre-push scripts pair the allowlist with a tarball SHA manifest check that fails on drift. Any OTHER `file:` reference fails either gate.
 
 ## Session Preamble
 
@@ -87,8 +92,11 @@ Report the output. Stale `.js` files cause silent shadowing bugs where Vite reso
 ## Testing — Three-Tier Process
 
 Testing uses a tiered approach to avoid crushing the local machine. The full suite
-(500+ files, 6,600+ tests) causes Worker OOM at 4 GB and takes ~15 min locally.
-CI is the real safety net — it runs the full suite with sharded runners and 7 GB RAM.
+(~775 files, ~6,284 tests) takes ~15 min locally. Local heap is 6 GB (bumped from
+4 GB in Brief 5.2 close-out — see `docs/ops/vitest-full-suite-oom-diagnosis.md` for
+the diagnosis + fix options if 6 GB ever becomes insufficient). CI is the real
+safety net — `.github/workflows/staging-full-tests.yml` runs the full suite with
+a dedicated runner and 7 GB RAM.
 
 ### Tier 1: Smoke (after every code change)
 
@@ -115,24 +123,31 @@ npm run lint
 ### Tier 3: Full gate (before pushing to staging only)
 
 Run **only** when the user explicitly says to push to staging.
-The pre-push hook (`scripts/pre-push-validate.sh`) handles this automatically.
-Do NOT run `npm test` or `npm run build` manually before pushing — the hook does it.
 
 ```bash
-git push origin staging    # triggers pre-push hook which runs full suite
+git push origin staging
 ```
 
-If the user asks to run the full suite outside of a push, use:
+`git push` automatically invokes the **fast gate** (`.git/hooks/pre-push` →
+`scripts/validate-prepush.sh`, ~3 min): typecheck, lint changed files, smoke suite,
+stale-.js check, dep audit. The **full ~6,284-test suite runs in CI post-push**
+via `staging-full-tests.yml` — don't re-run it locally unless explicitly asked.
+
+If the user asks to run the full suite outside of a push, use ONE of:
 ```bash
-npm run test:full          # 4 GB heap, --bail=1
-npm run build
+npm run test:full                  # vitest full suite — 6 GB heap, --bail=1
+bash scripts/pre-push-validate.sh  # full suite + typecheck + lint + dep audit
+npm run build                      # production build (separate concern)
 ```
 
 ### Important rules
 
-- **Never run `npm test` (full suite) after every code change** — it OOMs and wastes time.
-- **Never run typecheck + full tests in parallel** — doubles peak RAM and causes OOM.
-- The pre-push hook runs checks sequentially to stay within memory limits.
+- **Never run `npm test` (full suite) after every code change** — it's wasteful and slow.
+- **Never run typecheck + full tests in parallel** — doubles peak RAM.
+- The manual full-suite script runs checks sequentially to stay within memory limits.
+- Vitest teardown may emit `ERR_WORKER_OUT_OF_MEMORY` even when all tests pass; the
+  pre-push-validate script recognises this pattern and treats it as a success when
+  the summary reports zero failures. See `docs/ops/vitest-full-suite-oom-diagnosis.md`.
 - CI (GitHub Actions) is the authoritative gate — it runs the full suite, E2E, coverage,
   bundle policy, and security scans. Local testing is a fast feedback loop, not a replacement.
 
@@ -233,5 +248,6 @@ npx vitest run --changed --bail=1              # Related tests pass?
 ```
 
 If typecheck or related tests fail, fix before reporting completion.
-Do NOT run `npm test` (full suite) or `npm run build` here — those run in the pre-push hook
-when the user decides to push, and again in CI. See "Testing — Three-Tier Process" above.
+Do NOT run `npm test` (full suite) or `npm run build` here — the fast pre-push gate
+runs typecheck + lint + smoke tests at push time, and CI runs the full suite + build
+post-push. See "Testing — Three-Tier Process" above.

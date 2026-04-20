@@ -134,7 +134,7 @@ describe('visual-regression scaffold (Brief 5)', () => {
     // Same grid-cols token across header and row = columns align structurally.
     expect(headerCols).toBe(rowCols)
   })
-  it('Phase 4 / Task 3 — tornado card: intro copy + legend above first bar + apply/rerun button', async () => {
+  it('Phase 4 / Task 3 — tornado card: intro copy + legend above first bar; apply/rerun dormant per PLOT_BOUNDS_WIRED gate', async () => {
     const { TornadoChart } = await import('@/components/results/TornadoChart')
     const row = {
       factorKey: 'f1',
@@ -161,9 +161,15 @@ describe('visual-regression scaffold (Brief 5)', () => {
     )
     // Legend relocated above the first bar
     expect(snap).toContain('data-testid="tornado-legend"')
-    // Apply button elevated + disabled-state tooltip attached
-    expect(snap).toContain('data-testid="tornado-apply-rerun"')
-    expect(snap).toContain('Drag a bar to preview a change before running.')
+    // Brief 5.2 close-out (item 4): Apply button is dormant via
+    // TornadoChart.tsx:51 `PLOT_BOUNDS_WIRED = false`. It must NOT render
+    // from the chart even when callers pass onApplyAndRerun. The dormant
+    // button's a11y + guarded-click contract is separately covered by the
+    // ApplyAndRerunButton subcomponent suite at TornadoChart.spec.tsx:270+.
+    // If this assertion flips to toContain, that means someone re-enabled
+    // the button without threading factor-space PLoT bounds first —
+    // update this line only alongside that work.
+    expect(snap).not.toContain('data-testid="tornado-apply-rerun"')
     // Old surfaces gone
     expect(snap).not.toContain('data-testid="tornado-pp-clarification"')
     expect(snap).not.toContain('data-testid="tornado-interaction-strip"')
