@@ -205,7 +205,7 @@ export function BlockersSection({
                               e.stopPropagation()
                               onEditBrief()
                             }}
-                            className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
+                            className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
                             data-testid={`blocker-edit-brief-${blocker.code}`}
                           >
                             <Pencil size={12} />
@@ -223,7 +223,7 @@ export function BlockersSection({
                             onRetryDraft()
                           }}
                           disabled={isRetrying}
-                          className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                          className={`mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                           data-testid={`blocker-retry-${blocker.code}`}
                         >
                           <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />

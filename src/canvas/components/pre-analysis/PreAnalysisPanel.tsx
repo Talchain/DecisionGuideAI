@@ -1303,7 +1303,7 @@ export function PreAnalysisPanel({
                 <button
                   type="button"
                   onClick={handleEditBrief}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success transition-colors`}
                   data-testid="draft-error-edit-brief"
                 >
                   <Pencil size={12} />
@@ -1314,7 +1314,7 @@ export function PreAnalysisPanel({
                   type="button"
                   onClick={handleRetryDraft}
                   disabled={isRetrying}
-                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} text-info bg-transparent border border-info/40 rounded-full hover:border-success/40 hover:text-success disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
                   data-testid="draft-error-retry"
                 >
                   <RefreshCw size={12} className={isRetrying ? 'animate-spin' : ''} />
