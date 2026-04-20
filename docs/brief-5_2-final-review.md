@@ -45,11 +45,28 @@ Phase 0 locked decisions for Task 8 sub-items; this table resolves "complete but
 | Round-2 Improvement #2 — orphan-edge fragility test | **Implemented** (`ac4e7849`) | Single-row orphan test plus mixed-group test (some with `from_id`, some without). `onFocusNode` is proven to never receive the label fallback. |
 | Round-2 Improvement #3 — composed integration through parent path | **Implemented** | New `HeroFooterComposed.spec.tsx` mounts the full `ResultsBody` tree for weak, fair, and strong scenarios. Catches regressions in the `ResultsBody → DecisionConfidencePanel + ResultsFooter` prop threading that per-component tests would miss. |
 
-### Registered follow-ups (not implemented in this brief)
+### Follow-ups — decided in Brief 5.2 close-out (2026-04-20)
 
-- **Expert-trio leak grep**: add a regression test that scans the rendered Analysis-tab body in standard mode for `elasticity`, `stability`, `influence` expert-only copy. Needs a test fixture with the full results tree mounted, which this brief's scope did not include.
-- **Target-factor tooltip on fragility rows**: Brief 5.2 Task 6 dropped the inline `source → target` arrow; the target factor is no longer in the row text. Power users who want the full edge identity could benefit from a hover tooltip exposing the target label.
-- **Dormancy SoT, untracked files, stale CLAUDE.md**: close-out items carried over from Brief 5.1; not folded in.
+Each deferral now has an explicit **trigger** condition or a **closed** disposition. No vague "future opportunity" parking.
+
+- **Expert-trio leak grep** — **REGISTERED** (tracked follow-up). Add a regression test that mounts `ResultsBody` with `expertMode={false}` and asserts no `elasticity`, `stability`, or `influence` numeric tokens leak into the standard-view DOM. The `HeroFooterComposed.spec.tsx` fixture shipped in Brief 5.2 makes this cheap (~30 min). **Trigger**: any edit to `AdvancedSection.tsx` or other expert-gated fields, OR first reported regression of a standard-view user seeing expert-only numerics. **Owner**: next brief that touches the expert-mode surface.
+
+- **Target-factor tooltip on fragility rows** — **CLOSED, not planned**. Brief 5.2 Task 6 deliberately removed the inline `{source} → {target}` arrow to keep fragility rows at ≤2 lines. Re-adding the target factor via tooltip would partially undo that deliberate simplification. No user-reported need. **Re-open condition**: a user explicitly reports inability to identify the target factor of a fragile edge from the Analysis tab.
+
+- **Dormancy SoT, untracked files, stale CLAUDE.md** — **CLOSED**. All three completed in the Brief 5.2 close-out (commits `149281ee`, `603135d0`, and the CLAUDE.md alignment commit).
+
+### Brief 5.2 close-out commits (2026-04-20)
+
+| Item | Commit | Summary |
+|---|---|---|
+| 1 — verification | (verification only) | 9 acceptance checks verified at code + test level on 8679ea79; 146 regression tests pass; visual QA on deploy remains for Paul to walk |
+| 2 — vitest OOM | `01508c87` | Local full-suite heap 4 GB → 6 GB + ops diagnosis doc with close conditions |
+| 3 — script divergence | `7b7af138` | Full-suite script aligned with fast-gate `@talchain/schemas` allowlist |
+| 4 — tornado test | `0811fd1e` | Tornado VR spec flipped to dormancy tripwire matching `PLOT_BOUNDS_WIRED` gate |
+| 5 — untracked files | `603135d0` | AGENTS.md, canvas-interaction runbook, and Brief 5 VR baseline committed |
+| 6 — dormancy terminology | `149281ee` | PLOT_BOUNDS_WIRED wording unified across SoT + tripwire + call-site |
+| 7 — deferred triggers | (this commit) | Deferred items each assigned a trigger or closed |
+| 8 — CLAUDE.md alignment | (pending) | CLAUDE.md aligned with actual `scripts/validate-prepush.sh` hook behaviour |
 
 ## Grep gates — final
 
