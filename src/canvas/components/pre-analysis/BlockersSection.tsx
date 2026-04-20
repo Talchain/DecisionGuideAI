@@ -161,7 +161,7 @@ export function BlockersSection({
             return (
               <div
                 key={`${blocker.code}-${idx}`}
-                className={`rounded-md bg-panel border px-4 py-2.5${
+                className={`rounded-md bg-panel border px-4 py-2.5 ${
                   isCritical ? 'border-danger/30' : 'border-warning/30'
                 }`}
                 data-testid={`blocker-card-${blocker.code}`}

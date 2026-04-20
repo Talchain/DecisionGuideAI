@@ -36,6 +36,7 @@
 | Raw hex colours | ✅ None introduced |
 | New `as any` / `as unknown` | ✅ None introduced (3 pre-existing in PAP unchanged) |
 | `aria-label` + `<Tooltip>` on new interactives | ✅ MissingKnowledgePrompt dismiss X: Tooltip added, ring added |
+| ModelAdjustments render site removed from PreAnalysisPanel | ✅ Confirmed — `ModelAdjustments.tsx` intentionally retained in pre-analysis directory for Model tab use; gate is "no render in `PreAnalysisPanel.tsx`", not a directory-wide string match |
 | British English, sentence case | ✅ Verified in all new copy |
 | Em dashes | ✅ None introduced |
 | Pre-analysis spec (95 tests) | ✅ All passing |

@@ -38,7 +38,7 @@ export function MissingKnowledgePrompt(_props: MissingKnowledgePromptProps) {
           className="text-text-light hover:text-text-body shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded"
           aria-label="Dismiss"
         >
-          <X size={12} aria-hidden="true" />
+          <X size={14} aria-hidden="true" />
         </button>
       </Tooltip>
     </div>
