@@ -21,10 +21,15 @@ export function MissingKnowledgePrompt(_props: MissingKnowledgePromptProps) {
   if (dismissed) return null
 
   return (
-    <div className="rounded-lg border border-panel-border bg-panel px-4 py-2 flex items-center gap-2">
-      <p className={`${typography.panelBody} text-text-light flex-1`}>
-        Something missing from the model?
-      </p>
+    <div className="rounded-lg border border-panel-border bg-panel px-4 py-2 flex items-start gap-2">
+      <div className="flex-1 min-w-0">
+        <p className={`${typography.panelBody} text-text-light`}>
+          Something missing from the model?
+        </p>
+        <p className={`${typography.panelMeta} text-text-light`}>
+          Describe what's missing and Olumi will suggest where it fits in your model.
+        </p>
+      </div>
       <DiscussWithAiButton element={{ kind: 'missing' }} />
       <Tooltip delay={300} content="Dismiss">
         <button
