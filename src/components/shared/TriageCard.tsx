@@ -299,7 +299,7 @@ function CompactTriageCard({ title, ordinal, category, influence, evoiImpact, on
             {ordinal}
           </span>
         )}
-        {renderTriageTitle(title, `flex-1 min-w-0 ${typography.panelMeta} text-info font-medium`)}
+        {renderTriageTitle(title, `flex-1 min-w-0 ${typography.panelMeta} text-info`)}
         {sourcePill && (
           <span className={`ml-auto shrink-0 px-1 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
             {sourcePill.label}
@@ -430,7 +430,7 @@ export function TriageCard(props: TriageCardProps) {
             {ordinal}
           </span>
         )}
-        {renderTriageTitle(title, `${typography.panelBody} font-semibold text-text-header flex-1 min-w-0`)}
+        {renderTriageTitle(title, `${typography.panelBody} text-text-header flex-1 min-w-0`)}
         {/* Source indicator — pinned top-right */}
         {sourcePill && (
           <span className={`shrink-0 px-1.5 py-0.5 rounded-full border ${sourcePill.borderClass} ${typography.panelMeta} text-text-body bg-transparent`}>
