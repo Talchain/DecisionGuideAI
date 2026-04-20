@@ -65,8 +65,9 @@ Each deferral now has an explicit **trigger** condition or a **closed** disposit
 | 4 — tornado test | `0811fd1e` | Tornado VR spec flipped to dormancy tripwire matching `PLOT_BOUNDS_WIRED` gate |
 | 5 — untracked files | `603135d0` | AGENTS.md, canvas-interaction runbook, and Brief 5 VR baseline committed |
 | 6 — dormancy terminology | `149281ee` | PLOT_BOUNDS_WIRED wording unified across SoT + tripwire + call-site |
-| 7 — deferred triggers | (this commit) | Deferred items each assigned a trigger or closed |
-| 8 — CLAUDE.md alignment | (pending) | CLAUDE.md aligned with actual `scripts/validate-prepush.sh` hook behaviour |
+| 7 — deferred triggers | `0728c2f1` | Deferred items each assigned a trigger or closed |
+| 8 — CLAUDE.md alignment | `9e65ca1e` | CLAUDE.md aligned with actual `scripts/validate-prepush.sh` hook behaviour (heap, two-script disambiguation, test counts, `@talchain/schemas` allowlist, CI-vs-local split) |
+| Round 2 — VR spec gate | `1f6393d3` | VR spec gated behind `BRIEF5_FULLPAGE=1` until Linux baseline committed (fixes ChatGPT P0 — CI would otherwise block on missing linux snapshot) |
 
 ## Grep gates — final
 
@@ -159,13 +160,13 @@ Across 9 phase commits (plus the Phase 0 findings doc) and this final-pass commi
 - ✅ Improve-confidence header count matches visible rows within the section (expertise excluded).
 - ✅ Confirm icon hidden on `—` rows; Edit/Pencil remains.
 - ✅ Gauge icon present at Risk profile heading; regression-guarded.
-- ✅ Technique hint locked as non-interactive (by-design decision documented).
+- ✅ Technique hint wired as click-to-chat button (via `onSendMessage` thread through `PreAnalysisPanel → YourExpertise → MissingData`). Firing opens chat pre-filled with "How do I apply {technique title} to \"{factor label}\"?". Refactored to structured `{ title, text, tooltip }` in commit `05d7d8d6` so prompt and aria-label compose from first-class fields rather than string-stripping. The non-interactive fallback remains for fixtures that don't wire `onSendMessage`. *(Originally locked as non-interactive in Phase 0; flipped during round-1 ChatGPT review to match the brief's "If decorative: wire it" direction — commits `eee41ba2`, `05d7d8d6`.)*
 
 ## Reporting
 
-Branch is ready to push to `staging` when you give the go-ahead. No push performed yet — awaiting approval per the brief's commit policy.
+**Brief 5.2 merged to `staging` on 2026-04-19** as merge commit `8679ea79`. Auto-deploy triggered. Close-out branch `ui/brief-5_2-closeout` followed on 2026-04-20 with the eight close-out items (see commit table above); status as of round-2 ChatGPT review: all items resolved, branch awaiting approval for push.
 
-The pre-push script's one failing check (dependency audit on `@talchain/schemas` file: reference) exists identically on `staging`, so pushing this branch will not make any check *worse*. If the repo wants that dependency audit to pass for future pushes, address it in a separate commit — it is outside this brief's scope.
+The pre-push script's earlier flagged `@talchain/schemas` file: reference failure was resolved in close-out item 3 (commit `7b7af138`) — full-suite script now mirrors the fast-gate allowlist + tarball SHA manifest check. Both scripts now agree and pass.
 
 ---
 
