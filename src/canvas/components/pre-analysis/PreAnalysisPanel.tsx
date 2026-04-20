@@ -1622,7 +1622,7 @@ export function PreAnalysisPanel({
                     return (
                       <div
                         key={trigger.id}
-                        className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover"
+                        className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
                         data-testid={`bias-trigger-${trigger.id}`}
                       >
                         <div className="flex items-start gap-2">

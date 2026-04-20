@@ -373,13 +373,14 @@ describe('OptionPreview — sharedFactorLabels (Brief 5.3 Task 3)', () => {
     expect(el).toHaveTextContent('All options route through Revenue.')
   })
 
-  it('lists multiple shared factor labels in first-option order', () => {
+  it('lists multiple shared factor labels using Intl.ListFormat conjunction', () => {
     const optA = makeOption({ id: 'a', label: 'A', interventions: [makeIntervention('mkt', 'Marketing'), makeIntervention('prod', 'Product'), makeIntervention('sales', 'Sales')] })
     const optB = makeOption({ id: 'b', label: 'B', interventions: [makeIntervention('mkt', 'Marketing'), makeIntervention('prod', 'Product')] })
     const optC = makeOption({ id: 'c', label: 'C', interventions: [makeIntervention('mkt', 'Marketing'), makeIntervention('prod', 'Product'), makeIntervention('hr', 'HR')] })
     render(<OptionPreview options={[optA, optB, optC]} hasSameLeversCheck />)
     const el = screen.getByTestId('option-preview-overlap-factors')
-    expect(el).toHaveTextContent('All options route through Marketing, Product.')
+    // Intl.ListFormat('en-GB', conjunction): 2 items → "A and B", 3+ → "A, B, and C"
+    expect(el).toHaveTextContent('All options route through Marketing and Product.')
   })
 
   it('omits overlap element when no shared factor exists', () => {

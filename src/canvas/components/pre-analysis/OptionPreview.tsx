@@ -427,7 +427,7 @@ export function OptionPreview({
                     className={`${typography.panelMeta} text-text-light`}
                     data-testid="option-preview-overlap-factors"
                   >
-                    {`All options route through ${shared.join(', ')}.`}
+                    {`All options route through ${new Intl.ListFormat('en-GB', { style: 'long', type: 'conjunction' }).format(shared)}.`}
                   </p>
                 )}
                 {/* Brief 4 hotfix Task 6: normalised to full sentence + link
