@@ -126,6 +126,7 @@ type RawBiasFinding = {
   description?: string
   explanation?: string
   citation?: string
+  target_factor_id?: string
   interventions?: Array<{ description?: string; [k: string]: unknown }>
   micro_intervention?: { steps?: Array<{ text?: string; [k: string]: unknown }>; [k: string]: unknown }
 }
@@ -824,7 +825,11 @@ export function PreAnalysisPanel({
         (a, b) => (BIAS_SEVERITY_RANK[a.severity ?? ''] ?? 9) - (BIAS_SEVERITY_RANK[b.severity ?? ''] ?? 9),
       )
       for (let i = 0; i < sorted.length; i++) {
-        const normalised = normaliseCeeBiasFinding(sorted[i], i)
+        const finding = sorted[i]
+        // AUTHORITY_BIAS without a target factor has no actionable anchor — suppress it.
+        const isAuthorityBias = finding.code === 'AUTHORITY_BIAS' || finding.type === 'authority_bias'
+        if (isAuthorityBias && !finding.target_factor_id) continue
+        const normalised = normaliseCeeBiasFinding(finding, i)
         if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
       }
