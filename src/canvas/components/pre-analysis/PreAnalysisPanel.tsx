@@ -1288,7 +1288,7 @@ export function PreAnalysisPanel({
             detail and is hidden from non-expert users. */}
         {isFailed && lastDraftError && (
           <div
-            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-3 py-2.5"
+            className="rounded-md bg-panel border border-panel-border border-t-[3px] border-t-danger px-4 py-2.5"
             data-testid="draft-error-card"
           >
             <p className={`${typography.panelHeader} text-danger`}>Draft failed</p>
@@ -1434,7 +1434,7 @@ export function PreAnalysisPanel({
 
               {/* 3. Critical Fix triage cards */}
               {mustFixCards.length > 0 && (
-                <div className="flex flex-col gap-1.5" data-testid="must-fix-cards">
+                <div className="flex flex-col gap-2" data-testid="must-fix-cards">
                   {mustFixCards.map((card, i) => (
                     <TriageCard
                       key={card.key}
@@ -1557,7 +1557,7 @@ export function PreAnalysisPanel({
                     />
                   )}
                   {startHereSignal.kind === 'bias' && (
-                    <div className="relative px-3 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover">
+                    <div className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover">
                       <p className={`${typography.panelHeader} text-text-header`}>
                         {startHereSignal.biasType}
                       </p>
@@ -1620,7 +1620,7 @@ export function PreAnalysisPanel({
                     return (
                       <div
                         key={trigger.id}
-                        className="relative px-3 pr-7 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover"
+                        className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-lg hover:bg-panel-hover"
                         data-testid={`bias-trigger-${trigger.id}`}
                       >
                         <div className="flex items-start gap-2">
@@ -1657,7 +1657,7 @@ export function PreAnalysisPanel({
                 const visibleTriage = reviewNextExpanded ? reviewNextTriageAfterStart : reviewNextTopCards
                 if (visibleTriage.length === 0) return null
                 return (
-                  <div className="flex flex-col gap-1.5" data-testid="triage-top-actions">
+                  <div className="flex flex-col gap-2" data-testid="triage-top-actions">
                     {visibleTriage.map((card, i) => (
                       <TriageCard
                         key={card.key}
@@ -1742,7 +1742,7 @@ export function PreAnalysisPanel({
 
             {/* Remaining triage cards (quick fix) — excluding any in Must fix */}
             {improveConfidenceCards.length > 0 && (
-              <div className="flex flex-col gap-1.5" data-testid="improve-confidence-cards">
+              <div className="flex flex-col gap-2" data-testid="improve-confidence-cards">
                 {improveConfidenceCards.map((card, i) => (
                   <TriageCard
                     key={card.key}
@@ -1802,7 +1802,7 @@ export function PreAnalysisPanel({
           {/* Minimal graph coaching — pre-run guidance, not blocker */}
           {isMinimalGraph && (
             <div
-              className="flex items-start gap-2 px-3 py-2.5 bg-panel border border-info/30 rounded-md"
+              className="flex items-start gap-2 px-4 py-2.5 bg-panel border border-info/30 rounded-md"
               role="status"
               data-testid="minimal-graph-coaching"
             >

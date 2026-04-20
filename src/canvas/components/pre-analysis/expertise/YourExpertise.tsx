@@ -241,7 +241,7 @@ export function YourExpertise({
       {isExpanded && (
         <div
           id="your-expertise-expanded"
-          className="mt-2 px-3 py-2 rounded-lg border border-panel-border bg-panel max-h-[60vh] overflow-y-auto"
+          className="mt-2 px-4 py-2 rounded-lg border border-panel-border bg-panel max-h-[60vh] overflow-y-auto"
           data-testid="your-expertise-expanded"
         >
           {aiN > 0 && (

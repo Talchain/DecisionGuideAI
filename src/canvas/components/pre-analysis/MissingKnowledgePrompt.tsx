@@ -20,7 +20,7 @@ export function MissingKnowledgePrompt(_props: MissingKnowledgePromptProps) {
   if (dismissed) return null
 
   return (
-    <div className="rounded-lg border border-panel-border bg-panel px-3 py-2 flex items-center gap-2">
+    <div className="rounded-lg border border-panel-border bg-panel px-4 py-2 flex items-center gap-2">
       <p className={`${typography.panelBody} text-text-light flex-1`}>
         Something missing from the model?
       </p>
