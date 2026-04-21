@@ -1,24 +1,26 @@
 // e2e/smoke/v5-exclusive-routing.spec.ts
 // @smoke — Network contract gate for v5-ui-exclusive-path brief.
 //
-// Asserts that when VITE_ENABLE_V5_ORCHESTRATOR === 'true':
-//   - Every orchestrator hit goes to /orchestrate/v2/turn.
-//   - Zero hits to /orchestrate/v1/turn or /orchestrate/v1/turn/stream.
+// Scope: asserts the PRIMARY contract guarantee — when
+// VITE_ENABLE_V5_ORCHESTRATOR === 'true' the UI makes **zero hits to the
+// V1 orchestrator endpoints**. Any V1 leakage fails the smoke.
 //
-// This is the canonical "no V4 leakage" gate. Green smoke means no code
-// path in the V5-on journey reaches V4, independent of the grep gates
-// in Phase 7.
+// What this smoke does NOT do:
+//   - Drive a scripted user journey (send, chip click, retry, patch accept).
+//     A journey smoke would be the ideal "positive" gate but requires a
+//     live staging CEE + chat-composer selectors that are out of scope
+//     for a bootstrap-only smoke.
+//   - Validate V2 request body shapes. Counting V2 POST bodies during
+//     bootstrap is non-deterministic — a session with no auto-turn fires
+//     zero posts and the assertion becomes vacuous. A journey-driven
+//     follow-up test should own that coverage; tracked as
+//     "reviewer improvement #1" in docs/brief-v5-exclusive-ui-walkthrough.md.
 //
-// The test runs the canvas page and exercises the minimum journey the UI
-// code emits without needing a live CEE: the page load + initial render.
-// Deeper journey coverage (submit brief, run analysis, accept patch) is
-// better suited to an integration suite that mocks CEE responses; this
-// smoke confirms the ROUTING invariant — no wiring accidentally posts to
-// V1 even in edge states (e.g. hydration, retries, system events fired
-// on load).
+// The ABSENCE assertion below is deterministic regardless of bootstrap
+// traffic: zero V1 hits is the invariant we care about.
 import { test, expect } from '@playwright/test'
 
-test('V5-on: no V1 orchestrator hits during canvas bootstrap', async ({ page }) => {
+test('V5-on: zero V1 orchestrator hits during canvas bootstrap', async ({ page }) => {
   const v1Hits: string[] = []
   const v2Hits: string[] = []
 
@@ -31,60 +33,26 @@ test('V5-on: no V1 orchestrator hits during canvas bootstrap', async ({ page }) 
     }
   })
 
-  // VITE_ENABLE_V5_ORCHESTRATOR must be 'true' in the vite dev/build env.
-  // Playwright inherits the env from the dev server the webServer block
-  // (playwright.config.ts) started, so the check belongs at CI config
-  // level. We still emit the fact into the test output so a mis-run is
-  // obvious in logs.
+  // VITE_ENABLE_V5_ORCHESTRATOR must be 'true' in the dev/build env the
+  // Playwright webServer launches with. That's configured at the CI/config
+  // level (playwright.config.ts's webServer.env or the runner's inherited
+  // env), not in the test itself.
   await page.goto('/#/canvas')
   await expect(page.locator('.react-flow')).toBeVisible({ timeout: 10_000 })
 
-  // Brief settle so any deferred bootstrap fetches (session hydration,
-  // guidance prefetch, etc.) complete.
+  // Settle any deferred bootstrap fetches (session hydration, guidance
+  // prefetch, etc.) before asserting.
   await page.waitForTimeout(2_000)
 
-  // Assertion: V1 endpoint MUST NOT be hit. Primary contract guarantee.
+  // Primary contract: V1 endpoint MUST NOT be hit. A failing assertion
+  // here means a V5-enabled code path has leaked a V1 request — the
+  // exact regression this brief exists to prevent.
   expect(v1Hits, `V5-on but V1 hits detected: ${v1Hits.join(', ')}`).toHaveLength(0)
 
-  // Informational: V2 may be zero during bootstrap (no turns dispatched)
-  // or non-zero (system-event style hydration). Either is acceptable —
-  // the assertion is only about V1 absence.
-  if (v2Hits.length > 0) {
-    console.log(`[v5-exclusive-routing] observed ${v2Hits.length} V2 hits during bootstrap`)
-  }
-})
-
-test('V5-on: request wire shapes use kind discriminator', async ({ page }) => {
-  // Capture POST bodies to /orchestrate/v2/turn and assert every one
-  // carries the v0.7.0 discriminated union key `kind`. Regression guard
-  // against any future code path reverting to a v0.6.0 flat payload.
-  const v2Bodies: unknown[] = []
-
-  page.on('request', (req) => {
-    if (req.url().includes('/orchestrate/v2/turn') && req.method() === 'POST') {
-      try {
-        const body = req.postDataJSON()
-        if (body) v2Bodies.push(body)
-      } catch {
-        // Non-JSON body — not expected; silently ignore rather than crash
-        // the test. An unexpected non-JSON post would surface elsewhere
-        // (the V5 adapter's parser fails closed to parse_error).
-      }
-    }
-  })
-
-  await page.goto('/#/canvas')
-  await expect(page.locator('.react-flow')).toBeVisible({ timeout: 10_000 })
-  await page.waitForTimeout(2_000)
-
-  // Every captured body must carry a `kind` discriminator.
-  for (const body of v2Bodies) {
-    expect(body, 'V2 request body must be an object').toBeTruthy()
-    const obj = body as Record<string, unknown>
-    expect(obj.kind, `V2 request missing 'kind' discriminator: ${JSON.stringify(obj)}`).toBeDefined()
-    expect(
-      obj.kind === 'message' || obj.kind === 'system_event',
-      `V2 request has invalid kind '${String(obj.kind)}' (must be 'message' or 'system_event')`,
-    ).toBe(true)
-  }
+  // Informational signal only — not an assertion. A zero-V2 bootstrap is
+  // legitimate (no auto-turn fired). Emit the count so test logs record
+  // what traffic the smoke observed.
+  console.log(
+    `[v5-exclusive-routing] bootstrap captured ${v2Hits.length} V2 hit(s), ${v1Hits.length} V1 hit(s)`,
+  )
 })

@@ -52,7 +52,6 @@ import type {
   SystemEvent,
   WireSystemEvent,
   OrchestratorResponseEnvelopeV2,
-  OrchestratorStreamEvent,
   ConversationTurnPair,
   GraphPatchBlock,
   CommentaryBlock,
@@ -63,7 +62,6 @@ import type {
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
-import { logger } from '../../lib/logger'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -274,7 +272,7 @@ function mapSourceSurface(triggerSurface: string, mode: 'user' | 'system'): stri
  * Infer a task-specific loading hint from the user message and graph state.
  * Used as the first long-running hint (15s) to give users a sense of what's happening.
  */
-export function inferLoadingHint(message: string, nodeCount: number, turnType?: string): string {
+export function inferLoadingHint(message: string, _nodeCount: number, turnType?: string): string {
   const lower = message.toLowerCase()
   if (lower.includes('analys') || lower.includes('evaluat') || lower.includes('compare') || lower.includes('run')) return 'Analysing your options\u2026'
   if (lower.includes('research') || lower.includes('evidence') || lower.includes('find')) return 'Researching evidence\u2026'
