@@ -21,19 +21,27 @@
  *   3. optionCount === 1
  *      → "{winner} is your only option"
  *
- *   4. confidenceTier === 'needs_work' OR coachingReadiness in the
- *      known-weak enum ({needs_evidence, needs_framing, low, not_ready})
+ *   4. (confidenceTier === 'needs_work' OR coachingReadiness in the
+ *      known-weak enum: needs_evidence, needs_framing, low, not_ready)
+ *      AND recommendationStability < 0.85 (or absent)
  *      → "{winner} currently leads[ by N points]"
  *      + caveat: "Result depends on factors with limited evidence.
- *                 See Top evidence value."
+ *                 See Highest-value evidence gaps."
+ *      Brief 5.4 QA: the stability gate (0.85) means a needs_work result
+ *      with high numeric stability no longer attaches a caveat — it falls
+ *      through to the fallback "currently leads" path without the warning.
  *
  *   5. confidenceTier === 'fair' OR coachingReadiness === 'close_call'
- *      → "{winner} currently leads[ by N points]"
+ *      → "{winner} is the leading option"   (conservative: true)
+ *      Brief 5.4 QA: fair tier now uses definitive copy; it is not an
+ *      evidence-weak signal and hedging it over-softens confident outcomes.
+ *      conservative: true — coaching overrides are still blocked; the
+ *      certaintyCopy headline is authoritative (Brief 5.2 invariant).
  *
  *   6. confidenceTier === 'strong' AND coachingReadiness === 'ready'
- *      → "{winner} is the leading option"
+ *      → "{winner} is the leading option"   (conservative: false)
  *
- *   7. fallback (unknown tier / absent readiness)
+ *   7. fallback (needs_work + high stability, unknown tier, absent readiness)
  *      → "{winner} currently leads[ by N points]"
  *
  *   The "[ by N points]" suffix is appended when the caller supplies a
@@ -74,16 +82,28 @@ export interface CertaintyCopy {
   /** Dismissible honesty caveat rendered when evidence is weak; otherwise null. */
   caveat: string | null
   /**
-   * Brief 5.2 follow-up: true whenever this copy is the authoritative
-   * lede — unstable, partial, single-option, weak-tier, fair-tier, or
-   * fallback branches. DecisionConfidencePanel must NOT let PLoT coaching
-   * copy override a conservative headline (the "clear leader / N-point
-   * advantage" string would contradict the softened lede even without a
-   * caveat attaching). Only the strong + ready branch (Rule 6) sets this
-   * to false, opting in to coaching overrides.
+   * Brief 5.2 follow-up: true whenever this copy is a conservative lede.
+   * DecisionConfidencePanel must NOT let PLoT coaching copy override a
+   * conservative headline (the "clear leader / N-point advantage" string
+   * would contradict the softened lede even without a caveat attaching).
+   * Brief 5.4 QA: Rules 1–5 and the fallback (Rule 7) are conservative.
+   * Only Rule 6 (strong + ready) sets this to false, opting in to coaching
+   * overrides. fair + close_call (Rule 5) use definitive headline copy but
+   * remain conservative to preserve the Brief 5.2 coaching suppression invariant.
    */
   conservative: boolean
 }
+
+/**
+ * Brief 5.4 QA Item 3: stability gate for the caveat (needs_work branch only).
+ * When stability is at or above this threshold the result is numerically robust
+ * despite limited evidence quality — the caveat is suppressed and the copy falls
+ * through to the fallback "currently leads" path without the evidence warning.
+ *
+ * Exported so winnerChipCopy.ts can import it directly rather than duplicating
+ * the value. Any future threshold change must be made here only.
+ */
+export const STABILITY_STRONG_THRESHOLD = 0.85
 
 const WEAK_READINESS: readonly M1CoachingReadiness[] = [
   'needs_evidence',
@@ -145,18 +165,33 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     }
   }
 
-  if (confidenceTier === 'needs_work' || isWeakReadiness(coachingReadiness)) {
+  // Brief 5.4 QA Item 3: caveat fires only when evidence quality is weak AND
+  // the numeric result is also unstable (< 0.85). When stability is high the
+  // result is trustworthy despite limited evidence — no caveat is needed.
+  const evidenceIsWeak =
+    confidenceTier === 'needs_work' || isWeakReadiness(coachingReadiness)
+  const stabilityIsWeak =
+    recommendationStability == null || recommendationStability < STABILITY_STRONG_THRESHOLD
+
+  if (evidenceIsWeak && stabilityIsWeak) {
     return {
       headline: `${winnerLabel} currently leads${gapSuffix}`,
       sub: null,
-      caveat: 'Result depends on factors with limited evidence. See Top evidence value.',
+      caveat:
+        'Result depends on factors with limited evidence. See Highest-value evidence gaps.',
       conservative: true,
     }
   }
 
+  // Brief 5.4 QA Item 3: fair tier (and close_call readiness) show the
+  // definitive "is the leading option" copy — they are not evidence-weak
+  // signals and hedging them over-softens confident outcomes.
+  // conservative: true — fair/close_call are NOT trusted enough to allow
+  // coaching overrides; the certaintyCopy headline is authoritative here.
+  // Brief 5.2 established this invariant: coaching overrides require strong+ready.
   if (confidenceTier === 'fair' || coachingReadiness === 'close_call') {
     return {
-      headline: `${winnerLabel} currently leads${gapSuffix}`,
+      headline: `${winnerLabel} is the leading option`,
       sub: null,
       caveat: null,
       conservative: true,

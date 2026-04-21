@@ -12,7 +12,7 @@ import {
 } from '../buildResultsVM'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
-  RecommendationSectionData,
+  DecisionResultData,
   DriversSectionData,
   ConfidenceSectionData,
   ImprovementsSectionData,
@@ -80,7 +80,7 @@ function makeData(overrides: {
   ]
   const recommendedOption = options.find(o => o.isRecommended) ?? options[0] ?? null
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption,
     allOptions: options,
     goalLabel: 'Maximise revenue',

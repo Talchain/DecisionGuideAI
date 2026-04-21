@@ -228,7 +228,7 @@ function TrustSummary({
   return (
     <div className="flex flex-col gap-0.5" data-testid="trust-summary">
       <p className={`${typography.panelMeta} text-text-light`}>
-        Top {actionCount} by evidence value
+        Highest-value evidence gaps
       </p>
       <p className={`${typography.panelMeta} text-text-light`} data-testid="evidence-scope-subtitle">
         Factors where new information would most reduce uncertainty

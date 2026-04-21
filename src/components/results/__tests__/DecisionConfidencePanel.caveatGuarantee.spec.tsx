@@ -24,7 +24,7 @@ import type {
   ConfidenceSectionData,
   DriversSectionData,
   ImprovementsSectionData,
-  RecommendationSectionData,
+  DecisionResultData,
   OptionResult,
 } from '../types'
 import type { M1CoachingReadiness } from '../../../types/cee'
@@ -60,13 +60,13 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
     goalProbability: 0.3,
   } as OptionResult
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption: winner,
     allOptions: [winner, runnerUp],
     goalLabel: 'Maximise success',
     isSingleOption: false,
     analysisStatus: 'computed',
-    recommendationStability: 0.85, // above 0.70 so the stability branch doesn't fire
+    recommendationStability: 0.75, // above 0.70 (no-clear-leader) but below 0.85 (caveat fires for needs_work)
     robustnessLevel: 'high',
     coachingHeadline: opts.coachingHeadline,
     coachingDecisionStatement: opts.coachingDecisionStatement,
@@ -188,21 +188,18 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
   })
 
   it('fair tier + ready readiness: Brief 5.2 follow-up makes fair tier conservative — coachingHeadline suppressed', () => {
-    // ChatGPT P0 #1: fair tier emits the softened "currently leads" lede; a
-    // coachingHeadline saying "Option A has a slight edge" is conservative
-    // enough to render, but "clear leader / decisive" language would still
-    // leak through the old gate. The conservative flag now suppresses ANY
-    // coaching override on fair tier so the decision table stays authoritative.
+    // Brief 5.4 QA Item 3: fair tier now shows "is the leading option" (more confident).
+    // conservative: true is preserved — the coaching override is still blocked.
     const data = makeData({
       coachingHeadline: 'Option A has a slight edge',
       confidenceTier: 'fair',
       coachingReadiness: 'ready',
     })
     render(<DecisionConfidencePanel data={data} />)
-    // The PLoT coaching copy is suppressed; certaintyCopy's "currently leads
-    // by N points" wins in fair-tier states.
+    // PLoT coaching is suppressed (conservative: true). certaintyCopy "is the leading
+    // option" renders as the authoritative headline.
     expect(screen.queryByText('Option A has a slight edge')).not.toBeInTheDocument()
-    expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
+    expect(screen.getByText(/Option A is the leading option/)).toBeInTheDocument()
     // No caveat — fair tier doesn't emit one.
     expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
   })
@@ -220,7 +217,9 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
   // into fair-tier / unstable renders even though the underlying lede
   // was already softened.
   describe('conservative branches without caveat still suppress coachingHeadline', () => {
-    it('fair tier: over-confident coachingHeadline is suppressed, softened lede wins', () => {
+    it('fair tier: over-confident coachingHeadline is suppressed, definitive certaintyCopy wins', () => {
+      // Brief 5.4 QA: fair shows "is the leading option" (not "currently leads"),
+      // and conservative: true means the coaching override is still blocked.
       const data = makeData({
         coachingHeadline: 'Option A is the clear leader',
         confidenceTier: 'fair',
@@ -228,8 +227,8 @@ describe('DecisionConfidencePanel — Brief 5.2 Task 1 tier-aware headline + cav
       })
       render(<DecisionConfidencePanel data={data} />)
       expect(screen.queryByText(/clear leader/)).not.toBeInTheDocument()
-      expect(screen.getByText(/Option A currently leads by 95 points/)).toBeInTheDocument()
-      // No caveat — the softening alone is enough for fair tier.
+      expect(screen.getByText(/Option A is the leading option/)).toBeInTheDocument()
+      // No caveat — fair tier doesn't emit one.
       expect(screen.queryByText(/limited evidence/)).not.toBeInTheDocument()
     })
 

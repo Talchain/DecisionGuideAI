@@ -19,7 +19,7 @@ import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
   ConfidenceTier,
-  RecommendationSectionData,
+  DecisionResultData,
   DriversSectionData,
   ConfidenceSectionData,
   ImprovementsSectionData,
@@ -62,7 +62,7 @@ function makeData(opts: {
     winProbability: 0.20,
   } as OptionResult
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption: winner,
     allOptions: [winner, runnerUp],
     goalLabel: 'Maximise revenue',
@@ -139,7 +139,9 @@ describe('ResultsBody composed integration — hero + footer stay aligned throug
     expect(footer).not.toContain('Stable result')
   })
 
-  it('fair tier: hero softens to "currently leads"; footer still passes through the numeric label', () => {
+  it('fair tier: hero uses definitive "is the leading option" (Brief 5.4 QA); footer passes through numeric label', () => {
+    // Brief 5.4 QA Item 3: fair tier no longer hedges to "currently leads".
+    // conservative: true preserved — coaching overrides are still blocked (Brief 5.2).
     const data = makeData({ tier: 'fair', readiness: 'ready', stability: 0.92 })
     const { container } = render(
       <ResultsBody
@@ -149,8 +151,8 @@ describe('ResultsBody composed integration — hero + footer stay aligned throug
     )
 
     const body = container.textContent ?? ''
-    expect(body).toContain('Option A currently leads')
-    expect(body).not.toContain('is the leading option')
+    expect(body).toContain('Option A is the leading option')
+    expect(body).not.toContain('Option A currently leads')
 
     const footer = getFooter()
     // Fair tier does not force "Stability sensitive" — only weak tier does.

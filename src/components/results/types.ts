@@ -146,7 +146,12 @@ export type RobustnessLevel = 'high' | 'moderate' | 'low' | 'very_low'
 /** Robustness label from PLoT (label field - alternative naming) */
 export type RobustnessLabel = 'robust' | 'moderate' | 'fragile'
 
-export interface RecommendationSectionData {
+/**
+ * DecisionResultData (renamed from RecommendationSectionData — Brief 5.4 closeout item 9).
+ * The old name referenced the deleted RecommendationSection component.
+ * This type describes the decision outcome data shape, not any UI component.
+ */
+export interface DecisionResultData {
   recommendedOption: OptionResult | null
   allOptions: OptionResult[]
   goalLabel: string

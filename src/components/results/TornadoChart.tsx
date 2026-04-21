@@ -567,20 +567,24 @@ export function TornadoChart({
                   aria-label="Needs your judgement"
                 />
               )}
-              {/* Label */}
-              <div className="min-w-[100px] w-[150px] flex-shrink-0 text-right pr-1.5">
+              {/* Label — fixed width column, always right-aligned so all bars
+                  start at the same horizontal position regardless of text length.
+                  Brief 5.4 closeout item 8: block/w-full ensures the full column
+                  width is used for text-right alignment (inline elements only
+                  right-align within their own text width, not the container). */}
+              <div className="min-w-[100px] w-[150px] flex-shrink-0 pr-1.5">
                 {row.canFocus ? (
                   <button
                     type="button"
                     onClick={handleClick}
-                    className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded truncate max-w-full text-right`}
+                    className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 rounded block w-full truncate text-right`}
                     title={cleanLabel}
                   >
                     {cleanLabel}
                   </button>
                 ) : (
                   <span
-                    className={`${typography.panelMeta} text-text-light truncate block`}
+                    className={`${typography.panelMeta} text-text-light truncate block w-full text-right`}
                     title={cleanLabel}
                   >
                     {cleanLabel}
@@ -659,12 +663,14 @@ export function TornadoChart({
                 {/* A4: Flip-point marker — diamond on bar showing where recommendation changes */}
                 <FlipMarker row={row} flipThresholds={flipThresholds} totalRange={totalRange} minVal={minVal} />
 
-                {/* Low value label — hidden when left bar is collapsed */}
+                {/* Low value label — hidden when left bar is collapsed.
+                    Brief 5.4 closeout item 8: clamped to min 1% from left so the
+                    label never escapes the bar-area container's left edge. */}
                 {leftWidth > 0.5 && (
                   <span
                     className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${leftLabelColour} whitespace-nowrap tabular-nums ${dragState.isDragging ? 'pointer-events-none' : ''} ${leftBarExtra.includes('opacity') ? 'opacity-30' : ''}`}
                     style={{
-                      right: `${100 - Math.min(lowPct, centrePct) + 1}%`,
+                      right: `min(${100 - Math.min(lowPct, centrePct) + 1}%, 98%)`,
                       transition: isActiveRow ? 'none' : 'right 150ms ease-out',
                     }}
                   >
@@ -674,12 +680,14 @@ export function TornadoChart({
                   </span>
                 )}
 
-                {/* High value label — hidden when right bar is collapsed */}
+                {/* High value label — hidden when right bar is collapsed.
+                    Brief 5.4 closeout item 8: clamped so the label stays within the
+                    bar-area container when the right bar extends to or near 100%. */}
                 {rightWidth > 0.5 && (
                   <span
                     className={`absolute top-1/2 -translate-y-1/2 ${typography.panelMeta} ${rightLabelColour} whitespace-nowrap tabular-nums ${dragState.isDragging ? 'pointer-events-none' : ''} ${rightBarExtra.includes('opacity') ? 'opacity-30' : ''}`}
                     style={{
-                      left: `${Math.max(highPct, centrePct) + 1}%`,
+                      left: `min(${Math.max(highPct, centrePct) + 1}%, calc(100% - 3.5rem))`,
                       transition: isActiveRow ? 'none' : 'left 150ms ease-out',
                     }}
                   >

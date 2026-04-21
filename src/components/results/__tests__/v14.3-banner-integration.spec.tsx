@@ -1,12 +1,14 @@
 /**
  * V14.3: Banner integration render test.
  *
- * Renders through the full component tree (ResultsBody → RecommendationSection
- * → HeroSection → AttentionBanner) to exercise the actual filter chain at
- * ResultsBody:112. Not a shallow render in isolation.
+ * Renders through the full component tree (ResultsBody → AttentionBanner)
+ * to exercise the actual filter chain. Not a shallow render in isolation.
+ * (HeroSection and RecommendationSection were deleted in Brief 5.4 Phase 2.)
  *
- * Asserts no internal tokens leak into any rendered text across the full
- * banner and expanded view.
+ * Asserts:
+ * - No internal tokens leak into any rendered text.
+ * - The dedup filter (closeout item 1) correctly suppresses critiques whose
+ *   factorId is already shown in the DCP top-evidence TriageCards.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -15,13 +17,14 @@ import { ResultsBody } from '../ResultsBody'
 import { humaniseCritique } from '../utils/humaniseCritique'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
-  RecommendationSectionData,
+  DecisionResultData,
   DriversSectionData,
   ConfidenceSectionData,
   ImprovementsSectionData,
   OptionResult,
   UncertaintyItem,
   NextActionItem,
+  EvidenceGapItem,
 } from '../types'
 
 // Mock canvas helpers
@@ -89,7 +92,7 @@ function makeTestData(): ResultsSectionDataReturn {
     .filter(u => u.code !== 'SENSITIVE_ASSUMPTION')
     .map(item => humaniseCritique(item, NODE_LABELS))
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption: OPTIONS[0],
     allOptions: OPTIONS,
     goalLabel: 'Maximise revenue',
@@ -257,5 +260,164 @@ describe('V14.3: Banner integration — full component tree', () => {
     for (const pattern of INTERNAL_PATTERNS) {
       expect(text).not.toMatch(pattern)
     }
+  })
+})
+
+// ─── Brief 5.4 closeout item 1: AttentionBanner ↔ DCP dedup regression ──────
+//
+// The ResultsBody filter (introduced in closeout item 1) excludes any critique
+// whose factorId already appears in confidence.topEvidenceGaps (or evidenceGaps
+// as fallback). The existing tests above always use topEvidenceGaps: [] and
+// therefore never exercise the match path. These tests close that gap.
+
+describe('V14.3 item-1 dedup: banner suppresses critiques already in DCP evidence gaps', () => {
+  const DEDUP_CRITIQUES: UncertaintyItem[] = [
+    {
+      // This critique's affectedNodes[0] matches a topEvidenceGap factorId.
+      // It should be SUPPRESSED by the ResultsBody filter.
+      code: 'MISSING_OBSERVED_STATE',
+      message: 'constraint_fac_revenue_max targets fac_revenue with observed_state.value missing',
+      affectedNodes: ['fac_revenue'],
+      severity: 'warning',
+    },
+    {
+      // This critique's affectedNodes[0] does NOT match any evidence gap.
+      // It should APPEAR in the banner.
+      code: 'CONSTRAINT_MISSING_RANGE',
+      message: 'constraint_fac_cost missing range',
+      affectedNodes: ['fac_cost'],
+      severity: 'warning',
+    },
+  ]
+
+  const DEDUP_LABELS = new Map([
+    ['fac_revenue', 'Revenue'],
+    ['fac_cost', 'Total Cost'],
+  ])
+
+  const DCP_EVIDENCE_GAP: EvidenceGapItem = {
+    factorId: 'fac_revenue',
+    factorLabel: 'Revenue',
+    confidence: 40,
+    voi: 0.8,
+    evpiPp: 12,
+    suggestion: 'Observe current revenue value',
+  }
+
+  function makeDedupData(): ResultsSectionDataReturn {
+    const humanisedCritiques = DEDUP_CRITIQUES.map(item =>
+      humaniseCritique(item, DEDUP_LABELS),
+    )
+
+    const recommendation: DecisionResultData = {
+      recommendedOption: OPTIONS[0],
+      allOptions: OPTIONS,
+      goalLabel: 'Maximise revenue',
+      isSingleOption: false,
+      analysisStatus: 'computed',
+      recommendationStability: 0.85,
+      robustnessLevel: 'moderate',
+    }
+
+    const drivers: DriversSectionData = {
+      drivers: [],
+      driversStatus: 'computed',
+      topDrivers: [],
+      totalCount: 0,
+      hasMagnitudeData: false,
+    }
+
+    const confidence: ConfidenceSectionData = {
+      tier: { tier: 'fair', icon: 'Info', label: 'Fair', description: 'Needs attention' },
+      qualityScore: 55,
+      uncertainties: DEDUP_CRITIQUES,
+      topUncertainties: DEDUP_CRITIQUES,
+      improvements: [],
+      topImprovements: [],
+      evidenceGaps: [DCP_EVIDENCE_GAP],
+      // topEvidenceGaps contains fac_revenue — the banner filter must exclude it
+      topEvidenceGaps: [DCP_EVIDENCE_GAP],
+      nextActions: [],
+      topNextActions: [],
+      humanisedCritiques,
+    }
+
+    const improvements: ImprovementsSectionData = {
+      improvements: [],
+      count: 0,
+      hasHighPriority: false,
+    }
+
+    return {
+      recommendation,
+      drivers,
+      confidence,
+      improvements,
+      isLoading: false,
+      isError: false,
+      goalLabel: 'Revenue',
+    }
+  }
+
+  it('critique whose factorId matches a DCP topEvidenceGap is suppressed from the banner', () => {
+    render(
+      <ResultsBody
+        resultsSectionData={makeDedupData()}
+        tornadoData={{ rows: [], expectedOutcome: null }}
+      />,
+    )
+
+    const banner = screen.getByTestId('attention-banner')
+    // fac_cost critique has no evidence gap overlap → must appear
+    expect(banner.textContent).toContain('Total Cost')
+
+    // fac_revenue critique IS in topEvidenceGaps → must NOT appear in banner
+    // (it is already shown as a DCP TriageCard, showing it again would be a duplicate)
+    expect(banner.textContent).not.toContain('Revenue is missing a current value')
+  })
+
+  it('critique whose factorId matches only evidenceGaps (not topEvidenceGaps) is still suppressed', () => {
+    // ResultsBody uses topEvidenceGaps ?? evidenceGaps as the fallback.
+    // When topEvidenceGaps is absent the filter must still fire via evidenceGaps.
+    const data = makeDedupData()
+    data.confidence.topEvidenceGaps = undefined
+
+    render(
+      <ResultsBody
+        resultsSectionData={data}
+        tornadoData={{ rows: [], expectedOutcome: null }}
+      />,
+    )
+
+    const banner = screen.getByTestId('attention-banner')
+    expect(banner.textContent).toContain('Total Cost')
+    expect(banner.textContent).not.toContain('Revenue is missing a current value')
+  })
+
+  it('critique whose factorId has NO evidence gap overlap is not suppressed', () => {
+    // Sanity-check: when evidence gaps are empty the banner shows all eligible critiques.
+    // With 2 items the banner collapses by default — expand before asserting text.
+    const data = makeDedupData()
+    data.confidence.topEvidenceGaps = []
+    data.confidence.evidenceGaps = []
+
+    render(
+      <ResultsBody
+        resultsSectionData={data}
+        tornadoData={{ rows: [], expectedOutcome: null }}
+      />,
+    )
+
+    const banner = screen.getByTestId('attention-banner')
+    // 2 items → collapsed; "2 items to review" confirms both are present
+    expect(banner.textContent).toContain('2 items to review')
+
+    // Expand the toggle to make item text available in the DOM
+    const toggle = banner.querySelector('button[aria-expanded]')
+    if (toggle) fireEvent.click(toggle)
+
+    // Both critiques now eligible and visible after expansion
+    expect(banner.textContent).toContain('Revenue is missing a current value')
+    expect(banner.textContent).toContain('Total Cost')
   })
 })

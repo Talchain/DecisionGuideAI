@@ -167,6 +167,13 @@ export const ResultsBody = memo(function ResultsBody({
   // Guidance items present → replace NextActionItem system throughout results panel
   const hasGuidanceItems = (guidanceItems?.length ?? 0) > 0
 
+  // Brief 5.4 closeout item 1: Set of factorIds already surfaced as DCP top-evidence
+  // TriageCards. Built once per render so the .filter below is O(n) not O(n²).
+  const dcpGapIds = useMemo(() => new Set(
+    (resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [])
+      .map(g => g.factorId)
+  ), [resultsSectionData.confidence.topEvidenceGaps, resultsSectionData.confidence.evidenceGaps])
+
   // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const flashOptionCard = useCallback((optionId: string) => {
@@ -198,11 +205,17 @@ export const ResultsBody = memo(function ResultsBody({
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}
 
       {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
+      {/* Brief 5.4 closeout item 1: filter out critiques whose factorId is already
+          shown as a TriageCard in DecisionConfidencePanel (topEvidenceGaps / evidenceGaps).
+          Prevents a standalone "Validate/Research" card appearing between the DCP
+          evidence section and "Your options" when the factor is already covered.
+          dcpGapIds is memoised above so the Set is built once per render, not per item. */}
       <SectionErrorBoundary section="Attention banner">
         <AttentionBanner
-          items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(
-            c => c.displayText != null && c.suggestion != null && c.factorId != null
-          )}
+          items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(c => {
+            if (c.displayText == null || c.suggestion == null || c.factorId == null) return false
+            return !dcpGapIds.has(c.factorId)
+          })}
           onFocusNode={onFocusNode}
         />
       </SectionErrorBoundary>
@@ -255,6 +268,7 @@ export const ResultsBody = memo(function ResultsBody({
               }
               expertMode={expertMode}
               confidenceTier={resultsSectionData.confidence.tier.tier}
+              recommendationStability={resultsSectionData.recommendation.recommendationStability}
             />
             {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
           </div>

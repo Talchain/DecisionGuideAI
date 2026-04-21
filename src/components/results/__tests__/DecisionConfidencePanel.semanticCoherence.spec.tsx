@@ -18,7 +18,7 @@ import type {
   DriverItem,
   EvidenceGapItem,
   ImprovementsSectionData,
-  RecommendationSectionData,
+  DecisionResultData,
   OptionResult,
 } from '../types'
 
@@ -65,7 +65,7 @@ function makeData(opts: {
     goalProbability: 0.8,
   } as OptionResult
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption: option,
     allOptions: [option, { ...option, id: 'opt_b', label: 'Option B' } as OptionResult],
     goalLabel: 'Maximise success',
