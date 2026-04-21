@@ -732,7 +732,7 @@ function DriverRow({
       {/* V12.2: Microline overtake warning inside card */}
       {microlineLabel && (
         <p
-          className="text-danger text-[10px] px-3 pb-1.5 -mt-0.5"
+          className={`${typography.panelMeta} text-danger px-3 pb-1.5 -mt-0.5`}
           data-testid="driver-microline"
         >
           If wrong, {microlineLabel} overtakes

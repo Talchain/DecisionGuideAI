@@ -302,7 +302,7 @@ function ScienceNudgeCard({
         <Lightbulb size={14} className="text-info flex-shrink-0 mt-0.5" />
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <p className={`${typography.panelBody} font-semibold text-text-header truncate`} title={nudge.title}>{nudge.title}</p>
+            <p className={`${typography.panelHeader} text-text-header truncate`} title={nudge.title}>{nudge.title}</p>
             {((nudge.targetNodeId && onFocusNode) || (onSendMessage && nudge.targetLabel)) && (
               <div className="flex items-center gap-1 flex-shrink-0">
                 {nudge.targetNodeId && onFocusNode && (
