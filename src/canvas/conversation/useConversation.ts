@@ -2494,19 +2494,17 @@ export function useConversation(): UseConversationReturn {
           })
         }
 
-        const currentScenarioId = useCanvasStore.getState().currentScenarioId
-        if (!currentScenarioId) {
-          if (import.meta.env.DEV) console.warn('[sendTurn V5] No scenario — cannot dispatch')
-          if (mode === 'user' && !hidden) {
-            addMessage({
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              synthetic: true,
-              content: "I can't send that yet — please create or load a decision first.",
-              timestamp: new Date(),
-            })
+        // Lazy UUID allocation — mirrors V4 buildRequest (line 1403-1413).
+        // If the store has no scenario_id or a legacy non-UUID format, generate
+        // one client-side and persist it so subsequent turns reuse the same ID.
+        let currentScenarioId = useCanvasStore.getState().currentScenarioId
+        if (!currentScenarioId || !isUUID(currentScenarioId)) {
+          const newId = crypto.randomUUID()
+          if (import.meta.env.DEV) {
+            console.warn('[sendTurn V5] Allocated fresh scenario_id:', newId)
           }
-          releaseInFlightLockIfOwned(); return
+          currentScenarioId = newId
+          useCanvasStore.setState({ currentScenarioId: newId })
         }
 
         const resolvedTurnType: TurnType = isSystemEvent
