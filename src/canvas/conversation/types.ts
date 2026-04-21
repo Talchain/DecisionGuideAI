@@ -104,6 +104,85 @@ export type ConversationBlock =
   | FlipAnalysisBlock
   | ProposalBlock
   | ExerciseBlock
+  | V5AnalysisResultBlock
+  | V5GraphPatchBlock
+  | V5ExplanationBlock
+  | V5ComparisonBlock
+  | V5FlipAnalysisBlock
+  | V5UnsupportedBlock
+
+/**
+ * V5 block kinds (v5-ui-exclusive-path brief, Phase 5).
+ *
+ * These mirror the V5 OlumiResponse block types (analysis_result, graph_patch,
+ * explanation, comparison, flip_analysis) so the UI can render CEE V5 output
+ * without reshaping through the V4 block taxonomy. Distinct kinds avoid
+ * conflicts with the V4 graph_patch / comparison / flip_analysis blocks that
+ * have different shapes and state machines.
+ */
+export interface V5AnalysisResultBlock {
+  type: 'v5_analysis_result'
+  summary: string
+  leading_option_id: string | null
+  win_probabilities?: Record<string, number>
+  enrichment?: Record<string, unknown>
+}
+
+export interface V5GraphPatchBlock {
+  type: 'v5_graph_patch'
+  status: 'applied' | 'noop'
+  operation: 'set_factor_value' | 'add_constraint' | 'adjust_edge_strength'
+  target_id: string
+  before: Record<string, unknown> | null
+  after: Record<string, unknown> | null
+}
+
+export interface V5ExplanationBlock {
+  type: 'v5_explanation'
+  narrative: string
+  referenced_option_ids: string[]
+  enrichment?: Record<string, unknown>
+}
+
+export interface V5ComparisonBlockOption {
+  option_id: string
+  label: string
+  win_probability?: number
+  attributes?: Record<string, unknown>
+}
+
+export interface V5ComparisonBlock {
+  type: 'v5_comparison'
+  options: V5ComparisonBlockOption[]
+  narrative?: string
+}
+
+export interface V5FlipScenario {
+  factor_id: string
+  current_value: number | null
+  flip_threshold: number | null
+  from_option_id: string | null
+  to_option_id: string | null
+  fragile: boolean
+}
+
+export interface V5FlipAnalysisBlock {
+  type: 'v5_flip_analysis'
+  narrative: string
+  flip_scenarios: V5FlipScenario[]
+  enrichment?: Record<string, unknown>
+}
+
+/**
+ * Placeholder for V5 block kinds the UI doesn't render yet (explanation,
+ * comparison, flip_analysis render full blocks; this is reserved for future
+ * CEE block types to land safely without UI crashing).
+ */
+export interface V5UnsupportedBlock {
+  type: 'v5_unsupported'
+  blockType: string
+  raw: unknown
+}
 
 // ---------------------------------------------------------------------------
 // Citation marker (optional on CommentaryBlock)

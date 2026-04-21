@@ -70,8 +70,31 @@ describe('routeV5Response', () => {
     if (t.kind === 'typed_error') expect(t.code).toBe('INTERNAL_ERROR');
   });
 
-  it('routes fall_through_v4 → fall_through_v4', () => {
-    const t = routeV5Response({ kind: 'fall_through_v4' });
-    expect(t.kind).toBe('fall_through_v4');
+  it('routes empty-response (no text, no blocks, no chips) → empty', () => {
+    const t = routeV5Response({
+      kind: 'response',
+      response: baseResponse({ assistant_text: '', blocks: [], suggested_actions: [] }),
+    });
+    expect(t.kind).toBe('empty');
+  });
+
+  it('treats whitespace-only assistant_text with no blocks/chips as empty', () => {
+    const t = routeV5Response({
+      kind: 'response',
+      response: baseResponse({ assistant_text: '   ', blocks: [], suggested_actions: [] }),
+    });
+    expect(t.kind).toBe('empty');
+  });
+
+  it('routes text-empty but chips-present → text_only (chips render under empty bubble)', () => {
+    const t = routeV5Response({
+      kind: 'response',
+      response: baseResponse({
+        assistant_text: '',
+        blocks: [],
+        suggested_actions: [{ id: 'c', label: 'Try this', message: 'try' }],
+      }),
+    });
+    expect(t.kind).toBe('text_only');
   });
 });

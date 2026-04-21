@@ -1,25 +1,31 @@
 /**
- * TypedErrorRenderer — single component that renders every FailureType from
- * TurnExecutor addendum §2.1.5 with its declared user-visible outcome text.
+ * TypedErrorRenderer — renders every FailureType with its canonical
+ * user-visible text plus a code-specific guidance line and optional server
+ * reason passthrough.
  *
- * Slice A0 scope:
- *   - no design polish; plain semantic markup
- *   - no retry buttons (A1+ will wire retryable behaviour)
- *   - props accept either a full BoundaryError or an OlumiResponse error block
+ * v5-ui-exclusive-path brief (Phase 4):
+ *   - Guidance line per non-retryable code (retryable errors carry a Try
+ *     again chip on the message bubble instead — not rendered here).
+ *   - Server reason passthrough: when BoundaryError.details.reason is a
+ *     non-empty string, surface it beneath the canonical text. Never
+ *     replace the canonical text; layering keeps the taxonomy visible.
+ *   - No retry button — the chip on the parent message handles it.
  */
-import { type ReactElement } from 'react';
+import { type ReactElement } from 'react'
 import {
   FAILURE_USER_TEXT,
   type FailureTypeLiteral,
   type BoundaryError,
-} from '@talchain/schemas/boundary';
+} from '@talchain/schemas/boundary'
+
+import { extractReason, isRetryable } from './failureTypeRetryability'
 
 export interface TypedErrorRendererProps {
-  code: FailureTypeLiteral;
-  requestId?: string;
-  severity?: 'info' | 'warn' | 'error';
+  code: FailureTypeLiteral
+  requestId?: string
+  severity?: 'info' | 'warn' | 'error'
   /** Optional — present when rendering a B1 BoundaryError (not a block). */
-  boundaryError?: BoundaryError;
+  boundaryError?: BoundaryError
 }
 
 // Exhaustive switch over FailureType. If a new member is added to
@@ -36,18 +42,50 @@ function resolveUserText(code: FailureTypeLiteral): string {
     case 'UPSTREAM_UNAVAILABLE':
     case 'LLM_UNAVAILABLE':
     case 'INTERNAL_ERROR':
-      return FAILURE_USER_TEXT[code];
+      return FAILURE_USER_TEXT[code]
     default: {
-      // Exhaustiveness guard — see block comment above.
-      const _exhaustive: never = code;
-      return _exhaustive;
+      const _exhaustive: never = code
+      return _exhaustive
+    }
+  }
+}
+
+/**
+ * Guidance text shown beneath the canonical FAILURE_USER_TEXT for
+ * non-retryable codes. Retryable codes show a Try again chip on the
+ * parent message bubble instead, so no guidance line fires here.
+ *
+ * Returns empty string for retryable codes; caller skips rendering.
+ */
+function resolveGuidance(code: FailureTypeLiteral): string {
+  if (isRetryable(code)) return ''
+  switch (code) {
+    case 'INGRESS_CONTRACT_VIOLATION':
+      return 'Please rephrase your message and try again.'
+    case 'EGRESS_CONTRACT_VIOLATION':
+      return 'The response could not be validated. Please try again or contact support.'
+    case 'FEATURE_NOT_ENABLED':
+      return 'This feature is not yet available in your session.'
+    case 'TURN_BUDGET_EXCEEDED':
+      return 'This session has reached its turn limit — start a new decision to continue.'
+    // Unreachable: the cases below are retryable and short-circuit above.
+    case 'UPSTREAM_TIMEOUT':
+    case 'UPSTREAM_UNAVAILABLE':
+    case 'LLM_UNAVAILABLE':
+    case 'INTERNAL_ERROR':
+      return ''
+    default: {
+      const _exhaustive: never = code
+      return _exhaustive
     }
   }
 }
 
 export function TypedErrorRenderer(props: TypedErrorRendererProps): ReactElement {
-  const { code, requestId, severity = 'error', boundaryError } = props;
-  const text = resolveUserText(code);
+  const { code, requestId, severity = 'error', boundaryError } = props
+  const text = resolveUserText(code)
+  const guidance = resolveGuidance(code)
+  const reason = extractReason(boundaryError)
 
   return (
     <section
@@ -58,6 +96,14 @@ export function TypedErrorRenderer(props: TypedErrorRendererProps): ReactElement
       data-severity={severity}
     >
       <p data-testid="typed-error-text">{text}</p>
+      {reason ? (
+        <p data-testid="typed-error-reason">
+          <small>{reason}</small>
+        </p>
+      ) : null}
+      {guidance ? (
+        <p data-testid="typed-error-guidance">{guidance}</p>
+      ) : null}
       <p data-testid="typed-error-code" aria-label="error code">
         <code>{code}</code>
       </p>
@@ -73,7 +119,7 @@ export function TypedErrorRenderer(props: TypedErrorRendererProps): ReactElement
         </details>
       ) : null}
     </section>
-  );
+  )
 }
 
-export default TypedErrorRenderer;
+export default TypedErrorRenderer

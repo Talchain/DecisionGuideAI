@@ -1,25 +1,26 @@
 /**
- * V5 slice A1 — end-to-end adapter test.
+ * V5 end-to-end adapter → router test.
  *
- * Drives the full flag-on path through callV5Turn → responseParser →
- * routeV5Response, asserting we can render happy-path text and typed errors.
- *
- * This replaces A0's "adapter is inert with flag off" smoke — which still
- * lives in src/canvas/conversation/__tests__/v4-regression-smoke.spec.ts —
- * with positive-path coverage of the A1 wire shape.
+ * v5-ui-exclusive-path brief (Phase 3): `fall_through_v4` removed. V5 is
+ * the exclusive path when the flag is on, and eligibility gating happens at
+ * the useConversation caller level. These tests drive the adapter directly
+ * with v0.7.0 payloads and cover the three RenderTarget happy cases
+ * (text_only / blocks / empty) plus typed-error envelopes.
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { callV5Turn } from '../v5Adapter';
 import { routeV5Response } from '../responseRouter';
-import type { OlumiResponse } from '@talchain/schemas/boundary';
+import type { OlumiResponse, OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 
-const VALID_PAYLOAD = {
+const VALID_PAYLOAD: OrchestratorTurnPayload = {
+  kind: 'message',
   turn_id: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   scenario_id: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
   message: 'frame my decision',
-  turn_class: 'frame' as const,
-  stage: 'frame' as const,
+  turn_class: 'frame',
+  stage: 'frame',
+  source: 'composer',
 };
 
 function mockFetchReturning(body: OlumiResponse | Record<string, unknown>, status = 200) {
@@ -32,16 +33,12 @@ function mockFetchReturning(body: OlumiResponse | Record<string, unknown>, statu
   } as Response);
 }
 
-describe('V5 A1 end-to-end: callV5Turn → routeV5Response', () => {
-  const originalFlag = import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR;
-
+describe('V5 end-to-end: callV5Turn → routeV5Response', () => {
   afterEach(() => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = originalFlag;
     vi.restoreAllMocks();
   });
 
-  it('flag=true + text_only response → renders assistant_text', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+  it('text_only response → renders assistant_text', async () => {
     const happy: OlumiResponse = {
       response_version: 2,
       assistant_text: 'Frame the decision.',
@@ -62,8 +59,23 @@ describe('V5 A1 end-to-end: callV5Turn → routeV5Response', () => {
     }
   });
 
-  it('flag=true + typed error envelope → renders typed_error with error_code', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+  it('empty envelope (no text, no blocks, no chips) → routes to empty', async () => {
+    const empty: OlumiResponse = {
+      response_version: 2,
+      assistant_text: '',
+      blocks: [],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const fetchImpl = mockFetchReturning(empty);
+    const result = await callV5Turn(VALID_PAYLOAD, { fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    const target = routeV5Response(result);
+    expect(target.kind).toBe('empty');
+  });
+
+  it('typed error envelope → renders typed_error with error_code', async () => {
     const fail: OlumiResponse = {
       response_version: 2,
       assistant_text: 'An upstream service did not respond in time. Please retry.',
@@ -83,8 +95,7 @@ describe('V5 A1 end-to-end: callV5Turn → routeV5Response', () => {
     }
   });
 
-  it('flag=true + budget-exceeded envelope → renders typed_error with TURN_BUDGET_EXCEEDED', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+  it('non-retryable typed error (TURN_BUDGET_EXCEEDED)', async () => {
     const fail: OlumiResponse = {
       response_version: 2,
       assistant_text: 'That took longer than we allow for a single turn. Please retry.',
@@ -104,24 +115,7 @@ describe('V5 A1 end-to-end: callV5Turn → routeV5Response', () => {
     }
   });
 
-  it('flag=false → fall_through_v4 without fetch (A0 invariant still holds)', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'false';
-    const fetchImpl = vi.fn();
-    const result = await callV5Turn(VALID_PAYLOAD, { fetchImpl: fetchImpl as unknown as typeof fetch });
-    expect(result.kind).toBe('fall_through_v4');
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  /**
-   * A2: ambiguous user input gets a clarify envelope from CEE. The wire
-   * shape is structurally identical to direct_answer — text-only, empty
-   * blocks/actions/insights — so the router reports text_only, and the
-   * existing assistant-text render path handles it. No new renderer is
-   * needed (the clarify turn class is carried in CEE telemetry only, not
-   * on the wire OlumiResponse).
-   */
-  it('flag=true + ambiguous input → clarify envelope renders as text_only', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+  it('ambiguous input → clarify envelope routes as text_only', async () => {
     const clarify: OlumiResponse = {
       response_version: 2,
       assistant_text: 'What decision are you weighing right now?',
@@ -141,18 +135,10 @@ describe('V5 A1 end-to-end: callV5Turn → routeV5Response', () => {
     expect(target.kind).toBe('text_only');
     if (target.kind === 'text_only') {
       expect(target.response.assistant_text).toBe('What decision are you weighing right now?');
-      expect(target.response.blocks).toEqual([]);
     }
   });
 
-  /**
-   * A2: LLM_UNAVAILABLE envelope — CEE uses this wire code when the classifier
-   * returns unparseable structured output (internal name LLM_SCHEMA_VIOLATION,
-   * mapped to LLM_UNAVAILABLE per CEE types.ts). The UI treats it as any
-   * other typed error; TypedErrorRenderer renders the declared user text.
-   */
-  it('flag=true + LLM_UNAVAILABLE envelope → renders typed_error with LLM_UNAVAILABLE', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+  it('LLM_UNAVAILABLE envelope routes as typed_error', async () => {
     const fail: OlumiResponse = {
       response_version: 2,
       assistant_text: 'The model is temporarily unavailable. Please retry shortly.',
@@ -170,5 +156,27 @@ describe('V5 A1 end-to-end: callV5Turn → routeV5Response', () => {
     if (target.kind === 'typed_error') {
       expect(target.code).toBe('LLM_UNAVAILABLE');
     }
+  });
+
+  it('system_event payload dispatches + parses response normally', async () => {
+    const ack: OlumiResponse = {
+      response_version: 2,
+      assistant_text: 'Patch applied.',
+      blocks: [],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const fetchImpl = mockFetchReturning(ack);
+    const systemEventPayload: OrchestratorTurnPayload = {
+      kind: 'system_event',
+      turn_id: VALID_PAYLOAD.turn_id,
+      scenario_id: VALID_PAYLOAD.scenario_id,
+      stage: 'frame',
+      event: { kind: 'patch_accepted', patch_id: 'patch-1' },
+    };
+    const result = await callV5Turn(systemEventPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const target = routeV5Response(result);
+    expect(target.kind).toBe('text_only');
   });
 });

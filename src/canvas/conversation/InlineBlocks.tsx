@@ -40,6 +40,12 @@ import { ArtefactBlock as ArtefactBlockComponent } from '../../components/chat/A
 import type { PatchBlockState, PatchRejectionInfo } from './useConversation'
 import { MAX_VISIBLE_BLOCKS_PER_TURN } from './types'
 import { GraphPatchBlockRenderer, ProposalBlockRenderer } from './blocks/GraphPatchBlockRenderer'
+import { V5AnalysisResultBlock } from '../../v5/blocks/V5AnalysisResultBlock'
+import { V5GraphPatchBlock } from '../../v5/blocks/V5GraphPatchBlock'
+import { V5ExplanationBlock } from '../../v5/blocks/V5ExplanationBlock'
+import { V5ComparisonBlock } from '../../v5/blocks/V5ComparisonBlock'
+import { V5FlipAnalysisBlock } from '../../v5/blocks/V5FlipAnalysisBlock'
+import { V5UnsupportedBlock } from '../../v5/blocks/V5UnsupportedBlock'
 import { safeRichText, plainTextPreview } from '../utils/safeRichText'
 import { isOrchestratorRenderingV2Enabled } from '../../flags'
 import styles from './Conversation.module.css'
@@ -257,6 +263,26 @@ function BlockRenderer({
     case 'exercise':
       if (!isDeterministicCeeEnabled()) return null
       return <ExerciseBlockRenderer block={block as ExerciseBlockType} />
+
+    // V5 block kinds — no flag gate; whole V5 path is behind
+    // VITE_ENABLE_V5_ORCHESTRATOR at the dispatcher level.
+    case 'v5_analysis_result':
+      return <V5AnalysisResultBlock block={block} />
+
+    case 'v5_graph_patch':
+      return <V5GraphPatchBlock block={block} />
+
+    case 'v5_explanation':
+      return <V5ExplanationBlock block={block} />
+
+    case 'v5_comparison':
+      return <V5ComparisonBlock block={block} />
+
+    case 'v5_flip_analysis':
+      return <V5FlipAnalysisBlock block={block} />
+
+    case 'v5_unsupported':
+      return <V5UnsupportedBlock block={block} />
 
     default: {
       // Unknown block type — suppress from user view, log for diagnostics

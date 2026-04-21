@@ -1,25 +1,25 @@
 /**
- * V5 adapter — feature-flagged entry point. When VITE_ENABLE_V5_ORCHESTRATOR
- * === 'true', callers route their turn through this adapter. Otherwise, this
- * module returns a sentinel telling callers to fall back to the V4 path.
+ * V5 adapter — one-shot POST to /orchestrate/v2/turn.
  *
- * Slice A0 scope:
- *   - buffered JSON only
- *   - one-shot POST → parseV5Response → V5CallResult
- *   - BFF proxy at /bff/orchestrate/v2/turn (see Netlify edge function config)
- *   - explicit endpoint override via VITE_V5_ENDPOINT
+ * v5-ui-exclusive-path brief (Phase 3): the adapter no longer gates on the
+ * feature flag. Callers are responsible for calling this only when
+ * `VITE_ENABLE_V5_ORCHESTRATOR === 'true'` (see `isV5Eligible` in
+ * src/v5/eligibility.ts). When the flag is off, the UI dispatches to V4
+ * directly and never enters this module.
+ *
+ * Consumes @talchain/schemas@0.7.0 — payload is a discriminated union on
+ * `kind: 'message' | 'system_event'`.
+ *
+ * Endpoint resolution priority:
+ *   1. VITE_V5_ENDPOINT (explicit override, used in tests and dev)
+ *   2. `${VITE_ORCHESTRATOR_BASE}/orchestrate/v2/turn`
+ *   3. `/bff/orchestrate/v2/turn` (Netlify edge proxy — production default)
  */
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 
 import { parseV5Response, type V5ParseResult } from './responseParser';
 
-export type V5FallThroughToV4 = { kind: 'fall_through_v4' };
-export type V5CallResult = V5ParseResult | V5FallThroughToV4;
-
-function isV5Enabled(): boolean {
-  // Vite inlines this at build time.
-  return import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR === 'true';
-}
+export type V5CallResult = V5ParseResult;
 
 function resolveEndpoint(): string {
   const override = import.meta.env.VITE_V5_ENDPOINT as string | undefined;
@@ -40,10 +40,6 @@ export async function callV5Turn(
   payload: OrchestratorTurnPayload,
   opts: V5CallOptions = {},
 ): Promise<V5CallResult> {
-  if (!isV5Enabled()) {
-    return { kind: 'fall_through_v4' };
-  }
-
   const url = resolveEndpoint();
   const fetchFn = opts.fetchImpl ?? fetch;
 
@@ -60,14 +56,19 @@ export async function callV5Turn(
       signal: opts.signal,
     });
   } catch (e) {
+    const err = e as Error;
+    // Preserve AbortError so callers can distinguish user-initiated cancel
+    // from network failure. The parser layer treats anything else as
+    // `parse_error`, matching fail-closed policy.
+    if (err.name === 'AbortError') throw err;
     return {
       kind: 'parse_error',
-      reason: `network error: ${(e as Error).message}`,
+      reason: `network error: ${err.message}`,
     };
   }
 
   return parseV5Response(res);
 }
 
-// Exposed for the adapter's own tests and the useConversation branch switch.
-export const __internals = { isV5Enabled, resolveEndpoint };
+// Exposed for the adapter's own tests.
+export const __internals = { resolveEndpoint };

@@ -1,33 +1,32 @@
+/**
+ * callV5Turn — adapter-layer tests.
+ *
+ * v5-ui-exclusive-path brief (Phase 3): the adapter no longer gates on the
+ * flag — the caller (useConversation) does that via `isV5Eligible` and the
+ * `fall_through_v4` sentinel is gone. Tests cover endpoint resolution, HTTP
+ * dispatch, parse_error surfacing, and AbortError passthrough.
+ */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { callV5Turn } from '../v5Adapter';
+import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 
-const validPayload = {
+const validPayload: OrchestratorTurnPayload = {
+  kind: 'message',
   turn_id: '11111111-1111-4111-8111-111111111111',
   scenario_id: '22222222-2222-4222-8222-222222222222',
   message: 'hello',
-  turn_class: 'frame' as const,
-  stage: 'frame' as const,
+  turn_class: 'frame',
+  stage: 'frame',
+  source: 'composer',
 };
 
 describe('callV5Turn', () => {
-  const originalFlag = import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR;
-
   afterEach(() => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = originalFlag;
     vi.restoreAllMocks();
   });
 
-  it('returns fall_through_v4 when flag is off', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'false';
-    const fetchImpl = vi.fn();
-    const res = await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
-    expect(res.kind).toBe('fall_through_v4');
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it('posts to /bff/orchestrate/v2/turn when flag is on and returns parsed response', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+  it('posts to /bff/orchestrate/v2/turn by default and returns parsed response', async () => {
     const body = {
       response_version: 2,
       assistant_text: 'ok',
@@ -53,7 +52,6 @@ describe('callV5Turn', () => {
   });
 
   it('returns parse_error on network failure', async () => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
     const fetchImpl = vi.fn().mockRejectedValue(new Error('offline'));
     const res = await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(res.kind).toBe('parse_error');
@@ -61,11 +59,50 @@ describe('callV5Turn', () => {
       expect(res.reason).toContain('network error');
     }
   });
+
+  it('propagates AbortError (so caller can distinguish user cancel from network failure)', async () => {
+    const abortErr = new Error('aborted');
+    abortErr.name = 'AbortError';
+    const fetchImpl = vi.fn().mockRejectedValue(abortErr);
+    await expect(
+      callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch }),
+    ).rejects.toThrow('aborted');
+  });
+
+  it('posts a system_event payload correctly', async () => {
+    const systemEventPayload: OrchestratorTurnPayload = {
+      kind: 'system_event',
+      turn_id: '11111111-1111-4111-8111-111111111111',
+      scenario_id: '22222222-2222-4222-8222-222222222222',
+      stage: 'frame',
+      event: { kind: 'patch_accepted', patch_id: 'p1' },
+    };
+    const body = {
+      response_version: 2,
+      assistant_text: 'ok',
+      blocks: [],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await callV5Turn(systemEventPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const [, init] = fetchImpl.mock.calls[0];
+    const sent = JSON.parse(init.body as string);
+    expect(sent.kind).toBe('system_event');
+    expect(sent.event.kind).toBe('patch_accepted');
+  });
 });
 
 describe('callV5Turn — endpoint resolution', () => {
   beforeEach(() => {
-    (import.meta.env as Record<string, unknown>).VITE_ENABLE_V5_ORCHESTRATOR = 'true';
+    delete (import.meta.env as Record<string, unknown>).VITE_V5_ENDPOINT;
+    delete (import.meta.env as Record<string, unknown>).VITE_ORCHESTRATOR_BASE;
   });
 
   afterEach(() => {
@@ -89,5 +126,13 @@ describe('callV5Turn — endpoint resolution', () => {
     );
     await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
     expect(fetchImpl.mock.calls[0][0]).toBe('https://cee.example/orchestrate/v2/turn');
+  });
+
+  it('defaults to /bff/orchestrate/v2/turn when no env overrides set', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({}), { status: 500 }),
+    );
+    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    expect(fetchImpl.mock.calls[0][0]).toBe('/bff/orchestrate/v2/turn');
   });
 });
