@@ -434,13 +434,13 @@ export function TornadoChart({
       }}
     >
       {/* Brief 5 Task 3: card intro above bars (Paul-approved frozen copy).
-          Replaces the old technical clarification — Paul's intro frames the
-          chart as a range-preview with explicit drag interaction. */}
+          Brief 5.4 Phase 16: "Drag to preview" removed — implies apply/rerun
+          which is dormant. Rewritten to exploration-only per brief dormancy rule. */}
       <p
         className={`${typography.panelBody} text-text-body mb-2`}
         data-testid="tornado-intro"
       >
-        Win-likelihood range if this factor turns out weaker or stronger than expected. Drag to preview.
+        Win-likelihood range if this factor turns out weaker or stronger than expected. Drag the bars to explore how outcomes shift.
       </p>
 
       {/* Brief 5.1 Task 5: legend occupies its own full-width row above the
@@ -695,9 +695,8 @@ export function TornadoChart({
       </div>
 
       {/* Brief 5 Task 3: former below-bars axis labels + inline info strip
-          are gone. Legend moved above the first bar; intro copy replaces the
-          info strip; the Apply button below now carries the interaction
-          affordance via its disabled-state tooltip. */}
+          are gone. Legend moved above the first bar; intro copy carries the
+          interaction affordance (Brief 5.4 Phase 16: Apply button removed). */}
 
       {/* Preview disclaimer + action buttons */}
       <div className="flex items-center justify-between mt-3">
@@ -717,22 +716,12 @@ export function TornadoChart({
               Reset preview
             </button>
           )}
-          {/* Structural dormancy call site. Button renders only when BOTH
-              the caller supplies onApplyAndRerun AND the PLOT_BOUNDS_WIRED
-              flag is flipped. The flag is the single source of truth —
-              its definition at line 51 (see docblock above) names the
-              precise dependency that must ship first: PLoT factor-space
-              bounds threaded through the data pipeline, which currently
-              return only outcome-space aggregates. Flip PLOT_BOUNDS_WIRED
-              only alongside that work. The ApplyAndRerunButton
-              subcomponent carries the full a11y contract and is tested
-              directly — see TornadoChart.spec.tsx. */}
-          {onApplyAndRerun && PLOT_BOUNDS_WIRED && (
-            <ApplyAndRerunButton
-              hasUserDragged={dragState.hasUserDragged}
-              onApplyAndRerun={onApplyAndRerun}
-            />
-          )}
+          {/* Brief 5.4 Phase 16: "Apply & rerun" button render site removed.
+              PLOT_BOUNDS_WIRED is permanently false until PLoT factor-space
+              bounds are threaded through the data pipeline. Per brief dormancy
+              rule: do not show a disabled button — drag is exploration-only.
+              ApplyAndRerunButton subcomponent is retained for its a11y tests;
+              it is no longer rendered in the chart itself. */}
         </div>
       </div>
     </div>

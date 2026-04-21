@@ -104,7 +104,7 @@ export function ImprovementsSection({
   // Empty state
   if (count === 0) {
     return (
-      <div className="p-4 bg-panel border border-panel-border rounded-lg">
+      <div className="p-3 bg-panel border border-panel-border rounded-lg">
         <p className={`${typography.panelBody} text-text-body flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.improvements}

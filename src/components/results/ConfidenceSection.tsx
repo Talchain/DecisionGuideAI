@@ -516,7 +516,7 @@ export function ConfidenceSection({
       {decisionState && hinge && (
         <div
           id="mvs-card"
-          className="bg-panel p-4 border border-success/30 border-l-[3px] border-l-success rounded-lg shadow-1"
+          className="bg-panel p-4 border border-success/30 border-l-[3px] border-l-success rounded-lg shadow-1" /* §6.4 coaching accent card — p-4 intentional (border-l-[3px]) */
           data-testid="voi-promoted-block"
         >
           <div className="flex items-start gap-2 mb-1">
@@ -542,7 +542,7 @@ export function ConfidenceSection({
       {/* CASE 1: Model is fully ready - show positive message ONLY */}
       {/* Bug 2 fix: Only show when robustness is high/moderate AND stability >= 0.6 */}
       {isFullyReady && (
-        <div className="p-4 border border-success/30 rounded-lg">
+        <div className="p-3 border border-success/30 rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <Check className="w-4 h-4 text-success flex-shrink-0" aria-hidden="true" />
             <span className={`${typography.panelHeader} text-success`}>
@@ -557,7 +557,7 @@ export function ConfidenceSection({
 
       {/* CASE 1b: Bug 2 fix - No fragile edges but low robustness/stability */}
       {showLowRobustnessWarning && (
-        <div className="p-4 bg-panel border border-warning rounded-lg">
+        <div className="p-3 bg-panel border border-warning rounded-lg">
           <div className="flex items-center gap-2 mb-2">
             <AlertTriangle className="w-4 h-4 text-warning flex-shrink-0" aria-hidden="true" />
             <span className={`${typography.panelHeader} text-text-header`}>

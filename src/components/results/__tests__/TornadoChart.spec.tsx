@@ -734,8 +734,9 @@ describe('TornadoChart — disclaimer, axis, display modes', () => {
     )
 
     expect(screen.getByTestId('tornado-intro')).toBeInTheDocument()
+    // Brief 5.4 Phase 16: intro copy updated to exploration-only (removed "Drag to preview" which implied apply/rerun)
     expect(screen.getByText(
-      'Win-likelihood range if this factor turns out weaker or stronger than expected. Drag to preview.'
+      'Win-likelihood range if this factor turns out weaker or stronger than expected. Drag the bars to explore how outcomes shift.'
     )).toBeInTheDocument()
   })
 

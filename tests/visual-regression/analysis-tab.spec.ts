@@ -155,9 +155,9 @@ describe('visual-regression scaffold (Brief 5)', () => {
     const root = container.querySelector('[data-testid="tornado-chart"]')!
     const snap = normaliseDomSnapshot(root.outerHTML)
 
-    // Paul-approved intro copy present
+    // Brief 5.4 Phase 16: intro copy updated to exploration-only (removed "Drag to preview" which implied apply/rerun)
     expect(snap).toContain(
-      'Win-likelihood range if this factor turns out weaker or stronger than expected. Drag to preview.',
+      'Win-likelihood range if this factor turns out weaker or stronger than expected. Drag the bars to explore how outcomes shift.',
     )
     // Legend relocated above the first bar
     expect(snap).toContain('data-testid="tornado-legend"')

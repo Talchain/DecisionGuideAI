@@ -309,7 +309,7 @@ function ScienceNudgeCard({
                   <button
                     type="button"
                     onClick={() => onFocusNode(nudge.targetNodeId!)}
-                    className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
+                    className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`} /* DS v5 §7.2 outlined pill: bg-transparent + border-{color}/30 + rounded-full */
                   >
                     Validate
                   </button>
