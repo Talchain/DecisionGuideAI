@@ -86,7 +86,11 @@ describe('routeV5Response', () => {
     expect(t.kind).toBe('empty');
   });
 
-  it('routes text-empty but chips-present → text_only (chips render under empty bubble)', () => {
+  it('routes text-empty but chips-present → empty (chips alone do not justify a blank bubble)', () => {
+    // Chips without any text or blocks render under a blank text container,
+    // which looks broken. Fall back to the no-response guidance; the UI
+    // renderer preserves the original chips on the response if it wants to
+    // layer them under the fallback.
     const t = routeV5Response({
       kind: 'response',
       response: baseResponse({
@@ -95,6 +99,6 @@ describe('routeV5Response', () => {
         suggested_actions: [{ id: 'c', label: 'Try this', message: 'try' }],
       }),
     });
-    expect(t.kind).toBe('text_only');
+    expect(t.kind).toBe('empty');
   });
 });

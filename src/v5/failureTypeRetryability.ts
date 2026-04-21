@@ -67,3 +67,35 @@ export function extractReason(err: BoundaryError | undefined): string {
   const reason = (err.details as { reason?: unknown } | undefined)?.reason
   return typeof reason === 'string' && reason.trim().length > 0 ? reason.trim() : ''
 }
+
+/**
+ * Guidance text for non-retryable errors. Retryable errors show a Try again
+ * chip on the message bubble instead, so guidance is empty for them.
+ *
+ * Shared source of truth between TypedErrorRenderer (for rendering contexts
+ * that use the full component) and useConversation's V5 typed_error branch
+ * (which builds a plain-string message body for MessageBubble). Keeping
+ * both paths on the same table prevents drift.
+ */
+export function resolveGuidance(code: FailureTypeLiteral): string {
+  if (isRetryable(code)) return ''
+  switch (code) {
+    case 'INGRESS_CONTRACT_VIOLATION':
+      return 'Please rephrase your message and try again.'
+    case 'EGRESS_CONTRACT_VIOLATION':
+      return 'The response could not be validated. Please try again or contact support.'
+    case 'FEATURE_NOT_ENABLED':
+      return 'This feature is not yet available in your session.'
+    case 'TURN_BUDGET_EXCEEDED':
+      return 'This session has reached its turn limit — start a new decision to continue.'
+    case 'UPSTREAM_TIMEOUT':
+    case 'UPSTREAM_UNAVAILABLE':
+    case 'LLM_UNAVAILABLE':
+    case 'INTERNAL_ERROR':
+      return ''
+    default: {
+      const _exhaustive: never = code
+      return _exhaustive
+    }
+  }
+}

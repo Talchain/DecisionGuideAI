@@ -18,7 +18,7 @@ import {
   type BoundaryError,
 } from '@talchain/schemas/boundary'
 
-import { extractReason, isRetryable } from './failureTypeRetryability'
+import { extractReason, resolveGuidance } from './failureTypeRetryability'
 
 export interface TypedErrorRendererProps {
   code: FailureTypeLiteral
@@ -43,37 +43,6 @@ function resolveUserText(code: FailureTypeLiteral): string {
     case 'LLM_UNAVAILABLE':
     case 'INTERNAL_ERROR':
       return FAILURE_USER_TEXT[code]
-    default: {
-      const _exhaustive: never = code
-      return _exhaustive
-    }
-  }
-}
-
-/**
- * Guidance text shown beneath the canonical FAILURE_USER_TEXT for
- * non-retryable codes. Retryable codes show a Try again chip on the
- * parent message bubble instead, so no guidance line fires here.
- *
- * Returns empty string for retryable codes; caller skips rendering.
- */
-function resolveGuidance(code: FailureTypeLiteral): string {
-  if (isRetryable(code)) return ''
-  switch (code) {
-    case 'INGRESS_CONTRACT_VIOLATION':
-      return 'Please rephrase your message and try again.'
-    case 'EGRESS_CONTRACT_VIOLATION':
-      return 'The response could not be validated. Please try again or contact support.'
-    case 'FEATURE_NOT_ENABLED':
-      return 'This feature is not yet available in your session.'
-    case 'TURN_BUDGET_EXCEEDED':
-      return 'This session has reached its turn limit — start a new decision to continue.'
-    // Unreachable: the cases below are retryable and short-circuit above.
-    case 'UPSTREAM_TIMEOUT':
-    case 'UPSTREAM_UNAVAILABLE':
-    case 'LLM_UNAVAILABLE':
-    case 'INTERNAL_ERROR':
-      return ''
     default: {
       const _exhaustive: never = code
       return _exhaustive

@@ -19,8 +19,11 @@ import {
   isRetryable as isV5ErrorRetryable,
   checkRetryableAgreement,
   extractReason as extractV5ErrorReason,
+  resolveGuidance as resolveV5ErrorGuidance,
 } from '../../v5/failureTypeRetryability'
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
+import { deriveV5Stage } from '../../v5/stageMapper'
+import { applyV5State } from '../../v5/applyV5State'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
@@ -2367,10 +2370,30 @@ export function useConversation(): UseConversationReturn {
       } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
-      // clicks before React re-renders the isThinking state guard.
+      // double-clicks before React re-renders the isThinking state guard.
+      //
+      // v5-ui-exclusive-path brief: when flag is on AND the new caller is
+      // a user-initiated free-text / chip send (not a retry or system
+      // event), abort the in-flight V5 request rather than drop the send.
+      // Retry/system-event callers still queue (blocked) because they
+      // shouldn't preempt a user's active turn.
       if (inFlightRef.current) {
-        if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
-        return
+        const v5FlagOn = import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR === 'true'
+        const isUserPreempt =
+          v5FlagOn
+          && opts.mode === 'user'
+          && opts.source !== 'retry'
+          && !opts.retryClientTurnId
+        if (isUserPreempt) {
+          if (import.meta.env.DEV) console.warn('[sendTurn] Preempting in-flight V5 request for new user send')
+          abortRef.current?.abort()
+          // Lock is released below by the aborted run's finally block.
+          // Wait one microtask so the aborted run's finally can run first.
+          await Promise.resolve()
+        } else {
+          if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
+          return
+        }
       }
       inFlightRef.current = true
 
@@ -2476,14 +2499,22 @@ export function useConversation(): UseConversationReturn {
           ? 'system_event'
           : resolveUserTurnType(source, hidden, turnType)
 
+        // Derive stage from canvas state (UI-SEM-020 pattern). turn_class
+        // stays advisory ('frame') — CEE types.ts notes propose/decide/review
+        // are unreachable placeholders and yield UnhandledTurnClassError.
+        // Sonnet classifier drives dispatch downstream regardless of the
+        // caller-provided turn_class.
+        const canvasSnap = useCanvasStore.getState()
+        const derivedStage = deriveV5Stage({
+          currentStage: canvasSnap.currentStage,
+          hasNodes: canvasSnap.nodes.length > 0,
+          isAnalysisComplete:
+            canvasSnap.results.status === 'complete' || canvasSnap.hasCompletedFirstRun,
+        })
         const build = buildV5Payload({
           turnId: turnClientId,
           scenarioId: currentScenarioId,
-          // Phase 3 scope: stage + turn_class default to 'frame'. Full stage
-          // routing lands in a later slice; CEE classifier drives dispatch
-          // downstream regardless (see olumi-assistants-service
-          // turn-executor.ts:979-1003).
-          stage: 'frame',
+          stage: derivedStage,
           turnClass: 'frame',
           mode,
           message,
@@ -2589,6 +2620,19 @@ export function useConversation(): UseConversationReturn {
           const target = routeV5Response(v5Result)
 
           if (target.kind === 'text_only' || target.kind === 'blocks') {
+            // Apply side-effects (stage, graph_patch mutations) BEFORE the
+            // message renders so subsequent React effects (panel data, chat
+            // auto-scroll) see consistent canvas state.
+            const stateApply = applyV5State(target.response, useCanvasStore.getState())
+            if (import.meta.env.DEV) {
+              if (stateApply.applied.length > 0) {
+                console.debug('[sendTurn V5] state applied:', stateApply.applied)
+              }
+              if (stateApply.deferred.length > 0) {
+                console.debug('[sendTurn V5] state deferred:', stateApply.deferred)
+              }
+            }
+
             const mappedBlocks =
               target.kind === 'blocks' ? mapV5Blocks(target.response.blocks) : []
             // V5 suggested_actions → ActionChip. CEE caps count server-side;
@@ -2632,7 +2676,13 @@ export function useConversation(): UseConversationReturn {
             const retryable = isV5ErrorRetryable(target.code)
             const canonicalText = FAILURE_USER_TEXT[target.code]
             const reason = extractV5ErrorReason(target.boundaryError)
-            const content = reason ? `${canonicalText}\n\n${reason}` : canonicalText
+            const guidance = resolveV5ErrorGuidance(target.code)
+            // Layer: canonical taxonomy text → server reason (if any) →
+            // code-specific guidance (non-retryable only). Retryable errors
+            // omit guidance because the Try again chip serves that role.
+            const content = [canonicalText, reason, guidance]
+              .filter((s) => s.length > 0)
+              .join('\n\n')
             const retryChips: ActionChip[] = retryable && mode === 'user' && !hidden
               ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
               : []

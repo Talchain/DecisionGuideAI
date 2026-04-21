@@ -54,11 +54,13 @@ export function routeV5Response(result: V5CallResult): RenderTarget {
 
   const nonErrorBlocks = resp.blocks.filter((b) => b.type !== 'error');
   const hasText = resp.assistant_text.trim().length > 0;
-  const hasActions = resp.suggested_actions.length > 0;
 
-  // Empty-response guard: no text, no non-error blocks, no suggested actions.
-  // The UI renders a "No response received" fallback with retry chip.
-  if (!hasText && nonErrorBlocks.length === 0 && !hasActions) {
+  // Empty-response guard: no text, no non-error blocks. Suggested actions
+  // alone don't disqualify the empty state — chips rendered under a blank
+  // text bubble look broken. The UI's empty-fallback renderer attaches its
+  // own retry chip; any suggested_actions that arrived are preserved on the
+  // OlumiResponse so callers can surface them explicitly if they choose.
+  if (!hasText && nonErrorBlocks.length === 0) {
     return { kind: 'empty', response: resp };
   }
 

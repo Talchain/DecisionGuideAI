@@ -4,6 +4,7 @@ import {
   isRetryable,
   checkRetryableAgreement,
   extractReason,
+  resolveGuidance,
 } from '../failureTypeRetryability'
 
 describe('isRetryable — exhaustive over FailureTypeLiteral', () => {
@@ -86,5 +87,27 @@ describe('extractReason — surfaces details.reason when it is a non-empty strin
     expect(
       extractReason({ ...baseErr, details: { reason: '  plot run exceeded 120s ' } }),
     ).toBe('plot run exceeded 120s')
+  })
+})
+
+describe('resolveGuidance — shared guidance resolver', () => {
+  it.each([
+    ['UPSTREAM_TIMEOUT'],
+    ['UPSTREAM_UNAVAILABLE'],
+    ['LLM_UNAVAILABLE'],
+    ['INTERNAL_ERROR'],
+  ] as const)('retryable code %s returns empty guidance (Try again chip covers UX)', (code) => {
+    expect(resolveGuidance(code)).toBe('')
+  })
+
+  it.each([
+    ['INGRESS_CONTRACT_VIOLATION', /rephrase/i],
+    ['EGRESS_CONTRACT_VIOLATION', /validated/i],
+    ['FEATURE_NOT_ENABLED', /not yet available/i],
+    ['TURN_BUDGET_EXCEEDED', /turn limit/i],
+  ] as const)('non-retryable code %s returns guidance matching %s', (code, pattern) => {
+    const g = resolveGuidance(code)
+    expect(g.length).toBeGreaterThan(0)
+    expect(g).toMatch(pattern)
   })
 })
