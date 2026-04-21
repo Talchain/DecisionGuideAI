@@ -693,20 +693,9 @@ export function OutputsDock() {
     return lookup
   }, [nodes])
 
-  // Confirm decision button: provisional when low stability or evidence gaps remain
-  const confirmStability = resultsSectionData?.recommendation?.recommendationStability ?? 0
-  const confirmGapCount = resultsSectionData?.confidence?.evidenceGaps?.length ?? 0
-  const isConfirmProvisional = confirmStability < 0.4 || confirmGapCount > 0
-  // P1-7: "Confirm anyway" framed the action as friction. Rename the
-  // provisional path to "Create decision brief" so completing with caveats
-  // reads as forward motion. The non-provisional label stays as
-  // "Confirm decision" for the clean-result case.
-  const confirmLabel = isConfirmProvisional ? 'Create decision brief' : 'Confirm decision'
-  const confirmTitle = confirmStability < 0.4
-    ? 'Trust score is below 40% — address items to improve confidence'
-    : confirmGapCount > 0
-      ? `${confirmGapCount} evidence gap${confirmGapCount === 1 ? '' : 's'} remain`
-      : undefined
+  // Brief 5.4 Phase 11: "Create decision brief" placeholder removed.
+  // confirmLabel / confirmTitle / isConfirmProvisional / confirmGapCount deleted.
+  // "Rerun analysis" is the sole primary action in AnalysisFooter.
 
   verboseDebug('[TrustSignals] OutputsDock', {
     isPreRun,
@@ -1624,28 +1613,18 @@ export function OutputsDock() {
                   </div>
                 )}
                 </div>
+                {/* Brief 5.4 Phase 11: "Create decision brief" placeholder removed.
+                    "Rerun analysis" is the sole primary action in AnalysisFooter. */}
                 {!isPreRun && hasInlineSummary && resultsSectionData && (
                   <AnalysisFooter
                     statusIcon={postRunFooter.icon}
                     statusIconClassName={postRunFooter.iconClass}
                     statusText={postRunFooter.label}
                     metaText={postRunMetaText}
-                    actionLabel={confirmLabel}
-                    onAction={() => {
-                      // Placeholder: decision brief generation endpoint not yet available
-                      window.alert('Decision confirmed. Decision brief coming soon.') // eslint-disable-line no-alert
-                    }}
-                    actionDisabled={false}
-                    actionTitle={confirmTitle}
-                    actionAriaLabel={isConfirmProvisional
-                      ? confirmGapCount > 0
-                        ? `Create decision brief, ${confirmGapCount} evidence gap${confirmGapCount === 1 ? '' : 's'} remain`
-                        : 'Create decision brief, trust score is low'
-                      : 'Confirm decision'}
-                    secondaryActionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
-                    secondaryOnAction={handleRunAnalysis}
-                    secondaryDisabled={isRunning || !canRunAnalysis}
-                    secondaryTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
+                    actionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
+                    onAction={handleRunAnalysis}
+                    actionDisabled={isRunning || !canRunAnalysis}
+                    actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
                     testId="results-analysis-footer"
                   />
                 )}

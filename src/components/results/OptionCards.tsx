@@ -315,7 +315,10 @@ function OptionCard({
       <div className="flex items-center gap-2">
         {/* Brief 5.4 Phase 6: rank badge hidden in neutralised state — win% is
             already shown right-aligned as the canonical value; showing it
-            again in the badge position was a duplicate (DS dedup). */}
+            again in the badge position was a duplicate (DS dedup).
+            Phase 10: rank badge kept as flat text (not rounded-full pill) by design.
+            Text badge = ordinal rank; pill badge = status count — different semantics.
+            Accordion badges use pills because they count items (not rank positions). */}
         {!neutralised && rank != null && totalOptions > 1 && (
           <Tooltip content={`Leading-option ranking across ${totalOptions} scenarios`}>
             <span

@@ -262,7 +262,7 @@ function FragileEdgeGroupCard({
               {altWinner ? (
                 <>
                   <span aria-hidden="true" className="text-text-light">→</span>
-                  <span className="text-text-body font-semibold" data-testid="fragile-alt-winner">
+                  <span className={`${typography.panelHeader} text-text-body`} data-testid="fragile-alt-winner">
                     {altWinner} could overtake
                   </span>
                 </>
