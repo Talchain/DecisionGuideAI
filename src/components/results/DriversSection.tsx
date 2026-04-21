@@ -263,7 +263,7 @@ function ExpandedDetails({
   const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
 
   return (
-    <div className={`px-4 pb-3 pt-1 border-t border-panel-border/50 bg-panel/50 ${typography.panelBody} text-text-body space-y-1.5`}>
+    <div className={`px-3 pb-3 pt-1 border-t border-panel-border/50 bg-panel/50 ${typography.panelBody} text-text-body space-y-1.5`}>
       {elasticityInsight && <p>{elasticityInsight}</p>}
       {/* Task 3.5: Direction-based fallback when no elasticity data */}
       {directionInterpretation && <p className="text-text-light">{directionInterpretation}</p>}
@@ -386,6 +386,7 @@ function DriverRow({
   microlineLabel,
   onSendMessage,
   expertMode,
+  isTopDriver,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
@@ -399,6 +400,8 @@ function DriverRow({
   microlineLabel?: string
   onSendMessage?: (text: string) => void
   expertMode?: boolean
+  /** Brief 5.4 Phase 3 (Path A): technique hint chip only shown on top-ranked driver */
+  isTopDriver?: boolean
 }) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
@@ -581,6 +584,7 @@ function DriverRow({
               onMouseLeave={() => setIsTooltipOpen(false)}
               className="p-0.5 text-text-light hover:text-text-body hover:bg-panel rounded transition-colors flex-shrink-0"
               aria-label="More information"
+              title="More information"
               aria-expanded={isTooltipOpen}
               aria-describedby={isTooltipOpen ? `tooltip-${driver.factorKey}` : undefined}
             >
@@ -728,7 +732,7 @@ function DriverRow({
       {/* V12.2: Microline overtake warning inside card */}
       {microlineLabel && (
         <p
-          className="text-danger text-[10px] px-3 pb-1.5 -mt-0.5"
+          className={`${typography.panelMeta} text-danger px-3 pb-1.5 -mt-0.5`}
           data-testid="driver-microline"
         >
           If wrong, {microlineLabel} overtakes
@@ -739,7 +743,7 @@ function DriverRow({
           the driver has high influence AND low confidence, the suggestion
           renders as a chip button that, on click, sends a scoped prompt
           into the chat so the user can continue the thread in context. */}
-      {techniqueSuggestion && onSendMessage && (
+      {isTopDriver && techniqueSuggestion && onSendMessage && (
         <div className="px-3 pb-1.5 -mt-0.5">
           <button
             type="button"
@@ -782,7 +786,7 @@ function DriverRow({
 // Error state component
 function ErrorState({ message, onRetry }: { message: string; onRetry?: () => void }) {
   return (
-    <div className="p-4 bg-panel border border-warning/30 rounded-lg text-center">
+    <div className="p-3 bg-panel border border-warning/30 rounded-lg text-center">
       <p className={`${typography.panelHeader} text-warning mb-2`}>
         Unable to calculate factor sensitivity — service unavailable
       </p>
@@ -836,7 +840,7 @@ export function DriversSection({
   // Unavailable state
   if (driversStatus !== 'computed') {
     return (
-      <div className="p-4 bg-panel border border-panel-border rounded-lg">
+      <div className="p-3 bg-panel border border-panel-border rounded-lg">
         <p className={`${typography.panelBody} text-text-body flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
@@ -848,7 +852,7 @@ export function DriversSection({
   // No drivers
   if (drivers.length === 0) {
     return (
-      <div className="p-4 bg-panel border border-panel-border rounded-lg">
+      <div className="p-3 bg-panel border border-panel-border rounded-lg">
         <p className={`${typography.panelBody} text-text-body flex items-start gap-2`}>
           <span aria-hidden="true">ℹ️</span>
           {EMPTY_STATES.drivers}
@@ -964,6 +968,7 @@ export function DriversSection({
               microlineLabel={showMicroline ? driver.fragileEdgeInfo!.alternativeWinnerLabel : undefined}
               onSendMessage={onSendMessage}
               expertMode={expertMode}
+              isTopDriver={index === 0}
             />
           )
         })}

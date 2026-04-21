@@ -7,7 +7,7 @@
  * V12.4: Per-card "Wins" bars removed; win % shown as text in card header.
  * V14.2: Ordinal full-border palette (no left-accent). Winner gets border-2 border-success/60;
  *   runner-up border-info/60; third border-option/60; fourth+ border-panel-border.
- *   Border classes derived from WIN_GAUGE_BORDER_CLASSES in HeroSection — coupled to win-bar palette.
+ *   Border classes derived from WIN_GAUGE_BORDER_CLASSES in WinGauge — coupled to win-bar palette.
  *
  * V11: Indeterminate neutralisation — stone colours, percentage badges, muted text.
  *
@@ -22,13 +22,14 @@ import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { useCanvasStore, selectResultsStatus } from '../../canvas/store'
 import { isGraphLensEnabled } from '../../flags'
-import type { OptionResult, DecisionState, HingeInfo } from './types'
+import type { OptionResult, DecisionState, HingeInfo, ConfidenceTier } from './types'
 import {
   constraintConfidenceColour,
   jointProbabilityLabel,
 } from '../../types/constraints'
 import { buildSegmentBorderClassMap, buildSegmentColorMap } from './WinGauge'
 import Tooltip from '../Tooltip'
+import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 
 export interface OptionCardsProps {
   options: OptionResult[]
@@ -51,6 +52,8 @@ export interface OptionCardsProps {
   onFocusNode?: (nodeId: string) => void
   /** Expert mode — show range bars and technical details */
   expertMode?: boolean
+  /** Brief 5.4 Phase 7: confidence tier for winner chip label copy */
+  confidenceTier?: ConfidenceTier
 }
 
 /** Fallback description when no story headline is available */
@@ -261,6 +264,7 @@ function OptionCard({
   onSendMessage,
   onFocusNode,
   expertMode = false,
+  confidenceTier,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -284,6 +288,8 @@ function OptionCard({
   onSendMessage?: (text: string) => void
   onFocusNode?: (nodeId: string) => void
   expertMode?: boolean
+  /** Brief 5.4 Phase 7: confidence tier for winner chip label copy */
+  confidenceTier?: ConfidenceTier
 }) {
   const borderClass = neutralised
     ? 'border border-panel-border'
@@ -307,19 +313,23 @@ function OptionCard({
     >
       {/* Header: leading rank · option name | win percentage right-aligned */}
       <div className="flex items-center gap-2">
-        {rank != null && totalOptions > 1 && (
+        {/* Brief 5.4 Phase 6: rank badge hidden in neutralised state — win% is
+            already shown right-aligned as the canonical value; showing it
+            again in the badge position was a duplicate (DS dedup).
+            Phase 10: rank badge kept as flat text (not rounded-full pill) by design.
+            Text badge = ordinal rank; pill badge = status count — different semantics.
+            Accordion badges use pills because they count items (not rank positions). */}
+        {!neutralised && rank != null && totalOptions > 1 && (
           <Tooltip content={`Leading-option ranking across ${totalOptions} scenarios`}>
             <span
               className={`${typography.panelBody} text-text-light flex-shrink-0 whitespace-nowrap`}
               data-testid={`rank-badge-${option.id}`}
             >
-              {neutralised && option.winProbability != null
-                ? formatPct(option.winProbability, { fromDecimal: true })
-                : `#${rank} of ${totalOptions}`}
+              {`#${rank} of ${totalOptions}`}
             </span>
           </Tooltip>
         )}
-        {rank != null && totalOptions > 1 && (
+        {!neutralised && rank != null && totalOptions > 1 && (
           <span className="text-text-light flex-shrink-0" aria-hidden="true">&middot;</span>
         )}
         <Tooltip content="Hover highlights on canvas. Click opens inspector.">
@@ -432,22 +442,19 @@ function OptionCard({
       {(onSendMessage || onFocusNode) && (
         <div className="flex items-center gap-1 pt-1.5">
           {onSendMessage && (
-            // Brief 5.1 Task 7: single non-winner chip copy. The earlier
-            // baseline-specific "Why does this lose?" read as negative
-            // framing; "What would make this lead?" is forward-looking and
-            // parallel with the winner-side "What makes this lead?".
+            // Brief 5.1 Task 7 / Brief 5.4 Phase 7: single non-winner chip copy.
+            // The earlier baseline-specific "Why does this lose?" read as negative
+            // framing; forward-looking copy is parallel for both winner and non-winner.
+            // Copy source: winnerChipCopy utility (no hardcoded strings at render sites).
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation()
-                const prompt = isWinner
-                  ? `What makes "${option.label}" the leading option? What are its key advantages?`
-                  : `What would make "${option.label}" lead instead? What changes would be needed?`
-                onSendMessage(prompt)
+                onSendMessage(winnerChipPrompt(isWinner, option.label))
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
-              {isWinner ? 'What makes this lead?' : 'What would make this lead?'}
+              {winnerChipLabel(isWinner, confidenceTier)}
             </button>
           )}
           {!option.isBaseline && onFocusNode && (
@@ -480,6 +487,7 @@ export function OptionCards({
   onSendMessage,
   onFocusNode,
   expertMode,
+  confidenceTier,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -591,6 +599,7 @@ export function OptionCards({
             onSendMessage={onSendMessage}
             onFocusNode={onFocusNode}
             expertMode={expertMode}
+            confidenceTier={confidenceTier}
           />
         )
       })}

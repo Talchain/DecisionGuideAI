@@ -27,6 +27,11 @@ export interface OptionWinShare {
 // Colour palettes — shared with OptionCards for visual continuity
 // =============================================================================
 
+// Colour assignment: ordinal by win-probability rank. NOT by option ID.
+// Determined state: winner=success(green) · runner-up=info(sky) · third=option(lilac) · fourth+=sand.
+// Indeterminate state: all options use info/info-light (near-tie signal).
+// DS v5 §3.3: data channel — distinct ordinal colours, each reserved for its rank tier.
+
 /** V12.3: Win gauge + option card colours — shared palette */
 export const WIN_GAUGE_COLORS = [
   'var(--success)',         // Winner — mint-500

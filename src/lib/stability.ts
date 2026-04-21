@@ -4,8 +4,8 @@
  * Single source of truth for mapping numeric recommendation_stability (0-1)
  * to categorical level, display label, colour, and border class.
  *
- * Consumers: useResultsSectionData (robustnessLevel derivation), HeroSection
- * (stability tier + border), buildResultsVM (DecisionState), GoalNode (badge).
+ * Consumers: useResultsSectionData (robustnessLevel derivation),
+ * buildResultsVM (DecisionState), GoalNode (badge).
  *
  * Thresholds align with ISL robustness protocol:
  *   >= 0.85  high      — "Stable result"

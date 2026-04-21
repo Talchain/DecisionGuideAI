@@ -17,6 +17,18 @@ import type { V2FactorSensitivity, V2OptionComparison } from '../../adapters/plo
 export type { M1CoachingReadiness }
 
 // =============================================================================
+// Rich Text Types (M2 structured content)
+// Moved from HeroSection.tsx (Brief 5.4 Phase 2 — HeroSection deleted)
+// =============================================================================
+
+/** Structured span for M2 content with clickable refs */
+export type RichSegment =
+  | { type: 'text'; text: string }
+  | { type: 'ref'; id: string; label: string }
+
+export type RichText = RichSegment[]
+
+// =============================================================================
 // Confidence Tier Types
 // =============================================================================
 

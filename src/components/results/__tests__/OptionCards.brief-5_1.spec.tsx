@@ -125,10 +125,25 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
-    render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} />)
+    // Brief 5.4 Phase 7: winner chip is tier-driven. Pass strong tier to assert the
+    // definitive "What makes this lead?" label; non-winner label is tier-invariant.
+    render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="strong" />)
 
-    // Winner and non-winner each render their chip.
+    // Winner renders the strong-tier chip; non-winner always uses the forward-looking copy.
     expect(screen.getByText('What makes this lead?')).toBeInTheDocument()
+    expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
+  })
+
+  it('Brief 5.4 P7: winner chip hedges to "What makes this the current leader?" when tier is not strong', () => {
+    const options = [
+      makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
+      makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
+    ]
+    // fair/needs_work/unknown/undefined → hedged winner copy
+    render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" />)
+
+    expect(screen.getByText('What makes this the current leader?')).toBeInTheDocument()
+    expect(screen.queryByText('What makes this lead?')).not.toBeInTheDocument()
     expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
   })
 
