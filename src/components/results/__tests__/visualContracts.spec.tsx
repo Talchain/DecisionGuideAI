@@ -94,7 +94,8 @@ describe('Visual contract: Indeterminate state', () => {
     expect(container.querySelectorAll('.border-success')).toHaveLength(0)
   })
 
-  it('all rank badges use text-light styling', () => {
+  it('Brief 5.4 P6: rank badges absent in indeterminate state (dedup — win% shown right-aligned)', () => {
+    // Phase 6: rank badge hidden when neutralised; win% is shown once via win-pct-*.
     render(
       <OptionCards
         options={twoOptions}
@@ -104,15 +105,13 @@ describe('Visual contract: Indeterminate state', () => {
       />
     )
 
-    const badgeA = screen.getByTestId('rank-badge-opt-a')
-    const badgeB = screen.getByTestId('rank-badge-opt-b')
-
-    // Leading rank uses text-text-light font-semibold (no pill border)
-    expect(badgeA.className).toContain('text-text-light')
-    expect(badgeB.className).toContain('text-text-light')
+    expect(screen.queryByTestId('rank-badge-opt-a')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('rank-badge-opt-b')).not.toBeInTheDocument()
+    // Canonical win% still present right-aligned
+    expect(screen.getByTestId('win-pct-opt-a')).toHaveTextContent('65%')
   })
 
-  it('rank badges show percentage not "#N of N"', () => {
+  it('Brief 5.4 P6: win-pct element present; rank badge text "#N of N" absent in indeterminate', () => {
     render(
       <OptionCards
         options={twoOptions}
@@ -122,7 +121,7 @@ describe('Visual contract: Indeterminate state', () => {
       />
     )
 
-    expect(screen.getByTestId('rank-badge-opt-a').textContent).toBe('65%')
+    expect(screen.getByTestId('win-pct-opt-a')).toHaveTextContent('65%')
     expect(screen.queryByText('#1 of 2')).not.toBeInTheDocument()
   })
 

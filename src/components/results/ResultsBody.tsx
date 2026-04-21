@@ -254,6 +254,7 @@ export const ResultsBody = memo(function ResultsBody({
                   .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]?.id
               }
               expertMode={expertMode}
+              confidenceTier={resultsSectionData.confidence.tier.tier}
             />
             {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
           </div>

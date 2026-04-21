@@ -340,7 +340,10 @@ describe('OptionCards', () => {
       expect(winnerCard.className).toContain('border-panel-border')
     })
 
-    it('shows percentage in rank badge instead of "#1 of N" when indeterminate', () => {
+    it('Brief 5.4 P6: hides rank badge entirely when indeterminate (win% shown right-aligned instead)', () => {
+      // Phase 6 dedup: in neutralised state the rank badge no longer switches
+      // to win% — that duplicated the right-aligned canonical win% text.
+      // Now the rank badge is simply absent; win% is shown once via win-pct-*.
       render(
         <OptionCards
           options={mockOptions}
@@ -349,12 +352,14 @@ describe('OptionCards', () => {
         />
       )
 
-      const badge = screen.getByTestId('rank-badge-option-1')
-      expect(badge.textContent).toBe('65%')
+      expect(screen.queryByTestId('rank-badge-option-1')).not.toBeInTheDocument()
       expect(screen.queryByText('#1 of 2')).not.toBeInTheDocument()
+      // Canonical win% still present right-aligned
+      expect(screen.getByTestId('win-pct-option-1')).toHaveTextContent('65%')
     })
 
-    it('uses text-light styling for rank badge when indeterminate', () => {
+    it('win-pct element uses text-light styling when indeterminate', () => {
+      // Brief 5.4 P6: rank badge gone in indeterminate; check win-pct styling instead.
       render(
         <OptionCards
           options={mockOptions}
@@ -363,9 +368,9 @@ describe('OptionCards', () => {
         />
       )
 
-      const badge = screen.getByTestId('rank-badge-option-1')
-      expect(badge.className).toContain('text-text-light')
-      expect(badge.className).not.toContain('text-success')
+      expect(screen.queryByTestId('rank-badge-option-1')).not.toBeInTheDocument()
+      // win-pct is always present when winProbability is set
+      expect(screen.getByTestId('win-pct-option-1')).toBeInTheDocument()
     })
 
     it('V12.4: no per-card wins bars when indeterminate (removed)', () => {
