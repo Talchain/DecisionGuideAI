@@ -3,7 +3,7 @@
  * hasn't surfaced yet. Emits a quiet card with the block kind so operators
  * see the gap during staging. Non-blocking: the chat keeps rendering.
  *
- * Logs a single DEV console.info per block kind per session so the team
+ * Logs a single DEV console.warn per block kind per session so the team
  * learns which blocks CEE starts emitting before the full renderer ships.
  */
 import { type ReactElement, useEffect } from 'react'
@@ -20,8 +20,7 @@ export function V5UnsupportedBlock({ block }: V5UnsupportedBlockProps): ReactEle
   useEffect(() => {
     if (import.meta.env.DEV && !_loggedKinds.has(block.blockType)) {
       _loggedKinds.add(block.blockType)
-      // eslint-disable-next-line no-console
-      console.info(
+      console.warn(
         '[V5UnsupportedBlock] Encountered unsurfaced block kind:',
         block.blockType,
         block.raw,

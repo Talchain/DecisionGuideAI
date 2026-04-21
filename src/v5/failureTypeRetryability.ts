@@ -45,7 +45,6 @@ export function checkRetryableAgreement(err: BoundaryError): void {
   if (!import.meta.env.DEV) return
   const clientSays = isRetryable(err.error)
   if (err.retryable !== clientSays) {
-    // eslint-disable-next-line no-console
     console.warn('[v5] retryable disagreement', {
       code: err.error,
       serverSays: err.retryable,

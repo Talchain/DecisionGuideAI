@@ -2637,7 +2637,7 @@ export function useConversation(): UseConversationReturn {
           // now-stale response to avoid double-rendering.
           if (controller.signal.aborted) {
             if (import.meta.env.DEV) {
-              console.debug('[sendTurn V5] Response arrived after abort; discarding')
+              console.warn('[sendTurn V5] Response arrived after abort; discarding')
             }
             return
           }
@@ -2651,10 +2651,10 @@ export function useConversation(): UseConversationReturn {
             const stateApply = applyV5State(target.response, useCanvasStore.getState())
             if (import.meta.env.DEV) {
               if (stateApply.applied.length > 0) {
-                console.debug('[sendTurn V5] state applied:', stateApply.applied)
+                console.warn('[sendTurn V5] state applied:', stateApply.applied)
               }
               if (stateApply.deferred.length > 0) {
-                console.debug('[sendTurn V5] state deferred:', stateApply.deferred)
+                console.warn('[sendTurn V5] state deferred:', stateApply.deferred)
               }
             }
 
