@@ -10,7 +10,7 @@
  * - All errors result in staying on M1 (no degraded states)
  */
 
-import type { RichText, RichSegment } from '../components/results/HeroSection'
+import type { RichText, RichSegment } from '../components/results/types'
 import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store'
 
 // =============================================================================
