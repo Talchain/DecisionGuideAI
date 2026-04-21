@@ -14,6 +14,16 @@ import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from 
 import { callV5Turn } from '../../v5/v5Adapter'
 import { routeV5Response } from '../../v5/responseRouter'
 import { isV5Eligible } from '../../v5/eligibility'
+import { buildV5Payload } from '../../v5/buildPayload'
+import {
+  isRetryable as isV5ErrorRetryable,
+  checkRetryableAgreement,
+  extractReason as extractV5ErrorReason,
+  resolveGuidance as resolveV5ErrorGuidance,
+} from '../../v5/failureTypeRetryability'
+import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
+import { deriveV5Stage } from '../../v5/stageMapper'
+import { applyV5State } from '../../v5/applyV5State'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
@@ -42,7 +52,6 @@ import type {
   SystemEvent,
   WireSystemEvent,
   OrchestratorResponseEnvelopeV2,
-  OrchestratorStreamEvent,
   ConversationTurnPair,
   GraphPatchBlock,
   CommentaryBlock,
@@ -53,7 +62,6 @@ import type {
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
-import { logger } from '../../lib/logger'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -264,7 +272,7 @@ function mapSourceSurface(triggerSurface: string, mode: 'user' | 'system'): stri
  * Infer a task-specific loading hint from the user message and graph state.
  * Used as the first long-running hint (15s) to give users a sense of what's happening.
  */
-export function inferLoadingHint(message: string, nodeCount: number, turnType?: string): string {
+export function inferLoadingHint(message: string, _nodeCount: number, turnType?: string): string {
   const lower = message.toLowerCase()
   if (lower.includes('analys') || lower.includes('evaluat') || lower.includes('compare') || lower.includes('run')) return 'Analysing your options\u2026'
   if (lower.includes('research') || lower.includes('evidence') || lower.includes('find')) return 'Researching evidence\u2026'
@@ -1171,6 +1179,12 @@ export function useConversation(): UseConversationReturn {
   // Refs for timers, abort, and in-flight lock
   const abortRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
+  // Generation counter: each sendTurn invocation captures a token at dispatch;
+  // only the run whose token still matches the current generation may clear
+  // the lock in its finally/return branches. Prevents an aborted/preempted
+  // run from clobbering a newer run's ownership. See the preempt block in
+  // sendTurn for the rationale (v5-ui-exclusive-path brief, Phase 8a review).
+  const inFlightGenerationRef = useRef(0)
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
@@ -2360,12 +2374,42 @@ export function useConversation(): UseConversationReturn {
       } = opts
 
       // Synchronous in-flight lock — prevents duplicate dispatch from rapid
-      // clicks before React re-renders the isThinking state guard.
+      // double-clicks before React re-renders the isThinking state guard.
+      //
+      // v5-ui-exclusive-path brief: when flag is on AND the new caller is
+      // a user-initiated free-text / chip send (not a retry or system
+      // event), abort the in-flight V5 request rather than drop the send.
+      // Retry/system-event callers still queue (blocked) because they
+      // shouldn't preempt a user's active turn.
+      //
+      // Generation token prevents the aborted run's finally block from
+      // clearing the lock while a newer run is executing. Each run
+      // captures its own token at dispatch and only clears the lock in
+      // its finally if its token still matches the current generation.
       if (inFlightRef.current) {
-        if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
-        return
+        const v5FlagOn = import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR === 'true'
+        const isUserPreempt =
+          v5FlagOn
+          && opts.mode === 'user'
+          && opts.source !== 'retry'
+          && !opts.retryClientTurnId
+        if (isUserPreempt) {
+          if (import.meta.env.DEV) console.warn('[sendTurn] Preempting in-flight V5 request for new user send')
+          abortRef.current?.abort()
+        } else {
+          if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
+          return
+        }
       }
       inFlightRef.current = true
+      const inFlightGeneration = ++inFlightGenerationRef.current
+      // Release the lock only if we still own it (not preempted by a newer
+      // run). Used at every V5/V4 return / finally site below.
+      const releaseInFlightLockIfOwned = () => {
+        if (inFlightGenerationRef.current === inFlightGeneration) {
+          inFlightRef.current = false
+        }
+      }
 
       // Generate or reuse a stable client_turn_id for idempotent retry
       const pendingContext = consumePendingInteractionContext()
@@ -2385,39 +2429,60 @@ export function useConversation(): UseConversationReturn {
       })
 
       // -------------------------------------------------------------------
-      // V5 orchestrator branch (slice A1).
+      // V5 exclusive path (v5-ui-exclusive-path brief).
       //
-      // Runs only when `isV5Eligible(...)` returns eligible. A1 only handles
-      // direct_answer / frame-stage turns; the CEE side hard-rejects anything
-      // else as UNHANDLED which would surface a typed error for turns V5 was
-      // never meant to handle. The predicate routes ineligible turns to V4
-      // silently (no V5 artefact, no loading UX). See src/v5/eligibility.ts
-      // and Docs/v5/slice-a1-implementation.md (Known Gaps section) for the
-      // full condition list and rationale.
+      // When VITE_ENABLE_V5_ORCHESTRATOR === 'true', every turn routes to
+      // /orchestrate/v2/turn. There is no fall-through to V4; typed errors
+      // surface directly. The V4 block below is reachable ONLY when the flag
+      // is off (rollback path).
       //
-      // Side-effect allow-list per Docs/v5/slice-a1-investigation.md
-      // (Pre-impl B):
-      //   Run:  inFlightRef (already set at L2364), beginInteractionChain
-      //         (already run above), addMessage(user bubble),
-      //         setIsThinking(true), bindRequestToInteraction.
-      //   Skip: recordUserAction, setLastFailedInput(null), setIsGenerating,
-      //         AbortController/timeout setup, recordRequestContext.
-      //
-      // On fall_through_v4 → continue into the V4 path unchanged (no early
-      // return, no V5 side effects). On any other result → render and exit.
+      // This block owns the full request lifecycle: AbortController, timeout
+      // timer, long-running hint, recordUserAction, lastFailedInput. System
+      // events never render a user bubble — enforced via
+      // `mode === 'system'`, not the incidental `hidden` flag.
       const v5Eligibility = isV5Eligible({
         flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR,
-        chipMeta,
-        turnType,
-        source,
-        mode,
-        messages,
-        analysisStateReady: useCanvasStore.getState().analysisStateReady,
-        resultsStatus: useCanvasStore.getState().results.status,
       })
-      if (v5Eligibility.eligible && message.trim().length > 0) {
-        // V5 allow-list: user bubble
-        if (!hidden && !skipUserBubble) {
+      if (v5Eligibility.eligible) {
+        const isSystemEvent = mode === 'system'
+        const addUserBubble = !isSystemEvent && !hidden && !skipUserBubble
+        const inputForRestore = (mode === 'user' && !hidden) ? message : null
+
+        // Mode-gated preconditions — keep parity with V4 block's guards below.
+        if (mode === 'user' && !message.trim()) {
+          if (import.meta.env.DEV) console.warn('[sendTurn V5] Blocked: empty message')
+          releaseInFlightLockIfOwned(); return
+        }
+        if (isThinkingRef.current) {
+          if (import.meta.env.DEV) console.warn('[sendTurn V5] Blocked: isThinking=true')
+          releaseInFlightLockIfOwned(); return
+        }
+
+        // Record user action + capture retry input (user mode only, non-hidden).
+        if (!hidden && mode === 'user') {
+          recordUserAction({
+            actionType: source === 'chip' || source === 'chip_click'
+              ? 'clicked chip'
+              : source === 'retry'
+                ? 'clicked retry'
+                : 'sent chat message',
+            payloadSummary: {
+              display_text: displayText ?? message,
+              raw_message: message,
+            },
+          })
+          lastUserInputRef.current = { message, clientTurnId: turnClientId }
+          setLastFailedInput(null)
+        } else if (hidden && source === 'right_panel_action') {
+          recordUserAction({
+            actionType: 'clicked run analysis',
+            payloadSummary: { raw_message: message },
+          })
+        }
+
+        // User bubble — HARD RULE: system events never get one, and `hidden`
+        // turns skip the bubble too. See docs/v5/ui-outbound-payload-coverage.md.
+        if (addUserBubble) {
           addMessage({
             id: crypto.randomUUID(),
             role: 'user',
@@ -2428,74 +2493,267 @@ export function useConversation(): UseConversationReturn {
             ...(chipInitiated ? { chipInitiated: true } : {}),
           })
         }
-        // V5 allow-list: loading state
+
+        const currentScenarioId = useCanvasStore.getState().currentScenarioId
+        if (!currentScenarioId) {
+          if (import.meta.env.DEV) console.warn('[sendTurn V5] No scenario — cannot dispatch')
+          if (mode === 'user' && !hidden) {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: "I can't send that yet — please create or load a decision first.",
+              timestamp: new Date(),
+            })
+          }
+          releaseInFlightLockIfOwned(); return
+        }
+
+        const resolvedTurnType: TurnType = isSystemEvent
+          ? 'system_event'
+          : resolveUserTurnType(source, hidden, turnType)
+
+        // Derive stage from canvas state (UI-SEM-020 pattern). turn_class
+        // stays advisory ('frame') — CEE types.ts notes propose/decide/review
+        // are unreachable placeholders and yield UnhandledTurnClassError.
+        // Sonnet classifier drives dispatch downstream regardless of the
+        // caller-provided turn_class.
+        const canvasSnap = useCanvasStore.getState()
+        const derivedStage = deriveV5Stage({
+          currentStage: canvasSnap.currentStage,
+          hasNodes: canvasSnap.nodes.length > 0,
+          isAnalysisComplete:
+            canvasSnap.results.status === 'complete' || canvasSnap.hasCompletedFirstRun,
+        })
+        const build = buildV5Payload({
+          turnId: turnClientId,
+          scenarioId: currentScenarioId,
+          stage: derivedStage,
+          turnClass: 'frame',
+          mode,
+          message,
+          source,
+          chipMeta,
+          systemEvent,
+        })
+
+        if (!build.ok) {
+          // buildV5Payload refused — missing message or unsupported system
+          // event. Surface a typed error rather than a malformed request.
+          if (mode === 'user' && !hidden) {
+            const msg = build.reason === 'missing_message'
+              ? 'Please enter a message.'
+              : "This action isn't supported yet. Try a different approach."
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: msg,
+              timestamp: new Date(),
+            })
+          } else if (import.meta.env.DEV) {
+            console.warn('[sendTurn V5] Payload build refused:', build.reason, build.detail)
+          }
+          releaseInFlightLockIfOwned(); return
+        }
+
+        // Lifecycle: abort any previous request, set up AbortController,
+        // timeout timer, and long-running hint. Mirrors V4 block structure
+        // so behaviour is consistent across both paths.
+        abortRef.current?.abort()
+        const controller = new AbortController()
+        abortRef.current = controller
+
         setIsThinking(true)
-        // V5 allow-list: bind request ID to trace chain
+        useDraftStore.getState().setIsGenerating(true)
+
+        const hint = inferLoadingHint(message, useCanvasStore.getState().nodes.length, turnType)
+        const sendStartTime = Date.now()
+        setLongRunningHint(hint)
+        longRunningTimerRef.current = setTimeout(() => {
+          elapsedIntervalRef.current = setInterval(() => {
+            const elapsed = Math.round((Date.now() - sendStartTime) / 1000)
+            setLongRunningHint(`${hint.replace(/\u2026$/, '')}... ${elapsed}s`)
+          }, 5_000)
+        }, LONG_RUNNING_THRESHOLD_MS)
+
+        const dynamicTimeout = getTimeoutMs(resolvedTurnType, triggerSurface)
+        timeoutTimerRef.current = setTimeout(() => {
+          controller.abort()
+          clearTimeout(longRunningTimerRef.current)
+          clearInterval(elapsedIntervalRef.current)
+          setIsThinking(false)
+          useDraftStore.getState().setIsGenerating(false)
+          setLongRunningHint(null)
+          if (inputForRestore) setLastFailedInput(inputForRestore)
+          if (mode === 'user' && !hidden) {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: 'This is taking longer than expected. Try again or rephrase your message.',
+              synthetic: true,
+              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+              timestamp: new Date(),
+            })
+          }
+        }, dynamicTimeout)
+
         bindRequestToInteraction(turnClientId, {
           chainId: interactionChainId,
           endpoint: '/bff/orchestrate/v2/turn',
           triggerSurface,
           sourceSurface: resolvedSourceSurface,
-          initiatedBy: initiatedBy ?? 'user',
+          initiatedBy: initiatedBy ?? (mode === 'system' ? 'automatic' : 'user'),
           visibleTextSubmitted: hidden ? null : (displayText ?? message),
           submittedText: message,
-          payloadShapeSummary: { v5: true },
+          payloadShapeSummary: { v5: true, payload_kind: build.payload.kind },
           rightPanelAccidentallySubmittedComposerContent,
           stateBefore: interactionStateBefore,
         })
 
-        const currentScenarioId = useCanvasStore.getState().currentScenarioId
-        if (!currentScenarioId) {
-          // No scenario — cannot build OrchestratorTurnPayload. Fall through
-          // to V4 (which allocates a scenario id). The V5 allow-list effects
-          // above are harmless pre-work V4 will repeat or ignore.
-          setIsThinking(false)
-        } else {
-          try {
-            // A1 wire payload. turn_class and stage default to 'frame' for
-            // now — full stage routing lands in later slices.
-            const v5Result = await callV5Turn({
-              turn_id: turnClientId,
-              scenario_id: currentScenarioId,
-              message,
-              turn_class: 'frame',
-              stage: 'frame',
-            })
-            if (v5Result.kind !== 'fall_through_v4') {
-              const target = routeV5Response(v5Result)
-              if (target.kind === 'text_only' || target.kind === 'blocks') {
-                addMessage({
-                  id: crypto.randomUUID(),
-                  role: 'assistant',
-                  content: target.response.assistant_text,
-                  timestamp: new Date(),
-                })
-              } else if (target.kind === 'typed_error') {
-                addMessage({
-                  id: crypto.randomUUID(),
-                  role: 'assistant',
-                  content: FAILURE_USER_TEXT[target.code],
-                  timestamp: new Date(),
-                })
-              }
-              setIsThinking(false)
-              inFlightRef.current = false
-              return
-            }
-            // fall_through_v4 → unwind V5 loading state and let V4 continue.
-            setIsThinking(false)
-          } catch (err) {
-            if (import.meta.env.DEV) console.warn('[V5 branch] call failed, falling through to V4:', err)
-            setIsThinking(false)
+        const clearLifecycleTimers = () => {
+          if (timeoutTimerRef.current !== undefined) {
+            clearTimeout(timeoutTimerRef.current)
+            timeoutTimerRef.current = undefined
           }
+          if (longRunningTimerRef.current !== undefined) {
+            clearTimeout(longRunningTimerRef.current)
+            longRunningTimerRef.current = undefined
+          }
+          if (elapsedIntervalRef.current !== undefined) {
+            clearInterval(elapsedIntervalRef.current)
+            elapsedIntervalRef.current = undefined
+          }
+          setLongRunningHint(null)
         }
+
+        try {
+          const v5Result = await callV5Turn(build.payload, { signal: controller.signal })
+          clearLifecycleTimers()
+
+          // Race guard: if the controller was aborted while the fetch was in
+          // flight (user stop, preempt, or timeout), the timeout handler has
+          // already rendered its synthetic bubble. Silently drop the
+          // now-stale response to avoid double-rendering.
+          if (controller.signal.aborted) {
+            if (import.meta.env.DEV) {
+              console.warn('[sendTurn V5] Response arrived after abort; discarding')
+            }
+            return
+          }
+
+          const target = routeV5Response(v5Result)
+
+          if (target.kind === 'text_only' || target.kind === 'blocks') {
+            // Apply side-effects (stage, graph_patch mutations) BEFORE the
+            // message renders so subsequent React effects (panel data, chat
+            // auto-scroll) see consistent canvas state.
+            const stateApply = applyV5State(target.response, useCanvasStore.getState())
+            if (import.meta.env.DEV) {
+              if (stateApply.applied.length > 0) {
+                console.warn('[sendTurn V5] state applied:', stateApply.applied)
+              }
+              if (stateApply.deferred.length > 0) {
+                console.warn('[sendTurn V5] state deferred:', stateApply.deferred)
+              }
+            }
+
+            const mappedBlocks =
+              target.kind === 'blocks' ? mapV5Blocks(target.response.blocks) : []
+            // V5 suggested_actions → ActionChip. CEE caps count server-side;
+            // UI additionally caps rendering per DS v5 §21.4 in SuggestedChips.
+            // action_type when present drives deterministic routing on next click.
+            const actionChips: ActionChip[] = target.response.suggested_actions.map((a) => ({
+              id: a.id,
+              label: a.label,
+              intent: 'primary',
+              message: a.message,
+              ...(a.action_type ? { action_type: a.action_type } : {}),
+            }))
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: target.response.assistant_text,
+              ...(mappedBlocks.length > 0 ? { blocks: mappedBlocks } : {}),
+              ...(actionChips.length > 0 ? { actionChips } : {}),
+              timestamp: new Date(),
+            })
+          } else if (target.kind === 'empty') {
+            // Blank-response guard: no text, no blocks, no chips from CEE.
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: "I received your message but couldn't generate a response. Try rephrasing.",
+              actionChips: (mode === 'user' && !hidden)
+                ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
+                : [],
+              timestamp: new Date(),
+            })
+            if (inputForRestore) setLastFailedInput(inputForRestore)
+          } else {
+            // Typed error. Layer server reason beneath the canonical text;
+            // offer Try again chip when the error is retryable (client table
+            // is authoritative; DEV warning fires if server disagrees).
+            if (target.boundaryError) {
+              checkRetryableAgreement(target.boundaryError)
+            }
+            const retryable = isV5ErrorRetryable(target.code)
+            const canonicalText = FAILURE_USER_TEXT[target.code]
+            const reason = extractV5ErrorReason(target.boundaryError)
+            const guidance = resolveV5ErrorGuidance(target.code)
+            // Layer: canonical taxonomy text → server reason (if any) →
+            // code-specific guidance (non-retryable only). Retryable errors
+            // omit guidance because the Try again chip serves that role.
+            const content = [canonicalText, reason, guidance]
+              .filter((s) => s.length > 0)
+              .join('\n\n')
+            const retryChips: ActionChip[] = retryable && mode === 'user' && !hidden
+              ? [{ id: 'retry', label: 'Try again', intent: 'primary' }]
+              : []
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content,
+              actionChips: retryChips,
+              timestamp: new Date(),
+            })
+            if (retryable && inputForRestore) setLastFailedInput(inputForRestore)
+          }
+        } catch (err) {
+          clearLifecycleTimers()
+          const isAbort = (err as Error).name === 'AbortError'
+          // Timeout-triggered aborts render their own bubble (above). User
+          // stops and concurrent cancellations are silent by design.
+          if (!isAbort && mode === 'user' && !hidden) {
+            addMessage({
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              synthetic: true,
+              content: 'Something went wrong sending your message. Try again.',
+              actionChips: [{ id: 'retry', label: 'Try again', intent: 'primary' }],
+              timestamp: new Date(),
+            })
+            if (inputForRestore) setLastFailedInput(inputForRestore)
+          }
+          if (import.meta.env.DEV && !isAbort) {
+            console.warn('[sendTurn V5] Dispatch error:', err)
+          }
+        } finally {
+          setIsThinking(false)
+          useDraftStore.getState().setIsGenerating(false)
+          releaseInFlightLockIfOwned()
+        }
+        return
       }
       // -------------------------------------------------------------------
+      // V4 path below — reachable ONLY when VITE_ENABLE_V5_ORCHESTRATOR !== 'true'.
 
       if (mode === 'user') {
         if (!message.trim() || isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn] Blocked:', !message.trim() ? 'empty message' : 'isThinking=true')
-          inFlightRef.current = false; return
+          releaseInFlightLockIfOwned(); return
         }
 
         // Hidden sends (e.g. "run it") must not pollute user-facing recovery state
@@ -2539,7 +2797,7 @@ export function useConversation(): UseConversationReturn {
         // is implemented. They are infrastructure turns, not user content.
         if (isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn] System event blocked: isThinking=true')
-          inFlightRef.current = false; return
+          releaseInFlightLockIfOwned(); return
         }
       }
 
@@ -2935,7 +3193,7 @@ export function useConversation(): UseConversationReturn {
         setIsThinking(false)
         useDraftStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
-        inFlightRef.current = false
+        releaseInFlightLockIfOwned()
       }
     },
     [addMessage, updateMessage, buildRequest, handleEnvelope, scheduleStreamFlush, cleanupStreamRefs],
