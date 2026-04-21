@@ -7,7 +7,7 @@
  * V12.4: Per-card "Wins" bars removed; win % shown as text in card header.
  * V14.2: Ordinal full-border palette (no left-accent). Winner gets border-2 border-success/60;
  *   runner-up border-info/60; third border-option/60; fourth+ border-panel-border.
- *   Border classes derived from WIN_GAUGE_BORDER_CLASSES in HeroSection — coupled to win-bar palette.
+ *   Border classes derived from WIN_GAUGE_BORDER_CLASSES in WinGauge — coupled to win-bar palette.
  *
  * V11: Indeterminate neutralisation — stone colours, percentage badges, muted text.
  *

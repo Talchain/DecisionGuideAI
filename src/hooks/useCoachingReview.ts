@@ -10,7 +10,7 @@
  * Usage:
  * const { m2Data, isLoading } = useCoachingReview(analysisData)
  * // m2Data is null until M2 loads (stay on M1)
- * // Pass m2Data to HeroSection for seamless swap
+ * // Pass m2Data to the results panel for seamless M2 swap
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
