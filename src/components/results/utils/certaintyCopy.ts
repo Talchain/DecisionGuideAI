@@ -99,9 +99,11 @@ export interface CertaintyCopy {
  * When stability is at or above this threshold the result is numerically robust
  * despite limited evidence quality — the caveat is suppressed and the copy falls
  * through to the fallback "currently leads" path without the evidence warning.
- * Mirrors STABILITY_STRONG_THRESHOLD in winnerChipCopy.ts.
+ *
+ * Exported so winnerChipCopy.ts can import it directly rather than duplicating
+ * the value. Any future threshold change must be made here only.
  */
-const STABILITY_STRONG_THRESHOLD = 0.85
+export const STABILITY_STRONG_THRESHOLD = 0.85
 
 const WEAK_READINESS: readonly M1CoachingReadiness[] = [
   'needs_evidence',

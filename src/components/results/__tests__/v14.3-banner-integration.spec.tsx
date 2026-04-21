@@ -1,12 +1,14 @@
 /**
  * V14.3: Banner integration render test.
  *
- * Renders through the full component tree (ResultsBody → RecommendationSection
- * → HeroSection → AttentionBanner) to exercise the actual filter chain at
- * ResultsBody:112. Not a shallow render in isolation.
+ * Renders through the full component tree (ResultsBody → AttentionBanner)
+ * to exercise the actual filter chain. Not a shallow render in isolation.
+ * (HeroSection and RecommendationSection were deleted in Brief 5.4 Phase 2.)
  *
- * Asserts no internal tokens leak into any rendered text across the full
- * banner and expanded view.
+ * Asserts:
+ * - No internal tokens leak into any rendered text.
+ * - The dedup filter (closeout item 1) correctly suppresses critiques whose
+ *   factorId is already shown in the DCP top-evidence TriageCards.
  */
 
 import { describe, it, expect, vi } from 'vitest'

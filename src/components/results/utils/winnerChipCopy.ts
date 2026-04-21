@@ -7,24 +7,20 @@
  *
  * Brief 5.4 QA Item 4: stability gate mirrors certaintyCopy.ts.
  * Hedged copy ("What makes this the current leader?") fires only when
- * BOTH conditions hold: tier === 'needs_work' AND stability < 0.85.
+ * BOTH conditions hold: tier === 'needs_work' AND stability < STABILITY_STRONG_THRESHOLD
+ * (imported from certaintyCopy.ts — single source of truth).
  * fair / unknown / undefined tiers are always definitive regardless
  * of stability — they are not evidence-weak signals.
  */
 
 import type { ConfidenceTier } from '../types'
-
-/**
- * Stability threshold below which needs_work results use hedged chip copy.
- * Mirrors STABILITY_STRONG_THRESHOLD in certaintyCopy.ts.
- */
-const STABILITY_STRONG_THRESHOLD = 0.85
+import { STABILITY_STRONG_THRESHOLD } from './certaintyCopy'
 
 /**
  * Chip button label for the option card chat trigger.
  *
  * Winner copy is stability-gated for the needs_work tier only:
- *   - needs_work AND stability < 0.85 → "What makes this the current leader?"
+ *   - needs_work AND stability < STABILITY_STRONG_THRESHOLD → "What makes this the current leader?"
  *   - all other tiers (strong / fair / unknown / undefined) → "What makes this lead?"
  *
  * Non-winner copy is always forward-looking and tier-invariant:
