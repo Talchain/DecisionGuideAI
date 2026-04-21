@@ -24,7 +24,7 @@ import type {
   ConfidenceSectionData,
   DriversSectionData,
   ImprovementsSectionData,
-  RecommendationSectionData,
+  DecisionResultData,
   OptionResult,
 } from '../types'
 import type { M1CoachingReadiness } from '../../../types/cee'
@@ -60,7 +60,7 @@ function makeData(opts: FixtureOpts): ResultsSectionDataReturn {
     goalProbability: 0.3,
   } as OptionResult
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption: winner,
     allOptions: [winner, runnerUp],
     goalLabel: 'Maximise success',

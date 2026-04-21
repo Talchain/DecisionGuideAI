@@ -19,7 +19,7 @@ import { ResultsBody } from '../ResultsBody'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
   ConfidenceTier,
-  RecommendationSectionData,
+  DecisionResultData,
   DriversSectionData,
   ConfidenceSectionData,
   ImprovementsSectionData,
@@ -62,7 +62,7 @@ function makeData(opts: {
     winProbability: 0.20,
   } as OptionResult
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption: winner,
     allOptions: [winner, runnerUp],
     goalLabel: 'Maximise revenue',

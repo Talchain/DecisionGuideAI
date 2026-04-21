@@ -6,12 +6,29 @@ Branch: `ui/post-analysis-refinement`
 
 | Gate | Description | Result |
 |------|-------------|--------|
-| 1 | Raw typography classes in `src/components/results/*.tsx` | ✅ Zero results. **Note:** pattern should include `text-\[10px\]` (`text-[10px]`) in addition to `text-xs`/`text-sm`. The `grep -v 'typography\.'` exclusion may over-exclude lines that reference both a token import and a raw class — verify any suppressed matches manually. |
+| 1 | Raw typography classes in `src/components/results/*.tsx` | ✅ Zero violations. One accepted exception: `ResultsBody.tsx` `dev-build-marker` div uses `text-[10px]` (non-semantic, dev-only). Canonical command below. |
 | 2 | `HeroSection`/`RecommendationSection` in source (not tests) | ✅ Remaining refs are comments/type names only — no imports of deleted files |
 | 3 | Em dashes in `src/components/results/*.tsx` | ✅ Zero results |
 | 4 | "Create decision brief" / `window.alert.*decision` in source | ✅ Only Phase 11 removal-comment matches + unrelated share feature (`CanvasMVP.tsx`) |
 | 5 | "Apply & rerun" in `TornadoChart.tsx` render path | ✅ Matches are doccomments + retained `ApplyAndRerunButton` subcomponent (test-only) — render site removed |
 | 6 | Filled `rounded-full` pills (not `bg-transparent`/`bg-panel`) | ✅ Only `ParetoChart.tsx` legend dot (`bg-gray-400 w-2 h-2`) — chart indicator, not a semantic pill |
+
+### Gate 1 canonical command
+
+The original Phase 17 command omitted `text-[10px]` and used `grep -v 'typography\.'`, which silently suppresses lines that contain *both* a token reference and a raw class in the same attribute string. Use this corrected form for future briefs:
+
+```bash
+# Gate 1 — raw typography classes in results panel (run from repo root)
+grep -rn "text-xs\|text-sm\|text-\[10px\]\|text-\[11px\]\|font-semibold\|font-medium\|font-bold" \
+  src/components/results/ --include="*.tsx" \
+  | grep -v "^\s*//"                 # exclude single-line comments
+# Accepted exceptions (document any new ones here):
+#   ResultsBody.tsx:439 — dev-build-marker div: text-[10px] is non-semantic dev label, not DS typography
+# Any surviving match requires manual inspection:
+#   - If the raw class is the operative font-size/weight → VIOLATION (replace with token)
+#   - If the raw class appears beside a typography.* token → VIOLATION (the token alone is sufficient, remove the raw class)
+#   - If it is a dev/test-only element explicitly accepted above → OK
+```
 
 ## Acceptance Checklist
 

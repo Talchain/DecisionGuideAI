@@ -24,7 +24,7 @@ import { render, screen } from '@testing-library/react'
 import { DecisionConfidencePanel } from '../DecisionConfidencePanel'
 import { ResultsFooter } from '../ResultsFooter'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
-import type { ConfidenceTier, OptionResult, RecommendationSectionData, ConfidenceSectionData, DriversSectionData, ImprovementsSectionData } from '../types'
+import type { ConfidenceTier, OptionResult, DecisionResultData, ConfidenceSectionData, DriversSectionData, ImprovementsSectionData } from '../types'
 import type { M1CoachingReadiness } from '../../../types/cee'
 
 interface MatrixCase {
@@ -62,7 +62,7 @@ function makeData(tier: ConfidenceTier, readiness: M1CoachingReadiness, stabilit
     goalProbability: 0.4,
   } as OptionResult
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption: winner,
     allOptions: [winner, runnerUp],
     goalLabel: 'Maximise success',

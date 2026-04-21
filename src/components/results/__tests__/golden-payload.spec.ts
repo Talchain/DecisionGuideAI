@@ -18,7 +18,7 @@ import { humaniseCritique } from '../utils/humaniseCritique'
 import { buildSegmentColorMap, WIN_GAUGE_COLORS, WIN_GAUGE_COLORS_INDETERMINATE } from '../WinGauge'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
-  RecommendationSectionData,
+  DecisionResultData,
   DriversSectionData,
   ConfidenceSectionData,
   ImprovementsSectionData,
@@ -149,7 +149,7 @@ const GOLDEN_NEXT_ACTIONS: NextActionItem[] = [
 function makeGoldenData(): ResultsSectionDataReturn {
   const recommendedOption = GOLDEN_OPTIONS.find(o => o.isRecommended) ?? GOLDEN_OPTIONS[0]
 
-  const recommendation: RecommendationSectionData = {
+  const recommendation: DecisionResultData = {
     recommendedOption,
     allOptions: GOLDEN_OPTIONS,
     goalLabel: 'Maximise revenue',
