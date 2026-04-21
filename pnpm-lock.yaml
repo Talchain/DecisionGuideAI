@@ -27,8 +27,8 @@ importers:
         specifier: 2.39.7
         version: 2.39.7
       '@talchain/schemas':
-        specifier: file:./vendor/talchain-schemas-0.5.1.tgz
-        version: file:vendor/talchain-schemas-0.5.1.tgz
+        specifier: file:./vendor/talchain-schemas-0.7.0.tgz
+        version: file:vendor/talchain-schemas-0.7.0.tgz
       '@tanstack/react-query':
         specifier: ^5.90.2
         version: 5.99.0(react@18.3.1)
@@ -1397,9 +1397,9 @@ packages:
   '@supabase/supabase-js@2.39.7':
     resolution: {integrity: sha512-1vxsX10Uhc2b+Dv9pRjBjHfqmw2N2h1PyTg9LEfICR3x2xwE24By1MGCjDZuzDKH5OeHCsf4it6K8KRluAAEXA==}
 
-  '@talchain/schemas@file:vendor/talchain-schemas-0.5.1.tgz':
-    resolution: {integrity: sha512-4cq/VsW7CPkuvhYBHHuQFKIDFsxgqsz9DH6XrqQIWZcpFS6pBu2t2UIjMiH2dcxF6qNA7OUK2cjH3WPcQRCvhg==, tarball: file:vendor/talchain-schemas-0.5.1.tgz}
-    version: 0.5.1
+  '@talchain/schemas@file:vendor/talchain-schemas-0.7.0.tgz':
+    resolution: {integrity: sha512-rjJ+T34Twdl91WAdQgIwbEpt2TTQQ3K8a9xdSCcsrH3ye7X4gxeVkiiqRayf3byPdHomMiOwdZHE9Tp7htyL/Q==, tarball: file:vendor/talchain-schemas-0.7.0.tgz}
+    version: 0.7.0
     engines: {node: '>=18.0.0'}
 
   '@tanstack/query-core@5.99.0':
@@ -5489,7 +5489,7 @@ snapshots:
       - bufferutil
       - utf-8-validate
 
-  '@talchain/schemas@file:vendor/talchain-schemas-0.5.1.tgz':
+  '@talchain/schemas@file:vendor/talchain-schemas-0.7.0.tgz':
     dependencies:
       zod: 3.25.76
 
