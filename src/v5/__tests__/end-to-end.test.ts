@@ -24,7 +24,7 @@ const VALID_PAYLOAD: OrchestratorTurnPayload = {
 };
 
 function mockFetchReturning(body: OlumiResponse | Record<string, unknown>, status = 200) {
-  return vi.fn<typeof fetch>().mockResolvedValue({
+  return vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
     headers: new Headers({ 'content-type': 'application/json' }),

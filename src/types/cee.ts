@@ -188,7 +188,7 @@ export function getBlock(
  * Falls back to 'selection' layout for unknown intents to prevent crashes.
  */
 export function getBlocksForIntent(
-  review: CeeDecisionReviewPayloadV1 | null | undefined,
+  _review: CeeDecisionReviewPayloadV1 | null | undefined,
   intent: ReviewIntent
 ): {
   hero: BlockId

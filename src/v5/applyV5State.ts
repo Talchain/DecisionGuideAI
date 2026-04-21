@@ -32,7 +32,7 @@
  * mutations are property assignments keyed by target_id.
  */
 import type { OlumiResponse, StageType } from '@talchain/schemas/boundary'
-import type { Edge, Node } from 'reactflow'
+import type { Edge, Node } from '@xyflow/react'
 
 import type { ScenarioStage } from '../types/scenario'
 import { v5StageToScenarioStage } from './stageMapper'
@@ -112,7 +112,11 @@ export function applyV5State(
             deferred.push({ reason: 'set_factor_value_target_not_found', block, detail: target })
             break
           }
-          // Deep-merge so any observed fields not in `after` are preserved.
+          // One-level merge: `data` and `observedState` objects spread;
+          // nested objects inside `after` (e.g. `range: { min, max }`)
+          // replace their counterparts wholesale. This matches CEE's
+          // current set_factor_value shape (flat `{ value, baseline,
+          // unit, ... }`); tighten if CEE ever nests structured fields.
           store.updateNode(target, {
             data: {
               ...(node.data as Record<string, unknown>),

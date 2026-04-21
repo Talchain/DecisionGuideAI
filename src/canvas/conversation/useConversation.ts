@@ -1181,6 +1181,12 @@ export function useConversation(): UseConversationReturn {
   // Refs for timers, abort, and in-flight lock
   const abortRef = useRef<AbortController | null>(null)
   const inFlightRef = useRef(false)
+  // Generation counter: each sendTurn invocation captures a token at dispatch;
+  // only the run whose token still matches the current generation may clear
+  // the lock in its finally/return branches. Prevents an aborted/preempted
+  // run from clobbering a newer run's ownership. See the preempt block in
+  // sendTurn for the rationale (v5-ui-exclusive-path brief, Phase 8a review).
+  const inFlightGenerationRef = useRef(0)
   const longRunningTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
@@ -2377,6 +2383,11 @@ export function useConversation(): UseConversationReturn {
       // event), abort the in-flight V5 request rather than drop the send.
       // Retry/system-event callers still queue (blocked) because they
       // shouldn't preempt a user's active turn.
+      //
+      // Generation token prevents the aborted run's finally block from
+      // clearing the lock while a newer run is executing. Each run
+      // captures its own token at dispatch and only clears the lock in
+      // its finally if its token still matches the current generation.
       if (inFlightRef.current) {
         const v5FlagOn = import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR === 'true'
         const isUserPreempt =
@@ -2387,15 +2398,20 @@ export function useConversation(): UseConversationReturn {
         if (isUserPreempt) {
           if (import.meta.env.DEV) console.warn('[sendTurn] Preempting in-flight V5 request for new user send')
           abortRef.current?.abort()
-          // Lock is released below by the aborted run's finally block.
-          // Wait one microtask so the aborted run's finally can run first.
-          await Promise.resolve()
         } else {
           if (import.meta.env.DEV) console.warn('[sendTurn] Blocked by in-flight lock (rapid double-click?)')
           return
         }
       }
       inFlightRef.current = true
+      const inFlightGeneration = ++inFlightGenerationRef.current
+      // Release the lock only if we still own it (not preempted by a newer
+      // run). Used at every V5/V4 return / finally site below.
+      const releaseInFlightLockIfOwned = () => {
+        if (inFlightGenerationRef.current === inFlightGeneration) {
+          inFlightRef.current = false
+        }
+      }
 
       // Generate or reuse a stable client_turn_id for idempotent retry
       const pendingContext = consumePendingInteractionContext()
@@ -2437,11 +2453,11 @@ export function useConversation(): UseConversationReturn {
         // Mode-gated preconditions — keep parity with V4 block's guards below.
         if (mode === 'user' && !message.trim()) {
           if (import.meta.env.DEV) console.warn('[sendTurn V5] Blocked: empty message')
-          inFlightRef.current = false; return
+          releaseInFlightLockIfOwned(); return
         }
         if (isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn V5] Blocked: isThinking=true')
-          inFlightRef.current = false; return
+          releaseInFlightLockIfOwned(); return
         }
 
         // Record user action + capture retry input (user mode only, non-hidden).
@@ -2492,7 +2508,7 @@ export function useConversation(): UseConversationReturn {
               timestamp: new Date(),
             })
           }
-          inFlightRef.current = false; return
+          releaseInFlightLockIfOwned(); return
         }
 
         const resolvedTurnType: TurnType = isSystemEvent
@@ -2540,7 +2556,7 @@ export function useConversation(): UseConversationReturn {
           } else if (import.meta.env.DEV) {
             console.warn('[sendTurn V5] Payload build refused:', build.reason, build.detail)
           }
-          inFlightRef.current = false; return
+          releaseInFlightLockIfOwned(); return
         }
 
         // Lifecycle: abort any previous request, set up AbortController,
@@ -2616,6 +2632,17 @@ export function useConversation(): UseConversationReturn {
         try {
           const v5Result = await callV5Turn(build.payload, { signal: controller.signal })
           clearLifecycleTimers()
+
+          // Race guard: if the controller was aborted while the fetch was in
+          // flight (user stop, preempt, or timeout), the timeout handler has
+          // already rendered its synthetic bubble. Silently drop the
+          // now-stale response to avoid double-rendering.
+          if (controller.signal.aborted) {
+            if (import.meta.env.DEV) {
+              console.debug('[sendTurn V5] Response arrived after abort; discarding')
+            }
+            return
+          }
 
           const target = routeV5Response(v5Result)
 
@@ -2718,7 +2745,7 @@ export function useConversation(): UseConversationReturn {
         } finally {
           setIsThinking(false)
           useDraftStore.getState().setIsGenerating(false)
-          inFlightRef.current = false
+          releaseInFlightLockIfOwned()
         }
         return
       }
@@ -2728,7 +2755,7 @@ export function useConversation(): UseConversationReturn {
       if (mode === 'user') {
         if (!message.trim() || isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn] Blocked:', !message.trim() ? 'empty message' : 'isThinking=true')
-          inFlightRef.current = false; return
+          releaseInFlightLockIfOwned(); return
         }
 
         // Hidden sends (e.g. "run it") must not pollute user-facing recovery state
@@ -2772,7 +2799,7 @@ export function useConversation(): UseConversationReturn {
         // is implemented. They are infrastructure turns, not user content.
         if (isThinkingRef.current) {
           if (import.meta.env.DEV) console.warn('[sendTurn] System event blocked: isThinking=true')
-          inFlightRef.current = false; return
+          releaseInFlightLockIfOwned(); return
         }
       }
 
@@ -3168,7 +3195,7 @@ export function useConversation(): UseConversationReturn {
         setIsThinking(false)
         useDraftStore.getState().setIsGenerating(false)
         setLongRunningHint(null)
-        inFlightRef.current = false
+        releaseInFlightLockIfOwned()
       }
     },
     [addMessage, updateMessage, buildRequest, handleEnvelope, scheduleStreamFlush, cleanupStreamRefs],

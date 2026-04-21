@@ -43,7 +43,15 @@ export interface BuildV5PayloadInput {
   source?: string | undefined
   /** Chip metadata forwarded by chip click handlers. */
   chipMeta?: { action_type?: string; parameters?: Record<string, unknown> } | undefined
-  /** Prior client_turn_id being retried. Currently unused (see UI-SEM-notes in builder). */
+  /**
+   * Prior client_turn_id being retried. Today's UI reuses the prior
+   * client_turn_id as the new turn's `turn_id` for idempotent replay
+   * (see useConversation.retryLast → sendTurn({retryClientTurnId})).
+   * That path does NOT populate `retryOf` because `retry_of` would
+   * equal `turn_id` and be redundant. The field is kept here for
+   * future use if the retry flow ever switches to allocating a new
+   * turn_id while referencing the prior one.
+   */
   retryOf?: string | undefined
   /** Required when mode === 'system'. Internal SystemEvent shape. */
   systemEvent?: SystemEvent | undefined

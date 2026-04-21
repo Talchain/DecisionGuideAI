@@ -15,7 +15,9 @@
     "src/lib/telemetry.ts",
     "src/components/SandboxStreamPanel.tsx",
     "src/components/RunHistoryDrawer.tsx",
-    "src/components/RunReportDrawer.tsx"
+    "src/components/RunReportDrawer.tsx",
+    "src/v5/**/*.ts",
+    "src/v5/**/*.tsx"
   ],
   "exclude": [
     "src/components/teams/**",

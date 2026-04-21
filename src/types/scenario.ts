@@ -137,7 +137,7 @@ export interface SharedBriefRow {
 
 export class ScenarioPersistenceError extends Error {
   readonly code: string
-  override readonly cause?: unknown
+  readonly cause?: unknown
 
   constructor(message: string, code: string, cause?: unknown) {
     super(message)

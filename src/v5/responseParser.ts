@@ -3,9 +3,10 @@
  * OlumiResponse schema from @talchain/schemas/boundary. Fails closed to a
  * typed error result; never throws past this boundary.
  *
- * Slice A0 scope:
- *   - parse(Response) → V5ParseResult
- *   - no streaming, no retry, no telemetry, no chip/block rendering
+ * v5-ui-exclusive-path brief: one-shot buffered JSON parse only (no
+ * streaming). Failure modes — non-JSON body, non-2xx with non-BoundaryError
+ * body, 2xx with invalid OlumiResponse — all surface as `parse_error` for
+ * the router to map to a typed-error RenderTarget.
  */
 import {
   OlumiResponseSchema,

@@ -81,7 +81,11 @@ export function TypedErrorRenderer(props: TypedErrorRendererProps): ReactElement
           <small>Request ID: {requestId}</small>
         </p>
       ) : null}
-      {boundaryError ? (
+      {boundaryError && import.meta.env.DEV ? (
+        // Raw details are DEV-only: CEE may place operator context
+        // (request_id, validator names, internal reason strings) in
+        // `details`. Gating prevents accidental leakage to production
+        // users. The canonical user-facing text above is always shown.
         <details data-testid="typed-error-details">
           <summary>Technical details</summary>
           <pre>{JSON.stringify(boundaryError, null, 2)}</pre>
