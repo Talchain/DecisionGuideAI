@@ -21,7 +21,6 @@ import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
-import { TippingPoints } from './TippingPoints'
 import { AdvancedSection } from './AdvancedSection'
 import { AttentionBanner } from './AttentionBanner'
 import { ChallengeSection } from './ChallengeSection'
@@ -256,13 +255,7 @@ export const ResultsBody = memo(function ResultsBody({
               }
               expertMode={expertMode}
             />
-            {/* Tipping points below option cards (kept until Phase 3.4 ships) */}
-            <TippingPoints
-              flipThresholds={resultsSectionData.recommendation.flipThresholds}
-              drivers={resultsSectionData.drivers.topDrivers}
-              outcomeUnit={resultsSectionData.recommendation.outcomeUnit}
-              outcomeUnitSymbol={resultsSectionData.recommendation.outcomeUnitSymbol}
-            />
+            {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
           </div>
         </SectionErrorBoundary>
       )}

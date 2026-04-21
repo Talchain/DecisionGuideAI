@@ -4,7 +4,7 @@
  * Renders as a <button> for semantic correctness and built-in keyboard support.
  * Falls back to plain <span> when targetId is missing (with dev warning).
  *
- * Used across: HeroSection, TippingPoints, DriversSection, ConfidenceSection, TornadoChart.
+ * Used across: DriversSection, ConfidenceSection, TornadoChart, ChallengeSection.
  */
 
 import { useCallback, type ReactNode, type RefObject } from 'react'
