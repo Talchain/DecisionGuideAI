@@ -20,7 +20,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { findNodeMatches, type Driver } from '../../canvas/utils/driverMatching'
 import type { Node } from '@xyflow/react'
 import type {
-  RecommendationSectionData,
+  DecisionResultData,
   DriversSectionData,
   ConfidenceSectionData,
   ImprovementsSectionData,
@@ -765,7 +765,7 @@ function normaliseImprovements(
 // =============================================================================
 
 export interface ResultsSectionDataReturn {
-  recommendation: RecommendationSectionData
+  recommendation: DecisionResultData
   drivers: DriversSectionData
   confidence: ConfidenceSectionData
   improvements: ImprovementsSectionData
@@ -935,7 +935,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
   // ==========================================================================
   // Recommendation Section Data
   // ==========================================================================
-  const recommendation = useMemo<RecommendationSectionData>(() => {
+  const recommendation = useMemo<DecisionResultData>(() => {
     if (!hasCompletedFirstRun || !report) {
       return {
         recommendedOption: null,

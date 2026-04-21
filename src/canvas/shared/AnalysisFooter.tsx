@@ -13,11 +13,6 @@ export interface AnalysisFooterProps {
   actionLoading?: boolean
   actionAriaLabel?: string
   actionTitle?: string
-  /** Optional secondary action (e.g. "Rerun analysis") rendered as outlined button */
-  secondaryActionLabel?: string
-  secondaryOnAction?: () => void
-  secondaryDisabled?: boolean
-  secondaryTitle?: string
   testId?: string
 }
 
@@ -32,10 +27,6 @@ export function AnalysisFooter({
   actionLoading = false,
   actionAriaLabel,
   actionTitle,
-  secondaryActionLabel,
-  secondaryOnAction,
-  secondaryDisabled,
-  secondaryTitle,
   testId = 'sticky-footer',
 }: AnalysisFooterProps) {
   return (
@@ -55,24 +46,6 @@ export function AnalysisFooter({
           ) : null}
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {secondaryActionLabel && secondaryOnAction && (
-            <button
-              type="button"
-              onClick={secondaryOnAction}
-              disabled={secondaryDisabled}
-              title={secondaryTitle}
-              className={`
-                min-h-8 rounded-full px-4 ${typography.panelBody}
-                inline-flex items-center justify-center
-                bg-transparent border border-panel-border text-text-body transition-colors
-                hover:bg-panel-hover focus-visible:outline-none focus-visible:ring-2
-                focus-visible:ring-info focus-visible:ring-offset-2
-                disabled:cursor-not-allowed disabled:opacity-40
-              `}
-            >
-              {secondaryActionLabel}
-            </button>
-          )}
           <button
             type="button"
             onClick={onAction}
