@@ -54,6 +54,8 @@ export interface OptionCardsProps {
   expertMode?: boolean
   /** Brief 5.4 Phase 7: confidence tier for winner chip label copy */
   confidenceTier?: ConfidenceTier
+  /** Brief 5.4 QA Item 4: stability gate for winner chip hedging (mirrors certaintyCopy threshold) */
+  recommendationStability?: number
 }
 
 /** Fallback description when no story headline is available */
@@ -265,6 +267,7 @@ function OptionCard({
   onFocusNode,
   expertMode = false,
   confidenceTier,
+  recommendationStability,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -290,6 +293,8 @@ function OptionCard({
   expertMode?: boolean
   /** Brief 5.4 Phase 7: confidence tier for winner chip label copy */
   confidenceTier?: ConfidenceTier
+  /** Brief 5.4 QA Item 4: stability gate for winner chip hedging (mirrors certaintyCopy threshold) */
+  recommendationStability?: number
 }) {
   const borderClass = neutralised
     ? 'border border-panel-border'
@@ -454,7 +459,7 @@ function OptionCard({
               }}
               className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2.5 py-1 bg-transparent hover:bg-panel-hover cursor-pointer`}
             >
-              {winnerChipLabel(isWinner, confidenceTier)}
+              {winnerChipLabel(isWinner, confidenceTier, recommendationStability)}
             </button>
           )}
           {!option.isBaseline && onFocusNode && (
@@ -488,6 +493,7 @@ export function OptionCards({
   onFocusNode,
   expertMode,
   confidenceTier,
+  recommendationStability,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -600,6 +606,7 @@ export function OptionCards({
             onFocusNode={onFocusNode}
             expertMode={expertMode}
             confidenceTier={confidenceTier}
+            recommendationStability={recommendationStability}
           />
         )
       })}

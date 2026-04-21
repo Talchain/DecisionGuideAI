@@ -134,13 +134,27 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
   })
 
-  it('Brief 5.4 P7: winner chip hedges to "What makes this the current leader?" when tier is not strong', () => {
+  it('Brief 5.4 QA P4: fair tier is NOT evidence-weak — winner chip renders definitive copy', () => {
+    // Brief 5.4 QA Item 4: hedging requires needs_work tier AND stability < 0.85.
+    // fair is not evidence-weak; it always renders the definitive chip label.
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
-    // fair/needs_work/unknown/undefined → hedged winner copy
     render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" />)
+
+    expect(screen.getByText('What makes this lead?')).toBeInTheDocument()
+    expect(screen.queryByText('What makes this the current leader?')).not.toBeInTheDocument()
+    expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
+  })
+
+  it('Brief 5.4 QA P4: winner chip hedges for needs_work tier without stability (absent = weak)', () => {
+    const options = [
+      makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
+      makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
+    ]
+    // needs_work + absent stability → evidenceIsWeak AND stabilityIsWeak → hedged
+    render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="needs_work" />)
 
     expect(screen.getByText('What makes this the current leader?')).toBeInTheDocument()
     expect(screen.queryByText('What makes this lead?')).not.toBeInTheDocument()

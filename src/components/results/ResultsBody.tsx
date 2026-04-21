@@ -265,6 +265,7 @@ export const ResultsBody = memo(function ResultsBody({
               }
               expertMode={expertMode}
               confidenceTier={resultsSectionData.confidence.tier.tier}
+              recommendationStability={resultsSectionData.recommendation.recommendationStability}
             />
             {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
           </div>

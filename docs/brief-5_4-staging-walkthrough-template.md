@@ -6,7 +6,7 @@ Branch: `ui/post-analysis-refinement`
 
 | Gate | Description | Result |
 |------|-------------|--------|
-| 1 | Raw typography classes in `src/components/results/*.tsx` | ✅ Zero results |
+| 1 | Raw typography classes in `src/components/results/*.tsx` | ✅ Zero results. **Note:** pattern should include `text-\[10px\]` (`text-[10px]`) in addition to `text-xs`/`text-sm`. The `grep -v 'typography\.'` exclusion may over-exclude lines that reference both a token import and a raw class — verify any suppressed matches manually. |
 | 2 | `HeroSection`/`RecommendationSection` in source (not tests) | ✅ Remaining refs are comments/type names only — no imports of deleted files |
 | 3 | Em dashes in `src/components/results/*.tsx` | ✅ Zero results |
 | 4 | "Create decision brief" / `window.alert.*decision` in source | ✅ Only Phase 11 removal-comment matches + unrelated share feature (`CanvasMVP.tsx`) |
@@ -53,10 +53,11 @@ Branch: `ui/post-analysis-refinement`
 - [ ] In an **indeterminate** state (near-tie): rank badge is **absent**, win% shown once right-aligned
 - [ ] No win percentage appears twice in any option card header row
 
-### Phase 7 — Tier-driven chip copy
+### Phase 7 — Tier-driven chip copy (updated by QA closeout Item 4)
 
-- [ ] With `confidence_tier = 'strong'`: winner chip reads **"What makes this lead?"**
-- [ ] With `confidence_tier = 'fair'` or `'needs_work'`: winner chip reads **"What makes this the current leader?"**
+- [ ] With `confidence_tier = 'strong'` **or `'fair'` or `'unknown'`**: winner chip reads **"What makes this lead?"**
+- [ ] With `confidence_tier = 'needs_work'` AND `recommendationStability < 0.85` (or absent): winner chip reads **"What makes this the current leader?"**
+- [ ] With `confidence_tier = 'needs_work'` AND `recommendationStability >= 0.85`: winner chip reads **"What makes this lead?"** (high stability overrides the evidence-quality hedge)
 - [ ] Non-winner chip always reads **"What would make this lead?"** regardless of tier
 - [ ] Clicking any chip sends a message to the conversation panel
 

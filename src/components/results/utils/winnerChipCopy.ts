@@ -4,16 +4,28 @@
  * Brief 5.4 Phase 7: Replaces hardcoded chip strings at render sites.
  * Copy adapts to the confidence_tier signal so the winner label reflects
  * decision certainty without inventing new phrases.
+ *
+ * Brief 5.4 QA Item 4: stability gate mirrors certaintyCopy.ts.
+ * Hedged copy ("What makes this the current leader?") fires only when
+ * BOTH conditions hold: tier === 'needs_work' AND stability < 0.85.
+ * fair / unknown / undefined tiers are always definitive regardless
+ * of stability — they are not evidence-weak signals.
  */
 
 import type { ConfidenceTier } from '../types'
 
 /**
+ * Stability threshold below which needs_work results use hedged chip copy.
+ * Mirrors STABILITY_STRONG_THRESHOLD in certaintyCopy.ts.
+ */
+const STABILITY_STRONG_THRESHOLD = 0.85
+
+/**
  * Chip button label for the option card chat trigger.
  *
- * Winner copy is tier-aware:
- *   - strong → "What makes this lead?"       (confident, definitive)
- *   - fair/needs_work/unknown → "What makes this the current leader?"  (hedged)
+ * Winner copy is stability-gated for the needs_work tier only:
+ *   - needs_work AND stability < 0.85 → "What makes this the current leader?"
+ *   - all other tiers (strong / fair / unknown / undefined) → "What makes this lead?"
  *
  * Non-winner copy is always forward-looking and tier-invariant:
  *   → "What would make this lead?"
@@ -21,13 +33,17 @@ import type { ConfidenceTier } from '../types'
 export function winnerChipLabel(
   isWinner: boolean,
   confidenceTier: ConfidenceTier | undefined,
+  recommendationStability?: number,
 ): string {
   if (!isWinner) {
     return 'What would make this lead?'
   }
-  return confidenceTier === 'strong'
-    ? 'What makes this lead?'
-    : 'What makes this the current leader?'
+  const evidenceIsWeak = confidenceTier === 'needs_work'
+  const stabilityIsWeak =
+    recommendationStability == null || recommendationStability < STABILITY_STRONG_THRESHOLD
+  return evidenceIsWeak && stabilityIsWeak
+    ? 'What makes this the current leader?'
+    : 'What makes this lead?'
 }
 
 /**

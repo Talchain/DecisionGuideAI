@@ -13,8 +13,8 @@
  *     says "Stable result"
  *   - weak tier / weak readiness → hero says "currently leads", footer says
  *     "Stability sensitive", regardless of numeric stability
- *   - fair tier / close-call → hero says "currently leads", footer honours
- *     the numeric label
+ *   - fair tier / close-call → hero says "is the leading option" (Brief 5.4 QA
+ *     Item 3: no longer hedged), footer honours the numeric label
  *   - unstable stability < 0.70 → hero says "no clear leading option", no
  *     over-confident footer
  */
@@ -145,21 +145,25 @@ const matrix: MatrixCase[] = [
     forbidFooter: ['Stable result'],
   },
   {
-    label: 'Rule 5 — fair tier: hero softened, footer passes through numeric',
+    // Brief 5.4 QA Item 3: fair tier now uses definitive "is the leading option" copy.
+    // conservative: true is preserved — coaching overrides remain blocked (Brief 5.2 invariant).
+    label: 'Rule 5 — fair tier: hero definitive, footer passes through numeric',
     tier: 'fair',
     readiness: 'ready',
     stability: 0.90,
-    expectHeroContains: 'Option A currently leads',
-    forbidHero: ['is the leading option'],
+    expectHeroContains: 'Option A is the leading option',
+    forbidHero: ['Option A currently leads'],
     expectFooterContains: 'Stable result',
     forbidFooter: ['Stability sensitive'],
   },
   {
-    label: 'Rule 5 — close_call readiness: hero softened, footer passes through numeric',
+    // Brief 5.4 QA Item 3: close_call readiness also uses definitive copy.
+    label: 'Rule 5 — close_call readiness: hero definitive, footer passes through numeric',
     tier: 'strong',
     readiness: 'close_call',
     stability: 0.90,
-    expectHeroContains: 'Option A currently leads',
+    expectHeroContains: 'Option A is the leading option',
+    forbidHero: ['Option A currently leads'],
     expectFooterContains: 'Stable result',
     forbidFooter: ['Stability sensitive'],
   },
