@@ -198,11 +198,21 @@ export const ResultsBody = memo(function ResultsBody({
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}
 
       {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
+      {/* Brief 5.4 closeout item 1: filter out critiques whose factorId is already
+          shown as a TriageCard in DecisionConfidencePanel (topEvidenceGaps / evidenceGaps).
+          Prevents a standalone "Validate/Research" card from appearing between the
+          DCP evidence section and "Your options" when the factor is already covered. */}
       <SectionErrorBoundary section="Attention banner">
         <AttentionBanner
-          items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(
-            c => c.displayText != null && c.suggestion != null && c.factorId != null
-          )}
+          items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(c => {
+            if (c.displayText == null || c.suggestion == null || c.factorId == null) return false
+            // Exclude items already surfaced as DCP top-evidence TriageCards
+            const dcpGapIds = new Set(
+              (resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [])
+                .map(g => g.factorId)
+            )
+            return !dcpGapIds.has(c.factorId)
+          })}
           onFocusNode={onFocusNode}
         />
       </SectionErrorBoundary>
