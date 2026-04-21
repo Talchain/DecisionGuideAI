@@ -15,7 +15,7 @@ import {
 } from '../buildResultsVM'
 import { groupActionItems } from '../utils/groupActionItems'
 import { humaniseCritique } from '../utils/humaniseCritique'
-import { buildSegmentColorMap, WIN_GAUGE_COLORS, WIN_GAUGE_COLORS_INDETERMINATE } from '../HeroSection'
+import { buildSegmentColorMap, WIN_GAUGE_COLORS, WIN_GAUGE_COLORS_INDETERMINATE } from '../WinGauge'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
   RecommendationSectionData,

@@ -18,7 +18,13 @@ export default defineConfig({
       'src/canvas/__tests__/ReactFlowGraph.layout.dom.spec.tsx', // CSS-var dock offsets not set in jsdom
       'src/canvas/__tests__/canvas.run-gating.dom.spec.tsx', // toast rendering requires full canvas pipeline
       'src/canvas/components/__tests__/OutputsDock.dom.spec.tsx', // needs network mock (fetch /bff/cee); CI-only
-      // ── All logic-divergence exclusions resolved (see commit history) ──
+      // ── Dead-code tests: HeroSection/RecommendationSection suppressed (Brief 5.4 Phase 2) ──
+      'src/components/results/__tests__/HeroSection.spec.tsx',
+      'src/components/results/__tests__/HeroSection.goalProbability.test.tsx',
+      'src/components/results/__tests__/v12.3-hero-cards.spec.tsx',
+      'src/components/results/__tests__/v12.4-refix.spec.tsx',
+      'src/components/results/__tests__/RecommendationSection.spec.tsx',
+      'src/components/results/__tests__/banned-strings.spec.tsx',
     ],
     environment: 'jsdom',
     watch: false,
