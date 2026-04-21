@@ -386,6 +386,7 @@ function DriverRow({
   microlineLabel,
   onSendMessage,
   expertMode,
+  isTopDriver,
 }: {
   driver: DriverItem
   onFocus?: (nodeId: string) => void
@@ -399,6 +400,8 @@ function DriverRow({
   microlineLabel?: string
   onSendMessage?: (text: string) => void
   expertMode?: boolean
+  /** Brief 5.4 Phase 3 (Path A): technique hint chip only shown on top-ranked driver */
+  isTopDriver?: boolean
 }) {
   const [isTooltipOpen, setIsTooltipOpen] = useState(false)
   const infoButtonRef = useRef<HTMLButtonElement>(null)
@@ -739,7 +742,7 @@ function DriverRow({
           the driver has high influence AND low confidence, the suggestion
           renders as a chip button that, on click, sends a scoped prompt
           into the chat so the user can continue the thread in context. */}
-      {techniqueSuggestion && onSendMessage && (
+      {isTopDriver && techniqueSuggestion && onSendMessage && (
         <div className="px-3 pb-1.5 -mt-0.5">
           <button
             type="button"
@@ -964,6 +967,7 @@ export function DriversSection({
               microlineLabel={showMicroline ? driver.fragileEdgeInfo!.alternativeWinnerLabel : undefined}
               onSendMessage={onSendMessage}
               expertMode={expertMode}
+              isTopDriver={index === 0}
             />
           )
         })}

@@ -8,6 +8,10 @@
  *
  * Chip visibility rule (mirrors the existing techniqueSuggestion selector
  * inside DriverRow): influence > 0.6 AND confidence < 0.5.
+ *
+ * Brief 5.4 Phase 3 (Path A): chip is further restricted to the top-ranked
+ * driver only (index === 0). Lower-ranked drivers meeting the threshold do
+ * NOT get a chip — prevents the same text appearing 3+ times per panel.
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -121,5 +125,20 @@ describe('DriversSection — Brief 5.1 Task 7.5 technique chip', () => {
     const label = chip.getAttribute('aria-label') ?? ''
     expect(label).toContain('reference class forecasting')
     expect(label).toContain('Churn Rate')
+  })
+
+  it('Brief 5.4 P3: chip only on top-ranked driver; lower-ranked qualifying drivers get no chip', () => {
+    // Both drivers qualify by influence + confidence, but chip must only appear on index 0
+    const driver1 = makeDriver({ factorKey: 'f1', rank: 1, influenceScore: 0.8, confidence: 0.4 })
+    const driver2 = makeDriver({ factorKey: 'f2', rank: 2, influenceScore: 0.9, confidence: 0.3 })
+    render(
+      <DriversSection
+        data={makeData([driver1, driver2])}
+        onSendMessage={() => {}}
+      />,
+    )
+
+    expect(screen.getByTestId('driver-technique-chip-f1')).toBeInTheDocument()
+    expect(screen.queryByTestId('driver-technique-chip-f2')).not.toBeInTheDocument()
   })
 })
