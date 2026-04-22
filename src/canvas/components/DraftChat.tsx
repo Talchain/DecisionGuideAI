@@ -63,19 +63,19 @@ export function DraftChat() {
   const [isMinimized, setIsMinimized] = useState(initialHasGraph)
 
   // Panel width state (persisted to localStorage).
-  // Tranche 1 item 19: rendered range 360–600px (DS v5 conversation spec),
-  // stored directly (no rendering multiplier). Default 480 = middle of range.
+  // Rendered range 360–768px; stored directly (no rendering multiplier).
+  // Default 768 = wider opening state; user can resize down via drag handle.
   const [panelWidth, setPanelWidth] = useState<number>(() => {
     if (typeof localStorage !== 'undefined') {
       const stored = localStorage.getItem(DRAFT_PANEL_WIDTH_KEY)
       if (stored) {
         const parsed = parseInt(stored, 10)
-        if (Number.isFinite(parsed) && parsed >= 360 && parsed <= 600) {
+        if (Number.isFinite(parsed) && parsed >= 360 && parsed <= 768) {
           return parsed
         }
       }
     }
-    return 480
+    return 768
   })
 
   // Panel height state (persisted to localStorage, clamped to 20vh – 90vh)
@@ -792,7 +792,7 @@ export function DraftChat() {
     const handleMove = (e: MouseEvent) => {
       const deltaX = e.clientX - startX
       // Left-edge: dragging leftward (negative delta) GROWS the panel.
-      const newWidth = Math.max(360, Math.min(600, startWidth - deltaX))
+      const newWidth = Math.max(360, Math.min(768, startWidth - deltaX))
       setPanelWidth(newWidth)
     }
 
