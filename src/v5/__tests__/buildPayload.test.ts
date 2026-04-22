@@ -369,3 +369,39 @@ describe('buildV5Payload — system_event payloads', () => {
     expect(r.ok).toBe(false)
   })
 })
+
+describe('buildV5Payload — scenario_id lifecycle', () => {
+  it('same scenario_id is sent on first and second turns (reuse across session)', () => {
+    // Simulates the useConversation pattern: a fixed scenario_id allocated on
+    // the first turn is forwarded verbatim on the second. This directly covers
+    // the scenario lifecycle bug where a new UUID was allocated per-turn.
+    const firstTurn = assertOk(
+      buildV5Payload({
+        turnId: '11111111-1111-4111-8111-111111111111',
+        scenarioId: SCENARIO_ID,
+        stage: 'frame',
+        turnClass: 'frame',
+        mode: 'user',
+        message: 'I need to decide between hiring and contracting.',
+      }),
+    )
+    const secondTurn = assertOk(
+      buildV5Payload({
+        turnId: '44444444-4444-4444-8444-444444444444',
+        scenarioId: SCENARIO_ID,
+        stage: 'frame',
+        turnClass: 'frame',
+        mode: 'user',
+        message: 'What factors matter most?',
+      }),
+    )
+    // turn_ids differ (two distinct turns)
+    expect(firstTurn.payload.turn_id).not.toBe(secondTurn.payload.turn_id)
+    // scenario_id must be identical — same session, same scenario
+    expect(firstTurn.payload.scenario_id).toBe(SCENARIO_ID)
+    expect(secondTurn.payload.scenario_id).toBe(SCENARIO_ID)
+    // Both schema-valid
+    expect(() => OrchestratorTurnPayloadSchema.parse(firstTurn.payload)).not.toThrow()
+    expect(() => OrchestratorTurnPayloadSchema.parse(secondTurn.payload)).not.toThrow()
+  })
+})

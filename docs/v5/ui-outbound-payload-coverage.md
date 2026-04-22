@@ -21,6 +21,25 @@ Base fields on both: `turn_id` (UUID), `scenario_id` (UUID), `stage` (`frame` | 
 
 ---
 
+## Guest mode — current supported path
+
+**Guest mode (`VITE_AUTH_MODE=guest` or no Supabase session) is the primary supported path** for the V5 PoC. There is no real Supabase auth session. The UI allocates a `scenario_id` client-side via `crypto.randomUUID()` on the first turn (lazy, persisted to canvas store), and reuses it for the session lifetime.
+
+The CEE handles `user_id: null` for guest-mode upserts. The UI omits the `X-User-Id` request header entirely when there is no session — CEE must treat an absent header as guest mode, not an error.
+
+### `X-User-Id` header (future-proofing for authenticated mode)
+
+When a Supabase session exists, `useConversation` forwards the session user ID as `X-User-Id: <uuid>` on every V5 POST. This is additive — the payload schema does not carry `user_id` (strict mode would reject it). CEE can read the header for scenario ownership once authenticated mode is supported.
+
+| Transport | Value | When present |
+|---|---|---|
+| `X-User-Id` header | Supabase session `user.id` | Authenticated sessions only |
+| (absent) | — | Guest mode (no session) |
+
+This header is **not required** for the golden path. CEE must handle both cases.
+
+---
+
 ## Hard rules
 
 1. **System events never add a user bubble.** Enforced in `useConversation` via an explicit `if (payload.kind === 'system_event') skipUserBubble = true` check, NOT via the incidental `hidden` flag.

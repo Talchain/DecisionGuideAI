@@ -146,15 +146,34 @@ Visual audit (needs staging walkthrough):
 
 ## Golden path journey (needs staging walkthrough)
 
-- [ ] Submit a brief → draft_graph fires (CEE-side) → graph appears on canvas.
-- [ ] Accept a suggested patch → system event handled → canvas updates.
-- [ ] Ask a follow-up → conversational response renders.
-- [ ] Run analysis → analysis_result block renders.
-- [ ] Decision review enrichment present OR typed error (not silent absence).
-- [ ] Coaching text renders after FIRST_ANALYSIS_COMPLETE (client-side useCEECoaching).
-- [ ] Chips render + clickable → dispatch with correct `source`/`action_type`.
-- [ ] Natural-language factor edit → `direct_graph_edit` system event → confirmation + canvas update.
-- [ ] No turn in the journey hits `/orchestrate/v1/turn/stream` or `/orchestrate/v1/turn`. Covered by Playwright smoke for bootstrap.
+### Hard blocker — graph does not appear from brief submission (CEE-side gap)
+
+Submitting a brief through V5 currently produces a **text-only or conversational response**. The graph does not appear on the canvas after the turn. This is a hard gate for the golden path.
+
+**Root cause analysis (UI-side verified):**
+
+1. **No `add_node` / `add_edge` operations exist in v0.7.0 schema.** `GraphPatchBlock.operation` is an enum: `set_factor_value | add_constraint | adjust_edge_strength`. The schema cannot represent "create a new node" or "create a new edge" — only mutations to existing graph elements.
+2. **CEE's draft_graph handler is missing from V5.** The "Submit brief" row in `ui-outbound-payload-coverage.md` is marked **NEEDS_FIX — CEE draft_graph handler missing in V5**.
+3. **UI handling is correct for what the schema supports.** `applyV5State` applies all `graph_patch` operations correctly. `mapV5Blocks` maps every defined block type. Unknown blocks degrade to `v5_unsupported` with a DEV console.warn (not a crash).
+
+**What must change on the CEE side before this works:**
+- CEE must ship a V5 draft_graph handler that produces `graph_patch` blocks to build the initial graph, OR the schema must be bumped to add `add_node` / `add_edge` operations so CEE can emit them.
+- Once CEE emits those operations, the UI `applyV5State` must be extended to call `addNode` / `addEdge` on the canvas store for those operation types.
+
+**UI-side gap to fix when CEE is ready** (tracked in deferred items below): `applyV5State` handles `set_factor_value` and `adjust_edge_strength` but has no `add_node` / `add_edge` case. These will need to be added when CEE ships the corresponding schema operations.
+
+### Journey checklist (current state)
+
+- [ ] **BLOCKED** Submit a brief → graph appears on canvas. *(CEE draft_graph handler missing; schema has no add_node/add_edge operations)*
+- [ ] Accept a suggested patch → system event handled → canvas updates. *(CEE handler NEEDS_FIX)*
+- [x] Ask a follow-up → conversational response renders. *(Working)*
+- [ ] Run analysis → analysis_result block renders. *(UI renders inline card; results store wiring deferred)*
+- [ ] Decision review enrichment present OR typed error (not silent absence). *(Inline card; panel wiring deferred)*
+- [x] Coaching text renders after FIRST_ANALYSIS_COMPLETE (client-side useCEECoaching). *(Client-side; no V5 dependency)*
+- [x] Chips render + clickable → dispatch with correct `source`/`action_type`. *(Working)*
+- [ ] Natural-language factor edit → `direct_graph_edit` system event → confirmation + canvas update. *(CEE handler NEEDS_FIX)*
+- [x] No turn hits `/orchestrate/v1/turn/stream` or `/orchestrate/v1/turn` when `VITE_ENABLE_V5_ORCHESTRATOR=true`. *(Verified: routing fix in this brief)*
+- [x] Structured CEE errors render specific message + reason, never generic fallback. *(Verified: `FAILURE_USER_TEXT[code]` + layered `details.reason` + code-specific guidance)*
 
 ---
 
@@ -162,11 +181,12 @@ Visual audit (needs staging walkthrough):
 
 1. **`analysis_result` → `useResultsStore`** — V5AnalysisResultBlock renders inline card; results store integration requires translator from V5 shape to V2RunResponse. Realistic CEE fixtures needed.
 2. **`graph_patch: add_constraint`** — canonical constraint → `prior.range_min/range_max/threshold` mapping deferred.
-3. **DecisionReviewPanel reading V5 enrichment** — adapter in place; panel hook wiring is a separate integration. Inline card covers primary user-facing case.
-4. **Scenario auto-allocation on missing scenario** — V5 short-circuits with a user-friendly message. V4 has implicit allocation; matching V5 is out of this brief's scope.
-5. **UI emission sites for `chip_click`, `undo`, `redo` system events** — V5 schema supports them; UI product flow decisions pending.
-6. **Journey-driven Playwright smoke** — current smoke asserts V1 absence during bootstrap. Journey coverage would positively verify V2 body shapes under real traffic.
-7. **useConversation.ts in CI typecheck** — blocked by ~20 pre-existing V4 type-debt errors unrelated to V5; requires a dedicated V4 type-cleanup effort.
+3. **`applyV5State` add_node / add_edge** — when CEE ships add_node/add_edge schema operations, `applyV5State` must call `addNode` / `addEdge` on the canvas store. Not implementable until the schema bump lands.
+4. **DecisionReviewPanel reading V5 enrichment** — adapter in place; panel hook wiring is a separate integration. Inline card covers primary user-facing case.
+5. **Scenario auto-allocation on missing scenario** — V5 short-circuits with a user-friendly message. V4 has implicit allocation; matching V5 is out of this brief's scope.
+6. **UI emission sites for `chip_click`, `undo`, `redo` system events** — V5 schema supports them; UI product flow decisions pending.
+7. **Journey-driven Playwright smoke** — current smoke asserts V1 absence during bootstrap. Journey coverage would positively verify V2 body shapes under real traffic.
+8. **useConversation.ts in CI typecheck** — blocked by ~20 pre-existing V4 type-debt errors unrelated to V5; requires a dedicated V4 type-cleanup effort.
 
 ---
 
