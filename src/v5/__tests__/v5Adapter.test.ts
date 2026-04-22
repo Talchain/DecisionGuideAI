@@ -305,10 +305,11 @@ describe('callV5Turn — payload trace capture', () => {
     expect(resCall.status).toBe(422)
     // Allowlisted header preserved
     expect(resCall.headers['x-request-id']).toBe('err-trace-xyz')
-    // Body is the V5ParseResult discriminated union — kind must be present
+    // Body is the V5ParseResult discriminated union. The mock body shape does not
+    // match BoundaryErrorSchema (requires boundary/direction/validator/request_id/
+    // retryable fields), so parseV5Response returns parse_error, not boundary_error.
     expect(resCall.body).not.toBeNull()
-    expect(typeof resCall.body).toBe('object')
-    expect(['boundary_error', 'parse_error']).toContain((resCall.body as { kind: string }).kind)
+    expect((resCall.body as { kind: string }).kind).toBe('parse_error')
   })
 })
 
