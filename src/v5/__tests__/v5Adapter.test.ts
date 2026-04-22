@@ -188,10 +188,19 @@ describe('callV5Turn — payload trace capture', () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(successBody), {
         status: 200,
-        headers: { 'Content-Type': 'application/json', 'x-request-id': 'trace-abc' },
+        // Include allowlisted headers and a sensitive header that must be stripped
+        headers: {
+          'Content-Type': 'application/json',
+          'x-request-id': 'trace-abc',
+          'x-user-id': 'secret-user',
+          'authorization': 'Bearer token',
+        },
       }),
     )
-    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
+    await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      headers: { 'X-User-Id': 'user-uuid-1234' },
+    })
 
     expect(mockRecordRequest).toHaveBeenCalledOnce()
     const reqCall = mockRecordRequest.mock.calls[0][0]
@@ -199,6 +208,9 @@ describe('callV5Turn — payload trace capture', () => {
     expect(reqCall.method).toBe('POST')
     expect(reqCall.body).toEqual(validPayload)
     expect(typeof reqCall.id).toBe('string')
+    // Request headers: content-type passes, X-User-Id is stripped
+    expect(reqCall.headers['Content-Type']).toBe('application/json')
+    expect(reqCall.headers['X-User-Id']).toBeUndefined()
 
     expect(mockRecordResponse).toHaveBeenCalledOnce()
     const resCall = mockRecordResponse.mock.calls[0][0]
@@ -206,9 +218,12 @@ describe('callV5Turn — payload trace capture', () => {
     expect(resCall.id).toBe(reqCall.id)
     expect(resCall.status).toBe(200)
     expect(typeof resCall.duration).toBe('number')
-    // Response headers preserved (not empty object)
+    // Allowlisted response headers preserved
     expect(resCall.headers['content-type']).toContain('application/json')
     expect(resCall.headers['x-request-id']).toBe('trace-abc')
+    // Sensitive headers stripped from trace
+    expect(resCall.headers['x-user-id']).toBeUndefined()
+    expect(resCall.headers['authorization']).toBeUndefined()
     // Body is the parsed OlumiResponse, not the raw JSON string
     expect(resCall.body).toMatchObject({ assistant_text: 'ok' })
   })
@@ -236,6 +251,26 @@ describe('callV5Turn — payload trace capture', () => {
     expect(mockRecordResponse).toHaveBeenCalledOnce()
     const resCall = mockRecordResponse.mock.calls[0][0]
     expect(resCall.error).toBe('AbortError')
+  })
+
+  it('records typed error response (422 with structured error body) in trace', async () => {
+    const errorBody = { error: { code: 'HANDLER_NOT_FOUND', message: 'No handler registered for this action' } }
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(errorBody), {
+        status: 422,
+        headers: { 'Content-Type': 'application/json', 'x-request-id': 'err-trace-xyz' },
+      }),
+    )
+    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
+
+    expect(mockRecordResponse).toHaveBeenCalledOnce()
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    expect(resCall.status).toBe(422)
+    // Allowlisted header preserved
+    expect(resCall.headers['x-request-id']).toBe('err-trace-xyz')
+    // Body captures the parse result (boundary_error or parse_error kind), not null
+    expect(resCall.body).not.toBeNull()
+    expect(typeof resCall.body).toBe('object')
   })
 })
 

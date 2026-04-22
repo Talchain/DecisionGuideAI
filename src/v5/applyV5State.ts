@@ -31,7 +31,7 @@
 import type { OlumiResponse, StageType } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
-import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
+import type { RunMetaState } from '../canvas/store'
 import type { ScenarioStage } from '../types/scenario'
 import { extractDecisionReview } from './decisionReviewAdapter'
 import { v5StageToScenarioStage } from './stageMapper'
@@ -41,6 +41,10 @@ import { v5StageToScenarioStage } from './stageMapper'
  * type; this picks only what we mutate so the applicator stays loosely
  * coupled and easily testable. The structural typing matches both the real
  * store and any test double.
+ *
+ * setRunMeta accepts Partial<RunMetaState> to match the real store's merge
+ * semantics (it spreads over existing runMeta). Using the imported type makes
+ * type mismatches visible at compile time if the store shape changes.
  */
 export interface V5ApplicatorStore {
   setCurrentStage: (stage: ScenarioStage | null) => void
@@ -48,8 +52,7 @@ export interface V5ApplicatorStore {
   updateEdgeData: (id: string, data: Partial<Record<string, unknown>>) => void
   nodes: Node[]
   edges: Edge[]
-  /** Partial merge into runMeta — only provided fields are updated. */
-  setRunMeta: (meta: { ceeReviewV1: CeeDecisionReviewPayloadV1 | null }) => void
+  setRunMeta: (meta: Partial<RunMetaState>) => void
 }
 
 type V5Block = OlumiResponse['blocks'][number]
