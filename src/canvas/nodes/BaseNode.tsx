@@ -267,8 +267,12 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           ? '12px 12px 24px 12px'
           : '12px',
         minWidth: '140px',
-        // Both the expanded cap and the pre-layout fallback share MAX_NODE_W
-        // so the rendered width stays consistent with ELK's assumed box size.
+        // Width policy:
+        //  - Non-expanded: use caller's maxWidth if given, else the last layout's
+        //    width, else fall back to MAX_NODE_W so rendered width matches ELK.
+        //  - Expanded: deliberately override both `maxWidth` and `layoutNodeWidth`
+        //    with MAX_NODE_W. Expanded nodes show a description panel and need
+        //    a readable width regardless of what a caller or layout computed.
         maxWidth: isExpanded ? `${MAX_NODE_W}px` : `${maxWidth ?? layoutNodeWidth ?? MAX_NODE_W}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}

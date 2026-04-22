@@ -372,9 +372,6 @@ function applyTierRowSplitting(
  * this matches how ELK emits coordinates: nodes in the same tier share
  * essentially identical Y values, typically within sub-pixel distance).
  *
- * Exported for direct unit testing of the tolerance boundary — it is not
- * part of the module's primary public API.
- *
  * @param nodeIds     Candidate node ids to group.
  * @param positionMap Source of each node's current position. Missing entries
  *                    are treated as y=0.
