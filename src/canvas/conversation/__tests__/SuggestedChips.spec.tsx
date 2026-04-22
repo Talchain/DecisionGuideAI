@@ -326,19 +326,16 @@ describe('SuggestedChips — V5 chip filtering', () => {
     vi.unstubAllEnvs()
   })
 
-  it('V5 off → all chips render regardless of action_type', () => {
+  it('V5 off → all chips render regardless of action_type (including non-V5 actions)', () => {
     vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
+    // Two chips so both fall within the DS cap of 2 — compare_options is directly proven to render.
     const chips: ActionChip[] = [
       chip({ id: 'c1', action_type: 'run_analysis', message: 'Run analysis' }),
-      chip({ id: 'c2', action_type: 'explain_result', message: 'Explain result' }),
-      chip({ id: 'c3', action_type: 'compare_options', message: 'Compare options' }),
+      chip({ id: 'c2', action_type: 'compare_options', message: 'Compare options' }),
     ]
     render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    // DS cap is 2, but all three have V4-passthrough — first 2 render
-    const buttons = screen.getAllByRole('button')
-    expect(buttons).toHaveLength(2)
-    // run_analysis and explain_result both pass through (V4 path, no filtering)
     expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
+    // compare_options is NOT in V5_ENABLED_ACTIONS but must render on V4 path
     expect(screen.getByTestId('suggested-chip-c2')).toBeInTheDocument()
   })
 

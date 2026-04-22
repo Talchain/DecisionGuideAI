@@ -228,6 +228,43 @@ describe('callV5Turn — payload trace capture', () => {
     expect(resCall.body).toMatchObject({ assistant_text: 'ok' })
   })
 
+  it('strips cookie, set-cookie, and mixed-case sensitive headers from both request and response traces', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(successBody), {
+        status: 200,
+        headers: {
+          // Mixed-case variant of allowlisted header — must be preserved
+          'Content-Type': 'application/json',
+          'X-Request-Id': 'trace-mixed',
+          // Sensitive — must be stripped regardless of case
+          'Set-Cookie': 'session=abc123; HttpOnly',
+          'Authorization': 'Bearer tok',
+        },
+      }),
+    )
+    await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      // Mixed-case cookie header in request options
+      headers: { 'Cookie': 'session=xyz789', 'X-Trace-Id': 'req-trace-1' },
+    })
+
+    const reqCall = mockRecordRequest.mock.calls[0][0]
+    // Cookie must not appear in request trace
+    expect(reqCall.headers['Cookie']).toBeUndefined()
+    expect(reqCall.headers['cookie']).toBeUndefined()
+    // Allowlisted x-trace-id passes through (note: recorded with original casing)
+    expect(reqCall.headers['X-Trace-Id']).toBe('req-trace-1')
+
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    // set-cookie must not appear in response trace
+    expect(resCall.headers['set-cookie']).toBeUndefined()
+    expect(resCall.headers['Set-Cookie']).toBeUndefined()
+    expect(resCall.headers['authorization']).toBeUndefined()
+    // Mixed-case allowlisted headers preserved (headers.entries() lowercases them)
+    expect(resCall.headers['content-type']).toContain('application/json')
+    expect(resCall.headers['x-request-id']).toBe('trace-mixed')
+  })
+
   it('records response with error on network failure', async () => {
     const fetchImpl = vi.fn().mockRejectedValue(new Error('offline'))
     await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
@@ -268,9 +305,10 @@ describe('callV5Turn — payload trace capture', () => {
     expect(resCall.status).toBe(422)
     // Allowlisted header preserved
     expect(resCall.headers['x-request-id']).toBe('err-trace-xyz')
-    // Body captures the parse result (boundary_error or parse_error kind), not null
+    // Body is the V5ParseResult discriminated union — kind must be present
     expect(resCall.body).not.toBeNull()
     expect(typeof resCall.body).toBe('object')
+    expect(['boundary_error', 'parse_error']).toContain((resCall.body as { kind: string }).kind)
   })
 })
 
