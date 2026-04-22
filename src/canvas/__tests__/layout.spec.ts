@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { layoutGraph } from '../utils/layout'
+import { layoutGraph, groupByYRow, applyCollisionGuard } from '../utils/layout'
 import type { CanvasSize } from '../utils/layout'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -78,7 +78,7 @@ describe('ELK Layout', () => {
   it('returns layoutNodeWidth', async () => {
     const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(300)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
   })
 
   it('preserves locked node positions', async () => {
@@ -237,7 +237,7 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
     expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(300)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
     // All positions must be finite
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
@@ -323,5 +323,129 @@ describe('ELK Layout', () => {
     expect(dY).toBeLessThan(o1Y)
     expect(o1Y).toBeLessThan(f1Y)
     expect(f1Y).toBeLessThan(gY)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Post-layout collision guard
+// ---------------------------------------------------------------------------
+
+describe('applyCollisionGuard', () => {
+  it('is a no-op when ELK spacing is already sufficient', async () => {
+    // Run a real layout end-to-end so positions reflect actual ELK output,
+    // then assert a second collision-guard pass doesn't shift anything.
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('out', 'outcome'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'),
+      makeEdge('e3', 'o1', 'f1'), makeEdge('e4', 'o2', 'f2'), makeEdge('e5', 'o2', 'f3'),
+      makeEdge('e6', 'f1', 'out'), makeEdge('e7', 'out', 'g'),
+    ]
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
+
+    // Build a positionMap mirroring the laid-out state, and a sizeMap using
+    // the ELK box width returned by layoutGraph (uniform across all nodes).
+    const elkBoxW = layoutNodeWidth + 24 // sizePaddingX used inside layoutGraph
+    const positionMap = new Map<string, { x: number; y: number }>()
+    const sizeMap = new Map<string, { width: number; height: number }>()
+    for (const n of laid) {
+      positionMap.set(n.id, { x: n.position.x, y: n.position.y })
+      sizeMap.set(n.id, { width: elkBoxW, height: 116 })
+    }
+    const before = new Map(Array.from(positionMap, ([id, p]) => [id, { ...p }]))
+
+    applyCollisionGuard(positionMap, sizeMap, elkBoxW)
+
+    for (const [id, prev] of before) {
+      const now = positionMap.get(id)!
+      expect(now.x).toBe(prev.x)
+      expect(now.y).toBe(prev.y)
+    }
+  })
+
+  it('pushes the right neighbour right when the gap is below threshold', () => {
+    // nodeA at x=0 width=100 ends at x=100.
+    // nodeB at x=105 leaves a 5px gap, below COLLISION_GAP=20.
+    // Expected: nodeB pushed to x=120 (leftRight + COLLISION_GAP).
+    const positionMap = new Map<string, { x: number; y: number }>([
+      ['a', { x: 0, y: 200 }],
+      ['b', { x: 105, y: 200 }],
+    ])
+    const sizeMap = new Map<string, { width: number; height: number }>([
+      ['a', { width: 100, height: 100 }],
+      ['b', { width: 100, height: 100 }],
+    ])
+
+    applyCollisionGuard(positionMap, sizeMap, 100)
+
+    expect(positionMap.get('a')).toEqual({ x: 0, y: 200 })
+    expect(positionMap.get('b')).toEqual({ x: 120, y: 200 })
+  })
+
+  it('cascades the second sweep when pushing a node into its right neighbour', () => {
+    // Three nodes, each 100px wide, on the same row:
+    //   a at x=0   (right edge 100)
+    //   b at x=105 (5px gap → pushed to x=120, right edge 220)
+    //   c at x=235 (15px gap from b@120 → pushed to x=240 in 2nd sweep)
+    const positionMap = new Map<string, { x: number; y: number }>([
+      ['a', { x: 0,   y: 100 }],
+      ['b', { x: 105, y: 100 }],
+      ['c', { x: 235, y: 100 }],
+    ])
+    const sizeMap = new Map<string, { width: number; height: number }>([
+      ['a', { width: 100, height: 100 }],
+      ['b', { width: 100, height: 100 }],
+      ['c', { width: 100, height: 100 }],
+    ])
+
+    applyCollisionGuard(positionMap, sizeMap, 100)
+
+    expect(positionMap.get('a')!.x).toBe(0)
+    expect(positionMap.get('b')!.x).toBe(120)
+    expect(positionMap.get('c')!.x).toBe(240)
+  })
+
+  it('does not touch nodes on different Y rows', () => {
+    // a and b are on different rows (y differs by > tolerance). Even though
+    // their x coordinates are tight, the guard must treat them as unrelated.
+    const positionMap = new Map<string, { x: number; y: number }>([
+      ['a', { x: 0,   y: 100 }],
+      ['b', { x: 105, y: 500 }],
+    ])
+    const sizeMap = new Map<string, { width: number; height: number }>([
+      ['a', { width: 100, height: 100 }],
+      ['b', { width: 100, height: 100 }],
+    ])
+
+    applyCollisionGuard(positionMap, sizeMap, 100)
+
+    expect(positionMap.get('b')).toEqual({ x: 105, y: 500 })
+  })
+})
+
+describe('groupByYRow', () => {
+  it('groups nodes whose Y values differ by ≤ tolerance', () => {
+    const positionMap = new Map<string, { x: number; y: number }>([
+      ['a', { x: 0, y: 100.3 }],
+      ['b', { x: 50, y: 100.8 }],
+    ])
+    const groups = groupByYRow(['a', 'b'], positionMap)
+    expect(groups.size).toBe(1)
+    const onlyRow = Array.from(groups.values())[0]
+    expect(onlyRow.sort()).toEqual(['a', 'b'])
+  })
+
+  it('separates nodes whose Y values differ by > tolerance', () => {
+    const positionMap = new Map<string, { x: number; y: number }>([
+      ['a', { x: 0, y: 100 }],
+      ['b', { x: 0, y: 115 }],
+    ])
+    const groups = groupByYRow(['a', 'b'], positionMap)
+    expect(groups.size).toBe(2)
   })
 })

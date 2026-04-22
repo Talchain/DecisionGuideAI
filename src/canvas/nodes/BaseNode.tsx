@@ -356,7 +356,10 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
         {/* Title + optional badges inline */}
         <div className="flex-1 min-w-0">
-          <div className={`${typography.nodeTitle} text-text-body break-words`}>
+          {/* line-clamp-3: cap title to 3 lines with ellipsis so ELK can
+              rely on uniform-ish node heights. `break-words` preserved so
+              long unbroken tokens still wrap before clamping. */}
+          <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-3`}>
             {label}
           </div>
         </div>
@@ -395,7 +398,7 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
 
       {/* Causal lens: show label only (header hidden) */}
       {isCausalLens && (
-        <div className={`${typography.nodeTitle} text-text-body break-words`}>
+        <div className={`${typography.nodeTitle} text-text-body break-words line-clamp-3`}>
           {label}
         </div>
       )}

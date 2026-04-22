@@ -102,4 +102,29 @@ describe('BaseNode — maxWidth (H1)', () => {
     const nodeEl = container.firstChild as HTMLElement
     expect(nodeEl.style.maxWidth).toBe('238px')
   })
+
+  it('title element clamps long labels to 3 lines with ellipsis (line-clamp-3)', () => {
+    // A 60+ char label that, at typography.nodeTitle size and normal node
+    // widths, would naturally wrap onto 4+ lines without a clamp.
+    const longLabel =
+      'Feature Launch Marketing Budget Allocation and Campaign Strategy Optimisation'
+    const { container } = render(
+      <BaseNode
+        {...baseProps}
+        data={{ label: longLabel }}
+        nodeType="decision"
+        icon={Target}
+        maxWidth={240}
+      />
+    )
+    // The clamp must be applied to the title <div> itself (the one carrying
+    // `break-words`), not the outer node wrapper. Select by the break-words
+    // class to uniquely identify the title element in BaseNode's render tree.
+    const titleEl = container.querySelector('.break-words') as HTMLElement | null
+    expect(titleEl, 'title element with break-words should exist').toBeTruthy()
+    expect(titleEl?.textContent).toBe(longLabel)
+    expect(titleEl?.className).toContain('line-clamp-3')
+    // Existing break-words behaviour must remain alongside the new clamp.
+    expect(titleEl?.className).toContain('break-words')
+  })
 })

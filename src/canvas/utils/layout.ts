@@ -27,8 +27,14 @@ const FALLBACK_CANVAS: CanvasSize = { width: 1300, height: 750 }
 
 // Node width constraints for viewport-constrained sizing.
 const MIN_NODE_W = 140  // BaseNode minWidth
-const MAX_NODE_W = 300  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips
+const MAX_NODE_W = 320  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips and multi-line titles
 const MIN_GAP    = 30   // Minimum horizontal gap between nodes in same tier
+
+// Post-layout safety gap (px) used by applyCollisionGuard. Smaller than MIN_GAP:
+// this only fires when ELK / multi-row splitting leaves two nodes closer than
+// this threshold, which should be rare. It is deliberately not a spacing preference
+// — ELK's nodeNode spacing is authoritative for aesthetics.
+const COLLISION_GAP = 20
 
 interface LayoutOptions {
   direction?: 'DOWN' | 'RIGHT' | 'UP' | 'LEFT'
@@ -245,6 +251,13 @@ export async function layoutGraph(
     )
   }
 
+  // Final safety pass: resolve any residual same-row collisions.
+  // ELK + multi-row splitting normally space nodes at `gap` px, but rounding or
+  // mismatches between the solver's assumed width and ELK's box can still leave
+  // two neighbours closer than `COLLISION_GAP`. This is a cheap belt-and-braces
+  // fix — a single left-to-right push sweep with one cascade catch.
+  applyCollisionGuard(positionMap, sizeMap, elkBoxW)
+
   // ---------------------------------------------------------------------------
   // Step 5 — Apply positions to nodes
   // ---------------------------------------------------------------------------
@@ -341,5 +354,124 @@ function applyTierRowSplitting(
     // Extra height added by this tier's row expansion
     const extraH = (rows.length - 1) * (nodeH + subRowSpacing)
     cumulativeExtraY += extraH
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Post-layout collision prevention
+// ---------------------------------------------------------------------------
+
+/**
+ * Group node ids by their Y coordinate with a small tolerance.
+ *
+ * Nodes within `tolerance` px of an existing anchor are grouped together.
+ * The anchor is the first Y value seen for the group (order-dependent, but
+ * this matches how ELK emits coordinates: nodes in the same tier share
+ * essentially identical Y values, typically within sub-pixel distance).
+ *
+ * Exported for direct unit testing of the tolerance boundary — it is not
+ * part of the module's primary public API.
+ *
+ * @param nodeIds     Candidate node ids to group.
+ * @param positionMap Source of each node's current position. Missing entries
+ *                    are treated as y=0.
+ * @param tolerance   Maximum Y difference (px) that still counts as the same
+ *                    row. Defaults to 10 to absorb ELK rounding noise.
+ * @returns Map keyed by the anchor Y; each value is the list of ids in that
+ *          row in the order they were encountered.
+ */
+export function groupByYRow(
+  nodeIds: string[],
+  positionMap: Map<string, { x: number; y: number }>,
+  tolerance = 10,
+): Map<number, string[]> {
+  const groups = new Map<number, string[]>()
+  const anchors: number[] = []
+  for (const id of nodeIds) {
+    const y = positionMap.get(id)?.y ?? 0
+    let matched = false
+    for (const anchor of anchors) {
+      if (Math.abs(y - anchor) <= tolerance) {
+        groups.get(anchor)!.push(id)
+        matched = true
+        break
+      }
+    }
+    if (!matched) {
+      anchors.push(y)
+      groups.set(y, [id])
+    }
+  }
+  return groups
+}
+
+/**
+ * Resolve same-row node overlaps by sweeping left-to-right and pushing any
+ * right-hand neighbour that is closer than `COLLISION_GAP` to its left
+ * neighbour's right edge.
+ *
+ * Behavioural guarantees:
+ *  - Operates in place on `positionMap`. `sizeMap` is read-only.
+ *  - Width used for each node is its ELK-assigned width from `sizeMap`,
+ *    falling back to the uniform `elkBoxW`. This keeps the collision
+ *    geometry consistent with what ELK itself assumed when placing nodes.
+ *  - A maximum of 2 sweeps per row: one forward pass, then one catch-up pass
+ *    for cascades. Further passes are unnecessary for our node counts
+ *    (~12 per row worst case) and risk oscillation.
+ *  - Rows with fewer than 2 nodes are skipped (no neighbours to push).
+ *  - No-op when every adjacent pair already has ≥ COLLISION_GAP clear space.
+ *
+ * Exported for direct unit testing with mock position maps, per the brief's
+ * Test B scenario.
+ *
+ * @param positionMap Mutable map of node id → {x, y}. Modified in place.
+ * @param sizeMap     Read-only map of node id → {width, height}.
+ * @param elkBoxW     Fallback width when a node has no entry in `sizeMap`.
+ */
+export function applyCollisionGuard(
+  positionMap: Map<string, { x: number; y: number }>,
+  sizeMap: Map<string, { width: number; height: number }>,
+  elkBoxW: number,
+): void {
+  const allIds = Array.from(positionMap.keys())
+  if (allIds.length < 2) return
+
+  const rows = groupByYRow(allIds, positionMap)
+  const widthOf = (id: string): number => sizeMap.get(id)?.width ?? elkBoxW
+
+  for (const rowIds of rows.values()) {
+    if (rowIds.length < 2) continue
+
+    // Sort by current X; sort is O(n log n) but n ≤ ~12 so negligible.
+    const sorted = [...rowIds].sort((a, b) => {
+      const ax = positionMap.get(a)?.x ?? 0
+      const bx = positionMap.get(b)?.x ?? 0
+      return ax - bx
+    })
+
+    // Up to 2 sweeps: first fixes immediate collisions, second catches any
+    // cascade introduced by the first (rare but cheap to handle).
+    for (let sweep = 0; sweep < 2; sweep++) {
+      let moved = false
+      for (let i = 1; i < sorted.length; i++) {
+        const left = sorted[i - 1]
+        const right = sorted[i]
+        const leftPos = positionMap.get(left)
+        const rightPos = positionMap.get(right)
+        if (!leftPos || !rightPos) continue
+
+        const leftRight = leftPos.x + widthOf(left)
+        const actualGap = rightPos.x - leftRight
+        if (actualGap < COLLISION_GAP) {
+          positionMap.set(right, {
+            x: leftRight + COLLISION_GAP,
+            y: rightPos.y,
+          })
+          moved = true
+        }
+      }
+      // Short-circuit if the sweep produced no changes.
+      if (!moved) break
+    }
   }
 }
