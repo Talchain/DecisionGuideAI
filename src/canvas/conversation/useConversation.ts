@@ -2630,6 +2630,9 @@ export function useConversation(): UseConversationReturn {
         }
 
         try {
+          // Resolve user ID once — used for both the X-User-Id request header
+          // and the post-response graph re-fetch auth guard. A single call
+          // avoids two getSession() round-trips per turn.
           const v5UserId = await getUserId()
           const v5Headers: Record<string, string> = v5UserId ? { 'X-User-Id': v5UserId } : {}
           const v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
@@ -2668,27 +2671,43 @@ export function useConversation(): UseConversationReturn {
             // fetch the scenario from Supabase and apply the graph. Skips in
             // guest mode (no auth session) or if the canvas already has nodes
             // (e.g. re-dispatch of the same turn, retry path).
+            //
+            // Known race: CEE writes to Supabase asynchronously before (or
+            // concurrently with) returning the HTTP response, so the first fetch
+            // may arrive before the row is written. The null-graph branch below
+            // exits silently; CEE should guarantee synchronous persistence before
+            // responding to eliminate the race entirely.
             const stageRaw = target.response.stage_indicator
             const stageIsAnalyse =
               stageRaw === 'analyse' ||
               (typeof stageRaw === 'object' && stageRaw !== null && (stageRaw as any).stage === 'analyse')
             const canvasIsEmpty = useCanvasStore.getState().nodes.length === 0
             if (stageIsAnalyse && canvasIsEmpty) {
+              // Capture scenario ID now; guard re-checks it after the async DB
+              // call to avoid applying a stale graph to the wrong scenario.
+              const scenarioIdAtDispatch = currentScenarioId
               // Fire-and-forget: do not await so message renders immediately.
               // Canvas update happens asynchronously ~100ms later.
               ;(async () => {
                 try {
-                  const userId = await getUserId()
-                  if (!userId) {
+                  if (!v5UserId) {
                     if (import.meta.env.DEV) {
                       console.warn('[sendTurn V5] graph re-fetch skipped: no auth session (guest mode)')
                     }
                     return
                   }
-                  const row = await loadScenarioFromDb(currentScenarioId)
+                  const row = await loadScenarioFromDb(scenarioIdAtDispatch)
                   if (!row?.graph) {
                     if (import.meta.env.DEV) {
-                      console.warn('[sendTurn V5] graph re-fetch: no graph in DB yet for scenario', currentScenarioId)
+                      console.warn('[sendTurn V5] graph re-fetch: no graph in DB yet for scenario', scenarioIdAtDispatch)
+                    }
+                    return
+                  }
+                  // Staleness guard: user may have switched scenarios while the
+                  // DB fetch was in-flight. Discard if the active scenario changed.
+                  if (useCanvasStore.getState().currentScenarioId !== scenarioIdAtDispatch) {
+                    if (import.meta.env.DEV) {
+                      console.warn('[sendTurn V5] graph re-fetch: scenario changed during fetch, discarding')
                     }
                     return
                   }

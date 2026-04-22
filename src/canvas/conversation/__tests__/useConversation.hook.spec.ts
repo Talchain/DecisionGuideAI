@@ -61,14 +61,20 @@ vi.mock('../../../v5/v5Adapter', () => ({
   callV5Turn: (...args: unknown[]) => mockCallV5Turn(...args),
 }))
 
-// Mock Supabase getUserId: returns null in tests (no real auth session).
+// Mock Supabase getUserId: vi.fn() so tests can reconfigure per-scenario.
+// Default: null (no auth session in test environment).
+const mockGetUserId = vi.fn<[], Promise<string | null>>()
+
 vi.mock('../../../lib/supabase', () => ({
-  getUserId: () => Promise.resolve(null),
+  getUserId: (...args: unknown[]) => mockGetUserId(...args as []),
 }))
 
-// Mock scenarioService loadScenario: returns null in tests (no DB).
+// Mock scenarioService loadScenario: vi.fn() so tests can return graph data.
+// Default: null (no DB in test environment).
+const mockLoadScenario = vi.fn<[string], Promise<unknown>>()
+
 vi.mock('../../../services/scenarioService', () => ({
-  loadScenario: () => Promise.resolve(null),
+  loadScenario: (...args: unknown[]) => mockLoadScenario(...args as [string]),
 }))
 
 // Pin both flags ON:
@@ -105,6 +111,11 @@ beforeEach(() => {
   // V5 adapter: default to hanging (matches the V4 mockCallTurn pattern used by timeout tests)
   mockCallV5Turn.mockReset()
   mockCallV5Turn.mockReturnValue(new Promise(() => {}))
+  // Auth + DB: default to no session / no DB row
+  mockGetUserId.mockReset()
+  mockGetUserId.mockResolvedValue(null)
+  mockLoadScenario.mockReset()
+  mockLoadScenario.mockResolvedValue(null)
   // Default: stream delegates to mockCallTurn (maintains backwards-compat with existing test setup)
   resetStreamToDefault()
   _clearTraces()
@@ -1868,5 +1879,123 @@ describe('session state round-trip', () => {
     const secondCallArgs = mockCallTurn.mock.calls[1]
     const secondRequest = secondCallArgs[0]
     expect(secondRequest.session_state).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// V5 graph re-fetch on analyse response
+// ---------------------------------------------------------------------------
+
+describe('V5 graph re-fetch on analyse response', () => {
+  const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+
+  const makeAnalyseResult = () => ({
+    kind: 'response' as const,
+    response: {
+      response_version: 2,
+      assistant_text: 'Graph built.',
+      blocks: [] as unknown[],
+      suggested_actions: [] as unknown[],
+      insights: [] as unknown[],
+      stage_indicator: 'analyse',
+    },
+  })
+
+  const GRAPH_FROM_DB = {
+    nodes: [
+      { id: 'n1', kind: 'goal', label: 'Revenue', category: 'outcome' },
+      { id: 'n2', kind: 'factor', label: 'Spend', category: 'controllable' },
+    ],
+    edges: [{ id: 'e1', source: 'n2', target: 'n1' }],
+  }
+
+  beforeEach(() => {
+    mockCallV5Turn.mockResolvedValue(makeAnalyseResult())
+    useCanvasStore.setState({
+      currentScenarioId: SCENARIO_ID,
+      nodes: [],
+      edges: [],
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+  })
+
+  it('fetches graph from DB and populates canvas when analyse response arrives with empty canvas', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    mockLoadScenario.mockResolvedValue({ id: SCENARIO_ID, graph: GRAPH_FROM_DB })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build my decision graph')
+    })
+
+    // Fire-and-forget is async; flush micro-tasks so the IIFE resolves.
+    await act(async () => {
+      await Promise.resolve()
+    })
+
+    expect(mockLoadScenario).toHaveBeenCalledWith(SCENARIO_ID)
+    expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+  })
+
+  it('skips DB fetch when no auth session (guest mode)', async () => {
+    mockGetUserId.mockResolvedValue(null)
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build my decision graph')
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockLoadScenario).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+  })
+
+  it('skips applying graph when scenario changes during DB fetch (staleness guard)', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+
+    let resolveLoad!: (v: unknown) => void
+    mockLoadScenario.mockReturnValue(new Promise((res) => { resolveLoad = res }))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build my decision graph')
+    })
+
+    // Simulate scenario switch while DB fetch is in-flight
+    act(() => {
+      useCanvasStore.setState({ currentScenarioId: 'different-scenario-uuid-here' })
+    })
+
+    // Now resolve the DB fetch with graph data
+    resolveLoad({ id: SCENARIO_ID, graph: GRAPH_FROM_DB })
+    await act(async () => { await Promise.resolve() })
+
+    // Canvas must remain empty — wrong scenario
+    expect(useCanvasStore.getState().nodes).toHaveLength(0)
+  })
+
+  it('skips DB fetch when canvas already has nodes (retry/re-dispatch guard)', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    // Pre-populate canvas so canvasIsEmpty is false
+    useCanvasStore.setState({
+      currentScenarioId: SCENARIO_ID,
+      nodes: [{ id: 'existing', type: 'goal', position: { x: 0, y: 0 }, data: {} }] as any,
+      edges: [],
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build my decision graph')
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockLoadScenario).not.toHaveBeenCalled()
   })
 })
