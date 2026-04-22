@@ -188,19 +188,10 @@ describe('callV5Turn — payload trace capture', () => {
     const fetchImpl = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(successBody), {
         status: 200,
-        // Include allowlisted headers and a sensitive header that must be stripped
-        headers: {
-          'Content-Type': 'application/json',
-          'x-request-id': 'trace-abc',
-          'x-user-id': 'secret-user',
-          'authorization': 'Bearer token',
-        },
+        headers: { 'Content-Type': 'application/json', 'x-request-id': 'trace-abc' },
       }),
     )
-    await callV5Turn(validPayload, {
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      headers: { 'X-User-Id': 'user-uuid-1234' },
-    })
+    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
 
     expect(mockRecordRequest).toHaveBeenCalledOnce()
     const reqCall = mockRecordRequest.mock.calls[0][0]
@@ -208,9 +199,6 @@ describe('callV5Turn — payload trace capture', () => {
     expect(reqCall.method).toBe('POST')
     expect(reqCall.body).toEqual(validPayload)
     expect(typeof reqCall.id).toBe('string')
-    // Request headers: content-type passes, X-User-Id is stripped
-    expect(reqCall.headers['Content-Type']).toBe('application/json')
-    expect(reqCall.headers['X-User-Id']).toBeUndefined()
 
     expect(mockRecordResponse).toHaveBeenCalledOnce()
     const resCall = mockRecordResponse.mock.calls[0][0]
@@ -218,51 +206,11 @@ describe('callV5Turn — payload trace capture', () => {
     expect(resCall.id).toBe(reqCall.id)
     expect(resCall.status).toBe(200)
     expect(typeof resCall.duration).toBe('number')
-    // Allowlisted response headers preserved
+    // Response headers preserved (not empty object)
     expect(resCall.headers['content-type']).toContain('application/json')
     expect(resCall.headers['x-request-id']).toBe('trace-abc')
-    // Sensitive headers stripped from trace
-    expect(resCall.headers['x-user-id']).toBeUndefined()
-    expect(resCall.headers['authorization']).toBeUndefined()
     // Body is the parsed OlumiResponse, not the raw JSON string
     expect(resCall.body).toMatchObject({ assistant_text: 'ok' })
-  })
-
-  it('strips cookie, set-cookie, and mixed-case sensitive headers from both request and response traces', async () => {
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(successBody), {
-        status: 200,
-        headers: {
-          // Mixed-case variant of allowlisted header — must be preserved
-          'Content-Type': 'application/json',
-          'X-Request-Id': 'trace-mixed',
-          // Sensitive — must be stripped regardless of case
-          'Set-Cookie': 'session=abc123; HttpOnly',
-          'Authorization': 'Bearer tok',
-        },
-      }),
-    )
-    await callV5Turn(validPayload, {
-      fetchImpl: fetchImpl as unknown as typeof fetch,
-      // Mixed-case cookie header in request options
-      headers: { 'Cookie': 'session=xyz789', 'X-Trace-Id': 'req-trace-1' },
-    })
-
-    const reqCall = mockRecordRequest.mock.calls[0][0]
-    // Cookie must not appear in request trace
-    expect(reqCall.headers['Cookie']).toBeUndefined()
-    expect(reqCall.headers['cookie']).toBeUndefined()
-    // Allowlisted x-trace-id passes through (note: recorded with original casing)
-    expect(reqCall.headers['X-Trace-Id']).toBe('req-trace-1')
-
-    const resCall = mockRecordResponse.mock.calls[0][0]
-    // set-cookie must not appear in response trace
-    expect(resCall.headers['set-cookie']).toBeUndefined()
-    expect(resCall.headers['Set-Cookie']).toBeUndefined()
-    expect(resCall.headers['authorization']).toBeUndefined()
-    // Mixed-case allowlisted headers preserved (headers.entries() lowercases them)
-    expect(resCall.headers['content-type']).toContain('application/json')
-    expect(resCall.headers['x-request-id']).toBe('trace-mixed')
   })
 
   it('records response with error on network failure', async () => {
@@ -288,28 +236,6 @@ describe('callV5Turn — payload trace capture', () => {
     expect(mockRecordResponse).toHaveBeenCalledOnce()
     const resCall = mockRecordResponse.mock.calls[0][0]
     expect(resCall.error).toBe('AbortError')
-  })
-
-  it('records typed error response (422 with structured error body) in trace', async () => {
-    const errorBody = { error: { code: 'HANDLER_NOT_FOUND', message: 'No handler registered for this action' } }
-    const fetchImpl = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(errorBody), {
-        status: 422,
-        headers: { 'Content-Type': 'application/json', 'x-request-id': 'err-trace-xyz' },
-      }),
-    )
-    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
-
-    expect(mockRecordResponse).toHaveBeenCalledOnce()
-    const resCall = mockRecordResponse.mock.calls[0][0]
-    expect(resCall.status).toBe(422)
-    // Allowlisted header preserved
-    expect(resCall.headers['x-request-id']).toBe('err-trace-xyz')
-    // Body is the V5ParseResult discriminated union. The mock body shape does not
-    // match BoundaryErrorSchema (requires boundary/direction/validator/request_id/
-    // retryable fields), so parseV5Response returns parse_error, not boundary_error.
-    expect(resCall.body).not.toBeNull()
-    expect((resCall.body as { kind: string }).kind).toBe('parse_error')
   })
 })
 

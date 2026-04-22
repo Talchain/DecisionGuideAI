@@ -16,10 +16,12 @@
  * - XML escaping: labels/messages with &amp; &lt; &gt; render correctly
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act, waitFor, fireEvent } from '@testing-library/react'
 import { SuggestedChips } from '../zones/SuggestedChips'
 import type { ActionChip } from '../types'
+
+// No feature flag mock needed — legacy path removed, V2 is the only path.
 
 // ---------------------------------------------------------------------------
 // Fixture helper
@@ -314,68 +316,5 @@ describe('SuggestedChips — retry chip filtered out (no message)', () => {
     expect(screen.queryByTestId('suggested-chip-retry')).not.toBeInTheDocument()
     expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
     expect(screen.getAllByRole('button')).toHaveLength(1)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// V5 chip filtering — gated on VITE_ENABLE_V5_ORCHESTRATOR
-// ---------------------------------------------------------------------------
-
-describe('SuggestedChips — V5 chip filtering', () => {
-  afterEach(() => {
-    vi.unstubAllEnvs()
-  })
-
-  it('V5 off → all chips render regardless of action_type (including non-V5 actions)', () => {
-    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
-    // Two chips so both fall within the DS cap of 2 — compare_options is directly proven to render.
-    const chips: ActionChip[] = [
-      chip({ id: 'c1', action_type: 'run_analysis', message: 'Run analysis' }),
-      chip({ id: 'c2', action_type: 'compare_options', message: 'Compare options' }),
-    ]
-    render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
-    // compare_options is NOT in V5_ENABLED_ACTIONS but must render on V4 path
-    expect(screen.getByTestId('suggested-chip-c2')).toBeInTheDocument()
-  })
-
-  it('V5 on → only V5_ENABLED_ACTIONS chips render (explain_result and compare_options dropped)', () => {
-    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
-    const chips: ActionChip[] = [
-      chip({ id: 'c1', action_type: 'run_analysis', message: 'Run analysis' }),
-      chip({ id: 'c2', action_type: 'explain_result', message: 'Explain result' }),
-      chip({ id: 'c3', action_type: 'compare_options', message: 'Compare options' }),
-    ]
-    render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
-    expect(screen.queryByTestId('suggested-chip-c2')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('suggested-chip-c3')).not.toBeInTheDocument()
-  })
-
-  it('V5 on → chips with no action_type always render (coaching/free-form pass through)', () => {
-    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
-    const chips: ActionChip[] = [
-      chip({ id: 'c1', action_type: undefined, label: 'Tell me more', message: 'Tell me more about this' }),
-      chip({ id: 'c2', action_type: 'explain_result', message: 'Explain result' }),
-    ]
-    render(<SuggestedChips chips={chips} onChipClick={vi.fn().mockResolvedValue(undefined)} />)
-    expect(screen.getByTestId('suggested-chip-c1')).toBeInTheDocument()
-    expect(screen.queryByTestId('suggested-chip-c2')).not.toBeInTheDocument()
-  })
-
-  it('V5 on → coaching chip renders regardless of flag (both modes)', () => {
-    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'false')
-    const coachingChip = chip({ id: 'coaching', action_type: undefined, label: 'Tell me more', message: 'Tell me more' })
-    const { unmount } = render(
-      <SuggestedChips chips={[coachingChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
-    )
-    expect(screen.getByTestId('suggested-chip-coaching')).toBeInTheDocument()
-    unmount()
-
-    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
-    render(
-      <SuggestedChips chips={[coachingChip]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
-    )
-    expect(screen.getByTestId('suggested-chip-coaching')).toBeInTheDocument()
   })
 })

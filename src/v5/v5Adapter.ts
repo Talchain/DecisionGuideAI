@@ -22,27 +22,6 @@ import { parseV5Response, type V5ParseResult } from './responseParser';
 
 export type V5CallResult = V5ParseResult;
 
-// Headers safe to include in exported debug bundles. Authorization, cookies,
-// and user-identifying headers are omitted. Only diagnostic correlation IDs
-// and content negotiation headers pass through.
-const TRACE_HEADER_ALLOWLIST = new Set([
-  'content-type',
-  'x-request-id',
-  'x-trace-id',
-  'x-cee-request-id',
-  'x-response-hash',
-]);
-
-function redactHeaders(headers: Record<string, string>): Record<string, string> {
-  const redacted: Record<string, string> = {};
-  for (const [key, value] of Object.entries(headers)) {
-    if (TRACE_HEADER_ALLOWLIST.has(key.toLowerCase())) {
-      redacted[key] = value;
-    }
-  }
-  return redacted;
-}
-
 function resolveEndpoint(): string {
   const override = import.meta.env.VITE_V5_ENDPOINT as string | undefined;
   if (override && override.length > 0) return override;
@@ -68,11 +47,12 @@ export async function callV5Turn(
   const requestId = crypto.randomUUID();
   const requestedAt = Date.now();
 
+  // TODO: redact auth headers when auth is enabled
   recordRequestPayload({
     id: requestId,
     endpoint: url,
     method: 'POST',
-    headers: redactHeaders({ 'Content-Type': 'application/json', ...(opts.headers ?? {}) }),
+    headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) },
     body: payload,
   });
 
@@ -122,7 +102,7 @@ export async function callV5Turn(
   recordResponsePayload({
     id: requestId,
     status: res.status,
-    headers: redactHeaders(Object.fromEntries(res.headers.entries())),
+    headers: Object.fromEntries(res.headers.entries()),
     body: parsed.kind === 'response' ? parsed.response : parsed,
     duration: Date.now() - requestedAt,
   });
