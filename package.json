@@ -84,7 +84,7 @@
     "@floating-ui/react": "0.26.9",
     "@sentry/react": "^10.20.0",
     "@supabase/supabase-js": "2.39.7",
-    "@talchain/schemas": "file:./vendor/talchain-schemas-0.7.0.tgz",
+    "@talchain/schemas": "file:./vendor/talchain-schemas-0.8.1.tgz",
     "@tanstack/react-query": "^5.90.2",
     "@xyflow/react": "^12.8.6",
     "ajv": "^8.12.0",
