@@ -51,6 +51,26 @@ vi.mock('../turnService', () => ({
   },
 }))
 
+// Mock V5 adapter so callV5Turn never resolves (mirrors mockCallTurn's hang pattern).
+// Without this, VITE_ENABLE_V5_ORCHESTRATOR=true causes the V5 path to make
+// a real fetch(/bff/orchestrate/v2/turn) which fails fast, sets isThinking=false
+// in the finally block, and breaks timeout-progression tests.
+const mockCallV5Turn = vi.fn()
+
+vi.mock('../../../v5/v5Adapter', () => ({
+  callV5Turn: (...args: unknown[]) => mockCallV5Turn(...args),
+}))
+
+// Mock Supabase getUserId: returns null in tests (no real auth session).
+vi.mock('../../../lib/supabase', () => ({
+  getUserId: () => Promise.resolve(null),
+}))
+
+// Mock scenarioService loadScenario: returns null in tests (no DB).
+vi.mock('../../../services/scenarioService', () => ({
+  loadScenario: () => Promise.resolve(null),
+}))
+
 // Pin both flags ON:
 //   - isOrchestratorStreamingEnabled: the buildRequest payload block asserts
 //     against mockStreamTurn (streaming path). Without this, the flag
@@ -82,6 +102,9 @@ beforeEach(() => {
   vi.useFakeTimers()
   mockCallTurn.mockReset()
   mockStreamTurn.mockReset()
+  // V5 adapter: default to hanging (matches the V4 mockCallTurn pattern used by timeout tests)
+  mockCallV5Turn.mockReset()
+  mockCallV5Turn.mockReturnValue(new Promise(() => {}))
   // Default: stream delegates to mockCallTurn (maintains backwards-compat with existing test setup)
   resetStreamToDefault()
   _clearTraces()
@@ -191,10 +214,23 @@ describe('timeout progression (10s / 20s / 30s)', () => {
 // Input restore on error
 // ---------------------------------------------------------------------------
 
+// Minimal valid V5 response (for "success" path in lastFailedInput tests)
+const makeV5SuccessResult = (text = 'OK') => ({
+  kind: 'response' as const,
+  response: {
+    response_version: 2,
+    assistant_text: text,
+    blocks: [] as unknown[],
+    suggested_actions: [] as unknown[],
+    insights: [] as unknown[],
+    stage_indicator: 'frame',
+  },
+})
+
 describe('input restore on error (lastFailedInput)', () => {
   it('sets lastFailedInput on network error', async () => {
     mockCallTurn.mockRejectedValue(new Error('Network error'))
-
+    mockCallV5Turn.mockRejectedValue(new Error('Network error'))
 
     const { result } = renderHook(() => useConversation())
 
@@ -207,6 +243,7 @@ describe('input restore on error (lastFailedInput)', () => {
 
   it('sets lastFailedInput on timeout', async () => {
     mockCallTurn.mockReturnValue(new Promise(() => {}))
+    // mockCallV5Turn already hangs by default from beforeEach
 
     const { result } = renderHook(() => useConversation())
 
@@ -224,12 +261,14 @@ describe('input restore on error (lastFailedInput)', () => {
   it('clears lastFailedInput on next successful send', async () => {
     // First call fails
     mockCallTurn.mockRejectedValueOnce(new Error('fail'))
+    mockCallV5Turn.mockRejectedValueOnce(new Error('fail'))
 
     // Second call succeeds
     mockCallTurn.mockResolvedValueOnce({
       assistant_text: 'OK',
       client_turn_id: 'resp-1',
     })
+    mockCallV5Turn.mockResolvedValueOnce(makeV5SuccessResult())
 
     const { result } = renderHook(() => useConversation())
 
@@ -248,7 +287,7 @@ describe('input restore on error (lastFailedInput)', () => {
 
   it('clears lastFailedInput on clearHistory', async () => {
     mockCallTurn.mockRejectedValue(new Error('fail'))
-
+    mockCallV5Turn.mockRejectedValue(new Error('fail'))
 
     const { result } = renderHook(() => useConversation())
 
@@ -265,7 +304,7 @@ describe('input restore on error (lastFailedInput)', () => {
 
   it('clears lastFailedInput on scenario switch', async () => {
     mockCallTurn.mockRejectedValue(new Error('fail'))
-
+    mockCallV5Turn.mockRejectedValue(new Error('fail'))
 
     const { result } = renderHook(() => useConversation())
 
@@ -291,6 +330,13 @@ describe('input restore on error (lastFailedInput)', () => {
 
 describe('buildRequest payload — RF → CEE graph_state transform', () => {
   beforeEach(() => {
+    // These tests await sendMessage() to complete synchronously (they check the
+    // payload shape, not async behaviour). With VITE_ENABLE_V5_ORCHESTRATOR=true,
+    // the V5 path runs; if mockCallV5Turn hangs (the timeout-test default) every
+    // buildRequest test times out and corrupts subsequent hook instances.
+    // Resolve immediately with a minimal V5 success so sendMessage() completes.
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+
     // Seed store with realistic React Flow format nodes and edges
     useCanvasStore.setState({
       currentScenarioId: 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4',
@@ -1073,6 +1119,10 @@ describe('buildRequest payload — RF → CEE graph_state transform', () => {
 // ---------------------------------------------------------------------------
 
 describe('graph_hash_at_proposal stamping', () => {
+  beforeEach(() => {
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+  })
+
   it('stamps graph_hash_at_proposal on graph_patch blocks in envelope', async () => {
     // Set up a graph so generateGraphHash produces a deterministic hash
     useCanvasStore.setState({
@@ -1123,6 +1173,11 @@ describe('graph_hash_at_proposal stamping', () => {
 // ---------------------------------------------------------------------------
 
 describe('handleEnvelope — CEE wire shape handling', () => {
+  beforeEach(() => {
+    // These tests await sendMessage() synchronously. V5 path must resolve fast.
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+  })
+
   it('handles assistant_text: null (graph-only response) without crash', async () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: null,
@@ -1189,6 +1244,8 @@ describe('handleEnvelope — CEE wire shape handling', () => {
       assistant_text: 'OK',
       client_turn_id: 'resp-no-stage',
     })
+    // V5 must not call setCurrentStage — use parse_error so applyV5State is skipped.
+    mockCallV5Turn.mockResolvedValue({ kind: 'parse_error', reason: 'test-no-stage' })
 
     const { result } = renderHook(() => useConversation())
     await act(async () => {
@@ -1204,6 +1261,10 @@ describe('handleEnvelope — CEE wire shape handling', () => {
 // ---------------------------------------------------------------------------
 
 describe('retryLast — client_turn_id preservation and bubble semantics', () => {
+  beforeEach(() => {
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+  })
+
   it('retry reuses the same client_turn_id from the original send', async () => {
     // First call fails
     mockCallTurn.mockRejectedValueOnce(new Error('Server error'))
@@ -1307,6 +1368,11 @@ describe('retryLast — client_turn_id preservation and bubble semantics', () =>
 // ---------------------------------------------------------------------------
 
 describe('hidden send lifecycle', () => {
+  beforeEach(() => {
+    // These tests await sendMessage() synchronously. V5 path must resolve fast.
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+  })
+
   it('does not create a user message bubble for hidden sends', async () => {
     mockCallTurn.mockResolvedValue({
       assistant_text: 'Analysis started',
@@ -1544,6 +1610,10 @@ describe('hidden send lifecycle', () => {
 // ---------------------------------------------------------------------------
 
 describe('null-initial scenario_id lifecycle', () => {
+  beforeEach(() => {
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+  })
+
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
   it('lazily allocates a UUID scenario_id on first send when store starts with null', async () => {
@@ -1605,6 +1675,8 @@ describe('cancelTurn — T6 Stop button', () => {
     // loop's finally block is exercised. N8 only affects the streaming path —
     // the non-streaming path never sets streamingMsgIdRef.
     localStorage.setItem('feature.orchestratorStreaming', '1')
+    // These tests await sendMessage() synchronously. V5 path must resolve fast.
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
   })
 
   afterEach(() => {
@@ -1722,6 +1794,10 @@ describe('cancelTurn — T6 Stop button', () => {
 // ---------------------------------------------------------------------------
 
 describe('session state round-trip', () => {
+  beforeEach(() => {
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult())
+  })
+
   it('captures updated_session_state from envelope and resends on next turn', async () => {
     const sessionPayload = { predictions: [{ factor_id: 'fac_1', predicted: 0.5 }] }
 

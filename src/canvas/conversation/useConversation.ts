@@ -62,6 +62,9 @@ import type {
 import { MAX_CHIPS_PER_TURN, MAX_SUGGESTED_ACTIONS } from './types'
 import { applyAutoApplyPatch, synthesiseCeeAnalysisReady } from './utils/applyPatch'
 import { applyAnalysisReadyPatch } from './utils/mirrorAnalysisReady'
+import { loadScenario as loadScenarioFromDb } from '../../services/scenarioService'
+import { applyDraftResult } from '../utils/applyDraftResult'
+import { getUserId } from '../../lib/supabase'
 import { validateAnalysisReadyContract } from './validateAnalysisReadyContract'
 import { validateResponse, stripRepairLogLines, FALLBACK_TEXT } from './validateResponse'
 import type { CEEAnalysisReady, CEEGoalConstraint } from '../../adapters/cee/types'
@@ -2444,6 +2447,7 @@ export function useConversation(): UseConversationReturn {
         flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR,
       })
       if (v5Eligibility.eligible) {
+        if (import.meta.env.DEV) console.log('[V5] exclusive path entered') // TODO: remove
         const isSystemEvent = mode === 'system'
         const addUserBubble = !isSystemEvent && !hidden && !skipUserBubble
         const inputForRestore = (mode === 'user' && !hidden) ? message : null
@@ -2626,7 +2630,9 @@ export function useConversation(): UseConversationReturn {
         }
 
         try {
-          const v5Result = await callV5Turn(build.payload, { signal: controller.signal })
+          const v5UserId = await getUserId()
+          const v5Headers: Record<string, string> = v5UserId ? { 'X-User-Id': v5UserId } : {}
+          const v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
           clearLifecycleTimers()
 
           // Race guard: if the controller was aborted while the fetch was in
@@ -2654,6 +2660,59 @@ export function useConversation(): UseConversationReturn {
               if (stateApply.deferred.length > 0) {
                 console.warn('[sendTurn V5] state deferred:', stateApply.deferred)
               }
+            }
+
+            // After a draft_graph turn, CEE persists the graph to Supabase
+            // (scenarios.graph) rather than returning it in the response body.
+            // When stage_indicator === 'analyse' and the canvas is still empty,
+            // fetch the scenario from Supabase and apply the graph. Skips in
+            // guest mode (no auth session) or if the canvas already has nodes
+            // (e.g. re-dispatch of the same turn, retry path).
+            const stageRaw = target.response.stage_indicator
+            const stageIsAnalyse =
+              stageRaw === 'analyse' ||
+              (typeof stageRaw === 'object' && stageRaw !== null && (stageRaw as any).stage === 'analyse')
+            const canvasIsEmpty = useCanvasStore.getState().nodes.length === 0
+            if (stageIsAnalyse && canvasIsEmpty) {
+              // Fire-and-forget: do not await so message renders immediately.
+              // Canvas update happens asynchronously ~100ms later.
+              ;(async () => {
+                try {
+                  const userId = await getUserId()
+                  if (!userId) {
+                    if (import.meta.env.DEV) {
+                      console.warn('[sendTurn V5] graph re-fetch skipped: no auth session (guest mode)')
+                    }
+                    return
+                  }
+                  const row = await loadScenarioFromDb(currentScenarioId)
+                  if (!row?.graph) {
+                    if (import.meta.env.DEV) {
+                      console.warn('[sendTurn V5] graph re-fetch: no graph in DB yet for scenario', currentScenarioId)
+                    }
+                    return
+                  }
+                  const graphData = row.graph as any
+                  const nodeCount = (graphData?.nodes as unknown[])?.length ?? 0
+                  if (nodeCount === 0) {
+                    if (import.meta.env.DEV) {
+                      console.warn('[sendTurn V5] graph re-fetch: empty graph returned from DB')
+                    }
+                    return
+                  }
+                  // CEE writes the graph in its native format ({ nodes, edges }).
+                  // applyDraftResult handles CEE-format nodes and also tolerates
+                  // canvas-format nodes (passes unknown fields through).
+                  applyDraftResult(graphData as any)
+                  if (import.meta.env.DEV) {
+                    console.log('[sendTurn V5] graph applied from DB:', nodeCount, 'nodes')
+                  }
+                } catch (err) {
+                  if (import.meta.env.DEV) {
+                    console.warn('[sendTurn V5] graph re-fetch failed:', err)
+                  }
+                }
+              })()
             }
 
             const mappedBlocks =
