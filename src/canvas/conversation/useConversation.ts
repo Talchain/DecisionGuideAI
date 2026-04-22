@@ -2447,7 +2447,6 @@ export function useConversation(): UseConversationReturn {
         flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR,
       })
       if (v5Eligibility.eligible) {
-        if (import.meta.env.DEV) console.log('[V5] exclusive path entered') // TODO: remove
         const isSystemEvent = mode === 'system'
         const addUserBubble = !isSystemEvent && !hidden && !skipUserBubble
         const inputForRestore = (mode === 'user' && !hidden) ? message : null
@@ -2667,22 +2666,21 @@ export function useConversation(): UseConversationReturn {
 
             // After a draft_graph turn, CEE persists the graph to Supabase
             // (scenarios.graph) rather than returning it in the response body.
-            // When stage_indicator === 'analyse' and the canvas is still empty,
+            // When stage transitions to 'analyse' and the canvas is still empty,
             // fetch the scenario from Supabase and apply the graph. Skips in
             // guest mode (no auth session) or if the canvas already has nodes
             // (e.g. re-dispatch of the same turn, retry path).
+            //
+            // Uses stateApply.applied (set by applyV5State above) rather than
+            // re-parsing stage_indicator — avoids duplicating normaliseStage logic.
             //
             // Known race: CEE writes to Supabase asynchronously before (or
             // concurrently with) returning the HTTP response, so the first fetch
             // may arrive before the row is written. The null-graph branch below
             // exits silently; CEE should guarantee synchronous persistence before
             // responding to eliminate the race entirely.
-            const stageRaw = target.response.stage_indicator
-            const stageIsAnalyse =
-              stageRaw === 'analyse' ||
-              (typeof stageRaw === 'object' && stageRaw !== null && (stageRaw as any).stage === 'analyse')
             const canvasIsEmpty = useCanvasStore.getState().nodes.length === 0
-            if (stageIsAnalyse && canvasIsEmpty) {
+            if (stateApply.applied.includes('stage:analyse') && canvasIsEmpty) {
               // Capture scenario ID now; guard re-checks it after the async DB
               // call to avoid applying a stale graph to the wrong scenario.
               const scenarioIdAtDispatch = currentScenarioId
