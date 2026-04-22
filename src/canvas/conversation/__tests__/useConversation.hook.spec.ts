@@ -1999,3 +1999,147 @@ describe('V5 graph re-fetch on analyse response', () => {
     expect(mockLoadScenario).not.toHaveBeenCalled()
   })
 })
+
+// ---------------------------------------------------------------------------
+// V5 inline graph — primary render path (v0.8.0 contract)
+// ---------------------------------------------------------------------------
+
+describe('V5 inline graph from response.draft_graph', () => {
+  const SCENARIO_ID = 'a0a0a0a0-b1b1-4c2c-8d3d-e4e4e4e4e4e4'
+
+  const INLINE_GRAPH = {
+    nodes: [
+      { id: 'n1', kind: 'goal', label: 'Revenue', category: 'outcome' },
+      { id: 'n2', kind: 'factor', label: 'Spend', category: 'controllable' },
+    ],
+    edges: [{ id: 'e1', from: 'n2', to: 'n1', weight: 0.7 }],
+    node_count: 2,
+    edge_count: 1,
+  }
+
+  const makeAnalyseResultWithInlineGraph = (graph = INLINE_GRAPH) => ({
+    kind: 'response' as const,
+    response: {
+      response_version: 2,
+      assistant_text: 'Drafted a decision graph with 2 nodes and 1 edges.',
+      blocks: [] as unknown[],
+      suggested_actions: [] as unknown[],
+      insights: [] as unknown[],
+      stage_indicator: 'analyse',
+      draft_graph: graph,
+    },
+  })
+
+  beforeEach(() => {
+    useCanvasStore.setState({
+      currentScenarioId: SCENARIO_ID,
+      nodes: [],
+      edges: [],
+      results: { status: 'idle' } as any,
+      currentScenarioLastResultHash: null,
+      selection: { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null },
+    })
+  })
+
+  it('applies inline graph to canvas without fetching from Supabase', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    mockCallV5Turn.mockResolvedValue(makeAnalyseResultWithInlineGraph())
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build my decision graph')
+    })
+
+    // Inline path is synchronous — no need to flush microtasks
+    expect(mockLoadScenario).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+  })
+
+  it('applies inline graph even when no auth session (guest mode)', async () => {
+    mockGetUserId.mockResolvedValue(null)
+    mockCallV5Turn.mockResolvedValue(makeAnalyseResultWithInlineGraph())
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build my decision graph')
+    })
+
+    expect(mockLoadScenario).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+  })
+
+  it('applies inline graph even when stage_indicator is not "analyse" (not gated on stage bookkeeping)', async () => {
+    mockGetUserId.mockResolvedValue(null)
+    // stage_indicator stays at 'frame' — applyV5State will not emit 'stage:analyse'
+    mockCallV5Turn.mockResolvedValue({
+      kind: 'response' as const,
+      response: {
+        response_version: 2,
+        assistant_text: 'Drafted a decision graph with 2 nodes and 1 edges.',
+        blocks: [] as unknown[],
+        suggested_actions: [] as unknown[],
+        insights: [] as unknown[],
+        stage_indicator: 'frame',
+        draft_graph: INLINE_GRAPH,
+      },
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build my decision graph')
+    })
+
+    expect(mockLoadScenario).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+  })
+
+  it('falls back to Supabase re-fetch when draft_graph absent from response', async () => {
+    mockGetUserId.mockResolvedValue('user-uuid-1234')
+    const GRAPH_FROM_DB = {
+      nodes: [{ id: 'db-node', kind: 'goal', label: 'DB Node', category: 'outcome' }],
+      edges: [],
+    }
+    mockLoadScenario.mockResolvedValue({ id: SCENARIO_ID, graph: GRAPH_FROM_DB })
+    // Response without draft_graph (simulates older CEE or missing field)
+    mockCallV5Turn.mockResolvedValue({
+      kind: 'response' as const,
+      response: {
+        response_version: 2,
+        assistant_text: 'Graph built.',
+        blocks: [] as unknown[],
+        suggested_actions: [] as unknown[],
+        insights: [] as unknown[],
+        stage_indicator: 'analyse',
+        // no draft_graph field
+      },
+    })
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('build my decision graph')
+    })
+
+    await act(async () => { await Promise.resolve() })
+
+    expect(mockLoadScenario).toHaveBeenCalledWith(SCENARIO_ID)
+    expect(useCanvasStore.getState().nodes.length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// V1 leakage regression test (Task 7)
+// ---------------------------------------------------------------------------
+
+describe('V1 leakage regression — V5 flag prevents V4 streaming path', () => {
+  it('calls callV5Turn and does NOT call mockStreamTurn when V5 flag is on', async () => {
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult('V5 response'))
+
+    const { result } = renderHook(() => useConversation())
+    await act(async () => {
+      await result.current.sendMessage('test message for V5')
+    })
+
+    expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+    expect(mockStreamTurn).not.toHaveBeenCalled()
+  })
+})

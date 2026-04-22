@@ -2664,28 +2664,28 @@ export function useConversation(): UseConversationReturn {
               }
             }
 
-            // After a draft_graph turn, CEE persists the graph to Supabase
-            // (scenarios.graph) rather than returning it in the response body.
-            // When stage transitions to 'analyse' and the canvas is still empty,
-            // fetch the scenario from Supabase and apply the graph. Skips in
-            // guest mode (no auth session) or if the canvas already has nodes
-            // (e.g. re-dispatch of the same turn, retry path).
-            //
-            // Uses stateApply.applied (set by applyV5State above) rather than
-            // re-parsing stage_indicator — avoids duplicating normaliseStage logic.
-            //
-            // Known race: CEE writes to Supabase asynchronously before (or
-            // concurrently with) returning the HTTP response, so the first fetch
-            // may arrive before the row is written. The null-graph branch below
-            // exits silently; CEE should guarantee synchronous persistence before
-            // responding to eliminate the race entirely.
+            // Primary path: inline graph in response.draft_graph (CEE v0.8.0+).
+            // Gated on canvas-empty + scenario-match only — NOT on stage bookkeeping.
+            // This ensures draft_graph is applied even if applyV5State didn't emit
+            // 'stage:analyse' (e.g. stage was already at analyse, or stage tracking
+            // diverged). Works in guest mode — no auth required.
             const canvasIsEmpty = useCanvasStore.getState().nodes.length === 0
-            if (stateApply.applied.includes('stage:analyse') && canvasIsEmpty) {
-              // Capture scenario ID now; guard re-checks it after the async DB
-              // call to avoid applying a stale graph to the wrong scenario.
-              const scenarioIdAtDispatch = currentScenarioId
+            const scenarioIdAtDispatch = currentScenarioId
+            const inlineGraph = target.response.draft_graph
+            const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0
+
+            if (inlineGraph && inlineNodeCount > 0 && canvasIsEmpty) {
+              if (useCanvasStore.getState().currentScenarioId === scenarioIdAtDispatch) {
+                applyDraftResult(inlineGraph as any)
+                if (import.meta.env.DEV) {
+                  console.log('[sendTurn V5] graph applied from inline response:', inlineNodeCount, 'nodes')
+                }
+              }
+            } else if (!inlineGraph && stateApply.applied.includes('stage:analyse') && canvasIsEmpty) {
+              // Fallback path: draft_graph absent → re-fetch from Supabase.
+              // Still gated on stage:analyse because without an inline graph, that
+              // transition is the only signal that a graph was produced. Requires auth.
               // Fire-and-forget: do not await so message renders immediately.
-              // Canvas update happens asynchronously ~100ms later.
               ;(async () => {
                 try {
                   if (!v5UserId) {
@@ -2717,12 +2717,9 @@ export function useConversation(): UseConversationReturn {
                     }
                     return
                   }
-                  // CEE writes the graph in its native format ({ nodes, edges }).
-                  // applyDraftResult handles CEE-format nodes and also tolerates
-                  // canvas-format nodes (passes unknown fields through).
                   applyDraftResult(graphData as any)
                   if (import.meta.env.DEV) {
-                    console.log('[sendTurn V5] graph applied from DB:', nodeCount, 'nodes')
+                    console.log('[sendTurn V5] graph applied from DB fallback:', nodeCount, 'nodes')
                   }
                 } catch (err) {
                   if (import.meta.env.DEV) {
