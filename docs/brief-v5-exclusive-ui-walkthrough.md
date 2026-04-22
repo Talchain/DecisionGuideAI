@@ -183,7 +183,7 @@ Submitting a brief through V5 currently produces a **text-only or conversational
 2. **`graph_patch: add_constraint`** — canonical constraint → `prior.range_min/range_max/threshold` mapping deferred.
 3. **`applyV5State` add_node / add_edge** — when CEE ships add_node/add_edge schema operations, `applyV5State` must call `addNode` / `addEdge` on the canvas store. Not implementable until the schema bump lands.
 4. **DecisionReviewPanel reading V5 enrichment** — adapter in place; panel hook wiring is a separate integration. Inline card covers primary user-facing case.
-5. **Scenario auto-allocation on missing scenario** — V5 short-circuits with a user-friendly message. V4 has implicit allocation; matching V5 is out of this brief's scope.
+5. ✅ **Scenario auto-allocation** — shipped in commit `9e3f21f3`. Lazy UUID allocation on first V5 turn if `currentScenarioId` is absent or non-UUID; persisted to canvas store so subsequent turns reuse the same ID.
 6. **UI emission sites for `chip_click`, `undo`, `redo` system events** — V5 schema supports them; UI product flow decisions pending.
 7. **Journey-driven Playwright smoke** — current smoke asserts V1 absence during bootstrap. Journey coverage would positively verify V2 body shapes under real traffic.
 8. **useConversation.ts in CI typecheck** — blocked by ~20 pre-existing V4 type-debt errors unrelated to V5; requires a dedicated V4 type-cleanup effort.

@@ -25,7 +25,6 @@ import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
 import { deriveV5Stage } from '../../v5/stageMapper'
 import { applyV5State } from '../../v5/applyV5State'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
-import { getUserId } from '../../lib/supabase'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
 import { useResultsStore } from '../stores/resultsStore'
@@ -2627,11 +2626,7 @@ export function useConversation(): UseConversationReturn {
         }
 
         try {
-          // X-User-Id: authenticated sessions only. Guest mode (VITE_AUTH_MODE=guest
-          // or no Supabase session) omits the header; CEE treats it as guest.
-          const v5UserId = await getUserId()
-          const v5Headers: Record<string, string> = v5UserId ? { 'X-User-Id': v5UserId } : {}
-          const v5Result = await callV5Turn(build.payload, { signal: controller.signal, headers: v5Headers })
+          const v5Result = await callV5Turn(build.payload, { signal: controller.signal })
           clearLifecycleTimers()
 
           // Race guard: if the controller was aborted while the fetch was in
