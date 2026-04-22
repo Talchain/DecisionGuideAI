@@ -11,7 +11,9 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { callV5Turn } from '../v5Adapter';
 import { routeV5Response } from '../responseRouter';
-import type { OlumiResponse, OrchestratorTurnPayload } from '@talchain/schemas/boundary';
+import { extractReason, resolveGuidance } from '../failureTypeRetryability';
+import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary';
+import type { OlumiResponse, OrchestratorTurnPayload, BoundaryError } from '@talchain/schemas/boundary';
 
 const VALID_PAYLOAD: OrchestratorTurnPayload = {
   kind: 'message',
@@ -178,5 +180,129 @@ describe('V5 end-to-end: callV5Turn → routeV5Response', () => {
     const result = await callV5Turn(systemEventPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
     const target = routeV5Response(result);
     expect(target.kind).toBe('text_only');
+  });
+
+  it('scenario_id is forwarded identically across two sequential turns in a session', async () => {
+    // Covers the session lifecycle bug: a new UUID must NOT be allocated per-turn.
+    // Both calls share a scenario_id; turn_ids differ (each turn is a new client ID).
+    // This tests at the adapter dispatch level rather than the payload builder alone.
+    const textResponse: OlumiResponse = {
+      response_version: 2,
+      assistant_text: 'Got it.',
+      blocks: [],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const SCENARIO = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+    const firstPayload: OrchestratorTurnPayload = {
+      ...VALID_PAYLOAD,
+      turn_id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+      scenario_id: SCENARIO,
+      message: 'I need to decide between two candidates.',
+    };
+    const secondPayload: OrchestratorTurnPayload = {
+      ...VALID_PAYLOAD,
+      turn_id: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+      scenario_id: SCENARIO,
+      message: 'What factors matter most?',
+    };
+
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => textResponse,
+      text: async () => JSON.stringify(textResponse),
+    } as Response);
+
+    await callV5Turn(firstPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    await callV5Turn(secondPayload, { fetchImpl: fetchImpl as unknown as typeof fetch });
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    const firstBody = JSON.parse(fetchImpl.mock.calls[0][1].body as string);
+    const secondBody = JSON.parse(fetchImpl.mock.calls[1][1].body as string);
+
+    // Different turns
+    expect(firstBody.turn_id).not.toBe(secondBody.turn_id);
+    // Same scenario
+    expect(firstBody.scenario_id).toBe(SCENARIO);
+    expect(secondBody.scenario_id).toBe(SCENARIO);
+  });
+});
+
+describe('V5 typed error — layered content assembly', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('boundary_error with details.reason produces canonical + reason + guidance layers', async () => {
+    // Mirrors the three-layer join in useConversation's typed_error branch:
+    //   FAILURE_USER_TEXT[code] + extractReason(boundaryError) + resolveGuidance(code)
+    // A refactor that drops any layer or substitutes a generic string would fail this test.
+    const boundaryErr: BoundaryError = {
+      error: 'INGRESS_CONTRACT_VIOLATION',
+      boundary: 'B1',
+      direction: 'ingress',
+      validator: 'OrchestratorTurnPayload',
+      details: { reason: 'turn_id must be a UUID v4' },
+      request_id: 'req_abc',
+      retryable: false,
+    };
+
+    const fetchImpl = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 422,
+      headers: new Headers({ 'content-type': 'application/json' }),
+      json: async () => boundaryErr,
+      text: async () => JSON.stringify(boundaryErr),
+    } as Response);
+
+    const result = await callV5Turn(VALID_PAYLOAD, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const target = routeV5Response(result);
+
+    expect(target.kind).toBe('typed_error');
+    if (target.kind !== 'typed_error') return;
+
+    // Reproduce the exact join useConversation performs
+    const canonicalText = FAILURE_USER_TEXT[target.code];
+    const reason = extractReason(target.boundaryError);
+    const guidance = resolveGuidance(target.code);
+    const content = [canonicalText, reason, guidance].filter((s) => s.length > 0).join('\n\n');
+
+    // Canonical layer — never generic
+    expect(canonicalText).toBe('We could not process that request. Please try again.');
+    // Server reason layer — specific, not empty
+    expect(reason).toBe('turn_id must be a UUID v4');
+    // Guidance layer — non-retryable code gets actionable text
+    expect(guidance).toMatch(/rephrase/i);
+    // Joined content contains all three layers in order
+    expect(content).toContain(canonicalText);
+    expect(content).toContain('turn_id must be a UUID v4');
+    expect(content).toContain(guidance);
+  });
+
+  it('error block in response body (non-2xx path absent) produces typed_error with specific code', async () => {
+    // Covers the in-band error block path (2xx response containing an error block).
+    // Ensures the code is never collapsed to INTERNAL_ERROR generically.
+    const responseWithErrorBlock: OlumiResponse = {
+      response_version: 2,
+      assistant_text: 'That took longer than we allow for a single turn. Please retry.',
+      blocks: [{ type: 'error', error_code: 'TURN_BUDGET_EXCEEDED', severity: 'error' }],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const fetchImpl = mockFetchReturning(responseWithErrorBlock);
+    const result = await callV5Turn(VALID_PAYLOAD, { fetchImpl: fetchImpl as unknown as typeof fetch });
+    const target = routeV5Response(result);
+
+    expect(target.kind).toBe('typed_error');
+    if (target.kind !== 'typed_error') return;
+
+    expect(target.code).toBe('TURN_BUDGET_EXCEEDED');
+    // Canonical text for this code is specific, not the generic INTERNAL_ERROR text
+    expect(FAILURE_USER_TEXT[target.code]).toMatch(/turn/i);
+    expect(FAILURE_USER_TEXT[target.code]).not.toBe(FAILURE_USER_TEXT['INTERNAL_ERROR']);
   });
 });

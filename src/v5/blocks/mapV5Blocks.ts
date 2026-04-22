@@ -66,8 +66,12 @@ export function mapV5Block(block: V5Block): ConversationBlock | null {
       }
     default: {
       const _exhaustive: never = block
-      // Unreachable at compile time; placate the narrowing guard without
-      // crashing if a future schema bump adds a kind.
+      // Unreachable at compile time (OlumiResponseSchema is strict, so unknown
+      // block types fail parseV5Response before reaching here). Surface in DEV
+      // to catch schema drift early without crashing.
+      if (import.meta.env.DEV) {
+        console.warn('[V5] unmapped block type:', (_exhaustive as { type?: string } | null)?.type ?? 'unknown', _exhaustive)
+      }
       return {
         type: 'v5_unsupported',
         blockType: (_exhaustive as { type?: string } | null)?.type ?? 'unknown',

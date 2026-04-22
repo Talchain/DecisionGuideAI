@@ -99,6 +99,54 @@ describe('callV5Turn', () => {
   });
 });
 
+describe('callV5Turn — X-User-Id header', () => {
+  it('passes X-User-Id when provided as header option', async () => {
+    const body = {
+      response_version: 2,
+      assistant_text: 'ok',
+      blocks: [],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      headers: { 'X-User-Id': 'user-uuid-1234' },
+    });
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.headers['X-User-Id']).toBe('user-uuid-1234');
+  });
+
+  it('omits X-User-Id in guest mode (empty headers)', async () => {
+    const body = {
+      response_version: 2,
+      assistant_text: 'ok',
+      blocks: [],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'frame',
+    };
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(body), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+      headers: {},
+    });
+    const [, init] = fetchImpl.mock.calls[0];
+    expect(init.headers['X-User-Id']).toBeUndefined();
+  });
+});
+
 describe('callV5Turn — endpoint resolution', () => {
   beforeEach(() => {
     delete (import.meta.env as Record<string, unknown>).VITE_V5_ENDPOINT;
