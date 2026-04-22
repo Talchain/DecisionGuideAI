@@ -2132,14 +2132,30 @@ describe('V5 inline graph from response.draft_graph', () => {
 
 describe('V1 leakage regression — V5 flag prevents V4 streaming path', () => {
   it('calls callV5Turn and does NOT call mockStreamTurn when V5 flag is on', async () => {
-    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult('V5 response'))
+    const V5_TEXT = 'V5 exclusive response'
+    mockCallV5Turn.mockResolvedValue(makeV5SuccessResult(V5_TEXT))
 
     const { result } = renderHook(() => useConversation())
     await act(async () => {
       await result.current.sendMessage('test message for V5')
     })
 
+    // 1. V5 adapter was invoked exactly once
     expect(mockCallV5Turn).toHaveBeenCalledTimes(1)
+
+    // 2. V4 streaming path was never entered
     expect(mockStreamTurn).not.toHaveBeenCalled()
+
+    // 3. No V4-only streaming store states were set (streaming/connecting
+    //    are states the V4 path sets before results arrive; V5 is one-shot)
+    const resultsStatus = useCanvasStore.getState().results.status
+    expect(resultsStatus).not.toBe('streaming')
+    expect(resultsStatus).not.toBe('connecting')
+
+    // 4. Response was processed through V5 path: the assistant message
+    //    content matches the V5 mock response text (not a V4 envelope format)
+    const assistantMsg = result.current.messages.find((m) => m.role === 'assistant')
+    expect(assistantMsg).toBeDefined()
+    expect(assistantMsg?.content).toBe(V5_TEXT)
   })
 })

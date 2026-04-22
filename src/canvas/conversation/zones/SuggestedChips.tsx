@@ -15,7 +15,13 @@
 
 import { useState, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
+import { isV5Eligible } from '../../../v5/eligibility'
 import type { ActionChip } from '../types'
+
+// Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
+// not in this list are filtered out when V5 is active. On V4 this set is
+// unused — all chips pass through unchanged.
+const V5_ENABLED_ACTIONS = new Set<string>(['run_analysis', 'edit_graph', 'draft_graph'])
 
 interface SuggestedChipsProps {
   chips: ActionChip[]
@@ -43,8 +49,31 @@ export function SuggestedChips({
 
   // Historical chips removed entirely — no false affordance.
   if (isHistorical) return null
+
+  // Evaluate V5 eligibility per-render so test env overrides (vi.stubEnv)
+  // are picked up correctly. import.meta.env is Vite-inlined at build time,
+  // but the check is cheap and correctness matters more here.
+  const v5Active = isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+
+  // When V5 is active, filter out chips whose action_type is not yet handled
+  // by the V5 CEE. Chips with no action_type (coaching, free-form) always
+  // pass through. When V5 is off, all chips pass through unchanged (V4).
+  const supported = v5Active
+    ? chips.filter((c) => !c.action_type || V5_ENABLED_ACTIONS.has(c.action_type))
+    : chips
+  if (import.meta.env.DEV && v5Active) {
+    const removed = chips.filter(
+      (c) => c.action_type && !V5_ENABLED_ACTIONS.has(c.action_type),
+    )
+    if (removed.length > 0) {
+      console.warn(
+        `[V5] Filtered ${removed.length} unsupported chips: ${removed.map((c) => c.action_type).join(', ')}`,
+      )
+    }
+  }
+
   // DS v5 §21.4: max 2 suggested action chips
-  const visible = chips.filter(c => !!(c.message || c.prompt)).slice(0, 2)
+  const visible = supported.filter(c => !!(c.message || c.prompt)).slice(0, 2)
   if (visible.length === 0) return null
 
   // Auto-dismiss chip error after 5s

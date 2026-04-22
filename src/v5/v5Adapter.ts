@@ -17,6 +17,7 @@
  */
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 
+import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store';
 import { parseV5Response, type V5ParseResult } from './responseParser';
 
 export type V5CallResult = V5ParseResult;
@@ -43,6 +44,18 @@ export async function callV5Turn(
   const url = resolveEndpoint();
   const fetchFn = opts.fetchImpl ?? fetch;
 
+  const requestId = crypto.randomUUID();
+  const requestedAt = Date.now();
+
+  // TODO: redact auth headers when auth is enabled
+  recordRequestPayload({
+    id: requestId,
+    endpoint: url,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...(opts.headers ?? {}) },
+    body: payload,
+  });
+
   let res: Response;
   try {
     res = await fetchFn(url, {
@@ -60,14 +73,40 @@ export async function callV5Turn(
     // Preserve AbortError so callers can distinguish user-initiated cancel
     // from network failure. The parser layer treats anything else as
     // `parse_error`, matching fail-closed policy.
-    if (err.name === 'AbortError') throw err;
+    if (err.name === 'AbortError') {
+      recordResponsePayload({
+        id: requestId,
+        status: 0,
+        headers: {},
+        body: null,
+        duration: Date.now() - requestedAt,
+        error: 'AbortError',
+      });
+      throw err;
+    }
+    recordResponsePayload({
+      id: requestId,
+      status: 0,
+      headers: {},
+      body: null,
+      duration: Date.now() - requestedAt,
+      error: err.message,
+    });
     return {
       kind: 'parse_error',
       reason: `network error: ${err.message}`,
     };
   }
 
-  return parseV5Response(res);
+  const parsed = await parseV5Response(res);
+  recordResponsePayload({
+    id: requestId,
+    status: res.status,
+    headers: Object.fromEntries(res.headers.entries()),
+    body: parsed.kind === 'response' ? parsed.response : parsed,
+    duration: Date.now() - requestedAt,
+  });
+  return parsed;
 }
 
 // Exposed for the adapter's own tests.

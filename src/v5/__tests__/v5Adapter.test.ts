@@ -4,12 +4,24 @@
  * v5-ui-exclusive-path brief (Phase 3): the adapter no longer gates on the
  * flag — the caller (useConversation) does that via `isV5Eligible` and the
  * `fall_through_v4` sentinel is gone. Tests cover endpoint resolution, HTTP
- * dispatch, parse_error surfacing, and AbortError passthrough.
+ * dispatch, parse_error surfacing, AbortError passthrough, and payload trace
+ * capture (recordRequestPayload / recordResponsePayload).
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import { callV5Turn } from '../v5Adapter';
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
+
+// ---------------------------------------------------------------------------
+// Payload trace store mock — spy on recording calls without real Zustand
+// ---------------------------------------------------------------------------
+const mockRecordRequest = vi.fn()
+const mockRecordResponse = vi.fn()
+
+vi.mock('../../lib/payload-trace-store', () => ({
+  recordRequestPayload: (...args: unknown[]) => mockRecordRequest(...args),
+  recordResponsePayload: (...args: unknown[]) => mockRecordResponse(...args),
+}))
 
 const validPayload: OrchestratorTurnPayload = {
   kind: 'message',
@@ -22,6 +34,11 @@ const validPayload: OrchestratorTurnPayload = {
 };
 
 describe('callV5Turn', () => {
+  beforeEach(() => {
+    mockRecordRequest.mockReset()
+    mockRecordResponse.mockReset()
+  })
+
   afterEach(() => {
     vi.restoreAllMocks();
   });
@@ -100,6 +117,11 @@ describe('callV5Turn', () => {
 });
 
 describe('callV5Turn — X-User-Id header', () => {
+  beforeEach(() => {
+    mockRecordRequest.mockReset()
+    mockRecordResponse.mockReset()
+  })
+
   it('passes X-User-Id when provided as header option', async () => {
     const body = {
       response_version: 2,
@@ -146,6 +168,76 @@ describe('callV5Turn — X-User-Id header', () => {
     expect(init.headers['X-User-Id']).toBeUndefined();
   });
 });
+
+describe('callV5Turn — payload trace capture', () => {
+  beforeEach(() => {
+    mockRecordRequest.mockReset()
+    mockRecordResponse.mockReset()
+  })
+
+  const successBody = {
+    response_version: 2,
+    assistant_text: 'ok',
+    blocks: [],
+    suggested_actions: [],
+    insights: [],
+    stage_indicator: 'frame',
+  }
+
+  it('records request payload before fetch and response payload after', async () => {
+    const fetchImpl = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify(successBody), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json', 'x-request-id': 'trace-abc' },
+      }),
+    )
+    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
+
+    expect(mockRecordRequest).toHaveBeenCalledOnce()
+    const reqCall = mockRecordRequest.mock.calls[0][0]
+    expect(reqCall.endpoint).toContain('/orchestrate/v2/turn')
+    expect(reqCall.method).toBe('POST')
+    expect(reqCall.body).toEqual(validPayload)
+    expect(typeof reqCall.id).toBe('string')
+
+    expect(mockRecordResponse).toHaveBeenCalledOnce()
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    // Same correlation ID as the request
+    expect(resCall.id).toBe(reqCall.id)
+    expect(resCall.status).toBe(200)
+    expect(typeof resCall.duration).toBe('number')
+    // Response headers preserved (not empty object)
+    expect(resCall.headers['content-type']).toContain('application/json')
+    expect(resCall.headers['x-request-id']).toBe('trace-abc')
+    // Body is the parsed OlumiResponse, not the raw JSON string
+    expect(resCall.body).toMatchObject({ assistant_text: 'ok' })
+  })
+
+  it('records response with error on network failure', async () => {
+    const fetchImpl = vi.fn().mockRejectedValue(new Error('offline'))
+    await callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch })
+
+    expect(mockRecordRequest).toHaveBeenCalledOnce()
+    expect(mockRecordResponse).toHaveBeenCalledOnce()
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    expect(resCall.status).toBe(0)
+    expect(resCall.error).toContain('offline')
+  })
+
+  it('records AbortError before rethrowing', async () => {
+    const abortErr = new Error('aborted')
+    abortErr.name = 'AbortError'
+    const fetchImpl = vi.fn().mockRejectedValue(abortErr)
+
+    await expect(
+      callV5Turn(validPayload, { fetchImpl: fetchImpl as unknown as typeof fetch }),
+    ).rejects.toThrow('aborted')
+
+    expect(mockRecordResponse).toHaveBeenCalledOnce()
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    expect(resCall.error).toBe('AbortError')
+  })
+})
 
 describe('callV5Turn — endpoint resolution', () => {
   beforeEach(() => {

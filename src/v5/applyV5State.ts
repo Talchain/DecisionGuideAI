@@ -15,15 +15,12 @@
  *      adjust_edge_strength. add_constraint is a NEEDS_FIX marker (no 1:1
  *      UI store target yet; constraints live on node prior fields and
  *      require a canonical source of truth from CEE).
+ *   3. analysis_result.enrichment.decision_review → runMeta.ceeReviewV1.
+ *      Block enrichment is the canonical source. A secondary check on a
+ *      non-schema top-level enrichment field (future CEE extension) is
+ *      gated behind a runtime presence check so it safely no-ops today.
  *
  * Deferred (NEEDS_FIX, tracked in walkthrough doc):
- *   - analysis_result → useResultsStore population (complex translator
- *     from V5 analysis shape to V2RunResponse shape; needs a separate
- *     slice with realistic fixtures).
- *   - decision_review enrichment → DecisionReviewPanel (the adapter is
- *     in place; the panel wiring reads this via its own hook — when
- *     that hook learns to consume the enrichment value directly, this
- *     applicator can forward it).
  *   - draft_graph shape — CEE doesn't emit it yet; matrix lists it as
  *     NEEDS_FIX.
  *
@@ -34,7 +31,9 @@
 import type { OlumiResponse, StageType } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
+import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
+import { extractDecisionReview } from './decisionReviewAdapter'
 import { v5StageToScenarioStage } from './stageMapper'
 
 /**
@@ -49,6 +48,8 @@ export interface V5ApplicatorStore {
   updateEdgeData: (id: string, data: Partial<Record<string, unknown>>) => void
   nodes: Node[]
   edges: Edge[]
+  /** Partial merge into runMeta — only provided fields are updated. */
+  setRunMeta: (meta: { ceeReviewV1: CeeDecisionReviewPayloadV1 | null }) => void
 }
 
 type V5Block = OlumiResponse['blocks'][number]
@@ -74,6 +75,25 @@ function normaliseStage(
     return isStage(s.stage) ? (s.stage as StageType) : null
   }
   return null
+}
+
+/**
+ * Extract and apply decision_review from an enrichment dict to runMeta.
+ * Returns true when applied; false when enrichment is absent or invalid.
+ */
+function applyDecisionReviewToRunMeta(
+  enrichment: Record<string, unknown> | undefined,
+  store: V5ApplicatorStore,
+  source: 'block' | 'top-level',
+): boolean {
+  if (!enrichment) return false
+  const reviewV1 = extractDecisionReview(enrichment)
+  if (!reviewV1) return false
+  store.setRunMeta({ ceeReviewV1: reviewV1 })
+  if (source === 'top-level' && import.meta.env.DEV) {
+    console.warn('[V5] decision_review applied from top-level enrichment fallback')
+  }
+  return true
 }
 
 export function applyV5State(
@@ -167,18 +187,45 @@ export function applyV5State(
         }
       }
     } else if (block.type === 'analysis_result') {
-      // Deferred — V5 analysis_result → useResultsStore V2RunResponse
-      // translator is a separate effort. The inline card in
-      // V5AnalysisResultBlock covers the user-facing case today; the
-      // side-panel DecisionReviewPanel read-path is NEEDS_FIX.
-      deferred.push({
-        reason: 'analysis_result_results_store_not_wired',
-        block,
-        detail: 'V5AnalysisResultBlock renders inline; useResultsStore population deferred.',
-      })
+      // Block-level enrichment is the canonical source for decision_review.
+      // Always write ceeReviewV1 — either the extracted value or null — so
+      // stale review content from a prior turn cannot persist when the new
+      // response carries no valid decision_review. The top-level fallback
+      // below may still overwrite null if top-level enrichment is present.
+      const blockEnrichment = block.enrichment
+      const appliedFromBlock = applyDecisionReviewToRunMeta(blockEnrichment, store, 'block')
+      if (appliedFromBlock) {
+        applied.push('analysis_result:decision_review:block')
+      } else {
+        // No valid review in block enrichment — clear explicitly so stale
+        // data from a previous analysis turn is not shown.
+        store.setRunMeta({ ceeReviewV1: null })
+        deferred.push({
+          reason: 'analysis_result_no_decision_review_in_block',
+          block,
+          detail: 'No valid decision_review in block enrichment; ceeReviewV1 cleared (top-level fallback may still apply).',
+        })
+      }
     }
     // Other block kinds (text, error, explanation, comparison, flip_analysis)
     // are render-only — no side effects.
+  }
+
+  // 3. Top-level enrichment fallback. The current OlumiResponse schema
+  // (0.7.0) is "strict" and does not include a top-level enrichment field.
+  // This check handles a future CEE extension where enrichment is lifted to
+  // the response root (e.g. when analysis runs in a multi-block response and
+  // the block carries no inline enrichment). It safely no-ops today.
+  if (!applied.includes('analysis_result:decision_review:block')) {
+    const topEnrichment = (response as unknown as { enrichment?: Record<string, unknown> }).enrichment
+    if (topEnrichment?.decision_review) {
+      const ok = applyDecisionReviewToRunMeta(
+        { decision_review: topEnrichment.decision_review },
+        store,
+        'top-level',
+      )
+      if (ok) applied.push('analysis_result:decision_review:top-level')
+    }
   }
 
   return { applied, deferred }

@@ -22,15 +22,18 @@ function makeStore(
   setCurrentStage: ReturnType<typeof vi.fn>
   updateNode: ReturnType<typeof vi.fn>
   updateEdgeData: ReturnType<typeof vi.fn>
+  setRunMeta: ReturnType<typeof vi.fn>
 } {
   const setCurrentStage = vi.fn()
   const updateNode = vi.fn()
   const updateEdgeData = vi.fn()
+  const setRunMeta = vi.fn()
   return {
-    store: { setCurrentStage, updateNode, updateEdgeData, nodes, edges },
+    store: { setCurrentStage, updateNode, updateEdgeData, setRunMeta, nodes, edges },
     setCurrentStage,
     updateNode,
     updateEdgeData,
+    setRunMeta,
   }
 }
 
@@ -160,6 +163,95 @@ describe('applyV5State — graph_patch:adjust_edge_strength', () => {
   })
 })
 
+describe('applyV5State — analysis_result: decision_review wiring', () => {
+  const validEnrichment = {
+    decision_review: {
+      intent: 'selection',
+      analysis_state: 'ran',
+      readiness: {
+        level: 'ready',
+        headline: 'Good to go',
+        factors: [],
+      },
+      blocks: [],
+    },
+  }
+
+  it('applies decision_review from block enrichment and calls setRunMeta', () => {
+    const { store, setRunMeta } = makeStore()
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'analysis_result',
+            summary: 'A leads',
+            leading_option_id: 'opt-a',
+            win_probabilities: { 'opt-a': 0.6 },
+            enrichment: validEnrichment,
+          },
+        ],
+      }),
+      store,
+    )
+    expect(setRunMeta).toHaveBeenCalledOnce()
+    expect(setRunMeta).toHaveBeenCalledWith(
+      expect.objectContaining({ ceeReviewV1: expect.objectContaining({ intent: 'selection' }) }),
+    )
+    expect(result.applied).toContain('analysis_result:decision_review:block')
+    expect(result.deferred.map((d) => d.reason)).not.toContain(
+      'analysis_result:decision_review:block',
+    )
+  })
+
+  it('clears ceeReviewV1 (null) when analysis_result block has no decision_review', () => {
+    const { store, setRunMeta } = makeStore()
+    // No top-level enrichment present in schema 0.7.0 — block path clears null.
+    // When CEE adds top-level enrichment, inject it via cast and assert
+    // applied contains 'decision_review:top-level' instead.
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'analysis_result',
+            summary: 'A leads',
+            leading_option_id: 'opt-a',
+            win_probabilities: {},
+          },
+        ],
+      }),
+      store,
+    )
+    // Must write null so stale review from a prior turn is not shown
+    expect(setRunMeta).toHaveBeenCalledOnce()
+    expect(setRunMeta).toHaveBeenCalledWith({ ceeReviewV1: null })
+    expect(result.deferred[0]?.reason).toBe('analysis_result_no_decision_review_in_block')
+  })
+
+  it('block-level enrichment takes precedence when block has enrichment', () => {
+    const { store, setRunMeta } = makeStore()
+    const result = applyV5State(
+      baseResponse({
+        blocks: [
+          {
+            type: 'analysis_result',
+            summary: 'A leads',
+            leading_option_id: 'opt-a',
+            win_probabilities: {},
+            enrichment: validEnrichment, // intent: 'selection'
+          },
+        ],
+      }),
+      store,
+    )
+    expect(setRunMeta).toHaveBeenCalledOnce()
+    expect(setRunMeta).toHaveBeenCalledWith(
+      expect.objectContaining({ ceeReviewV1: expect.objectContaining({ intent: 'selection' }) }),
+    )
+    expect(result.applied).toContain('analysis_result:decision_review:block')
+    expect(result.applied).not.toContain('analysis_result:decision_review:top-level')
+  })
+})
+
 describe('applyV5State — deferred operations', () => {
   it('add_constraint is explicitly deferred as NEEDS_FIX', () => {
     const { store } = makeStore()
@@ -179,24 +271,6 @@ describe('applyV5State — deferred operations', () => {
       store,
     )
     expect(result.deferred[0]?.reason).toBe('add_constraint_not_wired')
-  })
-
-  it('analysis_result is deferred (inline card renders; store population NEEDS_FIX)', () => {
-    const { store } = makeStore()
-    const result = applyV5State(
-      baseResponse({
-        blocks: [
-          {
-            type: 'analysis_result',
-            summary: 'A leads',
-            leading_option_id: 'opt-a',
-            win_probabilities: { 'opt-a': 0.6 },
-          },
-        ],
-      }),
-      store,
-    )
-    expect(result.deferred[0]?.reason).toBe('analysis_result_results_store_not_wired')
   })
 
   it('ignores render-only block kinds (text, explanation, comparison, flip_analysis)', () => {
