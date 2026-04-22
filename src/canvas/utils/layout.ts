@@ -27,7 +27,10 @@ const FALLBACK_CANVAS: CanvasSize = { width: 1300, height: 750 }
 
 // Node width constraints for viewport-constrained sizing.
 const MIN_NODE_W = 140  // BaseNode minWidth
-const MAX_NODE_W = 320  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips and multi-line titles
+// Exported so BaseNode can share the same upper bound for its pre-layout /
+// expanded-node fallback, keeping the ELK constraint solve and the rendered
+// width aligned when `layoutNodeWidth` has not yet been populated.
+export const MAX_NODE_W = 320  // NODE_REGISTRY maximum — wider to reduce text wrapping on intervention chips and multi-line titles
 const MIN_GAP    = 30   // Minimum horizontal gap between nodes in same tier
 
 // Post-layout safety gap (px) used by applyCollisionGuard. Smaller than MIN_GAP:
@@ -405,29 +408,7 @@ export function groupByYRow(
   return groups
 }
 
-/**
- * Resolve same-row node overlaps by sweeping left-to-right and pushing any
- * right-hand neighbour that is closer than `COLLISION_GAP` to its left
- * neighbour's right edge.
- *
- * Behavioural guarantees:
- *  - Operates in place on `positionMap`. `sizeMap` is read-only.
- *  - Width used for each node is its ELK-assigned width from `sizeMap`,
- *    falling back to the uniform `elkBoxW`. This keeps the collision
- *    geometry consistent with what ELK itself assumed when placing nodes.
- *  - A maximum of 2 sweeps per row: one forward pass, then one catch-up pass
- *    for cascades. Further passes are unnecessary for our node counts
- *    (~12 per row worst case) and risk oscillation.
- *  - Rows with fewer than 2 nodes are skipped (no neighbours to push).
- *  - No-op when every adjacent pair already has ≥ COLLISION_GAP clear space.
- *
- * Exported for direct unit testing with mock position maps, per the brief's
- * Test B scenario.
- *
- * @param positionMap Mutable map of node id → {x, y}. Modified in place.
- * @param sizeMap     Read-only map of node id → {width, height}.
- * @param elkBoxW     Fallback width when a node has no entry in `sizeMap`.
- */
+/** Single-pass horizontal collision guard. Pushes overlapping same-row nodes apart by COLLISION_GAP. */
 export function applyCollisionGuard(
   positionMap: Map<string, { x: number; y: number }>,
   sizeMap: Map<string, { width: number; height: number }>,

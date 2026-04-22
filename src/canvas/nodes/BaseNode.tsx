@@ -21,6 +21,7 @@ import { useCEEInsights } from '../../hooks/useCEEInsights'
 import { useISLValidation } from '../../hooks/useISLValidation'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
+import { MAX_NODE_W } from '../utils/layout'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
@@ -266,7 +267,9 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
           ? '12px 12px 24px 12px'
           : '12px',
         minWidth: '140px',
-        maxWidth: isExpanded ? '300px' : `${maxWidth ?? layoutNodeWidth ?? 300}px`,
+        // Both the expanded cap and the pre-layout fallback share MAX_NODE_W
+        // so the rendered width stays consistent with ELK's assumed box size.
+        maxWidth: isExpanded ? `${MAX_NODE_W}px` : `${maxWidth ?? layoutNodeWidth ?? MAX_NODE_W}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >

@@ -220,7 +220,7 @@ describe('ELK Layout', () => {
   // Viewport-constrained sizing
   // ---------------------------------------------------------------------------
 
-  it('nodeW stays within [140, 300] for small graphs on a wide canvas', async () => {
+  it('nodeW stays within [140, 320] for small graphs on a wide canvas', async () => {
     // 8-node graph: widest tier = 3 options. Should produce generous nodeW near MAX.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -350,7 +350,8 @@ describe('applyCollisionGuard', () => {
 
     // Build a positionMap mirroring the laid-out state, and a sizeMap using
     // the ELK box width returned by layoutGraph (uniform across all nodes).
-    const elkBoxW = layoutNodeWidth + 24 // sizePaddingX used inside layoutGraph
+    // 24 matches sizePaddingX in layout.ts — update if that constant changes.
+    const elkBoxW = layoutNodeWidth + 24
     const positionMap = new Map<string, { x: number; y: number }>()
     const sizeMap = new Map<string, { width: number; height: number }>()
     for (const n of laid) {
@@ -444,6 +445,17 @@ describe('groupByYRow', () => {
     const positionMap = new Map<string, { x: number; y: number }>([
       ['a', { x: 0, y: 100 }],
       ['b', { x: 0, y: 115 }],
+    ])
+    const groups = groupByYRow(['a', 'b'], positionMap)
+    expect(groups.size).toBe(2)
+  })
+
+  it('separates nodes at exactly tolerance + 1 (boundary case)', () => {
+    // Default tolerance is 10 px; 11 px apart must fall into distinct groups.
+    // This pins the < vs ≤ behaviour so later tuning can't silently drift.
+    const positionMap = new Map<string, { x: number; y: number }>([
+      ['a', { x: 0, y: 100 }],
+      ['b', { x: 0, y: 111 }],
     ])
     const groups = groupByYRow(['a', 'b'], positionMap)
     expect(groups.size).toBe(2)
