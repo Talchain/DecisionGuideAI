@@ -23,17 +23,28 @@ function makeStore(
   updateNode: ReturnType<typeof vi.fn>
   updateEdgeData: ReturnType<typeof vi.fn>
   setRunMeta: ReturnType<typeof vi.fn>
+  setCeeAnalysisReady: ReturnType<typeof vi.fn>
 } {
   const setCurrentStage = vi.fn()
   const updateNode = vi.fn()
   const updateEdgeData = vi.fn()
   const setRunMeta = vi.fn()
+  const setCeeAnalysisReady = vi.fn()
   return {
-    store: { setCurrentStage, updateNode, updateEdgeData, setRunMeta, nodes, edges },
+    store: {
+      setCurrentStage,
+      updateNode,
+      updateEdgeData,
+      setRunMeta,
+      setCeeAnalysisReady,
+      nodes,
+      edges,
+    },
     setCurrentStage,
     updateNode,
     updateEdgeData,
     setRunMeta,
+    setCeeAnalysisReady,
   }
 }
 
@@ -288,3 +299,228 @@ describe('applyV5State — deferred operations', () => {
     expect(result.applied).toEqual(['stage:frame'])
   })
 })
+
+describe('applyV5State — analysis_ready', () => {
+  const readyOption = {
+    id: 'opt-a',
+    label: 'Option A',
+    status: 'ready',
+    interventions: { 'factor-1': { value: 1 } },
+  }
+
+  function responseWith(
+    analysisReady: Record<string, unknown> | undefined,
+    overrides: Partial<OlumiResponse> = {},
+  ): OlumiResponse {
+    return baseResponse({
+      ...overrides,
+      // `analysis_ready` is a passthrough optional on OlumiResponseSchema.
+      // Cast via `unknown` to avoid re-deriving the z.infer shape in tests.
+      ...(analysisReady !== undefined
+        ? ({ analysis_ready: analysisReady } as unknown as Partial<OlumiResponse>)
+        : {}),
+    })
+  }
+
+  it('writes ceeAnalysisReady when response carries a valid top-level analysis_ready', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    const response = responseWith({
+      status: 'ready',
+      goal_node_id: 'goal-1',
+      options: [readyOption],
+    })
+    const result = applyV5State(response, store)
+
+    expect(setCeeAnalysisReady).toHaveBeenCalledTimes(1)
+    const written = setCeeAnalysisReady.mock.calls[0][0]
+    expect(written).toMatchObject({
+      status: 'ready',
+      goal_node_id: 'goal-1',
+      options: [{ id: 'opt-a', status: 'ready', interventions: { 'factor-1': { value: 1 } } }],
+    })
+    expect(result.applied).toContain('analysis_ready:set')
+  })
+
+  it('does not call setCeeAnalysisReady when analysis_ready is absent from the response', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    const result = applyV5State(responseWith(undefined), store)
+    expect(setCeeAnalysisReady).not.toHaveBeenCalled()
+    expect(result.applied).not.toContain('analysis_ready:set')
+  })
+
+  it('passes non-ready statuses through unchanged (lenient — not gated on status)', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    applyV5State(
+      responseWith({
+        status: 'needs_encoding',
+        goal_node_id: 'goal-1',
+        options: [{ ...readyOption, status: 'needs_encoding' }],
+      }),
+      store,
+    )
+    expect(setCeeAnalysisReady).toHaveBeenCalledTimes(1)
+    const written = setCeeAnalysisReady.mock.calls[0][0]
+    expect(written.status).toBe('needs_encoding')
+    expect(written.options[0].status).toBe('needs_encoding')
+  })
+
+  it('maps option_id → id when an option uses the legacy identifier field', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [
+          {
+            option_id: 'opt-legacy',
+            label: 'Legacy',
+            status: 'ready',
+            interventions: {},
+          },
+        ],
+      }),
+      store,
+    )
+    expect(setCeeAnalysisReady).toHaveBeenCalledTimes(1)
+    const written = setCeeAnalysisReady.mock.calls[0][0]
+    expect(written.options[0].id).toBe('opt-legacy')
+  })
+
+  it('defaults missing interventions to {} (baseline option shape)', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [{ id: 'opt-baseline', label: 'Baseline', status: 'ready' }],
+      }),
+      store,
+    )
+    const written = setCeeAnalysisReady.mock.calls[0][0]
+    expect(written.options[0].interventions).toEqual({})
+  })
+
+  it('clears the store and defers when analysis_ready is malformed (missing goal_node_id)', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    const result = applyV5State(
+      responseWith({ status: 'ready', options: [readyOption] }),
+      store,
+    )
+    expect(setCeeAnalysisReady).toHaveBeenCalledWith(null)
+    expect(result.applied).not.toContain('analysis_ready:set')
+    expect(result.deferred.some((d) => d.reason === 'analysis_ready_invalid_shape')).toBe(true)
+  })
+
+  it('treats an empty options array as invalid — clears the store', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    const result = applyV5State(
+      responseWith({ status: 'ready', goal_node_id: 'goal-1', options: [] }),
+      store,
+    )
+    expect(setCeeAnalysisReady).toHaveBeenCalledWith(null)
+    expect(result.deferred.some((d) => d.reason === 'analysis_ready_invalid_shape')).toBe(true)
+  })
+
+  it('drops option entries with neither id nor option_id; rejects payload when none remain', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    const result = applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [{ label: 'no id' }, { label: 'also no id' }],
+      }),
+      store,
+    )
+    expect(setCeeAnalysisReady).toHaveBeenCalledWith(null)
+    expect(result.deferred.some((d) => d.reason === 'analysis_ready_invalid_shape')).toBe(true)
+  })
+
+  it('skips the setter when the inline-draft_graph path will own the write', () => {
+    const { store, setCeeAnalysisReady } = makeStore(
+      /* canvas empty */ [],
+      [],
+    )
+    applyV5State(
+      responseWith(
+        {
+          status: 'ready',
+          goal_node_id: 'goal-1',
+          options: [readyOption],
+        },
+        {
+          draft_graph: {
+            nodes: [{}, {}],
+            edges: [],
+            node_count: 2,
+            edge_count: 0,
+          },
+        },
+      ),
+      store,
+    )
+    // Inline path (canvasEmpty + draft_graph nodes present + strict contract passes)
+    // will run applyDraftResult in useConversation.ts, which owns this write.
+    expect(setCeeAnalysisReady).not.toHaveBeenCalled()
+  })
+
+  it('writes when the canvas is already populated, even with a draft_graph present', () => {
+    const populatedNode = {
+      id: 'pre-existing',
+      type: 'factor',
+      position: { x: 0, y: 0 },
+      data: {},
+    } as unknown as V5ApplicatorStore['nodes'][number]
+    const { store, setCeeAnalysisReady } = makeStore([populatedNode])
+    applyV5State(
+      responseWith(
+        {
+          status: 'ready',
+          goal_node_id: 'goal-1',
+          options: [readyOption],
+        },
+        {
+          draft_graph: {
+            nodes: [{}, {}],
+            edges: [],
+            node_count: 2,
+            edge_count: 0,
+          },
+        },
+      ),
+      store,
+    )
+    // Canvas is not empty → inline path gate fails in useConversation,
+    // applyDraftResult won't run → this applicator owns the write.
+    expect(setCeeAnalysisReady).toHaveBeenCalledTimes(1)
+  })
+
+  it('writes when the strict attach-contract would reject (non-ready status) — acts as safety net', () => {
+    const { store, setCeeAnalysisReady } = makeStore(
+      /* canvas empty */ [],
+      [],
+    )
+    applyV5State(
+      responseWith(
+        {
+          status: 'needs_user_mapping',
+          goal_node_id: 'goal-1',
+          options: [{ ...readyOption, status: 'needs_user_mapping' }],
+        },
+        {
+          draft_graph: {
+            nodes: [{}, {}],
+            edges: [],
+            node_count: 2,
+            edge_count: 0,
+          },
+        },
+      ),
+      store,
+    )
+    // Strict contract rejects (status !== 'ready') → applyDraftResult
+    // internally skips setCeeAnalysisReady. Applicator must fill the gap.
+    expect(setCeeAnalysisReady).toHaveBeenCalledTimes(1)
+    expect(setCeeAnalysisReady.mock.calls[0][0].status).toBe('needs_user_mapping')
+  })
+})
+
