@@ -132,16 +132,18 @@ function normaliseV5AnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
  * needs_user_mapping) on every non-ready turn.
  */
 function wouldPassStrictAttachContract(ar: CEEAnalysisReady): boolean {
-  const obj = ar as unknown as Record<string, unknown>
-  if (obj.status !== 'ready') return false
-  if (typeof obj.goal_node_id !== 'string' || (obj.goal_node_id as string).length === 0) return false
-  if (!Array.isArray(obj.options) || obj.options.length === 0) return false
-  return (obj.options as unknown[]).every((raw) => {
-    if (raw == null || typeof raw !== 'object') return false
-    const opt = raw as Record<string, unknown>
-    if (typeof opt.id !== 'string' || opt.id.length === 0) return false
-    if (opt.status !== 'ready') return false
-    if (opt.interventions == null || typeof opt.interventions !== 'object') return false
+  // ar.status may be 'unknown' at runtime (lenient normaliser widens the union)
+  // even though the declared type is narrower — the cast lets TS compile.
+  if ((ar.status as string) !== 'ready') return false
+  if (!ar.goal_node_id || ar.goal_node_id.length === 0) return false
+  if (!ar.options || ar.options.length === 0) return false
+  return ar.options.every((opt) => {
+    if (!opt.id || opt.id.length === 0) return false
+    if ((opt.status as string) !== 'ready') return false
+    // interventions is Record<string,…> on the type so it can't be null, but
+    // our lenient normaliser may produce an empty {} on options that had none.
+    // Array check prevents accidentally passing an array-shaped value.
+    if (Array.isArray(opt.interventions)) return false
     return true
   })
 }
@@ -161,14 +163,13 @@ function wouldPassStrictAttachContract(ar: CEEAnalysisReady): boolean {
 function inlinePathWillOwnAnalysisReadyWrite(
   response: OlumiResponse,
   store: V5ApplicatorStore,
-  normalisedAnalysisReady: CEEAnalysisReady | undefined,
+  normalisedAnalysisReady: CEEAnalysisReady,
 ): boolean {
   if (store.nodes.length > 0) return false
   const draftGraph = response.draft_graph
   if (!draftGraph || !Array.isArray(draftGraph.nodes) || draftGraph.nodes.length === 0) {
     return false
   }
-  if (!normalisedAnalysisReady) return false
   return wouldPassStrictAttachContract(normalisedAnalysisReady)
 }
 
