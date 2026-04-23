@@ -780,3 +780,49 @@ describe('backfillGoalThresholdOntoGoalNode', () => {
     expect(goalNode.data.goal_threshold_cap).toBeNull()
   })
 })
+
+describe('applyDraftResult layout failure surfacing', () => {
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    storeNodes = []
+    storeEdges = []
+    const { useLayoutProgressStore } = await import('../../layoutProgressStore')
+    useLayoutProgressStore.setState({ status: 'idle', message: null, canRetry: false, retry: null })
+  })
+
+  it('routes applyLayout rejection through useLayoutProgressStore.fail with retry', async () => {
+    const { useLayoutProgressStore } = await import('../../layoutProgressStore')
+
+    // First call rejects, second call resolves — for retry verification.
+    mockApplyLayout
+      .mockImplementationOnce(() => Promise.reject(new Error('forced failure')))
+      .mockImplementationOnce(() => Promise.resolve())
+
+    const draftData = {
+      nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
+      edges: [],
+    } as any
+
+    applyDraftResult(draftData)
+
+    await vi.waitFor(() => {
+      expect(useLayoutProgressStore.getState().status).toBe('error')
+    })
+
+    const state = useLayoutProgressStore.getState()
+    expect(state.status).toBe('error')
+    expect(state.message).toBe('Layout failed. Try again.')
+    expect(state.canRetry).toBe(true)
+    expect(typeof state.retry).toBe('function')
+    expect(mockApplyLayout).toHaveBeenCalledTimes(1)
+
+    // Fire retry — should re-invoke applyLayout and clear the banner on success.
+    state.retry!()
+    await vi.waitFor(() => {
+      expect(mockApplyLayout).toHaveBeenCalledTimes(2)
+    })
+    await vi.waitFor(() => {
+      expect(useLayoutProgressStore.getState().status).toBe('idle')
+    })
+  })
+})

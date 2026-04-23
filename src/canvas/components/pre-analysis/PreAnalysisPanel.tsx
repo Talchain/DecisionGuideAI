@@ -15,7 +15,7 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
@@ -1096,14 +1096,17 @@ export function PreAnalysisPanel({
   const startHereSignal = pickStartHere(allReviewNextSignals, {
     dominantFactorId,
   })
-  if (import.meta.env.DEV) {
+  const pickedKey = startHereSignal ? `${startHereSignal.kind}:${startHereSignal.id}` : null
+  const signalCount = allReviewNextSignals.length
+  useEffect(() => {
+    if (import.meta.env.VITE_DEBUG_PREANALYSIS !== '1') return
     // eslint-disable-next-line no-console
     console.debug('[PreAnalysis] pickStartHere', {
-      signalCount: allReviewNextSignals.length,
+      signalCount,
       mustFixCount,
-      picked: startHereSignal ? { kind: startHereSignal.kind, id: startHereSignal.id, score: startHereSignal.score } : null,
+      picked: pickedKey,
     })
-  }
+  }, [signalCount, mustFixCount, pickedKey])
 
   // Exclude startHere from downstream lists by id so the same signal_id never
   // appears twice in Review next (P1-8 invariant). Also exclude resolved

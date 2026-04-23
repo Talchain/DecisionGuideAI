@@ -8,7 +8,7 @@
  * - Regression: post-analysis panel unaffected
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
@@ -1403,6 +1403,45 @@ describe('PreAnalysisPanel', () => {
       expect(headline).toHaveTextContent('Review your options before running.')
       // Guard against the grammar bug ChatGPT flagged
       expect(headline).not.toHaveTextContent('Your options has the biggest impact')
+    })
+  })
+
+  describe('pickStartHere debug log gating', () => {
+    let debugSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {})
+      mockUsePreAnalysisData.mockReturnValue(createMockData())
+    })
+
+    afterEach(() => {
+      debugSpy.mockRestore()
+      vi.unstubAllEnvs()
+    })
+
+    it('does not log pickStartHere by default', () => {
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      const calls = debugSpy.mock.calls.filter(c =>
+        typeof c[0] === 'string' && c[0].includes('[PreAnalysis] pickStartHere')
+      )
+      expect(calls).toHaveLength(0)
+    })
+
+    it('logs pickStartHere once when VITE_DEBUG_PREANALYSIS=1 and does not re-fire on re-render with same deps', () => {
+      vi.stubEnv('VITE_DEBUG_PREANALYSIS', '1')
+      const { rerender } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+      let calls = debugSpy.mock.calls.filter(c =>
+        typeof c[0] === 'string' && c[0].includes('[PreAnalysis] pickStartHere')
+      )
+      expect(calls).toHaveLength(1)
+
+      // Re-render with same props — effect deps unchanged → no new call.
+      rerender(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      calls = debugSpy.mock.calls.filter(c =>
+        typeof c[0] === 'string' && c[0].includes('[PreAnalysis] pickStartHere')
+      )
+      expect(calls).toHaveLength(1)
     })
   })
 })

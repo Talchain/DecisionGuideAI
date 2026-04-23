@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import type { ComponentType } from 'react'
 import { useCanvasStore, selectResultsStatus, selectReport } from '../store'
+import { useLayoutProgressStore } from '../layoutProgressStore'
 import { isGraphLensEnabled } from '../../flags'
 import { isEdgeFragile as isEdgeFragileFn } from '../utils/fragileEdgeMatch'
 import type { ContextTarget, MenuEntry, MenuItemDef } from './types'
@@ -211,7 +212,18 @@ function buildPaneMenu(
       action: wrap(() => {
         const s = useCanvasStore.getState()
         if (s.nodes.length === 0) return
-        s.applyLayout()
+        const runLayout = (): Promise<void> =>
+          s.applyLayout()
+            .then(() => { useLayoutProgressStore.getState().succeed() })
+            .catch((err) => {
+              if (import.meta.env.DEV) {
+                console.warn('[useMenuItems] Auto-arrange layout failed:', err)
+              }
+              useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
+                void runLayout()
+              })
+            })
+        void runLayout()
         showToast('Auto-arranged layout.', 'success')
       }),
     },

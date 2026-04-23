@@ -59,6 +59,7 @@ import { loadRuns, generateGraphHash } from './store/runHistory'
 import { DegradedBanner } from './components/DegradedBanner'
 import { EdgeThicknessLegend } from './components/EdgeThicknessLegend'
 import { LayoutProgressBanner } from './components/LayoutProgressBanner'
+import { useLayoutProgressStore } from './layoutProgressStore'
 const IssuesPanel = lazy(() => import(/* webpackChunkName: "issues-panel" */ './panels/IssuesPanel').then(m => ({ default: m.IssuesPanel })))
 const AIClarifierChat = lazy(() => import(/* webpackChunkName: "ai-clarifier" */ './panels/AIClarifierChat').then(m => ({ default: m.AIClarifierChat })))
 // NeedleMoversOverlay removed - consolidated into DriversSignal (OutputsDock)
@@ -1072,7 +1073,18 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       showToast('No nodes to arrange.', 'info')
       return
     }
-    applyLayout()
+    const runLayout = (): Promise<void> =>
+      applyLayout()
+        .then(() => { useLayoutProgressStore.getState().succeed() })
+        .catch((err) => {
+          if (import.meta.env.DEV) {
+            console.warn('[ReactFlowGraph] Auto-arrange layout failed:', err)
+          }
+          useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
+            void runLayout()
+          })
+        })
+    void runLayout()
     showToast('Auto-arranged layout.', 'success')
   }, [showToast, applyLayout])
 

@@ -12,6 +12,7 @@
  */
 
 import { useCanvasStore } from '../store'
+import { useLayoutProgressStore } from '../layoutProgressStore'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCEEv3Response } from '../../adapters/cee/types'
@@ -143,10 +144,22 @@ export function applyDraftResult(
   validateNodesBatch(nodes)
 
   // Trigger layout (all new nodes start at 0,0)
-  void store
-    .applyLayout()
-    .then(() => store.setPendingFitView(true))
-    .catch((err) => console.error('[applyDraftResult] Layout failed:', err))
+  const runLayout = (): Promise<void> =>
+    store
+      .applyLayout()
+      .then(() => {
+        useLayoutProgressStore.getState().succeed()
+        store.setPendingFitView(true)
+      })
+      .catch((err) => {
+        if (import.meta.env.DEV) {
+          console.error('[applyDraftResult] Layout failed:', err)
+        }
+        useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
+          void runLayout()
+        })
+      })
+  void runLayout()
 
   // Immediate autosave for crash resilience
   try {
