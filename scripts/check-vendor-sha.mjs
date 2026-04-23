@@ -7,19 +7,26 @@
  * authoritative. On mismatch or missing files, prints clear remediation and
  * exits non-zero.
  *
- * NOTE: scripts/validate-prepush.sh currently hardcodes a constant for the
- * schemas version; aligning it to read from this manifest is a separate,
- * out-of-scope follow-up.
+ * The tarball filename is derived from package.json so there is exactly one
+ * source of truth for the version. The bash pre-push scripts do the same
+ * derivation via grep + sed.
  */
 import { createHash } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 import { existsSync } from 'node:fs'
-import { resolve, dirname } from 'node:path'
+import { resolve, dirname, basename } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-const TARBALL_VERSION = '0.8.1'
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
-const TARBALL_PATH = resolve(REPO_ROOT, `vendor/talchain-schemas-${TARBALL_VERSION}.tgz`)
+const pkg = JSON.parse(await readFile(resolve(REPO_ROOT, 'package.json'), 'utf8'))
+const schemaRef = pkg.dependencies?.['@talchain/schemas'] ?? ''
+const match = schemaRef.match(/vendor\/(.+\.tgz)$/)
+if (!match) {
+  process.stderr.write('[check-vendor-sha] Cannot find @talchain/schemas file: reference in package.json\n')
+  process.exit(1)
+}
+const TARBALL_NAME = match[1]
+const TARBALL_PATH = resolve(REPO_ROOT, 'vendor', TARBALL_NAME)
 const MANIFEST_PATH = `${TARBALL_PATH}.sha256`
 
 function fail(msg) {
@@ -29,13 +36,13 @@ function fail(msg) {
 
 function recoveryBlock(expected, actual) {
   return [
-    `SHA mismatch for vendor/talchain-schemas-${TARBALL_VERSION}.tgz`,
+    `SHA mismatch for vendor/${TARBALL_NAME}`,
     `  expected: ${expected}`,
     `  actual:   ${actual}`,
-    `  manifest: vendor/talchain-schemas-${TARBALL_VERSION}.tgz.sha256`,
+    `  manifest: vendor/${TARBALL_NAME}.sha256`,
     '',
     'Recovery (use the package manager already in use for this working copy; npm is the documented default):',
-    `  git checkout -- vendor/talchain-schemas-${TARBALL_VERSION}.tgz`,
+    `  git checkout -- vendor/${TARBALL_NAME}`,
     '  rm -rf node_modules/.vite node_modules/@talchain',
     '  npm install      # or: pnpm install',
     '  npm run dev -- --force   # or: pnpm dev --force',
@@ -44,7 +51,7 @@ function recoveryBlock(expected, actual) {
 
 async function main() {
   if (!existsSync(TARBALL_PATH)) {
-    fail(`[check-vendor-sha] Missing tarball: ${TARBALL_PATH}\nRun: git checkout -- vendor/talchain-schemas-${TARBALL_VERSION}.tgz`)
+    fail(`[check-vendor-sha] Missing tarball: ${TARBALL_PATH}\nRun: git checkout -- vendor/${TARBALL_NAME}`)
   }
   if (!existsSync(MANIFEST_PATH)) {
     fail(`[check-vendor-sha] Missing manifest: ${MANIFEST_PATH}`)

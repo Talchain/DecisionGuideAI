@@ -38,7 +38,7 @@ import type { CeeDebugHeaders } from './utils/ceeDebugHeaders'
 import { isCompareTabEnabled } from '../flags'
 import { useAnalysisSnapshotStore } from './stores/analysisSnapshotStore'
 import { buildAnalysisSnapshot } from './stores/analysisSnapshotFactory'
-import { useLayoutProgressStore } from './layoutProgressStore'
+import { handleLayoutWithRecovery } from './layout/handleLayoutWithRecovery'
 import { useComparisonStore } from './stores/comparisonStore'
 import { useDraftStore } from './stores/draftStore'
 import { loadSearchQuery, loadSortPreferences, saveSearchQuery, saveSortPreferences, __test__ as docsTest } from './store/documents'
@@ -3633,18 +3633,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // NOTE: silent failure here materially harms diagnosis — route through
     // the layout progress store so the banner surfaces the error + retry.
     setTimeout(() => {
-      const runLayout = (): Promise<void> =>
-        get().applyLayout()
-          .then(() => { useLayoutProgressStore.getState().succeed() })
-          .catch((err) => {
-            if (import.meta.env.DEV) {
-              console.warn('[setViewMode] Layout failed:', err)
-            }
-            useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
-              void runLayout()
-            })
-          })
-      void runLayout()
+      handleLayoutWithRecovery(() => get().applyLayout())
     }, 150)
   },
 
@@ -3809,20 +3798,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           totalEdges: get().edges.length,
         })
       }
-      const runPreviewLayout = (): Promise<void> =>
-        get().applyLayout()
-          .then(() => { useLayoutProgressStore.getState().succeed() })
-          .catch(err => {
-            if (import.meta.env.DEV) {
-              console.warn('[applyClarifierGraph] Layout failed:', err)
-            }
-            useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
-              void runPreviewLayout()
-            })
-          })
-      void runPreviewLayout()
-      // Request fit view after layout completes (handled by ReactFlowGraph)
-      set({ pendingFitView: true })
+      handleLayoutWithRecovery(() => get().applyLayout(), {
+        onSuccess: () => set({ pendingFitView: true }),
+      })
     } else {
       // Apply permanently (finalize mode)
       pushToHistory(get, set)
@@ -3904,20 +3882,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           totalEdges: get().edges.length,
         })
       }
-      const runFinalizeLayout = (): Promise<void> =>
-        get().applyLayout()
-          .then(() => { useLayoutProgressStore.getState().succeed() })
-          .catch(err => {
-            if (import.meta.env.DEV) {
-              console.warn('[applyClarifierGraph] Layout failed:', err)
-            }
-            useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
-              void runFinalizeLayout()
-            })
-          })
-      void runFinalizeLayout()
-      // Request fit view after layout completes (handled by ReactFlowGraph)
-      set({ pendingFitView: true })
+      handleLayoutWithRecovery(() => get().applyLayout(), {
+        onSuccess: () => set({ pendingFitView: true }),
+      })
     }
   },
 

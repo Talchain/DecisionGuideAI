@@ -47,6 +47,9 @@ describe('applyClarifierGraph layout failure surfacing', () => {
       expect(typeof state.retry).toBe('function')
       expect(applyLayoutSpy).toHaveBeenCalledTimes(1)
 
+      // pendingFitView should NOT be set when layout fails (it's in onSuccess)
+      expect(useCanvasStore.getState().pendingFitView).toBe(false)
+
       state.retry!()
       await vi.waitFor(() => {
         expect(applyLayoutSpy).toHaveBeenCalledTimes(2)

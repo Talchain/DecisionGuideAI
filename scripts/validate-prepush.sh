@@ -182,8 +182,10 @@ header "Check 6a — V5 vendored schemas tarball SHA manifest"
 # A1: guard against drift between vendored tarball bytes and the committed
 # SHA manifest. If someone rebuilds the tarball without updating the
 # manifest, push is blocked.
-TARBALL="$REPO_ROOT/vendor/talchain-schemas-0.8.1.tgz"
-MANIFEST="$REPO_ROOT/vendor/talchain-schemas-0.8.1.tgz.sha256"
+# Derive tarball filename from package.json (single source of truth).
+TARBALL_NAME=$(grep -o 'vendor/[^"]*\.tgz' "$REPO_ROOT/package.json" | head -1)
+TARBALL="$REPO_ROOT/$TARBALL_NAME"
+MANIFEST="$TARBALL.sha256"
 if [ ! -f "$TARBALL" ] || [ ! -f "$MANIFEST" ]; then
   fail "vendored tarball or SHA manifest missing"
 else

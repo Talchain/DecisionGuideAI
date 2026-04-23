@@ -7,7 +7,7 @@
  */
 
 import { useCanvasStore } from '../../store'
-import { useLayoutProgressStore } from '../../layoutProgressStore'
+import { handleLayoutWithRecovery } from '../../layout/handleLayoutWithRecovery'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { saveAutosave } from '../../store/scenarios'
 import { validateNodesBatch } from '../../domain/nodes'
@@ -340,22 +340,9 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
   // 6. Trigger layout if any nodes were added (they start at 0,0)
   if (newNodes.length > 0) {
     const s = useCanvasStore.getState()
-    const runLayout = (): Promise<void> =>
-      s
-        .applyLayout()
-        .then(() => {
-          useLayoutProgressStore.getState().succeed()
-          useCanvasStore.getState().setPendingFitView(true)
-        })
-        .catch((err) => {
-          if (import.meta.env.DEV) {
-            console.warn('[applyAutoApplyPatch] Layout failed:', err)
-          }
-          useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
-            void runLayout()
-          })
-        })
-    void runLayout()
+    handleLayoutWithRecovery(() => s.applyLayout(), {
+      onSuccess: () => useCanvasStore.getState().setPendingFitView(true),
+    })
   }
 
   // 7. Auto-select goal node if exactly one exists

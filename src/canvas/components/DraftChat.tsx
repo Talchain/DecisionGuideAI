@@ -13,7 +13,7 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
-import { useLayoutProgressStore } from '../layoutProgressStore'
+import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
@@ -657,21 +657,9 @@ export function DraftChat() {
         height: Math.max(400, window.innerHeight - 57 - 72),
       })
     }
-    const runLayout = (): Promise<void> =>
-      applyLayout()
-        .then(() => {
-          useLayoutProgressStore.getState().succeed()
-          setPendingFitView(true)
-        })
-        .catch((error) => {
-          if (import.meta.env.DEV) {
-            console.warn('[DraftChat] Layout failed after applying draft', error)
-          }
-          useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
-            void runLayout()
-          })
-        })
-    void runLayout()
+    handleLayoutWithRecovery(applyLayout, {
+      onSuccess: () => setPendingFitView(true),
+    })
 
     // IMMEDIATE AUTOSAVE: Save right away so graph survives refresh before 30s interval
     // This eliminates the vulnerability window where AI drafts could be lost
