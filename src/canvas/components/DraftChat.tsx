@@ -665,7 +665,7 @@ export function DraftChat() {
         })
         .catch((error) => {
           if (import.meta.env.DEV) {
-            console.error('[DraftChat] Layout failed after applying draft', error)
+            console.warn('[DraftChat] Layout failed after applying draft', error)
           }
           useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
             void runLayout()

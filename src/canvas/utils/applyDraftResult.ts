@@ -153,7 +153,7 @@ export function applyDraftResult(
       })
       .catch((err) => {
         if (import.meta.env.DEV) {
-          console.error('[applyDraftResult] Layout failed:', err)
+          console.warn('[applyDraftResult] Layout failed:', err)
         }
         useLayoutProgressStore.getState().fail('Layout failed. Try again.', () => {
           void runLayout()
