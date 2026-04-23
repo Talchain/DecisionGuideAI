@@ -27,6 +27,10 @@ export function mapV5Block(block: V5Block): ConversationBlock | null {
       // Filtered upstream by routeV5Response; returning null here keeps
       // callers' type-narrowing clean if a stray error block appears.
       return null
+    case 'draft_graph':
+      // Applied directly to canvas via response.draft_graph, not rendered
+      // as a chat block. Return null to keep the exhaustiveness check clean.
+      return null
     case 'analysis_result':
       return {
         type: 'v5_analysis_result',
