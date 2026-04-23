@@ -214,7 +214,10 @@ function buildPaneMenu(
         if (s.nodes.length === 0) return
         const runLayout = (): Promise<void> =>
           s.applyLayout()
-            .then(() => { useLayoutProgressStore.getState().succeed() })
+            .then(() => {
+              useLayoutProgressStore.getState().succeed()
+              showToast('Auto-arranged layout.', 'success')
+            })
             .catch((err) => {
               if (import.meta.env.DEV) {
                 console.warn('[useMenuItems] Auto-arrange layout failed:', err)
@@ -224,7 +227,6 @@ function buildPaneMenu(
               })
             })
         void runLayout()
-        showToast('Auto-arranged layout.', 'success')
       }),
     },
     {

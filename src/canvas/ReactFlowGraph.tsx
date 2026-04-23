@@ -1075,7 +1075,10 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
     }
     const runLayout = (): Promise<void> =>
       applyLayout()
-        .then(() => { useLayoutProgressStore.getState().succeed() })
+        .then(() => {
+          useLayoutProgressStore.getState().succeed()
+          showToast('Auto-arranged layout.', 'success')
+        })
         .catch((err) => {
           if (import.meta.env.DEV) {
             console.warn('[ReactFlowGraph] Auto-arrange layout failed:', err)
@@ -1085,7 +1088,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
           })
         })
     void runLayout()
-    showToast('Auto-arranged layout.', 'success')
   }, [showToast, applyLayout])
 
   // Setup keyboard shortcuts (P, Alt+V, Cmd/Ctrl+Enter, Cmd/Ctrl+3, Cmd/Ctrl+I, Cmd/Ctrl+D, Shift+A, Shift+F10)
