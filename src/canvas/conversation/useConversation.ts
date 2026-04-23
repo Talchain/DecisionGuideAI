@@ -609,6 +609,24 @@ function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
   return validateAnalysisReadyContract(mapped)
 }
 
+export function attachAnalysisReadyToInlineDraftGraph(
+  draftGraph: unknown,
+  responseAnalysisReady: unknown,
+): Record<string, unknown> | undefined {
+  if (draftGraph == null || typeof draftGraph !== 'object') return undefined
+
+  const graph = draftGraph as Record<string, unknown>
+  if (graph.analysis_ready != null) return graph
+
+  const normalised = normaliseAnalysisReady(responseAnalysisReady)
+  if (!normalised) return graph
+
+  return {
+    ...graph,
+    analysis_ready: normalised,
+  }
+}
+
 function asOptionalString(value: unknown): string | undefined {
   if (typeof value !== 'string') return undefined
   const trimmed = value.trim()
@@ -2671,7 +2689,10 @@ export function useConversation(): UseConversationReturn {
             // diverged). Works in guest mode — no auth required.
             const canvasIsEmpty = useCanvasStore.getState().nodes.length === 0
             const scenarioIdAtDispatch = currentScenarioId
-            const inlineGraph = target.response.draft_graph
+            const inlineGraph = attachAnalysisReadyToInlineDraftGraph(
+              target.response.draft_graph,
+              (target.response as { analysis_ready?: unknown }).analysis_ready,
+            )
             const inlineNodeCount = (inlineGraph?.nodes as unknown[] | undefined)?.length ?? 0
 
             if (inlineGraph && inlineNodeCount > 0 && canvasIsEmpty) {
