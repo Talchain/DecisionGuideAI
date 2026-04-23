@@ -59,13 +59,27 @@ When adding new context values or hooks:
 
 If in doubt, add a short comment explaining *why* a particular memoization exists (e.g., "avoid React 185 by keeping callback identity stable for X").
 
+## Package manager
+
+This repo uses **pnpm** exclusively. Do not use npm or yarn.
+
+```bash
+pnpm install        # Install dependencies
+pnpm dev            # Dev server (port 5173)
+pnpm test           # Run tests
+pnpm typecheck      # TypeScript check
+pnpm lint           # ESLint
+```
+
+The `pnpm-lock.yaml` is the canonical lockfile. If `package-lock.json` appears, delete it.
+
 ---
 
 If you change any of the above invariants (e.g., upgrading React or Zustand), please update this document and re-run:
 
 ```bash
-npm run lint
-npm run ci:guard:zustand
+pnpm lint
+pnpm ci:guard:zustand
 ```
 
 …to ensure the guardrails still hold.
