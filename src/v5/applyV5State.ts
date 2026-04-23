@@ -35,7 +35,6 @@ import type { Edge, Node } from '@xyflow/react'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
-import { validateAnalysisReadyContract } from '../canvas/conversation/validateAnalysisReadyContract'
 import { extractDecisionReview } from './decisionReviewAdapter'
 import { v5StageToScenarioStage } from './stageMapper'
 
@@ -122,6 +121,32 @@ function normaliseV5AnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
 }
 
 /**
+ * Silent mirror of the strict contract enforced inside
+ * attachAnalysisReadyToInlineDraftGraph (validateAnalysisReadyContract):
+ * overall status === 'ready', every option status === 'ready', every option
+ * has a string id, every option's interventions is a non-null object.
+ *
+ * We need a dry-run predicate (does applyDraftResult's internal write path
+ * accept this payload?) without the validator's `console.error` side effect,
+ * which is noisy for legitimate soft statuses (needs_encoding,
+ * needs_user_mapping) on every non-ready turn.
+ */
+function wouldPassStrictAttachContract(ar: CEEAnalysisReady): boolean {
+  const obj = ar as unknown as Record<string, unknown>
+  if (obj.status !== 'ready') return false
+  if (typeof obj.goal_node_id !== 'string' || (obj.goal_node_id as string).length === 0) return false
+  if (!Array.isArray(obj.options) || obj.options.length === 0) return false
+  return (obj.options as unknown[]).every((raw) => {
+    if (raw == null || typeof raw !== 'object') return false
+    const opt = raw as Record<string, unknown>
+    if (typeof opt.id !== 'string' || opt.id.length === 0) return false
+    if (opt.status !== 'ready') return false
+    if (opt.interventions == null || typeof opt.interventions !== 'object') return false
+    return true
+  })
+}
+
+/**
  * Decide whether the inline-draft_graph path in useConversation.sendTurn will
  * subsequently invoke applyDraftResult AND that call will itself write
  * analysis_ready to the store. When both are true, applyDraftResult owns
@@ -129,10 +154,9 @@ function normaliseV5AnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
  *
  * Gate mirrors useConversation.ts:2698 (canvas empty AND inline draft_graph
  * has at least one node) AND the strict attach-contract check inside
- * attachAnalysisReadyToInlineDraftGraph (validateAnalysisReadyContract).
- * When the strict contract rejects the payload, applyDraftResult will not
- * call setCeeAnalysisReady, so this applicator must step in as the safety
- * net — hence the strict-contract branch returning false below.
+ * attachAnalysisReadyToInlineDraftGraph. When the strict contract rejects
+ * the payload, applyDraftResult will not call setCeeAnalysisReady, so this
+ * applicator must step in as the safety net.
  */
 function inlinePathWillOwnAnalysisReadyWrite(
   response: OlumiResponse,
@@ -144,11 +168,8 @@ function inlinePathWillOwnAnalysisReadyWrite(
   if (!draftGraph || !Array.isArray(draftGraph.nodes) || draftGraph.nodes.length === 0) {
     return false
   }
-  // Only the strict contract validator accepts a payload into the inline
-  // draft-graph merge. If our lenient normalisation failed, the strict one
-  // will also fail, so applyDraftResult will not write.
   if (!normalisedAnalysisReady) return false
-  return validateAnalysisReadyContract(normalisedAnalysisReady) != null
+  return wouldPassStrictAttachContract(normalisedAnalysisReady)
 }
 
 type V5Block = OlumiResponse['blocks'][number]
