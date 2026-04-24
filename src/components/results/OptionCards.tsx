@@ -1,7 +1,7 @@
 /**
  * OptionCards — V9.2 card-based option comparison.
  *
- * - Option name + rank badge ("#1 of N") + win percentage text
+ * - Ordinal colour marker + option name + win percentage text (D17: "#N of M" prefix removed)
  * - 1-2 line contextual description (story headline or fallback)
  * - "Hits target" stat row: horizontal bar + percentage (conditional on target set)
  * V12.4: Per-card "Wins" bars removed; win % shown as text in card header.
@@ -27,7 +27,7 @@ import {
   constraintConfidenceColour,
   jointProbabilityLabel,
 } from '../../types/constraints'
-import { buildSegmentBorderClassMap, buildSegmentColorMap } from './WinGauge'
+import { buildSegmentBorderClassMap, buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
 import Tooltip from '../Tooltip'
 import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 
@@ -316,26 +316,18 @@ function OptionCard({
       tabIndex={onClick ? 0 : undefined}
       style={onClick ? { cursor: 'pointer' } : undefined}
     >
-      {/* Header: leading rank · option name | win percentage right-aligned */}
+      {/* Header: colour marker · option name | win percentage right-aligned.
+          D17: "#N of M" rank prefix removed (rank conveyed by position +
+          marker colour + right-aligned win%). Colour marker = 10×10px square
+          matching the scenario-bar ordinal palette from WIN_GAUGE_COLORS. */}
       <div className="flex items-center gap-2">
-        {/* Brief 5.4 Phase 6: rank badge hidden in neutralised state — win% is
-            already shown right-aligned as the canonical value; showing it
-            again in the badge position was a duplicate (DS dedup).
-            Phase 10: rank badge kept as flat text (not rounded-full pill) by design.
-            Text badge = ordinal rank; pill badge = status count — different semantics.
-            Accordion badges use pills because they count items (not rank positions). */}
         {!neutralised && rank != null && totalOptions > 1 && (
-          <Tooltip content={`Leading-option ranking across ${totalOptions} scenarios`}>
-            <span
-              className={`${typography.panelBody} text-text-light flex-shrink-0 whitespace-nowrap`}
-              data-testid={`rank-badge-${option.id}`}
-            >
-              {`#${rank} of ${totalOptions}`}
-            </span>
-          </Tooltip>
-        )}
-        {!neutralised && rank != null && totalOptions > 1 && (
-          <span className="text-text-light flex-shrink-0" aria-hidden="true">&middot;</span>
+          <span
+            aria-hidden="true"
+            className="inline-block flex-shrink-0 w-2.5 h-2.5"
+            data-testid={`rank-marker-${option.id}`}
+            style={{ backgroundColor: WIN_GAUGE_COLORS[Math.min(rank - 1, WIN_GAUGE_COLORS.length - 1)] }}
+          />
         )}
         <Tooltip content="Hover highlights on canvas. Click opens inspector.">
           {/* Brief 5.1 Task 7: card title strips the trailing "(Status Quo)"

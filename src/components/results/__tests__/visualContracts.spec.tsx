@@ -105,8 +105,8 @@ describe('Visual contract: Indeterminate state', () => {
       />
     )
 
-    expect(screen.queryByTestId('rank-badge-opt-a')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('rank-badge-opt-b')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('rank-marker-opt-a')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('rank-marker-opt-b')).not.toBeInTheDocument()
     // Canonical win% still present right-aligned
     expect(screen.getByTestId('win-pct-opt-a')).toHaveTextContent('65%')
   })
@@ -172,7 +172,7 @@ describe('Visual contract: Robust state', () => {
     expect(winnerCard.className).toContain('border-success/60')
   })
 
-  it('rank badges show "#N of N" not percentage', () => {
+  it('D17: colour markers replace "#N of N" rank prefix', () => {
     render(
       <OptionCards
         options={twoOptions}
@@ -182,11 +182,13 @@ describe('Visual contract: Robust state', () => {
       />
     )
 
-    expect(screen.getByText('#1 of 2')).toBeInTheDocument()
-    expect(screen.getByText('#2 of 2')).toBeInTheDocument()
+    // Colour markers present; no "#N of M" text
+    expect(screen.getByTestId('rank-marker-opt-a')).toBeInTheDocument()
+    expect(screen.getByTestId('rank-marker-opt-b')).toBeInTheDocument()
+    expect(screen.queryByText(/#\d+ of/)).not.toBeInTheDocument()
   })
 
-  it('winner badge uses success styling', () => {
+  it('D17: winner rank marker present; ordinal border class unchanged', () => {
     render(
       <OptionCards
         options={twoOptions}
@@ -196,9 +198,12 @@ describe('Visual contract: Robust state', () => {
       />
     )
 
-    // Leading rank uses panelBody text-text-light (no pill border, no raw font-weight)
-    const badge = screen.getByTestId('rank-badge-opt-a')
-    expect(badge.className).toContain('text-text-light')
+    // Colour marker present and has inline style (data-driven colour from WIN_GAUGE_COLORS)
+    const marker = screen.getByTestId('rank-marker-opt-a')
+    expect(marker).toHaveAttribute('aria-hidden', 'true')
+    // Card still has its ordinal border (unchanged from V14.2)
+    const winnerCard = screen.getByTestId('option-card-opt-a')
+    expect(winnerCard.className).toContain('border-success/60')
   })
 
   it('V16.2: VOI block shown for robust state (scroll-link target)', () => {
@@ -247,7 +252,7 @@ describe('Visual contract: Sensitive state', () => {
     expect(screen.getByText('Most valuable next step')).toBeInTheDocument()
   })
 
-  it('rank badges show "#N of N" not percentage', () => {
+  it('D17: colour marker present; no "#N of M" rank prefix', () => {
     render(
       <OptionCards
         options={twoOptions}
@@ -257,6 +262,7 @@ describe('Visual contract: Sensitive state', () => {
       />
     )
 
-    expect(screen.getByText('#1 of 2')).toBeInTheDocument()
+    expect(screen.getByTestId('rank-marker-opt-a')).toBeInTheDocument()
+    expect(screen.queryByText(/#\d+ of/)).not.toBeInTheDocument()
   })
 })

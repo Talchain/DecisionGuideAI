@@ -72,18 +72,21 @@ describe('OptionCards', () => {
     })
   })
 
-  describe('Rank badges', () => {
-    it('shows rank badge for each option', () => {
+  describe('Rank markers', () => {
+    it('D17: shows ordinal colour marker for each option (no "#N of M" text)', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
-      expect(screen.getByText('#1 of 2')).toBeInTheDocument()
-      expect(screen.getByText('#2 of 2')).toBeInTheDocument()
+      // Colour markers present
+      expect(screen.getByTestId('rank-marker-option-1')).toBeInTheDocument()
+      expect(screen.getByTestId('rank-marker-option-2')).toBeInTheDocument()
+      // "#N of M" rank prefix removed
+      expect(screen.queryByText(/#\d+ of/)).not.toBeInTheDocument()
     })
 
-    it('does not show rank badge for single option', () => {
+    it('does not show rank marker for single option', () => {
       render(<OptionCards options={[mockOptions[0]]} winnerId="option-1" />)
 
-      expect(screen.queryByText(/#\d+ of/)).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rank-marker-option-1')).not.toBeInTheDocument()
     })
   })
 
@@ -352,7 +355,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.queryByTestId('rank-badge-option-1')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rank-marker-option-1')).not.toBeInTheDocument()
       expect(screen.queryByText('#1 of 2')).not.toBeInTheDocument()
       // Canonical win% still present right-aligned
       expect(screen.getByTestId('win-pct-option-1')).toHaveTextContent('65%')
@@ -368,7 +371,7 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.queryByTestId('rank-badge-option-1')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('rank-marker-option-1')).not.toBeInTheDocument()
       // win-pct is always present when winProbability is set
       expect(screen.getByTestId('win-pct-option-1')).toBeInTheDocument()
     })
@@ -402,7 +405,7 @@ describe('OptionCards', () => {
       expect(winnerCard.className).toContain('border-success/60')
     })
 
-    it('preserves normal "#1 of N" badges when sensitive', () => {
+    it('D17: preserves colour markers in sensitive state (no "#N of M" text)', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -411,7 +414,8 @@ describe('OptionCards', () => {
         />
       )
 
-      expect(screen.getByText('#1 of 2')).toBeInTheDocument()
+      expect(screen.getByTestId('rank-marker-option-1')).toBeInTheDocument()
+      expect(screen.queryByText(/#\d+ of/)).not.toBeInTheDocument()
     })
   })
 
