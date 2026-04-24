@@ -633,13 +633,13 @@ function DriverRow({
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-                  className="inline-flex items-center gap-0.5"
+                  className="inline-flex items-center gap-1"
                 >
                   {[0, 1, 2, 3].map(i => (
                     <span
                       key={i}
                       aria-hidden="true"
-                      className={`w-1.5 h-1.5 rounded-full ${
+                      className={`w-2 h-2 rounded-full ${
                         i < filledSteps
                           ? 'bg-text-body'
                           : 'bg-panel-hover border border-panel-border'

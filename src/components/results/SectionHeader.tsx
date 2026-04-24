@@ -79,7 +79,7 @@ export function SectionHeader({
       {sectionColorMarker === 'bg-option' && (
         <span
           aria-hidden="true"
-          className="inline-block flex-shrink-0 w-2.5 h-2.5 rounded-sm bg-option"
+          className="inline-block flex-shrink-0 w-2.5 h-2.5 bg-option"
           data-testid="section-color-marker"
         />
       )}

@@ -205,8 +205,10 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     }
   }
 
+  // When a gap is available, "leads by N points" gives the numeric lead.
+  // When no gap, fall back to the definitive form to avoid the bare "leads".
   return {
-    headline: `${winnerLabel} leads${gapSuffix}`,
+    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : `${winnerLabel} is the leading option`,
     sub: null,
     caveat: null,
     conservative: true,
