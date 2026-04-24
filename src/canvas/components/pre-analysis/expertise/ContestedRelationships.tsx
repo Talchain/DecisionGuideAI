@@ -183,7 +183,7 @@ export function ContestedRelationships({
               </button>
             )}
             {isDetailExpanded && val && (
-              <div className="bg-panel-hover rounded-md px-2.5 py-[10px] leading-relaxed space-y-1">
+              <div className="bg-panel-hover rounded-md px-2.5 py-2.5 leading-relaxed space-y-1">
                 {pass1Mean != null && (
                   <p className={`${typography.panelMeta} text-text-light`}>
                     Original estimate: {formatMean(pass1Mean)} ({pass1Band})

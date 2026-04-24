@@ -177,7 +177,7 @@ export const ResultsBody = memo(function ResultsBody({
   }, [])
 
   return (
-    <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
+    <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
       <SectionErrorBoundary section="Decision confidence">
