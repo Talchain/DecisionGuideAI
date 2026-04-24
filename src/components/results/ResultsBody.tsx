@@ -26,7 +26,7 @@ import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
-import { CoachingPrompt } from './CoachingPrompt'
+import { MissingKnowledgePrompt } from '../shared/MissingKnowledgePrompt'
 import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 
@@ -361,8 +361,8 @@ export const ResultsBody = memo(function ResultsBody({
       })()}
       </SectionErrorBoundary>
 
-      {/* ── COACHING PROMPT ────────────────────────────────────── */}
-      <CoachingPrompt />
+      {/* ── SOMETHING MISSING PROMPT ──────────────────────────── */}
+      <MissingKnowledgePrompt context="results" />
 
       {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
       <SectionErrorBoundary section="Advanced">

@@ -54,7 +54,7 @@ import { useResolvedSignals } from './useResolvedSignals'
 import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
-import { MissingKnowledgePrompt } from './MissingKnowledgePrompt'
+import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
@@ -1801,7 +1801,7 @@ export function PreAnalysisPanel({
             </SectionErrorBoundary>
 
             {/* "What's missing?" prompt */}
-            <MissingKnowledgePrompt onSendMessage={onSendMessage} />
+            <MissingKnowledgePrompt context="model" onSendMessage={onSendMessage} />
           </ImproveConfidenceAccordion>
 
           {/* Minimal graph coaching — pre-run guidance, not blocker */}
