@@ -56,6 +56,11 @@ Decision surfaced to user in reply message — proceed, halt, or obtain external
 ### Typecheck
 - `npm run typecheck` — **PASS** (exit 0, no errors).
 
+### Vitest `--changed` from staging HEAD
+- Command: `npx vitest run --changed --bail=1`
+- Result: **No test files found** (zero tests changed vs merge-base). Exit code 0.
+- Interpretation: at branch-creation there is no diff against staging, so `--changed` finds nothing. Any D3+ change will start generating a non-empty `--changed` set; that set compares against this zero-item baseline.
+
 ### Vitest on Analysis-tab surface
 - Command: `npx vitest run src/components/results src/canvas/components/pre-analysis`
 - Test Files: **89 passed, 1 skipped** (90 total)

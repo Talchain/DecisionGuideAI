@@ -28,11 +28,11 @@ Tokens drawn from `src/styles/brand.css` (`--info`, `--success`, `--warning`, `-
 | `panelBody` | 12px / 400 | Primary body copy |
 | `panelMeta` | 11px / 400 | Subtitles, helper text, pill labels, disclaimers |
 
-**Addition (D3):** `heroDisplay` added to `src/styles/typography.ts`:
+**Addition (D3) — LOCKED value (no refinement without spec amendment):**
 ```ts
 heroDisplay: 'text-[32px] font-semibold leading-none tracking-tight',
 ```
-Leading + tracking values are initial guesses anchored to DS v5 display typographic treatment. D3 commit may refine these during implementation; if refined, commit body documents the refinement.
+D3 adds this exact string to `src/styles/typography.ts`. If implementation reveals a need to refine `leading-none` or `tracking-tight`, that constitutes a §2.9 schema-freeze change — D3 halts, user approves an amendment to this spec, then the refined token value is committed.
 
 **Forbidden in touched files (D3 grep gate):** `text-xs`, `text-sm`, `text-base`, `text-lg`, `text-[Npx]`, `font-medium`, `font-semibold`, `font-bold` — **except** inside the `heroDisplay` token definition itself in `typography.ts`.
 
@@ -92,7 +92,7 @@ Single rendering path via `src/components/results/SectionHeader.tsx`. Accepted p
 | `count` | `number` | no | Rendered as a numbered pill — `border border-panel-border bg-transparent rounded-full px-1.5`, `panelMeta`, `text-text-body` |
 | `subtitle` | `string` | no | `panelMeta` + `text-text-light`, single line, truncate |
 | `chevron` | `'open' \| 'closed' \| undefined` | no | Rotated ChevronDown, 14px, `text-text-light` |
-| `sectionColorMarker` | `string \| undefined` | no | 10×10px square rendered before title; value is a DS tailwind colour class (e.g., `bg-option`) |
+| `sectionColorMarker` | `'bg-option' \| undefined` | no | 10×10px square rendered before title. Constrained union (not free `string`) so Tailwind JIT sees the class literal and static review can audit. Only `'bg-option'` in scope (Your options section). Widening the union requires a §2.9 spec amendment. |
 | `testId` | `string` | no | existing pattern |
 | `icon` | existing | no | left unchanged in D4 (do not remove existing `icon` prop) |
 
@@ -153,7 +153,7 @@ All cards: `rounded-lg border border-panel-border bg-panel`. Additional attribut
 |---|---|---|---|
 | "Currently leads" soft phrasing | Hero copy (`certaintyCopy.ts`) + winner chip (`winnerChipCopy.ts`, used in `OptionCards.tsx`) | Both consume `certaintyCopy`; gate fires only when `tier ∈ {needs_work, fair}` AND `recommendationStability < 0.85`. Strong-stability runs always use confident phrasing. | D8 |
 | Fragility rows with identical alt-winner | Three separate rows in Before you decide (`ChallengeSection.tsx`) | One grouped row listing triggers; Review chip dropdown / multi-select per-edge | D11 |
-| "Something missing from the model/results?" | `MissingKnowledgePrompt.tsx` (pre-analysis) + `CoachingPrompt.tsx` (post-analysis) | `MissingKnowledgePrompt.tsx` extended with `context: 'model' \| 'results'` prop. `CoachingPrompt.tsx` deleted. Canonical component **locked in D1**. | D12 |
+| "Something missing from the model/results?" | `MissingKnowledgePrompt.tsx` (pre-analysis) + `CoachingPrompt.tsx` (post-analysis) | **Moved to `src/components/shared/MissingKnowledgePrompt.tsx`** (shared location) with `context: 'model' \| 'results'` prop. Pre-analysis import updated. `CoachingPrompt.tsx` deleted. Avoids results components importing from `src/canvas/**`, which would establish a cross-surface dependency in the wrong direction. | D12 |
 | "N assumptions to review and N quality suggestions to consider" | `PreAnalysisPanel.tsx` (readiness banner area) | Removed entirely — section counts already convey this. Brief 5.3 Task 1 regression. | D5 |
 | "Olumi applied N model adjustments" | `AdvancedSection.tsx` (results panel) | Removed from results per Signal Registry v3 §6.4; Model tab retains it. D14 verifies Model-tab render before removal. | D14 |
 | Standalone `AttentionBanner` card between DCP and Your options | `ResultsBody.tsx:214` | Removed (9b) after Validate/Research chips folded into DriversSection dominant-factor warning (9a). | D9 |
@@ -164,20 +164,29 @@ All cards: `rounded-lg border border-panel-border bg-panel`. Additional attribut
 
 Gate source: `src/components/results/utils/certaintyCopy.ts`. Consumed by hero composition in `DecisionConfidencePanel.tsx` and by winner chip (`winnerChipCopy.ts`) used in `OptionCards.tsx`.
 
-**Rule:** soft phrasing ("currently leads", "current leader") fires **only** when BOTH:
-1. `confidenceTier ∈ {'needs_work', 'fair'}` OR `coachingReadiness ∈ {'needs_evidence','needs_framing','low','not_ready'}`, AND
+**Rule (locked to brief):** soft phrasing ("currently leads", "current leader") fires **if and only if** BOTH:
+1. `confidenceTier ∈ {'needs_work', 'fair'}`, AND
 2. `recommendationStability < 0.85`.
 
-**Decision table (tier × stability × downstream coaching readiness collapsed to one axis):**
+`coachingReadiness` is **not** a softening trigger. If the current `certaintyCopy.ts` implementation reads `coachingReadiness` as an alternate condition 1 (it does — Row 4 of the current code), D8 removes that branch as part of its full scope (correction 2). Readiness remains an input to other copy decisions (close_call, evidence caveats) but cannot soften a `strong` tier or a high-stability run.
 
-| tier | stability | Phrasing | Example |
-|---|---|---|---|
-| `strong` | any | Confident | Hero: "leads by N points". Chip: "What makes this lead?" |
-| `fair` | ≥ 0.85 | **Confident (stability override)** | Hero: "leads by N points". Chip: "What makes this lead?" |
-| `fair` | < 0.85 | Soft | Hero: "currently leads by N points". Chip: "What makes this the current leader?" |
-| `needs_work` | ≥ 0.85 | **Confident (stability override)** | Hero: "leads by N points". Chip: "What makes this lead?" |
-| `needs_work` | < 0.85 | Soft | Hero: "currently leads by N points". Chip: "What makes this the current leader?" |
-| `needs_work` + close_call readiness | any | existing close-call path unchanged | (path preserved from current row 5) |
+**Decision table (tier × stability, complete):**
+
+| tier | stability | Phrasing |
+|---|---|---|
+| `strong` | any | Confident (hero: "leads by N points"; chip: "What makes this lead?") |
+| `fair` | ≥ 0.85 | Confident (stability override) |
+| `fair` | < 0.85 | Soft (hero: "currently leads by N points"; chip: "What makes this the current leader?") |
+| `needs_work` | ≥ 0.85 | Confident (stability override) |
+| `needs_work` | < 0.85 | Soft |
+
+Close-call copy (existing Row 5 path) is orthogonal and preserved; it neither softens nor strengthens the leader phrasing governed by this table.
+
+**Readiness cross-product tests (D8 must cover all four):**
+- `strong` tier + `coachingReadiness='needs_evidence'` + stability 0.75 → **Confident** (tier `strong` alone blocks softening; readiness must not sneak softening through).
+- `needs_work` tier + `coachingReadiness='ready'` + stability 0.75 → Soft (readiness does not rescue confidence when tier+stability both demand soft).
+- `needs_work` tier + `coachingReadiness='needs_evidence'` + stability 0.90 → **Confident** (stability override beats weak readiness).
+- `fair` tier + `coachingReadiness='not_ready'` + stability 0.80 → Soft (unambiguous soft path, readiness is incidental).
 
 **D8 acceptance tests (three named bundles — specific bundle fixtures to be chosen during D8):**
 - Bundle A: tier=`needs_work`, stability=0.87 → hero reads confident; chip reads confident.
@@ -190,36 +199,48 @@ Gate source: `src/components/results/utils/certaintyCopy.ts`. Consumed by hero c
 
 ## 2.8 Grep gate list (D18 executes; all must return zero)
 
-```
-rg -n "text-xs|text-sm|text-base|text-lg|text-\[[0-9]+px\]|font-medium|font-semibold|font-bold" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: zero (typography token enforcement — except typography.ts itself which defines heroDisplay)
+All gates exclude test directories via `--glob '!**/__tests__/**' --glob '!**/*.spec.*' --glob '!**/*.test.*'`. Test files legitimately contain many of these strings for assertion purposes and would cause false positives. Shared glob exclusion alias used below: `GATE_GLOBS='-g !**/__tests__/** -g !**/*.spec.* -g !**/*.test.*'`.
 
-rg -n "currently leads" src/components/results/
+```
+# Typography enforcement — forbidden utilities in production code
+rg $GATE_GLOBS -n "text-xs|text-sm|text-base|text-lg|text-\[[0-9]+px\]|font-medium|font-semibold|font-bold" src/components/results/ src/canvas/components/pre-analysis/
+# Expected: zero. Exception: src/styles/typography.ts defines tokens (heroDisplay uses text-[32px]) — typography.ts lives outside the two scanned trees, so naturally excluded.
+
+# "Currently leads" phrasing — production only, certaintyCopy is the sole source
+rg $GATE_GLOBS -n "currently leads" src/components/results/
 # Expected: matches only inside src/components/results/utils/certaintyCopy.ts
 
-rg -n "# of |#1 of |#2 of |#\{" src/components/results/OptionCards.tsx
-# Expected: zero (rank prefix removed)
+# OptionCards rank prefix — catches literal and template forms
+rg $GATE_GLOBS -n "#\s*(\d+|\$\{[^}]+\})\s+of\b" src/components/results/OptionCards.tsx
+# Expected: zero. Catches "#1 of 3", "#${rank} of ${totalOptions}", "# 1 of 3" etc.
 
-rg -n "Olumi applied" src/components/results/
-# Expected: zero (removed from results; Model tab retains)
+# "Olumi applied" structural-repairs notification removed from results
+rg $GATE_GLOBS -n "Olumi applied" src/components/results/
+# Expected: zero (Model tab retains; Model tab outside scanned tree)
 
-rg -n "assumptions to review and" src/canvas/components/pre-analysis/
-# Expected: zero (count-duplication line removed)
+# Count-duplication line in pre-analysis readiness area
+rg $GATE_GLOBS -n "assumptions to review and" src/canvas/components/pre-analysis/
+# Expected: zero
 
-rg -c "as any\|as unknown" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: count ≤ baseline captured at D1 time (no net increase)
+# Unsafe casts — net count may not increase
+rg $GATE_GLOBS -c "as any|as unknown" src/components/results/ src/canvas/components/pre-analysis/ | awk -F: '{sum+=$2} END {print sum}'
+# Expected: count ≤ baseline captured at D18 entry (no net increase vs branch-creation HEAD)
 
-rg -n "bg-[a-z]+-light" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: zero hits on card / pill / banner elements (may appear only in existing node-hover contexts explicitly sanctioned by DS v5)
+# bg-{colour}-light — never on cards, pills, banners in these trees
+rg $GATE_GLOBS -n "bg-[a-z]+-light" src/components/results/ src/canvas/components/pre-analysis/
+# Expected: zero. If a hit exists in a sanctioned node-hover context, D18 review documents the carve-out.
 
-rg -n "text-white" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: zero on badges (replaced with text-text-on-color)
+# text-white on badges
+rg $GATE_GLOBS -n "text-white" src/components/results/ src/canvas/components/pre-analysis/
+# Expected: zero (replaced with text-text-on-color)
 
-rg -n "p-\[[0-9]+px\]|px-\[[0-9]+px\]|py-\[[0-9]+px\]|gap-\[[0-9]+px\]" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: zero (arbitrary spacing forbidden; use Tailwind scale or --space-* tokens)
+# Arbitrary spacing — use scale or --space-* tokens
+rg $GATE_GLOBS -n "p-\[[0-9]+px\]|px-\[[0-9]+px\]|py-\[[0-9]+px\]|gap-\[[0-9]+px\]" src/components/results/ src/canvas/components/pre-analysis/
+# Expected: zero
 
-rg -n "bg-factor\b" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: zero (token is stone/brown, not the purple the brief intended; use bg-option)
+# bg-factor stone/brown token — forbidden in scope (corrected to bg-option per §2.4)
+rg $GATE_GLOBS -n "bg-factor\b" src/components/results/ src/canvas/components/pre-analysis/
+# Expected: zero
 ```
 
 Baseline `as any` / `as unknown` count captured at D18 entry by running the command against the branch-creation HEAD (`f7907f89`) — documented in final review.
