@@ -1,22 +1,27 @@
 /**
- * Hero headline ↔ footer stability label — tier × readiness × stability matrix.
+ * Hero headline ↔ footer stability label — tier × stability matrix.
  *
- * Brief 5.2 follow-up (ChatGPT Improvements #1). Per-component tests already
- * cover DecisionConfidencePanel and ResultsFooter separately, but drift
- * between them is precisely the class of regression Brief 5.2 targets: a
- * footer reading "Stable result · 97%" alongside a softened "currently leads"
- * hero would feel incoherent even though each surface's local tests pass.
+ * Brief 5.5 §2.7 lock. The softening gate now keys on (tier ∈ {needs_work,
+ * fair}) AND stability < 0.85 only; coachingReadiness is NOT consulted.
+ * Hero and footer stay in lock-step via the shared shouldSoftenPhrasing
+ * helper.
  *
- * This spec exercises the combinatorial matrix of confidence_tier × coaching
- * readiness × recommendation stability and asserts semantic alignment:
- *   - strong + ready + high stability → hero says "leading option", footer
- *     says "Stable result"
- *   - weak tier / weak readiness → hero says "currently leads", footer says
- *     "Stability sensitive", regardless of numeric stability
- *   - fair tier / close-call → hero says "is the leading option" (Brief 5.4 QA
- *     Item 3: no longer hedged), footer honours the numeric label
- *   - unstable stability < 0.70 → hero says "no clear leading option", no
- *     over-confident footer
+ * Matrix expectations (all values derived from §2.7):
+ *   - strong + ready + high stability → hero "is the leading option",
+ *     footer "Stable result"
+ *   - needs_work + high stability → stability override: hero "leads"
+ *     (confident fallback), footer "Stable result"
+ *   - strong + weak readiness (any stability) → readiness never softens;
+ *     hero "leads", footer "Stable result" at high stability, "Sensitive
+ *     to assumptions" at low (numeric pass-through)
+ *   - fair + high stability → stability override: hero "leads", footer
+ *     "Stable result"
+ *   - fair + low stability → soft: hero "currently leads", footer
+ *     "Stability sensitive"
+ *   - needs_work + low stability → soft: hero "currently leads", footer
+ *     "Stability sensitive"
+ *   - close_call readiness (orthogonal) → hero "is the leading option"
+ *   - unstable stability < 0.70 → hero "no clear leading option"
  */
 
 import { describe, it, expect } from 'vitest'
@@ -125,40 +130,53 @@ const matrix: MatrixCase[] = [
     forbidFooter: ['Stability sensitive'],
   },
   {
-    label: 'Rule 4 — weak tier overrides high stability: hero softened, footer "Stability sensitive"',
+    // §2.7: needs_work + high stability → stability override → confident fallback.
+    // Hero emits "Option A leads" (no "currently"); footer honours numeric "Stable result".
+    label: '§2.7 — needs_work + high stability: stability override to confident fallback',
     tier: 'needs_work',
     readiness: 'ready',
     stability: 0.97,
-    expectHeroContains: 'Option A currently leads',
-    forbidHero: ['clear leader', 'advantage', 'is the leading option'],
-    expectFooterContains: 'Stability sensitive',
-    forbidFooter: ['Stable result'],
-  },
-  {
-    label: 'Rule 4 — weak readiness overrides high stability: hero softened, footer "Stability sensitive"',
-    tier: 'strong',
-    readiness: 'needs_evidence',
-    stability: 0.95,
-    expectHeroContains: 'Option A currently leads',
-    forbidHero: ['clear leader', 'is the leading option'],
-    expectFooterContains: 'Stability sensitive',
-    forbidFooter: ['Stable result'],
-  },
-  {
-    // Brief 5.4 QA Item 3: fair tier now uses definitive "is the leading option" copy.
-    // conservative: true is preserved — coaching overrides remain blocked (Brief 5.2 invariant).
-    label: 'Rule 5 — fair tier: hero definitive, footer passes through numeric',
-    tier: 'fair',
-    readiness: 'ready',
-    stability: 0.90,
-    expectHeroContains: 'Option A is the leading option',
-    forbidHero: ['Option A currently leads'],
+    expectHeroContains: 'Option A leads',
+    forbidHero: ['currently leads', 'clear leader', 'advantage', 'is the leading option'],
     expectFooterContains: 'Stable result',
     forbidFooter: ['Stability sensitive'],
   },
   {
-    // Brief 5.4 QA Item 3: close_call readiness also uses definitive copy.
-    label: 'Rule 5 — close_call readiness: hero definitive, footer passes through numeric',
+    // §2.7: readiness never softens. Strong + weak readiness + high stability → confident.
+    label: '§2.7 — strong + weak readiness + high stability: readiness never softens',
+    tier: 'strong',
+    readiness: 'needs_evidence',
+    stability: 0.95,
+    expectHeroContains: 'Option A leads',
+    forbidHero: ['currently leads', 'clear leader', 'is the leading option'],
+    expectFooterContains: 'Stable result',
+    forbidFooter: ['Stability sensitive'],
+  },
+  {
+    // §2.7: fair + high stability → stability override → confident fallback.
+    label: '§2.7 — fair + high stability: stability override to confident fallback',
+    tier: 'fair',
+    readiness: 'ready',
+    stability: 0.90,
+    expectHeroContains: 'Option A leads',
+    forbidHero: ['Option A currently leads', 'is the leading option'],
+    expectFooterContains: 'Stable result',
+    forbidFooter: ['Stability sensitive'],
+  },
+  {
+    // §2.7: fair + low stability → soft. NEW behaviour versus Brief 5.4.
+    label: '§2.7 — fair + low stability: soft headline, footer "Stability sensitive"',
+    tier: 'fair',
+    readiness: 'ready',
+    stability: 0.80,
+    expectHeroContains: 'Option A currently leads',
+    forbidHero: ['is the leading option'],
+    expectFooterContains: 'Stability sensitive',
+    forbidFooter: ['Stable result'],
+  },
+  {
+    // close_call readiness is orthogonal — definitive copy, stability passes through.
+    label: '§2.7 — close_call readiness: definitive hero, numeric footer',
     tier: 'strong',
     readiness: 'close_call',
     stability: 0.90,
@@ -177,12 +195,16 @@ const matrix: MatrixCase[] = [
     expectFooterContains: 'Sensitive to assumptions',
   },
   {
-    label: 'Rule 1 boundary — stability 0.40 still unstable, hero "no clear leading option"',
+    // Rule 1 boundary — hero fires on stability < 0.70. Footer: fair + 0.40
+    // enters the §2.7 soft gate (tier ∈ {needs_work, fair} AND stab < 0.85),
+    // so the override fires regardless of the numeric-classification label.
+    // Hero + footer both read pessimistic, which is coherent.
+    label: 'Rule 1 boundary — stability 0.40 + fair tier: hero "no clear leading option", footer "Stability sensitive" via soft gate',
     tier: 'fair',
     readiness: 'ready',
     stability: 0.40,
     expectHeroContains: 'no clear leading option',
-    expectFooterContains: 'Sensitive to assumptions',
+    expectFooterContains: 'Stability sensitive',
   },
 ]
 
@@ -216,30 +238,39 @@ describe('Hero ↔ Footer alignment — tier × readiness × stability matrix', 
     }
   })
 
-  // Targeted weak-tier meta-guard: independent of the numeric stability,
-  // any row with a weak tier or weak readiness must produce "Stability
-  // sensitive" in the footer AND must not emit "is the leading option"
-  // in the hero. This is the exact regression Brief 5.2 Task 1 fixes —
-  // guarded once more across a stress-matrix of numeric bands so a
-  // future adapter tweak can't break it silently.
-  const weakStressBands: Array<{ tier: ConfidenceTier; readiness: M1CoachingReadiness }> = [
-    { tier: 'needs_work', readiness: 'ready' },
-    { tier: 'strong', readiness: 'needs_evidence' },
-    { tier: 'strong', readiness: 'needs_framing' },
-    { tier: 'strong', readiness: 'low' },
-    { tier: 'strong', readiness: 'not_ready' },
-    { tier: 'needs_work', readiness: 'needs_evidence' },
+  // §2.7 meta-guard: readiness cross-products. With any readiness value, a
+  // strong tier never softens, and any tier at stability ≥ 0.85 takes the
+  // stability override. Soft only fires for (needs_work OR fair) + stab < 0.85.
+  const readinessCrossProducts: Array<{
+    tier: ConfidenceTier
+    readiness: M1CoachingReadiness
+    stability: number
+    expectSoft: boolean
+  }> = [
+    // Strong + weak readiness: never soft (stability irrelevant).
+    { tier: 'strong', readiness: 'needs_evidence', stability: 0.95, expectSoft: false },
+    { tier: 'strong', readiness: 'needs_framing', stability: 0.95, expectSoft: false },
+    { tier: 'strong', readiness: 'low', stability: 0.95, expectSoft: false },
+    { tier: 'strong', readiness: 'not_ready', stability: 0.95, expectSoft: false },
+    // needs_work + any readiness: stability override at 0.95.
+    { tier: 'needs_work', readiness: 'ready', stability: 0.95, expectSoft: false },
+    { tier: 'needs_work', readiness: 'needs_evidence', stability: 0.95, expectSoft: false },
+    // needs_work + low stability: soft.
+    { tier: 'needs_work', readiness: 'ready', stability: 0.78, expectSoft: true },
+    // fair + low stability: soft (new per §2.7).
+    { tier: 'fair', readiness: 'ready', stability: 0.78, expectSoft: true },
   ]
-  it.each(weakStressBands)(
-    'weak tier/readiness (tier=$tier, readiness=$readiness) forces "Stability sensitive" regardless of numeric stability',
-    ({ tier, readiness }) => {
-      // Test across the high stability band where the suppression matters most.
-      const stability = 0.95
+  it.each(readinessCrossProducts)(
+    '§2.7 cross-product — tier=$tier readiness=$readiness stability=$stability → soft=$expectSoft',
+    ({ tier, readiness, stability, expectSoft }) => {
       const data = makeData(tier, readiness, stability)
       const panel = render(<DecisionConfidencePanel data={data} />)
       const panelText = panel.container.textContent ?? ''
-      expect(panelText).not.toContain('Option A is the leading option')
-      expect(panelText).toContain('Option A currently leads')
+      if (expectSoft) {
+        expect(panelText).toContain('Option A currently leads')
+      } else {
+        expect(panelText).not.toContain('Option A currently leads')
+      }
       panel.unmount()
 
       render(
@@ -250,8 +281,12 @@ describe('Hero ↔ Footer alignment — tier × readiness × stability matrix', 
         />,
       )
       const footerText = screen.getByTestId('results-footer').textContent ?? ''
-      expect(footerText).toContain('Stability sensitive')
-      expect(footerText).not.toContain('Stable result')
+      if (expectSoft) {
+        expect(footerText).toContain('Stability sensitive')
+        expect(footerText).not.toContain('Stable result')
+      } else {
+        expect(footerText).not.toContain('Stability sensitive')
+      }
     },
   )
 })

@@ -3,9 +3,11 @@
  * numeric classification from src/lib/stability.ts with confidence_tier /
  * coaching_readiness overrides.
  *
- * Brief 5.2 Task 1: weak tier forces "Stability sensitive" even when numeric
- * stability is high — over-confident footer copy (e.g. "Stable result · 97%")
- * is suppressed regardless of the raw number when evidence is weak.
+ * Brief 5.5 §2.7: the override now mirrors shouldSoftenPhrasing exactly
+ * (tier ∈ {needs_work, fair} AND stability < 0.85). This keeps hero and
+ * footer copy in lock-step: if the hero softens, the footer softens; if
+ * the hero goes confident, the footer passes through the numeric label.
+ * coachingReadiness is NOT consulted (spec correction).
  *
  * This is deliberately a UI-side composer, not a change to the shared
  * getStabilityClassification signature. Other callers of stability.ts (e.g.
@@ -15,38 +17,25 @@
 import type { StabilityClassification } from '../../../lib/stability'
 import type { M1CoachingReadiness } from '../../../types/cee'
 import type { ConfidenceTier } from '../types'
-
-const WEAK_READINESS: readonly M1CoachingReadiness[] = [
-  'needs_evidence',
-  'needs_framing',
-  'low',
-  'not_ready',
-]
-
-function isWeakReadiness(value: M1CoachingReadiness | undefined): boolean {
-  if (value == null) return false
-  return (WEAK_READINESS as readonly M1CoachingReadiness[]).includes(value)
-}
-
-function isWeakTier(
-  tier: ConfidenceTier | undefined,
-  readiness: M1CoachingReadiness | undefined,
-): boolean {
-  return tier === 'needs_work' || isWeakReadiness(readiness)
-}
+import { shouldSoftenPhrasing } from './certaintyCopy'
 
 export interface StabilityDisplayLabelInput {
   classification: StabilityClassification | null
   confidenceTier?: ConfidenceTier
   coachingReadiness?: M1CoachingReadiness
+  /**
+   * Numeric stability used by the softening gate. When absent, the gate
+   * treats stability as weak (same precedent as the certaintyCopy helper).
+   */
+  recommendationStability?: number
 }
 
 export interface StabilityDisplayLabel {
   heroLabel: string
   /**
-   * True when the label was forced to "Stability sensitive" by a weak tier
-   * override. Exposed so the footer can optionally style the label (e.g.
-   * warning colour) when the override fires.
+   * True when the label was forced to "Stability sensitive" by the shared
+   * softening gate. Exposed so the footer can optionally style the label
+   * (e.g. warning colour) when the override fires.
    */
   overriddenByTier: boolean
 }
@@ -54,10 +43,10 @@ export interface StabilityDisplayLabel {
 export function getStabilityDisplayLabel(
   input: StabilityDisplayLabelInput,
 ): StabilityDisplayLabel | null {
-  const { classification, confidenceTier, coachingReadiness } = input
+  const { classification, confidenceTier, recommendationStability } = input
   if (!classification) return null
 
-  if (isWeakTier(confidenceTier, coachingReadiness)) {
+  if (shouldSoftenPhrasing(confidenceTier, recommendationStability)) {
     return { heroLabel: 'Stability sensitive', overriddenByTier: true }
   }
 

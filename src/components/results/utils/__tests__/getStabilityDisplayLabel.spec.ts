@@ -1,107 +1,137 @@
 /**
- * getStabilityDisplayLabel — Brief 5.2 Task 1 tier-aware footer label.
+ * getStabilityDisplayLabel — Brief 5.5 §2.7 tier × stability footer gate.
  *
- * Locks the tier × numeric-stability matrix for the Analysis-tab footer so
- * an evidence-weak bundle can never read "Stable result · 97%" regardless
- * of numeric stability.
+ * The override now mirrors shouldSoftenPhrasing(tier, stability) exactly so
+ * hero and footer stay in lock-step:
+ *   soft ⇔ tier ∈ {needs_work, fair} AND stability < 0.85
+ * coachingReadiness is NOT consulted (spec correction — the Brief 5.2
+ * version overrode on weak readiness even when the hero stayed confident).
  */
 
 import { describe, it, expect } from 'vitest'
 import { getStabilityDisplayLabel } from '../getStabilityDisplayLabel'
 import { getStabilityClassification } from '../../../../lib/stability'
 
-describe('getStabilityDisplayLabel — Brief 5.2 Task 1', () => {
+describe('getStabilityDisplayLabel — tier × stability gate (Brief 5.5 §2.7)', () => {
   it('returns null when classification is null (missing stability)', () => {
     expect(
-      getStabilityDisplayLabel({ classification: null, confidenceTier: 'strong' }),
+      getStabilityDisplayLabel({
+        classification: null,
+        confidenceTier: 'strong',
+        recommendationStability: 0.9,
+      }),
     ).toBeNull()
   })
 
-  describe('pass-through: strong / fair tier retains numeric classification', () => {
+  describe('pass-through: strong tier retains numeric classification at every stability', () => {
     it.each([
       [0.97, 'Stable result'],
       [0.85, 'Stable result'],
       [0.80, 'Mostly stable'],
       [0.55, 'Sensitive to assumptions'],
       [0.30, 'Highly sensitive'],
-    ])('stability %s → heroLabel "%s" (strong tier)', (stability, expected) => {
+    ])('stability %s → heroLabel "%s" (strong tier, any readiness)', (stability, expected) => {
       const result = getStabilityDisplayLabel({
         classification: getStabilityClassification(stability),
         confidenceTier: 'strong',
-        coachingReadiness: 'ready',
+        coachingReadiness: 'needs_evidence', // readiness must NOT override strong
+        recommendationStability: stability,
       })
       expect(result?.heroLabel).toBe(expected)
       expect(result?.overriddenByTier).toBe(false)
     })
+  })
 
-    it('fair tier passes through numeric label at high stability', () => {
+  describe('stability override — tier ∈ {needs_work, fair} at stability ≥ 0.85 → pass-through', () => {
+    it('needs_work + stability 0.97 → "Stable result" (stability override)', () => {
+      const stability = 0.97
       const result = getStabilityDisplayLabel({
-        classification: getStabilityClassification(0.9),
+        classification: getStabilityClassification(stability),
+        confidenceTier: 'needs_work',
+        recommendationStability: stability,
+      })
+      expect(result?.heroLabel).toBe('Stable result')
+      expect(result?.overriddenByTier).toBe(false)
+    })
+
+    it('fair + stability 0.90 → "Stable result"', () => {
+      const stability = 0.90
+      const result = getStabilityDisplayLabel({
+        classification: getStabilityClassification(stability),
         confidenceTier: 'fair',
-        coachingReadiness: 'close_call',
+        recommendationStability: stability,
       })
       expect(result?.heroLabel).toBe('Stable result')
       expect(result?.overriddenByTier).toBe(false)
     })
   })
 
-  describe('weak tier override: "Stability sensitive" regardless of numeric stability', () => {
-    it('needs_work + stability 0.97 → "Stability sensitive" (the bundle-609164c7 case)', () => {
+  describe('soft footer — tier ∈ {needs_work, fair} AND stability < 0.85 → "Stability sensitive"', () => {
+    it('needs_work + stability 0.75 → "Stability sensitive"', () => {
+      const stability = 0.75
       const result = getStabilityDisplayLabel({
-        classification: getStabilityClassification(0.97),
+        classification: getStabilityClassification(stability),
         confidenceTier: 'needs_work',
-        coachingReadiness: 'needs_evidence',
+        recommendationStability: stability,
       })
       expect(result?.heroLabel).toBe('Stability sensitive')
       expect(result?.overriddenByTier).toBe(true)
     })
 
+    it('fair + stability 0.78 → "Stability sensitive" (new per §2.7)', () => {
+      const stability = 0.78
+      const result = getStabilityDisplayLabel({
+        classification: getStabilityClassification(stability),
+        confidenceTier: 'fair',
+        recommendationStability: stability,
+      })
+      expect(result?.heroLabel).toBe('Stability sensitive')
+      expect(result?.overriddenByTier).toBe(true)
+    })
+
+    it('needs_work + absent stability → "Stability sensitive" (absent treated as weak)', () => {
+      const result = getStabilityDisplayLabel({
+        classification: getStabilityClassification(0.3), // some classification, but no stability threaded
+        confidenceTier: 'needs_work',
+      })
+      expect(result?.heroLabel).toBe('Stability sensitive')
+      expect(result?.overriddenByTier).toBe(true)
+    })
+  })
+
+  describe('readiness is orthogonal to the override (spec correction)', () => {
     it.each([
       ['needs_evidence' as const],
       ['needs_framing' as const],
       ['low' as const],
       ['not_ready' as const],
-    ])('weak readiness %s overrides even at stability 0.95', (readiness) => {
+    ])('strong tier + weak readiness %s at stability 0.95 → "Stable result" (readiness never overrides)', (readiness) => {
+      const stability = 0.95
       const result = getStabilityDisplayLabel({
-        classification: getStabilityClassification(0.95),
+        classification: getStabilityClassification(stability),
         confidenceTier: 'strong',
         coachingReadiness: readiness,
+        recommendationStability: stability,
       })
-      expect(result?.heroLabel).toBe('Stability sensitive')
-      expect(result?.overriddenByTier).toBe(true)
-    })
-
-    it('weak tier at low numeric stability still labels "Stability sensitive" (consistent messaging)', () => {
-      const result = getStabilityDisplayLabel({
-        classification: getStabilityClassification(0.3),
-        confidenceTier: 'needs_work',
-      })
-      expect(result?.heroLabel).toBe('Stability sensitive')
-      expect(result?.overriddenByTier).toBe(true)
+      expect(result?.heroLabel).toBe('Stable result')
+      expect(result?.overriddenByTier).toBe(false)
     })
   })
 
-  it('absent tier and readiness → pass-through (no override)', () => {
+  it('absent tier → pass-through (no override)', () => {
     const result = getStabilityDisplayLabel({
       classification: getStabilityClassification(0.9),
+      recommendationStability: 0.9,
     })
     expect(result?.heroLabel).toBe('Stable result')
     expect(result?.overriddenByTier).toBe(false)
   })
 
-  it('ready readiness does NOT override', () => {
-    const result = getStabilityDisplayLabel({
-      classification: getStabilityClassification(0.9),
-      coachingReadiness: 'ready',
-    })
-    expect(result?.heroLabel).toBe('Stable result')
-    expect(result?.overriddenByTier).toBe(false)
-  })
-
-  it('close_call readiness alone does NOT trigger the override (Brief 5.1 decision-table rule 5)', () => {
+  it('close_call readiness alone does NOT trigger the override', () => {
     const result = getStabilityDisplayLabel({
       classification: getStabilityClassification(0.9),
       coachingReadiness: 'close_call',
+      recommendationStability: 0.9,
     })
     expect(result?.heroLabel).toBe('Stable result')
     expect(result?.overriddenByTier).toBe(false)
