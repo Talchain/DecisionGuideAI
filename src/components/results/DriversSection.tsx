@@ -907,7 +907,10 @@ export function DriversSection({
       {/* Ranking explainer */}
       <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
 
-      {/* Dominant factor warning — persistent, not dismissible */}
+      {/* Dominant factor warning — persistent, not dismissible.
+          Carries Validate/Research actions (D9a) so the standalone
+          AttentionBanner card between DCP and Your options is no
+          longer needed for this signal. */}
       {showDominantWarning && dominantLabel && (
         <div
           className="p-3 bg-panel border border-warning/30 rounded-lg"
@@ -922,6 +925,30 @@ export function DriversSection({
           <p className={`${typography.panelBody} text-text-body`}>
             {dominantLabel} drives {dominantPct}% of the outcome. If your assumptions about this factor are wrong, the recommendation could change. Consider gathering more evidence before committing.
           </p>
+          {(data.dominantFactorId && onFocusNode || onSendMessage) && (
+            <div className="flex items-center gap-1.5 mt-2">
+              {data.dominantFactorId && onFocusNode && (
+                <button
+                  type="button"
+                  onClick={() => onFocusNode!(data.dominantFactorId!)}
+                  className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+                  aria-label={`Validate ${dominantLabel} on canvas`}
+                >
+                  Validate
+                </button>
+              )}
+              {onSendMessage && (
+                <button
+                  type="button"
+                  onClick={() => onSendMessage!(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
+                  className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+                  aria-label={`Research ${dominantLabel}`}
+                >
+                  Research
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
