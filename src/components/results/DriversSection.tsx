@@ -608,12 +608,14 @@ function DriverRow({
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
 
-        {/* Confidence bar — same width as Sensitivity bar (icons moved to 4th column) */}
-        {/* Task 7a: dashed underline removed from confidence bar button */}
+        {/* Confidence indicator — 4-dot scale per Brief 5.5 §2.2 Pattern C.
+            Visually distinct from the magnitude/sensitivity bars so the three
+            bar-graph vocabularies don't collide. Neutral palette; the glyph
+            column beside it conveys High/Moderate/Low verbally. */}
         {confidenceValue !== null ? (
           <button
             type="button"
-            className="cursor-pointer bg-transparent p-0 border-0 w-full"
+            className="cursor-pointer bg-transparent p-0 border-0 w-full text-left"
             onClick={(e) => {
               e.stopPropagation()
               if (onFocus) {
@@ -622,13 +624,31 @@ function DriverRow({
             }}
             aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%. Click to update.`}
           >
-            <DataBar
-              value={confidenceValue}
-              colourVar={BAR_COLORS.blue}
-              label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-              size="standard"
-              showPercent
-            />
+            {(() => {
+              const filledSteps = Math.max(0, Math.min(4, Math.round(confidenceValue * 4)))
+              return (
+                <div
+                  role="progressbar"
+                  aria-valuenow={Math.round(confidenceValue * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+                  className="inline-flex items-center gap-0.5"
+                >
+                  {[0, 1, 2, 3].map(i => (
+                    <span
+                      key={i}
+                      aria-hidden="true"
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        i < filledSteps
+                          ? 'bg-text-body'
+                          : 'bg-panel-hover border border-panel-border'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )
+            })()}
           </button>
         ) : (
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
