@@ -627,7 +627,7 @@ function DriverRow({
         {confidenceValue !== null ? (
           <button
             type="button"
-            className="cursor-pointer bg-transparent p-0 border-0 w-full text-left"
+            className="cursor-pointer bg-transparent p-0 border-0 w-full text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded"
             onClick={(e) => {
               e.stopPropagation()
               if (onFocus) {
