@@ -198,8 +198,8 @@ Every modified surface passes the DS v5 checklist in `docs/Design/Olumi_Design_S
 *Change:* `analysis_run` headline template. No render surface — string output for a timeline list.
 
 - **Copy (before → after):**
-  - winner + prob present → "Analysis complete - Option A performs best at 74%" (unchanged)
-  - explicit prob=null/0 → **new** "Analysis finished (no probability available)"
+  - winner + **finite prob (incl. 0)** → "Analysis complete - Option A performs best at 74%" or "…at 0%" (P1-2 fix — finite zero is renderable)
+  - explicit prob=null / NaN / undefined-but-key-present → **new** "Analysis finished (no probability available)"
   - absent key → "Analysis run" (unchanged sentence-case fallback for legacy events)
 - **Forbidden terms:** none introduced.
 
@@ -209,9 +209,89 @@ One DS-visible behaviour genuinely changes (the filter gate on `SuggestedChips` 
 
 ---
 
-## Phase 4 — Fixtures + integration tests (pending)
+## Phase 4 — Fixtures + integration tests (closed)
 
-## Phase 5 — Pre-merge regression gate (pending)
+**Fixtures at `src/fixtures/v5/` (8 files, all committed at `e19bef45`):**
+
+| File | Shape |
+|---|---|
+| `analysis_ready_ready.json` | `status: 'ready'`, two ready options, `stage: 'analyse'`, analysis_result block |
+| `analysis_ready_not_ready.json` | `status: 'needs_user_input'`, one option `'needs_encoding'` |
+| `analysis_ready_missing.json` | `stage: 'analyse'` + analysis_result block, `analysis_ready` key absent |
+| `run_success_full_probs.json` | `option_comparison[*].win_probability ∈ {0.74, 0.26}` + finite `probability_of_goal` |
+| `run_success_null_probs.json` | same shell, all `win_probability: null` |
+| `run_boundary_error.json` | `blocks[].type === 'error'`, `failure_type: 'boundary_validation'` |
+| `conversational_chips_only.json` | chips-only, no `analysis_ready`, `stage: 'ideate'` |
+| `analysis_complete_null_probs_stale_ready.json` | reproduction of the recent failing trace: analysis_result block + null per-option probs + prior-turn stale ready state |
+
+**Integration tests (`src/v5/__tests__/applyV5State.fixtures.test.ts` + `src/canvas/ui/inspector-v2/__tests__/report-fixtures.spec.ts`):**
+
+| Assertion | Result |
+|---|---|
+| ready fixture → setCeeAnalysisReady called with status=ready | ✅ |
+| not_ready fixture → setCeeAnalysisReady called with status≠ready | ✅ |
+| missing-on-analyse fixture → setCeeAnalysisReady(null) (explicit-unknown) | ✅ |
+| conversational fixture → no setCeeAnalysisReady call (preserved) | ✅ |
+| boundary_error fixture → clear (no ready write, no success state) | ✅ |
+| stale-turn with ready payload → no stage/runMeta/readiness write | ✅ |
+| full_probs fixture → hasAnyRealProbability === true | ✅ |
+| null_probs fixture → hasAnyRealProbability === false | ✅ |
+| stale_ready failing-trace fixture → hasAnyRealProbability === false | ✅ |
+
+**Why the probability-helper assertions are in a separate canvas-scoped file:**
+`tsconfig.ci.json` has a narrow explicit include (`src/v5/**` plus a handful of lib/components). A v5-local test importing `hasAnyRealProbability` from `src/canvas/ui/inspector-v2/useAnalysisResults` transitively pulls `src/canvas/store.ts`, `src/canvas/domain/edges.ts`, and others into scope — surfacing 44 pre-existing typecheck errors in files outside this branch's scope. Splitting keeps the v5-scoped typecheck clean at **0 errors** while still pinning the contract.
+
+**Note on fixture provenance (addresses P1-3 from the review):**
+
+These fixtures are **synthetic unit fixtures**, not captured staging ContextPacks. They are derived from:
+- the canonical contract fixture at `src/__contracts__/analysis-ready.fixture.json` (source of truth for the `analysis_ready` shape)
+- the checked-in bundle at `src/canvas/conversation/__tests__/fixtures/cee-orchestrator-response.json` (source of truth for the envelope shape)
+- the TypeScript shape union in `src/adapters/cee/types.ts`
+
+I did not have access to live staging debug bundles in this environment. The fixtures encode every known shape class the UI must consume, but they are not proof that the real CEE emits exactly these shapes today. The recommendation for staging push (below) includes capturing a live bundle during manual verification.
+
+## Phase 5 — Pre-merge regression gate (closed)
+
+### Fresh-clone typecheck (authoritative)
+
+Commands run in an isolated clone at `/tmp/v5-staging-check` to eliminate any local worktree node_modules state:
+
+```
+git fetch /Users/paulslee/.claude-worktrees/DecisionGuideAI/v5-hardening claude/v5-alpha-hardening-ui
+git checkout FETCH_HEAD          # at d86b1b5 [v5-hardening] Phase 5
+npx tsc -p tsconfig.ci.json --noEmit
+```
+
+Result: **0 errors.**
+
+### Test results
+
+| Suite | Files | Pass | Fail | Skip | Delta vs Phase 0 baseline |
+|---|---|---|---|---|---|
+| `src/v5` | 17 | 216 | 0 | 0 | +21 new tests, 0 regressions |
+| `src/canvas/conversation` | 91 | 1284 | 68 | 22 | +9 new tests, 68 failures unchanged |
+| `src/canvas/components/__tests__/InsightsPanel.nullProb.spec.tsx` | 1 | 5 | 0 | 0 | +5 new |
+| `src/canvas/journey/__tests__/renderTimeline.nullProb.spec.ts` | 1 | 5 | 0 | 0 | +5 new |
+| `src/canvas/ui/inspector-v2/__tests__/useAnalysisResults.nullProb.spec.ts` | 1 | 12 | 0 | 0 | +12 new |
+| `src/canvas/ui/inspector-v2/__tests__/report-fixtures.spec.ts` | 1 | 3 | 0 | 0 | +3 new |
+
+**Total new tests pinned by this branch: 55.**
+**New regressions introduced: 0.**
+**Baseline failures (pre-existing, documented): 68.**
+
+### Review response — ChatGPT P0/P1/improvements
+
+Every item was analysed and addressed (commit `d86b1b5c`):
+
+- **P0-1 (hook ordering in SuggestedChips):** real bug I introduced. Hooks hoisted above all conditional returns. 3 regression tests pin ready↔not_ready↔missing transitions with no "Rendered fewer hooks than expected" console.error.
+- **P0-2 (stale guard placement):** real gap — the pinned invariant says *"Older responses must not clear or overwrite newer readiness, probabilities, chips, or stage"* but my guard only covered readiness. Guard moved to the top of applyV5State; multi-slice stale fixture test asserts stage + graph_patch (node + edge) + runMeta + analysis_ready all drop.
+- **P0-3 (engine-summary escape hatch):** real gap — `InsightsPanel` had three code paths that could emit "Analysis complete" bypassing the guard (engine-supplied summary, driver-language fallback, validateInsightConsistency). Post-guard override now forces the no-prob fallback whenever `hasAnyProbability === false`, regardless of source. New regression test uses engine summary `"Analysis complete. The winner is Option A at 73%."` + null probs and asserts suppression.
+- **P1-1 (evidence pack close-out):** this rewrite.
+- **P1-2 (finite-zero handling):** real edge case. Renderer now uses `Number.isFinite`; finite 0 renders as "Analysis complete - Option A performs best at 0%"; null/undefined/NaN/Infinity route to the no-prob state. Tests updated.
+- **P1-3 (synthetic fixture marking):** escalated — see "Note on fixture provenance" above and the push-authorisation recommendation.
+- **I-1 (multi-slice stale test):** addressed as part of P0-2.
+- **I-2 (engine-summary success-copy regression):** addressed as part of P0-3.
+- **I-3 (`hasAnyRealProbability` semantics):** cleaned up. Accepts EITHER finite `probability_of_goal` OR finite `option_comparison[*].win_probability`. Empty `option_comparison` no longer vetoes a valid root prob.
 
 ---
 
@@ -222,3 +302,23 @@ One DS-visible behaviour genuinely changes (the filter gate on `SuggestedChips` 
 3. **sessionStorage restore.** `setCeeAnalysisReady` persists to sessionStorage (store.ts:3112–3115). A future session hydrates before any applyV5State call, so the stale-turn guard does not protect hydration. Correct behaviour for now; revisit if a turn id is persisted alongside the payload.
 4. **`InsightsPanel` re-render loop.** The panel still has the pre-existing render loop flagged in its own code comments. The null-probability prop is memoised via `useMemo` so the new dependency doesn't worsen the loop. Not in scope to fix.
 5. **Coordination with CEE branch.** If CEE changes `suggested_actions`, `analysis_ready`, or the boundary-error response shape during its hardening branch, Phase 4 fixtures will need regeneration before the joint integrated evidence pack.
+6. **Fixture provenance.** Fixtures are synthetic. The joint integrated evidence pack should include a captured staging bundle — recommend Paul captures one during the manual golden-path verification (post-authorisation) and commits it to `src/fixtures/v5/captured/` for parity.
+7. **Parallel-session discovery.** The parallel Claude Code session's branch (`ui/analysis-tab-visual-system`) introduced typecheck errors in files outside this branch's scope (44 errors in `src/adapters/plot/enrichment.ts`, `src/canvas/domain/edges.ts`, etc. that surface only when the v5 typecheck scope expands). Not this branch's responsibility, but worth flagging to Brief 5.5 owner.
+
+---
+
+## Commit history
+
+```
+d86b1b5c Phase 5: address ChatGPT review (P0 + P1 + improvements)
+e19bef45 Phase 3+4: DS verification + fixture-driven integration tests
+093c86af Phase 2.3: null-probability guard + BoundaryError contract
+f4fc8efd Phase 2.2: SuggestedChips readiness gate + double-click safety
+d1f2b993 Phase 1+2.1: [v5-state] logs, stale-turn guard, explicit-unknown
+```
+
+All commits bear prefix `[v5-hardening]` per the operating constraint.
+
+## Ready for staging-push authorisation
+
+Pre-merge gate is closed locally. Requesting Paul's authorisation before any remote action. Post-authorisation golden-path run against staging with CEE branch deployed, plus live-bundle capture for the joint integrated evidence pack.
