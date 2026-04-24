@@ -68,9 +68,9 @@ Gate 9 (bg-factor)        — 0 hits ✓
 ## Typecheck status
 
 Pre-cleanup background run: **PASS** (exit 0).  
-Post-cleanup `npm run typecheck`: 4 errors in `src/v5/__tests__/applyV5State.hardening.test.ts` — this file is an **untracked contaminant** from a stash pop during D17 branch-commit error recovery. It is not committed on this branch, was not present at D1 baseline, and has no relation to Brief 5.5 deliverables. The branch itself typechecks clean.
+Post-cleanup `npm run typecheck`: 4 errors in `src/v5/__tests__/applyV5State.hardening.test.ts` — these files belong to the **authorised parallel CC session** working on branch `claude/v5-alpha-hardening-ui` (V5 alpha hardening, non-overlapping scope). They are untracked on this branch and must not be touched.
 
-**Action required before push:** delete the untracked v5 files (`src/v5/__tests__/applyV5State.hardening.test.ts`, `src/v5/__tests__/applyV5State.debug.test.ts`, `src/v5/debugLog.ts`, `docs/ui-v5-alpha-hardening-evidence.md`) or verify they belong to another branch's working state before running the pre-push hook.
+**Push coordination required:** `npm run typecheck` picks up all `.ts` files in `src/` regardless of git tracking, so those untracked v5 files will cause the pre-push hook's typecheck to fail when run in the same working tree. Coordinate with the v5 session to commit or vacate their working files before pushing this branch, or push when the other session's untracked files are not present.
 
 ---
 
