@@ -213,6 +213,89 @@ describe('applyV5State — stale-turn guard invariant', () => {
   })
 })
 
+describe('applyV5State — hidden / system turn stale-guard regression', () => {
+  // P1-1 regression: the stale-turn invariant must compare against the
+  // most-recently-dispatched V5 turn id of ANY kind (visible, hidden,
+  // system), not just the last visible user input. A hidden or system
+  // turn that dispatched AFTER a visible user turn must have its response
+  // accepted, not dropped as stale.
+  it('hidden turn dispatched after a visible user turn → its response writes state', () => {
+    // Simulate: user sent visible turn A (clientTurnId='user_A'), then a
+    // hidden turn B dispatched (clientTurnId='hidden_B'), then hidden
+    // turn B's response lands. Under the correct guard, currentClientTurnId
+    // reflects the most-recent dispatch (hidden_B), so the response with
+    // turnClientId='hidden_B' is accepted.
+    const store = makeStore()
+    const response = {
+      turn_id: 'hidden_B',
+      assistant_text: null,
+      blocks: [],
+      stage_indicator: { stage: 'analyse', confidence: 'high', source: 'inferred' },
+      analysis_ready: readyPayload,
+    } as unknown as OlumiResponse
+
+    const result = applyV5State(response, store, {
+      turnClientId: 'hidden_B',
+      currentClientTurnId: 'hidden_B', // activeV5TurnIdRef was updated on dispatch
+    })
+
+    expect(store.setCurrentStage).toHaveBeenCalled()
+    expect(store.setCeeAnalysisReady).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'ready' }),
+    )
+    expect(result.applied).toContain('analysis_ready:set')
+    expect(result.deferred.some((d) => d.reason === 'stale_turn_all_writes_skipped')).toBe(false)
+  })
+
+  it('system turn dispatched after a visible user turn → response writes state', () => {
+    // Same shape as the hidden case. The invariant does not distinguish
+    // hidden from system — only dispatch order matters.
+    const store = makeStore()
+    const response = {
+      turn_id: 'system_C',
+      assistant_text: null,
+      blocks: [
+        {
+          type: 'analysis_result',
+          block_id: 'br',
+          enrichment: { decision_review: { version: 1, overall: 'strong' } },
+        },
+      ],
+      stage_indicator: { stage: 'analyse', confidence: 'high', source: 'inferred' },
+    } as unknown as OlumiResponse
+
+    applyV5State(response, store, {
+      turnClientId: 'system_C',
+      currentClientTurnId: 'system_C',
+    })
+
+    expect(store.setCurrentStage).toHaveBeenCalled()
+    expect(store.setRunMeta).toHaveBeenCalled()
+  })
+
+  it('but: hidden turn response IS dropped if a newer turn dispatched after it', () => {
+    // The invariant still holds: dispatch order wins. If hidden turn B
+    // dispatched, then visible turn D dispatched (activeV5TurnIdRef now
+    // 'user_D'), then hidden turn B's response arrives, it is stale.
+    const store = makeStore()
+    const response = {
+      turn_id: 'hidden_B',
+      assistant_text: null,
+      blocks: [],
+      stage_indicator: { stage: 'analyse', confidence: 'high', source: 'inferred' },
+      analysis_ready: readyPayload,
+    } as unknown as OlumiResponse
+
+    applyV5State(response, store, {
+      turnClientId: 'hidden_B',
+      currentClientTurnId: 'user_D',
+    })
+
+    expect(store.setCurrentStage).not.toHaveBeenCalled()
+    expect(store.setCeeAnalysisReady).not.toHaveBeenCalled()
+  })
+})
+
 describe('applyV5State — hydration regression', () => {
   it('ready hydrated → conversational turn preserves → analyse-missing turn clears', () => {
     // Simulate the hydrate: the store already holds ready state.

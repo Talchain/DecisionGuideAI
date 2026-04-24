@@ -57,11 +57,42 @@ describe('hasAnyRealProbability', () => {
     expect(hasAnyRealProbability({ option_comparison: [] })).toBe(false)
   })
 
-  it('returns true when option_comparison is empty but probability_of_goal is finite (I-3 alignment)', () => {
-    // Either source is sufficient proof of renderable probability. Empty
-    // option_comparison must not veto a valid root probability.
+  it('returns true when option_comparison is empty but probability_of_goal is finite', () => {
+    // Empty option_comparison is "no option-level analysis attempted"; a
+    // finite root probability counts as a goal-level success signal.
     const report: InspectorReport = {
       option_comparison: [],
+      probability_of_goal: 0.55,
+    }
+    expect(hasAnyRealProbability(report)).toBe(true)
+  })
+
+  it('returns FALSE when option_comparison is non-empty-but-all-null, even with finite probability_of_goal (P1-2)', () => {
+    // Strict-render: a present-but-unrenderable options array is an
+    // engine-returned failure state. Even if probability_of_goal is a
+    // valid goal-level number, the per-option nulls veto success copy.
+    // The engine tried to compute per-option and failed; root does not
+    // rescue that.
+    const report: InspectorReport = {
+      option_comparison: [
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { option_id: 'a', win_probability: null as any },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { option_id: 'b', win_probability: null as any },
+      ],
+      probability_of_goal: 0.73,
+    }
+    expect(hasAnyRealProbability(report)).toBe(false)
+  })
+
+  it('returns true when one option is finite and another is null + finite root', () => {
+    // Partial success still renders — at least one option has a value.
+    const report: InspectorReport = {
+      option_comparison: [
+        { option_id: 'a', win_probability: 0.6 },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        { option_id: 'b', win_probability: null as any },
+      ],
       probability_of_goal: 0.55,
     }
     expect(hasAnyRealProbability(report)).toBe(true)

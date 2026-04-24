@@ -72,19 +72,23 @@ export function useOptionComparison(): InspectorOptionComparison[] | undefined {
 // ─── Probability-availability guard ──────────────────────────────────
 
 /**
- * True when the report carries at least one finite numeric probability —
- * either per-option `win_probability` OR the root `probability_of_goal`.
+ * True when the report carries at least one finite renderable probability.
  * Used to gate "Analysis complete" surfaces so they do not falsely imply
  * success when the engine returned all-nulls (the recent failing trace:
  * analysis_result block + null probabilities + ceeAnalysisReady still
  * from a prior ready turn).
  *
- * Accepts EITHER source by design (function name says "any"). An empty
- * `option_comparison` array does not veto a finite `probability_of_goal`.
- * Zero is a finite number and counts as a renderable probability (0%
- * is a valid result).
- *
- * Non-finite (null, undefined, NaN, Infinity) counts as missing.
+ * Rule (strict-render):
+ *   - If `option_comparison` is a non-empty array, at least one option
+ *     MUST have a finite `win_probability`. A non-empty-but-all-null
+ *     array is an engine-returned "I tried to compute per-option but
+ *     failed" state; downstream success copy ("Option A wins at X%")
+ *     has nothing to render. The root `probability_of_goal` does NOT
+ *     rescue this case — per-option nulls veto.
+ *   - If `option_comparison` is absent or an empty array, fall back to
+ *     the root `probability_of_goal` as a goal-level success signal.
+ *   - Zero counts as finite (0% is a valid result).
+ *   - Null, undefined, NaN, Infinity all count as missing.
  *
  * Pure function (no hook) so it can be called from both React render
  * paths and plain selectors (e.g. renderTimeline).
@@ -93,12 +97,13 @@ export function hasAnyRealProbability(report: InspectorReport | undefined | null
   if (!report) return false
   const isFiniteNumber = (x: unknown): x is number =>
     typeof x === 'number' && Number.isFinite(x)
-  if (isFiniteNumber(report.probability_of_goal)) return true
   const options = report.option_comparison
-  if (Array.isArray(options)) {
+  if (Array.isArray(options) && options.length > 0) {
+    // Present-but-non-empty: option-level nulls veto, root is not consulted.
     return options.some((opt) => isFiniteNumber(opt?.win_probability))
   }
-  return false
+  // Absent or empty array: fall back to root probability_of_goal.
+  return isFiniteNumber(report.probability_of_goal)
 }
 
 /** Hook wrapper over hasAnyRealProbability for components. */

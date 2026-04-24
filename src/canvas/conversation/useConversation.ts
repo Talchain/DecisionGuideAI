@@ -1210,6 +1210,13 @@ export function useConversation(): UseConversationReturn {
   const timeoutTimerRef = useRef<ReturnType<typeof setTimeout>>()
   const elapsedIntervalRef = useRef<ReturnType<typeof setInterval>>()
   const lastUserInputRef = useRef<{ message: string; clientTurnId?: string }>({ message: '' })
+  // Tracks the client_turn_id of the most-recently-dispatched V5 turn of ANY
+  // kind — visible, hidden, or system. Used by applyV5State's stale-turn
+  // guard so that hidden and system responses are NOT falsely treated as
+  // stale against lastUserInputRef (which only tracks visible user sends).
+  // Updated at dispatch time at every sendTurn site; read in the response
+  // handler to decide whether the arriving response is the current turn.
+  const activeV5TurnIdRef = useRef<string | null>(null)
   // Mirror messages state into a ref so buildRequest always reads the latest
   // committed value — avoids stale closure when addMessage + buildRequest run
   // in the same synchronous block (React batches the state update).
@@ -2435,6 +2442,11 @@ export function useConversation(): UseConversationReturn {
       // Generate or reuse a stable client_turn_id for idempotent retry
       const pendingContext = consumePendingInteractionContext()
       const turnClientId = retryClientTurnId ?? pendingContext?.chainId ?? crypto.randomUUID()
+      // Stamp the V5 active-turn ref at dispatch time for every turn kind
+      // (visible, hidden, system). The stale-turn guard in applyV5State
+      // reads this ref, not lastUserInputRef, so hidden/system responses
+      // are not dropped just because the user did not type.
+      activeV5TurnIdRef.current = turnClientId
       const triggerSurface = pendingContext?.triggerSurface ?? mapTriggerSurface(source, mode, hidden === true, systemEvent)
       const resolvedSourceSurface = sourceSurface ?? pendingContext?.sourceSurface ?? mapSourceSurface(triggerSurface, mode)
       const interactionStateBefore = pendingContext?.stateBefore ?? createInteractionSnapshot(messages.length)
@@ -2672,14 +2684,18 @@ export function useConversation(): UseConversationReturn {
             // Apply side-effects (stage, graph_patch mutations) BEFORE the
             // message renders so subsequent React effects (panel data, chat
             // auto-scroll) see consistent canvas state.
-            // Stale-turn guard: compare this response's client_turn_id against
-            // the id of the most recently dispatched turn (tracked by
-            // lastUserInputRef). A newer turn fired between request and
-            // response means this response is stale and must not regress
-            // V5 state. See applyV5State step-4 invariant.
+            // Stale-turn guard: compare this response's client_turn_id
+            // against the id of the most recently dispatched V5 turn of
+            // any kind — visible, hidden, or system. activeV5TurnIdRef is
+            // stamped at every sendTurn dispatch, unlike lastUserInputRef
+            // which only tracks visible user sends (hidden/system turns
+            // would otherwise be falsely dropped). When a newer turn fires
+            // between request and response, this response is stale and
+            // must not regress V5 state. See applyV5State's top-of-
+            // function invariant.
             const stateApply = applyV5State(target.response, useCanvasStore.getState(), {
               turnClientId,
-              currentClientTurnId: lastUserInputRef.current.clientTurnId ?? null,
+              currentClientTurnId: activeV5TurnIdRef.current,
             })
             if (import.meta.env.DEV) {
               if (stateApply.applied.length > 0) {
