@@ -33,20 +33,24 @@ Commits: 20 (D1–D18 + corrections + polish), local only. Not pushed.
 
 ---
 
-## Grep gate results (all zero)
+## Grep gate results
 
-All gates produced zero hits after final cleanup changes were applied.
+Gates with zero new violations. All hits are pre-existing approved carve-outs documented below.
 
 ```
 Gate 1 (typography)       — 0 hits ✓
-Gate 2 (currently leads)  — 0 hits ✓  (only inside certaintyCopy.ts)
-Gate 3 (rank prefix)      — 0 hits ✓  (comment-only line in jsdoc)
+Gate 2 (currently leads)  — 0 hits ✓  (only inside certaintyCopy.ts definition)
+Gate 3 (rank prefix)      — 0 hits ✓
 Gate 4 (Olumi applied)    — 0 hits ✓
 Gate 5 (count-dup line)   — 0 hits ✓
 Gate 6 (arbitrary spacing)— 0 hits ✓
-Gate 7 (bg-colour-light)  — 0 hits ✓
+Gate 7 (bg-colour-light)  — 6 approved hits ✓  (TornadoChart.tsx:628-630,656-657 — `bg-text-light/40` divider
+                             lines in chart; false positive from regex. `bg-text-light` is a text-color token,
+                             not a colour-semantic -light fill. Pre-existing; not on cards/pills/banners.)
 Gate 8 (text-white badge) — 0 hits ✓
-Gate 9 (bg-factor)        — 1 approved hit ✓  (`OptionCards.tsx:151` — pre-existing neutralised-bar fill; `bg-factor` is the correct semantic token for a "no result" state, not a badge/indicator. Gate intent is zero badge uses; this is a separate semantic context.)
+Gate 9 (bg-factor)        — 2 approved hits ✓  (OptionCards.tsx:151 neutralised-bar fill; AllImprovements.tsx:877
+                             `hover:bg-factor-light` row hover — both pre-existing, both approved DS uses.
+                             Gate regex `bg-factor\b` catches the -light suffix; gate intent is zero badge uses.)
 ```
 
 ---

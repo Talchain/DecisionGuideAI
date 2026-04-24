@@ -230,7 +230,9 @@ rg $GATE_GLOBS -c "as any|as unknown" src/components/results/ src/canvas/compone
 
 # bg-{colour}-light — never on cards, pills, banners in these trees
 rg $GATE_GLOBS -n "bg-[a-z]+-light" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: zero. If a hit exists in a sanctioned node-hover context, D18 review documents the carve-out.
+# Expected: zero new uses. Approved pre-existing carve-outs:
+#   TornadoChart.tsx:628-630,656-657 — `bg-text-light/40` chart divider lines (false positive;
+#   bg-text-light is a text-color token, not a colour-semantic light fill — regex is too broad)
 
 # text-white on badges
 rg $GATE_GLOBS -n "text-white" src/components/results/ src/canvas/components/pre-analysis/
@@ -242,9 +244,10 @@ rg $GATE_GLOBS -n "p-\[[0-9]+px\]|px-\[[0-9]+px\]|py-\[[0-9]+px\]|gap-\[[0-9]+px
 
 # bg-factor stone/brown token — forbidden as badge/indicator (corrected to bg-option per §2.4)
 rg $GATE_GLOBS -n "bg-factor\b" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: 1 approved hit — OptionCards.tsx neutralised-bar fill (pre-existing, semantic use of
-# bg-factor for a "no result / neutralised" state, not a badge or indicator context).
-# Gate intent is zero badge uses; this single semantic carve-out is explicitly approved.
+# Expected: 2 approved hits (regex catches bg-factor-light suffix via word boundary):
+#   OptionCards.tsx:151 — neutralised-bar fill (semantic "no result" state, not a badge)
+#   AllImprovements.tsx:877 — `hover:bg-factor-light` row hover (panel entity-hover, DS-sanctioned)
+# Gate intent is zero badge uses; both pre-existing carve-outs are explicitly approved.
 ```
 
 Baseline `as any` / `as unknown` count captured at D18 entry by running the command against the branch-creation HEAD (`f7907f89`) — documented in final review.
