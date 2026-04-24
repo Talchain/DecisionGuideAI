@@ -16,7 +16,6 @@ import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 import { ExpertBlock } from './ExpertBlock'
-import { useCanvasStore } from '../../canvas/store'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
 
@@ -83,10 +82,8 @@ export function AdvancedSection({
   trustReason,
   coachingReadinessDimensions,
   identifiabilityTag,
-  winnerWinProbability,
   defaultEstimateCount,
   totalFactorCount,
-  robustnessLevel,
   expertMode = false,
   inferenceWarnings,
 }: AdvancedSectionProps) {

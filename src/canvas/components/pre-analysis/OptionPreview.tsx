@@ -13,7 +13,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, ArrowUp, ArrowDown, Minus } from 'lucide-react'
 import { Pill } from './primitives'
-import Tooltip from '../../../components/Tooltip'
 import type { OptionPreviewData } from './hooks/usePreAnalysisData'
 import { typography } from '@/styles/typography'
 import { classifyUnit } from '../../utils/labelUtils'

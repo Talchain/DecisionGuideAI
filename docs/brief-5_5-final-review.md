@@ -46,7 +46,7 @@ Gate 5 (count-dup line)   — 0 hits ✓
 Gate 6 (arbitrary spacing)— 0 hits ✓
 Gate 7 (bg-colour-light)  — 0 hits ✓
 Gate 8 (text-white badge) — 0 hits ✓
-Gate 9 (bg-factor)        — 0 hits ✓
+Gate 9 (bg-factor)        — 0 hits ✓  (one pre-existing carve-out: OptionCards.tsx neutralised-bar fill — approved use, not a badge/indicator)
 ```
 
 ---
@@ -101,6 +101,8 @@ None.
 2. **D5 visual verification** — confirm "N assumptions to review and N quality suggestions to consider" is absent after merge to staging. Brief notes this as a staging walkthrough item.
 3. **OptionCards.tsx still has `rank: undefined` in jsdoc** — the comment now says "Ordinal colour marker + option name" but `rank` is used in card internals. Minor doc drift; no functional impact.
 4. **YourExpertise tooltip removal** — the three Info icons carried useful content ("Review factors and relationships on the Model tab", "Confirm AI estimates..."). The spec §2.3 removes header tooltips. Consider whether the instruction text should move to a subtitle prop instead. Flagged as deferred.
+
+5. **MissingKnowledgePrompt canvas dependency** — `src/components/shared/MissingKnowledgePrompt.tsx` imports `DiscussWithAiButton` from `@/canvas/components/pre-analysis/`, creating a transitive canvas dependency from a shared component. Correct fix is to inject the button via a `chatButton?: React.ReactNode` prop slot; deferred because it requires test rewrites. Tracked for a follow-up accessibility/dependency pass.
 
 ### Deferrals (out-of-scope for Brief 5.5, tracked for future work)
 - `AllImprovements.tsx:264` — tier-section sub-header Info icon (not in spec §2.3 ten-section list)
