@@ -10,13 +10,12 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Copy, Check, Info, AlertTriangle, Gauge } from 'lucide-react'
+import { Copy, Check, AlertTriangle, Gauge } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
 import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 import { ExpertBlock } from './ExpertBlock'
-import { useCanvasStore } from '../../canvas/store'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
 
@@ -83,10 +82,8 @@ export function AdvancedSection({
   trustReason,
   coachingReadinessDimensions,
   identifiabilityTag,
-  winnerWinProbability,
   defaultEstimateCount,
   totalFactorCount,
-  robustnessLevel,
   expertMode = false,
   inferenceWarnings,
 }: AdvancedSectionProps) {
@@ -97,14 +94,6 @@ export function AdvancedSection({
   const narrativeRef = useRef<HTMLParagraphElement>(null)
   const [narrativeClamped, setNarrativeClamped] = useState(false)
   // Brief 4 Task 11: pre-analysis CEE may have applied model adjustments.
-  // Surface the count as an inline trust-narrative note pointing to the
-  // Model tab (pre-analysis ModelAdjustments card is the detailed surface).
-  const modelAdjustmentsCount = useCanvasStore(
-    s => Array.isArray(s.ceeAnalysisReady?.model_adjustments)
-      ? (s.ceeAnalysisReady?.model_adjustments?.length ?? 0)
-      : 0,
-  )
-
   // Detect if the narrative text overflows 3 lines
   useEffect(() => {
     const el = narrativeRef.current
@@ -313,16 +302,6 @@ export function AdvancedSection({
                 </div>
               )
             })()}
-
-            {/* Brief 4 Task 11: model-adjustments pointer to Model tab */}
-            {modelAdjustmentsCount > 0 && (
-              <p className="flex items-start gap-1.5">
-                <Info size={14} className="text-info flex-shrink-0 mt-0.5" aria-hidden="true" />
-                <span>
-                  Olumi applied {modelAdjustmentsCount} model adjustment{modelAdjustmentsCount === 1 ? '' : 's'} before analysis. See Model tab for details.
-                </span>
-              </p>
-            )}
 
             {/* Science limitations line */}
             <p>

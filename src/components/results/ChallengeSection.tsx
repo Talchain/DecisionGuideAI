@@ -192,32 +192,37 @@ function ChallengeCard({
 }
 
 
-/* ── Fragile edge group card (grouped by source, with CTAs) ────────────── */
+/* ── Fragile edge group card ────────────────────────────────────────────── */
 
 function FragileEdgeGroupCard({
-  sourceLabel,
+  altWinnerLabel,
   edges,
   onFocusNode,
   onSendMessage,
   expertMode,
 }: {
-  sourceLabel: string
+  /**
+   * Shared alt-winner label for this group (D11: grouped by alt-winner).
+   * When null, edges have no alt-winner or are a heterogeneous fallback group.
+   */
+  altWinnerLabel: string | null
   edges: Array<ChallengeFragileEdge & { e_value?: number }>
   onFocusNode?: (nodeId: string) => void
   onSendMessage?: (text: string) => void
   expertMode?: boolean
 }) {
-  const cleanSource = stripEncodingNotation(sourceLabel)
   const hasEValue = edges.some(e => e.e_value != null)
-  // Consolidated mode: empty sourceLabel means edges from mixed sources
-  const consolidated = !sourceLabel
   const multiple = edges.length > 1
+
+  const headerCopy = altWinnerLabel && multiple
+    ? <>{edges.length} {edges.length === 1 ? 'factor' : 'factors'} could flip the result to <span className={`${typography.panelHeader} text-text-body`} data-testid="fragile-alt-winner">{altWinnerLabel}</span></>
+    : altWinnerLabel
+      ? <>Result could flip to <span className={`${typography.panelHeader} text-text-body`} data-testid="fragile-alt-winner">{altWinnerLabel}</span></>
+      : hasEValue ? 'Fragile result, verify key assumptions' : 'Fragile relationship'
 
   return (
     <div className={`relative border border-panel-border rounded-lg px-3 py-2 pr-16 space-y-1.5 ${onSendMessage ? 'pb-7' : ''}`}>
-      {/* Brief 5.2 Task 6: Stability pill anchored top-right so it reads as a
-          card-level signal rather than inline with the body text. The pr-16
-          above reserves space so wrapping body text doesn't overlap. */}
+      {/* Stability pill anchored top-right */}
       <span
         className={`absolute top-2 right-3 rounded-full border ${hasEValue ? 'border-danger/30' : 'border-warning/30'} bg-transparent px-2 py-0.5 ${typography.panelMeta} text-text-body leading-none`}
         data-testid="fragile-card-stability-pill"
@@ -226,13 +231,7 @@ function FragileEdgeGroupCard({
       </span>
       <div className="flex items-center gap-2">
         <AlertTriangle className={`w-3.5 h-3.5 ${hasEValue ? 'text-danger' : 'text-warning'} flex-shrink-0`} aria-hidden="true" />
-        <p className={`${typography.panelBody} text-text-body flex-1`}>
-          {consolidated
-            ? <>{edges.length} fragile relationships</>
-            : multiple
-              ? <>{edges.length} fragile relationships from {cleanSource}</>
-              : hasEValue ? 'Fragile result, verify key assumptions' : 'Fragile relationship'}
-        </p>
+        <p className={`${typography.panelBody} text-text-body flex-1`}>{headerCopy}</p>
       </div>
 
       {/* Brief 5.2 Task 6 row copy structure:
@@ -242,31 +241,20 @@ function FragileEdgeGroupCard({
           via stripStatusQuoSuffixForDisplay so a runner-up labelled
           "Continue Without Support (Status Quo)" reads cleanly in fragility
           context. "could win" → "could overtake" unifies verb choice. */}
+      {/* D11: When multiple edges share an alt-winner, show triggers as a list.
+          Each edge still gets its own per-edge Review chip (per-edge focus
+          preserved — the user can navigate to each relationship individually). */}
       {edges.map((edge, i) => {
         const edgeSource = stripEncodingNotation(edge.from_label)
-        const altWinner = edge.alternative_winner_label
-          ? stripStatusQuoSuffixForDisplay(stripEncodingNotation(edge.alternative_winner_label))
-          : null
-        // Brief 5.2 follow-up (ChatGPT P1 #2): onFocusNode expects a canvas
-        // node id, not a label. When PLoT omits edge.from_id the chip would
-        // previously fire with from_label and silently no-op (or worse,
-        // match a node whose id happens to equal the label). Use from_id
-        // directly — when absent, the chip is suppressed below.
         const edgeFocusId = edge.from_id
         return (
           <div key={`${edge.from_label}-${edge.to_label}-${i}`} className="space-y-1">
+            {/* In multi-edge grouped cards, show trigger copy. In single-edge
+                cards, the header already names the alt-winner so we just show
+                "If {source} shifts" as the body. */}
             <div className={`flex items-baseline gap-2 flex-wrap ${typography.panelMeta} text-text-light`}>
-              <span>
-                If <span className="text-text-body">{edgeSource}</span> shifts
-              </span>
-              {altWinner ? (
-                <>
-                  <span aria-hidden="true" className="text-text-light">→</span>
-                  <span className={`${typography.panelHeader} text-text-body`} data-testid="fragile-alt-winner">
-                    {altWinner} could overtake
-                  </span>
-                </>
-              ) : (
+              <span>If <span className="text-text-body">{edgeSource}</span> shifts</span>
+              {!altWinnerLabel && (
                 <span>the recommendation could change</span>
               )}
             </div>
@@ -277,27 +265,13 @@ function FragileEdgeGroupCard({
                 </p>
               </ExpertBlock>
             )}
-            {/* Brief 5.2 Task 6c: per-row chip also renders for consolidated
-                groups — removes the inconsistency where consolidated cards
-                only exposed an icon-only inspector button.
-
-                Brief 5.2 follow-up (ChatGPT P0 #2): always use the row's
-                own edgeFocusId. The earlier implementation fell back to
-                group-level focusId for consolidated groups, which opened
-                the first edge's source for EVERY row — row 2+ chips
-                focused the wrong node.
-
-                Brief 5.2 follow-up (ChatGPT P1 #2): chip is suppressed
-                when edge.from_id is absent. Passing from_label to
-                onFocusNode would silently no-op in the inspector and
-                mislead the user into thinking the affordance works. */}
             {onFocusNode && edgeFocusId && (
               <button
                 type="button"
                 onClick={() => onFocusNode(edgeFocusId)}
                 data-testid={`fragile-review-chip-${i}`}
                 className={`${typography.panelMeta} text-info border border-info/30 rounded-full px-2 py-0.5 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1`}
-                aria-label={`Review ${edgeSource} in the inspector`}
+                aria-label={`Review relationship from ${edgeSource}`}
               >
                 Review this relationship
               </button>
@@ -313,11 +287,11 @@ function FragileEdgeGroupCard({
             variant="secondary"
             element={{ kind: 'missing' }}
             onSend={() => onSendMessage(
-              consolidated
-                ? `Are these ${edges.length} fragile relationships in my model reliable?`
-                : multiple
-                  ? `Are the relationships from ${cleanSource} reliable? It has ${edges.length} fragile connections.`
-                  : `Is the relationship between ${cleanSource} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
+              altWinnerLabel && multiple
+                ? `Are these ${edges.length} relationships that could flip the result to ${altWinnerLabel} reliable?`
+                : altWinnerLabel
+                  ? `Is the relationship between ${stripEncodingNotation(edges[0].from_label)} and ${stripEncodingNotation(edges[0].to_label)} reliable?`
+                  : `Are these ${edges.length} fragile relationships in my model reliable?`
             )}
           />
         </div>
@@ -384,9 +358,14 @@ export function ChallengeSection({
     .slice(0, 3)
     .map(fe => ({ ...fe, e_value: fe.edge_id ? eValueMap.get(fe.edge_id) : undefined }))
 
-  // Group fragile cards by source node (from_label) for visual grouping
-  const fragileBySource = mergedFragileCards.reduce<Record<string, typeof mergedFragileCards>>((acc, card) => {
-    const key = card.from_label
+  // D11: Group fragile cards by alternative_winner_label so edges that share
+  // the same alt-winner collapse into one card. Edges with no alt-winner go
+  // into a fallback 'null' group. Within each group, order is preserved from
+  // the sort above (highest switch probability first).
+  const fragileByAltWinner = mergedFragileCards.reduce<Record<string, typeof mergedFragileCards>>((acc, card) => {
+    const key = card.alternative_winner_label
+      ? stripStatusQuoSuffixForDisplay(stripEncodingNotation(card.alternative_winner_label))
+      : '__no_alt_winner__'
     if (!acc[key]) acc[key] = []
     acc[key].push(card)
     return acc
@@ -412,32 +391,16 @@ export function ChallengeSection({
           {/* Fragile edges grouped by source node.
               When grouping by source produces only singletons (no source has 2+
               edges), consolidate into one card to avoid N identical-looking cards. */}
-          {(() => {
-            const entries = Object.entries(fragileBySource)
-            const allSingletons = entries.length > 1 && entries.every(([, cards]) => cards.length === 1)
-            if (allSingletons) {
-              return (
-                <FragileEdgeGroupCard
-                  key="fragile-group-consolidated"
-                  sourceLabel=""
-                  edges={mergedFragileCards}
-                  onFocusNode={onFocusNode}
-                  onSendMessage={onSendMessage}
-                  expertMode={expertMode}
-                />
-              )
-            }
-            return entries.map(([sourceLabel, cards]) => (
-              <FragileEdgeGroupCard
-                key={`fragile-group-${sourceLabel}`}
-                sourceLabel={sourceLabel}
-                edges={cards}
-                onFocusNode={onFocusNode}
-                onSendMessage={onSendMessage}
-                expertMode={expertMode}
-              />
-            ))
-          })()}
+          {Object.entries(fragileByAltWinner).map(([altWinnerKey, cards]) => (
+            <FragileEdgeGroupCard
+              key={`fragile-group-${altWinnerKey}`}
+              altWinnerLabel={altWinnerKey === '__no_alt_winner__' ? null : altWinnerKey}
+              edges={cards}
+              onFocusNode={onFocusNode}
+              onSendMessage={onSendMessage}
+              expertMode={expertMode}
+            />
+          ))}
         </div>
       )}
 

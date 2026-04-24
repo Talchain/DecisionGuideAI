@@ -1,6 +1,6 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { MissingKnowledgePrompt } from '../MissingKnowledgePrompt'
+import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 
 describe('MissingKnowledgePrompt', () => {
@@ -13,13 +13,13 @@ describe('MissingKnowledgePrompt', () => {
   })
 
   it('renders the prompt text and sparkle button', () => {
-    render(<MissingKnowledgePrompt />)
+    render(<MissingKnowledgePrompt context="model" />)
     expect(screen.getByText(/Something missing from the model/)).toBeInTheDocument()
     expect(screen.getByTestId('discuss-with-ai')).toBeInTheDocument()
   })
 
   it('sends pre-filled message when sparkle is clicked', () => {
-    render(<MissingKnowledgePrompt />)
+    render(<MissingKnowledgePrompt context="model" />)
 
     fireEvent.click(screen.getByTestId('discuss-with-ai'))
 
@@ -31,18 +31,18 @@ describe('MissingKnowledgePrompt', () => {
 
   it('does not render sparkle when guidance store has no sendMessage', () => {
     useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null })
-    render(<MissingKnowledgePrompt />)
+    render(<MissingKnowledgePrompt context="model" />)
     expect(screen.queryByTestId('discuss-with-ai')).not.toBeInTheDocument()
   })
 
   it('dismisses on X click', () => {
-    render(<MissingKnowledgePrompt />)
+    render(<MissingKnowledgePrompt context="model" />)
     fireEvent.click(screen.getByLabelText('Dismiss'))
     expect(screen.queryByText(/Something missing/)).not.toBeInTheDocument()
   })
 
   it('stays dismissed after dismiss', () => {
-    const { container } = render(<MissingKnowledgePrompt />)
+    const { container } = render(<MissingKnowledgePrompt context="model" />)
     fireEvent.click(screen.getByLabelText('Dismiss'))
     expect(container.querySelector('[class*="rounded-lg"]')).toBeNull()
   })
@@ -50,19 +50,19 @@ describe('MissingKnowledgePrompt', () => {
   // ── Brief 5.3 Task 11 + 12 regressions ──────────────────────────
 
   it('shows helper copy below the main prompt text', () => {
-    render(<MissingKnowledgePrompt />)
+    render(<MissingKnowledgePrompt context="model" />)
     expect(screen.getByText(/Describe what's missing and Olumi will suggest/)).toBeInTheDocument()
   })
 
   it('dismiss button has aria-label "Dismiss"', () => {
-    render(<MissingKnowledgePrompt />)
+    render(<MissingKnowledgePrompt context="model" />)
     const btn = screen.getByLabelText('Dismiss')
     expect(btn).toBeInTheDocument()
     expect(btn.tagName).toBe('BUTTON')
   })
 
   it('dismiss button has focus-visible ring classes (keyboard accessibility)', () => {
-    render(<MissingKnowledgePrompt />)
+    render(<MissingKnowledgePrompt context="model" />)
     const btn = screen.getByLabelText('Dismiss')
     // focus-visible ring applied via Tailwind — guard the class string so a
     // future refactor cannot silently drop keyboard focus affordance.

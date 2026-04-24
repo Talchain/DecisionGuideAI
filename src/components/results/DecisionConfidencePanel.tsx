@@ -27,6 +27,7 @@ import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
 import { typography } from '@/styles/typography'
+import { SectionHeader } from './SectionHeader'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 
 // ── Types ───────────────────────────────────────────────────────────────────
@@ -227,10 +228,15 @@ function TrustSummary({
 
   return (
     <div className="flex flex-col gap-0.5" data-testid="trust-summary">
-      <p className={`${typography.panelMeta} text-text-light`}>
-        Highest-value evidence gaps
-      </p>
-      <p className={`${typography.panelMeta} text-text-light`} data-testid="evidence-scope-subtitle">
+      <SectionHeader
+        title="Highest-value evidence gaps"
+        className="mb-0"
+        testId="evidence-section-header"
+      />
+      <p
+        className={`${typography.panelMeta} text-text-light`}
+        data-testid="evidence-scope-subtitle"
+      >
         Factors where new information would most reduce uncertainty
       </p>
       {showBridge && (
@@ -649,9 +655,16 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         />
       )}
 
-      {/* 6. Science nudge cards — in triage area after "Show N more" (Task 4) */}
+      {/* 6. Science nudge cards — model-level checks separated from evidence gaps
+          by an explicit sub-header (D10 Path B — anti-synthesis: these are
+          structural/sensitivity signals, not evidence-gap signals). */}
       {scienceNudges.length > 0 && (
         <div className="flex flex-col gap-1.5">
+          <SectionHeader
+            title="Model checks"
+            subtitle="Structural signals that may affect the result"
+            className=""
+          />
           {scienceNudges.map((nudge) => (
             <ScienceNudgeCard
               key={nudge.key}

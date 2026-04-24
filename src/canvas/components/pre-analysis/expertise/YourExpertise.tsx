@@ -17,8 +17,7 @@
  */
 
 import { useMemo, useState, useCallback, useEffect, type KeyboardEvent } from 'react'
-import { ChevronRight, Info } from 'lucide-react'
-import Tooltip from '../../../../components/Tooltip'
+import { ChevronRight } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { useUIStore } from '@/stores/uiStore'
 import { deriveExpertiseGroups, type ExpertiseGroups } from '../hooks/deriveExpertiseGroups'
@@ -161,9 +160,6 @@ export function YourExpertise({
         data-testid="your-expertise-section"
       >
         <span className={`${typography.panelHeader} text-text-header`}>Your expertise</span>
-        <Tooltip delay={300} content="Review factors and relationships on the Model tab">
-          <Info size={14} className="text-text-light" />
-        </Tooltip>
         <span className={`${typography.panelMeta} text-text-light`}>
           Your model is fully calibrated
         </span>
@@ -187,9 +183,6 @@ export function YourExpertise({
       >
         <div className="flex items-center gap-2 min-w-0">
           <span className={`${typography.panelHeader} text-text-header`}>Your expertise</span>
-          <Tooltip delay={300} content="Review factors and relationships on the Model tab">
-            <Info size={14} className="text-text-light" />
-          </Tooltip>
           <span
             className={`${typography.panelMeta} text-text-light truncate`}
             data-testid="expertise-summary"
@@ -220,9 +213,6 @@ export function YourExpertise({
       >
         <div className="flex items-center gap-2 min-w-0">
           <span className={`${typography.panelHeader} text-text-header`}>Your expertise</span>
-          <Tooltip delay={300} content="Confirm AI estimates, fill missing data, or review every relationship on the Model tab.">
-            <Info size={14} className="text-text-light" />
-          </Tooltip>
           <span
             className={`${typography.panelMeta} text-text-light truncate`}
             data-testid="expertise-summary"

@@ -29,6 +29,7 @@ import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 import { ExpertBlock } from './ExpertBlock'
+import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
 
 interface DriversSectionProps {
@@ -552,15 +553,19 @@ function DriverRow({
     >
       {/* Single row: Factor name + info icon + bars */}
       <div className={`grid ${GRID_COLS} gap-2 items-center px-3 py-1.5`}>
-        {/* Factor name with direction arrow and inline info icon */}
+        {/* Factor name: direction arrow (row 1 only) + title + info icon (row 1 only).
+            D13: rows 2+ drop the arrow (bar colour conveys direction) and the
+            tooltip (i) icon (reduces clutter; inspector gives full detail). */}
         <div className="flex items-center gap-1.5 min-w-0">
-          <span
-            className={`${typography.panelBody} flex-shrink-0`}
-            style={{ color: directionColor }}
-            aria-hidden="true"
-          >
-            {directionIcon}
-          </span>
+          {isTopDriver && (
+            <span
+              className={`${typography.panelBody} flex-shrink-0`}
+              style={{ color: directionColor }}
+              aria-hidden="true"
+            >
+              {directionIcon}
+            </span>
+          )}
           {driver.canFocus ? (
             <button
               type="button"
@@ -571,12 +576,19 @@ function DriverRow({
             >
               {cleanedLabel}
             </button>
-          ) : (
+          ) : isTopDriver ? (
             <span className={`${typography.panelBody} text-text-body break-words leading-snug line-clamp-2`} title={cleanedLabel}>
               {cleanedLabel}
             </span>
+          ) : (
+            <ExpandableCoachingText
+              text={cleanedLabel}
+              maxLinesCollapsed={2}
+              className="text-text-body"
+              titleAttr={cleanedLabel}
+            />
           )}
-          {hasTooltipContent && (
+          {hasTooltipContent && isTopDriver && (
             <button
               ref={infoButtonRef}
               onClick={toggleTooltip}
@@ -608,12 +620,14 @@ function DriverRow({
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
 
-        {/* Confidence bar — same width as Sensitivity bar (icons moved to 4th column) */}
-        {/* Task 7a: dashed underline removed from confidence bar button */}
+        {/* Confidence indicator — 4-dot scale per Brief 5.5 §2.2 Pattern C.
+            Visually distinct from the magnitude/sensitivity bars so the three
+            bar-graph vocabularies don't collide. Neutral palette; the glyph
+            column beside it conveys High/Moderate/Low verbally. */}
         {confidenceValue !== null ? (
           <button
             type="button"
-            className="cursor-pointer bg-transparent p-0 border-0 w-full"
+            className="cursor-pointer bg-transparent p-0 border-0 w-full text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded"
             onClick={(e) => {
               e.stopPropagation()
               if (onFocus) {
@@ -622,13 +636,31 @@ function DriverRow({
             }}
             aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%. Click to update.`}
           >
-            <DataBar
-              value={confidenceValue}
-              colourVar={BAR_COLORS.blue}
-              label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-              size="standard"
-              showPercent
-            />
+            {(() => {
+              const filledSteps = Math.max(0, Math.min(4, Math.round(confidenceValue * 4)))
+              return (
+                <div
+                  role="progressbar"
+                  aria-valuenow={Math.round(confidenceValue * 100)}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+                  className="inline-flex items-center gap-1"
+                >
+                  {[0, 1, 2, 3].map(i => (
+                    <span
+                      key={i}
+                      aria-hidden="true"
+                      className={`w-2 h-2 rounded-full ${
+                        i < filledSteps
+                          ? 'bg-text-body'
+                          : 'bg-panel-hover border border-panel-border'
+                      }`}
+                    />
+                  ))}
+                </div>
+              )
+            })()}
           </button>
         ) : (
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
@@ -887,7 +919,10 @@ export function DriversSection({
       {/* Ranking explainer */}
       <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
 
-      {/* Dominant factor warning — persistent, not dismissible */}
+      {/* Dominant factor warning — persistent, not dismissible.
+          Carries Validate/Research actions (D9a) so the standalone
+          AttentionBanner card between DCP and Your options is no
+          longer needed for this signal. */}
       {showDominantWarning && dominantLabel && (
         <div
           className="p-3 bg-panel border border-warning/30 rounded-lg"
@@ -902,6 +937,30 @@ export function DriversSection({
           <p className={`${typography.panelBody} text-text-body`}>
             {dominantLabel} drives {dominantPct}% of the outcome. If your assumptions about this factor are wrong, the recommendation could change. Consider gathering more evidence before committing.
           </p>
+          {(data.dominantFactorId && onFocusNode || onSendMessage) && (
+            <div className="flex items-center gap-1.5 mt-2">
+              {data.dominantFactorId && onFocusNode && (
+                <button
+                  type="button"
+                  onClick={() => onFocusNode!(data.dominantFactorId!)}
+                  className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+                  aria-label={`Validate ${dominantLabel} on canvas`}
+                >
+                  Validate
+                </button>
+              )}
+              {onSendMessage && (
+                <button
+                  type="button"
+                  onClick={() => onSendMessage!(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
+                  className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+                  aria-label={`Research ${dominantLabel}`}
+                >
+                  Research
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 

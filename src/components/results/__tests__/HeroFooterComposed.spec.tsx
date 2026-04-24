@@ -116,9 +116,10 @@ function getFooter(): string {
 }
 
 describe('ResultsBody composed integration — hero + footer stay aligned through the real prop chain', () => {
-  it('weak tier (needs_work) + high stability: hero softens AND footer overrides to "Stability sensitive"', () => {
-    // Bundle-609164c7 shape: needs_work + needs_evidence + stability ≈ 0.97.
-    // Both surfaces must cooperate through ResultsBody's prop threading.
+  it('§2.7 — needs_work + high stability: stability override → confident fallback, "Stable result"', () => {
+    // Brief 5.5 §2.7 lock: stability ≥ 0.85 overrides weak tier to confident.
+    // Previously (Brief 5.2) the weak tier forced "Stability sensitive" even
+    // at 0.97 stability; the corrected spec keys softening on tier AND stability.
     const data = makeData({ tier: 'needs_work', readiness: 'needs_evidence', stability: 0.97 })
     const { container } = render(
       <ResultsBody
@@ -128,20 +129,16 @@ describe('ResultsBody composed integration — hero + footer stay aligned throug
     )
 
     const body = container.textContent ?? ''
-    expect(body).toContain('Option A currently leads')
-    // The over-confident framing the brief targets must not appear anywhere
-    // in the rendered body.
-    expect(body).not.toContain('is the leading option')
+    expect(body).toContain('Option A leads')
+    expect(body).not.toContain('Option A currently leads')
     expect(body).not.toContain('clear leader')
 
     const footer = getFooter()
-    expect(footer).toContain('Stability sensitive')
-    expect(footer).not.toContain('Stable result')
+    expect(footer).toContain('Stable result')
+    expect(footer).not.toContain('Stability sensitive')
   })
 
-  it('fair tier: hero uses definitive "is the leading option" (Brief 5.4 QA); footer passes through numeric label', () => {
-    // Brief 5.4 QA Item 3: fair tier no longer hedges to "currently leads".
-    // conservative: true preserved — coaching overrides are still blocked (Brief 5.2).
+  it('§2.7 — fair + high stability: stability override → confident fallback', () => {
     const data = makeData({ tier: 'fair', readiness: 'ready', stability: 0.92 })
     const { container } = render(
       <ResultsBody
@@ -151,13 +148,31 @@ describe('ResultsBody composed integration — hero + footer stay aligned throug
     )
 
     const body = container.textContent ?? ''
-    expect(body).toContain('Option A is the leading option')
+    expect(body).toContain('Option A leads')
     expect(body).not.toContain('Option A currently leads')
+    expect(body).not.toContain('is the leading option')
 
     const footer = getFooter()
-    // Fair tier does not force "Stability sensitive" — only weak tier does.
     expect(footer).toContain('Stable result')
     expect(footer).not.toContain('Stability sensitive')
+  })
+
+  it('§2.7 — fair + low stability: hero softens, footer "Stability sensitive" (NEW behaviour)', () => {
+    const data = makeData({ tier: 'fair', readiness: 'ready', stability: 0.78 })
+    const { container } = render(
+      <ResultsBody
+        resultsSectionData={data}
+        tornadoData={{ rows: [], expectedOutcome: null }}
+      />,
+    )
+
+    const body = container.textContent ?? ''
+    expect(body).toContain('Option A currently leads')
+    expect(body).not.toContain('is the leading option')
+
+    const footer = getFooter()
+    expect(footer).toContain('Stability sensitive')
+    expect(footer).not.toContain('Stable result')
   })
 
   it('strong + ready tier: hero gets the positive lede; footer reads "Stable result"', () => {
@@ -177,9 +192,10 @@ describe('ResultsBody composed integration — hero + footer stay aligned throug
     expect(footer).not.toContain('Stability sensitive')
   })
 
-  it('weak readiness + strong tier + high stability: readiness weakness alone triggers both overrides', () => {
-    // Separate assertion for the tier=strong + readiness=weak combination —
-    // readiness alone must propagate through ResultsBody's wiring.
+  it('§2.7 — strong + weak readiness + high stability: readiness never softens', () => {
+    // Brief 5.5 §2.7 correction: a strong tier with weak readiness must NOT
+    // soften, at any stability. Previously (Brief 5.2) this path softened;
+    // the corrected spec removes readiness as a softening trigger.
     const data = makeData({ tier: 'strong', readiness: 'needs_evidence', stability: 0.95 })
     const { container } = render(
       <ResultsBody
@@ -189,11 +205,12 @@ describe('ResultsBody composed integration — hero + footer stay aligned throug
     )
 
     const body = container.textContent ?? ''
-    expect(body).toContain('Option A currently leads')
-    expect(body).not.toContain('is the leading option')
+    expect(body).not.toContain('Option A currently leads')
+    // Strong + weak readiness falls through to the confident fallback.
+    expect(body).toContain('Option A leads')
 
     const footer = getFooter()
-    expect(footer).toContain('Stability sensitive')
-    expect(footer).not.toContain('Stable result')
+    expect(footer).toContain('Stable result')
+    expect(footer).not.toContain('Stability sensitive')
   })
 })

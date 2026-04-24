@@ -44,8 +44,11 @@ export const typography = {
   nodeLabel: 'text-[11px] font-sans leading-tight',
   edgeLabel: 'text-[10px] font-sans leading-tight',
 
-  // Results Panel — strict 3-size system for 360px side panel
-  // Only these three tokens should be used inside src/components/results/
+  // Results Panel — strict 4-size system (Brief 5.5 §2.1 lock)
+  // Only these four tokens should be used inside src/components/results/
+  // and src/canvas/components/pre-analysis/. heroDisplay is reserved for the
+  // hero probability numeric on the Current result card.
+  heroDisplay: 'text-[32px] font-semibold font-sans leading-none tracking-tight', // 32px — hero probability only
   panelHeader: 'text-sm font-semibold font-sans leading-snug',    // 14px — section titles, winner name, key emphasis
   panelBody: 'text-xs font-sans leading-relaxed',                 // 12px — body text, descriptions, bullets, card content
   panelMeta: 'text-[11px] font-sans leading-snug',                // 11px — badges, pills, axis labels, tertiary metadata

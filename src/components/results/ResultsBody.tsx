@@ -22,12 +22,11 @@ import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
 import { AdvancedSection } from './AdvancedSection'
-import { AttentionBanner } from './AttentionBanner'
 import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
-import { CoachingPrompt } from './CoachingPrompt'
+import { MissingKnowledgePrompt } from '../shared/MissingKnowledgePrompt'
 import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 
@@ -167,14 +166,7 @@ export const ResultsBody = memo(function ResultsBody({
   // Guidance items present → replace NextActionItem system throughout results panel
   const hasGuidanceItems = (guidanceItems?.length ?? 0) > 0
 
-  // Brief 5.4 closeout item 1: Set of factorIds already surfaced as DCP top-evidence
-  // TriageCards. Built once per render so the .filter below is O(n) not O(n²).
-  const dcpGapIds = useMemo(() => new Set(
-    (resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [])
-      .map(g => g.factorId)
-  ), [resultsSectionData.confidence.topEvidenceGaps, resultsSectionData.confidence.evidenceGaps])
-
-  // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
+// Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
   const flashOptionCard = useCallback((optionId: string) => {
     const el = optionCardRefs.current.get(optionId)
@@ -185,7 +177,7 @@ export const ResultsBody = memo(function ResultsBody({
   }, [])
 
   return (
-    <div className="flex flex-col gap-[18px]" data-testid="outputs-results-redesign">
+    <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
       <SectionErrorBoundary section="Decision confidence">
@@ -204,22 +196,6 @@ export const ResultsBody = memo(function ResultsBody({
 
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}
 
-      {/* ── ATTENTION BANNER ──────────────────────────────────────── */}
-      {/* Brief 5.4 closeout item 1: filter out critiques whose factorId is already
-          shown as a TriageCard in DecisionConfidencePanel (topEvidenceGaps / evidenceGaps).
-          Prevents a standalone "Validate/Research" card appearing between the DCP
-          evidence section and "Your options" when the factor is already covered.
-          dcpGapIds is memoised above so the Set is built once per render, not per item. */}
-      <SectionErrorBoundary section="Attention banner">
-        <AttentionBanner
-          items={(resultsSectionData.confidence.humanisedCritiques ?? []).filter(c => {
-            if (c.displayText == null || c.suggestion == null || c.factorId == null) return false
-            return !dcpGapIds.has(c.factorId)
-          })}
-          onFocusNode={onFocusNode}
-        />
-      </SectionErrorBoundary>
-
       {/* ── SECTION 2: OPTIONS COMPARISON ────────────────────────── */}
       {!resultsSectionData.recommendation.isSingleOption &&
        resultsSectionData.recommendation.allOptions.length > 1 && (
@@ -228,7 +204,7 @@ export const ResultsBody = memo(function ResultsBody({
             <SectionHeader
               title="Your options"
               testId="section-header-options"
-              icon="option"
+              sectionColorMarker="bg-option"
             />
             {/* WinGauge — moved from hero to top of options section */}
             <WinGauge
@@ -385,8 +361,8 @@ export const ResultsBody = memo(function ResultsBody({
       })()}
       </SectionErrorBoundary>
 
-      {/* ── COACHING PROMPT ────────────────────────────────────── */}
-      <CoachingPrompt />
+      {/* ── SOMETHING MISSING PROMPT ──────────────────────────── */}
+      <MissingKnowledgePrompt context="results" />
 
       {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
       <SectionErrorBoundary section="Advanced">
@@ -439,7 +415,7 @@ export const ResultsBody = memo(function ResultsBody({
 
       {/* V14.3b: Dev-only build marker for deploy verification */}
       {import.meta.env.DEV && (
-        <div className="text-[10px] text-text-light/40 text-center py-1" data-testid="dev-build-marker">
+        <div className={`${typography.panelMeta} text-text-light/40 text-center py-1`} data-testid="dev-build-marker">
           {typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'dev'}
         </div>
       )}

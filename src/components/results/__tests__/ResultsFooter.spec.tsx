@@ -32,8 +32,8 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
     })
   })
 
-  describe('weak tier at high numeric stability → "Stability sensitive"', () => {
-    it('needs_work + 97% stability renders "Stability sensitive" not "Stable result" (bundle 609164c7)', () => {
+  describe('§2.7 stability override — tier ∈ {needs_work, fair} at stability ≥ 0.85 → numeric pass-through', () => {
+    it('needs_work + 97% stability → "Stable result" (stability override)', () => {
       render(
         <ResultsFooter
           stability={0.97}
@@ -42,17 +42,32 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
         />,
       )
       const text = getFooterText()
-      expect(text).toContain('Stability sensitive')
-      expect(text).not.toContain('Stable result')
+      expect(text).toContain('Stable result')
+      expect(text).not.toContain('Stability sensitive')
       expect(text).toContain('97%')
     })
 
+    it('fair + 90% stability → "Stable result" (stability override)', () => {
+      render(
+        <ResultsFooter
+          stability={0.90}
+          confidenceTier="fair"
+          coachingReadiness="ready"
+        />,
+      )
+      const text = getFooterText()
+      expect(text).toContain('Stable result')
+      expect(text).not.toContain('Stability sensitive')
+    })
+  })
+
+  describe('§2.7 readiness is orthogonal — weak readiness never overrides footer', () => {
     it.each([
       ['needs_evidence' as const],
       ['needs_framing' as const],
       ['low' as const],
       ['not_ready' as const],
-    ])('weak readiness %s at 95%% stability still reads "Stability sensitive"', (readiness) => {
+    ])('strong + weak readiness %s at 95%% stability → "Stable result" (readiness never softens)', (readiness) => {
       render(
         <ResultsFooter
           stability={0.95}
@@ -61,8 +76,35 @@ describe('ResultsFooter — Brief 5.2 Task 1 tier-aware label', () => {
         />,
       )
       const text = getFooterText()
+      expect(text).toContain('Stable result')
+      expect(text).not.toContain('Stability sensitive')
+    })
+  })
+
+  describe('§2.7 soft footer — tier ∈ {needs_work, fair} AND stability < 0.85 → "Stability sensitive"', () => {
+    it('needs_work + 75% stability → "Stability sensitive"', () => {
+      render(
+        <ResultsFooter
+          stability={0.75}
+          confidenceTier="needs_work"
+          coachingReadiness="ready"
+        />,
+      )
+      const text = getFooterText()
       expect(text).toContain('Stability sensitive')
       expect(text).not.toContain('Stable result')
+    })
+
+    it('fair + 78% stability → "Stability sensitive" (new per §2.7)', () => {
+      render(
+        <ResultsFooter
+          stability={0.78}
+          confidenceTier="fair"
+          coachingReadiness="ready"
+        />,
+      )
+      const text = getFooterText()
+      expect(text).toContain('Stability sensitive')
     })
   })
 

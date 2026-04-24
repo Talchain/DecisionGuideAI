@@ -1,20 +1,27 @@
 /**
- * certaintyCopy decision table (Brief 5.1 Task 4, updated Brief 5.4 QA Item 3).
+ * certaintyCopy decision table (Brief 5.5 §2.7 lock).
  *
- * Locks the full post-analysis tier matrix so regressions trip the suite.
- * Each case corresponds to a row in the table documented at the top of
- * certaintyCopy.ts.
+ * Locks the corrected post-analysis tier × stability matrix. Key changes
+ * versus Brief 5.4 QA Item 3:
+ *   - Rule 4 (soft headline) now gates on (tier ∈ {needs_work, fair}) AND
+ *     stability < 0.85. coachingReadiness is NOT a softening trigger; a
+ *     strong tier with weak readiness must never soften.
+ *   - Rule 4 caveat remains scoped to `needs_work` (fair is not an
+ *     evidence-weak signal; its soft-headline fires without the caveat).
+ *   - Rule 5 (close_call) retains the definitive "is the leading option"
+ *     headline, conservative: true. Fair / close_call share the Brief 5.2
+ *     coaching-override block.
+ *   - Rule 7 fallback: with gap emits "{winner} leads by N points"; without
+ *     gap emits "{winner} is the leading option" (avoids bare "leads")
+ *     (the word "currently" is the softening marker and no longer appears
+ *     in confident paths).
  *
- * Brief 5.4 QA changes:
- * - Rule 4 (weak evidence): now gated on stability < 0.85 in addition to tier.
- *   needs_work + high stability → no caveat, falls through to fallback.
- * - Rule 5 (fair / close_call): now returns "is the leading option"
- *   (conservative: false) rather than "currently leads" (conservative: true).
- * - Caveat text updated: "See Top evidence value." → "See Highest-value evidence gaps."
+ * The (tier × stability) cross-product with readiness is exercised below to
+ * demonstrate that readiness cannot soften a strong or high-stability run.
  */
 
 import { describe, it, expect } from 'vitest'
-import { buildCertaintyCopy } from '../certaintyCopy'
+import { buildCertaintyCopy, shouldSoftenPhrasing } from '../certaintyCopy'
 
 const WINNER = 'Option A'
 
@@ -52,14 +59,12 @@ describe('buildCertaintyCopy — decision table', () => {
     })
   })
 
-  it('row 2 boundary: stability exactly 0.70 is considered stable (falls through)', () => {
+  it('row 2 boundary: stability exactly 0.70 is considered stable (Rule 4 fires for needs_work)', () => {
     const result = buildCertaintyCopy({
       winnerLabel: WINNER,
       recommendationStability: 0.70,
       confidenceTier: 'needs_work',
     })
-    // 0.70 is not < 0.70 so Rule 2 does not fire.
-    // needs_work + 0.70 stability (< 0.85) → Rule 4 fires (caveat).
     expect(result.headline).toBe(`${WINNER} currently leads`)
     expect(result.caveat).toContain('limited evidence')
   })
@@ -80,20 +85,20 @@ describe('buildCertaintyCopy — decision table', () => {
     })
   })
 
-  describe('row 4 — weak evidence path (tier or readiness, AND stability < 0.85)', () => {
-    it('tier needs_work + absent stability → caveat attached', () => {
+  describe('row 4 — soft headline path (tier ∈ {needs_work, fair} AND stability < 0.85)', () => {
+    it('needs_work + absent stability → soft headline + evidence caveat', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
-        coachingReadiness: 'ready',
       })
       expect(result.headline).toBe(`${WINNER} currently leads`)
       expect(result.caveat).toBe(
         'Result depends on factors with limited evidence. See Highest-value evidence gaps.',
       )
+      expect(result.conservative).toBe(true)
     })
 
-    it('tier needs_work + stability 0.84 (< 0.85) → caveat attached', () => {
+    it('needs_work + stability 0.84 → soft headline + caveat', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
@@ -103,96 +108,113 @@ describe('buildCertaintyCopy — decision table', () => {
       expect(result.caveat).toContain('limited evidence')
     })
 
-    it('tier needs_work + stability 0.85 (threshold) → caveat suppressed (fallback)', () => {
-      // High numeric stability overrides the weak-evidence caveat.
+    it('fair + absent stability → soft headline, NO caveat (fair is not evidence-weak)', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'fair',
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads`)
+      expect(result.caveat).toBeNull()
+      expect(result.conservative).toBe(true)
+    })
+
+    it('fair + stability 0.84 → soft headline, NO caveat', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'fair',
+        recommendationStability: 0.84,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads`)
+      expect(result.caveat).toBeNull()
+    })
+  })
+
+  describe('stability override (tier ∈ {needs_work, fair} AND stability ≥ 0.85)', () => {
+    it('needs_work + 0.85 → confident fallback "is the leading option", no caveat', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         recommendationStability: 0.85,
       })
-      expect(result.headline).toBe(`${WINNER} currently leads`)
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
       expect(result.caveat).toBeNull()
+      expect(result.conservative).toBe(true)
     })
 
-    it('tier needs_work + stability 0.95 → caveat suppressed (fallback)', () => {
+    it('needs_work + 0.95 → confident fallback', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         recommendationStability: 0.95,
       })
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
       expect(result.caveat).toBeNull()
     })
 
-    it.each([
-      ['needs_evidence'],
-      ['needs_framing'],
-      ['low'],
-      ['not_ready'],
-    ] as const)('weak readiness %s + absent stability → caveat attached', (readiness) => {
+    it('fair + 0.87 → confident fallback, no caveat', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
-        confidenceTier: 'strong',
-        coachingReadiness: readiness,
+        confidenceTier: 'fair',
+        recommendationStability: 0.87,
       })
-      expect(result.headline).toBe(`${WINNER} currently leads`)
-      expect(result.caveat).toBe(
-        'Result depends on factors with limited evidence. See Highest-value evidence gaps.',
-      )
-    })
-
-    it.each([
-      ['needs_evidence'],
-      ['needs_framing'],
-      ['low'],
-      ['not_ready'],
-    ] as const)('weak readiness %s + high stability (0.90) → caveat suppressed', (readiness) => {
-      const result = buildCertaintyCopy({
-        winnerLabel: WINNER,
-        confidenceTier: 'strong',
-        coachingReadiness: readiness,
-        recommendationStability: 0.90,
-      })
-      // Strong tier + weak readiness + high stability → evidenceIsWeak but !stabilityIsWeak
-      // Rule 4 does not fire. Rule 5 (strong+ready) — readiness is weak, not ready → skip.
-      // Fallback → "currently leads", no caveat.
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
       expect(result.caveat).toBeNull()
-      expect(result.headline).toBe(`${WINNER} currently leads`)
     })
   })
 
-  describe('row 5 — fair / close call (definitive headline, still conservative)', () => {
-    it('tier fair, readiness ready → is the leading option (conservative: true per Brief 5.2)', () => {
-      // Brief 5.4 QA: headline changes from "currently leads" to "is the leading option".
-      // conservative: true preserved — coaching overrides are still blocked (Brief 5.2 invariant).
-      expect(
-        buildCertaintyCopy({
-          winnerLabel: WINNER,
-          confidenceTier: 'fair',
-          coachingReadiness: 'ready',
-        }),
-      ).toEqual({
-        headline: `${WINNER} is the leading option`,
-        sub: null,
-        caveat: null,
-        conservative: true,
+  describe('readiness cross-products — coachingReadiness never softens (Brief 5.5 §2.7 correction)', () => {
+    it.each([
+      ['needs_evidence'],
+      ['needs_framing'],
+      ['low'],
+      ['not_ready'],
+    ] as const)('strong + weak readiness %s + stability 0.75 → confident "is the leading option" (readiness never softens strong)', (readiness) => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'strong',
+        coachingReadiness: readiness,
+        recommendationStability: 0.75,
       })
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.caveat).toBeNull()
     })
 
-    it('tier fair, no readiness → is the leading option (fair tier alone is sufficient)', () => {
-      expect(
-        buildCertaintyCopy({
-          winnerLabel: WINNER,
-          confidenceTier: 'fair',
-        }),
-      ).toEqual({
-        headline: `${WINNER} is the leading option`,
-        sub: null,
-        caveat: null,
-        conservative: true,
+    it('needs_work + readiness=ready + stability 0.75 → soft (readiness does not rescue)', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+        coachingReadiness: 'ready',
+        recommendationStability: 0.75,
       })
+      expect(result.headline).toBe(`${WINNER} currently leads`)
+      expect(result.caveat).toContain('limited evidence')
     })
 
-    it('readiness close_call → is the leading option, conservative: true', () => {
+    it('needs_work + readiness=needs_evidence + stability 0.90 → confident (stability override beats weak readiness)', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'needs_work',
+        coachingReadiness: 'needs_evidence',
+        recommendationStability: 0.90,
+      })
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.caveat).toBeNull()
+    })
+
+    it('fair + readiness=not_ready + stability 0.80 → soft (unambiguous soft path)', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'fair',
+        coachingReadiness: 'not_ready',
+        recommendationStability: 0.80,
+      })
+      expect(result.headline).toBe(`${WINNER} currently leads`)
+      expect(result.caveat).toBeNull()
+    })
+  })
+
+  describe('row 5 — close_call (orthogonal to the tier × stability gate)', () => {
+    it('close_call + unknown tier → definitive "is the leading option", conservative: true', () => {
       expect(
         buildCertaintyCopy({
           winnerLabel: WINNER,
@@ -206,9 +228,20 @@ describe('buildCertaintyCopy — decision table', () => {
         conservative: true,
       })
     })
+
+    it('close_call wins over needs_work + high stability (tier path would reach confident fallback first, but Rule 4 soft gate applies only when stability is weak — so close_call precedence is tested via a tier that does not trigger Rule 4)', () => {
+      // Rule 4 takes precedence when applicable. Use a non-soft tier to isolate close_call.
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'strong',
+        coachingReadiness: 'close_call',
+      })
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.conservative).toBe(true)
+    })
   })
 
-  it('row 6: strong + ready → is the leading option (only path requiring both signals)', () => {
+  it('row 6: strong + ready → "is the leading option" (only path allowing coaching override)', () => {
     expect(
       buildCertaintyCopy({
         winnerLabel: WINNER,
@@ -223,24 +256,24 @@ describe('buildCertaintyCopy — decision table', () => {
     })
   })
 
-  it('row 7 fallback: absent tier + absent readiness → currently leads (conservative)', () => {
-    expect(buildCertaintyCopy({ winnerLabel: WINNER })).toEqual({
-      headline: `${WINNER} currently leads`,
-      sub: null,
-      caveat: null,
-      conservative: true,
+  describe('row 7 — confident fallback', () => {
+    it('no tier + no readiness + no gap → "is the leading option" (avoids bare "leads")', () => {
+      expect(buildCertaintyCopy({ winnerLabel: WINNER })).toEqual({
+        headline: `${WINNER} is the leading option`,
+        sub: null,
+        caveat: null,
+        conservative: true,
+      })
     })
-  })
 
-  it('row 7 fallback: strong but missing readiness → currently leads (not over-confident)', () => {
-    // strong tier alone is not sufficient — strong + ready is required for Rule 6.
-    // Without readiness, falls through to fallback.
-    expect(
-      buildCertaintyCopy({
+    it('strong + no readiness + no gap → "is the leading option"', () => {
+      const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'strong',
-      }).headline,
-    ).toBe(`${WINNER} currently leads`)
+      })
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.conservative).toBe(true)
+    })
   })
 
   describe('precedence policy', () => {
@@ -271,18 +304,6 @@ describe('buildCertaintyCopy — decision table', () => {
       expect(result.caveat).toBeNull()
     })
 
-    it('stability 0.70 + needs_work → caveat attaches (0.70 is above the no-clear-leader gate but below the stability-strong gate)', () => {
-      const result = buildCertaintyCopy({
-        winnerLabel: WINNER,
-        recommendationStability: 0.70,
-        confidenceTier: 'needs_work',
-        coachingReadiness: 'ready',
-      })
-      // 0.70 is not < 0.70 → Rule 2 skipped. needs_work + 0.70 < 0.85 → Rule 4 fires.
-      expect(result.headline).toBe(`${WINNER} currently leads`)
-      expect(result.caveat).toContain('limited evidence')
-    })
-
     it('single option wins over weak tier (no caveat — no alternative to compare)', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
@@ -304,6 +325,7 @@ describe('buildCertaintyCopy — decision table', () => {
       { winnerLabel: WINNER, confidenceTier: 'needs_work' },
       { winnerLabel: WINNER, confidenceTier: 'fair' },
       { winnerLabel: WINNER, confidenceTier: 'strong', coachingReadiness: 'ready' },
+      { winnerLabel: WINNER, confidenceTier: 'unknown', coachingReadiness: 'close_call' },
     ]
     for (const input of cases) {
       const result = buildCertaintyCopy(input)
@@ -314,41 +336,38 @@ describe('buildCertaintyCopy — decision table', () => {
   })
 
   describe('Brief 5.2 Task 1 — winProbabilityGap suffix', () => {
-    it('row 4 (weak tier + low stability): appends " by N points" when gap provided', () => {
+    it('soft path (needs_work + low stability): appends " by N points"', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
         winProbabilityGap: 95,
-        // no stability → stabilityIsWeak = true → Rule 4 fires
       })
       expect(result.headline).toBe(`${WINNER} currently leads by 95 points`)
       expect(result.caveat).toContain('limited evidence')
     })
 
-    it('row 4 (weak readiness + low stability): appends suffix', () => {
-      const result = buildCertaintyCopy({
-        winnerLabel: WINNER,
-        coachingReadiness: 'needs_evidence',
-        winProbabilityGap: 12,
-      })
-      expect(result.headline).toBe(`${WINNER} currently leads by 12 points`)
-    })
-
-    it('row 5 (fair tier): headline is "is the leading option" — no suffix (definitive phrasing, conservative: true)', () => {
-      // Brief 5.4 QA: fair now returns definitive copy; the gap suffix is not
-      // appended to "is the leading option" because the phrasing is already confident.
-      // conservative: true means coaching overrides are still blocked (Brief 5.2 invariant).
+    it('soft path (fair + low stability): appends suffix, NO caveat', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'fair',
         winProbabilityGap: 7,
       })
-      expect(result.headline).toBe(`${WINNER} is the leading option`)
+      expect(result.headline).toBe(`${WINNER} currently leads by 7 points`)
       expect(result.caveat).toBeNull()
       expect(result.conservative).toBe(true)
     })
 
-    it('row 6 (strong + ready): does NOT append suffix — reserved phrasing', () => {
+    it('close_call: does NOT append suffix — reserved definitive phrasing', () => {
+      const result = buildCertaintyCopy({
+        winnerLabel: WINNER,
+        confidenceTier: 'unknown',
+        coachingReadiness: 'close_call',
+        winProbabilityGap: 5,
+      })
+      expect(result.headline).toBe(`${WINNER} is the leading option`)
+    })
+
+    it('row 6 (strong + ready): does NOT append suffix — reserved definitive phrasing', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'strong',
@@ -358,15 +377,15 @@ describe('buildCertaintyCopy — decision table', () => {
       expect(result.headline).toBe(`${WINNER} is the leading option`)
     })
 
-    it('row 7 fallback: appends suffix when gap provided', () => {
+    it('confident fallback: appends suffix as "{winner} leads by N points"', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         winProbabilityGap: 3,
       })
-      expect(result.headline).toBe(`${WINNER} currently leads by 3 points`)
+      expect(result.headline).toBe(`${WINNER} leads by 3 points`)
     })
 
-    it('singular point uses "point" not "points"', () => {
+    it('singular point uses "point" not "points" (soft path)', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
         confidenceTier: 'needs_work',
@@ -375,23 +394,22 @@ describe('buildCertaintyCopy — decision table', () => {
       expect(result.headline).toBe(`${WINNER} currently leads by 1 point`)
     })
 
-    it('rounds fractional gaps to the nearest whole point', () => {
+    it('rounds fractional gaps to the nearest whole point (confident fallback)', () => {
       const result = buildCertaintyCopy({
         winnerLabel: WINNER,
-        confidenceTier: 'needs_work',
         winProbabilityGap: 4.6,
       })
-      expect(result.headline).toBe(`${WINNER} currently leads by 5 points`)
+      expect(result.headline).toBe(`${WINNER} leads by 5 points`)
     })
 
-    it('omits suffix when gap is 0, negative, or non-finite', () => {
+    it('omits suffix when gap is 0, negative, or non-finite — confident fallback emits "is the leading option"', () => {
       for (const gap of [0, -1, NaN, Infinity, -Infinity]) {
+        // Use confident fallback path. No gap → no suffix → "is the leading option".
         const result = buildCertaintyCopy({
           winnerLabel: WINNER,
-          confidenceTier: 'needs_work',
           winProbabilityGap: gap,
         })
-        expect(result.headline).toBe(`${WINNER} currently leads`)
+        expect(result.headline).toBe(`${WINNER} is the leading option`)
       }
     })
 
@@ -407,59 +425,32 @@ describe('buildCertaintyCopy — decision table', () => {
     })
   })
 
-  describe('Brief 5.2 follow-up — conservative flag scopes coaching overrides', () => {
+  describe('conservative flag — Brief 5.2 follow-up invariant', () => {
     it('row 1 (partial analysis) is conservative', () => {
-      expect(buildCertaintyCopy({
-        winnerLabel: WINNER,
-        analysisStatus: 'partial',
-      }).conservative).toBe(true)
+      expect(buildCertaintyCopy({ winnerLabel: WINNER, analysisStatus: 'partial' }).conservative)
+        .toBe(true)
     })
 
     it('row 2 (stability < 0.70) is conservative', () => {
-      expect(buildCertaintyCopy({
-        winnerLabel: WINNER,
-        recommendationStability: 0.55,
-      }).conservative).toBe(true)
+      expect(buildCertaintyCopy({ winnerLabel: WINNER, recommendationStability: 0.55 }).conservative)
+        .toBe(true)
     })
 
     it('row 3 (single option) is conservative', () => {
-      expect(buildCertaintyCopy({
-        winnerLabel: WINNER,
-        optionCount: 1,
-      }).conservative).toBe(true)
+      expect(buildCertaintyCopy({ winnerLabel: WINNER, optionCount: 1 }).conservative).toBe(true)
     })
 
-    it('row 4 (weak tier + low stability) is conservative', () => {
-      expect(buildCertaintyCopy({
-        winnerLabel: WINNER,
-        confidenceTier: 'needs_work',
-      }).conservative).toBe(true)
+    it('row 4 (needs_work + low stability) is conservative', () => {
+      expect(buildCertaintyCopy({ winnerLabel: WINNER, confidenceTier: 'needs_work' }).conservative)
+        .toBe(true)
     })
 
-    it.each([
-      ['needs_evidence' as const],
-      ['needs_framing' as const],
-      ['low' as const],
-      ['not_ready' as const],
-    ])('row 4 (weak readiness %s + low stability) is conservative', (readiness) => {
-      expect(buildCertaintyCopy({
-        winnerLabel: WINNER,
-        coachingReadiness: readiness,
-      }).conservative).toBe(true)
+    it('row 4 (fair + low stability) is conservative', () => {
+      expect(buildCertaintyCopy({ winnerLabel: WINNER, confidenceTier: 'fair' }).conservative)
+        .toBe(true)
     })
 
-    it('row 5 (fair tier) is conservative — definitive headline but coaching override still blocked (Brief 5.2 invariant)', () => {
-      // Brief 5.4 QA changes the HEADLINE for fair (currently leads → is the leading option)
-      // but keeps conservative: true so coaching overrides remain blocked. Only strong+ready
-      // (Rule 6) opts in to coaching overrides.
-      expect(buildCertaintyCopy({
-        winnerLabel: WINNER,
-        confidenceTier: 'fair',
-        coachingReadiness: 'ready',
-      }).conservative).toBe(true)
-    })
-
-    it('row 5 (close_call readiness) is conservative', () => {
+    it('row 5 (close_call) is conservative', () => {
       expect(buildCertaintyCopy({
         winnerLabel: WINNER,
         coachingReadiness: 'close_call',
@@ -474,10 +465,8 @@ describe('buildCertaintyCopy — decision table', () => {
       }).conservative).toBe(false)
     })
 
-    it('row 7 (fallback) is conservative', () => {
-      expect(buildCertaintyCopy({
-        winnerLabel: WINNER,
-      }).conservative).toBe(true)
+    it('row 7 fallback (no tier / no readiness) is conservative', () => {
+      expect(buildCertaintyCopy({ winnerLabel: WINNER }).conservative).toBe(true)
     })
 
     it('row 7 (strong but missing readiness) is conservative — strong alone does not opt in', () => {
@@ -486,5 +475,42 @@ describe('buildCertaintyCopy — decision table', () => {
         confidenceTier: 'strong',
       }).conservative).toBe(true)
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// shouldSoftenPhrasing — direct helper coverage (importable by winnerChipCopy)
+// ---------------------------------------------------------------------------
+
+describe('shouldSoftenPhrasing — tier × stability gate', () => {
+  it('returns true for needs_work + absent/low stability', () => {
+    expect(shouldSoftenPhrasing('needs_work', undefined)).toBe(true)
+    expect(shouldSoftenPhrasing('needs_work', 0.70)).toBe(true)
+    expect(shouldSoftenPhrasing('needs_work', 0.84)).toBe(true)
+  })
+
+  it('returns true for fair + absent/low stability (new per §2.7)', () => {
+    expect(shouldSoftenPhrasing('fair', undefined)).toBe(true)
+    expect(shouldSoftenPhrasing('fair', 0.50)).toBe(true)
+    expect(shouldSoftenPhrasing('fair', 0.84)).toBe(true)
+  })
+
+  it('returns false for any tier at stability ≥ 0.85 (override)', () => {
+    expect(shouldSoftenPhrasing('needs_work', 0.85)).toBe(false)
+    expect(shouldSoftenPhrasing('needs_work', 1.0)).toBe(false)
+    expect(shouldSoftenPhrasing('fair', 0.85)).toBe(false)
+    expect(shouldSoftenPhrasing('fair', 0.95)).toBe(false)
+  })
+
+  it('returns false for strong at any stability (readiness never softens)', () => {
+    expect(shouldSoftenPhrasing('strong', undefined)).toBe(false)
+    expect(shouldSoftenPhrasing('strong', 0.10)).toBe(false)
+    expect(shouldSoftenPhrasing('strong', 0.95)).toBe(false)
+  })
+
+  it('returns false for unknown or undefined tier at any stability', () => {
+    expect(shouldSoftenPhrasing('unknown', 0.50)).toBe(false)
+    expect(shouldSoftenPhrasing(undefined, 0.50)).toBe(false)
+    expect(shouldSoftenPhrasing(undefined, undefined)).toBe(false)
   })
 })

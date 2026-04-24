@@ -36,8 +36,12 @@ export interface SectionHeaderProps {
   className?: string
   /** Test ID for testing */
   testId?: string
-  /** Optional entity shape icon before the title */
-  icon?: 'option'
+  /**
+   * Optional 10×10 coloured square rendered before the title. Used for the
+   * "Your options" entity marker. Constrained union per Brief 5.5 §2.3 so
+   * Tailwind JIT sees the class literal and static review can audit callers.
+   */
+  sectionColorMarker?: 'bg-option'
 }
 
 const badgeStateClasses = {
@@ -61,7 +65,7 @@ export function SectionHeader({
   borderClass,
   className = 'mb-2.5',
   testId,
-  icon,
+  sectionColorMarker,
 }: SectionHeaderProps) {
   const resolvedBadgeState = count != null && count > 0 && !borderClass
     ? (badgeState ?? (countState ? legacyCountStateMap[countState] : 'unresolved'))
@@ -72,10 +76,12 @@ export function SectionHeader({
 
   const titleRow = (
     <>
-      {icon === 'option' && (
-        <svg width={16} height={16} viewBox="0 0 14 14" className="flex-shrink-0">
-          <rect x={1} y={1} width={12} height={12} rx={2} fill="var(--option)" stroke="var(--option)" strokeWidth={1.5} />
-        </svg>
+      {sectionColorMarker === 'bg-option' && (
+        <span
+          aria-hidden="true"
+          className="inline-block flex-shrink-0 w-2.5 h-2.5 bg-option"
+          data-testid="section-color-marker"
+        />
       )}
       <h3 className={`${typography.panelHeader} text-text-header`}>
         {title}

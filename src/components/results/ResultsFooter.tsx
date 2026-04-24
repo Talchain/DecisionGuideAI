@@ -38,6 +38,7 @@ export function ResultsFooter({
     classification,
     confidenceTier,
     coachingReadiness,
+    recommendationStability: stability,
   })
   const stabilityLabel = displayLabel?.heroLabel
 

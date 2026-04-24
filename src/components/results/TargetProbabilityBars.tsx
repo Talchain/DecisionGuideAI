@@ -57,7 +57,7 @@ export function TargetProbabilityBars({
                   }}
                 />
               </div>
-              <span className={`${typography.panelMeta} font-semibold text-text-header flex-shrink-0 text-right`} style={{ minWidth: 28 }}>
+              <span className={`${typography.panelMeta} text-text-header flex-shrink-0 text-right`} style={{ minWidth: 28 }}>
                 {pct}%
               </span>
             </div>
@@ -72,7 +72,7 @@ export function TargetProbabilityBars({
             className="flex items-center gap-2 pt-1.5 border-t border-panel-border"
             data-testid="target-joint-row"
           >
-            <span className={`${typography.panelBody} font-semibold text-text-header flex-1`}>
+            <span className={`${typography.panelHeader} text-text-header flex-1`}>
               Joint probability
             </span>
             <div
@@ -87,7 +87,7 @@ export function TargetProbabilityBars({
                 }}
               />
             </div>
-            <span className={`${typography.panelBody} font-semibold text-text-header flex-shrink-0 text-right`} style={{ minWidth: 28 }}>
+            <span className={`${typography.panelHeader} text-text-header flex-shrink-0 text-right`} style={{ minWidth: 28 }}>
               {Math.round(jointProbability * 100)}%
             </span>
           </div>

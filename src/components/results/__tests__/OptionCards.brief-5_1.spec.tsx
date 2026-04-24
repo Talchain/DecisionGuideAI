@@ -134,18 +134,31 @@ describe('OptionCards — Brief 5.1 Task 7 unified chip copy', () => {
     expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
   })
 
-  it('Brief 5.4 QA P4: fair tier is NOT evidence-weak — winner chip renders definitive copy', () => {
-    // Brief 5.4 QA Item 4: hedging requires needs_work tier AND stability < 0.85.
-    // fair is not evidence-weak; it always renders the definitive chip label.
+  it('Brief 5.5 §2.7: fair tier with high stability (≥0.85) renders definitive copy (stability override)', () => {
+    // Brief 5.5 §2.7 lock: soft phrasing requires tier ∈ {needs_work, fair}
+    // AND stability < 0.85. With high stability, fair tier overrides to definitive.
     const options = [
       makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
       makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
     ]
-    render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" />)
+    render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.90} />)
 
     expect(screen.getByText('What makes this lead?')).toBeInTheDocument()
     expect(screen.queryByText('What makes this the current leader?')).not.toBeInTheDocument()
     expect(screen.getByText('What would make this lead?')).toBeInTheDocument()
+  })
+
+  it('Brief 5.5 §2.7: fair tier with low stability (<0.85) renders soft chip copy', () => {
+    // Brief 5.5 §2.7 lock (new): fair + low stability softens the chip where
+    // the Brief 5.4 version left it definitive. Readiness is not consulted.
+    const options = [
+      makeOption({ id: 'opt-a', isRecommended: true, rank: 1, winProbability: 0.65 }),
+      makeOption({ id: 'opt-b', label: 'Option B', isRecommended: false, rank: 2, winProbability: 0.35 }),
+    ]
+    render(<OptionCards options={options} winnerId="opt-a" onSendMessage={() => {}} confidenceTier="fair" recommendationStability={0.75} />)
+
+    expect(screen.getByText('What makes this the current leader?')).toBeInTheDocument()
+    expect(screen.queryByText('What makes this lead?')).not.toBeInTheDocument()
   })
 
   it('Brief 5.4 QA P4: winner chip hedges for needs_work tier without stability (absent = weak)', () => {

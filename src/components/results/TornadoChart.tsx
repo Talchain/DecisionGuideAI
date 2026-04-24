@@ -78,7 +78,7 @@ export function ApplyAndRerunButton({ hasUserDragged, onApplyAndRerun }: ApplyAn
             ? 'Apply drag preview and rerun the analysis'
             : 'Drag a bar to preview a change before running.'
         }
-        className={`${typography.panelBody} rounded-full px-[16px] py-[6px] leading-none flex-shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+        className={`${typography.panelBody} rounded-full px-4 py-1.5 leading-none flex-shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
           hasUserDragged
             ? 'bg-primary text-text-on-color border border-primary cursor-pointer hover:bg-info-hover hover:border-info-hover'
             : 'bg-transparent text-text-light border border-panel-border cursor-not-allowed opacity-60'
@@ -718,7 +718,7 @@ export function TornadoChart({
             <button
               type="button"
               onClick={resetDrag}
-              className={`${typography.panelMeta} rounded-full border border-panel-border bg-transparent px-[14px] py-[5px] cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0`}
+              className={`${typography.panelMeta} rounded-full border border-panel-border bg-transparent px-3.5 py-1 cursor-pointer leading-none hover:bg-panel-hover hover:border-info hover:text-info transition-colors flex-shrink-0`}
               data-testid="tornado-reset-preview"
             >
               Reset preview

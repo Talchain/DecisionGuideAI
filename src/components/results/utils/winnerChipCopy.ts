@@ -5,23 +5,24 @@
  * Copy adapts to the confidence_tier signal so the winner label reflects
  * decision certainty without inventing new phrases.
  *
- * Brief 5.4 QA Item 4: stability gate mirrors certaintyCopy.ts.
- * Hedged copy ("What makes this the current leader?") fires only when
- * BOTH conditions hold: tier === 'needs_work' AND stability < STABILITY_STRONG_THRESHOLD
- * (imported from certaintyCopy.ts — single source of truth).
- * fair / unknown / undefined tiers are always definitive regardless
- * of stability — they are not evidence-weak signals.
+ * Brief 5.5 §2.7 lock: stability gate now mirrors certaintyCopy exactly
+ * via the shared shouldSoftenPhrasing helper. Soft chip fires for
+ * tier ∈ {needs_work, fair} AND stability < 0.85. coachingReadiness is
+ * NOT consulted (spec correction — prior logic could have softened a
+ * strong tier via weak readiness, which the corrected spec forbids).
  */
 
 import type { ConfidenceTier } from '../types'
-import { STABILITY_STRONG_THRESHOLD } from './certaintyCopy'
+import { shouldSoftenPhrasing } from './certaintyCopy'
 
 /**
  * Chip button label for the option card chat trigger.
  *
- * Winner copy is stability-gated for the needs_work tier only:
- *   - needs_work AND stability < STABILITY_STRONG_THRESHOLD → "What makes this the current leader?"
- *   - all other tiers (strong / fair / unknown / undefined) → "What makes this lead?"
+ * Winner copy is gated by shouldSoftenPhrasing(tier, stability):
+ *   - tier ∈ {needs_work, fair} AND stability < 0.85
+ *       → "What makes this the current leader?"
+ *   - all other combinations (strong / fair≥0.85 / needs_work≥0.85 /
+ *     unknown / undefined) → "What makes this lead?"
  *
  * Non-winner copy is always forward-looking and tier-invariant:
  *   → "What would make this lead?"
@@ -34,10 +35,7 @@ export function winnerChipLabel(
   if (!isWinner) {
     return 'What would make this lead?'
   }
-  const evidenceIsWeak = confidenceTier === 'needs_work'
-  const stabilityIsWeak =
-    recommendationStability == null || recommendationStability < STABILITY_STRONG_THRESHOLD
-  return evidenceIsWeak && stabilityIsWeak
+  return shouldSoftenPhrasing(confidenceTier, recommendationStability)
     ? 'What makes this the current leader?'
     : 'What makes this lead?'
 }

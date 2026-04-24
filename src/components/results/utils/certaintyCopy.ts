@@ -21,28 +21,30 @@
  *   3. optionCount === 1
  *      → "{winner} is your only option"
  *
- *   4. (confidenceTier === 'needs_work' OR coachingReadiness in the
- *      known-weak enum: needs_evidence, needs_framing, low, not_ready)
+ *   4. (confidenceTier === 'needs_work' OR confidenceTier === 'fair')
  *      AND recommendationStability < 0.85 (or absent)
  *      → "{winner} currently leads[ by N points]"
- *      + caveat: "Result depends on factors with limited evidence.
- *                 See Highest-value evidence gaps."
- *      Brief 5.4 QA: the stability gate (0.85) means a needs_work result
- *      with high numeric stability no longer attaches a caveat — it falls
- *      through to the fallback "currently leads" path without the warning.
+ *      + caveat (needs_work only): "Result depends on factors with
+ *                 limited evidence. See Highest-value evidence gaps."
+ *      Brief 5.5 §2.7 lock: soft phrasing gates on tier + stability
+ *      only. coachingReadiness is NOT a softening trigger (a strong
+ *      tier with weak readiness must never soften). The evidence
+ *      caveat remains scoped to needs_work — fair is not an
+ *      evidence-weak signal, so fair + low stability softens the
+ *      headline but does not attach the evidence caveat.
  *
- *   5. confidenceTier === 'fair' OR coachingReadiness === 'close_call'
+ *   5. coachingReadiness === 'close_call' (and no earlier rule fired)
  *      → "{winner} is the leading option"   (conservative: true)
- *      Brief 5.4 QA: fair tier now uses definitive copy; it is not an
- *      evidence-weak signal and hedging it over-softens confident outcomes.
- *      conservative: true — coaching overrides are still blocked; the
- *      certaintyCopy headline is authoritative (Brief 5.2 invariant).
+ *      close_call is orthogonal to the tier × stability gate; it
+ *      neither softens nor strengthens the headline. Preserves the
+ *      Brief 5.2 coaching-override block.
  *
  *   6. confidenceTier === 'strong' AND coachingReadiness === 'ready'
  *      → "{winner} is the leading option"   (conservative: false)
  *
- *   7. fallback (needs_work + high stability, unknown tier, absent readiness)
- *      → "{winner} currently leads[ by N points]"
+ *   7. fallback (strong without ready, fair + high stab, needs_work +
+ *      high stab, unknown tier, absent readiness)
+ *      → "{winner} leads[ by N points]"    (confident)
  *
  *   The "[ by N points]" suffix is appended when the caller supplies a
  *   positive finite winProbabilityGap (percentage-point lead vs. the next
@@ -105,16 +107,18 @@ export interface CertaintyCopy {
  */
 export const STABILITY_STRONG_THRESHOLD = 0.85
 
-const WEAK_READINESS: readonly M1CoachingReadiness[] = [
-  'needs_evidence',
-  'needs_framing',
-  'low',
-  'not_ready',
-]
-
-function isWeakReadiness(value: M1CoachingReadiness | undefined): boolean {
-  if (value == null) return false
-  return (WEAK_READINESS as readonly M1CoachingReadiness[]).includes(value)
+/**
+ * Brief 5.5 §2.7 locked softening gate: tier × stability, no readiness input.
+ * Exported so winnerChipCopy.ts can import and reuse the identical predicate
+ * rather than duplicating the conditions.
+ */
+export function shouldSoftenPhrasing(
+  tier: ConfidenceTier | undefined,
+  stability: number | undefined,
+): boolean {
+  const tierSoftens = tier === 'needs_work' || tier === 'fair'
+  const stabilityIsWeak = stability == null || stability < STABILITY_STRONG_THRESHOLD
+  return tierSoftens && stabilityIsWeak
 }
 
 export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
@@ -165,31 +169,25 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     }
   }
 
-  // Brief 5.4 QA Item 3: caveat fires only when evidence quality is weak AND
-  // the numeric result is also unstable (< 0.85). When stability is high the
-  // result is trustworthy despite limited evidence — no caveat is needed.
-  const evidenceIsWeak =
-    confidenceTier === 'needs_work' || isWeakReadiness(coachingReadiness)
-  const stabilityIsWeak =
-    recommendationStability == null || recommendationStability < STABILITY_STRONG_THRESHOLD
-
-  if (evidenceIsWeak && stabilityIsWeak) {
+  // Brief 5.5 §2.7 lock: soft phrasing gates on (tier ∈ {needs_work, fair})
+  // AND stability < 0.85. coachingReadiness does NOT soften. Evidence caveat
+  // remains narrower — needs_work only, since fair is not an evidence-weak
+  // signal.
+  if (shouldSoftenPhrasing(confidenceTier, recommendationStability)) {
     return {
       headline: `${winnerLabel} currently leads${gapSuffix}`,
       sub: null,
       caveat:
-        'Result depends on factors with limited evidence. See Highest-value evidence gaps.',
+        confidenceTier === 'needs_work'
+          ? 'Result depends on factors with limited evidence. See Highest-value evidence gaps.'
+          : null,
       conservative: true,
     }
   }
 
-  // Brief 5.4 QA Item 3: fair tier (and close_call readiness) show the
-  // definitive "is the leading option" copy — they are not evidence-weak
-  // signals and hedging them over-softens confident outcomes.
-  // conservative: true — fair/close_call are NOT trusted enough to allow
-  // coaching overrides; the certaintyCopy headline is authoritative here.
-  // Brief 5.2 established this invariant: coaching overrides require strong+ready.
-  if (confidenceTier === 'fair' || coachingReadiness === 'close_call') {
+  // close_call is orthogonal to the tier × stability gate — definitive
+  // headline, but conservative (coaching overrides still blocked).
+  if (coachingReadiness === 'close_call') {
     return {
       headline: `${winnerLabel} is the leading option`,
       sub: null,
@@ -207,8 +205,10 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
     }
   }
 
+  // When a gap is available, "leads by N points" gives the numeric lead.
+  // When no gap, fall back to the definitive form to avoid the bare "leads".
   return {
-    headline: `${winnerLabel} currently leads${gapSuffix}`,
+    headline: gapSuffix ? `${winnerLabel} leads${gapSuffix}` : `${winnerLabel} is the leading option`,
     sub: null,
     caveat: null,
     conservative: true,

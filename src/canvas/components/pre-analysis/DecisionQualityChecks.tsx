@@ -31,7 +31,7 @@ function WhyThisMattersToggle({ detail }: { detail: string }) {
         Why this matters
       </button>
       {open && (
-        <div className="bg-panel-hover rounded-md px-2.5 py-[10px] leading-relaxed mt-1">
+        <div className="bg-panel-hover rounded-md px-2.5 py-2.5 leading-relaxed mt-1">
           <p className={`${typography.panelMeta} text-text-light`}>{detail}</p>
         </div>
       )}

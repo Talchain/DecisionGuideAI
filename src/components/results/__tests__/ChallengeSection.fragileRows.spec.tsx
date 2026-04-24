@@ -1,15 +1,18 @@
 /**
- * ChallengeSection — Brief 5.1 Task 8 + Brief 5.2 Task 6 fragile-edge rows.
+ * ChallengeSection — Brief 5.2 Task 6 + Brief 5.5 D11 fragile-edge rows.
  *
- * Covers (current contract):
- * - Brief 5.2 Task 6b: row structure is "If {source} shifts → {alt-winner} could overtake".
- *   Single visible arrow, no second arrow between source and target, "could overtake"
- *   unified verb (was "could win"), alt-winner stripped of "(Status Quo)" suffix.
- * - Brief 5.2 Task 6a: Stability pill rendered at the card top-right, not inline.
- * - Brief 5.2 Task 6c: Review chip renders for every row — including consolidated
- *   groups, which previously only exposed an icon-only inspector button.
- * - Brief 5.1 Task 8b carry-forward: honest chip label (not "Validate"); onFocusNode
- *   is inspect-only.
+ * D11 changes the grouping from source → alt-winner: edges sharing an
+ * alt-winner collapse into one card. The alt-winner now appears in the
+ * card header ("N factors could flip the result to {Y}"), not per-edge.
+ * Per-edge copy is "If {source} shifts" (no inline arrow or alt-winner).
+ *
+ * Pre-D11 contract preserved:
+ * - alt-winner in the header: data-testid="fragile-alt-winner" (now on
+ *   the header span, not a per-edge element).
+ * - Stability pill top-right (unchanged).
+ * - Per-edge Review chip fires with own from_id (unchanged).
+ * - Chip suppressed when from_id absent (unchanged).
+ * - Honest aria-label "Review relationship from {source}" (updated label).
  */
 
 import { describe, it, expect, vi } from 'vitest'
@@ -30,7 +33,7 @@ function makeFragileEdge(overrides: Partial<ChallengeFragileEdge> = {}): Challen
 }
 
 describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
-  it('renders alt-winner semibold with unified "could overtake" verb (not "could win")', () => {
+  it('D11: alt-winner appears in the card header (not per-edge), stripped of "(Status Quo)"', () => {
     render(
       <ChallengeSection
         biasFindings={[]}
@@ -38,16 +41,17 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
         fragileEdges={[makeFragileEdge({ alternative_winner_label: 'Option B' })]}
       />,
     )
-
+    // Alt-winner now lives in the card header (data-testid="fragile-alt-winner").
     const altWinner = screen.getByTestId('fragile-alt-winner')
-    expect(altWinner.textContent).toBe('Option B could overtake')
+    expect(altWinner.textContent).toBe('Option B')
     expect(altWinner.className).toContain('font-semibold')
-
-    // The old "could win" phrasing is gone — Brief 5.2 standardises on "could overtake".
+    // Header reads: "Result could flip to Option B"
+    expect(document.body.textContent).toContain('Result could flip to')
+    expect(document.body.textContent).toContain('Option B')
     expect(document.body.textContent).not.toContain('could win')
   })
 
-  it('strips "(Status Quo)" suffix from the alt-winner label (Brief 5.2 Task 6b)', () => {
+  it('D11: strips "(Status Quo)" suffix from alt-winner in the card header', () => {
     render(
       <ChallengeSection
         biasFindings={[]}
@@ -57,14 +61,12 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
         })]}
       />,
     )
-
     const altWinner = screen.getByTestId('fragile-alt-winner')
-    expect(altWinner.textContent).toBe('Continue Without Dedicated Support could overtake')
-    // The suffix must not leak into the rendered row at all.
+    expect(altWinner.textContent).toBe('Continue Without Dedicated Support')
     expect(document.body.textContent).not.toContain('(Status Quo)')
   })
 
-  it('renders a single arrow per row — the inline source → target arrow is removed (Brief 5.2 Task 6b)', () => {
+  it('D11: no inline arrow in per-edge row — alt-winner is in header, source-shift line has no arrow', () => {
     render(
       <ChallengeSection
         biasFindings={[]}
@@ -76,16 +78,11 @@ describe('ChallengeSection — Brief 5.2 Task 6 fragile-row layout', () => {
         })]}
       />,
     )
-    // Count visible → chars (decorative) in the rendered body. Before Brief 5.2,
-    // rows rendered two: the inline "Factor A → Factor B" arrow AND the decorative
-    // arrow between the shifting phrase and the alt-winner. Now only the decorative
-    // one remains.
+    // D11 removes the per-edge "→" arrow. The header shows the alt-winner
+    // without an arrow; the per-edge body says "If Factor A shifts".
     const body = document.body.textContent ?? ''
-    const rightArrowCount = (body.match(/→/g) ?? []).length
-    expect(rightArrowCount).toBe(1)
-    // The stand-alone source factor remains in the shifting phrase.
+    expect((body.match(/→/g) ?? []).length).toBe(0)
     expect(body).toContain('Factor A shifts')
-    // The target factor is no longer part of the user-facing row text.
     expect(body).not.toContain('Factor A → Factor B')
   })
 
@@ -263,22 +260,16 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
         onFocusNode={onFocusNode}
       />,
     )
-    // Row itself renders — the user still sees the fragility alert text —
-    // but the actionable chip is hidden because the inspector would not
-    // find a matching node.
+    // D11: alt-winner now in card header — still present in DOM.
     expect(screen.getByTestId('fragile-alt-winner')).toBeInTheDocument()
+    // Chip suppressed because from_id absent.
     expect(screen.queryByTestId('fragile-review-chip-0')).not.toBeInTheDocument()
-
-    // Nothing in the row should be able to invoke onFocusNode with the
-    // non-id fallback. Covers the whole row container.
     expect(onFocusNode).not.toHaveBeenCalled()
   })
 
   it('mixed group: rows with from_id show chip, rows without from_id hide it; callback receives only valid ids', () => {
     const onFocusNode = vi.fn()
-    // ChallengeSection sorts edges by switch_probability desc, so testid
-    // ordering is determined by score rather than input order. Use text-
-    // based assertions (aria-label) so the test is robust to reordering.
+    // All edges share the same alt-winner so D11 groups them into one card.
     const edges: ChallengeFragileEdge[] = [
       { from_id: 'node-alpha', from_label: 'Factor Alpha', to_label: 'Factor X', switch_probability: 0.9, alternative_winner_label: 'Option B' },
       { from_label: 'Factor Orphan', to_label: 'Factor Y', switch_probability: 0.8, alternative_winner_label: 'Option B' }, // from_id missing
@@ -292,22 +283,17 @@ describe('ChallengeSection — Brief 5.2 Task 6c Review chip', () => {
         onFocusNode={onFocusNode}
       />,
     )
-    // Two chips render (one per valid from_id); the orphan row shows no chip.
-    const chips = screen.getAllByRole('button', { name: /Review .* in the inspector/ })
+    // D11: aria-label is "Review relationship from {source}"
+    const chips = screen.getAllByRole('button', { name: /Review relationship from/ })
     expect(chips).toHaveLength(2)
     const chipLabels = chips.map(c => c.getAttribute('aria-label'))
     expect(chipLabels).toEqual(expect.arrayContaining([
       expect.stringContaining('Factor Alpha'),
       expect.stringContaining('Factor Gamma'),
     ]))
-    // Orphan row renders its alert text (user still sees the fragility
-    // signal) but its chip is suppressed. Use the panel textContent since
-    // the source factor name is wrapped in a nested span within the
-    // shifting-phrase sentence.
     expect(document.body.textContent).toContain('Factor Orphan')
     expect(chipLabels.some(l => l?.includes('Factor Orphan'))).toBe(false)
 
-    // Firing each chip passes its own from_id — never the label fallback.
     for (const chip of chips) fireEvent.click(chip)
     expect(onFocusNode).toHaveBeenCalledTimes(2)
     const calledIds = onFocusNode.mock.calls.map(c => c[0])
