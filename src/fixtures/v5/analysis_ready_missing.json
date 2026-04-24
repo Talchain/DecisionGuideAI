@@ -1,0 +1,17 @@
+{
+  "turn_id": "fx-analysis-ready-missing",
+  "assistant_text": null,
+  "blocks": [
+    {
+      "block_id": "blk_ar_missing",
+      "block_type": "analysis_result",
+      "type": "analysis_result",
+      "enrichment": {}
+    }
+  ],
+  "stage_indicator": {
+    "stage": "analyse",
+    "confidence": "medium",
+    "source": "inferred"
+  }
+}

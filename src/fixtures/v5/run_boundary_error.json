@@ -1,0 +1,19 @@
+{
+  "turn_id": "fx-run-boundary-error",
+  "assistant_text": null,
+  "blocks": [
+    {
+      "block_id": "blk_err",
+      "block_type": "error",
+      "type": "error",
+      "failure_type": "boundary_validation",
+      "message": "Upstream boundary validation failed",
+      "recoverable": true
+    }
+  ],
+  "stage_indicator": {
+    "stage": "analyse",
+    "confidence": "low",
+    "source": "inferred"
+  }
+}

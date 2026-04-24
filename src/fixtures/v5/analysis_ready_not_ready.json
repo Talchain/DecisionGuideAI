@@ -1,0 +1,31 @@
+{
+  "turn_id": "fx-analysis-ready-not-ready",
+  "assistant_text": null,
+  "blocks": [],
+  "stage_indicator": {
+    "stage": "analyse",
+    "confidence": "medium",
+    "source": "inferred"
+  },
+  "analysis_ready": {
+    "status": "needs_user_input",
+    "goal_node_id": "goal_hiring_success",
+    "options": [
+      {
+        "id": "opt_senior_hire",
+        "label": "Hire senior candidate",
+        "status": "ready",
+        "interventions": {}
+      },
+      {
+        "id": "opt_junior_hire",
+        "label": "Hire junior candidate",
+        "status": "needs_encoding",
+        "interventions": {},
+        "user_questions": [
+          "What is the baseline experience level for a junior hire?"
+        ]
+      }
+    ]
+  }
+}
