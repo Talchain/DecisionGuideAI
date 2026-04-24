@@ -30,6 +30,7 @@ import { NodeChip, NodePopover, ScienceIcon } from './shared'
 import { useScienceIcons } from '../hooks/useScienceIcons'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { usePopoverHover } from '../hooks/usePopoverHover'
+import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import type { CEEGoalConstraint } from '../../adapters/cee/types'
 
 export const GoalNode = memo((props: NodeProps) => {
@@ -41,6 +42,10 @@ export const GoalNode = memo((props: NodeProps) => {
   const viewMode = useCanvasStore(state => state.viewMode)
   const isPostAnalysis = resultsStatus === 'complete'
   const isDetailed = viewMode === 'expert'
+  // Phase 2.3 — null-probability guard. Post-analysis without any finite
+  // per-option win_probability means the engine finished but produced no
+  // probability. We must not render "Analysis complete" copy in that case.
+  const hasAnyProbability = useHasAnyRealProbability()
 
   const robustnessData = useMemo(() => {
     if (!isPostAnalysis || !report) return null
@@ -213,10 +218,16 @@ export const GoalNode = memo((props: NodeProps) => {
           </span>
         ) : undefined}
       >
-        {/* No target, post-analysis: analysis done but no threshold to evaluate */}
+        {/* No target, post-analysis: analysis done but no threshold to evaluate.
+            Null-probability guard swaps the copy when the run produced no
+            finite win_probability (BoundaryError / null probs / stale state). */}
         {!hasThreshold && isPostAnalysis && (
           <>
-            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>Analysis complete. Set a target to see your chances.</p>
+            <p className={`${typography.nodeLabel} text-text-body mt-1 m-0`}>
+              {hasAnyProbability
+                ? 'Analysis complete. Set a target to see your chances.'
+                : 'Analysis finished. Set a target and check the graph for incomplete inputs.'}
+            </p>
             <div className="mt-1.5">
               <NodeChip label="Help me set a target" message="Help me define what success looks like for this goal. What metrics or thresholds should I aim for?" />
             </div>

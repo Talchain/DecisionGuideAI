@@ -24,6 +24,7 @@ import type { Insights } from '../../types/plot'
 import type { InsightV3 } from '../../types/cee'
 import { focusNodeById } from '../utils/focusHelpers'
 import { useCanvasStore } from '../store'
+import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { devLog, devWarn } from '../../utils/debugLog'
 
 /** Driver information for insight generation */
@@ -62,8 +63,17 @@ interface InsightsPanelProps {
  * - oversized arrays (risks > 5, next_steps > 3)
  * - oversized summary (> 200 chars)
  */
-function normalizeInsights(insights: Partial<Insights> | null | undefined): Insights {
-  const DEFAULT_SUMMARY = 'Analysis complete. Review the results above for details.'
+function normalizeInsights(
+  insights: Partial<Insights> | null | undefined,
+  hasAnyProbability: boolean = true,
+): Insights {
+  // Null-probability fallback replaces the "Analysis complete" phrasing when
+  // no option has a finite win_probability. Prevents the UI from implying a
+  // successful result on a run that produced no probabilities (BoundaryError,
+  // null probs, or stale ready state with a partial response).
+  const DEFAULT_SUMMARY = hasAnyProbability
+    ? 'Analysis complete. Review the results above for details.'
+    : 'Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.'
   const MAX_RISKS = 5
   const MAX_NEXT_STEPS = 3
   const MAX_SUMMARY_LENGTH = 200
@@ -282,10 +292,16 @@ export function InsightsPanel({
   // Brief 33 Fix: Memoize all expensive computations to prevent re-render loop
   // Previously these ran on every render, causing validateInsightConsistency to fire 6+ times
 
+  // Phase 2.3 — null-probability guard. When the run produced no finite
+  // win_probability across options, substitute the DEFAULT_SUMMARY with a
+  // non-success-implying fallback. Only affects the fallback path; an
+  // engine-supplied summary is always preferred.
+  const hasAnyProbability = useHasAnyRealProbability()
+
   // P0.3: Normalize insights with safe defaults and limits
   const normalized = useMemo(
-    () => normalizeInsights(rawInsights),
-    [rawInsights]
+    () => normalizeInsights(rawInsights, hasAnyProbability),
+    [rawInsights, hasAnyProbability]
   )
 
   // Quick Win #5: Validate and correct contradictory insights
@@ -533,8 +549,9 @@ export function InsightsSummaryCompact({
   insights: rawInsights,
   className = '',
 }: Pick<InsightsPanelProps, 'insights' | 'className'>) {
+  const hasAnyProbability = useHasAnyRealProbability()
   // P0.3: Normalize insights with safe defaults
-  const { summary, risks, next_steps } = normalizeInsights(rawInsights)
+  const { summary, risks, next_steps } = normalizeInsights(rawInsights, hasAnyProbability)
   const detailsCount = risks.length + next_steps.length
 
   return (

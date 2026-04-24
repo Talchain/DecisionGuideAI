@@ -123,6 +123,15 @@ const HEADLINE_BUILDERS: Partial<Record<ScenarioEventType, HeadlineBuilder>> = {
         ? `Analysis complete - ${winner} performs best at ${prob}% (${robust})`
         : `Analysis complete - ${winner} performs best at ${prob}%`
     }
+    // Phase 2.3 — null-probability guard. When the journey event carries no
+    // probability we must not imply completion; replace the generic
+    // sentence-cased fallback with an explicit "finished, no probability"
+    // line so the timeline never reads as a clean success.
+    const probabilityFieldPresent =
+      d != null && typeof d === 'object' && 'probability' in (d as Record<string, unknown>)
+    if (probabilityFieldPresent) {
+      return 'Analysis finished (no probability available)'
+    }
     return sentenceCase('analysis_run')
   },
   analysis_failed: (d) => {
