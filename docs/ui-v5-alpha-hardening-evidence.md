@@ -252,36 +252,83 @@ I did not have access to live staging debug bundles in this environment. The fix
 
 ## Phase 5 — Pre-merge regression gate (closed)
 
+### Branch HEAD at time of gate
+
+`b79c3af2` — `[v5-hardening] Phase 6: address ChatGPT follow-up review (P1 + improvements)`.
+
 ### Fresh-clone typecheck (authoritative)
 
-Commands run in an isolated clone at `/tmp/v5-staging-check` to eliminate any local worktree node_modules state:
+Commands run in an isolated clone at `/tmp/v5-staging-check` to eliminate any local worktree `node_modules` state drift:
 
 ```
 git fetch /Users/paulslee/.claude-worktrees/DecisionGuideAI/v5-hardening claude/v5-alpha-hardening-ui
-git checkout FETCH_HEAD          # at d86b1b5 [v5-hardening] Phase 5
+git checkout FETCH_HEAD             # at b79c3af2 (Phase 6)
 npx tsc -p tsconfig.ci.json --noEmit
 ```
 
-Result: **0 errors.**
+Exit 0. `grep -cE "^src/"` on stderr returns `0`. **Zero typecheck errors.**
 
-### Test results
+### Production build
 
-| Suite | Files | Pass | Fail | Skip | Delta vs Phase 0 baseline |
-|---|---|---|---|---|---|
-| `src/v5` | 17 | 216 | 0 | 0 | +21 new tests, 0 regressions |
-| `src/canvas/conversation` | 91 | 1284 | 68 | 22 | +9 new tests, 68 failures unchanged |
-| `src/canvas/components/__tests__/InsightsPanel.nullProb.spec.tsx` | 1 | 5 | 0 | 0 | +5 new |
-| `src/canvas/journey/__tests__/renderTimeline.nullProb.spec.ts` | 1 | 5 | 0 | 0 | +5 new |
-| `src/canvas/ui/inspector-v2/__tests__/useAnalysisResults.nullProb.spec.ts` | 1 | 12 | 0 | 0 | +12 new |
-| `src/canvas/ui/inspector-v2/__tests__/report-fixtures.spec.ts` | 1 | 3 | 0 | 0 | +3 new |
+```
+cd /Users/paulslee/.claude-worktrees/DecisionGuideAI/v5-hardening
+npm run build
+```
 
-**Total new tests pinned by this branch: 55.**
-**New regressions introduced: 0.**
-**Baseline failures (pre-existing, documented): 68.**
+Exit 0. `✓ built in 22.98s`. Chunk-size warnings pre-existing (ReactFlowGraph, elk.bundled, AppPoC); no new warnings from this branch.
+
+### Test results (exact command outputs)
+
+**V5 suite:**
+
+```
+npx vitest run src/v5
+→ Test Files  17 passed (17)
+→      Tests  216 passed (216)
+```
+
+**Conversation suite:**
+
+```
+npx vitest run src/canvas/conversation
+→ Test Files  10 failed | 81 passed (91)
+→      Tests  68 failed | 1287 passed | 22 skipped (1377)
+→     Errors  1 error
+```
+
+The 1 unhandled rejection is **pre-existing** (`Invalid URL: /bff/cee/graph-readiness` originating in `src/canvas/hooks/useGraphReadiness.ts:76` — jsdom cannot parse relative URLs in `fetch()`). It is emitted during `patchAcceptLogic.spec.tsx` and survives across branches; confirmed present in `staging` base and unrelated to this branch's scope. Documented as follow-up #8 below.
+
+**New-surface suites (all added by this branch):**
+
+```
+npx vitest run \
+  src/canvas/components/__tests__/InsightsPanel.nullProb.spec.tsx \
+  src/canvas/journey/__tests__/renderTimeline.nullProb.spec.ts \
+  src/canvas/ui/inspector-v2/__tests__/useAnalysisResults.nullProb.spec.ts \
+  src/canvas/ui/inspector-v2/__tests__/report-fixtures.spec.ts
+→ Test Files  4 passed (4)
+→      Tests  27 passed (27)
+```
+
+```
+npx vitest run src/canvas/conversation/__tests__/SuggestedChips.readinessGate.spec.tsx
+→ Test Files  1 passed (1)
+→      Tests  12 passed (12)
+```
+
+### Phase 0 → Phase 6 deltas
+
+| Suite | Phase 0 | Phase 6 | Delta |
+|---|---|---|---|
+| `src/v5` | 195 pass | 216 pass | +21 |
+| `src/canvas/conversation` pass | 1275 | 1287 | +12 |
+| `src/canvas/conversation` fail | 68 | 68 | 0 (pre-existing baseline, unchanged) |
+| Total new tests across all new surfaces | — | 60 | +60 (27 new-surface + 12 chip gate + 21 V5-scoped) |
+| New regressions | — | 0 | 0 |
 
 ### Review response — ChatGPT P0/P1/improvements
 
-Every item was analysed and addressed (commit `d86b1b5c`):
+**First review** — all items addressed in commit `d86b1b5c` + evidence-pack close-out `389d1ede`:
 
 - **P0-1 (hook ordering in SuggestedChips):** real bug I introduced. Hooks hoisted above all conditional returns. 3 regression tests pin ready↔not_ready↔missing transitions with no "Rendered fewer hooks than expected" console.error.
 - **P0-2 (stale guard placement):** real gap — the pinned invariant says *"Older responses must not clear or overwrite newer readiness, probabilities, chips, or stage"* but my guard only covered readiness. Guard moved to the top of applyV5State; multi-slice stale fixture test asserts stage + graph_patch (node + edge) + runMeta + analysis_ready all drop.
@@ -291,7 +338,16 @@ Every item was analysed and addressed (commit `d86b1b5c`):
 - **P1-3 (synthetic fixture marking):** escalated — see "Note on fixture provenance" above and the push-authorisation recommendation.
 - **I-1 (multi-slice stale test):** addressed as part of P0-2.
 - **I-2 (engine-summary success-copy regression):** addressed as part of P0-3.
-- **I-3 (`hasAnyRealProbability` semantics):** cleaned up. Accepts EITHER finite `probability_of_goal` OR finite `option_comparison[*].win_probability`. Empty `option_comparison` no longer vetoes a valid root prob.
+- **I-3 (`hasAnyRealProbability` semantics):** cleaned up. Accepts EITHER finite `probability_of_goal` OR finite `option_comparison[*].win_probability`. Empty `option_comparison` no longer vetoes a valid root prob. (Further tightened in second review — see P1-2 below.)
+
+**Second review** — all items addressed in commit `b79c3af2`:
+
+- **P1-1 (hidden/system turns falsely stale):** confirmed real bug. `lastUserInputRef` at line 2495 is gated by `!hidden && mode === 'user'` (line 2483) — hidden and system V5 turns mint their own `client_turn_id` but never update the ref. Fix: introduced `activeV5TurnIdRef` stamped at every sendTurn dispatch (visible + hidden + system) at line 2444. applyV5State callsite now compares against this ref. Three regression tests pin: hidden-after-visible is accepted, system-after-visible is accepted, hidden-before-newer-dispatch is correctly dropped.
+- **P1-2 (`hasAnyRealProbability` over-permissive for all-null options + finite root):** confirmed. Previous semantics: any finite prob (option or root) → true. New strict semantics: when `option_comparison` is a non-empty array, at least one entry MUST have a finite `win_probability`; root probability is only consulted as a fallback for empty / absent arrays. An engine returning all-null options with a finite root is inconsistent; the UI now suppresses success copy. Two regression tests pin: all-null + finite root → false, partial-null + finite → true.
+- **P1-3 (evidence pack overclaim):** addressed in this rewrite — SHA updated to `b79c3af2`, exact command outputs recorded, unhandled rejection documented with provenance, conversation pass count corrected to 1287 (was undercount of 1284).
+- **I-1 (hidden/system integration test):** pinned as 3 new cases in `applyV5State.hardening.test.ts` (hidden, system, newer-clobbers-hidden).
+- **I-2 (all-null + finite root regression):** pinned in `useAnalysisResults.nullProb.spec.ts`.
+- **I-3 (record exact command outputs):** addressed in this rewrite's "Test results" section above.
 
 ---
 
@@ -304,12 +360,15 @@ Every item was analysed and addressed (commit `d86b1b5c`):
 5. **Coordination with CEE branch.** If CEE changes `suggested_actions`, `analysis_ready`, or the boundary-error response shape during its hardening branch, Phase 4 fixtures will need regeneration before the joint integrated evidence pack.
 6. **Fixture provenance.** Fixtures are synthetic. The joint integrated evidence pack should include a captured staging bundle — recommend Paul captures one during the manual golden-path verification (post-authorisation) and commits it to `src/fixtures/v5/captured/` for parity.
 7. **Parallel-session discovery.** The parallel Claude Code session's branch (`ui/analysis-tab-visual-system`) introduced typecheck errors in files outside this branch's scope (44 errors in `src/adapters/plot/enrichment.ts`, `src/canvas/domain/edges.ts`, etc. that surface only when the v5 typecheck scope expands). Not this branch's responsibility, but worth flagging to Brief 5.5 owner.
+8. **Pre-existing unhandled rejection (`/bff/cee/graph-readiness`).** During the conversation suite run, one unhandled rejection surfaces from `src/canvas/hooks/useGraphReadiness.ts:76` — jsdom's `fetch()` cannot parse relative URLs. Fires during `patchAcceptLogic.spec.tsx`. Present in `staging` base and every predecessor of this branch. Not caused by this branch's changes; confirmed by checkout-and-rerun on staging HEAD. Flagged for follow-up in the BFF-URL handling layer.
 
 ---
 
 ## Commit history
 
 ```
+b79c3af2 Phase 6: address ChatGPT follow-up review (P1 + improvements)
+389d1ede Phase 5: close out evidence pack
 d86b1b5c Phase 5: address ChatGPT review (P0 + P1 + improvements)
 e19bef45 Phase 3+4: DS verification + fixture-driven integration tests
 093c86af Phase 2.3: null-probability guard + BoundaryError contract
