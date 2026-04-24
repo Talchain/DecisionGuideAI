@@ -1753,7 +1753,7 @@ export function PreAnalysisPanel({
                     key={card.key}
                     cardKey={card.key}
                     ordinal={i + 1}
-                    badgeColor="bg-factor"
+                    badgeColor="bg-option"
                     title={card.title}
                     detail={card.detail}
                     subtitle={card.subtitle}
