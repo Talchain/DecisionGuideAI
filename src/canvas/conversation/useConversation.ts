@@ -2672,7 +2672,15 @@ export function useConversation(): UseConversationReturn {
             // Apply side-effects (stage, graph_patch mutations) BEFORE the
             // message renders so subsequent React effects (panel data, chat
             // auto-scroll) see consistent canvas state.
-            const stateApply = applyV5State(target.response, useCanvasStore.getState())
+            // Stale-turn guard: compare this response's client_turn_id against
+            // the id of the most recently dispatched turn (tracked by
+            // lastUserInputRef). A newer turn fired between request and
+            // response means this response is stale and must not regress
+            // V5 state. See applyV5State step-4 invariant.
+            const stateApply = applyV5State(target.response, useCanvasStore.getState(), {
+              turnClientId,
+              currentClientTurnId: lastUserInputRef.current.clientTurnId ?? null,
+            })
             if (import.meta.env.DEV) {
               if (stateApply.applied.length > 0) {
                 console.warn('[sendTurn V5] state applied:', stateApply.applied)
