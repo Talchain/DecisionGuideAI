@@ -29,6 +29,7 @@ import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
 import { ExpertBlock } from './ExpertBlock'
+import { ExpandableCoachingText } from '../../components/shared/ExpandableCoachingText'
 import { isExpertField } from './utils/isExpertField'
 
 interface DriversSectionProps {
@@ -552,15 +553,19 @@ function DriverRow({
     >
       {/* Single row: Factor name + info icon + bars */}
       <div className={`grid ${GRID_COLS} gap-2 items-center px-3 py-1.5`}>
-        {/* Factor name with direction arrow and inline info icon */}
+        {/* Factor name: direction arrow (row 1 only) + title + info icon (row 1 only).
+            D13: rows 2+ drop the arrow (bar colour conveys direction) and the
+            tooltip (i) icon (reduces clutter; inspector gives full detail). */}
         <div className="flex items-center gap-1.5 min-w-0">
-          <span
-            className={`${typography.panelBody} flex-shrink-0`}
-            style={{ color: directionColor }}
-            aria-hidden="true"
-          >
-            {directionIcon}
-          </span>
+          {isTopDriver && (
+            <span
+              className={`${typography.panelBody} flex-shrink-0`}
+              style={{ color: directionColor }}
+              aria-hidden="true"
+            >
+              {directionIcon}
+            </span>
+          )}
           {driver.canFocus ? (
             <button
               type="button"
@@ -571,12 +576,19 @@ function DriverRow({
             >
               {cleanedLabel}
             </button>
-          ) : (
+          ) : isTopDriver ? (
             <span className={`${typography.panelBody} text-text-body break-words leading-snug line-clamp-2`} title={cleanedLabel}>
               {cleanedLabel}
             </span>
+          ) : (
+            <ExpandableCoachingText
+              text={cleanedLabel}
+              maxLinesCollapsed={2}
+              className="text-text-body"
+              titleAttr={cleanedLabel}
+            />
           )}
-          {hasTooltipContent && (
+          {hasTooltipContent && isTopDriver && (
             <button
               ref={infoButtonRef}
               onClick={toggleTooltip}
