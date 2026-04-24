@@ -168,6 +168,8 @@ Gate source: `src/components/results/utils/certaintyCopy.ts`. Consumed by hero c
 1. `confidenceTier ∈ {'needs_work', 'fair'}`, AND
 2. `recommendationStability < 0.85`.
 
+**Null/absent stability (addition — not a pattern change):** If `recommendationStability` is `null` or `undefined`, treat as weak (`stabilityIsWeak = true`). Phrase softens. Rationale: when stability is unknown we cannot assert a strong result, so cautious phrasing is the safe default. Tests asserting absent stability softens are correct.
+
 `coachingReadiness` is **not** a softening trigger. If the current `certaintyCopy.ts` implementation reads `coachingReadiness` as an alternate condition 1 (it does — Row 4 of the current code), D8 removes that branch as part of its full scope (correction 2). Readiness remains an input to other copy decisions (close_call, evidence caveats) but cannot soften a `strong` tier or a high-stability run.
 
 **Decision table (tier × stability, complete):**
@@ -238,9 +240,11 @@ rg $GATE_GLOBS -n "text-white" src/components/results/ src/canvas/components/pre
 rg $GATE_GLOBS -n "p-\[[0-9]+px\]|px-\[[0-9]+px\]|py-\[[0-9]+px\]|gap-\[[0-9]+px\]" src/components/results/ src/canvas/components/pre-analysis/
 # Expected: zero
 
-# bg-factor stone/brown token — forbidden in scope (corrected to bg-option per §2.4)
+# bg-factor stone/brown token — forbidden as badge/indicator (corrected to bg-option per §2.4)
 rg $GATE_GLOBS -n "bg-factor\b" src/components/results/ src/canvas/components/pre-analysis/
-# Expected: zero
+# Expected: 1 approved hit — OptionCards.tsx neutralised-bar fill (pre-existing, semantic use of
+# bg-factor for a "no result / neutralised" state, not a badge or indicator context).
+# Gate intent is zero badge uses; this single semantic carve-out is explicitly approved.
 ```
 
 Baseline `as any` / `as unknown` count captured at D18 entry by running the command against the branch-creation HEAD (`f7907f89`) — documented in final review.

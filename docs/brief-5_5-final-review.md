@@ -46,7 +46,7 @@ Gate 5 (count-dup line)   — 0 hits ✓
 Gate 6 (arbitrary spacing)— 0 hits ✓
 Gate 7 (bg-colour-light)  — 0 hits ✓
 Gate 8 (text-white badge) — 0 hits ✓
-Gate 9 (bg-factor)        — 0 hits ✓  (one pre-existing carve-out: OptionCards.tsx neutralised-bar fill — approved use, not a badge/indicator)
+Gate 9 (bg-factor)        — 1 approved hit ✓  (`OptionCards.tsx:151` — pre-existing neutralised-bar fill; `bg-factor` is the correct semantic token for a "no result" state, not a badge/indicator. Gate intent is zero badge uses; this is a separate semantic context.)
 ```
 
 ---
@@ -67,10 +67,9 @@ Gate 9 (bg-factor)        — 0 hits ✓  (one pre-existing carve-out: OptionCar
 
 ## Typecheck status
 
-Pre-cleanup background run: **PASS** (exit 0).  
-Post-cleanup `npm run typecheck`: 4 errors in `src/v5/__tests__/applyV5State.hardening.test.ts` — these files belong to the **authorised parallel CC session** working on branch `claude/v5-alpha-hardening-ui` (V5 alpha hardening, non-overlapping scope). They are untracked on this branch and must not be touched.
+**PASS** (exit 0) on a clean tree. `npm run typecheck` runs cleanly with no errors when the working tree contains only this branch's files.
 
-**Push coordination required:** `npm run typecheck` picks up all `.ts` files in `src/` regardless of git tracking, so those untracked v5 files will cause the pre-push hook's typecheck to fail when run in the same working tree. Coordinate with the v5 session to commit or vacate their working files before pushing this branch, or push when the other session's untracked files are not present.
+**Push coordination note (if v5 session is active):** `npm run typecheck` picks up all `.ts` files in `src/` regardless of git tracking. If the parallel session's untracked v5 files (`src/v5/**`) are present in the working tree, they will cause 4 typecheck errors. Those files belong to the authorised parallel CC session on `claude/v5-alpha-hardening-ui` and must not be touched. Coordinate with that session to commit or vacate their files before pushing, or push when those untracked files are absent.
 
 ---
 

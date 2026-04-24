@@ -18,7 +18,6 @@
 
 import { useMemo, useState, useCallback, useEffect, type KeyboardEvent } from 'react'
 import { ChevronRight } from 'lucide-react'
-import Tooltip from '../../../../components/Tooltip'
 import { typography } from '@/styles/typography'
 import { useUIStore } from '@/stores/uiStore'
 import { deriveExpertiseGroups, type ExpertiseGroups } from '../hooks/deriveExpertiseGroups'
