@@ -61,7 +61,7 @@ export function GuidanceActionItemRow({ item, onActivate }: GuidanceActionItemRo
       <div className="flex items-start gap-2">
         <Icon size={14} className={`${textColor} shrink-0 mt-0.5`} />
         <div className="min-w-0">
-          <p className={`${typography.panelBody} ${textColor} font-medium`}>{item.title}</p>
+          <p className={`${typography.panelHeader} ${textColor}`}>{item.title}</p>
           {item.detail && (
             <p className={`${typography.panelMeta} text-text-light mt-0.5`}>{item.detail}</p>
           )}
