@@ -228,7 +228,7 @@ export const ResultsBody = memo(function ResultsBody({
             <SectionHeader
               title="Your options"
               testId="section-header-options"
-              icon="option"
+              sectionColorMarker="bg-option"
             />
             {/* WinGauge — moved from hero to top of options section */}
             <WinGauge
