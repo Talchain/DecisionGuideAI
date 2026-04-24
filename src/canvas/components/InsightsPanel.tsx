@@ -333,13 +333,28 @@ export function InsightsPanel({
   }, [cleanedSummary])
 
   // P0.1: If drivers not informative and summary has driver language, use neutral fallback
-  const summary = useMemo(() => {
+  const preGuardSummary = useMemo(() => {
     if (driverInsight) return driverInsight
     if (!driversInformative && summaryContainsDriverLanguage) {
       return 'Analysis complete. Review the outcome above for details.'
     }
     return cleanedSummary.length > 20 ? cleanedSummary : rawSummary
   }, [driverInsight, driversInformative, summaryContainsDriverLanguage, cleanedSummary, rawSummary])
+
+  // Phase 2.3 (strict-render, P0-3). Every upstream branch that produces
+  // `preGuardSummary` — engine-supplied summary, driver insight, driver-
+  // language fallback, validateInsightConsistency correction — can emit
+  // success-implying language ("Analysis complete", "winner performs at
+  // X%", etc.). When the store carries no renderable probability, the UI
+  // MUST suppress all of them in favour of the no-probability fallback.
+  // Strict render: the store is the source of truth about success, not
+  // the engine's narrative text.
+  const NO_PROB_FALLBACK_SUMMARY =
+    'Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.'
+  const summary = useMemo(
+    () => (hasAnyProbability ? preGuardSummary : NO_PROB_FALLBACK_SUMMARY),
+    [hasAnyProbability, preGuardSummary],
+  )
 
   // P0.1 FIX 2: Filter driver language from next steps when drivers not informative
   const filteredNextSteps = useMemo(() => {

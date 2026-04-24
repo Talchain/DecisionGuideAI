@@ -17,16 +17,12 @@
 import { describe, it, expect, vi } from 'vitest'
 
 import { applyV5State, type V5ApplicatorStore } from '../applyV5State'
-import { hasAnyRealProbability, type InspectorReport } from '../../canvas/ui/inspector-v2/useAnalysisResults'
 
 import readyFixture from '../../fixtures/v5/analysis_ready_ready.json'
 import notReadyFixture from '../../fixtures/v5/analysis_ready_not_ready.json'
 import missingFixture from '../../fixtures/v5/analysis_ready_missing.json'
-import fullProbsFixture from '../../fixtures/v5/run_success_full_probs.json'
-import nullProbsFixture from '../../fixtures/v5/run_success_null_probs.json'
 import boundaryErrorFixture from '../../fixtures/v5/run_boundary_error.json'
 import conversationalFixture from '../../fixtures/v5/conversational_chips_only.json'
-import staleReadyFixture from '../../fixtures/v5/analysis_complete_null_probs_stale_ready.json'
 
 function makeStore(init?: Partial<V5ApplicatorStore>): V5ApplicatorStore {
   return {
@@ -93,39 +89,23 @@ describe('applyV5State fixture-driven integration', () => {
   })
 })
 
-describe('null-probability guard fixture coverage', () => {
-  it('full-probs fixture has at least one finite probability', () => {
-    const report = (fullProbsFixture as { results: { report: InspectorReport } }).results.report
-    expect(hasAnyRealProbability(report)).toBe(true)
-  })
-
-  it('null-probs fixture has zero finite probabilities', () => {
-    const report = (nullProbsFixture as unknown as { results: { report: InspectorReport } })
-      .results.report
-    expect(hasAnyRealProbability(report)).toBe(false)
-  })
-
-  it('analysis_complete_null_probs_stale_ready: guard hides "Analysis complete"', () => {
-    // This is the recent failing-trace reproduction. The report carries null
-    // per-option probabilities. The null-probability guard must return false,
-    // which downstream (InsightsPanel, GoalNode, renderTimeline) uses to
-    // avoid rendering the "Analysis complete" string. Pinning here keeps the
-    // contract end-to-end even if the guard helper is refactored.
-    const report = (staleReadyFixture as unknown as { results: { report: InspectorReport } })
-      .results.report
-    expect(hasAnyRealProbability(report)).toBe(false)
-  })
-})
+// Null-probability guard fixture coverage lives in a canvas-scoped test
+// (src/canvas/ui/inspector-v2/__tests__/report-fixtures.spec.ts) to keep
+// the v5-scoped typecheck from expanding across the canvas/ tree.
 
 describe('stale-turn invariant with fixture', () => {
-  it('older response with ready payload does not write when a newer turn is active', () => {
+  it('older response with ready payload does not write any slice when a newer turn is active', () => {
+    // The ready fixture carries stage=analyse, an analysis_result block,
+    // and analysis_ready. Under the stale guard, none of those should
+    // reach the store.
     const store = makeStore()
-    // Wire the fixture's ready payload but claim the turn is stale.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     applyV5State(readyFixture as any, store, {
       turnClientId: 'turn_older',
       currentClientTurnId: 'turn_newer',
     })
+    expect(store.setCurrentStage).not.toHaveBeenCalled()
+    expect(store.setRunMeta).not.toHaveBeenCalled()
     expect(store.setCeeAnalysisReady).not.toHaveBeenCalled()
   })
 })

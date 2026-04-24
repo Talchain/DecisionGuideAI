@@ -54,7 +54,19 @@ export function SuggestedChips({
   isThinking = false,
   isHistorical = false,
 }: SuggestedChipsProps) {
+  // All hooks are declared before any conditional return so that the hook
+  // count is stable across renders. Downstream conditions (isHistorical,
+  // visible.length === 0) use early-return AFTER the hook prelude — this
+  // is the rules-of-hooks contract. Readiness transitions
+  // (ready → missing, ready → not_ready) flip `visible` emptiness on the
+  // fly; hoisting the two subscribers keeps React's dispatcher aligned.
   const [chipError, setChipError] = useState<string | null>(null)
+  const analysisStatus = useAnalysisStatus()
+  useEffect(() => {
+    if (!chipError) return
+    const timer = setTimeout(() => setChipError(null), 5_000)
+    return () => clearTimeout(timer)
+  }, [chipError])
 
   // Historical chips removed entirely — no false affordance.
   if (isHistorical) return null
@@ -63,12 +75,6 @@ export function SuggestedChips({
   // are picked up correctly. import.meta.env is Vite-inlined at build time,
   // but the check is cheap and correctness matters more here.
   const v5Active = isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
-
-  // Readiness state for the readiness-gate filter below. Subscribing to the
-  // narrow selector (status string) rather than the whole ceeAnalysisReady
-  // object avoids re-rendering when unrelated fields (interventions,
-  // blockers) change on the slice.
-  const analysisStatus = useAnalysisStatus()
 
   // Filter rule (V5 active):
   //   action_type === 'run_analysis' → gated by analysisStatus === 'ready'
@@ -116,13 +122,6 @@ export function SuggestedChips({
   // DS v5 §21.4: max 2 suggested action chips
   const visible = supported.filter(c => !!(c.message || c.prompt)).slice(0, 2)
   if (visible.length === 0) return null
-
-  // Auto-dismiss chip error after 5s
-  useEffect(() => {
-    if (!chipError) return
-    const timer = setTimeout(() => setChipError(null), 5_000)
-    return () => clearTimeout(timer)
-  }, [chipError])
 
   const disabled = isThinking || isHistorical
 

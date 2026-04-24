@@ -188,6 +188,102 @@ describe('SuggestedChips double-click safety', () => {
   })
 })
 
+describe('SuggestedChips hook-ordering invariant on readiness transitions', () => {
+  // P0 regression: hooks must be stable across readiness transitions that
+  // flip `visible.length === 0`. Before hoisting, useEffect was declared
+  // after the early return, so the hook count was 2 when a chip rendered
+  // and 1 when it didn't — React threw `Rendered fewer hooks than
+  // expected` on the transition. This test exercises both transitions.
+  beforeEach(() => {
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+  })
+  afterEach(() => {
+    vi.unstubAllEnvs()
+    setReady(null)
+  })
+
+  it('survives ready → not_ready transition without React hook errors', () => {
+    setReady('ready')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { rerender } = render(
+      <SuggestedChips
+        chips={[makeChip({ action_type: 'run_analysis' })]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('suggested-chip-chip_1')).toBeInTheDocument()
+
+    // Flip to not_ready — the chip disappears, visible becomes empty.
+    setReady('needs_encoding')
+    rerender(
+      <SuggestedChips
+        chips={[makeChip({ action_type: 'run_analysis' })]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-chip-chip_1')).toBeNull()
+
+    // React must not have complained about hook ordering.
+    const hookErrors = errorSpy.mock.calls.filter((c) =>
+      String(c[0] ?? '').includes('Rendered fewer hooks than expected'),
+    )
+    expect(hookErrors.length).toBe(0)
+    errorSpy.mockRestore()
+  })
+
+  it('survives ready → missing (ceeAnalysisReady=null) transition', () => {
+    setReady('ready')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { rerender } = render(
+      <SuggestedChips
+        chips={[makeChip({ action_type: 'run_analysis' })]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('suggested-chip-chip_1')).toBeInTheDocument()
+
+    setReady(null)
+    rerender(
+      <SuggestedChips
+        chips={[makeChip({ action_type: 'run_analysis' })]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-chip-chip_1')).toBeNull()
+    const hookErrors = errorSpy.mock.calls.filter((c) =>
+      String(c[0] ?? '').includes('Rendered fewer hooks than expected'),
+    )
+    expect(hookErrors.length).toBe(0)
+    errorSpy.mockRestore()
+  })
+
+  it('survives not_ready → ready transition (reverse)', () => {
+    setReady('needs_encoding')
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { rerender } = render(
+      <SuggestedChips
+        chips={[makeChip({ action_type: 'run_analysis' })]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-chip-chip_1')).toBeNull()
+
+    setReady('ready')
+    rerender(
+      <SuggestedChips
+        chips={[makeChip({ action_type: 'run_analysis' })]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(screen.getByTestId('suggested-chip-chip_1')).toBeInTheDocument()
+    const hookErrors = errorSpy.mock.calls.filter((c) =>
+      String(c[0] ?? '').includes('Rendered fewer hooks than expected'),
+    )
+    expect(hookErrors.length).toBe(0)
+    errorSpy.mockRestore()
+  })
+})
+
 describe('SuggestedChips [v5-state] filter logging', () => {
   let infoSpy: ReturnType<typeof vi.spyOn>
 

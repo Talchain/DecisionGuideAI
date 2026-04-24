@@ -72,27 +72,33 @@ export function useOptionComparison(): InspectorOptionComparison[] | undefined {
 // ─── Probability-availability guard ──────────────────────────────────
 
 /**
- * True when the report carries at least one finite numeric win_probability
- * across options. Used to gate "Analysis complete" surfaces so they do not
- * falsely imply success when the engine returned per-option nulls (the
- * recent failing trace: analysis_result block + null probabilities +
- * ceeAnalysisReady still from a prior ready turn).
+ * True when the report carries at least one finite numeric probability —
+ * either per-option `win_probability` OR the root `probability_of_goal`.
+ * Used to gate "Analysis complete" surfaces so they do not falsely imply
+ * success when the engine returned all-nulls (the recent failing trace:
+ * analysis_result block + null probabilities + ceeAnalysisReady still
+ * from a prior ready turn).
+ *
+ * Accepts EITHER source by design (function name says "any"). An empty
+ * `option_comparison` array does not veto a finite `probability_of_goal`.
+ * Zero is a finite number and counts as a renderable probability (0%
+ * is a valid result).
+ *
+ * Non-finite (null, undefined, NaN, Infinity) counts as missing.
  *
  * Pure function (no hook) so it can be called from both React render
  * paths and plain selectors (e.g. renderTimeline).
  */
 export function hasAnyRealProbability(report: InspectorReport | undefined | null): boolean {
   if (!report) return false
+  const isFiniteNumber = (x: unknown): x is number =>
+    typeof x === 'number' && Number.isFinite(x)
+  if (isFiniteNumber(report.probability_of_goal)) return true
   const options = report.option_comparison
-  if (!Array.isArray(options)) {
-    // Some reports carry win_probability at the root (probability_of_goal)
-    const rootProb = report.probability_of_goal
-    return typeof rootProb === 'number' && Number.isFinite(rootProb)
+  if (Array.isArray(options)) {
+    return options.some((opt) => isFiniteNumber(opt?.win_probability))
   }
-  return options.some((opt) => {
-    const p = opt?.win_probability
-    return typeof p === 'number' && Number.isFinite(p)
-  })
+  return false
 }
 
 /** Hook wrapper over hasAnyRealProbability for components. */

@@ -42,14 +42,19 @@ describe('renderTimeline analysis_run null-probability guard', () => {
     expect(entry.headline).toBe('Analysis finished (no probability available)')
   })
 
-  it('does NOT render "Analysis complete" when probability is 0', () => {
-    // probability=0 is a falsy number but is technically valid; guard treats
-    // it as "no probability" because the pre-existing winner-and-prob check
-    // required prob to be truthy, and the 0 path must not silently fall to
-    // the sentenceCase success label.
+  it('renders "Analysis complete" with 0% when probability is finite zero (P1-2)', () => {
+    // Finite zero is a valid renderable probability. 0% means "winner
+    // performs at 0%" which is a real — if pessimistic — result.
+    // Only null/undefined/NaN/Infinity route to the no-probability state.
     const events = [makeAnalysisRun({ winner: 'Option A', probability: 0 })]
     const [entry] = renderTimeline(events)
-    expect(entry.headline).not.toContain('Analysis complete')
+    expect(entry.headline).toContain('Analysis complete')
+    expect(entry.headline).toContain('0%')
+  })
+
+  it('renders "Analysis finished (no probability available)" when probability is NaN', () => {
+    const events = [makeAnalysisRun({ winner: 'Option A', probability: NaN })]
+    const [entry] = renderTimeline(events)
     expect(entry.headline).toBe('Analysis finished (no probability available)')
   })
 

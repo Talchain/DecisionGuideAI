@@ -242,6 +242,29 @@ export function applyV5State(
   const applied: string[] = []
   const deferred: ApplyV5StateResult['deferred'] = []
 
+  // Stale-turn invariant (pre-all-writes). The response's turnClientId must
+  // match the store's active client turn. When supplied and mismatched, ALL
+  // V5 writes are dropped — stage, graph_patch, runMeta (decision review),
+  // and analysis_ready. An older response arriving after a newer one landed
+  // must not regress any slice. Callers who do not pass staleness options
+  // retain the historical behaviour (no staleness gating) so unit tests of
+  // pure applyV5State logic remain backwards compatible.
+  if (isStaleTurn(options)) {
+    deferred.push({
+      reason: 'stale_turn_all_writes_skipped',
+      detail: `incoming=${options?.turnClientId ?? 'null'} active=${options?.currentClientTurnId ?? 'null'}`,
+    })
+    logV5StateStep({
+      step_number: 1,
+      step_name: 'stale_turn_guard',
+      input_keys: ['stage_indicator', 'blocks', 'analysis_ready'],
+      output_keys: [],
+      applied: false,
+      skip_reason: 'stale_turn',
+    })
+    return { applied, deferred }
+  }
+
   // 1. Stage tracking. V5 StageType → UI ScenarioStage. Callers may bias
   // 'frame' to 'ideate' when the graph is non-empty (preserve pre-V5
   // behaviour); the applicator writes the base mapping and the canvas
@@ -432,26 +455,9 @@ export function applyV5State(
   // run AND the strict contract would accept the payload, skip both the
   // setter and the backfill here — that path owns the write.
   //
-  // Stale-turn invariant: a response may only write V5 state if its
-  // turnClientId matches the store's active client turn. An older response
-  // arriving after a newer one landed must not regress readiness, chips,
-  // probabilities, or stage. Gate sits in front of every step-4 branch.
+  // Stale-turn guard lives at the top of applyV5State (before step 1) so
+  // it covers stage, graph_patch, and runMeta writes as well as this step.
   const rawAnalysisReady = (response as { analysis_ready?: unknown }).analysis_ready
-  if (isStaleTurn(options)) {
-    deferred.push({
-      reason: 'analysis_ready_stale_turn',
-      detail: `incoming=${options?.turnClientId ?? 'null'} active=${options?.currentClientTurnId ?? 'null'}`,
-    })
-    logV5StateStep({
-      step_number: 4,
-      step_name: 'analysis_ready_consumption',
-      input_keys: rawAnalysisReady !== undefined ? ['analysis_ready'] : [],
-      output_keys: [],
-      applied: false,
-      skip_reason: 'stale_turn',
-    })
-    return { applied, deferred }
-  }
   if (rawAnalysisReady !== undefined) {
     const normalised = normaliseV5AnalysisReady(rawAnalysisReady)
     if (normalised) {

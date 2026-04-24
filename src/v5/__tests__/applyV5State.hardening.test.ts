@@ -83,12 +83,43 @@ describe('applyV5State — conversational turn preserves ceeAnalysisReady', () =
 })
 
 describe('applyV5State — stale-turn guard invariant', () => {
-  it('drops analysis_ready write when turnClientId does not match currentClientTurnId', () => {
-    const store = makeStore()
+  it('drops ALL writes (stage, graph_patch, runMeta, analysis_ready) when turnClientId is stale', () => {
+    // The invariant pinned here covers every slice the response touches,
+    // not just readiness. Stage, graph_patch (node + edge), and runMeta
+    // (from analysis_result enrichment) must all be gated by the same
+    // turn-id comparison. This is improvement I-1 from the ChatGPT review.
+    const store = makeStore({
+      nodes: [{ id: 'n1', type: 'factor', data: {}, position: { x: 0, y: 0 } } as unknown as never],
+      edges: [{ id: 'e1', source: 'a', target: 'b', data: {} } as unknown as never],
+    })
     const response = {
       turn_id: 't',
       assistant_text: null,
-      blocks: [],
+      blocks: [
+        {
+          type: 'graph_patch',
+          block_id: 'b1',
+          status: 'applied',
+          operation: 'set_factor_value',
+          target_id: 'n1',
+          after: { value: 0.9 },
+        },
+        {
+          type: 'graph_patch',
+          block_id: 'b2',
+          status: 'applied',
+          operation: 'adjust_edge_strength',
+          target_id: 'e1',
+          after: { weight: 0.7, direction: 'positive' },
+        },
+        {
+          type: 'analysis_result',
+          block_id: 'b3',
+          enrichment: {
+            decision_review: { version: 1, overall: 'strong', rubric: {} },
+          },
+        },
+      ],
       stage_indicator: { stage: 'analyse', confidence: 'high', source: 'inferred' },
       analysis_ready: readyPayload,
     } as unknown as OlumiResponse
@@ -98,8 +129,13 @@ describe('applyV5State — stale-turn guard invariant', () => {
       currentClientTurnId: 'turn_newer',
     })
 
+    expect(store.setCurrentStage).not.toHaveBeenCalled()
+    expect(store.updateNode).not.toHaveBeenCalled()
+    expect(store.updateEdgeData).not.toHaveBeenCalled()
+    expect(store.setRunMeta).not.toHaveBeenCalled()
     expect(store.setCeeAnalysisReady).not.toHaveBeenCalled()
-    expect(result.deferred.some((d) => d.reason === 'analysis_ready_stale_turn')).toBe(true)
+    expect(result.deferred.some((d) => d.reason === 'stale_turn_all_writes_skipped')).toBe(true)
+    expect(result.applied).toEqual([])
   })
 
   it('three-step invariant: newer ready applied → older missing arrives → state remains ready', () => {

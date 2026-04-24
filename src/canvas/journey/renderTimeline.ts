@@ -116,20 +116,26 @@ const HEADLINE_BUILDERS: Partial<Record<ScenarioEventType, HeadlineBuilder>> = {
   },
   analysis_run: (d) => {
     const winner = str(d, 'winner')
-    const prob = num(d, 'probability')
     const robust = str(d, 'robustness')
-    if (winner && prob) {
+    // Finite-zero handling (P1-2): read probability as raw value rather than
+    // `num(d, 'probability')` because the generic coercer masks null/0
+    // distinction. A finite number — including 0 — is a renderable result.
+    // null, undefined, NaN, Infinity all route to the no-probability state.
+    const rawProb = d != null && typeof d === 'object'
+      ? (d as Record<string, unknown>).probability
+      : undefined
+    const probIsFinite = typeof rawProb === 'number' && Number.isFinite(rawProb)
+    if (winner && probIsFinite) {
       return robust
-        ? `Analysis complete - ${winner} performs best at ${prob}% (${robust})`
-        : `Analysis complete - ${winner} performs best at ${prob}%`
+        ? `Analysis complete - ${winner} performs best at ${rawProb}% (${robust})`
+        : `Analysis complete - ${winner} performs best at ${rawProb}%`
     }
-    // Phase 2.3 — null-probability guard. When the journey event carries no
-    // probability we must not imply completion; replace the generic
-    // sentence-cased fallback with an explicit "finished, no probability"
+    // Null-probability guard: explicit `probability` key that is null/NaN/
+    // undefined-but-present renders the explicit "finished, no probability"
     // line so the timeline never reads as a clean success.
     const probabilityFieldPresent =
       d != null && typeof d === 'object' && 'probability' in (d as Record<string, unknown>)
-    if (probabilityFieldPresent) {
+    if (probabilityFieldPresent && !probIsFinite) {
       return 'Analysis finished (no probability available)'
     }
     return sentenceCase('analysis_run')

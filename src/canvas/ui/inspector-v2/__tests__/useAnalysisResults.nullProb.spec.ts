@@ -53,8 +53,30 @@ describe('hasAnyRealProbability', () => {
     expect(hasAnyRealProbability(report)).toBe(false)
   })
 
-  it('returns false when option_comparison is an empty array', () => {
+  it('returns false when option_comparison is an empty array and no root probability', () => {
     expect(hasAnyRealProbability({ option_comparison: [] })).toBe(false)
+  })
+
+  it('returns true when option_comparison is empty but probability_of_goal is finite (I-3 alignment)', () => {
+    // Either source is sufficient proof of renderable probability. Empty
+    // option_comparison must not veto a valid root probability.
+    const report: InspectorReport = {
+      option_comparison: [],
+      probability_of_goal: 0.55,
+    }
+    expect(hasAnyRealProbability(report)).toBe(true)
+  })
+
+  it('treats finite zero as renderable (P1-2): win_probability=0 returns true', () => {
+    const report: InspectorReport = {
+      option_comparison: [{ option_id: 'a', win_probability: 0 }],
+    }
+    expect(hasAnyRealProbability(report)).toBe(true)
+  })
+
+  it('treats finite zero as renderable (P1-2): probability_of_goal=0 returns true', () => {
+    const report: InspectorReport = { probability_of_goal: 0 }
+    expect(hasAnyRealProbability(report)).toBe(true)
   })
 
   it('returns false for Infinity', () => {
