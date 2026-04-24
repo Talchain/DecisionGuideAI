@@ -16,12 +16,21 @@
 import { useState, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
 import { isV5Eligible } from '../../../v5/eligibility'
+import { logV5StateEvent } from '../../../v5/debugLog'
+import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
 // not in this list are filtered out when V5 is active. On V4 this set is
 // unused — all chips pass through unchanged.
 const V5_ENABLED_ACTIONS = new Set<string>(['run_analysis', 'edit_graph', 'draft_graph'])
+
+// Chips whose action_type is in this set require analysis readiness
+// (ceeAnalysisReady.status === 'ready') before they can render. Without it,
+// a click would land on a run_analysis turn that the safety net at
+// useConversation.ts:1687 demotes to conversation — visible to the user as
+// a chip that promises action and delivers chat.
+const READINESS_GATED_ACTIONS = new Set<string>(['run_analysis'])
 
 interface SuggestedChipsProps {
   chips: ActionChip[]
@@ -55,20 +64,52 @@ export function SuggestedChips({
   // but the check is cheap and correctness matters more here.
   const v5Active = isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
 
-  // When V5 is active, filter out chips whose action_type is not yet handled
-  // by the V5 CEE. Chips with no action_type (coaching, free-form) always
-  // pass through. When V5 is off, all chips pass through unchanged (V4).
+  // Readiness state for the readiness-gate filter below. Subscribing to the
+  // narrow selector (status string) rather than the whole ceeAnalysisReady
+  // object avoids re-rendering when unrelated fields (interventions,
+  // blockers) change on the slice.
+  const analysisStatus = useAnalysisStatus()
+
+  // Filter rule (V5 active):
+  //   action_type === 'run_analysis' → gated by analysisStatus === 'ready'
+  //   action_type absent              → pass through (conversational)
+  //   action_type in V5_ENABLED_ACTIONS but NOT readiness-gated → pass through
+  //   action_type present but unknown → hide (treat as potentially executable
+  //                                     with an unsatisfied gate)
+  // On V4 (not V5-active), all chips pass through unchanged.
   const supported = v5Active
-    ? chips.filter((c) => !c.action_type || V5_ENABLED_ACTIONS.has(c.action_type))
+    ? chips.filter((c) => {
+        if (!c.action_type) return true
+        const isV5Known = V5_ENABLED_ACTIONS.has(c.action_type)
+        if (!isV5Known) return false
+        const needsReadiness = READINESS_GATED_ACTIONS.has(c.action_type)
+        if (needsReadiness && analysisStatus !== 'ready') return false
+        return true
+      })
     : chips
   if (import.meta.env.DEV && v5Active) {
-    const removed = chips.filter(
+    const removedUnsupported = chips.filter(
       (c) => c.action_type && !V5_ENABLED_ACTIONS.has(c.action_type),
     )
-    if (removed.length > 0) {
-      console.warn(
-        `[V5] Filtered ${removed.length} unsupported chips: ${removed.map((c) => c.action_type).join(', ')}`,
-      )
+    const removedUnready = chips.filter(
+      (c) =>
+        c.action_type &&
+        V5_ENABLED_ACTIONS.has(c.action_type) &&
+        READINESS_GATED_ACTIONS.has(c.action_type) &&
+        analysisStatus !== 'ready',
+    )
+    if (removedUnsupported.length > 0) {
+      logV5StateEvent('chip_filter_unsupported', {
+        count: removedUnsupported.length,
+        action_types: removedUnsupported.map((c) => c.action_type ?? 'null'),
+      })
+    }
+    if (removedUnready.length > 0) {
+      logV5StateEvent('chip_filter_unready', {
+        count: removedUnready.length,
+        action_types: removedUnready.map((c) => c.action_type ?? 'null'),
+        analysis_status: analysisStatus,
+      })
     }
   }
 
