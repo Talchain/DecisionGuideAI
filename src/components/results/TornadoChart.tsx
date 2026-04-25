@@ -132,8 +132,6 @@ export interface TornadoChartProps {
   isNormalised?: boolean
   /** Goal direction — determines bar colour semantics (higher outcome = green for maximize, orange for minimize) */
   goalDirection?: 'maximize' | 'minimize'
-  /** Callback to apply drag adjustments and rerun analysis */
-  onApplyAndRerun?: () => void
   /** A4: Flip threshold data for marker annotations */
   flipThresholds?: FlipThreshold[]
   /** Task 4: Factor IDs with contested inbound edges — highlighted with dashed border */
@@ -283,7 +281,6 @@ export function TornadoChart({
   onFocusNode,
   isNormalised,
   goalDirection,
-  onApplyAndRerun,
   flipThresholds,
   contestedFactorIds,
 }: TornadoChartProps) {

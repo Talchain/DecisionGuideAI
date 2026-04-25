@@ -23,7 +23,7 @@ import { BlockersSection } from './BlockersSection'
 import { OptionPreview, OPTION_PREVIEW_TITLE } from './OptionPreview'
 import { YourExpertise } from './expertise'
 import { StickyFooter } from './StickyFooter'
-import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
+import { focusNodeById } from '../../utils/focusHelpers'
 import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
 import { useCanvasStore } from '../../store'
 import { useDraftStore } from '../../stores/draftStore'
@@ -432,7 +432,6 @@ export function PreAnalysisPanel({
 
   // Phase 2B: One-click fix — "Set value" opens the inspector for a factor (non-destructive)
   const selectNodeWithoutHistory = useCanvasStore(s => s.selectNodeWithoutHistory)
-  const selectEdgeWithoutHistory = useCanvasStore(s => s.selectEdgeWithoutHistory)
   const handleSetValueForGap = useCallback((factorId: string) => {
     // Note: FIX_CLICKED is also fired in GapRow.handleClick; PreAnalysisPanel is the
     // logical orchestrator so we skip double-firing here.
@@ -694,27 +693,6 @@ export function PreAnalysisPanel({
     updateEdgeData(edgeId, { weight: value, strength_mean: undefined })
   }, [])
 
-  // Focus edge for KeyRelationships (simplified — always edge type)
-  const handleFocusEdgeById = useCallback((edgeId: string) => {
-    selectEdgeWithoutHistory(edgeId)
-    setHighlightedEdges([edgeId])
-    focusEdgeById(edgeId)
-    setTimeout(() => setHighlightedEdges([]), 3000)
-  }, [selectEdgeWithoutHistory, setHighlightedEdges])
-
-  // Add evidence action - store evidence on edge metadata
-  const handleAddEvidence = useCallback((edgeId: string, evidence: string) => {
-    const { updateEdgeData } = useCanvasStore.getState()
-
-    updateEdgeData(edgeId, {
-      evidence: {
-        source: evidence,
-        added_at: new Date().toISOString(),
-      },
-    })
-  }, [])
-
-
   // Action handlers are passed directly to YourExpertise (v6)
 
   // Don't show panel if canvas is empty AND not loading
@@ -966,6 +944,7 @@ export function PreAnalysisPanel({
   // Dedup key: signal_id (Signal Registry v3 §7) when populated, else item key.
   // signal_id population is deferred — see ImprovementItem.signal_id comment.
   const mustFixCardKeys = new Set<string>()
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- mustFixCards is populated via for-loop; stable deps would require memoising triageCards (which is itself spread-composed on every render). Pre-existing pattern; acceptable re-run cost.
   const mustFixCards: typeof triageCards = []
   for (const c of triageCards) {
     if (c.category === 'fix') {
@@ -1134,10 +1113,6 @@ export function PreAnalysisPanel({
   // The accordion always renders so users can adjust the goal target and review
   // their expertise — even when nothing else is pending.
   const improveConfidenceCards = triageQuickFix.filter(c => !mustFixCardKeys.has(c.signal_id ?? c.key))
-  const expertiseHasItems =
-    (data.improvementsByCategory.verify?.length ?? 0) > 0
-    || (data.improvementsByCategory.add_evidence?.length ?? 0) > 0
-    || (data.contestedEdges?.length ?? 0) > 0
   // Brief 4 hotfix Task 5: the goal target is only an improvement item when
   // the user hasn't confirmed the threshold yet. Once confirmed, drop it from
   // the count so header and subtitle stop over-reporting. Apply the same
@@ -1249,7 +1224,6 @@ export function PreAnalysisPanel({
     ceeAnalysisReady?.coaching_summary,
     mustFixCount,
     mustFixCards,
-    data.enrichedBlockers,
     visibleEnrichedBlockers,
     fewerThanTwoOptionsCheck,
     noBaselineCheck,

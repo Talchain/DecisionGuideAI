@@ -9,7 +9,7 @@
  * - Storybook stories (with fixture data)
  */
 
-import { useRef, useCallback, useMemo, memo, useState } from 'react'
+import { useRef, useMemo, memo, useState } from 'react'
 import { Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
@@ -100,11 +100,11 @@ export const ResultsBody = memo(function ResultsBody({
   registerDriverRef,
   strengthCorrections = [],
   onFocusNode,
-  isRunning,
-  onAddStatusQuoBaseline,
-  onApplyThreshold,
-  onAddBaseline,
-  onSetBaseline,
+  isRunning: _isRunning,
+  onAddStatusQuoBaseline: _onAddStatusQuoBaseline,
+  onApplyThreshold: _onApplyThreshold,
+  onAddBaseline: _onAddBaseline,
+  onSetBaseline: _onSetBaseline,
   nSamples,
   seedUsed,
   fragileEdgeCount,
@@ -114,7 +114,7 @@ export const ResultsBody = memo(function ResultsBody({
   edgeCount,
   identifiability,
   goalDirection,
-  guidanceItems,
+  guidanceItems: _guidanceItems,
   verifiedCount,
   influenceCoverage,
   driversExpanded,
@@ -163,18 +163,8 @@ export const ResultsBody = memo(function ResultsBody({
     [resultsSectionData, fragileEdgeCount, robustnessEdgeTotal],
   )
 
-  // Guidance items present → replace NextActionItem system throughout results panel
-  const hasGuidanceItems = (guidanceItems?.length ?? 0) > 0
-
 // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const flashOptionCard = useCallback((optionId: string) => {
-    const el = optionCardRefs.current.get(optionId)
-    if (!el) return
-    el.classList.remove('cflash')
-    void el.offsetWidth // force reflow to restart animation
-    el.classList.add('cflash')
-  }, [])
 
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">

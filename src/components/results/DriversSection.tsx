@@ -14,17 +14,15 @@
  */
 
 import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
-import { ShieldCheck, ShieldAlert, AlertTriangle as TriangleAlert, Check, HelpCircle, Minus } from 'lucide-react'
+import { AlertTriangle as TriangleAlert, Check, HelpCircle, Minus } from 'lucide-react'
 import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
-import { useUIStore } from '../../stores/uiStore'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
 import { EMPTY_STATES } from './emptyStates'
 import { formatFlipRiskMessage } from './utils/formatScenarioRatio'
 import { FactorInsights, hasEnrichmentContent } from './FactorInsights'
-import { cleanFactorLabel, stripEncodingNotation } from './utils/cleanFactorLabel'
+import { cleanFactorLabel } from './utils/cleanFactorLabel'
 import { typography } from '../../styles/typography'
-import { formatPercent } from '../../utils/formatPercent'
 import { DataBar } from '../../canvas/ui/shared/DataBar'
 import Tooltip from '../../components/Tooltip'
 import { DiscussWithAiButton } from '../../canvas/components/pre-analysis/DiscussWithAiButton'
@@ -150,164 +148,6 @@ function FactorTooltip({
   )
 }
 
-/** Bootstrap stability indicator — shows when ISL provides attribution_stability. */
-function BootstrapStabilityIndicator({
-  stability,
-  rankFlipRate,
-}: {
-  stability: 'high' | 'moderate' | 'low' | 'negligible'
-  rankFlipRate?: number
-}) {
-  const config = {
-    high:       { icon: ShieldCheck,   colour: 'text-success',  label: 'Solid ranking' },
-    moderate:   { icon: ShieldCheck,   colour: 'text-info',     label: 'Fairly stable ranking' },
-    low:        { icon: ShieldAlert,   colour: 'text-warning',  label: "This driver's ranking is less stable across model variations" },
-    negligible: { icon: TriangleAlert, colour: 'text-danger',   label: 'Ranking is unstable across model variations' },
-  } as const
-  const { icon: Icon, colour, label } = config[stability]
-
-  return (
-    <div className="flex flex-col gap-0.5">
-      <p className={`${typography.panelBody} ${colour} flex items-center gap-1`}>
-        <Icon size={14} className="shrink-0" />
-        {label}
-      </p>
-      {/* UI-SEM-045: Rank flip warning gate (>0.3). Remove when PLoT provides visibility gate. */}
-      {typeof rankFlipRate === 'number' && rankFlipRate > 0.3 && (
-        <p className={`${typography.panelBody} text-text-secondary ml-5`}>
-          Ranking may shift under different assumptions
-        </p>
-      )}
-    </div>
-  )
-}
-
-// Expanded row details
-function ExpandedDetails({
-  driver,
-  onFocus,
-  goalLabel,
-}: {
-  driver: DriverItem
-  onFocus?: (nodeId: string) => void
-  /** Goal label for direction-based interpretation fallback (Task 3.5) */
-  goalLabel?: string
-}) {
-  const handleFocusClick = useCallback(() => {
-    if (driver.canFocus) {
-      const nodeId = driver.matchedNodeId ?? driver.factorKey
-      // E1: Switch to Model tab before focusing node
-      useUIStore.getState().setActiveOutputTab('diagnostics')
-      if (onFocus) {
-        onFocus(nodeId)
-      } else {
-        focusNodeById(nodeId)
-      }
-    }
-  }, [driver.canFocus, driver.matchedNodeId, driver.factorKey, onFocus])
-
-  // v7.5 T7: Softened elasticity copy
-  const elasticityInsight = driver.rawElasticity > 0.001
-    ? (() => {
-        // UI-SEM-046: Elasticity display scaling (x10, floor 1). Remove when PLoT provides shift percentage.
-        const shiftPct = Math.max(1, Math.round(driver.rawElasticity * 10))
-        const formatted = driver.direction === 'negative' ? formatPercent(-shiftPct, { sign: true }) : formatPercent(shiftPct)
-        if (isBinaryFactor(driver.factorLabel)) {
-          return `When true, outcome tends to shift by ${formatted}`
-        }
-        return `Higher values tend to shift outcome by ${formatted}`
-      })()
-    : null
-
-  // Task 3.5: Direction-based interpretation fallback when no elasticity data
-  // Priority: elasticity insight → direction-based interpretation → null
-  const directionInterpretation = !elasticityInsight && goalLabel && driver.direction
-    ? driver.direction === 'positive'
-      ? `Increases ${goalLabel}`
-      : driver.direction === 'negative'
-        ? `Decreases ${goalLabel}`
-        : null
-    : null
-
-  const alternativeWinnerLabel = driver.fragileEdgeInfo?.alternativeWinnerLabel
-
-  // Task 2: Decision change risk display based on category with proper edge case guards
-  // - isolated: can change decision alone → show scenario-tested percentage
-  // - correlated: contributes to joint risk → show qualitative message
-  // - negligible: unlikely to affect decision → no risk text
-  // - undefined (fallback): use existing marginal-based display for older PLoT versions
-  let decisionChangeRisk: string | null = null
-  if (driver.flipRiskCategory === 'isolated') {
-    // Show scenario-tested message for isolated factors (can change decision alone)
-    // Uses formatFlipRiskMessage which handles edge cases: p<=0, p>1, NaN, null
-    decisionChangeRisk = formatFlipRiskMessage(
-      driver.fragileEdgeInfo?.switchProbability,
-      alternativeWinnerLabel
-    )
-  } else if (driver.flipRiskCategory === 'correlated') {
-    // Task 10: Align with "simulations" terminology used throughout Results Panel
-    decisionChangeRisk = 'In some simulations, this factor can change which option is best'
-  } else if (driver.flipRiskCategory === 'negligible') {
-    // No risk text for negligible factors
-    decisionChangeRisk = null
-  } else {
-    // Fallback: use existing behaviour when category is undefined (old PLoT)
-    // Uses formatFlipRiskMessage which handles edge cases: p<=0, p>1, NaN, null
-    decisionChangeRisk = formatFlipRiskMessage(
-      driver.fragileEdgeInfo?.switchProbability,
-      alternativeWinnerLabel
-    )
-  }
-
-  // UI-SEM-014: VOI evidence threshold (0.05). Estimated — PLoT does not provide a visibility gate for VOI hints.
-  // VOI = 0 means "even if you gather more data, the decision won't change"
-  const showQualityHint = typeof driver.valueOfInformation === 'number' && driver.valueOfInformation > 0.05
-
-  return (
-    <div className={`px-3 pb-3 pt-1 border-t border-panel-border/50 bg-panel/50 ${typography.panelBody} text-text-body space-y-1.5`}>
-      {elasticityInsight && <p>{elasticityInsight}</p>}
-      {/* Task 3.5: Direction-based fallback when no elasticity data */}
-      {directionInterpretation && <p className="text-text-light">{directionInterpretation}</p>}
-      {decisionChangeRisk && <p>{decisionChangeRisk}</p>}
-      {showQualityHint && (
-        <p className={`${typography.panelBody} text-text-light flex items-center gap-1`}>
-          <TriangleAlert className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
-          Could benefit from more evidence
-        </p>
-      )}
-      {/* Zero reason message - explains why this factor shows zero sensitivity */}
-      {driver.zeroReason && ZERO_REASON_MESSAGES[driver.zeroReason] && (
-        <p className={`${typography.panelBody} text-text-light flex items-center gap-1`}>
-          <span aria-hidden="true">ℹ️</span>
-          {ZERO_REASON_MESSAGES[driver.zeroReason]}
-        </p>
-      )}
-
-      {/* Task 2: Removed standalone "Focus on canvas" CTA - factor name is now clickable */}
-
-      {/* Bootstrap stability indicator — gated on field presence (ISL) */}
-      {driver.attributionStability && (
-        <BootstrapStabilityIndicator
-          stability={driver.attributionStability}
-          rankFlipRate={driver.rankFlipRate}
-        />
-      )}
-
-      {/* EVPI display — gated on field presence (ISL) */}
-      {typeof driver.evpiPercentagePoints === 'number' && driver.evpiPercentagePoints > 0 && (
-        <p className={`${typography.panelBody} text-text-secondary flex items-center gap-1`}>
-          Resolving this could improve confidence by up to {driver.evpiPercentagePoints.toFixed(1)}pp
-        </p>
-      )}
-
-      {/* CEE-generated insights (observations, perspectives, confidence question) */}
-      {driver.enrichment && hasEnrichmentContent(driver.enrichment) && (
-        <FactorInsights enrichment={driver.enrichment} />
-      )}
-    </div>
-  )
-}
-
 // Preset options for contested driver quick-select
 const CONTESTED_PRESETS = [
   { label: 'Weakly', value: 0.3 },
@@ -381,7 +221,7 @@ function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
 function DriverRow({
   driver,
   onFocus,
-  goalLabel,
+  goalLabel: _goalLabel,
   isHighlighted,
   registerRef,
   microlineLabel,
@@ -408,7 +248,7 @@ function DriverRow({
   const infoButtonRef = useRef<HTMLButtonElement>(null)
 
   // P1 Results Brief Item 6: Clean factor label encoding
-  const { label: cleanedLabel, qualifier: labelQualifier } = cleanFactorLabel(driver.factorLabel)
+  const { label: cleanedLabel } = cleanFactorLabel(driver.factorLabel)
 
   // Direction styling - arrow color matches bar color
   const directionIcon = driver.direction === 'positive' ? '↗' : driver.direction === 'negative' ? '↘' : '•'
@@ -842,14 +682,14 @@ export function DriversSection({
   goalLabel,
   highlightedDriverId,
   registerDriverRef,
-  outcomeUnit,
-  outcomeUnitSymbol,
-  isNormalised,
+  outcomeUnit: _outcomeUnit,
+  outcomeUnitSymbol: _outcomeUnitSymbol,
+  isNormalised: _isNormalised,
   onSendMessage,
   expertMode,
 }: DriversSectionProps) {
   const [showAll, setShowAll] = useState(false)
-  const { drivers, driversStatus, topDrivers, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
+  const { drivers, driversStatus, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
 
 
   // Diagnostic logging for data issues (debug mode only)
@@ -904,7 +744,6 @@ export function DriversSection({
   // v7.5 T3 Fix: Use visibleDrivers consistently (not topDrivers from data layer)
   const TOP_DRIVERS_COUNT = 3
   const displayDrivers = showAll ? visibleDrivers : visibleDrivers.slice(0, TOP_DRIVERS_COUNT)
-  const hiddenCount = showAll ? 0 : Math.max(0, visibleDrivers.length - TOP_DRIVERS_COUNT)
 
   // Dominant factor warning: fire when top driver has ≥80% influence
   const topDriver = visibleDrivers[0]
