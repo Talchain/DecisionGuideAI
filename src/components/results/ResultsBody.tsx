@@ -382,10 +382,11 @@ export const ResultsBody = memo(function ResultsBody({
       {strengthCorrections.length > 0 && (
         <SectionErrorBoundary section="Adjustments">
           <details className="border border-panel-border rounded-lg overflow-hidden">
-            <summary className={`px-3 py-2 bg-panel cursor-pointer hover:bg-panel-hover ${typography.caption} text-text-body`}>
+            <summary className={`px-3 py-2 bg-panel cursor-pointer hover:bg-panel-hover ${typography.panelBody} text-text-body`}>
               {strengthCorrections.length} edge strength{strengthCorrections.length > 1 ? 's' : ''} adjusted
             </summary>
             <div className="p-3 space-y-1">
+              {/* typography.code: §2.1 exception — mono rendering for old→new correction values */}
               {strengthCorrections.map((c, idx) => (
                 <div key={idx} className={`${typography.code} text-text-light`}>
                   &quot;{c.from} → {c.to}&quot;: {c.original.toFixed(2)} → {c.clamped.toFixed(1)}
