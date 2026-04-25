@@ -254,7 +254,7 @@ I did not have access to live staging debug bundles in this environment. The fix
 
 ### Branch HEAD at time of gate
 
-`b79c3af2` — `[v5-hardening] Phase 6: address ChatGPT follow-up review (P1 + improvements)`.
+`104e5070` — `[v5-hardening] Phase 7: audit fix — InsightsSummaryCompact strict-render`. Branch was rebased onto current `staging` (`7a561a99`, post Brief 5.5 merge) before the gate; all 8 commits replay cleanly with no conflicts.
 
 ### Fresh-clone typecheck (authoritative)
 
@@ -364,20 +364,30 @@ npx vitest run src/canvas/conversation/__tests__/SuggestedChips.readinessGate.sp
 
 ---
 
-## Commit history
+## Commit history (post-rebase onto staging)
 
 ```
-b79c3af2 Phase 6: address ChatGPT follow-up review (P1 + improvements)
-389d1ede Phase 5: close out evidence pack
-d86b1b5c Phase 5: address ChatGPT review (P0 + P1 + improvements)
-e19bef45 Phase 3+4: DS verification + fixture-driven integration tests
-093c86af Phase 2.3: null-probability guard + BoundaryError contract
-f4fc8efd Phase 2.2: SuggestedChips readiness gate + double-click safety
-d1f2b993 Phase 1+2.1: [v5-state] logs, stale-turn guard, explicit-unknown
+104e5070 Phase 7: audit fix — InsightsSummaryCompact strict-render
+9e6b2ccc Phase 6: close out evidence pack for follow-up review
+1bcb7603 Phase 6: address ChatGPT follow-up review (P1 + improvements)
+ca2b99d9 Phase 5: close out evidence pack
+0c95929f Phase 5: address ChatGPT review (P0 + P1 + improvements)
+2abeb868 Phase 3+4: DS verification + fixture-driven integration tests
+0184764a Phase 2.3: null-probability guard + BoundaryError contract
+58376c34 Phase 2.2: SuggestedChips readiness gate + double-click safety
+c9c307f9 Phase 1+2.1: [v5-state] logs, stale-turn guard, explicit-unknown
 ```
 
 All commits bear prefix `[v5-hardening]` per the operating constraint.
 
-## Ready for staging-push authorisation
+**Phase 7 audit (pre-merge self-review):** swept all `Analysis complete` callsites in the touched surfaces. Discovery: `InsightsSummaryCompact` called `normalizeInsights` directly without the post-guard override, allowing engine-supplied "Analysis complete" copy to leak when probabilities were missing. Fixed and pinned with a regression test.
 
-Pre-merge gate is closed locally. Requesting Paul's authorisation before any remote action. Post-authorisation golden-path run against staging with CEE branch deployed, plus live-bundle capture for the joint integrated evidence pack.
+## Merge to staging
+
+Branch rebased onto current `staging` (`7a561a99`, post Brief 5.5 merge). All gates re-run after rebase:
+- Typecheck: 0 errors
+- Build: ✓ built in 26.44s
+- Targeted suites: 256 passing
+- Conversation suite: 1287 / 68 / 22 + 1 pre-existing rejection (matches baseline)
+
+Merging to staging will trigger the auto-deploy.
