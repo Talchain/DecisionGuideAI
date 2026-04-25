@@ -2,40 +2,42 @@
  * MissingKnowledgePrompt — "Something missing?" dismissible affordance.
  *
  * Shared by pre-analysis ("from the model?") and post-analysis ("from the
- * results?") surfaces. Context prop drives heading copy, helper copy, and
- * AI button aria-label. Visual shell is identical across both contexts.
+ * results?") surfaces. Context prop drives heading and helper copy. Visual
+ * shell is identical across both contexts.
+ *
+ * AI affordance is injected via the optional `aiAffordance` prop so this
+ * shared component has no direct dependency on canvas-area code.
  *
  * DS v5: border-panel-border card, panelBody heading, panelMeta helper,
  * Tooltip-wrapped dismiss (X 14px), focus-visible:ring-info, aria-hidden icon.
  */
 
-import { useState } from 'react'
+import { type ReactNode, useState } from 'react'
 import { X } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import Tooltip from '@/components/Tooltip'
 
 const COPY = {
   model: {
     heading: 'Something missing from the model?',
     helper: "Describe what's missing and Olumi will suggest where it fits in your model.",
-    aiLabel: 'Tell AI about something missing from the model',
   },
   results: {
     heading: 'Something missing from the results?',
     helper: "Describe what's missing and Olumi will update the analysis.",
-    aiLabel: 'Tell AI about something missing from the results',
   },
 } as const
 
 interface MissingKnowledgePromptProps {
   context: 'model' | 'results'
-  onSendMessage?: (text: string) => void
+  /** Optional AI interaction affordance. Pass a DiscussWithAiButton from the caller
+   *  to keep this shared component free of canvas-area imports. */
+  aiAffordance?: ReactNode
 }
 
-export function MissingKnowledgePrompt({ context }: MissingKnowledgePromptProps) {
+export function MissingKnowledgePrompt({ context, aiAffordance }: MissingKnowledgePromptProps) {
   const [dismissed, setDismissed] = useState(false)
-  const { heading, helper, aiLabel } = COPY[context]
+  const { heading, helper } = COPY[context]
 
   if (dismissed) return null
 
@@ -48,7 +50,7 @@ export function MissingKnowledgePrompt({ context }: MissingKnowledgePromptProps)
         <p className={`${typography.panelBody} text-text-light`}>{heading}</p>
         <p className={`${typography.panelMeta} text-text-light`}>{helper}</p>
       </div>
-      <DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel={aiLabel} />
+      {aiAffordance}
       <Tooltip delay={300} content="Dismiss">
         <button
           type="button"

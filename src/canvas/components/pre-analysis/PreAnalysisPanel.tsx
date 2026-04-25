@@ -1775,7 +1775,10 @@ export function PreAnalysisPanel({
             </SectionErrorBoundary>
 
             {/* "What's missing?" prompt */}
-            <MissingKnowledgePrompt context="model" onSendMessage={onSendMessage} />
+            <MissingKnowledgePrompt
+                context="model"
+                aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the model" />}
+              />
           </ImproveConfidenceAccordion>
 
           {/* Minimal graph coaching — pre-run guidance, not blocker */}

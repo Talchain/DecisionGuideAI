@@ -1,6 +1,7 @@
 import { render, screen, fireEvent } from '@testing-library/react'
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
+import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 
 describe('MissingKnowledgePrompt', () => {
@@ -12,14 +13,20 @@ describe('MissingKnowledgePrompt', () => {
     useGuidanceStore.setState({ _sendMessage: sendMock })
   })
 
+  // Helper: renders with the DiscussWithAiButton passed as aiAffordance prop
+  // (the canvas-specific button is now injected by the caller, not hardcoded)
+  const aiAffordance = (
+    <DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the model" />
+  )
+
   it('renders the prompt text and sparkle button', () => {
-    render(<MissingKnowledgePrompt context="model" />)
+    render(<MissingKnowledgePrompt context="model" aiAffordance={aiAffordance} />)
     expect(screen.getByText(/Something missing from the model/)).toBeInTheDocument()
     expect(screen.getByTestId('discuss-with-ai')).toBeInTheDocument()
   })
 
   it('sends pre-filled message when sparkle is clicked', () => {
-    render(<MissingKnowledgePrompt context="model" />)
+    render(<MissingKnowledgePrompt context="model" aiAffordance={aiAffordance} />)
 
     fireEvent.click(screen.getByTestId('discuss-with-ai'))
 
@@ -29,8 +36,8 @@ describe('MissingKnowledgePrompt', () => {
     )
   })
 
-  it('does not render sparkle when guidance store has no sendMessage', () => {
-    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null })
+  it('does not render sparkle when no aiAffordance passed', () => {
+    // When no aiAffordance is provided (e.g. results surface), no button renders.
     render(<MissingKnowledgePrompt context="model" />)
     expect(screen.queryByTestId('discuss-with-ai')).not.toBeInTheDocument()
   })
