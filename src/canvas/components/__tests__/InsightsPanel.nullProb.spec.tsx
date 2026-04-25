@@ -7,7 +7,7 @@
  */
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { InsightsPanel } from '../InsightsPanel'
+import { InsightsPanel, InsightsSummaryCompact } from '../InsightsPanel'
 import { useCanvasStore } from '../../store'
 
 function setReport(report: Record<string, unknown> | null) {
@@ -113,5 +113,57 @@ describe('InsightsPanel null-probability guard', () => {
     render(<InsightsPanel insights={{ summary: 'Custom engine summary for a clear result.' }} />)
     expect(screen.getByText(/Custom engine summary/)).toBeInTheDocument()
     expect(screen.queryByText(/Analysis finished, but no probability/)).toBeNull()
+  })
+})
+
+describe('InsightsSummaryCompact null-probability guard (audit)', () => {
+  // P0-3 audit catch: the compact variant must apply the same post-guard
+  // override as the main panel. Without it, engine-supplied success copy
+  // leaks through normalizeInsights when probabilities are missing.
+  beforeEach(() => {
+    useCanvasStore.setState({
+      results: {
+        ...useCanvasStore.getState().results,
+        status: 'complete',
+        report: null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+    })
+  })
+
+  afterEach(() => {
+    useCanvasStore.setState({
+      results: {
+        ...useCanvasStore.getState().results,
+        status: 'idle',
+        report: null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+    })
+  })
+
+  it('suppresses engine "Analysis complete" copy when no probability exists', () => {
+    useCanvasStore.setState({
+      results: {
+        ...useCanvasStore.getState().results,
+        status: 'complete',
+        report: {
+          option_comparison: [
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            { option_id: 'a', win_probability: null as any },
+          ],
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      } as any,
+    })
+    render(
+      <InsightsSummaryCompact
+        insights={{ summary: 'Analysis complete. Option A wins.' }}
+      />,
+    )
+    expect(screen.queryByText(/Analysis complete\./)).toBeNull()
+    expect(
+      screen.getByText(/Analysis finished, but no probability was computed/),
+    ).toBeInTheDocument()
   })
 })

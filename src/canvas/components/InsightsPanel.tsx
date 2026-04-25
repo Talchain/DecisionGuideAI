@@ -565,8 +565,14 @@ export function InsightsSummaryCompact({
   className = '',
 }: Pick<InsightsPanelProps, 'insights' | 'className'>) {
   const hasAnyProbability = useHasAnyRealProbability()
-  // P0.3: Normalize insights with safe defaults
-  const { summary, risks, next_steps } = normalizeInsights(rawInsights, hasAnyProbability)
+  // Strict-render (P0-3 audit): the compact variant must apply the same
+  // post-guard override as the main panel. Without it, an engine-supplied
+  // summary that contains "Analysis complete" leaks through normalizeInsights
+  // unmodified when probabilities are missing.
+  const { summary: rawSummary, risks, next_steps } = normalizeInsights(rawInsights, hasAnyProbability)
+  const summary = hasAnyProbability
+    ? rawSummary
+    : 'Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.'
   const detailsCount = risks.length + next_steps.length
 
   return (
