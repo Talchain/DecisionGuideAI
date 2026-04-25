@@ -35,6 +35,7 @@ import type { Edge, Node } from '@xyflow/react'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
+import { logV5StateStep } from './debugLog'
 import { extractDecisionReview } from './decisionReviewAdapter'
 import { v5StageToScenarioStage } from './stageMapper'
 
@@ -182,6 +183,22 @@ export interface ApplyV5StateResult {
   deferred: Array<{ reason: string; block?: V5Block; detail?: string }>
 }
 
+/**
+ * Out-of-order / stale-turn protection.
+ *
+ * Callers may optionally provide the client-turn id that was minted when the
+ * outgoing request was sent plus a snapshot of the store's notion of the
+ * currently-active turn. When both are supplied and disagree, this response
+ * is stale and must not write. Callers who don't pass either option get the
+ * historical behaviour (no staleness gating).
+ */
+export interface ApplyV5StateOptions {
+  /** The `client_turn_id` that was stamped on the outgoing request. */
+  turnClientId?: string | null
+  /** The store's active turn id at apply time. When mismatched, drop writes. */
+  currentClientTurnId?: string | null
+}
+
 function isStage(s: string | { stage?: string } | undefined): s is StageType {
   if (!s) return false
   const v = typeof s === 'string' ? s : s.stage
@@ -220,9 +237,33 @@ function applyDecisionReviewToRunMeta(
 export function applyV5State(
   response: OlumiResponse,
   store: V5ApplicatorStore,
+  options?: ApplyV5StateOptions,
 ): ApplyV5StateResult {
   const applied: string[] = []
   const deferred: ApplyV5StateResult['deferred'] = []
+
+  // Stale-turn invariant (pre-all-writes). The response's turnClientId must
+  // match the store's active client turn. When supplied and mismatched, ALL
+  // V5 writes are dropped — stage, graph_patch, runMeta (decision review),
+  // and analysis_ready. An older response arriving after a newer one landed
+  // must not regress any slice. Callers who do not pass staleness options
+  // retain the historical behaviour (no staleness gating) so unit tests of
+  // pure applyV5State logic remain backwards compatible.
+  if (isStaleTurn(options)) {
+    deferred.push({
+      reason: 'stale_turn_all_writes_skipped',
+      detail: `incoming=${options?.turnClientId ?? 'null'} active=${options?.currentClientTurnId ?? 'null'}`,
+    })
+    logV5StateStep({
+      step_number: 1,
+      step_name: 'stale_turn_guard',
+      input_keys: ['stage_indicator', 'blocks', 'analysis_ready'],
+      output_keys: [],
+      applied: false,
+      skip_reason: 'stale_turn',
+    })
+    return { applied, deferred }
+  }
 
   // 1. Stage tracking. V5 StageType → UI ScenarioStage. Callers may bias
   // 'frame' to 'ideate' when the graph is non-empty (preserve pre-V5
@@ -232,9 +273,30 @@ export function applyV5State(
   if (stage) {
     store.setCurrentStage(v5StageToScenarioStage(stage))
     applied.push(`stage:${stage}`)
+    logV5StateStep({
+      step_number: 1,
+      step_name: 'stage_tracking',
+      input_keys: ['stage_indicator'],
+      output_keys: ['currentStage'],
+      applied: true,
+    })
+  } else {
+    logV5StateStep({
+      step_number: 1,
+      step_name: 'stage_tracking',
+      input_keys: ['stage_indicator'],
+      output_keys: [],
+      applied: false,
+      skip_reason: 'stage_not_recognised_or_missing',
+    })
   }
 
   // 2. Per-block side effects.
+  const appliedCountBeforeBlocks = applied.length
+  const blockTypeCounts: Record<string, number> = {}
+  for (const block of response.blocks) {
+    blockTypeCounts[block.type] = (blockTypeCounts[block.type] ?? 0) + 1
+  }
   for (const block of response.blocks) {
     if (block.type === 'graph_patch') {
       if (block.status !== 'applied') continue
@@ -331,6 +393,16 @@ export function applyV5State(
     // Other block kinds (text, error, explanation, comparison, flip_analysis)
     // are render-only — no side effects.
   }
+  const blockAppliedCount = applied.length - appliedCountBeforeBlocks
+  logV5StateStep({
+    step_number: 2,
+    step_name: 'graph_patches_and_block_effects',
+    input_keys: Object.keys(blockTypeCounts),
+    output_keys:
+      blockAppliedCount > 0 ? ['nodes', 'edges', 'runMeta.ceeReviewV1'] : [],
+    applied: blockAppliedCount > 0,
+    skip_reason: blockAppliedCount === 0 ? 'no_applicable_blocks' : undefined,
+  })
 
   // 3. Top-level enrichment fallback. The current OlumiResponse schema
   // (0.7.0) is "strict" and does not include a top-level enrichment field.
@@ -346,7 +418,33 @@ export function applyV5State(
         'top-level',
       )
       if (ok) applied.push('analysis_result:decision_review:top-level')
+      logV5StateStep({
+        step_number: 3,
+        step_name: 'top_level_enrichment_fallback',
+        input_keys: ['enrichment.decision_review'],
+        output_keys: ok ? ['runMeta.ceeReviewV1'] : [],
+        applied: ok,
+        skip_reason: ok ? undefined : 'decision_review_extraction_failed',
+      })
+    } else {
+      logV5StateStep({
+        step_number: 3,
+        step_name: 'top_level_enrichment_fallback',
+        input_keys: [],
+        output_keys: [],
+        applied: false,
+        skip_reason: 'no_top_level_enrichment',
+      })
     }
+  } else {
+    logV5StateStep({
+      step_number: 3,
+      step_name: 'top_level_enrichment_fallback',
+      input_keys: [],
+      output_keys: [],
+      applied: false,
+      skip_reason: 'block_enrichment_already_applied',
+    })
   }
 
   // 4. Top-level analysis_ready → ceeAnalysisReady. Acts as the catch-all
@@ -356,19 +454,33 @@ export function applyV5State(
   // attach-contract inside applyDraftResult). When the inline path will
   // run AND the strict contract would accept the payload, skip both the
   // setter and the backfill here — that path owns the write.
+  //
+  // Stale-turn guard lives at the top of applyV5State (before step 1) so
+  // it covers stage, graph_patch, and runMeta writes as well as this step.
   const rawAnalysisReady = (response as { analysis_ready?: unknown }).analysis_ready
   if (rawAnalysisReady !== undefined) {
     const normalised = normaliseV5AnalysisReady(rawAnalysisReady)
     if (normalised) {
-      if (!inlinePathWillOwnAnalysisReadyWrite(response, store, normalised)) {
+      const inlineOwns = inlinePathWillOwnAnalysisReadyWrite(response, store, normalised)
+      if (!inlineOwns) {
         store.setCeeAnalysisReady(normalised)
         applied.push('analysis_ready:set')
-        // Intervention + goal-threshold backfill onto node.data is handled by
-        // applyDraftResult on the inline path. In this safety-net path the
-        // PLoT v2 adapter prefers analysis_ready.options[] over node.data
-        // (adapters/plot/v2/adapter.ts:reconcileOptionsWithCanvasNodes) and
-        // the pre-analysis panel reads ceeAnalysisReady directly — neither
-        // requires node.data backfill to gate the run, so skip it here.
+        logV5StateStep({
+          step_number: 4,
+          step_name: 'analysis_ready_consumption',
+          input_keys: ['analysis_ready'],
+          output_keys: ['ceeAnalysisReady'],
+          applied: true,
+        })
+      } else {
+        logV5StateStep({
+          step_number: 4,
+          step_name: 'analysis_ready_consumption',
+          input_keys: ['analysis_ready'],
+          output_keys: [],
+          applied: false,
+          skip_reason: 'inline_path_owns_write',
+        })
       }
     } else {
       // Present but malformed (or an empty options array) — clear stale
@@ -379,8 +491,69 @@ export function applyV5State(
         reason: 'analysis_ready_invalid_shape',
         detail: 'Top-level analysis_ready failed shape validation; store cleared.',
       })
+      logV5StateStep({
+        step_number: 4,
+        step_name: 'analysis_ready_consumption',
+        input_keys: ['analysis_ready'],
+        output_keys: ['ceeAnalysisReady'],
+        applied: true,
+        skip_reason: 'normaliser_rejected',
+      })
     }
+  } else if (responseIsAnalyseShaped(response)) {
+    // Explicit-unknown on an analyse-shaped turn with no analysis_ready key.
+    // CEE should always include analysis_ready when it returns an
+    // analysis_result block or declares stage === 'analyse'; treating the
+    // absence as "no longer ready" prevents a prior turn's state from
+    // misleading the chip + pre-analysis panel. Conversational turns
+    // preserve the existing slice — clearing would race a legit just-set
+    // value from a parallel turn.
+    store.setCeeAnalysisReady(null)
+    applied.push('analysis_ready:cleared_on_analyse_turn')
+    logV5StateStep({
+      step_number: 4,
+      step_name: 'analysis_ready_consumption',
+      input_keys: [],
+      output_keys: ['ceeAnalysisReady'],
+      applied: true,
+      skip_reason: 'missing_on_analyse_turn',
+    })
+  } else {
+    logV5StateStep({
+      step_number: 4,
+      step_name: 'analysis_ready_consumption',
+      input_keys: [],
+      output_keys: [],
+      applied: false,
+      skip_reason: 'missing_on_conversational_turn',
+    })
   }
 
   return { applied, deferred }
+}
+
+/**
+ * True when the response carries signals that the turn is expected to carry
+ * analysis_ready: stage === 'analyse' or an analysis_result block.
+ *
+ * Distinguishes analyse-shaped turns (where missing analysis_ready is treated
+ * as explicit unknown and clears the slice) from conversational turns (where
+ * missing analysis_ready is preserved to avoid racing a concurrent write).
+ */
+function responseIsAnalyseShaped(response: OlumiResponse): boolean {
+  const stage = normaliseStage(response.stage_indicator)
+  if (stage === 'analyse') return true
+  for (const block of response.blocks) {
+    if (block.type === 'analysis_result') return true
+  }
+  return false
+}
+
+/** Stale-turn invariant: reject writes from an older turn. See step 4 comment. */
+function isStaleTurn(options?: ApplyV5StateOptions): boolean {
+  if (!options) return false
+  const current = options.currentClientTurnId
+  const incoming = options.turnClientId
+  if (!current || !incoming) return false
+  return incoming !== current
 }

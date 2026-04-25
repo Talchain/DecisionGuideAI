@@ -1,0 +1,25 @@
+{
+  "turn_id": "fx-run-success-null-probs",
+  "assistant_text": null,
+  "blocks": [
+    {
+      "block_id": "blk_run_null",
+      "block_type": "analysis_result",
+      "type": "analysis_result",
+      "enrichment": {}
+    }
+  ],
+  "stage_indicator": {
+    "stage": "analyse",
+    "confidence": "high",
+    "source": "inferred"
+  },
+  "results": {
+    "report": {
+      "option_comparison": [
+        { "option_id": "opt_senior_hire", "option_label": "Hire senior candidate", "win_probability": null },
+        { "option_id": "opt_junior_hire", "option_label": "Hire junior candidate", "win_probability": null }
+      ]
+    }
+  }
+}

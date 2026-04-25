@@ -1,0 +1,35 @@
+{
+  "turn_id": "fx-complete-null-stale-ready",
+  "assistant_text": null,
+  "blocks": [
+    {
+      "block_id": "blk_complete_null",
+      "block_type": "analysis_result",
+      "type": "analysis_result",
+      "enrichment": {}
+    }
+  ],
+  "stage_indicator": {
+    "stage": "analyse",
+    "confidence": "high",
+    "source": "inferred"
+  },
+  "results": {
+    "report": {
+      "option_comparison": [
+        { "option_id": "opt_senior_hire", "option_label": "Hire senior candidate", "win_probability": null },
+        { "option_id": "opt_junior_hire", "option_label": "Hire junior candidate", "win_probability": null }
+      ]
+    }
+  },
+  "_priorStoreState": {
+    "ceeAnalysisReady": {
+      "status": "ready",
+      "goal_node_id": "goal_hiring_success",
+      "options": [
+        { "id": "opt_senior_hire", "label": "Hire senior candidate", "status": "ready", "interventions": {} },
+        { "id": "opt_junior_hire", "label": "Hire junior candidate", "status": "ready", "interventions": {} }
+      ]
+    }
+  }
+}

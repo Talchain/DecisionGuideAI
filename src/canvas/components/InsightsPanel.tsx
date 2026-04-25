@@ -24,6 +24,7 @@ import type { Insights } from '../../types/plot'
 import type { InsightV3 } from '../../types/cee'
 import { focusNodeById } from '../utils/focusHelpers'
 import { useCanvasStore } from '../store'
+import { useHasAnyRealProbability } from '../ui/inspector-v2/useAnalysisResults'
 import { devLog, devWarn } from '../../utils/debugLog'
 
 /** Driver information for insight generation */
@@ -62,8 +63,17 @@ interface InsightsPanelProps {
  * - oversized arrays (risks > 5, next_steps > 3)
  * - oversized summary (> 200 chars)
  */
-function normalizeInsights(insights: Partial<Insights> | null | undefined): Insights {
-  const DEFAULT_SUMMARY = 'Analysis complete. Review the results above for details.'
+function normalizeInsights(
+  insights: Partial<Insights> | null | undefined,
+  hasAnyProbability: boolean = true,
+): Insights {
+  // Null-probability fallback replaces the "Analysis complete" phrasing when
+  // no option has a finite win_probability. Prevents the UI from implying a
+  // successful result on a run that produced no probabilities (BoundaryError,
+  // null probs, or stale ready state with a partial response).
+  const DEFAULT_SUMMARY = hasAnyProbability
+    ? 'Analysis complete. Review the results above for details.'
+    : 'Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.'
   const MAX_RISKS = 5
   const MAX_NEXT_STEPS = 3
   const MAX_SUMMARY_LENGTH = 200
@@ -282,10 +292,16 @@ export function InsightsPanel({
   // Brief 33 Fix: Memoize all expensive computations to prevent re-render loop
   // Previously these ran on every render, causing validateInsightConsistency to fire 6+ times
 
+  // Phase 2.3 — null-probability guard. When the run produced no finite
+  // win_probability across options, substitute the DEFAULT_SUMMARY with a
+  // non-success-implying fallback. Only affects the fallback path; an
+  // engine-supplied summary is always preferred.
+  const hasAnyProbability = useHasAnyRealProbability()
+
   // P0.3: Normalize insights with safe defaults and limits
   const normalized = useMemo(
-    () => normalizeInsights(rawInsights),
-    [rawInsights]
+    () => normalizeInsights(rawInsights, hasAnyProbability),
+    [rawInsights, hasAnyProbability]
   )
 
   // Quick Win #5: Validate and correct contradictory insights
@@ -317,13 +333,28 @@ export function InsightsPanel({
   }, [cleanedSummary])
 
   // P0.1: If drivers not informative and summary has driver language, use neutral fallback
-  const summary = useMemo(() => {
+  const preGuardSummary = useMemo(() => {
     if (driverInsight) return driverInsight
     if (!driversInformative && summaryContainsDriverLanguage) {
       return 'Analysis complete. Review the outcome above for details.'
     }
     return cleanedSummary.length > 20 ? cleanedSummary : rawSummary
   }, [driverInsight, driversInformative, summaryContainsDriverLanguage, cleanedSummary, rawSummary])
+
+  // Phase 2.3 (strict-render, P0-3). Every upstream branch that produces
+  // `preGuardSummary` — engine-supplied summary, driver insight, driver-
+  // language fallback, validateInsightConsistency correction — can emit
+  // success-implying language ("Analysis complete", "winner performs at
+  // X%", etc.). When the store carries no renderable probability, the UI
+  // MUST suppress all of them in favour of the no-probability fallback.
+  // Strict render: the store is the source of truth about success, not
+  // the engine's narrative text.
+  const NO_PROB_FALLBACK_SUMMARY =
+    'Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.'
+  const summary = useMemo(
+    () => (hasAnyProbability ? preGuardSummary : NO_PROB_FALLBACK_SUMMARY),
+    [hasAnyProbability, preGuardSummary],
+  )
 
   // P0.1 FIX 2: Filter driver language from next steps when drivers not informative
   const filteredNextSteps = useMemo(() => {
@@ -533,8 +564,15 @@ export function InsightsSummaryCompact({
   insights: rawInsights,
   className = '',
 }: Pick<InsightsPanelProps, 'insights' | 'className'>) {
-  // P0.3: Normalize insights with safe defaults
-  const { summary, risks, next_steps } = normalizeInsights(rawInsights)
+  const hasAnyProbability = useHasAnyRealProbability()
+  // Strict-render (P0-3 audit): the compact variant must apply the same
+  // post-guard override as the main panel. Without it, an engine-supplied
+  // summary that contains "Analysis complete" leaks through normalizeInsights
+  // unmodified when probabilities are missing.
+  const { summary: rawSummary, risks, next_steps } = normalizeInsights(rawInsights, hasAnyProbability)
+  const summary = hasAnyProbability
+    ? rawSummary
+    : 'Analysis finished, but no probability was computed. Check the canvas for any incomplete inputs.'
   const detailsCount = risks.length + next_steps.length
 
   return (

@@ -1,0 +1,18 @@
+{
+  "turn_id": "fx-conversational-chips-only",
+  "assistant_text": "Here are some options to consider.",
+  "blocks": [],
+  "stage_indicator": {
+    "stage": "ideate",
+    "confidence": "medium",
+    "source": "inferred"
+  },
+  "suggested_actions": [
+    {
+      "id": "chip_explore",
+      "label": "Tell me more about the tradeoffs",
+      "intent": "primary",
+      "message": "Tell me more about the tradeoffs between these options."
+    }
+  ]
+}
