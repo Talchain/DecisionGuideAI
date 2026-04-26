@@ -27,6 +27,7 @@ import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { MissingKnowledgePrompt } from '../shared/MissingKnowledgePrompt'
+import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 
@@ -352,7 +353,10 @@ export const ResultsBody = memo(function ResultsBody({
       </SectionErrorBoundary>
 
       {/* ── SOMETHING MISSING PROMPT ──────────────────────────── */}
-      <MissingKnowledgePrompt context="results" />
+      <MissingKnowledgePrompt
+        context="results"
+        aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the results" />}
+      />
 
       {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
       <SectionErrorBoundary section="Advanced">

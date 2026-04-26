@@ -1,6 +1,7 @@
 # Brief 5.5 Close-Out — Stash List Triage (D5)
 
-Produced 2026-04-25. **Read-only analysis — no stashes dropped in this deliverable.**
+Produced 2026-04-25. Updated 2026-04-25 (P1.2 correction: re-inspected all 27 entries; corrected counts).
+**Read-only analysis — no stashes dropped in this deliverable.**
 User reviews this table and approves drops separately.
 
 Total entries: 27 (stash@{0} through stash@{26}).
@@ -11,78 +12,71 @@ Total entries: 27 (stash@{0} through stash@{26}).
 
 | Recommendation | Count | Stash indices |
 |---|---|---|
-| **Drop** (confirmed obsolete) | 17 | {0}, {2}, {4}, {5}, {6}, {7}, {9}, {13}, {14}, {15}, {16}, {17}, {18}, {19}, {21}, {22}, {23} |
-| **Escalate** (user decision needed) | 8 | {1}, {3}, {8}, {10}, {11}, {12}, {20}, {24}, {25}, {26} |
+| **Drop** (confirmed obsolete) | 17 | {0}, {2}, {4}, {5}, {6}, {7}, {9}, {13}, {14}, {15}, {16}, {18}, {19}, {21}, {22}, {23}, {24} |
+| **Escalate** (user decision needed) | 10 | {1}, {3}, {8}, {10}, {11}, {12}, {17}, {20}, {25}, {26} |
 | **Retain** | 0 | — |
 
 ---
 
-## Full triage table
+## Full triage table (all entries inspected)
 
-| Index | Age | Branch | Message | Files changed | Recommendation | Rationale |
-|---|---|---|---|---|---|---|
-| stash@{0} | 8 days | staging | WIP: SeverityStyledCritiques test text update — unrelated to useconversation diagnosis | 1 (test file, +1 line) | **Drop** | Diagnostic one-line test tweak, 8 days stale, context gone |
-| stash@{1} | 9 days | ui/ai-panel-tranche-1 | pre-brief-4-switch: ai-panel-tranche-1 WIP | 2 (spec + FlipDropdown.tsx) | **Escalate** | Feature branch — confirm if ui/ai-panel-tranche-1 is still active |
-| stash@{2} | 9 days | staging | pre-investigation tracked changes | 2 (.gitignore, validators.js generated) | **Drop** | .gitignore + generated file; superseded |
-| stash@{3} | 16 days | staging | WIP on staging: 867642a7 docs(audit) | 11 files, 729 insertions (PreAnalysisPanel, OptionPreview, hooks, conversation) | **Escalate** | Large WIP (729 ins) from staging; may contain valuable unreleased work |
-| stash@{4} | 24 days | staging | unrelated: OutputsDock + results changes from other session | 6 files | **Drop** | Explicitly "other session unrelated"; 24 days old |
-| stash@{5} | 25 days | staging | unrelated: pre-analysis + UI changes from other session | 14 files | **Drop** | Explicitly "other session unrelated"; 25 days old |
-| stash@{6} | 27 days | staging | unrelated: FactorNode/shared changes from previous session | 2 files | **Drop** | Explicitly "other session unrelated"; 27 days old |
-| stash@{7} | 27 days | staging | Other session WIP | 7 files (incl. package.json) | **Drop** | Explicitly "other session"; 27 days old; package.json changes superseded |
-| stash@{8} | 39 days | fix/poc-testing-ui-fixes | poc-testing-branch local changes | 2 (conversation types + ChatComposer) | **Escalate** | POC testing branch — confirm if branch work still needed |
-| stash@{9} | 39 days | staging | staging local changes before switching to fix branch | 7 files (conversation, store, services) | **Drop** | Pre-switch stash; 5+ weeks old; superseded by subsequent staging commits |
-| stash@{10} | 40 days | fix/ui-quick-wins-review | WIP on fix/ui-quick-wins-review | 4 files (OutputsDock, store, turn-request-builder) | **Escalate** | Feature branch — check if ui-quick-wins work is complete/merged |
-| stash@{11} | 40 days | fix/ui-quick-wins-review | ui-quick-wins-uncommitted | 5+ files (EdgeThicknessLegend, validateResponse) | **Escalate** | Same branch as {10} — bundle escalation decision |
-| stash@{12} | 40 days | fix/ui-quick-wins-review | uuid-enforcement-wip-on-wrong-branch | 5 files (test files only, +1 line each) | **Escalate** | Same branch — was on wrong branch per message; may be irrelevant |
-| stash@{13} | 40 days | staging | pre-existing turn-request-builder changes | 1 file (+16 lines) | **Drop** | Pre-existing turn-request-builder; 40 days old; superseded |
-| stash@{14} | 40 days | staging | pre-existing staged: runtime envelope validation fixes | 5 files (tests, +1-2 lines each) | **Drop** | Pre-existing staged fixes; 40 days old; superseded |
-| stash@{15} | 47 days | staging | pre-existing: pre-analysis + conversation CSS changes | 3 files (AllImprovements, M1TopActions, CSS) | **Drop** | 7 weeks old; pre-existing changes superseded by multiple sprints |
-| stash@{16} | 67 days | staging | pre-merge-staging-20260217 | 5 files (olumi-schemas, ContractIntegrityTab, useDebugData) | **Drop** | 10 weeks old; pre-merge snapshot, superseded |
-| stash@{17} | 194 days | feature/plc-overnight-20251011 | WIP on feature/plc-overnight | 2 files (build config) | **Drop** | 6+ months; feature branch from Oct 2025, long obsolete |
-| stash@{18} | 204 days | chore/sandbox-local-netlify-ready | WIP: local dev changes | unknown | **Drop** | 6+ months; chore branch from Oct 2025 |
-| stash@{19} | 215 days | chore/types-supabase-minor | warp-local-scaffolding-temporary | unknown | **Drop** | 7 months; temp scaffolding stash |
-| stash@{20} | 216 days | feat/plot-lite-ghost-flows | wip: temp for switching branches | unknown | **Escalate** | Feature branch — confirm feat/plot-lite-ghost-flows status |
-| stash@{21} | 216 days | chore/ts-alias-env-fix | temp: alias/env config sync | unknown | **Drop** | 7 months; temp config stash from completed chore |
-| stash@{22} | 216 days | chore/ts-config-stabilise | pre-finalise config stash | unknown | **Drop** | 7 months; pre-finalise from completed chore |
-| stash@{23} | 222 days | feat/export-report-html-pdf | WIP on feat/export-report-html-pdf | unknown | **Drop** | 7 months; feature branch stash |
-| stash@{24} | 223 days | feat/sandbox-templates | cascade: temp stash | unknown | **Escalate** | Feature branch — confirm feat/sandbox-templates status |
-| stash@{25} | 223 days | feat/presence-idle-v1 | cascade: temp work for branching | unknown | **Escalate** | Feature branch — confirm feat/presence-idle-v1 status |
-| stash@{26} | 225 days | fix/tests-triggers-suite | mvp-ui | unknown | **Escalate** | Fix branch — confirm fix/tests-triggers-suite status |
+| Index | Age | Branch | Files changed | Recommendation | Rationale |
+|---|---|---|---|---|---|
+| stash@{0} | 8 days | staging | 1 (test file, +1 line) | **Drop** | Diagnostic one-line test tweak; 8 days stale |
+| stash@{1} | 9 days | ui/ai-panel-tranche-1 | 2 (aiPanelTranche1 spec, FlipDropdown.tsx) | **Escalate** | Confirm if ui/ai-panel-tranche-1 is still active |
+| stash@{2} | 9 days | staging | 2 (.gitignore, validators.js generated) | **Drop** | .gitignore + generated file; superseded |
+| stash@{3} | 16 days | staging | 11 files, 729 ins (PreAnalysisPanel, OptionPreview, hooks, conversation, ChatComposer, GraphPatchBlock, useComposerState, store) | **Escalate** | Large staging WIP; may contain valuable unreleased work |
+| stash@{4} | 24 days | staging | 6 (OutputsDock, ChallengeSection, DecisionConfidencePanel, OptionCards, TornadoChart, TriageCard) | **Drop** | Explicitly "other session unrelated"; 24 days old |
+| stash@{5} | 25 days | staging | 14 (ReactFlowGraph, OptionPreview, PreAnalysisPanel, SuccessTarget, mapImprovementToTriageCard, buildTriageNarrative, LeftSidebar, TriageCard, TriageHealthHeader, index.css, …) | **Drop** | Explicitly "other session unrelated"; 25 days old |
+| stash@{6} | 27 days | staging | 2 (FactorNode, shared/index.ts) | **Drop** | Explicitly "other session unrelated"; 27 days old |
+| stash@{7} | 27 days | staging | 7 (package-lock.json, package.json, DraftChat, OutputsDock, store, applyDraftResult, AuthContext) | **Drop** | "Other session"; 27 days old; package.json deltas superseded |
+| stash@{8} | 39 days | fix/poc-testing-ui-fixes | 2 (conversation/types.ts, ChatComposer.tsx) | **Escalate** | POC testing branch — confirm if needed |
+| stash@{9} | 39 days | staging | 7 (InlineBlocks, useThreadPersistence, types, useConversation, ChatComposer, store, scenarioService) | **Drop** | Pre-switch stash; superseded |
+| stash@{10} | 40 days | fix/ui-quick-wins-review | 4 (OutputsDock, useEscapePanel, store, turn-request-builder) | **Escalate** | Feature branch — confirm status |
+| stash@{11} | 40 days | fix/ui-quick-wins-review | 5+ (EdgeThicknessLegend, OutputsDock, validateResponse, useEscapePanel, store) | **Escalate** | Same branch as {10} |
+| stash@{12} | 40 days | fix/ui-quick-wins-review | 5 (test files only, +1 line each) | **Escalate** | Same branch; was on wrong branch per message |
+| stash@{13} | 40 days | staging | 1 (turn-request-builder.ts, +16 lines) | **Drop** | "Pre-existing"; superseded |
+| stash@{14} | 40 days | staging | 5 (test files, +1-2 lines each — runtime envelope validation) | **Drop** | "Pre-existing staged"; superseded |
+| stash@{15} | 47 days | staging | 3 (AllImprovements, M1TopActions, Conversation.module.css) | **Drop** | 7 weeks old; pre-existing changes superseded |
+| stash@{16} | 67 days | staging | 5 (olumi-schemas, ContractIntegrityTab spec + tab, useDebugData, request-chain) | **Drop** | 10 weeks old; pre-merge snapshot |
+| stash@{17} | 194 days | feature/plc-overnight-20251011 | 14 (e2e PLC specs, GraphCanvasPlc, history, guides, snap, PlcLab, PlotShowcase, main.tsx) | **Escalate** | PLC feature branch — confirm if PLC work still needed |
+| stash@{18} | 204 days | chore/sandbox-local-netlify-ready | 5 (.gitignore, package.json, tsconfig.app.json, tsconfig.node.json, vite.config.ts) | **Drop** | 6+ months; chore branch finished |
+| stash@{19} | 215 days | chore/types-supabase-minor | 3 (README.md, package.json, App.tsx) | **Drop** | 7 months; warp scaffolding temp |
+| stash@{20} | 216 days | feat/plot-lite-ghost-flows | 5 (package-lock.json, package.json, Analysis.tsx, GhostPanel.tsx, ghost.panel.test.tsx) | **Escalate** | Confirm feat/plot-lite-ghost-flows status |
+| stash@{21} | 216 days | chore/ts-alias-env-fix | 2 (tsconfig.app.json, vite.config.ts) | **Drop** | 7 months; chore complete |
+| stash@{22} | 216 days | chore/ts-config-stabilise | 1 (tsconfig.base.json, +1 line) | **Drop** | 7 months; chore complete |
+| stash@{23} | 222 days | feat/export-report-html-pdf | 7 (.env.example, sandbox_state.md, flags, useTelemetry, overridesStore, CombinedSandboxRoute, ExplainDeltaPanel) | **Drop** | 7 months; feature branch stash |
+| stash@{24} | 223 days | feat/sandbox-templates | **0 (empty stash — no diff)** | **Drop** | Empty stash entry; safe to drop unconditionally |
+| stash@{25} | 223 days | feat/presence-idle-v1 | 12 (App, config, flags, InspectorPanel, test/setup, Canvas, CompareView, Palette, ScorePill, debounce-edit test, persistence, .env.example) | **Escalate** | Confirm feat/presence-idle-v1 status |
+| stash@{26} | 225 days | fix/tests-triggers-suite | 2 (Canvas, CombinedSandboxRoute) | **Escalate** | Confirm fix/tests-triggers-suite status |
 
 ---
 
 ## Drop justification criteria used
 
 1. Message explicitly says "unrelated" or "other session" — confirmed not this session's work
-2. Age > 30 days AND no active branch association — superseded by subsequent commits
-3. Temp/scaffold/config chores from completed branches (7+ months old)
+2. Age > 30 days AND on staging without active branch context — superseded by subsequent commits
+3. Temp/scaffold/config chores from completed branches (6+ months old)
 4. Pre-switch or pre-merge snapshots where the target was subsequently merged
+5. Empty stash entry ({24}) — no content to lose
 
 ## Escalation criteria used
 
-Feature branches where the branch may still be active and the stash represents uncommitted work. User should confirm whether the branch is still in use before dropping.
+Feature branches where the branch may still be active and the stash represents uncommitted feature work. User should confirm whether the branch is still in use before dropping. Specifically: ui/ai-panel-tranche-1, fix/poc-testing-ui-fixes, fix/ui-quick-wins-review (3 stashes), feature/plc-overnight-20251011, feat/plot-lite-ghost-flows, feat/presence-idle-v1, fix/tests-triggers-suite, plus stash@{3} (large staging WIP).
 
-## Safe bulk drop (recommended first action)
+## Safe bulk-drop sequence (recommended first action)
 
-If user wants to reduce risk, these 6 are the safest first batch to drop — all explicitly labelled "other session" or very small diagnostic changes:
+These 6 are the safest to drop first — all explicitly labelled "other session" or one-line/empty entries:
 
 ```bash
-git stash drop stash@{7}  # "Other session WIP" - old
-git stash drop stash@{6}  # "unrelated: FactorNode ... previous session"
-git stash drop stash@{5}  # "unrelated: pre-analysis ... other session"
-git stash drop stash@{4}  # "unrelated: OutputsDock ... other session"
-git stash drop stash@{2}  # .gitignore + generated validators.js
-git stash drop stash@{0}  # 1-line test tweak, diagnostic
+# Drop highest index first to avoid index shifting
+git stash drop stash@{24}  # Empty stash, no diff
+git stash drop stash@{7}   # "Other session WIP"
+git stash drop stash@{6}   # "unrelated: previous session"
+git stash drop stash@{5}   # "unrelated: other session"
+git stash drop stash@{4}   # "unrelated: other session"
+git stash drop stash@{2}   # .gitignore + generated file
+git stash drop stash@{0}   # 1-line test diagnostic
 ```
 
-**Note:** Drop indices from highest to lowest to avoid index shifting — dropping {0} first would shift all others down by one.
-
-Correct drop order (highest first):
-```bash
-git stash drop stash@{7}
-git stash drop stash@{6}
-git stash drop stash@{5}
-git stash drop stash@{4}
-git stash drop stash@{2}
-git stash drop stash@{0}
-```
+After this batch, indices shift down. Re-list with `git stash list --format='%gd %ci %gs'` before further drops.

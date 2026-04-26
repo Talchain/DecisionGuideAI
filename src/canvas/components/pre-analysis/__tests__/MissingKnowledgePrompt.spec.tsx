@@ -37,9 +37,22 @@ describe('MissingKnowledgePrompt', () => {
   })
 
   it('does not render sparkle when no aiAffordance passed', () => {
-    // When no aiAffordance is provided (e.g. results surface), no button renders.
     render(<MissingKnowledgePrompt context="model" />)
     expect(screen.queryByTestId('discuss-with-ai')).not.toBeInTheDocument()
+  })
+
+  it('renders results-context AI affordance with the results-specific aria-label', () => {
+    // Brief 5.5 close-out P1.1 regression: ResultsBody must pass an aiAffordance
+    // matching the original (pre-D3) results-surface contract — sparkle button
+    // present, with results-specific aria-label.
+    const resultsAffordance = (
+      <DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the results" />
+    )
+    render(<MissingKnowledgePrompt context="results" aiAffordance={resultsAffordance} />)
+    expect(screen.getByText(/Something missing from the results/)).toBeInTheDocument()
+    const btn = screen.getByTestId('discuss-with-ai')
+    expect(btn).toBeInTheDocument()
+    expect(btn).toHaveAttribute('aria-label', 'Tell AI about something missing from the results')
   })
 
   it('dismisses on X click', () => {
