@@ -56,6 +56,7 @@ import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
+import { decisionShapeScore } from './utils/decisionShapeScore'
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
@@ -701,9 +702,13 @@ export function PreAnalysisPanel({
   }
 
   // === READINESS SCORE (for adaptive footer CTA) ===
-  const completeness = data.ceeQuality
-    ? (data.ceeQuality.structure ?? 5) / 10
-    : (['goal', 'option', 'factor'] as const).filter(k => data.nodesByKind[k].length > 0).length / 3
+  // D11: Decision shape — smooth 0–1 score from graph state (replaces completeness heuristic).
+  const completeness = useMemo(() => decisionShapeScore({
+    optionCount: data.nodesByKind.option.length,
+    outcomeCount: data.nodesByKind.goal.length + data.nodesByKind.outcome.length,
+    factorCount: data.nodesByKind.factor.length,
+    edgeCount: edges.length,
+  }), [data.nodesByKind, edges])
   const evidence = data.evidenceQuality.ratio
   const balance = data.balanceScore
   const calibration = data.totalReviewableFactorsCount > 0
