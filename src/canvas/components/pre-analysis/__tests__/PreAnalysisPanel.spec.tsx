@@ -136,8 +136,7 @@ const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as Re
 
 /**
  * Expand the "Improve confidence" accordion if present.
- * The v2 panel renders Goal target, YourExpertise, MissingKnowledgePrompt
- * inside this accordion (collapsed by default).
+ * Renders Goal target, expertise triage cards, MissingKnowledgePrompt (D7).
  */
 function expandImproveConfidence() {
   const toggle = screen.queryByTestId('improve-confidence-toggle')
@@ -376,15 +375,17 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Accordion Behaviour', () => {
-    it('renders your expertise section inside Improve confidence (expanded)', () => {
+    it('renders Improve confidence content when expanded', () => {
+      // D7: YourExpertise removed; Improve confidence content is triage cards + MissingKnowledgePrompt
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expandImproveConfidence()
-      expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
+      expect(screen.getByTestId('improve-confidence-content')).toBeInTheDocument()
     })
 
-    it('shows your expertise section with items', () => {
+    it('shows expertise triage cards for cee_inference verify items', () => {
+      // D7: AI-estimated items thread into Improve confidence as TriageCards
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         totalImprovements: 5,
         improvementsByCategory: {
@@ -397,13 +398,13 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expandImproveConfidence()
-      // YourExpertise section renders with header (inside Improve confidence accordion)
-      expect(screen.getByText('Your expertise')).toBeInTheDocument()
+      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
     })
   })
 
   describe('Expertise Section', () => {
-    it('renders your expertise section with verify items (inside Improve confidence)', () => {
+    it('renders expertise triage cards for cee_inference verify items (D7)', () => {
+      // D7: YourExpertise removed; items surfaced as TriageCards in Improve confidence
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
@@ -415,7 +416,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expandImproveConfidence()
-      expect(screen.getByText('Your expertise')).toBeInTheDocument()
+      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
     })
   })
 
@@ -488,21 +489,18 @@ describe('PreAnalysisPanel', () => {
       const panel = container.querySelector('[data-testid="pre-analysis-panel"]')
       expect(panel).toBeInTheDocument()
 
-      // Banner + health + expertise (after expanding the accordion)
+      // Banner + health rendered in correct order
       expect(screen.getByTestId('pre-analysis-status-banner')).toBeInTheDocument()
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
-      expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
 
-      // Verify order by comparing positions in the DOM
+      // Verify banner renders before health card in the DOM
       const scrollableContent = panel?.querySelector('.overflow-y-auto')
       const html = scrollableContent?.innerHTML ?? ''
 
       const bannerPos = html.indexOf('pre-analysis-status-banner')
       const healthPos = html.indexOf('model-health-card')
-      const expertisePos = html.indexOf('your-expertise-section')
 
       expect(bannerPos).toBeLessThan(healthPos)
-      expect(healthPos).toBeLessThan(expertisePos)
     })
 
     it('sticky footer uses flex layout for pinning', () => {
@@ -628,7 +626,8 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
     })
 
-    it('Your expertise shows progress bar when actionable items exist', () => {
+    it('AI-estimated factors surface as expertise triage cards (D7)', () => {
+      // D7: cee_inference verify items thread into Improve confidence as TriageCards
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         reviewedFactorsCount: 2,
@@ -647,12 +646,11 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expandImproveConfidence()
-      // YourExpertise section is present inside Improve confidence accordion
-      expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
-      expect(screen.getByText('Your expertise')).toBeInTheDocument()
+      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
     })
 
-    it('Your expertise shows well-calibrated message when all empty', () => {
+    it('no expertise triage cards when no AI-estimated or missing items', () => {
+      // D7: without cee_inference items, expertise-triage-cards block is absent
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         reviewedFactorsCount: 2,
@@ -661,8 +659,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expandImproveConfidence()
-      // YourExpertise section is present inside Improve confidence accordion
-      expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
+      expect(screen.queryByTestId('expertise-triage-cards')).not.toBeInTheDocument()
     })
 
     it('shows Ready and enables button when only optional improvements present', () => {
@@ -745,9 +742,9 @@ describe('PreAnalysisPanel', () => {
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
         expandImproveConfidence()
-        // Your expertise section visible inside Improve confidence accordion
-        expect(screen.getByText('Your expertise')).toBeInTheDocument()
-        expect(screen.getByTestId('your-expertise-section')).toBeInTheDocument()
+        // D7: YourExpertise removed; Improve confidence content renders without expertise section
+        expect(screen.getByTestId('improve-confidence-content')).toBeInTheDocument()
+        expect(screen.queryByTestId('your-expertise-section')).not.toBeInTheDocument()
       })
 
       it('hides progress counter when no assumptions to review', () => {
@@ -766,8 +763,8 @@ describe('PreAnalysisPanel', () => {
         expandImproveConfidence()
         // Should NOT show "(addressed to 0 of 0)"
         expect(screen.queryByText(/\(addressed to 0 of 0\)/)).not.toBeInTheDocument()
-        // Should show plain "Your expertise"
-        expect(screen.getByText('Your expertise')).toBeInTheDocument()
+        // D7: YourExpertise removed — "Your expertise" heading gone
+        expect(screen.queryByText('Your expertise')).not.toBeInTheDocument()
       })
 
       it('hides badge entirely when no assumptions to review', () => {

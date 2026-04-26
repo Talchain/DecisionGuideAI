@@ -21,7 +21,7 @@ import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview, OPTION_PREVIEW_TITLE } from './OptionPreview'
-import { YourExpertise } from './expertise'
+import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
 import { withObservedStateUpdate } from '../../utils/observedStateHelpers'
@@ -61,8 +61,7 @@ import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { SectionHeader } from '@/components/results/SectionHeader'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
-// removed handleResolveContestedEdge handler. Remove after Brief 4 Task 6
-// compressed YourExpertise and orphaned those types at this call site.
+// removed handleResolveContestedEdge handler (Brief 4 Task 6).
 
 /** AI source provenance labels */
 const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'engine'])
@@ -411,9 +410,8 @@ export function PreAnalysisPanel({
   // whose message is already carried by that banner (UI-BUG-2).
   const runErrorCode = useCanvasStore(s => s.results?.error?.code ?? null)
 
-  // Brief 5 Task 1: drives YourExpertise's "collapse on analysis rerun" rule.
-  // Compound of runId + hash: runId changes on every run START (cleared to
-  // undefined in startRun, set in resultsConnecting), hash changes on COMPLETE.
+  // Compound run key: changes on every run START (runId) and COMPLETE (hash).
+  // Previously used to collapse YourExpertise on rerun; retained for any future use.
   // A deterministic same-hash rerun still produces a runId transition, so the
   // expansion always resets per rerun regardless of output stability.
   const analysisRunId = useCanvasStore(s => s.results?.runId)
@@ -564,9 +562,7 @@ export function PreAnalysisPanel({
     }
   }, [data.goalNode])
 
-  // Brief 4 Task 6 compressed YourExpertise to a single linking row and
-  // removed the contested-edge resolve handler that used to live here.
-  // Handler deleted in the post-hotfix dead-code sweep.
+  // Contested-edge resolve handler removed in Brief 4 Task 6 dead-code sweep.
 
   // === SENSITIVITY MAPS (Task 4) ===
   const preAnalysisSensitivity = useCanvasStore(s => s.preAnalysisSensitivity)
@@ -577,8 +573,8 @@ export function PreAnalysisPanel({
   }, [preAnalysisSensitivity])
 
   // Composite influence map: VoI takes precedence when available (post-analysis).
-  // Passed to YourExpertise for influence bars and triage card sort so they reflect
-  // the best available signal: VoI when present, factor_influence (sensitivity) otherwise.
+  // Used by expertise triage cards and triage sort so they reflect
+  // the best available signal: VoI when present, factor_influence otherwise.
   const compositeInfluenceMap = useMemo(() => {
     if (data.voiMap && data.voiMap.size > 0) return data.voiMap
     return factorInfluenceMap
@@ -693,7 +689,7 @@ export function PreAnalysisPanel({
     updateEdgeData(edgeId, { weight: value, strength_mean: undefined })
   }, [])
 
-  // Action handlers are passed directly to YourExpertise (v6)
+  // Action handlers passed to TriageCard and expertise triage cards
 
   // Don't show panel if canvas is empty AND not loading
   // When loading, show the "Generating..." placeholder via ModelHealthCard
@@ -1113,20 +1109,54 @@ export function PreAnalysisPanel({
   // The accordion always renders so users can adjust the goal target and review
   // their expertise — even when nothing else is pending.
   const improveConfidenceCards = triageQuickFix.filter(c => !mustFixCardKeys.has(c.signal_id ?? c.key))
+
+  // D7: AI-estimated and missing-data items that are NOT already in the triage
+  // list. Threaded into Improve confidence as TriageCards so they remain
+  // accessible after YourExpertise is removed.
+  const expertiseTriageCards = useMemo(() => {
+    const groups = deriveExpertiseGroups(
+      data.improvementsByCategory,
+      data.contestedEdges,
+      nodes,
+      edges,
+      compositeInfluenceMap,
+      edgeInfluenceMap,
+    )
+    // Deduplicate: skip items whose focus node ID is already in the triage list
+    const existingIds = new Set(
+      triageCards
+        .filter(c => c.action?.targetId)
+        .map(c => c.action!.targetId!),
+    )
+    const extras: ReturnType<typeof mapItem>[] = []
+    for (const item of groups.aiEstimated) {
+      if (item.focus?.id && existingIds.has(item.focus.id)) continue
+      extras.push(mapItem(item))
+    }
+    for (const item of groups.missingData) {
+      if (item.focus?.id && existingIds.has(item.focus.id)) continue
+      // Augment synthetic missing-data items with a Set value action so mapItem
+      // attaches the inline editor (editorConfig fires on action.kind === 'confirm').
+      const augmented = {
+        ...item,
+        action: { kind: 'confirm' as const, label: 'Set value', targetId: item.focus!.id, targetType: 'node' as const },
+      }
+      extras.push(mapItem(augmented))
+    }
+    return extras
+  }, [data.improvementsByCategory, data.contestedEdges, nodes, edges, compositeInfluenceMap, edgeInfluenceMap, triageCards])
+
   // Brief 4 hotfix Task 5: the goal target is only an improvement item when
   // the user hasn't confirmed the threshold yet. Once confirmed, drop it from
   // the count so header and subtitle stop over-reporting. Apply the same
   // include-goal rule to the subtitle at the accordion render below.
   const includeGoalAsImprovement = data.isThresholdConfirmed ? 0 : 1
-  // Brief 5.2 Task 8a: the header count must match what the user actually sees
-  // WITHIN the Improve-confidence section boundary — the visible goal row plus
-  // the visible factor/edge cards. Your expertise is a sibling section, not a
-  // child, so it is NOT counted here. Previously the +1-for-expertise term
-  // produced "5" in the header when only 4 items rendered inside the section.
-  // Dynamic-headline copy uses a separate improveActionable derivation below
-  // and intentionally keeps expertise in its scope.
+  // D7: expertise items are now threaded into the accordion as triage cards,
+  // so they are included in the section count (replaces the prior comment
+  // explaining why they were intentionally excluded).
   const improveConfidenceCount = includeGoalAsImprovement
     + improveConfidenceCards.length
+    + expertiseTriageCards.length
 
   // Highest-value summary line above the accordion. Surfaces the most impactful
   // action when it lives inside Improve confidence (so it isn't hidden by the
@@ -1748,31 +1778,36 @@ export function PreAnalysisPanel({
               </div>
             )}
 
-            {/* Your expertise — unified section (v6 wireframe) */}
-            {/* Brief 5 Task 1: expand-in-place. Handlers passed through are
-                the same closures TriageCard receives above, so action
-                routing is identical from either surface. analysisRunKey
-                collapses the expansion whenever a new analysis run
-                completes, so expansion state does not survive reruns. */}
-            <SectionErrorBoundary section="Your expertise">
-              <YourExpertise
-                improvementsByCategory={data.improvementsByCategory}
-                contestedEdges={data.contestedEdges}
-                nodes={nodes}
-                edges={edges}
-                factorInfluenceMap={compositeInfluenceMap}
-                edgeInfluenceMap={edgeInfluenceMap}
-                onConfirm={handleConfirm}
-                onEdit={handleEdit}
-                onSetValue={handleSetValueForGap}
-                onCommitValue={handleCommitValue}
-                onFocusNode={handleFocusNode}
-                onHoverEnter={handleHoverElement}
-                onHoverLeave={handleHoverClear}
-                analysisRunKey={analysisRunKey}
-                onSendMessage={onSendMessage}
-              />
-            </SectionErrorBoundary>
+            {/* D7: AI-estimated and missing-data factor cards (threaded from
+                former YourExpertise section). Items deduplicated against the
+                triage list above. Same action handlers as triage cards. */}
+            {expertiseTriageCards.length > 0 && (
+              <div className="flex flex-col gap-2" data-testid="expertise-triage-cards">
+                {expertiseTriageCards.map((card, i) => (
+                  <TriageCard
+                    key={card.key}
+                    cardKey={card.key}
+                    ordinal={improveConfidenceCards.length + i + 1}
+                    badgeColor="bg-factor"
+                    title={card.title}
+                    detail={card.detail}
+                    subtitle={card.subtitle}
+                    category={card.category}
+                    influence={card.influence}
+                    action={card.action}
+                    editorConfig={card.editorConfig ?? null}
+                    sourcePill={card.sourcePill}
+                    aiDiscuss={card.aiDiscuss}
+                    onConfirm={handleConfirm}
+                    onEdit={handleSetValueForGap}
+                    onSendMessage={onSendMessage}
+                    onUpdateEdgeStrength={handleUpdateEdgeStrength}
+                    onHoverEnter={handleHoverElement}
+                    onHoverLeave={handleHoverClear}
+                  />
+                ))}
+              </div>
+            )}
 
             {/* "What's missing?" prompt */}
             <MissingKnowledgePrompt
