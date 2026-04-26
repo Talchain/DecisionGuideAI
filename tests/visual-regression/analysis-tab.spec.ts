@@ -174,66 +174,7 @@ describe('visual-regression scaffold (Brief 5)', () => {
     expect(snap).not.toContain('data-testid="tornado-pp-clarification"')
     expect(snap).not.toContain('data-testid="tornado-interaction-strip"')
   })
-  it('Phase 6 / Task 1 — Your-expertise row collapsed (parity with Brief 4 Task 6)', async () => {
-    const { YourExpertise } = await import('@/canvas/components/pre-analysis/expertise/YourExpertise')
-    const verifyItem = {
-      key: 'v1',
-      category: 'verify' as const,
-      label: 'Design expertise',
-      detail: 'AI estimate',
-      subgroup: 'cee_inference' as const,
-      focus: { type: 'node' as const, id: 'f1', label: 'Design expertise' },
-    }
-    const { container } = render(
-      React.createElement(YourExpertise, {
-        improvementsByCategory: { verify: [verifyItem] },
-        contestedEdges: [],
-        nodes: [],
-        edges: [],
-      }),
-    )
-    // Collapsed: single-line header button with summary + chevron (Brief 4 Task 6 parity).
-    const header = container.querySelector('[data-testid="your-expertise-header"]')
-    expect(header).toBeTruthy()
-    expect(header).toHaveAttribute('aria-expanded', 'false')
-    expect(container.querySelector('[data-testid="your-expertise-expanded"]')).toBeFalsy()
-    const snap = normaliseDomSnapshot(header!.outerHTML)
-    expect(snap).toContain('Your expertise')
-    expect(snap).toContain('AI estimate')
-  })
-
-  it('Phase 6 / Task 1 — Your-expertise row expanded (AI estimates + Missing data groups + Model-tab link)', async () => {
-    const { YourExpertise } = await import('@/canvas/components/pre-analysis/expertise/YourExpertise')
-    const ai = {
-      key: 'v1',
-      category: 'verify' as const,
-      label: 'Design expertise',
-      detail: 'AI estimate',
-      subgroup: 'cee_inference' as const,
-      focus: { type: 'node' as const, id: 'f1', label: 'Design expertise' },
-      action: { label: 'Confirm', kind: 'confirm' as const, targetId: 'f1', targetType: 'node' as const },
-    }
-    const missingNode = {
-      id: 'f2',
-      position: { x: 0, y: 0 },
-      data: { kind: 'factor', label: 'Missing factor', observedState: {} },
-    } as unknown as import('@xyflow/react').Node
-    const { container } = render(
-      React.createElement(YourExpertise, {
-        improvementsByCategory: { verify: [ai] },
-        contestedEdges: [],
-        nodes: [missingNode],
-        edges: [],
-      }),
-    )
-    fireEvent.click(container.querySelector('[data-testid="your-expertise-header"]')!)
-
-    const expanded = container.querySelector('[data-testid="your-expertise-expanded"]')
-    expect(expanded).toBeTruthy()
-    const snap = normaliseDomSnapshot(expanded!.outerHTML)
-    expect(snap).toContain('Estimated (1)')
-    expect(snap).toContain('Missing data (1)')
-    expect(snap).toContain('Audit all relationships in Model tab')
-    expect(snap).toContain('data-testid="your-expertise-model-link"')
-  })
+  // D7: YourExpertise component removed. AI-estimated and missing-data factors
+  // are now threaded into Improve confidence triage cards (expertise-triage-cards).
+  // Tests for the deleted component removed here.
 })

@@ -820,12 +820,14 @@ export function DriversSection({
               Influence
             </div>
           </Tooltip>
-          <Tooltip content="Confidence: how stable this factor's ranking is under model variations. Click the value to update.">
-            <div
-              className={`${typography.panelBody} text-text-light text-right cursor-help`}
+          <Tooltip content="Confidence: how stable this factor's ranking is under model variations. Click the value to update. Some confidence scores reflect default estimates. Gathering evidence will make them more meaningful.">
+            <button
+              type="button"
+              className={`${typography.panelBody} text-text-light text-right cursor-help w-full bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+              aria-label="Confidence column info"
             >
               Confidence
-            </div>
+            </button>
           </Tooltip>
           {/* Empty cell for icon column */}
           <div aria-hidden="true" />
@@ -881,13 +883,6 @@ export function DriversSection({
         >
           {showAll ? 'Show fewer factors' : `See all factors (+${visibleDrivers.length - TOP_DRIVERS_COUNT} more)`}
         </button>
-      )}
-
-      {/* V14.1: Default estimate coaching note */}
-      {displayDrivers.some(d => d.isDefaultedConfidence) && (
-        <p className={`${typography.panelMeta} text-text-light italic px-3`}>
-          Some confidence scores reflect default estimates. Gathering evidence will make them more meaningful.
-        </p>
       )}
 
       {/* Zero-impact disclosure - only show when collapsed and there are hidden zero-impact factors */}

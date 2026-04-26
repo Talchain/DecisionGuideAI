@@ -42,9 +42,9 @@ interface ModelHealthCardProps {
 }
 
 const PRE_ANALYSIS_DIMENSIONS: Omit<TriageDimension, 'value'>[] = [
-  { label: 'Structure', tooltip: 'Goal, options, factors, and connections all present and properly linked' },
+  { label: 'Decision shape', tooltip: 'Whether your decision has the structural elements needed for analysis: options to compare, a goal to optimise, factors that drive outcomes, and connections between them.' },
   { label: 'Evidence', tooltip: 'Proportion of values grounded in your brief or confirmed by you, versus estimated by the AI' },
-  { label: 'Coverage', tooltip: 'Whether the model captures trade-offs, risks, a baseline option, and diverse strategies' },
+  { label: 'Your contribution', tooltip: 'The percentage of factor values you have set or confirmed, versus those estimated by Olumi. Higher means the analysis is grounded in your knowledge.' },
   { label: 'Verified', tooltip: 'Factors, relationships, and contested items you\'ve personally verified or provided estimates for' },
 ]
 

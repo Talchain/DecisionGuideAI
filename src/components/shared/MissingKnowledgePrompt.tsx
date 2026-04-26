@@ -8,7 +8,7 @@
  * AI affordance is injected via the optional `aiAffordance` prop so this
  * shared component has no direct dependency on canvas-area code.
  *
- * DS v5: border-panel-border card, panelBody heading, panelMeta helper,
+ * DS v5: quiet one-liner (no card frame), panelBody heading, panelMeta helper,
  * Tooltip-wrapped dismiss (X 14px), focus-visible:ring-info, aria-hidden icon.
  */
 
@@ -43,7 +43,7 @@ export function MissingKnowledgePrompt({ context, aiAffordance }: MissingKnowled
 
   return (
     <div
-      className="rounded-lg border border-panel-border bg-panel px-4 py-2 flex items-start gap-2"
+      className="flex items-start gap-2 py-1"
       data-testid="missing-knowledge-prompt"
     >
       <div className="flex-1 min-w-0">
@@ -55,7 +55,7 @@ export function MissingKnowledgePrompt({ context, aiAffordance }: MissingKnowled
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="text-text-light hover:text-text-body shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded"
+          className="text-text-light hover:text-text-body shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded p-1"
           aria-label="Dismiss"
         >
           <X size={14} aria-hidden="true" />

@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback, useRef, useEffect } from 'react'
-import { Copy, Check, AlertTriangle, Gauge } from 'lucide-react'
+import { Copy, Check, AlertTriangle, Gauge, Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { evaluativeVar } from '../../styles/evaluative'
 import { Accordion } from './Accordion'
@@ -18,6 +18,8 @@ import { useRiskProfile, RISK_PRESETS } from '../../canvas/hooks/useRiskProfile'
 import { ExpertBlock } from './ExpertBlock'
 
 type RiskPresetKey = keyof typeof RISK_PRESETS
+
+export type RiskAppetite = 'conservative' | 'neutral' | 'aggressive'
 
 export interface AdvancedSectionProps {
   /** Recommendation stability (0-1) */
@@ -62,6 +64,12 @@ export interface AdvancedSectionProps {
   expertMode?: boolean
   /** Brief 4 Task 12: inference warnings surfaced inside the trust narrative. */
   inferenceWarnings?: Array<{ code: string; message?: string }>
+  /** D3: Display-only winner filter (local state owned by ResultsBody). */
+  riskAppetite?: RiskAppetite
+  /** D3: Handler for winner filter changes. */
+  onRiskAppetiteChange?: (next: RiskAppetite) => void
+  /** D3: Whether to show the filter (gated on p10 data presence). */
+  showRiskAppetiteFilter?: boolean
 }
 
 const PRESET_ORDER: RiskPresetKey[] = ['risk_averse', 'neutral', 'risk_seeking']
@@ -86,6 +94,9 @@ export function AdvancedSection({
   totalFactorCount,
   expertMode = false,
   inferenceWarnings,
+  riskAppetite,
+  onRiskAppetiteChange,
+  showRiskAppetiteFilter,
 }: AdvancedSectionProps) {
   const { profile, selectPreset, loading } = useRiskProfile()
   const [copiedHash, setCopiedHash] = useState(false)
@@ -184,6 +195,15 @@ export function AdvancedSection({
             })}
           </div>
         </div>
+
+        {/* ── Display filter: Show winner by ───────────────────── */}
+        {/* D3: Moved from Your options section. Transient view filter —
+            reweights which option appears as winner (p10/winProb/p90).
+            Local state owned by parent; distinct from the persistent
+            "Risk profile" above. Eye icon signals "display filter". */}
+        {showRiskAppetiteFilter && riskAppetite != null && onRiskAppetiteChange && (
+          <RiskAppetiteFilter value={riskAppetite} onChange={onRiskAppetiteChange} />
+        )}
 
         {/* ── Trust Narrative (scroll target for hero "more" link) ── */}
         <div id="trust-narrative">
@@ -391,5 +411,44 @@ export function AdvancedSection({
         )}
       </div>
     </Accordion>
+  )
+}
+
+// ── RiskAppetiteFilter ──────────────────────────────────────────────────────
+// D3: Moved here from ResultsBody to avoid circular imports. Transient display
+// filter — reweights which option is surfaced as winner (p10 / win prob / p90).
+
+export interface RiskAppetiteFilterProps {
+  value: RiskAppetite
+  onChange: (next: RiskAppetite) => void
+}
+
+export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps) {
+  return (
+    <div data-testid="winner-by-control">
+      <div className="flex items-center gap-1.5">
+        {/* Eye icon signals "view filter" (what you see right now), distinguishing
+            this display-only control from the persistent "Risk profile" above. */}
+        <Eye size={12} className="text-text-light flex-shrink-0" aria-hidden="true" />
+        <span className={`${typography.panelMeta} text-text-light`}>Show winner by:</span>
+        {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
+          <button
+            key={appetite}
+            type="button"
+            onClick={() => onChange(appetite)}
+            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer capitalize ${
+              value === appetite
+                ? 'border-info/60 text-info bg-transparent'
+                : 'border-panel-border text-text-light bg-transparent hover:border-info/30 hover:text-text-body'
+            }`}
+          >
+            {appetite.charAt(0).toUpperCase() + appetite.slice(1)}
+          </button>
+        ))}
+      </div>
+      <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
+        Display filter: reweights which option is shown as winner.
+      </p>
+    </div>
   )
 }

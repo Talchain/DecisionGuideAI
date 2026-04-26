@@ -15,7 +15,8 @@
  */
 
 import { useMemo, memo, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, Lightbulb } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, Lightbulb, HelpCircle } from 'lucide-react'
+import Tooltip from '@/components/Tooltip'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
@@ -233,21 +234,29 @@ function TrustSummary({
         className="mb-0"
         testId="evidence-section-header"
       />
-      <p
-        className={`${typography.panelMeta} text-text-light`}
-        data-testid="evidence-scope-subtitle"
-      >
-        Factors where new information would most reduce uncertainty
-      </p>
-      {showBridge && (
+      <div className="flex items-center gap-1">
         <p
           className={`${typography.panelMeta} text-text-light`}
-          data-testid="drivers-evidence-bridge"
+          data-testid="evidence-scope-subtitle"
         >
-          Your strongest driver and your top evidence gap are different factors.
-          The driver is what currently moves the result; the evidence gap is where you do not yet know enough.
+          Factors where new information would most reduce uncertainty
         </p>
-      )}
+        {showBridge && (
+          <Tooltip
+            delay={300}
+            content="Your strongest driver and your top evidence gap are different factors. The driver is what currently moves the result; the evidence gap is where you do not yet know enough."
+          >
+            <button
+              type="button"
+              className="text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded shrink-0"
+              aria-label="Why are the top driver and top evidence gap different?"
+              data-testid="drivers-evidence-bridge-trigger"
+            >
+              <HelpCircle size={14} aria-hidden="true" />
+            </button>
+          </Tooltip>
+        )}
+      </div>
     </div>
   )
 }

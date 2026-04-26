@@ -10,7 +10,6 @@
  */
 
 import { useRef, useMemo, memo, useState } from 'react'
-import { Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { buildResultsVM } from './buildResultsVM'
@@ -21,7 +20,7 @@ import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
-import { AdvancedSection } from './AdvancedSection'
+import { AdvancedSection, type RiskAppetite } from './AdvancedSection'
 import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
@@ -30,8 +29,6 @@ import { MissingKnowledgePrompt } from '../shared/MissingKnowledgePrompt'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
-
-type RiskAppetite = 'conservative' | 'neutral' | 'aggressive'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -209,15 +206,6 @@ export const ResultsBody = memo(function ResultsBody({
                 }))}
               decisionState={vm.decisionState}
             />
-            {/* Brief 5 Task 6: display-filter control — reweights which option
-                is surfaced as winner (p10/winProb/p90). Local state, not
-                persisted. Label + helper disambiguate from the persistent
-                "Risk profile" control in AdvancedSection. Extracted into an
-                exported sub-component so the control can be rendered in
-                isolation by the visual-regression harness. */}
-            {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
-              <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
-            )}
             <OptionCards
               options={resultsSectionData.recommendation.allOptions}
               winnerId={riskWinnerId ?? resultsSectionData.recommendation.recommendedOption?.id}
@@ -378,6 +366,9 @@ export const ResultsBody = memo(function ResultsBody({
           robustnessLevel={resultsSectionData.recommendation.robustnessLevel}
           expertMode={expertMode}
           inferenceWarnings={resultsSectionData.confidence.inferenceWarnings}
+          riskAppetite={riskAppetite}
+          onRiskAppetiteChange={setRiskAppetite}
+          showRiskAppetiteFilter={resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null)}
         />
       </div>
       </SectionErrorBoundary>
@@ -418,44 +409,6 @@ export const ResultsBody = memo(function ResultsBody({
   )
 })
 
-/**
- * Brief 5 Task 6: display-filter control ("Show winner by:") paired with the
- * persistent "Risk profile" control in AdvancedSection. Extracted from the
- * inline JSX in ResultsBody so it can be rendered in isolation by the
- * visual-regression harness (see analysis-tab.spec.ts).
- */
-export interface RiskAppetiteFilterProps {
-  value: RiskAppetite
-  onChange: (next: RiskAppetite) => void
-}
-
-export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps) {
-  return (
-    <div data-testid="winner-by-control">
-      <div className="flex items-center gap-1.5">
-        {/* Brief 5.1 Task 6: eye icon signals "view filter" (what you see
-            right now), distinguishing this display-only control from the
-            persistent "Risk profile" radio group in AdvancedSection. */}
-        <Eye size={12} className="text-text-light flex-shrink-0" aria-hidden="true" />
-        <span className={`${typography.panelMeta} text-text-light`}>Show winner by:</span>
-        {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
-          <button
-            key={appetite}
-            type="button"
-            onClick={() => onChange(appetite)}
-            className={`px-2 py-0.5 rounded-full ${typography.panelMeta} border cursor-pointer capitalize ${
-              value === appetite
-                ? 'border-info/60 text-info bg-transparent'
-                : 'border-panel-border text-text-light bg-transparent hover:border-info/30 hover:text-text-body'
-            }`}
-          >
-            {appetite.charAt(0).toUpperCase() + appetite.slice(1)}
-          </button>
-        ))}
-      </div>
-      <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
-        Display filter: reweights which option is shown as winner.
-      </p>
-    </div>
-  )
-}
+// RiskAppetiteFilter and RiskAppetiteFilterProps moved to AdvancedSection.tsx (D3).
+export type { RiskAppetite, RiskAppetiteFilterProps } from './AdvancedSection'
+export { RiskAppetiteFilter } from './AdvancedSection'
