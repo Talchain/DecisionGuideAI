@@ -1,6 +1,6 @@
 # Brief 5.5 Close-Out — Precondition Baseline (D1)
 
-Branch: `ui/brief-5_5-closeout` from `staging` HEAD `62b8bdb7`  
+Branch: `ui/brief-5_5-closeout` from `staging` HEAD `62b8bdb7`.
 Captured: 2026-04-25
 
 ---
