@@ -36,6 +36,8 @@ D3 adds this exact string to `src/styles/typography.ts`. If implementation revea
 
 **Forbidden in touched files (D3 grep gate):** `text-xs`, `text-sm`, `text-base`, `text-lg`, `text-[Npx]`, `font-medium`, `font-semibold`, `font-bold` — **except** inside the `heroDisplay` token definition itself in `typography.ts`.
 
+**§2.1 amendment (Brief 5.5 close-out, 2026-04-25):** `typography.code` (12px monospace) is permitted in `<details>` blocks that display technical formatted data such as edge-strength correction old→new value pairs (`ResultsBody.tsx`). Rationale: the monospace rendering is semantically appropriate for code-like `"from → to": 0.50 → 0.5` output. This is not a new token — it is a narrow scope clarification. The surface is production-visible but only renders when structural corrections were applied during analysis (users rarely see it). Both uses confirmed at D4 site: `typography.caption` replaced with `typography.panelBody` (exact visual match); `typography.code` retained with inline comment referencing this exception.
+
 ---
 
 ## 2.2 Bar-graph vocabulary (locked — 3 patterns, one per concept)

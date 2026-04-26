@@ -9,7 +9,7 @@
  * - Storybook stories (with fixture data)
  */
 
-import { useRef, useCallback, useMemo, memo, useState } from 'react'
+import { useRef, useMemo, memo, useState } from 'react'
 import { Eye } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
@@ -27,6 +27,7 @@ import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { MissingKnowledgePrompt } from '../shared/MissingKnowledgePrompt'
+import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 
@@ -100,11 +101,11 @@ export const ResultsBody = memo(function ResultsBody({
   registerDriverRef,
   strengthCorrections = [],
   onFocusNode,
-  isRunning,
-  onAddStatusQuoBaseline,
-  onApplyThreshold,
-  onAddBaseline,
-  onSetBaseline,
+  isRunning: _isRunning,
+  onAddStatusQuoBaseline: _onAddStatusQuoBaseline,
+  onApplyThreshold: _onApplyThreshold,
+  onAddBaseline: _onAddBaseline,
+  onSetBaseline: _onSetBaseline,
   nSamples,
   seedUsed,
   fragileEdgeCount,
@@ -114,7 +115,7 @@ export const ResultsBody = memo(function ResultsBody({
   edgeCount,
   identifiability,
   goalDirection,
-  guidanceItems,
+  guidanceItems: _guidanceItems,
   verifiedCount,
   influenceCoverage,
   driversExpanded,
@@ -163,18 +164,8 @@ export const ResultsBody = memo(function ResultsBody({
     [resultsSectionData, fragileEdgeCount, robustnessEdgeTotal],
   )
 
-  // Guidance items present → replace NextActionItem system throughout results panel
-  const hasGuidanceItems = (guidanceItems?.length ?? 0) > 0
-
 // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
-  const flashOptionCard = useCallback((optionId: string) => {
-    const el = optionCardRefs.current.get(optionId)
-    if (!el) return
-    el.classList.remove('cflash')
-    void el.offsetWidth // force reflow to restart animation
-    el.classList.add('cflash')
-  }, [])
 
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
@@ -362,7 +353,10 @@ export const ResultsBody = memo(function ResultsBody({
       </SectionErrorBoundary>
 
       {/* ── SOMETHING MISSING PROMPT ──────────────────────────── */}
-      <MissingKnowledgePrompt context="results" />
+      <MissingKnowledgePrompt
+        context="results"
+        aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the results" />}
+      />
 
       {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
       <SectionErrorBoundary section="Advanced">
@@ -392,10 +386,11 @@ export const ResultsBody = memo(function ResultsBody({
       {strengthCorrections.length > 0 && (
         <SectionErrorBoundary section="Adjustments">
           <details className="border border-panel-border rounded-lg overflow-hidden">
-            <summary className={`px-3 py-2 bg-panel cursor-pointer hover:bg-panel-hover ${typography.caption} text-text-body`}>
+            <summary className={`px-3 py-2 bg-panel cursor-pointer hover:bg-panel-hover ${typography.panelBody} text-text-body`}>
               {strengthCorrections.length} edge strength{strengthCorrections.length > 1 ? 's' : ''} adjusted
             </summary>
             <div className="p-3 space-y-1">
+              {/* typography.code: §2.1 exception — mono rendering for old→new correction values */}
               {strengthCorrections.map((c, idx) => (
                 <div key={idx} className={`${typography.code} text-text-light`}>
                   &quot;{c.from} → {c.to}&quot;: {c.original.toFixed(2)} → {c.clamped.toFixed(1)}

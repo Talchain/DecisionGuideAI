@@ -437,7 +437,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onSetValue,
   onConfirm,
   onSendMessage,
-  expertMode,
+  expertMode: _expertMode,
   nodeValueLookup,
 }: DecisionConfidencePanelProps) {
   // Post-analysis ring shows winner's win probability directly. The readiness
