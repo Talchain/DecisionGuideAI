@@ -2004,9 +2004,6 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     if (fixCount > 0) {
       return `${fixCount} issue${fixCount !== 1 ? 's' : ''} to fix before running analysis.`
     }
-    if (qCheckCount > 0 && verifyCount > 0) {
-      return `${verifyCount} assumption${verifyCount !== 1 ? 's' : ''} to review and ${qCheckCount} quality suggestion${qCheckCount !== 1 ? 's' : ''} to consider.`
-    }
     if (verifyCount > 0) {
       return `${verifyCount} assumption${verifyCount !== 1 ? 's' : ''} to review before running.`
     }
