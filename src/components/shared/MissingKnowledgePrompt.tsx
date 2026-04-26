@@ -55,7 +55,7 @@ export function MissingKnowledgePrompt({ context, aiAffordance }: MissingKnowled
         <button
           type="button"
           onClick={() => setDismissed(true)}
-          className="text-text-light hover:text-text-body shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded min-h-[44px] min-w-[44px] flex items-center justify-center"
+          className="text-text-light hover:text-text-body shrink-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded p-1"
           aria-label="Dismiss"
         >
           <X size={14} aria-hidden="true" />
