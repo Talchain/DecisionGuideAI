@@ -820,12 +820,14 @@ export function DriversSection({
               Influence
             </div>
           </Tooltip>
-          <Tooltip content="Confidence: how stable this factor's ranking is under model variations. Click the value to update. Some confidence scores reflect default estimates — gathering evidence will make them more meaningful.">
-            <div
-              className={`${typography.panelBody} text-text-light text-right cursor-help`}
+          <Tooltip content="Confidence: how stable this factor's ranking is under model variations. Click the value to update. Some confidence scores reflect default estimates. Gathering evidence will make them more meaningful.">
+            <button
+              type="button"
+              className={`${typography.panelBody} text-text-light text-right cursor-help focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+              aria-label="Confidence column info"
             >
               Confidence
-            </div>
+            </button>
           </Tooltip>
           {/* Empty cell for icon column */}
           <div aria-hidden="true" />

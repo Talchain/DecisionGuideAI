@@ -34,4 +34,17 @@ describe('decisionShapeScore', () => {
     const withoutGoal = decisionShapeScore({ optionCount: 2, outcomeCount: 0, factorCount: 3, edgeCount: 4 })
     expect(withGoal - withoutGoal).toBe(0.25)
   })
+
+  it('caller must exclude constraint edges before passing edgeCount', () => {
+    // Constraint edges connect to constraint nodes (structural scaffolding, not causal).
+    // The caller (PreAnalysisPanel) filters them; this test confirms the formula
+    // treats the count as substantive edges only.
+    // Graph with 4 total edges but 2 are constraint edges → caller passes edgeCount: 2
+    const withConstraintEdgesFiltered = decisionShapeScore({ optionCount: 2, outcomeCount: 1, factorCount: 3, edgeCount: 2 })
+    const withAllEdges = decisionShapeScore({ optionCount: 2, outcomeCount: 1, factorCount: 3, edgeCount: 4 })
+    // Filtered count (2) gives lower connection score than full count (4)
+    expect(withConstraintEdgesFiltered).toBeLessThan(withAllEdges)
+    // connectionScore = min(2/4, 1) * 0.20 = 0.10 vs min(4/4, 1) * 0.20 = 0.20
+    expect(withAllEdges - withConstraintEdgesFiltered).toBeCloseTo(0.10)
+  })
 })

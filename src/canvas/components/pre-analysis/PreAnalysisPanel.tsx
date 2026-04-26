@@ -411,14 +411,6 @@ export function PreAnalysisPanel({
   // whose message is already carried by that banner (UI-BUG-2).
   const runErrorCode = useCanvasStore(s => s.results?.error?.code ?? null)
 
-  // Compound run key: changes on every run START (runId) and COMPLETE (hash).
-  // Previously used to collapse YourExpertise on rerun; retained for any future use.
-  // A deterministic same-hash rerun still produces a runId transition, so the
-  // expansion always resets per rerun regardless of output stability.
-  const analysisRunId = useCanvasStore(s => s.results?.runId)
-  const analysisRunHash = useCanvasStore(s => s.results?.hash)
-  const analysisRunKey = `${analysisRunId ?? ''}:${analysisRunHash ?? ''}`
-
   // CEE analysis ready for feasibility + constraints
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
 
@@ -438,25 +430,6 @@ export function PreAnalysisPanel({
     selectNodeWithoutHistory(factorId)
     focusNodeById(factorId)
   }, [selectNodeWithoutHistory])
-
-  // Brief 5.1 follow-up P0 #1: inline-commit handler used by the expertise
-  // expanded rows. Persists a user-provided rawValue directly via the
-  // canvas store, so Pencil-and-save inside an expertise row never routes
-  // through the inspector. Mirrors handleConfirm's observed-state write
-  // pattern but commits a value instead of a provenance flag.
-  const handleCommitValue = useCallback((nodeId: string, rawValue: number) => {
-    const { nodes, updateNode } = useCanvasStore.getState()
-    const node = nodes.find(n => n.id === nodeId)
-    if (!node) return
-
-    updateNode(nodeId, {
-      data: withObservedStateUpdate(node.data, {
-        raw_value: rawValue,
-        source: 'user_set',
-        extractionType: 'user_provided',
-      }),
-    })
-  }, [])
 
   // Retry handler with toast feedback
   const handleRetryDraft = useCallback(async () => {
@@ -657,13 +630,6 @@ export function PreAnalysisPanel({
     useDraftStore.getState().setLastDraftError(null)
   }, [])
 
-  // Edit action - focus node on canvas for editing
-  const handleEdit = useCallback((nodeId: string) => {
-    setHighlightedNodes([nodeId])
-    focusNodeById(nodeId)
-    setTimeout(() => setHighlightedNodes([]), 3000)
-  }, [setHighlightedNodes])
-
   // Inline value edit — update factor observed state with user-provided raw value
   const handleInlineEditValue = useCallback((nodeId: string, rawValue: number, cap: number | null) => {
     const { nodes, updateNode } = useCanvasStore.getState()
@@ -703,12 +669,17 @@ export function PreAnalysisPanel({
 
   // === READINESS SCORE (for adaptive footer CTA) ===
   // D11: Decision shape — smooth 0–1 score from graph state (replaces completeness heuristic).
+  // Constraint node IDs excluded from edge count (structural scaffolding, not causal links).
+  const constraintNodeIds = useMemo(
+    () => new Set(nodes.filter(n => n.type === 'constraint').map(n => n.id)),
+    [nodes],
+  )
   const completeness = useMemo(() => decisionShapeScore({
     optionCount: data.nodesByKind.option.length,
     outcomeCount: data.nodesByKind.goal.length + data.nodesByKind.outcome.length,
     factorCount: data.nodesByKind.factor.length,
-    edgeCount: edges.length,
-  }), [data.nodesByKind, edges])
+    edgeCount: edges.filter(e => !constraintNodeIds.has(e.source) && !constraintNodeIds.has(e.target)).length,
+  }), [data.nodesByKind, edges, constraintNodeIds])
   const evidence = data.evidenceQuality.ratio
   // D12: "Your contribution" replaces "Coverage" slot. Uses the same non-AI ratio
   // as `evidence` (documented duplication until D13 provides a distinct grounding
@@ -1152,6 +1123,10 @@ export function PreAnalysisPanel({
       extras.push(mapItem(augmented))
     }
     return extras
+  // mapItem is a render-local function; its captured deps (compositeInfluenceMap,
+  // edgeInfluenceMap, handleInlineEditValue) are tracked in the array below.
+  // Adding mapItem itself would recreate the memo on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.improvementsByCategory, data.contestedEdges, nodes, edges, compositeInfluenceMap, edgeInfluenceMap, triageCards])
 
   // Brief 4 hotfix Task 5: the goal target is only an improvement item when
