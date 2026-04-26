@@ -126,11 +126,11 @@ describe('DecisionConfidencePanel — Brief 5.1 Task 2 semantic coherence', () =
     expect(screen.getByTestId('evidence-scope-subtitle')).toHaveTextContent(
       'Factors where new information would most reduce uncertainty',
     )
-    const bridge = screen.getByTestId('drivers-evidence-bridge')
+    // D5: bridge copy moved to tooltip on a trigger button (detail on hover/focus).
+    // Semantic invariant: trigger present iff top driver ≠ top evidence gap.
+    const bridge = screen.getByTestId('drivers-evidence-bridge-trigger')
     expect(bridge).toBeInTheDocument()
-    expect(bridge.textContent).toContain('different factors')
-    // Symmetric copy — must not prescribe action or trust on either side.
-    expect(bridge.textContent).not.toMatch(/more important|investigate this first|prioritise/i)
+    expect(bridge).toHaveAttribute('aria-label')
   })
 
   it('state 2 — top items match (same matchedNodeId ↔ targetNodeId): bridge does NOT render', () => {
@@ -143,7 +143,7 @@ describe('DecisionConfidencePanel — Brief 5.1 Task 2 semantic coherence', () =
     render(<DecisionConfidencePanel data={data} />)
 
     expect(screen.getByTestId('evidence-scope-subtitle')).toBeInTheDocument()
-    expect(screen.queryByTestId('drivers-evidence-bridge')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('drivers-evidence-bridge-trigger')).not.toBeInTheDocument()
   })
 
   it('state 3 — drivers section empty: bridge does NOT render', () => {
@@ -155,7 +155,7 @@ describe('DecisionConfidencePanel — Brief 5.1 Task 2 semantic coherence', () =
     render(<DecisionConfidencePanel data={data} />)
 
     expect(screen.getByTestId('evidence-scope-subtitle')).toBeInTheDocument()
-    expect(screen.queryByTestId('drivers-evidence-bridge')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('drivers-evidence-bridge-trigger')).not.toBeInTheDocument()
   })
 
   it('state 4 — evidence section empty: no TrustSummary, no bridge', () => {
@@ -170,7 +170,7 @@ describe('DecisionConfidencePanel — Brief 5.1 Task 2 semantic coherence', () =
     // bridge) is hidden — users don't see an orphan scope line.
     expect(screen.queryByTestId('trust-summary')).not.toBeInTheDocument()
     expect(screen.queryByTestId('evidence-scope-subtitle')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('drivers-evidence-bridge')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('drivers-evidence-bridge-trigger')).not.toBeInTheDocument()
   })
 
   it('identity normaliser uses factorKey/factorId when matchedNodeId/targetNodeId absent', () => {
@@ -181,6 +181,6 @@ describe('DecisionConfidencePanel — Brief 5.1 Task 2 semantic coherence', () =
     })
 
     render(<DecisionConfidencePanel data={data} />)
-    expect(screen.queryByTestId('drivers-evidence-bridge')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('drivers-evidence-bridge-trigger')).not.toBeInTheDocument()
   })
 })
