@@ -710,7 +710,10 @@ export function PreAnalysisPanel({
     edgeCount: edges.length,
   }), [data.nodesByKind, edges])
   const evidence = data.evidenceQuality.ratio
-  const balance = data.balanceScore
+  // D12: "Your contribution" replaces "Coverage" slot. Uses the same non-AI ratio
+  // as `evidence` (documented duplication until D13 provides a distinct grounding
+  // signal). The old balanceScore computation is now orphaned.
+  const balance = data.evidenceQuality.ratio
   const calibration = data.totalReviewableFactorsCount > 0
     ? data.reviewedFactorsCount / data.totalReviewableFactorsCount
     : 0
