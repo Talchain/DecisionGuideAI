@@ -52,6 +52,11 @@ export function MissingKnowledgePrompt({ context, aiAffordance }: MissingKnowled
       </div>
       {aiAffordance}
       <Tooltip delay={300} content="Dismiss">
+        {/* Pointer target: p-1 (≈24px) follows WCAG 2.5.8 (Level AA) for desktop
+            pointer input. The brief's 44px guidance applies to touch interfaces;
+            this app is desktop-only (1280px min viewport). Do NOT re-add
+            min-h-[44px]/min-w-[44px] — it stretched the quiet one-liner to 44px
+            and defeated the visual demotion in D8. */}
         <button
           type="button"
           onClick={() => setDismissed(true)}

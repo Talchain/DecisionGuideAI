@@ -305,8 +305,6 @@ export interface PreAnalysisData {
   coachingSummary: string | null
   /** Contested edges with full validation metadata for calibration cards */
   contestedEdges: Array<{ edge: Edge; validation: import('../../../../canvas/domain/validation').ValidationMetadata }>
-  /** Balance score for decision health ring (0–1) */
-  balanceScore: number
   /** VoI map derived from m1Coaching evidence_gaps (post-analysis). factorId → voi (0-1). Undefined when no data. */
   voiMap: Map<string, number> | undefined
   /** Assumptions ledger from M1 coaching (post-analysis, gated on presence) */
@@ -1961,31 +1959,6 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     }
   }, [edges])
 
-  // Balance score for decision health ring (Task 5)
-  const balanceScore = useMemo(() => {
-    let score = 0
-    const optionNodes = [...nodesByKind.option, ...nodesByKind.decision]
-    // 1. Has negative edges
-    if (edges.some(hasNegativeStrength)) score += 0.25
-    // 2. Has risk nodes
-    if (nodesByKind.risk.length > 0) score += 0.25
-    // 3. Has baseline option
-    const hasBaseline = optionNodes.some(n => {
-      const explicit = (n.data as { is_baseline?: boolean })?.is_baseline === true
-      const label = (n.data as { label?: string })?.label ?? ''
-      return explicit || detectBaseline(label).isBaseline
-    })
-    if (hasBaseline) score += 0.25
-    // 4. Option diversity (2+ non-baseline options)
-    const nonBaselineCount = optionNodes.filter(n => {
-      const explicit = (n.data as { is_baseline?: boolean })?.is_baseline === true
-      const label = (n.data as { label?: string })?.label ?? ''
-      return !explicit && !detectBaseline(label).isBaseline
-    }).length
-    if (nonBaselineCount >= 2) score += 0.25
-    return score
-  }, [edges, nodesByKind])
-
   // Coaching summary — one-line text synthesising the model's readiness state.
   // Primary: CEE coaching.summary (decision-specific). Fallback: count-based string.
   const coachingSummary = useMemo<string | null>(() => {
@@ -2054,7 +2027,6 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     defaultStrengthPercent,
     coachingSummary,
     contestedEdges,
-    balanceScore,
     voiMap,
     assumptionsLedger: m1AssumptionsLedger?.length
       ? m1AssumptionsLedger.map(a => ({

@@ -149,7 +149,6 @@ describe('Interactive Actions Hardening', () => {
       defaultStrengthPercent: 0,
       coachingSummary: null,
       contestedEdges: [],
-      balanceScore: 0.5,
       assumptionsLedger: null,
       triageActions: { top3: [], quickFix: [] },
       actionableCount: 0,

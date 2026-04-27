@@ -311,44 +311,6 @@ describe('Bias findings in quality checks', () => {
   })
 })
 
-describe('Decision health ring - balanceScore', () => {
-  beforeEach(() => { vi.clearAllMocks() })
-
-  it('returns 0 for empty model', () => {
-    mockUseCanvasStore.mockImplementation(createMockStore({ nodes: [], edges: [] }))
-    const { result } = renderHook(() => usePreAnalysisData())
-    expect(result.current.balanceScore).toBe(0)
-  })
-
-  it('returns 1.0 for perfect model (negative edges, risks, baseline, 2+ options)', () => {
-    mockUseCanvasStore.mockImplementation(createMockStore({
-      nodes: [
-        { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Do nothing', is_baseline: true } },
-        { id: 'opt2', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
-        { id: 'opt3', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option B' } },
-        { id: 'risk1', type: 'risk', position: { x: 0, y: 0 }, data: { label: 'Risk 1' } },
-      ],
-      edges: [
-        { id: 'e1', source: 'opt1', target: 'risk1', data: { weight: 0.5, direction: 'negative' } },
-      ],
-    }))
-
-    const { result } = renderHook(() => usePreAnalysisData())
-    expect(result.current.balanceScore).toBe(1.0)
-  })
-
-  it('returns 0.5 when only risks and negative edges are present (no baseline, 1 option)', () => {
-    mockUseCanvasStore.mockImplementation(createMockStore({
-      nodes: [
-        { id: 'opt1', type: 'option', position: { x: 0, y: 0 }, data: { label: 'Option A' } },
-        { id: 'risk1', type: 'risk', position: { x: 0, y: 0 }, data: { label: 'Risk 1' } },
-      ],
-      edges: [
-        { id: 'e1', source: 'opt1', target: 'risk1', data: { weight: 0.5, direction: 'negative' } },
-      ],
-    }))
-
-    const { result } = renderHook(() => usePreAnalysisData())
-    expect(result.current.balanceScore).toBe(0.5)
-  })
-})
+// D12 close-out: balanceScore field deleted from PreAnalysisData. The Coverage
+// ring slot now reads evidenceQuality.ratio (Your contribution). Tests for the
+// old balanceScore computation removed alongside the field.
