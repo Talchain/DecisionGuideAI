@@ -116,6 +116,23 @@ function truncateExplanation(s: string): string {
 const BIAS_SEVERITY_RANK: Record<string, number> = { high: 0, medium: 1, low: 2 }
 
 /**
+ * Brief 5.3 Task 5 / 5.7 D5: AUTHORITY_BIAS without a concrete `target_factor_id`
+ * is meta-commentary, not an actionable signal. Suppress at the trigger builder
+ * so neither the start-here variant nor the Review-next variant ever renders
+ * this case. Other bias kinds remain unaffected — they may legitimately fire
+ * without a target factor.
+ *
+ * Exported for unit testing.
+ */
+export function shouldSuppressBiasFinding(
+  finding: { code?: string; type?: string; target_factor_id?: string },
+): boolean {
+  const code = (finding.code ?? finding.type ?? '').toString().toLowerCase()
+  const isAuthority = code === 'authority_bias' || code === 'authoritybias'
+  return isAuthority && !finding.target_factor_id
+}
+
+/**
  * Permissive shape for CEE bias findings. The CEEBiasFinding TypeScript type
  * lags the runtime shape — newer CEE responses include `code`, `explanation`,
  * `category`, and `micro_intervention` fields that are not in the type. We
@@ -822,10 +839,7 @@ export function PreAnalysisPanel({
       )
       for (let i = 0; i < sorted.length; i++) {
         const finding = sorted[i]
-        // target_factor_id is optional future CEE enrichment — when present, it can be
-        // used to anchor authority-bias copy to a specific factor. Its absence is not a
-        // reason to suppress the card: normaliseCeeBiasFinding already returns null when
-        // the finding has no usable description.
+        if (shouldSuppressBiasFinding(finding)) continue
         const normalised = normaliseCeeBiasFinding(finding, i)
         if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
@@ -1048,6 +1062,7 @@ export function PreAnalysisPanel({
     score: BIAS_SEVERITY_SCORE[trigger.severity ?? 'medium'] ?? 0.65,
     defaultedScore: false,
     biasType: trigger.title,
+    subtitle: trigger.subtitle,
   }))
   const optionQualitySignal: ReviewNextSignal | null = showOptionQualityCard
     ? {
@@ -1594,8 +1609,14 @@ export function PreAnalysisPanel({
                       <p className={`${typography.panelHeader} text-text-header`}>
                         {startHereSignal.biasType}
                       </p>
+                      {/* Brief 5.7 D5: propagate the bias trigger's truncated
+                          explanation (subtitle) instead of a generic
+                          meta-commentary line. Falls through to a non-meta
+                          biasType-aware sentence if the trigger had no
+                          explanation. AUTHORITY_BIAS without target_factor_id
+                          is filtered upstream and never reaches this branch. */}
                       <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-                        Watch for this bias when reviewing the items below.
+                        {startHereSignal.subtitle ?? `Be aware of ${startHereSignal.biasType.toLowerCase()} as you review.`}
                       </p>
                       <div className="absolute bottom-1 right-1">
                         <DiscussWithAiButton element={{ kind: 'bias', biasType: startHereSignal.biasType }} />

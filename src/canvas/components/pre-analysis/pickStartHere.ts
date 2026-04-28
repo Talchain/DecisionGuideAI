@@ -49,6 +49,11 @@ export interface BiasSignal {
   score: number
   defaultedScore: boolean
   biasType: string
+  /** Brief 5.7 D5: human-readable explanation propagated from the bias trigger
+   *  so the start-here render can show meaningful copy instead of a generic
+   *  meta-commentary line. Sourced from `trigger.subtitle` (the truncated
+   *  explanation produced by `normaliseCeeBiasFinding`). */
+  subtitle?: string
 }
 
 export type ReviewNextSignal = TriageSignal | OptionQualitySignal | BiasSignal
