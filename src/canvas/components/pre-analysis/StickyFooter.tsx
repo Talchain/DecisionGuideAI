@@ -18,6 +18,7 @@
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
 import { AnalysisFooter } from '../../shared/AnalysisFooter'
+import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
 
 /** Derive source distribution tooltip from raw counts */
 function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
@@ -120,10 +121,14 @@ export function StickyFooter({
     </Tooltip>
   ) : undefined
 
-  // CTA label — standardised to "Run analysis" across all surfaces.
-  const ctaLabel = isAnalysing
-    ? 'Running analysis…'
-    : 'Run analysis'
+  // CTA label sourced from the canonical helper so 'results_stale' renders
+  // "Rerun analysis" (secondary action per brief) and 'ready_to_analyse' /
+  // anything-else renders "Run analysis". The helper's `cta` is also the
+  // place to add visual variant signalling later — for now the AnalysisFooter
+  // only surfaces the label, but the helper output stays single-source.
+  const view = useAnalysisDisplayState()
+  const baseLabel = view.cta?.label ?? 'Run analysis'
+  const ctaLabel = isAnalysing ? 'Running analysis…' : baseLabel
 
   return (
     <AnalysisFooter

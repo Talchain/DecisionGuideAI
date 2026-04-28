@@ -125,6 +125,22 @@ describe('captureDisplayState — canonical analysis display fields', () => {
     }
   })
 
+  // Precedence assertion: a CEE-non-ready status MUST win over a prior
+  // populated report. This is the "user deleted the goal after a run"
+  // shape — the old report is meaningless and showing "Analysis complete"
+  // would mislead the user into asking CEE about non-existent results.
+  it('non-ready CEE with stored report → not_ready, NOT complete', async () => {
+    mockState = makeState({
+      ceeAnalysisReady: { status: 'needs_user_mapping' },
+      results: { status: 'complete', report: { option_comparison: [] } },
+      graphEditedSinceLastRun: false,
+    })
+    const captureDisplayState = await importCapture()
+    const result = await captureDisplayState()
+    expect(result.analysis_display_state).toBe('not_ready')
+    expect(result.analysis_display_headline).toBe('Set up your model')
+  })
+
   it('legacy fields stay populated for backwards compatibility', async () => {
     mockState = makeState({
       ceeAnalysisReady: { status: 'ready' },

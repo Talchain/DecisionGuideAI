@@ -1305,16 +1305,12 @@ export async function captureDisplayState(): Promise<DisplayState> {
     // not 'complete' — this is the bug pattern the helper enforces.
     const ceeStatus = (state as { ceeAnalysisReady?: { status?: string } | null })
       .ceeAnalysisReady?.status
-    const resultsStatus = (results?.status as
-      | 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
-      | undefined) ?? 'idle'
     const hasReport = Boolean((results as { report?: unknown } | null | undefined)?.report)
     const graphEditedSinceLastRun = Boolean(
       (state as { graphEditedSinceLastRun?: boolean }).graphEditedSinceLastRun,
     )
     const displayView = deriveAnalysisDisplayState({
       ceeAnalysisReadyStatus: ceeStatus,
-      resultsStatus,
       hasReport,
       graphEditedSinceLastRun,
     })

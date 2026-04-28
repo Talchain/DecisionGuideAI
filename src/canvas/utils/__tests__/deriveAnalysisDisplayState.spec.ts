@@ -9,7 +9,6 @@ function makeInput(
 ): DeriveAnalysisDisplayStateInput {
   return {
     ceeAnalysisReadyStatus: undefined,
-    resultsStatus: 'idle',
     hasReport: false,
     graphEditedSinceLastRun: false,
     ...overrides,
@@ -28,21 +27,13 @@ describe('deriveAnalysisDisplayState', () => {
       expect(view.textColorClass).toBe('text-info')
       expect(view.cta).toEqual({ kind: 'primary', label: 'Run analysis' })
     })
-
-    it('CEE ready with results.status="streaming" but no report → ready_to_analyse', () => {
-      const view = deriveAnalysisDisplayState(
-        makeInput({ ceeAnalysisReadyStatus: 'ready', resultsStatus: 'streaming' }),
-      )
-      expect(view.state).toBe('ready_to_analyse')
-    })
   })
 
   describe('complete', () => {
-    it('hasReport && !graphEditedSinceLastRun → complete (regardless of CEE status)', () => {
+    it('CEE ready + hasReport && !graphEditedSinceLastRun → complete', () => {
       const view = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
-          resultsStatus: 'complete',
           hasReport: true,
           graphEditedSinceLastRun: false,
         }),
@@ -53,26 +44,13 @@ describe('deriveAnalysisDisplayState', () => {
       expect(view.textColorClass).toBe('text-success')
       expect(view.cta).toBeNull()
     })
-
-    it('hasReport beats stale CEE status (e.g. needs_user_input)', () => {
-      const view = deriveAnalysisDisplayState(
-        makeInput({
-          ceeAnalysisReadyStatus: 'needs_user_input',
-          resultsStatus: 'complete',
-          hasReport: true,
-          graphEditedSinceLastRun: false,
-        }),
-      )
-      expect(view.state).toBe('complete')
-    })
   })
 
   describe('results_stale', () => {
-    it('hasReport && graphEditedSinceLastRun → results_stale', () => {
+    it('CEE ready + hasReport && graphEditedSinceLastRun → results_stale', () => {
       const view = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
-          resultsStatus: 'complete',
           hasReport: true,
           graphEditedSinceLastRun: true,
         }),
@@ -85,7 +63,7 @@ describe('deriveAnalysisDisplayState', () => {
     })
   })
 
-  describe('not_ready (collapses every non-ready CEE value)', () => {
+  describe('not_ready (precedence: CEE non-ready beats every other state)', () => {
     it.each([
       ['needs_encoding'],
       ['needs_user_mapping'],
@@ -103,23 +81,44 @@ describe('deriveAnalysisDisplayState', () => {
       expect(view.cta).toBeNull()
     })
 
-    it('undefined CEE status with no report → not_ready', () => {
+    it('undefined CEE status → not_ready', () => {
       const view = deriveAnalysisDisplayState(
         makeInput({ ceeAnalysisReadyStatus: undefined }),
       )
       expect(view.state).toBe('not_ready')
     })
+
+    // Critical precedence assertion (per brief Task 2 hierarchy item 1):
+    // a non-ready CEE status must beat any prior report. Real-world shape:
+    // user runs analysis successfully, then deletes the goal node. CEE flips
+    // to needs_user_mapping. The old report is meaningless — show setup
+    // guidance, not a stale "Analysis complete" badge.
+    it('non-ready CEE beats stored report (regardless of stale flag)', () => {
+      for (const status of ['needs_user_mapping', 'needs_user_input', 'needs_encoding']) {
+        for (const stale of [false, true]) {
+          const view = deriveAnalysisDisplayState(
+            makeInput({
+              ceeAnalysisReadyStatus: status,
+              hasReport: true,
+              graphEditedSinceLastRun: stale,
+            }),
+          )
+          expect(view.state).toBe('not_ready')
+          expect(view.headline).toBe('Set up your model')
+        }
+      }
+    })
   })
 
-  describe('bug-shape regression — the exact pattern from bundle bef4470b', () => {
-    // Stale resultsStatus === 'complete' lingering in the store while report
-    // has been cleared (e.g. by a new draft) MUST NOT produce 'complete'. The
-    // helper keys rule (1) on hasReport, not on resultsStatus.
-    it('hasReport=false + resultsStatus=complete + CEE ready → ready_to_analyse, NOT complete', () => {
+  describe('bug-shape regression — bundle bef4470b pattern', () => {
+    // hasReport=false + CEE ready (no run yet) MUST yield ready_to_analyse
+    // even when results.status enum is stale 'complete' from a prior session.
+    // The helper now ignores resultsStatus entirely, so the only signal that
+    // could falsely produce 'complete' is hasReport — which is false here.
+    it('hasReport=false + CEE ready → ready_to_analyse, NOT complete', () => {
       const view = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
-          resultsStatus: 'complete',
           hasReport: false,
           graphEditedSinceLastRun: false,
         }),
@@ -129,11 +128,10 @@ describe('deriveAnalysisDisplayState', () => {
       expect(view.headline).not.toBe('Analysis complete')
     })
 
-    it('hasReport=false + resultsStatus=complete + CEE undefined → not_ready, NOT complete', () => {
+    it('hasReport=false + CEE undefined → not_ready, NOT complete', () => {
       const view = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: undefined,
-          resultsStatus: 'complete',
           hasReport: false,
           graphEditedSinceLastRun: false,
         }),
@@ -151,7 +149,6 @@ describe('deriveAnalysisDisplayState', () => {
       const after = deriveAnalysisDisplayState(
         makeInput({
           ceeAnalysisReadyStatus: 'ready',
-          resultsStatus: 'complete',
           hasReport: true,
           graphEditedSinceLastRun: false,
         }),
@@ -177,6 +174,25 @@ describe('deriveAnalysisDisplayState', () => {
       )
       expect(before.state).toBe('complete')
       expect(after.state).toBe('results_stale')
+    })
+
+    it('complete → not_ready when CEE flips to non-ready (e.g. goal deleted)', () => {
+      const before = deriveAnalysisDisplayState(
+        makeInput({
+          ceeAnalysisReadyStatus: 'ready',
+          hasReport: true,
+          graphEditedSinceLastRun: false,
+        }),
+      )
+      const after = deriveAnalysisDisplayState(
+        makeInput({
+          ceeAnalysisReadyStatus: 'needs_user_mapping',
+          hasReport: true,
+          graphEditedSinceLastRun: true,
+        }),
+      )
+      expect(before.state).toBe('complete')
+      expect(after.state).toBe('not_ready')
     })
   })
 })

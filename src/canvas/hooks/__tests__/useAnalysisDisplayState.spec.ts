@@ -80,6 +80,19 @@ describe('useAnalysisDisplayState', () => {
     expect(result.current.cta).toBeNull()
   })
 
+  // Brief Task 2 precedence: non-ready CEE wins even when a prior report
+  // is still in the store (e.g. user deletes the goal node after a run).
+  it('non-ready CEE overrides a populated report → not_ready, NOT complete', () => {
+    store = makeStore({
+      ceeAnalysisReady: { status: 'needs_user_mapping' },
+      results: { status: 'complete', report: { option_comparison: [] } },
+      graphEditedSinceLastRun: false,
+    })
+    const { result } = renderHook(() => useAnalysisDisplayState())
+    expect(result.current.state).toBe('not_ready')
+    expect(result.current.headline).toBe('Set up your model')
+  })
+
   // The exact bug repro from bundle bef4470b — stale resultsStatus 'complete'
   // lingering with hasReport=false MUST yield ready_to_analyse, not complete.
   it('bug-shape: hasReport=false + resultsStatus=complete + CEE ready → ready_to_analyse', () => {

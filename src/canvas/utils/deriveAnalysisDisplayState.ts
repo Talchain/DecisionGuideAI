@@ -15,8 +15,6 @@
  * `useAnalysisDisplayState` hook to consume from a component.
  */
 
-import type { ResultsStatus } from '../store'
-
 export type AnalysisDisplayState =
   | 'not_ready'
   | 'ready_to_analyse'
@@ -26,8 +24,6 @@ export type AnalysisDisplayState =
 export interface DeriveAnalysisDisplayStateInput {
   /** ceeAnalysisReady.status wire value, or undefined when the slice is null. */
   ceeAnalysisReadyStatus: string | undefined
-  /** results.status from the canvas store. */
-  resultsStatus: ResultsStatus
   /** True when results.report is non-null (V2RunResponse populated). */
   hasReport: boolean
   /** Canvas-store flag: true when the graph was edited after the last run. */
@@ -53,12 +49,16 @@ export interface AnalysisDisplayStateView {
 
 /**
  * Precedence (first match wins):
- *   1. hasReport && !graphEditedSinceLastRun  → 'complete'
- *   2. hasReport && graphEditedSinceLastRun   → 'results_stale'
- *   3. ceeAnalysisReadyStatus === 'ready'     → 'ready_to_analyse'
- *   4. else                                   → 'not_ready'
+ *   1. ceeAnalysisReadyStatus !== 'ready'     → 'not_ready'
+ *      A non-ready model means the structure can no longer be analysed
+ *      (e.g. the user removed the goal node or an option after a run);
+ *      any prior report is meaningless and the user needs setup
+ *      guidance, not a stale "complete" badge.
+ *   2. hasReport && !graphEditedSinceLastRun  → 'complete'
+ *   3. hasReport && graphEditedSinceLastRun   → 'results_stale'
+ *   4. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
  *
- * Note rule (1) is keyed on `hasReport`, NOT on `resultsStatus === 'complete'`.
+ * Note rule (2) is keyed on `hasReport`, NOT on `resultsStatus === 'complete'`.
  * A stale `resultsStatus === 'complete'` enum value (e.g. left over after a
  * new draft cleared `report` to null) must NEVER produce 'complete' on its
  * own. Without a populated report there is nothing to display.
@@ -67,6 +67,16 @@ export function deriveAnalysisDisplayState(
   input: DeriveAnalysisDisplayStateInput,
 ): AnalysisDisplayStateView {
   const { ceeAnalysisReadyStatus, hasReport, graphEditedSinceLastRun } = input
+
+  if (ceeAnalysisReadyStatus !== 'ready') {
+    return {
+      state: 'not_ready',
+      headline: 'Set up your model',
+      iconName: 'AlertCircle',
+      textColorClass: 'text-text-light',
+      cta: null,
+    }
+  }
 
   if (hasReport && !graphEditedSinceLastRun) {
     return {
@@ -88,21 +98,11 @@ export function deriveAnalysisDisplayState(
     }
   }
 
-  if (ceeAnalysisReadyStatus === 'ready') {
-    return {
-      state: 'ready_to_analyse',
-      headline: 'Ready to analyse',
-      iconName: 'Play',
-      textColorClass: 'text-info',
-      cta: { kind: 'primary', label: 'Run analysis' },
-    }
-  }
-
   return {
-    state: 'not_ready',
-    headline: 'Set up your model',
-    iconName: 'AlertCircle',
-    textColorClass: 'text-text-light',
-    cta: null,
+    state: 'ready_to_analyse',
+    headline: 'Ready to analyse',
+    iconName: 'Play',
+    textColorClass: 'text-info',
+    cta: { kind: 'primary', label: 'Run analysis' },
   }
 }

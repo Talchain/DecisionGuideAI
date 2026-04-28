@@ -21,13 +21,11 @@ export function useAnalysisDisplayState(): AnalysisDisplayStateView {
   // shape that omits `results` and/or `graphEditedSinceLastRun`. The runtime
   // store always provides them (initial state at store.ts:1113, 1128).
   const ceeAnalysisReadyStatus = useCanvasStore((s) => s.ceeAnalysisReady?.status)
-  const resultsStatus = useCanvasStore((s) => s.results?.status ?? 'idle')
   const hasReport = useCanvasStore((s) => s.results?.report != null)
   const graphEditedSinceLastRun = useCanvasStore((s) => s.graphEditedSinceLastRun ?? false)
 
   return deriveAnalysisDisplayState({
     ceeAnalysisReadyStatus,
-    resultsStatus,
     hasReport,
     graphEditedSinceLastRun,
   })
