@@ -108,4 +108,67 @@ describe('DriversSection: dominant-factor warning', () => {
 
     expect(screen.queryByTestId('dominant-factor-warning')).not.toBeInTheDocument()
   })
+
+  // Brief 5.7 D3: when data.dominantFactorId is absent (PLoT does not always
+  // populate it) but the warning still fires from topInfluence ≥ 0.8, the
+  // Validate chip must still render via the topDriver fallback target.
+  it('renders Validate chip when dominantFactorId is absent but topDriver has matchedNodeId', () => {
+    const driver = makeDriver({
+      influenceScore: 0.95,
+      factorLabel: 'Customer Churn',
+      matchedNodeId: 'node-customer-churn',
+    })
+    const onFocusNode = vi.fn()
+    render(
+      <DriversSection
+        data={makeData([driver])} /* no dominantFactorId provided */
+        onFocusNode={onFocusNode}
+        onSendMessage={vi.fn()}
+      />,
+    )
+
+    const validate = screen.getByRole('button', { name: /Validate Customer Churn on canvas/i })
+    expect(validate).toBeInTheDocument()
+    validate.click()
+    expect(onFocusNode).toHaveBeenCalledWith('node-customer-churn')
+  })
+
+  it('falls back to factorKey when neither dominantFactorId nor matchedNodeId is present', () => {
+    const driver = makeDriver({
+      influenceScore: 0.95,
+      factorLabel: 'Pricing',
+      factorKey: 'pricing-key',
+    })
+    const onFocusNode = vi.fn()
+    render(
+      <DriversSection
+        data={makeData([driver])}
+        onFocusNode={onFocusNode}
+        onSendMessage={vi.fn()}
+      />,
+    )
+
+    const validate = screen.getByRole('button', { name: /Validate Pricing on canvas/i })
+    validate.click()
+    expect(onFocusNode).toHaveBeenCalledWith('pricing-key')
+  })
+
+  it('omits Validate chip when no focus target is available at all', () => {
+    const driver = makeDriver({
+      influenceScore: 0.95,
+      factorKey: '',
+      matchedNodeId: undefined,
+    })
+    render(
+      <DriversSection
+        data={makeData([driver])}
+        onFocusNode={vi.fn()}
+        onSendMessage={vi.fn()}
+      />,
+    )
+
+    expect(screen.queryByRole('button', { name: /Validate .* on canvas/i })).not.toBeInTheDocument()
+    // Research chip still renders via onSendMessage
+    expect(screen.getByRole('button', { name: /Research/i })).toBeInTheDocument()
+  })
 })

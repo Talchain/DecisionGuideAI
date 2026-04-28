@@ -752,6 +752,11 @@ export function DriversSection({
   const rawDominantLabel = data.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
   const dominantLabel = cleanFactorLabel(rawDominantLabel).label
   const dominantPct = Math.round(Math.min(1, topInfluence) * 100)
+  // Brief 5.7 D3: when data.dominantFactorId is absent (PLoT does not always
+  // populate it) but the warning still fires from topInfluence ≥ 0.8, fall
+  // back to the topDriver's own focus target so the Validate chip still
+  // renders. Without this, only Research shipped to staging.
+  const dominantFocusId = data.dominantFactorId ?? topDriver?.matchedNodeId ?? topDriver?.factorKey ?? null
 
   return (
     <div className="space-y-4">
@@ -776,12 +781,12 @@ export function DriversSection({
           <p className={`${typography.panelBody} text-text-body`}>
             {dominantLabel} drives {dominantPct}% of the outcome. If your assumptions about this factor are wrong, the recommendation could change. Consider gathering more evidence before committing.
           </p>
-          {(data.dominantFactorId && onFocusNode || onSendMessage) && (
+          {((dominantFocusId && onFocusNode) || onSendMessage) && (
             <div className="flex items-center gap-1.5 mt-2">
-              {data.dominantFactorId && onFocusNode && (
+              {dominantFocusId && onFocusNode && (
                 <button
                   type="button"
-                  onClick={() => onFocusNode!(data.dominantFactorId!)}
+                  onClick={() => onFocusNode!(dominantFocusId)}
                   className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
                   aria-label={`Validate ${dominantLabel} on canvas`}
                 >
