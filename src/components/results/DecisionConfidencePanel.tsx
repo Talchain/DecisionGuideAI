@@ -1,21 +1,19 @@
 /**
  * DecisionConfidencePanel — Post-analysis triage panel (mirrors pre-analysis "Decision readiness").
  *
- * Structure (7 sections per brief):
+ * Structure (post-analysis triage panel):
  * 1. Health header — ring ("trust"), result headline, 4 dimension bars
  *    (Structure/Evidence/Coverage/Verified — same labels as pre-analysis)
  * 2. Result checks — target probabilities + condition card (fragility warning)
  * 3. Narrative — 1-line trust summary + "These N items would most improve confidence:"
  * 4. Top 3 action cards — EVOI-ranked, with inline ScientificEditor
  * 5. Quick-fix rows — items 4-6, compact single-line
- * 6. Science nudges — contextual prompts (sensitivity, bias, technique)
- * 7. Footer checks — pass/fail status line
  *
  * Uses shared TriageHealthHeader + TriageCard components.
  */
 
 import { useMemo, memo, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, Lightbulb, HelpCircle } from 'lucide-react'
+import { AlertTriangle, ChevronDown, ChevronRight, HelpCircle } from 'lucide-react'
 import Tooltip from '@/components/Tooltip'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
@@ -261,94 +259,11 @@ function TrustSummary({
   )
 }
 
-// ── Section 6: Science nudge cards ─────────────────────────────────────────
-
-interface ScienceNudge {
-  key: string
-  title: string
-  text: string
-  targetNodeId?: string
-  targetLabel?: string
-}
-
-function buildScienceNudges(data: ResultsSectionDataReturn): ScienceNudge[] {
-  const nudges: ScienceNudge[] = []
-
-  // Sensitivity warning: top driver has very high influence
-  const topDriver = data.drivers?.drivers?.[0]
-  if (topDriver && topDriver.normalisedInfluence > 0.6) {
-    nudges.push({
-      key: 'sensitivity',
-      title: stripEncodingNotation(topDriver.factorLabel),
-      text: `Drives ${Math.round(topDriver.normalisedInfluence * 100)}% of the outcome. Small changes could flip the result.`,
-      targetNodeId: topDriver.matchedNodeId ?? topDriver.factorKey,
-      targetLabel: stripEncodingNotation(topDriver.factorLabel),
-    })
-  }
-
-  // Bias flag: any contested edges with high EVOI
-  const hasHighEvoiContested = data.drivers?.drivers?.some(
-    d => d.hasContestedEdge && d.evpiPercentagePoints != null && d.evpiPercentagePoints > 2,
-  )
-  if (hasHighEvoiContested) {
-    nudges.push({
-      key: 'bias',
-      title: 'Contested relationships',
-      text: 'Some contested relationships have high decision impact. Resolving them could substantially change the result.',
-    })
-  }
-
-  return nudges
-}
-
-/** Science nudge card — same format as triage card, lightbulb icon, with CTAs */
-function ScienceNudgeCard({
-  nudge,
-  onFocusNode,
-  onSendMessage,
-}: {
-  nudge: ScienceNudge
-  onFocusNode?: (nodeId: string) => void
-  onSendMessage?: (text: string) => void
-}) {
-  return (
-    <div className="flex flex-col p-2.5 rounded-[10px] border border-info/30 bg-panel hover:bg-panel-hover">
-      <div className="flex items-start gap-2 mb-0.5">
-        <Lightbulb size={14} className="text-info flex-shrink-0 mt-0.5" />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <p className={`${typography.panelHeader} text-text-header truncate`} title={nudge.title}>{nudge.title}</p>
-            {((nudge.targetNodeId && onFocusNode) || (onSendMessage && nudge.targetLabel)) && (
-              <div className="flex items-center gap-1 flex-shrink-0">
-                {nudge.targetNodeId && onFocusNode && (
-                  <button
-                    type="button"
-                    onClick={() => onFocusNode(nudge.targetNodeId!)}
-                    className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`} /* DS v5 §7.2 outlined pill: bg-transparent + border-{color}/30 + rounded-full */
-                  >
-                    Validate
-                  </button>
-                )}
-                {onSendMessage && nudge.targetLabel && (
-                  <button
-                    type="button"
-                    onClick={() => onSendMessage(`Can you research ${nudge.targetLabel} and suggest a reasonable estimate with sources?`)}
-                    className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover cursor-pointer`}
-                  >
-                    Research
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-      <p className={`${typography.panelMeta} text-text-light pl-[22px]`}>{nudge.text}</p>
-    </div>
-  )
-}
-
 // Task 5: FooterChecks removed — redundant with hero ring + dimension bars
+// Brief 5.7 D2: standalone structural-signals section (sensitivity + bias
+// nudges) removed. Equivalent factor-level signal (factor name + N% drives
+// + Validate/Research chips) is carried by the dominant-factor warning in
+// DriversSection. Contested-relationships fall through to ContestedRelationships.
 
 // ── Transition bridge banner ────────────────────────────────────────────────
 
@@ -574,9 +489,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     return top.targetNodeId ?? top.factorId ?? null
   }, [data.confidence.topEvidenceGaps])
 
-  // Task 4: science nudges integrated into triage card stack (after "Show N more")
-  const scienceNudges = useMemo(() => buildScienceNudges(data), [data])
-
   return (
     <div className="space-y-4 animate-fade-in" data-testid="decision-confidence-panel">
       {/* Transition bridge */}
@@ -664,26 +576,9 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         />
       )}
 
-      {/* 6. Science nudge cards — model-level checks separated from evidence gaps
-          by an explicit sub-header (D10 Path B — anti-synthesis: these are
-          structural/sensitivity signals, not evidence-gap signals). */}
-      {scienceNudges.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <SectionHeader
-            title="Model checks"
-            subtitle="Structural signals that may affect the result"
-            className=""
-          />
-          {scienceNudges.map((nudge) => (
-            <ScienceNudgeCard
-              key={nudge.key}
-              nudge={nudge}
-              onFocusNode={onFocusNode}
-              onSendMessage={onSendMessage}
-            />
-          ))}
-        </div>
-      )}
+      {/* Brief 5.7 D2: structural-signals sub-section removed. Equivalent
+          factor signal (name + N% drives + Validate/Research chips) lives in
+          the DriversSection dominant-factor warning. */}
 
       {/* Task 5: Footer checks removed — hero ring + dimension bars communicate the same info */}
     </div>
