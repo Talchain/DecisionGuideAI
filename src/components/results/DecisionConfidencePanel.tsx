@@ -474,6 +474,16 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)
 
+  // Brief 5.7 D6 (Path B): split the top-3 stack by upstream shape so cards
+  // 1/2 ("evidence gaps" — full structure: progress bar, pp pill, Set value)
+  // and card 3 ("next action" — title + coaching + edit pencil) sit under
+  // distinct subheaders rather than mixed under one heading. Numbering
+  // continues across the split so the user still parses them as a triage
+  // stack. Evidence gaps come first because the existing TrustSummary header
+  // ("Highest-value evidence gaps") owns that sub-block.
+  const evidenceGapCards = top3.filter(item => item.category === 'add_evidence')
+  const nextActionCards = top3.filter(item => item.category === 'strengthen')
+
   // Brief 5.1 Task 2: canonical factor identity for the driver / evidence
   // bridge copy. Mirrors the existing DriversSection pattern — see preflight
   // findings §2. Null when either section is empty.
@@ -528,7 +538,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       />
 
       {/* Empty state when all evidence gaps had zero impact (Brief 4 Task 9). */}
-      {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (
+      {evidenceGapCards.length === 0 && data.confidence.topEvidenceGapsEmpty && (
         <div className="rounded-lg border border-panel-border bg-panel px-3 py-2">
           <p className={`${typography.panelBody} text-text-light`}>
             No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
@@ -536,14 +546,53 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         </div>
       )}
 
-      {/* 4. Top 3 action cards */}
-      {top3.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          {top3.map((item, i) => (
+      {/* 4a. Evidence gap cards — full structure (numbered badge, AI-estimate
+          pill, progress bar + pp pill, Set value input, More disclosure).
+          Sits under the "Highest-value evidence gaps" header carried by
+          TrustSummary above. */}
+      {evidenceGapCards.length > 0 && (
+        <div className="flex flex-col gap-1.5" data-testid="evidence-gap-cards">
+          {evidenceGapCards.map((item, i) => (
             <TriageCard
               key={item.key}
               cardKey={item.key}
               ordinal={i + 1}
+              title={item.title}
+              detail={item.detail}
+              subtitle={item.subtitle}
+              category={item.category}
+              influence={item.influence}
+              evoiImpact={item.evoiImpact}
+              action={item.action}
+              editorConfig={item.editorConfig}
+              sourcePill={item.sourcePill}
+              onConfirm={onConfirm}
+              onEdit={onFocusNode}
+              onSendMessage={onSendMessage}
+              onHoverEnter={onHoverEnter}
+              onHoverLeave={onHoverLeave}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* 4b. Suggested next actions — distinct upstream shape (title +
+          coaching + edit pencil; no progress bar, no pp pill, no inline
+          editor). Renders under its own subheader so the user parses cards
+          1-2 and card 3 as related-but-different rather than as one
+          inconsistent stack. Ordinal continues from evidence gaps. */}
+      {nextActionCards.length > 0 && (
+        <div className="flex flex-col gap-1.5" data-testid="next-action-cards">
+          <SectionHeader
+            title="Suggested next actions"
+            className="mb-0"
+            testId="next-actions-section-header"
+          />
+          {nextActionCards.map((item, i) => (
+            <TriageCard
+              key={item.key}
+              cardKey={item.key}
+              ordinal={evidenceGapCards.length + i + 1}
               title={item.title}
               detail={item.detail}
               subtitle={item.subtitle}
