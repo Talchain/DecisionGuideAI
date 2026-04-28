@@ -245,7 +245,7 @@ interface PreAnalysisPanelProps {
  * a failure.
  */
 type BannerState =
-  | { kind: 'failed'; messageDetail: string | null; canRetry: boolean }
+  | { kind: 'failed'; canRetry: boolean }
   | { kind: 'derived'; mustFixCount: number; reviewNextCount: number }
 
 const HELPER_ICON_MAP = {
@@ -1294,7 +1294,7 @@ export function PreAnalysisPanel({
   // bucket counts pass through as a sub-line. Loading does not produce a
   // banner; the panel content is hidden by ModelHealthCard.
   const bannerState: BannerState = lastDraftError
-    ? { kind: 'failed', messageDetail: lastDraftError.message ?? null, canRetry: canRetryDraft }
+    ? { kind: 'failed', canRetry: canRetryDraft }
     : { kind: 'derived', mustFixCount, reviewNextCount }
 
   const isFailed = bannerState.kind === 'failed'

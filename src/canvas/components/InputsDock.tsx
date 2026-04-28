@@ -208,6 +208,12 @@ function ScenarioRunSummary() {
     // PlayCircle fallback covers the legacy 'ready_to_analyse' look while
     // letting 'not_ready' / 'results_stale' render their own iconography.
     const Icon = SCENARIO_EMPTY_ICON_MAP[displayView.iconName] ?? PlayCircle
+    // State-aware description: 'not_ready' should not invite the user to
+    // "run an analysis" when they cannot — that contradicts the headline
+    // "Set up your model" and was a real copy bug pre-fix.
+    const description = displayView.state === 'not_ready'
+      ? 'Add a decision, options, and a goal so you can run an analysis.'
+      : 'Run an analysis to see how your decision model performs with current inputs.'
     return (
       <section
         aria-label="Scenario run summary"
@@ -218,7 +224,7 @@ function ScenarioRunSummary() {
           <EmptyState
             icon={Icon}
             title={displayView.headline}
-            description="Run an analysis to see how your decision model performs with current inputs."
+            description={description}
             hint="Results will appear in the Outputs panel"
             className="py-4"
             testId="scenario-run-empty-state"
