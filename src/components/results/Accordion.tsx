@@ -19,6 +19,9 @@ import { typography } from '../../styles/typography'
 export interface AccordionProps {
   /** Section title displayed in header */
   title: string
+  /** Optional Lucide icon (or any ReactNode) rendered before the title at 16px.
+   *  Caller is responsible for sizing — pass e.g. `<Link className="w-4 h-4 text-text-light" />`. */
+  icon?: ReactNode
   /** Optional scope line displayed under the title in panelMeta (Brief 5.1 Task 2).
    *  Renders inside the header button so it stays visible while collapsed. */
   subtitle?: string
@@ -66,6 +69,7 @@ const tierVariants = {
 
 export function Accordion({
   title,
+  icon,
   subtitle,
   badgeCount,
   badgeState,
@@ -151,6 +155,11 @@ export function Accordion({
           />
           <div className="flex flex-col gap-0.5 flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
+              {icon && (
+                <span className="inline-flex shrink-0" aria-hidden="true">
+                  {icon}
+                </span>
+              )}
               <h3
                 id={headingId}
                 className={`${typography.panelHeader} text-text-header`}

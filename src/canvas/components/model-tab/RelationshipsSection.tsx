@@ -23,7 +23,7 @@
 
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Edge, Node } from '@xyflow/react'
-import { AlertTriangle, MessageCircle } from 'lucide-react'
+import { AlertTriangle, Link as LinkIcon, MessageCircle } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
 import { SectionErrorBoundary } from '../GraphTextView'
@@ -108,6 +108,28 @@ function EdgeCard({
   const edgeId = getDisplayEdgeId(edge)
   const data = edge.data as Record<string, unknown>
 
+  // Bidirectional row → graph hover highlight. Unmount cleanup guards against
+  // tab-switch-while-hovered where onMouseLeave never fires.
+  useEffect(() => {
+    return () => {
+      const state = useCanvasStore.getState()
+      if (state.highlightedEdges?.has(edgeId)) {
+        state.setHighlightedEdges([])
+      }
+    }
+  }, [edgeId])
+
+  const handleHoverEnter = useCallback(() => {
+    const state = useCanvasStore.getState()
+    state.setHighlightedEdges([edgeId])
+    state.setHighlightedNodes([])
+  }, [edgeId])
+
+  const handleHoverLeave = useCallback(() => {
+    const state = useCanvasStore.getState()
+    state.setHighlightedEdges([])
+  }, [])
+
   const sourceNode = nodes.find(n => n.id === edge.source)
   const targetNode = nodes.find(n => n.id === edge.target)
   const fromLabel = String((sourceNode?.data as Record<string, unknown>)?.label ?? edge.source)
@@ -175,6 +197,8 @@ function EdgeCard({
       className={`bg-panel-hover rounded-lg p-2.5 mb-2 last:mb-0 transition-shadow cursor-pointer${isSelected ? ' ring-1 ring-info/50' : ''}`}
       data-testid={`edge-card-${edgeId}`}
       onClick={() => setCardExpanded(prev => !prev)}
+      onMouseEnter={handleHoverEnter}
+      onMouseLeave={handleHoverLeave}
     >
       {/* Label row */}
       <div className="flex items-start gap-1.5 mb-2">
@@ -444,66 +468,39 @@ function EdgeCard({
   )
 }
 
-// ── Contested cap logic ────────────────────────────────────────────────────────
+// ── Contested priority comparator ──────────────────────────────────────────────
 
 /**
- * Apply one-per-target-node cap to contested edges.
- * Returns { topGroup, capOuts } where:
- *   topGroup = one highest-priority contested edge per target node
- *   capOuts  = Set of edge IDs that lost the cap (still contested, but shown as plain cards)
+ * Sort contested edges by priority for the full-audit list:
+ *   - Post-analysis (both edges have evoi_rank set): evoi_impact desc
+ *   - Pre-analysis: max_divergence desc → distance_to_goal asc → needs_user_input
+ *
+ * Used to order the contested group on the Model tab. There is NO one-per-target
+ * cap on this surface — every pending contested edge is rendered as a fully
+ * actionable ContestedEdgeCard. The cap is appropriate only for the pre-analysis
+ * panel (which has a fixed budget) and lives in usePreAnalysisData there.
  */
-function applyOnePerTargetCap(
-  contestedEdges: Edge[],
-): { topGroup: Edge[]; capOutIds: Set<string> } {
-  // Sort by priority: post-analysis evoi_impact desc; pre-analysis max_divergence desc,
-  // distance_to_goal asc, needs_user_input as tiebreaker.
-  const sorted = [...contestedEdges].sort((a, b) => {
-    const av = a.data as Record<string, unknown>
-    const bv = b.data as Record<string, unknown>
-    const aVm = av?.validation as ValidationMetadata | undefined
-    const bVm = bv?.validation as ValidationMetadata | undefined
-    if (!aVm || !bVm) return 0
+function compareContestedPriority(a: Edge, b: Edge): number {
+  const aVm = (a.data as Record<string, unknown>)?.validation as ValidationMetadata | undefined
+  const bVm = (b.data as Record<string, unknown>)?.validation as ValidationMetadata | undefined
+  if (!aVm || !bVm) return 0
 
-    // Post-analysis: evoi_rank !== null on both edges means analysis has run.
-    // Sort by evoi_impact desc; null evoi_impact sorts last (deterministic).
-    const aPostAnalysis = aVm.evoi_rank !== null && aVm.evoi_rank !== undefined
-    const bPostAnalysis = bVm.evoi_rank !== null && bVm.evoi_rank !== undefined
-    if (aPostAnalysis && bPostAnalysis) {
-      const aImpact = aVm.evoi_impact ?? -Infinity
-      const bImpact = bVm.evoi_impact ?? -Infinity
-      if (aImpact !== bImpact) return bImpact - aImpact
-      // Tie on evoi_impact: fall through to max_divergence
-    }
-
-    // Pre-analysis (or evoi_impact tie): max_divergence desc
-    if (aVm.max_divergence !== bVm.max_divergence) {
-      return bVm.max_divergence - aVm.max_divergence
-    }
-    // Then distance_to_goal asc
-    if (aVm.distance_to_goal !== bVm.distance_to_goal) {
-      return aVm.distance_to_goal - bVm.distance_to_goal
-    }
-    // Then needs_user_input: true wins
-    const aNui = aVm.pass2.needs_user_input ? 1 : 0
-    const bNui = bVm.pass2.needs_user_input ? 1 : 0
-    return bNui - aNui
-  })
-
-  const seenTargets = new Set<string>()
-  const topGroup: Edge[] = []
-  const capOutIds = new Set<string>()
-
-  for (const edge of sorted) {
-    const target = edge.target
-    if (seenTargets.has(target)) {
-      capOutIds.add(getDisplayEdgeId(edge))
-    } else {
-      seenTargets.add(target)
-      topGroup.push(edge)
-    }
+  const aPostAnalysis = aVm.evoi_rank !== null && aVm.evoi_rank !== undefined
+  const bPostAnalysis = bVm.evoi_rank !== null && bVm.evoi_rank !== undefined
+  if (aPostAnalysis && bPostAnalysis) {
+    const aImpact = aVm.evoi_impact ?? -Infinity
+    const bImpact = bVm.evoi_impact ?? -Infinity
+    if (aImpact !== bImpact) return bImpact - aImpact
   }
-
-  return { topGroup, capOutIds }
+  if (aVm.max_divergence !== bVm.max_divergence) {
+    return bVm.max_divergence - aVm.max_divergence
+  }
+  if (aVm.distance_to_goal !== bVm.distance_to_goal) {
+    return aVm.distance_to_goal - bVm.distance_to_goal
+  }
+  const aNui = aVm.pass2.needs_user_input ? 1 : 0
+  const bNui = bVm.pass2.needs_user_input ? 1 : 0
+  return bNui - aNui
 }
 
 // ── Section ────────────────────────────────────────────────────────────────────
@@ -547,22 +544,16 @@ function RelationshipsSectionInner({
     return { contestedEdges, nonContestedEdges }
   }, [causalEdges])
 
-  // Apply one-per-target-node cap
-  const { topGroup, capOutIds } = useMemo(
-    () => applyOnePerTargetCap(contestedEdges),
+  // Full audit: ALL pending contested edges, sorted by priority. No
+  // one-per-target-node cap here — that policy belongs to pre-analysis.
+  const sortedContested = useMemo(
+    () => [...contestedEdges].sort(compareContestedPriority),
     [contestedEdges]
   )
 
-  // Edges capped out of the contested group (shown as plain EdgeCards with a contested pill)
-  const capOutEdges = useMemo(
-    () => contestedEdges.filter(e => capOutIds.has(getDisplayEdgeId(e))),
-    [contestedEdges, capOutIds]
-  )
-
-  // Sort non-contested + capped-out edges together
+  // Sort non-contested edges by fragility (switch probability) then weight desc.
   const sortedRemainder = useMemo(() => {
-    const combined = [...nonContestedEdges, ...capOutEdges]
-    return combined.sort((a, b) => {
+    return [...nonContestedEdges].sort((a, b) => {
       const aId = getDisplayEdgeId(a)
       const bId = getDisplayEdgeId(b)
       const aSwitchProb = fragileEdgeSwitchProbMap.get(aId) ?? -1
@@ -576,11 +567,39 @@ function RelationshipsSectionInner({
       const bWeight = bData?.weight != null ? (bData.weight as number) : -Infinity
       return bWeight - aWeight
     })
-  }, [nonContestedEdges, capOutEdges, fragileEdgeSwitchProbMap])
+  }, [nonContestedEdges, fragileEdgeSwitchProbMap])
 
   const pendingCount = contestedEdges.length
+  const agreedCount = causalEdges.length - pendingCount
 
-  if (causalEdges.length === 0) return null
+  // Largest non-null evoi_impact across all pending contested edges. When set,
+  // analysis has run and we surface the "worth Xpp" tail in the summary line.
+  const topEvoiImpact = useMemo(() => {
+    let max: number | null = null
+    for (const e of sortedContested) {
+      const vm = (e.data as Record<string, unknown>)?.validation as ValidationMetadata | undefined
+      const impact = vm?.evoi_impact
+      if (impact !== null && impact !== undefined) {
+        if (max === null || impact > max) max = impact
+      }
+    }
+    return max
+  }, [sortedContested])
+
+  // Summary line — deterministic, current-state counts. "Agreed" reflects the
+  // CEE validation status (status === 'agreed'), not user-confirmation; saying
+  // "reviewed" would overclaim, so the all-agreed state uses "agreed" verbatim
+  // per the brief ("All 14 relationships agreed."). The post-analysis tail is
+  // gated on BOTH pendingCount > 0 and a non-null impact, so a fully-resolved
+  // post-analysis state still shows the all-agreed line.
+  const summaryLine =
+    causalEdges.length === 0
+      ? null
+      : pendingCount === 0
+        ? `All ${causalEdges.length} relationships agreed.`
+        : topEvoiImpact !== null
+          ? `${pendingCount} contested, ${agreedCount} agreed. Resolving the top contested relationship is worth ${topEvoiImpact}pp of confidence.`
+          : `${pendingCount} contested, ${agreedCount} agreed.`
 
   // Build tier label from contested + fragile counts
   const tierParts: string[] = []
@@ -588,9 +607,33 @@ function RelationshipsSectionInner({
   if (fragileEdgeIds.size > 0) tierParts.push(`${fragileEdgeIds.size} fragile`)
   const tierLabel = tierParts.length > 0 ? tierParts.join(' · ') : undefined
 
+  const sectionIcon = <LinkIcon className="w-4 h-4 text-text-light" aria-hidden="true" />
+
+  // Empty state: render the section with just the icon, title, and explainer.
+  if (causalEdges.length === 0) {
+    return (
+      <Accordion
+        title="Relationships"
+        icon={sectionIcon}
+        defaultExpanded={false}
+        isExpanded={isExpanded}
+        onExpandChange={onExpandChange}
+        testId="model-relationships-section"
+      >
+        <p
+          className={`${typography.panelBody} text-text-light p-2`}
+          data-testid="relationships-empty-state"
+        >
+          No causal relationships in the model yet. Add factors and connect them to build your model.
+        </p>
+      </Accordion>
+    )
+  }
+
   return (
     <Accordion
       title="Relationships"
+      icon={sectionIcon}
       badgeCount={causalEdges.length}
       tierLabel={tierLabel}
       tierVariant={fragileEdgeIds.size > 0 ? 'needs_work' : pendingCount > 0 ? 'fair' : undefined}
@@ -600,6 +643,16 @@ function RelationshipsSectionInner({
       testId="model-relationships-section"
     >
 
+      {/* Summary line — factual counts; post-analysis tail when applicable */}
+      {summaryLine && (
+        <p
+          className={`${typography.panelMeta} text-text-light mb-2`}
+          data-testid="relationships-summary"
+        >
+          {summaryLine}
+        </p>
+      )}
+
       {/* Coaching: fragile relationships warning */}
       {fragileEdgeIds.size > 0 && (
         <CoachingCard sectionId="relationships-fragile">
@@ -607,15 +660,8 @@ function RelationshipsSectionInner({
         </CoachingCard>
       )}
 
-      {/* Contested group intro hint */}
-      {topGroup.length > 0 && (
-        <p className={`${typography.panelMeta} text-text-light mb-2`}>
-          Contested assumptions shown first, ranked by impact
-        </p>
-      )}
-
-      {/* ── Contested cards ─────────────────────────────────────────────── */}
-      {topGroup.map(edge => {
+      {/* ── Contested cards (all pending contested edges, no cap) ─────── */}
+      {sortedContested.map(edge => {
         const edgeId = getDisplayEdgeId(edge)
         const vm = (edge.data as Record<string, unknown>)?.validation as ValidationMetadata
         return (
@@ -633,7 +679,7 @@ function RelationshipsSectionInner({
       })}
 
       {/* ── "All relationships" separator ───────────────────────────────── */}
-      {topGroup.length > 0 && sortedRemainder.length > 0 && (
+      {sortedContested.length > 0 && sortedRemainder.length > 0 && (
         <div
           className={`${typography.panelMeta} text-text-light py-1.5 mt-1 mb-1 border-t border-panel-border`}
           data-testid="relationships-separator"
@@ -651,7 +697,6 @@ function RelationshipsSectionInner({
           <>
             {visible.map(edge => {
               const edgeId = getDisplayEdgeId(edge)
-              const isContestedCapOut = capOutIds.has(edgeId)
               return (
                 <EdgeCard
                   key={edgeId}
@@ -660,7 +705,7 @@ function RelationshipsSectionInner({
                   isFragile={fragileEdgeIds.has(edgeId)}
                   switchProbability={fragileEdgeSwitchProbMap.get(edgeId)}
                   isSelected={selectedEdgeIds?.has(edgeId)}
-                  isContested={isContestedCapOut}
+                  isContested={false}
                   eValue={edgeEValueMap.get(edgeId)}
                   repairs={edgeRepairsMap.get(edgeId)}
                 />

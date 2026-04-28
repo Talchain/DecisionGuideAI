@@ -17,7 +17,9 @@ import {
 } from 'react'
 import type { Node, Edge } from '@xyflow/react'
 import { useCanvasStore } from '../store'
+import { useUIStore } from '../../stores/uiStore'
 import { getDisplayEdgeId, buildFragileEdgeLookup } from '../utils/edgeIdentity'
+import { getCausalEdges } from '../domain/edgeUtils'
 import { SectionErrorBoundary } from './GraphTextView'
 import type { MappedRobustness } from '../../lib/mappers/types'
 import { trackGuidance } from '../../telemetry/guidanceEvents'
@@ -124,6 +126,26 @@ export const ModelTabBody = memo(function ModelTabBody({
       profile_stage: (state.currentStage ?? undefined) as 'frame' | 'ideate' | 'evaluate' | 'decide' | undefined,
     })
   }, [])
+
+  // Cross-panel handoff: when another surface (e.g. PreAnalysisPanel's "See all
+  // relationships" link) requests a section, open it and scroll into view, then
+  // clear the request so it doesn't fire again on subsequent renders.
+  //
+  // Why no cancelAnimationFrame cleanup: clearing the request synchronously
+  // triggers a re-render that fires the previous run's cleanup before the RAF
+  // callback gets a chance to execute, killing the scroll. Letting the RAF run
+  // unconditionally is safe — by the time it fires, openSection has already
+  // been updated, so the target DOM node exists.
+  const pendingSection = useUIStore(s => s.pendingModelTabSection)
+  useEffect(() => {
+    if (!pendingSection) return
+    setOpenSection(pendingSection)
+    requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`[data-testid="model-${pendingSection}-section"]`)
+      el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+    useUIStore.getState().requestModelTabSection(null)
+  }, [pendingSection])
 
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
   const ceePipelineTrace = useCanvasStore(s => s.ceePipelineTrace)
@@ -337,16 +359,12 @@ export const ModelTabBody = memo(function ModelTabBody({
   }, [nodes])
 
   // ── Causal edges (exclude organisational edges from/to decision/option) ───
-
-  const decisionOptionIds = useMemo(() => {
-    const ids = new Set<string>()
-    for (const n of [...grouped.decision, ...grouped.option]) ids.add(n.id)
-    return ids
-  }, [grouped])
+  // Centralised in edgeUtils.getCausalEdges so ModelTabBody and PreAnalysisPanel
+  // (cross-panel "See all relationships" link) share one definition.
 
   const causalEdges = useMemo(
-    () => edges.filter(e => !decisionOptionIds.has(e.source) && !decisionOptionIds.has(e.target)),
-    [edges, decisionOptionIds]
+    () => getCausalEdges(nodes, edges as Edge<EdgeData>[]),
+    [nodes, edges]
   )
 
   // ── Robustness data ───────────────────────────────────────────────────────

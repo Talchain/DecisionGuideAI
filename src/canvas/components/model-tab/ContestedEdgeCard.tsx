@@ -16,6 +16,7 @@ import { typography } from '../../../styles/typography'
 import { DetailToggleContext } from './DetailToggleContext'
 import { focusNodeById, focusEdgeById } from '../../utils/focusHelpers'
 import { useCanvasStore } from '../../store'
+import { getDisplayEdgeId } from '../../utils/edgeIdentity'
 import { NON_EVIDENCE_PROVENANCE } from '../../utils/evidenceCoverage'
 import type { ValidationMetadata, UserAction } from '../../domain/validation'
 import { SignedStrengthSlider } from '../../ui/inspector/SignedStrengthSlider'
@@ -26,6 +27,8 @@ import {
   getExistenceLabel,
   getBasisLabel,
   getContestedReasonLabel,
+  getSignedMidpoint,
+  type StrengthBand,
 } from './strengthBands'
 
 // ── Props ─────────────────────────────────────────────────────────────────────
@@ -72,6 +75,33 @@ export function ContestedEdgeCard({
     }
   }, [isSelected])
 
+  // Use canonical display edge id for highlight wiring (matches the rest of
+  // RelationshipsSection / EdgeCard). Existing `edge.id` callsites in this
+  // component (resolve handlers, slider) are preserved as-is.
+  const displayEdgeId = getDisplayEdgeId(edge)
+
+  // Bidirectional row → graph hover highlight. Cleanup on unmount guards
+  // against the "tab switch while hovered" case where onMouseLeave never fires.
+  useEffect(() => {
+    return () => {
+      const state = useCanvasStore.getState()
+      if (state.highlightedEdges?.has(displayEdgeId)) {
+        state.setHighlightedEdges([])
+      }
+    }
+  }, [displayEdgeId])
+
+  const handleHoverEnter = useCallback(() => {
+    const state = useCanvasStore.getState()
+    state.setHighlightedEdges([displayEdgeId])
+    state.setHighlightedNodes([])
+  }, [displayEdgeId])
+
+  const handleHoverLeave = useCallback(() => {
+    const state = useCanvasStore.getState()
+    state.setHighlightedEdges([])
+  }, [])
+
   const { showDetail } = useContext(DetailToggleContext)
 
   // Custom-value override state — slider outputs signed mean directly
@@ -117,6 +147,17 @@ export function ContestedEdgeCard({
     setShowCustomInput(false)
   }, [edgeId, customSignedMean, onResolve])
 
+  // Quick-set: tap Weak/Moderate/Strong to resolve with the band midpoint.
+  // Sign is preserved from the canvas edge's existing direction (data.direction),
+  // not inferred from pass1.strength_mean's sign.
+  const rawDirection = data?.direction as string | undefined
+  const direction: 'positive' | 'negative' = rawDirection === 'negative' ? 'negative' : 'positive'
+
+  const handleQuickSet = useCallback((band: Exclude<StrengthBand, 'negligible'>) => {
+    const signed = getSignedMidpoint(band, direction)
+    onResolve(edgeId, 'overridden', signed)
+  }, [edgeId, direction, onResolve])
+
   // ── Derived display values ─────────────────────────────────────────────────
 
   const pass1Mean   = validation.pass1.strength_mean
@@ -155,11 +196,18 @@ export function ContestedEdgeCard({
     isSelected ? 'ring-1 ring-info/50' : '',
   ].filter(Boolean).join(' ')
 
+  // Active band for the quick-set pills — always the band of the current model
+  // value (pass1.strength_mean), so the pill highlight reflects "where the edge
+  // sits today" rather than "what we're about to set". Rendered only while pending.
+  const activeBand: StrengthBand = getStrengthBand(pass1Mean)
+
   return (
     <div
       ref={cardRef}
       className={cardClass}
       data-testid={`contested-card-${edgeId}`}
+      onMouseEnter={handleHoverEnter}
+      onMouseLeave={handleHoverLeave}
     >
       {/* ── Header row ──────────────────────────────────────────────────────── */}
       <div className="flex items-start gap-1.5 mb-1.5 flex-wrap">
@@ -276,6 +324,34 @@ export function ContestedEdgeCard({
               Cancel
             </button>
           </div>
+        </div>
+      )}
+
+      {/* ── Quick-set pills (pending only) ──────────────────────────────────── */}
+      {!isResolved && !showCustomInput && (
+        <div
+          className="flex items-center gap-1.5 mb-1.5 flex-wrap"
+          data-testid={`contested-quickset-${edgeId}`}
+        >
+          <span className={`${typography.panelMeta} text-text-light shrink-0`}>Quick set:</span>
+          {(['weak', 'moderate', 'strong'] as const).map(band => {
+            const isActive = activeBand === band
+            return (
+              <button
+                key={band}
+                type="button"
+                onClick={() => handleQuickSet(band)}
+                className={`px-2 py-0.5 rounded-full ${typography.panelMeta} bg-transparent border transition-colors ${
+                  isActive
+                    ? 'border-info/30 text-info'
+                    : 'border-panel-border text-text-body hover:border-info/30'
+                }`}
+                data-testid={`contested-quickset-${band}-${edgeId}`}
+              >
+                {band.charAt(0).toUpperCase() + band.slice(1)}
+              </button>
+            )
+          })}
         </div>
       )}
 

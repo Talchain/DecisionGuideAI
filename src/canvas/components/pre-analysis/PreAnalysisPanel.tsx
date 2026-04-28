@@ -31,7 +31,10 @@ import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, ChevronDown, ChevronRight } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, ChevronDown, ChevronRight, Link as LinkIcon } from 'lucide-react'
+import { useUIStore } from '@/stores/uiStore'
+import { getCausalEdges } from '../../domain/edgeUtils'
+import type { EdgeData } from '../../domain/edges'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { mapImprovementToTriageCard } from './mapImprovementToTriageCard'
@@ -1690,6 +1693,49 @@ export function PreAnalysisPanel({
                     : `Show ${reviewNextOverflowCount} more`}
                 </button>
               )}
+
+              {/* "See all N relationships in model tab ›" — anchored to the
+                  CURRENTLY-VISIBLE Review next edge cards. The gate uses the
+                  same `visibleTriage` set the cards above derive from, so if
+                  start-here promotion or the collapsed top-3 budget hides every
+                  edge item, the link disappears too. The link's contextual
+                  anchor is the cards immediately above it; when those cards
+                  contain no edge item, the link has nothing to anchor. */}
+              {(() => {
+                const causalEdgeCount = getCausalEdges(nodes, edges as Edge<EdgeData>[]).length
+                if (causalEdgeCount === 0) return null
+
+                // Build a set of edge-targeted verify item keys, then check
+                // whether any visible Review next card carries that key.
+                const verifyItems = data.improvementsByCategory.verify ?? []
+                const edgeItemKeys = new Set(
+                  verifyItems.filter(item => item.focus?.type === 'edge').map(item => item.key),
+                )
+                if (edgeItemKeys.size === 0) return null
+
+                const visibleTriage = reviewNextExpanded ? reviewNextTriageAfterStart : reviewNextTopCards
+                const hasVisibleEdgeCard = visibleTriage.some(card => edgeItemKeys.has(card.key))
+                if (!hasVisibleEdgeCard) return null
+
+                const handleClick = () => {
+                  // Tell ModelTabBody to focus + auto-expand the relationships
+                  // section on its next render. Set BEFORE switching tabs so
+                  // the Model tab mounts already aware of the request.
+                  useUIStore.getState().requestModelTabSection('relationships')
+                  useUIStore.getState().setActiveOutputTab('diagnostics')
+                }
+                return (
+                  <button
+                    type="button"
+                    onClick={handleClick}
+                    className={`${typography.panelMeta} text-info hover:underline self-start inline-flex items-center gap-1 mt-1`}
+                    data-testid="preanalysis-see-all-relationships"
+                  >
+                    <LinkIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                    See all {causalEdgeCount} relationships in model tab ›
+                  </button>
+                )
+              })()}
             </section>
           )}
 

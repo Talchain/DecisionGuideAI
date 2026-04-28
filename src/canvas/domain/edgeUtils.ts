@@ -63,3 +63,28 @@ export function findConnectedEdges(
 ): Edge<EdgeData>[] {
   return edges.filter((e) => nodeIds.has(e.source) || nodeIds.has(e.target))
 }
+
+/**
+ * Causal edges = all edges minus those connecting decision/option nodes
+ * (which are organisational wiring, not causal claims).
+ *
+ * Used by ModelTabBody to filter the audit list and by PreAnalysisPanel's
+ * "See all N relationships" link to compute N. Centralised here so the two
+ * surfaces cannot drift on what counts as causal. Reads node kind from
+ * `node.type ?? node.data.kind ?? node.data.type` to match the existing
+ * detection rule in ModelTabBody:333.
+ */
+export function getCausalEdges(
+  nodes: { id: string; type?: string; data?: unknown }[],
+  edges: Edge<EdgeData>[],
+): Edge<EdgeData>[] {
+  const decisionOptionIds = new Set<string>()
+  for (const n of nodes) {
+    const data = n.data as { kind?: unknown; type?: unknown } | undefined
+    const kind = (n.type ?? data?.kind ?? data?.type) as string | undefined
+    if (kind === 'decision' || kind === 'option') decisionOptionIds.add(n.id)
+  }
+  return edges.filter(
+    (e) => !decisionOptionIds.has(e.source) && !decisionOptionIds.has(e.target),
+  )
+}

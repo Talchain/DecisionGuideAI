@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { getEdgeKey, isStructuralEdge, findConnectedEdges } from '../edgeUtils'
+import { getEdgeKey, isStructuralEdge, findConnectedEdges, getCausalEdges } from '../edgeUtils'
 import { DEFAULT_EDGE_DATA } from '../edges'
 import type { Edge } from '@xyflow/react'
 import type { EdgeData } from '../edges'
@@ -108,5 +108,62 @@ describe('findConnectedEdges', () => {
     const result = findConnectedEdges(new Set(['a', 'd']), edges)
     expect(result).toHaveLength(2)
     expect(result.map((e) => e.id)).toEqual(['a-b', 'c-d'])
+  })
+})
+
+describe('getCausalEdges', () => {
+  const nodes = [
+    { id: 'd1', type: 'decision', data: {} },
+    { id: 'o1', type: 'option', data: {} },
+    { id: 'o2', type: 'option', data: {} },
+    { id: 'f1', type: 'factor', data: {} },
+    { id: 'f2', type: 'factor', data: {} },
+    { id: 'g1', type: 'goal', data: {} },
+  ]
+
+  it('excludes decision→option edges', () => {
+    const edges = [
+      makeEdge({ source: 'd1', target: 'o1' }),
+      makeEdge({ source: 'f1', target: 'g1' }),
+    ]
+    const result = getCausalEdges(nodes, edges)
+    expect(result.map((e) => e.id)).toEqual(['f1-g1'])
+  })
+
+  it('excludes option→factor edges (option as source)', () => {
+    const edges = [
+      makeEdge({ source: 'o1', target: 'f1' }),
+      makeEdge({ source: 'f1', target: 'f2' }),
+    ]
+    const result = getCausalEdges(nodes, edges)
+    expect(result.map((e) => e.id)).toEqual(['f1-f2'])
+  })
+
+  it('keeps factor→factor and factor→goal edges', () => {
+    const edges = [
+      makeEdge({ source: 'f1', target: 'f2' }),
+      makeEdge({ source: 'f2', target: 'g1' }),
+    ]
+    expect(getCausalEdges(nodes, edges)).toHaveLength(2)
+  })
+
+  it('reads node kind from data.kind when type is undefined', () => {
+    const dataNodes = [
+      { id: 'd1', data: { kind: 'decision' } },
+      { id: 'o1', data: { kind: 'option' } },
+      { id: 'f1', data: { kind: 'factor' } },
+    ]
+    const edges = [
+      makeEdge({ source: 'd1', target: 'o1' }),
+      makeEdge({ source: 'o1', target: 'f1' }),
+      makeEdge({ source: 'f1', target: 'f1' }),
+    ]
+    const result = getCausalEdges(dataNodes, edges)
+    expect(result.map((e) => e.id)).toEqual(['f1-f1'])
+  })
+
+  it('returns empty array when only decision/option nodes exist', () => {
+    const edges = [makeEdge({ source: 'd1', target: 'o1' })]
+    expect(getCausalEdges(nodes, edges)).toEqual([])
   })
 })

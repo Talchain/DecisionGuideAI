@@ -30,6 +30,12 @@ export interface UIStoreState {
   hoveredElementId: string | null
   /** Task C: Which right-side panel is currently open (mutual exclusion) */
   activeRightPanel: RightPanelMode
+  /**
+   * Cross-panel handoff: the section ID a navigator wants the Model tab to
+   * focus + auto-expand on its next render. Cleared by the consumer once it
+   * has acted. Null when no navigation is pending.
+   */
+  pendingModelTabSection: string | null
 }
 
 export interface UIStoreActions {
@@ -39,17 +45,21 @@ export interface UIStoreActions {
   openRightPanel: (mode: RightPanelMode) => void
   /** Close the active right panel */
   closeRightPanel: () => void
+  /** Request the Model tab to focus + auto-expand a section on next render. */
+  requestModelTabSection: (sectionId: string | null) => void
 }
 
 export const useUIStore = create<UIStoreState & UIStoreActions>((set) => ({
   activeOutputTab: 'results',
   hoveredElementId: null,
   activeRightPanel: null,
+  pendingModelTabSection: null,
 
   setActiveOutputTab: (tab) => set({ activeOutputTab: tab }),
   setHoveredElementId: (id) => set({ hoveredElementId: id }),
   openRightPanel: (mode) => set({ activeRightPanel: mode }),
   closeRightPanel: () => set({ activeRightPanel: null }),
+  requestModelTabSection: (sectionId) => set({ pendingModelTabSection: sectionId }),
 }))
 
 // Selectors

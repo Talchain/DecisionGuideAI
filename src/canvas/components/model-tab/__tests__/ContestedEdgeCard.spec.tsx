@@ -255,6 +255,77 @@ describe('ContestedEdgeCard', () => {
     expect(onResolve).toHaveBeenCalledWith('e1', 'accepted_pass2')
   })
 
+  it('renders quick-set Weak/Moderate/Strong pills while pending', () => {
+    render(
+      <ContestedEdgeCard
+        edge={makeEdge('e1', 'n1', 'n2', makeValidation())}
+        nodes={nodes}
+        validation={makeValidation()}
+        isFragile={false}
+        onResolve={mockResolve}
+      />
+    )
+    expect(screen.getByTestId('contested-quickset-weak-e1')).toBeInTheDocument()
+    expect(screen.getByTestId('contested-quickset-moderate-e1')).toBeInTheDocument()
+    expect(screen.getByTestId('contested-quickset-strong-e1')).toBeInTheDocument()
+  })
+
+  it('hides quick-set pills once resolved', () => {
+    const resolved = makeValidation({ user_action: 'accepted_pass1' })
+    render(
+      <ContestedEdgeCard
+        edge={makeEdge('e1', 'n1', 'n2', resolved)}
+        nodes={nodes}
+        validation={resolved}
+        isFragile={false}
+        onResolve={mockResolve}
+      />
+    )
+    expect(screen.queryByTestId('contested-quickset-weak-e1')).not.toBeInTheDocument()
+  })
+
+  it('quick-set Weak fires onResolve with overridden + positive midpoint when direction=positive', () => {
+    const onResolve = vi.fn()
+    render(
+      <ContestedEdgeCard
+        edge={makeEdge('e1', 'n1', 'n2', makeValidation())}
+        nodes={nodes}
+        validation={makeValidation()}
+        isFragile={false}
+        onResolve={onResolve}
+      />
+    )
+    fireEvent.click(screen.getByTestId('contested-quickset-weak-e1'))
+    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', 0.15)
+  })
+
+  it('quick-set Strong fires onResolve with overridden + negative midpoint when direction=negative', () => {
+    const onResolve = vi.fn()
+    const negEdge: Edge = {
+      id: 'e1',
+      source: 'n1',
+      target: 'n2',
+      data: {
+        weight: 0.6,
+        direction: 'negative',
+        beliefExists: 0.7,
+        provenance: 'assumption',
+        validation: makeValidation(),
+      },
+    }
+    render(
+      <ContestedEdgeCard
+        edge={negEdge}
+        nodes={nodes}
+        validation={makeValidation()}
+        isFragile={false}
+        onResolve={onResolve}
+      />
+    )
+    fireEvent.click(screen.getByTestId('contested-quickset-strong-e1'))
+    expect(onResolve).toHaveBeenCalledWith('e1', 'overridden', -0.7)
+  })
+
   it('calls onResolve with dismissed when "Dismiss" clicked', () => {
     const onResolve = vi.fn()
     render(

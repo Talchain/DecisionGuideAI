@@ -12,13 +12,29 @@ beforeAll(() => {
   Element.prototype.scrollIntoView = vi.fn()
 })
 
-const mockUpdateEdge = vi.fn()
+const { mockUpdateEdge, mockStoreState } = vi.hoisted(() => {
+  const updateEdge = vi.fn()
+  const setHighlightedEdges = vi.fn()
+  const setHighlightedNodes = vi.fn()
+  const highlightedEdges = new Set<string>()
+  return {
+    mockUpdateEdge: updateEdge,
+    mockStoreState: {
+      updateEdge,
+      setHighlightedEdges,
+      setHighlightedNodes,
+      highlightedEdges,
+    },
+  }
+})
 
-vi.mock('../../../store', () => ({
-  useCanvasStore: vi.fn((selector: (s: unknown) => unknown) =>
-    selector({ updateEdge: mockUpdateEdge })
-  ),
-}))
+vi.mock('../../../store', () => {
+  const useCanvasStore = Object.assign(
+    vi.fn((selector: (s: unknown) => unknown) => selector(mockStoreState)),
+    { getState: () => mockStoreState },
+  )
+  return { useCanvasStore }
+})
 
 vi.mock('../../../utils/focusHelpers', () => ({
   focusEdgeById: vi.fn(),
@@ -63,9 +79,11 @@ function makeEdge(id: string, source: string, target: string, opts: {
 const nodes = [makeNode('f1', 'Factor A'), makeNode('f2', 'Factor B')]
 
 describe('RelationshipsSection', () => {
-  it('renders nothing when no edges', () => {
-    const { container } = render(<RelationshipsSection edges={[]} nodes={nodes} />)
-    expect(container.firstChild).toBeNull()
+  it('renders empty state when no causal edges', () => {
+    render(<RelationshipsSection edges={[]} nodes={nodes} />)
+    expect(screen.getByTestId('relationships-empty-state')).toHaveTextContent(
+      /No causal relationships in the model yet/i,
+    )
   })
 
   it('renders edge card with label', () => {
@@ -325,32 +343,33 @@ describe('RelationshipsSection — contested integration', () => {
     expect(container.textContent).toContain('1 contested')
   })
 
-  it('one-per-target-node cap: only highest-priority contested edge per target shown as ContestedEdgeCard', () => {
-    // Two contested edges with the same target node (f2)
+  it('renders every pending contested edge as a ContestedEdgeCard, even when sharing a target node', () => {
+    // Two contested edges with the same target node (f2). The model tab does
+    // NOT apply the one-per-target-node cap — that policy belongs to the
+    // pre-analysis panel. The full audit must keep every pending edge
+    // directly actionable.
     const ec1 = makeContested('ec1', 'f1', 'f2', { max_divergence: 0.8 })
     const ec2 = makeContested('ec2', 'f1', 'f2', { max_divergence: 0.4 })
     const normal = makeEdge('en', 'f2', 'f1')
     render(<RelationshipsSection edges={[ec1, ec2, normal]} nodes={nodes} />)
-    // ec1 has higher max_divergence → gets the contested card
     expect(screen.getByTestId('contested-card-ec1')).toBeInTheDocument()
-    // ec2 is capped out → rendered as plain EdgeCard with contested pill
-    expect(screen.queryByTestId('contested-card-ec2')).not.toBeInTheDocument()
-    expect(screen.getByTestId('edge-card-ec2')).toBeInTheDocument()
+    expect(screen.getByTestId('contested-card-ec2')).toBeInTheDocument()
+    // Neither is shoved into the plain-EdgeCard fallback
+    expect(screen.queryByTestId('edge-card-ec1')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('edge-card-ec2')).not.toBeInTheDocument()
   })
 
-  it('one-per-target-node cap with 3 edges sharing same target — only 1 gets contested card', () => {
-    // Three contested edges all targeting f2
-    const ec1 = makeContested('ec1', 'f1', 'f2', { max_divergence: 0.9 })
-    const ec2 = makeContested('ec2', 'f1', 'f2', { max_divergence: 0.6 })
-    const ec3 = makeContested('ec3', 'f1', 'f2', { max_divergence: 0.3 })
+  it('orders shared-target contested edges by max_divergence desc', () => {
+    const ec1 = makeContested('ec1', 'f1', 'f2', { max_divergence: 0.3 })
+    const ec2 = makeContested('ec2', 'f1', 'f2', { max_divergence: 0.9 })
+    const ec3 = makeContested('ec3', 'f1', 'f2', { max_divergence: 0.6 })
     render(<RelationshipsSection edges={[ec1, ec2, ec3]} nodes={nodes} />)
-    // Only ec1 (highest divergence) gets the contested card
-    expect(screen.getByTestId('contested-card-ec1')).toBeInTheDocument()
-    expect(screen.queryByTestId('contested-card-ec2')).not.toBeInTheDocument()
-    expect(screen.queryByTestId('contested-card-ec3')).not.toBeInTheDocument()
-    // ec2 and ec3 rendered as plain EdgeCards
-    expect(screen.getByTestId('edge-card-ec2')).toBeInTheDocument()
-    expect(screen.getByTestId('edge-card-ec3')).toBeInTheDocument()
+    const cards = screen.getAllByTestId(/^contested-card-/)
+    expect(cards.map(c => c.getAttribute('data-testid'))).toEqual([
+      'contested-card-ec2',
+      'contested-card-ec3',
+      'contested-card-ec1',
+    ])
   })
 
   it('edges from different target nodes each get a contested card', () => {
@@ -422,5 +441,45 @@ describe('RelationshipsSection — contested integration', () => {
     const contestedCards = screen.getAllByTestId(/^contested-card-/)
     expect(contestedCards[0]).toHaveAttribute('data-testid', 'contested-card-ec1')
     expect(contestedCards[1]).toHaveAttribute('data-testid', 'contested-card-ec2')
+  })
+})
+
+// ── Summary line ───────────────────────────────────────────────────────────────
+
+describe('RelationshipsSection — summary line', () => {
+  it('shows pre-analysis count summary when there are pending contested edges', () => {
+    const contested = makeContested('ec', 'f1', 'f2', { evoi_impact: null, evoi_rank: null })
+    const normal = makeEdge('en', 'f2', 'f1')
+    render(<RelationshipsSection edges={[contested, normal]} nodes={nodes} />)
+    expect(screen.getByTestId('relationships-summary')).toHaveTextContent('1 contested, 1 agreed.')
+  })
+
+  it('appends post-analysis impact tail when topGroup has non-null evoi_impact', () => {
+    const contested = makeContested('ec', 'f1', 'f2', { evoi_rank: 1, evoi_impact: 8 })
+    const normal = makeEdge('en', 'f2', 'f1')
+    render(<RelationshipsSection edges={[contested, normal]} nodes={nodes} />)
+    expect(screen.getByTestId('relationships-summary')).toHaveTextContent(
+      /1 contested, 1 agreed\. Resolving the top contested relationship is worth 8pp of confidence\./,
+    )
+  })
+
+  it('drops the post-analysis tail when no pending contested edges remain', () => {
+    // Resolved contested is no longer "pending" — it counts toward agreed
+    const resolved = makeContested('ec', 'f1', 'f2', {
+      evoi_rank: 1,
+      evoi_impact: 8,
+      user_action: 'accepted_pass1',
+    })
+    const normal = makeEdge('en', 'f2', 'f1')
+    render(<RelationshipsSection edges={[resolved, normal]} nodes={nodes} />)
+    expect(screen.getByTestId('relationships-summary')).toHaveTextContent('All 2 relationships agreed.')
+    expect(screen.getByTestId('relationships-summary').textContent).not.toMatch(/worth/i)
+  })
+
+  it('uses "agreed" not "reviewed" when nothing is pending', () => {
+    const normal = makeEdge('en', 'f1', 'f2')
+    render(<RelationshipsSection edges={[normal]} nodes={nodes} />)
+    expect(screen.getByTestId('relationships-summary')).toHaveTextContent('All 1 relationships agreed.')
+    expect(screen.getByTestId('relationships-summary').textContent).not.toMatch(/reviewed/i)
   })
 })

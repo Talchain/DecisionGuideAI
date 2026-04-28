@@ -24,6 +24,29 @@ export function getStrengthBand(mean: number): StrengthBand {
 }
 
 /**
+ * Band midpoints used by the contested-edge quick-set pills.
+ * Each value sits in the middle of its band's |mean| range.
+ */
+export const STRENGTH_BAND_MIDPOINTS: Record<Exclude<StrengthBand, 'negligible'>, number> = {
+  weak: 0.15,
+  moderate: 0.40,
+  strong: 0.70,
+}
+
+/**
+ * Signed band midpoint, sign taken from the canvas edge's direction field.
+ * Used by the contested-edge quick-set pills to produce a resolved `strength_mean`
+ * that preserves the existing direction.
+ */
+export function getSignedMidpoint(
+  band: Exclude<StrengthBand, 'negligible'>,
+  direction: 'positive' | 'negative',
+): number {
+  const m = STRENGTH_BAND_MIDPOINTS[band]
+  return direction === 'negative' ? -m : m
+}
+
+/**
  * Full user-facing strength label, e.g. "Strong positive effect".
  * Negligible always returns "Negligible effect" (no direction qualifier).
  */

@@ -15,6 +15,8 @@ import {
   getExistenceLabel,
   getBasisLabel,
   getContestedReasonLabel,
+  getSignedMidpoint,
+  STRENGTH_BAND_MIDPOINTS,
 } from '../strengthBands'
 import type { EstimateBasis, ContestedReason } from '../../../domain/validation'
 
@@ -136,5 +138,39 @@ describe('getContestedReasonLabel', () => {
   ]
   it.each(cases)('maps %s correctly', (reason, expected) => {
     expect(getContestedReasonLabel(reason)).toBe(expected)
+  })
+})
+
+// ── Quick-set band midpoints ───────────────────────────────────────────────────
+
+describe('STRENGTH_BAND_MIDPOINTS', () => {
+  it('puts each midpoint inside its band range', () => {
+    expect(getStrengthBand(STRENGTH_BAND_MIDPOINTS.weak)).toBe('weak')
+    expect(getStrengthBand(STRENGTH_BAND_MIDPOINTS.moderate)).toBe('moderate')
+    expect(getStrengthBand(STRENGTH_BAND_MIDPOINTS.strong)).toBe('strong')
+  })
+
+  it('orders weak < moderate < strong', () => {
+    expect(STRENGTH_BAND_MIDPOINTS.weak).toBeLessThan(STRENGTH_BAND_MIDPOINTS.moderate)
+    expect(STRENGTH_BAND_MIDPOINTS.moderate).toBeLessThan(STRENGTH_BAND_MIDPOINTS.strong)
+  })
+})
+
+describe('getSignedMidpoint', () => {
+  it('returns positive midpoint for positive direction', () => {
+    expect(getSignedMidpoint('weak', 'positive')).toBe(STRENGTH_BAND_MIDPOINTS.weak)
+    expect(getSignedMidpoint('moderate', 'positive')).toBe(STRENGTH_BAND_MIDPOINTS.moderate)
+    expect(getSignedMidpoint('strong', 'positive')).toBe(STRENGTH_BAND_MIDPOINTS.strong)
+  })
+
+  it('returns negated midpoint for negative direction', () => {
+    expect(getSignedMidpoint('weak', 'negative')).toBe(-STRENGTH_BAND_MIDPOINTS.weak)
+    expect(getSignedMidpoint('moderate', 'negative')).toBe(-STRENGTH_BAND_MIDPOINTS.moderate)
+    expect(getSignedMidpoint('strong', 'negative')).toBe(-STRENGTH_BAND_MIDPOINTS.strong)
+  })
+
+  it('preserves sign across all three bands when negated', () => {
+    expect(Math.sign(getSignedMidpoint('weak', 'negative'))).toBe(-1)
+    expect(Math.sign(getSignedMidpoint('strong', 'negative'))).toBe(-1)
   })
 })
