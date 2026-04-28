@@ -292,7 +292,7 @@ describe('getRunButtonAriaLabel', () => {
   it('returns running message when isRunning', () => {
     const label = getRunButtonAriaLabel({ allowed: true }, true)
 
-    expect(label).toBe('Analysis running...')
+    expect(label).toBe('Analysis running…')
   })
 
   it('returns blocked message with reason when not allowed', () => {
@@ -317,6 +317,6 @@ describe('getRunButtonAriaLabel', () => {
   it('returns standard label when allowed', () => {
     const label = getRunButtonAriaLabel({ allowed: true }, false)
 
-    expect(label).toBe('Run Analysis')
+    expect(label).toBe('Run analysis')
   })
 })

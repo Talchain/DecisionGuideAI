@@ -120,10 +120,10 @@ export function StickyFooter({
     </Tooltip>
   ) : undefined
 
-  // CTA label — always "Analyse now"
+  // CTA label — standardised to "Run analysis" across all surfaces.
   const ctaLabel = isAnalysing
-    ? 'Analysing...'
-    : 'Analyse now'
+    ? 'Running analysis…'
+    : 'Run analysis'
 
   return (
     <AnalysisFooter

@@ -356,6 +356,18 @@ export interface DisplayState {
   }> | null
   analysis_status_displayed: string | null
   hero_headline_displayed: string | null
+  /**
+   * Canonical analysis display state from `deriveAnalysisDisplayState`.
+   * Distinct from `analysis_status_displayed` (which mirrors the raw
+   * `results.status` enum) — this field captures the four-state UI
+   * mapping the user actually sees: not_ready / ready_to_analyse /
+   * complete / results_stale.
+   * Backwards-compatible: added alongside the legacy fields so existing
+   * bundle consumers keep working until they migrate.
+   */
+  analysis_display_state: 'not_ready' | 'ready_to_analyse' | 'complete' | 'results_stale' | null
+  /** Headline matching what the pre-analysis hero banner displays. */
+  analysis_display_headline: string | null
 }
 
 /** V1.5: Enriched full_graph node with all store fields */
@@ -1238,6 +1250,9 @@ function extractRenderedFactors(
 export async function captureDisplayState(): Promise<DisplayState> {
   try {
     const { useCanvasStore } = await import('../../../canvas/store')
+    const { deriveAnalysisDisplayState } = await import(
+      '../../../canvas/utils/deriveAnalysisDisplayState'
+    )
     const state = useCanvasStore.getState()
 
     const nodes = state.nodes ?? []
@@ -1282,6 +1297,28 @@ export async function captureDisplayState(): Promise<DisplayState> {
     // Analysis status from results store (hero headline is computed in UI components, not stored)
     const analysisStatus = results?.status as string | null ?? null
 
+    // Canonical display state — matches what the user sees in the
+    // pre-analysis banner / InputsDock empty-state. Reads the same
+    // canvas-store primitives the UI hook reads (no defaults, no
+    // mirrors): a stale `results.status === 'complete'` lingering in
+    // the store while `report` is null produces 'ready_to_analyse',
+    // not 'complete' — this is the bug pattern the helper enforces.
+    const ceeStatus = (state as { ceeAnalysisReady?: { status?: string } | null })
+      .ceeAnalysisReady?.status
+    const resultsStatus = (results?.status as
+      | 'idle' | 'preparing' | 'connecting' | 'streaming' | 'complete' | 'error' | 'cancelled'
+      | undefined) ?? 'idle'
+    const hasReport = Boolean((results as { report?: unknown } | null | undefined)?.report)
+    const graphEditedSinceLastRun = Boolean(
+      (state as { graphEditedSinceLastRun?: boolean }).graphEditedSinceLastRun,
+    )
+    const displayView = deriveAnalysisDisplayState({
+      ceeAnalysisReadyStatus: ceeStatus,
+      resultsStatus,
+      hasReport,
+      graphEditedSinceLastRun,
+    })
+
     return {
       active_panel: activePanel,
       active_tab: null, // Tab state is local to components, not in store
@@ -1293,6 +1330,8 @@ export async function captureDisplayState(): Promise<DisplayState> {
       rendered_factors: extractRenderedFactors(nodes),
       analysis_status_displayed: analysisStatus,
       hero_headline_displayed: deriveHeroHeadline(results, optionNodes.length),
+      analysis_display_state: displayView.state,
+      analysis_display_headline: displayView.headline,
     }
   } catch {
     return {
@@ -1306,6 +1345,8 @@ export async function captureDisplayState(): Promise<DisplayState> {
       rendered_factors: null,
       analysis_status_displayed: null,
       hero_headline_displayed: null,
+      analysis_display_state: null,
+      analysis_display_headline: null,
     }
   }
 }

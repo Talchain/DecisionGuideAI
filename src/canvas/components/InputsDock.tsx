@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
-import { FileText, GitBranch, Activity, PlayCircle, Send, Loader2, Sparkles } from 'lucide-react'
+import { FileText, GitBranch, Activity, PlayCircle, Send, Loader2, Sparkles, Play, Check, RefreshCw, AlertCircle } from 'lucide-react'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore } from '../store'
+import { useAnalysisDisplayState } from '../hooks/useAnalysisDisplayState'
 import { useEngineLimits } from '../hooks/useEngineLimits'
 import { deriveLimitsStatus } from '../utils/limitsStatus'
 import { buildHealthStrings } from '../utils/graphHealthStrings'
@@ -190,15 +191,23 @@ function formatScenarioRunTime(iso: string | null): string {
   return safe
 }
 
+const SCENARIO_EMPTY_ICON_MAP = { Play, Check, RefreshCw, AlertCircle } as const
+
 function ScenarioRunSummary() {
   const lastHash = useCanvasStore(s => s.currentScenarioLastResultHash)
   const lastRunAt = useCanvasStore(s => s.currentScenarioLastRunAt)
   const lastRunSeed = useCanvasStore(s => s.currentScenarioLastRunSeed)
   const setShowResultsPanel = useCanvasStore(s => s.setShowResultsPanel)
+  const displayView = useAnalysisDisplayState()
 
   const hasRunMetadata = Boolean(lastHash || lastRunAt)
 
   if (!hasRunMetadata) {
+    // Empty-state copy is sourced from the canonical helper so it stays in
+    // lockstep with the PreAnalysisPanel banner and the debug bundle. The
+    // PlayCircle fallback covers the legacy 'ready_to_analyse' look while
+    // letting 'not_ready' / 'results_stale' render their own iconography.
+    const Icon = SCENARIO_EMPTY_ICON_MAP[displayView.iconName] ?? PlayCircle
     return (
       <section
         aria-label="Scenario run summary"
@@ -207,8 +216,8 @@ function ScenarioRunSummary() {
       >
         <div className="rounded-lg border border-sand-200 bg-paper-50">
           <EmptyState
-            icon={PlayCircle}
-            title="Ready to analyse"
+            icon={Icon}
+            title={displayView.headline}
             description="Run an analysis to see how your decision model performs with current inputs."
             hint="Results will appear in the Outputs panel"
             className="py-4"

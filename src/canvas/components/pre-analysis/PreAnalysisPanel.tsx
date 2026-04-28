@@ -30,8 +30,10 @@ import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
+import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
+import type { AnalysisDisplayStateView } from '../../utils/deriveAnalysisDisplayState'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, ChevronDown, ChevronRight, Link as LinkIcon } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, ChevronDown, ChevronRight, Link as LinkIcon, Play, AlertCircle } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { getCausalEdges } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
@@ -226,11 +228,17 @@ interface PreAnalysisPanelProps {
 /**
  * Top status banner — single source of truth for panel state.
  *
- * Strict precedence (first match wins):
- *   1. failed   — analysis failure (lastDraftError or analysis error state)
- *   2. blocked  — Must fix section has items
- *   3. ready_with_recommendations — Review next has items
- *   4. ready    — nothing to flag
+ * Two render paths:
+ *   1. failed — analysis failure (lastDraftError). Renders unchanged with
+ *      retry affordance. This is a separate concern from the canonical
+ *      `deriveAnalysisDisplayState` mapping (which models pre-run / done
+ *      / stale states) and is preserved here.
+ *   2. helper-driven — every other case consumes `useAnalysisDisplayState`
+ *      so the headline + icon + colour exactly match the rest of the UI
+ *      (InputsDock empty-state, debug bundle, etc.). Bucket counts from
+ *      `usePreAnalysisData` (mustFix / reviewNext) flow in as a sub-line
+ *      below the headline so the user still sees the specific number of
+ *      items to address.
  *
  * In failed state, content below is de-emphasised by the parent (opacity 0.6)
  * except the error detail/retry. The banner does not show "Ready" alongside
@@ -238,9 +246,34 @@ interface PreAnalysisPanelProps {
  */
 type BannerState =
   | { kind: 'failed'; messageDetail: string | null; canRetry: boolean }
-  | { kind: 'blocked'; mustFixCount: number }
-  | { kind: 'ready_with_recommendations'; reviewNextCount: number }
-  | { kind: 'ready' }
+  | { kind: 'derived'; mustFixCount: number; reviewNextCount: number }
+
+const HELPER_ICON_MAP = {
+  Play,
+  Check,
+  RefreshCw,
+  AlertCircle,
+} as const
+
+function bucketSubLine(
+  view: AnalysisDisplayStateView,
+  mustFixCount: number,
+  reviewNextCount: number,
+): string | null {
+  switch (view.state) {
+    case 'not_ready':
+      if (mustFixCount === 1) return '1 item to address before analysis'
+      if (mustFixCount > 1) return `${mustFixCount} items to address before analysis`
+      return null
+    case 'ready_to_analyse':
+      if (reviewNextCount === 1) return '1 check would improve results.'
+      if (reviewNextCount > 1) return `${reviewNextCount} checks would improve results.`
+      return null
+    case 'complete':
+    case 'results_stale':
+      return null
+  }
+}
 
 function StatusBanner({
   state,
@@ -251,56 +284,64 @@ function StatusBanner({
   onRetry?: () => void
   isRetrying?: boolean
 }) {
-  let dotClass: string
-  let text: string
-  switch (state.kind) {
-    case 'failed':
-      dotClass = 'bg-danger'
-      // Only mention retry when the retry action is actually available; otherwise
-      // direct users to review the error detail rendered below.
-      text = state.canRetry
-        ? 'Analysis failed. Your model is intact. Retry or review the issue below.'
-        : 'Analysis failed. Your model is intact. Review the issue below.'
-      break
-    case 'blocked':
-      dotClass = 'bg-danger'
-      text =
-        state.mustFixCount === 1
-          ? '1 item to address before analysis'
-          : `${state.mustFixCount} items to address before analysis`
-      break
-    case 'ready_with_recommendations':
-      dotClass = 'bg-success'
-      text = `Ready to run. ${state.reviewNextCount} ${state.reviewNextCount === 1 ? 'check' : 'checks'} would improve results.`
-      break
-    case 'ready':
-      dotClass = 'bg-success'
-      text = 'Ready to run.'
-      break
+  const view = useAnalysisDisplayState()
+
+  if (state.kind === 'failed') {
+    const text = state.canRetry
+      ? 'Analysis failed. Your model is intact. Retry or review the issue below.'
+      : 'Analysis failed. Your model is intact. Review the issue below.'
+    return (
+      <div
+        className="flex items-start gap-2 py-2"
+        role="status"
+        data-testid="pre-analysis-status-banner"
+      >
+        <AlertTriangle
+          size={16}
+          className="mt-0.5 text-danger flex-shrink-0"
+          aria-hidden="true"
+        />
+        <p className={`${typography.panelBody} text-text-body flex-1`}>{text}</p>
+        {state.canRetry && onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            disabled={isRetrying}
+            className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover disabled:opacity-50 cursor-pointer`}
+            data-testid="status-banner-retry"
+          >
+            <RefreshCw size={11} className={isRetrying ? 'animate-spin' : ''} />
+            {isRetrying ? 'Retrying' : 'Retry'}
+          </button>
+        )}
+      </div>
+    )
   }
+
+  const Icon = HELPER_ICON_MAP[view.iconName]
+  const subLine = bucketSubLine(view, state.mustFixCount, state.reviewNextCount)
 
   return (
     <div
-      className="flex items-start gap-2 py-2"
+      className="py-2"
       role="status"
       data-testid="pre-analysis-status-banner"
+      data-display-state={view.state}
     >
-      <span
-        className={`mt-1 w-1.5 h-1.5 rounded-full flex-shrink-0 ${dotClass}`}
-        aria-hidden="true"
-      />
-      <p className={`${typography.panelBody} text-text-body flex-1`}>{text}</p>
-      {state.kind === 'failed' && state.canRetry && onRetry && (
-        <button
-          type="button"
-          onClick={onRetry}
-          disabled={isRetrying}
-          className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover disabled:opacity-50 cursor-pointer`}
-          data-testid="status-banner-retry"
-        >
-          <RefreshCw size={11} className={isRetrying ? 'animate-spin' : ''} />
-          {isRetrying ? 'Retrying' : 'Retry'}
-        </button>
+      <div className="flex items-center gap-2">
+        <Icon
+          size={16}
+          className={`${view.textColorClass} flex-shrink-0`}
+          aria-hidden="true"
+        />
+        <p className={`${typography.panelHeader} ${view.textColorClass}`}>
+          {view.headline}
+        </p>
+      </div>
+      {subLine && (
+        <p className={`${typography.panelBody} text-text-light mt-0.5 ml-6`}>
+          {subLine}
+        </p>
       )}
     </div>
   )
@@ -1248,15 +1289,13 @@ export function PreAnalysisPanel({
     showOptionQualityCard,
   ])
 
-  // Banner state — strict precedence: failed > blocked > recommendations > ready.
-  // Loading does not produce a banner; the panel content is hidden by ModelHealthCard.
+  // Banner state — failure is the only case modelled separately; everything
+  // else is derived from `useAnalysisDisplayState` inside the banner. The
+  // bucket counts pass through as a sub-line. Loading does not produce a
+  // banner; the panel content is hidden by ModelHealthCard.
   const bannerState: BannerState = lastDraftError
     ? { kind: 'failed', messageDetail: lastDraftError.message ?? null, canRetry: canRetryDraft }
-    : mustFixCount > 0
-      ? { kind: 'blocked', mustFixCount }
-      : reviewNextCount > 0
-        ? { kind: 'ready_with_recommendations', reviewNextCount }
-        : { kind: 'ready' }
+    : { kind: 'derived', mustFixCount, reviewNextCount }
 
   const isFailed = bannerState.kind === 'failed'
 

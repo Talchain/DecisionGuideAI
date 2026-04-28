@@ -156,7 +156,7 @@ export const MultiFormAnalysis = memo(function MultiFormAnalysis({
             ) : (
               <RefreshCw className="w-4 h-4" />
             )}
-            {loading ? 'Analysing...' : 'Run Analysis'}
+            {loading ? 'Running analysis…' : 'Run analysis'}
           </button>
         )}
       </div>
