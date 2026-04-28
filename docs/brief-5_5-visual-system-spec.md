@@ -63,24 +63,40 @@ Centred, two-segment fill extending left (weaker) and right (stronger) from midl
 - No other section may use a centre-anchored two-segment bar.
 
 ### Pattern C — Confidence indicator
-Four-step dot scale rendered at the confidence column.
+
+**Amended in Brief 5.7 D4 (2026-04-29):** the original four-step dot scale was replaced with a thin horizontal bar plus numeric readout. Rationale: staging QA proved the dot rendering was harder to read at the column's width than the bar treatment it had replaced. Visual separation from Pattern A (the magnitude bar) is preserved via colour (`bg-info` vs `bg-success`/`bg-warning`) AND thickness (`h-1` vs `h-1.5`), so the no-vocabulary-collision intent of the original Pattern C is intact.
+
+Thin bar + numeric readout rendered at the confidence column.
+
 ```tsx
-<div className="inline-flex items-center gap-0.5" aria-label={`Confidence ${label}`}>
-  {[0,1,2,3].map(i => (
-    <span
-      key={i}
-      className={`w-1.5 h-1.5 rounded-full ${i < filledSteps ? 'bg-text-body' : 'bg-panel-hover border border-panel-border'}`}
-      aria-hidden="true"
+<div className="inline-flex items-center gap-1.5">
+  <div
+    role="progressbar"
+    aria-valuenow={Math.round(confidence01 * 100)}
+    aria-valuemin={0}
+    aria-valuemax={100}
+    aria-label={`${label} confidence: ${Math.round(confidence01 * 100)}%`}
+    className="w-12 h-1 bg-panel-hover rounded-full overflow-hidden"
+  >
+    <div
+      className="h-full bg-info rounded-full"
+      style={{ width: `${Math.round(confidence01 * 100)}%` }}
     />
-  ))}
+  </div>
+  <span className="text-[12px] font-mono text-text-light">
+    {Math.round(confidence01 * 100)}%
+  </span>
 </div>
 ```
-- `filledSteps` = `Math.round(confidence01 * 4)`, clamped to [0, 4].
-- Single neutral token (`bg-text-body` for filled, `bg-panel-hover` + panel-border for unfilled).
-- Sole use: driver-row confidence, evidence-level confidence.
-- Must **not** use success / info / warning palette — that collides with Patterns A and B.
 
-Accessibility: `aria-label="Confidence <label>"` where `<label>` comes from existing `constraintConfidenceColour` label map (`HIGH`/`MEDIUM`/`LOW` per UI-SEM-010).
+- Track height `h-1` (4 px). Track background `bg-panel-hover` so the empty state still reads as a column.
+- Fill colour `bg-info` (DS v5 info blue). Width = `confidence01 * 100`%.
+- Numeric readout sits to the right in `font-mono text-text-light` so the percentage is legible without needing to read the bar.
+- Sole use: driver-row confidence, evidence-level confidence.
+- Must **not** use the success / warning palette — those are reserved for Pattern A magnitude bars (influence, win-probability, target-hits).
+- Visual separation from Pattern A: `h-1` (vs `h-1.5`) AND `bg-info` (vs `bg-success`/`bg-warning`).
+
+Accessibility: bar carries `role="progressbar"` + `aria-valuenow`/`aria-valuemin`/`aria-valuemax` + `aria-label`. The wrapping click-target button continues to expose its own `aria-label="<factor> confidence: <pct>%. Click to update."` per existing focus-helper convention.
 
 ---
 

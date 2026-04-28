@@ -85,4 +85,37 @@ describe('DriversSection confidence bar rendering', () => {
     const dashes = screen.getAllByText('-')
     expect(dashes.length).toBeGreaterThanOrEqual(1)
   })
+
+  // Brief 5.7 D4: Pattern C amended — 4-dot scale → thin bar + numeric readout.
+  // Track is h-1 (vs h-1.5 sensitivity) and bg-info (vs success/warning),
+  // preserving Pattern-A separation while restoring readability.
+  it('renders thin bar (bg-info, h-1) plus percentage readout for confidence: 0.6', () => {
+    const data = makeDriversData([
+      makeDriver({ factorKey: 'fac_60', factorLabel: '60 confidence', confidence: 0.6 }),
+    ])
+    render(<DriversSection data={data} goalLabel="test" />)
+
+    const bar = screen.getByRole('progressbar', { name: /60 confidence confidence/i })
+    expect(bar).toHaveClass('h-1', 'bg-panel-hover', 'rounded-full')
+
+    // Inner fill carries bg-info and width 60%
+    const fill = bar.firstElementChild as HTMLElement | null
+    expect(fill).not.toBeNull()
+    expect(fill).toHaveClass('bg-info', 'rounded-full')
+    expect(fill).toHaveStyle({ width: '60%' })
+
+    // Numeric readout present in the same column
+    expect(screen.getByText('60%')).toBeInTheDocument()
+  })
+
+  it('does not render any 4-dot indicator (no bg-text-body w-2 h-2 spans inside the confidence column)', () => {
+    const data = makeDriversData([
+      makeDriver({ factorKey: 'fac_full', factorLabel: 'Full', confidence: 1.0 }),
+    ])
+    const { container } = render(<DriversSection data={data} goalLabel="test" />)
+
+    // Pre-amendment dots used `w-2 h-2 rounded-full bg-text-body`. None of those should render.
+    const dotCandidates = container.querySelectorAll('span.w-2.h-2.rounded-full.bg-text-body')
+    expect(dotCandidates.length).toBe(0)
+  })
 })

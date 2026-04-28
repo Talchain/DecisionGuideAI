@@ -460,10 +460,12 @@ function DriverRow({
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
         )}
 
-        {/* Confidence indicator — 4-dot scale per Brief 5.5 §2.2 Pattern C.
-            Visually distinct from the magnitude/sensitivity bars so the three
-            bar-graph vocabularies don't collide. Neutral palette; the glyph
-            column beside it conveys High/Moderate/Low verbally. */}
+        {/* Confidence bar — Brief 5.5 §2.2 Pattern C (amended Brief 5.7 D4:
+            4-dot scale → thin bar with numeric readout). Distinct from the
+            sensitivity bar via colour (info vs success/warning) and thickness
+            (h-1 vs h-1.5), preserving the three-bar visual separation intent
+            while restoring readability. The glyph column conveys High/Moderate/
+            Low verbally alongside. */}
         {confidenceValue !== null ? (
           <button
             type="button"
@@ -476,31 +478,24 @@ function DriverRow({
             }}
             aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%. Click to update.`}
           >
-            {(() => {
-              const filledSteps = Math.max(0, Math.min(4, Math.round(confidenceValue * 4)))
-              return (
+            <div className="inline-flex items-center gap-1.5">
+              <div
+                role="progressbar"
+                aria-valuenow={Math.round(confidenceValue * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
+                className="w-12 h-1 bg-panel-hover rounded-full overflow-hidden"
+              >
                 <div
-                  role="progressbar"
-                  aria-valuenow={Math.round(confidenceValue * 100)}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label={`${cleanedLabel} confidence: ${Math.round(confidenceValue * 100)}%`}
-                  className="inline-flex items-center gap-1"
-                >
-                  {[0, 1, 2, 3].map(i => (
-                    <span
-                      key={i}
-                      aria-hidden="true"
-                      className={`w-2 h-2 rounded-full ${
-                        i < filledSteps
-                          ? 'bg-text-body'
-                          : 'bg-panel-hover border border-panel-border'
-                      }`}
-                    />
-                  ))}
-                </div>
-              )
-            })()}
+                  className="h-full bg-info rounded-full"
+                  style={{ width: `${Math.round(confidenceValue * 100)}%` }}
+                />
+              </div>
+              <span className={`${typography.panelBody} font-mono text-text-light`}>
+                {Math.round(confidenceValue * 100)}%
+              </span>
+            </div>
           </button>
         ) : (
           <div className={`${typography.panelBody} font-mono text-text-light w-9 text-right`}>-</div>
