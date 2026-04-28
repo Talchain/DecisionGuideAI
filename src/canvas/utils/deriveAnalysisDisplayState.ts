@@ -1,15 +1,14 @@
 /**
  * deriveAnalysisDisplayState — canonical mapper from raw analysis state
- * (CEE readiness + V2RunResponse + canvas-store staleness flag) to the
+ * (CEE readiness + populated report + canvas-store staleness flag) to the
  * display state the user sees in the pre-analysis hero, the debug bundle,
  * and any other surface that needs a shared interpretation.
  *
  * The bug this fixes: the UI previously conflated `analysis_ready.status
  * === 'ready'` (CEE: "structurally ready to analyse") with "analysis is
  * complete". This helper enforces that "complete" requires a populated
- * V2RunResponse (`hasReport`) AND that the graph hasn't changed since
- * the run (`!graphEditedSinceLastRun`). Anything else is `ready_to_analyse`,
- * `results_stale`, or `not_ready`.
+ * report AND that the graph hasn't changed since the run. Anything else
+ * is `ready_to_analyse`, `results_stale`, or `not_ready`.
  *
  * Pure function — no hooks, no side effects. Use the
  * `useAnalysisDisplayState` hook to consume from a component.
@@ -24,7 +23,7 @@ export type AnalysisDisplayState =
 export interface DeriveAnalysisDisplayStateInput {
   /** ceeAnalysisReady.status wire value, or undefined when the slice is null. */
   ceeAnalysisReadyStatus: string | undefined
-  /** True when results.report is non-null (V2RunResponse populated). */
+  /** True when results.report is non-null (populated run response). */
   hasReport: boolean
   /** Canvas-store flag: true when the graph was edited after the last run. */
   graphEditedSinceLastRun: boolean
@@ -48,27 +47,50 @@ export interface AnalysisDisplayStateView {
 }
 
 /**
- * Precedence (first match wins):
- *   1. ceeAnalysisReadyStatus !== 'ready'     → 'not_ready'
- *      A non-ready model means the structure can no longer be analysed
- *      (e.g. the user removed the goal node or an option after a run);
- *      any prior report is meaningless and the user needs setup
- *      guidance, not a stale "complete" badge.
- *   2. hasReport && !graphEditedSinceLastRun  → 'complete'
- *   3. hasReport && graphEditedSinceLastRun   → 'results_stale'
- *   4. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
+ * CEE statuses that explicitly mean "structure is not analysable". These
+ * MUST override a prior populated report — when the model is no longer
+ * analysable (e.g. user deleted the goal node), the old report is
+ * meaningless and showing "Analysis complete" would mislead the user.
  *
- * Note rule (2) is keyed on `hasReport`, NOT on `resultsStatus === 'complete'`.
- * A stale `resultsStatus === 'complete'` enum value (e.g. left over after a
- * new draft cleared `report` to null) must NEVER produce 'complete' on its
- * own. Without a populated report there is nothing to display.
+ * `undefined` and `'missing'` are NOT in this set: those represent absent
+ * readiness (CEE response in flight, slice transiently null during scenario
+ * load). A genuinely complete prior result should remain visible during
+ * those windows.
+ */
+const EXPLICIT_NOT_READY_STATUSES: ReadonlySet<string> = new Set([
+  'needs_encoding',
+  'needs_user_mapping',
+  'needs_user_input',
+])
+
+function isExplicitNotReady(status: string | undefined): boolean {
+  return status !== undefined && EXPLICIT_NOT_READY_STATUSES.has(status)
+}
+
+/**
+ * Precedence (first match wins):
+ *   1. Explicit non-ready CEE status (needs_encoding / needs_user_mapping /
+ *      needs_user_input) → 'not_ready' even when a prior report exists.
+ *   2. hasReport && !graphEditedSinceLastRun → 'complete'
+ *      Works even when readiness is briefly absent (undefined / 'missing'),
+ *      because a populated, current report stands on its own — readiness
+ *      gating only matters before a successful run lands.
+ *   3. hasReport && graphEditedSinceLastRun → 'results_stale'
+ *   4. ceeAnalysisReadyStatus === 'ready' (no report) → 'ready_to_analyse'
+ *   5. else (no report, no readiness signal) → 'not_ready'
+ *
+ * Note rule (2) is keyed on `hasReport`, not on the run-status enum. A
+ * stale enum value with a cleared report (e.g. results.status='complete'
+ * left over after a new draft cleared `report` to null) must NEVER
+ * produce 'complete'. Without a populated report there is nothing to
+ * display.
  */
 export function deriveAnalysisDisplayState(
   input: DeriveAnalysisDisplayStateInput,
 ): AnalysisDisplayStateView {
   const { ceeAnalysisReadyStatus, hasReport, graphEditedSinceLastRun } = input
 
-  if (ceeAnalysisReadyStatus !== 'ready') {
+  if (isExplicitNotReady(ceeAnalysisReadyStatus)) {
     return {
       state: 'not_ready',
       headline: 'Set up your model',
@@ -98,11 +120,21 @@ export function deriveAnalysisDisplayState(
     }
   }
 
+  if (ceeAnalysisReadyStatus === 'ready') {
+    return {
+      state: 'ready_to_analyse',
+      headline: 'Ready to analyse',
+      iconName: 'Play',
+      textColorClass: 'text-info',
+      cta: { kind: 'primary', label: 'Run analysis' },
+    }
+  }
+
   return {
-    state: 'ready_to_analyse',
-    headline: 'Ready to analyse',
-    iconName: 'Play',
-    textColorClass: 'text-info',
-    cta: { kind: 'primary', label: 'Run analysis' },
+    state: 'not_ready',
+    headline: 'Set up your model',
+    iconName: 'AlertCircle',
+    textColorClass: 'text-text-light',
+    cta: null,
   }
 }

@@ -63,14 +63,12 @@ describe('deriveAnalysisDisplayState', () => {
     })
   })
 
-  describe('not_ready (precedence: CEE non-ready beats every other state)', () => {
+  describe('not_ready (explicit non-ready CEE statuses beat prior results)', () => {
     it.each([
       ['needs_encoding'],
       ['needs_user_mapping'],
       ['needs_user_input'],
-      ['missing'],
-      ['unknown_future_value'],
-    ])('CEE status %s with no report → not_ready', (status) => {
+    ])('explicit CEE status %s with no report → not_ready', (status) => {
       const view = deriveAnalysisDisplayState(
         makeInput({ ceeAnalysisReadyStatus: status }),
       )
@@ -81,19 +79,12 @@ describe('deriveAnalysisDisplayState', () => {
       expect(view.cta).toBeNull()
     })
 
-    it('undefined CEE status → not_ready', () => {
-      const view = deriveAnalysisDisplayState(
-        makeInput({ ceeAnalysisReadyStatus: undefined }),
-      )
-      expect(view.state).toBe('not_ready')
-    })
-
     // Critical precedence assertion (per brief Task 2 hierarchy item 1):
-    // a non-ready CEE status must beat any prior report. Real-world shape:
-    // user runs analysis successfully, then deletes the goal node. CEE flips
-    // to needs_user_mapping. The old report is meaningless — show setup
-    // guidance, not a stale "Analysis complete" badge.
-    it('non-ready CEE beats stored report (regardless of stale flag)', () => {
+    // an explicit non-ready CEE status must beat any prior report. Real-world
+    // shape: user runs analysis successfully, then deletes the goal node.
+    // CEE flips to needs_user_mapping. The old report is meaningless — show
+    // setup guidance, not a stale "Analysis complete" badge.
+    it('explicit non-ready CEE beats stored report (regardless of stale flag)', () => {
       for (const status of ['needs_user_mapping', 'needs_user_input', 'needs_encoding']) {
         for (const stale of [false, true]) {
           const view = deriveAnalysisDisplayState(
@@ -108,13 +99,77 @@ describe('deriveAnalysisDisplayState', () => {
         }
       }
     })
+
+    it('absent readiness (undefined / "missing") with no report → not_ready', () => {
+      for (const status of [undefined, 'missing', 'unknown_future_value']) {
+        const view = deriveAnalysisDisplayState(
+          makeInput({ ceeAnalysisReadyStatus: status }),
+        )
+        expect(view.state).toBe('not_ready')
+      }
+    })
+  })
+
+  // Absent readiness (undefined / 'missing') is NOT explicit non-ready —
+  // it's "we don't know yet". A populated, current report stands on its
+  // own during the brief window before CEE responds (e.g. just after
+  // scenario load with persisted results). This prevents flicker from
+  // 'complete' → 'not_ready' → 'complete' as readiness streams in.
+  describe('absent readiness preserves prior matching results', () => {
+    it('undefined readiness + hasReport + !stale → complete', () => {
+      const view = deriveAnalysisDisplayState(
+        makeInput({
+          ceeAnalysisReadyStatus: undefined,
+          hasReport: true,
+          graphEditedSinceLastRun: false,
+        }),
+      )
+      expect(view.state).toBe('complete')
+      expect(view.headline).toBe('Analysis complete')
+    })
+
+    it('missing readiness + hasReport + !stale → complete', () => {
+      const view = deriveAnalysisDisplayState(
+        makeInput({
+          ceeAnalysisReadyStatus: 'missing',
+          hasReport: true,
+          graphEditedSinceLastRun: false,
+        }),
+      )
+      expect(view.state).toBe('complete')
+    })
+
+    it('undefined readiness + hasReport + stale → results_stale', () => {
+      const view = deriveAnalysisDisplayState(
+        makeInput({
+          ceeAnalysisReadyStatus: undefined,
+          hasReport: true,
+          graphEditedSinceLastRun: true,
+        }),
+      )
+      expect(view.state).toBe('results_stale')
+    })
+
+    it('unknown future status + hasReport + !stale → complete', () => {
+      // Forward-compatible: a CEE status we don't recognise is not treated
+      // as explicitly not-ready unless it's in the curated set.
+      const view = deriveAnalysisDisplayState(
+        makeInput({
+          ceeAnalysisReadyStatus: 'some_future_value',
+          hasReport: true,
+          graphEditedSinceLastRun: false,
+        }),
+      )
+      expect(view.state).toBe('complete')
+    })
   })
 
   describe('bug-shape regression — bundle bef4470b pattern', () => {
-    // hasReport=false + CEE ready (no run yet) MUST yield ready_to_analyse
-    // even when results.status enum is stale 'complete' from a prior session.
-    // The helper now ignores resultsStatus entirely, so the only signal that
-    // could falsely produce 'complete' is hasReport — which is false here.
+    // hasReport=false + CEE ready (no run yet) MUST yield ready_to_analyse.
+    // In the original bug, the canvas store's `results.status` enum was
+    // stale 'complete' from a prior session while `report` had been cleared.
+    // The helper consumes only `hasReport` (not the run-status enum), so
+    // with hasReport=false there is no path to 'complete'.
     it('hasReport=false + CEE ready → ready_to_analyse, NOT complete', () => {
       const view = deriveAnalysisDisplayState(
         makeInput({

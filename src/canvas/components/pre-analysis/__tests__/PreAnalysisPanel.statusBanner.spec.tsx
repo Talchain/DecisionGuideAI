@@ -258,9 +258,41 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
     mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
     mockCanvasState.graphEditedSinceLastRun = true
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    // Helper now drives the label — stale state surfaces "Rerun analysis"
+    // Helper drives the label — stale state surfaces "Rerun analysis"
     expect(
-      screen.getByRole('button', { name: /run analysis|address issues|analysis not ready/i }),
+      screen.getByRole('button', { name: /rerun analysis/i }),
     ).toHaveTextContent('Rerun analysis')
+  })
+
+  it('results_stale: footer CTA renders the secondary outlined variant', () => {
+    mockCanvasState.ceeAnalysisReady = { status: 'ready' }
+    mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
+    mockCanvasState.graphEditedSinceLastRun = true
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    const button = screen.getByRole('button', { name: /rerun analysis/i })
+    // Variant is exposed via data-action-variant for both DOM tests and
+    // future visual-regression hooks. Ensures the helper's `cta.kind` is
+    // honoured, not just the label.
+    expect(button).toHaveAttribute('data-action-variant', 'secondary')
+    // DS v5 outlined treatment — transparent fill + bordered, no bg-primary.
+    expect(button.className).toContain('bg-transparent')
+    expect(button.className).not.toContain('bg-primary')
+  })
+
+  it('results_stale: footer aria-label matches the visible "Rerun analysis"', () => {
+    mockCanvasState.ceeAnalysisReady = { status: 'ready' }
+    mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
+    mockCanvasState.graphEditedSinceLastRun = true
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    const button = screen.getByRole('button', { name: /rerun analysis/i })
+    expect(button).toHaveAttribute('aria-label', 'Rerun analysis')
+  })
+
+  it('ready_to_analyse: footer CTA renders the primary filled variant', () => {
+    mockCanvasState.ceeAnalysisReady = { status: 'ready' }
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    const button = screen.getByRole('button', { name: /run analysis/i })
+    expect(button).toHaveAttribute('data-action-variant', 'primary')
+    expect(button.className).toContain('bg-primary')
   })
 })

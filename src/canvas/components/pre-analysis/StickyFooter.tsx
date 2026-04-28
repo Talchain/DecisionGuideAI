@@ -121,14 +121,25 @@ export function StickyFooter({
     </Tooltip>
   ) : undefined
 
-  // CTA label sourced from the canonical helper so 'results_stale' renders
-  // "Rerun analysis" (secondary action per brief) and 'ready_to_analyse' /
-  // anything-else renders "Run analysis". The helper's `cta` is also the
-  // place to add visual variant signalling later — for now the AnalysisFooter
-  // only surfaces the label, but the helper output stays single-source.
+  // CTA label, variant, and accessible name sourced from the canonical
+  // helper so 'results_stale' renders an outlined "Rerun analysis" (secondary
+  // per brief Task 4) and 'ready_to_analyse' / anything-else renders the
+  // primary "Run analysis". The aria-label mirrors the visible label so
+  // assistive tech announces the action the user actually sees.
   const view = useAnalysisDisplayState()
   const baseLabel = view.cta?.label ?? 'Run analysis'
   const ctaLabel = isAnalysing ? 'Running analysis…' : baseLabel
+  const actionVariant = view.cta?.kind ?? 'primary'
+
+  const actionAriaLabel = isRetrying
+    ? 'Draft update in progress'
+    : isAnalysing
+      ? 'Analysis in progress'
+      : hasBlockers
+        ? `Address issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
+        : !isReady
+          ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
+          : baseLabel  // mirror visible label: 'Run analysis' or 'Rerun analysis'
 
   return (
     <AnalysisFooter
@@ -140,17 +151,8 @@ export function StickyFooter({
       onAction={onAnalyse}
       actionDisabled={isDisabled}
       actionLoading={isAnalysing || isRetrying}
-      actionAriaLabel={
-        isRetrying
-          ? 'Draft update in progress'
-          : isAnalysing
-            ? 'Analysis in progress'
-            : hasBlockers
-              ? `Address issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
-              : !isReady
-                ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
-                : 'Run analysis'
-      }
+      actionAriaLabel={actionAriaLabel}
+      actionVariant={actionVariant}
       actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
         ? (blockedReason || 'Address required items before analysing')
         : 'Run 1,000 Monte Carlo simulations with uncertainty margins to compare your options'}
