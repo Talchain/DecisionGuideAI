@@ -13,6 +13,7 @@ import {
   useMemo,
   useCallback,
   useEffect,
+  useRef,
   memo,
 } from 'react'
 import type { Node, Edge } from '@xyflow/react'
@@ -127,20 +128,28 @@ export const ModelTabBody = memo(function ModelTabBody({
     })
   }, [])
 
+  // Mounted guard for the deferred scroll RAF below. Lets the callback skip
+  // its DOM work if the Model tab unmounts (e.g. user switches the right
+  // panel) between the frame being scheduled and it firing. Cheaper and safer
+  // than reinstating cancelAnimationFrame, which previously raced the
+  // store-clear re-render and killed the scroll altogether.
+  const mountedRef = useRef(true)
+  useEffect(() => () => { mountedRef.current = false }, [])
+
   // Cross-panel handoff: when another surface (e.g. PreAnalysisPanel's "See all
   // relationships" link) requests a section, open it and scroll into view, then
   // clear the request so it doesn't fire again on subsequent renders.
   //
   // Why no cancelAnimationFrame cleanup: clearing the request synchronously
   // triggers a re-render that fires the previous run's cleanup before the RAF
-  // callback gets a chance to execute, killing the scroll. Letting the RAF run
-  // unconditionally is safe — by the time it fires, openSection has already
-  // been updated, so the target DOM node exists.
+  // callback gets a chance to execute, killing the scroll. The mountedRef
+  // guard above handles the unmount-during-RAF case without that race.
   const pendingSection = useUIStore(s => s.pendingModelTabSection)
   useEffect(() => {
     if (!pendingSection) return
     setOpenSection(pendingSection)
     requestAnimationFrame(() => {
+      if (!mountedRef.current) return
       const el = document.querySelector<HTMLElement>(`[data-testid="model-${pendingSection}-section"]`)
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
     })

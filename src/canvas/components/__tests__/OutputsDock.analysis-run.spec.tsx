@@ -56,6 +56,25 @@ vi.mock('../pre-analysis/hooks/usePreAnalysisData', () => ({
   usePreAnalysisData: () => mockUsePreAnalysisData(),
 }))
 
+// Mock the readiness hook — its real implementation calls fetch() against a
+// relative URL on mount via startListening(), which jsdom rejects with
+// "Invalid URL". The rejection bubbles up as an unhandled promise rejection
+// because the .finally() chain in deduplicatedFetch isn't catch-terminated.
+// The OutputsDock convergence tests don't assert on readiness state, so a
+// stable empty default is sufficient.
+vi.mock('../../hooks/useGraphReadiness', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../hooks/useGraphReadiness')>()
+  return {
+    ...actual,
+    useGraphReadiness: () => ({
+      readiness: null,
+      loading: false,
+      error: null,
+      refresh: vi.fn(),
+    }),
+  }
+})
+
 vi.mock('../pre-analysis', () => ({
   PreAnalysisPanel: ({ onAnalyse }: { onAnalyse: () => void }) => (
     <button data-testid="outputs-run-button" type="button" onClick={onAnalyse}>

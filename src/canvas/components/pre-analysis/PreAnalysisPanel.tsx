@@ -1721,6 +1721,9 @@ export function PreAnalysisPanel({
                   // Tell ModelTabBody to focus + auto-expand the relationships
                   // section on its next render. Set BEFORE switching tabs so
                   // the Model tab mounts already aware of the request.
+                  // ModelTabBody owns the scroll RAF; it has visibility into
+                  // when openSection has been applied, which PreAnalysisPanel
+                  // does not.
                   useUIStore.getState().requestModelTabSection('relationships')
                   useUIStore.getState().setActiveOutputTab('diagnostics')
                 }
