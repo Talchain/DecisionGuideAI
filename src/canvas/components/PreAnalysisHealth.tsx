@@ -257,10 +257,10 @@ export function PreAnalysisHealth({
               {isAnalyzing ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin inline mr-1.5" />
-                  Analysing...
+                  Running analysis…
                 </>
               ) : (
-                'Analyse now'
+                'Run analysis'
               )}
             </button>
           </div>

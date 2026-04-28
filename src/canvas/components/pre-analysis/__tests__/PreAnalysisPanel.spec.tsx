@@ -301,17 +301,17 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse now')
+      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Run analysis')
     })
 
-    it('shows "Analyse now" when ready regardless of readiness score', () => {
+    it('shows "Run analysis" when ready regardless of readiness score', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, hasBlockers: false }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Analyse now')
+      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Run analysis')
     })
 
-    it('shows "Analyse now" CTA (disabled, aria-label signals blockers) when has blockers', () => {
+    it('shows "Run analysis" CTA (disabled, aria-label signals blockers) when has blockers', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -328,14 +328,14 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /address issues/i })).toHaveTextContent('Analyse now')
+      expect(screen.getByRole('button', { name: /address issues/i })).toHaveTextContent('Run analysis')
     })
 
-    it('shows "Analysing..." when isAnalysing is true', () => {
+    it('shows "Running analysis…" when isAnalysing is true', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} isAnalysing={true} />)
-      expect(screen.getByRole('button', { name: /analysis in progress/i })).toHaveTextContent('Analysing...')
+      expect(screen.getByRole('button', { name: /analysis in progress/i })).toHaveTextContent('Running analysis…')
     })
 
     it('calls onAnalyse when button is clicked', () => {
@@ -353,7 +353,7 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByRole('button', { name: /address issues/i })).toBeDisabled()
     })
 
-    it('shows "Analyse now" CTA (disabled) when isReady=false and hasBlockers=false', () => {
+    it('shows "Run analysis" CTA (disabled) when isReady=false and hasBlockers=false', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: false,
@@ -367,7 +367,7 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       const button = screen.getByRole('button', { name: /analysis not ready/i })
-      expect(button).toHaveTextContent('Analyse now')
+      expect(button).toHaveTextContent('Run analysis')
       expect(button).toBeDisabled()
     })
   })
@@ -698,9 +698,9 @@ describe('PreAnalysisPanel', () => {
       // ModelHealthCard renders — status moved to footer
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
 
-      // Button should be enabled (CTA adapts to readiness: "Analyse now" or "Analyse anyway")
+      // Button should be enabled (CTA adapts to readiness: "Run analysis" or "Analyse anyway")
       const button = screen.getByRole('button', { name: /run analysis/i })
-      expect(button).toHaveTextContent('Analyse now')
+      expect(button).toHaveTextContent('Run analysis')
       expect(button).not.toBeDisabled()
     })
   })
@@ -964,7 +964,7 @@ describe('PreAnalysisPanel', () => {
 
       // Footer should show "Ready" not "Blocked" — CTA adapts to readiness
       const footer = screen.getByTestId('sticky-footer')
-      expect(footer).toHaveTextContent(/Analyse (now|anyway)/)
+      expect(footer).toHaveTextContent(/Run analysis|Analyse anyway/)
     })
   })
 

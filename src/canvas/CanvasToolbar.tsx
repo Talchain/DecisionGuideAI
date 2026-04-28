@@ -330,7 +330,7 @@ export function CanvasToolbar() {
               onClick={runMode === 'goal' ? () => setShowGoalPanel(true) : handleRunAnalysis}
               disabled={isRunning || validationErrors.length > 0}
               className={`px-3 py-1.5 ${typography.label} text-text-on-color bg-info-500 hover:bg-info-600 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-info-500 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed`}
-              title={validationErrors.length > 0 ? "Fix issues to run" : isRunning ? "Analysis in progress..." : runMode === 'goal' ? "Set Goal" : "Run Analysis (⌘R)"}
+              title={validationErrors.length > 0 ? "Fix issues to run" : isRunning ? "Analysis in progress…" : runMode === 'goal' ? "Set Goal" : "Run analysis (⌘R)"}
               aria-label={validationErrors.length > 0 ? "Cannot run - fix validation issues first" : isRunning ? "Analysis running - please wait" : runMode === 'goal' ? "Open goal mode" : "Run analysis on current graph"}
               data-testid="btn-run-analysis"
             >

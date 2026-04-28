@@ -177,6 +177,8 @@ describe('Debug Bundle V1.5', () => {
       rendered_factors: null,
       analysis_status_displayed: 'complete',
       hero_headline_displayed: 'Plan A is recommended',
+      analysis_display_state: 'complete',
+      analysis_display_headline: 'Analysis complete',
     }
     const bundle = buildDebugBundle(makeDebugData(), { displayState })
     expect(bundle.display_state).toEqual(displayState)
@@ -482,6 +484,8 @@ describe('Debug Bundle V1.5', () => {
       rendered_factors: null,
       analysis_status_displayed: 'complete',
       hero_headline_displayed: 'Plan A is recommended',
+      analysis_display_state: 'complete',
+      analysis_display_headline: 'Analysis complete',
     }
     const orchestratorData = {
       turn_count: 3,

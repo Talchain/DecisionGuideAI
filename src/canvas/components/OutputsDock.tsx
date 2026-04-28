@@ -1621,7 +1621,7 @@ export function OutputsDock() {
                     statusIconClassName={postRunFooter.iconClass}
                     statusText={postRunFooter.label}
                     metaText={postRunMetaText}
-                    actionLabel={isRunning ? 'Analysing...' : 'Rerun analysis'}
+                    actionLabel={isRunning ? 'Running analysis…' : 'Rerun analysis'}
                     onAction={handleRunAnalysis}
                     actionDisabled={isRunning || !canRunAnalysis}
                     actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}

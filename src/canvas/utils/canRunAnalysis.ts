@@ -187,26 +187,27 @@ export function getRunButtonTooltip(result: CanRunAnalysisResult): string | unde
  */
 export function getRunButtonAriaLabel(result: CanRunAnalysisResult, isRunning: boolean): string {
   if (isRunning) {
-    return 'Analysis running...'
+    return 'Analysis running…'
   }
   if (!result.allowed) {
-    return `Run Analysis (blocked: ${result.reason || 'issues need to be resolved'})`
+    return `Run analysis (blocked: ${result.reason || 'issues need to be resolved'})`
   }
-  return 'Run Analysis'
+  return 'Run analysis'
 }
 
 /**
- * Get the button label based on graph state
- * Brief: Show "Fix issues" when blocked, "Analyse now" otherwise
+ * Get the button label based on graph state.
+ * Standardised to "Run analysis" sentence-case across all CTAs (matches
+ * useAnalysisDisplayState helper output and CanvasToolbar tooltip).
  */
 export function getRunButtonLabel(result: CanRunAnalysisResult, isRunning: boolean): string {
   if (isRunning) {
-    return 'Analysing...'
+    return 'Running analysis…'
   }
   if (!result.allowed && result.blockingReasons && result.blockingReasons.length > 0) {
     return 'Fix issues'
   }
-  return 'Analyse now'
+  return 'Run analysis'
 }
 
 // =============================================================================

@@ -370,6 +370,9 @@ describe('InputsDock DOM', () => {
         currentScenarioLastResultHash: null,
         currentScenarioLastRunAt: null,
         currentScenarioLastRunSeed: null,
+        // Empty-state copy is now sourced from useAnalysisDisplayState; with
+        // CEE marking the model ready, the helper yields "Ready to analyse".
+        ceeAnalysisReady: { status: 'ready' } as any,
       } as any)
 
       render(<InputsDock />, { wrapper: createTestWrapper() })
@@ -377,7 +380,6 @@ describe('InputsDock DOM', () => {
 
       const emptySummary = screen.getByTestId('scenario-run-summary-empty')
       expect(emptySummary).toBeInTheDocument()
-      // Phase 3: Updated to actionable empty state text
       expect(emptySummary).toHaveTextContent('Ready to analyse')
     })
 

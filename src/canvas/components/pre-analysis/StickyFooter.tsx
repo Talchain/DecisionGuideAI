@@ -18,6 +18,7 @@
 import { CheckCircle, XCircle, Loader2, AlertTriangle } from 'lucide-react'
 import { Tooltip } from '../Tooltip'
 import { AnalysisFooter } from '../../shared/AnalysisFooter'
+import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
 
 /** Derive source distribution tooltip from raw counts */
 function getReviewedTooltip(nonAiCount?: number, totalCount?: number): string {
@@ -120,10 +121,25 @@ export function StickyFooter({
     </Tooltip>
   ) : undefined
 
-  // CTA label — always "Analyse now"
-  const ctaLabel = isAnalysing
-    ? 'Analysing...'
-    : 'Analyse now'
+  // CTA label, variant, and accessible name sourced from the canonical
+  // helper so 'results_stale' renders an outlined "Rerun analysis" (secondary
+  // per brief Task 4) and 'ready_to_analyse' / anything-else renders the
+  // primary "Run analysis". The aria-label mirrors the visible label so
+  // assistive tech announces the action the user actually sees.
+  const view = useAnalysisDisplayState()
+  const baseLabel = view.cta?.label ?? 'Run analysis'
+  const ctaLabel = isAnalysing ? 'Running analysis…' : baseLabel
+  const actionVariant = view.cta?.kind ?? 'primary'
+
+  const actionAriaLabel = isRetrying
+    ? 'Draft update in progress'
+    : isAnalysing
+      ? 'Analysis in progress'
+      : hasBlockers
+        ? `Address issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
+        : !isReady
+          ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
+          : baseLabel  // mirror visible label: 'Run analysis' or 'Rerun analysis'
 
   return (
     <AnalysisFooter
@@ -135,17 +151,8 @@ export function StickyFooter({
       onAction={onAnalyse}
       actionDisabled={isDisabled}
       actionLoading={isAnalysing || isRetrying}
-      actionAriaLabel={
-        isRetrying
-          ? 'Draft update in progress'
-          : isAnalysing
-            ? 'Analysis in progress'
-            : hasBlockers
-              ? `Address issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
-              : !isReady
-                ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
-                : 'Run analysis'
-      }
+      actionAriaLabel={actionAriaLabel}
+      actionVariant={actionVariant}
       actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
         ? (blockedReason || 'Address required items before analysing')
         : 'Run 1,000 Monte Carlo simulations with uncertainty margins to compare your options'}
