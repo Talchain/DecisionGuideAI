@@ -11,7 +11,7 @@
 | # | Deliverable | Status | Notes |
 |---|---|---|---|
 | D1 | Precondition baseline | **Done — close-out ship-readiness conditional on Paul's halt waiver (see "CI status" below)** | Branch + baseline doc + CI status (failure on `.nvmrc` step, full suite skipped, pre-existing infrastructure) + noise inventory + stash count. Brief STOP #1 strict reading would block; relief requires explicit waiver |
-| D2 | MissingKnowledgePrompt dependency inversion | **Partially done — file in scope verified intact; broader gate NOT met** | `aiAffordance?: ReactNode` prop intact in `MissingKnowledgePrompt.tsx`; both consumers pass it correctly; 9/9 tests pass. **Brief D2 acceptance bullet 1 ("ALL shared components" `rg "from '@/canvas" src/components/shared/` → zero) is unmet**: 8 hits across 4 other shared files remain. Scoped out of this brief per the file-named "Files in scope" line, but the deliverable is honestly partial, not complete |
+| D2 | Shared/canvas dependency inversion (full) | **Done — broader gate now zero** | Originally limited to MissingKnowledgePrompt verification (intact, 9/9 tests pass). Paul approved expanding scope to the four remaining violators: `TriageHealthHeader` (DecisionHealthRing relocated to shared), `ScientificEditor` (ValidationMetadata → `@/types/validation`, classifyUnit → `@/utils/unitClassifier`), `TriageCard` (DiscussWithAiButton inverted via `aiDiscussSlot?: ReactNode` prop pattern; classifyUnit relocated), `TriageCard.spec.tsx` (useGuidanceStore replaced by lightweight stub matching the real `data-testid`). External consumer tests pass — 157 tests across 9 files (PreAnalysisPanel, brief57, contestedCards, MissingKnowledgePrompt, mapImprovementToTriageCard, pickStartHere, sectionCoaching, buildTriageNarrative, resolveEditorRawValue) |
 | D3 | Pre-existing lint noise | Done | Two TODOs converted to plain comments; `(window as any).__OLUMI_DEBUG` cast removed (Window augmentation now in `src/types/global.d.ts`, moved out of DebugPanel.tsx in this turn per reviewer Improvement #2); gated console.warn kept with comment; PreAnalysisPanel debug already clean |
 | D4 | Stash list cleanup | Deferred — approval requested | 17 drops from approved Brief 5.5 triage refreshed with current indices in `docs/brief-5_7-closeout-stash-triage.md`. **Plus a separate addendum** with 1 new candidate (the Brief 5.7 layout WIP stash, now redundant) requesting its own approval |
 | D5 | Final pass + final-review doc | Done | This file |
@@ -56,7 +56,7 @@ Reproduction commands recorded verbatim so future reviewers can run the same che
 | Scoped vitest skipped | (same command) | 13 | 13 | unchanged |
 | Scoped vitest failed | (same command) | 0 | **0** | PASS |
 | MissingKnowledgePrompt dep | `rg "from '@/canvas" src/components/shared/MissingKnowledgePrompt.tsx` | zero | **zero** | PASS |
-| Broader shared dep gate | `rg "from '@/canvas" src/components/shared/` | 8 | 8 | **D2 ACCEPTANCE NOT MET** — 4 files remain (TriageHealthHeader, ScientificEditor, TriageCard, TriageCard test); flagged as separate follow-up |
+| Broader shared dep gate | `rg "from '@/canvas" src/components/shared/` | 8 | **0** | PASS — all four violators inverted in this push |
 
 ### Brief 5.5 §2.8 grep gates (re-run)
 
@@ -99,8 +99,8 @@ Gate 3 is honestly recorded as "not re-run" rather than rolled into the "all zer
 ### 1. CI `.nvmrc` Node setup failure
 Pre-existing infrastructure issue blocking the full test suite from running on every staging push. Requires investigating action version, runner image, or `.nvmrc` content drift. **High priority** — without this fix, no staging push runs the full ~6,284-test suite.
 
-### 2. Four additional shared/canvas dependency violations
-Beyond MissingKnowledgePrompt, four other shared files still import from `@/canvas/`:
+### 2. Four additional shared/canvas dependency violations — **RESOLVED in this push**
+The violators below were all inverted in the same commit as this update. Kept here as a resolution log.
 
 | File | Imported from `@/canvas/` |
 |---|---|

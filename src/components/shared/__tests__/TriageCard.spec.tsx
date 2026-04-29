@@ -12,9 +12,13 @@
  */
 
 import { render, screen } from '@testing-library/react'
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { TriageCard } from '../TriageCard'
-import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
+// Brief 5.7 close-out follow-up: test no longer imports from `@/canvas/` so
+// `src/components/shared/` (including its tests) carries zero canvas
+// dependencies. The slot-injection prop pattern means TriageCard does not
+// own the rendered AI-affordance button — consumers do — so the slot test
+// uses a lightweight stub that mirrors the real `data-testid` only.
 
 describe('TriageCard — compact EVPI pp pill (consistency with default variant)', () => {
   it('renders Npp pill in compact variant when evoiImpact is provided', () => {
@@ -224,15 +228,13 @@ describe('TriageCard — compact variant subtitle (P1.4)', () => {
   })
 })
 
-describe('TriageCard — AI affordance count (UI-BUG-5)', () => {
-  beforeEach(() => {
-    useGuidanceStore.setState({ _sendMessage: vi.fn() })
-  })
-  afterEach(() => {
-    useGuidanceStore.setState({ _sendMessage: null, _prefillChat: null })
-  })
+describe('TriageCard — AI affordance slot (UI-BUG-5)', () => {
+  // Stub stand-in for the real DiscussWithAiButton. The behaviour of record
+  // at this layer is "TriageCard renders the slot exactly once where provided",
+  // not the button's own behaviour (covered by canvas-side tests).
+  const DiscussStub = () => <button type="button" data-testid="discuss-with-ai">Discuss</button>
 
-  it('renders exactly one Discuss-with-AI button per card when aiDiscuss is set', () => {
+  it('renders the slot exactly once when aiDiscussSlot is provided', () => {
     render(
       <TriageCard
         cardKey="k1"
@@ -243,18 +245,18 @@ describe('TriageCard — AI affordance count (UI-BUG-5)', () => {
         category="verify"
         action={{ kind: 'confirm', label: 'Confirm', targetId: 'n1', targetType: 'node' }}
         sourcePill={{ label: 'AI estimate', borderClass: 'border-info/30' }}
-        aiDiscuss={{ kind: 'factor', label: 'Customer Satisfaction' }}
+        aiDiscussSlot={<DiscussStub />}
         onConfirm={() => {}}
         onEdit={() => {}}
         onSendMessage={() => {}}
       />,
     )
-    // The only AI affordance on a triage card is the bottom-right sparkle.
-    // Guards against regressing a second top-right sparkle badge.
+    // Only one AI affordance per card. Guards against regressing a second
+    // top-right sparkle badge.
     expect(screen.getAllByTestId('discuss-with-ai')).toHaveLength(1)
   })
 
-  it('renders zero Discuss-with-AI buttons when aiDiscuss is absent', () => {
+  it('renders zero AI affordance buttons when aiDiscussSlot is absent', () => {
     render(
       <TriageCard
         cardKey="k1"

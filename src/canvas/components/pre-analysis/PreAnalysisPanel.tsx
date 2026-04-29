@@ -1591,7 +1591,7 @@ export function PreAnalysisPanel({
                       action={card.action}
                       editorConfig={card.editorConfig ?? null}
                       sourcePill={card.sourcePill}
-                      aiDiscuss={card.aiDiscuss}
+                      aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
                       onConfirm={handleConfirm}
                       onEdit={handleSetValueForGap}
                       onSendMessage={onSendMessage}
@@ -1690,7 +1690,10 @@ export function PreAnalysisPanel({
                       action={startHereSignal.card.action}
                       editorConfig={(startHereSignal.card as { editorConfig?: ScientificEditorProps | null }).editorConfig ?? null}
                       sourcePill={startHereSignal.card.sourcePill}
-                      aiDiscuss={(startHereSignal.card as { aiDiscuss?: AiDiscussElement }).aiDiscuss}
+                      aiDiscussSlot={(() => {
+                        const el = (startHereSignal.card as { aiDiscuss?: AiDiscussElement }).aiDiscuss
+                        return el ? <DiscussWithAiButton element={el} /> : undefined
+                      })()}
                       onConfirm={handleConfirm}
                       onEdit={handleSetValueForGap}
                       onSendMessage={onSendMessage}
@@ -1821,7 +1824,7 @@ export function PreAnalysisPanel({
                         action={card.action}
                         editorConfig={card.editorConfig ?? null}
                         sourcePill={card.sourcePill}
-                        aiDiscuss={card.aiDiscuss}
+                        aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
                         onConfirm={handleConfirm}
                         onEdit={handleSetValueForGap}
                         onSendMessage={onSendMessage}
@@ -1952,7 +1955,7 @@ export function PreAnalysisPanel({
                     action={card.action}
                     editorConfig={card.editorConfig ?? null}
                     sourcePill={card.sourcePill}
-                    aiDiscuss={card.aiDiscuss}
+                    aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
                     onConfirm={handleConfirm}
                     onEdit={handleSetValueForGap}
                     onSendMessage={onSendMessage}
@@ -1983,7 +1986,7 @@ export function PreAnalysisPanel({
                     action={card.action}
                     editorConfig={card.editorConfig ?? null}
                     sourcePill={card.sourcePill}
-                    aiDiscuss={card.aiDiscuss}
+                    aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
                     onConfirm={handleConfirm}
                     onEdit={handleSetValueForGap}
                     onSendMessage={onSendMessage}

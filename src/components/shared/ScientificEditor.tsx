@@ -13,8 +13,8 @@
 import { useState, useCallback, useMemo } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { typography } from '@/styles/typography'
-import type { ValidationMetadata } from '@/canvas/domain/validation'
-import { classifyUnit } from '@/canvas/utils/labelUtils'
+import type { ValidationMetadata } from '@/types/validation'
+import { classifyUnit } from '@/utils/unitClassifier'
 
 // ── Strength band helpers ───────────────────────────────────────────────────
 

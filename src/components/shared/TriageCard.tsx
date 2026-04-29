@@ -9,16 +9,14 @@
  * - 'compact': Quick-fix row (borderless, multi-row, rank 4-6 items)
  */
 
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, type ReactNode } from 'react'
 import { Check, Pencil } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
 import type { ScientificEditorProps } from './ScientificEditor'
 import { ExpandableCoachingText } from './ExpandableCoachingText'
 import Tooltip from '@/components/Tooltip'
-import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
-import type { AiDiscussElement } from '@/canvas/components/pre-analysis/buildAiDiscussPrompt'
-import { classifyUnit } from '@/canvas/utils/labelUtils'
+import { classifyUnit } from '@/utils/unitClassifier'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -70,12 +68,14 @@ export interface TriageCardProps {
   /** Edge strength quick-select (edge cards only) */
   onUpdateEdgeStrength?: (edgeId: string, value: number) => void
   /**
-   * P1-2: Optional "Discuss with AI" element. When provided, renders a small
-   * sparkle button in the card's bottom-right that pre-fills chat with a
-   * contextual prompt. Only honoured by the default variant (compact rows
-   * keep their original layout).
+   * Optional "Discuss with AI" affordance. Brief 5.7 close-out follow-up:
+   * the prop is now a `ReactNode` slot rather than an `AiDiscussElement`
+   * so this shared component does not depend on the canvas-side
+   * `DiscussWithAiButton`. Each consumer constructs its own button (or any
+   * other affordance) and passes it in. Anchored bottom-right of the card,
+   * only honoured by the default variant.
    */
-  aiDiscuss?: AiDiscussElement
+  aiDiscussSlot?: ReactNode
   /**
    * Override the ordinal badge fill colour (e.g. "bg-info", "bg-factor").
    * Defaults to BADGE_COLORS[category] when omitted.
@@ -285,7 +285,7 @@ function InlineValueControls({
 
 // ── Compact variant (quick-fix rows, ranks 4-6) ─────────────────────────────
 
-function CompactTriageCard({ title, ordinal, category, badgeColor, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onSendMessage, onUpdateEdgeStrength, sourcePill, subtitle }: TriageCardProps) {
+function CompactTriageCard({ title, ordinal, category, badgeColor, influence, evoiImpact, onHoverEnter, onHoverLeave, action, onConfirm, onEdit, onUpdateEdgeStrength, sourcePill, subtitle }: TriageCardProps) {
   const influencePct = influence != null ? Math.round(influence * 100) : null
   const resolvedBadgeColor = badgeColor ?? BADGE_COLORS[category]
   const isEdge = action?.targetType === 'edge'
@@ -401,11 +401,10 @@ export function TriageCard(props: TriageCardProps) {
     sourcePill,
     onConfirm,
     onEdit,
-    onSendMessage,
     onHoverEnter,
     onHoverLeave,
     onUpdateEdgeStrength,
-    aiDiscuss,
+    aiDiscussSlot,
   } = props
 
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -531,12 +530,13 @@ export function TriageCard(props: TriageCardProps) {
         </>
       )}
 
-      {/* P1-2: Discuss-with-AI sparkle, anchored bottom-right of the card.
-          Visually secondary (14px, text-text-light → text-info on hover) and
-          smaller than the 16px primary action icons in InlineValueControls. */}
-      {aiDiscuss && (
+      {/* Discuss-with-AI affordance, anchored bottom-right of the card.
+          Brief 5.7 close-out follow-up: now a slot — consumers pass the
+          rendered element so this shared component does not depend on
+          canvas's DiscussWithAiButton. */}
+      {aiDiscussSlot && (
         <div className="absolute bottom-1 right-1">
-          <DiscussWithAiButton element={aiDiscuss} />
+          {aiDiscussSlot}
         </div>
       )}
     </div>

@@ -8,7 +8,7 @@
 import { memo, useMemo } from 'react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { TriageDimension } from '@/components/shared/TriageHealthHeader'
-import type { DecisionHealthRingDimensions } from './DecisionHealthRing'
+import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
 import { typography } from '@/styles/typography'
 
 interface ModelHealthCardProps {

@@ -268,88 +268,24 @@ export function qualitativeTierLabel(value: number): string {
  *     behaviour (CHF renders as a trailing span, not an inline prefix).
  *     This is a structural UX choice, not a tech-debt scatter — leave it.
  */
-export const GENERIC_PLACEHOLDER_UNITS: ReadonlySet<string> = new Set([
-  'scale', 'index', 'score', 'normalised', 'normalized', 'norm', 'unit', 'units',
-])
+// Brief 5.7 close-out follow-up: the unit-classification primitives moved to
+// `@/utils/unitClassifier` (a neutral, non-canvas location) so shared
+// components can consume them without depending on the canvas layer. The
+// re-exports below preserve every existing canvas import path so canvas
+// consumers do not change.
+export {
+  GENERIC_PLACEHOLDER_UNITS,
+  CURRENCY_SYMBOLS,
+  ISO_CURRENCY_CODES,
+  classifyUnit,
+} from '@/utils/unitClassifier'
+export type { UnitClass } from '@/utils/unitClassifier'
+
+import { GENERIC_PLACEHOLDER_UNITS, classifyUnit } from '@/utils/unitClassifier'
 
 function isGenericPlaceholderUnit(unit: string | null | undefined): boolean {
   if (unit == null) return false
   return GENERIC_PLACEHOLDER_UNITS.has(unit.toLowerCase().trim())
-}
-
-/**
- * Currency glyphs that prefix the number with NO space (e.g. "£49", "$500").
- * Single-char symbols only. Multi-char ISO codes live in ISO_CURRENCY_CODES.
- *
- * Polish 4 follow-up: CHF / kr / R$ used to live in this set — they were
- * technically detected but the no-space prefix formatting was wrong for
- * multi-char codes ("CHF500" looked off). They moved to ISO_CURRENCY_CODES
- * which renders them as space-separated prefix ("CHF 500").
- */
-export const CURRENCY_SYMBOLS: ReadonlySet<string> = new Set([
-  '£', '$', '€', '¥', '₹', '₩', '₽', '฿', '₫', '₪', '₴', '₸', '₺', '₼', '₾',
-])
-
-/**
- * ISO currency codes that prefix the number WITH a space (e.g. "CHF 500",
- * "USD 1,200"). Single source of truth for both labelUtils and model-tab/utils.
- */
-export const ISO_CURRENCY_CODES: ReadonlySet<string> = new Set([
-  'USD', 'GBP', 'EUR', 'JPY', 'INR', 'KRW', 'RUB', 'TRY', 'UAH', 'NGN', 'VND', 'BTC',
-  'CHF', 'CAD', 'AUD', 'NZD', 'HKD', 'SGD', 'SEK', 'NOK', 'DKK', 'PLN', 'CZK',
-  'HUF', 'RON', 'BGN', 'HRK', 'MXN', 'BRL', 'ARS', 'CLP', 'COP', 'PEN', 'ZAR',
-  'EGP', 'AED', 'SAR', 'QAR', 'ILS', 'THB', 'MYR', 'IDR', 'PHP', 'PKR', 'BDT', 'LKR',
-  // Non-standard labels that behave like ISO codes for display purposes.
-  'kr', 'R$',
-])
-
-/**
- * Unit classification used by every value formatter in this file.
- *
- * Polish 4 review follow-up: previously each formatter called `.has(unit)`
- * directly on CURRENCY_SYMBOLS / ISO_CURRENCY_CODES / GENERIC_PLACEHOLDER_UNITS,
- * which made currency detection case- and whitespace-sensitive — `'chf'` or
- * `' CHF '` would fall through to the generic suffix path and render as
- * "1200 chf" instead of "CHF 1,200". Routing every formatter through this
- * single helper gives us normalisation in one place.
- *
- * Returns:
- *   - 'none'        — unit is null / undefined / empty after trim
- *   - 'symbol'      — single-char currency glyph (£, $, €, …)
- *   - 'iso'         — multi-char ISO code or ISO-ish label (CHF, USD, kr, R$)
- *   - 'percent'     — '%'
- *   - 'placeholder' — generic placeholder (scale, index, score, …)
- *   - 'other'       — a real unit that should render as a trailing suffix
- *                     (engineers, months, FTE, …)
- *
- * Lookup order: none → symbol (exact) → iso (case-insensitive for 3-letter
- * ISO codes; exact for non-ISO labels like 'kr' / 'R$') → percent →
- * placeholder → other.
- */
-export type UnitClass = 'none' | 'symbol' | 'iso' | 'percent' | 'placeholder' | 'other'
-
-export function classifyUnit(unit: string | null | undefined): { kind: UnitClass; canonical: string } {
-  if (unit == null) return { kind: 'none', canonical: '' }
-  const trimmed = unit.trim()
-  if (!trimmed) return { kind: 'none', canonical: '' }
-
-  // Symbol match first — single-char glyphs are case-sensitive (£/$/€ don't
-  // have "upper/lowercase" versions anyway).
-  if (CURRENCY_SYMBOLS.has(trimmed)) return { kind: 'symbol', canonical: trimmed }
-
-  // ISO code match — try the raw form first (preserves 'kr' / 'R$' labels),
-  // then the uppercase form (so 'chf' / 'usd' work too).
-  if (ISO_CURRENCY_CODES.has(trimmed)) return { kind: 'iso', canonical: trimmed }
-  const upper = trimmed.toUpperCase()
-  if (ISO_CURRENCY_CODES.has(upper)) return { kind: 'iso', canonical: upper }
-
-  if (trimmed === '%') return { kind: 'percent', canonical: '%' }
-
-  if (GENERIC_PLACEHOLDER_UNITS.has(trimmed.toLowerCase())) {
-    return { kind: 'placeholder', canonical: trimmed }
-  }
-
-  return { kind: 'other', canonical: trimmed }
 }
 
 /**

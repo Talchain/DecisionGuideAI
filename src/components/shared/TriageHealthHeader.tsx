@@ -12,8 +12,8 @@
 
 import { useState, memo } from 'react'
 import { X, Info } from 'lucide-react'
-import { DecisionHealthRing } from '@/canvas/components/pre-analysis/DecisionHealthRing'
-import type { DecisionHealthRingDimensions } from '@/canvas/components/pre-analysis/DecisionHealthRing'
+import { DecisionHealthRing } from '@/components/shared/DecisionHealthRing'
+import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
 import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { evaluativeVar } from '@/styles/evaluative'
