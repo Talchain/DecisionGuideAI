@@ -26,11 +26,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { DebugPanelV2 } from './debug/DebugPanelV2'
 
-declare global {
-  interface Window {
-    __OLUMI_DEBUG?: boolean
-  }
-}
+// Window.__OLUMI_DEBUG augmentation moved to src/types/global.d.ts in Brief
+// 5.7 close-out follow-up so it is no longer co-located with this component.
 
 /**
  * Check if debug panel should be visible

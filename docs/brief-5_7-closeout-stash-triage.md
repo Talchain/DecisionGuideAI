@@ -12,11 +12,13 @@ The stash table from `docs/brief-5_5-closeout-stash-triage.md` recommended **17 
 - One new entry was added during Brief 5.7 (`stash@{0}: 5.7-pre: layout WIP`). The layout WIP it preserved subsequently **landed on staging as commit `cbba3821`**, so this entry is now also redundant.
 - All 27 prior entries shifted by +1 in the stash index space.
 
-This doc presents the recommended drop list using **current indices**, so the drop commands can be run as-is.
+The brief D4 scope is the original 17 drops only. The new entry is presented separately as an addendum requesting its own approval, so the original triage is not silently expanded mid-flight.
 
 ---
 
-## Recommended drops — 18 entries (was 17 + new `{0}`)
+## Section A — Original 17 drops from approved Brief 5.5 triage (current indices)
+
+Brief 5.5 close-out approved these as drop candidates. Indices below are the **current** state (offset +1 from the 5.5 doc due to the new `stash@{0}` entry).
 
 Drop highest index first to avoid mid-operation index shifting.
 
@@ -39,7 +41,16 @@ Drop highest index first to avoid mid-operation index shifting.
 | `{5}` | `{4}` | staging | unrelated: OutputsDock + results changes from other session | Explicitly "other session unrelated"; 24 days old |
 | `{3}` | `{2}` | staging | pre-investigation tracked changes | .gitignore + generated file; superseded |
 | `{1}` | `{0}` | staging | WIP: SeverityStyledCritiques test text update | 1-line test diagnostic; 8 days old at time of triage, now ~3 weeks |
-| `{0}` | (new — 5.7) | staging | 5.7-pre: layout WIP | **NEW**: layout work landed on staging as `cbba3821`. Stash now redundant. |
+
+---
+
+## Section B — Addendum: 1 new drop candidate (NOT in the original 17)
+
+This entry was added during Brief 5.7 and is **not** part of the Brief 5.5 approved triage. It is presented separately so the original 17 stay intact.
+
+| Current index | Branch | Message | Disposition rationale |
+|---:|---|---|---|
+| `{0}` | staging | 5.7-pre: layout WIP | The layout WIP it preserved landed on staging as `cbba3821`. The stash is now redundant. **Requires its own approval, separate from Section A.** |
 
 ---
 
@@ -62,9 +73,13 @@ These are NOT in scope for this brief. Reproduced for traceability.
 
 ---
 
-## Drop sequence (when approval is given)
+## Drop sequences (when approval is given)
 
-Execute from highest index to lowest. Safe to run as one block — each drop only affects its own index, and earlier indices shift downward only AFTER the drop completes, so by the time we reach lower numbers their indices are still as listed because we processed them last:
+**The Section A and Section B sequences are independent.** Run only the section(s) Paul approves.
+
+### Section A — original 17-drop sequence (approved-triage scope)
+
+Execute from highest index to lowest. The `{0}` entry from Section B is intentionally NOT included; if approved separately, run that drop AFTER Section A completes (its index does not shift because everything dropped here is at a higher index).
 
 ```bash
 # Highest index first to avoid index shifting
@@ -85,15 +100,27 @@ git stash drop stash@{6}   # staging pre-analysis + UI
 git stash drop stash@{5}   # staging OutputsDock + results
 git stash drop stash@{3}   # staging pre-investigation
 git stash drop stash@{1}   # staging SeverityStyledCritiques 1-line
-git stash drop stash@{0}   # 5.7-pre: layout WIP (now redundant)
 ```
 
-After execution, the stash list should drop from 28 → 10 entries.
+After Section A: stash list 28 → 11 entries.
+
+### Section B — addendum drop (separate approval)
+
+```bash
+git stash drop stash@{0}   # 5.7-pre: layout WIP (now redundant after cbba3821 landed on staging)
+```
+
+If both Section A AND Section B are approved, run Section A first, then Section B (Section B's `{0}` index is unaffected because A drops are all at higher indices). Final stash list 28 → 10 entries.
 
 ---
 
 ## Approval requested
 
-**Paul:** please confirm whether to execute the 18 drops above. The drops are reversible only via `git stash` history within ~30 days (gc.reflogExpire), so this is a one-shot operation. Once dropped, the stashes cannot be recovered without dredging the reflog.
+**Paul:** the drops are reversible only via `git stash` reflog history within ~30 days (`gc.reflogExpire`); after that, the stashes cannot be recovered.
+
+Two independent approvals are sought:
+
+1. **Section A — original 17 drops from the Brief 5.5 approved triage.** Pure execution of work you already approved.
+2. **Section B — 1 new drop candidate** (`stash@{0}: 5.7-pre: layout WIP`), added by Brief 5.7. Not in the original triage. Approve only if you agree the layout WIP is now redundant.
 
 Per brief D4: this deliverable defers cleanly when approval is not given in this turn. Dropping deferred to a follow-up; this brief commits the documentation only.
