@@ -133,6 +133,30 @@ export function shouldSuppressBiasFinding(
 }
 
 /**
+ * Brief 5.7 D7: AI-estimated improvement items should already carry a confirm
+ * action from `usePreAnalysisData` (the cee_inference branch attaches one).
+ * Augment defensively — symmetric with the missing-data path — so any item
+ * that arrives without an action still renders the Confirm chip plus the
+ * inline editor (mapItem attaches editorConfig when action.kind === 'confirm'
+ * and focus.id is present).
+ *
+ * Items already carrying an `action` pass through unchanged. Items lacking a
+ * focus.id pass through unchanged (no valid target to confirm against).
+ *
+ * Exported for unit testing.
+ */
+export function augmentAiEstimatedItemWithConfirm<
+  T extends { action?: unknown; focus?: { id?: string; type?: string; label?: string } | null },
+>(item: T): T {
+  if (item.action) return item
+  if (!item.focus?.id) return item
+  return {
+    ...item,
+    action: { kind: 'confirm' as const, label: 'Confirm', targetId: item.focus.id, targetType: 'node' as const },
+  }
+}
+
+/**
  * Permissive shape for CEE bias findings. The CEEBiasFinding TypeScript type
  * lags the runtime shape — newer CEE responses include `code`, `explanation`,
  * `category`, and `micro_intervention` fields that are not in the type. We
@@ -1168,7 +1192,8 @@ export function PreAnalysisPanel({
     const extras: ReturnType<typeof mapItem>[] = []
     for (const item of groups.aiEstimated) {
       if (item.focus?.id && existingIds.has(item.focus.id)) continue
-      extras.push(mapItem(item))
+      // Brief 5.7 D7: defensive augmentation. See augmentAiEstimatedItemWithConfirm.
+      extras.push(mapItem(augmentAiEstimatedItemWithConfirm(item)))
     }
     for (const item of groups.missingData) {
       if (item.focus?.id && existingIds.has(item.focus.id)) continue
