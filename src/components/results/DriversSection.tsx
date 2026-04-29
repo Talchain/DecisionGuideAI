@@ -166,13 +166,15 @@ function ContestedDriverQuickSelect({ driver }: { driver: DriverItem }) {
   const handlePresetClick = useCallback((index: number) => {
     setSelectedIndex(index)
     setCustomValue(String(Math.round(CONTESTED_PRESETS[index].value * 100)))
-    // TODO: wire to edge update in future
+    // Local UI selection only — contested-driver presets do not yet propagate
+    // to the edge store. Tracked separately as a future feature.
   }, [])
 
   const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
     setSelectedIndex(null)
     setCustomValue(e.target.value)
-    // TODO: wire to edge update in future
+    // Local UI value only — contested-driver custom value does not yet
+    // propagate to the edge store. Tracked separately as a future feature.
   }, [])
 
   return (
@@ -687,9 +689,13 @@ export function DriversSection({
   const { drivers, driversStatus, hasMagnitudeData, islError, hiddenZeroImpactCount } = data
 
 
-  // Diagnostic logging for data issues (debug mode only)
+  // Diagnostic logging for data issues. Gated on the runtime debug flag
+  // (`window.__OLUMI_DEBUG = true` from the browser console) so the warning
+  // never reaches a production user. The Window augmentation that declares
+  // this flag lives in `src/components/DebugPanel.tsx` (`declare global`),
+  // so no cast is needed here.
   useEffect(() => {
-    if (typeof window !== 'undefined' && (window as any).__OLUMI_DEBUG && drivers.length > 0) {
+    if (typeof window !== 'undefined' && window.__OLUMI_DEBUG && drivers.length > 0) {
       console.warn('[DriversSection] Data diagnostic:', {
         driverCount: drivers.length,
         driversStatus,
