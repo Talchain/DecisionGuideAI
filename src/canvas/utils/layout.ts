@@ -108,14 +108,24 @@ export async function layoutGraph(
   // and visual margins. This matches the brief's 85% factor.
   const availableWidth = canvasSize.width * 0.85
 
-  // Solve for ELK box width (content + padding) and gap so the widest tier fits.
+  // Width + horizontal-stride policy (DOWN layouts):
+  //   1. If the widest tier can fit in one row at MIN_NODE_W or wider, every
+  //      node renders at MAX_NODE_W. The tier may overflow the viewport — the
+  //      user can pan. The unclamped solve is used only as a feasibility check,
+  //      not as the rendered width.
+  //   2. If even MIN_NODE_W cannot fit one row, fall back to MIN_NODE_W and
+  //      multi-row split.
+  //   3. Inter-node gap is a single fixed value (effectiveNodeSpacing) for
+  //      every tier — narrower tiers do NOT spread to fill the widest-tier
+  //      footprint. After ELK runs, applyUniformStride re-snaps each
+  //      single-row tier to a strict elkBoxW + gap stride and centres every
+  //      tier on a shared global anchor so adjacent tiers stack vertically
+  //      aligned (see helper for details).
   //
-  // ELK receives elkBoxW = nodeW + sizePaddingX per node.
-  // ELK places N nodes with gap spacing between them:
-  //   N * elkBoxW + (N-1) * gap <= availableWidth
+  // The unclamped feasibility formula is:
+  //   N * elkBoxW + (N-1) * MIN_GAP <= availableWidth
   //   elkBoxW = (availableWidth - (N-1) * MIN_GAP) / N
   //
-  // We solve for elkBoxW directly so the actual ELK footprint matches the budget.
   // nodeW (content width exposed to callers) = elkBoxW - sizePaddingX.
   //
   // When direction != DOWN the widest-tier constraint applies to the X axis for
@@ -131,18 +141,19 @@ export async function layoutGraph(
     const unclampedElkBoxW = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
 
     if (unclampedElkBoxW >= MIN_NODE_W + sizePaddingX) {
-      // Normal case: all nodes fit in one row at the computed width
-      elkBoxW = Math.min(MAX_NODE_W + sizePaddingX, unclampedElkBoxW)
-      gap = maxTierCount > 1
-        ? Math.max(MIN_GAP, Math.floor((availableWidth - maxTierCount * elkBoxW) / (maxTierCount - 1)))
-        : effectiveNodeSpacing
+      // Pin every node to MAX_NODE_W and use a fixed inter-node gap. The tier
+      // may overflow the viewport (user can pan); narrower tiers stay tightly
+      // packed instead of spreading to match the widest tier's footprint.
+      elkBoxW = MAX_NODE_W + sizePaddingX
+      gap = effectiveNodeSpacing
     } else {
-      // Too many nodes: clamp to MIN_NODE_W and use multi-row splitting
+      // Extreme case: even at MIN_NODE_W the row cannot fit. Multi-row split
+      // is preferred over an unbounded overflow because the node count is
+      // high enough that a single panning row becomes hard to navigate. Gap
+      // stays uniform with the rest of the layout.
       elkBoxW = MIN_NODE_W + sizePaddingX
-      nodesPerRow = Math.max(1, Math.floor((availableWidth + MIN_GAP) / (elkBoxW + MIN_GAP)))
-      gap = nodesPerRow > 1
-        ? Math.max(MIN_GAP, Math.floor((availableWidth - nodesPerRow * elkBoxW) / (nodesPerRow - 1)))
-        : MIN_GAP
+      nodesPerRow = Math.max(1, Math.floor((availableWidth + effectiveNodeSpacing) / (elkBoxW + effectiveNodeSpacing)))
+      gap = effectiveNodeSpacing
     }
   } else {
     // Non-DOWN layout or single-node tier: use default sizing
@@ -235,14 +246,17 @@ export async function layoutGraph(
     }
   })
 
+  // Build tier assignments once — used by both multi-row splitting (when it
+  // fires) and the uniform-stride pass below.
+  const tierAssignments = new Map<number, string[]>()
+  for (const node of unlocked) {
+    const t = tierOf(node)
+    if (!tierAssignments.has(t)) tierAssignments.set(t, [])
+    tierAssignments.get(t)!.push(node.id)
+  }
+
   // Apply multi-row splitting when a tier has more nodes than fit in one row
   if (nodesPerRow !== null) {
-    const tierAssignments = new Map<number, string[]>()
-    for (const node of unlocked) {
-      const t = tierOf(node)
-      if (!tierAssignments.has(t)) tierAssignments.set(t, [])
-      tierAssignments.get(t)!.push(node.id)
-    }
     applyTierRowSplitting(
       positionMap,
       sizeMap,
@@ -252,6 +266,16 @@ export async function layoutGraph(
       gap,
       effectiveLayerSpacing
     )
+  }
+
+  // Uniform-stride pass: ELK NETWORK_SIMPLEX placement may spread nodes
+  // unevenly within a tier to align edges with adjacent tiers (e.g. on K(N,M)
+  // bipartite topologies). Re-snap every single-row tier to exactly
+  // elkBoxW + gap stride and align tiers on a shared global anchor so they
+  // stack vertically aligned. Multi-row tiers were already laid out at uniform
+  // stride per row by applyTierRowSplitting, so we skip them here.
+  if (isDownLayout) {
+    applyUniformStride(positionMap, sizeMap, tierAssignments, elkBoxW, gap, nodesPerRow)
   }
 
   // Final safety pass: resolve any residual same-row collisions.
@@ -357,6 +381,66 @@ function applyTierRowSplitting(
     // Extra height added by this tier's row expansion
     const extraH = (rows.length - 1) * (nodeH + subRowSpacing)
     cumulativeExtraY += extraH
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Uniform horizontal stride
+// ---------------------------------------------------------------------------
+// ELK NETWORK_SIMPLEX placement may produce uneven within-tier spacing when
+// it spreads nodes to align with edges in adjacent tiers (e.g. K(N,M)
+// bipartite fan-outs). Re-snap each single-row tier to evenly-spaced
+// positions while preserving ELK's left-to-right ordering (which encodes its
+// crossing-minimisation result). All tiers are centred on a single global
+// anchor (the mean ELK X-centre across every unlocked node) so adjacent
+// tiers stay vertically aligned regardless of their individual node counts.
+// Multi-row tiers are skipped because applyTierRowSplitting has already laid
+// them out at uniform stride per row.
+function applyUniformStride(
+  positionMap: Map<string, { x: number; y: number }>,
+  sizeMap: Map<string, { width: number; height: number }>,
+  tierAssignments: Map<number, string[]>,
+  elkBoxW: number,
+  gap: number,
+  nodesPerRow: number | null,
+): void {
+  const stride = elkBoxW + gap
+
+  // Global anchor: mean X-centre across every node currently in positionMap.
+  // Falls back to 0 (matches ELK's typical layout origin) when the map is
+  // empty, which only happens on degenerate input.
+  let totalCentre = 0
+  let counted = 0
+  for (const id of positionMap.keys()) {
+    const p = positionMap.get(id)
+    if (!p) continue
+    const w = sizeMap.get(id)?.width ?? elkBoxW
+    totalCentre += p.x + w / 2
+    counted += 1
+  }
+  const globalCentre = counted > 0 ? totalCentre / counted : 0
+
+  for (const nodeIds of tierAssignments.values()) {
+    if (nodeIds.length < 2) continue
+    // Tiers that have already been multi-row split are uniformly spaced per
+    // row by applyTierRowSplitting — leave them alone.
+    if (nodesPerRow !== null && nodeIds.length > nodesPerRow) continue
+
+    // Sort by current X so we preserve ELK's crossing-minimisation order.
+    const sorted = [...nodeIds].sort((a, b) => {
+      const ax = positionMap.get(a)?.x ?? 0
+      const bx = positionMap.get(b)?.x ?? 0
+      return ax - bx
+    })
+
+    const tierWidth = sorted.length * elkBoxW + (sorted.length - 1) * gap
+    const startX = globalCentre - tierWidth / 2
+
+    for (let i = 0; i < sorted.length; i++) {
+      const p = positionMap.get(sorted[i])
+      if (!p) continue
+      positionMap.set(sorted[i], { x: startX + i * stride, y: p.y })
+    }
   }
 }
 

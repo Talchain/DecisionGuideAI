@@ -41,6 +41,10 @@ function checkNoOverlap(nodes: Node[], nodeW = 264, nodeH = 116): void {
 const TEST_CANVAS: CanvasSize = { width: 1300, height: 750 }
 // Narrow canvas simulating right panel open (1440 - 48 - 416 - 40 ≈ 936px)
 const NARROW_CANVAS: CanvasSize = { width: 936, height: 750 }
+// Wide canvas where 5 factors at MAX_NODE_W would previously have been
+// compressed under the old fit-to-viewport policy; used to verify the
+// pin-at-MAX-and-overflow rule and the uniform-stride rule.
+const WIDE_CANVAS: CanvasSize = { width: 1700, height: 900 }
 
 // ---------------------------------------------------------------------------
 // Core layout tests
@@ -243,6 +247,96 @@ describe('ELK Layout', () => {
       expect(Number.isFinite(n.position.x)).toBe(true)
       expect(Number.isFinite(n.position.y)).toBe(true)
     })
+  })
+
+  it('nodeW stays at MAX_NODE_W (320) when widest tier overflows the viewport', async () => {
+    // 5 factors on a 1700px canvas previously compressed every node to ~241px.
+    // New policy: pin every node to MAX_NODE_W and overflow horizontally.
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('f4', 'factor'), makeNode('f5', 'factor'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
+      makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'),
+      makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
+    ]
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
+    expect(layoutNodeWidth).toBe(320)
+    laid.forEach(n => {
+      expect(Number.isFinite(n.position.x)).toBe(true)
+      expect(Number.isFinite(n.position.y)).toBe(true)
+    })
+  })
+
+  it('uses identical horizontal stride across tiers with different node counts', async () => {
+    // 3 options vs 5 factors. Adjacent-pair gaps must be equal both within
+    // and across tiers — narrower tiers do not spread to fill the wider tier.
+    // Tolerance allows for ELK's sub-pixel rounding.
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('f4', 'factor'), makeNode('f5', 'factor'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
+      makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'),
+      makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
+
+    const gapsFor = (ids: string[]): number[] => {
+      const xs = ids
+        .map(id => laid.find(n => n.id === id)!.position.x)
+        .sort((a, b) => a - b)
+      return xs.slice(1).map((x, i) => x - xs[i])
+    }
+    const optionGaps = gapsFor(['o1', 'o2', 'o3'])
+    const factorGaps = gapsFor(['f1', 'f2', 'f3', 'f4', 'f5'])
+
+    const allGaps = [...optionGaps, ...factorGaps]
+    const minGap = Math.min(...allGaps)
+    const maxGap = Math.max(...allGaps)
+    expect(maxGap - minGap).toBeLessThanOrEqual(2)
+  })
+
+  it('aligns tier centres on a shared global anchor', async () => {
+    // Improvement check: after applyUniformStride re-snaps tiers, every tier's
+    // mean X-centre should be the same (within tolerance), so adjacent tiers
+    // stack vertically aligned. This was the gap left by the per-tier
+    // centroid approach in the first iteration.
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'), makeNode('f3', 'factor'),
+      makeNode('f4', 'factor'), makeNode('f5', 'factor'),
+      makeNode('g', 'goal'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'), makeEdge('e2', 'd', 'o2'), makeEdge('e3', 'd', 'o3'),
+      makeEdge('e4', 'o1', 'f1'), makeEdge('e5', 'o1', 'f2'), makeEdge('e6', 'o2', 'f3'),
+      makeEdge('e7', 'o2', 'f4'), makeEdge('e8', 'o3', 'f5'),
+      makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
+    ]
+    const { nodes: laid } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
+
+    // ELK box width is uniform at MAX_NODE_W + sizePaddingX = 344 in this case
+    const tierMean = (ids: string[]): number => {
+      const xs = ids.map(id => laid.find(n => n.id === id)!.position.x)
+      return xs.reduce((a, b) => a + b, 0) / xs.length + 344 / 2
+    }
+    const optionCentre = tierMean(['o1', 'o2', 'o3'])
+    const factorCentre = tierMean(['f1', 'f2', 'f3', 'f4', 'f5'])
+
+    // Tolerance: 1 px for sub-pixel rounding.
+    expect(Math.abs(optionCentre - factorCentre)).toBeLessThanOrEqual(1)
   })
 
   it('nodeW is clamped to MIN_NODE_W (140) when tier is too wide for canvas', async () => {

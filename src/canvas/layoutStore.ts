@@ -24,12 +24,14 @@ interface LayoutOptions {
   setLayoutNodeWidth: (width: number) => void
 }
 
-// v2: bumped when defaults changed (80/120 → 60/90) so returning users
-// who never customised spacing are migrated to the new values.
-const KEY = 'canvas-layout-options-v2'
+// v3: layerSpacing reduced 90 → 48 (cumulative −47 % across two passes:
+// 90 → 68 (−25 %), then 68 → 48 (−30 %)) so tiers sit closer vertically.
+// Earlier bump: v1 → v2 changed 80/120 → 60/90.
+// Bumping the key migrates returning users who never customised spacing.
+const KEY = 'canvas-layout-options-v3'
 
 function loadPersistedOptions(): Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layerSpacing' | 'respectLocked'> {
-  const defaults = { direction: 'DOWN' as Direction, nodeSpacing: 60, layerSpacing: 90, respectLocked: true }
+  const defaults = { direction: 'DOWN' as Direction, nodeSpacing: 60, layerSpacing: 48, respectLocked: true }
   try {
     const saved = localStorage.getItem(KEY)
     if (!saved) return defaults
