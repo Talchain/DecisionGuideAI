@@ -44,8 +44,6 @@ interface DecisionConfidencePanelProps {
   onSetValue?: (nodeId: string, rawValue: number) => void
   /** Handler for confirming a factor value */
   onConfirm?: (nodeId: string) => void
-  /** Handler for sending a message to the conversation panel */
-  onSendMessage?: (text: string) => void
   /** Show influence/EVOI metrics on triage cards */
   expertMode?: boolean
   /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
@@ -295,7 +293,6 @@ function AlsoConsiderDisclosure({
   startOrdinal,
   onHoverEnter,
   onHoverLeave,
-  onSendMessage,
   onConfirm,
   onEdit,
 }: {
@@ -303,7 +300,6 @@ function AlsoConsiderDisclosure({
   startOrdinal: number
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
-  onSendMessage?: (text: string) => void
   onConfirm?: (nodeId: string) => void
   onEdit?: (nodeId: string) => void
 }) {
@@ -340,7 +336,6 @@ function AlsoConsiderDisclosure({
               onEdit={onEdit}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
-              onSendMessage={onSendMessage}
             />
           ))}
         </div>
@@ -360,7 +355,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onHoverLeave,
   onSetValue,
   onConfirm,
-  onSendMessage,
   expertMode: _expertMode,
   nodeValueLookup,
 }: DecisionConfidencePanelProps) {
@@ -579,7 +573,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
               sourcePill={item.sourcePill}
               onConfirm={onConfirm}
               onEdit={onFocusNode}
-              onSendMessage={onSendMessage}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
             />
@@ -615,7 +608,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
               sourcePill={item.sourcePill}
               onConfirm={onConfirm}
               onEdit={onFocusNode}
-              onSendMessage={onSendMessage}
               onHoverEnter={onHoverEnter}
               onHoverLeave={onHoverLeave}
             />
@@ -630,7 +622,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           startOrdinal={4}
           onHoverEnter={onHoverEnter}
           onHoverLeave={onHoverLeave}
-          onSendMessage={onSendMessage}
           onConfirm={onConfirm}
           onEdit={onFocusNode}
         />

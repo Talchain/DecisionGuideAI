@@ -62,7 +62,6 @@ export interface TriageCardProps {
   /** Callbacks */
   onConfirm?: (targetId: string) => void
   onEdit?: (targetId: string) => void
-  onSendMessage?: (text: string) => void
   onHoverEnter?: (type: 'node' | 'edge', id: string) => void
   onHoverLeave?: () => void
   /** Edge strength quick-select (edge cards only) */

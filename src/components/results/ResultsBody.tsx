@@ -174,7 +174,6 @@ export const ResultsBody = memo(function ResultsBody({
           onFocusNode={onFocusNode}
           verifiedCount={verifiedCount}
           influenceCoverage={influenceCoverage}
-          onSendMessage={onSendMessage}
           onConfirm={staleOnConfirmFactor}
           onSetValue={staleOnSetFactorValue}
           expertMode={expertMode}

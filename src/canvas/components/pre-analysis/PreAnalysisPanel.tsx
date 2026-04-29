@@ -1594,7 +1594,6 @@ export function PreAnalysisPanel({
                       aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
                       onConfirm={handleConfirm}
                       onEdit={handleSetValueForGap}
-                      onSendMessage={onSendMessage}
                       onUpdateEdgeStrength={handleUpdateEdgeStrength}
                       onHoverEnter={handleHoverElement}
                       onHoverLeave={handleHoverClear}
@@ -1696,7 +1695,6 @@ export function PreAnalysisPanel({
                       })()}
                       onConfirm={handleConfirm}
                       onEdit={handleSetValueForGap}
-                      onSendMessage={onSendMessage}
                       onUpdateEdgeStrength={handleUpdateEdgeStrength}
                       onHoverEnter={handleHoverElement}
                       onHoverLeave={handleHoverClear}
@@ -1827,7 +1825,6 @@ export function PreAnalysisPanel({
                         aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
                         onConfirm={handleConfirm}
                         onEdit={handleSetValueForGap}
-                        onSendMessage={onSendMessage}
                         onUpdateEdgeStrength={handleUpdateEdgeStrength}
                         onHoverEnter={handleHoverElement}
                         onHoverLeave={handleHoverClear}
@@ -1958,7 +1955,6 @@ export function PreAnalysisPanel({
                     aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
                     onConfirm={handleConfirm}
                     onEdit={handleSetValueForGap}
-                    onSendMessage={onSendMessage}
                     onUpdateEdgeStrength={handleUpdateEdgeStrength}
                     onHoverEnter={handleHoverElement}
                     onHoverLeave={handleHoverClear}
@@ -1989,7 +1985,6 @@ export function PreAnalysisPanel({
                     aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
                     onConfirm={handleConfirm}
                     onEdit={handleSetValueForGap}
-                    onSendMessage={onSendMessage}
                     onUpdateEdgeStrength={handleUpdateEdgeStrength}
                     onHoverEnter={handleHoverElement}
                     onHoverLeave={handleHoverClear}

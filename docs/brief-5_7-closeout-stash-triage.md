@@ -1,7 +1,6 @@
-# Brief 5.7 close-out — Stash triage refresh
+# Brief 5.7 close-out — Stash triage refresh (RESOLVED — drops executed)
 
-**Read-only analysis — no stashes dropped in this deliverable.**
-Awaiting Paul's explicit approval before executing drops.
+**RESOLVED.** Both Section A (17 drops) and Section B (1 drop) approved by Paul and executed. Stash list went 28 → 10 entries. This doc remains as a resolution log; the drop sequences below were run verbatim.
 
 ---
 
@@ -114,13 +113,10 @@ If both Section A AND Section B are approved, run Section A first, then Section 
 
 ---
 
-## Approval requested
+## Approval — GRANTED + executed
 
-**Paul:** the drops are reversible only via `git stash` reflog history within ~30 days (`gc.reflogExpire`); after that, the stashes cannot be recovered.
+Both approvals granted by Paul:
+1. **Section A — original 17 drops from the Brief 5.5 approved triage.** Approved and executed.
+2. **Section B — 1 new drop candidate** (`stash@{0}: 5.7-pre: layout WIP`). Approved and executed.
 
-Two independent approvals are sought:
-
-1. **Section A — original 17 drops from the Brief 5.5 approved triage.** Pure execution of work you already approved.
-2. **Section B — 1 new drop candidate** (`stash@{0}: 5.7-pre: layout WIP`), added by Brief 5.7. Not in the original triage. Approve only if you agree the layout WIP is now redundant.
-
-Per brief D4: this deliverable defers cleanly when approval is not given in this turn. Dropping deferred to a follow-up; this brief commits the documentation only.
+Both sequences ran highest-index-first. Final state: stash list 28 → 10 entries. The 10 remaining entries are the escalation candidates listed above; they were intentionally NOT touched and stay for a separate decision.

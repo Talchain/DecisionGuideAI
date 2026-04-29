@@ -1,8 +1,8 @@
 # Brief 5.7 close-out — Final review
 
-**Branch:** `ui/brief-5_7-closeout` (local only, not pushed)
-**Base:** `origin/staging` at `6e766e58`
-**Branch range:** `6e766e58..HEAD` — see `git log --oneline ui/brief-5_7-closeout` for live ordering. This file lives on the branch it documents and cannot self-reference its own commit hash.
+**Branch:** `ui/brief-5_7-closeout` — **merged into `staging` and pushed**.
+**Pushed range:** `6e766e58..d9c85020 staging -> staging` (fast-forward; pre-push hook smoke gate 441/441 passed). The current docs-correction commit (this file's edit) follows on the same branch and will be pushed as part of the same close-out sequence; HEAD shifts forward when this commit lands.
+**Branch range on staging:** `6e766e58..HEAD` — see `git log --oneline staging` for live ordering. This file lives on the branch it documents and cannot self-reference its own commit hash.
 
 ---
 
@@ -10,11 +10,11 @@
 
 | # | Deliverable | Status | Notes |
 |---|---|---|---|
-| D1 | Precondition baseline | **Done — close-out ship-readiness conditional on Paul's halt waiver (see "CI status" below)** | Branch + baseline doc + CI status (failure on `.nvmrc` step, full suite skipped, pre-existing infrastructure) + noise inventory + stash count. Brief STOP #1 strict reading would block; relief requires explicit waiver |
-| D2 | Shared/canvas dependency inversion (full) | **Done — broader gate now zero** | Originally limited to MissingKnowledgePrompt verification (intact, 9/9 tests pass). Paul approved expanding scope to the four remaining violators: `TriageHealthHeader` (DecisionHealthRing relocated to shared), `ScientificEditor` (ValidationMetadata → `@/types/validation`, classifyUnit → `@/utils/unitClassifier`), `TriageCard` (DiscussWithAiButton inverted via `aiDiscussSlot?: ReactNode` prop pattern; classifyUnit relocated), `TriageCard.spec.tsx` (useGuidanceStore replaced by lightweight stub matching the real `data-testid`). External consumer tests pass — 157 tests across 9 files (PreAnalysisPanel, brief57, contestedCards, MissingKnowledgePrompt, mapImprovementToTriageCard, pickStartHere, sectionCoaching, buildTriageNarrative, resolveEditorRawValue) |
-| D3 | Pre-existing lint noise | Done | Two TODOs converted to plain comments; `(window as any).__OLUMI_DEBUG` cast removed (Window augmentation now in `src/types/global.d.ts`, moved out of DebugPanel.tsx in this turn per reviewer Improvement #2); gated console.warn kept with comment; PreAnalysisPanel debug already clean |
-| D4 | Stash list cleanup | Deferred — approval requested | 17 drops from approved Brief 5.5 triage refreshed with current indices in `docs/brief-5_7-closeout-stash-triage.md`. **Plus a separate addendum** with 1 new candidate (the Brief 5.7 layout WIP stash, now redundant) requesting its own approval |
-| D5 | Final pass + final-review doc | Done | This file |
+| D1 | Precondition baseline | **Done — STOP #1 waived by Paul; close-out ship-readiness met** | Branch + baseline doc + CI status (failure on `.nvmrc` step, full suite skipped, pre-existing infrastructure) + noise inventory + stash count. Halt waiver granted; local verification (typecheck + scoped vitest + pre-push smoke 441/441) accepted as substitute gate while CI is fixed |
+| D2 | Shared/canvas dependency inversion (full) | **Done — broader gate now zero** | Originally limited to MissingKnowledgePrompt verification (intact, 9/9 tests pass). Paul approved expanding scope to the four remaining violators: `TriageHealthHeader` (DecisionHealthRing relocated to shared), `ScientificEditor` (ValidationMetadata → `@/types/validation`, classifyUnit → `@/utils/unitClassifier`), `TriageCard` (DiscussWithAiButton inverted via `aiDiscussSlot?: ReactNode` prop pattern; classifyUnit relocated), `TriageCard.spec.tsx` (useGuidanceStore replaced by lightweight stub matching the real `data-testid`). Follow-up cleanup: dead `onSendMessage` prop removed from `TriageCardProps` + 8 call-sites + `AlsoConsiderDisclosure` + DCP outer + ResultsBody. New integration test `TriageCard.aiDiscussSlot.spec.tsx` exercises the real slot path through `DiscussWithAiButton` to the guidance store. External consumer tests pass — 157 tests across 9 files |
+| D3 | Pre-existing lint noise | Done | Two TODOs converted to plain comments; `(window as any).__OLUMI_DEBUG` cast removed (Window augmentation now in `src/types/global.d.ts`, moved out of DebugPanel.tsx); gated console.warn kept with comment; PreAnalysisPanel debug already clean |
+| D4 | Stash list cleanup | **Done — both sections approved + executed** | 17 Section-A drops + 1 Section-B drop executed (highest-index-first). Stash list went 28 → 10 entries. Triage doc retained as resolution log |
+| D5 | Final pass + final-review doc | Done | This file (refreshed twice — original at `09279102`, post-push corrections in this commit) |
 
 ---
 
@@ -31,16 +31,16 @@ Workflow run `25105589712` (commit `6e766e58`): conclusion **failure**.
 
 **Recommended escalation:** investigate `actions/setup-node` step on the staging branch — likely action version, runner image, or `.nvmrc` content drift. Out of scope for this brief.
 
-### Halt-waiver request
+### Halt-waiver — GRANTED
 
-The brief's STOP #1 trigger reads: "CI full-suite failure from Brief 5.7 push — halt all, investigate." Strict literal reading: this close-out should be blocked.
+The brief's STOP #1 trigger reads: "CI full-suite failure from Brief 5.7 push — halt all, investigate." Strict literal reading would have blocked this close-out.
 
-The pragmatic case for proceeding:
+**Paul granted the waiver:** "CI halt waiver approved — local verification is the substitute gate. Proceed."
+
+The waiver was justified by:
 - The failure mode is identical across at least four prior staging pushes, including pushes pre-dating Brief 5.7. It is platform-level, not application-level.
 - The full test suite never ran, so there is no test-level signal to investigate.
-- Local checks (typecheck, scoped vitest 1559/13/0, pre-push smoke 441/441) cover the changes this brief and Brief 5.7 introduced.
-
-**Paul's explicit waiver of STOP #1 is required to confirm close-out ship-readiness.** This document does not assume the waiver; it requests it. Until the waiver is given (or the CI is fixed and a clean run lands), the brief's strict acceptance is partially unmet.
+- Local checks (typecheck, scoped vitest 1603/13/0 across `src/components/results src/canvas/components/pre-analysis src/components/shared`, pre-push smoke 441/441) cover the changes this brief and Brief 5.7 introduced.
 
 ---
 
@@ -48,15 +48,18 @@ The pragmatic case for proceeding:
 
 Reproduction commands recorded verbatim so future reviewers can run the same checks against the close-out HEAD.
 
-| Check | Command | Baseline (D1) | Final (D5) | Result |
+| Check | Command | Baseline (D1) | Final | Result |
 |---|---|---|---|---|
 | Typecheck | `npm run typecheck` (= `tsc -p tsconfig.ci.json --noEmit`) | clean | **clean** | PASS |
-| Lint on D3 files | `npx eslint src/components/results/DriversSection.tsx src/canvas/components/pre-analysis/PreAnalysisPanel.tsx` | clean | **clean** | PASS — only deprecated `.eslintignore` warning, unrelated |
-| Scoped vitest passed | `npx vitest run src/components/results src/canvas/components/pre-analysis` | 1559 | **1559** | PASS — no regressions, no new tests in this brief |
-| Scoped vitest skipped | (same command) | 13 | 13 | unchanged |
-| Scoped vitest failed | (same command) | 0 | **0** | PASS |
+| Lint on D3 brief-named files | `npx eslint src/components/results/DriversSection.tsx src/canvas/components/pre-analysis/PreAnalysisPanel.tsx` | clean | **clean** | PASS — only deprecated `.eslintignore` warning, unrelated |
+| Lint on full touched set | `npx eslint <14 touched files including DebugPanel.tsx>` | (3 pre-existing DebugPanel warnings — unrelated) | (3 pre-existing DebugPanel warnings — unrelated) | PASS w/ documented exceptions — DebugPanel.tsx had 3 pre-existing `@typescript-eslint/no-unused-vars` + `react-hooks/exhaustive-deps` warnings on lines 175/183/319, none touched by this brief (the `declare global` block I removed was at lines 29–33). Out of D3 scope; flagged as escalation candidate |
+| Scoped vitest passed (orig scope) | `npx vitest run src/components/results src/canvas/components/pre-analysis` | 1559 | **1549** | DOWN by 10 — the moved `DecisionHealthRing.spec.tsx` (10 tests) now lives in `src/components/shared/__tests__/` and is no longer matched by the original two-path scope. **The gate is updated below.** |
+| Scoped vitest passed (gate after move) | `npx vitest run src/components/results src/canvas/components/pre-analysis src/components/shared` | (n/a — new scope) | **1603** | PASS — recommended replacement scope; +44 vs original baseline (10 from DecisionHealthRing relocation, 31 from TriageCard self-tests now in scope, 2 new from `TriageCard.aiDiscussSlot.spec.tsx`, 1 from balance) |
+| Scoped vitest skipped | (same expanded scope) | 13 | 13 | unchanged |
+| Scoped vitest failed | (same expanded scope) | 0 | **0** | PASS |
 | MissingKnowledgePrompt dep | `rg "from '@/canvas" src/components/shared/MissingKnowledgePrompt.tsx` | zero | **zero** | PASS |
-| Broader shared dep gate | `rg "from '@/canvas" src/components/shared/` | 8 | **0** | PASS — all four violators inverted in this push |
+| Broader shared dep gate | `rg "from '@/canvas" src/components/shared/` | 8 | **0** | PASS — all four violators inverted |
+| Brief 5.5 §2.8 gate 6 (no-`as any`/`as unknown`) | `rg -c 'as any\|as unknown' src/components/results/ src/canvas/components/pre-analysis/` | 0 | **0** | PASS |
 
 ### Brief 5.5 §2.8 grep gates (re-run)
 
@@ -88,9 +91,24 @@ Gate 3 is honestly recorded as "not re-run" rather than rolled into the "all zer
 
 ## Stash outcome
 
-- 18 drops + 10 escalations refreshed and documented in `docs/brief-5_7-closeout-stash-triage.md`.
-- Drops NOT executed in this brief — awaiting Paul's explicit approval.
-- Once approved, the drop sequence in that doc reduces stash list 28 → 10 entries.
+- Section A (17 drops from approved Brief 5.5 triage) + Section B (1 new layout-WIP drop): **both approved by Paul and executed**. Stash list 28 → 10 entries. `docs/brief-5_7-closeout-stash-triage.md` retained as a resolution log.
+
+---
+
+## Resolved in this branch (no longer remaining work)
+
+### Shared/canvas dependency inversions
+All four violators flagged after the original D2 scope have been inverted in the same close-out branch.
+
+| File | Imported from `@/canvas/` | Resolution |
+|---|---|---|
+| `src/components/shared/TriageHealthHeader.tsx` | `DecisionHealthRing`, `DecisionHealthRingDimensions` | Relocated `DecisionHealthRing` (and its test) to `src/components/shared/`. Pure SVG with only `@/styles/evaluative` dep |
+| `src/components/shared/ScientificEditor.tsx` | `ValidationMetadata`, `classifyUnit` | Type → `src/types/validation.ts`; util → `src/utils/unitClassifier.ts`. Canvas re-export shims preserve every existing canvas import path |
+| `src/components/shared/TriageCard.tsx` | `DiscussWithAiButton`, `AiDiscussElement`, `classifyUnit` | Prop-injection slot pattern — `aiDiscussSlot?: ReactNode`. 8 callsites updated. Plus dead `onSendMessage` prop chain removed (TriageCardProps + 8 render-sites + AlsoConsiderDisclosure + DCP outer + ResultsBody pass) |
+| `src/components/shared/__tests__/TriageCard.spec.tsx` | `useGuidanceStore` (test-only) | Replaced with lightweight stub matching the real `data-testid`. New integration test `TriageCard.aiDiscussSlot.spec.tsx` (consumer side) covers the real slot-through-button-through-store path |
+
+### Stash cleanup (D4)
+17 + 1 drops executed; stash list 28 → 10.
 
 ---
 
@@ -99,20 +117,8 @@ Gate 3 is honestly recorded as "not re-run" rather than rolled into the "all zer
 ### 1. CI `.nvmrc` Node setup failure
 Pre-existing infrastructure issue blocking the full test suite from running on every staging push. Requires investigating action version, runner image, or `.nvmrc` content drift. **High priority** — without this fix, no staging push runs the full ~6,284-test suite.
 
-### 2. Four additional shared/canvas dependency violations — **RESOLVED in this push**
-The violators below were all inverted in the same commit as this update. Kept here as a resolution log.
-
-| File | Imported from `@/canvas/` |
-|---|---|
-| `src/components/shared/TriageHealthHeader.tsx` | `DecisionHealthRing`, `DecisionHealthRingDimensions` |
-| `src/components/shared/ScientificEditor.tsx` | `ValidationMetadata`, `classifyUnit` |
-| `src/components/shared/TriageCard.tsx` | `DiscussWithAiButton`, `AiDiscussElement`, `classifyUnit` |
-| `src/components/shared/__tests__/TriageCard.spec.tsx` | `useGuidanceStore` (test-only) |
-
-Each requires its own dependency inversion treatment — either move the imported module out of `canvas/` into a shared/neutral location, or refactor the consumer to accept the canvas-specific bit as a prop (the MissingKnowledgePrompt pattern). Multi-file structural work; properly scoped to a follow-up brief.
-
-### 3. `__OLUMI_DEBUG` access pattern non-uniformity
-Three other call sites still use varied casts (`as any`, `as Record<string, unknown>`) to read this flag, even though the Window augmentation now lives globally in `src/types/global.d.ts` (moved here in this turn from `DebugPanel.tsx`). Each can drop the cast with the same pattern used in DriversSection.tsx:
+### 2. `__OLUMI_DEBUG` access pattern non-uniformity (three remaining sites)
+Three other call sites still use varied casts (`as any`, `as Record<string, unknown>`) to read this flag, even though the Window augmentation now lives globally in `src/types/global.d.ts`. Each can drop the cast with the same pattern used in DriversSection.tsx:
 
 | File | Current |
 |---|---|
@@ -120,23 +126,28 @@ Three other call sites still use varied casts (`as any`, `as Record<string, unkn
 | `src/lib/mappers/utils.ts:244` | `(window as Record<string, unknown>).__OLUMI_DEBUG` |
 | `src/canvas/components/__tests__/SectionErrorBoundary.spec.tsx:73, 86` | `;(window as any).__OLUMI_DEBUG = true` (test-only mutation; arguably needs a different fix) |
 
-### 4. Stash list (D4 deferred)
-Awaiting approval to execute the 18 drops in `docs/brief-5_7-closeout-stash-triage.md`.
+### 3. DebugPanel.tsx pre-existing lint warnings
+3 warnings flagged by lint when DebugPanel is in the touched-file scope: `handlePanelDragStart` unused (line 175), `handleCornerResizeStart` unused (line 183), `useEffect` missing `persistPanelPosition` dep (line 319). Pre-date Brief 5.7 close-out (the `declare global` block I removed was at lines 29–33, untouched by these warnings). Out of D3 brief scope.
 
 ---
 
-## Ship readiness
+## Ship state
 
-**Risk profile:** very low. This brief contains:
-- Documentation additions (`brief-5_7-closeout-baseline.md`, `brief-5_7-closeout-stash-triage.md`, this file).
+**Pushed.** `6e766e58..d9c85020 staging -> staging` landed via fast-forward. Pre-push hook FAST mode passed (441/441 smoke, typecheck, lint changed-files, dep audit, V5 schemas SHA). Auto-deploy triggered.
+
+The current docs-correction commit (this file's edit) follows on the same branch as a follow-up; once committed and pushed, it will extend the staging branch range.
+
+**This brief contains:**
+- Documentation additions and corrections (`brief-5_7-closeout-baseline.md`, `brief-5_7-closeout-stash-triage.md`, this file).
 - Source edits:
-  - `DriversSection.tsx` — two TODO comments converted, one redundant cast removed, one explanatory comment added on a gated diagnostic. No behaviour change.
-  - `src/types/global.d.ts` (new) — Window.__OLUMI_DEBUG augmentation moved here from `DebugPanel.tsx` per reviewer Improvement #2. Type-only file, no runtime impact.
-  - `DebugPanel.tsx` — removed the duplicate `declare global { interface Window { __OLUMI_DEBUG?: boolean } }` block (now lives in the neutral file). No runtime impact.
+  - `DriversSection.tsx` — two TODO comments converted, redundant `as any` cast removed, explanatory comment added on a gated diagnostic. No behaviour change.
+  - `DebugPanel.tsx` — removed the duplicate `declare global` block (now in `src/types/global.d.ts`).
+  - `src/types/global.d.ts` (new) — global `Window.__OLUMI_DEBUG` augmentation.
+  - **D2 expansion:** `DecisionHealthRing` relocated; `validation.ts` relocated to `src/types/`; `classifyUnit` relocated to `src/utils/unitClassifier.ts`; `TriageCard` `aiDiscussSlot` prop pattern; canvas-side re-export shims for backward compatibility.
+  - **`onSendMessage` cleanup:** dead prop removed from `TriageCardProps` and 8 callsites (PreAnalysisPanel ×5, DCP main ×2, AlsoConsiderDisclosure-internal ×1) plus `AlsoConsiderDisclosure` interface + DCP outer prop + ResultsBody pass.
+- New tests: `TriageCard.aiDiscussSlot.spec.tsx` (consumer-side integration covering the real slot-through-button-through-store path).
 - One empty commit ledgering the D2 verification result.
 
-**Conditional ship-readiness:** see "Halt-waiver request" above. This brief's work is locally clean; ship-readiness on staging is gated on either Paul's STOP #1 waiver or a clean CI run.
+**Test coverage:** **1603 passed / 13 skipped / 0 failed** under the recommended scope `src/components/results src/canvas/components/pre-analysis src/components/shared` (replaces the original two-path scope after `DecisionHealthRing` relocation).
 
-**Test coverage:** unchanged (1559 / 13 skipped). No new regression tests added because no behaviour was modified.
-
-**Rollback plan:** revert the close-out branch range. Each deliverable's commit is independently revertable; only the D3 and Improvement-#2 commits touch non-doc source.
+**Rollback plan:** revert the close-out branch range. Each deliverable's commit is independently revertable; the cross-component `onSendMessage` cleanup is a single commit and self-contained.
