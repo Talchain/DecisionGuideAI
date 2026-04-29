@@ -530,9 +530,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         />
       )}
 
-      {/* 3. Trust summary + item count + scope subtitle + bridge to drivers */}
+      {/* 3. Trust summary header — owns the "Highest-value evidence gaps"
+          headline + the driver/evidence bridge tooltip. Brief 5.7 D6
+          follow-up: gate on evidenceGapCards.length so a next-actions-only
+          state does not render the evidence-gap header above an empty zone.
+          When only next actions exist, the "Suggested next actions" subheader
+          (rendered below) is the single header for the triage stack. */}
       <TrustSummary
-        actionCount={top3.length}
+        actionCount={evidenceGapCards.length}
         topDriverIdentity={topDriverIdentity}
         topEvidenceGapIdentity={topEvidenceGapIdentity}
       />

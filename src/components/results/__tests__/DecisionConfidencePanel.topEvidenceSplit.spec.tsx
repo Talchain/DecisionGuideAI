@@ -189,4 +189,36 @@ describe('DecisionConfidencePanel — Brief 5.7 D6 top evidence split', () => {
     expect(screen.queryByTestId('evidence-gap-cards')).not.toBeInTheDocument()
     expect(screen.queryByTestId('next-action-cards')).not.toBeInTheDocument()
   })
+
+  // Brief 5.7 D6 follow-up (P1.2): the "Highest-value evidence gaps" header
+  // (and its scope subtitle / driver-bridge tooltip) must NOT render when the
+  // triage stack contains only next-action cards. Otherwise users see an
+  // evidence-gap label above what is in fact a next-actions block.
+  it('hides the evidence-gap header in next-actions-only states', () => {
+    const data = makeData({
+      gaps: [],
+      nextActions: [makeNextAction({ action: 'Calibrate factor' })],
+    })
+
+    render(<DecisionConfidencePanel data={data} />)
+
+    expect(screen.queryByTestId('trust-summary')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('evidence-section-header')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('evidence-scope-subtitle')).not.toBeInTheDocument()
+
+    expect(screen.getByTestId('next-action-cards')).toBeInTheDocument()
+    expect(screen.getByTestId('next-actions-section-header')).toBeInTheDocument()
+  })
+
+  it('still renders the evidence-gap header when at least one evidence gap is present, even with mixed cards', () => {
+    const data = makeData({
+      gaps: [makeGap({ factorId: 'gap1', factorLabel: 'Gap 1' })],
+      nextActions: [makeNextAction({ action: 'Action A' })],
+    })
+
+    render(<DecisionConfidencePanel data={data} />)
+
+    expect(screen.getByTestId('trust-summary')).toBeInTheDocument()
+    expect(screen.getByTestId('next-actions-section-header')).toBeInTheDocument()
+  })
 })
