@@ -47,7 +47,13 @@ describe('TriageCard × DiscussWithAiButton aiDiscussSlot integration', () => {
       />,
     )
 
-    const button = screen.getByTestId('discuss-with-ai')
+    // Tighten the duplicate-control guard: exactly one discuss-with-ai
+    // control must be rendered. Mirrors the assertion pattern in
+    // src/components/shared/__tests__/TriageCard.spec.tsx so a regression
+    // that re-introduces a second sparkle anywhere on the card fails here too.
+    const buttons = screen.getAllByTestId('discuss-with-ai')
+    expect(buttons).toHaveLength(1)
+    const button = buttons[0]
     expect(button).toBeInTheDocument()
 
     fireEvent.click(button)

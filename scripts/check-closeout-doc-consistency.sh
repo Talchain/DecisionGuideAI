@@ -41,6 +41,24 @@ declare -a PATTERNS=(
   'awaiting approval'           # same
   'TODO close-out'              # explicit handoff TODO
   'TODO: close-out'
+  # Brief 5.7 close-out follow-up: forward-tense phrases that go stale
+  # the moment the doc lands on staging. Catches "will be pushed" /
+  # "to be pushed" / "pending push" et al.
+  '\bwill be pushed\b'
+  '\bwill push\b'
+  '\bto be pushed\b'
+  '\bpending push\b'
+  '\bnot yet pushed\b'
+  '\blocal only, not pushed\b'
+  # Conditional-readiness language that should not survive into a
+  # post-push close-out.
+  '\bship-readiness conditional on\b'
+  '\bConditional ship-readiness\b'
+  '\bwaiver required\b'
+  '\bwaiver is required\b'
+  # "Drops NOT executed" / "drops pending" style stash-state staleness.
+  '\bdrops? NOT executed\b'
+  '\bdrops? pending\b'
 )
 
 FAILURES=0

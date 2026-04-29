@@ -162,7 +162,6 @@ describe('TriageCard — icon-group spacing (P1.3)', () => {
         sourcePill={{ label: 'AI estimate', borderClass: 'border-info/30' }}
         onConfirm={() => {}}
         onEdit={() => {}}
-        onSendMessage={() => {}}
       />,
     )
     const iconGroup = screen.getByTestId('triage-card-icon-group')
@@ -184,7 +183,6 @@ describe('TriageCard — icon-group spacing (P1.3)', () => {
         action={{ kind: 'confirm', label: 'Confirm', targetId: 'n2', targetType: 'node' }}
         sourcePill={{ label: 'AI estimate', borderClass: 'border-info/30' }}
         onConfirm={() => {}}
-        onSendMessage={() => {}}
       />,
     )
     const iconGroup = screen.getByTestId('triage-card-icon-group')
@@ -248,7 +246,6 @@ describe('TriageCard — AI affordance slot (UI-BUG-5)', () => {
         aiDiscussSlot={<DiscussStub />}
         onConfirm={() => {}}
         onEdit={() => {}}
-        onSendMessage={() => {}}
       />,
     )
     // Only one AI affordance per card. Guards against regressing a second

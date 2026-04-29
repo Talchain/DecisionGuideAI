@@ -29,6 +29,7 @@
     "security:audit:fix": "npm audit fix",
     "test:unit": "vitest run",
     "test:contracts": "vitest run tests/contracts/ src/test/__tests__/results-panel-contract.test.ts",
+    "test:scoped-closeout": "vitest run src/components/results src/canvas/components/pre-analysis src/components/shared",
     "test:coverage": "vitest run --coverage",
     "test:guide": "vitest src/pages/sandbox-guide",
     "test:guide:ui": "vitest --ui src/pages/sandbox-guide",
