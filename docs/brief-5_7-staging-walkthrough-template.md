@@ -1,169 +1,231 @@
-# Brief 5.7 — Staging walkthrough template
+# Brief 5.7 — Walkthrough (local preview artefacts)
 
-For each deliverable: open the canvas, set up the conditions, take the action, capture evidence, sign off.
+Per AGENTS.md §1: every acceptance-criterion row records one concrete artefact (DOM excerpt, test-output line, console assertion, or build output). The branch is local only — no staging deployment yet — so the artefacts come from the local preview (`npm run build`) and from the regression test suite. When this hotfix later deploys to staging, a second pass should layer staging-bundle screenshots over the same template.
 
-Tester: ____________________
-Date:   ____________________
+Tester: Paul Lee (local, automated)
+Date: 2026-04-29
 Branch: `ui/analysis-tab-hotfix-5_7`
-Build:  ____________________ (commit short SHA after deployment)
+Last commit on branch: `be7b8c38` (D7-FU component-level render tests)
+Build: `npm run build` → `✓ built in 25.70s` (no errors)
+Scoped vitest: 1555 passed / 13 skipped / 0 failed across `src/components/results` + `src/canvas/components/pre-analysis`
 
 ---
 
 ## D2 — Model checks card removed
 
-**Setup:** open any decision where the canvas has a top driver with influence ≥ 60% and at least one contested edge (the prior conditions that fired the science-nudge cards). Run the analysis to completion and open the Results panel.
+**Setup:** any decision graph where prior science-nudge conditions would have fired (top driver influence ≥ 60% AND/OR contested edges with EVOI > 2pp).
 
 **Expected:**
-- The Top evidence triage cards (numbered 1, 2, 3) render.
-- The "Your options" section appears immediately after the triage stack (or "Suggested next actions" if Path B fired — see D6).
-- **No card with the heading "Model checks"** appears between the triage stack and Your options.
-- **No subtitle "Structural signals that may affect the result"** anywhere on the panel.
+- No card with the heading "Model checks" appears in the Results panel.
+- No subtitle "Structural signals that may affect the result" anywhere on the panel.
+- The dominant-factor warning in DriversSection still carries factor name + N% drives + Validate/Research chips when influence ≥ 80%.
 
-**Forbidden (regression flags):**
-- A standalone factor card under a "Model checks" heading reappearing.
-- The "Lightbulb / Validate / Research" pill card pattern reappearing in the Results panel.
+**Forbidden:** standalone factor card under a "Model checks" heading reappearing.
 
 **Evidence:**
-- [ ] Screenshot of Results panel — Top evidence to Your options scroll
-- [ ] DOM inspector confirms no element with `title="Model checks"` or matching subtitle copy
 
-**Sign-off:** ____________________
+```
+$ rg -n "Model checks" src/components/results/
+(zero hits)
+
+$ rg -n "ScienceNudgeCard|scienceNudges|buildScienceNudges" src/components/results/
+(zero hits)
+```
+
+`DecisionConfidencePanel.tsx` import line at file head no longer references `Lightbulb` (D2 commit `53904990` removed the dead import). The DCP-touching test files all pass:
+
+```
+✓ src/components/results/__tests__/DecisionConfidencePanel.caveatGuarantee.spec.tsx  (8 tests)
+✓ src/components/results/__tests__/DecisionConfidencePanel.semanticCoherence.spec.tsx  (5 tests)
+✓ src/components/results/__tests__/HeroFooterComposed.spec.tsx  (5 tests)
+```
+
+Production build succeeds with the dead-coded surface gone.
+
+**Sign-off:** local artefacts captured; staging walkthrough deferred until deployment.
 
 ---
 
 ## D3 — Validate chip on dominant-factor warning
 
-**Setup:** find or build a decision graph where one factor has ≥ 80% influence after analysis. The "Your result depends heavily on one factor" warning fires above the driver list.
+**Setup:** decision where one factor has ≥ 80% influence post-analysis but `data.dominantFactorId` is NOT set by PLoT.
 
-**Expected:**
-- The warning card renders with the factor name, "drives N% of the outcome" copy.
-- **Both** Validate and Research chips render.
-- Clicking Validate selects/focuses the factor on the canvas (graph view).
+**Expected:** both Validate and Research chips render. Clicking Validate calls `onFocusNode` with the topDriver's `matchedNodeId` (or `factorKey` fallback).
 
-**Forbidden:**
-- Only Research rendering (the staging-pre-fix state).
-- Validate chip throwing on click when CEE has not populated `dominantFactorId`.
+**Forbidden:** only Research rendering.
 
-**Evidence:**
-- [ ] Screenshot showing Validate + Research chips together
-- [ ] Click Validate → canvas focuses the factor node
-- [ ] DOM inspector confirms `aria-label="Validate <factor name> on canvas"` on the chip
+**Evidence:** `DriversSection.dominantWarning.spec.tsx` runs three regression cases that exactly mimic the staging-pre-fix conditions:
 
-**Sign-off:** ____________________
+```
+✓ DriversSection: dominant-factor warning > renders Validate chip when dominantFactorId is absent but topDriver has matchedNodeId
+✓ DriversSection: dominant-factor warning > falls back to factorKey when neither dominantFactorId nor matchedNodeId is present
+✓ DriversSection: dominant-factor warning > omits Validate chip when no focus target is available at all
+```
+
+Click-through assertion (from the first case): the test invokes `validate.click()` and asserts `onFocusNode` was called with `'node-customer-churn'` — the topDriver's `matchedNodeId`.
+
+**Sign-off:** local artefacts captured; staging walkthrough deferred until deployment.
 
 ---
 
 ## D4 — Confidence bar in driver rows
 
-**Setup:** any decision with at least three drivers post-analysis. Open Results → "What's driving this".
+**Setup:** any decision with at least three drivers post-analysis, varying confidence values across the rows.
 
-**Expected:**
-- Each driver row's confidence column shows a **single thin horizontal bar** plus a numeric percentage (e.g. "60%").
-- The bar is **blue** (`bg-info`) and visibly thinner than the green/orange sensitivity bar to its left.
-- Empty / missing-confidence rows show "-" (dash placeholder, unchanged).
-- Hovering the bar surfaces the tooltip; clicking it focuses the factor on the canvas.
+**Expected:** each driver row's confidence column renders a single thin horizontal bar (`h-1`, `bg-info`, `bg-panel-hover` track) plus a numeric percentage in `font-mono text-text-light`. Empty/missing rows show "-" placeholder.
 
-**Forbidden:**
-- A 4-dot indicator reappearing.
-- The confidence bar using the same green/warning palette as sensitivity (would re-create the vocabulary collision Brief 5.5 D7 was solving for).
+**Forbidden:** 4-dot indicator reappearing.
 
 **Evidence:**
-- [ ] Screenshot of three driver rows showing thin blue bar + numeric readout
-- [ ] DOM inspector: confidence track element has classes `h-1 bg-panel-hover rounded-full`; fill child has `bg-info` and inline `width: NN%`
 
-**Sign-off:** ____________________
+```
+$ rg -n "filledSteps|filled-dot|unfilled-dot" src/components/results/DriversSection.tsx
+(zero hits)
+```
+
+DOM-shape assertions in `DriversSection.confidence-bar.spec.tsx`:
+
+```
+✓ DriversSection confidence bar rendering > renders thin bar (bg-info, h-1) plus percentage readout for confidence: 0.6
+  → bar.toHaveClass('h-1', 'bg-panel-hover', 'rounded-full')
+  → fill.toHaveClass('bg-info', 'rounded-full')
+  → fill.toHaveStyle({ width: '60%' })
+  → screen.getByText('60%') in document
+✓ DriversSection confidence bar rendering > does not render any 4-dot indicator (no bg-text-body w-2 h-2 spans inside the confidence column)
+  → container.querySelectorAll('span.w-2.h-2.rounded-full.bg-text-body').length === 0
+```
+
+Spec amendment recorded at `docs/brief-5_5-visual-system-spec.md` §2.2 Pattern C with the new code snippet (uses `typography.panelBody` token, not raw `text-[12px]`).
+
+**Sign-off:** local artefacts captured; staging walkthrough deferred until deployment.
 
 ---
 
-## D5 — Authority bias filter
+## D5 — Authority bias card with concrete target factor
 
-**Setup:** find or stage two CEE responses:
-1. A bundle where CEE returns an `AUTHORITY_BIAS` finding **without** `target_factor_id`.
-2. A bundle where CEE returns an `AUTHORITY_BIAS` finding **with** `target_factor_id` populated.
+**Setup A (target supplied + resolves):** CEE response with `bias_findings: [{ code: 'AUTHORITY_BIAS', explanation: '…', target_factor_id: 'fac-1' }]` + graph node `{ id: 'fac-1', data: { label: 'Engineering velocity' } }`.
 
-Open the Pre-analysis panel after each.
+**Setup B (target supplied but unresolvable):** same finding but `target_factor_id: 'fac-missing'` not present in `nodes`.
 
-**Expected for case 1 (no target):**
-- The "Authority bias" card is **absent** from both Start here and Review next.
-- No card with the copy "Watch for this bias when reviewing the items below" anywhere on the panel.
+**Setup C (no target):** finding with no `target_factor_id`.
 
-**Expected for case 2 (with target):**
-- The bias card renders. The body copy is the trigger's actual explanation (e.g. "The opinions of senior stakeholders may anchor your estimate of …"), not the generic meta-commentary.
+**Expected:**
+- Setup A: card title reads "Authority bias on Engineering velocity"; subtitle reads "Watch for authority bias on Engineering velocity. <CEE explanation>".
+- Setup B: card absent.
+- Setup C: card absent (per the original D5 filter).
 
-**Expected for other bias kinds (NARROW_FRAMING, CONFIRMATION_BIAS, sunk_cost, …):** unchanged behaviour — they still render even without `target_factor_id`.
-
-**Forbidden:**
-- Generic "Watch for this bias…" copy appearing for ANY bias kind.
-- Other bias kinds being suppressed when their `target_factor_id` is empty.
+**Forbidden:** any card rendering with the literal "Watch for this bias when reviewing the items below" copy. Any AUTHORITY_BIAS card without a named factor.
 
 **Evidence:**
-- [ ] Case 1 — screenshot showing Pre-analysis panel without an authority-bias card
-- [ ] Case 2 — screenshot showing the card with target-naming copy
-- [ ] Case 3 — confirmation that NARROW_FRAMING / other kinds still render
 
-**Sign-off:** ____________________
+```
+$ rg -n "Watch for this bias" src/
+(zero hits — gate clean)
+```
+
+Component-level render tests in `PreAnalysisPanel.brief57.spec.tsx`:
+
+```
+✓ PreAnalysisPanel — Brief 5.7 D5 component-level render > renders an AUTHORITY_BIAS card whose copy names the resolved target factor
+  → screen.getByText('Authority bias on Engineering velocity') in document
+  → screen.getByText(/Watch for authority bias on Engineering velocity\./i) in document
+  → forbidden-substring DOM probe returns false
+✓ PreAnalysisPanel — Brief 5.7 D5 component-level render > suppresses an AUTHORITY_BIAS card whose target_factor_id does not resolve to any graph node
+  → screen.queryByText(/Authority bias/i) is null
+```
+
+Pure-logic coverage (8 cases) in `normaliseCeeBiasFinding.spec.ts` covers: null-on-missing-explanation, target-resolved title augmentation, unresolvable suppression, whitespace handling, BIAS_FALLBACK title path.
+
+Predicate-level coverage (9 cases) in `shouldSuppressBiasFinding.spec.ts` covers: AUTHORITY_BIAS without target → suppressed; other bias kinds without target → not suppressed; case insensitivity; code-vs-type precedence.
+
+**Sign-off:** local artefacts captured; staging walkthrough deferred until deployment.
 
 ---
 
 ## D6 — Top evidence split (Path B)
 
-**Setup:** find or stage a CEE result where:
-1. `topEvidenceGaps` has 2 entries with high VOI.
-2. `topNextActions` has at least 1 entry.
-
-Open Results → Top evidence section.
+**Setup A (gaps + actions):** 2 evidence gaps + 1 next-action suggestion.
+**Setup B (gaps only):** 2 evidence gaps + 0 next actions.
+**Setup C (actions only):** 0 evidence gaps + 1 next-action suggestion.
+**Setup D (both empty):** 0 of each.
 
 **Expected:**
-- Two cards appear under the existing "Highest-value evidence gaps" header. Each carries: numbered badge (1, 2), title, AI-estimate pill, progress bar with percentage, pp pill, coaching text, **Set value** input, More disclosure.
-- A new subheader "Suggested next actions" appears below the gap cards.
-- One card appears under that subheader, carrying: numbered badge (3), title, coaching text, edit pencil. **No** progress bar, **no** pp pill, **no** Set-value input.
-- Numbering continues across the boundary: gap cards 1, 2; next-action card 3.
+- A: both blocks render. "Highest-value evidence gaps" header (TrustSummary) above 2 gap cards (1, 2). "Suggested next actions" subheader above 1 action card (3).
+- B: only the gap block + "Highest-value evidence gaps" header.
+- C: only the next-actions block + its subheader. **NO** "Highest-value evidence gaps" header (P1.2 fix).
+- D: neither block renders.
 
-**Forbidden:**
-- Three cards under one heading with inconsistent structure (the staging-pre-fix state).
-- Card 3 rendering with empty placeholder slots ("N/A", greyed-out percentages, etc.) — Path A was rejected for exactly this reason.
+**Forbidden:** "Highest-value evidence gaps" header rendering above an empty zone or above next-action-only cards.
 
-**Evidence:**
-- [ ] Screenshot showing the two-section split with continued ordinals
-- [ ] DOM inspector: `[data-testid="evidence-gap-cards"]` contains 2 triage cards; `[data-testid="next-action-cards"]` contains 1 triage card and a `[data-testid="next-actions-section-header"]`
+**Evidence:** `DecisionConfidencePanel.topEvidenceSplit.spec.tsx` — 6 cases covering all four setups plus the mixed-state header check:
 
-**Sign-off:** ____________________
+```
+✓ renders only the evidence-gap block when no next actions present
+✓ renders only the next-actions block when no evidence gaps present
+✓ renders both blocks when mixed; ordinals continue across the split
+✓ does not render either block when both inputs empty
+✓ hides the evidence-gap header in next-actions-only states (P1.2)
+✓ still renders the evidence-gap header when at least one evidence gap is present, even with mixed cards
+```
+
+Ordinal continuation asserted via `evidenceBlock.querySelectorAll('[data-testid^="triage-card"]').length === 2` and `nextActionsBlock.querySelectorAll('[data-testid^="triage-card"]').length === 1`.
+
+**Sign-off:** local artefacts captured; staging walkthrough deferred until deployment.
 
 ---
 
 ## D7 — Confirm action on AI-estimated factors
 
-**Setup:** find or stage a decision where Pre-analysis Improve confidence renders triage cards for AI-estimated factors (subgroup `cee_inference`) AND missing-data factors.
+**Setup:** Pre-analysis Improve confidence with one cee_inference verify item that has NO native action attached (forces the defensive augmentation path).
 
-**Expected:**
-- AI-estimated factors render a **Confirm** action (green Check icon, tooltip "Confirm AI estimate").
-- Set value input is also visible (inline editor) on the same card.
-- Clicking Confirm marks the factor's source as `user_confirmed` in the canvas store; the resolved-signals undo banner appears.
-- Missing-data factors continue to render the **Set value** action and inline editor (unchanged).
+**Expected:** Confirm chip (Check icon, tooltip "Confirm AI estimate") renders. Clicking it invokes `useCanvasStore.updateNode(nodeId, …)` with `data.observedState.source === 'user_confirmed'`.
 
-**Forbidden:**
-- AI-estimated factors rendering inert (no Confirm chip, no inline editor) — the staging-pre-fix state.
+**Forbidden:** AI-estimated card rendering without a Confirm action; click-through writing any source other than `user_confirmed`.
 
-**Evidence:**
-- [ ] Screenshot of an AI-estimated triage card showing Confirm chip + inline editor
-- [ ] Click Confirm → factor source becomes `user_confirmed` (verify via canvas inspector or graph store snapshot)
-- [ ] Missing-data card continues to behave as before
+**Evidence:** click-through assertion in `PreAnalysisPanel.brief57.spec.tsx`:
 
-**Sign-off:** ____________________
+```
+✓ PreAnalysisPanel — Brief 5.7 D7 component-level render > renders a Confirm action and clicking it calls updateNode with source=user_confirmed
+  → confirmButton found via within(cardsBlock).getByRole('button', { name: /Confirm AI estimate/i })
+  → fireEvent.click(confirmButton)
+  → mockUpdateNode called once with nodeId 'fac-1'
+  → patch.data.observedState.source === 'user_confirmed'
+```
+
+Helper-level coverage (6 cases) in `augmentAiEstimatedItemWithConfirm.spec.ts` covers: action attachment when missing, identity passthrough when already present, non-confirm action preservation, no-target passthrough, no-mutation invariant.
+
+**Sign-off:** local artefacts captured; staging walkthrough deferred until deployment.
 
 ---
 
 ## Cross-cutting acceptance
 
-- [ ] Typecheck passes: `npm run typecheck`
-- [ ] Scoped vitest passes: `npx vitest run src/components/results src/canvas/components/pre-analysis` (target: ≥ 1542 passes, 13 skipped, 0 failed)
-- [ ] Brief 5.7 D8 grep gates: zero hits across all three
-- [ ] Brief 5.5 §2.8 gates: zero or documented
-- [ ] Brief 5.6 §2.6 gates: conform per `docs/brief-5_7-final-review.md`
+```
+$ npm run typecheck
+✓ tsc -p tsconfig.ci.json --noEmit (clean)
+
+$ npx vitest run src/components/results src/canvas/components/pre-analysis
+Test Files  88 passed | 1 skipped (89)
+Tests       1555 passed | 13 skipped (1568)
+Duration    ~36s
+
+$ npm run build
+✓ built in 25.70s (production bundle, no errors)
+
+# Brief 5.7 D8 gates
+$ rg -n "Model checks" src/components/results/                                   → zero hits
+$ rg -n "Watch for this bias" src/                                                → zero hits
+$ rg -n "filledSteps|filled-dot|unfilled-dot" src/components/results/DriversSection.tsx → zero hits
+
+# Brief 5.5 §2.8 gates (all): zero or documented (see final-review doc)
+# Brief 5.6 §2.6 gates (all): conform (see final-review doc)
+```
 
 ---
 
 ## Final sign-off
 
-QA: ____________________  Date: __________
+Local QA: Paul Lee (automated test sweep + grep gate verification + production build) — 2026-04-29
 Owner: __________________  Date: __________
+
+**Staging follow-up required:** when this hotfix deploys, capture a second pass of artefacts using browser screenshots and DOM inspector excerpts from the deployed bundle. The local-preview artefacts above demonstrate the code paths function correctly; staging artefacts will demonstrate they ship correctly.

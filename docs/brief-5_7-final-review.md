@@ -2,7 +2,7 @@
 
 Branch: `ui/analysis-tab-hotfix-5_7` (local only, not pushed)
 Base: `staging` at `2da7b129`
-Last commit on hotfix branch: `6d1daba5` (D7)
+Last commit on hotfix branch: `be7b8c38` (D7 follow-up: component-level D5/D7 render tests)
 
 ---
 
@@ -17,6 +17,10 @@ Last commit on hotfix branch: `6d1daba5` (D7)
 | D5 | Authority bias filter | `b96fa394` | Done | `shouldSuppressBiasFinding` predicate exported + applied; BiasSignal extended with subtitle; start-here copy now uses trigger explanation; +9 unit tests |
 | D6 | Top evidence split (Path B) | `81cfa103` | Done | Evidence gaps + Suggested next actions blocks under separate subheaders; ordinals continue across split; +4 regression tests |
 | D7 | Confirm action on AI-estimated | `6d1daba5` | Done | `augmentAiEstimatedItemWithConfirm` helper exported; symmetric augmentation with missing-data branch; +6 unit tests |
+| D8 | Final review + walkthrough docs | `ce075760` | Done | Per-deliverable summary, all grep gates, performance + a11y audit, walkthrough template |
+| D5-FU | Target factor naming + suppression | `94bcaccb` | Done | NormalisedBiasTrigger threads target id + resolved label; resolver suppresses unresolvable targets; title "<bias> on <factor>" + targeting subtitle; +8 unit tests |
+| D6-FU | Conditional evidence-gap header | `f490ab8d` | Done | TrustSummary gated on `evidenceGapCards.length`; next-actions-only states no longer mis-labelled as evidence gaps; +2 regression tests |
+| D7-FU | Component-level D5 + D7 render tests | `be7b8c38` | Done | New `PreAnalysisPanel.brief57.spec.tsx`: 3 tests covering rendered target naming, unresolvable suppression, and Confirm-click → updateNode with `source: 'user_confirmed'` |
 
 ---
 
@@ -71,7 +75,7 @@ Last commit on hotfix branch: `6d1daba5` (D7)
 |---|--------------:|-----------------:|---|
 | `npm run typecheck` | clean | **clean** | |
 | Lint on touched files | (clean) | **clean** | only deprecated `.eslintignore` warning, unrelated |
-| Scoped vitest pass count | 1518 | **1542** | +24 new regression tests (D3 +3, D4 +2, D5 +9, D6 +4, D7 +6) |
+| Scoped vitest pass count | 1518 | **1555** | +37 new regression tests (D3 +3, D4 +2, D5 +9, D6 +4 → +6, D7 +6, D5-FU +8, D7-FU render +3) |
 | Scoped vitest skipped | 13 | 13 | unchanged |
 | Scoped vitest failed | 0 | **0** | no regressions |
 
@@ -103,7 +107,8 @@ Console-clean: yes (the `[focusHelpers] focusNodeById called before ReactFlow mo
 - `TriageCard` — **not modified**. Confirm chip rendering at lines 492–510 uses existing `action.kind === 'confirm'` branch.
 - `SectionHeader` — **not modified**. D6 reuses with existing props (title, className, testId).
 - `DataBar` — **not modified**. Sensitivity bar at DriversSection.tsx:451–461 unchanged.
-- `BiasSignal` (interface in pickStartHere.ts) — **extended additively** with optional `subtitle?: string`. No existing consumer breaks.
+- `BiasSignal` (interface in pickStartHere.ts) — **extended additively** with optional `subtitle?: string` (D5) and optional `targetFactorLabel?: string` (D5 follow-up). No existing consumer breaks.
+- `NormalisedBiasTrigger` (in PreAnalysisPanel.tsx) — **extended additively** with `targetFactorId: string | null` and `targetFactorLabel: string | null` (D5 follow-up). All construction sites populate the new fields explicitly.
 
 ---
 
@@ -113,11 +118,11 @@ Console-clean: yes (the `[focusHelpers] focusNodeById called before ReactFlow mo
 
 **Risk profile:** low.
 - All 6 root causes verified before fix; no blind changes.
-- 24 new regression tests guard each fix surface.
+- 37 new regression tests guard each fix surface.
 - No data-layer changes (CEE / PLoT / ISL untouched).
 - No schema changes (Supabase, factor enum, edge enum all unchanged).
 - Brief 5.5 schema freeze respected — only documented amendment is §2.2 Pattern C (4-dot → thin bar) per Brief 5.7 D4.
 
-**Walkthrough:** see `docs/brief-5_7-staging-walkthrough-template.md`.
+**Walkthrough:** see `docs/brief-5_7-staging-walkthrough-template.md` (filled with concrete local-preview artefacts per AGENTS.md §1).
 
-**Rollback plan:** revert `b4e6ac97..6d1daba5` is one revert per deliverable; each commit is independently revertable. Git tree has no merges in the 5.7 sequence.
+**Rollback plan:** revert `b4e6ac97..be7b8c38` (D1..D7-FU) is one revert per deliverable; each commit is independently revertable. The follow-up commits (`94bcaccb`, `f490ab8d`, `be7b8c38`) layer cleanly on top of the original D5/D6/D7 commits and can also be reverted independently. Git tree has no merges in the 5.7 sequence.

@@ -83,11 +83,13 @@ Thin bar + numeric readout rendered at the confidence column.
       style={{ width: `${Math.round(confidence01 * 100)}%` }}
     />
   </div>
-  <span className="text-[12px] font-mono text-text-light">
+  <span className={`${typography.panelBody} font-mono text-text-light`}>
     {Math.round(confidence01 * 100)}%
   </span>
 </div>
 ```
+
+The numeric readout uses `typography.panelBody` (12px) — the locked Brief 5.5 §2.1 token — not a raw `text-[12px]` utility. This keeps the spec snippet aligned with the production code in `src/components/results/DriversSection.tsx` and lets §2.1 grep gate 1 (forbid raw typography utilities) stay green even if a reader copies the snippet verbatim.
 
 - Track height `h-1` (4 px). Track background `bg-panel-hover` so the empty state still reads as a column.
 - Fill colour `bg-info` (DS v5 info blue). Width = `confidence01 * 100`%.
