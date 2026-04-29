@@ -129,7 +129,12 @@ export function shouldSuppressBiasFinding(
 ): boolean {
   const code = (finding.code ?? finding.type ?? '').toString().toLowerCase()
   const isAuthority = code === 'authority_bias' || code === 'authoritybias'
-  return isAuthority && !finding.target_factor_id
+  // Trim before existence check so whitespace-only ids (e.g. "   ") are
+  // treated as absent. Without this, `normaliseCeeBiasFinding` would still
+  // catch the case via its own resolver/trim, but the predicate's contract
+  // would disagree with the downstream behaviour.
+  const hasTarget = (finding.target_factor_id ?? '').trim().length > 0
+  return isAuthority && !hasTarget
 }
 
 /**

@@ -19,7 +19,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
-import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
+import type { ImprovementItem, PreAnalysisData } from '../hooks/usePreAnalysisData'
 
 // ── Mocked data hook ───────────────────────────────────────────────────────
 vi.mock('../hooks/usePreAnalysisData', () => ({
@@ -301,7 +301,7 @@ describe('PreAnalysisPanel — Brief 5.7 D7 component-level render', () => {
               detail: 'AI estimate: 0.5',
               subgroup: 'cee_inference',
               focus: { type: 'node', id: 'fac-1', label: 'Engineering velocity' },
-            } as any,
+            } satisfies ImprovementItem,
           ],
           add_evidence: [],
           strengthen: [],

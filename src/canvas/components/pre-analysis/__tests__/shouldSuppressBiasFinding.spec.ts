@@ -40,6 +40,21 @@ describe('shouldSuppressBiasFinding (Brief 5.3 T5 / 5.7 D5)', () => {
     expect(shouldSuppressBiasFinding({ code: 'AUTHORITY_BIAS', target_factor_id: '' })).toBe(true)
   })
 
+  it('treats whitespace-only target_factor_id as absent for AUTHORITY_BIAS', () => {
+    expect(
+      shouldSuppressBiasFinding({ code: 'AUTHORITY_BIAS', target_factor_id: '   ' }),
+    ).toBe(true)
+    expect(
+      shouldSuppressBiasFinding({ code: 'AUTHORITY_BIAS', target_factor_id: '\t\n' }),
+    ).toBe(true)
+  })
+
+  it('does not suppress AUTHORITY_BIAS when target_factor_id is non-blank (with surrounding whitespace)', () => {
+    expect(
+      shouldSuppressBiasFinding({ code: 'AUTHORITY_BIAS', target_factor_id: '  fac-1  ' }),
+    ).toBe(false)
+  })
+
   it('does not suppress findings with no code or type at all', () => {
     expect(shouldSuppressBiasFinding({})).toBe(false)
   })

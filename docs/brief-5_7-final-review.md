@@ -2,7 +2,7 @@
 
 Branch: `ui/analysis-tab-hotfix-5_7` (local only, not pushed)
 Base: `staging` at `2da7b129`
-Last commit on hotfix branch: `be7b8c38` (D7 follow-up: component-level D5/D7 render tests)
+Branch range: `b4e6ac97..HEAD` — D1..D7 originals (`b4e6ac97..6d1daba5`), D8 docs (`ce075760`), D5/D6/D7 follow-ups from review feedback (`94bcaccb..be7b8c38`), and the close-out doc commits that produced this file (the most recent on the branch). Use `git log --oneline ui/analysis-tab-hotfix-5_7` for the live ordering, since this file lives on the same branch and cannot self-reference its own commit hash.
 
 ---
 
@@ -75,7 +75,7 @@ Last commit on hotfix branch: `be7b8c38` (D7 follow-up: component-level D5/D7 re
 |---|--------------:|-----------------:|---|
 | `npm run typecheck` | clean | **clean** | |
 | Lint on touched files | (clean) | **clean** | only deprecated `.eslintignore` warning, unrelated |
-| Scoped vitest pass count | 1518 | **1555** | +37 new regression tests (D3 +3, D4 +2, D5 +9, D6 +4 → +6, D7 +6, D5-FU +8, D7-FU render +3) |
+| Scoped vitest pass count | 1518 | **1557** | +39 new regression tests (D3 +3, D4 +2, D5 +9 → +11, D6 +4 → +6, D7 +6, D5-FU +8, D7-FU render +3) |
 | Scoped vitest skipped | 13 | 13 | unchanged |
 | Scoped vitest failed | 0 | **0** | no regressions |
 
@@ -125,4 +125,4 @@ Console-clean: yes (the `[focusHelpers] focusNodeById called before ReactFlow mo
 
 **Walkthrough:** see `docs/brief-5_7-staging-walkthrough-template.md` (filled with concrete local-preview artefacts per AGENTS.md §1).
 
-**Rollback plan:** revert `b4e6ac97..be7b8c38` (D1..D7-FU) is one revert per deliverable; each commit is independently revertable. The follow-up commits (`94bcaccb`, `f490ab8d`, `be7b8c38`) layer cleanly on top of the original D5/D6/D7 commits and can also be reverted independently. Git tree has no merges in the 5.7 sequence.
+**Rollback plan:** revert `b4e6ac97..HEAD` (the full Brief 5.7 sequence on this branch) — one revert per commit, each independently revertable. The originals (D1..D7), the D8 docs, the follow-ups from review feedback (D5-FU `94bcaccb`, D6-FU `f490ab8d`, D7-FU `be7b8c38`), and any subsequent docs close-out commits all stand alone. Git tree has no merges in the 5.7 sequence. Run `git log --oneline ui/analysis-tab-hotfix-5_7` for the live commit order.

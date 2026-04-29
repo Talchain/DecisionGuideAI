@@ -5,7 +5,7 @@ Per AGENTS.md §1: every acceptance-criterion row records one concrete artefact 
 Tester: Paul Lee (local, automated)
 Date: 2026-04-29
 Branch: `ui/analysis-tab-hotfix-5_7`
-Last commit on branch: `be7b8c38` (D7-FU component-level render tests)
+Branch range: `b4e6ac97..HEAD` — D1..D7 originals + D8 docs + D5/D6/D7 follow-ups + close-out docs. This file lives on the branch it documents and cannot self-reference its own commit hash; run `git log --oneline ui/analysis-tab-hotfix-5_7` for the live ordering.
 Build: `npm run build` → `✓ built in 25.70s` (no errors)
 Scoped vitest: 1555 passed / 13 skipped / 0 failed across `src/components/results` + `src/canvas/components/pre-analysis`
 
