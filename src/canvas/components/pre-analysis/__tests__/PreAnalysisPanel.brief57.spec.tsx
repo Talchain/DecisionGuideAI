@@ -226,11 +226,15 @@ describe('PreAnalysisPanel — Brief 5.7 D5 component-level render', () => {
 
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
 
-    // The bias card title carries the bias type AND the factor name.
+    // The bias card title is the canonical bias category name (no factor
+    // suffix) — keeps title clean for sparkle prompts and avoids visual
+    // duplication of the factor name.
     expect(
-      screen.getByText('Authority bias on Engineering velocity'),
+      screen.getByText('Authority bias'),
     ).toBeInTheDocument()
-    // The targeting subtitle is present somewhere in the document.
+    // The factor name lives in the targeting subtitle alongside the CEE
+    // explanation. This is where the brief D5 acceptance "names the
+    // specific factor" is satisfied.
     expect(
       screen.getByText(/Watch for authority bias on Engineering velocity\./i),
     ).toBeInTheDocument()

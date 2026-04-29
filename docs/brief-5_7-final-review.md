@@ -75,7 +75,7 @@ Branch range: `b4e6ac97..HEAD` — D1..D7 originals (`b4e6ac97..6d1daba5`), D8 d
 |---|--------------:|-----------------:|---|
 | `npm run typecheck` | clean | **clean** | |
 | Lint on touched files | (clean) | **clean** | only deprecated `.eslintignore` warning, unrelated |
-| Scoped vitest pass count | 1518 | **1557** | +39 new regression tests (D3 +3, D4 +2, D5 +9 → +11, D6 +4 → +6, D7 +6, D5-FU +8, D7-FU render +3) |
+| Scoped vitest pass count | 1518 | **1559** | +41 new regression tests (D3 +3, D4 +2, D5 +9 → +11, D6 +4 → +8, D7 +6, D5-FU +8, D7-FU render +3) |
 | Scoped vitest skipped | 13 | 13 | unchanged |
 | Scoped vitest failed | 0 | **0** | no regressions |
 

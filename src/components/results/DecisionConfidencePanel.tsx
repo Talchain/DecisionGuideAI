@@ -542,8 +542,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         topEvidenceGapIdentity={topEvidenceGapIdentity}
       />
 
-      {/* Empty state when all evidence gaps had zero impact (Brief 4 Task 9). */}
-      {evidenceGapCards.length === 0 && data.confidence.topEvidenceGapsEmpty && (
+      {/* Empty state when all evidence gaps had zero impact (Brief 4 Task 9).
+          Brief 5.7 D6 follow-up²: also require no next-action cards, so the
+          empty-state message is suppressed when the user can still see a
+          populated "Suggested next actions" block (the message would
+          otherwise read as contradicting an adjacent populated section). */}
+      {evidenceGapCards.length === 0
+        && nextActionCards.length === 0
+        && data.confidence.topEvidenceGapsEmpty && (
         <div className="rounded-lg border border-panel-border bg-panel px-3 py-2">
           <p className={`${typography.panelBody} text-text-light`}>
             No high-value evidence gaps. Your current uncertainties have minimal impact on the result.

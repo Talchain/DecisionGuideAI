@@ -47,7 +47,7 @@ describe('normaliseCeeBiasFinding (Brief 5.7 D5 follow-up — target propagation
     expect(trigger).toBeNull()
   })
 
-  it('augments the title with " on <factor>" when target resolves', () => {
+  it('keeps title as the bias type and surfaces the factor name in the subtitle', () => {
     const resolve = resolverFor('fac-1', 'Engineering velocity')
     const trigger = normaliseCeeBiasFinding(
       {
@@ -59,7 +59,11 @@ describe('normaliseCeeBiasFinding (Brief 5.7 D5 follow-up — target propagation
       resolve,
     )
     expect(trigger).not.toBeNull()
-    expect(trigger!.title).toBe('Authority bias on Engineering velocity')
+    // Title stays as the canonical bias category (no factor suffix) so
+    // sparkle prompts read naturally and the card avoids visual redundancy.
+    expect(trigger!.title).toBe('Authority bias')
+    // Factor name lives in the subtitle's targeting sentence + appended
+    // CEE explanation. Mirrors the brief D5 example copy.
     expect(trigger!.subtitle).toContain('Watch for authority bias on Engineering velocity.')
     expect(trigger!.subtitle).toContain('Senior stakeholder estimates anchored your figure.')
     expect(trigger!.targetFactorId).toBe('fac-1')
@@ -78,7 +82,7 @@ describe('normaliseCeeBiasFinding (Brief 5.7 D5 follow-up — target propagation
       0,
       resolve,
     )
-    expect(trigger!.title).toBe('Confirmation bias on Hiring velocity')
+    expect(trigger!.title).toBe('Confirmation bias')
     // Lowercased bias title in targeting copy reads naturally as a sentence.
     expect(trigger!.subtitle).toMatch(/^Watch for confirmation bias on Hiring velocity\. /)
   })
@@ -127,8 +131,10 @@ describe('normaliseCeeBiasFinding (Brief 5.7 D5 follow-up — target propagation
       resolve,
     )
     expect(trigger).not.toBeNull()
-    // Fallback title is "Bias detected".
-    expect(trigger!.title).toBe('Bias detected on Customer churn')
+    // Fallback title is the canonical "Bias detected"; factor name surfaces
+    // via the targeting subtitle.
+    expect(trigger!.title).toBe('Bias detected')
+    expect(trigger!.subtitle).toMatch(/^Watch for bias detected on Customer churn\. /)
     expect(trigger!.targetFactorLabel).toBe('Customer churn')
   })
 })

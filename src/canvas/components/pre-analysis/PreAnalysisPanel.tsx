@@ -250,10 +250,13 @@ export function normaliseCeeBiasFinding(
   // is a TypeScript syntax error.
   const stableId = raw.id ?? (lookupKey || String(idx))
 
-  // When a resolved target is available, fold the factor name into both the
-  // title and the subtitle so the render layer does not need biasType-specific
-  // copy authoring. The CEE explanation (or its truncated form) is appended.
-  const targetSuffix = targetFactorLabel ? ` on ${targetFactorLabel}` : ''
+  // When a resolved target is available, the factor name lives in the
+  // subtitle's targeting sentence rather than being folded into the title
+  // as well. This mirrors the brief D5 example copy ("Watch for authority
+  // bias on [Factor Name]. <reason>") and avoids the visual redundancy of
+  // showing the factor name twice in the same card. Title stays as the
+  // canonical bias type so sparkle prompts and other consumers see a clean
+  // category label rather than a sentence fragment.
   const subtitleBase = truncateExplanation(fullExplanation)
   const subtitle = targetFactorLabel
     ? `Watch for ${config.title.toLowerCase()} on ${targetFactorLabel}. ${subtitleBase}`
@@ -262,7 +265,7 @@ export function normaliseCeeBiasFinding(
   return {
     id: `cee_bias_${stableId}`,
     icon: config.icon,
-    title: `${config.title}${targetSuffix}`,
+    title: config.title,
     subtitle,
     fullExplanation,
     severity: raw.severity ?? 'medium',

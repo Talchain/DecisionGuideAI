@@ -68,6 +68,7 @@ function makeNextAction(overrides: Partial<NextActionItem> = {}): NextActionItem
 function makeData(opts: {
   gaps: EvidenceGapItem[]
   nextActions: NextActionItem[]
+  topEvidenceGapsEmpty?: boolean
 }): ResultsSectionDataReturn {
   const option: OptionResult = {
     id: 'opt_a',
@@ -107,6 +108,7 @@ function makeData(opts: {
     topImprovements: [],
     evidenceGaps: opts.gaps,
     topEvidenceGaps: opts.gaps,
+    topEvidenceGapsEmpty: opts.topEvidenceGapsEmpty ?? false,
     nextActions: opts.nextActions,
     topNextActions: opts.nextActions,
   }
@@ -220,5 +222,37 @@ describe('DecisionConfidencePanel — Brief 5.7 D6 top evidence split', () => {
 
     expect(screen.getByTestId('trust-summary')).toBeInTheDocument()
     expect(screen.getByTestId('next-actions-section-header')).toBeInTheDocument()
+  })
+
+  // Brief 5.7 D6 follow-up²: the "No high-value evidence gaps" copy must
+  // not appear when next-action cards are populated, otherwise the message
+  // contradicts the adjacent populated section.
+  it('suppresses the empty-state copy when next-actions are present, even with topEvidenceGapsEmpty', () => {
+    const data = makeData({
+      gaps: [],
+      nextActions: [makeNextAction({ action: 'Calibrate factor' })],
+      topEvidenceGapsEmpty: true,
+    })
+
+    render(<DecisionConfidencePanel data={data} />)
+
+    expect(
+      screen.queryByText(/No high-value evidence gaps/i),
+    ).not.toBeInTheDocument()
+    expect(screen.getByTestId('next-action-cards')).toBeInTheDocument()
+  })
+
+  it('renders the empty-state copy when topEvidenceGapsEmpty AND no triage cards at all', () => {
+    const data = makeData({
+      gaps: [],
+      nextActions: [],
+      topEvidenceGapsEmpty: true,
+    })
+
+    render(<DecisionConfidencePanel data={data} />)
+
+    expect(
+      screen.getByText(/No high-value evidence gaps/i),
+    ).toBeInTheDocument()
   })
 })
