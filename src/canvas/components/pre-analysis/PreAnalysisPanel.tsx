@@ -177,7 +177,7 @@ type RawBiasFinding = {
   micro_intervention?: { steps?: Array<{ text?: string; [k: string]: unknown }>; [k: string]: unknown }
 }
 
-interface NormalisedBiasTrigger {
+export interface NormalisedBiasTrigger {
   id: string
   icon: typeof Frame
   title: string
@@ -187,9 +187,33 @@ interface NormalisedBiasTrigger {
   /** First step text from micro_intervention.steps, when present. Enriches the sparkle prompt
    *  with a specific debiasing technique (unified spec §3.3: sparkle only, no text pills). */
   microInterventionStep: string | null
+  /** Brief 5.7 D5 follow-up: when the finding carried a `target_factor_id`
+   *  AND the id resolved to a graph node, propagate both the id and the
+   *  resolved label so the render layer can name the target factor. When the
+   *  id is present but does not resolve to any graph node, the trigger is
+   *  suppressed (returns null) — a target we cannot name is no better than
+   *  the original generic meta-commentary. */
+  targetFactorId: string | null
+  targetFactorLabel: string | null
 }
 
-function normaliseCeeBiasFinding(raw: RawBiasFinding, idx: number): NormalisedBiasTrigger | null {
+/**
+ * Resolves a CEE bias finding into a render-ready trigger.
+ *
+ * Brief 5.7 follow-up: takes a `resolveLabel(id) → label | null` resolver so
+ * the target_factor_id can be looked up against the live graph. The resolver
+ * lives in component scope and reads the current `nodes` array.
+ *
+ * Suppression rules:
+ *   - finding has neither `explanation` nor `description` → null
+ *   - finding has a `target_factor_id` BUT the resolver returns null → null
+ *     (we cannot honestly name the target, so do not render the card)
+ */
+export function normaliseCeeBiasFinding(
+  raw: RawBiasFinding,
+  idx: number,
+  resolveLabel: (id: string) => string | null,
+): NormalisedBiasTrigger | null {
   // Lookup key: prefer uppercase `code`, fall back to lowercase `type`.
   const lookupKey = raw.code || raw.type || ''
   const config = BIAS_TYPE_ICON[lookupKey] ?? BIAS_FALLBACK
@@ -197,6 +221,17 @@ function normaliseCeeBiasFinding(raw: RawBiasFinding, idx: number): NormalisedBi
   // Subtitle text: prefer `explanation` (newer schema), fall back to `description`.
   const fullExplanation = (raw.explanation || raw.description || '').trim()
   if (!fullExplanation) return null
+
+  // Resolve the target factor when the finding identifies one. An unresolvable
+  // id, or a resolver that returns a blank label, is treated as "no target"
+  // and the card is suppressed below — we never want to render targeting copy
+  // that points at nothing.
+  const rawTargetId = (raw.target_factor_id ?? '').trim()
+  const resolvedLabelRaw = rawTargetId ? resolveLabel(rawTargetId) : null
+  const targetFactorLabel = resolvedLabelRaw && resolvedLabelRaw.trim()
+    ? resolvedLabelRaw.trim()
+    : null
+  if (rawTargetId && !targetFactorLabel) return null
 
   // micro_intervention.steps[0].text is the new schema; fall back to first
   // entry in `interventions[].description` (existing schema).
@@ -210,14 +245,25 @@ function normaliseCeeBiasFinding(raw: RawBiasFinding, idx: number): NormalisedBi
   // is a TypeScript syntax error.
   const stableId = raw.id ?? (lookupKey || String(idx))
 
+  // When a resolved target is available, fold the factor name into both the
+  // title and the subtitle so the render layer does not need biasType-specific
+  // copy authoring. The CEE explanation (or its truncated form) is appended.
+  const targetSuffix = targetFactorLabel ? ` on ${targetFactorLabel}` : ''
+  const subtitleBase = truncateExplanation(fullExplanation)
+  const subtitle = targetFactorLabel
+    ? `Watch for ${config.title.toLowerCase()} on ${targetFactorLabel}. ${subtitleBase}`
+    : subtitleBase
+
   return {
     id: `cee_bias_${stableId}`,
     icon: config.icon,
-    title: config.title,
-    subtitle: truncateExplanation(fullExplanation),
+    title: `${config.title}${targetSuffix}`,
+    subtitle,
     fullExplanation,
     severity: raw.severity ?? 'medium',
     microInterventionStep: microStep ?? null,
+    targetFactorId: rawTargetId || null,
+    targetFactorLabel: targetFactorLabel ?? null,
   }
 }
 
@@ -856,6 +902,17 @@ export function PreAnalysisPanel({
 
     const ceeBiasFindings = (ceeAnalysisReady?.bias_findings ?? []) as RawBiasFinding[]
 
+    // Brief 5.7 D5 follow-up: resolver lookup against the live graph so a
+    // CEE-supplied target_factor_id can be turned into a render-ready label.
+    // Returns null when the id does not resolve to any node — the trigger is
+    // then suppressed in normaliseCeeBiasFinding.
+    const resolveLabel = (id: string): string | null => {
+      const node = nodes.find(n => n.id === id)
+      if (!node) return null
+      const label = (node.data as Record<string, unknown>)?.label
+      return typeof label === 'string' && label.trim() ? label : null
+    }
+
     if (ceeBiasFindings.length > 0) {
       // Sort CEE findings by severity: high → medium → low (BIAS_SEVERITY_RANK)
       const sorted = [...ceeBiasFindings].sort(
@@ -864,7 +921,7 @@ export function PreAnalysisPanel({
       for (let i = 0; i < sorted.length; i++) {
         const finding = sorted[i]
         if (shouldSuppressBiasFinding(finding)) continue
-        const normalised = normaliseCeeBiasFinding(finding, i)
+        const normalised = normaliseCeeBiasFinding(finding, i, resolveLabel)
         if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
       }
@@ -873,7 +930,9 @@ export function PreAnalysisPanel({
     }
 
     // Deterministic fallback — graph-signal-only checks. Each check produces
-    // a trigger in the shared NormalisedBiasTrigger shape (no micro_intervention).
+    // a trigger in the shared NormalisedBiasTrigger shape (no micro_intervention,
+    // no target factor — these are graph-level signals that do not anchor to
+    // a single node).
 
     const pushDeterministic = (
       id: string,
@@ -889,6 +948,8 @@ export function PreAnalysisPanel({
         fullExplanation: explanation,
         severity: 'medium',
         microInterventionStep: null,
+        targetFactorId: null,
+        targetFactorLabel: null,
       })
     }
 
@@ -1087,6 +1148,7 @@ export function PreAnalysisPanel({
     defaultedScore: false,
     biasType: trigger.title,
     subtitle: trigger.subtitle,
+    targetFactorLabel: trigger.targetFactorLabel ?? undefined,
   }))
   const optionQualitySignal: ReviewNextSignal | null = showOptionQualityCard
     ? {

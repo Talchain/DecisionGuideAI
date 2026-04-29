@@ -54,6 +54,12 @@ export interface BiasSignal {
    *  meta-commentary line. Sourced from `trigger.subtitle` (the truncated
    *  explanation produced by `normaliseCeeBiasFinding`). */
   subtitle?: string
+  /** Brief 5.7 D5 follow-up: resolved factor label when the CEE finding
+   *  supplied `target_factor_id` AND the id resolved to a graph node. The
+   *  start-here render layer uses this to name the target factor in the
+   *  card title. Absent when no target was supplied or it could not be
+   *  resolved (in which case the trigger itself is suppressed upstream). */
+  targetFactorLabel?: string
 }
 
 export type ReviewNextSignal = TriageSignal | OptionQualitySignal | BiasSignal
