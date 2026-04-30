@@ -1923,10 +1923,11 @@ export function PreAnalysisPanel({
   // the threaded expertise triage cards into a single ordered list. Order is
   // preserved from the existing severity → diversification sort in Hook B
   // (no new ordering field). Cards already in Must fix are excluded
-  // (mustFixCardKeys). Duplicate keys are deduped, last-write-wins on the
-  // overlay (which is deterministic because every entry runs through the
-  // same overlay map). The first item is the natural "highest-priority"
-  // and gets the .ac.em emphasis treatment in the render layer.
+  // (mustFixCardKeys). Cards whose signal id is in resolvedSignals are also
+  // excluded so a freshly-confirmed item disappears from the queue on the
+  // very next render rather than briefly remaining visible until Hook B
+  // re-derives. Duplicate keys are deduped — first-write-wins so the
+  // ordering is preserved deterministically.
   type UnifiedQueueEntry = UnifiedQueueEntryProp
   const unifiedTriageQueue = useMemo<UnifiedQueueEntry[]>(() => {
     const seen = new Set<string>()
@@ -1935,12 +1936,15 @@ export function PreAnalysisPanel({
     for (const card of sources) {
       const dedupKey = card.signal_id ?? card.key
       if (seen.has(dedupKey)) continue
+      // Brief 5.8A holistic-review pass: respect the resolvedSignals overlay
+      // so confirm clicks don't leave the card visible for a render frame.
+      if (resolvedSignals.has(`triage:${card.key}`)) continue
       seen.add(dedupKey)
       const overlay = findStrengthenOverlay({ title: card.title }, strengthenOverlayMap)
       queue.push({ card, overlay })
     }
     return queue
-  }, [reviewNextTriageAll, improveConfidenceCards, expertiseTriageCards, strengthenOverlayMap])
+  }, [reviewNextTriageAll, improveConfidenceCards, expertiseTriageCards, strengthenOverlayMap, resolvedSignals])
 
   const unifiedTopThree = useMemo(() => unifiedTriageQueue.slice(0, 3), [unifiedTriageQueue])
   const unifiedAlsoConsider = useMemo(() => unifiedTriageQueue.slice(3), [unifiedTriageQueue])
@@ -1953,6 +1957,44 @@ export function PreAnalysisPanel({
     () => buildContributionBreakdown(data.nodesByKind.factor),
     [data.nodesByKind.factor],
   )
+
+  // Brief 5.8A holistic-review pass: stable slot ReactNodes for the memoised
+  // T1 card. Without these, every parent re-render constructs new ReactElement
+  // refs that defeat T1DecisionReadinessCard's React.memo. The slots only
+  // change when their internal state (store reads) changes — the slot
+  // *components* themselves manage that via their own subscriptions.
+  const wideningSlot = useMemo(() => <WhatOlumiAddedSection />, [])
+  const missingKnowledgeSlot = useMemo(
+    () => (
+      <MissingKnowledgePrompt
+        context="model"
+        aiAffordance={
+          <DiscussWithAiButton
+            element={{ kind: 'missing' }}
+            ariaLabel="Tell AI about something missing from the model"
+          />
+        }
+      />
+    ),
+    [],
+  )
+
+  // Stable noTargetCheck reference — `.find()` returns a new object each render
+  // even when the underlying check is identical. Wrapping in useMemo keyed on
+  // the qualityChecks array preserves identity across hover/highlight churn.
+  const noTargetCheck = useMemo(
+    () => data.qualityChecks.find(c => c.id === 'no_target') ?? null,
+    [data.qualityChecks],
+  )
+
+  // Stable goalLabel + hasGoalNode primitives — pure derivations from
+  // data.goalNode, don't change unless the goal node identity does.
+  const goalLabel = useMemo(
+    () => data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null,
+    [data.goalNode],
+  )
+  const hasGoalNode = data.nodesByKind.goal.length > 0
+  const hasGoalTarget = data.successThreshold !== null
 
   // Brief 4 hotfix Task 5: the goal target is only an improvement item when
   // the user hasn't confirmed the threshold yet. Once confirmed, drop it from
@@ -2193,13 +2235,13 @@ export function PreAnalysisPanel({
                 balance={balance}
                 calibration={calibration}
                 optionCount={data.optionPreviews.length}
-                goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
+                goalLabel={goalLabel}
                 coachingSummary={data.coachingSummary}
                 dynamicHeadline={dynamicHeadline}
                 isLoading={data.isLoading}
-                hasGoalNode={data.nodesByKind.goal.length > 0}
-                hasGoalTarget={data.successThreshold !== null}
-                noTargetCheck={data.qualityChecks.find(c => c.id === 'no_target') ?? null}
+                hasGoalNode={hasGoalNode}
+                hasGoalTarget={hasGoalTarget}
+                noTargetCheck={noTargetCheck}
                 onSetTarget={handleSetTargetFocus}
                 unverifiedEstimateCount={data.improvementsByCategory.verify.length}
                 relationshipsToReviewCount={data.improvementsByCategory.add_evidence.length}
@@ -2208,13 +2250,8 @@ export function PreAnalysisPanel({
                 handlers={t1Handlers}
                 biasNudges={biasTriggers}
                 contributionBreakdown={contributionBreakdown}
-                wideningSlot={<WhatOlumiAddedSection />}
-                missingKnowledgeSlot={
-                  <MissingKnowledgePrompt
-                    context="model"
-                    aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the model" />}
-                  />
-                }
+                wideningSlot={wideningSlot}
+                missingKnowledgeSlot={missingKnowledgeSlot}
               />
             )}
           </SectionErrorBoundary>
