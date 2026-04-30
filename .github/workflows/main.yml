@@ -92,13 +92,17 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ needs.apply.outputs.branch }}
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
       - uses: actions/setup-node@v4
         with:
           node-version: ${{ matrix.node }}
-          cache: npm
-      - run: npm ci
-      - run: npm run build --if-present
-      - run: npm test --if-present
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run --if-present build
+      - run: pnpm run --if-present test
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
       - name: Ensure tests.json (non-blocking if file missing)

@@ -10,12 +10,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          run_install: false
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           registry-url: https://npm.pkg.github.com
-      - run: npm ci
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
+      - run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
-      - run: npx playwright install --with-deps
-      - run: npx playwright test "e2e/sandbox.*.spec.ts" --retries=1 --reporter=line
+      - run: pnpm exec playwright install --with-deps
+      - run: pnpm exec playwright test "e2e/sandbox.*.spec.ts" --retries=1 --reporter=line
