@@ -315,13 +315,12 @@ describe('PreAnalysisPanel — Brief 5.7 D7 component-level render', () => {
 
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
 
-    // Expand "Improve confidence" so the expertise triage cards mount.
-    const toggle = screen.getByTestId('improve-confidence-toggle')
-    fireEvent.click(toggle)
-
-    // Locate the expertise card block and the Confirm button within it.
-    const cardsBlock = screen.getByTestId('expertise-triage-cards')
-    const confirmButton = within(cardsBlock).getByRole('button', {
+    // Brief 5.8A D3b: AI-estimated factors now surface as triage cards in the
+    // unified queue inside the T1 Decision readiness card. No accordion to
+    // expand. The Confirm action button still appears via the augmentation
+    // helper; we look for it inside the T1 card.
+    const t1Card = screen.getByTestId('t1-decision-readiness-card')
+    const confirmButton = within(t1Card).getByRole('button', {
       name: /Confirm AI estimate/i,
     })
 

@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
@@ -382,8 +382,10 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('improve-confidence-content')).toBeInTheDocument()
     })
 
-    it('shows expertise triage cards for cee_inference verify items', () => {
-      // D7: AI-estimated items thread into Improve confidence as TriageCards
+    it('surfaces cee_inference verify items inside the T1 unified queue', () => {
+      // Brief 5.8A D3b: Improve confidence triage cards moved into the T1
+      // Decision readiness card. Expertise items now appear in the unified
+      // queue alongside Review next items.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         totalImprovements: 5,
         improvementsByCategory: {
@@ -395,14 +397,16 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
+      const t1Card = screen.getByTestId('t1-decision-readiness-card')
+      expect(within(t1Card).getByTestId('t1-triage-top-three')).toBeInTheDocument()
+      expect(within(t1Card).getByText('Verify')).toBeInTheDocument()
     })
   })
 
   describe('Expertise Section', () => {
-    it('renders expertise triage cards for cee_inference verify items (D7)', () => {
-      // D7: YourExpertise removed; items surfaced as TriageCards in Improve confidence
+    it('renders cee_inference verify items inside the T1 unified queue', () => {
+      // Brief 5.8A D3b: AI-estimated items now appear in the T1 unified
+      // triage queue (no separate expertise block).
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
@@ -413,8 +417,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
+      const t1Card = screen.getByTestId('t1-decision-readiness-card')
+      expect(within(t1Card).getByTestId('t1-triage-top-three')).toBeInTheDocument()
+      expect(within(t1Card).getByText('Test Factor')).toBeInTheDocument()
     })
   })
 
@@ -624,8 +629,9 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
     })
 
-    it('AI-estimated factors surface as expertise triage cards (D7)', () => {
-      // D7: cee_inference verify items thread into Improve confidence as TriageCards
+    it('AI-estimated factors surface inside the T1 unified queue (Brief 5.8A D3b)', () => {
+      // Brief 5.8A D3b: cee_inference verify items now thread into the T1
+      // unified triage queue alongside Review next items.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         reviewedFactorsCount: 2,
@@ -643,12 +649,17 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
+      const t1Card = screen.getByTestId('t1-decision-readiness-card')
+      expect(within(t1Card).getByTestId('t1-triage-top-three')).toBeInTheDocument()
+      // First three items appear in top-three; remainder (if any) in Also consider.
+      expect(within(t1Card).getByText('F1')).toBeInTheDocument()
+      expect(within(t1Card).getByText('F2')).toBeInTheDocument()
+      expect(within(t1Card).getByText('F3')).toBeInTheDocument()
     })
 
-    it('no expertise triage cards when no AI-estimated or missing items', () => {
-      // D7: without cee_inference items, expertise-triage-cards block is absent
+    it('renders no T1 triage queue when no triage items exist', () => {
+      // Brief 5.8A D3b: when there are no triage items at all, the T1 queue
+      // is suppressed entirely (no empty container).
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         reviewedFactorsCount: 2,
@@ -656,8 +667,8 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.queryByTestId('expertise-triage-cards')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('t1-triage-top-three')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('t1-also-consider')).not.toBeInTheDocument()
     })
 
     it('shows Ready and enables button when only optional improvements present', () => {

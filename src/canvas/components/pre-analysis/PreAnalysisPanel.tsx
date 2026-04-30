@@ -51,10 +51,7 @@ import {
   type ReviewNextSignal,
   type TriageSignal,
 } from './pickStartHere'
-import {
-  resolveReviewNextCoachingLine,
-  getImproveConfidenceCoachingLine,
-} from './sectionCoaching'
+import { resolveReviewNextCoachingLine } from './sectionCoaching'
 import { useResolvedSignals } from './useResolvedSignals'
 import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
 import Tooltip from '@/components/Tooltip'
@@ -63,11 +60,15 @@ import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgeProm
 import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
 import { decisionShapeScore } from './utils/decisionShapeScore'
 import { buildNarrativeBridge } from './utils/buildNarrativeBridge'
+import {
+  buildStrengthenOverlayMap,
+  findStrengthenOverlay,
+  type StrengthenOverlay,
+} from './utils/applyStrengthenOverlay'
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { SectionHeader } from '@/components/results/SectionHeader'
-import { DraftStrengthenSection } from './DraftStrengthenSection'
 import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
 // removed handleResolveContestedEdge handler (Brief 4 Task 6).
@@ -636,17 +637,38 @@ function T1FailingCheckRow({
 }
 
 /**
- * Brief 5.8A D3a — T1 "Decision readiness" card wrapper.
+ * Brief 5.8A D3a/D3b — T1 "Decision readiness" card wrapper.
  *
  * Hosts the ring + 4 dimension bars (ModelHealthCard compact), failing checks
- * (currently no_target), and the narrative bridge with strong-bolded counts.
- * D3b will absorb the unified triage queue inside this card; D3c will add
- * bias nudges, widening_log, contribution, and checks footer.
+ * (currently no_target), the narrative bridge with strong-bolded counts, and
+ * the unified triage queue (top 3 + Also consider). D3c will add bias
+ * nudges, widening_log, contribution, and checks footer below.
  *
- * Memoised because parent renders frequently on hover/highlight changes. The
- * input props are simple primitives + a single QualityCheck reference plus
- * handler callbacks; identity stability of the callbacks is a parent concern.
+ * Memoised — the parent re-renders on hover/highlight changes; this card's
+ * inputs are stable across those.
  */
+/**
+ * Card shape after mapItem augmentation — adds the editorConfig (inline editor
+ * config from Brief 5.7 D7, locked) and the aiDiscuss element (the per-card
+ * Discuss-with-AI affordance). Local to the T1 panel because mapItem is a
+ * render-local function in the consumer.
+ */
+type MappedTriageCard = TriageCardItem & {
+  editorConfig?: ScientificEditorProps | null
+  aiDiscuss?: AiDiscussElement
+}
+
+type UnifiedQueueEntryProp = { card: MappedTriageCard; overlay: StrengthenOverlay | null }
+
+interface T1Handlers {
+  onConfirm: (targetId: string) => void
+  onEdit: (targetId: string) => void
+  onUpdateEdgeStrength: (edgeId: string, value: number) => void
+  onHoverEnter: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave: () => void
+  buildAiDiscuss: (entry: UnifiedQueueEntryProp) => React.ReactNode
+}
+
 const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   completeness,
   evidence,
@@ -663,6 +685,9 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   onSetTarget,
   unverifiedEstimateCount,
   relationshipsToReviewCount,
+  topThree,
+  alsoConsider,
+  handlers,
 }: {
   completeness: number
   evidence: number
@@ -679,6 +704,9 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   onSetTarget: () => void
   unverifiedEstimateCount: number
   relationshipsToReviewCount: number
+  topThree: UnifiedQueueEntryProp[]
+  alsoConsider: UnifiedQueueEntryProp[]
+  handlers: T1Handlers
 }) {
   const narrative = useMemo(
     () => buildNarrativeBridge({
@@ -691,6 +719,8 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
 
   const showFailingChecks = noTargetCheck !== null
   const showNarrativeBlock = narrative.prefix !== null || narrative.bridge !== null
+  const showTopThree = topThree.length > 0
+  const showAlsoConsider = alsoConsider.length > 0
 
   return (
     <div
@@ -749,67 +779,121 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
           </div>
         </>
       )}
+      {showTopThree && (
+        <div className="flex flex-col gap-2" data-testid="t1-triage-top-three">
+          {topThree.map((entry, i) => {
+            const passiveLabels = entry.overlay?.actionTypeLabel ? [entry.overlay.actionTypeLabel] : undefined
+            const subtitle = entry.overlay?.detail ?? entry.card.subtitle
+            // Card #1 gets the .ac.em emphasis treatment: info-bordered + info-tinted background.
+            const emphasised = i === 0
+            return (
+              <div
+                key={entry.card.key}
+                className={emphasised ? 'rounded-[10px] border border-info/40 bg-info/[0.02]' : ''}
+                data-testid={emphasised ? 't1-triage-emphasised' : undefined}
+              >
+                <TriageCard
+                  cardKey={entry.card.key}
+                  ordinal={i + 1}
+                  badgeColor="bg-info"
+                  title={entry.card.title}
+                  detail={entry.card.detail}
+                  subtitle={subtitle}
+                  category={entry.card.category}
+                  influence={entry.card.influence}
+                  action={entry.card.action}
+                  editorConfig={entry.card.editorConfig ?? null}
+                  sourcePill={entry.card.sourcePill}
+                  passiveLabels={passiveLabels}
+                  aiDiscussSlot={handlers.buildAiDiscuss(entry)}
+                  onConfirm={handlers.onConfirm}
+                  onEdit={handlers.onEdit}
+                  onUpdateEdgeStrength={handlers.onUpdateEdgeStrength}
+                  onHoverEnter={handlers.onHoverEnter}
+                  onHoverLeave={handlers.onHoverLeave}
+                />
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {showAlsoConsider && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div className="flex flex-col gap-1" data-testid="t1-also-consider">
+            <p className={`text-[10px] font-semibold text-text-light`}>Also consider</p>
+            <div className="flex flex-col">
+              {alsoConsider.map((entry) => {
+                const subtitle = entry.overlay?.detail ?? entry.card.subtitle
+                return (
+                  <TriageCard
+                    key={entry.card.key}
+                    cardKey={entry.card.key}
+                    title={entry.card.title}
+                    detail={entry.card.detail}
+                    subtitle={subtitle}
+                    category={entry.card.category}
+                    influence={entry.card.influence}
+                    action={entry.card.action}
+                    editorConfig={entry.card.editorConfig ?? null}
+                    sourcePill={entry.card.sourcePill}
+                    aiDiscussSlot={handlers.buildAiDiscuss(entry)}
+                    variant="compact"
+                    onConfirm={handlers.onConfirm}
+                    onEdit={handlers.onEdit}
+                    onUpdateEdgeStrength={handlers.onUpdateEdgeStrength}
+                    onHoverEnter={handlers.onHoverEnter}
+                    onHoverLeave={handlers.onHoverLeave}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 })
 
 /**
- * Improve confidence — collapsible accordion (collapsed by default).
- * Shows a "Highest value: ..." summary line above the chevron when applicable.
+ * Brief 5.8A D3b — collapsible accordion that hosts the secondary controls
+ * remaining after the triage queue moved into the T1 card. The visible
+ * "Improve confidence" heading + count pill have been removed; the toggle
+ * button now uses a generic chevron with an aria-label so it stays
+ * keyboard-accessible. The data-testid attributes are preserved so existing
+ * tests continue to find the toggle and content regions.
+ *
+ * Today the accordion holds: SuccessTarget, MissingKnowledgePrompt, and any
+ * residual content threaded through `children`. D3c may inline these surfaces
+ * into the T1 card; for now they stay collapsed by default.
  */
 function ImproveConfidenceAccordion({
   count,
-  highestValueLabel,
-  subtitle,
-  coachingLine,
   children,
 }: {
+  /** Used only to suppress the entire accordion when there is nothing to show */
   count: number
-  highestValueLabel: string | null
-  /** Scope subtitle rendered below the header row in panelMeta/text-text-light */
-  subtitle?: string
-  /** P1-3: per-section coaching line; rendered below the header when non-null */
-  coachingLine?: string | null
   children: React.ReactNode
 }) {
   const [expanded, setExpanded] = useState(false)
   if (count <= 0) return null
   return (
     <div className="space-y-1" data-testid="improve-confidence-section">
-      {highestValueLabel && (
-        <p className={`${typography.panelMeta} text-info`}>
-          Highest value: {highestValueLabel}
-        </p>
-      )}
       <button
         type="button"
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between gap-2 py-1 cursor-pointer hover:bg-panel-hover rounded"
+        className="w-full flex items-center justify-between gap-2 py-1 cursor-pointer hover:bg-panel-hover rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
         aria-expanded={expanded}
+        aria-label={expanded ? 'Collapse additional controls' : 'Expand additional controls'}
         data-testid="improve-confidence-toggle"
       >
-        <div className="flex items-center gap-2">
-          <h3 className={`${typography.panelHeader} text-text-header`}>Improve confidence</h3>
-          <span
-            className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border border-factor/30 ${typography.panelMeta} text-text-body`}
-          >
-            {count}
-          </span>
-        </div>
+        <span className={`${typography.panelMeta} text-text-light`}>
+          {expanded ? 'Hide additional controls' : 'Show additional controls'}
+        </span>
         {expanded
           ? <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
           : <ChevronRight className="w-4 h-4 text-text-light" aria-hidden="true" />}
       </button>
-      {subtitle && (
-        <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-subtitle">
-          {subtitle}
-        </p>
-      )}
-      {coachingLine && (
-        <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-coaching">
-          {coachingLine}
-        </p>
-      )}
       {expanded && (
         <div className="space-y-3" data-testid="improve-confidence-content">
           {children}
@@ -918,6 +1002,15 @@ export function PreAnalysisPanel({
     selectNodeWithoutHistory(goalId)
     focusNodeById(goalId)
   }, [data.goalNode, selectNodeWithoutHistory])
+
+  // Brief 5.8A D3b — bundle of handlers passed into T1DecisionReadinessCard.
+  // Stable reference (the underlying callbacks are useCallback'd or stable
+  // store references) so the memoised T1 component does not re-render on
+  // unrelated parent renders. Exposed as one object to keep the prop list
+  // manageable.
+  // Forward-declared because the handler implementations are defined later
+  // in this file; we wire them into the bundle via a useMemo so React only
+  // creates the object when one of the inputs changes.
 
   // Hover handlers - highlight graph elements on panel item hover
   const handleHoverElement = useCallback((type: 'node' | 'edge', id: string) => {
@@ -1116,6 +1209,22 @@ export function PreAnalysisPanel({
     // computeSignedMean falls through to weight + direction (the canvas schema path).
     updateEdgeData(edgeId, { weight: value, strength_mean: undefined })
   }, [])
+
+  // Brief 5.8A D3b — bundle of T1 triage handlers. Stable identity so the
+  // memoised T1DecisionReadinessCard does not re-render on unrelated parent
+  // state. The buildAiDiscuss factory mirrors the legacy mapping in the
+  // Review next render block (each card.aiDiscuss is wrapped in a
+  // DiscussWithAiButton).
+  const t1Handlers = useMemo<T1Handlers>(() => ({
+    onConfirm: handleConfirm,
+    onEdit: handleSetValueForGap,
+    onUpdateEdgeStrength: handleUpdateEdgeStrength,
+    onHoverEnter: handleHoverElement,
+    onHoverLeave: handleHoverClear,
+    buildAiDiscuss: (entry) => entry.card.aiDiscuss
+      ? <DiscussWithAiButton element={entry.card.aiDiscuss} />
+      : undefined,
+  }), [handleConfirm, handleSetValueForGap, handleUpdateEdgeStrength, handleHoverElement, handleHoverClear])
 
   // Action handlers passed to TriageCard and expertise triage cards
 
@@ -1626,34 +1735,53 @@ export function PreAnalysisPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.improvementsByCategory, data.contestedEdges, nodes, edges, compositeInfluenceMap, edgeInfluenceMap, triageCards])
 
+  // Brief 5.8A D3b — strengthen overlay map. CEE coaching.strengthen_items
+  // are matched onto triage cards by normalised exact label match (case-
+  // insensitive trim). When matched, `detail` overlays as the card subtitle
+  // and `actionType` becomes a passive 9px pill. Built once per render from
+  // the live store value.
+  const draftCoachingStrengthenItems = useCanvasStore(s => s.draftCoaching?.strengthenItems ?? null)
+  const strengthenOverlayMap = useMemo(
+    () => buildStrengthenOverlayMap(draftCoachingStrengthenItems),
+    [draftCoachingStrengthenItems],
+  )
+
+  // Brief 5.8A D3b — unified triage queue inside the T1 card. Combines the
+  // legacy Review next triage cards, Improve confidence quick-fix cards, and
+  // the threaded expertise triage cards into a single ordered list. Order is
+  // preserved from the existing severity → diversification sort in Hook B
+  // (no new ordering field). Cards already in Must fix are excluded
+  // (mustFixCardKeys). Duplicate keys are deduped, last-write-wins on the
+  // overlay (which is deterministic because every entry runs through the
+  // same overlay map). The first item is the natural "highest-priority"
+  // and gets the .ac.em emphasis treatment in the render layer.
+  type UnifiedQueueEntry = UnifiedQueueEntryProp
+  const unifiedTriageQueue = useMemo<UnifiedQueueEntry[]>(() => {
+    const seen = new Set<string>()
+    const queue: UnifiedQueueEntry[] = []
+    const sources = [...reviewNextTriageAll, ...improveConfidenceCards, ...expertiseTriageCards]
+    for (const card of sources) {
+      const dedupKey = card.signal_id ?? card.key
+      if (seen.has(dedupKey)) continue
+      seen.add(dedupKey)
+      const overlay = findStrengthenOverlay({ title: card.title }, strengthenOverlayMap)
+      queue.push({ card, overlay })
+    }
+    return queue
+  }, [reviewNextTriageAll, improveConfidenceCards, expertiseTriageCards, strengthenOverlayMap])
+
+  const unifiedTopThree = useMemo(() => unifiedTriageQueue.slice(0, 3), [unifiedTriageQueue])
+  const unifiedAlsoConsider = useMemo(() => unifiedTriageQueue.slice(3), [unifiedTriageQueue])
+
   // Brief 4 hotfix Task 5: the goal target is only an improvement item when
   // the user hasn't confirmed the threshold yet. Once confirmed, drop it from
   // the count so header and subtitle stop over-reporting. Apply the same
   // include-goal rule to the subtitle at the accordion render below.
-  const includeGoalAsImprovement = data.isThresholdConfirmed ? 0 : 1
-  // D7: expertise items are now threaded into the accordion as triage cards,
-  // so they are included in the section count (replaces the prior comment
-  // explaining why they were intentionally excluded).
-  const improveConfidenceCount = includeGoalAsImprovement
-    + improveConfidenceCards.length
-    + expertiseTriageCards.length
-
-  // Highest-value summary line above the accordion. Surfaces the most impactful
-  // action when it lives inside Improve confidence (so it isn't hidden by the
-  // collapse). Two paths:
-  //   1. The topmost triage card overall is in the Improve confidence bucket.
-  //   2. There are no remaining triage cards anywhere AND the success target is
-  //      unset — in that case the goal target itself is the top remaining action.
-  const overallTop = triageTop3[0] ?? triageQuickFix[0] ?? null
-  const topCardInsideImproveConfidence =
-    overallTop && improveConfidenceCards.some(c => c.key === overallTop.key)
-  const noTriageCardsAnywhere = triageTop3.length === 0 && triageQuickFix.length === 0
-  const goalTargetIsTopAction = noTriageCardsAnywhere && data.successThreshold == null
-  const highestValueLabel = topCardInsideImproveConfidence
-    ? overallTop.title
-    : goalTargetIsTopAction
-      ? 'Set success target'
-      : null
+  // Brief 5.8A D3b: improveConfidenceCount + highestValueLabel were removed
+  // when the Improve confidence accordion lost its visible heading + count
+  // pill. The accordion now self-renders with a generic "Show additional
+  // controls" toggle and only suppresses itself when there is no content at
+  // all — handled inline via the `count` prop.
 
   // Dynamic headline for the health card. Reads from the same bucket data
   // already computed above so there's no duplicate work. Precedence:
@@ -1894,6 +2022,9 @@ export function PreAnalysisPanel({
                 onSetTarget={handleSetTargetFocus}
                 unverifiedEstimateCount={data.improvementsByCategory.verify.length}
                 relationshipsToReviewCount={data.improvementsByCategory.add_evidence.length}
+                topThree={unifiedTopThree}
+                alsoConsider={unifiedAlsoConsider}
+                handlers={t1Handlers}
               />
             )}
           </SectionErrorBoundary>
@@ -1992,10 +2123,13 @@ export function PreAnalysisPanel({
             </SectionErrorBoundary>
           )}
 
-          {/* Section 2: Review next */}
+          {/* Brief 5.8A D3b: "Review next" heading removed. Triage cards now
+              live in the unified queue inside the T1 card. This section
+              continues to host bias triggers, the option-quality card, and
+              the Start here render for non-triage signals — D3c will move
+              bias inline into T1 .nudge rows. */}
           {reviewNextCount > 0 && (
             <section className="space-y-2" data-testid="section-review-next">
-              <SectionHeader title="Review next" subtitle="Highest-impact checks. Resolving these could change your result." count={reviewNextCount} borderClass="border-info/30" className="" testId="section-review-next-header" />
 
               {/* P1-3: Per-section coaching line derived from the SAME picked
                   Start here signal. Suppressed when redundant with the Start
@@ -2038,72 +2172,37 @@ export function PreAnalysisPanel({
                 </div>
               ))}
 
-              {/* P1-4: Start here card — highest-priority signal elevated with
-                  a 3px success left border. Delegates rendering to the
-                  underlying signal kind. Exclusion from downstream lists is
-                  enforced above by signal_id. */}
-              {startHereSignal && (
+              {/* Start here card — Brief 5.8A D3b: triage-kind start-heres are
+                  now the emphasised first item of the unified queue inside the
+                  T1 card (.ac.em info-bordered + tinted background). Only the
+                  bias-kind branch survives here, since bias signals are not in
+                  the unified triage queue (D3c will move them to T1 .nudge
+                  rows). */}
+              {startHereSignal && startHereSignal.kind === 'bias' && (
                 <div
                   className="border-l-[3px] border-success rounded-[10px]"
                   data-testid="start-here-card"
                 >
-                  {startHereSignal.kind === 'triage' && (
-                    <TriageCard
-                      cardKey={startHereSignal.card.key}
-                      // Brief 4 hotfix Task 4: Start Here card does not show a
-                      // numeric badge — the green 3px left border + "Start here"
-                      // framing already signal primacy. Previously `ordinal={0}`
-                      // rendered a "0" circle that users read as "nothing".
-                      title={startHereSignal.card.title}
-                      detail={startHereSignal.card.detail}
-                      subtitle={startHereSignal.card.subtitle}
-                      category={startHereSignal.card.category}
-                      influence={startHereSignal.card.influence}
-                      action={startHereSignal.card.action}
-                      editorConfig={(startHereSignal.card as { editorConfig?: ScientificEditorProps | null }).editorConfig ?? null}
-                      sourcePill={startHereSignal.card.sourcePill}
-                      aiDiscussSlot={(() => {
-                        const el = (startHereSignal.card as { aiDiscuss?: AiDiscussElement }).aiDiscuss
-                        return el ? <DiscussWithAiButton element={el} /> : undefined
-                      })()}
-                      onConfirm={handleConfirm}
-                      onEdit={handleSetValueForGap}
-                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                      onHoverEnter={handleHoverElement}
-                      onHoverLeave={handleHoverClear}
-                    />
-                  )}
-                  {startHereSignal.kind === 'bias' && (
-                    <div
-                      className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
-                      {...buildBiasHoverHandlers(startHereSignal.targetFactorId ?? null, setHighlightedNodes, setHighlightedEdges)}
-                    >
-                      <p className={`${typography.panelHeader} text-text-header`}>
-                        {startHereSignal.biasType}
-                      </p>
-                      {/* Brief 5.7 D5: propagate the bias trigger's truncated
-                          explanation (subtitle) instead of a generic
-                          meta-commentary line. Falls through to a non-meta
-                          biasType-aware sentence if the trigger had no
-                          explanation. AUTHORITY_BIAS without target_factor_id
-                          is filtered upstream and never reaches this branch. */}
-                      <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-                        {startHereSignal.subtitle ?? `Be aware of ${startHereSignal.biasType.toLowerCase()} as you review.`}
-                      </p>
-                      <div className="absolute bottom-1 right-1">
-                        <DiscussWithAiButton element={{ kind: 'bias', biasType: startHereSignal.biasType }} />
-                      </div>
+                  <div
+                    className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
+                    {...buildBiasHoverHandlers(startHereSignal.targetFactorId ?? null, setHighlightedNodes, setHighlightedEdges)}
+                  >
+                    <p className={`${typography.panelHeader} text-text-header`}>
+                      {startHereSignal.biasType}
+                    </p>
+                    {/* Brief 5.7 D5: propagate the bias trigger's truncated
+                        explanation (subtitle) instead of a generic
+                        meta-commentary line. Falls through to a non-meta
+                        biasType-aware sentence if the trigger had no
+                        explanation. AUTHORITY_BIAS without target_factor_id
+                        is filtered upstream and never reaches this branch. */}
+                    <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
+                      {startHereSignal.subtitle ?? `Be aware of ${startHereSignal.biasType.toLowerCase()} as you review.`}
+                    </p>
+                    <div className="absolute bottom-1 right-1">
+                      <DiscussWithAiButton element={{ kind: 'bias', biasType: startHereSignal.biasType }} />
                     </div>
-                  )}
-                  {/*
-                    Note: the `option_quality` kind is deliberately excluded
-                    from Start here by pickStartHere.ts:113
-                    (`.filter(s => s.kind !== 'option_quality')`), so a
-                    render branch for that kind would be unreachable and was
-                    removed to prevent dead-path drift. Option-quality
-                    concerns are communicated by the OptionPreview card
-                    below rather than by a Start here one-liner.
-                  */}
+                  </div>
                 </div>
               )}
 
@@ -2183,38 +2282,10 @@ export function PreAnalysisPanel({
                 </div>
               )}
 
-              {/* Triage cards (excluding any in Must fix). P1-8: budget capped
-                  at 3 visible; overflow appears when Show more expanded. */}
-              {(() => {
-                const visibleTriage = reviewNextExpanded ? reviewNextTriageAfterStart : reviewNextTopCards
-                if (visibleTriage.length === 0) return null
-                return (
-                  <div className="flex flex-col gap-2" data-testid="triage-top-actions">
-                    {visibleTriage.map((card, i) => (
-                      <TriageCard
-                        key={card.key}
-                        cardKey={card.key}
-                        ordinal={i + 1}
-                        badgeColor="bg-info"
-                        title={card.title}
-                        detail={card.detail}
-                        subtitle={card.subtitle}
-                        category={card.category}
-                        influence={card.influence}
-                        action={card.action}
-                        editorConfig={card.editorConfig ?? null}
-                        sourcePill={card.sourcePill}
-                        aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
-                        onConfirm={handleConfirm}
-                        onEdit={handleSetValueForGap}
-                        onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                        onHoverEnter={handleHoverElement}
-                        onHoverLeave={handleHoverClear}
-                      />
-                    ))}
-                  </div>
-                )
-              })()}
+              {/* Brief 5.8A D3b: triage cards moved to the unified T1 queue.
+                  This section now hosts only bias triggers, option-quality
+                  card, and the Start here render for non-triage signals.
+                  See unifiedTriageQueue useMemo above. */}
 
               {/* P1-8: Show more / Show less toggle — only when overflow exists */}
               {reviewNextOverflowCount > 0 && (
@@ -2286,21 +2357,12 @@ export function PreAnalysisPanel({
               blocker). */}
           <WhatOlumiAddedSection />
 
-          {/* Section 3: Improve confidence — collapsed by default.
-              P1-3: coaching line derived from actionable count. */}
-          <ImproveConfidenceAccordion
-            count={improveConfidenceCount}
-            highestValueLabel={highestValueLabel}
-            subtitle="Lower-impact checks. These sharpen the result but are unlikely to change it."
-            coachingLine={
-              // Brief 4 hotfix Task 5: subtitle must match header pill. Use the
-              // same count and render the complete-state message when there
-              // are no actionable improvement items left.
-              improveConfidenceCount === 0
-                ? 'Your model looks well-calibrated.'
-                : getImproveConfidenceCoachingLine(improveConfidenceCount)
-            }
-          >
+          {/* Brief 5.8A D3b: triage + expertise card renders moved into the
+              T1 unified queue. The accordion now hosts only the SuccessTarget
+              editor + MissingKnowledgePrompt — secondary controls grouped
+              behind a single chevron. The accordion always renders at least
+              SuccessTarget so the goal threshold remains user-editable. */}
+          <ImproveConfidenceAccordion count={1}>
             {/* Goal target inline edit */}
             <SuccessTarget
               goalNode={data.goalNode}
@@ -2324,69 +2386,11 @@ export function PreAnalysisPanel({
               onSendMessage={onSendMessage}
             />
 
-            {/* Remaining triage cards (quick fix) — excluding any in Must fix */}
-            {improveConfidenceCards.length > 0 && (
-              <div className="flex flex-col gap-2" data-testid="improve-confidence-cards">
-                {improveConfidenceCards.map((card, i) => (
-                  <TriageCard
-                    key={card.key}
-                    cardKey={card.key}
-                    ordinal={i + 1}
-                    badgeColor="bg-option"
-                    title={card.title}
-                    detail={card.detail}
-                    subtitle={card.subtitle}
-                    category={card.category}
-                    influence={card.influence}
-                    action={card.action}
-                    editorConfig={card.editorConfig ?? null}
-                    sourcePill={card.sourcePill}
-                    aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
-                    onConfirm={handleConfirm}
-                    onEdit={handleSetValueForGap}
-                    onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                    onHoverEnter={handleHoverElement}
-                    onHoverLeave={handleHoverClear}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* D7: AI-estimated and missing-data factor cards (threaded from
-                former YourExpertise section). Items deduplicated against the
-                triage list above. Same action handlers as triage cards. */}
-            {expertiseTriageCards.length > 0 && (
-              <div className="flex flex-col gap-2" data-testid="expertise-triage-cards">
-                {expertiseTriageCards.map((card, i) => (
-                  <TriageCard
-                    key={card.key}
-                    cardKey={card.key}
-                    ordinal={improveConfidenceCards.length + i + 1}
-                    badgeColor="bg-factor"
-                    title={card.title}
-                    detail={card.detail}
-                    subtitle={card.subtitle}
-                    category={card.category}
-                    influence={card.influence}
-                    action={card.action}
-                    editorConfig={card.editorConfig ?? null}
-                    sourcePill={card.sourcePill}
-                    aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
-                    onConfirm={handleConfirm}
-                    onEdit={handleSetValueForGap}
-                    onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                    onHoverEnter={handleHoverElement}
-                    onHoverLeave={handleHoverClear}
-                  />
-                ))}
-              </div>
-            )}
-
             {/* "What's missing?" prompt */}
             <MissingKnowledgePrompt
-                context="model"
-                aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the model" />}
-              />
+              context="model"
+              aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the model" />}
+            />
           </ImproveConfidenceAccordion>
 
           {/* Minimal graph coaching — pre-run guidance, not blocker */}
@@ -2403,16 +2407,11 @@ export function PreAnalysisPanel({
             </div>
           )}
 
-          {/* CEE coaching surfaces (build a555cf7b+). Each renders nothing when its
-              source array is empty, so no empty containers appear. The coaching
-              summary itself is rendered inside ModelHealthCard via the legacy
-              analysis_ready.coaching_summary path. Bias signals are merged into
-              the existing biasTriggers list above (see the draftCoachingBiasSignals
-              branch in the biasTriggers useMemo); they do not get their own
-              section. Source pills ("AI detected" / "Structural") were considered
-              but withheld per unified spec §3.3 which bans text pills on bias
-              trigger cards. */}
-          <DraftStrengthenSection />
+          {/* Brief 5.8A D3b: DraftStrengthenSection removed. Strengthen items
+              now overlay onto matching unified-queue triage cards via the
+              strengthenOverlayMap (case-insensitive trim match). Items that
+              do not match a triage label are silently skipped — they have no
+              actionable target on their own. */}
         </div>
       </div>
 
