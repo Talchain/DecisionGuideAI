@@ -33,12 +33,10 @@ jobs:
         run: |
           git diff --exit-code -- pnpm-lock.yaml
 
-      - name: Capture npm debug (on fail)
+      - name: Capture install debug (on fail)
         if: failure()
         run: |
-          echo "## npm ci failure (tail of log)" >> $GITHUB_STEP_SUMMARY
-          ls -la npm-debug.log || true
-          tail -n 200 npm-debug.log 2>/dev/null || true
+          echo "## Install failure context" >> $GITHUB_STEP_SUMMARY
 
       - name: Typecheck
         run: pnpm run typecheck
