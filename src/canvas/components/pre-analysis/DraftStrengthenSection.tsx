@@ -57,9 +57,11 @@ export function DraftStrengthenSection() {
       <section
         className="flex flex-col gap-2"
         data-testid="draft-strengthen-section"
-        aria-label="Coaching: strengthen the model"
+        aria-labelledby="draft-strengthen-section-heading"
       >
-        <h3 className={`${typography.panelHeader} text-text-header`}>Strengthen the model</h3>
+        <h3 id="draft-strengthen-section-heading" className={`${typography.panelHeader} text-text-header`}>
+          Strengthen the model
+        </h3>
         <div className="flex flex-col gap-2">
           {items.map((item, idx) => {
             const pill = provenanceToPill(provenanceById.get(item.id))

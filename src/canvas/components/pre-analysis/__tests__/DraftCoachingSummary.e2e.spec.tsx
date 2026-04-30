@@ -9,20 +9,33 @@
  * analysis_ready.coaching_summary path.
  */
 
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { adaptDraftResponse } from '../../../../adapters/cee/client'
 import { applyDraftResult } from '../../../utils/applyDraftResult'
 import { useCanvasStore } from '../../../store'
 import { ModelHealthCard } from '../ModelHealthCard'
 
+// setCeeAnalysisReady (store.ts) emits DEV-only console.warn + console.trace
+// diagnostics. Silence them in this targeted spec so output stays clean —
+// the diagnostics are pre-existing and unrelated to what this test asserts.
+let warnSpy: ReturnType<typeof vi.spyOn>
+let traceSpy: ReturnType<typeof vi.spyOn>
+
 beforeEach(() => {
+  warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
+  traceSpy = vi.spyOn(console, 'trace').mockImplementation(() => {})
   useCanvasStore.setState({
     nodes: [],
     edges: [],
     ceeAnalysisReady: null,
     draftCoaching: null,
   })
+})
+
+afterEach(() => {
+  warnSpy.mockRestore()
+  traceSpy.mockRestore()
 })
 
 describe('coaching.summary end-to-end (raw response → adapter → applyDraftResult → render)', () => {
