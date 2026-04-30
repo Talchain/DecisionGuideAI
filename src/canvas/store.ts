@@ -31,6 +31,7 @@ import type {
   CEEModelQualityFactors,
   CEEInterventionHint,
   PreAnalysisSensitivity,
+  CEEDraftCoaching,
 } from '../adapters/cee/types'
 import type { LimitsV1 } from '../adapters/plot/types'
 import type { ScenarioStage, ScenarioEvent } from '../types/scenario'
@@ -331,6 +332,9 @@ interface CanvasState {
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
+  // CEE coaching payload from last /assist/v1/draft-graph response (build a555cf7b+).
+  // Session-local — never persisted; cleared on new draft start and scenario reset.
+  draftCoaching: CEEDraftCoaching | null
   // Node IDs that existed when ceeAnalysisReady was stored
   // Used to detect stale analysis_ready after graph edits
   ceeAnalysisReadyNodeIds: string[] | null
@@ -565,6 +569,7 @@ interface CanvasState {
   setDraftChatPreDraftSnapshot: (snapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null) => void
   undoDraft: () => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
   setCeeQuality: (quality: CeeQualityDimensions | null) => void
@@ -862,6 +867,7 @@ const READINESS_CLEAR_FIELDS = {
   ceeModelQualityFactors: null,
   ceeInterventionHints: null,
   preAnalysisSensitivity: null,
+  draftCoaching: null,
 } as const
 
 /**
@@ -1150,6 +1156,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
   ceeAnalysisReadyNodeIds: null,
+  // CEE coaching payload (session-local; never persisted)
+  draftCoaching: null,
   // CEE goal constraints from draft-graph response root
   goalConstraints: null,
   // CEE Pipeline trace from last draft
@@ -2111,6 +2119,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Clear CEE analysis_ready payload, pipeline trace, quality, and constraints
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
+      draftCoaching: null,
       goalConstraints: null,
       ceePipelineTrace: null,
       nodeRationales: {},
@@ -3121,6 +3130,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         sessionStorage.removeItem('olumi-cee-analysis-ready-node-ids')
       } catch {}
     }
+  },
+
+  setDraftCoaching: (coaching: CEEDraftCoaching | null) => {
+    set({ draftCoaching: coaching })
   },
 
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => {

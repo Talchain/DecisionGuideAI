@@ -6,8 +6,9 @@
  * present after adaptation (regression guard).
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { adaptDraftResponse } from '../client'
+import * as debugLog from '../../../utils/debugLog'
 
 describe('adaptDraftResponse – edge spread-first', () => {
   // --- Unknown field preservation ---
@@ -639,5 +640,242 @@ describe('adaptDraftResponse – analysis_ready sub-fields', () => {
     expect(ar).toBeDefined()
     expect(ar.model_adjustments).toBeUndefined()
     expect(ar.blockers).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// CEE coaching consumption (build a555cf7b+) — response.coaching → draftCoaching.
+// Per brief: type-guard each list item; drop malformed entries silently.
+// ---------------------------------------------------------------------------
+
+describe('adaptDraftResponse – coaching mapping', () => {
+  // The malformed-entry tests intentionally trigger devWarn drops; silence it
+  // here to keep targeted vitest output clean. We still assert the dropping
+  // behaviour via the returned shape — the warning is observability-only.
+  let devWarnSpy: ReturnType<typeof vi.spyOn>
+  beforeEach(() => {
+    devWarnSpy = vi.spyOn(debugLog, 'devWarn').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    devWarnSpy.mockRestore()
+  })
+
+  const baseRaw = {
+    nodes: [
+      { id: 'f1', label: 'Price', type: 'factor', uncertainty: 0.3 },
+      { id: 'g1', label: 'Revenue', type: 'goal', uncertainty: 0.1 },
+    ],
+    edges: [{ from: 'f1', to: 'g1', weight: 0.5 }],
+  }
+
+  it('maps coaching with all four sub-fields to camelCase', () => {
+    const raw = {
+      ...baseRaw,
+      coaching: {
+        summary: 'Three options chosen.',
+        strengthen_items: [
+          { id: 'f1', label: 'Add evidence', detail: 'Source the price baseline.', action_type: 'add_source', bias_category: 'anchoring' },
+        ],
+        widening_log: [
+          { node_id: 'f1', label: 'Price', reason: 'Range widened to reflect uncertainty.' },
+        ],
+        bias_signals: [
+          { type: 'confirmation_bias', detail: 'Consider counter-evidence.', target: 'f1' },
+        ],
+      },
+    }
+
+    const result = adaptDraftResponse(raw)
+    expect(result.draftCoaching).not.toBeNull()
+    expect(result.draftCoaching!.summary).toBe('Three options chosen.')
+    expect(result.draftCoaching!.strengthenItems).toEqual([
+      { id: 'f1', label: 'Add evidence', detail: 'Source the price baseline.', actionType: 'add_source', biasCategory: 'anchoring' },
+    ])
+    expect(result.draftCoaching!.wideningLog).toEqual([
+      { nodeId: 'f1', label: 'Price', reason: 'Range widened to reflect uncertainty.' },
+    ])
+    expect(result.draftCoaching!.biasSignals).toEqual([
+      { type: 'confirmation_bias', detail: 'Consider counter-evidence.', target: 'f1' },
+    ])
+  })
+
+  it('returns null draftCoaching when coaching is null', () => {
+    const result = adaptDraftResponse({ ...baseRaw, coaching: null })
+    expect(result.draftCoaching).toBeNull()
+  })
+
+  it('returns null draftCoaching when coaching is absent', () => {
+    const result = adaptDraftResponse(baseRaw)
+    expect(result.draftCoaching).toBeNull()
+  })
+
+  it('handles coaching.summary null with empty arrays', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: { summary: null },
+    })
+    expect(result.draftCoaching!.summary).toBeNull()
+    expect(result.draftCoaching!.strengthenItems).toEqual([])
+    expect(result.draftCoaching!.wideningLog).toEqual([])
+    expect(result.draftCoaching!.biasSignals).toEqual([])
+  })
+
+  it('partial coaching: only strengthen_items', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: {
+        strengthen_items: [{ id: 'f1', label: 'A', detail: 'B' }],
+      },
+    })
+    expect(result.draftCoaching!.summary).toBeNull()
+    expect(result.draftCoaching!.strengthenItems).toHaveLength(1)
+    expect(result.draftCoaching!.wideningLog).toEqual([])
+    expect(result.draftCoaching!.biasSignals).toEqual([])
+  })
+
+  it('partial coaching: only bias_signals', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: { bias_signals: [{ type: 'optimism_bias', detail: 'Be cautious.' }] },
+    })
+    expect(result.draftCoaching!.biasSignals).toEqual([
+      { type: 'optimism_bias', detail: 'Be cautious.' },
+    ])
+    expect(result.draftCoaching!.strengthenItems).toEqual([])
+  })
+
+  it('partial coaching: only widening_log', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: { widening_log: [{ node_id: 'f1', label: 'X', reason: 'Y' }] },
+    })
+    expect(result.draftCoaching!.wideningLog).toHaveLength(1)
+    expect(result.draftCoaching!.strengthenItems).toEqual([])
+  })
+
+  it('drops malformed strengthen_items entries silently (missing label)', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: {
+        strengthen_items: [
+          { id: 'a', label: 'OK', detail: 'OK detail' },
+          { id: 'b', detail: 'no label' },           // missing label → drop
+          { label: 'no id', detail: 'x' },           // missing id → drop
+          'string',                                   // non-object → drop
+          null,                                       // null → drop
+        ],
+      },
+    })
+    expect(result.draftCoaching!.strengthenItems).toEqual([
+      { id: 'a', label: 'OK', detail: 'OK detail' },
+    ])
+  })
+
+  it('drops malformed widening_log entries silently (non-string node_id)', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: {
+        widening_log: [
+          { node_id: 'f1', label: 'X', reason: 'Y' },
+          { node_id: 42, label: 'X', reason: 'Y' },   // non-string node_id → drop
+          { node_id: 'f2', label: 'X' },              // missing reason → drop
+        ],
+      },
+    })
+    expect(result.draftCoaching!.wideningLog).toEqual([
+      { nodeId: 'f1', label: 'X', reason: 'Y' },
+    ])
+  })
+
+  it('drops malformed bias_signals entries silently (missing detail)', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: {
+        bias_signals: [
+          { type: 'anchoring', detail: 'A' },
+          { type: 'anchoring' },                      // missing detail → drop
+          { detail: 'no type' },                      // missing type → drop
+        ],
+      },
+    })
+    expect(result.draftCoaching!.biasSignals).toEqual([
+      { type: 'anchoring', detail: 'A' },
+    ])
+  })
+
+  it('non-array strengthen_items resolves to empty array', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: { strengthen_items: { not: 'an array' } as unknown },
+    })
+    expect(result.draftCoaching!.strengthenItems).toEqual([])
+  })
+
+  it('emits devWarn when malformed coaching entries are dropped', () => {
+    adaptDraftResponse({
+      ...baseRaw,
+      coaching: {
+        strengthen_items: [{ id: 'a', detail: 'no label' }],  // malformed → 1 drop
+        bias_signals: [{ type: 'anchoring' }],                 // malformed → 1 drop
+      },
+    })
+    expect(devWarnSpy).toHaveBeenCalledTimes(1)
+    const [category, message, payload] = devWarnSpy.mock.calls[0]
+    expect(category).toBe('CEE')
+    expect(message).toContain('dropped malformed coaching entries')
+    expect(payload).toMatchObject({ strengthenItems: 1, biasSignals: 1, wideningLog: 0 })
+  })
+
+  it('does NOT emit devWarn when all coaching entries are well-formed', () => {
+    adaptDraftResponse({
+      ...baseRaw,
+      coaching: {
+        strengthen_items: [{ id: 'a', label: 'L', detail: 'D' }],
+      },
+    })
+    expect(devWarnSpy).not.toHaveBeenCalled()
+  })
+
+  it('strengthen_items target field is preserved on bias_signals', () => {
+    const result = adaptDraftResponse({
+      ...baseRaw,
+      coaching: { bias_signals: [{ type: 'confirmation', detail: 'X', target: 'f1' }] },
+    })
+    expect(result.draftCoaching!.biasSignals[0].target).toBe('f1')
+  })
+
+  it('preserves node-level provenance through both adapter paths', () => {
+    const raw = {
+      ...baseRaw,
+      nodes: [
+        { id: 'f1', label: 'Price', type: 'factor', uncertainty: 0.3, provenance: 'ai_inferred' },
+        { id: 'g1', label: 'Revenue', type: 'goal', uncertainty: 0.1, provenance: 'from_brief' },
+      ],
+    }
+    const result = adaptDraftResponse(raw)
+    const f1 = result.nodes.find((n) => n.id === 'f1') as { provenance?: string } | undefined
+    const g1 = result.nodes.find((n) => n.id === 'g1') as { provenance?: string } | undefined
+    expect(f1?.provenance).toBe('ai_inferred')
+    expect(g1?.provenance).toBe('from_brief')
+  })
+
+  it('node without provenance survives without error', () => {
+    const result = adaptDraftResponse(baseRaw)
+    const f1 = result.nodes.find((n) => n.id === 'f1') as { provenance?: string } | undefined
+    expect(f1?.provenance).toBeUndefined()
+  })
+
+  it('preserves edge-level provenance_display', () => {
+    const raw = {
+      ...baseRaw,
+      edges: [{ from: 'f1', to: 'g1', weight: 0.5, provenance_display: 'from_brief' }],
+    }
+    const result = adaptDraftResponse(raw)
+    expect((result.edges[0] as any).provenance_display).toBe('from_brief')
+  })
+
+  it('edge without provenance_display survives without error', () => {
+    const result = adaptDraftResponse(baseRaw)
+    expect((result.edges[0] as any).provenance_display).toBeUndefined()
   })
 })

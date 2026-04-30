@@ -6,12 +6,14 @@ import type {
   CEEv2Response,
   CEEv3Response,
   CeePipelineTrace,
+  CEEDraftCoaching,
 } from './types'
 import { isCEEv2Response, isCEEv3Response, isCeePipelineTrace } from './types'
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../lib/observability-headers'
 import { useGateStore } from '../../lib/gate-state'
 import { CEEDraftResponseSchema, warnOnInvalidApiResponse } from '../../lib/api-schemas'
 import { withRetry } from '../../lib/fetchWithRetry'
+import { devWarn } from '../../utils/debugLog'
 
 const CEE_BASE_URL = (import.meta as any).env?.VITE_CEE_BFF_BASE || '/bff/cee'
 // CEE Draft Engine base URL
@@ -89,6 +91,76 @@ function inferMissingCategories(nodes: Record<string, unknown>[], edges: Record<
   }
 }
 
+/**
+ * Map response.coaching (snake_case wire shape) to internal CEEDraftCoaching (camelCase).
+ * Each list item is type-guarded; malformed entries are dropped (not mapped blindly)
+ * but a devWarn is emitted so contract drift is observable in DEV builds. Returns
+ * null when coaching is absent/null/non-object.
+ */
+export function mapDraftCoachingFromResponse(raw: unknown): CEEDraftCoaching | null {
+  if (!raw || typeof raw !== 'object') return null
+  const c = raw as Record<string, unknown>
+
+  const dropped = { strengthenItems: 0, wideningLog: 0, biasSignals: 0 }
+
+  const strengthenItems = Array.isArray(c.strengthen_items)
+    ? (c.strengthen_items as unknown[]).flatMap((it) => {
+        if (!it || typeof it !== 'object') { dropped.strengthenItems++; return [] }
+        const o = it as Record<string, unknown>
+        if (typeof o.id !== 'string' || typeof o.label !== 'string' || typeof o.detail !== 'string') {
+          dropped.strengthenItems++
+          return []
+        }
+        return [{
+          id: o.id,
+          label: o.label,
+          detail: o.detail,
+          ...(typeof o.action_type === 'string' ? { actionType: o.action_type } : {}),
+          ...(typeof o.bias_category === 'string' ? { biasCategory: o.bias_category } : {}),
+        }]
+      })
+    : []
+
+  const wideningLog = Array.isArray(c.widening_log)
+    ? (c.widening_log as unknown[]).flatMap((it) => {
+        if (!it || typeof it !== 'object') { dropped.wideningLog++; return [] }
+        const o = it as Record<string, unknown>
+        if (typeof o.node_id !== 'string' || typeof o.label !== 'string' || typeof o.reason !== 'string') {
+          dropped.wideningLog++
+          return []
+        }
+        return [{ nodeId: o.node_id, label: o.label, reason: o.reason }]
+      })
+    : []
+
+  const biasSignals = Array.isArray(c.bias_signals)
+    ? (c.bias_signals as unknown[]).flatMap((it) => {
+        if (!it || typeof it !== 'object') { dropped.biasSignals++; return [] }
+        const o = it as Record<string, unknown>
+        if (typeof o.type !== 'string' || typeof o.detail !== 'string') {
+          dropped.biasSignals++
+          return []
+        }
+        return [{
+          type: o.type,
+          detail: o.detail,
+          ...(typeof o.target === 'string' ? { target: o.target } : {}),
+        }]
+      })
+    : []
+
+  if (dropped.strengthenItems + dropped.wideningLog + dropped.biasSignals > 0) {
+    devWarn('CEE', 'mapDraftCoachingFromResponse: dropped malformed coaching entries', dropped)
+  }
+
+  return {
+    summary: typeof c.summary === 'string' ? c.summary : null,
+    strengthenItems,
+    wideningLog,
+    biasSignals,
+  }
+}
+
 // Adapt the raw /draft-graph response into the CEEDraftResponse
 // shape expected by the UI. This is defensive so partially malformed
 // responses can still yield a reasonable graph.
@@ -135,6 +207,7 @@ export function adaptDraftResponse(raw: unknown): CEEDraftResponse {
         structural,
         completeness,
       },
+      draftCoaching: mapDraftCoachingFromResponse(draft.coaching),
     }
 
     // Pass through analysis_ready if present (CEE V3)
@@ -378,6 +451,7 @@ export function adaptDraftResponse(raw: unknown): CEEDraftResponse {
       structural: [],
       completeness,
     },
+    draftCoaching: mapDraftCoachingFromResponse(r.coaching),
   }
 
   // Pass through analysis_ready if present (CEE V3)

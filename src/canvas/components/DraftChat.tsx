@@ -17,6 +17,7 @@ import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
+import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from '../utils/draftIngestion'
 import { validateBrief } from '../utils/briefValidation'
 import { formatCEEError } from '../utils/formatCEEError'
 import { EXAMPLE_BRIEF_CHIPS } from '../../constants/validation'
@@ -474,6 +475,7 @@ export function DraftChat() {
         effect_direction: _effectDir,
         belief: _belief, belief_exists: _beliefExists,
         provenance: _provenance, provenance_source: _provSource,
+        provenance_display: _provDisplay,
         // CIL 0.2: strip canvas-internal keys from CEE passthrough to
         //          prevent collision with DEFAULT_EDGE_DATA values
         style: _style, curvature: _curvature, kind: _kind,
@@ -618,6 +620,8 @@ export function DraftChat() {
           // Brief v2.2: New edge properties
           ...(direction ? { direction } : {}),
           ...(strengthStd !== undefined ? { strengthStd } : {}),
+          // CEE display provenance (snake_case → camelCase). Distinct from `provenance` above.
+          ...edgeProvenanceDisplayPatch(e),
         },
       }
     })
@@ -702,7 +706,10 @@ export function DraftChat() {
     // and persists to sessionStorage for tab-refresh survival.
     let resolvedAnalysisReady: typeof draftData.analysis_ready | null = null
     if (hasAnalysisReady(draftData)) {
-      const coachingSummary = (draftData as any).coaching?.summary
+      // Source from the typed draftCoaching.summary field (post-adapter).
+      // The raw `coaching` object is consumed by adaptDraftResponse and does
+      // not appear on draftData any more, so we rely on the mapped slot here.
+      const coachingSummary = draftData.draftCoaching?.summary ?? null
       resolvedAnalysisReady = coachingSummary
         ? { ...draftData.analysis_ready, coaching_summary: coachingSummary }
         : draftData.analysis_ready
@@ -773,6 +780,9 @@ export function DraftChat() {
     if (resolvedAnalysisReady) {
       useCanvasStore.getState().setCeeAnalysisReady(resolvedAnalysisReady)
     }
+
+    // Commit CEE coaching payload (typed, type-guarded by adapter). Null when absent.
+    commitDraftCoachingToStore(draftData.draftCoaching ?? null)
 
   }, [pushHistory, applyLayout, setPendingFitView])
 
