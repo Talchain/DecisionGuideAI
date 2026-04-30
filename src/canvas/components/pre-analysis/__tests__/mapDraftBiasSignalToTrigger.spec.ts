@@ -13,7 +13,7 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { mapDraftBiasSignalToTrigger, safeBiasTitle, buildBiasHoverHandlers } from '../PreAnalysisPanel'
+import { mapDraftBiasSignalToTrigger, safeBiasTitle, buildBiasHoverHandlers, FORBIDDEN_TYPE_PREFIXES } from '../PreAnalysisPanel'
 
 const noResolve = (_id: string): string | null => null
 
@@ -95,7 +95,19 @@ describe('mapDraftBiasSignalToTrigger', () => {
     // A CEE bug or contract drift could pass an entity ID as the bias type;
     // safeBiasTitle must reject these so they fall through to BIAS_FALLBACK
     // rather than rendering as "Fac price" / "Opt a" / etc.
-    for (const id of ['fac_price', 'opt_a', 'dec_x', 'risk_high', 'out_revenue', 'outcome_x', 'node_1', 'edge_2']) {
+    //
+    // Covers all canonical CEE entity-ID prefixes mirrored from
+    // olumi-assistants-service:tools/v5-journey-replay/output-safety.ts
+    // ENTITY_ID_RE, plus UI-side defensive prefixes (node_, edge_).
+    const cases = [
+      // Short canonical prefixes
+      'fac_price', 'opt_a', 'goal_revenue', 'dec_x', 'out_revenue', 'risk_high', 'con_budget',
+      // Long canonical prefixes
+      'factor_price', 'option_a', 'decision_x', 'outcome_y', 'constraint_z',
+      // UI-side defensive
+      'node_1', 'edge_2',
+    ]
+    for (const id of cases) {
       const t = mapDraftBiasSignalToTrigger({ type: id, detail: 'X.' }, 0, noResolve)
       expect(t?.title, `case: ${id}`).toBe('Bias detected')
       expect(t?.title).not.toContain('_')
@@ -105,11 +117,15 @@ describe('mapDraftBiasSignalToTrigger', () => {
 })
 
 describe('safeBiasTitle', () => {
-  it('returns null for entity-ID-prefixed tokens', () => {
-    expect(safeBiasTitle('fac_price')).toBeNull()
-    expect(safeBiasTitle('opt_a')).toBeNull()
-    expect(safeBiasTitle('dec_x')).toBeNull()
-    expect(safeBiasTitle('FAC_PRICE')).toBeNull() // case-insensitive
+  // One per-prefix test for each entry in FORBIDDEN_TYPE_PREFIXES — drift-proof
+  // because the test source is the same constant the production code uses.
+  describe.each(FORBIDDEN_TYPE_PREFIXES.map((p) => [p]))('rejects entity-ID prefix %s', (prefix) => {
+    it(`returns null for "${prefix}…" lowercase`, () => {
+      expect(safeBiasTitle(`${prefix}sample`)).toBeNull()
+    })
+    it(`returns null for "${prefix}…" uppercase (case-insensitive)`, () => {
+      expect(safeBiasTitle(`${prefix.toUpperCase()}SAMPLE`)).toBeNull()
+    })
   })
 
   it('sentence-cases safe tokens', () => {
@@ -122,6 +138,18 @@ describe('safeBiasTitle', () => {
     expect(safeBiasTitle('a b c')).toBeNull()
     expect(safeBiasTitle('a-b-c')).toBeNull()
     expect(safeBiasTitle('')).toBeNull()
+  })
+
+  it('exposes all canonical CEE prefixes plus UI defensive prefixes', () => {
+    // Sanity check on the constant itself — guards against accidental shrinkage.
+    // If a future commit removes one of the canonical prefixes, this test will
+    // fail and force the author to re-confirm the cross-repo lockstep.
+    const canonical = ['fac_', 'opt_', 'goal_', 'dec_', 'out_', 'risk_', 'con_',
+                       'factor_', 'option_', 'decision_', 'outcome_', 'constraint_']
+    const defensive = ['node_', 'edge_']
+    for (const p of [...canonical, ...defensive]) {
+      expect(FORBIDDEN_TYPE_PREFIXES, `expected to include ${p}`).toContain(p)
+    }
   })
 })
 

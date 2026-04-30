@@ -114,8 +114,32 @@ const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
  * Entity-ID prefixes that must NEVER appear in user-facing copy. If a CEE bug
  * passes a raw entity ID as a bias type token, fall through to BIAS_FALLBACK
  * rather than echoing it as a sentence-case label.
+ *
+ * Replicates the canonical CEE-side ENTITY_ID_RE pattern in
+ *   olumi-assistants-service:src/orchestrator/shared/entity-id-pattern.ts
+ *   (also mirrored at olumi-assistants-service:tools/v5-journey-replay/output-safety.ts
+ *    as `\b(?:fac|opt|goal|dec|out|risk|con|factor|option|decision|outcome|constraint)[_:-]…/i`).
+ *
+ * The two sources are intentionally NOT cross-imported: the UI repo and CEE
+ * service repo share no package boundary, and the CEE-side mirror file already
+ * documents the same lockstep-replication pattern. Update both in lockstep
+ * when the canonical pattern changes.
+ *
+ * `safeBiasTitle` already restricts the input character set to
+ * [A-Za-z0-9_], so we only need the underscore-suffix variant here — the
+ * canonical pattern's `[_:-]` separator is fully covered because `:` and `-`
+ * are rejected by the character-class guard before this list is consulted.
+ *
+ * Plus two defensive UI-side prefixes (node_, edge_) for graph entities the
+ * canvas owns directly; not in the CEE canonical list but worth guarding.
  */
-const FORBIDDEN_TYPE_PREFIXES = ['fac_', 'opt_', 'dec_', 'risk_', 'out_', 'outcome_', 'node_', 'edge_'] as const
+export const FORBIDDEN_TYPE_PREFIXES = [
+  // Canonical CEE entity-ID prefixes (lockstep with ENTITY_ID_RE)
+  'fac_', 'opt_', 'goal_', 'dec_', 'out_', 'risk_',
+  'con_', 'factor_', 'option_', 'decision_', 'outcome_', 'constraint_',
+  // UI-side defensive prefixes
+  'node_', 'edge_',
+] as const
 
 /**
  * Convert an unknown but safe-looking bias type token into a sentence-case label.
