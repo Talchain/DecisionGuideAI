@@ -1275,11 +1275,13 @@ describe('PreAnalysisPanel', () => {
       expect(screen.queryByText('Model assumptions')).not.toBeInTheDocument()
     })
 
-    it('does NOT render "Decision quality" or "Sharpen your thinking" sections', () => {
+    it('does NOT render the legacy "Decision quality" section', () => {
+      // Brief 5.8A D5 reintroduces "Sharpen your thinking" as a deliberate
+      // T2 surface (deterministic bias + framing exercises). The legacy
+      // "Decision quality" section stays gone — it had a different content
+      // contract (raw quality checks list).
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expect(screen.queryByText('Decision quality')).not.toBeInTheDocument()
-      // DecisionQualityChecks removed — "Sharpen your thinking" header no longer renders
-      expect(screen.queryByText('Sharpen your thinking')).not.toBeInTheDocument()
     })
   })
 

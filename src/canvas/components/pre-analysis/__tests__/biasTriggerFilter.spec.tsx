@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
@@ -219,7 +219,10 @@ describe('Brief 5.8A D2 — bias_signals (coaching) target filter', () => {
 
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
 
-    expect(screen.getByText(/Anchored on initial estimate/)).toBeInTheDocument()
+    // The bias text appears in both the T1 nudge row and the SharpenYourThinking
+    // preview/card. Asserting the row presence is sufficient for the filter test.
+    const t1Card = screen.getByTestId('t1-decision-readiness-card')
+    expect(within(t1Card).getAllByTestId(/^t1-bias-nudge-/)).toHaveLength(1)
   })
 
   it('drops a coaching bias_signal whose target does not resolve to any current node', () => {
@@ -283,7 +286,12 @@ describe('Brief 5.8A D2 — bias_findings (CEE) target filter', () => {
 
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
 
-    expect(screen.getByText(/Pattern of agreeable estimates/)).toBeInTheDocument()
+    // bias text appears in both the T1 nudge and the SharpenYourThinking
+    // accordion; assert presence inside the T1 card to scope cleanly.
+    const t1Card = screen.getByTestId('t1-decision-readiness-card')
+    const nudges = within(t1Card).getAllByTestId(/^t1-bias-nudge-/)
+    expect(nudges).toHaveLength(1)
+    expect(nudges[0].textContent).toContain('Pattern of agreeable estimates')
   })
 
   it('drops a finding whose target_factor_id is missing (deliberate D2 tightening)', () => {

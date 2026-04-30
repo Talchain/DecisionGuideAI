@@ -21,6 +21,7 @@ import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview, OPTION_PREVIEW_TITLE } from './OptionPreview'
+import { SharpenYourThinking } from './SharpenYourThinking'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
@@ -2234,6 +2235,31 @@ export function PreAnalysisPanel({
               />
             </SectionErrorBoundary>
           )}
+
+          {/* Brief 5.8A D5: T2 Sharpen your thinking accordion. Self-suppresses
+              when no bias trigger or framing condition produces a card. The
+              D2-filtered biasTriggers list flows in directly — no per-consumer
+              refilter. Framing conditions read from the goal node observed
+              state + successThreshold. */}
+          <SectionErrorBoundary section="Sharpen your thinking">
+            <SharpenYourThinking
+              biasTriggers={biasTriggers}
+              hasGoalBaseline={(() => {
+                const observed = data.goalNode?.data && (
+                  (data.goalNode.data as { observedState?: { value?: unknown } }).observedState
+                  ?? (data.goalNode.data as { observed_state?: { value?: unknown } }).observed_state
+                )
+                return observed != null && (observed as { value?: unknown }).value != null
+              })()}
+              hasSuccessTarget={data.successThreshold !== null}
+              goalHasQuantitativeHint={(() => {
+                const goalData = data.goalNode?.data as { goal_threshold_unit?: string; goal_threshold_cap?: number } | undefined
+                return goalData?.goal_threshold_unit != null || goalData?.goal_threshold_cap != null
+              })()}
+              onSetCurrentValue={handleSetTargetFocus}
+              onSetTarget={handleSetTargetFocus}
+            />
+          </SectionErrorBoundary>
 
           {/* Section 1: Must fix — only when blockers exist.
               Order per brief:
