@@ -2217,6 +2217,24 @@ export function PreAnalysisPanel({
             )}
           </SectionErrorBoundary>
 
+          {/* Brief 5.8A D4: T1 "Your options" card. Renders as its own .sc
+              card directly after T1 Decision readiness. Always visible when
+              the model has at least one option preview. The same_levers
+              coaching line is still gated inside the component itself. */}
+          {data.optionPreviews.length > 0 && (
+            <SectionErrorBoundary section="Your options">
+              <OptionPreview
+                options={data.optionPreviews}
+                onFocusNode={handleFocusNode}
+                onHoverEnter={handleHoverElement}
+                onHoverLeave={handleHoverClear}
+                onSendMessage={onSendMessage}
+                hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
+                collapseInterventionsByDefault
+              />
+            </SectionErrorBoundary>
+          )}
+
           {/* Section 1: Must fix — only when blockers exist.
               Order per brief:
                 1. Options need configuration (enriched blockers — surfaced first)
@@ -2365,21 +2383,10 @@ export function PreAnalysisPanel({
                   inline .nudge rows inside the T1 card. The brief's bias
                   pattern is one consolidated surface — no parallel cards. */}
 
-              {/* Option similarity / quality card — interventions collapsed per option.
-                  The narrow-framing coaching lives inside OptionPreview (see
-                  SameLeversCoaching in that file); Start here never surfaces
-                  option_quality signals (excluded by pickStartHere). */}
-              {showOptionQualityCard && data.optionPreviews.length > 0 && (
-                <OptionPreview
-                  options={data.optionPreviews}
-                  onFocusNode={handleFocusNode}
-                  onHoverEnter={handleHoverElement}
-                  onHoverLeave={handleHoverClear}
-                  onSendMessage={onSendMessage}
-                  hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
-                  collapseInterventionsByDefault
-                />
-              )}
+              {/* Brief 5.8A D4: OptionPreview moved to render directly after
+                  the T1 Decision readiness card so it forms its own .sc card
+                  in the panel hierarchy. The same_levers coaching line is
+                  still gated inside OptionPreview itself. */}
 
               {/* Brief 5.8A D3c: bias triggers moved to T1 .nudge rows above.
                   The D2-filtered biasTriggers list flows directly into the T1
