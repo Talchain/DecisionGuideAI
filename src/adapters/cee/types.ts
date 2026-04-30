@@ -47,6 +47,8 @@ export interface CEEv2Node {
   description?: string
   uncertainty?: number
   observed_state?: ObservedState
+  /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set'. Optional; UI never invents. */
+  provenance?: CEEProvenance
 }
 
 /**
@@ -65,6 +67,11 @@ export interface CEEv2Edge {
   exists_probability?: number // Alt field name used by some CEE versions
   provenance?: string | { source: string; quote: string; location?: string }
   provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
+  /**
+   * Display provenance label: 'from_brief' | 'ai_inferred' | 'user_set'.
+   * Distinct from `provenance` (structural source object). UI uses this for pills only.
+   */
+  provenance_display?: CEEProvenance
   /** Multi-pass validation metadata (contested vs agreed) */
   validation?: import('../../canvas/domain/validation').ValidationMetadata
 }
@@ -109,6 +116,10 @@ export interface CEEDraftResponse {
     label: string
     type: string
     uncertainty: number // 0-1, higher = less certain
+    /** Display provenance: 'from_brief' | 'ai_inferred' | 'user_set'. */
+    provenance?: 'from_brief' | 'ai_inferred' | 'user_set'
+    /** Allow passthrough of unknown/additive CEE node fields */
+    [key: string]: unknown
   }>
   edges: Array<{
     id?: string
@@ -120,6 +131,8 @@ export interface CEEDraftResponse {
       | { source: string; quote: string; location?: string }
       | string
     provenance_source?: 'document' | 'metric' | 'hypothesis' | 'engine'
+    /** Display provenance label for edges (distinct from structural `provenance`). */
+    provenance_display?: 'from_brief' | 'ai_inferred' | 'user_set'
     /** Allow passthrough of unknown/additive CEE edge fields */
     [key: string]: unknown
   }>
@@ -127,6 +140,11 @@ export interface CEEDraftResponse {
     structural: CEEStructuralWarning[]
     completeness: string[]
   }
+  /**
+   * Mapped coaching payload from response.coaching (internal camelCase form).
+   * Null when CEE returns no coaching. UI never invents values.
+   */
+  draftCoaching?: CEEDraftCoaching | null
 }
 
 export type CEEStructuralWarningType =
@@ -397,18 +415,55 @@ export interface PreAnalysisSensitivity {
 }
 
 /**
- * CEE v2.2 Response with optional analysis_ready (V3 extension)
+ * Wire shape for response.coaching on /assist/v1/draft-graph (CEE build a555cf7b+).
+ * All fields optional — UI never assumes presence.
+ */
+export interface CEEDraftCoachingWire {
+  summary?: string | null
+  strengthen_items?: Array<{
+    id: string
+    label: string
+    detail: string
+    action_type?: string
+    bias_category?: string
+  }>
+  widening_log?: Array<{ node_id: string; label: string; reason: string }>
+  bias_signals?: Array<{ type: string; detail: string; target?: string }>
+}
+
+/**
+ * Internal camelCase form used by adapter output and useCanvasStore.
+ * Distinct from the wire shape — this is what consumers read.
+ */
+export interface CEEDraftCoaching {
+  summary: string | null
+  strengthenItems: Array<{
+    id: string
+    label: string
+    detail: string
+    actionType?: string
+    biasCategory?: string
+  }>
+  wideningLog: Array<{ nodeId: string; label: string; reason: string }>
+  biasSignals: Array<{ type: string; detail: string; target?: string }>
+}
+
+/** Provenance enum used on draft-graph nodes (provenance) and edges (provenance_display). */
+export type CEEProvenance = 'from_brief' | 'ai_inferred' | 'user_set'
+
+/**
+ * CEE v2.2 Response with optional analysis_ready (V3 extension).
  *
- * analysis_ready is present when CEE has successfully resolved
- * all option interventions and the graph is ready for analysis.
+ * analysis_ready is present when CEE has successfully resolved all option
+ * interventions and the graph is ready for analysis.
  *
  * Phase 1b adds: goal_connectivity, model_quality_factors, intervention_hints,
- * extended draft_warnings array
+ * extended draft_warnings array.
  */
 export interface CEEv3Response extends CEEv2Response {
   analysis_ready?: CEEAnalysisReady
   /** CEE coaching payload — decision-specific guidance generated alongside the draft */
-  coaching?: { summary?: string }
+  coaching?: CEEDraftCoachingWire
   /** Phase 1b: Extended warnings with dimension codes and Focus CTAs */
   extended_warnings?: CEEDraftWarning[]
   /** Phase 1b: Goal connectivity status */

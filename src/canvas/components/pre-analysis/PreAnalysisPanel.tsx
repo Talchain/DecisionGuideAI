@@ -66,6 +66,7 @@ import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { SectionHeader } from '@/components/results/SectionHeader'
+import { DraftStrengthenSection } from './DraftStrengthenSection'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
 // removed handleResolveContestedEdge handler (Brief 4 Task 6).
 
@@ -86,17 +87,52 @@ const AI_SOURCES = new Set(['ai', 'cee_inference', 'inferred', 'ai_estimate', 'e
  */
 const BIAS_TYPE_ICON: Record<string, { icon: typeof Frame; title: string }> = {
   // Lowercase type values (existing field convention)
-  framing:      { icon: Frame,     title: 'Narrow framing' },
-  anchoring:    { icon: Anchor,    title: 'Anchoring' },
-  confidence:   { icon: Gauge,     title: 'Overconfidence' },
-  blind_spots:  { icon: EyeOff,    title: 'Blind spots' },
-  confirmation: { icon: Frame,     title: 'Confirmation bias' },
+  framing:           { icon: Frame,  title: 'Narrow framing' },
+  framing_bias:      { icon: Frame,  title: 'Narrow framing' },
+  narrow_framing:    { icon: Frame,  title: 'Narrow framing' },
+  anchoring:         { icon: Anchor, title: 'Anchoring' },
+  anchoring_bias:    { icon: Anchor, title: 'Anchoring' },
+  confidence:        { icon: Gauge,  title: 'Overconfidence' },
+  overconfidence:    { icon: Gauge,  title: 'Overconfidence' },
+  optimism_bias:     { icon: Gauge,  title: 'Optimism bias' },
+  blind_spots:       { icon: EyeOff, title: 'Blind spots' },
+  status_quo_bias:   { icon: EyeOff, title: 'Status quo bias' },
+  confirmation:      { icon: Frame,  title: 'Confirmation bias' },
+  confirmation_bias: { icon: Frame,  title: 'Confirmation bias' },
+  authority_bias:    { icon: Anchor, title: 'Authority bias' },
+  availability_bias: { icon: Frame,  title: 'Availability bias' },
+  sunk_cost:         { icon: Anchor, title: 'Sunk cost' },
   // Uppercase code values (newer schema)
   AUTHORITY_BIAS:    { icon: Anchor, title: 'Authority bias' },
   CONFIRMATION_BIAS: { icon: Gauge,  title: 'Confirmation bias' },
   SUNK_COST:         { icon: Anchor, title: 'Sunk cost' },
   NARROW_FRAMING:    { icon: Frame,  title: 'Narrow framing' },
   STATUS_QUO_BIAS:   { icon: EyeOff, title: 'Status quo bias' },
+}
+
+/**
+ * Entity-ID prefixes that must NEVER appear in user-facing copy. If a CEE bug
+ * passes a raw entity ID as a bias type token, fall through to BIAS_FALLBACK
+ * rather than echoing it as a sentence-case label.
+ */
+const FORBIDDEN_TYPE_PREFIXES = ['fac_', 'opt_', 'dec_', 'risk_', 'out_', 'outcome_', 'node_', 'edge_'] as const
+
+/**
+ * Convert an unknown but safe-looking bias type token into a sentence-case label.
+ * Returns null for empty / unsafe inputs so callers fall through to BIAS_FALLBACK.
+ * Only allows alphanumerics + underscores, and rejects known entity-ID prefixes
+ * so a malformed `type: "fac_price"` never renders as "Fac price".
+ */
+export function safeBiasTitle(token: string): string | null {
+  if (!token) return null
+  const safe = token.trim()
+  if (!/^[A-Za-z0-9_]{1,40}$/.test(safe)) return null
+  const lower = safe.toLowerCase()
+  for (const prefix of FORBIDDEN_TYPE_PREFIXES) {
+    if (lower.startsWith(prefix)) return null
+  }
+  const cleaned = lower.replace(/_/g, ' ')
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
 }
 
 /** Generic fallback for unrecognised bias codes per the brief. */
@@ -110,6 +146,64 @@ const BIAS_EXPLANATION_MAX = 80
 function truncateExplanation(s: string): string {
   if (s.length <= BIAS_EXPLANATION_MAX) return s
   return s.slice(0, BIAS_EXPLANATION_MAX - 1).trimEnd() + '…'
+}
+
+/**
+ * Build mouseEnter/mouseLeave handlers for a bias card whose target id has
+ * already been resolved against the live graph. When `targetId` is null
+ * (no target supplied, or the target did not resolve), returns no handlers
+ * so hover is silently a no-op. Both handlers also clear edge highlights
+ * to match the convention in the rest of PreAnalysisPanel — leaving any
+ * card returns the canvas to a fully cleared highlight state.
+ */
+export function buildBiasHoverHandlers(
+  targetId: string | null,
+  setHighlightedNodes: (ids: string[]) => void,
+  setHighlightedEdges: (ids: string[]) => void,
+): { onMouseEnter?: () => void; onMouseLeave?: () => void } {
+  if (!targetId) return {}
+  return {
+    onMouseEnter: () => {
+      setHighlightedNodes([targetId])
+      setHighlightedEdges([])
+    },
+    onMouseLeave: () => {
+      setHighlightedNodes([])
+      setHighlightedEdges([])
+    },
+  }
+}
+
+/**
+ * Map a single CEE coaching.bias_signals[] entry to a NormalisedBiasTrigger.
+ * Pure (no React dependencies) so it can be unit-tested independently of the
+ * panel render tree. Returns null when the entry would not produce a useful
+ * card (empty detail).
+ */
+export function mapDraftBiasSignalToTrigger(
+  signal: { type: string; detail: string; target?: string },
+  index: number,
+  resolveLabel: (id: string) => string | null,
+): NormalisedBiasTrigger | null {
+  const explanation = signal.detail.trim()
+  if (!explanation) return null
+  const lookupKey = signal.type.toLowerCase()
+  const matched = BIAS_TYPE_ICON[lookupKey] ?? BIAS_TYPE_ICON[signal.type]
+  const safeTitle = matched ? null : safeBiasTitle(signal.type)
+  const config = matched ?? (safeTitle ? { icon: BIAS_FALLBACK.icon, title: safeTitle } : BIAS_FALLBACK)
+  const targetId = signal.target ?? null
+  const targetLabel = targetId ? resolveLabel(targetId) : null
+  return {
+    id: `cee_signal_${index}`,
+    icon: config.icon,
+    title: config.title,
+    subtitle: truncateExplanation(explanation),
+    fullExplanation: explanation,
+    severity: 'medium',
+    microInterventionStep: null,
+    targetFactorId: targetLabel ? targetId : null,
+    targetFactorLabel: targetLabel ?? null,
+  }
 }
 
 /** Severity rank for sorting CEE findings. Lower = higher priority. */
@@ -553,6 +647,9 @@ export function PreAnalysisPanel({
   // CEE analysis ready for feasibility + constraints
   const ceeAnalysisReady = useCanvasStore(s => s.ceeAnalysisReady)
 
+  // CEE coaching payload (build a555cf7b+) — strengthen items, bias signals, etc.
+  const draftCoachingBiasSignals = useCanvasStore(s => s.draftCoaching?.biasSignals ?? null)
+
   // Constraint feasibility warning — from CEE model_critiques (shared helper)
   const hasConstraintFeasibilityWarning = useMemo(
     () => hasFeasibilityWarning(ceeAnalysisReady?.model_critiques),
@@ -933,9 +1030,21 @@ export function PreAnalysisPanel({
         if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
       }
-      if (triggers.length > 0) return triggers
-      // If no CEE finding produced a usable trigger, fall through to deterministic
     }
+
+    // CEE coaching.bias_signals (build a555cf7b+) — second LLM source. Each
+    // signal carries a free-form `type` and `detail`; `target` is used only
+    // for hover-highlight and is never rendered as text. Mapping is delegated
+    // to the pure mapDraftBiasSignalToTrigger helper for test isolation.
+    if (triggers.length < 2 && draftCoachingBiasSignals && draftCoachingBiasSignals.length > 0) {
+      for (let i = 0; i < draftCoachingBiasSignals.length && triggers.length < 2; i++) {
+        const trigger = mapDraftBiasSignalToTrigger(draftCoachingBiasSignals[i], i, resolveLabel)
+        if (trigger) triggers.push(trigger)
+      }
+    }
+
+    if (triggers.length > 0) return triggers
+    // If no LLM source produced a usable trigger, fall through to deterministic
 
     // Deterministic fallback — graph-signal-only checks. Each check produces
     // a trigger in the shared NormalisedBiasTrigger shape (no micro_intervention,
@@ -1055,7 +1164,7 @@ export function PreAnalysisPanel({
     }
 
     return triggers.slice(0, 2)
-  }, [ceeAnalysisReady?.bias_findings, data.optionPreviews, data.nodesByKind.risk, compositeInfluenceMap, nodes])
+  }, [ceeAnalysisReady?.bias_findings, draftCoachingBiasSignals, data.optionPreviews, data.nodesByKind.risk, compositeInfluenceMap, nodes])
 
   // === V2 PANEL BUCKETS ===
   // Three-bucket regroup: Must fix → Review next → Improve confidence.
@@ -1157,6 +1266,7 @@ export function PreAnalysisPanel({
     biasType: trigger.title,
     subtitle: trigger.subtitle,
     targetFactorLabel: trigger.targetFactorLabel ?? undefined,
+    targetFactorId: trigger.targetFactorId ?? undefined,
   }))
   const optionQualitySignal: ReviewNextSignal | null = showOptionQualityCard
     ? {
@@ -1701,7 +1811,10 @@ export function PreAnalysisPanel({
                     />
                   )}
                   {startHereSignal.kind === 'bias' && (
-                    <div className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover">
+                    <div
+                      className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
+                      {...buildBiasHoverHandlers(startHereSignal.targetFactorId ?? null, setHighlightedNodes, setHighlightedEdges)}
+                    >
                       <p className={`${typography.panelHeader} text-text-header`}>
                         {startHereSignal.biasType}
                       </p>
@@ -1767,11 +1880,17 @@ export function PreAnalysisPanel({
                         {trigger.subtitle}
                       </p>
                     )
+                    // Hover-highlight the target node (if any) for CEE-sourced
+                    // triggers. targetFactorId is only populated when the id
+                    // resolved to a real node, so deterministic triggers and
+                    // unresolved targets are silently no-op.
+                    const hoverHandlers = buildBiasHoverHandlers(trigger.targetFactorId, setHighlightedNodes, setHighlightedEdges)
                     return (
                       <div
                         key={trigger.id}
                         className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
                         data-testid={`bias-trigger-${trigger.id}`}
+                        {...hoverHandlers}
                       >
                         <div className="flex items-start gap-2">
                           <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
@@ -2013,6 +2132,17 @@ export function PreAnalysisPanel({
               </p>
             </div>
           )}
+
+          {/* CEE coaching surfaces (build a555cf7b+). Each renders nothing when its
+              source array is empty, so no empty containers appear. The coaching
+              summary itself is rendered inside ModelHealthCard via the legacy
+              analysis_ready.coaching_summary path. Bias signals are merged into
+              the existing biasTriggers list above (see the draftCoachingBiasSignals
+              branch in the biasTriggers useMemo); they do not get their own
+              section. Source pills ("AI detected" / "Structural") were considered
+              but withheld per unified spec §3.3 which bans text pills on bias
+              trigger cards. */}
+          <DraftStrengthenSection />
         </div>
       </div>
 

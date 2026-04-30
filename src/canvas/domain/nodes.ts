@@ -46,6 +46,10 @@ export const NodeDataSchema = z.object({
   prior: z.number().min(0).max(1).optional(), // Probability (0..1)
   utility: z.number().min(-1).max(1).optional(), // Relative payoff (-1..+1)
   body: z.string().max(2000).optional(), // Longer text (distinct from description)
+
+  // CEE display provenance (optional, threaded from /assist/v1/draft-graph response).
+  // Drives "From brief" / "AI estimate" / "User set" pills. UI never invents this value.
+  provenance: z.enum(['from_brief', 'ai_inferred', 'user_set']).optional(),
 })
 
 /**

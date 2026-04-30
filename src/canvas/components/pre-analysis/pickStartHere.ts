@@ -60,6 +60,10 @@ export interface BiasSignal {
    *  card title. Absent when no target was supplied or it could not be
    *  resolved (in which case the trigger itself is suppressed upstream). */
   targetFactorLabel?: string
+  /** Resolved target node id (only when the id resolved to a real node).
+   *  Used by the Start Here render to highlight the node on hover; never
+   *  rendered as visible text. */
+  targetFactorId?: string
 }
 
 export type ReviewNextSignal = TriageSignal | OptionQualitySignal | BiasSignal

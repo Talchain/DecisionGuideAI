@@ -17,6 +17,7 @@ import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCEEv3Response } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, CEEv3Response, EffectDirection } from '../../adapters/cee/types'
+import { commitDraftCoachingToStore, edgeProvenanceDisplayPatch } from './draftIngestion'
 import { logger } from '../../lib/logger'
 import { validateNodesBatch } from '../domain/nodes'
 import { devLog } from '../../utils/debugLog'
@@ -127,6 +128,8 @@ export function applyDraftResult(
         ...(edgeType !== undefined ? { edge_type: edgeType } : {}),
         ...(provenanceSource !== undefined ? { provenance_source: provenanceSource } : {}),
         ...(existsProbability !== undefined ? { exists_probability: existsProbability } : {}),
+        // CEE display provenance (snake_case → camelCase). Distinct from `provenance_source`.
+        ...edgeProvenanceDisplayPatch(e),
       },
     }
   })
@@ -169,7 +172,8 @@ export function applyDraftResult(
 
   // Store analysis_ready for pre-analysis panel & run pipeline
   if (hasAnalysisReady(draftData)) {
-    const coachingSummary = (draftData as any).coaching?.summary
+    // Source from the typed draftCoaching.summary field (post-adapter).
+    const coachingSummary = (draftData as CEEDraftResponse).draftCoaching?.summary ?? null
     const analysisReadyWithCoaching = coachingSummary
       ? { ...draftData.analysis_ready, coaching_summary: coachingSummary }
       : draftData.analysis_ready
@@ -260,6 +264,9 @@ export function applyDraftResult(
   ) {
     useCanvasStore.getState().setCeePipelineTrace(pipelineTrace)
   }
+
+  // Commit CEE coaching payload (typed, type-guarded by adapter). Null when absent.
+  commitDraftCoachingToStore((draftData as CEEDraftResponse).draftCoaching ?? null)
 
   return { nodeCount: nodes.length, edgeCount: edges.length }
 }

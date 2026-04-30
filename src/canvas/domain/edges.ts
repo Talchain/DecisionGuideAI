@@ -219,6 +219,11 @@ export const EdgeDataSchema = z.object({
   edge_type: z.string().optional(),
   /** V3 provenance source classification (string, not enum — CEE may add new values) */
   provenance_source: z.string().optional(),
+  /**
+   * CEE display provenance label. Distinct from `provenance` above (short rationale tag).
+   * Drives "From brief" / "AI estimate" / "User set" pills. UI never invents this value.
+   */
+  provenanceDisplay: z.enum(['from_brief', 'ai_inferred', 'user_set']).optional(),
   /** Raw exists probability from CEE V3 (preserved alongside beliefExists) */
   exists_probability: z.number().min(0).max(1).optional(),
 
