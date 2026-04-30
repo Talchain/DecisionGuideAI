@@ -67,6 +67,7 @@ import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
 import { SectionHeader } from '@/components/results/SectionHeader'
 import { DraftStrengthenSection } from './DraftStrengthenSection'
+import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
 // removed handleResolveContestedEdge handler (Brief 4 Task 6).
 
@@ -2039,6 +2040,13 @@ export function PreAnalysisPanel({
               })()}
             </section>
           )}
+
+          {/* What Olumi added — informational/transparency surface for
+              CEE coaching.widening_log. Renders nothing when wideningLog
+              is null/empty. Mounted between Review next and Improve
+              confidence per the brief decision (informational, not a
+              blocker). */}
+          <WhatOlumiAddedSection />
 
           {/* Section 3: Improve confidence — collapsed by default.
               P1-3: coaching line derived from actionable count. */}

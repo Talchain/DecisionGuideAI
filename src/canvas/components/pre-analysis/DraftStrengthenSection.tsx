@@ -20,15 +20,8 @@ import { useCanvasStore } from '../../store'
 import { TriageCard } from '@/components/shared/TriageCard'
 import { typography } from '@/styles/typography'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
+import { provenanceToPill } from './provenanceUtils'
 import type { CEEProvenance } from '../../../adapters/cee/types'
-
-function provenanceToPill(p: CEEProvenance | undefined): { label: string; borderClass: string } | null {
-  if (p === 'from_brief') return { label: 'From brief', borderClass: 'border-success/30' }
-  if (p === 'ai_inferred') return { label: 'AI estimate', borderClass: 'border-info/30' }
-  // 'user_set' intentionally returns null — mirrors mapImprovementToTriageCard convention
-  // where user-set values get no pill (they are the implicit baseline).
-  return null
-}
 
 /** Convert a snake_case action_type / bias_category token into a sentence-case display tag. */
 function tokenToLabel(token: string): string {
