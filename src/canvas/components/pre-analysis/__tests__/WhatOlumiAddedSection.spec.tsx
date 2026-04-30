@@ -98,6 +98,10 @@ describe('WhatOlumiAddedSection', () => {
     expect(screen.queryByText('From brief')).not.toBeInTheDocument()
     expect(screen.queryByText('AI estimate')).not.toBeInTheDocument()
     expect(container.textContent ?? '').not.toContain(unknownNodeId)
+    // Also scan outerHTML to catch leakage in any DOM attribute
+    // (aria-label, title, data-* etc.), not just visible text.
+    const root = container.firstElementChild
+    expect(root?.outerHTML ?? '').not.toContain(unknownNodeId)
   })
 
   it('shows "From brief" pill when matched node has provenance from_brief', () => {
