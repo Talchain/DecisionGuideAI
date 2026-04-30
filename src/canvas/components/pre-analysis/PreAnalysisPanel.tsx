@@ -257,6 +257,40 @@ export function shouldSuppressBiasFinding(
 }
 
 /**
+ * Brief 5.8A D2: single normalisation gate applied to LLM-sourced bias entries
+ * before they enter the rendered trigger list. Both shapes flow through the
+ * same predicate so D3c (T1 nudge rows) and D5 (T2 Sharpen accordion) consume
+ * one already-filtered list — no per-consumer refilter.
+ *
+ * Accepts the raw target field from either shape:
+ *   - CEE bias_findings → `target_factor_id`
+ *   - CEE coaching bias_signals → `target`
+ *
+ * Returns true iff the target is non-blank AND resolves to a real graph node
+ * via the supplied resolver. The resolver returns null when no node matches,
+ * so we treat both null and blank-label results as "unresolvable".
+ *
+ * Behaviour change vs prior behaviour: bias_findings without a target (or with
+ * an unresolvable one) used to render generically. After D2 they are dropped,
+ * matching the brief's intent that on-screen bias copy must always anchor to
+ * an actionable factor. The deterministic graph-level fallback (narrow_framing,
+ * missing_risks, etc.) is intentionally outside this gate — it runs only when
+ * no LLM source produced anything and surfaces graph-derived nudges that have
+ * no target node by design.
+ *
+ * Exported for unit testing.
+ */
+export function hasResolvableBiasTarget(
+  rawTarget: string | null | undefined,
+  resolveLabel: (id: string) => string | null,
+): boolean {
+  const trimmed = (rawTarget ?? '').toString().trim()
+  if (!trimmed) return false
+  const label = resolveLabel(trimmed)
+  return typeof label === 'string' && label.trim().length > 0
+}
+
+/**
  * Brief 5.7 D7: AI-estimated improvement items should already carry a confirm
  * action from `usePreAnalysisData` (the cee_inference branch attaches one).
  * Augment defensively — symmetric with the missing-data path — so any item
@@ -1051,6 +1085,10 @@ export function PreAnalysisPanel({
       for (let i = 0; i < sorted.length; i++) {
         const finding = sorted[i]
         if (shouldSuppressBiasFinding(finding)) continue
+        // Brief 5.8A D2: require a resolvable target on every LLM-sourced
+        // bias entry. Drops entries with blank/missing or unresolvable
+        // target_factor_id before normalisation.
+        if (!hasResolvableBiasTarget(finding.target_factor_id, resolveLabel)) continue
         const normalised = normaliseCeeBiasFinding(finding, i, resolveLabel)
         if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
@@ -1063,7 +1101,12 @@ export function PreAnalysisPanel({
     // to the pure mapDraftBiasSignalToTrigger helper for test isolation.
     if (triggers.length < 2 && draftCoachingBiasSignals && draftCoachingBiasSignals.length > 0) {
       for (let i = 0; i < draftCoachingBiasSignals.length && triggers.length < 2; i++) {
-        const trigger = mapDraftBiasSignalToTrigger(draftCoachingBiasSignals[i], i, resolveLabel)
+        const signal = draftCoachingBiasSignals[i]
+        // Brief 5.8A D2: same resolvable-target requirement as bias_findings.
+        // Closes the gap where coaching signals previously rendered without
+        // any target check.
+        if (!hasResolvableBiasTarget(signal.target, resolveLabel)) continue
+        const trigger = mapDraftBiasSignalToTrigger(signal, i, resolveLabel)
         if (trigger) triggers.push(trigger)
       }
     }
