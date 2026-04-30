@@ -208,6 +208,24 @@ describe('canvas store coaching lifecycle', () => {
     expect(useCanvasStore.getState().draftCoaching).toEqual(result.draftCoaching)
   })
 
+  it('coaching cleared on a new draft start (brief test 13: resetCanvas is the new-draft entry point in DraftChat:243)', () => {
+    // DraftChat starts a new draft by calling resetCanvas() when the user
+    // confirms the discard prompt (src/canvas/components/DraftChat.tsx:243).
+    // This is the same primitive that test 13 of the brief asks for: when
+    // the user starts a fresh draft, prior coaching state must clear
+    // immediately — before the new draft response arrives.
+    const r1 = adaptDraftResponse(draftWithCoaching)
+    useCanvasStore.getState().setDraftCoaching(r1.draftCoaching!)
+    expect(useCanvasStore.getState().draftCoaching).not.toBeNull()
+
+    // Mimic the user starting a new draft: existing graph state + resetCanvas
+    withGraphState()
+    useCanvasStore.getState().resetCanvas()
+
+    // Coaching is cleared synchronously, before any new response lands
+    expect(useCanvasStore.getState().draftCoaching).toBeNull()
+  })
+
   it('coaching cleared by resetCanvas', () => {
     const r1 = adaptDraftResponse(draftWithCoaching)
     useCanvasStore.getState().setDraftCoaching(r1.draftCoaching!)
