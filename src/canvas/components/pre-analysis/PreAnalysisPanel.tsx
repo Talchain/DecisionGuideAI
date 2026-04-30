@@ -22,6 +22,7 @@ import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview, OPTION_PREVIEW_TITLE } from './OptionPreview'
 import { SharpenYourThinking } from './SharpenYourThinking'
+import { AnalysisSettings } from './AnalysisSettings'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
@@ -2531,6 +2532,24 @@ export function PreAnalysisPanel({
               strengthenOverlayMap (case-insensitive trim match). Items that
               do not match a triage label are silently skipped — they have no
               actionable target on their own. */}
+
+          {/* Brief 5.8A D6: T3 Advanced accordion — collapsed by default, no
+              preview line. Inventory at land time:
+                - Goal selector (only currently-mounted advanced control)
+              Future surfaces (risk appetite, graph statistics, simulation
+              settings) land in Brief 5.8B/5.9 when their data sources are
+              wired. The accordion stays mounted now so the IA slot is
+              reserved and hooks future expansion behind a single
+              consistent surface. */}
+          {data.nodesByKind.goal.length > 0 && (
+            <SectionErrorBoundary section="Advanced">
+              <AnalysisSettings
+                goalNodes={data.nodesByKind.goal}
+                selectedGoalNode={data.goalNode}
+                onGoalChange={handleGoalChange}
+              />
+            </SectionErrorBoundary>
+          )}
         </div>
       </div>
 
@@ -2549,6 +2568,8 @@ export function PreAnalysisPanel({
         blockedReason={blockedReason}
         isLoading={data.isLoading}
         isRetrying={isRetrying}
+        reviewedCount={data.reviewedFactorsCount}
+        totalReviewableCount={data.totalReviewableFactorsCount}
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}
         evidenceTotalCount={data.evidenceQuality.totalCount}
         weightedInfluenceReviewed={weightedInfluenceReviewed}

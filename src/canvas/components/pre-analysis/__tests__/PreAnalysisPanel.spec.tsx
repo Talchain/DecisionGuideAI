@@ -301,17 +301,17 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Run analysis')
+      expect(screen.getByRole('button', { name: /analyse now/i })).toHaveTextContent('Analyse now')
     })
 
-    it('shows "Run analysis" when ready regardless of readiness score', () => {
+    it('shows "Analyse now" when ready regardless of readiness score (Brief 5.8A D6)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, hasBlockers: false }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Run analysis')
+      expect(screen.getByRole('button', { name: /analyse now/i })).toHaveTextContent('Analyse now')
     })
 
-    it('shows "Run analysis" CTA (disabled, aria-label signals blockers) when has blockers', () => {
+    it('shows the CTA disabled when hard blockers exist (Brief 5.8A D6)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -328,7 +328,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /address issues/i })).toHaveTextContent('Run analysis')
+      // Brief 5.8A D6: hard blockers (count>0) keep the button disabled.
+      const button = screen.getByRole('button', { name: /address issues/i })
+      expect(button).toBeDisabled()
     })
 
     it('shows "Running analysis…" when isAnalysing is true', () => {
@@ -342,18 +344,23 @@ describe('PreAnalysisPanel', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      fireEvent.click(screen.getByRole('button', { name: /run analysis/i }))
+      fireEvent.click(screen.getByRole('button', { name: /analyse now/i }))
       expect(mockOnAnalyse).toHaveBeenCalledTimes(1)
     })
 
-    it('button is disabled when not ready', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: false, hasBlockers: true }))
+    it('button stays enabled for soft "not ready" states (Brief 5.8A D6 — Analyse anyway)', () => {
+      // Brief 5.8A D6: when there are no hard blockers but calibration is
+      // incomplete, the CTA reads "Analyse anyway" and remains clickable so
+      // the user can run with provisional results.
+      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: false, hasBlockers: true, blockerCount: 0 }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /address issues/i })).toBeDisabled()
+      const button = screen.getByRole('button', { name: /analyse anyway/i })
+      expect(button).not.toBeDisabled()
+      expect(button).toHaveTextContent('Analyse anyway')
     })
 
-    it('shows "Run analysis" CTA (disabled) when isReady=false and hasBlockers=false', () => {
+    it('shows "Analyse anyway" CTA enabled when isReady=false and hasBlockers=false (Brief 5.8A D6)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: false,
@@ -366,9 +373,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const button = screen.getByRole('button', { name: /analysis not ready/i })
-      expect(button).toHaveTextContent('Run analysis')
-      expect(button).toBeDisabled()
+      const button = screen.getByRole('button', { name: /analyse anyway/i })
+      expect(button).toHaveTextContent('Analyse anyway')
+      expect(button).not.toBeDisabled()
     })
   })
 
@@ -709,9 +716,10 @@ describe('PreAnalysisPanel', () => {
       // ModelHealthCard renders — status moved to footer
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
 
-      // Button should be enabled (CTA adapts to readiness: "Run analysis" or "Analyse anyway")
-      const button = screen.getByRole('button', { name: /run analysis/i })
-      expect(button).toHaveTextContent('Run analysis')
+      // Brief 5.8A D6: CTA reads "Analyse now" when ready or "Analyse anyway"
+      // when calibration is incomplete; both remain enabled for soft states.
+      const button = screen.getByRole('button', { name: /analyse (now|anyway)/i })
+      expect(button.textContent).toMatch(/Analyse (now|anyway)/)
       expect(button).not.toBeDisabled()
     })
   })
@@ -973,9 +981,10 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Footer should show "Ready" not "Blocked" — CTA adapts to readiness
+      // Brief 5.8A D6: footer CTA adapts to readiness — "Analyse now" or
+      // "Analyse anyway" depending on calibration state.
       const footer = screen.getByTestId('sticky-footer')
-      expect(footer).toHaveTextContent(/Run analysis|Analyse anyway/)
+      expect(footer).toHaveTextContent(/Analyse (now|anyway)/)
     })
   })
 

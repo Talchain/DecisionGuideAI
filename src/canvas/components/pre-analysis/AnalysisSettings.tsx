@@ -41,7 +41,7 @@ export function AnalysisSettings({
 
   return (
     <Accordion
-      title="Analysis settings"
+      title="Advanced"
       defaultExpanded={false}
       testId="analysis-settings-accordion"
     >
