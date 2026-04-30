@@ -55,23 +55,29 @@ jobs:
             schemas/
         continue-on-error: true
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js from .nvmrc
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           registry-url: https://npm.pkg.github.com
-          cache: "npm"
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache node_modules
         id: cache-nm
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install dependencies
         if: steps.cache-nm.outputs.cache-hit != 'true'
-        run: npm ci
+        run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
@@ -91,6 +97,6 @@ jobs:
           fi
 
       - name: Run contract tests
-        run: npx vitest run tests/contracts/ --reporter=verbose --bail=1
+        run: pnpm exec vitest run tests/contracts/ --reporter=verbose --bail=1
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"

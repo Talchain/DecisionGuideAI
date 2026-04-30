@@ -46,23 +46,29 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js from .nvmrc
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           registry-url: https://npm.pkg.github.com
-          cache: "npm"
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache node_modules
         id: cache-nm
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install dependencies
         if: steps.cache-nm.outputs.cache-hit != 'true'
-        run: npm ci
+        run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.PACKAGES_READ_TOKEN }}
 
@@ -90,20 +96,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js from .nvmrc
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: "npm"
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Audit for high/critical vulnerabilities
-        run: npm run security:audit
+        run: pnpm run security:audit
 
   # ── Static analysis ────────────────────────────────────────────────────
   tsc:
@@ -114,17 +126,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js from .nvmrc
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: "npm"
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
 
       - name: Schema contract gate
@@ -162,7 +180,7 @@ jobs:
           echo "All schema contract checks passed."
 
       - name: Lint
-        run: npm run lint
+        run: pnpm run lint
 
       - name: Check for legacy Olumi tokens
         run: |
@@ -182,17 +200,17 @@ jobs:
 
           echo "✅ No legacy --olumi-* tokens found."
           echo ""
-          echo "ℹ️  Note: Hard-coded color enforcement is handled by ESLint (npm run lint)."
+          echo "ℹ️  Note: Hard-coded color enforcement is handled by ESLint (pnpm run lint)."
           echo "   The ESLint rule 'brand-tokens/no-raw-colors' checks for hard-coded hex/rgb/hsl colors."
 
       - name: Type check (no emit)
-        run: npm run typecheck
+        run: pnpm run typecheck
 
       - name: React 185 guard (Zustand selectors)
-        run: npm run ci:guard:zustand
+        run: pnpm run ci:guard:zustand
 
       - name: Duplicate-suffix guard
-        run: npm run ci:guard:duplicates
+        run: pnpm run ci:guard:duplicates
 
   # ── Unit tests + coverage (merged — was two separate jobs running tests twice) ──
   vitest:
@@ -203,21 +221,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js from .nvmrc
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: "npm"
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
 
       - name: Run unit tests with coverage
-        run: npm run test:coverage
+        run: pnpm run test:coverage
         env:
           NODE_OPTIONS: "--max-old-space-size=4096"
 
@@ -244,20 +268,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js from .nvmrc
         uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
-          cache: "npm"
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Verify backend contract
-        run: npm run ci:verify-contract
+        run: pnpm run ci:verify-contract
         env:
           VITE_PLOT_LITE_BASE_URL: https://plot-lite-service.onrender.com
         continue-on-error: false
@@ -273,29 +303,35 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
 
       - name: Build (with PLC assertion + bundle budget)
-        run: npm run build:ci
+        run: pnpm run build:ci
 
       - name: Scan dist for console/debugger and E2E toggles
         run: |
-          npm run ci:no-console
-          npm run ci:scan-dist
+          pnpm run ci:no-console
+          pnpm run ci:scan-dist
 
       - name: Bundle Policy (safe chunks React-free)
-        run: npm run ci:bundle-policy
+        run: pnpm run ci:bundle-policy
 
   # ── E2E Chromium (sharded across 4 runners) ───────────────────────────
   e2e-chromium:
@@ -314,17 +350,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-playwright-
 
@@ -332,13 +374,13 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Chromium (Playwright)
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Run E2E (Chromium, shard ${{ matrix.shard }})
-        run: npx playwright test --project=chromium -c playwright.config.ts --retries=1 --shard=${{ matrix.shard }}
+        run: pnpm exec playwright test --project=chromium -c playwright.config.ts --retries=1 --shard=${{ matrix.shard }}
 
       - name: Upload Playwright test-results on failure
         if: failure()
@@ -368,21 +410,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - name: Install Firefox (Playwright)
-        run: npx playwright install --with-deps firefox
+        run: pnpm exec playwright install --with-deps firefox
       - name: Run smoke + summary-v2 on Firefox
         run: >-
-          npx playwright test
+          pnpm exec playwright test
           e2e/flags-off.smoke.spec.ts
           e2e/summary-v2.spec.ts
           --project=firefox -c playwright.config.ts
@@ -396,21 +443,26 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - name: Install WebKit (Playwright)
-        run: npx playwright install --with-deps webkit
+        run: pnpm exec playwright install --with-deps webkit
       - name: Run smoke + summary-v2 on WebKit
         run: >-
-          npx playwright test
+          pnpm exec playwright test
           e2e/flags-off.smoke.spec.ts
           e2e/summary-v2.spec.ts
           --project=webkit -c playwright.config.ts
@@ -423,28 +475,33 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
       - name: Restore node_modules cache
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - name: Install Chromium (Playwright)
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
       - name: Perf probe (worker layout, p95)
-        run: npx playwright test e2e/perf-worker-20-nodes.spec.ts --project=chromium -c playwright.config.ts
+        run: pnpm exec playwright test e2e/perf-worker-20-nodes.spec.ts --project=chromium -c playwright.config.ts
       - name: Vendored a11y (axe)
-        run: npm run evidence:a11y
+        run: pnpm run evidence:a11y
       - name: UI evidence pack
-        run: npm run evidence:ui-pack
+        run: pnpm run evidence:ui-pack
       - name: Share-link cap evidence
-        run: npm run evidence:share-cap
+        run: pnpm run evidence:share-cap
       - name: Immutability unit test (report.json hash)
-        run: npm run test -- src/lib/__tests__/evidence.immutability.test.ts
+        run: pnpm run test -- src/lib/__tests__/evidence.immutability.test.ts
       - name: Upload evidence artefacts
         uses: actions/upload-artifact@v4
         with:
@@ -472,17 +529,23 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
+
       - name: Use Node.js 20.x
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
+          cache: 'pnpm'
+          cache-dependency-path: 'pnpm-lock.yaml'
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('**/package-lock.json') }}
+          key: ${{ runner.os }}-playwright-${{ hashFiles('pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-playwright-
 
@@ -490,16 +553,16 @@ jobs:
         uses: actions/cache@v4
         with:
           path: node_modules
-          key: nm-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          key: nm-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
 
       - name: Install Chromium (Playwright)
-        run: npx playwright install --with-deps chromium
+        run: pnpm exec playwright install --with-deps chromium
 
       - name: Build (production)
-        run: npm run build:prod
+        run: pnpm run build:prod
 
       - name: E2E (production safe-screen)
-        run: npm run e2e:prod-safe
+        run: pnpm run e2e:prod-safe
 
       - name: Upload Playwright test-results on failure
         if: failure()
