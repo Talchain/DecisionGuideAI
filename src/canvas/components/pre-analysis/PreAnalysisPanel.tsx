@@ -15,7 +15,7 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
@@ -62,6 +62,7 @@ import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
 import { decisionShapeScore } from './utils/decisionShapeScore'
+import { buildNarrativeBridge } from './utils/buildNarrativeBridge'
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
@@ -598,6 +599,161 @@ function StatusBanner({
 // SectionHeader is imported from @/components/results/SectionHeader (shared component, unified spec §2.1).
 
 /**
+ * Brief 5.8A D3a — single failing-check row inside the T1 card.
+ *
+ * Pattern: 12px danger X icon + label + right-aligned action link. Used for
+ * the goal-target-unset check today; D3b/D3c will route additional checks
+ * (structural blockers, evidence gaps) through the same pattern.
+ *
+ * Action button is keyboard-focusable with the standard info ring; aria-label
+ * defaults to the actionLabel so screen readers receive context.
+ */
+function T1FailingCheckRow({
+  label,
+  actionLabel,
+  onAction,
+  testId,
+}: {
+  label: string
+  actionLabel: string
+  onAction: () => void
+  testId?: string
+}) {
+  return (
+    <div className="flex items-center gap-2 py-0.5" data-testid={testId}>
+      <X className="w-3 h-3 text-danger flex-shrink-0" aria-hidden="true" />
+      <span className={`${typography.panelBody} text-text-body flex-1`}>{label}</span>
+      <button
+        type="button"
+        onClick={onAction}
+        className={`${typography.panelMeta} text-info hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+        aria-label={actionLabel}
+      >
+        {actionLabel}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Brief 5.8A D3a — T1 "Decision readiness" card wrapper.
+ *
+ * Hosts the ring + 4 dimension bars (ModelHealthCard compact), failing checks
+ * (currently no_target), and the narrative bridge with strong-bolded counts.
+ * D3b will absorb the unified triage queue inside this card; D3c will add
+ * bias nudges, widening_log, contribution, and checks footer.
+ *
+ * Memoised because parent renders frequently on hover/highlight changes. The
+ * input props are simple primitives + a single QualityCheck reference plus
+ * handler callbacks; identity stability of the callbacks is a parent concern.
+ */
+const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
+  completeness,
+  evidence,
+  balance,
+  calibration,
+  optionCount,
+  goalLabel,
+  coachingSummary,
+  dynamicHeadline,
+  isLoading,
+  hasGoalNode,
+  hasGoalTarget,
+  noTargetCheck,
+  onSetTarget,
+  unverifiedEstimateCount,
+  relationshipsToReviewCount,
+}: {
+  completeness: number
+  evidence: number
+  balance: number
+  calibration: number
+  optionCount: number
+  goalLabel: string | null
+  coachingSummary: string | null
+  dynamicHeadline: string | null
+  isLoading: boolean
+  hasGoalNode: boolean
+  hasGoalTarget: boolean
+  noTargetCheck: { id: string; ctaAction: string } | null
+  onSetTarget: () => void
+  unverifiedEstimateCount: number
+  relationshipsToReviewCount: number
+}) {
+  const narrative = useMemo(
+    () => buildNarrativeBridge({
+      unverifiedEstimateCount,
+      relationshipsToReviewCount,
+      hasGoalTarget,
+    }),
+    [unverifiedEstimateCount, relationshipsToReviewCount, hasGoalTarget],
+  )
+
+  const showFailingChecks = noTargetCheck !== null
+  const showNarrativeBlock = narrative.prefix !== null || narrative.bridge !== null
+
+  return (
+    <div
+      className="bg-panel border border-panel-border rounded-[12px] p-3 flex flex-col gap-1.5"
+      data-testid="t1-decision-readiness-card"
+    >
+      <ModelHealthCard
+        compact
+        completeness={completeness}
+        evidence={evidence}
+        balance={balance}
+        calibration={calibration}
+        optionCount={optionCount}
+        goalLabel={goalLabel}
+        coachingSummary={coachingSummary}
+        dynamicHeadline={dynamicHeadline}
+        isLoading={isLoading}
+        hasGoalNode={hasGoalNode}
+      />
+      {showFailingChecks && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div className="flex flex-col" data-testid="t1-failing-checks">
+            {noTargetCheck && (
+              <T1FailingCheckRow
+                label="Goal target not set"
+                actionLabel="Set target"
+                onAction={onSetTarget}
+                testId="t1-check-no-target"
+              />
+            )}
+          </div>
+        </>
+      )}
+      {showNarrativeBlock && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div className="flex flex-col gap-0.5" data-testid="t1-narrative-bridge">
+            <p className={`${typography.panelMeta} text-text-light leading-snug`}>
+              {narrative.prefix && <>{narrative.prefix} </>}
+              {narrative.bridge && (
+                <>
+                  <strong className="text-text-body font-medium">{narrative.bridge.estimateCount}</strong>
+                  {narrative.bridge.estimateSuffix} and{' '}
+                  <strong className="text-text-body font-medium">{narrative.bridge.relationshipCount}</strong>
+                  {narrative.bridge.relationshipSuffix}
+                  {narrative.bridge.tail}
+                </>
+              )}
+            </p>
+            {narrative.meta && (
+              <p className={`${typography.panelMeta} text-text-light`} data-testid="t1-narrative-meta">
+                {narrative.meta}
+              </p>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+})
+
+/**
  * Improve confidence — collapsible accordion (collapsed by default).
  * Shows a "Highest value: ..." summary line above the chevron when applicable.
  */
@@ -752,6 +908,16 @@ export function PreAnalysisPanel({
     focusNodeById(nodeId)
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes, selectNodeWithoutHistory])
+
+  // Brief 5.8A D3a — failing-check action for "Goal target not set". Focuses
+  // the goal node so the user can set its threshold via the inspector. Reuses
+  // the existing focus helper rather than introducing a new dispatcher.
+  const handleSetTargetFocus = useCallback(() => {
+    const goalId = data.goalNode?.id
+    if (!goalId) return
+    selectNodeWithoutHistory(goalId)
+    focusNodeById(goalId)
+  }, [data.goalNode, selectNodeWithoutHistory])
 
   // Hover handlers - highlight graph elements on panel item hover
   const handleHoverElement = useCallback((type: 'node' | 'edge', id: string) => {
@@ -1681,26 +1847,55 @@ export function PreAnalysisPanel({
             at full opacity. */}
         <div className={`space-y-4 ${isFailed ? 'opacity-60 pointer-events-none' : ''}`}>
 
-          {/* Compressed health row: ring + 4 dimension bars + dynamic headline.
-              Sits inside the de-emphasised wrapper so it dims with the rest of
-              the content when the banner is in failed state. The dynamicHeadline
-              prop carries the bucket-derived coaching line; the static
-              "Your expertise makes the analysis more reliable…" fallback was
-              deleted in the bias-and-headline brief. */}
+          {/* Brief 5.8A D3a: T1 "Decision readiness" card. The .sc wrapper
+              hosts the ring + 4 dimension bars (ModelHealthCard compact mode),
+              followed by failing-check rows and the narrative bridge. D3b
+              will absorb the unified triage queue here; D3c will add the
+              bias .nudge rows, WhatOlumiAddedSection, contribution row and
+              checks footer. The wrapper is deliberately additive in D3a so
+              the existing Must fix / Review next / Improve confidence
+              sections continue to render unchanged below.
+
+              Loading-state escape hatch: ModelHealthCard renders its own
+              "Generating your decision model..." panel when isLoading and
+              no goal node exists. In that case the T1 wrapper would just
+              draw an empty extra border around it, so we drop the wrapper
+              for that one render path and let ModelHealthCard own the
+              panel chrome (matches its existing rounded-lg + border-panel-border). */}
           <SectionErrorBoundary section="Model health">
-            <ModelHealthCard
-              compact
-              completeness={completeness}
-              evidence={evidence}
-              balance={balance}
-              calibration={calibration}
-              optionCount={data.optionPreviews.length}
-              goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
-              coachingSummary={data.coachingSummary}
-              dynamicHeadline={dynamicHeadline}
-              isLoading={data.isLoading}
-              hasGoalNode={data.nodesByKind.goal.length > 0}
-            />
+            {data.isLoading && data.nodesByKind.goal.length === 0 ? (
+              <ModelHealthCard
+                compact
+                completeness={completeness}
+                evidence={evidence}
+                balance={balance}
+                calibration={calibration}
+                optionCount={data.optionPreviews.length}
+                goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
+                coachingSummary={data.coachingSummary}
+                dynamicHeadline={dynamicHeadline}
+                isLoading={data.isLoading}
+                hasGoalNode={false}
+              />
+            ) : (
+              <T1DecisionReadinessCard
+                completeness={completeness}
+                evidence={evidence}
+                balance={balance}
+                calibration={calibration}
+                optionCount={data.optionPreviews.length}
+                goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
+                coachingSummary={data.coachingSummary}
+                dynamicHeadline={dynamicHeadline}
+                isLoading={data.isLoading}
+                hasGoalNode={data.nodesByKind.goal.length > 0}
+                hasGoalTarget={data.successThreshold !== null}
+                noTargetCheck={data.qualityChecks.find(c => c.id === 'no_target') ?? null}
+                onSetTarget={handleSetTargetFocus}
+                unverifiedEstimateCount={data.improvementsByCategory.verify.length}
+                relationshipsToReviewCount={data.improvementsByCategory.add_evidence.length}
+              />
+            )}
           </SectionErrorBoundary>
 
           {/* Section 1: Must fix — only when blockers exist.
