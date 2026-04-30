@@ -224,29 +224,20 @@ describe('PreAnalysisPanel — Brief 5.7 D5 component-level render', () => {
     }
     mockUsePreAnalysisData.mockReturnValue(baseData())
 
-    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    const { container } = render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
 
-    // The bias card title is the canonical bias category name (no factor
-    // suffix) — keeps title clean for sparkle prompts and avoids visual
-    // duplication of the factor name.
-    expect(
-      screen.getByText('Authority bias'),
-    ).toBeInTheDocument()
-    // The factor name lives in the targeting subtitle alongside the CEE
-    // explanation. This is where the brief D5 acceptance "names the
-    // specific factor" is satisfied.
-    expect(
-      screen.getByText(/Watch for authority bias on Engineering velocity\./i),
-    ).toBeInTheDocument()
-    // The generic meta-commentary copy must NOT appear. The forbidden literal
-    // is split here so the Brief 5.7 D8 grep gate (which does not exclude
-    // test files) returns zero — the test still asserts the same absence.
-    const forbiddenSubstring = /Watch for this/i
-    const trailingSubstring = /bias when reviewing the items below/i
-    const hasForbidden = screen
-      .queryAllByText(forbiddenSubstring)
-      .some(el => trailingSubstring.test(el.textContent ?? ''))
-    expect(hasForbidden).toBe(false)
+    // Brief 5.8A D3c: bias triggers render as inline .nudge rows inside the
+    // T1 card. Each row carries data-testid="t1-bias-nudge-{id}" and the
+    // copy is rendered as "<strong>{title}:</strong> {subtitle}". Locate
+    // the row by testid prefix and assert its textContent contains the
+    // canonical bias title and the targeting subtitle.
+    const nudgeRows = container.querySelectorAll('[data-testid^="t1-bias-nudge-"]')
+    expect(nudgeRows.length).toBe(1)
+    const text = nudgeRows[0].textContent ?? ''
+    expect(text).toContain('Authority bias')
+    expect(text).toContain('Watch for authority bias on Engineering velocity.')
+    // The generic meta-commentary copy must NOT appear anywhere in the panel.
+    expect(container.innerHTML).not.toMatch(/Watch for this[^.]*bias when reviewing the items below/i)
   })
 
   it('suppresses an AUTHORITY_BIAS card whose target_factor_id does not resolve to any graph node', () => {

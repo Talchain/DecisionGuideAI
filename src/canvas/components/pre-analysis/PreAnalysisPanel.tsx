@@ -54,7 +54,6 @@ import {
 import { resolveReviewNextCoachingLine } from './sectionCoaching'
 import { useResolvedSignals } from './useResolvedSignals'
 import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
-import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
@@ -65,6 +64,7 @@ import {
   findStrengthenOverlay,
   type StrengthenOverlay,
 } from './utils/applyStrengthenOverlay'
+import { buildContributionBreakdown, type ContributionBreakdown } from './utils/buildContributionBreakdown'
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
@@ -600,6 +600,82 @@ function StatusBanner({
 // SectionHeader is imported from @/components/results/SectionHeader (shared component, unified spec §2.1).
 
 /**
+ * Brief 5.8A D3c — single bias .nudge row inside the T1 card.
+ *
+ * Inline single-line pattern: warning icon + bolded category + detail + an
+ * Explore chip that routes the bias context to chat. Hover hooks highlight
+ * the target node when a resolvable target exists (always true for D2-
+ * filtered triggers).
+ */
+function T1BiasNudgeRow({
+  trigger,
+  onHoverEnter,
+  onHoverLeave,
+}: {
+  trigger: NormalisedBiasTrigger
+  onHoverEnter?: () => void
+  onHoverLeave?: () => void
+}) {
+  const Icon = trigger.icon
+  return (
+    <div
+      className="flex items-center gap-2 px-2.5 py-1.5 border border-panel-border rounded-lg hover:bg-panel-hover"
+      data-testid={`t1-bias-nudge-${trigger.id}`}
+      onMouseEnter={onHoverEnter}
+      onMouseLeave={onHoverLeave}
+    >
+      <Icon className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
+      <p className={`${typography.panelMeta} text-text-body flex-1 min-w-0 truncate`}>
+        <strong className="text-text-header font-semibold">{trigger.title}:</strong>{' '}
+        {trigger.subtitle}
+      </p>
+      <DiscussWithAiButton
+        element={{ kind: 'bias', biasType: trigger.title, microInterventionStep: trigger.microInterventionStep }}
+      />
+    </div>
+  )
+}
+
+/**
+ * Brief 5.8A D3c — contribution row + three-state spectrum bar.
+ *
+ * Compact one-line indicator. Wording: "N of M inputs confirmed" — N counts
+ * factors with a verified source (user / user_confirmed / user_assumption)
+ * per the brief's "re-derive cleanly" decision. The bar visualises all
+ * three buckets (verified / brief / estimated) so the user sees the
+ * grounding mix at a glance.
+ */
+function T1ContributionRow({ breakdown }: { breakdown: ContributionBreakdown }) {
+  const { verified, brief, estimated, total } = breakdown
+  const verifiedPct = total === 0 ? 0 : (verified / total) * 100
+  const briefPct = total === 0 ? 0 : (brief / total) * 100
+  const estimatedPct = total === 0 ? 0 : (estimated / total) * 100
+  return (
+    <div className="flex flex-col gap-1" data-testid="t1-contribution-row">
+      <div className="flex items-center gap-2">
+        <span className={`${typography.panelMeta} text-text-light flex-1`}>
+          <strong className="text-text-body font-medium">{verified}</strong> of{' '}
+          <strong className="text-text-body font-medium">{total}</strong> inputs confirmed
+        </span>
+      </div>
+      {/* Three-state spectrum bar — Verified (success) | Brief (info) | Estimated (warning).
+          Zero-total renders as a single neutral track so the slot stays visually
+          present without misleading colour. */}
+      <div
+        className="flex h-1 w-full rounded-full overflow-hidden bg-panel-border"
+        role="img"
+        aria-label={`Contribution mix: ${verified} verified, ${brief} from brief, ${estimated} estimated`}
+        data-testid="t1-contribution-spectrum"
+      >
+        {verified > 0 && <span className="bg-success" style={{ width: `${verifiedPct}%` }} />}
+        {brief > 0 && <span className="bg-info" style={{ width: `${briefPct}%` }} />}
+        {estimated > 0 && <span className="bg-warning" style={{ width: `${estimatedPct}%` }} />}
+      </div>
+    </div>
+  )
+}
+
+/**
  * Brief 5.8A D3a — single failing-check row inside the T1 card.
  *
  * Pattern: 12px danger X icon + label + right-aligned action link. Used for
@@ -667,7 +743,12 @@ interface T1Handlers {
   onHoverEnter: (type: 'node' | 'edge', id: string) => void
   onHoverLeave: () => void
   buildAiDiscuss: (entry: UnifiedQueueEntryProp) => React.ReactNode
+  /** Brief 5.8A D3c — wraps the bias node-id hover into the panel hover system */
+  onBiasHoverEnter: (targetFactorId: string | null) => void
+  onBiasHoverLeave: () => void
 }
+
+const BIAS_NUDGE_VISIBLE_LIMIT = 2
 
 const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   completeness,
@@ -688,6 +769,11 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   topThree,
   alsoConsider,
   handlers,
+  biasNudges,
+  contributionBreakdown,
+  onShowAllBias,
+  wideningSlot,
+  missingKnowledgeSlot,
 }: {
   completeness: number
   evidence: number
@@ -707,6 +793,16 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   topThree: UnifiedQueueEntryProp[]
   alsoConsider: UnifiedQueueEntryProp[]
   handlers: T1Handlers
+  /** Brief 5.8A D3c — bias triggers from the D2-filtered list (single source) */
+  biasNudges: NormalisedBiasTrigger[]
+  /** Brief 5.8A D3c — three-bucket contribution breakdown */
+  contributionBreakdown: ContributionBreakdown
+  /** Action when the "+N more" link is clicked (expand or scroll) */
+  onShowAllBias?: () => void
+  /** Brief 5.8A D3c — WhatOlumiAddedSection rendered as a slot so the card stays composable */
+  wideningSlot: React.ReactNode
+  /** Brief 5.8A D3c — MissingKnowledgePrompt slot for the checks footer */
+  missingKnowledgeSlot: React.ReactNode
 }) {
   const narrative = useMemo(
     () => buildNarrativeBridge({
@@ -721,6 +817,11 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   const showNarrativeBlock = narrative.prefix !== null || narrative.bridge !== null
   const showTopThree = topThree.length > 0
   const showAlsoConsider = alsoConsider.length > 0
+  const visibleBias = biasNudges.slice(0, BIAS_NUDGE_VISIBLE_LIMIT)
+  const overflowBias = Math.max(0, biasNudges.length - BIAS_NUDGE_VISIBLE_LIMIT)
+  const showBiasBlock = visibleBias.length > 0
+  const showContribution = contributionBreakdown.total > 0
+  const showChecksFooter = contributionBreakdown.total > 0 || missingKnowledgeSlot != null
 
   return (
     <div
@@ -848,6 +949,61 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
                 )
               })}
             </div>
+          </div>
+        </>
+      )}
+      {showBiasBlock && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div className="flex flex-col gap-1" data-testid="t1-bias-block">
+            {visibleBias.map(trigger => (
+              <T1BiasNudgeRow
+                key={trigger.id}
+                trigger={trigger}
+                onHoverEnter={() => handlers.onBiasHoverEnter(trigger.targetFactorId)}
+                onHoverLeave={handlers.onBiasHoverLeave}
+              />
+            ))}
+            {overflowBias > 0 && onShowAllBias && (
+              <button
+                type="button"
+                onClick={onShowAllBias}
+                className={`${typography.panelMeta} text-info hover:underline self-start focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+                data-testid="t1-bias-show-more"
+              >
+                +{overflowBias} more
+              </button>
+            )}
+          </div>
+        </>
+      )}
+      {wideningSlot && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          {wideningSlot}
+        </>
+      )}
+      {showContribution && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <T1ContributionRow breakdown={contributionBreakdown} />
+        </>
+      )}
+      {showChecksFooter && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div
+            className="flex items-center justify-between gap-2"
+            data-testid="t1-checks-footer"
+          >
+            {contributionBreakdown.total > 0 && (
+              <span className={`text-[10px] text-text-light`}>
+                {contributionBreakdown.verified}/{contributionBreakdown.total} verified
+              </span>
+            )}
+            {missingKnowledgeSlot && (
+              <div className="flex-shrink-0">{missingKnowledgeSlot}</div>
+            )}
           </div>
         </>
       )}
@@ -1210,11 +1366,12 @@ export function PreAnalysisPanel({
     updateEdgeData(edgeId, { weight: value, strength_mean: undefined })
   }, [])
 
-  // Brief 5.8A D3b — bundle of T1 triage handlers. Stable identity so the
+  // Brief 5.8A D3b/D3c — bundle of T1 handlers. Stable identity so the
   // memoised T1DecisionReadinessCard does not re-render on unrelated parent
-  // state. The buildAiDiscuss factory mirrors the legacy mapping in the
-  // Review next render block (each card.aiDiscuss is wrapped in a
-  // DiscussWithAiButton).
+  // state. The buildAiDiscuss factory mirrors the legacy mapping (each
+  // card.aiDiscuss is wrapped in a DiscussWithAiButton). The bias hover
+  // handlers route through the same setHighlightedNodes/Edges store calls
+  // as the legacy bias trigger render.
   const t1Handlers = useMemo<T1Handlers>(() => ({
     onConfirm: handleConfirm,
     onEdit: handleSetValueForGap,
@@ -1224,7 +1381,17 @@ export function PreAnalysisPanel({
     buildAiDiscuss: (entry) => entry.card.aiDiscuss
       ? <DiscussWithAiButton element={entry.card.aiDiscuss} />
       : undefined,
-  }), [handleConfirm, handleSetValueForGap, handleUpdateEdgeStrength, handleHoverElement, handleHoverClear])
+    onBiasHoverEnter: (targetFactorId) => {
+      if (targetFactorId) {
+        setHighlightedNodes([targetFactorId])
+        setHighlightedEdges([])
+      }
+    },
+    onBiasHoverLeave: () => {
+      setHighlightedNodes([])
+      setHighlightedEdges([])
+    },
+  }), [handleConfirm, handleSetValueForGap, handleUpdateEdgeStrength, handleHoverElement, handleHoverClear, setHighlightedNodes, setHighlightedEdges])
 
   // Action handlers passed to TriageCard and expertise triage cards
 
@@ -1676,7 +1843,10 @@ export function PreAnalysisPanel({
   const biasTriggersAfterStart = biasTriggers.filter(t => !isExcluded(`bias:${t.id}`))
   const reviewNextTriageVisible = reviewNextTriageAfterStart.slice(0, REVIEW_NEXT_TRIAGE_BUDGET)
   const reviewNextTriageOverflow = reviewNextTriageAfterStart.slice(REVIEW_NEXT_TRIAGE_BUDGET)
-  const reviewNextBiasVisible = biasTriggersAfterStart.slice(0, REVIEW_NEXT_BIAS_BUDGET)
+  // Brief 5.8A D3c removed the legacy bias trigger render in Review next; the
+  // bias-overflow split is no longer needed. The T1 .nudge block applies its
+  // own internal cap (BIAS_NUDGE_VISIBLE_LIMIT) so any leftover bias triggers
+  // appear behind a "+N more" link inside the T1 card.
   const reviewNextBiasOverflow = biasTriggersAfterStart.slice(REVIEW_NEXT_BIAS_BUDGET)
   const reviewNextOverflowCount = reviewNextTriageOverflow.length + reviewNextBiasOverflow.length
   // Section badge counts the TRUE total (visible + overflow + Start here) so
@@ -1772,6 +1942,15 @@ export function PreAnalysisPanel({
 
   const unifiedTopThree = useMemo(() => unifiedTriageQueue.slice(0, 3), [unifiedTriageQueue])
   const unifiedAlsoConsider = useMemo(() => unifiedTriageQueue.slice(3), [unifiedTriageQueue])
+
+  // Brief 5.8A D3c — three-bucket contribution breakdown derived from the
+  // current factor nodes. Counts only, no inference. The render layer uses
+  // `verified` and `total` for the "N of M inputs confirmed" copy and all
+  // three buckets for the spectrum bar.
+  const contributionBreakdown = useMemo<ContributionBreakdown>(
+    () => buildContributionBreakdown(data.nodesByKind.factor),
+    [data.nodesByKind.factor],
+  )
 
   // Brief 4 hotfix Task 5: the goal target is only an improvement item when
   // the user hasn't confirmed the threshold yet. Once confirmed, drop it from
@@ -2025,6 +2204,15 @@ export function PreAnalysisPanel({
                 topThree={unifiedTopThree}
                 alsoConsider={unifiedAlsoConsider}
                 handlers={t1Handlers}
+                biasNudges={biasTriggers}
+                contributionBreakdown={contributionBreakdown}
+                wideningSlot={<WhatOlumiAddedSection />}
+                missingKnowledgeSlot={
+                  <MissingKnowledgePrompt
+                    context="model"
+                    aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the model" />}
+                  />
+                }
               />
             )}
           </SectionErrorBoundary>
@@ -2172,39 +2360,10 @@ export function PreAnalysisPanel({
                 </div>
               ))}
 
-              {/* Start here card — Brief 5.8A D3b: triage-kind start-heres are
-                  now the emphasised first item of the unified queue inside the
-                  T1 card (.ac.em info-bordered + tinted background). Only the
-                  bias-kind branch survives here, since bias signals are not in
-                  the unified triage queue (D3c will move them to T1 .nudge
-                  rows). */}
-              {startHereSignal && startHereSignal.kind === 'bias' && (
-                <div
-                  className="border-l-[3px] border-success rounded-[10px]"
-                  data-testid="start-here-card"
-                >
-                  <div
-                    className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
-                    {...buildBiasHoverHandlers(startHereSignal.targetFactorId ?? null, setHighlightedNodes, setHighlightedEdges)}
-                  >
-                    <p className={`${typography.panelHeader} text-text-header`}>
-                      {startHereSignal.biasType}
-                    </p>
-                    {/* Brief 5.7 D5: propagate the bias trigger's truncated
-                        explanation (subtitle) instead of a generic
-                        meta-commentary line. Falls through to a non-meta
-                        biasType-aware sentence if the trigger had no
-                        explanation. AUTHORITY_BIAS without target_factor_id
-                        is filtered upstream and never reaches this branch. */}
-                    <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-                      {startHereSignal.subtitle ?? `Be aware of ${startHereSignal.biasType.toLowerCase()} as you review.`}
-                    </p>
-                    <div className="absolute bottom-1 right-1">
-                      <DiscussWithAiButton element={{ kind: 'bias', biasType: startHereSignal.biasType }} />
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Brief 5.8A D3c: bias start-here render removed. All bias
+                  triggers (whether the start-here pick or not) now appear as
+                  inline .nudge rows inside the T1 card. The brief's bias
+                  pattern is one consolidated surface — no parallel cards. */}
 
               {/* Option similarity / quality card — interventions collapsed per option.
                   The narrow-framing coaching lives inside OptionPreview (see
@@ -2222,70 +2381,11 @@ export function PreAnalysisPanel({
                 />
               )}
 
-              {/* Bias trigger cards. Each card shows: icon, title, truncated
-                  explanation (full text on hover via tooltip), sparkle bottom-right
-                  (auto-submits; incorporates micro_intervention when present).
-                  No text pills — unified spec §3.3. P1-8: budget capped at 2
-                  visible; overflow appears when the user expands Show more. */}
-              {(reviewNextExpanded ? biasTriggersAfterStart : reviewNextBiasVisible).length > 0 && (
-                <div className="space-y-1.5" data-testid="review-next-nudges">
-                  {(reviewNextExpanded ? biasTriggersAfterStart : reviewNextBiasVisible).map(trigger => {
-                    const Icon = trigger.icon
-                    // Only attach the DS tooltip when the explanation was
-                    // actually truncated — otherwise the hover would just
-                    // repeat the visible text. truncateExplanation appends
-                    // an ellipsis when the source string exceeds 80 chars,
-                    // so length divergence is the cheapest reliable signal.
-                    const isTruncated = trigger.subtitle !== trigger.fullExplanation
-                    const subtitleEl = (
-                      <p className={`${typography.panelBody} text-text-light mt-0.5`}>
-                        {trigger.subtitle}
-                      </p>
-                    )
-                    // Hover-highlight the target node (if any) for CEE-sourced
-                    // triggers. targetFactorId is only populated when the id
-                    // resolved to a real node, so deterministic triggers and
-                    // unresolved targets are silently no-op.
-                    const hoverHandlers = buildBiasHoverHandlers(trigger.targetFactorId, setHighlightedNodes, setHighlightedEdges)
-                    return (
-                      <div
-                        key={trigger.id}
-                        className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
-                        data-testid={`bias-trigger-${trigger.id}`}
-                        {...hoverHandlers}
-                      >
-                        <div className="flex items-start gap-2">
-                          <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
-                          <div className="flex-1 min-w-0">
-                            <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
-                            {isTruncated ? (
-                              <Tooltip
-                                delay={300}
-                                content={trigger.fullExplanation}
-                                className="!max-w-[280px]"
-                              >
-                                {subtitleEl}
-                              </Tooltip>
-                            ) : (
-                              subtitleEl
-                            )}
-                          </div>
-                        </div>
-                        {/* Sparkle bottom-right — auto-submits prompt including micro-intervention
-                            technique when present (unified spec §3.3: no text pills on bias cards). */}
-                        <div className="absolute bottom-1 right-1">
-                          <DiscussWithAiButton element={{ kind: 'bias', biasType: trigger.title, microInterventionStep: trigger.microInterventionStep }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+              {/* Brief 5.8A D3c: bias triggers moved to T1 .nudge rows above.
+                  The D2-filtered biasTriggers list flows directly into the T1
+                  card via the biasNudges prop — no per-consumer refilter. */}
 
-              {/* Brief 5.8A D3b: triage cards moved to the unified T1 queue.
-                  This section now hosts only bias triggers, option-quality
-                  card, and the Start here render for non-triage signals.
-                  See unifiedTriageQueue useMemo above. */}
+              {/* Brief 5.8A D3b: triage cards moved to the unified T1 queue. */}
 
               {/* P1-8: Show more / Show less toggle — only when overflow exists */}
               {reviewNextOverflowCount > 0 && (
@@ -2350,18 +2450,10 @@ export function PreAnalysisPanel({
             </section>
           )}
 
-          {/* What Olumi added — informational/transparency surface for
-              CEE coaching.widening_log. Renders nothing when wideningLog
-              is null/empty. Mounted between Review next and Improve
-              confidence per the brief decision (informational, not a
-              blocker). */}
-          <WhatOlumiAddedSection />
-
-          {/* Brief 5.8A D3b: triage + expertise card renders moved into the
-              T1 unified queue. The accordion now hosts only the SuccessTarget
-              editor + MissingKnowledgePrompt — secondary controls grouped
-              behind a single chevron. The accordion always renders at least
-              SuccessTarget so the goal threshold remains user-editable. */}
+          {/* Brief 5.8A D3c: WhatOlumiAddedSection moved INTO the T1 card via
+              the wideningSlot prop. MissingKnowledgePrompt likewise moved into
+              the T1 checks footer via missingKnowledgeSlot. The accordion now
+              hosts only the SuccessTarget editor — collapsed by default. */}
           <ImproveConfidenceAccordion count={1}>
             {/* Goal target inline edit */}
             <SuccessTarget
@@ -2384,12 +2476,6 @@ export function PreAnalysisPanel({
               constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
               goalConstraints={ceeAnalysisReady?.goal_constraints}
               onSendMessage={onSendMessage}
-            />
-
-            {/* "What's missing?" prompt */}
-            <MissingKnowledgePrompt
-              context="model"
-              aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the model" />}
             />
           </ImproveConfidenceAccordion>
 
