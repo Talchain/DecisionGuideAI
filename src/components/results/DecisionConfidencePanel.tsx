@@ -12,22 +12,29 @@
  * Uses shared TriageHealthHeader + TriageCard components.
  */
 
-import { useMemo, memo, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, HelpCircle } from 'lucide-react'
-import Tooltip from '@/components/Tooltip'
+import { useMemo, memo, useState, type ReactNode } from 'react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, X } from 'lucide-react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
+import { HeroQualifier } from './HeroQualifier'
+import { evaluativeVar } from '@/styles/evaluative'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
 import { typography } from '@/styles/typography'
-import { SectionHeader } from './SectionHeader'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
+import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
+import { useCanvasStore } from '@/canvas/store'
+import {
+  buildStrengthenOverlayMap,
+  findStrengthenOverlay,
+  type StrengthenOverlay,
+} from '@/canvas/components/pre-analysis/utils/applyStrengthenOverlay'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -48,6 +55,10 @@ interface DecisionConfidencePanelProps {
   expertMode?: boolean
   /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
   nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>
+  /** Brief 5.8B D2c: handler invoked by the dominant-factor "Research" chip (moved from DriversSection). */
+  onSendMessage?: (text: string) => void
+  /** Brief 5.8B D2c: AI affordance rendered inside the T1 checks-footer MissingKnowledgePrompt. */
+  aiAffordance?: ReactNode
 }
 
 // Post-analysis uses a single-value ring (winner's win probability).
@@ -70,6 +81,20 @@ interface MappedActionItem {
   targetNodeId: string | undefined
   editorConfig: ScientificEditorProps | null
   sourcePill: { label: string; borderClass: string } | null
+  /** Brief 5.8B D2b — passive labels overlaid from CEE strengthen_items.actionType */
+  passiveLabels: string[] | undefined
+}
+
+function applyOverlayToItem(
+  item: MappedActionItem,
+  overlay: StrengthenOverlay | null,
+): MappedActionItem {
+  if (!overlay) return item
+  return {
+    ...item,
+    subtitle: overlay.detail,
+    passiveLabels: overlay.actionTypeLabel ? [overlay.actionTypeLabel] : item.passiveLabels,
+  }
 }
 
 // Source pill mapping based on confidence level
@@ -121,6 +146,7 @@ function mapEvidenceGapsToActions(
         onCancel: () => {},
       } : null,
       sourcePill: getSourcePill(gap.confidence),
+      passiveLabels: undefined,
     }
   })
 }
@@ -144,115 +170,247 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
     targetNodeId: action.targetId,
     editorConfig: null,
     sourcePill: null,
+    passiveLabels: undefined,
   }))
 }
 
-// ── Section 2: Result checks ────────────────────────────────────────────────
+// ── Section 2: Result checks (Brief 5.8B D2c — flip-risk extracted) ─────────
 
-function ResultChecks({ data, onFocusNode }: { data: ResultsSectionDataReturn; onFocusNode?: (nodeId: string) => void }) {
+function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
   const rec = data.recommendation
-  const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
-
   const winnerConstraints = rec.recommendedOption?.constraintAnalysis
   const goalThreshold = rec.goalThreshold
-
-  const switchPct = fragile?.switchProbability != null
-    ? Math.round(fragile.switchProbability * 100)
-    : null
-
   return (
     <div className="space-y-2">
-      {/* Target probabilities */}
       <TargetProbabilityBars
         constraintAnalysis={winnerConstraints}
         goalThreshold={goalThreshold}
       />
-
-      {/* Fragility warning — inline, no separate heading */}
-      {fragile && (
-        <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel">
-          <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" />
-          <p className={`${typography.panelBody} text-text-body`}>
-            If <strong>{fragile.fromLabel}</strong> shifts,{' '}
-            <strong>{fragile.alternativeWinnerLabel}</strong> could overtake
-            {switchPct != null && ` (${switchPct}% probability)`}.
-            {onFocusNode && fragile.fromId && (
-              <>
-                {' '}
-                <button
-                  type="button"
-                  onClick={() => onFocusNode(fragile.fromId)}
-                  className="text-info hover:underline cursor-pointer"
-                >
-                  Validate {stripEncodingNotation(fragile.fromLabel)}
-                </button>
-              </>
-            )}
-          </p>
-        </div>
-      )}
     </div>
   )
 }
 
-// ── Section 3: Trust summary ────────────────────────────────────────────────
-
 /**
- * Evidence-section header.
- *
- * - `countLine`: "Top N by evidence value" — the original render.
- * - `subtitle`: scope copy that always renders alongside the count so users
- *   can reconcile this section with "What's driving this" (Brief 5.1 Task 2).
- * - `bridge`: symmetric descriptive line that renders iff the top driver
- *   identity and the top evidence-gap identity differ. No implication that
- *   one section is more important — only a scope distinction.
+ * T1 flip-risk callout — moved from inside ResultChecks per Brief 5.8B D2c
+ * step 1. Copy is preserved verbatim ("LOCKED — placement only"). Renders as
+ * an inline `.nudge`-shaped row inside the T1 stack.
  */
-function TrustSummary({
-  actionCount,
-  topDriverIdentity,
-  topEvidenceGapIdentity,
+function T1FlipRiskCallout({
+  data,
+  onFocusNode,
 }: {
-  actionCount: number
-  topDriverIdentity: string | null
-  topEvidenceGapIdentity: string | null
+  data: ResultsSectionDataReturn
+  onFocusNode?: (nodeId: string) => void
 }) {
-  if (actionCount === 0) return null
-
-  const showBridge =
-    topDriverIdentity != null
-    && topEvidenceGapIdentity != null
-    && topDriverIdentity !== topEvidenceGapIdentity
-
+  const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
+  if (!fragile) return null
+  const switchPct = fragile.switchProbability != null
+    ? Math.round(fragile.switchProbability * 100)
+    : null
   return (
-    <div className="flex flex-col gap-0.5" data-testid="trust-summary">
-      <SectionHeader
-        title="Highest-value evidence gaps"
-        className="mb-0"
-        testId="evidence-section-header"
-      />
-      <div className="flex items-center gap-1">
-        <p
-          className={`${typography.panelMeta} text-text-light`}
-          data-testid="evidence-scope-subtitle"
-        >
-          Factors where new information would most reduce uncertainty
-        </p>
-        {showBridge && (
-          <Tooltip
-            delay={300}
-            content="Your strongest driver and your top evidence gap are different factors. The driver is what currently moves the result; the evidence gap is where you do not yet know enough."
-          >
+    <div
+      className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel"
+      data-testid="t1-flip-risk-callout"
+    >
+      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+      <p className={`${typography.panelBody} text-text-body`}>
+        If <strong>{fragile.fromLabel}</strong> shifts,{' '}
+        <strong>{fragile.alternativeWinnerLabel}</strong> could overtake
+        {switchPct != null && ` (${switchPct}% probability)`}.
+        {onFocusNode && fragile.fromId && (
+          <>
+            {' '}
             <button
               type="button"
-              className="text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded shrink-0"
-              aria-label="Why are the top driver and top evidence gap different?"
-              data-testid="drivers-evidence-bridge-trigger"
+              onClick={() => onFocusNode(fragile.fromId)}
+              className="text-info hover:underline cursor-pointer"
             >
-              <HelpCircle size={14} aria-hidden="true" />
+              Validate {stripEncodingNotation(fragile.fromLabel)}
             </button>
-          </Tooltip>
+          </>
+        )}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * T1 dominant-factor nudge — Brief 5.8B D2c step 2. Replaces the standalone
+ * card that previously lived in DriversSection. Mirrors the pre-analysis
+ * `T1BiasNudgeRow` style: inline icon + bolded label + one-line detail +
+ * Validate / Research chips. Locked copy from the previous DriversSection
+ * render is preserved verbatim.
+ */
+function T1DominantNudge({
+  data,
+  onFocusNode,
+  onSendMessage,
+}: {
+  data: ResultsSectionDataReturn
+  onFocusNode?: (nodeId: string) => void
+  onSendMessage?: (text: string) => void
+}) {
+  const drivers = data.drivers
+  const topDriver = drivers.topDrivers?.[0] ?? drivers.drivers?.[0]
+  const topInfluence = topDriver
+    ? (topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
+    : 0
+  // Same threshold the legacy DriversSection warning used (≥0.8).
+  const showNudge = topInfluence >= 0.8
+  const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
+  const dominantLabel = cleanFactorLabel(rawLabel).label
+  if (!showNudge || !dominantLabel) return null
+  const dominantPct = Math.round(Math.min(1, topInfluence) * 100)
+  const dominantFocusId = drivers.dominantFactorId
+    ?? topDriver?.matchedNodeId
+    ?? topDriver?.factorKey
+    ?? null
+
+  return (
+    <div
+      className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel"
+      role="status"
+      aria-label="Dominant factor warning"
+      data-testid="t1-dominant-nudge"
+    >
+      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <p className={`${typography.panelBody} text-text-body`}>
+          <strong>Dominant factor:</strong> {dominantLabel} drives {dominantPct}% of the outcome.
+          If your assumptions about this factor are wrong, the recommendation could change.
+        </p>
+        {((dominantFocusId && onFocusNode) || onSendMessage) && (
+          <div className="flex items-center gap-1.5">
+            {dominantFocusId && onFocusNode && (
+              <button
+                type="button"
+                onClick={() => onFocusNode(dominantFocusId)}
+                className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+                aria-label={`Validate ${dominantLabel} on canvas`}
+              >
+                Validate
+              </button>
+            )}
+            {onSendMessage && (
+              <button
+                type="button"
+                onClick={() => onSendMessage(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
+                className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+                aria-label={`Research ${dominantLabel}`}
+              >
+                Research
+              </button>
+            )}
+          </div>
         )}
       </div>
+    </div>
+  )
+}
+
+/**
+ * T1 checks footer — Brief 5.8B D2c step 3. Compact row at the bottom of the
+ * T1 stack: ✓/✗ Winner · ✓/✗ Robust · ✓/✗ Evidence gaps + addressed counter
+ * + the shared `MissingKnowledgePrompt`. Each glyph + label uses panelMeta
+ * (10px text-light) for visual demotion below the queue.
+ */
+function T1ChecksFooter({
+  data,
+  aiAffordance,
+}: {
+  data: ResultsSectionDataReturn
+  aiAffordance?: ReactNode
+}) {
+  const hasWinner = !!data.recommendation.recommendedOption
+  const stability = data.recommendation.recommendationStability
+  const robustOk = typeof stability === 'number' && Number.isFinite(stability) && stability >= 0.85
+  const robustKnown = typeof stability === 'number' && Number.isFinite(stability)
+  const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
+  const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
+  const evidenceKnown = gaps.length > 0
+  const addressed = gaps.filter(g => typeof g.confidence === 'number' && g.confidence >= 50).length
+  const total = gaps.length
+
+  return (
+    <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
+      <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
+        <ChecksGlyph
+          ok={hasWinner}
+          okLabel="Winner"
+          notOkLabel="No winner"
+          dataTestid="checks-winner"
+        />
+        <ChecksGlyph
+          ok={robustOk}
+          okLabel="Robust"
+          notOkLabel={robustKnown ? 'Sensitive' : 'Robustness unknown'}
+          dataTestid="checks-robust"
+        />
+        <ChecksGlyph
+          ok={!evidenceWeak && evidenceKnown}
+          okLabel="Evidence covered"
+          notOkLabel={evidenceKnown ? 'Evidence gaps' : 'Evidence unknown'}
+          dataTestid="checks-evidence"
+        />
+        {total > 0 && (
+          <span className="ml-auto" data-testid="checks-addressed">
+            {addressed}/{total} addressed
+          </span>
+        )}
+      </div>
+      <MissingKnowledgePrompt context="results" aiAffordance={aiAffordance} />
+    </div>
+  )
+}
+
+function ChecksGlyph({
+  ok,
+  okLabel,
+  notOkLabel,
+  dataTestid,
+}: {
+  ok: boolean
+  okLabel: string
+  notOkLabel: string
+  dataTestid: string
+}) {
+  const Icon = ok ? Check : X
+  const colour = ok ? 'text-success' : 'text-danger'
+  return (
+    <span className="inline-flex items-center gap-1" data-testid={dataTestid}>
+      <Icon size={12} className={`${colour} flex-shrink-0`} aria-hidden="true" />
+      <span>{ok ? okLabel : notOkLabel}</span>
+    </span>
+  )
+}
+
+// ── Section 3: Stability narrative (Brief 5.8B D2b) ─────────────────────────
+
+/**
+ * Stability narrative — a single line above the unified triage queue. Mirrors
+ * the pre-analysis 5.8A pattern (narrative bridge above T1 cards). Suppressed
+ * when there are no triage items to introduce. Stability percent suffix is
+ * dropped when recommendation_stability is null/NaN.
+ */
+function StabilityNarrative({
+  itemCount,
+  stabilityScore,
+}: {
+  itemCount: number
+  stabilityScore: number | undefined
+}) {
+  if (itemCount === 0) return null
+  const stabilityPct =
+    typeof stabilityScore === 'number' && Number.isFinite(stabilityScore)
+      ? Math.round(stabilityScore * 100)
+      : null
+  const lede = stabilityPct != null
+    ? `Stability: ${stabilityPct}%. These items would most improve confidence:`
+    : 'These items would most improve confidence:'
+  return (
+    <div className="flex flex-col gap-0.5" data-testid="stability-narrative">
+      <p className={`${typography.panelBody} text-text-body`}>{lede}</p>
+      <p className={`${typography.panelMeta} text-text-light`}>Ranked by evidence value</p>
     </div>
   )
 }
@@ -317,7 +475,7 @@ function AlsoConsiderDisclosure({
           : <><ChevronRight className="w-3 h-3" aria-hidden="true" /> Show {items.length} more</>}
       </button>
       {expanded && (
-        <div className="flex flex-col gap-1.5 mt-1.5">
+        <div className="flex flex-col gap-1 mt-1.5" data-testid="also-consider-rows">
           {items.map((item, i) => (
             <TriageCard
               key={item.key}
@@ -330,8 +488,10 @@ function AlsoConsiderDisclosure({
               influence={item.influence}
               evoiImpact={item.evoiImpact}
               action={item.action}
+              variant="compact"
               editorConfig={item.editorConfig}
               sourcePill={item.sourcePill}
+              passiveLabels={item.passiveLabels}
               onConfirm={onConfirm}
               onEdit={onEdit}
               onHoverEnter={onHoverEnter}
@@ -357,6 +517,8 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onConfirm,
   expertMode: _expertMode,
   nodeValueLookup,
+  onSendMessage,
+  aiAffordance,
 }: DecisionConfidencePanelProps) {
   // Post-analysis ring shows winner's win probability directly. The readiness
   // composite (Structure/Evidence/Coverage/Verified) is pre-analysis-only.
@@ -451,11 +613,27 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   // presence of certainty.caveat is itself the honesty signal.
   const healthHeaderCoaching = certainty?.caveat ?? null
 
-  // Merge and rank action items by EVOI
+  // Brief 5.8B D2b — strengthen overlay map. CEE coaching.strengthen_items
+  // (sourced from the canvas store; persisted across pre→post analysis) are
+  // matched against post-analysis triage card titles via normalised exact
+  // match (case-insensitive trim). Reuses the pre-analysis utility verbatim
+  // so the matching contract stays in lockstep.
+  const draftCoachingStrengthenItems = useCanvasStore(s => s.draftCoaching?.strengthenItems ?? null)
+  const strengthenOverlayMap = useMemo(
+    () => buildStrengthenOverlayMap(draftCoachingStrengthenItems),
+    [draftCoachingStrengthenItems],
+  )
+
+  // Brief 5.8B D2b — single EVPI-ranked queue. The earlier split (evidence
+  // gaps under one header, next actions under another) is gone. Top 3 render
+  // as one stack with the first item visually emphasised; remainder roll
+  // under "Also consider".
   const allActions = useMemo(() => {
     const gaps = mapEvidenceGapsToActions(data, onSetValue, nodeValueLookup)
     const next = mapNextActionsToCards(data)
-    const merged = [...gaps, ...next]
+    const merged = [...gaps, ...next].map(item =>
+      applyOverlayToItem(item, findStrengthenOverlay(item, strengthenOverlayMap)),
+    )
     merged.sort((a, b) => {
       const aEvoi = a.evoiImpact ?? -1
       const bEvoi = b.evoiImpact ?? -1
@@ -463,175 +641,198 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       return (b.influence ?? 0) - (a.influence ?? 0)
     })
     return merged
-  }, [data, onSetValue, nodeValueLookup])
+  }, [data, onSetValue, nodeValueLookup, strengthenOverlayMap])
 
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)
 
-  // Brief 5.7 D6 (Path B): split the top-3 stack by upstream shape so cards
-  // 1/2 ("evidence gaps" — full structure: progress bar, pp pill, Set value)
-  // and card 3 ("next action" — title + coaching + edit pencil) sit under
-  // distinct subheaders rather than mixed under one heading. Numbering
-  // continues across the split so the user still parses them as a triage
-  // stack. Evidence gaps come first because the existing TrustSummary header
-  // ("Highest-value evidence gaps") owns that sub-block.
-  const evidenceGapCards = top3.filter(item => item.category === 'add_evidence')
-  const nextActionCards = top3.filter(item => item.category === 'strengthen')
+  // ── D2a hero: readiness dimension bars + qualifier + stability indicator ──
+  // The post-analysis bundle supplies a 3-dim readiness set
+  // ({evidence, robustness, clarity}) — see useResultsSectionData.ts:1238.
+  // The wireframe pictures a 4-dim set ({Structure/Evidence/Coverage/Verified}).
+  // Per Paul's directive ("use whatever the data supplies — do not invent
+  // dimensions") we render only the 3 keys the response actually provides.
+  // The label "Framing" maps to `clarity` because the upstream coaching
+  // taxonomy treats clarity-of-framing as the user-facing concept.
+  const readinessDimensions = data.recommendation.coachingReadinessDimensions
+  const heroDimensions = useMemo(() => {
+    if (!readinessDimensions) return undefined
+    return [
+      { label: 'Evidence', value: readinessDimensions.evidence, tooltip: 'How well-supported your factor estimates are.' },
+      { label: 'Robustness', value: readinessDimensions.robustness, tooltip: 'How sensitive the recommendation is to assumption shifts.' },
+      { label: 'Framing', value: readinessDimensions.clarity, tooltip: 'How clearly the decision and options are framed.' },
+    ]
+  }, [readinessDimensions])
 
-  // Brief 5.1 Task 2: canonical factor identity for the driver / evidence
-  // bridge copy. Mirrors the existing DriversSection pattern — see preflight
-  // findings §2. Null when either section is empty.
-  const topDriverIdentity = useMemo(() => {
-    const top = data.drivers.topDrivers?.[0]
-    if (!top) return null
-    return top.matchedNodeId ?? top.factorKey ?? null
-  }, [data.drivers.topDrivers])
+  // Result-checks slot gate: must mirror BOTH null-return paths in
+  // TargetProbabilityBars — (1) no constraints array AND (2) no constraint
+  // carries a numeric `prob_satisfied`. Otherwise a bundle with shaped-but-
+  // empty constraints would still emit an empty bordered slot.
+  // See TargetProbabilityBars.tsx:26-32.
+  const hasResultChecks = (
+    data.recommendation.recommendedOption?.constraintAnalysis?.constraints
+      ?.some(c => typeof c.prob_satisfied === 'number')
+  ) ?? false
 
-  const topEvidenceGapIdentity = useMemo(() => {
-    const top = data.confidence.topEvidenceGaps?.[0]
-    if (!top) return null
-    return top.targetNodeId ?? top.factorId ?? null
-  }, [data.confidence.topEvidenceGaps])
+  // Stability indicator renders adjacent to the win-probability ring. Suppressed
+  // when the field is missing — never emits "Stability: NaN%".
+  const stabilityScore = data.recommendation.recommendationStability
+  const stabilityIndicator = useMemo(() => {
+    if (typeof stabilityScore !== 'number' || !Number.isFinite(stabilityScore)) return null
+    const pct = Math.round(stabilityScore * 100)
+    return (
+      <div className="flex flex-col gap-0.5 w-full" data-testid="hero-stability-indicator">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`${typography.panelMeta} text-text-light`}>Stability</span>
+          <span className={`${typography.panelMeta} text-text-light`}>{pct}%</span>
+        </div>
+        <div
+          className="w-full h-[3px] rounded-sm overflow-hidden bg-panel-border"
+        >
+          <div
+            className="h-full rounded-sm"
+            style={{ width: `${pct}%`, backgroundColor: evaluativeVar(stabilityScore) }}
+          />
+        </div>
+      </div>
+    )
+  }, [stabilityScore])
 
   return (
     <div className="space-y-4 animate-fade-in" data-testid="decision-confidence-panel">
-      {/* Transition bridge */}
+      {/* Transition bridge — sits OUTSIDE the T1 card so the bridge can
+          appear and disappear without disturbing the card chrome. */}
       <TransitionBridge verifiedCount={verifiedCount} influenceCoverage={influenceCoverage} />
 
-      {/* 1. Health header — ring shows the winner's win probability. */}
-      <TriageHealthHeader
-        title="Current result"
-        ringLabel="%"
-        ringDimensions={ringDimensions}
-        headline={headline}
-        coaching={healthHeaderCoaching}
-        overrideScore={winProbabilityScore}
-        mode="single"
-        ringCaption={hasWinProbability ? 'win probability' : undefined}
-        testId="confidence-health-header"
-      />
+      {/* ── T1 Decision confidence card ────────────────────────────────────
+         The whole T1 stack lives in one outer .sc card (border-panel-border,
+         bg-panel, rounded-lg) per the wireframe + 5.8A T1DecisionReadinessCard
+         pattern. Sub-blocks are separated by `.sep` dividers
+         (border-t border-panel-border) instead of being independent cards
+         so the user reads the stack as a single unit. */}
+      <div
+        className="rounded-lg border border-panel-border bg-panel p-3 space-y-3"
+        data-testid="t1-decision-confidence-card"
+      >
+        {/* 1. Hero — header rendered without its own card chrome so we
+            don't double-shell. */}
+        <TriageHealthHeader
+          title="Current result"
+          ringLabel="%"
+          ringDimensions={ringDimensions}
+          dimensions={heroDimensions}
+          headline={headline}
+          coaching={healthHeaderCoaching}
+          overrideScore={winProbabilityScore}
+          mode="single"
+          ringCaption={hasWinProbability ? 'win probability' : undefined}
+          secondaryIndicator={stabilityIndicator}
+          qualifier={readinessDimensions ? <HeroQualifier dimensions={readinessDimensions} /> : undefined}
+          testId="confidence-health-header"
+          noCardWrapper
+        />
 
-      {/* 2. Result checks — target probabilities + fragility condition */}
-      <ResultChecks data={data} onFocusNode={onFocusNode} />
+        {/* 2. Result checks — target probabilities only. Gate the divider on
+            the same condition TargetProbabilityBars uses (constraint data
+            present) so sparse states don't emit an empty bordered slot. */}
+        {hasResultChecks && (
+          <div className="border-t border-panel-border pt-3" data-testid="t1-result-checks-slot">
+            <ResultChecks data={data} />
+          </div>
+        )}
 
-      {/* 2b. Conditional scenarios (Brief 4 Task 10) — between the flip-risk
-          callout and the evidence-gap triage cards, per brief. */}
-      {data.confidence.conditionalWinners && data.confidence.conditionalWinners.length > 0 && (
-        <ConditionalWinnerCards
-          winners={data.confidence.conditionalWinners}
-          recommendedLabel={data.recommendation.recommendedOption?.label}
+        {/* 2a. Flip-risk callout (moved out of ResultChecks per D2c step 1). */}
+        {(data.confidence.topFragileEdge || data.confidence.m1CoachingTopFragileEdge) && (
+          <div className="border-t border-panel-border pt-3">
+            <T1FlipRiskCallout data={data} onFocusNode={onFocusNode} />
+          </div>
+        )}
+
+        {/* 2b. Conditional scenarios (Brief 4 Task 10) — between flip-risk and queue. */}
+        {data.confidence.conditionalWinners && data.confidence.conditionalWinners.length > 0 && (
+          <div className="border-t border-panel-border pt-3">
+            <ConditionalWinnerCards
+              winners={data.confidence.conditionalWinners}
+              recommendedLabel={data.recommendation.recommendedOption?.label}
+              onFocusNode={onFocusNode}
+            />
+          </div>
+        )}
+
+        {/* 3. Stability narrative + unified EVPI-ranked queue.
+            Card #1 gets the .ac.em info-bordered treatment. */}
+        {(top3.length > 0 || data.confidence.topEvidenceGapsEmpty) && (
+          <div className="border-t border-panel-border pt-3 space-y-2">
+            <StabilityNarrative
+              itemCount={top3.length}
+              stabilityScore={stabilityScore}
+            />
+
+            {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (
+              <p className={`${typography.panelBody} text-text-light`}>
+                No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
+              </p>
+            )}
+
+            {top3.length > 0 && (
+              <div className="flex flex-col gap-1.5" data-testid="unified-triage-queue">
+                {top3.map((item, i) => {
+                  const emphasised = i === 0
+                  return (
+                    <div
+                      key={item.key}
+                      className={emphasised ? 'rounded-[10px] border border-info/40 bg-info/[0.02]' : ''}
+                      data-testid={emphasised ? 'unified-triage-emphasised' : undefined}
+                    >
+                      <TriageCard
+                        cardKey={item.key}
+                        ordinal={i + 1}
+                        title={item.title}
+                        detail={item.detail}
+                        subtitle={item.subtitle}
+                        category={item.category}
+                        influence={item.influence}
+                        evoiImpact={item.evoiImpact}
+                        action={item.action}
+                        editorConfig={item.editorConfig}
+                        sourcePill={item.sourcePill}
+                        passiveLabels={item.passiveLabels}
+                        onConfirm={onConfirm}
+                        onEdit={onFocusNode}
+                        onHoverEnter={onHoverEnter}
+                        onHoverLeave={onHoverLeave}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+
+            {quickFix.length > 0 && (
+              <AlsoConsiderDisclosure
+                items={quickFix}
+                startOrdinal={4}
+                onHoverEnter={onHoverEnter}
+                onHoverLeave={onHoverLeave}
+                onConfirm={onConfirm}
+                onEdit={onFocusNode}
+              />
+            )}
+          </div>
+        )}
+
+        {/* 3a. Dominant-factor nudge — Brief 5.8B D2c step 2 placement: AFTER
+            the triage queue (corrects an earlier ordering bug surfaced by
+            external review). Suppresses when top influence < 0.8. */}
+        <T1DominantNudge
+          data={data}
           onFocusNode={onFocusNode}
+          onSendMessage={onSendMessage}
         />
-      )}
 
-      {/* 3. Trust summary header — owns the "Highest-value evidence gaps"
-          headline + the driver/evidence bridge tooltip. Brief 5.7 D6
-          follow-up: gate on evidenceGapCards.length so a next-actions-only
-          state does not render the evidence-gap header above an empty zone.
-          When only next actions exist, the "Suggested next actions" subheader
-          (rendered below) is the single header for the triage stack. */}
-      <TrustSummary
-        actionCount={evidenceGapCards.length}
-        topDriverIdentity={topDriverIdentity}
-        topEvidenceGapIdentity={topEvidenceGapIdentity}
-      />
-
-      {/* Empty state when all evidence gaps had zero impact (Brief 4 Task 9).
-          Brief 5.7 D6 follow-up²: also require no next-action cards, so the
-          empty-state message is suppressed when the user can still see a
-          populated "Suggested next actions" block (the message would
-          otherwise read as contradicting an adjacent populated section). */}
-      {evidenceGapCards.length === 0
-        && nextActionCards.length === 0
-        && data.confidence.topEvidenceGapsEmpty && (
-        <div className="rounded-lg border border-panel-border bg-panel px-3 py-2">
-          <p className={`${typography.panelBody} text-text-light`}>
-            No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
-          </p>
-        </div>
-      )}
-
-      {/* 4a. Evidence gap cards — full structure (numbered badge, AI-estimate
-          pill, progress bar + pp pill, Set value input, More disclosure).
-          Sits under the "Highest-value evidence gaps" header carried by
-          TrustSummary above. */}
-      {evidenceGapCards.length > 0 && (
-        <div className="flex flex-col gap-1.5" data-testid="evidence-gap-cards">
-          {evidenceGapCards.map((item, i) => (
-            <TriageCard
-              key={item.key}
-              cardKey={item.key}
-              ordinal={i + 1}
-              title={item.title}
-              detail={item.detail}
-              subtitle={item.subtitle}
-              category={item.category}
-              influence={item.influence}
-              evoiImpact={item.evoiImpact}
-              action={item.action}
-              editorConfig={item.editorConfig}
-              sourcePill={item.sourcePill}
-              onConfirm={onConfirm}
-              onEdit={onFocusNode}
-              onHoverEnter={onHoverEnter}
-              onHoverLeave={onHoverLeave}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 4b. Suggested next actions — distinct upstream shape (title +
-          coaching + edit pencil; no progress bar, no pp pill, no inline
-          editor). Renders under its own subheader so the user parses cards
-          1-2 and card 3 as related-but-different rather than as one
-          inconsistent stack. Ordinal continues from evidence gaps. */}
-      {nextActionCards.length > 0 && (
-        <div className="flex flex-col gap-1.5" data-testid="next-action-cards">
-          <SectionHeader
-            title="Suggested next actions"
-            className="mb-0"
-            testId="next-actions-section-header"
-          />
-          {nextActionCards.map((item, i) => (
-            <TriageCard
-              key={item.key}
-              cardKey={item.key}
-              ordinal={evidenceGapCards.length + i + 1}
-              title={item.title}
-              detail={item.detail}
-              subtitle={item.subtitle}
-              category={item.category}
-              influence={item.influence}
-              evoiImpact={item.evoiImpact}
-              action={item.action}
-              editorConfig={item.editorConfig}
-              sourcePill={item.sourcePill}
-              onConfirm={onConfirm}
-              onEdit={onFocusNode}
-              onHoverEnter={onHoverEnter}
-              onHoverLeave={onHoverLeave}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 5. Quick-fix rows (items 4-6) — collapsible "Also consider" */}
-      {quickFix.length > 0 && (
-        <AlsoConsiderDisclosure
-          items={quickFix}
-          startOrdinal={4}
-          onHoverEnter={onHoverEnter}
-          onHoverLeave={onHoverLeave}
-          onConfirm={onConfirm}
-          onEdit={onFocusNode}
-        />
-      )}
-
-      {/* Brief 5.7 D2: structural-signals sub-section removed. Equivalent
-          factor signal (name + N% drives + Validate/Research chips) lives in
-          the DriversSection dominant-factor warning. */}
-
-      {/* Task 5: Footer checks removed — hero ring + dimension bars communicate the same info */}
+        {/* 4. T1 checks footer — Brief 5.8B D2c step 3. */}
+        <T1ChecksFooter data={data} aiAffordance={aiAffordance} />
+      </div>
     </div>
   )
 })

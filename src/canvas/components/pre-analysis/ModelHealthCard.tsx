@@ -31,7 +31,7 @@ interface ModelHealthCardProps {
   compact?: boolean
   /**
    * Dynamic coaching headline derived from the highest-priority bucket signal
-   * (Must fix → Review next → Improve confidence → Ready). Computed by the
+   * (Must fix → review-tier → improve-confidence-tier → Ready). Computed by the
    * panel parent so it has access to bucket-level state.
    *
    * Precedence at render: coachingSummary (CEE-provided) → dynamicHeadline →

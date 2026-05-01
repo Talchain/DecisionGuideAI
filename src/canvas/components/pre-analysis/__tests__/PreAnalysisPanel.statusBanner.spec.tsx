@@ -195,56 +195,51 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
     }
   })
 
-  it('ready_to_analyse: renders "Ready to analyse" with text-info class', () => {
+  // Brief 5.8B D0 #1 — non-failed StatusBanner removed. The readiness ring,
+  // failing-check rows, and unified triage queue inside the T1 card now
+  // carry the ready/blocked/etc. state. The five non-failed banner tests
+  // below were rewritten to assert the inverse: the orphan banner does
+  // NOT render, while the underlying panel still mounts cleanly.
+
+  it('ready_to_analyse: orphan StatusBanner is suppressed (Brief 5.8B D0 #1)', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    const banner = screen.getByTestId('pre-analysis-status-banner')
-    expect(banner).toHaveAttribute('data-display-state', 'ready_to_analyse')
-    expect(banner).toHaveTextContent('Ready to analyse')
-    expect(banner.querySelector('.text-info')).not.toBeNull()
+    expect(screen.queryByTestId('pre-analysis-status-banner')).not.toBeInTheDocument()
+    // Panel still renders.
+    expect(screen.getByTestId('pre-analysis-panel')).toBeInTheDocument()
   })
 
-  it('complete: renders "Analysis complete" with text-success class', () => {
+  it('complete: orphan StatusBanner is suppressed (Brief 5.8B D0 #1)', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
     mockCanvasState.graphEditedSinceLastRun = false
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    const banner = screen.getByTestId('pre-analysis-status-banner')
-    expect(banner).toHaveAttribute('data-display-state', 'complete')
-    expect(banner).toHaveTextContent('Analysis complete')
-    expect(banner.querySelector('.text-success')).not.toBeNull()
+    expect(screen.queryByTestId('pre-analysis-status-banner')).not.toBeInTheDocument()
   })
 
-  it('results_stale: renders "Results may be outdated" with text-warning class', () => {
+  it('results_stale: orphan StatusBanner is suppressed (Brief 5.8B D0 #1)', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
     mockCanvasState.graphEditedSinceLastRun = true
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    const banner = screen.getByTestId('pre-analysis-status-banner')
-    expect(banner).toHaveAttribute('data-display-state', 'results_stale')
-    expect(banner).toHaveTextContent('Results may be outdated')
-    expect(banner.querySelector('.text-warning')).not.toBeNull()
+    expect(screen.queryByTestId('pre-analysis-status-banner')).not.toBeInTheDocument()
   })
 
-  it('not_ready: renders "Set up your model" with text-text-light class', () => {
+  it('not_ready: orphan StatusBanner is suppressed (Brief 5.8B D0 #1)', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'needs_user_mapping' }
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    const banner = screen.getByTestId('pre-analysis-status-banner')
-    expect(banner).toHaveAttribute('data-display-state', 'not_ready')
-    expect(banner).toHaveTextContent('Set up your model')
-    expect(banner.querySelector('.text-text-light')).not.toBeNull()
+    expect(screen.queryByTestId('pre-analysis-status-banner')).not.toBeInTheDocument()
   })
 
-  // Precedence regression: prior report does not save a non-ready model
-  // from showing setup guidance.
-  it('not_ready: CEE non-ready beats stored report', () => {
+  it('not_ready: CEE non-ready precedence over stored report (StatusBanner stays suppressed)', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'needs_user_mapping' }
     mockCanvasState.results = { status: 'complete', report: { option_comparison: [] } }
     mockCanvasState.graphEditedSinceLastRun = false
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    const banner = screen.getByTestId('pre-analysis-status-banner')
-    expect(banner).toHaveAttribute('data-display-state', 'not_ready')
-    expect(banner).not.toHaveTextContent('Analysis complete')
+    expect(screen.queryByTestId('pre-analysis-status-banner')).not.toBeInTheDocument()
+    // The "Analysis complete" copy from the legacy banner must not leak
+    // through any other surface either.
+    expect(screen.queryByText('Analysis complete')).not.toBeInTheDocument()
   })
 
   it('ready_to_analyse: footer CTA shows "Analyse now" (Brief 5.8A D6)', () => {

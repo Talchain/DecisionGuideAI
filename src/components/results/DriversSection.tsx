@@ -630,6 +630,28 @@ function DriverRow({
         </div>
       )}
 
+      {/* Brief 5.8B D5 step 4: surface "Ranking may shift {N}%" as a visible
+          row beneath the interpretation tag (was tooltip-only). Gated on
+          `rank_flip_rate >= 0.15` so we only call attention to genuinely
+          shift-prone factors. */}
+      {typeof driver.rankFlipRate === 'number' && driver.rankFlipRate >= 0.15 && (
+        <p
+          className={`${typography.panelMeta} text-warning px-3 pb-1.5 -mt-0.5`}
+          data-testid={`driver-ranking-shift-${driver.factorKey}`}
+        >
+          Ranking may shift {Math.round(driver.rankFlipRate * 100)}%
+        </p>
+      )}
+
+      {/* Brief 5.8B D5 step 6: per-driver elasticity + attribution_stability
+          are already surfaced by the existing ExpertBlock at line 591 above
+          (gated by `expertMode && isExpertField('elasticity')`). D7 wires
+          the new user-facing toggle directly to the `expertMode` prop, so
+          a parallel `.expert-only` CSS-class block here would duplicate
+          the same content under a second gating mechanism. Single source
+          of truth preserved. */}
+
+
       {/* Quick-select for contested drivers — only when inbound edge has validation.status === 'contested' */}
       {driver.hasContestedEdge && (
         <ContestedDriverQuickSelect driver={driver} />
@@ -746,68 +768,16 @@ export function DriversSection({
   const TOP_DRIVERS_COUNT = 3
   const displayDrivers = showAll ? visibleDrivers : visibleDrivers.slice(0, TOP_DRIVERS_COUNT)
 
-  // Dominant factor warning: fire when top driver has ≥80% influence
-  const topDriver = visibleDrivers[0]
-  const topInfluence = topDriver ? (topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0) : 0
-  const showDominantWarning = topInfluence >= 0.8
-  const rawDominantLabel = data.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
-  const dominantLabel = cleanFactorLabel(rawDominantLabel).label
-  const dominantPct = Math.round(Math.min(1, topInfluence) * 100)
-  // Brief 5.7 D3: when data.dominantFactorId is absent (PLoT does not always
-  // populate it) but the warning still fires from topInfluence ≥ 0.8, fall
-  // back to the topDriver's own focus target so the Validate chip still
-  // renders. Without this, only Research shipped to staging.
-  const dominantFocusId = data.dominantFactorId ?? topDriver?.matchedNodeId ?? topDriver?.factorKey ?? null
+  // Brief 5.8B D2c: dominant-factor warning relocated to the T1 card as an
+  // inline `T1DominantNudge` in DecisionConfidencePanel. The legacy block
+  // here is intentionally removed so the signal renders in exactly one
+  // place. DriversSection still surfaces per-row sensitivity / confidence;
+  // the cross-driver dominance signal is owned by T1.
 
   return (
     <div className="space-y-4">
       {/* Ranking explainer */}
       <p className={`${typography.panelMeta} text-text-light`}>Ranked by how much each factor affects the outcome</p>
-
-      {/* Dominant factor warning — persistent, not dismissible.
-          Carries Validate/Research actions (D9a) so the standalone
-          AttentionBanner card between DCP and Your options is no
-          longer needed for this signal. */}
-      {showDominantWarning && dominantLabel && (
-        <div
-          className="p-3 bg-panel border border-warning/30 rounded-lg"
-          role="status"
-          aria-label="Dominant factor warning"
-          data-testid="dominant-factor-warning"
-        >
-          <p className={`${typography.panelHeader} text-warning flex items-center gap-1.5 mb-1`}>
-            <TriangleAlert className="w-4 h-4 flex-shrink-0" aria-hidden="true" />
-            Your result depends heavily on one factor
-          </p>
-          <p className={`${typography.panelBody} text-text-body`}>
-            {dominantLabel} drives {dominantPct}% of the outcome. If your assumptions about this factor are wrong, the recommendation could change. Consider gathering more evidence before committing.
-          </p>
-          {((dominantFocusId && onFocusNode) || onSendMessage) && (
-            <div className="flex items-center gap-1.5 mt-2">
-              {dominantFocusId && onFocusNode && (
-                <button
-                  type="button"
-                  onClick={() => onFocusNode!(dominantFocusId)}
-                  className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
-                  aria-label={`Validate ${dominantLabel} on canvas`}
-                >
-                  Validate
-                </button>
-              )}
-              {onSendMessage && (
-                <button
-                  type="button"
-                  onClick={() => onSendMessage!(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
-                  className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
-                  aria-label={`Research ${dominantLabel}`}
-                >
-                  Research
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
 
       {/* Brief 5 Task 2: headers + rows share one wrapper so column positions
           are structural, not visual-approximation. Headers mirror the row grid

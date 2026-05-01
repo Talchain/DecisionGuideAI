@@ -5,7 +5,7 @@
  * to a graph node. The card title and subtitle must name the target factor;
  * the generic meta-commentary copy must NOT appear.
  *
- * D7: AI-estimated factor in Improve confidence renders a Confirm action.
+ * D7: AI-estimated factor in improve-confidence-tier renders a Confirm action.
  * Clicking Confirm invokes `updateNode` with `observedState.source` set to
  * `user_confirmed`, satisfying the brief acceptance "Click Confirm marks the
  * factor source as user_confirmed".

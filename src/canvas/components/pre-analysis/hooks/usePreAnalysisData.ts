@@ -1968,21 +1968,14 @@ export function usePreAnalysisData(_coaching?: CoachingPayload): PreAnalysisData
     const ceeSummary = ceeAnalysisReady?.coaching_summary
     if (ceeSummary) return ceeSummary
 
-    if (!isReady && blockerCount > 0) return null // blockers section handles this
-
-    const fixCount = tiers.mustAddress.count
-    const verifyCount = tiers.reviewAssumptions.count
-    const qCheckCount = qualityChecks.length
-
-    if (fixCount > 0) {
-      return `${fixCount} issue${fixCount !== 1 ? 's' : ''} to fix before running analysis.`
-    }
-    if (verifyCount > 0) {
-      return `${verifyCount} assumption${verifyCount !== 1 ? 's' : ''} to review before running.`
-    }
-    if (qCheckCount > 0) {
-      return `${qCheckCount} quality suggestion${qCheckCount !== 1 ? 's' : ''} to consider.`
-    }
+    // Brief 5.8B D0 #7: the legacy "X issues to fix before running",
+    // "X assumptions to review before running", and "X quality suggestions
+    // to consider" coaching headlines duplicated information that the T1
+    // narrative bridge + failing-checks rows + unified triage queue now
+    // carry. Suppressed entirely so the dynamic headline only fires for
+    // CEE coachingSummary or the ready-state confirmation; otherwise the
+    // T1 card speaks for itself.
+    if (!isReady && blockerCount > 0) return null
     if (isReady && totalImprovements === 0) {
       return 'Model looks ready; no issues detected.'
     }

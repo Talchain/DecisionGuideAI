@@ -14,7 +14,7 @@ function sliceBudget<T>(all: T[], budget: number): { visible: T[]; overflow: T[]
   return { visible: all.slice(0, budget), overflow: all.slice(budget) }
 }
 
-describe('P1-8 Review next budget (arithmetic invariants)', () => {
+describe('P1-8 review-tier budget (arithmetic invariants)', () => {
   const TRIAGE_BUDGET = 3
   const BIAS_BUDGET = 2
 
@@ -48,7 +48,7 @@ describe('P1-8 Review next budget (arithmetic invariants)', () => {
     expect(ids.size).toBe(items.length)
   })
 
-  it('overflow never lands in Improve confidence — callers must keep it in Review next', () => {
+  it('overflow never lands in improve-confidence-tier — callers must keep it in review-tier', () => {
     // This is a naming / semantic guard: the sliceBudget helper must never
     // mutate or migrate the overflow list. The test is a written contract
     // future maintainers will break if they try to migrate overflow.

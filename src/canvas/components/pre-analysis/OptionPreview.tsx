@@ -210,26 +210,16 @@ function InterventionArrow({ direction }: { direction: 'up' | 'down' | 'same' })
  * expanded OptionPreview states so the copy is data-driven, not state-driven
  * (Brief 4 hotfix Task 6).
  */
-function SameLeversCoaching({
-  onSendMessage,
-}: {
-  onSendMessage?: (text: string) => void
-}) {
+function SameLeversCoaching() {
+  // Brief 5.8B D0 #5 — duplicate Explore chip removed. The "Explore
+  // alternatives" CTA here said the same thing as the canonical
+  // "Explore other strategies" chip in the OptionPreview footer (see
+  // line ~520). Two back-to-back Explore chips were redundant. Coaching
+  // copy preserved (still informs the user about overlapping factors);
+  // the action chip moves to the footer's canonical location only.
   return (
     <p className={`${typography.panelMeta} text-text-light`} data-testid="option-quality-narrow-framing">
       Your options all work through similar factors. Consider a structurally different approach.
-      {onSendMessage && (
-        <>
-          {' '}
-          <button
-            type="button"
-            onClick={() => onSendMessage('My options seem similar. Can you suggest a structurally different approach?')}
-            className="text-info hover:underline cursor-pointer"
-          >
-            Explore alternatives
-          </button>
-        </>
-      )}
     </p>
   )
 }
@@ -404,12 +394,19 @@ export function OptionPreview({
         </div>
       </button>
 
-      {/* UI-BUG-3: option names + coaching line are visible in collapsed
-          state so users always see what they're comparing. Only the
-          per-option intervention details collapse. */}
+      {/* UI-BUG-3: option names + coaching line visible in collapsed state
+          so users always see what they're comparing. Only the per-option
+          intervention details collapse.
+
+          Brief 5.8B D0 #4 — render-path traced: collapsed state is owned
+          by OptionPreview's INTERNAL useState (line ~361). The previous
+          flex-wrap horizontal layout read as concatenated names because
+          the `gap-x-3` spacing rendered inline. Switched to a vertical
+          stack (`flex-col gap-y-1`) so each option name is on its own
+          row — clearer scanning, preserves clickability per option. */}
       {!isExpanded && (
         <div className="px-3 pb-2 space-y-0.5">
-          <ul className="flex flex-wrap gap-x-3 gap-y-0.5" data-testid="option-preview-collapsed-names">
+          <ul className="flex flex-col gap-y-1" data-testid="option-preview-collapsed-names">
             {options.map(opt => (
               <li key={opt.id}>
                 <button
@@ -418,7 +415,7 @@ export function OptionPreview({
                     e.stopPropagation()
                     onFocusNode?.(opt.id)
                   }}
-                  className={`${typography.panelBody} text-text-body hover:underline cursor-pointer`}
+                  className={`${typography.panelBody} text-text-body hover:underline cursor-pointer truncate text-left w-full`}
                 >
                   {opt.label}
                 </button>
@@ -440,7 +437,7 @@ export function OptionPreview({
                 {/* Brief 4 hotfix Task 6: normalised to full sentence + link
                     in both collapsed and expanded states so coaching is
                     data-driven, not state-driven. */}
-                <SameLeversCoaching onSendMessage={onSendMessage} />
+                <SameLeversCoaching />
               </>
             )
           })()}
@@ -489,7 +486,7 @@ export function OptionPreview({
               stays identical across expansion. */}
           {hasSameLeversCheck && (
             <div className="mt-2">
-              <SameLeversCoaching onSendMessage={onSendMessage} />
+              <SameLeversCoaching />
             </div>
           )}
 

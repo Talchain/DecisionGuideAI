@@ -64,12 +64,6 @@ export interface AdvancedSectionProps {
   expertMode?: boolean
   /** Brief 4 Task 12: inference warnings surfaced inside the trust narrative. */
   inferenceWarnings?: Array<{ code: string; message?: string }>
-  /** D3: Display-only winner filter (local state owned by ResultsBody). */
-  riskAppetite?: RiskAppetite
-  /** D3: Handler for winner filter changes. */
-  onRiskAppetiteChange?: (next: RiskAppetite) => void
-  /** D3: Whether to show the filter (gated on p10 data presence). */
-  showRiskAppetiteFilter?: boolean
 }
 
 const PRESET_ORDER: RiskPresetKey[] = ['risk_averse', 'neutral', 'risk_seeking']
@@ -94,9 +88,6 @@ export function AdvancedSection({
   totalFactorCount,
   expertMode = false,
   inferenceWarnings,
-  riskAppetite,
-  onRiskAppetiteChange,
-  showRiskAppetiteFilter,
 }: AdvancedSectionProps) {
   const { profile, selectPreset, loading } = useRiskProfile()
   const [copiedHash, setCopiedHash] = useState(false)
@@ -196,14 +187,10 @@ export function AdvancedSection({
           </div>
         </div>
 
-        {/* ── Display filter: Show winner by ───────────────────── */}
-        {/* D3: Moved from Your options section. Transient view filter —
-            reweights which option appears as winner (p10/winProb/p90).
-            Local state owned by parent; distinct from the persistent
-            "Risk profile" above. Eye icon signals "display filter". */}
-        {showRiskAppetiteFilter && riskAppetite != null && onRiskAppetiteChange && (
-          <RiskAppetiteFilter value={riskAppetite} onChange={onRiskAppetiteChange} />
-        )}
+        {/* Brief 5.8B follow-up (P1.5): "Show winner by" filter relocated
+            to the Your options card so the option-level toggle sits with
+            the option cards it reweights. AdvancedSection still owns the
+            persistent Risk profile above. */}
 
         {/* ── Trust Narrative (scroll target for hero "more" link) ── */}
         <div id="trust-narrative">

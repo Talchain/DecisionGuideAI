@@ -10,7 +10,7 @@
  * Bar colours use evaluative thresholds (DS v5 §11.6).
  */
 
-import { useState, memo } from 'react'
+import { useState, memo, type ReactNode } from 'react'
 import { X, Info } from 'lucide-react'
 import { DecisionHealthRing } from '@/components/shared/DecisionHealthRing'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
@@ -31,7 +31,10 @@ export interface TriageHealthHeaderProps {
   ringLabel: string
   /** Four 0-1 dimension values for the ring arcs + overall score */
   ringDimensions: DecisionHealthRingDimensions
-  /** Dimension bars to display (omitted in 'single' mode) */
+  /**
+   * Dimension bars to display below the headline. Independent of ring mode —
+   * single-mode callers (post-analysis hero) can still surface bars.
+   */
   dimensions?: TriageDimension[]
   /** Optional headline below the ring (e.g. decision summary sentence) */
   headline?: string | null
@@ -48,14 +51,32 @@ export interface TriageHealthHeaderProps {
    */
   hideTitle?: boolean
   /**
-   * Ring rendering mode.
-   * - 'composite' (default): composite readiness ring + 4 dimension bars.
-   * - 'single': single-value ring (caller supplies overrideScore) with an
-   *   optional ringCaption. No dimension bars render.
+   * Ring rendering mode (ring only — `dimensions` controls bars independently).
+   * - 'composite' (default): three concentric arcs.
+   * - 'single': single-value ring (caller supplies overrideScore) + optional ringCaption.
    */
   mode?: 'composite' | 'single'
   /** Caption rendered below the ring in single mode (e.g. "win probability"). */
   ringCaption?: string
+  /**
+   * Optional qualifier slot rendered between the headline and dimension bars.
+   * Used by post-analysis to surface a one-line readiness qualifier
+   * (e.g. "Confidence limited by unverified estimates").
+   */
+  qualifier?: ReactNode
+  /**
+   * Optional secondary indicator rendered below the ring (and the optional
+   * caption). Used by post-analysis to surface a stability score + bar
+   * adjacent to the win-probability ring.
+   */
+  secondaryIndicator?: ReactNode
+  /**
+   * Brief 5.8B follow-up: when true, omit the outer `bg-panel` card shell so
+   * the caller can compose the header inside a larger T1 wrapper without
+   * producing visible nested-card chrome. Padding/spacing are dropped too —
+   * the parent wrapper owns layout.
+   */
+  noCardWrapper?: boolean
 }
 
 function DimensionBar({ dim }: { dim: TriageDimension }) {
@@ -68,7 +89,7 @@ function DimensionBar({ dim }: { dim: TriageDimension }) {
           <span className={`${typography.panelMeta} text-text-light`}>{dim.label}</span>
           <span className={`${typography.panelMeta} text-text-light`}>{pct}%</span>
         </div>
-        <div className="w-full h-[5px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
+        <div className="w-full h-[5px] rounded-sm overflow-hidden bg-panel-border">
           <div
             className="h-full rounded-sm transition-all duration-300"
             style={{ width: `${pct}%`, backgroundColor: color }}
@@ -91,15 +112,29 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
   hideTitle = false,
   mode = 'composite',
   ringCaption,
+  qualifier,
+  secondaryIndicator,
+  noCardWrapper = false,
 }: TriageHealthHeaderProps) {
   const [coachingDismissed, setCoachingDismissed] = useState(false)
 
   const showCoaching = !coachingDismissed && coaching != null && !hideTitle
-  const showBars = mode === 'composite' && dimensions != null && dimensions.length > 0
+  // Bars render whenever the caller supplies a non-empty `dimensions` array,
+  // regardless of ring mode. The earlier composite-only gate prevented the
+  // post-analysis hero (single-value ring + 3-dim readiness bars + qualifier)
+  // from sharing this primitive.
+  const showBars = dimensions != null && dimensions.length > 0
+
+  // Brief 5.8B follow-up: when used inside the post-analysis T1 wrapper, the
+  // parent owns the `bg-panel rounded-lg border` chrome. Drop ours to avoid
+  // nested-card visual weight; keep internal spacing identical.
+  const wrapperClass = noCardWrapper
+    ? hideTitle ? 'space-y-2' : 'space-y-3'
+    : `rounded-lg border border-panel-border bg-panel px-3 ${hideTitle ? 'py-2 space-y-2' : 'py-3 space-y-3'}`
 
   return (
     <div
-      className={`rounded-lg border border-panel-border bg-panel px-3 ${hideTitle ? 'py-2 space-y-2' : 'py-3 space-y-3'}`}
+      className={wrapperClass}
       data-testid={testId}
     >
       {hideTitle ? (
@@ -121,6 +156,7 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
           {ringCaption && (
             <p className={`${typography.panelMeta} text-text-light`}>{ringCaption}</p>
           )}
+          {secondaryIndicator}
         </div>
 
         <div className="flex-1 min-w-0 space-y-2">
@@ -128,7 +164,9 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
             <p className={`${typography.panelHeader} text-text-body`}>{headline}</p>
           )}
 
-          {/* 2×2 dimension bars — composite mode only */}
+          {qualifier}
+
+          {/* 2×2 dimension bars — render when caller supplies dimensions */}
           {showBars && (
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
               {dimensions!.map((dim) => (

@@ -20,7 +20,7 @@ import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
-import { OptionPreview, OPTION_PREVIEW_TITLE } from './OptionPreview'
+import { OptionPreview } from './OptionPreview'
 import { SharpenYourThinking } from './SharpenYourThinking'
 import { AnalysisSettings } from './AnalysisSettings'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
@@ -32,10 +32,8 @@ import { useDraftStore } from '../../stores/draftStore'
 import { useRetryDraft } from '../../hooks/useRetryDraft'
 import { SOFT_BYPASS_STATUSES } from '../../hooks/usePreRunValidation'
 import { useShowToast } from '../../ToastContext'
-import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
-import type { AnalysisDisplayStateView } from '../../utils/deriveAnalysisDisplayState'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, Link as LinkIcon, Play, AlertCircle } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, Link as LinkIcon } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { getCausalEdges } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
@@ -476,32 +474,9 @@ type BannerState =
   | { kind: 'failed'; canRetry: boolean }
   | { kind: 'derived'; mustFixCount: number; reviewNextCount: number }
 
-const HELPER_ICON_MAP = {
-  Play,
-  Check,
-  RefreshCw,
-  AlertCircle,
-} as const
-
-function bucketSubLine(
-  view: AnalysisDisplayStateView,
-  mustFixCount: number,
-  reviewNextCount: number,
-): string | null {
-  switch (view.state) {
-    case 'not_ready':
-      if (mustFixCount === 1) return '1 item to address before analysis'
-      if (mustFixCount > 1) return `${mustFixCount} items to address before analysis`
-      return null
-    case 'ready_to_analyse':
-      if (reviewNextCount === 1) return '1 check would improve results.'
-      if (reviewNextCount > 1) return `${reviewNextCount} checks would improve results.`
-      return null
-    case 'complete':
-    case 'results_stale':
-      return null
-  }
-}
+// Brief 5.8B D0 #1: HELPER_ICON_MAP, bucketSubLine, useAnalysisDisplayState,
+// AnalysisDisplayStateView, and the Play/AlertCircle lucide imports were
+// all dead after the non-failed StatusBanner branch was removed. Deleted.
 
 function StatusBanner({
   state,
@@ -512,64 +487,40 @@ function StatusBanner({
   onRetry?: () => void
   isRetrying?: boolean
 }) {
-  const view = useAnalysisDisplayState()
+  // Brief 5.8B D0 #1 — non-failed StatusBanner removed. The readiness ring
+  // (T1 ModelHealthCard), failing-check rows, and unified triage queue
+  // already convey ready/blocked/etc. state inside the T1 card. The orphan
+  // banner above T1 was duplicative. Only the failed-state recovery
+  // affordance survives — it carries unique information (retry action) the
+  // rest of the panel does not.
+  if (state.kind !== 'failed') return null
 
-  if (state.kind === 'failed') {
-    const text = state.canRetry
-      ? 'Analysis failed. Your model is intact. Retry or review the issue below.'
-      : 'Analysis failed. Your model is intact. Review the issue below.'
-    return (
-      <div
-        className="flex items-start gap-2 py-2"
-        role="status"
-        data-testid="pre-analysis-status-banner"
-      >
-        <AlertTriangle
-          size={16}
-          className="mt-0.5 text-danger flex-shrink-0"
-          aria-hidden="true"
-        />
-        <p className={`${typography.panelBody} text-text-body flex-1`}>{text}</p>
-        {state.canRetry && onRetry && (
-          <button
-            type="button"
-            onClick={onRetry}
-            disabled={isRetrying}
-            className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover disabled:opacity-50 cursor-pointer`}
-            data-testid="status-banner-retry"
-          >
-            <RefreshCw size={11} className={isRetrying ? 'animate-spin' : ''} />
-            {isRetrying ? 'Retrying' : 'Retry'}
-          </button>
-        )}
-      </div>
-    )
-  }
-
-  const Icon = HELPER_ICON_MAP[view.iconName]
-  const subLine = bucketSubLine(view, state.mustFixCount, state.reviewNextCount)
-
+  const text = state.canRetry
+    ? 'Analysis failed. Your model is intact. Retry or review the issue below.'
+    : 'Analysis failed. Your model is intact. Review the issue below.'
   return (
     <div
-      className="py-2"
+      className="flex items-start gap-2 py-2"
       role="status"
       data-testid="pre-analysis-status-banner"
-      data-display-state={view.state}
     >
-      <div className="flex items-center gap-2">
-        <Icon
-          size={16}
-          className={`${view.textColorClass} flex-shrink-0`}
-          aria-hidden="true"
-        />
-        <p className={`${typography.panelHeader} ${view.textColorClass}`}>
-          {view.headline}
-        </p>
-      </div>
-      {subLine && (
-        <p className={`${typography.panelBody} text-text-light mt-0.5 ml-6`}>
-          {subLine}
-        </p>
+      <AlertTriangle
+        size={16}
+        className="mt-0.5 text-danger flex-shrink-0"
+        aria-hidden="true"
+      />
+      <p className={`${typography.panelBody} text-text-body flex-1`}>{text}</p>
+      {state.canRetry && onRetry && (
+        <button
+          type="button"
+          onClick={onRetry}
+          disabled={isRetrying}
+          className={`flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${typography.panelMeta} text-info border border-info/30 bg-transparent hover:bg-panel-hover disabled:opacity-50 cursor-pointer`}
+          data-testid="status-banner-retry"
+        >
+          <RefreshCw size={11} className={isRetrying ? 'animate-spin' : ''} />
+          {isRetrying ? 'Retrying' : 'Retry'}
+        </button>
       )}
     </div>
   )
@@ -1034,8 +985,8 @@ export function PreAnalysisPanel({
   // Get all panel data from hook (includes derived progress counts)
   const data = usePreAnalysisData()
 
-  // P1-8: local toggle for Review next "Show more". Overflow stays inside
-  // Review next (does not migrate to Improve confidence); this controls
+  // P1-8: local toggle for review-tier "Show more". Overflow stays inside
+  // review-tier (does not migrate to improve-confidence-tier); this controls
   // visibility within the section.
 
   // P1-5: prefers-reduced-motion flag — used to skip the fade transition on
@@ -1641,7 +1592,7 @@ export function PreAnalysisPanel({
   }, [ceeAnalysisReady?.bias_findings, draftCoachingBiasSignals, data.optionPreviews, data.nodesByKind.risk, compositeInfluenceMap, nodes])
 
   // === V2 PANEL BUCKETS ===
-  // Three-bucket regroup: Must fix → Review next → Improve confidence.
+  // Three-bucket regroup: Must fix → review-tier → improve-confidence-tier.
   // Deduplication rule: any item that appears in Must fix is excluded from
   // the other two buckets. Filter on item key (which carries through the
   // mapper unchanged).
@@ -1688,16 +1639,16 @@ export function PreAnalysisPanel({
   const structuralCheckCount = (noBaselineCheck ? 1 : 0) + (fewerThanTwoOptionsCheck ? 1 : 0)
   const mustFixCount = mustFixCards.length + enrichedBlockerCount + structuralCheckCount
 
-  // Review next: top-3 triage cards (excluding any in Must fix), bias triggers,
+  // review-tier: top-3 triage cards (excluding any in Must fix), bias triggers,
   // and option quality card. The card surfaces when:
   //   - same_levers quality check fires (options too similar), OR
   //   - the model has fewer than 3 options (encourage broader framing).
-  // Note: < 2 options is also a Must fix structural blocker, but the Review next
+  // Note: < 2 options is also a Must fix structural blocker, but the review-tier
   // card still appears with coaching to explore alternatives.
   //
   // P1-8: hard budget — max 1 option-quality + 2 bias + 3 triage = 6 visible
   // (plus 1 Start here slot added by P1-4). Anything beyond the budget stays
-  // Brief 5.8A holistic-review pass: legacy Review next budget constants
+  // Brief 5.8A holistic-review pass: legacy review-tier budget constants
   // deleted — the T1 unified queue (top 3 + Also consider) now owns the
   // visible cap, and bias rows have their own internal limit
   // (BIAS_NUDGE_VISIBLE_LIMIT inside T1DecisionReadinessCard).
@@ -1705,7 +1656,7 @@ export function PreAnalysisPanel({
   const showOptionQualityCard = data.optionPreviews.length > 0
     && (data.qualityChecks.some(c => c.id === 'same_levers') || data.optionPreviews.length < 3)
 
-  // P1-4: build the unified signal list across ALL Review next kinds and pick
+  // P1-4: build the unified signal list across ALL review-tier kinds and pick
   // the highest-priority item as "Start here". Re-evaluated on every render so
   // a newly important item promotes automatically when state changes.
   //
@@ -1798,7 +1749,7 @@ export function PreAnalysisPanel({
     })
   }, [signalCount, mustFixCount, pickedKey])
 
-  // Brief 5.8A holistic-review pass: the legacy "Review next" surface is
+  // Brief 5.8A holistic-review pass: the legacy "review-tier" surface is
   // gone; reviewNextCount remains as a derived total consumed by the
   // status banner sub-line ("X items to review next").
   const reviewNextCount =
@@ -1806,14 +1757,14 @@ export function PreAnalysisPanel({
     + biasTriggers.length
     + (showOptionQualityCard ? 1 : 0)
 
-  // Improve confidence: SuccessTarget (always present), remaining (quickFix)
+  // improve-confidence-tier: SuccessTarget (always present), remaining (quickFix)
   // triage cards, Your expertise, missing knowledge prompt.
   // The accordion always renders so users can adjust the goal target and review
   // their expertise — even when nothing else is pending.
   const improveConfidenceCards = triageQuickFix.filter(c => !mustFixCardKeys.has(c.signal_id ?? c.key))
 
   // D7: AI-estimated and missing-data items that are NOT already in the triage
-  // list. Threaded into Improve confidence as TriageCards so they remain
+  // list. Threaded into improve-confidence-tier as TriageCards so they remain
   // accessible after YourExpertise is removed.
   const expertiseTriageCards = useMemo(() => {
     const groups = deriveExpertiseGroups(
@@ -1865,7 +1816,7 @@ export function PreAnalysisPanel({
   )
 
   // Brief 5.8A D3b — unified triage queue inside the T1 card. Combines the
-  // legacy Review next triage cards, Improve confidence quick-fix cards, and
+  // legacy review-tier triage cards, improve-confidence-tier quick-fix cards, and
   // the threaded expertise triage cards into a single ordered list. Order is
   // preserved from the existing severity → diversification sort in Hook B
   // (no new ordering field). Cards already in Must fix are excluded
@@ -1879,7 +1830,7 @@ export function PreAnalysisPanel({
     const seen = new Set<string>()
     const queue: UnifiedQueueEntry[] = []
     // Order matters: Must fix triage cards (fix-category) come first because
-    // they're analysis-blocking; then Review next; then Improve confidence
+    // they're analysis-blocking; then review-tier; then improve-confidence-tier
     // overflow; then expertise items. Within each source the existing
     // severity → diversification ordering from Hook B is preserved.
     const sources = [...mustFixCards, ...reviewNextTriageAll, ...improveConfidenceCards, ...expertiseTriageCards]
@@ -2002,7 +1953,7 @@ export function PreAnalysisPanel({
   // the count so header and subtitle stop over-reporting. Apply the same
   // include-goal rule to the subtitle at the accordion render below.
   // Brief 5.8A D3b: improveConfidenceCount + highestValueLabel were removed
-  // when the Improve confidence accordion lost its visible heading + count
+  // when the improve-confidence-tier accordion lost its visible heading + count
   // pill. The accordion now self-renders with a generic "Show additional
   // controls" toggle and only suppresses itself when there is no content at
   // all — handled inline via the `count` prop.
@@ -2014,12 +1965,12 @@ export function PreAnalysisPanel({
   //      Order matches the rendered Must fix section: enriched blockers first,
   //      then structural rows ("Fewer than 2 options", "No baseline set"),
   //      then critical fix triage cards.
-  //   3. First Review next item → subject-specific sentence (see branch
+  //   3. First review-tier item → subject-specific sentence (see branch
   //      comments). Plural-subject option card gets "Review your options
   //      before running."; singular bias triggers get "[Bias] may be shaping
   //      your choices. …"; singular triage cards get "[Factor] has the
-  //      biggest impact. …". Order matches the rendered Review next section.
-  //   4. Improve confidence has actionable cards → "Ready to run. [N] checks would improve results."
+  //      biggest impact. …". Order matches the rendered review-tier section.
+  //   4. improve-confidence-tier has actionable cards → "Ready to run. [N] checks would improve results."
   //   5. Else → "Ready to run."
   // Returns null while loading (the card shows its own loading state).
   const dynamicHeadline = useMemo<string | null>(() => {
@@ -2045,40 +1996,19 @@ export function PreAnalysisPanel({
       return 'Address before analysis.'
     }
 
-    // 3. Review next — match the rendered display order.
-    // Each branch builds a full sentence so grammar stays correct per subject
-    // (plural "options" vs singular bias/triage titles) and copy fits the
-    // nature of the item ("impact" for factors, "shaping your choices" for
-    // biases, "review" for the option set).
+    // 3. review-tier — Brief 5.8B D0 #2/#7: dropped the "before running"
+    //    headline templates entirely. They duplicated the T1 narrative
+    //    bridge ("{N} unverified estimates and {M} relationships worth
+    //    reviewing.") which now sits inside the same card. Returning null
+    //    lets ModelHealthCard fall through to its own ringless caption
+    //    rather than echo the same count twice in different prose.
     if (reviewNextCount > 0) {
-      // 3a. Option quality card (rendered first in the section). Plural
-      //     subject — the previous flat template produced the ungrammatical
-      //     "Your options has the biggest impact." Now we build a sentence
-      //     that works for both reasons the card appears (same_levers check
-      //     AND fewer than 3 options), without overclaiming either.
-      if (showOptionQualityCard) {
-        return `Review ${OPTION_PREVIEW_TITLE.toLowerCase()} before running.`
-      }
-      // 3b. Bias triggers (rendered second). Biases shape reasoning — they
-      //     don't "have impact" on a factor, so the triage phrasing is wrong
-      //     here. Singular subject.
-      const firstBias = biasTriggers[0]?.title
-      if (firstBias) {
-        return `${firstBias} may be shaping your choices. Review before running.`
-      }
-      // 3c. Top triage cards (rendered last) — Brief 5.8A holistic pass:
-      //     unifiedTriageQueue is the canonical source. Singular factor/edge
-      //     subject — the "has the biggest impact" phrasing fits.
-      const firstTriage = unifiedTriageQueue[0]?.card.title
-      if (firstTriage) {
-        return `${firstTriage} has the biggest impact. Review before running.`
-      }
-      return 'Ready to run. Review before continuing.'
+      return null
     }
 
     // 4 & 5. Ready states — suppress. The StatusBanner above the panel already
     // communicates "Ready to run" (and the reviewNextCount where applicable).
-    // Section count badges on Improve confidence and Review next carry the
+    // Section count badges on improve-confidence-tier and review-tier carry the
     // item counts — echoing them here duplicates the count badge information.
     return null
   }, [
@@ -2091,9 +2021,6 @@ export function PreAnalysisPanel({
     fewerThanTwoOptionsCheck,
     noBaselineCheck,
     reviewNextCount,
-    unifiedTriageQueue,
-    biasTriggers,
-    showOptionQualityCard,
   ])
 
   // Banner state — failure is the only case modelled separately; everything
@@ -2230,7 +2157,7 @@ export function PreAnalysisPanel({
               will absorb the unified triage queue here; D3c will add the
               bias .nudge rows, WhatOlumiAddedSection, contribution row and
               checks footer. The wrapper is deliberately additive in D3a so
-              the existing Must fix / Review next / Improve confidence
+              the existing Must fix / review-tier / improve-confidence-tier
               sections continue to render unchanged below.
 
               Loading-state escape hatch: ModelHealthCard renders its own
@@ -2351,7 +2278,7 @@ export function PreAnalysisPanel({
             </SectionErrorBoundary>
           )}
 
-          {/* Brief 5.8A holistic-review pass — legacy Review next section
+          {/* Brief 5.8A holistic-review pass — legacy review-tier section
               removed entirely. Triage cards live in the T1 unified queue,
               bias rows live in the T1 nudge block, OptionPreview is its
               own .sc card, the option-quality card is gated inside

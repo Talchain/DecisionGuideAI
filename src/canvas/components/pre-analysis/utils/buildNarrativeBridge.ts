@@ -1,14 +1,23 @@
 /**
- * buildNarrativeBridge — Brief 5.8A D3a.
+ * buildNarrativeBridge — Brief 5.8A D3a (revised in Brief 5.8B D0 #2).
  *
  * Pure selector that produces the T1 "Decision readiness" narrative bridge
  * from already-computed counts. Returns structured segments so the render
  * layer can bold the count tokens (`<strong class="text-text-body">{N}</strong>`)
  * without parsing the copy back out of a single string.
  *
- * Counts only — no inference. The unverifiedEstimateCount and
- * relationshipsToReviewCount come straight from the existing improvement
- * categories. The hasGoalTarget flag flips on the prefix sentence.
+ * Counts only — no inference.
+ *
+ * Brief 5.8B D0 #2 changes:
+ * - Dropped the no-success-target PREFIX. The T1 card already renders a
+ *   discrete failing-check row ("Goal target not set" + "Set target →") for
+ *   the same condition; the prose prefix duplicated it. The `hasGoalTarget`
+ *   flag is preserved as an input for future use but no longer gates a
+ *   prefix sentence — `prefix` always returns null.
+ * - Trimmed TAIL from " worth reviewing. These are the highest-priority
+ *   items to review:" to " worth reviewing." The meta line "Ranked by
+ *   priority" already serves as the introducer for the unified triage queue
+ *   that renders directly below this bridge.
  */
 
 export interface NarrativeBridgeInputs {
@@ -16,7 +25,12 @@ export interface NarrativeBridgeInputs {
   unverifiedEstimateCount: number
   /** Count of relationships (edges) flagged as worth reviewing */
   relationshipsToReviewCount: number
-  /** False when the goal has no success target set; flips the prefix */
+  /**
+   * Reserved for future use. Kept on the input shape so consumers don't
+   * have to refactor their call sites when the prefix returns. Today the
+   * field is unused — the discrete failing-check row inside T1 owns the
+   * goal-target signal.
+   */
   hasGoalTarget: boolean
 }
 
@@ -29,12 +43,12 @@ export interface NarrativeBridgeBridge {
   relationshipCount: number
   /** Suffix after the bold relationshipCount */
   relationshipSuffix: string
-  /** Final tail prose, ends with the colon that introduces the triage list */
+  /** Final tail prose. Brief 5.8B D0 #2: trimmed to " worth reviewing." */
   tail: string
 }
 
 export interface NarrativeBridge {
-  /** Sentence rendered before the bridge when the goal has no success target */
+  /** Reserved — always null after Brief 5.8B D0 #2 (kept on the type for future use). */
   prefix: string | null
   /** Structured bridge sentence — null when nothing is worth reviewing */
   bridge: NarrativeBridgeBridge | null
@@ -42,21 +56,19 @@ export interface NarrativeBridge {
   meta: string | null
 }
 
-const NO_TARGET_PREFIX = 'No success target set, so analysis cannot show probability of success.'
-const TAIL = ' worth reviewing. These are the highest-priority items to review:'
+const TAIL = ' worth reviewing.'
 const META = 'Ranked by priority'
 
 export function buildNarrativeBridge({
   unverifiedEstimateCount,
   relationshipsToReviewCount,
-  hasGoalTarget,
+  hasGoalTarget: _hasGoalTarget,
 }: NarrativeBridgeInputs): NarrativeBridge {
-  const prefix = hasGoalTarget ? null : NO_TARGET_PREFIX
   if (unverifiedEstimateCount === 0 && relationshipsToReviewCount === 0) {
-    return { prefix, bridge: null, meta: null }
+    return { prefix: null, bridge: null, meta: null }
   }
   return {
-    prefix,
+    prefix: null,
     bridge: {
       estimateCount: unverifiedEstimateCount,
       estimateSuffix: unverifiedEstimateCount === 1 ? ' unverified estimate' : ' unverified estimates',

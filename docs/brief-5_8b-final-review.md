@@ -1,0 +1,335 @@
+# Brief 5.8B — Final Review
+
+Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
+`a307a044` · 15 commits ahead.
+
+| Commit       | Deliverable                                                         |
+| ------------ | ------------------------------------------------------------------- |
+| `997ca65e`   | D0 — Pre-analysis polish (7 leftovers from 5.8A)                    |
+| `95fce59e`   | D1 — Precondition check                                             |
+| `7d2d6bb5`   | D2a — Post T1 hero                                                  |
+| `632cebf6`   | D2b — Post T1 triage unification                                    |
+| `7f8e6069`   | D2c — Post T1 flip-risk + nudge + checks                            |
+| `77c40ff8`   | D3 — Post T1 Your options polish                                    |
+| `bf8a3957`   | **D4 — Copy approval gate (component build deferred)**              |
+| `8a56b3d9`   | D5 — Post T3 drivers demotion                                       |
+| `d7def7ef`   | D6 — Post T3 advanced verify                                        |
+| `ed519d0d`   | D7 — Expert toggle                                                  |
+| `7df5ef0a`   | D8 — Post footer alignment                                          |
+| `45fbb4a5`   | D9 — Initial final review                                           |
+| `b9e3da59`   | **R1 — ChatGPT P1 review pass #1 (one T1 card, compact rows, risk-filter relocate, hex fallbacks, structural spec)** |
+| `a107c701`   | **R2 — ChatGPT P1 review pass #2 (nudge order, sparse-state divider, doc refresh, hex baseline exception)** |
+| _(this doc)_ | **R3 — ChatGPT P1 review pass #3 (gate tightened to mirror prob_satisfied null-path; partial-constraint sparse test; hex baseline counts verified)** |
+
+## D4 — deferred
+
+Per the brief's built-in copy-approval gate, the Stress-test accordion
+component build is deferred pending Paul's approval of the proposed
+strings in [`docs/brief-5_8b-d4-copy.md`](./brief-5_8b-d4-copy.md).
+Three open questions are listed at the bottom of that doc.
+
+The legacy `ChallengeSection` ("Before you decide") still renders in
+production until D4 ships — this is the only remaining grep-gate hit
+(`rg "Before you decide" src/components/results/`), and is expected.
+
+## Per-deliverable summary
+
+### D0 — Pre-analysis polish
+Fixed all 7 leftovers from 5.8A: removed orphan StatusBanner above T1,
+broke the narrative-bridge run-on into a discrete failing-check row +
+one-sentence prose + meta line, verified the unified-queue + Also
+consider disclosure, fixed `OptionPreview` collapsed concatenation
+(via render-path trace documented in commit), removed duplicate Explore
+chip, wired the `previewLine` prop on Sharpen-your-thinking, and
+removed the "before running" anti-pattern headline derivation.
+Killed a dead `buildTriageNarrative.ts` module (no production consumer)
+and updated 9 affected specs.
+
+### D1 — Precondition check
+Verified `staging` clean, captured baselines, branch created from
+`a307a044`. No halt conditions tripped.
+
+### D2a — Post T1 hero
+Extended `TriageHealthHeader` with two optional slots (`qualifier`,
+`secondaryIndicator`) and decoupled the dimension-bars gate from ring
+mode so the post-analysis single-value ring can render bars alongside
+the headline. `DecisionConfidencePanel` now renders a stability indicator
+adjacent to the win-probability ring (suppressed when stability is
+missing — never `Stability: NaN%`), a HeroQualifier (pure threshold map;
+lowest sub-0.7 dim wins), and 3 readiness dimension bars
+(Evidence / Robustness / Framing) keyed off the data-supplied
+`{evidence, robustness, clarity}` 3-set.
+
+**Dimension audit:** the wireframe pictures a 4-set
+{Structure / Evidence / Coverage / Verified}; the post-analysis bundle
+supplies a 3-set {evidence, robustness, clarity}. Per Paul's directive
+("use whatever the data supplies"), only the 3 keys actually present
+are rendered. `HeroQualifier`'s threshold map covers BOTH the data
+keys AND the wireframe-aliased keys (structure / coverage / verified)
+so future data-shape shifts don't require code edits.
+
+### D2b — Post T1 triage unification
+"Highest-value evidence gaps" + "Suggested next actions" merged into one
+EVPI-ranked queue inside the T1 card. Card #1 is wrapped in
+`border-info/40 bg-info/[0.02]` to mirror the pre-analysis 5.8A
+`.ac.em` emphasis treatment. Items 4-6 keep the existing
+`AlsoConsiderDisclosure` (compact rows, collapsed by default).
+A new `StabilityNarrative` line renders above the queue ("Stability:
+{N}%. These items would most improve confidence:" + "Ranked by evidence
+value"), suppressed when the queue is empty. Strengthen overlay reuses
+the pre-analysis utility verbatim against the canvas store's
+`draftCoaching.strengthenItems`.
+
+Two obsolete specs deleted (`*topEvidenceSplit*`, `*semanticCoherence*`)
+because they codified the removed split + bridge tooltip; replaced by
+`unifiedQueueD2b.spec.tsx` (11 cases).
+
+### D2c — Post T1 flip-risk + nudge + checks
+Three new T1 components added inside `DecisionConfidencePanel`:
+`T1FlipRiskCallout` (extracted from `ResultChecks`, copy preserved
+verbatim), `T1DominantNudge` (replaces the standalone dominant warning
+that previously rendered in `DriversSection` — same threshold ≥0.8,
+copy preserved, Validate + Research chips reused), and `T1ChecksFooter`
+(✓/✗ Winner · ✓/✗ Robust · ✓/✗ Evidence gaps · "{N}/{M} addressed"
++ shared `MissingKnowledgePrompt`). The standalone `MissingKnowledgePrompt`
+sibling render in `ResultsBody` was deleted to avoid duplication.
+
+`DriversSection.tsx` lost ~45 LOC (the dominant warning render); it
+still owns per-row sensitivity / confidence / technique chip /
+ranking-shift tooltip. One obsolete spec deleted
+(`DriversSection.dominantWarning.spec.tsx`).
+
+### D3 — Post T1 Your options polish
+Per-rank border palette (V14.2: `border-2 border-success/60` /
+`border-info/60` / `border-option/60` / `border-panel-border`)
+collapsed to a 2-state hierarchy: winner cards carry `border-success/30`,
+everything else stays neutral with `border-panel-border`. Single-stroke
+borders only. The previous palette competed with WinGauge segment colours
+one row above. Added "What if I tried a different approach?" link at
+the bottom, gated on `onSendMessage`. Three legacy spec assertions
+updated (`OptionCards.spec.tsx`, `visualContracts.spec.tsx`).
+
+### D4 — Copy approval gate (deferred)
+See above. `docs/brief-5_8b-d4-copy.md` holds the proposed strings.
+
+### D5 — Post T3 drivers demotion
+Surfaced `Ranking may shift {N}%` as a visible per-driver row
+(`panelMeta text-warning`) gated on `rankFlipRate >= 0.15` — was
+tooltip-only at `DriversSection.tsx:371-375`. The Drivers accordion
+was already wrapped (`defaultExpanded={false}`, title "What's driving
+this", count badge) at `ResultsBody.tsx:240-263`; no change needed
+for the demotion itself. The brief asked for a parallel `.expert-only`
+CSS-class block exposing per-driver elasticity + attribution_stability;
+the existing `ExpertBlock` at `DriversSection.tsx:591-598` already
+renders that under the `expertMode` prop, so the parallel mechanism
+would surface the same content under two gating systems. Single
+source of truth preserved — D7's toggle wires the prop directly.
+
+### D6 — Advanced metadata verification
+Confirmed the metadata block at `AdvancedSection.tsx:334-411` (gated
+by `expertMode &&`) was already in place pre-brief. All 19 cases in
+the existing spec pass. Documented the orphan-string scan findings
+in [`docs/brief-5_8b-d6-verify.md`](./brief-5_8b-d6-verify.md):
+`a307a04` clean; `Stability sensitive` and `62% of influence` were
+the legacy `ResultsFooter` strings replaced in D8.
+
+### D7 — Expert toggle
+Persisted the existing `</>` toggle at the panel header to localStorage
+(`olumi.expertMode`). Lazy `useState` initialiser reads on first
+render so the toggle never flickers from `false → true` after
+hydration. Persistence via `useEffect` on change. Both branches
+wrap localStorage access in try/catch so blocked storage falls back
+to in-memory state for the session.
+
+### D8 — Post footer alignment
+Re-skinned the post-analysis footer via the existing
+`AnalysisFooter` (`metaPlacement="stacked"` + `actionVariant="secondary"`).
+Wireframe stability bands extracted into a pure helper
+`src/canvas/components/utils/postAnalysisFooter.ts` (≥0.85 → success
+"Stable result"; ≥0.60 → warning "Sensitive to assumptions"; <0.60 →
+danger "Provisional result"; missing → danger "Fragile result"
+fallback). Meta line: `"{N}% stability · Evidence strong / Evidence
+gaps remain"`. Legacy `<ResultsFooter>` deleted from `ResultsBody`
+(was the source of the orphan-text); the file + its direct unit spec
+remain in the tree and pass in isolation, ready for a future cleanup
+brief. Deleted `HeroFooterComposed.spec.tsx` — its hero ↔ footer
+parity contract no longer applies under decoupled rendering.
+
+## Schema-freeze amendments (per the brief)
+
+  - **Post triage queue unified** (was: split evidence gaps / suggested actions). Owner: D2b.
+  - **Dominant-factor warning relocated** from drivers to T1 inline nudge. Owner: D2c.
+  - **Drivers section demoted** from T1-expanded → T3-collapsed (already wrapped pre-brief; verified). Owner: D5.
+  - **`Ranking may shift N%`** promoted from tooltip-only → visible row in drivers, gated on rank_flip_rate ≥ 0.15. Owner: D5.
+  - **Expert toggle persisted** to localStorage with lazy hydration. Owner: D7.
+  - **D6 metadata** rendering was already in place pre-brief — no schema change, just verification + documentation. Owner: D6.
+  - **Caveat copy update** in `certaintyCopy.ts` — "Result depends on factors with limited evidence. See Highest-value evidence gaps." → "Result depends on factors with limited evidence." The `See Highest-value evidence gaps` cross-reference targeted a sub-header D2b removed; meaning preserved by dropping the dead reference. Treated as a forced post-D2b correction rather than a brief modification. Owner: D9 cleanup.
+  - **Post footer copy** replaced via `derivePostFooterStatus` (deterministic wireframe bands) + `derivePostFooterMeta`. The legacy `getStabilityDisplayLabel` heroLabel ("Stability sensitive") still lives in the file but no longer renders in any production path. Owner: D8.
+  - **Post-analysis dimension audit** — data supplies `{evidence, robustness, clarity}` (3-set), wireframe pictured 4-set. Render maps to "Evidence / Robustness / Framing". Owner: D2a.
+
+## Grep gates
+
+| Gate                                                      | Result                                                                                                                                                                              |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rg "Highest-value evidence gaps" src/components/results/` | Comment only in `certaintyCopy.ts` (justifies the caveat-string update). No production-string match.                                                                              |
+| `rg "Suggested next actions" src/components/results/`     | 0 matches                                                                                                                                                                          |
+| `rg "Before you decide" src/components/results/`          | 1 match in `ResultsBody.tsx` (legacy `ChallengeSection` accordion title) — **expected, removed by D4**.                                                                            |
+| `rg "Stability sensitive" src/components/results/`        | 5 matches: 3 inside `ResultsFooter.tsx` / `getStabilityDisplayLabel.ts` (no longer wired into production render path post-D8) + 2 in justification comments. No production renderer. |
+| `rg "Review next" src/canvas/components/pre-analysis/`    | 0 matches                                                                                                                                                                          |
+| `rg "Improve confidence" src/canvas/components/pre-analysis/` | 0 matches                                                                                                                                                                          |
+| `rg "as any" src/components/results/`                     | 47 matches — same as D1 baseline. Zero new.                                                                                                                                        |
+
+## Test counts (post-R3)
+
+  - `src/components/results/` + `src/components/shared/`: **1062 tests pass** (was 1056 pre-brief).
+  - `src/canvas/components/utils/`: 10 tests pass (new D8 helper).
+  - `src/canvas/components/pre-analysis/`: 734 pass / 13 pre-existing skips (unchanged).
+  - Pre-existing failures in `InsightsPanel.spec` (7) and `MultiFormAnalysis.spec` (1) are unrelated to 5.8B — confirmed via stash test before D8 commit.
+  - Typecheck (`pnpm run typecheck`): clean throughout R1 + R2.
+
+## Architectural notes
+
+  - `ResultsFooter.tsx` + `ResultsFooter.spec.tsx` + `getStabilityDisplayLabel.ts` are no longer wired into any production render path post-D8. Kept in tree (pass in isolation) for a future cleanup brief.
+  - Deleted four obsolete specs over the course of this brief (`buildTriageNarrative.spec.ts`, `topEvidenceSplit.spec.tsx`, `semanticCoherence.spec.tsx`, `dominantWarning.spec.tsx`, `HeroFooterComposed.spec.tsx`). Each was replaced with a focused new spec that asserts the new behaviour.
+  - The strengthen overlay path now reaches across pre/post — `DecisionConfidencePanel` subscribes to `useCanvasStore(s => s.draftCoaching?.strengthenItems)`. Out of scope for the brief but worth flagging: this is the only direct canvas-store coupling in `src/components/results/`. Future briefs may consolidate.
+  - The new `derivePostFooterStatus / derivePostFooterMeta` helpers in `src/canvas/components/utils/postAnalysisFooter.ts` are React-free — they unit-test cleanly without the full OutputsDock dependency tree.
+
+## Post-D9 review pass #1 (commit `b9e3da59`)
+
+External review (ChatGPT) flagged five P1 items after the initial D9
+close-out. Four were addressed; two were skipped with documented
+reasoning.
+
+  - **Addressed P1.2 — One T1 bordered card.** The hero / result-checks
+    / flip-risk / dominant-nudge / queue / checks-footer were rendering
+    as sibling blocks; now wrapped in one outer `.sc` card with `.sep`
+    dividers (`border-t border-panel-border pt-3`). `TriageHealthHeader`
+    gets a new `noCardWrapper` prop so it can render header content
+    without duplicating the parent's chrome — a `wrapperClass` switch
+    keeps internal spacing identical.
+  - **Addressed P1.4b — Compact `.qf` rows.**
+    `AlsoConsiderDisclosure` now passes `variant="compact"` to
+    `TriageCard` for overflow rows (items 4-6), matching the brief
+    D2b step 3 wireframe.
+  - **Addressed P1.5 — Risk-appetite filter relocated.** "Show winner
+    by" display filter (`RiskAppetiteFilter`) moved out of `Advanced`
+    into the Your options card. `AdvancedSection`'s `riskAppetite` /
+    `onRiskAppetiteChange` / `showRiskAppetiteFilter` props removed
+    (no consumers left). The persistent Risk profile control
+    (`useRiskProfile`) stays in `Advanced` — different concept.
+  - **Addressed P1.6 — Drop hex fallbacks I introduced.** Replaced
+    `var(--border-default, #EEE6D8)` inline-style fallbacks in DCP's
+    stability indicator and `TriageHealthHeader`'s `DimensionBar` with
+    the existing `bg-panel-border` Tailwind token (resolves to the
+    same CSS variable). See R2 below for the codebase-wide baseline
+    exception note.
+  - **Addressed I.3 — Structural T1 regression guard.** New
+    `DecisionConfidencePanel.t1Structure.spec.tsx` (initially 4 cases;
+    expanded to 7 in R2) asserts the single-card hierarchy + sub-block
+    containment + no-double-shell + document order.
+  - **Skipped P1.1.** D4 deferral is by Paul's built-in copy approval
+    gate; D9 documents it explicitly. Not an oversight.
+  - **Skipped P1.3.** The brief's own data-audit clause fired
+    correctly — post-analysis bundle supplies a 3-set
+    `{evidence, robustness, clarity}`; render matches data; divergence
+    documented in D9.
+  - **Deferred P1.4a, I.1, I.2** to future briefs.
+
+## Post-D9 review pass #2 (this doc)
+
+Review pass #1 introduced a regression and missed two real issues
+caught by ChatGPT review pass #2.
+
+  - **Addressed P1.1 — Dominant-nudge order.** Brief D2c step 2 places
+    the dominant nudge **after** the triage queue. Review pass #1
+    placed it before the queue and then locked the wrong order via
+    the structural spec. Fixed: nudge moved to render after the queue
+    block; structural spec updated to enforce
+    `hero → flip-risk → queue → dominant nudge → checks footer`.
+  - **Addressed P1.2 — Empty result-check divider.**
+    `TargetProbabilityBars` returns `null` when constraint data is
+    absent, so the wrapper `<div className="border-t pt-3">` was
+    emitting an empty bordered slot in sparse states. Now gated on
+    a new `hasResultChecks` derivation that mirrors
+    `TargetProbabilityBars`'s null condition. Slot carries a
+    `data-testid="t1-result-checks-slot"` so the suppression is
+    test-assertable.
+  - **Addressed I.1 — Sparse-state structural coverage.** The
+    structural spec gains a `describe('sparse states')` block with
+    three new cases: result-checks divider absent when no constraints,
+    full-sparse render emits no orphan `border-t` dividers, dominant
+    nudge absent when influence is below threshold. Total spec is now
+    7 cases (4 ordering + 3 sparse).
+  - **Addressed P1.3 — Stale final review doc.** This update.
+  - **Documented P1.4 — Codebase-wide hex-fallback baseline exception.**
+    Verified counts (R3, `rg "#EEE6D8" src/`): **83 occurrences across
+    22 files**. By file (descending):
+
+    | Occurrences | File |
+    | --- | --- |
+    | 27 | `src/canvas/conversation/Conversation.module.css` |
+    |  8 | `src/components/layout/TopBar.module.css` |
+    |  6 | `src/components/chat/Artefact.module.css` |
+    |  5 | `src/canvas/conversation/zones/ComposerTools.tsx` |
+    |  5 | `src/canvas/conversation/dropdowns/ThinkingModeDropdown.tsx` |
+    |  4 | `src/index.css` |
+    |  4 | `src/canvas/conversation/zones/ThinkingIndicator.tsx` |
+    |  3 | `src/canvas/conversation/zones/EmptyState.tsx` |
+    |  3 | `src/canvas/conversation/zones/ChatComposer.tsx` |
+    |  3 | `src/canvas/components/LensDropdown.tsx` |
+    |  2 | `src/styles/brand.css` |
+    |  2 | `src/components/shared/TriageCard.tsx` |
+    |  2 | `src/canvas/hooks/useStagePill.ts` |
+    |  1 | `src/components/shared/DecisionHealthRing.tsx` |
+    |  1 | `src/components/results/OptionCards.tsx` |
+    |  1 | `src/components/results/AdvancedSection.tsx` |
+    |  1 | `src/components/chat/artefactIframeTemplate.ts` |
+    |  1 | `src/canvas/conversation/zones/BriefGuidanceStrip.tsx` |
+    |  1 | `src/canvas/conversation/__tests__/conversationCss.spec.ts` |
+    |  1 | `src/canvas/conversation/ConversationPanel.tsx` |
+    |  1 | `src/canvas/components/LensInfoPanel.tsx` |
+    |  1 | `src/canvas/components/DraftChat.tsx` |
+
+    This is a project-wide convention predating 5.8B. R1 fixed only
+    the two instances 5.8B introduced (DCP stability indicator +
+    `TriageHealthHeader.DimensionBar`). Touching the remaining 83
+    sites is out of brief scope and would create churn + merge-
+    conflict risk — recommend a dedicated cleanup brief that
+    introduces a `bg-panel-border` migration codemod and updates
+    every site at once.
+
+    An earlier version of this note (R2) under-counted ("≈12 across
+    8 files") and incorrectly stated `OptionCards.tsx` had no
+    fallback; corrected here in R3.
+  - **Skipped I.2 (top-card AI slot).** Same disposition as R1 — not
+    in the brief; track as a pre-analysis-parity follow-up.
+
+## Post-D9 review pass #3 (this doc)
+
+Review pass #2 fixed the nudge order and the empty-divider regression
+but missed two related issues caught by ChatGPT review pass #3.
+
+  - **Addressed P1.1 — `hasResultChecks` mirrors only the first of
+    `TargetProbabilityBars`'s two null paths.** The R2 gate checked
+    that constraints exist, but `TargetProbabilityBars`
+    [also returns null](../src/components/results/TargetProbabilityBars.tsx#L29-L32)
+    when constraints exist without a numeric `prob_satisfied`. A bundle
+    with shaped-but-empty constraints would still emit the empty
+    bordered slot. Tightened to
+    `constraints?.some(c => typeof c.prob_satisfied === 'number')`.
+  - **Addressed I.1 — Partial-constraint sparse test.** Direct
+    corollary of P1.1. Added an 8th case to the structural spec:
+    `constraintAnalysis.constraints.length > 0` with no valid
+    `prob_satisfied` → `t1-result-checks-slot` not rendered.
+  - **Addressed P1.2 — Hex-fallback baseline counts verified.** The
+    R2 narrative ("≈12 across 8 files", "OptionCards has none") was
+    a guess from earlier grep output, not re-grepped after R1. The
+    actual baseline is **83 occurrences across 22 files**, including
+    one in `OptionCards.tsx`. Doc replaced with the verified table
+    above (P1.4 entry under R2's section).
+
+## Recommended 5.8C / 5.9 scope
+
+  - **5.8C (pending CEE freshness)** — Bridge strip; Confirm anyway footer action; post-confirm state. Deferred per the brief.
+  - **5.9 (pending V5 `decision_review`)** — Replace deterministic stress-test templates with `pre_mortem`, `framing_check`, `key_assumptions`, `scenario_contexts`. Rich narrative from `narrative_summary`, `story_headlines`. Unblocks D4 component build.
+  - **Cleanup follow-up** — Delete `ResultsFooter.tsx`, `ResultsFooter.spec.tsx`, and `getStabilityDisplayLabel.ts` once 5.8B has soaked on staging without regressions. Removes the last "Stability sensitive" emitter from the tree entirely.

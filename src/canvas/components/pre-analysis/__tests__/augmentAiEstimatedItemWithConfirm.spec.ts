@@ -3,7 +3,7 @@
  *
  * Defensive: usePreAnalysisData should attach a confirm action to every
  * cee_inference item, but if the action is missing for any reason the
- * helper supplies one so the Improve confidence triage card renders the
+ * helper supplies one so the improve-confidence-tier triage card renders the
  * Confirm chip plus the inline editor instead of an inert card.
  */
 
