@@ -106,7 +106,15 @@ describe('MessageBubble — staleness pill', () => {
     expect(screen.queryByTestId('staleness-pill')).toBeNull()
   })
 
-  it('renders no pill on legacy responses (freshness absent)', () => {
+  it('renders no pill at the component boundary when block has no analysis_ready (defensive)', () => {
+    // Defensive component-level guard: if a graph_patch block ever reaches
+    // MessageBubble without an analysis_ready (or with freshness undefined),
+    // the renderer must not synthesise a pill. This is NOT the production
+    // legacy path — production CEE responses with absent freshness are
+    // coerced to 'unknown' by normaliseAnalysisReady BEFORE the block
+    // reaches the renderer (covered by the integration test below). The
+    // two assertions are complementary: this one defends the component
+    // surface; the next one defends the production normaliser surface.
     render(<MessageBubble message={makeMsg(undefined)} onChipClick={noop} />)
     expect(screen.queryByTestId('staleness-pill')).toBeNull()
   })

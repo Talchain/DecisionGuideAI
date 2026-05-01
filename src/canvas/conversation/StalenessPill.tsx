@@ -6,6 +6,16 @@
  * — no filled backgrounds, no coloured text. Border carries the semantic.
  *
  * Source of truth: CEEAnalysisReady.freshness on the inline graph_patch block.
+ *
+ * Scope: this component renders pills for assistant messages whose
+ * `blocks` carry a `graph_patch` with an `analysis_ready.freshness` of
+ * `'stale'` or `'unknown'`. V5 top-level responses that emit
+ * `analysis_ready` only at the response root (not on a graph_patch block)
+ * write freshness to the canvas store via `applyV5State` but do NOT
+ * surface a pill on the assistant message — out of scope for this brief
+ * by deliberate decision. Plumbing top-level freshness onto
+ * `ConversationMessage` is a separate task that requires tracing the V5
+ * message-construction path; track it in a follow-up brief if needed.
  */
 
 import { AlertTriangle, Info } from 'lucide-react'

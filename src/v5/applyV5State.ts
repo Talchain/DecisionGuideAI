@@ -131,13 +131,22 @@ function normaliseV5AnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
   const freshness_reason =
     typeof obj.freshness_reason === 'string' ? obj.freshness_reason : undefined
 
+  // The V5 normaliser is intentionally lenient: it preserves whatever
+  // string CEE sent for `status` (and per-option `status`) and falls back
+  // to 'unknown' on absence. `CEEAnalysisReady.status` is a narrow union
+  // that does not include 'unknown' or arbitrary CEE-future strings, but
+  // downstream consumers narrow again before acting on it
+  // (`wouldPassStrictAttachContract` below; `usePreRunValidation` checks
+  // `status === 'ready'` explicitly). The single cast below acknowledges
+  // the runtime widening without the prior `as unknown as` double cast,
+  // which hid the divergence.
   return {
     ...obj,
     status: topStatus,
     options: normalisedOptions,
     freshness,
     freshness_reason,
-  } as unknown as CEEAnalysisReady
+  } as CEEAnalysisReady
 }
 
 /**
