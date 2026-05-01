@@ -135,11 +135,17 @@ vi.mock('../../../store', () => ({
 const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as ReturnType<typeof vi.fn>
 
 /**
- * Expand the "Improve confidence" accordion if present.
- * Renders Goal target, expertise triage cards, MissingKnowledgePrompt (D7).
+ * Expand the T3 "Advanced" accordion if present. The legacy Improve
+ * confidence accordion was deleted in commit 5f5165d9; SuccessTarget
+ * (provenance text + threshold editor) and the goal selector now live
+ * inside Advanced. Tests that assert on those surfaces should expand
+ * Advanced first to unhide the underlying DOM.
+ *
+ * Falls back silently when no Advanced toggle exists (loading-state
+ * panels render no accordion at all).
  */
-function expandImproveConfidence() {
-  const toggle = screen.queryByTestId('improve-confidence-toggle')
+function expandAdvanced() {
+  const toggle = screen.queryByRole('button', { name: /advanced/i })
   if (toggle) fireEvent.click(toggle)
 }
 
@@ -504,7 +510,7 @@ describe('PreAnalysisPanel', () => {
       }))
 
       const { container } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
+      expandAdvanced()
       const panel = container.querySelector('[data-testid="pre-analysis-panel"]')
       expect(panel).toBeInTheDocument()
 
@@ -787,7 +793,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
+        expandAdvanced()
         // Should NOT show "(addressed to 0 of 0)"
         expect(screen.queryByText(/\(addressed to 0 of 0\)/)).not.toBeInTheDocument()
         // D7: YourExpertise removed — "Your expertise" heading gone
@@ -822,7 +828,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
+        expandAdvanced()
         // Should show provenance text below threshold
         expect(screen.getByText(/Source: Target Revenue of \$1M/)).toBeInTheDocument()
       })
@@ -835,7 +841,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
+        expandAdvanced()
         // Should NOT show "Source:"
         expect(screen.queryByText(/Source:/)).not.toBeInTheDocument()
       })
@@ -848,7 +854,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
+        expandAdvanced()
         // Should NOT show stale provenance after user edit
         expect(screen.queryByText(/Extracted from:/)).not.toBeInTheDocument()
       })

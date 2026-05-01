@@ -1697,10 +1697,10 @@ export function PreAnalysisPanel({
   //
   // P1-8: hard budget — max 1 option-quality + 2 bias + 3 triage = 6 visible
   // (plus 1 Start here slot added by P1-4). Anything beyond the budget stays
-  // Brief 5.8A holistic-review pass: budgets retained only for the legacy
-  // reviewNextTriageOverflow split that powers the dynamic-headline coaching.
-  // No live render uses them.
-  const REVIEW_NEXT_TRIAGE_BUDGET = 3
+  // Brief 5.8A holistic-review pass: legacy Review next budget constants
+  // deleted — the T1 unified queue (top 3 + Also consider) now owns the
+  // visible cap, and bias rows have their own internal limit
+  // (BIAS_NUDGE_VISIBLE_LIMIT inside T1DecisionReadinessCard).
   const reviewNextTriageAll = triageTop3.filter(c => !mustFixCardKeys.has(c.signal_id ?? c.key))
   const showOptionQualityCard = data.optionPreviews.length > 0
     && (data.qualityChecks.some(c => c.id === 'same_levers') || data.optionPreviews.length < 3)
@@ -1799,10 +1799,8 @@ export function PreAnalysisPanel({
   }, [signalCount, mustFixCount, pickedKey])
 
   // Brief 5.8A holistic-review pass: the legacy "Review next" surface is
-  // gone; reviewNextCount remains for the status banner sub-line. Triage
-  // budget constant retained because it documents the historical visible
-  // limit (used elsewhere if needed for legacy consumers).
-  void REVIEW_NEXT_TRIAGE_BUDGET
+  // gone; reviewNextCount remains as a derived total consumed by the
+  // status banner sub-line ("X items to review next").
   const reviewNextCount =
     reviewNextTriageAll.length
     + biasTriggers.length
