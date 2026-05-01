@@ -54,6 +54,11 @@ export function validateAnalysisReadyContract(mapped: unknown): CEEAnalysisReady
     return undefined
   }
 
+  // freshness is normalised in normaliseAnalysisReady() to one of
+  // 'fresh' | 'stale' | 'unknown' | 'none' before reaching the validator,
+  // so it passes through here without explicit checks. Absent on legacy
+  // payloads — the normaliser coerces missing values to 'unknown'.
+
   // Per-option validation — all must pass
   const options = obj.options as Record<string, unknown>[]
   const failingIndices: number[] = []

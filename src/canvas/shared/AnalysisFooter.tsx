@@ -21,6 +21,14 @@ export interface AnalysisFooterProps {
    *    fresh primary action.
    */
   actionVariant?: 'primary' | 'secondary'
+  /**
+   * Brief 5.8A D6: layout for the status + meta region on the left.
+   *  - 'inline' (default): status text + meta text on a single row,
+   *    separated by a middot. Matches the post-analysis footer.
+   *  - 'stacked': status row above meta row in a flex-col block. Matches
+   *    the pre-analysis wireframe.
+   */
+  metaPlacement?: 'inline' | 'stacked'
   testId?: string
 }
 
@@ -36,6 +44,7 @@ export function AnalysisFooter({
   actionAriaLabel,
   actionTitle,
   actionVariant = 'primary',
+  metaPlacement = 'inline',
   testId = 'sticky-footer',
 }: AnalysisFooterProps) {
   const variantClasses =
@@ -48,16 +57,30 @@ export function AnalysisFooter({
       data-testid={testId}
     >
       <div className="flex items-center justify-between gap-3">
-        <div className={`flex min-w-0 items-center gap-2 ${typography.panelMeta}`}>
-          <StatusIcon className={`h-4 w-4 flex-shrink-0 ${statusIconClassName}`} aria-hidden="true" />
-          <span className="text-text-body">{statusText}</span>
-          {metaText ? (
-            <>
-              <span className="text-text-light" aria-hidden="true">·</span>
-              <span className="truncate text-text-light">{metaText}</span>
-            </>
-          ) : null}
-        </div>
+        {metaPlacement === 'stacked' ? (
+          <div className={`flex min-w-0 flex-col ${typography.panelMeta}`}>
+            <div className="flex items-center gap-1.5">
+              <StatusIcon className={`h-3.5 w-3.5 flex-shrink-0 ${statusIconClassName}`} aria-hidden="true" />
+              <span className={`font-medium ${statusIconClassName}`}>{statusText}</span>
+            </div>
+            {metaText ? (
+              <span className="text-[10px] text-text-light leading-snug truncate" data-testid="sticky-footer-meta">
+                {metaText}
+              </span>
+            ) : null}
+          </div>
+        ) : (
+          <div className={`flex min-w-0 items-center gap-2 ${typography.panelMeta}`}>
+            <StatusIcon className={`h-4 w-4 flex-shrink-0 ${statusIconClassName}`} aria-hidden="true" />
+            <span className="text-text-body">{statusText}</span>
+            {metaText ? (
+              <>
+                <span className="text-text-light" aria-hidden="true">·</span>
+                <span className="truncate text-text-light">{metaText}</span>
+              </>
+            ) : null}
+          </div>
+        )}
         <div className="flex items-center gap-2 shrink-0">
           <button
             type="button"

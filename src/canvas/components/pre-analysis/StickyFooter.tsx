@@ -77,12 +77,22 @@ export function StickyFooter({
   evidenceTotalCount,
   weightedInfluenceReviewed: _weightedInfluenceReviewed,
 }: StickyFooterProps) {
-  const isDisabled = !isReady || isAnalysing || isLoading || isRetrying
+  // Brief 5.8A D6: when calibration is incomplete the CTA reads "Analyse
+  // anyway" and remains clickable so the user can run with provisional
+  // results. Hard blockers (analysing, loading, retrying) still disable.
+  // True structural blockers (hasBlockers + blockerCount > 0) keep the
+  // button disabled — the wireframe's "anyway" affordance is for soft
+  // not-yet-calibrated states, not for hard blockers like missing options.
+  const isHardBlocked = isAnalysing || isLoading || isRetrying || (hasBlockers && _blockerCount > 0)
+  const isDisabled = isHardBlocked
 
   let StatusIcon: typeof CheckCircle | typeof XCircle | typeof Loader2 | typeof AlertTriangle
   let statusIconColor: string
   let statusText: string
 
+  // Brief 5.8A D6: pre-analysis status copy aligned to the wireframe.
+  // "Ready" / "Not yet calibrated" replace "Needs attention" / "Not ready".
+  // Loading + retry states remain to surface progress feedback.
   if (isLoading) {
     StatusIcon = Loader2
     statusIconColor = 'text-text-light animate-spin'
@@ -98,48 +108,66 @@ export function StickyFooter({
   } else if (hasBlockers) {
     StatusIcon = XCircle
     statusIconColor = 'text-danger'
-    statusText = 'Needs attention'
+    statusText = 'Not yet calibrated'
   } else {
     StatusIcon = AlertTriangle
     statusIconColor = 'text-warning'
-    statusText = 'Not ready'
+    statusText = 'Not yet calibrated'
   }
 
-  // v2 panel: footer status mirrors top banner — Blocked / Ready only.
-  // The "addressed" count is suppressed (redundant with bucket section counts).
-  // When the host caller still passes reviewedCount/totalReviewableCount (legacy),
-  // it is shown via tooltip-only access; no inline meta text.
+  // Brief 5.8A D6: meta line — "{N}/{M} addressed · Results will be provisional"
+  // when calibration is incomplete, "All addressed" when complete. Tooltip
+  // preserved by wrapping the count in <Tooltip>. The "Results will be
+  // provisional" suffix only renders when the analysis is not yet ready —
+  // it sets expectations about provisional output.
   const allReviewed = totalReviewableCount != null && totalReviewableCount > 0 &&
     (reviewedCount ?? 0) >= totalReviewableCount
 
   const reviewedTooltip = getReviewedTooltip(evidenceNonAiCount, evidenceTotalCount)
-  const metaText = !isRetrying && totalReviewableCount != null && totalReviewableCount > 0 ? (
-    <Tooltip content={reviewedTooltip}>
-      <span className="cursor-help">
-        {allReviewed ? 'All addressed' : `${reviewedCount ?? 0}/${totalReviewableCount} addressed`}
-      </span>
-    </Tooltip>
-  ) : undefined
+  const metaText = (() => {
+    if (isRetrying || totalReviewableCount == null || totalReviewableCount === 0) return undefined
+    const countLabel = allReviewed
+      ? 'All addressed'
+      : `${reviewedCount ?? 0}/${totalReviewableCount} addressed`
+    const showProvisional = !isReady && !allReviewed
+    return (
+      <Tooltip content={reviewedTooltip}>
+        <span className="cursor-help">
+          {countLabel}
+          {showProvisional ? ' · Results will be provisional' : ''}
+        </span>
+      </Tooltip>
+    )
+  })()
 
-  // CTA label, variant, and accessible name sourced from the canonical
-  // helper so 'results_stale' renders an outlined "Rerun analysis" (secondary
-  // per brief Task 4) and 'ready_to_analyse' / anything-else renders the
-  // primary "Run analysis". The aria-label mirrors the visible label so
-  // assistive tech announces the action the user actually sees.
+  // Brief 5.8A D6: CTA copy aligned to the wireframe — "Analyse now" when
+  // ready, "Analyse anyway" when calibration is incomplete (so the user
+  // can still run with provisional results). The shared display-state
+  // helper still owns the "Rerun analysis" stale-results variant; we only
+  // override the label when in the pre-analysis ready/not-ready states.
   const view = useAnalysisDisplayState()
-  const baseLabel = view.cta?.label ?? 'Run analysis'
+  const baseLabelFromHelper = view.cta?.label ?? 'Run analysis'
+  const baseLabel = baseLabelFromHelper === 'Run analysis'
+    ? (isReady ? 'Analyse now' : 'Analyse anyway')
+    : baseLabelFromHelper
   const ctaLabel = isAnalysing ? 'Running analysis…' : baseLabel
   const actionVariant = view.cta?.kind ?? 'primary'
 
+  // Brief 5.8A D6: aria-label rules.
+  //   - Hard-blocked (analysing / loading / retrying) → progress descriptor.
+  //   - hasBlockers + count>0 (true structural blockers) → "Address issues…"
+  //     so assistive tech announces the gate, not the visible CTA label.
+  //   - Soft "not ready" (no hard blockers) → mirror the visible label
+  //     ("Analyse anyway") so the announced action matches what the user
+  //     sees and can do.
+  //   - Ready → mirror the visible label ("Analyse now").
   const actionAriaLabel = isRetrying
     ? 'Draft update in progress'
     : isAnalysing
       ? 'Analysis in progress'
-      : hasBlockers
+      : isHardBlocked && hasBlockers
         ? `Address issues before analysing${blockedReason ? `: ${blockedReason}` : ''}`
-        : !isReady
-          ? `Analysis not ready${blockedReason ? `: ${blockedReason}` : ''}`
-          : baseLabel  // mirror visible label: 'Run analysis' or 'Rerun analysis'
+        : baseLabel
 
   return (
     <AnalysisFooter
@@ -153,9 +181,12 @@ export function StickyFooter({
       actionLoading={isAnalysing || isRetrying}
       actionAriaLabel={actionAriaLabel}
       actionVariant={actionVariant}
+      metaPlacement="stacked"
       actionTitle={isDisabled && !isAnalysing && !isLoading && !isRetrying
         ? (blockedReason || 'Address required items before analysing')
-        : 'Run 1,000 Monte Carlo simulations with uncertainty margins to compare your options'}
+        : isReady
+          ? 'Run 1,000 Monte Carlo simulations with uncertainty margins to compare your options'
+          : 'Run anyway with provisional results — calibration is incomplete'}
     />
   )
 }

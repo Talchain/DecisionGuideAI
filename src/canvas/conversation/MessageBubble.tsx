@@ -19,6 +19,7 @@ import { InlineBlocks } from './InlineBlocks'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { BaseRateChipRow } from './BaseRateChipRow'
 import { FeedbackRow } from './FeedbackRow'
+import { StalenessPill, type StalenessFreshness } from './StalenessPill'
 import { isOrchestratorRenderingV2Enabled, isDeterministicCeeEnabled } from '../../flags'
 import { useCanvasStore } from '../store'
 import { useGuidanceStore } from '../stores/guidanceStore'
@@ -171,23 +172,41 @@ export const MessageBubble = memo(function MessageBubble({
   const truncatedContent = canTruncate ? findNaturalTruncation(displayContent) : null
   const [expanded, setExpanded] = useState(false)
 
+  // Freshness pill: derive from the first graph_patch block whose
+  // analysis_ready.freshness is 'stale' or 'unknown'. Fresh/none/absent → no pill.
+  // User messages and the streaming-thinking placeholder bypass this branch.
+  const stalenessFreshness = useMemo<StalenessFreshness | null>(() => {
+    if (isUser || !message.blocks) return null
+    for (const block of message.blocks) {
+      if (block.type !== 'graph_patch') continue
+      const f = (block as GraphPatchBlock).analysis_ready?.freshness
+      if (f === 'stale' || f === 'unknown') return f
+    }
+    return null
+  }, [isUser, message.blocks])
+
   // Streaming with no text yet — show thinking indicator placeholder
   if (isStreaming && !message.content && !hasToolLoading) {
     return (
-      <div
-        className={styles.messageBubbleAssistant}
-        data-testid="message-assistant"
-      >
-        <div className={styles.streamingThinking} data-testid="streaming-thinking">
-          <span className={styles.streamingDot} />
-          <span className={styles.streamingDot} />
-          <span className={styles.streamingDot} />
+      <>
+        {stalenessFreshness && <StalenessPill freshness={stalenessFreshness} />}
+        <div
+          className={styles.messageBubbleAssistant}
+          data-testid="message-assistant"
+        >
+          <div className={styles.streamingThinking} data-testid="streaming-thinking">
+            <span className={styles.streamingDot} />
+            <span className={styles.streamingDot} />
+            <span className={styles.streamingDot} />
+          </div>
         </div>
-      </div>
+      </>
     )
   }
 
   return (
+    <>
+    {stalenessFreshness && <StalenessPill freshness={stalenessFreshness} />}
     <div
       className={isUser ? styles.messageBubbleUser : styles.messageBubbleAssistant}
       data-testid={`message-${message.role}`}
@@ -260,6 +279,7 @@ export const MessageBubble = memo(function MessageBubble({
         <FeedbackRow turnId={message.clientTurnId} onFeedback={onFeedback} />
       )}
     </div>
+    </>
   )
 })
 

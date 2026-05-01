@@ -33,6 +33,14 @@ interface AccordionProps {
   className?: string
   /** Additional class for the title element (overrides default h3 styling) */
   titleClassName?: string
+  /**
+   * Brief 5.8A D5: optional preview line rendered BELOW the header row when
+   * the accordion is collapsed and HIDDEN when expanded. Used by the T2
+   * "Sharpen your thinking" accordion to surface the highest-signal one-
+   * liner without forcing the user to expand the section. Indented to align
+   * with the title text (past the chevron column).
+   */
+  previewLine?: ReactNode
 }
 
 export function Accordion({
@@ -45,6 +53,7 @@ export function Accordion({
   testId,
   className = '',
   titleClassName,
+  previewLine,
 }: AccordionProps) {
   // Support both controlled and uncontrolled modes
   const [internalExpanded, setInternalExpanded] = useState(defaultExpanded)
@@ -123,6 +132,16 @@ export function Accordion({
           </div>
         )}
       </button>
+
+      {/* Brief 5.8A D5: collapsed-only preview line (hidden when expanded). */}
+      {!isExpanded && previewLine && (
+        <div
+          className={`px-3 pb-2 pl-9 ${typography.panelMeta} text-text-light leading-snug`}
+          data-testid="accordion-preview-line"
+        >
+          {previewLine}
+        </div>
+      )}
 
       {/* Collapsible content */}
       <div

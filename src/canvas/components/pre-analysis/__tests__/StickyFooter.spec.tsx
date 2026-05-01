@@ -176,16 +176,34 @@ describe('StickyFooter — addressed count tooltip (source distribution)', () =>
     expect(screen.getByRole('tooltip')).toHaveTextContent('All values from your brief')
   })
 
-  it('uses the shared blocked reason for the disabled Analyse CTA tooltip', () => {
+  it('uses a provisional-results title on the Analyse anyway CTA when calibration is incomplete (Brief 5.8A D6)', () => {
+    // Soft "not ready" — no hard blockers. CTA is enabled and reads
+    // "Analyse anyway"; the title prepares the user for provisional output.
     render(
       <StickyFooter
         {...baseProps}
         isReady={false}
+        hasBlockers={false}
         blockedReason="Select a goal node before running analysis"
       />,
     )
+    const button = screen.getByRole('button', { name: /analyse anyway/i })
+    expect(button).toHaveAttribute('title', 'Run anyway with provisional results — calibration is incomplete')
+    expect(button).not.toBeDisabled()
+  })
 
-    const button = screen.getByRole('button', { name: /analysis not ready/i })
+  it('falls back to the supplied blockedReason title when hard blockers disable the CTA (Brief 5.8A D6)', () => {
+    render(
+      <StickyFooter
+        {...baseProps}
+        isReady={false}
+        hasBlockers
+        blockerCount={2}
+        blockedReason="Select a goal node before running analysis"
+      />,
+    )
+    const button = screen.getByRole('button', { name: /address issues/i })
+    expect(button).toBeDisabled()
     expect(button).toHaveAttribute('title', 'Select a goal node before running analysis')
   })
 })

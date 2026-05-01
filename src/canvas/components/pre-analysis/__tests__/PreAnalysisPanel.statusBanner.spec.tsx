@@ -247,10 +247,10 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
     expect(banner).not.toHaveTextContent('Analysis complete')
   })
 
-  it('ready_to_analyse: footer CTA shows "Run analysis"', () => {
+  it('ready_to_analyse: footer CTA shows "Analyse now" (Brief 5.8A D6)', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Run analysis')
+    expect(screen.getByRole('button', { name: /analyse (now|anyway)/i })).toHaveTextContent(/Analyse (now|anyway)/)
   })
 
   it('results_stale: footer CTA shows "Rerun analysis"', () => {
@@ -288,10 +288,10 @@ describe('PreAnalysisPanel.StatusBanner — DOM rendering across four helper sta
     expect(button).toHaveAttribute('aria-label', 'Rerun analysis')
   })
 
-  it('ready_to_analyse: footer CTA renders the primary filled variant', () => {
+  it('ready_to_analyse: footer CTA renders the primary filled variant (Brief 5.8A D6)', () => {
     mockCanvasState.ceeAnalysisReady = { status: 'ready' }
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    const button = screen.getByRole('button', { name: /run analysis/i })
+    const button = screen.getByRole('button', { name: /analyse (now|anyway)/i })
     expect(button).toHaveAttribute('data-action-variant', 'primary')
     expect(button.className).toContain('bg-primary')
   })

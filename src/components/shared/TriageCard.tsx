@@ -59,6 +59,14 @@ export interface TriageCardProps {
   editorConfig?: ScientificEditorProps | null
   /** Source provenance pill (e.g. "AI estimate", "Brief", "No data") */
   sourcePill?: { label: string; borderClass: string } | null
+  /**
+   * Brief 5.8A D3b: passive labels rendered as 9px outlined pills in the
+   * top-right alongside sourcePill. Used today for strengthen_items.actionType
+   * (e.g. "Set value") — non-interactive metadata. Each value renders as a
+   * `<span>` (never a `<button>`), so screen readers see decorative
+   * descriptors and keyboard focus does not stop on them.
+   */
+  passiveLabels?: string[]
   /** Callbacks */
   onConfirm?: (targetId: string) => void
   onEdit?: (targetId: string) => void
@@ -442,6 +450,19 @@ export function TriageCard(props: TriageCardProps) {
             {sourcePill.label}
           </span>
         )}
+        {/* Brief 5.8A D3b: passive metadata pills (e.g. strengthen actionType).
+            Each renders as a non-focusable span; the wireframe shows these as
+            9px outlined chips, which we approximate with text-[9px] (DS v5
+            has no semantic 9px token). */}
+        {props.passiveLabels?.map(label => (
+          <span
+            key={label}
+            className="shrink-0 px-1.5 py-0.5 rounded-full border border-panel-border text-[9px] text-text-body bg-transparent leading-tight"
+            data-testid="triage-card-passive-label"
+          >
+            {label}
+          </span>
+        ))}
         {/* Influence % top-right */}
         {influencePct != null && (
           <div

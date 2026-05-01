@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { PreAnalysisPanel } from '../PreAnalysisPanel'
 import * as usePreAnalysisDataModule from '../hooks/usePreAnalysisData'
 import type { PreAnalysisData } from '../hooks/usePreAnalysisData'
@@ -135,11 +135,17 @@ vi.mock('../../../store', () => ({
 const mockUsePreAnalysisData = usePreAnalysisDataModule.usePreAnalysisData as ReturnType<typeof vi.fn>
 
 /**
- * Expand the "Improve confidence" accordion if present.
- * Renders Goal target, expertise triage cards, MissingKnowledgePrompt (D7).
+ * Expand the T3 "Advanced" accordion if present. The legacy Improve
+ * confidence accordion was deleted in commit 5f5165d9; SuccessTarget
+ * (provenance text + threshold editor) and the goal selector now live
+ * inside Advanced. Tests that assert on those surfaces should expand
+ * Advanced first to unhide the underlying DOM.
+ *
+ * Falls back silently when no Advanced toggle exists (loading-state
+ * panels render no accordion at all).
  */
-function expandImproveConfidence() {
-  const toggle = screen.queryByTestId('improve-confidence-toggle')
+function expandAdvanced() {
+  const toggle = screen.queryByRole('button', { name: /advanced/i })
   if (toggle) fireEvent.click(toggle)
 }
 
@@ -301,17 +307,17 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Run analysis')
+      expect(screen.getByRole('button', { name: /analyse now/i })).toHaveTextContent('Analyse now')
     })
 
-    it('shows "Run analysis" when ready regardless of readiness score', () => {
+    it('shows "Analyse now" when ready regardless of readiness score (Brief 5.8A D6)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true, hasBlockers: false }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /run analysis/i })).toHaveTextContent('Run analysis')
+      expect(screen.getByRole('button', { name: /analyse now/i })).toHaveTextContent('Analyse now')
     })
 
-    it('shows "Run analysis" CTA (disabled, aria-label signals blockers) when has blockers', () => {
+    it('shows the CTA disabled when hard blockers exist (Brief 5.8A D6)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: true,
@@ -328,7 +334,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /address issues/i })).toHaveTextContent('Run analysis')
+      // Brief 5.8A D6: hard blockers (count>0) keep the button disabled.
+      const button = screen.getByRole('button', { name: /address issues/i })
+      expect(button).toBeDisabled()
     })
 
     it('shows "Running analysis…" when isAnalysing is true', () => {
@@ -342,18 +350,23 @@ describe('PreAnalysisPanel', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: true }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      fireEvent.click(screen.getByRole('button', { name: /run analysis/i }))
+      fireEvent.click(screen.getByRole('button', { name: /analyse now/i }))
       expect(mockOnAnalyse).toHaveBeenCalledTimes(1)
     })
 
-    it('button is disabled when not ready', () => {
-      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: false, hasBlockers: true }))
+    it('button stays enabled for soft "not ready" states (Brief 5.8A D6 — Analyse anyway)', () => {
+      // Brief 5.8A D6: when there are no hard blockers but calibration is
+      // incomplete, the CTA reads "Analyse anyway" and remains clickable so
+      // the user can run with provisional results.
+      mockUsePreAnalysisData.mockReturnValue(createMockData({ isReady: false, hasBlockers: true, blockerCount: 0 }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expect(screen.getByRole('button', { name: /address issues/i })).toBeDisabled()
+      const button = screen.getByRole('button', { name: /analyse anyway/i })
+      expect(button).not.toBeDisabled()
+      expect(button).toHaveTextContent('Analyse anyway')
     })
 
-    it('shows "Run analysis" CTA (disabled) when isReady=false and hasBlockers=false', () => {
+    it('shows "Analyse anyway" CTA enabled when isReady=false and hasBlockers=false (Brief 5.8A D6)', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: false,
         hasBlockers: false,
@@ -366,24 +379,31 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const button = screen.getByRole('button', { name: /analysis not ready/i })
-      expect(button).toHaveTextContent('Run analysis')
-      expect(button).toBeDisabled()
+      const button = screen.getByRole('button', { name: /analyse anyway/i })
+      expect(button).toHaveTextContent('Analyse anyway')
+      expect(button).not.toBeDisabled()
     })
   })
 
   describe('Accordion Behaviour', () => {
-    it('renders Improve confidence content when expanded', () => {
-      // D7: YourExpertise removed; Improve confidence content is triage cards + MissingKnowledgePrompt
+    it('renders Advanced accordion content when expanded (Brief 5.8A holistic-review pass)', () => {
+      // The legacy Improve confidence accordion was removed entirely;
+      // SuccessTarget now lives inside T3 Advanced. Asserting the Advanced
+      // toggle reveals its content region (which holds the goal selector
+      // + SuccessTarget editor).
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.getByTestId('improve-confidence-content')).toBeInTheDocument()
+      const toggle = screen.getByRole('button', { name: /advanced/i })
+      fireEvent.click(toggle)
+      // AnalysisSettings hosts the goal selector inside the accordion body.
+      expect(screen.getByLabelText(/goal/i)).toBeInTheDocument()
     })
 
-    it('shows expertise triage cards for cee_inference verify items', () => {
-      // D7: AI-estimated items thread into Improve confidence as TriageCards
+    it('surfaces cee_inference verify items inside the T1 unified queue', () => {
+      // Brief 5.8A D3b: Improve confidence triage cards moved into the T1
+      // Decision readiness card. Expertise items now appear in the unified
+      // queue alongside Review next items.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         totalImprovements: 5,
         improvementsByCategory: {
@@ -395,14 +415,16 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
+      const t1Card = screen.getByTestId('t1-decision-readiness-card')
+      expect(within(t1Card).getByTestId('t1-triage-top-three')).toBeInTheDocument()
+      expect(within(t1Card).getByText('Verify')).toBeInTheDocument()
     })
   })
 
   describe('Expertise Section', () => {
-    it('renders expertise triage cards for cee_inference verify items (D7)', () => {
-      // D7: YourExpertise removed; items surfaced as TriageCards in Improve confidence
+    it('renders cee_inference verify items inside the T1 unified queue', () => {
+      // Brief 5.8A D3b: AI-estimated items now appear in the T1 unified
+      // triage queue (no separate expertise block).
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         improvementsByCategory: {
           fix: [],
@@ -413,8 +435,9 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
+      const t1Card = screen.getByTestId('t1-decision-readiness-card')
+      expect(within(t1Card).getByTestId('t1-triage-top-three')).toBeInTheDocument()
+      expect(within(t1Card).getByText('Test Factor')).toBeInTheDocument()
     })
   })
 
@@ -454,14 +477,18 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Wiring Fixes Regression', () => {
-    it('renders Goal selector inside Improve confidence accordion when threshold is set', () => {
+    it('renders Goal selector inside the T3 Advanced accordion when expanded', () => {
+      // Brief 5.8A holistic-review pass (commit 5f5165d9): the legacy
+      // Improve confidence accordion was deleted entirely; the goal
+      // selector + SuccessTarget editor moved into T3 Advanced.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         successThreshold: 0.7,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      // Goal selector lives in SuccessTarget inside Improve confidence accordion
+      const advancedToggle = screen.getByRole('button', { name: /advanced/i })
+      fireEvent.click(advancedToggle)
+      // Goal selector + SuccessTarget render inside T3 Advanced.
       const goalTexts = screen.getAllByText('Goal')
       expect(goalTexts.length).toBeGreaterThanOrEqual(1)
     })
@@ -483,7 +510,7 @@ describe('PreAnalysisPanel', () => {
       }))
 
       const { container } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
+      expandAdvanced()
       const panel = container.querySelector('[data-testid="pre-analysis-panel"]')
       expect(panel).toBeInTheDocument()
 
@@ -624,8 +651,9 @@ describe('PreAnalysisPanel', () => {
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
     })
 
-    it('AI-estimated factors surface as expertise triage cards (D7)', () => {
-      // D7: cee_inference verify items thread into Improve confidence as TriageCards
+    it('AI-estimated factors surface inside the T1 unified queue (Brief 5.8A D3b)', () => {
+      // Brief 5.8A D3b: cee_inference verify items now thread into the T1
+      // unified triage queue alongside Review next items.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         reviewedFactorsCount: 2,
@@ -643,12 +671,17 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.getByTestId('expertise-triage-cards')).toBeInTheDocument()
+      const t1Card = screen.getByTestId('t1-decision-readiness-card')
+      expect(within(t1Card).getByTestId('t1-triage-top-three')).toBeInTheDocument()
+      // First three items appear in top-three; remainder (if any) in Also consider.
+      expect(within(t1Card).getByText('F1')).toBeInTheDocument()
+      expect(within(t1Card).getByText('F2')).toBeInTheDocument()
+      expect(within(t1Card).getByText('F3')).toBeInTheDocument()
     })
 
-    it('no expertise triage cards when no AI-estimated or missing items', () => {
-      // D7: without cee_inference items, expertise-triage-cards block is absent
+    it('renders no T1 triage queue when no triage items exist', () => {
+      // Brief 5.8A D3b: when there are no triage items at all, the T1 queue
+      // is suppressed entirely (no empty container).
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         reviewedFactorsCount: 2,
@@ -656,8 +689,8 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.queryByTestId('expertise-triage-cards')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('t1-triage-top-three')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('t1-also-consider')).not.toBeInTheDocument()
     })
 
     it('shows Ready and enables button when only optional improvements present', () => {
@@ -698,9 +731,10 @@ describe('PreAnalysisPanel', () => {
       // ModelHealthCard renders — status moved to footer
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
 
-      // Button should be enabled (CTA adapts to readiness: "Run analysis" or "Analyse anyway")
-      const button = screen.getByRole('button', { name: /run analysis/i })
-      expect(button).toHaveTextContent('Run analysis')
+      // Brief 5.8A D6: CTA reads "Analyse now" when ready or "Analyse anyway"
+      // when calibration is incomplete; both remain enabled for soft states.
+      const button = screen.getByRole('button', { name: /analyse (now|anyway)/i })
+      expect(button.textContent).toMatch(/Analyse (now|anyway)/)
       expect(button).not.toBeDisabled()
     })
   })
@@ -726,7 +760,7 @@ describe('PreAnalysisPanel', () => {
     })
 
     describe('Task 2: Empty Review Tier Message', () => {
-      it('shows empty state message when review tier has 0 items and 0 totalCount', () => {
+      it('Advanced accordion still mounts when no triage items exist (Brief 5.8A holistic-review pass)', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           isReady: true,
           tiers: {
@@ -735,13 +769,14 @@ describe('PreAnalysisPanel', () => {
             optional: { items: [], count: 0 },
           },
           reviewedFactorsCount: 0,
-          totalReviewableFactorsCount: 0, // No assumptions to review at all
+          totalReviewableFactorsCount: 0,
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
-        // D7: YourExpertise removed; Improve confidence content renders without expertise section
-        expect(screen.getByTestId('improve-confidence-content')).toBeInTheDocument()
+        // Advanced accordion (T3) is always available so the user can
+        // edit the goal target + selector regardless of triage state.
+        expect(screen.getByTestId('analysis-settings-accordion')).toBeInTheDocument()
+        // Legacy expertise section never returns.
         expect(screen.queryByTestId('your-expertise-section')).not.toBeInTheDocument()
       })
 
@@ -758,7 +793,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
+        expandAdvanced()
         // Should NOT show "(addressed to 0 of 0)"
         expect(screen.queryByText(/\(addressed to 0 of 0\)/)).not.toBeInTheDocument()
         // D7: YourExpertise removed — "Your expertise" heading gone
@@ -793,7 +828,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
+        expandAdvanced()
         // Should show provenance text below threshold
         expect(screen.getByText(/Source: Target Revenue of \$1M/)).toBeInTheDocument()
       })
@@ -806,7 +841,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
+        expandAdvanced()
         // Should NOT show "Source:"
         expect(screen.queryByText(/Source:/)).not.toBeInTheDocument()
       })
@@ -819,7 +854,7 @@ describe('PreAnalysisPanel', () => {
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
+        expandAdvanced()
         // Should NOT show stale provenance after user edit
         expect(screen.queryByText(/Extracted from:/)).not.toBeInTheDocument()
       })
@@ -962,9 +997,10 @@ describe('PreAnalysisPanel', () => {
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
 
-      // Footer should show "Ready" not "Blocked" — CTA adapts to readiness
+      // Brief 5.8A D6: footer CTA adapts to readiness — "Analyse now" or
+      // "Analyse anyway" depending on calibration state.
       const footer = screen.getByTestId('sticky-footer')
-      expect(footer).toHaveTextContent(/Run analysis|Analyse anyway/)
+      expect(footer).toHaveTextContent(/Analyse (now|anyway)/)
     })
   })
 
@@ -1264,11 +1300,13 @@ describe('PreAnalysisPanel', () => {
       expect(screen.queryByText('Model assumptions')).not.toBeInTheDocument()
     })
 
-    it('does NOT render "Decision quality" or "Sharpen your thinking" sections', () => {
+    it('does NOT render the legacy "Decision quality" section', () => {
+      // Brief 5.8A D5 reintroduces "Sharpen your thinking" as a deliberate
+      // T2 surface (deterministic bias + framing exercises). The legacy
+      // "Decision quality" section stays gone — it had a different content
+      // contract (raw quality checks list).
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
       expect(screen.queryByText('Decision quality')).not.toBeInTheDocument()
-      // DecisionQualityChecks removed — "Sharpen your thinking" header no longer renders
-      expect(screen.queryByText('Sharpen your thinking')).not.toBeInTheDocument()
     })
   })
 

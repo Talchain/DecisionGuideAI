@@ -371,20 +371,31 @@ export function OptionPreview({
   const firstOptionLabel = options[0]?.label ?? 'your options'
 
   return (
-    <div className="relative rounded-lg border border-panel-border" data-testid="option-preview">
-      {/* Header — option square shape, no decorative icon */}
+    <div
+      className="relative bg-panel border border-panel-border rounded-[12px]"
+      data-testid="option-preview"
+    >
+      {/* Brief 5.8A D4: header — option square + "Your options" + count pill
+          right-aligned. Outlined info pill matches the wireframe style and
+          DS v5 §3.3 (no filled pills outside primary CTAs). */}
       <button
         type="button"
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02]"
+        className="w-full flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-black/[0.02] rounded-[12px] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
         data-testid="option-preview-toggle"
+        aria-expanded={isExpanded}
       >
         <div className="flex items-center gap-2">
           <OptionSquare />
           <span className={`${typography.panelHeader} text-text-header`}>{OPTION_PREVIEW_TITLE}</span>
         </div>
         <div className="flex items-center gap-2">
-          <Pill size="small" variant="success">{options.length}</Pill>
+          <span
+            className={`inline-flex items-center justify-center min-w-[20px] h-[18px] px-1.5 rounded-full border border-info/30 ${typography.panelMeta} text-text-body`}
+            data-testid="option-preview-count-pill"
+          >
+            {options.length}
+          </span>
           {isExpanded ? (
             <ChevronDown className="w-4 h-4 text-text-light" />
           ) : (
@@ -482,14 +493,17 @@ export function OptionPreview({
             </div>
           )}
 
-          {/* Ideation CTA */}
+          {/* Brief 5.8A D4 — ideation CTA. Wording aligned to the wireframe
+              ("Explore other strategies") so the chip reads as an
+              alternatives prompt rather than a quantity prompt. */}
           {onSendMessage && (
             <button
               type="button"
-              onClick={() => onSendMessage("What other options should I consider for this decision?")}
-              className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2`}
+              onClick={() => onSendMessage("What other strategies should I consider for this decision?")}
+              className={`${typography.panelMeta} text-info hover:underline cursor-pointer mt-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+              data-testid="option-preview-explore-strategies"
             >
-              Explore more options
+              Explore other strategies
             </button>
           )}
         </div>

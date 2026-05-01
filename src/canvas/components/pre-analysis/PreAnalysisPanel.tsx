@@ -15,12 +15,14 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect } from 'react'
+import { useCallback, useMemo, useRef, useEffect, memo } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
 import { BlockersSection } from './BlockersSection'
 import { OptionPreview, OPTION_PREVIEW_TITLE } from './OptionPreview'
+import { SharpenYourThinking } from './SharpenYourThinking'
+import { AnalysisSettings } from './AnalysisSettings'
 import { deriveExpertiseGroups } from './hooks/deriveExpertiseGroups'
 import { StickyFooter } from './StickyFooter'
 import { focusNodeById } from '../../utils/focusHelpers'
@@ -33,7 +35,7 @@ import { useShowToast } from '../../ToastContext'
 import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
 import type { AnalysisDisplayStateView } from '../../utils/deriveAnalysisDisplayState'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, ChevronDown, ChevronRight, Link as LinkIcon, Play, AlertCircle } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, Link as LinkIcon, Play, AlertCircle } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { getCausalEdges } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
@@ -51,22 +53,22 @@ import {
   type ReviewNextSignal,
   type TriageSignal,
 } from './pickStartHere'
-import {
-  resolveReviewNextCoachingLine,
-  getImproveConfidenceCoachingLine,
-} from './sectionCoaching'
 import { useResolvedSignals } from './useResolvedSignals'
 import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
-import Tooltip from '@/components/Tooltip'
 import { typography } from '@/styles/typography'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { resolveEditorRawValue, resolveCapHintSubtitle } from './utils/resolveEditorRawValue'
 import { decisionShapeScore } from './utils/decisionShapeScore'
+import { buildNarrativeBridge } from './utils/buildNarrativeBridge'
+import {
+  buildStrengthenOverlayMap,
+  findStrengthenOverlay,
+  type StrengthenOverlay,
+} from './utils/applyStrengthenOverlay'
+import { buildContributionBreakdown, type ContributionBreakdown } from './utils/buildContributionBreakdown'
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
-import { SectionHeader } from '@/components/results/SectionHeader'
-import { DraftStrengthenSection } from './DraftStrengthenSection'
 import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
 // removed handleResolveContestedEdge handler (Brief 4 Task 6).
@@ -257,6 +259,40 @@ export function shouldSuppressBiasFinding(
 }
 
 /**
+ * Brief 5.8A D2: single normalisation gate applied to LLM-sourced bias entries
+ * before they enter the rendered trigger list. Both shapes flow through the
+ * same predicate so D3c (T1 nudge rows) and D5 (T2 Sharpen accordion) consume
+ * one already-filtered list — no per-consumer refilter.
+ *
+ * Accepts the raw target field from either shape:
+ *   - CEE bias_findings → `target_factor_id`
+ *   - CEE coaching bias_signals → `target`
+ *
+ * Returns true iff the target is non-blank AND resolves to a real graph node
+ * via the supplied resolver. The resolver returns null when no node matches,
+ * so we treat both null and blank-label results as "unresolvable".
+ *
+ * Behaviour change vs prior behaviour: bias_findings without a target (or with
+ * an unresolvable one) used to render generically. After D2 they are dropped,
+ * matching the brief's intent that on-screen bias copy must always anchor to
+ * an actionable factor. The deterministic graph-level fallback (narrow_framing,
+ * missing_risks, etc.) is intentionally outside this gate — it runs only when
+ * no LLM source produced anything and surfaces graph-derived nudges that have
+ * no target node by design.
+ *
+ * Exported for unit testing.
+ */
+export function hasResolvableBiasTarget(
+  rawTarget: string | null | undefined,
+  resolveLabel: (id: string) => string | null,
+): boolean {
+  const trimmed = (rawTarget ?? '').toString().trim()
+  if (!trimmed) return false
+  const label = resolveLabel(trimmed)
+  return typeof label === 'string' && label.trim().length > 0
+}
+
+/**
  * Brief 5.7 D7: AI-estimated improvement items should already carry a confirm
  * action from `usePreAnalysisData` (the cee_inference branch attaches one).
  * Augment defensively — symmetric with the missing-data path — so any item
@@ -394,31 +430,9 @@ export function normaliseCeeBiasFinding(
   }
 }
 
-/** Binary pass/fail row for triage check rows — failed rows show optional action link */
-function TriageCheckRow({ label, pass, actionLabel, onAction }: {
-  label: string
-  pass: boolean
-  actionLabel?: string
-  onAction?: () => void
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      {pass
-        ? <Check className="w-3.5 h-3.5 text-success flex-shrink-0" aria-hidden="true" />
-        : <X className="w-3.5 h-3.5 text-danger flex-shrink-0" aria-hidden="true" />}
-      <span className={`${typography.panelBody} ${pass ? 'text-text-body' : 'text-text-light'} flex-1`}>{label}</span>
-      {!pass && actionLabel && onAction && (
-        <button
-          type="button"
-          onClick={onAction}
-          className={`${typography.panelMeta} text-info hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
-        >
-          {actionLabel}
-        </button>
-      )}
-    </div>
-  )
-}
+// Brief 5.8A holistic-review pass: legacy TriageCheckRow deleted. The
+// T1FailingCheckRow function above now owns the same icon + label + action
+// pattern inside the T1 card.
 
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
@@ -564,70 +578,451 @@ function StatusBanner({
 // SectionHeader is imported from @/components/results/SectionHeader (shared component, unified spec §2.1).
 
 /**
- * Improve confidence — collapsible accordion (collapsed by default).
- * Shows a "Highest value: ..." summary line above the chevron when applicable.
+ * Brief 5.8A D3c — single bias .nudge row inside the T1 card.
+ *
+ * Inline single-line pattern: warning icon + bolded category + detail + an
+ * Explore chip that routes the bias context to chat. Hover hooks highlight
+ * the target node when a resolvable target exists (always true for D2-
+ * filtered triggers).
  */
-function ImproveConfidenceAccordion({
-  count,
-  highestValueLabel,
-  subtitle,
-  coachingLine,
-  children,
+function T1BiasNudgeRow({
+  trigger,
+  index,
+  onHoverEnter,
+  onHoverLeave,
 }: {
-  count: number
-  highestValueLabel: string | null
-  /** Scope subtitle rendered below the header row in panelMeta/text-text-light */
-  subtitle?: string
-  /** P1-3: per-section coaching line; rendered below the header when non-null */
-  coachingLine?: string | null
-  children: React.ReactNode
+  trigger: NormalisedBiasTrigger
+  /**
+   * Local visible index used for the data-testid. We deliberately do NOT
+   * use trigger.id because CEE can stamp raw.id with values that contain
+   * factor / option / node prefixes — which would leak into the DOM via
+   * the testid attribute. Using a local 0-based index keeps the testid
+   * stable and prefix-free.
+   */
+  index: number
+  onHoverEnter?: () => void
+  onHoverLeave?: () => void
 }) {
-  const [expanded, setExpanded] = useState(false)
-  if (count <= 0) return null
+  const Icon = trigger.icon
   return (
-    <div className="space-y-1" data-testid="improve-confidence-section">
-      {highestValueLabel && (
-        <p className={`${typography.panelMeta} text-info`}>
-          Highest value: {highestValueLabel}
-        </p>
-      )}
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between gap-2 py-1 cursor-pointer hover:bg-panel-hover rounded"
-        aria-expanded={expanded}
-        data-testid="improve-confidence-toggle"
-      >
-        <div className="flex items-center gap-2">
-          <h3 className={`${typography.panelHeader} text-text-header`}>Improve confidence</h3>
-          <span
-            className={`inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full border border-factor/30 ${typography.panelMeta} text-text-body`}
-          >
-            {count}
-          </span>
-        </div>
-        {expanded
-          ? <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
-          : <ChevronRight className="w-4 h-4 text-text-light" aria-hidden="true" />}
-      </button>
-      {subtitle && (
-        <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-subtitle">
-          {subtitle}
-        </p>
-      )}
-      {coachingLine && (
-        <p className={`${typography.panelMeta} text-text-light`} data-testid="improve-confidence-coaching">
-          {coachingLine}
-        </p>
-      )}
-      {expanded && (
-        <div className="space-y-3" data-testid="improve-confidence-content">
-          {children}
-        </div>
-      )}
+    <div
+      className="flex items-center gap-2 px-2.5 py-1.5 border border-panel-border rounded-lg hover:bg-panel-hover"
+      data-testid={`t1-bias-nudge-${index}`}
+      onMouseEnter={onHoverEnter}
+      onMouseLeave={onHoverLeave}
+    >
+      <Icon className="w-3.5 h-3.5 text-warning flex-shrink-0" aria-hidden="true" />
+      <p className={`${typography.panelMeta} text-text-body flex-1 min-w-0 truncate`}>
+        <strong className="text-text-header font-semibold">{trigger.title}:</strong>{' '}
+        {trigger.subtitle}
+      </p>
+      <DiscussWithAiButton
+        element={{ kind: 'bias', biasType: trigger.title, microInterventionStep: trigger.microInterventionStep }}
+      />
     </div>
   )
 }
+
+/**
+ * Brief 5.8A D3c — contribution row + three-state spectrum bar.
+ *
+ * Compact one-line indicator. Wording: "N of M inputs confirmed" — N counts
+ * factors with a verified source (user / user_confirmed / user_assumption)
+ * per the brief's "re-derive cleanly" decision. The bar visualises all
+ * three buckets (verified / brief / estimated) so the user sees the
+ * grounding mix at a glance.
+ */
+function T1ContributionRow({ breakdown }: { breakdown: ContributionBreakdown }) {
+  const { verified, brief, estimated, total } = breakdown
+  const verifiedPct = total === 0 ? 0 : (verified / total) * 100
+  const briefPct = total === 0 ? 0 : (brief / total) * 100
+  const estimatedPct = total === 0 ? 0 : (estimated / total) * 100
+  return (
+    <div className="flex flex-col gap-1" data-testid="t1-contribution-row">
+      <div className="flex items-center gap-2">
+        <span className={`${typography.panelMeta} text-text-light flex-1`}>
+          <strong className="text-text-body font-medium">{verified}</strong> of{' '}
+          <strong className="text-text-body font-medium">{total}</strong> inputs confirmed
+        </span>
+      </div>
+      {/* Three-state spectrum bar — Verified (success) | Brief (info) | Estimated (warning).
+          Zero-total renders as a single neutral track so the slot stays visually
+          present without misleading colour. */}
+      <div
+        className="flex h-1 w-full rounded-full overflow-hidden bg-panel-border"
+        role="img"
+        aria-label={`Contribution mix: ${verified} verified, ${brief} from brief, ${estimated} estimated`}
+        data-testid="t1-contribution-spectrum"
+      >
+        {verified > 0 && <span className="bg-success" style={{ width: `${verifiedPct}%` }} />}
+        {brief > 0 && <span className="bg-info" style={{ width: `${briefPct}%` }} />}
+        {estimated > 0 && <span className="bg-warning" style={{ width: `${estimatedPct}%` }} />}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Brief 5.8A D3a (post-D7 holistic-review pass) — single failing-check row
+ * inside the T1 card.
+ *
+ * Pattern: 12px danger X icon + label + right-aligned action link. Used for
+ * the goal-target-unset check, the "Fewer than 2 options" structural check,
+ * the "No baseline set" structural check, and any other binary-failure
+ * structural rows. Each consumer supplies its own action handler.
+ *
+ * Action button is keyboard-focusable with the standard info ring; aria-label
+ * mirrors the actionLabel so screen readers receive the action context.
+ */
+function T1FailingCheckRow({
+  label,
+  actionLabel,
+  onAction,
+  testId,
+}: {
+  label: string
+  actionLabel: string
+  onAction: () => void
+  testId?: string
+}) {
+  return (
+    <div className="flex items-center gap-2 py-0.5" data-testid={testId}>
+      <X className="w-3 h-3 text-danger flex-shrink-0" aria-hidden="true" />
+      <span className={`${typography.panelBody} text-text-body flex-1`}>{label}</span>
+      <button
+        type="button"
+        onClick={onAction}
+        className={`${typography.panelMeta} text-info hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+        aria-label={actionLabel}
+      >
+        {actionLabel}
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Brief 5.8A holistic-review pass — failing-check row entry shape consumed
+ * by T1DecisionReadinessCard. Source-agnostic so the consumer can compose
+ * goal-target rows, structural-check rows, and any future failure rows
+ * through the same render.
+ */
+interface T1FailingCheckEntry {
+  id: string
+  label: string
+  actionLabel: string
+  onAction: () => void
+  testId: string
+}
+
+/**
+ * Brief 5.8A D3a/D3b — T1 "Decision readiness" card wrapper.
+ *
+ * Hosts the ring + 4 dimension bars (ModelHealthCard compact), failing checks
+ * (currently no_target), the narrative bridge with strong-bolded counts, and
+ * the unified triage queue (top 3 + Also consider). D3c will add bias
+ * nudges, widening_log, contribution, and checks footer below.
+ *
+ * Memoised — the parent re-renders on hover/highlight changes; this card's
+ * inputs are stable across those.
+ */
+/**
+ * Card shape after mapItem augmentation — adds the editorConfig (inline editor
+ * config from Brief 5.7 D7, locked) and the aiDiscuss element (the per-card
+ * Discuss-with-AI affordance). Local to the T1 panel because mapItem is a
+ * render-local function in the consumer.
+ */
+type MappedTriageCard = TriageCardItem & {
+  editorConfig?: ScientificEditorProps | null
+  aiDiscuss?: AiDiscussElement
+}
+
+type UnifiedQueueEntryProp = { card: MappedTriageCard; overlay: StrengthenOverlay | null }
+
+interface T1Handlers {
+  onConfirm: (targetId: string) => void
+  onEdit: (targetId: string) => void
+  onUpdateEdgeStrength: (edgeId: string, value: number) => void
+  onHoverEnter: (type: 'node' | 'edge', id: string) => void
+  onHoverLeave: () => void
+  buildAiDiscuss: (entry: UnifiedQueueEntryProp) => React.ReactNode
+  /** Brief 5.8A D3c — wraps the bias node-id hover into the panel hover system */
+  onBiasHoverEnter: (targetFactorId: string | null) => void
+  onBiasHoverLeave: () => void
+}
+
+const BIAS_NUDGE_VISIBLE_LIMIT = 2
+
+const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
+  completeness,
+  evidence,
+  balance,
+  calibration,
+  optionCount,
+  goalLabel,
+  coachingSummary,
+  dynamicHeadline,
+  isLoading,
+  hasGoalNode,
+  hasGoalTarget,
+  failingChecks,
+  unverifiedEstimateCount,
+  relationshipsToReviewCount,
+  topThree,
+  alsoConsider,
+  handlers,
+  biasNudges,
+  contributionBreakdown,
+  onShowAllBias,
+  wideningSlot,
+  missingKnowledgeSlot,
+}: {
+  completeness: number
+  evidence: number
+  balance: number
+  calibration: number
+  optionCount: number
+  goalLabel: string | null
+  coachingSummary: string | null
+  dynamicHeadline: string | null
+  isLoading: boolean
+  hasGoalNode: boolean
+  hasGoalTarget: boolean
+  /**
+   * All currently-failing structural checks: goal target unset, "Fewer than 2
+   * options", "No baseline set", etc. The brief D3a consolidates these into
+   * the T1 failing-checks block. Order is consumer-controlled.
+   */
+  failingChecks: T1FailingCheckEntry[]
+  unverifiedEstimateCount: number
+  relationshipsToReviewCount: number
+  topThree: UnifiedQueueEntryProp[]
+  alsoConsider: UnifiedQueueEntryProp[]
+  handlers: T1Handlers
+  /** Brief 5.8A D3c — bias triggers from the D2-filtered list (single source) */
+  biasNudges: NormalisedBiasTrigger[]
+  /** Brief 5.8A D3c — three-bucket contribution breakdown */
+  contributionBreakdown: ContributionBreakdown
+  /** Action when the "+N more" link is clicked (expand or scroll) */
+  onShowAllBias?: () => void
+  /** Brief 5.8A D3c — WhatOlumiAddedSection rendered as a slot so the card stays composable */
+  wideningSlot: React.ReactNode
+  /** Brief 5.8A D3c — MissingKnowledgePrompt slot for the checks footer */
+  missingKnowledgeSlot: React.ReactNode
+}) {
+  const narrative = useMemo(
+    () => buildNarrativeBridge({
+      unverifiedEstimateCount,
+      relationshipsToReviewCount,
+      hasGoalTarget,
+    }),
+    [unverifiedEstimateCount, relationshipsToReviewCount, hasGoalTarget],
+  )
+
+  const showFailingChecks = failingChecks.length > 0
+  const showNarrativeBlock = narrative.prefix !== null || narrative.bridge !== null
+  const showTopThree = topThree.length > 0
+  const showAlsoConsider = alsoConsider.length > 0
+  const visibleBias = biasNudges.slice(0, BIAS_NUDGE_VISIBLE_LIMIT)
+  const overflowBias = Math.max(0, biasNudges.length - BIAS_NUDGE_VISIBLE_LIMIT)
+  const showBiasBlock = visibleBias.length > 0
+  const showContribution = contributionBreakdown.total > 0
+  const showChecksFooter = contributionBreakdown.total > 0 || missingKnowledgeSlot != null
+
+  return (
+    <div
+      className="bg-panel border border-panel-border rounded-[12px] p-3 flex flex-col gap-1.5"
+      data-testid="t1-decision-readiness-card"
+    >
+      <ModelHealthCard
+        compact
+        completeness={completeness}
+        evidence={evidence}
+        balance={balance}
+        calibration={calibration}
+        optionCount={optionCount}
+        goalLabel={goalLabel}
+        coachingSummary={coachingSummary}
+        dynamicHeadline={dynamicHeadline}
+        isLoading={isLoading}
+        hasGoalNode={hasGoalNode}
+      />
+      {showFailingChecks && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div className="flex flex-col" data-testid="t1-failing-checks">
+            {failingChecks.map(check => (
+              <T1FailingCheckRow
+                key={check.id}
+                label={check.label}
+                actionLabel={check.actionLabel}
+                onAction={check.onAction}
+                testId={check.testId}
+              />
+            ))}
+          </div>
+        </>
+      )}
+      {showNarrativeBlock && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div className="flex flex-col gap-0.5" data-testid="t1-narrative-bridge">
+            <p className={`${typography.panelMeta} text-text-light leading-snug`}>
+              {narrative.prefix && <>{narrative.prefix} </>}
+              {narrative.bridge && (
+                <>
+                  <strong className="text-text-body font-medium">{narrative.bridge.estimateCount}</strong>
+                  {narrative.bridge.estimateSuffix} and{' '}
+                  <strong className="text-text-body font-medium">{narrative.bridge.relationshipCount}</strong>
+                  {narrative.bridge.relationshipSuffix}
+                  {narrative.bridge.tail}
+                </>
+              )}
+            </p>
+            {narrative.meta && (
+              <p className={`${typography.panelMeta} text-text-light`} data-testid="t1-narrative-meta">
+                {narrative.meta}
+              </p>
+            )}
+          </div>
+        </>
+      )}
+      {showTopThree && (
+        <div className="flex flex-col gap-2" data-testid="t1-triage-top-three">
+          {topThree.map((entry, i) => {
+            const passiveLabels = entry.overlay?.actionTypeLabel ? [entry.overlay.actionTypeLabel] : undefined
+            const subtitle = entry.overlay?.detail ?? entry.card.subtitle
+            // Card #1 gets the .ac.em emphasis treatment: info-bordered + info-tinted background.
+            const emphasised = i === 0
+            return (
+              <div
+                key={entry.card.key}
+                className={emphasised ? 'rounded-[10px] border border-info/40 bg-info/[0.02]' : ''}
+                data-testid={emphasised ? 't1-triage-emphasised' : undefined}
+              >
+                <TriageCard
+                  cardKey={entry.card.key}
+                  ordinal={i + 1}
+                  badgeColor="bg-info"
+                  title={entry.card.title}
+                  detail={entry.card.detail}
+                  subtitle={subtitle}
+                  category={entry.card.category}
+                  influence={entry.card.influence}
+                  action={entry.card.action}
+                  editorConfig={entry.card.editorConfig ?? null}
+                  sourcePill={entry.card.sourcePill}
+                  passiveLabels={passiveLabels}
+                  aiDiscussSlot={handlers.buildAiDiscuss(entry)}
+                  onConfirm={handlers.onConfirm}
+                  onEdit={handlers.onEdit}
+                  onUpdateEdgeStrength={handlers.onUpdateEdgeStrength}
+                  onHoverEnter={handlers.onHoverEnter}
+                  onHoverLeave={handlers.onHoverLeave}
+                />
+              </div>
+            )
+          })}
+        </div>
+      )}
+      {showAlsoConsider && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div className="flex flex-col gap-1" data-testid="t1-also-consider">
+            <p className={`text-[10px] font-semibold text-text-light`}>Also consider</p>
+            <div className="flex flex-col">
+              {alsoConsider.map((entry) => {
+                const subtitle = entry.overlay?.detail ?? entry.card.subtitle
+                return (
+                  <TriageCard
+                    key={entry.card.key}
+                    cardKey={entry.card.key}
+                    title={entry.card.title}
+                    detail={entry.card.detail}
+                    subtitle={subtitle}
+                    category={entry.card.category}
+                    influence={entry.card.influence}
+                    action={entry.card.action}
+                    editorConfig={entry.card.editorConfig ?? null}
+                    sourcePill={entry.card.sourcePill}
+                    aiDiscussSlot={handlers.buildAiDiscuss(entry)}
+                    variant="compact"
+                    onConfirm={handlers.onConfirm}
+                    onEdit={handlers.onEdit}
+                    onUpdateEdgeStrength={handlers.onUpdateEdgeStrength}
+                    onHoverEnter={handlers.onHoverEnter}
+                    onHoverLeave={handlers.onHoverLeave}
+                  />
+                )
+              })}
+            </div>
+          </div>
+        </>
+      )}
+      {showBiasBlock && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div className="flex flex-col gap-1" data-testid="t1-bias-block">
+            {visibleBias.map((trigger, i) => (
+              <T1BiasNudgeRow
+                key={trigger.id}
+                trigger={trigger}
+                index={i}
+                onHoverEnter={() => handlers.onBiasHoverEnter(trigger.targetFactorId)}
+                onHoverLeave={handlers.onBiasHoverLeave}
+              />
+            ))}
+            {overflowBias > 0 && onShowAllBias && (
+              <button
+                type="button"
+                onClick={onShowAllBias}
+                className={`${typography.panelMeta} text-info hover:underline self-start focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+                data-testid="t1-bias-show-more"
+              >
+                +{overflowBias} more
+              </button>
+            )}
+          </div>
+        </>
+      )}
+      {wideningSlot && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          {wideningSlot}
+        </>
+      )}
+      {showContribution && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <T1ContributionRow breakdown={contributionBreakdown} />
+        </>
+      )}
+      {showChecksFooter && (
+        <>
+          <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
+          <div
+            className="flex items-center justify-between gap-2"
+            data-testid="t1-checks-footer"
+          >
+            {contributionBreakdown.total > 0 && (
+              <span className={`text-[10px] text-text-light`}>
+                {contributionBreakdown.verified}/{contributionBreakdown.total} verified
+              </span>
+            )}
+            {missingKnowledgeSlot && (
+              <div className="flex-shrink-0">{missingKnowledgeSlot}</div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
+})
+
+// Brief 5.8A holistic-review pass: ImproveConfidenceAccordion deleted.
+// SuccessTarget moved into T3 Advanced; MissingKnowledgePrompt is rendered
+// inside the T1 checks footer via the missingKnowledgeSlot prop. The panel
+// hierarchy is now exactly T1 → T2 → T3 with no orphan accordion.
 
 export function PreAnalysisPanel({
   onAnalyse,
@@ -642,7 +1037,6 @@ export function PreAnalysisPanel({
   // P1-8: local toggle for Review next "Show more". Overflow stays inside
   // Review next (does not migrate to Improve confidence); this controls
   // visibility within the section.
-  const [reviewNextExpanded, setReviewNextExpanded] = useState(false)
 
   // P1-5: prefers-reduced-motion flag — used to skip the fade transition on
   // resolved-state rows for users who requested reduced motion.
@@ -718,6 +1112,25 @@ export function PreAnalysisPanel({
     focusNodeById(nodeId)
     setTimeout(() => setHighlightedNodes([]), 3000)
   }, [setHighlightedNodes, selectNodeWithoutHistory])
+
+  // Brief 5.8A D3a — failing-check action for "Goal target not set". Focuses
+  // the goal node so the user can set its threshold via the inspector. Reuses
+  // the existing focus helper rather than introducing a new dispatcher.
+  const handleSetTargetFocus = useCallback(() => {
+    const goalId = data.goalNode?.id
+    if (!goalId) return
+    selectNodeWithoutHistory(goalId)
+    focusNodeById(goalId)
+  }, [data.goalNode, selectNodeWithoutHistory])
+
+  // Brief 5.8A D3b — bundle of handlers passed into T1DecisionReadinessCard.
+  // Stable reference (the underlying callbacks are useCallback'd or stable
+  // store references) so the memoised T1 component does not re-render on
+  // unrelated parent renders. Exposed as one object to keep the prop list
+  // manageable.
+  // Forward-declared because the handler implementations are defined later
+  // in this file; we wire them into the bundle via a useMemo so React only
+  // creates the object when one of the inputs changes.
 
   // Hover handlers - highlight graph elements on panel item hover
   const handleHoverElement = useCallback((type: 'node' | 'edge', id: string) => {
@@ -917,6 +1330,33 @@ export function PreAnalysisPanel({
     updateEdgeData(edgeId, { weight: value, strength_mean: undefined })
   }, [])
 
+  // Brief 5.8A D3b/D3c — bundle of T1 handlers. Stable identity so the
+  // memoised T1DecisionReadinessCard does not re-render on unrelated parent
+  // state. The buildAiDiscuss factory mirrors the legacy mapping (each
+  // card.aiDiscuss is wrapped in a DiscussWithAiButton). The bias hover
+  // handlers route through the same setHighlightedNodes/Edges store calls
+  // as the legacy bias trigger render.
+  const t1Handlers = useMemo<T1Handlers>(() => ({
+    onConfirm: handleConfirm,
+    onEdit: handleSetValueForGap,
+    onUpdateEdgeStrength: handleUpdateEdgeStrength,
+    onHoverEnter: handleHoverElement,
+    onHoverLeave: handleHoverClear,
+    buildAiDiscuss: (entry) => entry.card.aiDiscuss
+      ? <DiscussWithAiButton element={entry.card.aiDiscuss} />
+      : undefined,
+    onBiasHoverEnter: (targetFactorId) => {
+      if (targetFactorId) {
+        setHighlightedNodes([targetFactorId])
+        setHighlightedEdges([])
+      }
+    },
+    onBiasHoverLeave: () => {
+      setHighlightedNodes([])
+      setHighlightedEdges([])
+    },
+  }), [handleConfirm, handleSetValueForGap, handleUpdateEdgeStrength, handleHoverElement, handleHoverClear, setHighlightedNodes, setHighlightedEdges])
+
   // Action handlers passed to TriageCard and expertise triage cards
 
   // Don't show panel if canvas is empty AND not loading
@@ -1051,6 +1491,10 @@ export function PreAnalysisPanel({
       for (let i = 0; i < sorted.length; i++) {
         const finding = sorted[i]
         if (shouldSuppressBiasFinding(finding)) continue
+        // Brief 5.8A D2: require a resolvable target on every LLM-sourced
+        // bias entry. Drops entries with blank/missing or unresolvable
+        // target_factor_id before normalisation.
+        if (!hasResolvableBiasTarget(finding.target_factor_id, resolveLabel)) continue
         const normalised = normaliseCeeBiasFinding(finding, i, resolveLabel)
         if (normalised) triggers.push(normalised)
         if (triggers.length >= 2) break
@@ -1063,7 +1507,12 @@ export function PreAnalysisPanel({
     // to the pure mapDraftBiasSignalToTrigger helper for test isolation.
     if (triggers.length < 2 && draftCoachingBiasSignals && draftCoachingBiasSignals.length > 0) {
       for (let i = 0; i < draftCoachingBiasSignals.length && triggers.length < 2; i++) {
-        const trigger = mapDraftBiasSignalToTrigger(draftCoachingBiasSignals[i], i, resolveLabel)
+        const signal = draftCoachingBiasSignals[i]
+        // Brief 5.8A D2: same resolvable-target requirement as bias_findings.
+        // Closes the gap where coaching signals previously rendered without
+        // any target check.
+        if (!hasResolvableBiasTarget(signal.target, resolveLabel)) continue
+        const trigger = mapDraftBiasSignalToTrigger(signal, i, resolveLabel)
         if (trigger) triggers.push(trigger)
       }
     }
@@ -1248,10 +1697,10 @@ export function PreAnalysisPanel({
   //
   // P1-8: hard budget — max 1 option-quality + 2 bias + 3 triage = 6 visible
   // (plus 1 Start here slot added by P1-4). Anything beyond the budget stays
-  // inside Review next as overflow behind a "Show more" toggle. Overflow does
-  // NOT migrate to Improve confidence — that would mix semantic ownership.
-  const REVIEW_NEXT_TRIAGE_BUDGET = 3
-  const REVIEW_NEXT_BIAS_BUDGET = 2
+  // Brief 5.8A holistic-review pass: legacy Review next budget constants
+  // deleted — the T1 unified queue (top 3 + Also consider) now owns the
+  // visible cap, and bias rows have their own internal limit
+  // (BIAS_NUDGE_VISIBLE_LIMIT inside T1DecisionReadinessCard).
   const reviewNextTriageAll = triageTop3.filter(c => !mustFixCardKeys.has(c.signal_id ?? c.key))
   const showOptionQualityCard = data.optionPreviews.length > 0
     && (data.qualityChecks.some(c => c.id === 'same_levers') || data.optionPreviews.length < 3)
@@ -1349,26 +1798,13 @@ export function PreAnalysisPanel({
     })
   }, [signalCount, mustFixCount, pickedKey])
 
-  // Exclude startHere from downstream lists by id so the same signal_id never
-  // appears twice in Review next (P1-8 invariant). Also exclude resolved
-  // signals (P1-5) so the card disappears the instant the user confirms.
-  const startHereId = startHereSignal?.id
-  const isExcluded = (id: string) => id === startHereId || resolvedSignals.has(id)
-  const reviewNextTriageAfterStart = reviewNextTriageAll.filter(c => !isExcluded(`triage:${c.key}`))
-  const biasTriggersAfterStart = biasTriggers.filter(t => !isExcluded(`bias:${t.id}`))
-  const reviewNextTriageVisible = reviewNextTriageAfterStart.slice(0, REVIEW_NEXT_TRIAGE_BUDGET)
-  const reviewNextTriageOverflow = reviewNextTriageAfterStart.slice(REVIEW_NEXT_TRIAGE_BUDGET)
-  const reviewNextBiasVisible = biasTriggersAfterStart.slice(0, REVIEW_NEXT_BIAS_BUDGET)
-  const reviewNextBiasOverflow = biasTriggersAfterStart.slice(REVIEW_NEXT_BIAS_BUDGET)
-  const reviewNextOverflowCount = reviewNextTriageOverflow.length + reviewNextBiasOverflow.length
-  // Section badge counts the TRUE total (visible + overflow + Start here) so
-  // users see the real number even when overflow is collapsed.
+  // Brief 5.8A holistic-review pass: the legacy "Review next" surface is
+  // gone; reviewNextCount remains as a derived total consumed by the
+  // status banner sub-line ("X items to review next").
   const reviewNextCount =
     reviewNextTriageAll.length
     + biasTriggers.length
     + (showOptionQualityCard ? 1 : 0)
-  // Kept for existing call sites that previously referenced `reviewNextTopCards`.
-  const reviewNextTopCards = reviewNextTriageVisible
 
   // Improve confidence: SuccessTarget (always present), remaining (quickFix)
   // triage cards, Your expertise, missing knowledge prompt.
@@ -1417,34 +1853,159 @@ export function PreAnalysisPanel({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data.improvementsByCategory, data.contestedEdges, nodes, edges, compositeInfluenceMap, edgeInfluenceMap, triageCards])
 
+  // Brief 5.8A D3b — strengthen overlay map. CEE coaching.strengthen_items
+  // are matched onto triage cards by normalised exact label match (case-
+  // insensitive trim). When matched, `detail` overlays as the card subtitle
+  // and `actionType` becomes a passive 9px pill. Built once per render from
+  // the live store value.
+  const draftCoachingStrengthenItems = useCanvasStore(s => s.draftCoaching?.strengthenItems ?? null)
+  const strengthenOverlayMap = useMemo(
+    () => buildStrengthenOverlayMap(draftCoachingStrengthenItems),
+    [draftCoachingStrengthenItems],
+  )
+
+  // Brief 5.8A D3b — unified triage queue inside the T1 card. Combines the
+  // legacy Review next triage cards, Improve confidence quick-fix cards, and
+  // the threaded expertise triage cards into a single ordered list. Order is
+  // preserved from the existing severity → diversification sort in Hook B
+  // (no new ordering field). Cards already in Must fix are excluded
+  // (mustFixCardKeys). Cards whose signal id is in resolvedSignals are also
+  // excluded so a freshly-confirmed item disappears from the queue on the
+  // very next render rather than briefly remaining visible until Hook B
+  // re-derives. Duplicate keys are deduped — first-write-wins so the
+  // ordering is preserved deterministically.
+  type UnifiedQueueEntry = UnifiedQueueEntryProp
+  const unifiedTriageQueue = useMemo<UnifiedQueueEntry[]>(() => {
+    const seen = new Set<string>()
+    const queue: UnifiedQueueEntry[] = []
+    // Order matters: Must fix triage cards (fix-category) come first because
+    // they're analysis-blocking; then Review next; then Improve confidence
+    // overflow; then expertise items. Within each source the existing
+    // severity → diversification ordering from Hook B is preserved.
+    const sources = [...mustFixCards, ...reviewNextTriageAll, ...improveConfidenceCards, ...expertiseTriageCards]
+    for (const card of sources) {
+      const dedupKey = card.signal_id ?? card.key
+      if (seen.has(dedupKey)) continue
+      // Brief 5.8A holistic-review pass: respect the resolvedSignals overlay
+      // so confirm clicks don't leave the card visible for a render frame.
+      if (resolvedSignals.has(`triage:${card.key}`)) continue
+      seen.add(dedupKey)
+      const overlay = findStrengthenOverlay({ title: card.title }, strengthenOverlayMap)
+      queue.push({ card, overlay })
+    }
+    return queue
+  }, [mustFixCards, reviewNextTriageAll, improveConfidenceCards, expertiseTriageCards, strengthenOverlayMap, resolvedSignals])
+
+  const unifiedTopThree = useMemo(() => unifiedTriageQueue.slice(0, 3), [unifiedTriageQueue])
+  const unifiedAlsoConsider = useMemo(() => unifiedTriageQueue.slice(3), [unifiedTriageQueue])
+
+  // Brief 5.8A D3c — three-bucket contribution breakdown derived from the
+  // current factor nodes. Counts only, no inference. The render layer uses
+  // `verified` and `total` for the "N of M inputs confirmed" copy and all
+  // three buckets for the spectrum bar.
+  const contributionBreakdown = useMemo<ContributionBreakdown>(
+    () => buildContributionBreakdown(data.nodesByKind.factor),
+    [data.nodesByKind.factor],
+  )
+
+  // Brief 5.8A holistic-review pass: stable slot ReactNodes for the memoised
+  // T1 card. Without these, every parent re-render constructs new ReactElement
+  // refs that defeat T1DecisionReadinessCard's React.memo. The slots only
+  // change when their internal state (store reads) changes — the slot
+  // *components* themselves manage that via their own subscriptions.
+  //
+  // Post-D7 follow-up: the widening slot is gated on actual wideningLog
+  // presence so the surrounding .sep divider in the T1 card disappears too
+  // when there's nothing to add. Without this gate the separator would
+  // render above an empty slot.
+  const wideningLogCount = useCanvasStore(s => s.draftCoaching?.wideningLog?.length ?? 0)
+  const wideningSlot = useMemo(
+    () => (wideningLogCount > 0 ? <WhatOlumiAddedSection /> : null),
+    [wideningLogCount],
+  )
+  const missingKnowledgeSlot = useMemo(
+    () => (
+      <MissingKnowledgePrompt
+        context="model"
+        aiAffordance={
+          <DiscussWithAiButton
+            element={{ kind: 'missing' }}
+            ariaLabel="Tell AI about something missing from the model"
+          />
+        }
+      />
+    ),
+    [],
+  )
+
+  // Brief 5.8A holistic-review pass — consolidate ALL failing structural
+  // checks into a single list passed to the T1 card. Sources:
+  //   1. no_target qualityCheck (goal target unset) — high-priority because
+  //      analysis cannot show probability of success without it.
+  //   2. structural fewer-than-2-options check (was rendered separately in
+  //      legacy Must fix).
+  //   3. structural no-baseline check (was rendered separately in legacy
+  //      Must fix).
+  //
+  // Each entry carries its own action handler so the T1 row pattern stays
+  // dumb. Order: no_target first (analysis-blocking), then options, then
+  // baseline. Empty list naturally suppresses the failing-checks block.
+  const failingChecks = useMemo<T1FailingCheckEntry[]>(() => {
+    const checks: T1FailingCheckEntry[] = []
+    if (data.qualityChecks.some(c => c.id === 'no_target')) {
+      checks.push({
+        id: 'no_target',
+        label: 'Goal target not set',
+        actionLabel: 'Set target',
+        onAction: () => {
+          const goalId = data.goalNode?.id
+          if (goalId) {
+            selectNodeWithoutHistory(goalId)
+            focusNodeById(goalId)
+          }
+        },
+        testId: 't1-check-no-target',
+      })
+    }
+    if (fewerThanTwoOptionsCheck) {
+      checks.push({
+        id: 'fewer_than_2_options',
+        label: 'Fewer than 2 options',
+        actionLabel: 'Add option',
+        onAction: () => onSendMessage?.('Add another option to compare'),
+        testId: 't1-check-fewer-than-2-options',
+      })
+    }
+    if (noBaselineCheck) {
+      checks.push({
+        id: 'no_baseline',
+        label: 'No baseline set',
+        actionLabel: 'Add baseline',
+        onAction: () => onSendMessage?.('Add a status quo option to compare against'),
+        testId: 't1-check-no-baseline',
+      })
+    }
+    return checks
+  }, [data.qualityChecks, data.goalNode, fewerThanTwoOptionsCheck, noBaselineCheck, onSendMessage, selectNodeWithoutHistory])
+
+  // Stable goalLabel + hasGoalNode primitives — pure derivations from
+  // data.goalNode, don't change unless the goal node identity does.
+  const goalLabel = useMemo(
+    () => data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null,
+    [data.goalNode],
+  )
+  const hasGoalNode = data.nodesByKind.goal.length > 0
+  const hasGoalTarget = data.successThreshold !== null
+
   // Brief 4 hotfix Task 5: the goal target is only an improvement item when
   // the user hasn't confirmed the threshold yet. Once confirmed, drop it from
   // the count so header and subtitle stop over-reporting. Apply the same
   // include-goal rule to the subtitle at the accordion render below.
-  const includeGoalAsImprovement = data.isThresholdConfirmed ? 0 : 1
-  // D7: expertise items are now threaded into the accordion as triage cards,
-  // so they are included in the section count (replaces the prior comment
-  // explaining why they were intentionally excluded).
-  const improveConfidenceCount = includeGoalAsImprovement
-    + improveConfidenceCards.length
-    + expertiseTriageCards.length
-
-  // Highest-value summary line above the accordion. Surfaces the most impactful
-  // action when it lives inside Improve confidence (so it isn't hidden by the
-  // collapse). Two paths:
-  //   1. The topmost triage card overall is in the Improve confidence bucket.
-  //   2. There are no remaining triage cards anywhere AND the success target is
-  //      unset — in that case the goal target itself is the top remaining action.
-  const overallTop = triageTop3[0] ?? triageQuickFix[0] ?? null
-  const topCardInsideImproveConfidence =
-    overallTop && improveConfidenceCards.some(c => c.key === overallTop.key)
-  const noTriageCardsAnywhere = triageTop3.length === 0 && triageQuickFix.length === 0
-  const goalTargetIsTopAction = noTriageCardsAnywhere && data.successThreshold == null
-  const highestValueLabel = topCardInsideImproveConfidence
-    ? overallTop.title
-    : goalTargetIsTopAction
-      ? 'Set success target'
-      : null
+  // Brief 5.8A D3b: improveConfidenceCount + highestValueLabel were removed
+  // when the Improve confidence accordion lost its visible heading + count
+  // pill. The accordion now self-renders with a generic "Show additional
+  // controls" toggle and only suppresses itself when there is no content at
+  // all — handled inline via the `count` prop.
 
   // Dynamic headline for the health card. Reads from the same bucket data
   // already computed above so there's no duplicate work. Precedence:
@@ -1505,9 +2066,10 @@ export function PreAnalysisPanel({
       if (firstBias) {
         return `${firstBias} may be shaping your choices. Review before running.`
       }
-      // 3c. Top triage cards (rendered last). Singular factor/edge subject —
-      //     the original "has the biggest impact" phrasing fits.
-      const firstTriage = reviewNextTopCards[0]?.title
+      // 3c. Top triage cards (rendered last) — Brief 5.8A holistic pass:
+      //     unifiedTriageQueue is the canonical source. Singular factor/edge
+      //     subject — the "has the biggest impact" phrasing fits.
+      const firstTriage = unifiedTriageQueue[0]?.card.title
       if (firstTriage) {
         return `${firstTriage} has the biggest impact. Review before running.`
       }
@@ -1529,7 +2091,7 @@ export function PreAnalysisPanel({
     fewerThanTwoOptionsCheck,
     noBaselineCheck,
     reviewNextCount,
-    reviewNextTopCards,
+    unifiedTriageQueue,
     biasTriggers,
     showOptionQualityCard,
   ])
@@ -1638,106 +2200,141 @@ export function PreAnalysisPanel({
             at full opacity. */}
         <div className={`space-y-4 ${isFailed ? 'opacity-60 pointer-events-none' : ''}`}>
 
-          {/* Compressed health row: ring + 4 dimension bars + dynamic headline.
-              Sits inside the de-emphasised wrapper so it dims with the rest of
-              the content when the banner is in failed state. The dynamicHeadline
-              prop carries the bucket-derived coaching line; the static
-              "Your expertise makes the analysis more reliable…" fallback was
-              deleted in the bias-and-headline brief. */}
+          {/* Brief 5.8A post-D7 round 2: enriched draft-failure blockers
+              (e.g. "Options need configuration") render at the TOP of the
+              panel content, above the T1 card. They are recovery
+              affordances (multi-action retry / edit brief / focus node)
+              and burying them below coaching surfaces would leave the
+              user unable to find the path forward. The comment block
+              previously documented "ABOVE T1" placement but the JSX had
+              drifted below — this corrects the position to match the
+              documented intent. */}
+          {!data.isReady && visibleEnrichedBlockers.length > 0 && (
+            <SectionErrorBoundary section="Blockers">
+              <BlockersSection
+                blockers={visibleEnrichedBlockers}
+                informationalBlockers={[]}
+                canRetryDraft={canRetryDraft}
+                isRetrying={isRetrying}
+                lastDraftRetryable={lastDraftError?.retryable}
+                onRetryDraft={handleRetryDraft}
+                onEditBrief={handleEditBrief}
+                onFocusNode={handleFocusNode}
+              />
+            </SectionErrorBoundary>
+          )}
+
+          {/* Brief 5.8A D3a: T1 "Decision readiness" card. The .sc wrapper
+              hosts the ring + 4 dimension bars (ModelHealthCard compact mode),
+              followed by failing-check rows and the narrative bridge. D3b
+              will absorb the unified triage queue here; D3c will add the
+              bias .nudge rows, WhatOlumiAddedSection, contribution row and
+              checks footer. The wrapper is deliberately additive in D3a so
+              the existing Must fix / Review next / Improve confidence
+              sections continue to render unchanged below.
+
+              Loading-state escape hatch: ModelHealthCard renders its own
+              "Generating your decision model..." panel when isLoading and
+              no goal node exists. In that case the T1 wrapper would just
+              draw an empty extra border around it, so we drop the wrapper
+              for that one render path and let ModelHealthCard own the
+              panel chrome (matches its existing rounded-lg + border-panel-border). */}
           <SectionErrorBoundary section="Model health">
-            <ModelHealthCard
-              compact
-              completeness={completeness}
-              evidence={evidence}
-              balance={balance}
-              calibration={calibration}
-              optionCount={data.optionPreviews.length}
-              goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
-              coachingSummary={data.coachingSummary}
-              dynamicHeadline={dynamicHeadline}
-              isLoading={data.isLoading}
-              hasGoalNode={data.nodesByKind.goal.length > 0}
+            {data.isLoading && data.nodesByKind.goal.length === 0 ? (
+              <ModelHealthCard
+                compact
+                completeness={completeness}
+                evidence={evidence}
+                balance={balance}
+                calibration={calibration}
+                optionCount={data.optionPreviews.length}
+                goalLabel={data.goalNode ? ((data.goalNode.data as { label?: string })?.label ?? null) : null}
+                coachingSummary={data.coachingSummary}
+                dynamicHeadline={dynamicHeadline}
+                isLoading={data.isLoading}
+                hasGoalNode={false}
+              />
+            ) : (
+              <T1DecisionReadinessCard
+                completeness={completeness}
+                evidence={evidence}
+                balance={balance}
+                calibration={calibration}
+                optionCount={data.optionPreviews.length}
+                goalLabel={goalLabel}
+                coachingSummary={data.coachingSummary}
+                dynamicHeadline={dynamicHeadline}
+                isLoading={data.isLoading}
+                hasGoalNode={hasGoalNode}
+                hasGoalTarget={hasGoalTarget}
+                failingChecks={failingChecks}
+                unverifiedEstimateCount={data.improvementsByCategory.verify.length}
+                relationshipsToReviewCount={data.improvementsByCategory.add_evidence.length}
+                topThree={unifiedTopThree}
+                alsoConsider={unifiedAlsoConsider}
+                handlers={t1Handlers}
+                biasNudges={biasTriggers}
+                contributionBreakdown={contributionBreakdown}
+                wideningSlot={wideningSlot}
+                missingKnowledgeSlot={missingKnowledgeSlot}
+              />
+            )}
+          </SectionErrorBoundary>
+
+          {/* Brief 5.8A D4: T1 "Your options" card. Renders as its own .sc
+              card directly after T1 Decision readiness. Always visible when
+              the model has at least one option preview. The same_levers
+              coaching line is still gated inside the component itself. */}
+          {data.optionPreviews.length > 0 && (
+            <SectionErrorBoundary section="Your options">
+              <OptionPreview
+                options={data.optionPreviews}
+                onFocusNode={handleFocusNode}
+                onHoverEnter={handleHoverElement}
+                onHoverLeave={handleHoverClear}
+                onSendMessage={onSendMessage}
+                hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
+                collapseInterventionsByDefault
+              />
+            </SectionErrorBoundary>
+          )}
+
+          {/* Brief 5.8A D5: T2 Sharpen your thinking accordion. Self-suppresses
+              when no bias trigger or framing condition produces a card. The
+              D2-filtered biasTriggers list flows in directly — no per-consumer
+              refilter. Framing conditions read from the goal node observed
+              state + successThreshold. */}
+          <SectionErrorBoundary section="Sharpen your thinking">
+            <SharpenYourThinking
+              biasTriggers={biasTriggers}
+              hasGoalBaseline={(() => {
+                const observed = data.goalNode?.data && (
+                  (data.goalNode.data as { observedState?: { value?: unknown } }).observedState
+                  ?? (data.goalNode.data as { observed_state?: { value?: unknown } }).observed_state
+                )
+                return observed != null && (observed as { value?: unknown }).value != null
+              })()}
+              hasSuccessTarget={data.successThreshold !== null}
+              goalHasQuantitativeHint={(() => {
+                const goalData = data.goalNode?.data as { goal_threshold_unit?: string; goal_threshold_cap?: number } | undefined
+                return goalData?.goal_threshold_unit != null || goalData?.goal_threshold_cap != null
+              })()}
+              onSetCurrentValue={handleSetTargetFocus}
+              onSetTarget={handleSetTargetFocus}
             />
           </SectionErrorBoundary>
 
-          {/* Section 1: Must fix — only when blockers exist.
-              Order per brief:
-                1. Options need configuration (enriched blockers — surfaced first)
-                2. Structural flags ("Fewer than 2 options", "No baseline set")
-                3. Critical severity items from triage cards
-              No internal subheader from BlockersSection — Must fix owns the header. */}
-          {mustFixCount > 0 && (
-            <section className="space-y-2" data-testid="section-must-fix">
-              <SectionHeader title="Must fix" count={mustFixCount} borderClass="border-danger/30" className="" testId="section-must-fix-header" />
-
-              {/* 1. Enriched blockers (e.g. Options need configuration). P0-2:
-                  filtered to drop entries that the Draft failed card already covers. */}
-              {!data.isReady && visibleEnrichedBlockers.length > 0 && (
-                <SectionErrorBoundary section="Blockers">
-                  <BlockersSection
-                    blockers={visibleEnrichedBlockers}
-                    informationalBlockers={[]}
-                    canRetryDraft={canRetryDraft}
-                    isRetrying={isRetrying}
-                    lastDraftRetryable={lastDraftError?.retryable}
-                    onRetryDraft={handleRetryDraft}
-                    onEditBrief={handleEditBrief}
-                    onFocusNode={handleFocusNode}
-                    hideHeader
-                  />
-                </SectionErrorBoundary>
-              )}
-
-              {/* 2. Structural check rows */}
-              {structuralCheckCount > 0 && (
-                <div className="space-y-1">
-                  {fewerThanTwoOptionsCheck && (
-                    <TriageCheckRow
-                      label="Fewer than 2 options"
-                      pass={false}
-                      actionLabel="Add option"
-                      onAction={() => onSendMessage?.('Add another option to compare')}
-                    />
-                  )}
-                  {noBaselineCheck && (
-                    <TriageCheckRow
-                      label="No baseline set"
-                      pass={false}
-                      actionLabel="Add baseline"
-                      onAction={() => onSendMessage?.('Add a status quo option to compare against')}
-                    />
-                  )}
-                </div>
-              )}
-
-              {/* 3. Critical Fix triage cards */}
-              {mustFixCards.length > 0 && (
-                <div className="flex flex-col gap-2" data-testid="must-fix-cards">
-                  {mustFixCards.map((card, i) => (
-                    <TriageCard
-                      key={card.key}
-                      cardKey={card.key}
-                      ordinal={i + 1}
-                      title={card.title}
-                      detail={card.detail}
-                      subtitle={card.subtitle}
-                      category={card.category}
-                      influence={card.influence}
-                      action={card.action}
-                      editorConfig={card.editorConfig ?? null}
-                      sourcePill={card.sourcePill}
-                      aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
-                      onConfirm={handleConfirm}
-                      onEdit={handleSetValueForGap}
-                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                      onHoverEnter={handleHoverElement}
-                      onHoverLeave={handleHoverClear}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
-          )}
+          {/* Brief 5.8A holistic-review pass: legacy Must fix section
+              consolidated into T1.
+                - Critical fix triage cards (mustFixCards) → unified queue
+                  inside T1 (sorted first by source order so they remain
+                  analysis-blocking and visually emphasised as card #1).
+                - Structural check rows (Fewer than 2 options, No baseline)
+                  → T1 failing-checks block via T1FailingCheckRow.
+                - Enriched draft-failure blockers (BlockersSection) →
+                  rendered at the TOP of the panel content above T1 so
+                  the recovery affordances are not buried (see block
+                  above). */}
 
           {/* Informational (non-blocking) blockers — surfaced regardless of bucket */}
           {data.informationalBlockers.length > 0 && (
@@ -1754,30 +2351,21 @@ export function PreAnalysisPanel({
             </SectionErrorBoundary>
           )}
 
-          {/* Section 2: Review next */}
-          {reviewNextCount > 0 && (
-            <section className="space-y-2" data-testid="section-review-next">
-              <SectionHeader title="Review next" subtitle="Highest-impact checks. Resolving these could change your result." count={reviewNextCount} borderClass="border-info/30" className="" testId="section-review-next-header" />
-
-              {/* P1-3: Per-section coaching line derived from the SAME picked
-                  Start here signal. Suppressed when redundant with the Start
-                  here card, when the signal carries a defaulted score, or
-                  when there's no useful copy to render. */}
-              {(() => {
-                const line = resolveReviewNextCoachingLine(startHereSignal)
-                if (!line) return null
-                return (
-                  <p className={`${typography.panelMeta} text-text-light`} data-testid="review-next-coaching">
-                    {line}
-                  </p>
-                )
-              })()}
-
-              {/* P1-5: Resolved-state rows for recently confirmed triage items.
-                  Each row renders "✓ {label} confirmed — Undo" and disappears
-                  automatically on the next render cycle once the underlying
-                  signal has been filtered out of the live list. Fade is
-                  disabled when prefers-reduced-motion is set. */}
+          {/* Brief 5.8A holistic-review pass — legacy Review next section
+              removed entirely. Triage cards live in the T1 unified queue,
+              bias rows live in the T1 nudge block, OptionPreview is its
+              own .sc card, the option-quality card is gated inside
+              OptionPreview itself, and the Start here render is gone.
+              Two surfaces are preserved as small standalone fragments:
+                1. Resolved-state rows (confirm-undo affordance) — short-
+                   lived feedback rows that disappear once Hook B
+                   re-derives. Surfaced inline so the user sees their
+                   confirmation acknowledged.
+                2. "See all relationships" link — opens the Model tab
+                   focused on the relationships section. Anchored on the
+                   presence of edge items in the unified queue. */}
+          {resolvedSignals.size > 0 && (
+            <div className="flex flex-col gap-1" data-testid="resolved-signals-block">
               {Array.from(resolvedSignals.values()).map(entry => (
                 <div
                   key={`resolved-${entry.signalId}`}
@@ -1791,7 +2379,7 @@ export function PreAnalysisPanel({
                   <button
                     type="button"
                     onClick={() => handleUndoResolved(entry.signalId)}
-                    className={`${typography.panelMeta} text-info hover:underline`}
+                    className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
                     aria-label={`Undo confirmation of ${entry.label}`}
                     data-testid={`undo-${entry.signalId}`}
                   >
@@ -1799,357 +2387,42 @@ export function PreAnalysisPanel({
                   </button>
                 </div>
               ))}
-
-              {/* P1-4: Start here card — highest-priority signal elevated with
-                  a 3px success left border. Delegates rendering to the
-                  underlying signal kind. Exclusion from downstream lists is
-                  enforced above by signal_id. */}
-              {startHereSignal && (
-                <div
-                  className="border-l-[3px] border-success rounded-[10px]"
-                  data-testid="start-here-card"
-                >
-                  {startHereSignal.kind === 'triage' && (
-                    <TriageCard
-                      cardKey={startHereSignal.card.key}
-                      // Brief 4 hotfix Task 4: Start Here card does not show a
-                      // numeric badge — the green 3px left border + "Start here"
-                      // framing already signal primacy. Previously `ordinal={0}`
-                      // rendered a "0" circle that users read as "nothing".
-                      title={startHereSignal.card.title}
-                      detail={startHereSignal.card.detail}
-                      subtitle={startHereSignal.card.subtitle}
-                      category={startHereSignal.card.category}
-                      influence={startHereSignal.card.influence}
-                      action={startHereSignal.card.action}
-                      editorConfig={(startHereSignal.card as { editorConfig?: ScientificEditorProps | null }).editorConfig ?? null}
-                      sourcePill={startHereSignal.card.sourcePill}
-                      aiDiscussSlot={(() => {
-                        const el = (startHereSignal.card as { aiDiscuss?: AiDiscussElement }).aiDiscuss
-                        return el ? <DiscussWithAiButton element={el} /> : undefined
-                      })()}
-                      onConfirm={handleConfirm}
-                      onEdit={handleSetValueForGap}
-                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                      onHoverEnter={handleHoverElement}
-                      onHoverLeave={handleHoverClear}
-                    />
-                  )}
-                  {startHereSignal.kind === 'bias' && (
-                    <div
-                      className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
-                      {...buildBiasHoverHandlers(startHereSignal.targetFactorId ?? null, setHighlightedNodes, setHighlightedEdges)}
-                    >
-                      <p className={`${typography.panelHeader} text-text-header`}>
-                        {startHereSignal.biasType}
-                      </p>
-                      {/* Brief 5.7 D5: propagate the bias trigger's truncated
-                          explanation (subtitle) instead of a generic
-                          meta-commentary line. Falls through to a non-meta
-                          biasType-aware sentence if the trigger had no
-                          explanation. AUTHORITY_BIAS without target_factor_id
-                          is filtered upstream and never reaches this branch. */}
-                      <p className={`${typography.panelMeta} text-text-light mt-0.5`}>
-                        {startHereSignal.subtitle ?? `Be aware of ${startHereSignal.biasType.toLowerCase()} as you review.`}
-                      </p>
-                      <div className="absolute bottom-1 right-1">
-                        <DiscussWithAiButton element={{ kind: 'bias', biasType: startHereSignal.biasType }} />
-                      </div>
-                    </div>
-                  )}
-                  {/*
-                    Note: the `option_quality` kind is deliberately excluded
-                    from Start here by pickStartHere.ts:113
-                    (`.filter(s => s.kind !== 'option_quality')`), so a
-                    render branch for that kind would be unreachable and was
-                    removed to prevent dead-path drift. Option-quality
-                    concerns are communicated by the OptionPreview card
-                    below rather than by a Start here one-liner.
-                  */}
-                </div>
-              )}
-
-              {/* Option similarity / quality card — interventions collapsed per option.
-                  The narrow-framing coaching lives inside OptionPreview (see
-                  SameLeversCoaching in that file); Start here never surfaces
-                  option_quality signals (excluded by pickStartHere). */}
-              {showOptionQualityCard && data.optionPreviews.length > 0 && (
-                <OptionPreview
-                  options={data.optionPreviews}
-                  onFocusNode={handleFocusNode}
-                  onHoverEnter={handleHoverElement}
-                  onHoverLeave={handleHoverClear}
-                  onSendMessage={onSendMessage}
-                  hasSameLeversCheck={data.qualityChecks.some(c => c.id === 'same_levers')}
-                  collapseInterventionsByDefault
-                />
-              )}
-
-              {/* Bias trigger cards. Each card shows: icon, title, truncated
-                  explanation (full text on hover via tooltip), sparkle bottom-right
-                  (auto-submits; incorporates micro_intervention when present).
-                  No text pills — unified spec §3.3. P1-8: budget capped at 2
-                  visible; overflow appears when the user expands Show more. */}
-              {(reviewNextExpanded ? biasTriggersAfterStart : reviewNextBiasVisible).length > 0 && (
-                <div className="space-y-1.5" data-testid="review-next-nudges">
-                  {(reviewNextExpanded ? biasTriggersAfterStart : reviewNextBiasVisible).map(trigger => {
-                    const Icon = trigger.icon
-                    // Only attach the DS tooltip when the explanation was
-                    // actually truncated — otherwise the hover would just
-                    // repeat the visible text. truncateExplanation appends
-                    // an ellipsis when the source string exceeds 80 chars,
-                    // so length divergence is the cheapest reliable signal.
-                    const isTruncated = trigger.subtitle !== trigger.fullExplanation
-                    const subtitleEl = (
-                      <p className={`${typography.panelBody} text-text-light mt-0.5`}>
-                        {trigger.subtitle}
-                      </p>
-                    )
-                    // Hover-highlight the target node (if any) for CEE-sourced
-                    // triggers. targetFactorId is only populated when the id
-                    // resolved to a real node, so deterministic triggers and
-                    // unresolved targets are silently no-op.
-                    const hoverHandlers = buildBiasHoverHandlers(trigger.targetFactorId, setHighlightedNodes, setHighlightedEdges)
-                    return (
-                      <div
-                        key={trigger.id}
-                        className="relative px-4 pr-7 py-2.5 border border-warning/30 rounded-[10px] hover:bg-panel-hover"
-                        data-testid={`bias-trigger-${trigger.id}`}
-                        {...hoverHandlers}
-                      >
-                        <div className="flex items-start gap-2">
-                          <Icon className="w-4 h-4 text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
-                          <div className="flex-1 min-w-0">
-                            <p className={`${typography.panelHeader} text-text-header`}>{trigger.title}</p>
-                            {isTruncated ? (
-                              <Tooltip
-                                delay={300}
-                                content={trigger.fullExplanation}
-                                className="!max-w-[280px]"
-                              >
-                                {subtitleEl}
-                              </Tooltip>
-                            ) : (
-                              subtitleEl
-                            )}
-                          </div>
-                        </div>
-                        {/* Sparkle bottom-right — auto-submits prompt including micro-intervention
-                            technique when present (unified spec §3.3: no text pills on bias cards). */}
-                        <div className="absolute bottom-1 right-1">
-                          <DiscussWithAiButton element={{ kind: 'bias', biasType: trigger.title, microInterventionStep: trigger.microInterventionStep }} />
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
-
-              {/* Triage cards (excluding any in Must fix). P1-8: budget capped
-                  at 3 visible; overflow appears when Show more expanded. */}
-              {(() => {
-                const visibleTriage = reviewNextExpanded ? reviewNextTriageAfterStart : reviewNextTopCards
-                if (visibleTriage.length === 0) return null
-                return (
-                  <div className="flex flex-col gap-2" data-testid="triage-top-actions">
-                    {visibleTriage.map((card, i) => (
-                      <TriageCard
-                        key={card.key}
-                        cardKey={card.key}
-                        ordinal={i + 1}
-                        badgeColor="bg-info"
-                        title={card.title}
-                        detail={card.detail}
-                        subtitle={card.subtitle}
-                        category={card.category}
-                        influence={card.influence}
-                        action={card.action}
-                        editorConfig={card.editorConfig ?? null}
-                        sourcePill={card.sourcePill}
-                        aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
-                        onConfirm={handleConfirm}
-                        onEdit={handleSetValueForGap}
-                        onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                        onHoverEnter={handleHoverElement}
-                        onHoverLeave={handleHoverClear}
-                      />
-                    ))}
-                  </div>
-                )
-              })()}
-
-              {/* P1-8: Show more / Show less toggle — only when overflow exists */}
-              {reviewNextOverflowCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setReviewNextExpanded(e => !e)}
-                  aria-expanded={reviewNextExpanded}
-                  className={`${typography.panelMeta} text-info hover:underline self-start`}
-                  data-testid="review-next-show-more"
-                >
-                  {reviewNextExpanded
-                    ? 'Show less'
-                    : `Show ${reviewNextOverflowCount} more`}
-                </button>
-              )}
-
-              {/* "See all N relationships in model tab ›" — anchored to the
-                  CURRENTLY-VISIBLE Review next edge cards. The gate uses the
-                  same `visibleTriage` set the cards above derive from, so if
-                  start-here promotion or the collapsed top-3 budget hides every
-                  edge item, the link disappears too. The link's contextual
-                  anchor is the cards immediately above it; when those cards
-                  contain no edge item, the link has nothing to anchor. */}
-              {(() => {
-                const causalEdgeCount = getCausalEdges(nodes, edges as Edge<EdgeData>[]).length
-                if (causalEdgeCount === 0) return null
-
-                // Build a set of edge-targeted verify item keys, then check
-                // whether any visible Review next card carries that key.
-                const verifyItems = data.improvementsByCategory.verify ?? []
-                const edgeItemKeys = new Set(
-                  verifyItems.filter(item => item.focus?.type === 'edge').map(item => item.key),
-                )
-                if (edgeItemKeys.size === 0) return null
-
-                const visibleTriage = reviewNextExpanded ? reviewNextTriageAfterStart : reviewNextTopCards
-                const hasVisibleEdgeCard = visibleTriage.some(card => edgeItemKeys.has(card.key))
-                if (!hasVisibleEdgeCard) return null
-
-                const handleClick = () => {
-                  // Tell ModelTabBody to focus + auto-expand the relationships
-                  // section on its next render. Set BEFORE switching tabs so
-                  // the Model tab mounts already aware of the request.
-                  // ModelTabBody owns the scroll RAF; it has visibility into
-                  // when openSection has been applied, which PreAnalysisPanel
-                  // does not.
-                  useUIStore.getState().requestModelTabSection('relationships')
-                  useUIStore.getState().setActiveOutputTab('diagnostics')
-                }
-                return (
-                  <button
-                    type="button"
-                    onClick={handleClick}
-                    className={`${typography.panelMeta} text-info hover:underline self-start inline-flex items-center gap-1 mt-1`}
-                    data-testid="preanalysis-see-all-relationships"
-                  >
-                    <LinkIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    See all {causalEdgeCount} relationships in model tab ›
-                  </button>
-                )
-              })()}
-            </section>
+            </div>
           )}
-
-          {/* What Olumi added — informational/transparency surface for
-              CEE coaching.widening_log. Renders nothing when wideningLog
-              is null/empty. Mounted between Review next and Improve
-              confidence per the brief decision (informational, not a
-              blocker). */}
-          <WhatOlumiAddedSection />
-
-          {/* Section 3: Improve confidence — collapsed by default.
-              P1-3: coaching line derived from actionable count. */}
-          <ImproveConfidenceAccordion
-            count={improveConfidenceCount}
-            highestValueLabel={highestValueLabel}
-            subtitle="Lower-impact checks. These sharpen the result but are unlikely to change it."
-            coachingLine={
-              // Brief 4 hotfix Task 5: subtitle must match header pill. Use the
-              // same count and render the complete-state message when there
-              // are no actionable improvement items left.
-              improveConfidenceCount === 0
-                ? 'Your model looks well-calibrated.'
-                : getImproveConfidenceCoachingLine(improveConfidenceCount)
+          {(() => {
+            const causalEdgeCount = getCausalEdges(nodes, edges as Edge<EdgeData>[]).length
+            if (causalEdgeCount === 0) return null
+            const verifyItems = data.improvementsByCategory.verify ?? []
+            const edgeItemKeys = new Set(
+              verifyItems.filter(item => item.focus?.type === 'edge').map(item => item.key),
+            )
+            if (edgeItemKeys.size === 0) return null
+            const hasVisibleEdgeCard = unifiedTriageQueue.some(entry => edgeItemKeys.has(entry.card.key))
+            if (!hasVisibleEdgeCard) return null
+            const handleClick = () => {
+              useUIStore.getState().requestModelTabSection('relationships')
+              useUIStore.getState().setActiveOutputTab('diagnostics')
             }
-          >
-            {/* Goal target inline edit */}
-            <SuccessTarget
-              goalNode={data.goalNode}
-              goalNodes={data.nodesByKind.goal}
-              successThreshold={data.successThreshold}
-              isThresholdAutoDerived={data.isThresholdAutoDerived}
-              isThresholdConfirmed={data.isThresholdConfirmed}
-              thresholdProvenance={data.thresholdProvenance}
-              onThresholdChange={handleThresholdChange}
-              onThresholdConfirm={handleThresholdConfirm}
-              onThresholdEdit={handleThresholdEdit}
-              onGoalChange={handleGoalChange}
-              goalThresholdRaw={data.goalThresholdRaw}
-              goalThresholdUnit={data.goalThresholdUnit}
-              thresholdSourceBadge={data.thresholdSourceBadge}
-              onFocusNode={handleFocusNode}
-              onHoverEnter={(id) => handleHoverElement('node', id)}
-              onHoverLeave={handleHoverClear}
-              constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
-              goalConstraints={ceeAnalysisReady?.goal_constraints}
-              onSendMessage={onSendMessage}
-            />
+            return (
+              <button
+                type="button"
+                onClick={handleClick}
+                className={`${typography.panelMeta} text-info hover:underline self-start inline-flex items-center gap-1 mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+                data-testid="preanalysis-see-all-relationships"
+              >
+                <LinkIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                See all {causalEdgeCount} relationships in model tab ›
+              </button>
+            )
+          })()}
 
-            {/* Remaining triage cards (quick fix) — excluding any in Must fix */}
-            {improveConfidenceCards.length > 0 && (
-              <div className="flex flex-col gap-2" data-testid="improve-confidence-cards">
-                {improveConfidenceCards.map((card, i) => (
-                  <TriageCard
-                    key={card.key}
-                    cardKey={card.key}
-                    ordinal={i + 1}
-                    badgeColor="bg-option"
-                    title={card.title}
-                    detail={card.detail}
-                    subtitle={card.subtitle}
-                    category={card.category}
-                    influence={card.influence}
-                    action={card.action}
-                    editorConfig={card.editorConfig ?? null}
-                    sourcePill={card.sourcePill}
-                    aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
-                    onConfirm={handleConfirm}
-                    onEdit={handleSetValueForGap}
-                    onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                    onHoverEnter={handleHoverElement}
-                    onHoverLeave={handleHoverClear}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* D7: AI-estimated and missing-data factor cards (threaded from
-                former YourExpertise section). Items deduplicated against the
-                triage list above. Same action handlers as triage cards. */}
-            {expertiseTriageCards.length > 0 && (
-              <div className="flex flex-col gap-2" data-testid="expertise-triage-cards">
-                {expertiseTriageCards.map((card, i) => (
-                  <TriageCard
-                    key={card.key}
-                    cardKey={card.key}
-                    ordinal={improveConfidenceCards.length + i + 1}
-                    badgeColor="bg-factor"
-                    title={card.title}
-                    detail={card.detail}
-                    subtitle={card.subtitle}
-                    category={card.category}
-                    influence={card.influence}
-                    action={card.action}
-                    editorConfig={card.editorConfig ?? null}
-                    sourcePill={card.sourcePill}
-                    aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
-                    onConfirm={handleConfirm}
-                    onEdit={handleSetValueForGap}
-                    onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                    onHoverEnter={handleHoverElement}
-                    onHoverLeave={handleHoverClear}
-                  />
-                ))}
-              </div>
-            )}
-
-            {/* "What's missing?" prompt */}
-            <MissingKnowledgePrompt
-                context="model"
-                aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the model" />}
-              />
-          </ImproveConfidenceAccordion>
+          {/* Brief 5.8A holistic-review pass: ImproveConfidenceAccordion
+              removed entirely. SuccessTarget moves into the T3 Advanced
+              accordion below so the panel hierarchy is exactly T1 → T2 → T3
+              with no orphan "additional controls" surface. The "Set target"
+              affordance inside the T1 failing-checks block routes the user
+              to the inspector when the goal target needs editing — the
+              SuccessTarget editor stays available for power-users via T3. */}
 
           {/* Minimal graph coaching — pre-run guidance, not blocker */}
           {isMinimalGraph && (
@@ -2165,16 +2438,51 @@ export function PreAnalysisPanel({
             </div>
           )}
 
-          {/* CEE coaching surfaces (build a555cf7b+). Each renders nothing when its
-              source array is empty, so no empty containers appear. The coaching
-              summary itself is rendered inside ModelHealthCard via the legacy
-              analysis_ready.coaching_summary path. Bias signals are merged into
-              the existing biasTriggers list above (see the draftCoachingBiasSignals
-              branch in the biasTriggers useMemo); they do not get their own
-              section. Source pills ("AI detected" / "Structural") were considered
-              but withheld per unified spec §3.3 which bans text pills on bias
-              trigger cards. */}
-          <DraftStrengthenSection />
+          {/* Brief 5.8A D3b: DraftStrengthenSection removed. Strengthen items
+              now overlay onto matching unified-queue triage cards via the
+              strengthenOverlayMap (case-insensitive trim match). Items that
+              do not match a triage label are silently skipped — they have no
+              actionable target on their own. */}
+
+          {/* Brief 5.8A D6: T3 Advanced accordion — collapsed by default, no
+              preview line. Inventory at land time:
+                - Goal selector (only currently-mounted advanced control)
+              Future surfaces (risk appetite, graph statistics, simulation
+              settings) land in Brief 5.8B/5.9 when their data sources are
+              wired. The accordion stays mounted now so the IA slot is
+              reserved and hooks future expansion behind a single
+              consistent surface. */}
+          {data.nodesByKind.goal.length > 0 && (
+            <SectionErrorBoundary section="Advanced">
+              <AnalysisSettings
+                goalNodes={data.nodesByKind.goal}
+                selectedGoalNode={data.goalNode}
+                onGoalChange={handleGoalChange}
+              >
+                <SuccessTarget
+                  goalNode={data.goalNode}
+                  goalNodes={data.nodesByKind.goal}
+                  successThreshold={data.successThreshold}
+                  isThresholdAutoDerived={data.isThresholdAutoDerived}
+                  isThresholdConfirmed={data.isThresholdConfirmed}
+                  thresholdProvenance={data.thresholdProvenance}
+                  onThresholdChange={handleThresholdChange}
+                  onThresholdConfirm={handleThresholdConfirm}
+                  onThresholdEdit={handleThresholdEdit}
+                  onGoalChange={handleGoalChange}
+                  goalThresholdRaw={data.goalThresholdRaw}
+                  goalThresholdUnit={data.goalThresholdUnit}
+                  thresholdSourceBadge={data.thresholdSourceBadge}
+                  onFocusNode={handleFocusNode}
+                  onHoverEnter={(id) => handleHoverElement('node', id)}
+                  onHoverLeave={handleHoverClear}
+                  constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
+                  goalConstraints={ceeAnalysisReady?.goal_constraints}
+                  onSendMessage={onSendMessage}
+                />
+              </AnalysisSettings>
+            </SectionErrorBoundary>
+          )}
         </div>
       </div>
 
@@ -2193,6 +2501,8 @@ export function PreAnalysisPanel({
         blockedReason={blockedReason}
         isLoading={data.isLoading}
         isRetrying={isRetrying}
+        reviewedCount={data.reviewedFactorsCount}
+        totalReviewableCount={data.totalReviewableFactorsCount}
         evidenceNonAiCount={data.evidenceQuality.nonAiCount}
         evidenceTotalCount={data.evidenceQuality.totalCount}
         weightedInfluenceReviewed={weightedInfluenceReviewed}

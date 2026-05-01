@@ -421,6 +421,81 @@ describe('applyV5State — analysis_ready', () => {
     expect(result.deferred.some((d) => d.reason === 'analysis_ready_invalid_shape')).toBe(true)
   })
 
+  // ------------------------------------------------------------------
+  // Freshness contract — V5 normaliser must mirror useConversation.ts:
+  //   - missing freshness → 'unknown'
+  //   - invalid freshness → 'unknown'
+  //   - valid enum values pass through
+  //   - non-string freshness_reason is dropped at the boundary
+  // ------------------------------------------------------------------
+
+  it('coerces missing freshness to "unknown" on legacy V5 payloads', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [readyOption],
+        // freshness deliberately absent
+      }),
+      store,
+    )
+    const written = setCeeAnalysisReady.mock.calls[0][0]
+    expect(written.freshness).toBe('unknown')
+  })
+
+  it('coerces invalid freshness values to "unknown"', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [readyOption],
+        freshness: 'bogus',
+      }),
+      store,
+    )
+    const written = setCeeAnalysisReady.mock.calls[0][0]
+    expect(written.freshness).toBe('unknown')
+  })
+
+  it.each(['fresh', 'stale', 'unknown', 'none'] as const)(
+    'passes valid freshness "%s" through V5 normaliser',
+    (value) => {
+      const { store, setCeeAnalysisReady } = makeStore()
+      applyV5State(
+        responseWith({
+          status: 'ready',
+          goal_node_id: 'goal-1',
+          options: [readyOption],
+          freshness: value,
+          freshness_reason: 'graph hash mismatch',
+        }),
+        store,
+      )
+      const written = setCeeAnalysisReady.mock.calls[0][0]
+      expect(written.freshness).toBe(value)
+      expect(written.freshness_reason).toBe('graph hash mismatch')
+    },
+  )
+
+  it('drops non-string freshness_reason at the V5 boundary', () => {
+    const { store, setCeeAnalysisReady } = makeStore()
+    applyV5State(
+      responseWith({
+        status: 'ready',
+        goal_node_id: 'goal-1',
+        options: [readyOption],
+        freshness: 'stale',
+        freshness_reason: 42,
+      }),
+      store,
+    )
+    const written = setCeeAnalysisReady.mock.calls[0][0]
+    expect(written.freshness).toBe('stale')
+    expect(written.freshness_reason).toBeUndefined()
+  })
+
   it('drops option entries with neither id nor option_id; rejects payload when none remain', () => {
     const { store, setCeeAnalysisReady } = makeStore()
     const result = applyV5State(
