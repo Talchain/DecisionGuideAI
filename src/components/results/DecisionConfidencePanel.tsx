@@ -12,8 +12,8 @@
  * Uses shared TriageHealthHeader + TriageCard components.
  */
 
-import { useMemo, memo, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
+import { useMemo, memo, useState, type ReactNode } from 'react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, X } from 'lucide-react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
 import { HeroQualifier } from './HeroQualifier'
@@ -24,10 +24,11 @@ import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
-import { stripEncodingNotation } from './utils/cleanFactorLabel'
+import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
+import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
 import { useCanvasStore } from '@/canvas/store'
 import {
   buildStrengthenOverlayMap,
@@ -54,6 +55,10 @@ interface DecisionConfidencePanelProps {
   expertMode?: boolean
   /** Lookup: factor node ID → current observed value + unit/cap (for pre-filling triage card editors) */
   nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>
+  /** Brief 5.8B D2c: handler invoked by the dominant-factor "Research" chip (moved from DriversSection). */
+  onSendMessage?: (text: string) => void
+  /** Brief 5.8B D2c: AI affordance rendered inside the T1 checks-footer MissingKnowledgePrompt. */
+  aiAffordance?: ReactNode
 }
 
 // Post-analysis uses a single-value ring (winner's win probability).
@@ -169,51 +174,213 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
   }))
 }
 
-// ── Section 2: Result checks ────────────────────────────────────────────────
+// ── Section 2: Result checks (Brief 5.8B D2c — flip-risk extracted) ─────────
 
-function ResultChecks({ data, onFocusNode }: { data: ResultsSectionDataReturn; onFocusNode?: (nodeId: string) => void }) {
+function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
   const rec = data.recommendation
-  const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
-
   const winnerConstraints = rec.recommendedOption?.constraintAnalysis
   const goalThreshold = rec.goalThreshold
-
-  const switchPct = fragile?.switchProbability != null
-    ? Math.round(fragile.switchProbability * 100)
-    : null
-
   return (
     <div className="space-y-2">
-      {/* Target probabilities */}
       <TargetProbabilityBars
         constraintAnalysis={winnerConstraints}
         goalThreshold={goalThreshold}
       />
-
-      {/* Fragility warning — inline, no separate heading */}
-      {fragile && (
-        <div className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel">
-          <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" />
-          <p className={`${typography.panelBody} text-text-body`}>
-            If <strong>{fragile.fromLabel}</strong> shifts,{' '}
-            <strong>{fragile.alternativeWinnerLabel}</strong> could overtake
-            {switchPct != null && ` (${switchPct}% probability)`}.
-            {onFocusNode && fragile.fromId && (
-              <>
-                {' '}
-                <button
-                  type="button"
-                  onClick={() => onFocusNode(fragile.fromId)}
-                  className="text-info hover:underline cursor-pointer"
-                >
-                  Validate {stripEncodingNotation(fragile.fromLabel)}
-                </button>
-              </>
-            )}
-          </p>
-        </div>
-      )}
     </div>
+  )
+}
+
+/**
+ * T1 flip-risk callout — moved from inside ResultChecks per Brief 5.8B D2c
+ * step 1. Copy is preserved verbatim ("LOCKED — placement only"). Renders as
+ * an inline `.nudge`-shaped row inside the T1 stack.
+ */
+function T1FlipRiskCallout({
+  data,
+  onFocusNode,
+}: {
+  data: ResultsSectionDataReturn
+  onFocusNode?: (nodeId: string) => void
+}) {
+  const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
+  if (!fragile) return null
+  const switchPct = fragile.switchProbability != null
+    ? Math.round(fragile.switchProbability * 100)
+    : null
+  return (
+    <div
+      className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel"
+      data-testid="t1-flip-risk-callout"
+    >
+      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+      <p className={`${typography.panelBody} text-text-body`}>
+        If <strong>{fragile.fromLabel}</strong> shifts,{' '}
+        <strong>{fragile.alternativeWinnerLabel}</strong> could overtake
+        {switchPct != null && ` (${switchPct}% probability)`}.
+        {onFocusNode && fragile.fromId && (
+          <>
+            {' '}
+            <button
+              type="button"
+              onClick={() => onFocusNode(fragile.fromId)}
+              className="text-info hover:underline cursor-pointer"
+            >
+              Validate {stripEncodingNotation(fragile.fromLabel)}
+            </button>
+          </>
+        )}
+      </p>
+    </div>
+  )
+}
+
+/**
+ * T1 dominant-factor nudge — Brief 5.8B D2c step 2. Replaces the standalone
+ * card that previously lived in DriversSection. Mirrors the pre-analysis
+ * `T1BiasNudgeRow` style: inline icon + bolded label + one-line detail +
+ * Validate / Research chips. Locked copy from the previous DriversSection
+ * render is preserved verbatim.
+ */
+function T1DominantNudge({
+  data,
+  onFocusNode,
+  onSendMessage,
+}: {
+  data: ResultsSectionDataReturn
+  onFocusNode?: (nodeId: string) => void
+  onSendMessage?: (text: string) => void
+}) {
+  const drivers = data.drivers
+  const topDriver = drivers.topDrivers?.[0] ?? drivers.drivers?.[0]
+  const topInfluence = topDriver
+    ? (topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
+    : 0
+  // Same threshold the legacy DriversSection warning used (≥0.8).
+  const showNudge = topInfluence >= 0.8
+  const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
+  const dominantLabel = cleanFactorLabel(rawLabel).label
+  if (!showNudge || !dominantLabel) return null
+  const dominantPct = Math.round(Math.min(1, topInfluence) * 100)
+  const dominantFocusId = drivers.dominantFactorId
+    ?? topDriver?.matchedNodeId
+    ?? topDriver?.factorKey
+    ?? null
+
+  return (
+    <div
+      className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel"
+      role="status"
+      aria-label="Dominant factor warning"
+      data-testid="t1-dominant-nudge"
+    >
+      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
+      <div className="flex-1 min-w-0 space-y-1.5">
+        <p className={`${typography.panelBody} text-text-body`}>
+          <strong>Dominant factor:</strong> {dominantLabel} drives {dominantPct}% of the outcome.
+          If your assumptions about this factor are wrong, the recommendation could change.
+        </p>
+        {((dominantFocusId && onFocusNode) || onSendMessage) && (
+          <div className="flex items-center gap-1.5">
+            {dominantFocusId && onFocusNode && (
+              <button
+                type="button"
+                onClick={() => onFocusNode(dominantFocusId)}
+                className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+                aria-label={`Validate ${dominantLabel} on canvas`}
+              >
+                Validate
+              </button>
+            )}
+            {onSendMessage && (
+              <button
+                type="button"
+                onClick={() => onSendMessage(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
+                className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+                aria-label={`Research ${dominantLabel}`}
+              >
+                Research
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * T1 checks footer — Brief 5.8B D2c step 3. Compact row at the bottom of the
+ * T1 stack: ✓/✗ Winner · ✓/✗ Robust · ✓/✗ Evidence gaps + addressed counter
+ * + the shared `MissingKnowledgePrompt`. Each glyph + label uses panelMeta
+ * (10px text-light) for visual demotion below the queue.
+ */
+function T1ChecksFooter({
+  data,
+  aiAffordance,
+}: {
+  data: ResultsSectionDataReturn
+  aiAffordance?: ReactNode
+}) {
+  const hasWinner = !!data.recommendation.recommendedOption
+  const stability = data.recommendation.recommendationStability
+  const robustOk = typeof stability === 'number' && Number.isFinite(stability) && stability >= 0.85
+  const robustKnown = typeof stability === 'number' && Number.isFinite(stability)
+  const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
+  const evidenceWeak = gaps.some(g => typeof g.confidence === 'number' && g.confidence < 50)
+  const evidenceKnown = gaps.length > 0
+  const addressed = gaps.filter(g => typeof g.confidence === 'number' && g.confidence >= 50).length
+  const total = gaps.length
+
+  return (
+    <div className="border-t border-panel-border pt-2" data-testid="t1-checks-footer">
+      <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
+        <ChecksGlyph
+          ok={hasWinner}
+          okLabel="Winner"
+          notOkLabel="No winner"
+          dataTestid="checks-winner"
+        />
+        <ChecksGlyph
+          ok={robustOk}
+          okLabel="Robust"
+          notOkLabel={robustKnown ? 'Sensitive' : 'Robustness unknown'}
+          dataTestid="checks-robust"
+        />
+        <ChecksGlyph
+          ok={!evidenceWeak && evidenceKnown}
+          okLabel="Evidence covered"
+          notOkLabel={evidenceKnown ? 'Evidence gaps' : 'Evidence unknown'}
+          dataTestid="checks-evidence"
+        />
+        {total > 0 && (
+          <span className="ml-auto" data-testid="checks-addressed">
+            {addressed}/{total} addressed
+          </span>
+        )}
+      </div>
+      <MissingKnowledgePrompt context="results" aiAffordance={aiAffordance} />
+    </div>
+  )
+}
+
+function ChecksGlyph({
+  ok,
+  okLabel,
+  notOkLabel,
+  dataTestid,
+}: {
+  ok: boolean
+  okLabel: string
+  notOkLabel: string
+  dataTestid: string
+}) {
+  const Icon = ok ? Check : X
+  const colour = ok ? 'text-success' : 'text-danger'
+  return (
+    <span className="inline-flex items-center gap-1" data-testid={dataTestid}>
+      <Icon size={12} className={`${colour} flex-shrink-0`} aria-hidden="true" />
+      <span>{ok ? okLabel : notOkLabel}</span>
+    </span>
   )
 }
 
@@ -349,6 +516,8 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onConfirm,
   expertMode: _expertMode,
   nodeValueLookup,
+  onSendMessage,
+  aiAffordance,
 }: DecisionConfidencePanelProps) {
   // Post-analysis ring shows winner's win probability directly. The readiness
   // composite (Structure/Evidence/Coverage/Verified) is pre-analysis-only.
@@ -542,8 +711,12 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         testId="confidence-health-header"
       />
 
-      {/* 2. Result checks — target probabilities + fragility condition */}
-      <ResultChecks data={data} onFocusNode={onFocusNode} />
+      {/* 2. Result checks — target probabilities only (flip-risk extracted to T1FlipRiskCallout per D2c). */}
+      <ResultChecks data={data} />
+
+      {/* 2a. Flip-risk callout — moved out of ResultChecks per D2c step 1.
+          LOCKED copy preserved verbatim. Suppresses when no fragile edge. */}
+      <T1FlipRiskCallout data={data} onFocusNode={onFocusNode} />
 
       {/* 2b. Conditional scenarios (Brief 4 Task 10) — between the flip-risk
           callout and the evidence-gap triage cards, per brief. */}
@@ -554,6 +727,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           onFocusNode={onFocusNode}
         />
       )}
+
+      {/* 2c. Dominant-factor nudge — moved out of DriversSection per D2c step 2.
+          Suppresses when the top driver does not exceed the dominance threshold. */}
+      <T1DominantNudge
+        data={data}
+        onFocusNode={onFocusNode}
+        onSendMessage={onSendMessage}
+      />
 
       {/* 3. Stability narrative + unified EVPI-ranked queue (Brief 5.8B D2b).
           The narrative is suppressed when there are no items; the queue
@@ -618,11 +799,11 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         />
       )}
 
-      {/* Brief 5.7 D2: structural-signals sub-section removed. Equivalent
-          factor signal (name + N% drives + Validate/Research chips) lives in
-          the DriversSection dominant-factor warning. */}
-
-      {/* Task 5: Footer checks removed — hero ring + dimension bars communicate the same info */}
+      {/* 6. T1 checks footer — Brief 5.8B D2c step 3. Compact glyph row
+          (Winner / Robust / Evidence gaps) + addressed counter + the shared
+          MissingKnowledgePrompt. Replaces the standalone bottom-of-panel
+          MissingKnowledgePrompt that ResultsBody used to render. */}
+      <T1ChecksFooter data={data} aiAffordance={aiAffordance} />
     </div>
   )
 })

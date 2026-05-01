@@ -25,7 +25,6 @@ import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
-import { MissingKnowledgePrompt } from '../shared/MissingKnowledgePrompt'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
@@ -178,6 +177,13 @@ export const ResultsBody = memo(function ResultsBody({
           onSetValue={staleOnSetFactorValue}
           expertMode={expertMode}
           nodeValueLookup={nodeValueLookup}
+          onSendMessage={onSendMessage}
+          aiAffordance={
+            <DiscussWithAiButton
+              element={{ kind: 'missing' }}
+              ariaLabel="Tell AI about something missing from the results"
+            />
+          }
         />
       </SectionErrorBoundary>
 
@@ -339,11 +345,9 @@ export const ResultsBody = memo(function ResultsBody({
       })()}
       </SectionErrorBoundary>
 
-      {/* ── SOMETHING MISSING PROMPT ──────────────────────────── */}
-      <MissingKnowledgePrompt
-        context="results"
-        aiAffordance={<DiscussWithAiButton element={{ kind: 'missing' }} ariaLabel="Tell AI about something missing from the results" />}
-      />
+      {/* Brief 5.8B D2c: standalone MissingKnowledgePrompt removed —
+          rendered inline inside the T1 checks footer (DecisionConfidencePanel)
+          to avoid duplicating the affordance. */}
 
       {/* ── SECTION 5: ADVANCED ───────────────────────────────── */}
       <SectionErrorBoundary section="Advanced">
