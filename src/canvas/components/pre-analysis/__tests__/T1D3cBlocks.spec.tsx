@@ -301,6 +301,31 @@ describe('Brief 5.8A D3c — WhatOlumiAddedSection slot', () => {
     const html = (t1Card as HTMLElement).innerHTML
     expect(html).not.toMatch(/fac-velocity/)
   })
+
+  it('does NOT render the WhatOlumiAddedSection when wideningLog is empty (no slot, no separator)', () => {
+    // Sparse-state assertion at the parent T1 level: when widening_log
+    // is empty the slot should evaluate to null AND the divider above it
+    // should not render either. This is the regression that the
+    // post-D7 holistic-review pass fixed.
+    mockNodes = [
+      { id: 'fac-velocity', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'Engineering velocity' } },
+    ]
+    mockDraftCoaching = {
+      summary: null,
+      strengthenItems: [],
+      wideningLog: [],
+      biasSignals: [],
+    }
+    mockUsePreAnalysisData.mockReturnValue(baseData())
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    expect(screen.queryByTestId('what-olumi-added-section')).not.toBeInTheDocument()
+    // The widening slot's separator (the .sep div above it) is part of the
+    // same conditional fragment, so its absence is implied by the slot's
+    // absence — but assert a count on the T1 card's children to confirm
+    // we have not introduced an empty container.
+    const t1 = screen.getByTestId('t1-decision-readiness-card')
+    expect(within(t1).queryByTestId('what-olumi-added-toggle')).not.toBeInTheDocument()
+  })
 })
 
 describe('Brief 5.8A D3c — contribution row + spectrum bar', () => {

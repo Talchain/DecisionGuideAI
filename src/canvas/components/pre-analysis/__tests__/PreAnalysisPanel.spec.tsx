@@ -380,13 +380,18 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Accordion Behaviour', () => {
-    it('renders Improve confidence content when expanded', () => {
-      // D7: YourExpertise removed; Improve confidence content is triage cards + MissingKnowledgePrompt
+    it('renders Advanced accordion content when expanded (Brief 5.8A holistic-review pass)', () => {
+      // The legacy Improve confidence accordion was removed entirely;
+      // SuccessTarget now lives inside T3 Advanced. Asserting the Advanced
+      // toggle reveals its content region (which holds the goal selector
+      // + SuccessTarget editor).
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      expect(screen.getByTestId('improve-confidence-content')).toBeInTheDocument()
+      const toggle = screen.getByRole('button', { name: /advanced/i })
+      fireEvent.click(toggle)
+      // AnalysisSettings hosts the goal selector inside the accordion body.
+      expect(screen.getByLabelText(/goal/i)).toBeInTheDocument()
     })
 
     it('surfaces cee_inference verify items inside the T1 unified queue', () => {
@@ -745,7 +750,7 @@ describe('PreAnalysisPanel', () => {
     })
 
     describe('Task 2: Empty Review Tier Message', () => {
-      it('shows empty state message when review tier has 0 items and 0 totalCount', () => {
+      it('Advanced accordion still mounts when no triage items exist (Brief 5.8A holistic-review pass)', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           isReady: true,
           tiers: {
@@ -754,13 +759,14 @@ describe('PreAnalysisPanel', () => {
             optional: { items: [], count: 0 },
           },
           reviewedFactorsCount: 0,
-          totalReviewableFactorsCount: 0, // No assumptions to review at all
+          totalReviewableFactorsCount: 0,
         }))
 
         render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-        expandImproveConfidence()
-        // D7: YourExpertise removed; Improve confidence content renders without expertise section
-        expect(screen.getByTestId('improve-confidence-content')).toBeInTheDocument()
+        // Advanced accordion (T3) is always available so the user can
+        // edit the goal target + selector regardless of triage state.
+        expect(screen.getByTestId('analysis-settings-accordion')).toBeInTheDocument()
+        // Legacy expertise section never returns.
         expect(screen.queryByTestId('your-expertise-section')).not.toBeInTheDocument()
       })
 

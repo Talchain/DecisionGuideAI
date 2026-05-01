@@ -183,6 +183,32 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
     expect(button.getAttribute('aria-expanded')).toBe('true')
   })
 
+  it('survives a rerender from empty to populated without a hook-order error (Rules of Hooks)', () => {
+    // Regression test: previously the preview-line useMemo lived AFTER the
+    // `cards.length === 0` early return, which violates the Rules of Hooks
+    // (hook count must be stable across renders). Toggling from empty →
+    // populated would fire a "rendered more hooks than during the previous
+    // render" warning and crash in strict mode.
+    const Harness = ({ withTriggers }: { withTriggers: boolean }) => (
+      <SharpenYourThinking
+        biasTriggers={withTriggers ? [trigger()] : []}
+        hasGoalBaseline
+        hasSuccessTarget
+        goalHasQuantitativeHint
+        onSetCurrentValue={vi.fn()}
+        onSetTarget={vi.fn()}
+      />
+    )
+    const { rerender } = render(<Harness withTriggers={false} />)
+    // Toggle to populated.
+    rerender(<Harness withTriggers />)
+    // Toggle back to empty.
+    rerender(<Harness withTriggers={false} />)
+    // And populated again — three transitions, all stable.
+    rerender(<Harness withTriggers />)
+    expect(screen.getByRole('button', { name: /sharpen your thinking/i })).toBeInTheDocument()
+  })
+
   it('does not leak fac_/opt_/node_ id prefixes into the rendered output', () => {
     const { container } = render(
       <SharpenYourThinking

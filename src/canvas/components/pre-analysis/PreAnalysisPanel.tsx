@@ -15,7 +15,7 @@
  * All data derives from existing graph state — no new backend endpoints.
  */
 
-import { useState, useCallback, useMemo, useRef, useEffect, memo } from 'react'
+import { useCallback, useMemo, useRef, useEffect, memo } from 'react'
 import { usePreAnalysisData } from './hooks/usePreAnalysisData'
 import { ModelHealthCard } from './ModelHealthCard'
 import { SuccessTarget } from './SuccessTarget'
@@ -35,7 +35,7 @@ import { useShowToast } from '../../ToastContext'
 import { useAnalysisDisplayState } from '../../hooks/useAnalysisDisplayState'
 import type { AnalysisDisplayStateView } from '../../utils/deriveAnalysisDisplayState'
 import { copyTextToClipboard } from '../../../utils/clipboard'
-import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, ChevronDown, ChevronRight, Link as LinkIcon, Play, AlertCircle } from 'lucide-react'
+import { RefreshCw, Copy, Pencil, AlertTriangle, Check, X, Frame, ShieldAlert, Gauge, Anchor, EyeOff, Link as LinkIcon, Play, AlertCircle } from 'lucide-react'
 import { useUIStore } from '@/stores/uiStore'
 import { getCausalEdges } from '../../domain/edgeUtils'
 import type { EdgeData } from '../../domain/edges'
@@ -53,7 +53,6 @@ import {
   type ReviewNextSignal,
   type TriageSignal,
 } from './pickStartHere'
-import { resolveReviewNextCoachingLine } from './sectionCoaching'
 import { useResolvedSignals } from './useResolvedSignals'
 import { usePrefersReducedMotion } from '@/canvas/hooks/usePrefersReducedMotion'
 import { typography } from '@/styles/typography'
@@ -70,7 +69,6 @@ import { buildContributionBreakdown, type ContributionBreakdown } from './utils/
 import { formatValueWithUnit } from '../../utils/formatValueWithUnit'
 import { hasFeasibilityWarning } from './utils/hasFeasibilityWarning'
 import { SectionErrorBoundary } from '../SectionErrorBoundary'
-import { SectionHeader } from '@/components/results/SectionHeader'
 import { WhatOlumiAddedSection } from './WhatOlumiAddedSection'
 // ValidationMetadata / UserAction / ResolvedValue were consumed by the
 // removed handleResolveContestedEdge handler (Brief 4 Task 6).
@@ -432,31 +430,9 @@ export function normaliseCeeBiasFinding(
   }
 }
 
-/** Binary pass/fail row for triage check rows — failed rows show optional action link */
-function TriageCheckRow({ label, pass, actionLabel, onAction }: {
-  label: string
-  pass: boolean
-  actionLabel?: string
-  onAction?: () => void
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      {pass
-        ? <Check className="w-3.5 h-3.5 text-success flex-shrink-0" aria-hidden="true" />
-        : <X className="w-3.5 h-3.5 text-danger flex-shrink-0" aria-hidden="true" />}
-      <span className={`${typography.panelBody} ${pass ? 'text-text-body' : 'text-text-light'} flex-1`}>{label}</span>
-      {!pass && actionLabel && onAction && (
-        <button
-          type="button"
-          onClick={onAction}
-          className={`${typography.panelMeta} text-info hover:underline cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
-        >
-          {actionLabel}
-        </button>
-      )}
-    </div>
-  )
-}
+// Brief 5.8A holistic-review pass: legacy TriageCheckRow deleted. The
+// T1FailingCheckRow function above now owns the same icon + label + action
+// pattern inside the T1 card.
 
 interface PreAnalysisPanelProps {
   /** Callback when user clicks the primary action button */
@@ -611,10 +587,19 @@ function StatusBanner({
  */
 function T1BiasNudgeRow({
   trigger,
+  index,
   onHoverEnter,
   onHoverLeave,
 }: {
   trigger: NormalisedBiasTrigger
+  /**
+   * Local visible index used for the data-testid. We deliberately do NOT
+   * use trigger.id because CEE can stamp raw.id with values that contain
+   * factor / option / node prefixes — which would leak into the DOM via
+   * the testid attribute. Using a local 0-based index keeps the testid
+   * stable and prefix-free.
+   */
+  index: number
   onHoverEnter?: () => void
   onHoverLeave?: () => void
 }) {
@@ -622,7 +607,7 @@ function T1BiasNudgeRow({
   return (
     <div
       className="flex items-center gap-2 px-2.5 py-1.5 border border-panel-border rounded-lg hover:bg-panel-hover"
-      data-testid={`t1-bias-nudge-${trigger.id}`}
+      data-testid={`t1-bias-nudge-${index}`}
       onMouseEnter={onHoverEnter}
       onMouseLeave={onHoverLeave}
     >
@@ -678,14 +663,16 @@ function T1ContributionRow({ breakdown }: { breakdown: ContributionBreakdown }) 
 }
 
 /**
- * Brief 5.8A D3a — single failing-check row inside the T1 card.
+ * Brief 5.8A D3a (post-D7 holistic-review pass) — single failing-check row
+ * inside the T1 card.
  *
  * Pattern: 12px danger X icon + label + right-aligned action link. Used for
- * the goal-target-unset check today; D3b/D3c will route additional checks
- * (structural blockers, evidence gaps) through the same pattern.
+ * the goal-target-unset check, the "Fewer than 2 options" structural check,
+ * the "No baseline set" structural check, and any other binary-failure
+ * structural rows. Each consumer supplies its own action handler.
  *
  * Action button is keyboard-focusable with the standard info ring; aria-label
- * defaults to the actionLabel so screen readers receive context.
+ * mirrors the actionLabel so screen readers receive the action context.
  */
 function T1FailingCheckRow({
   label,
@@ -712,6 +699,20 @@ function T1FailingCheckRow({
       </button>
     </div>
   )
+}
+
+/**
+ * Brief 5.8A holistic-review pass — failing-check row entry shape consumed
+ * by T1DecisionReadinessCard. Source-agnostic so the consumer can compose
+ * goal-target rows, structural-check rows, and any future failure rows
+ * through the same render.
+ */
+interface T1FailingCheckEntry {
+  id: string
+  label: string
+  actionLabel: string
+  onAction: () => void
+  testId: string
 }
 
 /**
@@ -764,8 +765,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   isLoading,
   hasGoalNode,
   hasGoalTarget,
-  noTargetCheck,
-  onSetTarget,
+  failingChecks,
   unverifiedEstimateCount,
   relationshipsToReviewCount,
   topThree,
@@ -788,8 +788,12 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   isLoading: boolean
   hasGoalNode: boolean
   hasGoalTarget: boolean
-  noTargetCheck: { id: string; ctaAction: string } | null
-  onSetTarget: () => void
+  /**
+   * All currently-failing structural checks: goal target unset, "Fewer than 2
+   * options", "No baseline set", etc. The brief D3a consolidates these into
+   * the T1 failing-checks block. Order is consumer-controlled.
+   */
+  failingChecks: T1FailingCheckEntry[]
   unverifiedEstimateCount: number
   relationshipsToReviewCount: number
   topThree: UnifiedQueueEntryProp[]
@@ -815,7 +819,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
     [unverifiedEstimateCount, relationshipsToReviewCount, hasGoalTarget],
   )
 
-  const showFailingChecks = noTargetCheck !== null
+  const showFailingChecks = failingChecks.length > 0
   const showNarrativeBlock = narrative.prefix !== null || narrative.bridge !== null
   const showTopThree = topThree.length > 0
   const showAlsoConsider = alsoConsider.length > 0
@@ -847,14 +851,15 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
         <>
           <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
           <div className="flex flex-col" data-testid="t1-failing-checks">
-            {noTargetCheck && (
+            {failingChecks.map(check => (
               <T1FailingCheckRow
-                label="Goal target not set"
-                actionLabel="Set target"
-                onAction={onSetTarget}
-                testId="t1-check-no-target"
+                key={check.id}
+                label={check.label}
+                actionLabel={check.actionLabel}
+                onAction={check.onAction}
+                testId={check.testId}
               />
-            )}
+            ))}
           </div>
         </>
       )}
@@ -958,10 +963,11 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
         <>
           <div className="border-t border-panel-border" role="separator" aria-hidden="true" />
           <div className="flex flex-col gap-1" data-testid="t1-bias-block">
-            {visibleBias.map(trigger => (
+            {visibleBias.map((trigger, i) => (
               <T1BiasNudgeRow
                 key={trigger.id}
                 trigger={trigger}
+                index={i}
                 onHoverEnter={() => handlers.onBiasHoverEnter(trigger.targetFactorId)}
                 onHoverLeave={handlers.onBiasHoverLeave}
               />
@@ -1013,53 +1019,10 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
   )
 })
 
-/**
- * Brief 5.8A D3b — collapsible accordion that hosts the secondary controls
- * remaining after the triage queue moved into the T1 card. The visible
- * "Improve confidence" heading + count pill have been removed; the toggle
- * button now uses a generic chevron with an aria-label so it stays
- * keyboard-accessible. The data-testid attributes are preserved so existing
- * tests continue to find the toggle and content regions.
- *
- * Today the accordion holds: SuccessTarget, MissingKnowledgePrompt, and any
- * residual content threaded through `children`. D3c may inline these surfaces
- * into the T1 card; for now they stay collapsed by default.
- */
-function ImproveConfidenceAccordion({
-  count,
-  children,
-}: {
-  /** Used only to suppress the entire accordion when there is nothing to show */
-  count: number
-  children: React.ReactNode
-}) {
-  const [expanded, setExpanded] = useState(false)
-  if (count <= 0) return null
-  return (
-    <div className="space-y-1" data-testid="improve-confidence-section">
-      <button
-        type="button"
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center justify-between gap-2 py-1 cursor-pointer hover:bg-panel-hover rounded focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info"
-        aria-expanded={expanded}
-        aria-label={expanded ? 'Collapse additional controls' : 'Expand additional controls'}
-        data-testid="improve-confidence-toggle"
-      >
-        <span className={`${typography.panelMeta} text-text-light`}>
-          {expanded ? 'Hide additional controls' : 'Show additional controls'}
-        </span>
-        {expanded
-          ? <ChevronDown className="w-4 h-4 text-text-light" aria-hidden="true" />
-          : <ChevronRight className="w-4 h-4 text-text-light" aria-hidden="true" />}
-      </button>
-      {expanded && (
-        <div className="space-y-3" data-testid="improve-confidence-content">
-          {children}
-        </div>
-      )}
-    </div>
-  )
-}
+// Brief 5.8A holistic-review pass: ImproveConfidenceAccordion deleted.
+// SuccessTarget moved into T3 Advanced; MissingKnowledgePrompt is rendered
+// inside the T1 checks footer via the missingKnowledgeSlot prop. The panel
+// hierarchy is now exactly T1 → T2 → T3 with no orphan accordion.
 
 export function PreAnalysisPanel({
   onAnalyse,
@@ -1074,7 +1037,6 @@ export function PreAnalysisPanel({
   // P1-8: local toggle for Review next "Show more". Overflow stays inside
   // Review next (does not migrate to Improve confidence); this controls
   // visibility within the section.
-  const [reviewNextExpanded, setReviewNextExpanded] = useState(false)
 
   // P1-5: prefers-reduced-motion flag — used to skip the fade transition on
   // resolved-state rows for users who requested reduced motion.
@@ -1735,10 +1697,10 @@ export function PreAnalysisPanel({
   //
   // P1-8: hard budget — max 1 option-quality + 2 bias + 3 triage = 6 visible
   // (plus 1 Start here slot added by P1-4). Anything beyond the budget stays
-  // inside Review next as overflow behind a "Show more" toggle. Overflow does
-  // NOT migrate to Improve confidence — that would mix semantic ownership.
+  // Brief 5.8A holistic-review pass: budgets retained only for the legacy
+  // reviewNextTriageOverflow split that powers the dynamic-headline coaching.
+  // No live render uses them.
   const REVIEW_NEXT_TRIAGE_BUDGET = 3
-  const REVIEW_NEXT_BIAS_BUDGET = 2
   const reviewNextTriageAll = triageTop3.filter(c => !mustFixCardKeys.has(c.signal_id ?? c.key))
   const showOptionQualityCard = data.optionPreviews.length > 0
     && (data.qualityChecks.some(c => c.id === 'same_levers') || data.optionPreviews.length < 3)
@@ -1836,29 +1798,15 @@ export function PreAnalysisPanel({
     })
   }, [signalCount, mustFixCount, pickedKey])
 
-  // Exclude startHere from downstream lists by id so the same signal_id never
-  // appears twice in Review next (P1-8 invariant). Also exclude resolved
-  // signals (P1-5) so the card disappears the instant the user confirms.
-  const startHereId = startHereSignal?.id
-  const isExcluded = (id: string) => id === startHereId || resolvedSignals.has(id)
-  const reviewNextTriageAfterStart = reviewNextTriageAll.filter(c => !isExcluded(`triage:${c.key}`))
-  const biasTriggersAfterStart = biasTriggers.filter(t => !isExcluded(`bias:${t.id}`))
-  const reviewNextTriageVisible = reviewNextTriageAfterStart.slice(0, REVIEW_NEXT_TRIAGE_BUDGET)
-  const reviewNextTriageOverflow = reviewNextTriageAfterStart.slice(REVIEW_NEXT_TRIAGE_BUDGET)
-  // Brief 5.8A D3c removed the legacy bias trigger render in Review next; the
-  // bias-overflow split is no longer needed. The T1 .nudge block applies its
-  // own internal cap (BIAS_NUDGE_VISIBLE_LIMIT) so any leftover bias triggers
-  // appear behind a "+N more" link inside the T1 card.
-  const reviewNextBiasOverflow = biasTriggersAfterStart.slice(REVIEW_NEXT_BIAS_BUDGET)
-  const reviewNextOverflowCount = reviewNextTriageOverflow.length + reviewNextBiasOverflow.length
-  // Section badge counts the TRUE total (visible + overflow + Start here) so
-  // users see the real number even when overflow is collapsed.
+  // Brief 5.8A holistic-review pass: the legacy "Review next" surface is
+  // gone; reviewNextCount remains for the status banner sub-line. Triage
+  // budget constant retained because it documents the historical visible
+  // limit (used elsewhere if needed for legacy consumers).
+  void REVIEW_NEXT_TRIAGE_BUDGET
   const reviewNextCount =
     reviewNextTriageAll.length
     + biasTriggers.length
     + (showOptionQualityCard ? 1 : 0)
-  // Kept for existing call sites that previously referenced `reviewNextTopCards`.
-  const reviewNextTopCards = reviewNextTriageVisible
 
   // Improve confidence: SuccessTarget (always present), remaining (quickFix)
   // triage cards, Your expertise, missing knowledge prompt.
@@ -1932,7 +1880,11 @@ export function PreAnalysisPanel({
   const unifiedTriageQueue = useMemo<UnifiedQueueEntry[]>(() => {
     const seen = new Set<string>()
     const queue: UnifiedQueueEntry[] = []
-    const sources = [...reviewNextTriageAll, ...improveConfidenceCards, ...expertiseTriageCards]
+    // Order matters: Must fix triage cards (fix-category) come first because
+    // they're analysis-blocking; then Review next; then Improve confidence
+    // overflow; then expertise items. Within each source the existing
+    // severity → diversification ordering from Hook B is preserved.
+    const sources = [...mustFixCards, ...reviewNextTriageAll, ...improveConfidenceCards, ...expertiseTriageCards]
     for (const card of sources) {
       const dedupKey = card.signal_id ?? card.key
       if (seen.has(dedupKey)) continue
@@ -1944,7 +1896,7 @@ export function PreAnalysisPanel({
       queue.push({ card, overlay })
     }
     return queue
-  }, [reviewNextTriageAll, improveConfidenceCards, expertiseTriageCards, strengthenOverlayMap, resolvedSignals])
+  }, [mustFixCards, reviewNextTriageAll, improveConfidenceCards, expertiseTriageCards, strengthenOverlayMap, resolvedSignals])
 
   const unifiedTopThree = useMemo(() => unifiedTriageQueue.slice(0, 3), [unifiedTriageQueue])
   const unifiedAlsoConsider = useMemo(() => unifiedTriageQueue.slice(3), [unifiedTriageQueue])
@@ -1963,7 +1915,16 @@ export function PreAnalysisPanel({
   // refs that defeat T1DecisionReadinessCard's React.memo. The slots only
   // change when their internal state (store reads) changes — the slot
   // *components* themselves manage that via their own subscriptions.
-  const wideningSlot = useMemo(() => <WhatOlumiAddedSection />, [])
+  //
+  // Post-D7 follow-up: the widening slot is gated on actual wideningLog
+  // presence so the surrounding .sep divider in the T1 card disappears too
+  // when there's nothing to add. Without this gate the separator would
+  // render above an empty slot.
+  const wideningLogCount = useCanvasStore(s => s.draftCoaching?.wideningLog?.length ?? 0)
+  const wideningSlot = useMemo(
+    () => (wideningLogCount > 0 ? <WhatOlumiAddedSection /> : null),
+    [wideningLogCount],
+  )
   const missingKnowledgeSlot = useMemo(
     () => (
       <MissingKnowledgePrompt
@@ -1979,13 +1940,55 @@ export function PreAnalysisPanel({
     [],
   )
 
-  // Stable noTargetCheck reference — `.find()` returns a new object each render
-  // even when the underlying check is identical. Wrapping in useMemo keyed on
-  // the qualityChecks array preserves identity across hover/highlight churn.
-  const noTargetCheck = useMemo(
-    () => data.qualityChecks.find(c => c.id === 'no_target') ?? null,
-    [data.qualityChecks],
-  )
+  // Brief 5.8A holistic-review pass — consolidate ALL failing structural
+  // checks into a single list passed to the T1 card. Sources:
+  //   1. no_target qualityCheck (goal target unset) — high-priority because
+  //      analysis cannot show probability of success without it.
+  //   2. structural fewer-than-2-options check (was rendered separately in
+  //      legacy Must fix).
+  //   3. structural no-baseline check (was rendered separately in legacy
+  //      Must fix).
+  //
+  // Each entry carries its own action handler so the T1 row pattern stays
+  // dumb. Order: no_target first (analysis-blocking), then options, then
+  // baseline. Empty list naturally suppresses the failing-checks block.
+  const failingChecks = useMemo<T1FailingCheckEntry[]>(() => {
+    const checks: T1FailingCheckEntry[] = []
+    if (data.qualityChecks.some(c => c.id === 'no_target')) {
+      checks.push({
+        id: 'no_target',
+        label: 'Goal target not set',
+        actionLabel: 'Set target',
+        onAction: () => {
+          const goalId = data.goalNode?.id
+          if (goalId) {
+            selectNodeWithoutHistory(goalId)
+            focusNodeById(goalId)
+          }
+        },
+        testId: 't1-check-no-target',
+      })
+    }
+    if (fewerThanTwoOptionsCheck) {
+      checks.push({
+        id: 'fewer_than_2_options',
+        label: 'Fewer than 2 options',
+        actionLabel: 'Add option',
+        onAction: () => onSendMessage?.('Add another option to compare'),
+        testId: 't1-check-fewer-than-2-options',
+      })
+    }
+    if (noBaselineCheck) {
+      checks.push({
+        id: 'no_baseline',
+        label: 'No baseline set',
+        actionLabel: 'Add baseline',
+        onAction: () => onSendMessage?.('Add a status quo option to compare against'),
+        testId: 't1-check-no-baseline',
+      })
+    }
+    return checks
+  }, [data.qualityChecks, data.goalNode, fewerThanTwoOptionsCheck, noBaselineCheck, onSendMessage, selectNodeWithoutHistory])
 
   // Stable goalLabel + hasGoalNode primitives — pure derivations from
   // data.goalNode, don't change unless the goal node identity does.
@@ -2065,9 +2068,10 @@ export function PreAnalysisPanel({
       if (firstBias) {
         return `${firstBias} may be shaping your choices. Review before running.`
       }
-      // 3c. Top triage cards (rendered last). Singular factor/edge subject —
-      //     the original "has the biggest impact" phrasing fits.
-      const firstTriage = reviewNextTopCards[0]?.title
+      // 3c. Top triage cards (rendered last) — Brief 5.8A holistic pass:
+      //     unifiedTriageQueue is the canonical source. Singular factor/edge
+      //     subject — the "has the biggest impact" phrasing fits.
+      const firstTriage = unifiedTriageQueue[0]?.card.title
       if (firstTriage) {
         return `${firstTriage} has the biggest impact. Review before running.`
       }
@@ -2089,7 +2093,7 @@ export function PreAnalysisPanel({
     fewerThanTwoOptionsCheck,
     noBaselineCheck,
     reviewNextCount,
-    reviewNextTopCards,
+    unifiedTriageQueue,
     biasTriggers,
     showOptionQualityCard,
   ])
@@ -2241,8 +2245,7 @@ export function PreAnalysisPanel({
                 isLoading={data.isLoading}
                 hasGoalNode={hasGoalNode}
                 hasGoalTarget={hasGoalTarget}
-                noTargetCheck={noTargetCheck}
-                onSetTarget={handleSetTargetFocus}
+                failingChecks={failingChecks}
                 unverifiedEstimateCount={data.improvementsByCategory.verify.length}
                 relationshipsToReviewCount={data.improvementsByCategory.add_evidence.length}
                 topThree={unifiedTopThree}
@@ -2299,85 +2302,33 @@ export function PreAnalysisPanel({
             />
           </SectionErrorBoundary>
 
-          {/* Section 1: Must fix — only when blockers exist.
-              Order per brief:
-                1. Options need configuration (enriched blockers — surfaced first)
-                2. Structural flags ("Fewer than 2 options", "No baseline set")
-                3. Critical severity items from triage cards
-              No internal subheader from BlockersSection — Must fix owns the header. */}
-          {mustFixCount > 0 && (
-            <section className="space-y-2" data-testid="section-must-fix">
-              <SectionHeader title="Must fix" count={mustFixCount} borderClass="border-danger/30" className="" testId="section-must-fix-header" />
-
-              {/* 1. Enriched blockers (e.g. Options need configuration). P0-2:
-                  filtered to drop entries that the Draft failed card already covers. */}
-              {!data.isReady && visibleEnrichedBlockers.length > 0 && (
-                <SectionErrorBoundary section="Blockers">
-                  <BlockersSection
-                    blockers={visibleEnrichedBlockers}
-                    informationalBlockers={[]}
-                    canRetryDraft={canRetryDraft}
-                    isRetrying={isRetrying}
-                    lastDraftRetryable={lastDraftError?.retryable}
-                    onRetryDraft={handleRetryDraft}
-                    onEditBrief={handleEditBrief}
-                    onFocusNode={handleFocusNode}
-                    hideHeader
-                  />
-                </SectionErrorBoundary>
-              )}
-
-              {/* 2. Structural check rows */}
-              {structuralCheckCount > 0 && (
-                <div className="space-y-1">
-                  {fewerThanTwoOptionsCheck && (
-                    <TriageCheckRow
-                      label="Fewer than 2 options"
-                      pass={false}
-                      actionLabel="Add option"
-                      onAction={() => onSendMessage?.('Add another option to compare')}
-                    />
-                  )}
-                  {noBaselineCheck && (
-                    <TriageCheckRow
-                      label="No baseline set"
-                      pass={false}
-                      actionLabel="Add baseline"
-                      onAction={() => onSendMessage?.('Add a status quo option to compare against')}
-                    />
-                  )}
-                </div>
-              )}
-
-              {/* 3. Critical Fix triage cards */}
-              {mustFixCards.length > 0 && (
-                <div className="flex flex-col gap-2" data-testid="must-fix-cards">
-                  {mustFixCards.map((card, i) => (
-                    <TriageCard
-                      key={card.key}
-                      cardKey={card.key}
-                      ordinal={i + 1}
-                      title={card.title}
-                      detail={card.detail}
-                      subtitle={card.subtitle}
-                      category={card.category}
-                      influence={card.influence}
-                      action={card.action}
-                      editorConfig={card.editorConfig ?? null}
-                      sourcePill={card.sourcePill}
-                      aiDiscussSlot={card.aiDiscuss ? <DiscussWithAiButton element={card.aiDiscuss} /> : undefined}
-                      onConfirm={handleConfirm}
-                      onEdit={handleSetValueForGap}
-                      onUpdateEdgeStrength={handleUpdateEdgeStrength}
-                      onHoverEnter={handleHoverElement}
-                      onHoverLeave={handleHoverClear}
-                    />
-                  ))}
-                </div>
-              )}
-            </section>
+          {/* Brief 5.8A holistic-review pass: legacy Must fix section
+              consolidated into T1.
+                - Critical fix triage cards (mustFixCards) → unified queue
+                  inside T1 (sorted first by source order so they remain
+                  analysis-blocking and visually emphasised as card #1).
+                - Structural check rows (Fewer than 2 options, No baseline)
+                  → T1 failing-checks block via T1FailingCheckRow.
+              Enriched blockers (BlockersSection) remain as a separate
+              top-level surface ABOVE T1 because they are draft-failure
+              recovery affordances (multi-action retry / edit brief / focus
+              node) — substantively different from binary check rows. The
+              wireframe shows the happy-path layout; this is the error path.
+            */}
+          {!data.isReady && visibleEnrichedBlockers.length > 0 && (
+            <SectionErrorBoundary section="Blockers">
+              <BlockersSection
+                blockers={visibleEnrichedBlockers}
+                informationalBlockers={[]}
+                canRetryDraft={canRetryDraft}
+                isRetrying={isRetrying}
+                lastDraftRetryable={lastDraftError?.retryable}
+                onRetryDraft={handleRetryDraft}
+                onEditBrief={handleEditBrief}
+                onFocusNode={handleFocusNode}
+              />
+            </SectionErrorBoundary>
           )}
-
           {/* Informational (non-blocking) blockers — surfaced regardless of bucket */}
           {data.informationalBlockers.length > 0 && (
             <SectionErrorBoundary section="Notes">
@@ -2393,33 +2344,21 @@ export function PreAnalysisPanel({
             </SectionErrorBoundary>
           )}
 
-          {/* Brief 5.8A D3b: "Review next" heading removed. Triage cards now
-              live in the unified queue inside the T1 card. This section
-              continues to host bias triggers, the option-quality card, and
-              the Start here render for non-triage signals — D3c will move
-              bias inline into T1 .nudge rows. */}
-          {reviewNextCount > 0 && (
-            <section className="space-y-2" data-testid="section-review-next">
-
-              {/* P1-3: Per-section coaching line derived from the SAME picked
-                  Start here signal. Suppressed when redundant with the Start
-                  here card, when the signal carries a defaulted score, or
-                  when there's no useful copy to render. */}
-              {(() => {
-                const line = resolveReviewNextCoachingLine(startHereSignal)
-                if (!line) return null
-                return (
-                  <p className={`${typography.panelMeta} text-text-light`} data-testid="review-next-coaching">
-                    {line}
-                  </p>
-                )
-              })()}
-
-              {/* P1-5: Resolved-state rows for recently confirmed triage items.
-                  Each row renders "✓ {label} confirmed — Undo" and disappears
-                  automatically on the next render cycle once the underlying
-                  signal has been filtered out of the live list. Fade is
-                  disabled when prefers-reduced-motion is set. */}
+          {/* Brief 5.8A holistic-review pass — legacy Review next section
+              removed entirely. Triage cards live in the T1 unified queue,
+              bias rows live in the T1 nudge block, OptionPreview is its
+              own .sc card, the option-quality card is gated inside
+              OptionPreview itself, and the Start here render is gone.
+              Two surfaces are preserved as small standalone fragments:
+                1. Resolved-state rows (confirm-undo affordance) — short-
+                   lived feedback rows that disappear once Hook B
+                   re-derives. Surfaced inline so the user sees their
+                   confirmation acknowledged.
+                2. "See all relationships" link — opens the Model tab
+                   focused on the relationships section. Anchored on the
+                   presence of edge items in the unified queue. */}
+          {resolvedSignals.size > 0 && (
+            <div className="flex flex-col gap-1" data-testid="resolved-signals-block">
               {Array.from(resolvedSignals.values()).map(entry => (
                 <div
                   key={`resolved-${entry.signalId}`}
@@ -2433,7 +2372,7 @@ export function PreAnalysisPanel({
                   <button
                     type="button"
                     onClick={() => handleUndoResolved(entry.signalId)}
-                    className={`${typography.panelMeta} text-info hover:underline`}
+                    className={`${typography.panelMeta} text-info hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
                     aria-label={`Undo confirmation of ${entry.label}`}
                     data-testid={`undo-${entry.signalId}`}
                   >
@@ -2441,114 +2380,42 @@ export function PreAnalysisPanel({
                   </button>
                 </div>
               ))}
-
-              {/* Brief 5.8A D3c: bias start-here render removed. All bias
-                  triggers (whether the start-here pick or not) now appear as
-                  inline .nudge rows inside the T1 card. The brief's bias
-                  pattern is one consolidated surface — no parallel cards. */}
-
-              {/* Brief 5.8A D4: OptionPreview moved to render directly after
-                  the T1 Decision readiness card so it forms its own .sc card
-                  in the panel hierarchy. The same_levers coaching line is
-                  still gated inside OptionPreview itself. */}
-
-              {/* Brief 5.8A D3c: bias triggers moved to T1 .nudge rows above.
-                  The D2-filtered biasTriggers list flows directly into the T1
-                  card via the biasNudges prop — no per-consumer refilter. */}
-
-              {/* Brief 5.8A D3b: triage cards moved to the unified T1 queue. */}
-
-              {/* P1-8: Show more / Show less toggle — only when overflow exists */}
-              {reviewNextOverflowCount > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setReviewNextExpanded(e => !e)}
-                  aria-expanded={reviewNextExpanded}
-                  className={`${typography.panelMeta} text-info hover:underline self-start`}
-                  data-testid="review-next-show-more"
-                >
-                  {reviewNextExpanded
-                    ? 'Show less'
-                    : `Show ${reviewNextOverflowCount} more`}
-                </button>
-              )}
-
-              {/* "See all N relationships in model tab ›" — anchored to the
-                  CURRENTLY-VISIBLE Review next edge cards. The gate uses the
-                  same `visibleTriage` set the cards above derive from, so if
-                  start-here promotion or the collapsed top-3 budget hides every
-                  edge item, the link disappears too. The link's contextual
-                  anchor is the cards immediately above it; when those cards
-                  contain no edge item, the link has nothing to anchor. */}
-              {(() => {
-                const causalEdgeCount = getCausalEdges(nodes, edges as Edge<EdgeData>[]).length
-                if (causalEdgeCount === 0) return null
-
-                // Build a set of edge-targeted verify item keys, then check
-                // whether any visible Review next card carries that key.
-                const verifyItems = data.improvementsByCategory.verify ?? []
-                const edgeItemKeys = new Set(
-                  verifyItems.filter(item => item.focus?.type === 'edge').map(item => item.key),
-                )
-                if (edgeItemKeys.size === 0) return null
-
-                const visibleTriage = reviewNextExpanded ? reviewNextTriageAfterStart : reviewNextTopCards
-                const hasVisibleEdgeCard = visibleTriage.some(card => edgeItemKeys.has(card.key))
-                if (!hasVisibleEdgeCard) return null
-
-                const handleClick = () => {
-                  // Tell ModelTabBody to focus + auto-expand the relationships
-                  // section on its next render. Set BEFORE switching tabs so
-                  // the Model tab mounts already aware of the request.
-                  // ModelTabBody owns the scroll RAF; it has visibility into
-                  // when openSection has been applied, which PreAnalysisPanel
-                  // does not.
-                  useUIStore.getState().requestModelTabSection('relationships')
-                  useUIStore.getState().setActiveOutputTab('diagnostics')
-                }
-                return (
-                  <button
-                    type="button"
-                    onClick={handleClick}
-                    className={`${typography.panelMeta} text-info hover:underline self-start inline-flex items-center gap-1 mt-1`}
-                    data-testid="preanalysis-see-all-relationships"
-                  >
-                    <LinkIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
-                    See all {causalEdgeCount} relationships in model tab ›
-                  </button>
-                )
-              })()}
-            </section>
+            </div>
           )}
+          {(() => {
+            const causalEdgeCount = getCausalEdges(nodes, edges as Edge<EdgeData>[]).length
+            if (causalEdgeCount === 0) return null
+            const verifyItems = data.improvementsByCategory.verify ?? []
+            const edgeItemKeys = new Set(
+              verifyItems.filter(item => item.focus?.type === 'edge').map(item => item.key),
+            )
+            if (edgeItemKeys.size === 0) return null
+            const hasVisibleEdgeCard = unifiedTriageQueue.some(entry => edgeItemKeys.has(entry.card.key))
+            if (!hasVisibleEdgeCard) return null
+            const handleClick = () => {
+              useUIStore.getState().requestModelTabSection('relationships')
+              useUIStore.getState().setActiveOutputTab('diagnostics')
+            }
+            return (
+              <button
+                type="button"
+                onClick={handleClick}
+                className={`${typography.panelMeta} text-info hover:underline self-start inline-flex items-center gap-1 mt-1 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
+                data-testid="preanalysis-see-all-relationships"
+              >
+                <LinkIcon className="w-3.5 h-3.5 shrink-0" aria-hidden="true" />
+                See all {causalEdgeCount} relationships in model tab ›
+              </button>
+            )
+          })()}
 
-          {/* Brief 5.8A D3c: WhatOlumiAddedSection moved INTO the T1 card via
-              the wideningSlot prop. MissingKnowledgePrompt likewise moved into
-              the T1 checks footer via missingKnowledgeSlot. The accordion now
-              hosts only the SuccessTarget editor — collapsed by default. */}
-          <ImproveConfidenceAccordion count={1}>
-            {/* Goal target inline edit */}
-            <SuccessTarget
-              goalNode={data.goalNode}
-              goalNodes={data.nodesByKind.goal}
-              successThreshold={data.successThreshold}
-              isThresholdAutoDerived={data.isThresholdAutoDerived}
-              isThresholdConfirmed={data.isThresholdConfirmed}
-              thresholdProvenance={data.thresholdProvenance}
-              onThresholdChange={handleThresholdChange}
-              onThresholdConfirm={handleThresholdConfirm}
-              onThresholdEdit={handleThresholdEdit}
-              onGoalChange={handleGoalChange}
-              goalThresholdRaw={data.goalThresholdRaw}
-              goalThresholdUnit={data.goalThresholdUnit}
-              thresholdSourceBadge={data.thresholdSourceBadge}
-              onFocusNode={handleFocusNode}
-              onHoverEnter={(id) => handleHoverElement('node', id)}
-              onHoverLeave={handleHoverClear}
-              constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
-              goalConstraints={ceeAnalysisReady?.goal_constraints}
-              onSendMessage={onSendMessage}
-            />
-          </ImproveConfidenceAccordion>
+          {/* Brief 5.8A holistic-review pass: ImproveConfidenceAccordion
+              removed entirely. SuccessTarget moves into the T3 Advanced
+              accordion below so the panel hierarchy is exactly T1 → T2 → T3
+              with no orphan "additional controls" surface. The "Set target"
+              affordance inside the T1 failing-checks block routes the user
+              to the inspector when the goal target needs editing — the
+              SuccessTarget editor stays available for power-users via T3. */}
 
           {/* Minimal graph coaching — pre-run guidance, not blocker */}
           {isMinimalGraph && (
@@ -2584,7 +2451,29 @@ export function PreAnalysisPanel({
                 goalNodes={data.nodesByKind.goal}
                 selectedGoalNode={data.goalNode}
                 onGoalChange={handleGoalChange}
-              />
+              >
+                <SuccessTarget
+                  goalNode={data.goalNode}
+                  goalNodes={data.nodesByKind.goal}
+                  successThreshold={data.successThreshold}
+                  isThresholdAutoDerived={data.isThresholdAutoDerived}
+                  isThresholdConfirmed={data.isThresholdConfirmed}
+                  thresholdProvenance={data.thresholdProvenance}
+                  onThresholdChange={handleThresholdChange}
+                  onThresholdConfirm={handleThresholdConfirm}
+                  onThresholdEdit={handleThresholdEdit}
+                  onGoalChange={handleGoalChange}
+                  goalThresholdRaw={data.goalThresholdRaw}
+                  goalThresholdUnit={data.goalThresholdUnit}
+                  thresholdSourceBadge={data.thresholdSourceBadge}
+                  onFocusNode={handleFocusNode}
+                  onHoverEnter={(id) => handleHoverElement('node', id)}
+                  onHoverLeave={handleHoverClear}
+                  constraintFeasibilityWarning={hasConstraintFeasibilityWarning}
+                  goalConstraints={ceeAnalysisReady?.goal_constraints}
+                  onSendMessage={onSendMessage}
+                />
+              </AnalysisSettings>
             </SectionErrorBoundary>
           )}
         </div>

@@ -308,6 +308,49 @@ describe('Brief 5.8A D3a — T1 Decision readiness card', () => {
     expect(screen.queryByTestId('t1-narrative-bridge')).not.toBeInTheDocument()
   })
 
+  it('renders structural failing-check rows (Fewer than 2 options, No baseline) in the T1 failing-checks block (post-D7 holistic-review pass)', () => {
+    // Brief 5.8A holistic-review pass consolidated the legacy Must fix
+    // structural rows into the T1 failing-checks block. This test confirms
+    // both rows render with the right testid prefix and that they appear
+    // INSIDE the T1 card, not in a separate Must fix section.
+    mockUsePreAnalysisData.mockReturnValue(baseData({
+      qualityChecks: [
+        { id: 'no_baseline', message: 'No baseline', cta: 'Add baseline', ctaAction: 'add_baseline', pill: 'framing', category: 'structure' } as any,
+      ],
+      optionPreviews: [
+        { id: 'o1', label: 'Option 1', isBaseline: false, status: 'ready', interventions: [] } as any,
+      ],
+      successThreshold: 100,
+    }))
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    const t1 = screen.getByTestId('t1-decision-readiness-card')
+    // "Fewer than 2 options" fires because optionPreviews.length < 2
+    // (and there's no fewer_than_2_options fix card to suppress it).
+    expect(within(t1).getByTestId('t1-check-fewer-than-2-options')).toBeInTheDocument()
+    // "No baseline set" fires from the no_baseline qualityCheck.
+    expect(within(t1).getByTestId('t1-check-no-baseline')).toBeInTheDocument()
+    // Legacy Must fix section must not render anywhere.
+    expect(screen.queryByTestId('section-must-fix')).not.toBeInTheDocument()
+  })
+
+  it('renders no failing-checks block when no checks fire (sparse-state assertion)', () => {
+    // Parent-level sparse assertion — the entire failing-checks block plus
+    // its divider must disappear when there is nothing to surface.
+    mockUsePreAnalysisData.mockReturnValue(baseData({
+      qualityChecks: [],
+      optionPreviews: [
+        { id: 'o1', label: 'Option 1', isBaseline: false, status: 'ready', interventions: [] } as any,
+        { id: 'o2', label: 'Option 2', isBaseline: false, status: 'ready', interventions: [] } as any,
+      ],
+      successThreshold: 100,
+    }))
+    render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
+    expect(screen.queryByTestId('t1-failing-checks')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('t1-check-no-target')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('t1-check-fewer-than-2-options')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('t1-check-no-baseline')).not.toBeInTheDocument()
+  })
+
   it('does not leak internal id prefixes into the T1 card DOM', () => {
     mockUsePreAnalysisData.mockReturnValue(baseData({
       improvementsByCategory: {

@@ -151,10 +151,10 @@ export function SharpenYourThinking(props: SharpenYourThinkingProps) {
     return merged.slice(0, TOTAL_CARD_BUDGET)
   }, [biasTriggers, hasGoalBaseline, hasSuccessTarget, goalHasQuantitativeHint, onSetCurrentValue, onSetTarget])
 
-  if (cards.length === 0) return null
-
   // Preview line: highest-priority bias category : detail; fall back to the
-  // first framing question when no bias triggers exist.
+  // first framing question when no bias triggers exist. Hook MUST run on
+  // every render (Rules of Hooks) — keep it above the cards.length === 0
+  // early return below.
   const preview = useMemo<ReactNode>(() => {
     const firstBias = biasTriggers[0]
     if (firstBias) {
@@ -176,6 +176,8 @@ export function SharpenYourThinking(props: SharpenYourThinkingProps) {
     }
     return null
   }, [biasTriggers, cards])
+
+  if (cards.length === 0) return null
 
   return (
     <Accordion
