@@ -603,7 +603,17 @@ function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
       id: opt.id ?? opt.option_id,
     }))
 
-  const mapped = { ...obj, options } as CEEAnalysisReady
+  // Freshness: pass through the four valid enum values; coerce anything else
+  // (including absent legacy responses) to 'unknown' so the UI can render a
+  // neutral pill rather than silently treating stale results as fresh.
+  const freshnessRaw = obj.freshness
+  const freshness =
+    freshnessRaw === 'fresh' || freshnessRaw === 'stale' ||
+    freshnessRaw === 'unknown' || freshnessRaw === 'none'
+      ? freshnessRaw
+      : 'unknown'
+
+  const mapped = { ...obj, options, freshness } as CEEAnalysisReady
 
   // Boundary validation — rejects entire payload if any field fails contract
   return validateAnalysisReadyContract(mapped)

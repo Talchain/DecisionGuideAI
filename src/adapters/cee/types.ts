@@ -399,6 +399,17 @@ export interface CEEAnalysisReady {
   pre_analysis_sensitivity?: PreAnalysisSensitivity
   /** CEE model critiques — structural or feasibility warnings */
   model_critiques?: Array<{ message: string; severity?: string; suggested_action?: string; code?: string }>
+  /**
+   * Freshness of this analysis relative to the current canvas graph.
+   * - 'fresh': analysis matches the current graph state
+   * - 'stale': graph has changed since this analysis was produced
+   * - 'unknown': CEE could not determine freshness
+   * - 'none': not applicable (no analysis tied to graph state)
+   * Absent on legacy responses; treated as 'unknown' by the UI.
+   */
+  freshness?: 'fresh' | 'stale' | 'unknown' | 'none'
+  /** Optional human-readable reason accompanying `freshness`. */
+  freshness_reason?: string
 }
 
 /**

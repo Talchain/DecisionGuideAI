@@ -247,4 +247,33 @@ describe('analysisReadyContract', () => {
     expect(adapted.analysis_ready!.goal_node_id).toBe('goal_hiring_success')
     expect(adapted.analysis_ready!.options).toHaveLength(2)
   })
+
+  // =========================================================================
+  // § 6: Freshness field passthrough (CEE → UI)
+  // =========================================================================
+
+  it('passes through valid freshness values via adaptCEEBlock', () => {
+    for (const value of ['fresh', 'stale', 'unknown', 'none'] as const) {
+      const adapted = adaptCEEBlock(
+        wrapInBlock(makeValidPayload({ freshness: value, freshness_reason: 'test' })),
+      ) as GraphPatchBlock
+      expect(adapted.analysis_ready).toBeDefined()
+      expect(adapted.analysis_ready!.freshness).toBe(value)
+      expect(adapted.analysis_ready!.freshness_reason).toBe('test')
+    }
+  })
+
+  it('coerces missing freshness to "unknown" on legacy payloads', () => {
+    const adapted = adaptCEEBlock(wrapInBlock(makeValidPayload())) as GraphPatchBlock
+    expect(adapted.analysis_ready).toBeDefined()
+    expect(adapted.analysis_ready!.freshness).toBe('unknown')
+  })
+
+  it('coerces invalid freshness values to "unknown"', () => {
+    const adapted = adaptCEEBlock(
+      wrapInBlock(makeValidPayload({ freshness: 'bogus' })),
+    ) as GraphPatchBlock
+    expect(adapted.analysis_ready).toBeDefined()
+    expect(adapted.analysis_ready!.freshness).toBe('unknown')
+  })
 })
