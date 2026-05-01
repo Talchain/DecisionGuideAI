@@ -13,8 +13,7 @@
  */
 
 import { useMemo, memo, useState } from 'react'
-import { AlertTriangle, ChevronDown, ChevronRight, HelpCircle } from 'lucide-react'
-import Tooltip from '@/components/Tooltip'
+import { AlertTriangle, ChevronDown, ChevronRight } from 'lucide-react'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
 import { HeroQualifier } from './HeroQualifier'
@@ -28,8 +27,13 @@ import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation } from './utils/cleanFactorLabel'
 import { buildCertaintyCopy } from './utils/certaintyCopy'
 import { typography } from '@/styles/typography'
-import { SectionHeader } from './SectionHeader'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
+import { useCanvasStore } from '@/canvas/store'
+import {
+  buildStrengthenOverlayMap,
+  findStrengthenOverlay,
+  type StrengthenOverlay,
+} from '@/canvas/components/pre-analysis/utils/applyStrengthenOverlay'
 
 // ── Types ───────────────────────────────────────────────────────────────────
 
@@ -72,6 +76,20 @@ interface MappedActionItem {
   targetNodeId: string | undefined
   editorConfig: ScientificEditorProps | null
   sourcePill: { label: string; borderClass: string } | null
+  /** Brief 5.8B D2b — passive labels overlaid from CEE strengthen_items.actionType */
+  passiveLabels: string[] | undefined
+}
+
+function applyOverlayToItem(
+  item: MappedActionItem,
+  overlay: StrengthenOverlay | null,
+): MappedActionItem {
+  if (!overlay) return item
+  return {
+    ...item,
+    subtitle: overlay.detail,
+    passiveLabels: overlay.actionTypeLabel ? [overlay.actionTypeLabel] : item.passiveLabels,
+  }
 }
 
 // Source pill mapping based on confidence level
@@ -123,6 +141,7 @@ function mapEvidenceGapsToActions(
         onCancel: () => {},
       } : null,
       sourcePill: getSourcePill(gap.confidence),
+      passiveLabels: undefined,
     }
   })
 }
@@ -146,6 +165,7 @@ function mapNextActionsToCards(data: ResultsSectionDataReturn): MappedActionItem
     targetNodeId: action.targetId,
     editorConfig: null,
     sourcePill: null,
+    passiveLabels: undefined,
   }))
 }
 
@@ -197,64 +217,33 @@ function ResultChecks({ data, onFocusNode }: { data: ResultsSectionDataReturn; o
   )
 }
 
-// ── Section 3: Trust summary ────────────────────────────────────────────────
+// ── Section 3: Stability narrative (Brief 5.8B D2b) ─────────────────────────
 
 /**
- * Evidence-section header.
- *
- * - `countLine`: "Top N by evidence value" — the original render.
- * - `subtitle`: scope copy that always renders alongside the count so users
- *   can reconcile this section with "What's driving this" (Brief 5.1 Task 2).
- * - `bridge`: symmetric descriptive line that renders iff the top driver
- *   identity and the top evidence-gap identity differ. No implication that
- *   one section is more important — only a scope distinction.
+ * Stability narrative — a single line above the unified triage queue. Mirrors
+ * the pre-analysis 5.8A pattern (narrative bridge above T1 cards). Suppressed
+ * when there are no triage items to introduce. Stability percent suffix is
+ * dropped when recommendation_stability is null/NaN.
  */
-function TrustSummary({
-  actionCount,
-  topDriverIdentity,
-  topEvidenceGapIdentity,
+function StabilityNarrative({
+  itemCount,
+  stabilityScore,
 }: {
-  actionCount: number
-  topDriverIdentity: string | null
-  topEvidenceGapIdentity: string | null
+  itemCount: number
+  stabilityScore: number | undefined
 }) {
-  if (actionCount === 0) return null
-
-  const showBridge =
-    topDriverIdentity != null
-    && topEvidenceGapIdentity != null
-    && topDriverIdentity !== topEvidenceGapIdentity
-
+  if (itemCount === 0) return null
+  const stabilityPct =
+    typeof stabilityScore === 'number' && Number.isFinite(stabilityScore)
+      ? Math.round(stabilityScore * 100)
+      : null
+  const lede = stabilityPct != null
+    ? `Stability: ${stabilityPct}%. These items would most improve confidence:`
+    : 'These items would most improve confidence:'
   return (
-    <div className="flex flex-col gap-0.5" data-testid="trust-summary">
-      <SectionHeader
-        title="Highest-value evidence gaps"
-        className="mb-0"
-        testId="evidence-section-header"
-      />
-      <div className="flex items-center gap-1">
-        <p
-          className={`${typography.panelMeta} text-text-light`}
-          data-testid="evidence-scope-subtitle"
-        >
-          Factors where new information would most reduce uncertainty
-        </p>
-        {showBridge && (
-          <Tooltip
-            delay={300}
-            content="Your strongest driver and your top evidence gap are different factors. The driver is what currently moves the result; the evidence gap is where you do not yet know enough."
-          >
-            <button
-              type="button"
-              className="text-text-light hover:text-text-body focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded shrink-0"
-              aria-label="Why are the top driver and top evidence gap different?"
-              data-testid="drivers-evidence-bridge-trigger"
-            >
-              <HelpCircle size={14} aria-hidden="true" />
-            </button>
-          </Tooltip>
-        )}
-      </div>
+    <div className="flex flex-col gap-0.5" data-testid="stability-narrative">
+      <p className={`${typography.panelBody} text-text-body`}>{lede}</p>
+      <p className={`${typography.panelMeta} text-text-light`}>Ranked by evidence value</p>
     </div>
   )
 }
@@ -334,6 +323,7 @@ function AlsoConsiderDisclosure({
               action={item.action}
               editorConfig={item.editorConfig}
               sourcePill={item.sourcePill}
+              passiveLabels={item.passiveLabels}
               onConfirm={onConfirm}
               onEdit={onEdit}
               onHoverEnter={onHoverEnter}
@@ -453,11 +443,27 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   // presence of certainty.caveat is itself the honesty signal.
   const healthHeaderCoaching = certainty?.caveat ?? null
 
-  // Merge and rank action items by EVOI
+  // Brief 5.8B D2b — strengthen overlay map. CEE coaching.strengthen_items
+  // (sourced from the canvas store; persisted across pre→post analysis) are
+  // matched against post-analysis triage card titles via normalised exact
+  // match (case-insensitive trim). Reuses the pre-analysis utility verbatim
+  // so the matching contract stays in lockstep.
+  const draftCoachingStrengthenItems = useCanvasStore(s => s.draftCoaching?.strengthenItems ?? null)
+  const strengthenOverlayMap = useMemo(
+    () => buildStrengthenOverlayMap(draftCoachingStrengthenItems),
+    [draftCoachingStrengthenItems],
+  )
+
+  // Brief 5.8B D2b — single EVPI-ranked queue. The earlier split (evidence
+  // gaps under one header, next actions under another) is gone. Top 3 render
+  // as one stack with the first item visually emphasised; remainder roll
+  // under "Also consider".
   const allActions = useMemo(() => {
     const gaps = mapEvidenceGapsToActions(data, onSetValue, nodeValueLookup)
     const next = mapNextActionsToCards(data)
-    const merged = [...gaps, ...next]
+    const merged = [...gaps, ...next].map(item =>
+      applyOverlayToItem(item, findStrengthenOverlay(item, strengthenOverlayMap)),
+    )
     merged.sort((a, b) => {
       const aEvoi = a.evoiImpact ?? -1
       const bEvoi = b.evoiImpact ?? -1
@@ -465,35 +471,10 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       return (b.influence ?? 0) - (a.influence ?? 0)
     })
     return merged
-  }, [data, onSetValue, nodeValueLookup])
+  }, [data, onSetValue, nodeValueLookup, strengthenOverlayMap])
 
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)
-
-  // Brief 5.7 D6 (Path B): split the top-3 stack by upstream shape so cards
-  // 1/2 ("evidence gaps" — full structure: progress bar, pp pill, Set value)
-  // and card 3 ("next action" — title + coaching + edit pencil) sit under
-  // distinct subheaders rather than mixed under one heading. Numbering
-  // continues across the split so the user still parses them as a triage
-  // stack. Evidence gaps come first because the existing TrustSummary header
-  // ("Highest-value evidence gaps") owns that sub-block.
-  const evidenceGapCards = top3.filter(item => item.category === 'add_evidence')
-  const nextActionCards = top3.filter(item => item.category === 'strengthen')
-
-  // Brief 5.1 Task 2: canonical factor identity for the driver / evidence
-  // bridge copy. Mirrors the existing DriversSection pattern — see preflight
-  // findings §2. Null when either section is empty.
-  const topDriverIdentity = useMemo(() => {
-    const top = data.drivers.topDrivers?.[0]
-    if (!top) return null
-    return top.matchedNodeId ?? top.factorKey ?? null
-  }, [data.drivers.topDrivers])
-
-  const topEvidenceGapIdentity = useMemo(() => {
-    const top = data.confidence.topEvidenceGaps?.[0]
-    if (!top) return null
-    return top.targetNodeId ?? top.factorId ?? null
-  }, [data.confidence.topEvidenceGaps])
 
   // ── D2a hero: readiness dimension bars + qualifier + stability indicator ──
   // The post-analysis bundle supplies a 3-dim readiness set
@@ -574,26 +555,16 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         />
       )}
 
-      {/* 3. Trust summary header — owns the "Highest-value evidence gaps"
-          headline + the driver/evidence bridge tooltip. Brief 5.7 D6
-          follow-up: gate on evidenceGapCards.length so a next-actions-only
-          state does not render the evidence-gap header above an empty zone.
-          When only next actions exist, the "Suggested next actions" subheader
-          (rendered below) is the single header for the triage stack. */}
-      <TrustSummary
-        actionCount={evidenceGapCards.length}
-        topDriverIdentity={topDriverIdentity}
-        topEvidenceGapIdentity={topEvidenceGapIdentity}
+      {/* 3. Stability narrative + unified EVPI-ranked queue (Brief 5.8B D2b).
+          The narrative is suppressed when there are no items; the queue
+          itself collapses to nothing. Card #1 gets the .ac.em info-bordered
+          treatment to anchor user attention. */}
+      <StabilityNarrative
+        itemCount={top3.length}
+        stabilityScore={stabilityScore}
       />
 
-      {/* Empty state when all evidence gaps had zero impact (Brief 4 Task 9).
-          Brief 5.7 D6 follow-up²: also require no next-action cards, so the
-          empty-state message is suppressed when the user can still see a
-          populated "Suggested next actions" block (the message would
-          otherwise read as contradicting an adjacent populated section). */}
-      {evidenceGapCards.length === 0
-        && nextActionCards.length === 0
-        && data.confidence.topEvidenceGapsEmpty && (
+      {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (
         <div className="rounded-lg border border-panel-border bg-panel px-3 py-2">
           <p className={`${typography.panelBody} text-text-light`}>
             No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
@@ -601,67 +572,37 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         </div>
       )}
 
-      {/* 4a. Evidence gap cards — full structure (numbered badge, AI-estimate
-          pill, progress bar + pp pill, Set value input, More disclosure).
-          Sits under the "Highest-value evidence gaps" header carried by
-          TrustSummary above. */}
-      {evidenceGapCards.length > 0 && (
-        <div className="flex flex-col gap-1.5" data-testid="evidence-gap-cards">
-          {evidenceGapCards.map((item, i) => (
-            <TriageCard
-              key={item.key}
-              cardKey={item.key}
-              ordinal={i + 1}
-              title={item.title}
-              detail={item.detail}
-              subtitle={item.subtitle}
-              category={item.category}
-              influence={item.influence}
-              evoiImpact={item.evoiImpact}
-              action={item.action}
-              editorConfig={item.editorConfig}
-              sourcePill={item.sourcePill}
-              onConfirm={onConfirm}
-              onEdit={onFocusNode}
-              onHoverEnter={onHoverEnter}
-              onHoverLeave={onHoverLeave}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* 4b. Suggested next actions — distinct upstream shape (title +
-          coaching + edit pencil; no progress bar, no pp pill, no inline
-          editor). Renders under its own subheader so the user parses cards
-          1-2 and card 3 as related-but-different rather than as one
-          inconsistent stack. Ordinal continues from evidence gaps. */}
-      {nextActionCards.length > 0 && (
-        <div className="flex flex-col gap-1.5" data-testid="next-action-cards">
-          <SectionHeader
-            title="Suggested next actions"
-            className="mb-0"
-            testId="next-actions-section-header"
-          />
-          {nextActionCards.map((item, i) => (
-            <TriageCard
-              key={item.key}
-              cardKey={item.key}
-              ordinal={evidenceGapCards.length + i + 1}
-              title={item.title}
-              detail={item.detail}
-              subtitle={item.subtitle}
-              category={item.category}
-              influence={item.influence}
-              evoiImpact={item.evoiImpact}
-              action={item.action}
-              editorConfig={item.editorConfig}
-              sourcePill={item.sourcePill}
-              onConfirm={onConfirm}
-              onEdit={onFocusNode}
-              onHoverEnter={onHoverEnter}
-              onHoverLeave={onHoverLeave}
-            />
-          ))}
+      {top3.length > 0 && (
+        <div className="flex flex-col gap-1.5" data-testid="unified-triage-queue">
+          {top3.map((item, i) => {
+            const emphasised = i === 0
+            return (
+              <div
+                key={item.key}
+                className={emphasised ? 'rounded-[10px] border border-info/40 bg-info/[0.02]' : ''}
+                data-testid={emphasised ? 'unified-triage-emphasised' : undefined}
+              >
+                <TriageCard
+                  cardKey={item.key}
+                  ordinal={i + 1}
+                  title={item.title}
+                  detail={item.detail}
+                  subtitle={item.subtitle}
+                  category={item.category}
+                  influence={item.influence}
+                  evoiImpact={item.evoiImpact}
+                  action={item.action}
+                  editorConfig={item.editorConfig}
+                  sourcePill={item.sourcePill}
+                  passiveLabels={item.passiveLabels}
+                  onConfirm={onConfirm}
+                  onEdit={onFocusNode}
+                  onHoverEnter={onHoverEnter}
+                  onHoverLeave={onHoverLeave}
+                />
+              </div>
+            )
+          })}
         </div>
       )}
 
