@@ -630,6 +630,28 @@ function DriverRow({
         </div>
       )}
 
+      {/* Brief 5.8B D5 step 4: surface "Ranking may shift {N}%" as a visible
+          row beneath the interpretation tag (was tooltip-only). Gated on
+          `rank_flip_rate >= 0.15` so we only call attention to genuinely
+          shift-prone factors. */}
+      {typeof driver.rankFlipRate === 'number' && driver.rankFlipRate >= 0.15 && (
+        <p
+          className={`${typography.panelMeta} text-warning px-3 pb-1.5 -mt-0.5`}
+          data-testid={`driver-ranking-shift-${driver.factorKey}`}
+        >
+          Ranking may shift {Math.round(driver.rankFlipRate * 100)}%
+        </p>
+      )}
+
+      {/* Brief 5.8B D5 step 6: per-driver elasticity + attribution_stability
+          are already surfaced by the existing ExpertBlock at line 591 above
+          (gated by `expertMode && isExpertField('elasticity')`). D7 wires
+          the new user-facing toggle directly to the `expertMode` prop, so
+          a parallel `.expert-only` CSS-class block here would duplicate
+          the same content under a second gating mechanism. Single source
+          of truth preserved. */}
+
+
       {/* Quick-select for contested drivers — only when inbound edge has validation.status === 'contested' */}
       {driver.hasContestedEdge && (
         <ContestedDriverQuickSelect driver={driver} />
