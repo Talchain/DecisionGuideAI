@@ -30,7 +30,7 @@ describe('StalenessPill', () => {
     expect(pill.textContent).toContain('Based on latest available analysis')
   })
 
-  it('uses outlined warning border on stale; icon carries semantic colour, text stays text-body', () => {
+  it('uses outlined warning border on stale; pill text and icon stay text-body (DS strict)', () => {
     render(<StalenessPill freshness="stale" />)
     const pill = screen.getByTestId('staleness-pill')
     const cls = pill.className
@@ -39,26 +39,36 @@ describe('StalenessPill', () => {
     expect(cls).toContain('text-text-body')
     expect(cls).toContain('rounded-pill')
     expect(cls).toContain('panelMeta')
-    // Icon (svg) should carry the semantic state colour, sized at the DS
-    // panel-inline icon size (14px = w-3.5/h-3.5).
+    // Brief: padding 4×12px → py-1 px-3
+    expect(cls).toContain('px-3')
+    expect(cls).toContain('py-1')
+    // Icon at DS panel-inline size, NO semantic colour class on the icon
+    // (DS v5 §8.5 + CLAUDE.md: never text-{colour} on pills — the icon's
+    // shape, not colour, differentiates state).
     const icon = pill.querySelector('svg')
     expect(icon).toBeTruthy()
-    expect(icon!.getAttribute('class')).toContain('text-warning')
-    expect(icon!.getAttribute('class')).toContain('w-3.5')
-    expect(icon!.getAttribute('class')).toContain('h-3.5')
+    const iconCls = icon!.getAttribute('class') ?? ''
+    expect(iconCls).toContain('w-3.5')
+    expect(iconCls).toContain('h-3.5')
+    expect(iconCls).not.toContain('text-warning')
+    expect(iconCls).not.toContain('text-info')
   })
 
-  it('uses outlined info border on unknown; icon carries info colour', () => {
+  it('uses outlined info border on unknown; same DS strict rules apply', () => {
     render(<StalenessPill freshness="unknown" />)
     const pill = screen.getByTestId('staleness-pill')
     const cls = pill.className
     expect(cls).toContain('border-info/30')
     expect(cls).toContain('bg-transparent')
     expect(cls).toContain('text-text-body')
+    expect(cls).toContain('px-3')
+    expect(cls).toContain('py-1')
     const icon = pill.querySelector('svg')
     expect(icon).toBeTruthy()
-    expect(icon!.getAttribute('class')).toContain('text-info')
-    expect(icon!.getAttribute('class')).toContain('w-3.5')
-    expect(icon!.getAttribute('class')).toContain('h-3.5')
+    const iconCls = icon!.getAttribute('class') ?? ''
+    expect(iconCls).toContain('w-3.5')
+    expect(iconCls).toContain('h-3.5')
+    expect(iconCls).not.toContain('text-info')
+    expect(iconCls).not.toContain('text-warning')
   })
 })

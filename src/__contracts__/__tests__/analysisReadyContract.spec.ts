@@ -276,4 +276,25 @@ describe('analysisReadyContract', () => {
     expect(adapted.analysis_ready).toBeDefined()
     expect(adapted.analysis_ready!.freshness).toBe('unknown')
   })
+
+  it('drops non-string freshness_reason at the boundary', () => {
+    // Numeric, object, array, boolean — all dropped to undefined so the
+    // store never holds a value that violates the declared string type.
+    const cases: unknown[] = [42, { detail: 'x' }, ['stale'], true, null]
+    for (const bad of cases) {
+      const adapted = adaptCEEBlock(
+        wrapInBlock(makeValidPayload({ freshness: 'stale', freshness_reason: bad })),
+      ) as GraphPatchBlock
+      expect(adapted.analysis_ready).toBeDefined()
+      expect(adapted.analysis_ready!.freshness_reason).toBeUndefined()
+    }
+  })
+
+  it('preserves a well-typed string freshness_reason', () => {
+    const adapted = adaptCEEBlock(
+      wrapInBlock(makeValidPayload({ freshness: 'stale', freshness_reason: 'graph hash mismatch' })),
+    ) as GraphPatchBlock
+    expect(adapted.analysis_ready).toBeDefined()
+    expect(adapted.analysis_ready!.freshness_reason).toBe('graph hash mismatch')
+  })
 })
