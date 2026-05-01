@@ -368,7 +368,28 @@ export function OutputsDock() {
 
   // Graph Interaction P1: Canvas → Results sync for DriversSection
   const [driversExpanded, setDriversExpanded] = useState(false)
-  const [expertMode, setExpertMode] = useState(false)
+  // Brief 5.8B D7: persist expert toggle state to localStorage. Lazy
+  // initialiser reads the stored value on first render so the visible
+  // toggle never flickers from false → true after hydration. Persist on
+  // change via useEffect; the storage key is global (`olumi.expertMode`)
+  // so the user's preference is shared across decisions.
+  const [expertMode, setExpertMode] = useState<boolean>(() => {
+    if (typeof window === 'undefined') return false
+    try {
+      return window.localStorage.getItem('olumi.expertMode') === 'true'
+    } catch {
+      return false
+    }
+  })
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      window.localStorage.setItem('olumi.expertMode', String(expertMode))
+    } catch {
+      // localStorage may be blocked (private mode, quota, etc.) — silently
+      // fall back to in-memory state for this session.
+    }
+  }, [expertMode])
   const { highlightedDriverId, registerDriverRef } = useCanvasResultsSync({
     drivers: resultsSectionData.drivers.drivers,
     isAccordionExpanded: driversExpanded,
