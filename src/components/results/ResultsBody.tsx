@@ -20,7 +20,7 @@ import { Accordion } from './Accordion'
 import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
-import { AdvancedSection, type RiskAppetite } from './AdvancedSection'
+import { AdvancedSection, RiskAppetiteFilter, type RiskAppetite } from './AdvancedSection'
 import { ChallengeSection } from './ChallengeSection'
 import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
@@ -198,6 +198,12 @@ export const ResultsBody = memo(function ResultsBody({
               testId="section-header-options"
               sectionColorMarker="bg-option"
             />
+            {/* Brief 5.8B follow-up (P1.5): risk-appetite display filter
+                relocated here from Advanced. Keeps the option-level toggle
+                co-located with the option cards it reweights. */}
+            {resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null) && (
+              <RiskAppetiteFilter value={riskAppetite} onChange={setRiskAppetite} />
+            )}
             {/* WinGauge — moved from hero to top of options section */}
             <WinGauge
               shares={resultsSectionData.recommendation.allOptions
@@ -368,9 +374,6 @@ export const ResultsBody = memo(function ResultsBody({
           robustnessLevel={resultsSectionData.recommendation.robustnessLevel}
           expertMode={expertMode}
           inferenceWarnings={resultsSectionData.confidence.inferenceWarnings}
-          riskAppetite={riskAppetite}
-          onRiskAppetiteChange={setRiskAppetite}
-          showRiskAppetiteFilter={resultsSectionData.recommendation.allOptions.some(o => (o.outcome?.p10 ?? o.p10) != null)}
         />
       </div>
       </SectionErrorBoundary>

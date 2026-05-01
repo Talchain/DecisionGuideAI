@@ -332,7 +332,7 @@ function T1ChecksFooter({
   const total = gaps.length
 
   return (
-    <div className="border-t border-panel-border pt-2" data-testid="t1-checks-footer">
+    <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
       <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
         <ChecksGlyph
           ok={hasWinner}
@@ -475,7 +475,7 @@ function AlsoConsiderDisclosure({
           : <><ChevronRight className="w-3 h-3" aria-hidden="true" /> Show {items.length} more</>}
       </button>
       {expanded && (
-        <div className="flex flex-col gap-1.5 mt-1.5">
+        <div className="flex flex-col gap-1 mt-1.5" data-testid="also-consider-rows">
           {items.map((item, i) => (
             <TriageCard
               key={item.key}
@@ -488,6 +488,7 @@ function AlsoConsiderDisclosure({
               influence={item.influence}
               evoiImpact={item.evoiImpact}
               action={item.action}
+              variant="compact"
               editorConfig={item.editorConfig}
               sourcePill={item.sourcePill}
               passiveLabels={item.passiveLabels}
@@ -676,8 +677,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           <span className={`${typography.panelMeta} text-text-light`}>{pct}%</span>
         </div>
         <div
-          className="w-full h-[3px] rounded-sm overflow-hidden"
-          style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}
+          className="w-full h-[3px] rounded-sm overflow-hidden bg-panel-border"
         >
           <div
             className="h-full rounded-sm"
@@ -690,120 +690,133 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
 
   return (
     <div className="space-y-4 animate-fade-in" data-testid="decision-confidence-panel">
-      {/* Transition bridge */}
+      {/* Transition bridge — sits OUTSIDE the T1 card so the bridge can
+          appear and disappear without disturbing the card chrome. */}
       <TransitionBridge verifiedCount={verifiedCount} influenceCoverage={influenceCoverage} />
 
-      {/* 1. Health header — ring shows the winner's win probability, with a
-          stability indicator below the ring, a qualifier line under the
-          headline, and 3 readiness dimension bars (evidence/robustness/framing). */}
-      <TriageHealthHeader
-        title="Current result"
-        ringLabel="%"
-        ringDimensions={ringDimensions}
-        dimensions={heroDimensions}
-        headline={headline}
-        coaching={healthHeaderCoaching}
-        overrideScore={winProbabilityScore}
-        mode="single"
-        ringCaption={hasWinProbability ? 'win probability' : undefined}
-        secondaryIndicator={stabilityIndicator}
-        qualifier={readinessDimensions ? <HeroQualifier dimensions={readinessDimensions} /> : undefined}
-        testId="confidence-health-header"
-      />
+      {/* ── T1 Decision confidence card ────────────────────────────────────
+         The whole T1 stack lives in one outer .sc card (border-panel-border,
+         bg-panel, rounded-lg) per the wireframe + 5.8A T1DecisionReadinessCard
+         pattern. Sub-blocks are separated by `.sep` dividers
+         (border-t border-panel-border) instead of being independent cards
+         so the user reads the stack as a single unit. */}
+      <div
+        className="rounded-lg border border-panel-border bg-panel p-3 space-y-3"
+        data-testid="t1-decision-confidence-card"
+      >
+        {/* 1. Hero — header rendered without its own card chrome so we
+            don't double-shell. */}
+        <TriageHealthHeader
+          title="Current result"
+          ringLabel="%"
+          ringDimensions={ringDimensions}
+          dimensions={heroDimensions}
+          headline={headline}
+          coaching={healthHeaderCoaching}
+          overrideScore={winProbabilityScore}
+          mode="single"
+          ringCaption={hasWinProbability ? 'win probability' : undefined}
+          secondaryIndicator={stabilityIndicator}
+          qualifier={readinessDimensions ? <HeroQualifier dimensions={readinessDimensions} /> : undefined}
+          testId="confidence-health-header"
+          noCardWrapper
+        />
 
-      {/* 2. Result checks — target probabilities only (flip-risk extracted to T1FlipRiskCallout per D2c). */}
-      <ResultChecks data={data} />
+        {/* 2. Result checks — target probabilities only. */}
+        <div className="border-t border-panel-border pt-3">
+          <ResultChecks data={data} />
+        </div>
 
-      {/* 2a. Flip-risk callout — moved out of ResultChecks per D2c step 1.
-          LOCKED copy preserved verbatim. Suppresses when no fragile edge. */}
-      <T1FlipRiskCallout data={data} onFocusNode={onFocusNode} />
+        {/* 2a. Flip-risk callout (moved out of ResultChecks per D2c step 1). */}
+        {(data.confidence.topFragileEdge || data.confidence.m1CoachingTopFragileEdge) && (
+          <div className="border-t border-panel-border pt-3">
+            <T1FlipRiskCallout data={data} onFocusNode={onFocusNode} />
+          </div>
+        )}
 
-      {/* 2b. Conditional scenarios (Brief 4 Task 10) — between the flip-risk
-          callout and the evidence-gap triage cards, per brief. */}
-      {data.confidence.conditionalWinners && data.confidence.conditionalWinners.length > 0 && (
-        <ConditionalWinnerCards
-          winners={data.confidence.conditionalWinners}
-          recommendedLabel={data.recommendation.recommendedOption?.label}
+        {/* 2b. Conditional scenarios (Brief 4 Task 10) — between flip-risk and queue. */}
+        {data.confidence.conditionalWinners && data.confidence.conditionalWinners.length > 0 && (
+          <div className="border-t border-panel-border pt-3">
+            <ConditionalWinnerCards
+              winners={data.confidence.conditionalWinners}
+              recommendedLabel={data.recommendation.recommendedOption?.label}
+              onFocusNode={onFocusNode}
+            />
+          </div>
+        )}
+
+        {/* 2c. Dominant-factor nudge — moved out of DriversSection per D2c step 2. */}
+        <T1DominantNudge
+          data={data}
           onFocusNode={onFocusNode}
+          onSendMessage={onSendMessage}
         />
-      )}
 
-      {/* 2c. Dominant-factor nudge — moved out of DriversSection per D2c step 2.
-          Suppresses when the top driver does not exceed the dominance threshold. */}
-      <T1DominantNudge
-        data={data}
-        onFocusNode={onFocusNode}
-        onSendMessage={onSendMessage}
-      />
+        {/* 3. Stability narrative + unified EVPI-ranked queue.
+            Card #1 gets the .ac.em info-bordered treatment. */}
+        {(top3.length > 0 || data.confidence.topEvidenceGapsEmpty) && (
+          <div className="border-t border-panel-border pt-3 space-y-2">
+            <StabilityNarrative
+              itemCount={top3.length}
+              stabilityScore={stabilityScore}
+            />
 
-      {/* 3. Stability narrative + unified EVPI-ranked queue (Brief 5.8B D2b).
-          The narrative is suppressed when there are no items; the queue
-          itself collapses to nothing. Card #1 gets the .ac.em info-bordered
-          treatment to anchor user attention. */}
-      <StabilityNarrative
-        itemCount={top3.length}
-        stabilityScore={stabilityScore}
-      />
+            {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (
+              <p className={`${typography.panelBody} text-text-light`}>
+                No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
+              </p>
+            )}
 
-      {top3.length === 0 && data.confidence.topEvidenceGapsEmpty && (
-        <div className="rounded-lg border border-panel-border bg-panel px-3 py-2">
-          <p className={`${typography.panelBody} text-text-light`}>
-            No high-value evidence gaps. Your current uncertainties have minimal impact on the result.
-          </p>
-        </div>
-      )}
-
-      {top3.length > 0 && (
-        <div className="flex flex-col gap-1.5" data-testid="unified-triage-queue">
-          {top3.map((item, i) => {
-            const emphasised = i === 0
-            return (
-              <div
-                key={item.key}
-                className={emphasised ? 'rounded-[10px] border border-info/40 bg-info/[0.02]' : ''}
-                data-testid={emphasised ? 'unified-triage-emphasised' : undefined}
-              >
-                <TriageCard
-                  cardKey={item.key}
-                  ordinal={i + 1}
-                  title={item.title}
-                  detail={item.detail}
-                  subtitle={item.subtitle}
-                  category={item.category}
-                  influence={item.influence}
-                  evoiImpact={item.evoiImpact}
-                  action={item.action}
-                  editorConfig={item.editorConfig}
-                  sourcePill={item.sourcePill}
-                  passiveLabels={item.passiveLabels}
-                  onConfirm={onConfirm}
-                  onEdit={onFocusNode}
-                  onHoverEnter={onHoverEnter}
-                  onHoverLeave={onHoverLeave}
-                />
+            {top3.length > 0 && (
+              <div className="flex flex-col gap-1.5" data-testid="unified-triage-queue">
+                {top3.map((item, i) => {
+                  const emphasised = i === 0
+                  return (
+                    <div
+                      key={item.key}
+                      className={emphasised ? 'rounded-[10px] border border-info/40 bg-info/[0.02]' : ''}
+                      data-testid={emphasised ? 'unified-triage-emphasised' : undefined}
+                    >
+                      <TriageCard
+                        cardKey={item.key}
+                        ordinal={i + 1}
+                        title={item.title}
+                        detail={item.detail}
+                        subtitle={item.subtitle}
+                        category={item.category}
+                        influence={item.influence}
+                        evoiImpact={item.evoiImpact}
+                        action={item.action}
+                        editorConfig={item.editorConfig}
+                        sourcePill={item.sourcePill}
+                        passiveLabels={item.passiveLabels}
+                        onConfirm={onConfirm}
+                        onEdit={onFocusNode}
+                        onHoverEnter={onHoverEnter}
+                        onHoverLeave={onHoverLeave}
+                      />
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </div>
-      )}
+            )}
 
-      {/* 5. Quick-fix rows (items 4-6) — collapsible "Also consider" */}
-      {quickFix.length > 0 && (
-        <AlsoConsiderDisclosure
-          items={quickFix}
-          startOrdinal={4}
-          onHoverEnter={onHoverEnter}
-          onHoverLeave={onHoverLeave}
-          onConfirm={onConfirm}
-          onEdit={onFocusNode}
-        />
-      )}
+            {quickFix.length > 0 && (
+              <AlsoConsiderDisclosure
+                items={quickFix}
+                startOrdinal={4}
+                onHoverEnter={onHoverEnter}
+                onHoverLeave={onHoverLeave}
+                onConfirm={onConfirm}
+                onEdit={onFocusNode}
+              />
+            )}
+          </div>
+        )}
 
-      {/* 6. T1 checks footer — Brief 5.8B D2c step 3. Compact glyph row
-          (Winner / Robust / Evidence gaps) + addressed counter + the shared
-          MissingKnowledgePrompt. Replaces the standalone bottom-of-panel
-          MissingKnowledgePrompt that ResultsBody used to render. */}
-      <T1ChecksFooter data={data} aiAffordance={aiAffordance} />
+        {/* 4. T1 checks footer — Brief 5.8B D2c step 3. */}
+        <T1ChecksFooter data={data} aiAffordance={aiAffordance} />
+      </div>
     </div>
   )
 })

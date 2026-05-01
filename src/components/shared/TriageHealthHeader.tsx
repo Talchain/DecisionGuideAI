@@ -70,6 +70,13 @@ export interface TriageHealthHeaderProps {
    * adjacent to the win-probability ring.
    */
   secondaryIndicator?: ReactNode
+  /**
+   * Brief 5.8B follow-up: when true, omit the outer `bg-panel` card shell so
+   * the caller can compose the header inside a larger T1 wrapper without
+   * producing visible nested-card chrome. Padding/spacing are dropped too —
+   * the parent wrapper owns layout.
+   */
+  noCardWrapper?: boolean
 }
 
 function DimensionBar({ dim }: { dim: TriageDimension }) {
@@ -82,7 +89,7 @@ function DimensionBar({ dim }: { dim: TriageDimension }) {
           <span className={`${typography.panelMeta} text-text-light`}>{dim.label}</span>
           <span className={`${typography.panelMeta} text-text-light`}>{pct}%</span>
         </div>
-        <div className="w-full h-[5px] rounded-sm overflow-hidden" style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}>
+        <div className="w-full h-[5px] rounded-sm overflow-hidden bg-panel-border">
           <div
             className="h-full rounded-sm transition-all duration-300"
             style={{ width: `${pct}%`, backgroundColor: color }}
@@ -107,6 +114,7 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
   ringCaption,
   qualifier,
   secondaryIndicator,
+  noCardWrapper = false,
 }: TriageHealthHeaderProps) {
   const [coachingDismissed, setCoachingDismissed] = useState(false)
 
@@ -117,9 +125,16 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
   // from sharing this primitive.
   const showBars = dimensions != null && dimensions.length > 0
 
+  // Brief 5.8B follow-up: when used inside the post-analysis T1 wrapper, the
+  // parent owns the `bg-panel rounded-lg border` chrome. Drop ours to avoid
+  // nested-card visual weight; keep internal spacing identical.
+  const wrapperClass = noCardWrapper
+    ? hideTitle ? 'space-y-2' : 'space-y-3'
+    : `rounded-lg border border-panel-border bg-panel px-3 ${hideTitle ? 'py-2 space-y-2' : 'py-3 space-y-3'}`
+
   return (
     <div
-      className={`rounded-lg border border-panel-border bg-panel px-3 ${hideTitle ? 'py-2 space-y-2' : 'py-3 space-y-3'}`}
+      className={wrapperClass}
       data-testid={testId}
     >
       {hideTitle ? (
