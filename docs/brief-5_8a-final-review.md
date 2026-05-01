@@ -48,7 +48,7 @@ Branch: `ui/pre-analysis-tier-hierarchy-5_8a` (forked from `origin/staging` @ `a
 - Top 3 render as `.ac` cards (info-coloured ordinal badges, first item info-bordered + tinted as `.ac.em` emphasis). Remaining → "Also consider" `.qf` compact rows.
 - Removed: "Review next" SectionHeader, "Improve confidence" h3 heading + count pill, Start here render for triage signals (now the natural emphasised first item), `DraftStrengthenSection.tsx` (sole consumer was pre-analysis).
 - TriageCard extension: optional `passiveLabels?: string[]` prop renders the strengthen `actionType` as a non-focusable 9px `<span>` pill.
-- Improve confidence accordion preserved as the host for `SuccessTarget` + `MissingKnowledgePrompt` (later moved in D3c) with a generic "Show additional controls" toggle. data-testids preserved so existing tests resolve.
+- Improve confidence accordion was initially preserved with a generic "Show additional controls" toggle (data-testids retained) but was later **deleted entirely** in the post-D7 ChatGPT-feedback consolidation pass (commit `5f5165d9`). SuccessTarget moved into T3 Advanced as a child slot; MissingKnowledgePrompt moved into the T1 checks footer in D3c.
 - Tests: 19 unit + multiple existing tests updated.
 
 ### D3c — T1 bias + widening + contribution + footer
@@ -175,8 +175,7 @@ The wireframe uses 9px and 10px freely; DS v5 defines tokens at 11/12/14 only. E
 
 ## Accessibility audit
 
-- All accordion triggers are `<button>` elements with `aria-expanded`. New SharpenYourThinking accordion + the OptionPreview header + the Improve confidence accordion + the Advanced accordion all comply.
-- The Improve confidence accordion now has an explicit `aria-label` ("Show additional controls" / "Hide additional controls") since the visible label was removed.
+- All accordion triggers are `<button>` elements with `aria-expanded`. SharpenYourThinking accordion (T2), OptionPreview header, and the Advanced accordion (T3) all comply. The Improve confidence accordion was deleted in the post-D7 ChatGPT-feedback consolidation pass (commit `5f5165d9`); SuccessTarget moved into T3 Advanced.
 - `T1FailingCheckRow` action button has explicit `aria-label`.
 - `T1BiasNudgeRow` text reads naturally for screen readers (`<strong>Title:</strong> Subtitle`).
 - `T1ContributionRow` spectrum bar has `role="img"` + descriptive `aria-label` covering all three buckets.
@@ -196,12 +195,19 @@ The wireframe uses 9px and 10px freely; DS v5 defines tokens at 11/12/14 only. E
 
 ## Open follow-ups (recommended Brief 5.8B scope)
 
-- **Bias nudge "+N more" link is presently dormant** — the upstream pipeline caps bias triggers at 2 (`REVIEW_NEXT_BIAS_BUDGET`) so the T1 nudge block never has overflow today. If 5.8B widens the bias source, the `onShowAllBias` prop is in place to wire an expansion handler.
+- **Bias nudge "+N more" link is presently dormant** — the upstream pipeline caps bias triggers at 2 (Hook B / `mapDraftBiasSignalToTrigger` budget). If 5.8B widens the bias source, the `onShowAllBias` prop on T1DecisionReadinessCard is in place to wire an expansion handler.
 - **Framing chip handlers currently both route to `handleSetTargetFocus`** — Brief 5.8B may split these onto distinct targets if the goal-baseline edit needs its own focus path.
-- **T3 Advanced inventory expansion** — risk appetite, graph statistics, simulation settings remain placeholders. Mount the surfaces inside `AnalysisSettings.tsx` once their data sources are wired (Brief 5.8B/5.9).
-- **Bias overflow gating** — `reviewNextOverflowCount` and the "Show more" toggle in the Review next section now only count bias overflow (triage moved to T1). Brief 5.8B should evaluate whether to remove the legacy Review next section entirely once bias has fully migrated.
+- **T3 Advanced inventory expansion** — risk appetite, graph statistics, simulation settings remain placeholders. The Advanced accordion now displays a visible deferred-surfaces note inside its body. Mount the surfaces inside `AnalysisSettings.tsx` once their data sources are wired (Brief 5.8B/5.9).
 - **Contribution breakdown for edges** — currently counts factors only. If 5.8B introduces an edge-confirmed semantic, the utility can extend to include edges in N + M.
 - **Baseline screenshots** — Paul-side capture remaining for D7 before/after comparison (see `docs/brief-5_8a-baseline-screenshots/README.md`). Dev server runs at `http://localhost:5173/`.
+
+## Post-D7 consolidation passes (commits `8b0c302f` and `5f5165d9`)
+
+Two follow-up commits landed after the original D7 review to address holistic-review and ChatGPT-feedback findings:
+
+- **`8b0c302f` post-D7 holistic-review polish** — memoised `wideningSlot`, `missingKnowledgeSlot`, `noTargetCheck`, `goalLabel`, `hasGoalNode`, `hasGoalTarget` at the consumer site so the memoised T1 card actually benefits; added `resolvedSignals` filter to the unified queue so confirm clicks don't leave cards visible for a render frame.
+- **`5f5165d9` post-D7 ChatGPT-feedback consolidation** — fixed Rules-of-Hooks violation in SharpenYourThinking; gated `wideningSlot` on actual `wideningLog.length`; deleted legacy Must fix section (critical fix cards → unified queue; structural rows → T1 failing-checks block); deleted Improve confidence accordion entirely (SuccessTarget → T3 Advanced child); deleted `TriageCheckRow`, `ImproveConfidenceAccordion`, `reviewNextExpanded`, and 5 unused imports; switched T1 bias-nudge testid from `trigger.id` to a local index to prevent CEE id leakage; rejected ChatGPT's narrative-bridge "K cover the highest impact" wording (contradicts user's prior plan-correction directive).
+- **post-`5f5165d9` round 2** — fixed identical bias-id leakage in `SharpenYourThinking` card keys/testids; relocated enriched draft-failure blockers ABOVE T1 to match the documented intent (they were previously below the T2 accordion); refreshed this final-review doc to remove stale references to the deleted accordion.
 
 ## Brief 5.8B preview scope
 

@@ -90,9 +90,15 @@ function buildFramingCards({
   return cards
 }
 
-function buildBiasCard(trigger: NormalisedBiasTrigger): SharpenCardEntry {
+function buildBiasCard(trigger: NormalisedBiasTrigger, index: number): SharpenCardEntry {
+  // Brief 5.8A post-D7 ChatGPT-feedback round 2: the React `id` (used as
+  // map key) and the data-testid both must be sanitized. CEE can stamp
+  // `raw.id` (which flows into trigger.id via `cee_bias_${stableId}`) with
+  // values containing factor / option / node prefixes — those would leak
+  // into the DOM via the testid attribute. Local 0-based index keeps both
+  // attributes prefix-free.
   return {
-    id: `sharpen-bias-${trigger.id}`,
+    id: `sharpen-bias-${index}`,
     label: 'Bias',
     question: trigger.subtitle,
     chip: (
@@ -104,7 +110,7 @@ function buildBiasCard(trigger: NormalisedBiasTrigger): SharpenCardEntry {
         }}
       />
     ),
-    testId: `sharpen-bias-${trigger.id}`,
+    testId: `sharpen-bias-${index}`,
   }
 }
 
@@ -137,7 +143,7 @@ export function SharpenYourThinking(props: SharpenYourThinkingProps) {
   } = props
 
   const cards = useMemo<SharpenCardEntry[]>(() => {
-    const biasCards = biasTriggers.map(buildBiasCard)
+    const biasCards = biasTriggers.map((trigger, index) => buildBiasCard(trigger, index))
     const framingSpecs = buildFramingCards({
       hasGoalBaseline,
       hasSuccessTarget,

@@ -590,7 +590,7 @@ function normalisePatchOp(raw: Record<string, unknown>): Record<string, unknown>
  * Maps option_id → id if CEE sends option_id instead of id.
  * Returns undefined if the payload is absent or structurally invalid.
  */
-function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
+export function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
   if (raw == null || typeof raw !== 'object') return undefined
   const obj = raw as Record<string, unknown>
   if (!Array.isArray(obj.options) || typeof obj.goal_node_id !== 'string') return undefined
@@ -613,7 +613,13 @@ function normaliseAnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
       ? freshnessRaw
       : 'unknown'
 
-  const mapped = { ...obj, options, freshness } as CEEAnalysisReady
+  // freshness_reason: keep only well-typed strings; drop everything else at
+  // the boundary so the store never holds a value that violates the declared
+  // type. Spread ...obj first, then overwrite to enforce the guard.
+  const freshness_reason =
+    typeof obj.freshness_reason === 'string' ? obj.freshness_reason : undefined
+
+  const mapped = { ...obj, options, freshness, freshness_reason } as CEEAnalysisReady
 
   // Boundary validation — rejects entire payload if any field fails contract
   return validateAnalysisReadyContract(mapped)

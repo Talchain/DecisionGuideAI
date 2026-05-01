@@ -24,7 +24,12 @@ const COPY: Record<StalenessFreshness, string> = {
 
 export function StalenessPill({ freshness }: StalenessPillProps) {
   const Icon = freshness === 'stale' ? AlertTriangle : Info
+  // Border carries the semantic on the pill itself; the icon also carries
+  // the semantic colour (text-warning / text-info) as a status-indicator
+  // exception to the "no text-{colour} on pills" rule — the rule applies
+  // to the pill's *text*, which remains text-text-body.
   const borderClass = freshness === 'stale' ? 'border-warning/30' : 'border-info/30'
+  const iconColourClass = freshness === 'stale' ? 'text-warning' : 'text-info'
 
   return (
     <div
@@ -34,7 +39,7 @@ export function StalenessPill({ freshness }: StalenessPillProps) {
       data-freshness={freshness}
       className={`${typography.panelMeta} inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-transparent border ${borderClass} text-text-body`}
     >
-      <Icon aria-hidden="true" className="w-3 h-3" />
+      <Icon aria-hidden="true" className={`w-3.5 h-3.5 ${iconColourClass}`} />
       <span>{COPY[freshness]}</span>
     </div>
   )

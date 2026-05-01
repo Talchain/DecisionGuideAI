@@ -2202,6 +2202,30 @@ export function PreAnalysisPanel({
             at full opacity. */}
         <div className={`space-y-4 ${isFailed ? 'opacity-60 pointer-events-none' : ''}`}>
 
+          {/* Brief 5.8A post-D7 round 2: enriched draft-failure blockers
+              (e.g. "Options need configuration") render at the TOP of the
+              panel content, above the T1 card. They are recovery
+              affordances (multi-action retry / edit brief / focus node)
+              and burying them below coaching surfaces would leave the
+              user unable to find the path forward. The comment block
+              previously documented "ABOVE T1" placement but the JSX had
+              drifted below — this corrects the position to match the
+              documented intent. */}
+          {!data.isReady && visibleEnrichedBlockers.length > 0 && (
+            <SectionErrorBoundary section="Blockers">
+              <BlockersSection
+                blockers={visibleEnrichedBlockers}
+                informationalBlockers={[]}
+                canRetryDraft={canRetryDraft}
+                isRetrying={isRetrying}
+                lastDraftRetryable={lastDraftError?.retryable}
+                onRetryDraft={handleRetryDraft}
+                onEditBrief={handleEditBrief}
+                onFocusNode={handleFocusNode}
+              />
+            </SectionErrorBoundary>
+          )}
+
           {/* Brief 5.8A D3a: T1 "Decision readiness" card. The .sc wrapper
               hosts the ring + 4 dimension bars (ModelHealthCard compact mode),
               followed by failing-check rows and the narrative bridge. D3b
@@ -2309,26 +2333,11 @@ export function PreAnalysisPanel({
                   analysis-blocking and visually emphasised as card #1).
                 - Structural check rows (Fewer than 2 options, No baseline)
                   → T1 failing-checks block via T1FailingCheckRow.
-              Enriched blockers (BlockersSection) remain as a separate
-              top-level surface ABOVE T1 because they are draft-failure
-              recovery affordances (multi-action retry / edit brief / focus
-              node) — substantively different from binary check rows. The
-              wireframe shows the happy-path layout; this is the error path.
-            */}
-          {!data.isReady && visibleEnrichedBlockers.length > 0 && (
-            <SectionErrorBoundary section="Blockers">
-              <BlockersSection
-                blockers={visibleEnrichedBlockers}
-                informationalBlockers={[]}
-                canRetryDraft={canRetryDraft}
-                isRetrying={isRetrying}
-                lastDraftRetryable={lastDraftError?.retryable}
-                onRetryDraft={handleRetryDraft}
-                onEditBrief={handleEditBrief}
-                onFocusNode={handleFocusNode}
-              />
-            </SectionErrorBoundary>
-          )}
+                - Enriched draft-failure blockers (BlockersSection) →
+                  rendered at the TOP of the panel content above T1 so
+                  the recovery affordances are not buried (see block
+                  above). */}
+
           {/* Informational (non-blocking) blockers — surfaced regardless of bucket */}
           {data.informationalBlockers.length > 0 && (
             <SectionErrorBoundary section="Notes">

@@ -107,9 +107,45 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
-    expect(screen.getByTestId('sharpen-bias-b1')).toBeInTheDocument()
+    // Brief 5.8A post-D7 round 2: bias card testids use a local index now,
+    // not trigger.id (which can carry CEE-supplied prefixes). The first
+    // bias card is at index 0.
+    expect(screen.getByTestId('sharpen-bias-0')).toBeInTheDocument()
     expect(screen.getByTestId('sharpen-framing-no_baseline')).toBeInTheDocument()
     expect(screen.getByTestId('sharpen-framing-no_target')).toBeInTheDocument()
+  })
+
+  it('does not embed CEE-supplied trigger.id prefixes into card keys/testids (Brief 5.8A post-D7 round 2)', () => {
+    // Regression test: CEE can stamp raw.id with values that include
+    // factor / option / node prefixes. normaliseCeeBiasFinding wraps that
+    // as `cee_bias_${raw.id}` (e.g. `cee_bias_fac-velocity`). Before the
+    // round-2 fix that string flowed straight into the data-testid
+    // attribute, leaking the internal id into DOM. Now the testid uses
+    // a local 0-based index regardless of trigger.id contents.
+    const triggers = [
+      trigger({ id: 'cee_bias_fac-velocity', title: 'Authority bias' }),
+      trigger({ id: 'cee_bias_opt_quality', title: 'Framing bias' }),
+    ]
+    const { container } = render(
+      <SharpenYourThinking
+        biasTriggers={triggers}
+        hasGoalBaseline
+        hasSuccessTarget
+        goalHasQuantitativeHint
+        onSetCurrentValue={vi.fn()}
+        onSetTarget={vi.fn()}
+      />,
+    )
+    fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
+    // Bias cards mount under the new index-based testid.
+    expect(screen.getByTestId('sharpen-bias-0')).toBeInTheDocument()
+    expect(screen.getByTestId('sharpen-bias-1')).toBeInTheDocument()
+    // No DOM attribute carries the CEE-supplied prefix tokens.
+    expect(container.innerHTML).not.toMatch(/cee_bias_fac/)
+    expect(container.innerHTML).not.toMatch(/cee_bias_opt/)
+    expect(container.innerHTML).not.toMatch(/\bfac_/)
+    expect(container.innerHTML).not.toMatch(/\bopt_/)
+    expect(container.innerHTML).not.toMatch(/\bnode_/)
   })
 
   it('caps total cards at 4 (bias fills first, framing absorbs remainder)', () => {
