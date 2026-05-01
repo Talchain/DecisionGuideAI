@@ -1,0 +1,197 @@
+# Brief 5.8B — Final Review
+
+Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
+`a307a044` · 11 commits ahead.
+
+| Commit       | Deliverable                                          |
+| ------------ | ---------------------------------------------------- |
+| `997ca65e`   | D0 — Pre-analysis polish (7 leftovers from 5.8A)     |
+| `95fce59e`   | D1 — Precondition check                              |
+| `7d2d6bb5`   | D2a — Post T1 hero                                   |
+| `632cebf6`   | D2b — Post T1 triage unification                     |
+| `7f8e6069`   | D2c — Post T1 flip-risk + nudge + checks             |
+| `77c40ff8`   | D3 — Post T1 Your options polish                     |
+| `bf8a3957`   | **D4 — Copy approval gate (component build deferred)** |
+| `8a56b3d9`   | D5 — Post T3 drivers demotion                        |
+| `d7def7ef`   | D6 — Post T3 advanced verify                         |
+| `ed519d0d`   | D7 — Expert toggle                                   |
+| `7df5ef0a`   | D8 — Post footer alignment                           |
+| _(this doc)_ | D9 — Final review                                    |
+
+## D4 — deferred
+
+Per the brief's built-in copy-approval gate, the Stress-test accordion
+component build is deferred pending Paul's approval of the proposed
+strings in [`docs/brief-5_8b-d4-copy.md`](./brief-5_8b-d4-copy.md).
+Three open questions are listed at the bottom of that doc.
+
+The legacy `ChallengeSection` ("Before you decide") still renders in
+production until D4 ships — this is the only remaining grep-gate hit
+(`rg "Before you decide" src/components/results/`), and is expected.
+
+## Per-deliverable summary
+
+### D0 — Pre-analysis polish
+Fixed all 7 leftovers from 5.8A: removed orphan StatusBanner above T1,
+broke the narrative-bridge run-on into a discrete failing-check row +
+one-sentence prose + meta line, verified the unified-queue + Also
+consider disclosure, fixed `OptionPreview` collapsed concatenation
+(via render-path trace documented in commit), removed duplicate Explore
+chip, wired the `previewLine` prop on Sharpen-your-thinking, and
+removed the "before running" anti-pattern headline derivation.
+Killed a dead `buildTriageNarrative.ts` module (no production consumer)
+and updated 9 affected specs.
+
+### D1 — Precondition check
+Verified `staging` clean, captured baselines, branch created from
+`a307a044`. No halt conditions tripped.
+
+### D2a — Post T1 hero
+Extended `TriageHealthHeader` with two optional slots (`qualifier`,
+`secondaryIndicator`) and decoupled the dimension-bars gate from ring
+mode so the post-analysis single-value ring can render bars alongside
+the headline. `DecisionConfidencePanel` now renders a stability indicator
+adjacent to the win-probability ring (suppressed when stability is
+missing — never `Stability: NaN%`), a HeroQualifier (pure threshold map;
+lowest sub-0.7 dim wins), and 3 readiness dimension bars
+(Evidence / Robustness / Framing) keyed off the data-supplied
+`{evidence, robustness, clarity}` 3-set.
+
+**Dimension audit:** the wireframe pictures a 4-set
+{Structure / Evidence / Coverage / Verified}; the post-analysis bundle
+supplies a 3-set {evidence, robustness, clarity}. Per Paul's directive
+("use whatever the data supplies"), only the 3 keys actually present
+are rendered. `HeroQualifier`'s threshold map covers BOTH the data
+keys AND the wireframe-aliased keys (structure / coverage / verified)
+so future data-shape shifts don't require code edits.
+
+### D2b — Post T1 triage unification
+"Highest-value evidence gaps" + "Suggested next actions" merged into one
+EVPI-ranked queue inside the T1 card. Card #1 is wrapped in
+`border-info/40 bg-info/[0.02]` to mirror the pre-analysis 5.8A
+`.ac.em` emphasis treatment. Items 4-6 keep the existing
+`AlsoConsiderDisclosure` (compact rows, collapsed by default).
+A new `StabilityNarrative` line renders above the queue ("Stability:
+{N}%. These items would most improve confidence:" + "Ranked by evidence
+value"), suppressed when the queue is empty. Strengthen overlay reuses
+the pre-analysis utility verbatim against the canvas store's
+`draftCoaching.strengthenItems`.
+
+Two obsolete specs deleted (`*topEvidenceSplit*`, `*semanticCoherence*`)
+because they codified the removed split + bridge tooltip; replaced by
+`unifiedQueueD2b.spec.tsx` (11 cases).
+
+### D2c — Post T1 flip-risk + nudge + checks
+Three new T1 components added inside `DecisionConfidencePanel`:
+`T1FlipRiskCallout` (extracted from `ResultChecks`, copy preserved
+verbatim), `T1DominantNudge` (replaces the standalone dominant warning
+that previously rendered in `DriversSection` — same threshold ≥0.8,
+copy preserved, Validate + Research chips reused), and `T1ChecksFooter`
+(✓/✗ Winner · ✓/✗ Robust · ✓/✗ Evidence gaps · "{N}/{M} addressed"
++ shared `MissingKnowledgePrompt`). The standalone `MissingKnowledgePrompt`
+sibling render in `ResultsBody` was deleted to avoid duplication.
+
+`DriversSection.tsx` lost ~45 LOC (the dominant warning render); it
+still owns per-row sensitivity / confidence / technique chip /
+ranking-shift tooltip. One obsolete spec deleted
+(`DriversSection.dominantWarning.spec.tsx`).
+
+### D3 — Post T1 Your options polish
+Per-rank border palette (V14.2: `border-2 border-success/60` /
+`border-info/60` / `border-option/60` / `border-panel-border`)
+collapsed to a 2-state hierarchy: winner cards carry `border-success/30`,
+everything else stays neutral with `border-panel-border`. Single-stroke
+borders only. The previous palette competed with WinGauge segment colours
+one row above. Added "What if I tried a different approach?" link at
+the bottom, gated on `onSendMessage`. Three legacy spec assertions
+updated (`OptionCards.spec.tsx`, `visualContracts.spec.tsx`).
+
+### D4 — Copy approval gate (deferred)
+See above. `docs/brief-5_8b-d4-copy.md` holds the proposed strings.
+
+### D5 — Post T3 drivers demotion
+Surfaced `Ranking may shift {N}%` as a visible per-driver row
+(`panelMeta text-warning`) gated on `rankFlipRate >= 0.15` — was
+tooltip-only at `DriversSection.tsx:371-375`. The Drivers accordion
+was already wrapped (`defaultExpanded={false}`, title "What's driving
+this", count badge) at `ResultsBody.tsx:240-263`; no change needed
+for the demotion itself. The brief asked for a parallel `.expert-only`
+CSS-class block exposing per-driver elasticity + attribution_stability;
+the existing `ExpertBlock` at `DriversSection.tsx:591-598` already
+renders that under the `expertMode` prop, so the parallel mechanism
+would surface the same content under two gating systems. Single
+source of truth preserved — D7's toggle wires the prop directly.
+
+### D6 — Advanced metadata verification
+Confirmed the metadata block at `AdvancedSection.tsx:334-411` (gated
+by `expertMode &&`) was already in place pre-brief. All 19 cases in
+the existing spec pass. Documented the orphan-string scan findings
+in [`docs/brief-5_8b-d6-verify.md`](./brief-5_8b-d6-verify.md):
+`a307a04` clean; `Stability sensitive` and `62% of influence` were
+the legacy `ResultsFooter` strings replaced in D8.
+
+### D7 — Expert toggle
+Persisted the existing `</>` toggle at the panel header to localStorage
+(`olumi.expertMode`). Lazy `useState` initialiser reads on first
+render so the toggle never flickers from `false → true` after
+hydration. Persistence via `useEffect` on change. Both branches
+wrap localStorage access in try/catch so blocked storage falls back
+to in-memory state for the session.
+
+### D8 — Post footer alignment
+Re-skinned the post-analysis footer via the existing
+`AnalysisFooter` (`metaPlacement="stacked"` + `actionVariant="secondary"`).
+Wireframe stability bands extracted into a pure helper
+`src/canvas/components/utils/postAnalysisFooter.ts` (≥0.85 → success
+"Stable result"; ≥0.60 → warning "Sensitive to assumptions"; <0.60 →
+danger "Provisional result"; missing → danger "Fragile result"
+fallback). Meta line: `"{N}% stability · Evidence strong / Evidence
+gaps remain"`. Legacy `<ResultsFooter>` deleted from `ResultsBody`
+(was the source of the orphan-text); the file + its direct unit spec
+remain in the tree and pass in isolation, ready for a future cleanup
+brief. Deleted `HeroFooterComposed.spec.tsx` — its hero ↔ footer
+parity contract no longer applies under decoupled rendering.
+
+## Schema-freeze amendments (per the brief)
+
+  - **Post triage queue unified** (was: split evidence gaps / suggested actions). Owner: D2b.
+  - **Dominant-factor warning relocated** from drivers to T1 inline nudge. Owner: D2c.
+  - **Drivers section demoted** from T1-expanded → T3-collapsed (already wrapped pre-brief; verified). Owner: D5.
+  - **`Ranking may shift N%`** promoted from tooltip-only → visible row in drivers, gated on rank_flip_rate ≥ 0.15. Owner: D5.
+  - **Expert toggle persisted** to localStorage with lazy hydration. Owner: D7.
+  - **D6 metadata** rendering was already in place pre-brief — no schema change, just verification + documentation. Owner: D6.
+  - **Caveat copy update** in `certaintyCopy.ts` — "Result depends on factors with limited evidence. See Highest-value evidence gaps." → "Result depends on factors with limited evidence." The `See Highest-value evidence gaps` cross-reference targeted a sub-header D2b removed; meaning preserved by dropping the dead reference. Treated as a forced post-D2b correction rather than a brief modification. Owner: D9 cleanup.
+  - **Post footer copy** replaced via `derivePostFooterStatus` (deterministic wireframe bands) + `derivePostFooterMeta`. The legacy `getStabilityDisplayLabel` heroLabel ("Stability sensitive") still lives in the file but no longer renders in any production path. Owner: D8.
+  - **Post-analysis dimension audit** — data supplies `{evidence, robustness, clarity}` (3-set), wireframe pictured 4-set. Render maps to "Evidence / Robustness / Framing". Owner: D2a.
+
+## Grep gates
+
+| Gate                                                      | Result                                                                                                                                                                              |
+| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rg "Highest-value evidence gaps" src/components/results/` | Comment only in `certaintyCopy.ts` (justifies the caveat-string update). No production-string match.                                                                              |
+| `rg "Suggested next actions" src/components/results/`     | 0 matches                                                                                                                                                                          |
+| `rg "Before you decide" src/components/results/`          | 1 match in `ResultsBody.tsx` (legacy `ChallengeSection` accordion title) — **expected, removed by D4**.                                                                            |
+| `rg "Stability sensitive" src/components/results/`        | 5 matches: 3 inside `ResultsFooter.tsx` / `getStabilityDisplayLabel.ts` (no longer wired into production render path post-D8) + 2 in justification comments. No production renderer. |
+| `rg "Review next" src/canvas/components/pre-analysis/`    | 0 matches                                                                                                                                                                          |
+| `rg "Improve confidence" src/canvas/components/pre-analysis/` | 0 matches                                                                                                                                                                          |
+| `rg "as any" src/components/results/`                     | 47 matches — same as D1 baseline. Zero new.                                                                                                                                        |
+
+## Test counts
+
+  - `src/components/results/` + `src/components/shared/` + `src/canvas/components/utils/`: 1064 tests pass (was 1056 pre-brief, +8 net after the D2b/D2c/D8 churn).
+  - `src/canvas/components/pre-analysis/`: 734 pass / 13 pre-existing skips (unchanged).
+  - Pre-existing failures in `InsightsPanel.spec` (7) and `MultiFormAnalysis.spec` (1) are unrelated to 5.8B — confirmed via stash test before D8 commit.
+  - Typecheck (`pnpm run typecheck`): clean throughout.
+
+## Architectural notes
+
+  - `ResultsFooter.tsx` + `ResultsFooter.spec.tsx` + `getStabilityDisplayLabel.ts` are no longer wired into any production render path post-D8. Kept in tree (pass in isolation) for a future cleanup brief.
+  - Deleted four obsolete specs over the course of this brief (`buildTriageNarrative.spec.ts`, `topEvidenceSplit.spec.tsx`, `semanticCoherence.spec.tsx`, `dominantWarning.spec.tsx`, `HeroFooterComposed.spec.tsx`). Each was replaced with a focused new spec that asserts the new behaviour.
+  - The strengthen overlay path now reaches across pre/post — `DecisionConfidencePanel` subscribes to `useCanvasStore(s => s.draftCoaching?.strengthenItems)`. Out of scope for the brief but worth flagging: this is the only direct canvas-store coupling in `src/components/results/`. Future briefs may consolidate.
+  - The new `derivePostFooterStatus / derivePostFooterMeta` helpers in `src/canvas/components/utils/postAnalysisFooter.ts` are React-free — they unit-test cleanly without the full OutputsDock dependency tree.
+
+## Recommended 5.8C / 5.9 scope
+
+  - **5.8C (pending CEE freshness)** — Bridge strip; Confirm anyway footer action; post-confirm state. Deferred per the brief.
+  - **5.9 (pending V5 `decision_review`)** — Replace deterministic stress-test templates with `pre_mortem`, `framing_check`, `key_assumptions`, `scenario_contexts`. Rich narrative from `narrative_summary`, `story_headlines`. Unblocks D4 component build.
+  - **Cleanup follow-up** — Delete `ResultsFooter.tsx`, `ResultsFooter.spec.tsx`, and `getStabilityDisplayLabel.ts` once 5.8B has soaked on staging without regressions. Removes the last "Stability sensitive" emitter from the tree entirely.

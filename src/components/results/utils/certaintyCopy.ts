@@ -25,7 +25,7 @@
  *      AND recommendationStability < 0.85 (or absent)
  *      → "{winner} currently leads[ by N points]"
  *      + caveat (needs_work only): "Result depends on factors with
- *                 limited evidence. See Highest-value evidence gaps."
+ *                 limited evidence."
  *      Brief 5.5 §2.7 lock: soft phrasing gates on tier + stability
  *      only. coachingReadiness is NOT a softening trigger (a strong
  *      tier with weak readiness must never soften). The evidence
@@ -179,7 +179,10 @@ export function buildCertaintyCopy(input: CertaintyCopyInput): CertaintyCopy {
       sub: null,
       caveat:
         confidenceTier === 'needs_work'
-          ? 'Result depends on factors with limited evidence. See Highest-value evidence gaps.'
+          // Brief 5.8B D2b removed the "Highest-value evidence gaps"
+          // sub-header (queue is now unified). Caveat copy updated to
+          // drop the dead cross-reference; meaning preserved.
+          ? 'Result depends on factors with limited evidence.'
           : null,
       conservative: true,
     }
