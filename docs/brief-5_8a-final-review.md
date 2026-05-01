@@ -155,7 +155,7 @@ Deleted test specs:
 - ✅ No `bg-{colour}-light` on cards/banners/accordions/pills.
 - ✅ No legacy tokens.
 - ✅ British English, sentence case, no em dashes — verified across all new files.
-- ✅ Accordion triggers carry `aria-expanded` (existing primitive + the new `aria-label` on the Improve confidence accordion).
+- ✅ Accordion triggers carry `aria-expanded` (the shared pre-analysis Accordion primitive provides this for the T2 SharpenYourThinking and T3 Advanced surfaces; OptionPreview's bespoke header button sets it directly). The Improve confidence accordion was deleted in commit `5f5165d9` — see lines 178-179 below for the current accessibility audit.
 - ✅ `actionType` pill is `<span>`, not `<button>` (D3b TriageCard `passiveLabels` prop).
 - ✅ Icon-only chips have tooltips + aria-labels.
 

@@ -471,14 +471,18 @@ describe('PreAnalysisPanel', () => {
   })
 
   describe('Wiring Fixes Regression', () => {
-    it('renders Goal selector inside Improve confidence accordion when threshold is set', () => {
+    it('renders Goal selector inside the T3 Advanced accordion when expanded', () => {
+      // Brief 5.8A holistic-review pass (commit 5f5165d9): the legacy
+      // Improve confidence accordion was deleted entirely; the goal
+      // selector + SuccessTarget editor moved into T3 Advanced.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         successThreshold: 0.7,
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      expandImproveConfidence()
-      // Goal selector lives in SuccessTarget inside Improve confidence accordion
+      const advancedToggle = screen.getByRole('button', { name: /advanced/i })
+      fireEvent.click(advancedToggle)
+      // Goal selector + SuccessTarget render inside T3 Advanced.
       const goalTexts = screen.getAllByText('Goal')
       expect(goalTexts.length).toBeGreaterThanOrEqual(1)
     })

@@ -114,10 +114,29 @@ function normaliseV5AnalysisReady(raw: unknown): CEEAnalysisReady | undefined {
 
   const topStatus = typeof obj.status === 'string' ? obj.status : 'unknown'
 
+  // Freshness normalisation — mirrors useConversation.ts:normaliseAnalysisReady
+  // so the V5 top-level path (this function) and the graph_patch-block path
+  // share the same boundary contract. Without this, missing/invalid freshness
+  // would survive into the store despite the brief stating CEE emits it on
+  // every response.
+  const freshnessRaw = obj.freshness
+  const freshness =
+    freshnessRaw === 'fresh' || freshnessRaw === 'stale' ||
+    freshnessRaw === 'unknown' || freshnessRaw === 'none'
+      ? freshnessRaw
+      : 'unknown'
+
+  // Drop non-string freshness_reason at the boundary so the store never holds
+  // a value that violates the declared type.
+  const freshness_reason =
+    typeof obj.freshness_reason === 'string' ? obj.freshness_reason : undefined
+
   return {
     ...obj,
     status: topStatus,
     options: normalisedOptions,
+    freshness,
+    freshness_reason,
   } as unknown as CEEAnalysisReady
 }
 

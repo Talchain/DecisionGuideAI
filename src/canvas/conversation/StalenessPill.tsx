@@ -23,13 +23,12 @@ const COPY: Record<StalenessFreshness, string> = {
 }
 
 export function StalenessPill({ freshness }: StalenessPillProps) {
+  // DS v5 §8.5 / CLAUDE.md: outlined-only pills, border carries the semantic;
+  // never text-{colour} on the pill (text or icon). The icon's *shape*
+  // (AlertTriangle vs Info) differentiates the two states without colour.
+  // Padding 4×12px → py-1 px-3.
   const Icon = freshness === 'stale' ? AlertTriangle : Info
-  // Border carries the semantic on the pill itself; the icon also carries
-  // the semantic colour (text-warning / text-info) as a status-indicator
-  // exception to the "no text-{colour} on pills" rule — the rule applies
-  // to the pill's *text*, which remains text-text-body.
   const borderClass = freshness === 'stale' ? 'border-warning/30' : 'border-info/30'
-  const iconColourClass = freshness === 'stale' ? 'text-warning' : 'text-info'
 
   return (
     <div
@@ -37,9 +36,9 @@ export function StalenessPill({ freshness }: StalenessPillProps) {
       aria-live="polite"
       data-testid="staleness-pill"
       data-freshness={freshness}
-      className={`${typography.panelMeta} inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill bg-transparent border ${borderClass} text-text-body`}
+      className={`${typography.panelMeta} inline-flex items-center gap-1.5 px-3 py-1 rounded-pill bg-transparent border ${borderClass} text-text-body`}
     >
-      <Icon aria-hidden="true" className={`w-3.5 h-3.5 ${iconColourClass}`} />
+      <Icon aria-hidden="true" className="w-3.5 h-3.5" />
       <span>{COPY[freshness]}</span>
     </div>
   )

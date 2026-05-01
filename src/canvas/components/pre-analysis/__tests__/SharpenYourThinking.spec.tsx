@@ -161,7 +161,9 @@ describe('Brief 5.8A D5 — SharpenYourThinking', () => {
       />,
     )
     fireEvent.click(screen.getByRole('button', { name: /sharpen your thinking/i }))
-    // Match the bias card testids (sharpen-bias-{id}) — there should be at most 4 cards rendered total.
+    // Match the bias card testids (sharpen-bias-{index}) and framing card
+    // testids (sharpen-framing-{kind}) — at most 4 cards rendered total
+    // because TOTAL_CARD_BUDGET caps the merged list.
     const allCards = screen.queryAllByTestId(/^sharpen-(bias|framing)-/)
     expect(allCards.length).toBe(4)
   })
