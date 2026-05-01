@@ -1,22 +1,24 @@
 # Brief 5.8B — Final Review
 
 Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
-`a307a044` · 11 commits ahead.
+`a307a044` · 14 commits ahead.
 
-| Commit       | Deliverable                                          |
-| ------------ | ---------------------------------------------------- |
-| `997ca65e`   | D0 — Pre-analysis polish (7 leftovers from 5.8A)     |
-| `95fce59e`   | D1 — Precondition check                              |
-| `7d2d6bb5`   | D2a — Post T1 hero                                   |
-| `632cebf6`   | D2b — Post T1 triage unification                     |
-| `7f8e6069`   | D2c — Post T1 flip-risk + nudge + checks             |
-| `77c40ff8`   | D3 — Post T1 Your options polish                     |
-| `bf8a3957`   | **D4 — Copy approval gate (component build deferred)** |
-| `8a56b3d9`   | D5 — Post T3 drivers demotion                        |
-| `d7def7ef`   | D6 — Post T3 advanced verify                         |
-| `ed519d0d`   | D7 — Expert toggle                                   |
-| `7df5ef0a`   | D8 — Post footer alignment                           |
-| _(this doc)_ | D9 — Final review                                    |
+| Commit       | Deliverable                                                         |
+| ------------ | ------------------------------------------------------------------- |
+| `997ca65e`   | D0 — Pre-analysis polish (7 leftovers from 5.8A)                    |
+| `95fce59e`   | D1 — Precondition check                                             |
+| `7d2d6bb5`   | D2a — Post T1 hero                                                  |
+| `632cebf6`   | D2b — Post T1 triage unification                                    |
+| `7f8e6069`   | D2c — Post T1 flip-risk + nudge + checks                            |
+| `77c40ff8`   | D3 — Post T1 Your options polish                                    |
+| `bf8a3957`   | **D4 — Copy approval gate (component build deferred)**              |
+| `8a56b3d9`   | D5 — Post T3 drivers demotion                                       |
+| `d7def7ef`   | D6 — Post T3 advanced verify                                        |
+| `ed519d0d`   | D7 — Expert toggle                                                  |
+| `7df5ef0a`   | D8 — Post footer alignment                                          |
+| `45fbb4a5`   | D9 — Initial final review                                           |
+| `b9e3da59`   | **R1 — ChatGPT P1 review pass #1 (one T1 card, compact rows, risk-filter relocate, hex fallbacks, structural spec)** |
+| _(this doc)_ | **R2 — ChatGPT P1 review pass #2 (nudge order, sparse-state divider, doc refresh, hex baseline exception)** |
 
 ## D4 — deferred
 
@@ -176,12 +178,13 @@ parity contract no longer applies under decoupled rendering.
 | `rg "Improve confidence" src/canvas/components/pre-analysis/` | 0 matches                                                                                                                                                                          |
 | `rg "as any" src/components/results/`                     | 47 matches — same as D1 baseline. Zero new.                                                                                                                                        |
 
-## Test counts
+## Test counts (post-R2)
 
-  - `src/components/results/` + `src/components/shared/` + `src/canvas/components/utils/`: 1064 tests pass (was 1056 pre-brief, +8 net after the D2b/D2c/D8 churn).
+  - `src/components/results/` + `src/components/shared/`: **1061 tests pass** (was 1056 pre-brief).
+  - `src/canvas/components/utils/`: 10 tests pass (new D8 helper).
   - `src/canvas/components/pre-analysis/`: 734 pass / 13 pre-existing skips (unchanged).
   - Pre-existing failures in `InsightsPanel.spec` (7) and `MultiFormAnalysis.spec` (1) are unrelated to 5.8B — confirmed via stash test before D8 commit.
-  - Typecheck (`pnpm run typecheck`): clean throughout.
+  - Typecheck (`pnpm run typecheck`): clean throughout R1 + R2.
 
 ## Architectural notes
 
@@ -189,6 +192,89 @@ parity contract no longer applies under decoupled rendering.
   - Deleted four obsolete specs over the course of this brief (`buildTriageNarrative.spec.ts`, `topEvidenceSplit.spec.tsx`, `semanticCoherence.spec.tsx`, `dominantWarning.spec.tsx`, `HeroFooterComposed.spec.tsx`). Each was replaced with a focused new spec that asserts the new behaviour.
   - The strengthen overlay path now reaches across pre/post — `DecisionConfidencePanel` subscribes to `useCanvasStore(s => s.draftCoaching?.strengthenItems)`. Out of scope for the brief but worth flagging: this is the only direct canvas-store coupling in `src/components/results/`. Future briefs may consolidate.
   - The new `derivePostFooterStatus / derivePostFooterMeta` helpers in `src/canvas/components/utils/postAnalysisFooter.ts` are React-free — they unit-test cleanly without the full OutputsDock dependency tree.
+
+## Post-D9 review pass #1 (commit `b9e3da59`)
+
+External review (ChatGPT) flagged five P1 items after the initial D9
+close-out. Four were addressed; two were skipped with documented
+reasoning.
+
+  - **Addressed P1.2 — One T1 bordered card.** The hero / result-checks
+    / flip-risk / dominant-nudge / queue / checks-footer were rendering
+    as sibling blocks; now wrapped in one outer `.sc` card with `.sep`
+    dividers (`border-t border-panel-border pt-3`). `TriageHealthHeader`
+    gets a new `noCardWrapper` prop so it can render header content
+    without duplicating the parent's chrome — a `wrapperClass` switch
+    keeps internal spacing identical.
+  - **Addressed P1.4b — Compact `.qf` rows.**
+    `AlsoConsiderDisclosure` now passes `variant="compact"` to
+    `TriageCard` for overflow rows (items 4-6), matching the brief
+    D2b step 3 wireframe.
+  - **Addressed P1.5 — Risk-appetite filter relocated.** "Show winner
+    by" display filter (`RiskAppetiteFilter`) moved out of `Advanced`
+    into the Your options card. `AdvancedSection`'s `riskAppetite` /
+    `onRiskAppetiteChange` / `showRiskAppetiteFilter` props removed
+    (no consumers left). The persistent Risk profile control
+    (`useRiskProfile`) stays in `Advanced` — different concept.
+  - **Addressed P1.6 — Drop hex fallbacks I introduced.** Replaced
+    `var(--border-default, #EEE6D8)` inline-style fallbacks in DCP's
+    stability indicator and `TriageHealthHeader`'s `DimensionBar` with
+    the existing `bg-panel-border` Tailwind token (resolves to the
+    same CSS variable). See R2 below for the codebase-wide baseline
+    exception note.
+  - **Addressed I.3 — Structural T1 regression guard.** New
+    `DecisionConfidencePanel.t1Structure.spec.tsx` (initially 4 cases;
+    expanded to 7 in R2) asserts the single-card hierarchy + sub-block
+    containment + no-double-shell + document order.
+  - **Skipped P1.1.** D4 deferral is by Paul's built-in copy approval
+    gate; D9 documents it explicitly. Not an oversight.
+  - **Skipped P1.3.** The brief's own data-audit clause fired
+    correctly — post-analysis bundle supplies a 3-set
+    `{evidence, robustness, clarity}`; render matches data; divergence
+    documented in D9.
+  - **Deferred P1.4a, I.1, I.2** to future briefs.
+
+## Post-D9 review pass #2 (this doc)
+
+Review pass #1 introduced a regression and missed two real issues
+caught by ChatGPT review pass #2.
+
+  - **Addressed P1.1 — Dominant-nudge order.** Brief D2c step 2 places
+    the dominant nudge **after** the triage queue. Review pass #1
+    placed it before the queue and then locked the wrong order via
+    the structural spec. Fixed: nudge moved to render after the queue
+    block; structural spec updated to enforce
+    `hero → flip-risk → queue → dominant nudge → checks footer`.
+  - **Addressed P1.2 — Empty result-check divider.**
+    `TargetProbabilityBars` returns `null` when constraint data is
+    absent, so the wrapper `<div className="border-t pt-3">` was
+    emitting an empty bordered slot in sparse states. Now gated on
+    a new `hasResultChecks` derivation that mirrors
+    `TargetProbabilityBars`'s null condition. Slot carries a
+    `data-testid="t1-result-checks-slot"` so the suppression is
+    test-assertable.
+  - **Addressed I.1 — Sparse-state structural coverage.** The
+    structural spec gains a `describe('sparse states')` block with
+    three new cases: result-checks divider absent when no constraints,
+    full-sparse render emits no orphan `border-t` dividers, dominant
+    nudge absent when influence is below threshold. Total spec is now
+    7 cases (4 ordering + 3 sparse).
+  - **Addressed P1.3 — Stale final review doc.** This update.
+  - **Documented P1.4 — Codebase-wide hex-fallback baseline exception.**
+    Pre-existing fallbacks in `TriageCard.tsx`, `OptionCards.tsx`
+    (none — actually `OptionCards` has no hex fallbacks; the file
+    listed by ChatGPT was likely confused with `WinGauge`),
+    `AdvancedSection.tsx`, `DecisionHealthRing.tsx`, `TopBar.module.css`,
+    `index.css`, `ThinkingModeDropdown.tsx` use the
+    `var(--border-default, #EEE6D8)` pattern. This is a project-wide
+    convention predating 5.8B (≈12 occurrences across 8 files in
+    `components/` + `canvas/`). Touching them across the repo is
+    out of brief scope — recommend a dedicated cleanup brief that
+    introduces a `bg-panel-border` migration codemod and updates
+    every site at once. R1 fixed only the two instances 5.8B
+    introduced.
+  - **Skipped I.2 (top-card AI slot).** Same disposition as R1 — not
+    in the brief; track as a pre-analysis-parity follow-up.
 
 ## Recommended 5.8C / 5.9 scope
 

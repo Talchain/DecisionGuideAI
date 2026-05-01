@@ -664,6 +664,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     ]
   }, [readinessDimensions])
 
+  // Result-checks slot gate: matches TargetProbabilityBars's null-return
+  // condition (`!constraintAnalysis?.constraints?.length`). Used to suppress
+  // the divider wrapper in sparse states so the T1 card doesn't emit an
+  // empty bordered slot.
+  const hasResultChecks = (
+    data.recommendation.recommendedOption?.constraintAnalysis?.constraints?.length ?? 0
+  ) > 0
+
   // Stability indicator renders adjacent to the win-probability ring. Suppressed
   // when the field is missing — never emits "Stability: NaN%".
   const stabilityScore = data.recommendation.recommendationStability
@@ -722,10 +730,14 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           noCardWrapper
         />
 
-        {/* 2. Result checks — target probabilities only. */}
-        <div className="border-t border-panel-border pt-3">
-          <ResultChecks data={data} />
-        </div>
+        {/* 2. Result checks — target probabilities only. Gate the divider on
+            the same condition TargetProbabilityBars uses (constraint data
+            present) so sparse states don't emit an empty bordered slot. */}
+        {hasResultChecks && (
+          <div className="border-t border-panel-border pt-3" data-testid="t1-result-checks-slot">
+            <ResultChecks data={data} />
+          </div>
+        )}
 
         {/* 2a. Flip-risk callout (moved out of ResultChecks per D2c step 1). */}
         {(data.confidence.topFragileEdge || data.confidence.m1CoachingTopFragileEdge) && (
@@ -744,13 +756,6 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
             />
           </div>
         )}
-
-        {/* 2c. Dominant-factor nudge — moved out of DriversSection per D2c step 2. */}
-        <T1DominantNudge
-          data={data}
-          onFocusNode={onFocusNode}
-          onSendMessage={onSendMessage}
-        />
 
         {/* 3. Stability narrative + unified EVPI-ranked queue.
             Card #1 gets the .ac.em info-bordered treatment. */}
@@ -813,6 +818,15 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
             )}
           </div>
         )}
+
+        {/* 3a. Dominant-factor nudge — Brief 5.8B D2c step 2 placement: AFTER
+            the triage queue (corrects an earlier ordering bug surfaced by
+            external review). Suppresses when top influence < 0.8. */}
+        <T1DominantNudge
+          data={data}
+          onFocusNode={onFocusNode}
+          onSendMessage={onSendMessage}
+        />
 
         {/* 4. T1 checks footer — Brief 5.8B D2c step 3. */}
         <T1ChecksFooter data={data} aiAffordance={aiAffordance} />

@@ -49,7 +49,13 @@ function makeDriver(overrides: Partial<DriverItem> = {}): DriverItem {
   }
 }
 
-function makeData(): ResultsSectionDataReturn {
+interface FullStateOpts {
+  withFragile?: boolean
+  withDominant?: boolean
+  withGap?: boolean
+}
+
+function makeData(opts: FullStateOpts = { withFragile: true, withDominant: true, withGap: true }): ResultsSectionDataReturn {
   const winner: OptionResult = {
     id: 'opt_a',
     label: 'Option A',
@@ -60,16 +66,16 @@ function makeData(): ResultsSectionDataReturn {
     goalProbability: 0.7,
   } as OptionResult
 
-  const fragile: FragileEdgeItem = {
+  const fragile: FragileEdgeItem | undefined = opts.withFragile ? {
     fromId: 'node_x',
     fromLabel: 'Hiring rate',
     toId: 'node_y',
     toLabel: 'Revenue',
     switchProbability: 0.42,
     alternativeWinnerLabel: 'Option B',
-  } as FragileEdgeItem
+  } as FragileEdgeItem : undefined
 
-  const gap: EvidenceGapItem = {
+  const gap: EvidenceGapItem | undefined = opts.withGap ? {
     factorId: 'fac_g',
     factorLabel: 'Evidence Gap A',
     confidence: 70,
@@ -77,7 +83,7 @@ function makeData(): ResultsSectionDataReturn {
     evpiPp: 25,
     suggestion: 'Gather data',
     targetNodeId: 'node_g',
-  }
+  } : undefined
 
   const recommendation: DecisionResultData = {
     recommendedOption: winner,
@@ -92,13 +98,13 @@ function makeData(): ResultsSectionDataReturn {
   } as DecisionResultData
 
   const driversData: DriversSectionData = {
-    drivers: [makeDriver({ influenceScore: 0.9 })],
-    topDrivers: [makeDriver({ influenceScore: 0.9 })],
+    drivers: [makeDriver({ influenceScore: opts.withDominant ? 0.9 : 0.4 })],
+    topDrivers: [makeDriver({ influenceScore: opts.withDominant ? 0.9 : 0.4 })],
     driversStatus: 'computed',
     totalCount: 1,
     hasMagnitudeData: true,
-    dominantFactorId: 'node_top',
-    dominantFactorLabel: 'Top factor',
+    dominantFactorId: opts.withDominant ? 'node_top' : undefined,
+    dominantFactorLabel: opts.withDominant ? 'Top factor' : undefined,
   }
 
   const confidence: ConfidenceSectionData = {
@@ -108,8 +114,8 @@ function makeData(): ResultsSectionDataReturn {
     topUncertainties: [],
     improvements: [],
     topImprovements: [],
-    evidenceGaps: [gap],
-    topEvidenceGaps: [gap],
+    evidenceGaps: gap ? [gap] : [],
+    topEvidenceGaps: gap ? [gap] : [],
     nextActions: [],
     topNextActions: [],
     topFragileEdge: fragile,
@@ -175,14 +181,17 @@ describe('DecisionConfidencePanel — T1 single-card structural guard', () => {
     expect(header.className).not.toContain('rounded-lg')
   })
 
-  it('renders T1 sub-blocks in the documented order', () => {
+  it('renders T1 sub-blocks in the brief D2c order: hero → flip-risk → queue → dominant nudge → checks footer', () => {
     render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)
     const card = screen.getByTestId('t1-decision-confidence-card')
+    // Brief D2c step 2 places the dominant nudge AFTER the triage queue;
+    // an earlier follow-up commit had it before the queue and locked the
+    // wrong order via this spec.
     const blocks = [
       'confidence-health-header',
       't1-flip-risk-callout',
-      't1-dominant-nudge',
       'unified-triage-queue',
+      't1-dominant-nudge',
       't1-checks-footer',
     ]
       .map(id => card.querySelector(`[data-testid="${id}"]`))
@@ -194,5 +203,62 @@ describe('DecisionConfidencePanel — T1 single-card structural guard', () => {
       const curr = blocks[i]
       expect(prev.compareDocumentPosition(curr) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     }
+  })
+
+  // ── I.1 sparse-state structural coverage ───────────────────────────────
+  describe('sparse states', () => {
+    it('omits the result-checks divider when no constraint data is available', () => {
+      render(
+        <DecisionConfidencePanel
+          data={makeData({ withFragile: false, withDominant: false, withGap: false })}
+          onSendMessage={() => {}}
+        />,
+      )
+      // Result-checks slot should not render; no empty bordered shell.
+      expect(screen.queryByTestId('t1-result-checks-slot')).not.toBeInTheDocument()
+    })
+
+    it('renders cleanly with no flip-risk, no dominant nudge, no triage items, no constraints', () => {
+      const { container } = render(
+        <DecisionConfidencePanel
+          data={makeData({ withFragile: false, withDominant: false, withGap: false })}
+          onSendMessage={() => {}}
+        />,
+      )
+      // Required slots stay (hero + checks footer).
+      expect(screen.getByTestId('confidence-health-header')).toBeInTheDocument()
+      expect(screen.getByTestId('t1-checks-footer')).toBeInTheDocument()
+      // Optional slots all suppressed.
+      expect(screen.queryByTestId('t1-flip-risk-callout')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('unified-triage-queue')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('stability-narrative')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('t1-result-checks-slot')).not.toBeInTheDocument()
+
+      // Structural sanity: no orphan dividers in the T1 card. An "orphan"
+      // divider is a `border-t border-panel-border` element with no rendered
+      // children — those are the visual artefacts the gates above prevent.
+      const t1 = screen.getByTestId('t1-decision-confidence-card')
+      const dividers = Array.from(t1.querySelectorAll('div.border-t'))
+      for (const div of dividers) {
+        // Each divider must contain at least one element child (its sub-block).
+        expect(div.children.length).toBeGreaterThan(0)
+      }
+      void container // pin reference for clarity
+    })
+
+    it('omits the dominant nudge slot when top influence is below threshold', () => {
+      render(
+        <DecisionConfidencePanel
+          data={makeData({ withFragile: true, withDominant: false, withGap: true })}
+          onSendMessage={() => {}}
+        />,
+      )
+      expect(screen.queryByTestId('t1-dominant-nudge')).not.toBeInTheDocument()
+      // But the queue and the flip-risk + checks footer still render.
+      expect(screen.getByTestId('unified-triage-queue')).toBeInTheDocument()
+      expect(screen.getByTestId('t1-flip-risk-callout')).toBeInTheDocument()
+      expect(screen.getByTestId('t1-checks-footer')).toBeInTheDocument()
+    })
   })
 })
