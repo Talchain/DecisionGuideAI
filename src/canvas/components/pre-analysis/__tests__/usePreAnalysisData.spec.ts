@@ -3351,7 +3351,13 @@ describe('usePreAnalysisData', () => {
       )
     })
 
-    it('returns null fallback when coaching_summary is absent and no graph is loaded', () => {
+    it('returns null when coaching_summary is absent (Brief 5.8B D0 #7 — derived blocker summary dropped)', () => {
+      // Brief 5.8B D0 #7: the legacy "X issues to fix before running",
+      // "X assumptions to review before running", "X quality suggestions
+      // to consider" derived headlines were removed. They duplicated
+      // information the T1 narrative bridge + failing-checks rows + unified
+      // triage queue now carry. With no CEE coaching_summary supplied, the
+      // hook returns null rather than reconstructing a duplicate sentence.
       mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
         const state = {
           nodes: [],
@@ -3369,15 +3375,10 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      // No coaching_summary falls back to the derived blocker summary
-      expect(result.current.coachingSummary).toBe('2 issues to fix before running analysis.')
-      // Crucially: it is NOT the CEE summary string
-      expect(result.current.coachingSummary).not.toBe(
-        'Your decision hinges on the unverified impact of hiring on financial risk.'
-      )
+      expect(result.current.coachingSummary).toBeNull()
     })
 
-    it('returns null coaching summary when coaching_summary is null', () => {
+    it('returns null when coaching_summary is null (Brief 5.8B D0 #7)', () => {
       mockUseCanvasStore.mockImplementation((selector: (state: unknown) => unknown) => {
         const state = {
           nodes: [],
@@ -3408,7 +3409,7 @@ describe('usePreAnalysisData', () => {
 
       const { result } = renderHook(() => usePreAnalysisData())
 
-      expect(result.current.coachingSummary).toBe('2 issues to fix before running analysis.')
+      expect(result.current.coachingSummary).toBeNull()
     })
   })
 

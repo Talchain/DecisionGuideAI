@@ -237,8 +237,8 @@ describe('Brief 5.8A D3c — T1 bias .nudge rows', () => {
     expect(within(t1Card).getAllByTestId(/^t1-bias-nudge-/)).toHaveLength(2)
   })
 
-  it('keeps the bias block out of the legacy Review next section', () => {
-    // Brief 5.8A D3c moves bias inline into T1; the legacy Review next bias
+  it('keeps the bias block out of the legacy review-tier section', () => {
+    // Brief 5.8A D3c moves bias inline into T1; the legacy review-tier bias
     // trigger render is gone. This regression-guard asserts that no bias
     // trigger renders OUTSIDE the T1 card even when the deterministic
     // fallback produces one.

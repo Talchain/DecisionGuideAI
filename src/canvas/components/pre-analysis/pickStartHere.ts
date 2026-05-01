@@ -1,9 +1,9 @@
 /**
- * pickStartHere — unified priority ranking across ALL Review next signals
+ * pickStartHere — unified priority ranking across ALL review-tier signals
  * (triage factors/edges, option quality, bias triggers). Returns the single
  * highest-priority signal, or null when no signals exist.
  *
- * UI-BUG-9: the hasMustFix guard was removed. Must fix and Review next are
+ * UI-BUG-9: the hasMustFix guard was removed. Must fix and review-tier are
  * separate sections; the Start here card is a visual highlight within Review
  * next that guides the user to the most impactful review item. Suppressing it
  * when blockers exist prevented the card from ever rendering on typical fresh

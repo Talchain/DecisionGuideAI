@@ -9,14 +9,14 @@
  *   2. Defaulted / non-informative confidence: never render a percentage that
  *      came from a UI-SEM default (the picker tags defaulted signals).
  *   3. Source data missing: no overlap data for the option variant, no
- *      influence for the triage variant, count is 0 for Improve confidence.
+ *      influence for the triage variant, count is 0 for improve-confidence-tier.
  *   4. No generic fallback — return null instead of filler text.
  */
 
 import type { ReviewNextSignal, TriageSignal, OptionQualitySignal, BiasSignal } from './pickStartHere'
 
 /**
- * Build the Review next coaching line from the picked Start here signal,
+ * Build the review-tier coaching line from the picked Start here signal,
  * or null when suppressed. Called with the SAME ReviewNextSignal that the
  * Start here card displays.
  */
@@ -46,7 +46,7 @@ export function getReviewNextCoachingLine(startHere: ReviewNextSignal | null): s
 }
 
 /**
- * Build the Improve confidence coaching line from a simple count.
+ * Build the improve-confidence-tier coaching line from a simple count.
  * Returns null when nothing worth coaching.
  */
 export function getImproveConfidenceCoachingLine(itemCount: number): string | null {
@@ -103,7 +103,7 @@ export function isRedundantWithStartHere(
 }
 
 /**
- * Resolve the Review next coaching line end-to-end: build it, then suppress
+ * Resolve the review-tier coaching line end-to-end: build it, then suppress
  * if redundant with Start here. Returns the final string or null.
  */
 export function resolveReviewNextCoachingLine(

@@ -33,7 +33,7 @@ describe('OptionPreview — narrow-framing coaching (Brief 4 hotfix Task 6)', ()
     }],
   })
 
-  it('renders the full narrow-framing copy in the collapsed state when hasSameLeversCheck is true', () => {
+  it('renders the narrow-framing copy in the collapsed state when hasSameLeversCheck is true', () => {
     render(
       <OptionPreview
         options={[basicOption]}
@@ -41,11 +41,14 @@ describe('OptionPreview — narrow-framing coaching (Brief 4 hotfix Task 6)', ()
         onSendMessage={vi.fn()}
       />,
     )
-    // Collapsed by default. Full copy + link visible without expanding.
+    // Collapsed by default. Brief 5.8B D0 #5: the inline "Explore
+    // alternatives" link was removed (duplicated the canonical "Explore
+    // other strategies" CTA in the OptionPreview footer). Coaching prose
+    // preserved.
     expect(
       screen.getByTestId('option-quality-narrow-framing'),
     ).toHaveTextContent(/all work through similar factors/i)
-    expect(screen.getByText('Explore alternatives')).toBeInTheDocument()
+    expect(screen.queryByText('Explore alternatives')).not.toBeInTheDocument()
   })
 
   it('renders the full narrow-framing copy in the expanded state too (data-driven, not state-driven)', () => {
@@ -67,11 +70,15 @@ describe('OptionPreview — narrow-framing coaching (Brief 4 hotfix Task 6)', ()
     })
   })
 
-  it('omits "Explore alternatives" link when onSendMessage is not provided', () => {
+  it('Brief 5.8B D0 #5: never renders an inline "Explore alternatives" link (duplicate of footer CTA)', () => {
+    // The previous gate "omits when onSendMessage is missing" no longer
+    // applies — the inline chip was removed entirely. The narrow-framing
+    // coaching prose stays; only the duplicate CTA is gone.
     render(
       <OptionPreview
         options={[basicOption]}
         hasSameLeversCheck
+        onSendMessage={vi.fn()}
       />,
     )
     expect(screen.getByTestId('option-quality-narrow-framing')).toBeInTheDocument()

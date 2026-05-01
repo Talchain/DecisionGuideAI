@@ -387,7 +387,7 @@ describe('PreAnalysisPanel', () => {
 
   describe('Accordion Behaviour', () => {
     it('renders Advanced accordion content when expanded (Brief 5.8A holistic-review pass)', () => {
-      // The legacy Improve confidence accordion was removed entirely;
+      // The legacy improve-confidence-tier accordion was removed entirely;
       // SuccessTarget now lives inside T3 Advanced. Asserting the Advanced
       // toggle reveals its content region (which holds the goal selector
       // + SuccessTarget editor).
@@ -401,9 +401,9 @@ describe('PreAnalysisPanel', () => {
     })
 
     it('surfaces cee_inference verify items inside the T1 unified queue', () => {
-      // Brief 5.8A D3b: Improve confidence triage cards moved into the T1
+      // Brief 5.8A D3b: improve-confidence-tier triage cards moved into the T1
       // Decision readiness card. Expertise items now appear in the unified
-      // queue alongside Review next items.
+      // queue alongside review-tier items.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         totalImprovements: 5,
         improvementsByCategory: {
@@ -479,7 +479,7 @@ describe('PreAnalysisPanel', () => {
   describe('Wiring Fixes Regression', () => {
     it('renders Goal selector inside the T3 Advanced accordion when expanded', () => {
       // Brief 5.8A holistic-review pass (commit 5f5165d9): the legacy
-      // Improve confidence accordion was deleted entirely; the goal
+      // improve-confidence-tier accordion was deleted entirely; the goal
       // selector + SuccessTarget editor moved into T3 Advanced.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         successThreshold: 0.7,
@@ -493,7 +493,9 @@ describe('PreAnalysisPanel', () => {
       expect(goalTexts.length).toBeGreaterThanOrEqual(1)
     })
 
-    it('renders sections in correct order: banner → health → buckets → expertise', () => {
+    it('renders sections in correct order: T1 health → buckets → expertise (Brief 5.8B D0 #1 — banner removed)', () => {
+      // The orphan StatusBanner above T1 was removed in Brief 5.8B D0 #1;
+      // the T1 health card is now the topmost surface in non-failed states.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         tiers: {
           mustAddress: { items: [{ key: 'f1', category: 'fix', label: 'Test Fix', detail: 'Detail' }], count: 1 },
@@ -514,18 +516,10 @@ describe('PreAnalysisPanel', () => {
       const panel = container.querySelector('[data-testid="pre-analysis-panel"]')
       expect(panel).toBeInTheDocument()
 
-      // Banner + health rendered in correct order
-      expect(screen.getByTestId('pre-analysis-status-banner')).toBeInTheDocument()
+      // No orphan banner in non-failed states (Brief 5.8B D0 #1).
+      expect(screen.queryByTestId('pre-analysis-status-banner')).not.toBeInTheDocument()
+      // T1 health card is the topmost section.
       expect(screen.getByTestId('model-health-card')).toBeInTheDocument()
-
-      // Verify banner renders before health card in the DOM
-      const scrollableContent = panel?.querySelector('.overflow-y-auto')
-      const html = scrollableContent?.innerHTML ?? ''
-
-      const bannerPos = html.indexOf('pre-analysis-status-banner')
-      const healthPos = html.indexOf('model-health-card')
-
-      expect(bannerPos).toBeLessThan(healthPos)
     })
 
     it('sticky footer uses flex layout for pinning', () => {
@@ -653,7 +647,7 @@ describe('PreAnalysisPanel', () => {
 
     it('AI-estimated factors surface inside the T1 unified queue (Brief 5.8A D3b)', () => {
       // Brief 5.8A D3b: cee_inference verify items now thread into the T1
-      // unified triage queue alongside Review next items.
+      // unified triage queue alongside review-tier items.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         isReady: true,
         reviewedFactorsCount: 2,
@@ -820,7 +814,7 @@ describe('PreAnalysisPanel', () => {
     })
 
     describe('Task 3: Success Target Provenance', () => {
-      it('shows provenance text when available (inside Improve confidence)', () => {
+      it('shows provenance text when available (inside improve-confidence-tier)', () => {
         mockUsePreAnalysisData.mockReturnValue(createMockData({
           successThreshold: 1000000,
           isThresholdAutoDerived: true,
@@ -1315,8 +1309,8 @@ describe('PreAnalysisPanel', () => {
     // data-testid="model-health-card-headline". Precedence:
     //   1. ceeAnalysisReady.coaching_summary (CEE override)
     //   2. First Must fix item label → "[label]. Address before analysis."
-    //   3. First Review next item label → "[label] has the biggest impact. Review before running."
-    //   4. Ready states (Improve confidence items / clean) → null (StatusBanner already communicates readiness)
+    //   3. First review-tier item label → "[label] has the biggest impact. Review before running."
+    //   4. Ready states (improve-confidence-tier items / clean) → null (StatusBanner already communicates readiness)
     //
     // These tests use a "clean" mock that suppresses the deterministic bias
     // triggers (which would otherwise push reviewNextCount > 0 even in a
@@ -1413,17 +1407,18 @@ describe('PreAnalysisPanel', () => {
       ).not.toBeInTheDocument()
     })
 
-    it('renders a grammatically correct Review next headline when the option quality card is the first item', () => {
-      // Fewer than 3 options (and no same_levers check) triggers the option
-      // quality card as the first Review next item. Subject is plural, so
-      // the headline must NOT read "Your options has the biggest impact."
-      // (the grammar bug this test guards against).
+    it('does not render a "before running" review-tier headline (Brief 5.8B D0 #2/#7 — duplicates dropped)', () => {
+      // Brief 5.8B D0 #2/#7: the legacy "Review your options before
+      // running.", "{Bias} may be shaping your choices. Review before
+      // running.", "{Factor} has the biggest impact. Review before
+      // running." dynamic-headline templates were removed. They duplicated
+      // the T1 narrative bridge that lives inside the same card.
+      // ModelHealthCard now falls through to its own ringless caption
+      // (or null) rather than echoing the same count twice.
       mockUsePreAnalysisData.mockReturnValue(createMockData({
         ...cleanBaselineMock(),
         isReady: true,
         hasBlockers: false,
-        // 2 options + nothing in Must fix → Review next fires with the
-        // option quality card (count === 1)
         optionPreviews: [
           { id: 'o1', label: 'Option 1', status: 'ready', isBaseline: false, interventions: [] },
           { id: 'o2', label: 'Option 2', status: 'ready', isBaseline: true, interventions: [] },
@@ -1432,10 +1427,12 @@ describe('PreAnalysisPanel', () => {
       }))
 
       render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
-      const headline = screen.getByTestId('model-health-card-headline')
-      expect(headline).toHaveTextContent('Review your options before running.')
-      // Guard against the grammar bug ChatGPT flagged
-      expect(headline).not.toHaveTextContent('Your options has the biggest impact')
+      // The dynamic-headline slot may render fallback copy or be absent
+      // entirely — the core invariant is that no "before running" prose
+      // surfaces from the review-tier branch.
+      expect(screen.queryByText(/before running\./)).not.toBeInTheDocument()
+      // The grammar guard from the original test stays valid.
+      expect(screen.queryByText('Your options has the biggest impact')).not.toBeInTheDocument()
     })
   })
 

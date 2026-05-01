@@ -272,12 +272,17 @@ describe('Brief 5.8A D3a — T1 Decision readiness card', () => {
     expect(bridge).toBeInTheDocument()
     expect(within(bridge).getByText('1')).toBeInTheDocument()
     expect(within(bridge).getByText('2')).toBeInTheDocument()
+    // Brief 5.8B D0 #2: tail trimmed; the colon-introducer "These are the
+    // highest-priority items to review:" was redundant with the meta line
+    // "Ranked by priority" + the unified queue rendered immediately below.
     expect(bridge.textContent).toMatch(/1 unverified estimate and 2 relationships worth reviewing\./)
-    expect(bridge.textContent).toMatch(/These are the highest-priority items to review:/)
+    expect(bridge.textContent).not.toMatch(/These are the highest-priority items to review/)
     expect(within(bridge).getByTestId('t1-narrative-meta')).toHaveTextContent('Ranked by priority')
   })
 
-  it('renders the prefix sentence when the goal target is unset, even with no items', () => {
+  it('suppresses the narrative bridge entirely when goal target is unset and no items exist (Brief 5.8B D0 #2)', () => {
+    // The discrete failing-check row inside T1 owns the goal-target signal
+    // now; the prose prefix that previously fired here was duplicative.
     mockUsePreAnalysisData.mockReturnValue(baseData({
       qualityChecks: [
         {
@@ -293,10 +298,12 @@ describe('Brief 5.8A D3a — T1 Decision readiness card', () => {
       improvementsByCategory: { fix: [], verify: [], add_evidence: [], strengthen: [] },
     }))
     render(<PreAnalysisPanel onAnalyse={vi.fn()} />)
-    const bridge = screen.getByTestId('t1-narrative-bridge')
-    expect(bridge.textContent).toMatch(/No success target set, so analysis cannot show probability of success\./)
-    // No bridge counts when both are zero.
-    expect(within(bridge).queryByText('Ranked by priority')).not.toBeInTheDocument()
+    // Bridge slot suppressed entirely when both counts are zero — even
+    // when the goal target is unset (the failing-check row carries that
+    // signal now).
+    expect(screen.queryByTestId('t1-narrative-bridge')).not.toBeInTheDocument()
+    // The discrete failing-check row IS rendered.
+    expect(screen.getByTestId('t1-check-no-target')).toBeInTheDocument()
   })
 
   it('suppresses the narrative bridge entirely when target set and no items', () => {

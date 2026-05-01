@@ -63,8 +63,8 @@ describe('pickStartHere', () => {
     expect(pickStartHere([], {})).toBeNull()
   })
 
-  // UI-BUG-9: hasMustFix guard was removed — Start here renders in Review next
-  // regardless of Must fix state. Must fix and Review next are separate sections.
+  // UI-BUG-9: hasMustFix guard was removed — Start here renders in review-tier
+  // regardless of Must fix state. Must fix and review-tier are separate sections.
   it('returns a signal even when must-fix items would exist (UI-BUG-9)', () => {
     const signals: ReviewNextSignal[] = [triage(0.9)]
     expect(pickStartHere(signals, {})).not.toBeNull()
