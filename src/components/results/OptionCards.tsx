@@ -296,9 +296,16 @@ function OptionCard({
   /** Brief 5.4 QA Item 4: stability gate for winner chip hedging (mirrors certaintyCopy threshold) */
   recommendationStability?: number
 }) {
+  // Brief 5.8B D3: per-rank palette (success / info / option / panel-border)
+  // collapsed to a 2-state hierarchy — winner cards get `border-success/30`,
+  // every other card stays neutral with `border-panel-border`. The richer
+  // palette competed with the WinGauge segment colours one row above and
+  // pulled visual weight away from the queue's emphasised first card.
   const borderClass = neutralised
     ? 'border border-panel-border'
-    : (segmentBorderClass ?? 'border border-panel-border')
+    : isWinner
+      ? 'border border-success/30'
+      : 'border border-panel-border'
   // V14.2: Prefer sort-derived rank, fallback to option.rank or winner inference
   const rank = sortedRank ?? option.rank ?? (isWinner ? 1 : undefined)
 
@@ -613,6 +620,20 @@ export function OptionCards({
           {showAllOptions
             ? 'Show fewer'
             : `Show all (${hiddenCount} more)`}
+        </button>
+      )}
+
+      {/* Brief 5.8B D3 step 3: "What if I tried a different approach?" link.
+          Routes the prompt through the existing onSendMessage pathway so the
+          conversation panel reuses the same coaching loop the AI chips use. */}
+      {onSendMessage && (
+        <button
+          type="button"
+          onClick={() => onSendMessage('What if I tried a different approach? Suggest one or two alternative options I could compare against the current set.')}
+          className={`self-start ${typography.panelBody} text-info hover:underline cursor-pointer`}
+          data-testid="option-cards-different-approach"
+        >
+          What if I tried a different approach?
         </button>
       )}
     </div>

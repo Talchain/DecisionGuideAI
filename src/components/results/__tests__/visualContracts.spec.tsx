@@ -169,7 +169,9 @@ describe('Visual contract: Robust state', () => {
     )
 
     const winnerCard = screen.getByTestId('option-card-opt-a')
-    expect(winnerCard.className).toContain('border-success/60')
+    // Brief 5.8B D3: winner palette simplified from border-2 border-success/60
+    // to a single border-success/30. Per-rank palette retired.
+    expect(winnerCard.className).toContain('border-success/30')
   })
 
   it('D17: colour markers replace "#N of N" rank prefix', () => {
@@ -203,7 +205,9 @@ describe('Visual contract: Robust state', () => {
     expect(marker).toHaveAttribute('aria-hidden', 'true')
     // Card still has its ordinal border (unchanged from V14.2)
     const winnerCard = screen.getByTestId('option-card-opt-a')
-    expect(winnerCard.className).toContain('border-success/60')
+    // Brief 5.8B D3: winner palette simplified from border-2 border-success/60
+    // to a single border-success/30. Per-rank palette retired.
+    expect(winnerCard.className).toContain('border-success/30')
   })
 
   it('V16.2: VOI block shown for robust state (scroll-link target)', () => {
@@ -235,7 +239,9 @@ describe('Visual contract: Sensitive state', () => {
     )
 
     const winnerCard = screen.getByTestId('option-card-opt-a')
-    expect(winnerCard.className).toContain('border-success/60')
+    // Brief 5.8B D3: winner palette simplified from border-2 border-success/60
+    // to a single border-success/30. Per-rank palette retired.
+    expect(winnerCard.className).toContain('border-success/30')
   })
 
   it('VOI block visible in ConfidenceSection', () => {

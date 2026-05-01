@@ -9,7 +9,7 @@
  * V12.4: Per-card "Wins" bar removed; win % shown as text in header.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { OptionCards } from '../OptionCards'
 import type { OptionResult, HingeInfo } from '../types'
@@ -180,21 +180,20 @@ describe('OptionCards', () => {
     })
   })
 
-  describe('Winner styling', () => {
-    it('winner card uses border-2 border-success/60 (full-border, no left-accent)', () => {
+  describe('Winner styling (Brief 5.8B D3)', () => {
+    it('winner card uses border-success/30 (single-border, no per-rank palette)', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
       const winnerCard = screen.getByTestId('option-card-option-1')
-      expect(winnerCard.className).toContain('border-2')
-      expect(winnerCard.className).toContain('border-success/60')
+      expect(winnerCard.className).toContain('border-success/30')
     })
 
-    it('applies ordinal chart colour border to non-winner card', () => {
+    it('non-winner cards use the neutral border-panel-border (per-rank palette retired)', () => {
       render(<OptionCards options={mockOptions} winnerId="option-1" />)
 
-      // Runner-up (option-2) gets the second ordinal colour: border-info/60
       const otherCard = screen.getByTestId('option-card-option-2')
-      expect(otherCard.className).toContain('border-info/60')
+      expect(otherCard.className).toContain('border-panel-border')
+      expect(otherCard.className).not.toContain('border-info/60')
     })
   })
 
@@ -391,7 +390,7 @@ describe('OptionCards', () => {
       expect(screen.getByTestId('win-pct-option-1')).toBeInTheDocument()
     })
 
-    it('winner card uses border-2 border-success/60 when robust (full-border)', () => {
+    it('winner card uses border-success/30 when robust (Brief 5.8B D3 simplified palette)', () => {
       render(
         <OptionCards
           options={mockOptions}
@@ -401,8 +400,7 @@ describe('OptionCards', () => {
       )
 
       const winnerCard = screen.getByTestId('option-card-option-1')
-      expect(winnerCard.className).toContain('border-2')
-      expect(winnerCard.className).toContain('border-success/60')
+      expect(winnerCard.className).toContain('border-success/30')
     })
 
     it('D17: preserves colour markers in sensitive state (no "#N of M" text)', () => {
@@ -639,6 +637,37 @@ describe('OptionCards', () => {
 
       expect(screen.getByText('Leads by 5pp to strongest performer')).toBeInTheDocument()
       expect(screen.queryByText(/→/)).not.toBeInTheDocument()
+    })
+  })
+
+  describe('Brief 5.8B D3 — "different approach" link', () => {
+    it('renders the link only when onSendMessage is wired', () => {
+      const { rerender } = render(
+        <OptionCards options={mockOptions} winnerId="option-1" />,
+      )
+      expect(screen.queryByTestId('option-cards-different-approach')).not.toBeInTheDocument()
+      rerender(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          onSendMessage={() => {}}
+        />,
+      )
+      expect(screen.getByTestId('option-cards-different-approach')).toBeInTheDocument()
+    })
+
+    it('clicking the link routes a prompt through onSendMessage', () => {
+      const onSendMessage = vi.fn()
+      render(
+        <OptionCards
+          options={mockOptions}
+          winnerId="option-1"
+          onSendMessage={onSendMessage}
+        />,
+      )
+      fireEvent.click(screen.getByTestId('option-cards-different-approach'))
+      expect(onSendMessage).toHaveBeenCalledTimes(1)
+      expect(onSendMessage.mock.calls[0][0]).toMatch(/different approach/i)
     })
   })
 })
