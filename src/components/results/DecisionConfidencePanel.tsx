@@ -17,6 +17,8 @@ import { AlertTriangle, ChevronDown, ChevronRight, HelpCircle } from 'lucide-rea
 import Tooltip from '@/components/Tooltip'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
+import { HeroQualifier } from './HeroQualifier'
+import { evaluativeVar } from '@/styles/evaluative'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
 import { TriageCard } from '@/components/shared/TriageCard'
@@ -493,21 +495,69 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     return top.targetNodeId ?? top.factorId ?? null
   }, [data.confidence.topEvidenceGaps])
 
+  // ── D2a hero: readiness dimension bars + qualifier + stability indicator ──
+  // The post-analysis bundle supplies a 3-dim readiness set
+  // ({evidence, robustness, clarity}) — see useResultsSectionData.ts:1238.
+  // The wireframe pictures a 4-dim set ({Structure/Evidence/Coverage/Verified}).
+  // Per Paul's directive ("use whatever the data supplies — do not invent
+  // dimensions") we render only the 3 keys the response actually provides.
+  // The label "Framing" maps to `clarity` because the upstream coaching
+  // taxonomy treats clarity-of-framing as the user-facing concept.
+  const readinessDimensions = data.recommendation.coachingReadinessDimensions
+  const heroDimensions = useMemo(() => {
+    if (!readinessDimensions) return undefined
+    return [
+      { label: 'Evidence', value: readinessDimensions.evidence, tooltip: 'How well-supported your factor estimates are.' },
+      { label: 'Robustness', value: readinessDimensions.robustness, tooltip: 'How sensitive the recommendation is to assumption shifts.' },
+      { label: 'Framing', value: readinessDimensions.clarity, tooltip: 'How clearly the decision and options are framed.' },
+    ]
+  }, [readinessDimensions])
+
+  // Stability indicator renders adjacent to the win-probability ring. Suppressed
+  // when the field is missing — never emits "Stability: NaN%".
+  const stabilityScore = data.recommendation.recommendationStability
+  const stabilityIndicator = useMemo(() => {
+    if (typeof stabilityScore !== 'number' || !Number.isFinite(stabilityScore)) return null
+    const pct = Math.round(stabilityScore * 100)
+    return (
+      <div className="flex flex-col gap-0.5 w-full" data-testid="hero-stability-indicator">
+        <div className="flex items-center justify-between gap-2">
+          <span className={`${typography.panelMeta} text-text-light`}>Stability</span>
+          <span className={`${typography.panelMeta} text-text-light`}>{pct}%</span>
+        </div>
+        <div
+          className="w-full h-[3px] rounded-sm overflow-hidden"
+          style={{ backgroundColor: 'var(--border-default, #EEE6D8)' }}
+        >
+          <div
+            className="h-full rounded-sm"
+            style={{ width: `${pct}%`, backgroundColor: evaluativeVar(stabilityScore) }}
+          />
+        </div>
+      </div>
+    )
+  }, [stabilityScore])
+
   return (
     <div className="space-y-4 animate-fade-in" data-testid="decision-confidence-panel">
       {/* Transition bridge */}
       <TransitionBridge verifiedCount={verifiedCount} influenceCoverage={influenceCoverage} />
 
-      {/* 1. Health header — ring shows the winner's win probability. */}
+      {/* 1. Health header — ring shows the winner's win probability, with a
+          stability indicator below the ring, a qualifier line under the
+          headline, and 3 readiness dimension bars (evidence/robustness/framing). */}
       <TriageHealthHeader
         title="Current result"
         ringLabel="%"
         ringDimensions={ringDimensions}
+        dimensions={heroDimensions}
         headline={headline}
         coaching={healthHeaderCoaching}
         overrideScore={winProbabilityScore}
         mode="single"
         ringCaption={hasWinProbability ? 'win probability' : undefined}
+        secondaryIndicator={stabilityIndicator}
+        qualifier={readinessDimensions ? <HeroQualifier dimensions={readinessDimensions} /> : undefined}
         testId="confidence-health-header"
       />
 
