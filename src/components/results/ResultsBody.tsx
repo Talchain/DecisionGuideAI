@@ -26,7 +26,6 @@ import { groupActionItems, type ActionItem } from './utils/groupActionItems'
 import type { EvidenceGapItem } from './types'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
-import { ResultsFooter } from './ResultsFooter'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 
 export interface StrengthCorrectionDisplay {
@@ -395,12 +394,11 @@ export const ResultsBody = memo(function ResultsBody({
         </SectionErrorBoundary>
       )}
 
-      {/* Footer metadata — replaces the 56px spacer */}
-      <ResultsFooter
-        stability={resultsSectionData.recommendation.recommendationStability}
-        confidenceTier={resultsSectionData.confidence.tier.tier}
-        coachingReadiness={resultsSectionData.recommendation.coachingReadiness}
-      />
+      {/* Brief 5.8B D8: legacy ResultsFooter (the source of the
+          "Stability sensitive · 62% of influence · 97%" orphan-text
+          flagged in D6) deleted. The wireframe-aligned footer is owned
+          by AnalysisFooter inside OutputsDock — re-skinned in D8 with
+          deterministic stability bands + evidence-gap meta. */}
 
       {/* V14.3b: Dev-only build marker for deploy verification */}
       {import.meta.env.DEV && (

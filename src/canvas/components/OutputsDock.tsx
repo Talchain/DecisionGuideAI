@@ -90,6 +90,7 @@ import { getUiSurfaceState, type InteractionStateSnapshot } from '../../lib/debu
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
+import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
 import { StabilityGauge } from '../../components/shared/StabilityGauge'
 import { DeltaIndicator } from '../../components/shared/DeltaIndicator'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
@@ -630,19 +631,23 @@ export function OutputsDock() {
 
   const decisionReadiness = report?.decision_readiness || readinessFromConfidence
   const recommendationStability = (report as any)?.robustness?.recommendation_stability ?? (report as any)?.robustness?.ranking_stability
-  const stabilityClass = getStabilityClassification(recommendationStability)
-  const postRunFooter = stabilityClass
-    ? stabilityClass.level === 'high'
-      ? { icon: CheckCircle, iconClass: 'text-success', label: stabilityClass.heroLabel }
-      : stabilityClass.level === 'moderate'
-        ? { icon: CheckCircle, iconClass: 'text-info', label: stabilityClass.heroLabel }
-        : stabilityClass.level === 'low'
-          ? { icon: AlertTriangle, iconClass: 'text-warning', label: stabilityClass.heroLabel }
-          : { icon: XCircle, iconClass: 'text-danger', label: stabilityClass.heroLabel }
-    : { icon: XCircle, iconClass: 'text-danger', label: 'Fragile result' }
-  const postRunMetaText = recommendationStability != null
-    ? <><StabilityGauge value={recommendationStability} />{' '}<DeltaIndicator currentValue={recommendationStability} previousValue={previousReport?.rankingStability} format="percent" /></>
-    : null
+  // Brief 5.8B D8: footer status + meta re-skinned to the wireframe via the
+  // pure helper (./utils/postAnalysisFooter.ts). The helper owns the
+  // wireframe stability bands + evidence-gap derivation so the logic can be
+  // unit-tested in isolation. The legacy `getStabilityClassification`
+  // heroLabel ("Stability sensitive") was the orphan-text source D6
+  // flagged — superseded by the deterministic strings here.
+  const postFooterStatus = derivePostFooterStatus(recommendationStability)
+  const POST_FOOTER_ICONS = { check: CheckCircle, warning: AlertTriangle, danger: XCircle } as const
+  const postRunFooter = {
+    icon: POST_FOOTER_ICONS[postFooterStatus.icon],
+    iconClass: postFooterStatus.iconClass,
+    label: postFooterStatus.label,
+  }
+  const postRunMetaText = derivePostFooterMeta({
+    stability: recommendationStability,
+    reviewCards: resultsSectionData.confidence.topEvidenceGaps ?? resultsSectionData.confidence.evidenceGaps ?? [],
+  })
 
   // Triage card action handlers — same pattern as pre-analysis expertise (uses withObservedStateUpdate)
   const handleTriageConfirm = useCallback((nodeId: string) => {
@@ -1642,9 +1647,12 @@ export function OutputsDock() {
                     statusIconClassName={postRunFooter.iconClass}
                     statusText={postRunFooter.label}
                     metaText={postRunMetaText}
-                    actionLabel={isRunning ? 'Running analysis…' : 'Rerun analysis'}
+                    metaPlacement="stacked"
+                    actionLabel={isRunning ? 'Running analysis…' : 'Rerun'}
+                    actionVariant="secondary"
                     onAction={handleRunAnalysis}
                     actionDisabled={isRunning || !canRunAnalysis}
+                    actionLoading={isRunning}
                     actionTitle={!canRunAnalysis && !isRunning ? runBlockedTooltip : undefined}
                     testId="results-analysis-footer"
                   />
