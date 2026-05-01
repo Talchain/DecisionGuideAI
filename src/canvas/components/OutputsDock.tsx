@@ -25,7 +25,6 @@
 
 import { useEffect, useState, useRef, useMemo, useCallback, type ChangeEvent } from 'react'
 import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, CheckCircle } from 'lucide-react'
-import { getStabilityClassification } from '../../lib/stability'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'

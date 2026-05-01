@@ -5,9 +5,10 @@
  * - 1-2 line contextual description (story headline or fallback)
  * - "Hits target" stat row: horizontal bar + percentage (conditional on target set)
  * V12.4: Per-card "Wins" bars removed; win % shown as text in card header.
- * V14.2: Ordinal full-border palette (no left-accent). Winner gets border-2 border-success/60;
- *   runner-up border-info/60; third border-option/60; fourth+ border-panel-border.
- *   Border classes derived from WIN_GAUGE_BORDER_CLASSES in WinGauge — coupled to win-bar palette.
+ * Brief 5.8B D3: per-rank palette (V14.2: border-2 border-success/60 / border-info/60 /
+ *   border-option/60) collapsed to a 2-state hierarchy — winner cards carry
+ *   `border-success/30`; everything else stays neutral with `border-panel-border`.
+ *   Single-stroke borders only.
  *
  * V11: Indeterminate neutralisation — stone colours, percentage badges, muted text.
  *
@@ -27,7 +28,7 @@ import {
   constraintConfidenceColour,
   jointProbabilityLabel,
 } from '../../types/constraints'
-import { buildSegmentBorderClassMap, buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
+import { buildSegmentColorMap, WIN_GAUGE_COLORS } from './WinGauge'
 import Tooltip from '../Tooltip'
 import { winnerChipLabel, winnerChipPrompt } from './utils/winnerChipCopy'
 
@@ -258,7 +259,6 @@ function OptionCard({
   cardRef,
   neutralised = false,
   sortedRank,
-  segmentBorderClass,
   segmentFillColor,
   onClick,
   globalMin = 0,
@@ -279,8 +279,6 @@ function OptionCard({
   neutralised?: boolean
   /** V14.2: 1-indexed rank derived from win probability sort order */
   sortedRank?: number
-  /** Ordinal border class matching this option's WinGauge segment colour */
-  segmentBorderClass?: string
   /** Task 6b: CSS colour string for coloured fill bar (matches wins segment) */
   segmentFillColor?: string
   onClick?: () => void
@@ -523,10 +521,10 @@ export function OptionCards({
     ...options.map(o => o.outcome?.p90 ?? o.outcome?.mean ?? 0),
   )
 
-  // Ordinal border class map: derived from same palette arrays as WinGauge by index
-  const segmentBorderClassMap = buildSegmentBorderClassMap(options, winnerId, decisionState)
-
-  // Task 6b: Segment fill colour map for coloured fill bars inside option cards
+  // Brief 5.8B D3 collapsed the per-rank border palette to a 2-state
+  // (winner / non-winner) hierarchy, so `buildSegmentBorderClassMap` /
+  // `WIN_GAUGE_BORDER_CLASSES` are no longer consumed here. The segment
+  // colour map below is still used for coloured fill bars (Task 6b).
   const segmentColorMap = buildSegmentColorMap(options, winnerId, decisionState)
 
   // Brief 3 ST2: Truncate to top 2 whenever there are more than 2 options
@@ -574,8 +572,6 @@ export function OptionCards({
               ? hingeAwareDescription(option, isWinner, isRunnerUp, hinge, winnerOpt?.winProbability)
               : fallbackDescription(option, options.length)
 
-        // Ordinal border class: index-derived from same palette as WinGauge segment
-        const segmentBorderClass = segmentBorderClassMap[option.id] ?? 'border-panel-border'
         const segmentFillColor = segmentColorMap[option.id]
         return (
           <OptionCard
@@ -587,7 +583,6 @@ export function OptionCards({
             description={description}
             neutralised={neutralised}
             sortedRank={index + 1}
-            segmentBorderClass={segmentBorderClass}
             segmentFillColor={segmentFillColor}
             globalMin={globalMin}
             globalMax={globalMax}
