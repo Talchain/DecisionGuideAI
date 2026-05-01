@@ -664,13 +664,15 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     ]
   }, [readinessDimensions])
 
-  // Result-checks slot gate: matches TargetProbabilityBars's null-return
-  // condition (`!constraintAnalysis?.constraints?.length`). Used to suppress
-  // the divider wrapper in sparse states so the T1 card doesn't emit an
-  // empty bordered slot.
+  // Result-checks slot gate: must mirror BOTH null-return paths in
+  // TargetProbabilityBars — (1) no constraints array AND (2) no constraint
+  // carries a numeric `prob_satisfied`. Otherwise a bundle with shaped-but-
+  // empty constraints would still emit an empty bordered slot.
+  // See TargetProbabilityBars.tsx:26-32.
   const hasResultChecks = (
-    data.recommendation.recommendedOption?.constraintAnalysis?.constraints?.length ?? 0
-  ) > 0
+    data.recommendation.recommendedOption?.constraintAnalysis?.constraints
+      ?.some(c => typeof c.prob_satisfied === 'number')
+  ) ?? false
 
   // Stability indicator renders adjacent to the win-probability ring. Suppressed
   // when the field is missing — never emits "Stability: NaN%".

@@ -247,6 +247,38 @@ describe('DecisionConfidencePanel — T1 single-card structural guard', () => {
       void container // pin reference for clarity
     })
 
+    it('omits the result-checks slot when constraints exist but none carry numeric prob_satisfied (mirrors TargetProbabilityBars second null path)', () => {
+      const winner: OptionResult = {
+        id: 'opt_a',
+        label: 'Option A',
+        expectedValue: 0.8,
+        p10: 0.6,
+        p90: 0.95,
+        winProbability: 0.7,
+        goalProbability: 0.7,
+        // Constraint shape present but no numeric prob_satisfied:
+        // TargetProbabilityBars returns null on this; the divider must
+        // also suppress.
+        constraintAnalysis: {
+          constraints: [{ label: 'Hits target', prob_satisfied: undefined }],
+        },
+      } as unknown as OptionResult
+
+      const data = makeData({ withFragile: false, withDominant: false, withGap: false })
+      const dataWithBareConstraints: ResultsSectionDataReturn = {
+        ...data,
+        recommendation: {
+          ...data.recommendation,
+          recommendedOption: winner,
+          allOptions: [winner],
+        },
+      }
+      render(
+        <DecisionConfidencePanel data={dataWithBareConstraints} onSendMessage={() => {}} />,
+      )
+      expect(screen.queryByTestId('t1-result-checks-slot')).not.toBeInTheDocument()
+    })
+
     it('omits the dominant nudge slot when top influence is below threshold', () => {
       render(
         <DecisionConfidencePanel

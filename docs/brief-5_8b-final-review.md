@@ -1,7 +1,7 @@
 # Brief 5.8B — Final Review
 
 Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
-`a307a044` · 14 commits ahead.
+`a307a044` · 15 commits ahead.
 
 | Commit       | Deliverable                                                         |
 | ------------ | ------------------------------------------------------------------- |
@@ -18,7 +18,8 @@ Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
 | `7df5ef0a`   | D8 — Post footer alignment                                          |
 | `45fbb4a5`   | D9 — Initial final review                                           |
 | `b9e3da59`   | **R1 — ChatGPT P1 review pass #1 (one T1 card, compact rows, risk-filter relocate, hex fallbacks, structural spec)** |
-| _(this doc)_ | **R2 — ChatGPT P1 review pass #2 (nudge order, sparse-state divider, doc refresh, hex baseline exception)** |
+| `a107c701`   | **R2 — ChatGPT P1 review pass #2 (nudge order, sparse-state divider, doc refresh, hex baseline exception)** |
+| _(this doc)_ | **R3 — ChatGPT P1 review pass #3 (gate tightened to mirror prob_satisfied null-path; partial-constraint sparse test; hex baseline counts verified)** |
 
 ## D4 — deferred
 
@@ -178,9 +179,9 @@ parity contract no longer applies under decoupled rendering.
 | `rg "Improve confidence" src/canvas/components/pre-analysis/` | 0 matches                                                                                                                                                                          |
 | `rg "as any" src/components/results/`                     | 47 matches — same as D1 baseline. Zero new.                                                                                                                                        |
 
-## Test counts (post-R2)
+## Test counts (post-R3)
 
-  - `src/components/results/` + `src/components/shared/`: **1061 tests pass** (was 1056 pre-brief).
+  - `src/components/results/` + `src/components/shared/`: **1062 tests pass** (was 1056 pre-brief).
   - `src/canvas/components/utils/`: 10 tests pass (new D8 helper).
   - `src/canvas/components/pre-analysis/`: 734 pass / 13 pre-existing skips (unchanged).
   - Pre-existing failures in `InsightsPanel.spec` (7) and `MultiFormAnalysis.spec` (1) are unrelated to 5.8B — confirmed via stash test before D8 commit.
@@ -261,20 +262,71 @@ caught by ChatGPT review pass #2.
     7 cases (4 ordering + 3 sparse).
   - **Addressed P1.3 — Stale final review doc.** This update.
   - **Documented P1.4 — Codebase-wide hex-fallback baseline exception.**
-    Pre-existing fallbacks in `TriageCard.tsx`, `OptionCards.tsx`
-    (none — actually `OptionCards` has no hex fallbacks; the file
-    listed by ChatGPT was likely confused with `WinGauge`),
-    `AdvancedSection.tsx`, `DecisionHealthRing.tsx`, `TopBar.module.css`,
-    `index.css`, `ThinkingModeDropdown.tsx` use the
-    `var(--border-default, #EEE6D8)` pattern. This is a project-wide
-    convention predating 5.8B (≈12 occurrences across 8 files in
-    `components/` + `canvas/`). Touching them across the repo is
-    out of brief scope — recommend a dedicated cleanup brief that
+    Verified counts (R3, `rg "#EEE6D8" src/`): **83 occurrences across
+    22 files**. By file (descending):
+
+    | Occurrences | File |
+    | --- | --- |
+    | 27 | `src/canvas/conversation/Conversation.module.css` |
+    |  8 | `src/components/layout/TopBar.module.css` |
+    |  6 | `src/components/chat/Artefact.module.css` |
+    |  5 | `src/canvas/conversation/zones/ComposerTools.tsx` |
+    |  5 | `src/canvas/conversation/dropdowns/ThinkingModeDropdown.tsx` |
+    |  4 | `src/index.css` |
+    |  4 | `src/canvas/conversation/zones/ThinkingIndicator.tsx` |
+    |  3 | `src/canvas/conversation/zones/EmptyState.tsx` |
+    |  3 | `src/canvas/conversation/zones/ChatComposer.tsx` |
+    |  3 | `src/canvas/components/LensDropdown.tsx` |
+    |  2 | `src/styles/brand.css` |
+    |  2 | `src/components/shared/TriageCard.tsx` |
+    |  2 | `src/canvas/hooks/useStagePill.ts` |
+    |  1 | `src/components/shared/DecisionHealthRing.tsx` |
+    |  1 | `src/components/results/OptionCards.tsx` |
+    |  1 | `src/components/results/AdvancedSection.tsx` |
+    |  1 | `src/components/chat/artefactIframeTemplate.ts` |
+    |  1 | `src/canvas/conversation/zones/BriefGuidanceStrip.tsx` |
+    |  1 | `src/canvas/conversation/__tests__/conversationCss.spec.ts` |
+    |  1 | `src/canvas/conversation/ConversationPanel.tsx` |
+    |  1 | `src/canvas/components/LensInfoPanel.tsx` |
+    |  1 | `src/canvas/components/DraftChat.tsx` |
+
+    This is a project-wide convention predating 5.8B. R1 fixed only
+    the two instances 5.8B introduced (DCP stability indicator +
+    `TriageHealthHeader.DimensionBar`). Touching the remaining 83
+    sites is out of brief scope and would create churn + merge-
+    conflict risk — recommend a dedicated cleanup brief that
     introduces a `bg-panel-border` migration codemod and updates
-    every site at once. R1 fixed only the two instances 5.8B
-    introduced.
+    every site at once.
+
+    An earlier version of this note (R2) under-counted ("≈12 across
+    8 files") and incorrectly stated `OptionCards.tsx` had no
+    fallback; corrected here in R3.
   - **Skipped I.2 (top-card AI slot).** Same disposition as R1 — not
     in the brief; track as a pre-analysis-parity follow-up.
+
+## Post-D9 review pass #3 (this doc)
+
+Review pass #2 fixed the nudge order and the empty-divider regression
+but missed two related issues caught by ChatGPT review pass #3.
+
+  - **Addressed P1.1 — `hasResultChecks` mirrors only the first of
+    `TargetProbabilityBars`'s two null paths.** The R2 gate checked
+    that constraints exist, but `TargetProbabilityBars`
+    [also returns null](../src/components/results/TargetProbabilityBars.tsx#L29-L32)
+    when constraints exist without a numeric `prob_satisfied`. A bundle
+    with shaped-but-empty constraints would still emit the empty
+    bordered slot. Tightened to
+    `constraints?.some(c => typeof c.prob_satisfied === 'number')`.
+  - **Addressed I.1 — Partial-constraint sparse test.** Direct
+    corollary of P1.1. Added an 8th case to the structural spec:
+    `constraintAnalysis.constraints.length > 0` with no valid
+    `prob_satisfied` → `t1-result-checks-slot` not rendered.
+  - **Addressed P1.2 — Hex-fallback baseline counts verified.** The
+    R2 narrative ("≈12 across 8 files", "OptionCards has none") was
+    a guess from earlier grep output, not re-grepped after R1. The
+    actual baseline is **83 occurrences across 22 files**, including
+    one in `OptionCards.tsx`. Doc replaced with the verified table
+    above (P1.4 entry under R2's section).
 
 ## Recommended 5.8C / 5.9 scope
 
