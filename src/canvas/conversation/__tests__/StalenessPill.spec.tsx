@@ -30,7 +30,7 @@ describe('StalenessPill', () => {
     expect(pill.textContent).toContain('Based on latest available analysis')
   })
 
-  it('uses outlined warning border on stale (no filled background, no coloured text)', () => {
+  it('uses outlined warning border on stale; icon carries semantic colour, text stays text-body', () => {
     render(<StalenessPill freshness="stale" />)
     const pill = screen.getByTestId('staleness-pill')
     const cls = pill.className
@@ -39,14 +39,26 @@ describe('StalenessPill', () => {
     expect(cls).toContain('text-text-body')
     expect(cls).toContain('rounded-pill')
     expect(cls).toContain('panelMeta')
+    // Icon (svg) should carry the semantic state colour, sized at the DS
+    // panel-inline icon size (14px = w-3.5/h-3.5).
+    const icon = pill.querySelector('svg')
+    expect(icon).toBeTruthy()
+    expect(icon!.getAttribute('class')).toContain('text-warning')
+    expect(icon!.getAttribute('class')).toContain('w-3.5')
+    expect(icon!.getAttribute('class')).toContain('h-3.5')
   })
 
-  it('uses outlined info border on unknown', () => {
+  it('uses outlined info border on unknown; icon carries info colour', () => {
     render(<StalenessPill freshness="unknown" />)
     const pill = screen.getByTestId('staleness-pill')
     const cls = pill.className
     expect(cls).toContain('border-info/30')
     expect(cls).toContain('bg-transparent')
     expect(cls).toContain('text-text-body')
+    const icon = pill.querySelector('svg')
+    expect(icon).toBeTruthy()
+    expect(icon!.getAttribute('class')).toContain('text-info')
+    expect(icon!.getAttribute('class')).toContain('w-3.5')
+    expect(icon!.getAttribute('class')).toContain('h-3.5')
   })
 })
