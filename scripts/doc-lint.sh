@@ -30,6 +30,17 @@ PATTERNS=(
   # `<ResultsFooter>` or `<DimensionBar>` is a JSX-tag reference, not a
   # placeholder — required to be a phrase with at least one space).
   '<[A-Za-z][^>]* [^>]*>'
+  # Stale-deploy phrasing — close-out docs should not say a future
+  # commit "lands on the next merge" once that merge has happened.
+  # Catches both "lands on the next staging merge" and "next merge
+  # brings"-style phrasings.
+  'lands on the next'
+  'next staging merge'
+  # Standalone "_attach …_" placeholder spans — italicised
+  # underscore-bracketed prose meaning "fill this in". The walker
+  # workflow uses tags like "**SS:**" for screenshot evidence; an
+  # _attach …_ block means the slot was never filled.
+  '_attach [^_]+_'
   # The walker sign-off line uses `__________` slots that ARE intended to
   # remain unfilled until Paul stamps the doc — those are template fixtures,
   # not bugs to catch here. Doc-lint focuses on `<…>` structural placeholders
