@@ -235,11 +235,12 @@ function T1FlipRiskCallout({
 }
 
 /**
- * T1 dominant-factor nudge — Brief 5.8B D2c step 2. Replaces the standalone
- * card that previously lived in DriversSection. Mirrors the pre-analysis
- * `T1BiasNudgeRow` style: inline icon + bolded label + one-line detail +
- * Validate / Research chips. Locked copy from the previous DriversSection
- * render is preserved verbatim.
+ * T1 dominant-factor nudge — Brief 5.8B D2c step 2 + follow-up polish.
+ * Now a true single-line `.nudge` row: warning icon + bolded
+ * "Dominant factor:" + truncated detail + inline Validate / Research chips.
+ * The full explanation surfaces via the row's `title` tooltip rather than
+ * a wrapped paragraph; consumers who need the long form should look at the
+ * Drivers section. Locked copy fragments preserved.
  */
 function T1DominantNudge({
   data,
@@ -255,7 +256,6 @@ function T1DominantNudge({
   const topInfluence = topDriver
     ? (topDriver.influenceScore ?? topDriver.normalisedInfluence ?? 0)
     : 0
-  // Same threshold the legacy DriversSection warning used (≥0.8).
   const showNudge = topInfluence >= 0.8
   const rawLabel = drivers.dominantFactorLabel ?? topDriver?.factorLabel ?? ''
   const dominantLabel = cleanFactorLabel(rawLabel).label
@@ -265,45 +265,41 @@ function T1DominantNudge({
     ?? topDriver?.matchedNodeId
     ?? topDriver?.factorKey
     ?? null
+  const detail = `${dominantLabel} drives ${dominantPct}% of the outcome.`
+  const fullExplanation = `${detail} If your assumptions about this factor are wrong, the recommendation could change.`
 
   return (
     <div
-      className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel"
+      className="flex items-center gap-2 px-2.5 py-1.5 border border-panel-border rounded-lg"
       role="status"
-      aria-label="Dominant factor warning"
+      aria-label={`Dominant factor warning. ${fullExplanation}`}
       data-testid="t1-dominant-nudge"
+      title={fullExplanation}
     >
-      <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
-      <div className="flex-1 min-w-0 space-y-1.5">
-        <p className={`${typography.panelBody} text-text-body`}>
-          <strong>Dominant factor:</strong> {dominantLabel} drives {dominantPct}% of the outcome.
-          If your assumptions about this factor are wrong, the recommendation could change.
-        </p>
-        {((dominantFocusId && onFocusNode) || onSendMessage) && (
-          <div className="flex items-center gap-1.5">
-            {dominantFocusId && onFocusNode && (
-              <button
-                type="button"
-                onClick={() => onFocusNode(dominantFocusId)}
-                className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
-                aria-label={`Validate ${dominantLabel} on canvas`}
-              >
-                Validate
-              </button>
-            )}
-            {onSendMessage && (
-              <button
-                type="button"
-                onClick={() => onSendMessage(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
-                className={`px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
-                aria-label={`Research ${dominantLabel}`}
-              >
-                Research
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+      <AlertTriangle size={14} className="text-warning flex-shrink-0" aria-hidden="true" />
+      <p className={`${typography.panelMeta} text-text-body min-w-0 flex-1 truncate`}>
+        <strong>Dominant factor:</strong> {detail}
+      </p>
+      {dominantFocusId && onFocusNode && (
+        <button
+          type="button"
+          onClick={() => onFocusNode(dominantFocusId)}
+          className={`flex-shrink-0 px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+          aria-label={`Validate ${dominantLabel} on canvas`}
+        >
+          Validate
+        </button>
+      )}
+      {onSendMessage && (
+        <button
+          type="button"
+          onClick={() => onSendMessage(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
+          className={`flex-shrink-0 px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
+          aria-label={`Research ${dominantLabel}`}
+        >
+          Research
+        </button>
+      )}
     </div>
   )
 }
@@ -717,7 +713,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         {/* 1. Hero — header rendered without its own card chrome so we
             don't double-shell. */}
         <TriageHealthHeader
-          title="Current result"
+          title="Decision confidence"
           ringLabel="%"
           ringDimensions={ringDimensions}
           dimensions={heroDimensions}

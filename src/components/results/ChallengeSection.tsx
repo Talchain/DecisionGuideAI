@@ -194,7 +194,7 @@ function ChallengeCard({
 
 /* ── Fragile edge group card ────────────────────────────────────────────── */
 
-function FragileEdgeGroupCard({
+export function FragileEdgeGroupCard({
   altWinnerLabel,
   edges,
   onFocusNode,
