@@ -524,6 +524,44 @@ Review pass #6 caught three doc-vs-state drift items + two improvements:
     (positionAbsolute, dragging, selected) that test fixtures
     legitimately don't supply.
 
+---
+
+## Hotfix — `ui/analysis-tab-hotfix-5_8b` (2026-05-02)
+
+Two commits on top of the final 5.8B merge. Branch: `ui/analysis-tab-hotfix-5_8b`.
+
+### P0 commit — `a01e9426`
+
+| Fix | File(s) | Change |
+|-----|---------|--------|
+| Hero stability indicator layout | `DecisionConfidencePanel.tsx` | Replaced 3px progress bar in left ring column with plain `panelMeta` text label `"Stability: N%"`. Bar was on a separate visual row from the Evidence/Robustness/Framing 2×2 grid. Removed unused `evaluativeVar` import. |
+| Dominant nudge factor-name truncation | `DecisionConfidencePanel.tsx` | Split single truncating `<p>` into three spans: label (whitespace-nowrap), factor name (font-semibold whitespace-nowrap), explanation (truncate flex-1). `overflow-hidden` on `<p>` clips within container. Factor name is never cut. |
+| MKP duplicate | `ResultsBody.tsx` (no change) | Confirmed standalone MKP already removed in D2c. `ResultsBody.singleMkpD4.spec.tsx` passes — fixture has `coachingReadinessDimensions` so T1 footer renders fully. |
+| Show all / What if collision | `OptionCards.tsx` | Wrapped both disclosure link and approach link in `flex flex-col gap-1` container so they stack on separate lines at all panel widths. |
+
+**New test files:** `DecisionConfidencePanel.hotfix5_8b.spec.tsx` (6 tests), `OptionCards.showAllCollision.spec.tsx` (3 tests).
+
+### Polish commit — `b5311872`
+
+| Fix | File(s) | Change |
+|-----|---------|--------|
+| Also consider deduplication | `DecisionConfidencePanel.tsx` | Added `Set<string>` dedup by `item.key` after EVOI sort. Guard: items with undefined key are kept. Prevents same factor appearing in top-3 and also-consider simultaneously. |
+| Options collapsed-state | `OptionPreview.tsx` | Confirmed D0 fix shipped: `flex-col gap-y-1`, one option per row. No change needed. |
+| Triage card edge label | `TriageCard.tsx` | Edge-type titles now show only the target factor name; full `Source → Target` preserved in `title` tooltip. Uses `split(' → ')` for safe separator handling. |
+| Sparkle audit | — | Audited all Sparkles usage. Every instance is AI-routed (Discuss with AI, Ask AI, coaching tips). No sparkle on user-direct actions. No code change. |
+| Copy polish | `AdvancedSection.tsx`, `MissingKnowledgePrompt.tsx` | "Show winner by:" → "Winner by:"; "Display filter: reweights which option is shown as winner." → "Changes how the leading option is calculated."; MKP results helper removed (implied Olumi edits analysis directly). Model context helper unchanged. |
+| Card #1 emphasis | `DecisionConfidencePanel.tsx` | `border-info/40` → `border-info/50` + `border-l-[3px] border-l-info` left accent per DS v5 §6.4. Left 3px solid overrides the all-sides 1px border. |
+
+**Updated tests:** `TriageCard.spec.tsx` (target-only assertion), `DecisionConfidencePanel.polishD4.spec.tsx` (nudge p-level structure), `tests/visual-regression/analysis-tab.spec.ts` (new copy strings).
+
+### Hotfix smoke results
+
+- `npm run typecheck` — clean (0 errors)
+- `npx vitest run src/components/results/ src/canvas/components/pre-analysis/ src/components/shared/` — **1842 passed, 13 skipped, 0 failed**
+- `rg "as any" src/components/results/` — delta = 0 (no new casts introduced)
+
+---
+
 ## Recommended 5.8C / 5.9 scope
 
   - **5.8C (pending CEE freshness)** — Bridge strip; Confirm anyway footer action; post-confirm state. Deferred per the brief.
