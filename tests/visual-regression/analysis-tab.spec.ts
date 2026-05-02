@@ -72,9 +72,9 @@ describe('visual-regression scaffold (Brief 5)', () => {
     )
     const snap = captureByTestId(container, 'winner-by-control')
 
-    // Paul-frozen copy + testid present.
-    expect(snap).toContain('Show winner by:')
-    expect(snap).toContain('Display filter: reweights which option is shown as winner.')
+    // Updated copy (5.8B hotfix Fix 9) + testid present.
+    expect(snap).toContain('Winner by:')
+    expect(snap).toContain('Changes how the leading option is calculated.')
     expect(snap).toContain('Conservative')
     expect(snap).toContain('Neutral')
     expect(snap).toContain('Aggressive')

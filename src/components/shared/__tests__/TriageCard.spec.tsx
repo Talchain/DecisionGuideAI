@@ -308,8 +308,8 @@ describe('TriageCard — placeholder unit suffix (UI-BUG-1)', () => {
   })
 })
 
-describe('TriageCard — edge title truncation (P1.5 follow-up)', () => {
-  it('renders the source label in full and a separate truncating target span', () => {
+describe('TriageCard — edge title truncation (P1.5 follow-up, updated 5.8B hotfix)', () => {
+  it('shows only the target factor name for edge titles; full title in tooltip', () => {
     render(
       <TriageCard
         cardKey="k1"
@@ -322,16 +322,13 @@ describe('TriageCard — edge title truncation (P1.5 follow-up)', () => {
         onEdit={() => {}}
       />,
     )
-    // Source is shown in full (its own whitespace-nowrap span)
-    expect(screen.getByText('Developer Headcount Added')).toBeInTheDocument()
-    // Target renders as its own span (may be visually truncated via CSS)
+    // Only the target factor name renders — source is hidden to save space.
     expect(screen.getByText('Delivery Throughput')).toBeInTheDocument()
-    // Full title available via the title attribute on the outer <p>
-    const outer = screen.getByText('Developer Headcount Added').closest('p')
-    expect(outer).toHaveAttribute(
-      'title',
-      'Developer Headcount Added → Delivery Throughput',
-    )
+    // Source is NOT rendered as visible text (available only via title tooltip).
+    expect(screen.queryByText('Developer Headcount Added')).not.toBeInTheDocument()
+    // Full source → target string preserved in the title tooltip.
+    const titleEl = screen.getByTitle('Developer Headcount Added → Delivery Throughput')
+    expect(titleEl).toBeInTheDocument()
   })
 })
 

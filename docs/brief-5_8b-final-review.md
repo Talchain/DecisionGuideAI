@@ -117,7 +117,8 @@ so future data-shape shifts don't require code edits.
 "Highest-value evidence gaps" + "Suggested next actions" merged into one
 EVPI-ranked queue inside the T1 card. Card #1 is wrapped in
 `border-info/40 bg-info/[0.02]` to mirror the pre-analysis 5.8A
-`.ac.em` emphasis treatment. Items 4-6 keep the existing
+`.ac.em` emphasis treatment _(strengthened to `border-info/50` + 3px
+`border-l-info` left accent in the 5.8B hotfix — see hotfix Fix 10)_. Items 4-6 keep the existing
 `AlsoConsiderDisclosure` (compact rows, collapsed by default).
 A new `StabilityNarrative` line renders above the queue ("Stability:
 {N}%. These items would most improve confidence:" + "Ranked by evidence
@@ -523,6 +524,56 @@ Review pass #6 caught three doc-vs-state drift items + two improvements:
     `Node<T>` from React Flow has many internal fields
     (positionAbsolute, dragging, selected) that test fixtures
     legitimately don't supply.
+
+---
+
+## Hotfix — `ui/analysis-tab-hotfix-5_8b` (2026-05-02)
+
+Two commits on top of the final 5.8B merge. Branch: `ui/analysis-tab-hotfix-5_8b`.
+
+### P0 commit — `a01e9426`
+
+| Fix | File(s) | Change |
+|-----|---------|--------|
+| Hero stability indicator layout | `DecisionConfidencePanel.tsx` | Replaced 3px progress bar in left ring column with plain `panelMeta` text label `"Stability: N%"`. Bar was on a separate visual row from the Evidence/Robustness/Framing 2×2 grid. Removed unused `evaluativeVar` import. |
+| Dominant nudge factor-name truncation | `DecisionConfidencePanel.tsx` | Split single truncating `<p>` into three spans: label (whitespace-nowrap), factor name (font-semibold whitespace-nowrap), explanation (truncate flex-1). `overflow-hidden` on `<p>` clips within container. Factor name is never cut. |
+| MKP duplicate | `ResultsBody.tsx` (no change) | Confirmed standalone MKP already removed in D2c. `ResultsBody.singleMkpD4.spec.tsx` passes — fixture has `coachingReadinessDimensions` so T1 footer renders fully. |
+| Show all / What if collision | `OptionCards.tsx` | Wrapped both disclosure link and approach link in `flex flex-col gap-1` container so they stack on separate lines at all panel widths. |
+
+**New test files:** `DecisionConfidencePanel.hotfix5_8b.spec.tsx` (6 tests), `OptionCards.showAllCollision.spec.tsx` (3 tests).
+
+### Polish commit — `b5311872`
+
+| Fix | File(s) | Change |
+|-----|---------|--------|
+| Also consider deduplication | `DecisionConfidencePanel.tsx`, `utils/dedupTriageItems.ts` | Dedup by canonical factor identity (`targetNodeId`) with a normalised-title fallback (trim + lowercase + collapse internal whitespace). Logic extracted into `dedupTriageItems` pure helper for direct unit coverage. Prevents the same factor surfacing in top-3 and also-consider simultaneously across the evidence-gap and next-action source lists. _(Initial commit used `item.key`-based dedup, which never collided across source lists; superseded by the P1.1 follow-up.)_ |
+| Options collapsed-state | `OptionPreview.tsx` | Confirmed D0 fix shipped: `flex-col gap-y-1`, one option per row. No change needed. |
+| Triage card edge label | `TriageCard.tsx` | Edge-type titles now show only the target factor name; full `Source → Target` preserved in `title` tooltip. Uses `split(' → ')` for safe separator handling. |
+| Sparkle audit | — | Audited all Sparkles usage. Every instance is AI-routed (Discuss with AI, Ask AI, coaching tips). No sparkle on user-direct actions. No code change. |
+| Copy polish | `AdvancedSection.tsx`, `MissingKnowledgePrompt.tsx` | "Show winner by:" → "Winner by:"; "Display filter: reweights which option is shown as winner." → "Changes how the leading option is calculated."; MKP results helper removed (implied Olumi edits analysis directly). Model context helper unchanged. |
+| Card #1 emphasis | `DecisionConfidencePanel.tsx`, `PreAnalysisPanel.tsx` | `border-info/40` → `border-info/50` + `border-l-[3px] border-l-info` left accent per DS v5 §6.4. Left 3px solid overrides the all-sides 1px border. Applied symmetrically to both post- and pre-analysis surfaces. _(Initial commit only updated post-analysis; pre-analysis added in the P1.2 follow-up.)_ |
+
+**Updated tests:** `TriageCard.spec.tsx` (target-only assertion), `DecisionConfidencePanel.polishD4.spec.tsx` (nudge p-level structure), `tests/visual-regression/analysis-tab.spec.ts` (new copy strings).
+
+### Hotfix smoke results
+
+- `pnpm run typecheck` — clean (0 errors)
+- `pnpm exec vitest run src/components/results/ src/canvas/components/pre-analysis/ src/components/shared/` — **1853 passed, 13 skipped, 0 failed**
+- `rg "as any" src/components/results/` — delta = 0 (no new casts introduced)
+
+### Hotfix follow-up (ChatGPT P1 review pass)
+
+- **P1.1 — Identity-based dedup.** Initial dedup used the per-card `key` string (e.g. `gap-{factorId}-{i}` vs `action-{i}`), which never collide across the two source lists, so a factor surfacing as both an evidence gap and a next action would still produce two cards. Switched to `targetNodeId` (canonical identity) with a normalised-title fallback. Added regression test `deduplicates items that share a targetNodeId across evidence-gap and next-action lists` in `DecisionConfidencePanel.unifiedQueueD2b.spec.tsx`. Two pre-existing fixture tests had to be updated to give each gap a distinct `targetNodeId` (they had been silently relying on `makeGap()`'s default) — pure fixture hygiene, no production behaviour change beyond what dedup intentionally collapses.
+- **P1.2 — Pre-analysis card #1 emphasis parity.** The strengthened `border-info/50 + border-l-[3px] border-l-info` treatment now applies to both surfaces. `PreAnalysisPanel.tsx:851` updated; `PreAnalysisPanel.spec.tsx` extended with a `5.8B hotfix P1.2` test asserting the class shape, and `DecisionConfidencePanel.unifiedQueueD2b.spec.tsx` extended with the same assertion for post-analysis.
+- **Improvements.** Final-review doc now records the pnpm commands actually used. The stale `border-info/40` reference in the unified-queue spec preamble was updated to the new emphasis treatment.
+
+### Hotfix follow-up #2 (ChatGPT Imp pass)
+
+- **Helper extraction.** Dedup logic moved into `src/components/results/utils/dedupTriageItems.ts` as a pure function (`triageItemIdentity` + `dedupTriageItems`). Direct unit-test coverage in `utils/__tests__/dedupTriageItems.spec.ts` (10 cases: identity preference, normalisation, fallback, ordering). `DecisionConfidencePanel.tsx` now calls `dedupTriageItems(merged)` instead of inlining the loop.
+- **Title normalisation hardening.** Fallback now trims, lowercases, AND collapses internal whitespace runs (`/\s+/g → ' '`). Catches `"Foo  Bar"` vs `"Foo Bar"` and `"FOO BAR"` vs `"Foo Bar"`. Covered by the `collapses internal whitespace runs` and `uses normalised-title fallback` tests.
+- **Doc consistency.** Updated the original P0/Polish rows in this doc to read as the current contract (identity-based dedup, both surfaces emphasised) rather than the initial implementation, with a parenthetical pointer back to the follow-up section.
+
+---
 
 ## Recommended 5.8C / 5.9 scope
 

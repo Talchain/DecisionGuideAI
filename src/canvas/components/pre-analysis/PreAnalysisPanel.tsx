@@ -848,7 +848,7 @@ const T1DecisionReadinessCard = memo(function T1DecisionReadinessCard({
             return (
               <div
                 key={entry.card.key}
-                className={emphasised ? 'rounded-[10px] border border-info/40 bg-info/[0.02]' : ''}
+                className={emphasised ? 'rounded-[10px] border border-info/50 border-l-[3px] border-l-info bg-info/[0.02]' : ''}
                 data-testid={emphasised ? 't1-triage-emphasised' : undefined}
               >
                 <TriageCard

@@ -17,9 +17,9 @@ import { AlertTriangle, Check, ChevronDown, ChevronRight, X } from 'lucide-react
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
 import { HeroQualifier } from './HeroQualifier'
-import { evaluativeVar } from '@/styles/evaluative'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
+import { dedupTriageItems } from './utils/dedupTriageItems'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
@@ -265,8 +265,8 @@ function T1DominantNudge({
     ?? topDriver?.matchedNodeId
     ?? topDriver?.factorKey
     ?? null
-  const detail = `${dominantLabel} drives ${dominantPct}% of the outcome.`
-  const fullExplanation = `${detail} If your assumptions about this factor are wrong, the recommendation could change.`
+  const explanation = `drives ${dominantPct}% of the outcome.`
+  const fullExplanation = `Dominant factor: ${dominantLabel} ${explanation} If your assumptions about this factor are wrong, the recommendation could change.`
 
   return (
     <div
@@ -277,8 +277,11 @@ function T1DominantNudge({
       title={fullExplanation}
     >
       <AlertTriangle size={14} className="text-warning flex-shrink-0" aria-hidden="true" />
-      <p className={`${typography.panelMeta} text-text-body min-w-0 flex-1 truncate`}>
-        <strong>Dominant factor:</strong> {detail}
+      {/* Factor name never truncates; explanation text takes remaining space and clips. */}
+      <p className={`${typography.panelMeta} text-text-body min-w-0 flex-1 flex items-baseline gap-1 overflow-hidden`}>
+        <span className="whitespace-nowrap"><strong>Dominant factor:</strong></span>
+        <span className="font-semibold whitespace-nowrap">{dominantLabel}</span>
+        <span className={`truncate min-w-0 flex-1 text-text-light`}>{explanation}</span>
       </p>
       {dominantFocusId && onFocusNode && (
         <button
@@ -636,7 +639,10 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       if (aEvoi !== bEvoi) return bEvoi - aEvoi
       return (b.influence ?? 0) - (a.influence ?? 0)
     })
-    return merged
+    // Dedup by canonical factor identity (targetNodeId) after sort so the
+    // highest-ranked occurrence survives. See `dedupTriageItems` for the rule
+    // (targetNodeId first, normalised-title fallback).
+    return dedupTriageItems(merged)
   }, [data, onSetValue, nodeValueLookup, strengthenOverlayMap])
 
   const top3 = allActions.slice(0, 3)
@@ -677,20 +683,12 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     if (typeof stabilityScore !== 'number' || !Number.isFinite(stabilityScore)) return null
     const pct = Math.round(stabilityScore * 100)
     return (
-      <div className="flex flex-col gap-0.5 w-full" data-testid="hero-stability-indicator">
-        <div className="flex items-center justify-between gap-2">
-          <span className={`${typography.panelMeta} text-text-light`}>Stability</span>
-          <span className={`${typography.panelMeta} text-text-light`}>{pct}%</span>
-        </div>
-        <div
-          className="w-full h-[3px] rounded-sm overflow-hidden bg-panel-border"
-        >
-          <div
-            className="h-full rounded-sm"
-            style={{ width: `${pct}%`, backgroundColor: evaluativeVar(stabilityScore) }}
-          />
-        </div>
-      </div>
+      <p
+        className={`${typography.panelMeta} text-text-light`}
+        data-testid="hero-stability-indicator"
+      >
+        Stability: {pct}%
+      </p>
     )
   }, [stabilityScore])
 
@@ -777,7 +775,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
                   return (
                     <div
                       key={item.key}
-                      className={emphasised ? 'rounded-[10px] border border-info/40 bg-info/[0.02]' : ''}
+                      className={emphasised ? 'rounded-[10px] border border-info/50 border-l-[3px] border-l-info bg-info/[0.02]' : ''}
                       data-testid={emphasised ? 'unified-triage-emphasised' : undefined}
                     >
                       <TriageCard

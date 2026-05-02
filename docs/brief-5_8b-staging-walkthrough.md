@@ -81,7 +81,7 @@ Sentinel artefact types used below:
 ### D2b — Post T1 unified triage queue + strengthen overlay
 
 #### 2b.1 Single EVPI-ranked queue (no split sub-headers)
-- **Expected:** `[data-testid="unified-triage-queue"]` exists; first card has `[data-testid="unified-triage-emphasised"]` + `border-info/40 bg-info/[0.02]`. No "Highest-value evidence gaps" or "Suggested next actions" sub-header in the DOM.
+- **Expected:** `[data-testid="unified-triage-queue"]` exists; first card has `[data-testid="unified-triage-emphasised"]` + `border-info/50 border-l-[3px] border-l-info bg-info/[0.02]` _(strengthened in 5.8B hotfix Fix 10; was `border-info/40 bg-info/[0.02]`)_. No "Highest-value evidence gaps" or "Suggested next actions" sub-header in the DOM.
 - **SPEC:** `DecisionConfidencePanel.unifiedQueueD2b.spec.tsx` (11 cases).
 - **SS / DOM (Pending Paul):** queue screenshot + DevTools search confirming neither legacy sub-header is present.
 

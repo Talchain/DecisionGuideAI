@@ -441,6 +441,31 @@ describe('PreAnalysisPanel', () => {
     })
   })
 
+  describe('5.8B hotfix P1.2 — card #1 emphasis parity with post-analysis', () => {
+    it('first triage card carries the strengthened emphasis (border-info/50 + left-accent)', () => {
+      mockUsePreAnalysisData.mockReturnValue(createMockData({
+        improvementsByCategory: {
+          fix: [],
+          verify: [
+            { key: 'v1', category: 'verify', label: 'First card', detail: '', subgroup: 'cee_inference', focus: { type: 'node', id: 'n1', label: 'First card' } },
+            { key: 'v2', category: 'verify', label: 'Second card', detail: '', subgroup: 'cee_inference', focus: { type: 'node', id: 'n2', label: 'Second card' } },
+          ],
+          add_evidence: [],
+          strengthen: [],
+        },
+      }))
+
+      render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+      const emphasised = screen.getByTestId('t1-triage-emphasised')
+      expect(emphasised).toBeInTheDocument()
+      // Matches the post-analysis emphasis treatment (DecisionConfidencePanel
+      // unified-triage-emphasised) — border-info/50 + 3px left accent.
+      expect(emphasised.className).toContain('border-info/50')
+      expect(emphasised.className).toContain('border-l-[3px]')
+      expect(emphasised.className).toContain('border-l-info')
+    })
+  })
+
   describe('Evidence Quality Display', () => {
     it('does not show reviewed count in v2 footer (redundant with section counts)', () => {
       // v2 brief: "Remove '0/N addressed' (redundant with section counts)"

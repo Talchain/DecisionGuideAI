@@ -121,13 +121,14 @@ function renderTriageTitle(title: string, className: string) {
       </p>
     )
   }
-  const source = title.slice(0, arrowIdx)
-  const target = title.slice(arrowIdx + 3)
+  // For edge items, show only the target factor name. The full "Source → Target"
+  // string is preserved in the title tooltip. Split on ' → ' to handle any
+  // separator width safely.
+  const parts = title.split(' → ')
+  const target = parts[parts.length - 1]
   return (
-    <p className={`${className} min-w-0 flex items-baseline gap-1`} title={title}>
-      <span className="whitespace-nowrap flex-shrink-0">{source}</span>
-      <span className="text-text-light flex-shrink-0" aria-hidden="true">→</span>
-      <span className="truncate min-w-0">{target}</span>
+    <p className={`${className} truncate`} title={title}>
+      {target}
     </p>
   )
 }
