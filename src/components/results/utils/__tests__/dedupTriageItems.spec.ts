@@ -2,8 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { dedupTriageItems, triageItemIdentity } from '../dedupTriageItems'
 
 describe('triageItemIdentity', () => {
-  it('returns trimmed targetNodeId when present', () => {
-    expect(triageItemIdentity({ targetNodeId: '  node_x  ', title: 'Whatever' })).toBe('node_x')
+  it('returns prefixed trimmed targetNodeId when present', () => {
+    expect(triageItemIdentity({ targetNodeId: '  node_x  ', title: 'Whatever' })).toBe('node:node_x')
   })
 
   it('falls back to normalised title when targetNodeId is absent', () => {
@@ -16,6 +16,13 @@ describe('triageItemIdentity', () => {
 
   it('collapses internal whitespace runs in the title fallback', () => {
     expect(triageItemIdentity({ title: 'Foo   Bar\tBaz' })).toBe('title:foo bar baz')
+  })
+
+  it('namespaces target ids and titles separately so they cannot collide', () => {
+    // A targetNodeId literally equal to "title:foo" must not collide with
+    // a different item whose title is "foo".
+    expect(triageItemIdentity({ targetNodeId: 'title:foo' })).toBe('node:title:foo')
+    expect(triageItemIdentity({ title: 'foo' })).toBe('title:foo')
   })
 
   it('returns null when neither identity source yields a usable key', () => {

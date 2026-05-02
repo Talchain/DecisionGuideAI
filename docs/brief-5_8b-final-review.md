@@ -117,7 +117,8 @@ so future data-shape shifts don't require code edits.
 "Highest-value evidence gaps" + "Suggested next actions" merged into one
 EVPI-ranked queue inside the T1 card. Card #1 is wrapped in
 `border-info/40 bg-info/[0.02]` to mirror the pre-analysis 5.8A
-`.ac.em` emphasis treatment. Items 4-6 keep the existing
+`.ac.em` emphasis treatment _(strengthened to `border-info/50` + 3px
+`border-l-info` left accent in the 5.8B hotfix — see hotfix Fix 10)_. Items 4-6 keep the existing
 `AlsoConsiderDisclosure` (compact rows, collapsed by default).
 A new `StabilityNarrative` line renders above the queue ("Stability:
 {N}%. These items would most improve confidence:" + "Ranked by evidence

@@ -25,7 +25,7 @@ export interface DedupableTriageItem {
  */
 export function triageItemIdentity(item: DedupableTriageItem): string | null {
   const target = item.targetNodeId?.trim()
-  if (target) return target
+  if (target) return `node:${target}`
   const normTitle = (item.title ?? '').trim().toLowerCase().replace(/\s+/g, ' ')
   return normTitle.length > 0 ? `title:${normTitle}` : null
 }
