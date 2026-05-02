@@ -556,9 +556,15 @@ Two commits on top of the final 5.8B merge. Branch: `ui/analysis-tab-hotfix-5_8b
 
 ### Hotfix smoke results
 
-- `npm run typecheck` — clean (0 errors)
-- `npx vitest run src/components/results/ src/canvas/components/pre-analysis/ src/components/shared/` — **1842 passed, 13 skipped, 0 failed**
+- `pnpm run typecheck` — clean (0 errors)
+- `pnpm exec vitest run src/components/results/ src/canvas/components/pre-analysis/ src/components/shared/` — **1844 passed, 13 skipped, 0 failed**
 - `rg "as any" src/components/results/` — delta = 0 (no new casts introduced)
+
+### Hotfix follow-up (ChatGPT P1 review pass)
+
+- **P1.1 — Identity-based dedup.** Initial dedup used the per-card `key` string (e.g. `gap-{factorId}-{i}` vs `action-{i}`), which never collide across the two source lists, so a factor surfacing as both an evidence gap and a next action would still produce two cards. Switched to `targetNodeId` (canonical identity) with a normalised-title fallback. Added regression test `deduplicates items that share a targetNodeId across evidence-gap and next-action lists` in `DecisionConfidencePanel.unifiedQueueD2b.spec.tsx`. Two pre-existing fixture tests had to be updated to give each gap a distinct `targetNodeId` (they had been silently relying on `makeGap()`'s default) — pure fixture hygiene, no production behaviour change beyond what dedup intentionally collapses.
+- **P1.2 — Pre-analysis card #1 emphasis parity.** The strengthened `border-info/50 + border-l-[3px] border-l-info` treatment now applies to both surfaces. `PreAnalysisPanel.tsx:851` updated; `PreAnalysisPanel.spec.tsx` extended with a `5.8B hotfix P1.2` test asserting the class shape, and `DecisionConfidencePanel.unifiedQueueD2b.spec.tsx` extended with the same assertion for post-analysis.
+- **Improvements.** Final-review doc now records the pnpm commands actually used. The stale `border-info/40` reference in the unified-queue spec preamble was updated to the new emphasis treatment.
 
 ---
 

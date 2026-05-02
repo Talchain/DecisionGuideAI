@@ -4,7 +4,8 @@
  * The post-analysis T1 card now ranks evidence-gap and next-action items into
  * a single EVPI-sorted stack:
  *   - Top 3 → unified queue with the first card visually emphasised
- *     (`border-info/40 bg-info/[0.02]`, mirroring the pre-analysis `.ac.em`).
+ *     (`border-info/50 bg-info/[0.02]` plus a `border-l-[3px] border-l-info`
+ *     left accent per DS v5 §6.4, mirroring the pre-analysis `.ac.em`).
  *   - Items 4-6 → `AlsoConsiderDisclosure` (compact rows, collapsed by default).
  *   - Stability narrative renders above the queue when there is at least one
  *     item; suppressed otherwise.
@@ -147,7 +148,12 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
       />,
     )
     expect(screen.getByTestId('unified-triage-queue')).toBeInTheDocument()
-    expect(screen.getByTestId('unified-triage-emphasised')).toBeInTheDocument()
+    const emphasised = screen.getByTestId('unified-triage-emphasised')
+    expect(emphasised).toBeInTheDocument()
+    // 5.8B hotfix Fix 10 — strengthened emphasis: border-info/50 + 3px left accent.
+    expect(emphasised.className).toContain('border-info/50')
+    expect(emphasised.className).toContain('border-l-[3px]')
+    expect(emphasised.className).toContain('border-l-info')
   })
 
   it('removes the legacy split sub-headers (D2b unified them into one queue)', () => {
@@ -175,8 +181,11 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
       <DecisionConfidencePanel
         data={makeData({
           gaps: [
-            makeGap({ factorId: 'g_low', factorLabel: 'Low evpi gap', evpiPp: 5 }),
-            makeGap({ factorId: 'g_high', factorLabel: 'High evpi gap', evpiPp: 80 }),
+            // Distinct targetNodeId per gap so the new identity-based dedup
+            // (5.8B hotfix P1.1) doesn't collapse them through the shared
+            // default `targetNodeId: 'node_gap'` from `makeGap()`.
+            makeGap({ factorId: 'g_low', factorLabel: 'Low evpi gap', evpiPp: 5, targetNodeId: 'node_low' }),
+            makeGap({ factorId: 'g_high', factorLabel: 'High evpi gap', evpiPp: 80, targetNodeId: 'node_high' }),
           ],
           nextActions: [
             makeNextAction({ targetId: 'n_mid', action: 'Mid evpi action' }),
@@ -307,15 +316,41 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
       <DecisionConfidencePanel
         data={makeData({
           gaps: [
-            makeGap({ factorId: 'g1', factorLabel: 'Gap 1', evpiPp: 50 }),
-            makeGap({ factorId: 'g2', factorLabel: 'Gap 2', evpiPp: 45 }),
-            makeGap({ factorId: 'g3', factorLabel: 'Gap 3', evpiPp: 40 }),
-            makeGap({ factorId: 'g4', factorLabel: 'Gap 4', evpiPp: 35 }),
+            // Distinct targetNodeId per gap so identity-based dedup
+            // (5.8B hotfix P1.1) doesn't collapse them via the shared default.
+            makeGap({ factorId: 'g1', factorLabel: 'Gap 1', evpiPp: 50, targetNodeId: 'node_g1' }),
+            makeGap({ factorId: 'g2', factorLabel: 'Gap 2', evpiPp: 45, targetNodeId: 'node_g2' }),
+            makeGap({ factorId: 'g3', factorLabel: 'Gap 3', evpiPp: 40, targetNodeId: 'node_g3' }),
+            makeGap({ factorId: 'g4', factorLabel: 'Gap 4', evpiPp: 35, targetNodeId: 'node_g4' }),
           ],
         })}
       />,
     )
     // Disclosure button uses dynamic copy "Show {N} more" — assert it exists.
     expect(screen.getByText(/Show 1 more/i)).toBeInTheDocument()
+  })
+
+  // ── 5.8B hotfix P1.1: dedup across source lists by canonical identity ──
+  it('deduplicates items that share a targetNodeId across evidence-gap and next-action lists', () => {
+    // Same factor (`node_dup`) appears in both lists. Without identity-based
+    // dedup the queue would render two cards for the same factor (one with
+    // key `gap-…`, one with key `action-…`). With dedup, the higher-EVOI
+    // entry survives.
+    render(
+      <DecisionConfidencePanel
+        data={makeData({
+          gaps: [
+            makeGap({ factorId: 'node_dup', factorLabel: 'Duplicated factor', targetNodeId: 'node_dup', evpiPp: 60 }),
+            makeGap({ factorId: 'g2', factorLabel: 'Other gap', targetNodeId: 'node_other', evpiPp: 30 }),
+          ],
+          nextActions: [
+            makeNextAction({ targetId: 'node_dup', action: 'Duplicated factor', rationale: 'collides on identity' }),
+          ],
+        })}
+      />,
+    )
+    // Only one card titled "Duplicated factor" should render in the queue.
+    const dupes = screen.getAllByText('Duplicated factor')
+    expect(dupes).toHaveLength(1)
   })
 })

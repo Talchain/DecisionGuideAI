@@ -638,12 +638,18 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       if (aEvoi !== bEvoi) return bEvoi - aEvoi
       return (b.influence ?? 0) - (a.influence ?? 0)
     })
-    // Dedup by key after sort so the highest-ranked occurrence survives.
-    // Guard undefined keys: items without a key are kept (can't dedup safely).
+    // Dedup by canonical factor identity (targetNodeId) after sort so the
+    // highest-ranked occurrence survives. mapEvidenceGapsToActions and
+    // mapNextActionsToCards generate distinct `key` prefixes (`gap-…` vs
+    // `action-…`), so the same factor can appear in both lists with
+    // different keys but identical targetNodeId. Falls back to a normalised
+    // title when targetNodeId is missing so we still catch obvious duplicates.
     const seen = new Set<string>()
     return merged.filter(item => {
-      if (!item.key || seen.has(item.key)) return false
-      seen.add(item.key)
+      const identity = item.targetNodeId ?? item.title.trim().toLowerCase()
+      if (!identity) return true
+      if (seen.has(identity)) return false
+      seen.add(identity)
       return true
     })
   }, [data, onSetValue, nodeValueLookup, strengthenOverlayMap])
