@@ -307,7 +307,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
         />,
       )
       expect(
-        screen.getByText('No stress-test signals fired. Your model is currently consistent.'),
+        screen.getByText('No sensitivity or fragility signals fired. Your model is currently consistent.'),
       ).toBeInTheDocument()
     })
 
@@ -321,7 +321,7 @@ describe('StressTestSection — Brief 5.8B D4', () => {
         />,
       )
       expect(
-        screen.queryByText('No stress-test signals fired. Your model is currently consistent.'),
+        screen.queryByText('No sensitivity or fragility signals fired. Your model is currently consistent.'),
       ).not.toBeInTheDocument()
     })
   })

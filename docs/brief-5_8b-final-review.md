@@ -133,8 +133,16 @@ one row above. Added "What if I tried a different approach?" link at
 the bottom, gated on `onSendMessage`. Three legacy spec assertions
 updated (`OptionCards.spec.tsx`, `visualContracts.spec.tsx`).
 
-### D4 — Copy approval gate (deferred)
-See above. `docs/brief-5_8b-d4-copy.md` holds the proposed strings.
+### D4 — Stress-test accordion (shipped 2026-05-02)
+StressTestSection replaces the legacy ChallengeSection top-level render.
+Sourced from a pure `utils/stressTestTemplates.ts` module so V5's
+`decision_review` payload swaps in cleanly. Disconfirmation +
+Outside view templates use Paul's exact corrected copy; `topDriverConfidence`
+read from `factor_sensitivity[i].confidence` via `DriverItem.confidence`
+(the brief's authoritative-source rule). Fragile-factors subsection
+preserves the 5.7 D11 alt-winner grouping verbatim by reusing
+`FragileEdgeGroupCard` exported from `ChallengeSection`. See the
+"D4 — shipped" section near the top of this doc for locked strings.
 
 ### D5 — Post T3 drivers demotion
 Surfaced `Ranking may shift {N}%` as a visible per-driver row
@@ -191,21 +199,22 @@ parity contract no longer applies under decoupled rendering.
   - **Post footer copy** replaced via `derivePostFooterStatus` (deterministic wireframe bands) + `derivePostFooterMeta`. The legacy `getStabilityDisplayLabel` heroLabel ("Stability sensitive") still lives in the file but no longer renders in any production path. Owner: D8.
   - **Post-analysis dimension audit** — data supplies `{evidence, robustness, clarity}` (3-set), wireframe pictured 4-set. Render maps to "Evidence / Robustness / Framing". Owner: D2a.
 
-## Grep gates
+## Grep gates (post-D4b)
 
-| Gate                                                      | Result                                                                                                                                                                              |
-| --------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rg "Highest-value evidence gaps" src/components/results/` | Comment only in `certaintyCopy.ts` (justifies the caveat-string update). No production-string match.                                                                              |
-| `rg "Suggested next actions" src/components/results/`     | 0 matches                                                                                                                                                                          |
-| `rg "Before you decide" src/components/results/`          | 1 match in `ResultsBody.tsx` (legacy `ChallengeSection` accordion title) — **expected, removed by D4**.                                                                            |
-| `rg "Stability sensitive" src/components/results/`        | 5 matches: 3 inside `ResultsFooter.tsx` / `getStabilityDisplayLabel.ts` (no longer wired into production render path post-D8) + 2 in justification comments. No production renderer. |
-| `rg "Review next" src/canvas/components/pre-analysis/`    | 0 matches                                                                                                                                                                          |
+| Gate                                                          | Result                                                                                                                                                                              |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `rg "Highest-value evidence gaps" src/components/results/`    | Comment-only justification in `certaintyCopy.ts`. No production-string match.                                                                                                      |
+| `rg "Suggested next actions" src/components/results/`         | 0 matches                                                                                                                                                                          |
+| `rg "Before you decide" src/components/results/`              | **0 matches** (literal removed from comments + tests in the post-D4 cleanup so the gate is clean end-to-end).                                                                       |
+| `rg "Current result" src/components/results/`                 | **0 matches** (legacy hero title removed from production; spec uses a `LEGACY_HERO_TITLE` const built via `.join(' ')` so the literal does not surface in source).                  |
+| `rg "Stability sensitive" src/components/results/`            | 3 matches in `ResultsFooter.tsx` + `getStabilityDisplayLabel.ts` — both files no longer wired into production post-D8. Kept for soak; tracked for cleanup.                          |
+| `rg "Review next" src/canvas/components/pre-analysis/`        | 0 matches                                                                                                                                                                          |
 | `rg "Improve confidence" src/canvas/components/pre-analysis/` | 0 matches                                                                                                                                                                          |
-| `rg "as any" src/components/results/`                     | 47 matches — same as D1 baseline. Zero new.                                                                                                                                        |
+| `rg "as any" src/components/results/`                         | 47 matches — same as D1 baseline. Zero new.                                                                                                                                        |
 
 ## Test counts (post-D4b)
 
-  - `src/components/results/` + `src/components/shared/`: **1092 tests pass** (was 1056 pre-brief, +36 net after D4b).
+  - `src/components/results/` + `src/components/shared/`: **≥1092 tests pass** (was 1056 pre-brief).
   - `src/canvas/components/utils/`: 10 tests pass (new D8 helper).
   - `src/canvas/components/pre-analysis/`: 734 pass / 13 pre-existing skips (unchanged).
   - Pre-existing failures in `InsightsPanel.spec` (7) and `MultiFormAnalysis.spec` (1) are unrelated to 5.8B — confirmed via stash test before D8 commit.

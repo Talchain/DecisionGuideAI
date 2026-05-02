@@ -291,7 +291,7 @@ export const ResultsBody = memo(function ResultsBody({
       {/* V11: Collapse behaviour driven by decisionState, not robustness level */}
       <SectionErrorBoundary section="Your next steps">
       {(() => {
-        // Brief 5.8B D4: ChallengeSection ("Before you decide") replaced with
+        // Brief 5.8B D4: legacy ChallengeSection accordion replaced with
         // StressTestSection ("Stress-test your decision"). The new T2 accordion
         // renders sensitive assumptions (node-based, rank_flip_rate ≥ 0.15),
         // two deterministic thinking-pattern cards, and the existing 5.7 D11
@@ -379,17 +379,37 @@ export const ResultsBody = memo(function ResultsBody({
 
       {/* Brief 5.8B follow-up: build marker now also requires expert mode.
           The marker was previously visible on every dev/staging deploy and
-          surfaced as an orphan SHA (e.g. "45fbb4a") in screenshots. Gating
-          on `import.meta.env.DEV && expertMode` keeps it available for
-          debug users who toggle expert mode but suppresses it by default. */}
-      {import.meta.env.DEV && expertMode && (
-        <div className={`${typography.panelMeta} text-text-light/40 text-center py-1`} data-testid="dev-build-marker">
-          {typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'dev'}
-        </div>
-      )}
+          surfaced as an orphan SHA (e.g. "45fbb4a") in screenshots. Gate
+          extracted into `DevBuildMarker` so the production-vs-expert
+          combination is unit-testable. */}
+      <DevBuildMarker isDev={import.meta.env.DEV} expertMode={!!expertMode} sha={typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'dev'} />
     </div>
   )
 })
+
+/**
+ * DevBuildMarker — Brief 5.8B post-D4 polish. Renders the SHA marker only
+ * when `isDev && expertMode` to prevent the orphan hash from surfacing
+ * by default on dev/staging deploys. Inputs supplied as props (rather
+ * than read inline from `import.meta.env`) so the gate is unit-testable
+ * without depending on Vite's pre-baked env.
+ */
+export function DevBuildMarker({
+  isDev,
+  expertMode,
+  sha,
+}: {
+  isDev: boolean
+  expertMode: boolean
+  sha: string
+}) {
+  if (!isDev || !expertMode) return null
+  return (
+    <div className={`${typography.panelMeta} text-text-light/40 text-center py-1`} data-testid="dev-build-marker">
+      {sha}
+    </div>
+  )
+}
 
 // RiskAppetiteFilter and RiskAppetiteFilterProps moved to AdvancedSection.tsx (D3).
 export type { RiskAppetite, RiskAppetiteFilterProps } from './AdvancedSection'
