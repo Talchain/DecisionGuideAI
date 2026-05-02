@@ -21,9 +21,7 @@ import { SectionHeader } from './SectionHeader'
 import { OptionCards } from './OptionCards'
 import { WinGauge } from './WinGauge'
 import { AdvancedSection, RiskAppetiteFilter, type RiskAppetite } from './AdvancedSection'
-import { ChallengeSection } from './ChallengeSection'
-import { groupActionItems, type ActionItem } from './utils/groupActionItems'
-import type { EvidenceGapItem } from './types'
+import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
@@ -293,56 +291,32 @@ export const ResultsBody = memo(function ResultsBody({
       {/* V11: Collapse behaviour driven by decisionState, not robustness level */}
       <SectionErrorBoundary section="Your next steps">
       {(() => {
-        // "Your next steps" suppressed — triage panel (DecisionConfidencePanel) absorbs this function
-
-        // V12 B5: ChallengeSection only visible when review_status === 'complete'
-        const reviewComplete = resultsSectionData.confidence.reviewStatus === 'complete'
-        let biasFindings: ActionItem[] = []
-        let preMortemItems: ActionItem[] = []
-        if (reviewComplete) {
-          const m2Groups = groupActionItems({
-            fragileEdges: [],
-            evidenceGaps: [],
-            biasFindings: resultsSectionData.confidence.m2BiasFindings ?? undefined,
-            preMortem: resultsSectionData.confidence.m2DecisionQualityPrompts ?? undefined,
-          })
-          biasFindings = m2Groups[2].items
-          preMortemItems = m2Groups[3].items
-        }
-
+        // Brief 5.8B D4: ChallengeSection ("Before you decide") replaced with
+        // StressTestSection ("Stress-test your decision"). The new T2 accordion
+        // renders sensitive assumptions (node-based, rank_flip_rate ≥ 0.15),
+        // two deterministic thinking-pattern cards, and the existing 5.7 D11
+        // alt-winner fragile-factor grouping verbatim. See StressTestSection.tsx.
         return (
           <>
             {/* ── SECTION 4b: STRESS-TEST YOUR DECISION (M2) ────── */}
             {(() => {
-              // Merged fragile cards: capped at 3 (matches ChallengeSection logic)
-              const mergedFragileCount = Math.min(3, (resultsSectionData.confidence.challengeFragileEdges ?? []).length)
-              const warningCount = (resultsSectionData.confidence.inferenceWarnings ?? []).length
-              const identCount = identifiability ? 1 : 0
-              const challengeTotal = biasFindings.length + preMortemItems.length + mergedFragileCount + warningCount + identCount
-              if (challengeTotal === 0) return null
+              const winnerLabel = resultsSectionData.recommendation.recommendedOption?.label
+              if (!winnerLabel) return null
+              const allOptions = resultsSectionData.recommendation.allOptions
+              const runnerUp = allOptions
+                .filter(o => o.id !== resultsSectionData.recommendation.recommendedOption?.id)
+                .sort((a, b) => (b.winProbability ?? 0) - (a.winProbability ?? 0))[0]
+              const alternativeLabel = runnerUp?.label ?? 'an alternative option'
               return (
-              <div>
-                <Accordion
-                  title="Before you decide"
-                  defaultExpanded={false}
-                  testId="accordion-before-commit"
-                  badgeCount={challengeTotal}
-                  badgeState={challengeTotal > 0 ? 'unresolved' : undefined}
-                >
-                  <ChallengeSection
-                    biasFindings={biasFindings}
-                    preMortemItems={preMortemItems}
-                    onFocusNode={onFocusNode}
-                    onSendMessage={onSendMessage}
-                    evidenceGaps={resultsSectionData.confidence.evidenceGaps as EvidenceGapItem[] | undefined}
-                    drivers={resultsSectionData.drivers.drivers}
-                    edgeEValues={resultsSectionData.confidence.edgeEValues}
-                    fragileEdges={resultsSectionData.confidence.challengeFragileEdges}
-                    identifiabilityTag={identifiability}
-                    expertMode={expertMode}
-                  />
-                </Accordion>
-              </div>
+                <StressTestSection
+                  drivers={resultsSectionData.drivers.drivers}
+                  fragileEdges={resultsSectionData.confidence.challengeFragileEdges}
+                  winnerLabel={winnerLabel}
+                  alternativeLabel={alternativeLabel}
+                  onFocusNode={onFocusNode}
+                  onSendMessage={onSendMessage}
+                  expertMode={expertMode}
+                />
               )
             })()}
           </>
@@ -403,8 +377,12 @@ export const ResultsBody = memo(function ResultsBody({
           by AnalysisFooter inside OutputsDock — re-skinned in D8 with
           deterministic stability bands + evidence-gap meta. */}
 
-      {/* V14.3b: Dev-only build marker for deploy verification */}
-      {import.meta.env.DEV && (
+      {/* Brief 5.8B follow-up: build marker now also requires expert mode.
+          The marker was previously visible on every dev/staging deploy and
+          surfaced as an orphan SHA (e.g. "45fbb4a") in screenshots. Gating
+          on `import.meta.env.DEV && expertMode` keeps it available for
+          debug users who toggle expert mode but suppresses it by default. */}
+      {import.meta.env.DEV && expertMode && (
         <div className={`${typography.panelMeta} text-text-light/40 text-center py-1`} data-testid="dev-build-marker">
           {typeof __GIT_SHA__ !== 'undefined' ? __GIT_SHA__ : 'dev'}
         </div>
