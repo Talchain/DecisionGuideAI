@@ -84,12 +84,17 @@ function setupCanvasState({
 }: {
   topDriverConfidence: number
 }) {
-  const report: ReportFixture = {
+  // `satisfies ReportFixture` checks the literal structurally against the
+  // declared interface — drift in the fixture keys (e.g. renaming
+  // `factor_sensitivity` upstream) becomes a compile error rather than
+  // surfacing as a runtime test failure. Each per-row literal also uses
+  // satisfies for the same reason.
+  const report = {
     run: { critique: [] },
     robustness: { fragile_edges: [] },
     option_comparison: [
-      { option_id: 'opt_a', option_label: 'Option A', win_probability: 0.7, expected_value: 100 },
-      { option_id: 'opt_b', option_label: 'Option B', win_probability: 0.3, expected_value: 60 },
+      { option_id: 'opt_a', option_label: 'Option A', win_probability: 0.7, expected_value: 100 } satisfies OptionComparisonFixture,
+      { option_id: 'opt_b', option_label: 'Option B', win_probability: 0.3, expected_value: 60 } satisfies OptionComparisonFixture,
     ],
     recommendation: { option_id: 'opt_a' },
     factor_sensitivity: [
@@ -99,9 +104,9 @@ function setupCanvasState({
         sensitivity_score: 0.9,
         importance_rank: 1,
         confidence: topDriverConfidence,
-      },
+      } satisfies FactorSensitivityFixture,
     ],
-  }
+  } satisfies ReportFixture
   useCanvasStore.setState({
     results: buildResultsState(report),
     hasCompletedFirstRun: true,

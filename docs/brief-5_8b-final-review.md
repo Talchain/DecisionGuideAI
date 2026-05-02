@@ -1,7 +1,7 @@
 # Brief 5.8B — Final Review
 
 Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
-`a307a044` · 19 commits ahead (post-R6).
+`a307a044` · staging now at `8c150646` (R6 merge).
 
 | Commit       | Deliverable                                                         |
 | ------------ | ------------------------------------------------------------------- |
@@ -26,7 +26,9 @@ Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
 | `411dab56`   | R4 — Doc refresh post-D4b                                           |
 | `c4d50cb2`   | R5 — ChatGPT P1 review pass #4 (literal grep gates 0; final-review doc consistent; DevBuildMarker spec; stress-test empty-state narrowed; factor_sensitivity integration test; staging walkthrough doc) |
 | `5a986fd7`   | R5 merge into staging (auto-deploy)                                 |
-| _(this doc)_ | **R6 — ChatGPT P1 review pass #5 (two more grep-gate literals reworded; integration test typed-fixtures; full-ResultsBody MKP test; doc-lint script; doc consistency refresh)** |
+| `05bfe32e`   | R6 — ChatGPT P1 review pass #5 (two more grep-gate literals reworded; integration test typed-fixtures; full-ResultsBody MKP test; doc-lint script; doc consistency refresh) |
+| `8c150646`   | R6 merge into staging (auto-deploy)                                 |
+| _(this doc)_ | **R7 — ChatGPT P1 review pass #6 (walkthrough close-out state, final-review row backfill, duplicate worktree file removed, doc-lint extended)** |
 
 ## D4 — shipped (2026-05-02)
 
@@ -206,8 +208,8 @@ parity contract no longer applies under decoupled rendering.
 
 | Gate                                                          | Result                                                                                                                                                                              |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rg "Highest-value evidence gaps" src/components/results/`    | **0 matches** (R6 reworded the legacy literal out of `unifiedQueueD2b.spec.tsx` via a `.join(' ')` constant + the `certaintyCopy.ts` justification comment).                       |
-| `rg "Suggested next actions" src/components/results/`         | **0 matches** (same R6 cleanup).                                                                                                                                                   |
+| `rg "Highest-value evidence gaps" src/components/results/`    | **0 matches.**                                                                                                                                                                     |
+| `rg "Suggested next actions" src/components/results/`         | **0 matches.**                                                                                                                                                                     |
 | `rg "Before you decide" src/components/results/`              | **0 matches** (literal removed from production + comments + tests).                                                                                                                |
 | `rg "Current result" src/components/results/`                 | **0 matches** (legacy hero title removed from production; spec uses a `LEGACY_HERO_TITLE` const built via `.join(' ')` so the literal does not surface in source).                  |
 | `rg "Stability sensitive" src/components/results/`            | 3 production-comment matches (`ResultsFooter.tsx`, `ResultsBody.tsx`, `getStabilityDisplayLabel.ts`) + 2 production-string matches (`getStabilityDisplayLabel.ts:50` heroLabel return; `ResultsFooter.tsx` JSDoc). The two production files are no longer wired into any production render path post-D8 — both kept for soak, tracked for cleanup. |
@@ -474,6 +476,37 @@ Review pass #5 surfaced four doc-vs-reality drift issues:
     (the JSX-tag references are inside backticks) so real placeholders
     aren't drowned by JSX prose. Caught the residual `<R5 follow-up
     commit>` placeholder before R6 commit landed.
+
+## Post-R6 review pass #6 (this doc)
+
+Review pass #6 caught three doc-vs-state drift items + two improvements:
+
+  - **P1.1** — Walkthrough doc still named the previous deploy SHA
+    and described R6 as still pending, even though R6 had already
+    landed as `8c150646`. R7 refreshed the deploy SHA and rewrote the
+    preamble to "R6 included in the deploy"; the doc is now explicitly
+    tagged **PARTIALLY CLOSED-OUT** (SPEC + LOG populated, SS / DOM
+    pending Paul's capture against the deployed bundle).
+  - **P1.2** — Final review still listed R6 as "_(this doc)_" rather
+    than the landed `05bfe32e` + `8c150646` merge; the
+    `Highest-value evidence gaps` grep row carried a stale
+    "comment-only matches" parenthetical even though the count was 0.
+    R7 backfilled the R6 row + trimmed the parenthetical.
+  - **P1.3** — Untracked `scripts/doc-lint 2.sh` (macOS Finder
+    duplicate) leaked into the worktree; deleted in R7.
+  - **I.1** — Extended `scripts/doc-lint.sh` to flag three additional
+    drift classes: stale-deploy phrasing patterns, walker-template
+    placeholder spans, and angle-bracket SHA markers. Catches the
+    close-out drift class proactively. Outdated SHA detection
+    deferred (would need a git-aware lookup against `origin/staging`).
+  - **I.2** — Added `satisfies` to the `ReportFixture` and
+    `OptionComparisonFixture` types in
+    `StressTestSection.factorSensitivityIntegration.spec.tsx` so
+    fixture drift against the real `ResultsState['report']` shape
+    is caught by TypeScript. Node casts retained as documented:
+    `Node<T>` from React Flow has many internal fields
+    (positionAbsolute, dragging, selected) that test fixtures
+    legitimately don't supply.
 
 ## Recommended 5.8C / 5.9 scope
 
