@@ -417,7 +417,7 @@ export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps)
         {/* Eye icon signals "view filter" (what you see right now), distinguishing
             this display-only control from the persistent "Risk profile" above. */}
         <Eye size={12} className="text-text-light flex-shrink-0" aria-hidden="true" />
-        <span className={`${typography.panelMeta} text-text-light`}>Show winner by:</span>
+        <span className={`${typography.panelMeta} text-text-light`}>Winner by:</span>
         {(['conservative', 'neutral', 'aggressive'] as const).map(appetite => (
           <button
             key={appetite}
@@ -434,7 +434,7 @@ export function RiskAppetiteFilter({ value, onChange }: RiskAppetiteFilterProps)
         ))}
       </div>
       <p className={`${typography.panelMeta} text-text-light italic mt-1`}>
-        Display filter: reweights which option is shown as winner.
+        Changes how the leading option is calculated.
       </p>
     </div>
   )

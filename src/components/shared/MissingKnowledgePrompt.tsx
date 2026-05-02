@@ -17,16 +17,16 @@ import { X } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import Tooltip from '@/components/Tooltip'
 
-const COPY = {
+const COPY: Record<'model' | 'results', { heading: string; helper?: string }> = {
   model: {
     heading: 'Something missing from the model?',
     helper: "Describe what's missing and Olumi will suggest where it fits in your model.",
   },
   results: {
+    // Helper removed: implies Olumi edits analysis directly, which is misleading.
     heading: 'Something missing from the results?',
-    helper: "Describe what's missing and Olumi will update the analysis.",
   },
-} as const
+}
 
 interface MissingKnowledgePromptProps {
   context: 'model' | 'results'
@@ -48,7 +48,7 @@ export function MissingKnowledgePrompt({ context, aiAffordance }: MissingKnowled
     >
       <div className="flex-1 min-w-0">
         <p className={`${typography.panelBody} text-text-light`}>{heading}</p>
-        <p className={`${typography.panelMeta} text-text-light`}>{helper}</p>
+        {helper && <p className={`${typography.panelMeta} text-text-light`}>{helper}</p>}
       </div>
       {aiAffordance}
       <Tooltip delay={300} content="Dismiss">

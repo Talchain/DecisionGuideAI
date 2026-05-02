@@ -128,17 +128,21 @@ describe('Brief 5.8B D4 polish — Decision confidence panel', () => {
   })
 
   describe('Dominant nudge — compressed to inline .nudge row', () => {
-    it('renders as a single-line truncating row, not a multi-line card', () => {
+    it('renders as a single-line row; factor name never truncates, explanation span clips', () => {
       render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)
       const nudge = screen.getByTestId('t1-dominant-nudge')
-      // Inline .nudge layout: `flex items-center` (single line) + truncate.
+      // Inline .nudge layout: `flex items-center` (single line).
       expect(nudge.className).toContain('flex items-center')
-      // No multi-line paragraph wrapper inside.
+      // No multi-line div wrapper inside the nudge.
       expect(nudge.querySelectorAll('div').length).toBe(0)
-      // Detail paragraph must be the truncate child.
+      // The <p> has overflow-hidden (clips flex children) but not truncate directly.
       const detail = nudge.querySelector('p')
       expect(detail).not.toBeNull()
-      expect(detail!.className).toContain('truncate')
+      expect(detail!.className).toContain('overflow-hidden')
+      // truncate lives on the explanation span, not the <p>.
+      const spans = nudge.querySelectorAll('span')
+      const truncSpan = Array.from(spans).find(s => s.classList.contains('truncate'))
+      expect(truncSpan).toBeDefined()
     })
 
     it('full explanation is exposed via title attribute (long form on hover, not in body)', () => {
