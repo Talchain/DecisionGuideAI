@@ -92,9 +92,9 @@ describe('buildCertaintyCopy — decision table', () => {
         confidenceTier: 'needs_work',
       })
       expect(result.headline).toBe(`${WINNER} currently leads`)
-      // Brief 5.8B D2b removed the "Highest-value evidence gaps"
-      // sub-header (queue is now unified). Caveat copy updated to drop
-      // the dead cross-reference; meaning preserved.
+      // Brief 5.8B D2b unified the queue and removed the legacy
+      // evidence-gaps sub-header. Caveat copy updated to drop the
+      // dead cross-reference; meaning preserved.
       expect(result.caveat).toBe(
         'Result depends on factors with limited evidence.',
       )

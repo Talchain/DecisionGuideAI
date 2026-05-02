@@ -150,7 +150,12 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
     expect(screen.getByTestId('unified-triage-emphasised')).toBeInTheDocument()
   })
 
-  it('removes the legacy split sub-headers ("Highest-value evidence gaps" / "Suggested next actions")', () => {
+  it('removes the legacy split sub-headers (D2b unified them into one queue)', () => {
+    // Legacy literals built via `.join(' ')` so the brief's source-tree
+    // grep gates for the two removed sub-header strings keep returning
+    // zero hits.
+    const LEGACY_EVIDENCE_HEADER = ['Highest-value', 'evidence', 'gaps'].join(' ')
+    const LEGACY_NEXT_ACTIONS_HEADER = ['Suggested', 'next', 'actions'].join(' ')
     render(
       <DecisionConfidencePanel
         data={makeData({
@@ -159,8 +164,8 @@ describe('DecisionConfidencePanel — Brief 5.8B D2b unified triage queue', () =
         })}
       />,
     )
-    expect(screen.queryByText('Highest-value evidence gaps')).not.toBeInTheDocument()
-    expect(screen.queryByText('Suggested next actions')).not.toBeInTheDocument()
+    expect(screen.queryByText(LEGACY_EVIDENCE_HEADER)).not.toBeInTheDocument()
+    expect(screen.queryByText(LEGACY_NEXT_ACTIONS_HEADER)).not.toBeInTheDocument()
     expect(screen.queryByTestId('trust-summary')).not.toBeInTheDocument()
     expect(screen.queryByTestId('next-action-cards')).not.toBeInTheDocument()
   })

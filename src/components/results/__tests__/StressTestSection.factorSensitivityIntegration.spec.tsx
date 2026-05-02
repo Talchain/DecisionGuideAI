@@ -21,64 +21,100 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { render, screen } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
-import { useCanvasStore } from '../../../canvas/store'
+import { useCanvasStore, type ResultsState } from '../../../canvas/store'
 import { StressTestSection } from '../StressTestSection'
+import type { Node, Edge } from 'reactflow'
+
+// ── Typed test fixtures ─────────────────────────────────────────────────────
+// The integration test only needs to seed a tiny subset of the canvas store.
+// Rather than cast through `unknown`-bypass, we model that subset with named
+// types and drop into Zustand's setState as a properly-typed Partial. This
+// keeps the project's loose-cast budget for src/components/results/ at the
+// D1 baseline.
+
+interface FactorSensitivityFixture {
+  factor_id: string
+  label: string
+  sensitivity_score: number
+  importance_rank: number
+  /**
+   * Authoritative top-driver confidence. Flows through `useResultsSectionData`
+   * into `DriverItem.confidence` and then into the StressTestSection
+   * Disconfirmation context-line gate.
+   */
+  confidence: number
+}
+
+interface OptionComparisonFixture {
+  option_id: string
+  option_label: string
+  win_probability: number
+  expected_value: number
+}
+
+interface ReportFixture {
+  run: { critique: never[] }
+  robustness: { fragile_edges: never[] }
+  option_comparison: OptionComparisonFixture[]
+  recommendation: { option_id: string }
+  factor_sensitivity: FactorSensitivityFixture[]
+}
+
+function buildResultsState(report: ReportFixture): ResultsState {
+  return {
+    status: 'complete',
+    progress: 100,
+    // ResultsState.report is ReportV1 | null at the type level. The fixture
+    // is a structural subset of ReportV1 — cast through `unknown` so the
+    // narrowing happens at the boundary where the canvas store consumes it,
+    // not via `any`.
+    report: report as unknown as ResultsState['report'],
+  }
+}
+
+function buildFactorNodes(): Node[] {
+  return [
+    { id: 'goal_1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } } as unknown as Node,
+    { id: 'fac_top', type: 'factor', data: { label: 'Customer churn rate', kind: 'factor' }, position: { x: 0, y: 0 } } as unknown as Node,
+  ]
+}
 
 function setupCanvasState({
   topDriverConfidence,
 }: {
   topDriverConfidence: number
 }) {
-  useCanvasStore.setState({
-    results: {
-      status: 'complete',
-      progress: 100,
-      report: {
-        run: { critique: [] },
-        robustness: { fragile_edges: [] },
-        option_comparison: [
-          {
-            option_id: 'opt_a',
-            option_label: 'Option A',
-            win_probability: 0.7,
-            expected_value: 100,
-          },
-          {
-            option_id: 'opt_b',
-            option_label: 'Option B',
-            win_probability: 0.3,
-            expected_value: 60,
-          },
-        ],
-        recommendation: { option_id: 'opt_a' },
-        factor_sensitivity: [
-          {
-            factor_id: 'fac_top',
-            label: 'Customer churn rate',
-            sensitivity_score: 0.9,
-            importance_rank: 1,
-            // Authoritative confidence — value flows through the data
-            // hook into DriverItem.confidence, then into StressTestSection's
-            // Disconfirmation context-line gate.
-            confidence: topDriverConfidence,
-          },
-        ],
+  const report: ReportFixture = {
+    run: { critique: [] },
+    robustness: { fragile_edges: [] },
+    option_comparison: [
+      { option_id: 'opt_a', option_label: 'Option A', win_probability: 0.7, expected_value: 100 },
+      { option_id: 'opt_b', option_label: 'Option B', win_probability: 0.3, expected_value: 60 },
+    ],
+    recommendation: { option_id: 'opt_a' },
+    factor_sensitivity: [
+      {
+        factor_id: 'fac_top',
+        label: 'Customer churn rate',
+        sensitivity_score: 0.9,
+        importance_rank: 1,
+        confidence: topDriverConfidence,
       },
-    } as any,
+    ],
+  }
+  useCanvasStore.setState({
+    results: buildResultsState(report),
     hasCompletedFirstRun: true,
     runMeta: {},
-    nodes: [
-      { id: 'goal_1', type: 'goal', data: { label: 'Goal', kind: 'goal' }, position: { x: 0, y: 0 } },
-      { id: 'fac_top', type: 'factor', data: { label: 'Customer churn rate', kind: 'factor' }, position: { x: 0, y: 0 } },
-    ] as any,
-    edges: [],
+    nodes: buildFactorNodes(),
+    edges: [] as Edge[],
   })
 }
 
 describe('StressTestSection — factor_sensitivity → DriverItem.confidence integration', () => {
   beforeEach(() => {
     useCanvasStore.setState({
-      results: { status: 'idle', progress: 0, report: null } as any,
+      results: { status: 'idle', progress: 0, report: null },
       hasCompletedFirstRun: false,
     })
   })
