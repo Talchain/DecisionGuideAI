@@ -1,7 +1,11 @@
 # Brief 5.8B — staging walkthrough evidence
 
-**Deploy:** Netlify build from staging at `8c150646` (R6 merge — includes
-D0-D8 + Polish + R1-R6 review-pass fixes).
+**Deploy:** the most recent Netlify build from `staging` that contains the
+Brief 5.8B merge stack (D0-D8 + Polish + R1-R7 review-pass fixes). The
+walker should record the actual deploy SHA on the sign-off line at the
+foot of this doc — *not* embedded in this preamble (every previous
+revision drifted as soon as the next merge landed; see the drift-proof
+note in `brief-5_8b-final-review.md`).
 **Target URL:** the staging Netlify deploy URL. Use a debug bundle that
 exercises a needs_work tier, low top-driver confidence, ≥1 sensitive factor
 (rank_flip_rate ≥ 0.15), ≥1 fragile edge, dominant factor at ≥0.8 influence.
@@ -268,10 +272,11 @@ already evidenced.
 
 ## Grep gates
 
-Re-run on the deploy SHA listed above. All must return zero hits except where noted:
+Re-run against the deploy bundle (deploy SHA recorded on the sign-off
+line below). All must return zero hits except where noted:
 
 ```
-$ rg "Highest-value evidence gaps" src/components/results/  # comment only in certaintyCopy.ts
+$ rg "Highest-value evidence gaps" src/components/results/   # 0
 $ rg "Suggested next actions" src/components/results/        # 0
 $ rg "Before you decide" src/components/results/             # 0
 $ rg "Current result" src/components/results/                # 0
@@ -284,4 +289,4 @@ $ rg "as any" src/components/results/                        # 47 — D1 baselin
 
 Once every check has an artefact, stamp this file with date + walker name at the bottom and commit it. Close-out brief requires evidence per acceptance item.
 
-_walked by: ______________ date: ______________ deploy SHA: ______________ (apply on top of `5caa5d55` once R5 lands)_
+_walked by: ______________ date: ______________ deploy SHA: ______________
