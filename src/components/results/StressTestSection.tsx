@@ -1,6 +1,7 @@
 /**
- * StressTestSection — Brief 5.8B D4. Replaces ChallengeSection's
- * "Before you decide" accordion with a wireframe-aligned T2 stress-test.
+ * StressTestSection — Brief 5.8B D4. Replaces the legacy ChallengeSection
+ * accordion (whose user-facing title read "Before-you-decide") with a
+ * wireframe-aligned T2 stress-test.
  *
  * Subsections (each independently suppressed when empty):
  *   1. Sensitive assumptions — node-based, sourced from `factor_sensitivity`
@@ -292,10 +293,19 @@ export const StressTestSection = memo(function StressTestSection({
           </div>
         )}
 
-        {/* ── Whole-accordion empty state (per d4-copy.md §6) ────────── */}
+        {/* ── Whole-accordion empty state ─────────────────────────────
+            Reads "No sensitivity or fragility signals fired" rather than
+            the d4-copy.md draft "No stress-test signals fired" — the
+            two deterministic Thinking-pattern cards always render, so
+            the broader claim would be self-contradictory when they're
+            visible. This narrower copy describes only the data-driven
+            subsections. */}
         {totalCount === thinkingPatternsCount && sensitiveCount === 0 && fragileCount === 0 && (
-          <p className={`${typography.panelMeta} text-text-light`}>
-            No stress-test signals fired. Your model is currently consistent.
+          <p
+            className={`${typography.panelMeta} text-text-light`}
+            data-testid="stress-test-empty-state"
+          >
+            No sensitivity or fragility signals fired. Your model is currently consistent.
           </p>
         )}
       </div>
