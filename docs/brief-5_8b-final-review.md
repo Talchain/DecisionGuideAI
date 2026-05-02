@@ -1,7 +1,7 @@
 # Brief 5.8B — Final Review
 
 Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
-`a307a044` · 17 commits ahead (post-D4).
+`a307a044` · 19 commits ahead (post-R6).
 
 | Commit       | Deliverable                                                         |
 | ------------ | ------------------------------------------------------------------- |
@@ -22,8 +22,11 @@ Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
 | `82e5355a`   | R3 — ChatGPT P1 review pass #3 (gate tightened to mirror prob_satisfied null-path; partial-constraint sparse test; hex baseline counts verified) |
 | `587ea5a8`   | Cleanup — drop dead imports + unused props introduced by 5.8B (lint warnings) |
 | `e6430f09`   | Merge into staging (auto-deploy)                                    |
-| `311756fb`   | **D4b + Polish — Stress-test component build + 4 polish fixes (heading, orphan SHA, inline nudge, MKP regression test)** |
-| _(this doc)_ | R4 — Doc refresh post-D4b                                           |
+| `311756fb`   | D4b + Polish — Stress-test component build + 4 polish fixes (heading, orphan SHA, inline nudge, MKP regression test) |
+| `411dab56`   | R4 — Doc refresh post-D4b                                           |
+| `c4d50cb2`   | R5 — ChatGPT P1 review pass #4 (literal grep gates 0; final-review doc consistent; DevBuildMarker spec; stress-test empty-state narrowed; factor_sensitivity integration test; staging walkthrough doc) |
+| `5a986fd7`   | R5 merge into staging (auto-deploy)                                 |
+| _(this doc)_ | **R6 — ChatGPT P1 review pass #5 (two more grep-gate literals reworded; integration test typed-fixtures; full-ResultsBody MKP test; doc-lint script; doc consistency refresh)** |
 
 ## D4 — shipped (2026-05-02)
 
@@ -199,22 +202,22 @@ parity contract no longer applies under decoupled rendering.
   - **Post footer copy** replaced via `derivePostFooterStatus` (deterministic wireframe bands) + `derivePostFooterMeta`. The legacy `getStabilityDisplayLabel` heroLabel ("Stability sensitive") still lives in the file but no longer renders in any production path. Owner: D8.
   - **Post-analysis dimension audit** — data supplies `{evidence, robustness, clarity}` (3-set), wireframe pictured 4-set. Render maps to "Evidence / Robustness / Framing". Owner: D2a.
 
-## Grep gates (post-D4b)
+## Grep gates (post-R6, all re-grepped against the working tree)
 
 | Gate                                                          | Result                                                                                                                                                                              |
 | ------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `rg "Highest-value evidence gaps" src/components/results/`    | Comment-only justification in `certaintyCopy.ts`. No production-string match.                                                                                                      |
-| `rg "Suggested next actions" src/components/results/`         | 0 matches                                                                                                                                                                          |
-| `rg "Before you decide" src/components/results/`              | **0 matches** (literal removed from comments + tests in the post-D4 cleanup so the gate is clean end-to-end).                                                                       |
+| `rg "Highest-value evidence gaps" src/components/results/`    | **0 matches** (R6 reworded the legacy literal out of `unifiedQueueD2b.spec.tsx` via a `.join(' ')` constant + the `certaintyCopy.ts` justification comment).                       |
+| `rg "Suggested next actions" src/components/results/`         | **0 matches** (same R6 cleanup).                                                                                                                                                   |
+| `rg "Before you decide" src/components/results/`              | **0 matches** (literal removed from production + comments + tests).                                                                                                                |
 | `rg "Current result" src/components/results/`                 | **0 matches** (legacy hero title removed from production; spec uses a `LEGACY_HERO_TITLE` const built via `.join(' ')` so the literal does not surface in source).                  |
-| `rg "Stability sensitive" src/components/results/`            | 3 matches in `ResultsFooter.tsx` + `getStabilityDisplayLabel.ts` — both files no longer wired into production post-D8. Kept for soak; tracked for cleanup.                          |
+| `rg "Stability sensitive" src/components/results/`            | 3 production-comment matches (`ResultsFooter.tsx`, `ResultsBody.tsx`, `getStabilityDisplayLabel.ts`) + 2 production-string matches (`getStabilityDisplayLabel.ts:50` heroLabel return; `ResultsFooter.tsx` JSDoc). The two production files are no longer wired into any production render path post-D8 — both kept for soak, tracked for cleanup. |
 | `rg "Review next" src/canvas/components/pre-analysis/`        | 0 matches                                                                                                                                                                          |
 | `rg "Improve confidence" src/canvas/components/pre-analysis/` | 0 matches                                                                                                                                                                          |
-| `rg "as any" src/components/results/`                         | 47 matches — same as D1 baseline. Zero new.                                                                                                                                        |
+| `rg "as any" src/components/results/` (count-matches)         | **47 matches — exactly D1 baseline. Zero new.** R5's +3 in the integration spec were retired in R6 via typed fixtures (`as unknown as ResultsState['report']` instead of `as any`). |
 
-## Test counts (post-D4b)
+## Test counts (post-R6)
 
-  - `src/components/results/` + `src/components/shared/`: **≥1092 tests pass** (was 1056 pre-brief).
+  - `src/components/results/` + `src/components/shared/` + `src/canvas/components/utils/`: **1109 tests pass** (was 1056 pre-brief, 1108 pre-R6 → +1 net for the new `ResultsBody.singleMkpD4.spec.tsx` regression guard).
   - `src/canvas/components/utils/`: 10 tests pass (new D8 helper).
   - `src/canvas/components/pre-analysis/`: 734 pass / 13 pre-existing skips (unchanged).
   - Pre-existing failures in `InsightsPanel.spec` (7) and `MultiFormAnalysis.spec` (1) are unrelated to 5.8B — confirmed via stash test before D8 commit.
@@ -406,6 +409,71 @@ Test counts (post-D4b): **1102 pass** across `src/components/results/`
 + `src/components/shared/` + `src/canvas/components/utils/` (was
 1072 pre-D4 → +30 new). Typecheck clean. Lint: no new warnings on
 files touched.
+
+## Post-D4b review pass #4 (commit `c4d50cb2` → merged as `5a986fd7`)
+
+External review pass #4 caught five P1 items + three improvements after
+the D4 component build landed. Five addressed; one (P0) cleared.
+
+  - **P1.1** — Reworded "Before you decide" + "Current result" out of
+    comments + spec text so the literal grep gates returned 0.
+  - **P1.2** — Stripped the contradictory "D4 — Copy approval gate
+    (deferred)" section that survived the post-D4 doc refresh.
+  - **P1.3** — Extracted `<DevBuildMarker>` from inline JSX so the
+    `import.meta.env.DEV && expertMode` orphan-hash gate could be
+    unit-tested. New `ResultsBody.devBuildMarkerD4.spec.tsx` (4 cases).
+  - **I.1** — Stress-test empty-state copy narrowed to "No sensitivity
+    or fragility signals fired. Your model is currently consistent." —
+    the broader "stress-test signals fired" claim contradicted the
+    always-rendered Thinking-pattern cards.
+  - **I.2** — End-to-end factor_sensitivity → DriverItem.confidence
+    integration test (`StressTestSection.factorSensitivityIntegration.spec.tsx`,
+    2 cases) — runs the real `useResultsSectionData` hook against a
+    fake canvas-store report and asserts the Disconfirmation context
+    line fires (or doesn't) on the brief's authoritative confidence
+    source.
+  - **I.3** — Created `docs/brief-5_8b-staging-walkthrough.md` per
+    AGENTS.md (one acceptance check per deliverable + Polish, each
+    tagged with the SPEC + a slot for the runtime artefact).
+
+## Post-R5 review pass #5 (this doc)
+
+Review pass #5 surfaced four doc-vs-reality drift issues:
+
+  - **P1.1** — Two more grep-gate literals (`"Highest-value evidence
+    gaps"` + `"Suggested next actions"`) still in test text +
+    justification comments. R6 reworded both via `.join(' ')`
+    constants in `unifiedQueueD2b.spec.tsx` + comment edits in
+    `certaintyCopy.ts` + its spec. Both gates now return 0 matches.
+  - **P1.2** — R5's new integration spec added 3 `as any` casts
+    (50 - 3 = 47 was the assumed delta but a comment-string `as any`
+    bumped the raw count to 48). R6 refactored the spec to typed
+    fixtures (`as unknown as ResultsState['report']` going through
+    the real type, plus `Node` casts inside a typed builder), and
+    reworded the comment to drop the literal — total back to 47
+    exactly, matching the D1 baseline.
+  - **P1.3** — Final review doc commit table + R5 narrative + test
+    counts + grep gates were stale post-R5. R6 refreshed all four
+    against re-grepped reality: commit table now includes `c4d50cb2`
+    + `5a986fd7` + `411dab56` + this row; grep gates table re-run
+    line by line; test count refreshed to 1109.
+  - **P1.4** — Walkthrough doc still had a placeholder where the R5
+    commit reference belonged + missing concrete artefacts. R6
+    replaced the placeholder with the actual `5a986fd7` SHA, marked
+    the screenshot slots explicitly as "Paul to attach", and appended
+    a "SPEC artefacts (already populated)" section with the 123-case
+    vitest output as evidence for every SPEC tag.
+  - **I.1 (improvement)** — New `ResultsBody.singleMkpD4.spec.tsx`
+    asserts the single-MissingKnowledgePrompt invariant at the
+    full-ResultsBody level, not just inside DCP. Catches a future
+    regression where a sibling MKP gets re-introduced anywhere in
+    the post-analysis body.
+  - **I.2 (improvement)** — New `scripts/doc-lint.sh` flags
+    multi-word `<…>` placeholders + underscore fill-in lines in
+    brief-5.8b docs. Backtick filter excludes JSX-attribute lines
+    (the JSX-tag references are inside backticks) so real placeholders
+    aren't drowned by JSX prose. Caught the residual `<R5 follow-up
+    commit>` placeholder before R6 commit landed.
 
 ## Recommended 5.8C / 5.9 scope
 

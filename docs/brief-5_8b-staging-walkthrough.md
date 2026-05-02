@@ -1,10 +1,9 @@
 # Brief 5.8B — staging walkthrough evidence
 
-**Deploy:** Netlify build from staging (most recent merge: `5caa5d55` — "Merge branch 'ui/post-analysis-tier-hierarchy-5_8b' into staging").
-**Subsequent commits to apply on the next merge:** `<R5 follow-up commit>` (post-D4b polish: grep-gate cleanup, dev-build-marker test, empty-state rename, factor_sensitivity integration test, this walkthrough).
-**Target URL:** `https://<staging-host>/` with a debug bundle that exercises a needs_work tier, low top-driver confidence, ≥1 sensitive factor (rank_flip_rate ≥ 0.15), ≥1 fragile edge, dominant factor at ≥0.8 influence.
+**Deploy:** Netlify build from staging at `5a986fd7` (R5 merge — "Merge branch 'ui/post-analysis-tier-hierarchy-5_8b' into staging"). The R6 follow-up (post-D4b polish: grep-gate cleanup, dev-build-marker test, empty-state rename, factor_sensitivity integration test, this walkthrough, ResultsBody single-MKP test, doc-lint script) lands on the next staging merge.
+**Target URL:** the staging Netlify deploy URL. Use a debug bundle that exercises a needs_work tier, low top-driver confidence, ≥1 sensitive factor (rank_flip_rate ≥ 0.15), ≥1 fragile edge, dominant factor at ≥0.8 influence.
 **Viewport:** 1280×900.
-**Captured by:** _Paul (Δ artefacts to attach in-doc)._
+**Captured by:** _Paul attaches SS / DOM artefacts; SPEC + LOG artefacts already populated below from local vitest output._
 
 ## How to capture evidence
 
@@ -27,7 +26,7 @@ Sentinel artefact types used below:
 - **SS / DOM:** _attach pre-analysis screenshot in non-failed state, plus DevTools search showing 0 matches for `[data-testid="status-banner"]`._
 
 #### 0.2 Narrative bridge: discrete failing-check row, no "before running" prose
-- **Expected:** The bridge renders as `<failing-check row>` + `"{N} unverified estimates and {M} relationships worth reviewing."` + `"Ranked by priority"`. No "before running" anti-pattern.
+- **Expected:** The bridge renders as a discrete failing-check row above + `"{N} unverified estimates and {M} relationships worth reviewing."` + `"Ranked by priority"`. No "before running" anti-pattern.
 - **SPEC:** `D0PreAnalysisPolish.spec.tsx`.
 - **SS:** _attach screenshot of pre-analysis bridge area._
 
@@ -218,6 +217,46 @@ Sentinel artefact types used below:
 - **SS:** _capture after toggling expert ON in a dev/staging deploy._
 
 ---
+
+## SPEC artefacts (already populated)
+
+Every SPEC tag on the acceptance checks above is backed by a green vitest
+assertion captured during the R6 walkthrough run. The full set of
+brief-5.8B SPEC files (15 files, **123 cases, 0 failures**) was executed
+locally on the R6 working tree:
+
+```
+$ pnpm exec vitest run \
+    src/components/results/__tests__/HeroQualifier.spec.tsx \
+    src/components/results/__tests__/DecisionConfidencePanel.heroD2a.spec.tsx \
+    src/components/results/__tests__/DecisionConfidencePanel.t1Structure.spec.tsx \
+    src/components/results/__tests__/DecisionConfidencePanel.t1D2c.spec.tsx \
+    src/components/results/__tests__/DecisionConfidencePanel.unifiedQueueD2b.spec.tsx \
+    src/components/results/__tests__/DecisionConfidencePanel.polishD4.spec.tsx \
+    src/components/results/__tests__/StressTestSection.spec.tsx \
+    src/components/results/__tests__/StressTestSection.factorSensitivityIntegration.spec.tsx \
+    src/components/results/utils/__tests__/stressTestTemplates.spec.ts \
+    src/components/results/__tests__/DriversSection.rankFlipD5.spec.tsx \
+    src/components/results/__tests__/AdvancedSection.spec.tsx \
+    src/canvas/components/__tests__/OutputsDock.expertModeD7.spec.tsx \
+    src/canvas/components/utils/__tests__/postAnalysisFooter.spec.ts \
+    src/components/results/__tests__/ResultsBody.devBuildMarkerD4.spec.tsx \
+    src/components/results/__tests__/ResultsBody.singleMkpD4.spec.tsx
+…
+ Test Files  15 passed (15)
+      Tests  123 passed (123)
+```
+
+Counts wider scope:
+
+  - `src/components/results/` + `src/components/shared/` + `src/canvas/components/utils/`: **1109** total (1108 pre-R6 + 1 new full-ResultsBody MKP test).
+  - Typecheck (`pnpm run typecheck`): clean.
+  - Doc-lint (`bash scripts/doc-lint.sh`): clean (no `<…>` placeholders).
+
+The screenshot / DOM artefact slots in each acceptance check above remain
+for Paul to attach against the next staging deploy. Items where SPEC alone
+is sufficient (pure-function helpers, accessibility-attribute checks) are
+already evidenced.
 
 ## Grep gates
 
