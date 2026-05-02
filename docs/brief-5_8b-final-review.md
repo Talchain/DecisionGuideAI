@@ -1,7 +1,7 @@
 # Brief 5.8B — Final Review
 
 Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
-`a307a044` · 15 commits ahead.
+`a307a044` · 17 commits ahead (post-D4).
 
 | Commit       | Deliverable                                                         |
 | ------------ | ------------------------------------------------------------------- |
@@ -11,26 +11,50 @@ Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
 | `632cebf6`   | D2b — Post T1 triage unification                                    |
 | `7f8e6069`   | D2c — Post T1 flip-risk + nudge + checks                            |
 | `77c40ff8`   | D3 — Post T1 Your options polish                                    |
-| `bf8a3957`   | **D4 — Copy approval gate (component build deferred)**              |
+| `bf8a3957`   | D4a — Copy approval gate (strings proposed)                         |
 | `8a56b3d9`   | D5 — Post T3 drivers demotion                                       |
 | `d7def7ef`   | D6 — Post T3 advanced verify                                        |
 | `ed519d0d`   | D7 — Expert toggle                                                  |
 | `7df5ef0a`   | D8 — Post footer alignment                                          |
 | `45fbb4a5`   | D9 — Initial final review                                           |
 | `b9e3da59`   | **R1 — ChatGPT P1 review pass #1 (one T1 card, compact rows, risk-filter relocate, hex fallbacks, structural spec)** |
-| `a107c701`   | **R2 — ChatGPT P1 review pass #2 (nudge order, sparse-state divider, doc refresh, hex baseline exception)** |
-| _(this doc)_ | **R3 — ChatGPT P1 review pass #3 (gate tightened to mirror prob_satisfied null-path; partial-constraint sparse test; hex baseline counts verified)** |
+| `a107c701`   | R2 — ChatGPT P1 review pass #2 (nudge order, sparse-state divider, doc refresh, hex baseline exception) |
+| `82e5355a`   | R3 — ChatGPT P1 review pass #3 (gate tightened to mirror prob_satisfied null-path; partial-constraint sparse test; hex baseline counts verified) |
+| `587ea5a8`   | Cleanup — drop dead imports + unused props introduced by 5.8B (lint warnings) |
+| `e6430f09`   | Merge into staging (auto-deploy)                                    |
+| `311756fb`   | **D4b + Polish — Stress-test component build + 4 polish fixes (heading, orphan SHA, inline nudge, MKP regression test)** |
+| _(this doc)_ | R4 — Doc refresh post-D4b                                           |
 
-## D4 — deferred
+## D4 — shipped (2026-05-02)
 
-Per the brief's built-in copy-approval gate, the Stress-test accordion
-component build is deferred pending Paul's approval of the proposed
-strings in [`docs/brief-5_8b-d4-copy.md`](./brief-5_8b-d4-copy.md).
-Three open questions are listed at the bottom of that doc.
+D4a (commit `bf8a3957`) proposed the strings via the brief's built-in
+copy approval gate. Paul approved with corrections on 2026-05-02; the
+component build (commit `311756fb`) uses Paul's exact corrected copy
+for the Disconfirmation + Outside view templates and the originally-
+proposed copy for everything else (header, preview, sensitive
+assumptions, fragile factors passthrough, empty state, counter badge).
 
-The legacy `ChallengeSection` ("Before you decide") still renders in
-production until D4 ships — this is the only remaining grep-gate hit
-(`rg "Before you decide" src/components/results/`), and is expected.
+Final D4 strings (locked in `utils/stressTestTemplates.ts`):
+
+  - Disconfirmation question: *"What could make you switch your
+    recommendation from {winnerLabel} to {alternativeLabel}?"*
+    Context line ONLY when `topDriverConfidence < 0.5`: *"The analysis
+    depends on {topDriverLabel}, which has limited evidence."* (no
+    context line otherwise.)
+    Chip: *"Explore this challenge"*.
+  - Outside view question: *"For decisions like this, does {winnerLabel}
+    usually outperform {alternativeLabel}?"* Always-rendered context:
+    *"Outside views often catch assumptions you have stopped
+    questioning."* Chip: *"Research this"*.
+
+`ChallengeSection.tsx` is no longer rendered as a top-level section but
+remains importable — `FragileEdgeGroupCard` is still consumed by
+`StressTestSection`'s "Fragile factors" subsection so the existing 5.7
+D11 alt-winner grouping is preserved verbatim.
+
+Grep gate `rg "Before you decide" src/components/results/`: 0
+production matches (only justification comments in
+StressTestSection.tsx + ResultsBody.tsx).
 
 ## Per-deliverable summary
 
@@ -179,9 +203,9 @@ parity contract no longer applies under decoupled rendering.
 | `rg "Improve confidence" src/canvas/components/pre-analysis/` | 0 matches                                                                                                                                                                          |
 | `rg "as any" src/components/results/`                     | 47 matches — same as D1 baseline. Zero new.                                                                                                                                        |
 
-## Test counts (post-R3)
+## Test counts (post-D4b)
 
-  - `src/components/results/` + `src/components/shared/`: **1062 tests pass** (was 1056 pre-brief).
+  - `src/components/results/` + `src/components/shared/`: **1092 tests pass** (was 1056 pre-brief, +36 net after D4b).
   - `src/canvas/components/utils/`: 10 tests pass (new D8 helper).
   - `src/canvas/components/pre-analysis/`: 734 pass / 13 pre-existing skips (unchanged).
   - Pre-existing failures in `InsightsPanel.spec` (7) and `MultiFormAnalysis.spec` (1) are unrelated to 5.8B — confirmed via stash test before D8 commit.
@@ -328,8 +352,54 @@ but missed two related issues caught by ChatGPT review pass #3.
     one in `OptionCards.tsx`. Doc replaced with the verified table
     above (P1.4 entry under R2's section).
 
+## Post-D4 polish pass (commit `311756fb`)
+
+Bundled with the D4b component build per Paul's instruction. Four
+polish fixes from screenshots:
+
+  - **"Current result" → "Decision confidence"** in the hero header,
+    matching the wireframe + the panel name. (`DecisionConfidencePanel.tsx:720`.)
+    Grep gate `rg "Current result" src/components/results/`: 0 hits.
+  - **Orphan SHA hash** (e.g. `45fbb4a`) was rendered by the
+    `<div>{__GIT_SHA__}</div>` build marker gated only on
+    `import.meta.env.DEV`. Now additionally gated on `expertMode` —
+    debug users who toggle expert mode still see it but it's
+    suppressed by default for everyone else.
+  - **Dominant-factor nudge compressed** from a multi-line card
+    (paragraph body + chip stack) to a true single-line `.nudge` row:
+    `flex items-center gap-2 px-2.5 py-1.5 border border-panel-border
+    rounded-lg`. Detail uses panelMeta + truncate. Long-form
+    explanation surfaces via the row's `title` tooltip + the
+    aria-label so screen readers still hear it. Inline Validate +
+    Research chips remain functional.
+  - **MissingKnowledgePrompt** verified single-instance — the
+    standalone sibling render had already been removed in D2c (commit
+    `7f8e6069`); only the T1-embedded copy lives in DCP. Added a
+    regression test that asserts exactly one prompt instance and that
+    it lives inside `t1-checks-footer`.
+
+New tests:
+
+  - `StressTestSection.spec.tsx` — 17 cases covering header + accordion,
+    sensitive subsection (rendering, cap at 3, suppression, chip
+    routing), both thinking patterns (rendering, copy interpolation,
+    Disconfirmation context-line conditional), fragile subsection
+    (rendering + alt-winner grouping verbatim, suppression), empty
+    state (with + without firing subsections), DOM-leakage scan.
+  - `stressTestTemplates.spec.ts` — 7 cases pinning the exact approved
+    strings + the < 0.5 confidence gate (with null / NaN / Infinity guards).
+  - `DecisionConfidencePanel.polishD4.spec.tsx` — 5 cases asserting the
+    "Decision confidence" heading, the inline-row class signature on
+    the dominant nudge, the title-attribute long form, the chip
+    accessibility labels, and the single-MKP invariant.
+
+Test counts (post-D4b): **1102 pass** across `src/components/results/`
++ `src/components/shared/` + `src/canvas/components/utils/` (was
+1072 pre-D4 → +30 new). Typecheck clean. Lint: no new warnings on
+files touched.
+
 ## Recommended 5.8C / 5.9 scope
 
   - **5.8C (pending CEE freshness)** — Bridge strip; Confirm anyway footer action; post-confirm state. Deferred per the brief.
-  - **5.9 (pending V5 `decision_review`)** — Replace deterministic stress-test templates with `pre_mortem`, `framing_check`, `key_assumptions`, `scenario_contexts`. Rich narrative from `narrative_summary`, `story_headlines`. Unblocks D4 component build.
-  - **Cleanup follow-up** — Delete `ResultsFooter.tsx`, `ResultsFooter.spec.tsx`, and `getStabilityDisplayLabel.ts` once 5.8B has soaked on staging without regressions. Removes the last "Stability sensitive" emitter from the tree entirely.
+  - **5.9 (pending V5 `decision_review`)** — Replace `utils/stressTestTemplates.ts` deterministic templates with `pre_mortem`, `framing_check`, `key_assumptions`, `scenario_contexts`. The pure-function module boundary is intentionally clean so the swap is a `stressTestTemplates.ts` rewrite + a single import update in `StressTestSection.tsx`; no structural changes to the accordion or its tests. Rich narrative also pulls from `narrative_summary` / `story_headlines`.
+  - **Cleanup follow-up** — Delete `ResultsFooter.tsx`, `ResultsFooter.spec.tsx`, `getStabilityDisplayLabel.ts`, and now the `ChallengeSection` top-level render path (the file itself stays for `FragileEdgeGroupCard` reuse) once 5.8B has soaked on staging without regressions. Removes the last "Stability sensitive" emitter and the dead "Before you decide" import from the tree entirely.
