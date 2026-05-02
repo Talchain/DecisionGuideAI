@@ -33,7 +33,18 @@ Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
 | `c4d50cb2`   | R5 — ChatGPT P1 review pass #4 (literal grep gates 0; final-review doc consistent; DevBuildMarker spec; stress-test empty-state narrowed; factor_sensitivity integration test; staging walkthrough doc) |
 | `05bfe32e`   | R6 — ChatGPT P1 review pass #5 (two more grep-gate literals reworded; integration test typed-fixtures; full-ResultsBody MKP test; doc-lint script; doc consistency refresh) |
 | `603fe2b0`   | R7 — ChatGPT P1 review pass #6 (walkthrough close-out state, final-review row backfill, duplicate worktree file removed, doc-lint extended) |
-| _(this commit)_ | **R8 — ChatGPT P1 review pass #7 (drift-proof commit table; walkthrough deploy reference restructured; doc-lint --strict; integration-spec comment realigned)** |
+| `b938176c`   | R8 — ChatGPT P1 review pass #7 (drift-proof commit table; walkthrough deploy reference restructured; doc-lint --strict; integration-spec comment realigned) |
+
+**Convention** (locked by `scripts/check-closeout-doc-consistency.sh`):
+this table backfills the previous round's commit SHA. The row for the
+round currently in flight is NOT added to the table — the next round
+adds it. The R8 drift-proof note was an experiment; it has been
+retired in favour of this simpler convention. The "R9" round
+(addressing this convention drift + a stale D4 grep parenthetical +
+the doc-lint `--strict` `Pending Paul` false-positive on
+`d1-baseline.md` + wiring the consistency check into pre-push) will
+be backfilled in R10 if a further round is needed; otherwise the
+table is final at R8.
 
 ## D4 — shipped (2026-05-02)
 
@@ -62,9 +73,9 @@ remains importable — `FragileEdgeGroupCard` is still consumed by
 `StressTestSection`'s "Fragile factors" subsection so the existing 5.7
 D11 alt-winner grouping is preserved verbatim.
 
-Grep gate `rg "Before you decide" src/components/results/`: 0
-production matches (only justification comments in
-StressTestSection.tsx + ResultsBody.tsx).
+Grep gate `rg "Before you decide" src/components/results/`: 0 hits
+anywhere. R5/R6 reworded the literal out of comments + tests; R8 +
+this round verified no occurrences remain.
 
 ## Per-deliverable summary
 

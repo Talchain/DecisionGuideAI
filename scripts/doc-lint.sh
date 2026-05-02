@@ -64,9 +64,12 @@ PATTERNS=(
 # --strict mode: additionally catches placeholders that are legitimate
 # during the walker workflow but MUST be replaced before close-out.
 STRICT_PATTERNS=(
-  # "Pending Paul" runtime-evidence slots — reasonable in-flight, blocking
-  # at close-out.
-  'Pending Paul'
+  # "(Pending Paul)" runtime-evidence slots in the walker doc — reasonable
+  # in-flight, blocking at close-out. Match only the parenthesised form
+  # used by the evidence rows ("**SS (Pending Paul):**") so prose
+  # references like a section heading "## Pending Paul-side step" don't
+  # false-positive.
+  '\(Pending Paul\)'
   # Blank walker sign-off line: any underscore run on the same line as
   # "walked by:" / "date:" / "deploy SHA:" means the doc isn't stamped.
   '(walked by|date|deploy SHA): _____+'

@@ -207,6 +207,25 @@ else
   pass "No local schema fork directory"
 fi
 
+# ─── Check 7: Close-out doc consistency ──────────────────────────────
+# Conditional: only runs when a `docs/brief-*-final-review.md` is among
+# the changed files. Catches stale `(this commit)` placeholders +
+# `(pending)` rows in the close-out commit table that the consistency
+# check (existing `scripts/check-closeout-doc-consistency.sh`) was
+# already designed to flag.
+header "Check 7 — Close-out doc consistency"
+
+CHANGED_REVIEW_DOCS=$(echo "$CHANGED_FILES" | grep -E '^docs/brief-[^/]*-final-review\.md$' || true)
+if [ -z "$CHANGED_REVIEW_DOCS" ]; then
+  pass "No close-out final-review doc changes (skipping)"
+else
+  if bash "$REPO_ROOT/scripts/check-closeout-doc-consistency.sh" $CHANGED_REVIEW_DOCS; then
+    pass "Close-out doc(s) consistent"
+  else
+    fail "Close-out doc consistency check failed (see above)"
+  fi
+fi
+
 # ─── Summary ──────────────────────────────────────────────────────────
 header "Summary"
 
