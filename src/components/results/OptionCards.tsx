@@ -604,32 +604,37 @@ export function OptionCards({
           />
         )
       })}
-      {/* Brief 3 ST2: Show all / show fewer toggle (when 3+ options) */}
-      {shouldTruncate && (
-        <button
-          type="button"
-          onClick={() => setShowAllOptions(prev => !prev)}
-          className={`${typography.panelBody} text-info hover:underline`}
-          data-testid="option-cards-toggle"
-        >
-          {showAllOptions
-            ? 'Show fewer'
-            : `Show all (${hiddenCount} more)`}
-        </button>
-      )}
-
-      {/* Brief 5.8B D3 step 3: "What if I tried a different approach?" link.
-          Routes the prompt through the existing onSendMessage pathway so the
-          conversation panel reuses the same coaching loop the AI chips use. */}
-      {onSendMessage && (
-        <button
-          type="button"
-          onClick={() => onSendMessage('What if I tried a different approach? Suggest one or two alternative options I could compare against the current set.')}
-          className={`self-start ${typography.panelBody} text-info hover:underline cursor-pointer`}
-          data-testid="option-cards-different-approach"
-        >
-          What if I tried a different approach?
-        </button>
+      {/* Brief 5.8B hotfix: wrap disclosure + approach link in flex-col so they
+          never collapse onto the same visual line. gap-1 = 4px (mt-1 equivalent). */}
+      {(shouldTruncate || onSendMessage) && (
+        <div className="flex flex-col gap-1">
+          {/* Brief 3 ST2: Show all / show fewer toggle (when 3+ options) */}
+          {shouldTruncate && (
+            <button
+              type="button"
+              onClick={() => setShowAllOptions(prev => !prev)}
+              className={`self-start ${typography.panelBody} text-info hover:underline`}
+              data-testid="option-cards-toggle"
+            >
+              {showAllOptions
+                ? 'Show fewer'
+                : `Show all (${hiddenCount} more)`}
+            </button>
+          )}
+          {/* Brief 5.8B D3 step 3: "What if I tried a different approach?" link.
+              Routes the prompt through the existing onSendMessage pathway so the
+              conversation panel reuses the same coaching loop the AI chips use. */}
+          {onSendMessage && (
+            <button
+              type="button"
+              onClick={() => onSendMessage('What if I tried a different approach? Suggest one or two alternative options I could compare against the current set.')}
+              className={`self-start ${typography.panelBody} text-info hover:underline cursor-pointer`}
+              data-testid="option-cards-different-approach"
+            >
+              What if I tried a different approach?
+            </button>
+          )}
+        </div>
       )}
     </div>
   )
