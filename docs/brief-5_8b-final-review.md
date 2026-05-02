@@ -1,7 +1,14 @@
 # Brief 5.8B — Final Review
 
 Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
-`a307a044` · staging now at `8c150646` (R6 merge).
+`a307a044`.
+
+> **Drift-proof note (R8):** earlier revisions of this table tried to name
+> the staging-merge SHA produced by *this* doc's commit. That SHA does not
+> exist when the doc is written, so every iteration drifted as soon as the
+> merge landed. The R-rows below now name only the doc-commit SHA. Each
+> R-row is merged into staging by the merge commit that follows it; check
+> `git log staging` for the merge SHAs in flight.
 
 | Commit       | Deliverable                                                         |
 | ------------ | ------------------------------------------------------------------- |
@@ -17,18 +24,16 @@ Branch: `ui/post-analysis-tier-hierarchy-5_8b` · forked from `staging` at
 | `ed519d0d`   | D7 — Expert toggle                                                  |
 | `7df5ef0a`   | D8 — Post footer alignment                                          |
 | `45fbb4a5`   | D9 — Initial final review                                           |
-| `b9e3da59`   | **R1 — ChatGPT P1 review pass #1 (one T1 card, compact rows, risk-filter relocate, hex fallbacks, structural spec)** |
+| `b9e3da59`   | R1 — ChatGPT P1 review pass #1 (one T1 card, compact rows, risk-filter relocate, hex fallbacks, structural spec) |
 | `a107c701`   | R2 — ChatGPT P1 review pass #2 (nudge order, sparse-state divider, doc refresh, hex baseline exception) |
 | `82e5355a`   | R3 — ChatGPT P1 review pass #3 (gate tightened to mirror prob_satisfied null-path; partial-constraint sparse test; hex baseline counts verified) |
 | `587ea5a8`   | Cleanup — drop dead imports + unused props introduced by 5.8B (lint warnings) |
-| `e6430f09`   | Merge into staging (auto-deploy)                                    |
 | `311756fb`   | D4b + Polish — Stress-test component build + 4 polish fixes (heading, orphan SHA, inline nudge, MKP regression test) |
 | `411dab56`   | R4 — Doc refresh post-D4b                                           |
 | `c4d50cb2`   | R5 — ChatGPT P1 review pass #4 (literal grep gates 0; final-review doc consistent; DevBuildMarker spec; stress-test empty-state narrowed; factor_sensitivity integration test; staging walkthrough doc) |
-| `5a986fd7`   | R5 merge into staging (auto-deploy)                                 |
 | `05bfe32e`   | R6 — ChatGPT P1 review pass #5 (two more grep-gate literals reworded; integration test typed-fixtures; full-ResultsBody MKP test; doc-lint script; doc consistency refresh) |
-| `8c150646`   | R6 merge into staging (auto-deploy)                                 |
-| _(this doc)_ | **R7 — ChatGPT P1 review pass #6 (walkthrough close-out state, final-review row backfill, duplicate worktree file removed, doc-lint extended)** |
+| `603fe2b0`   | R7 — ChatGPT P1 review pass #6 (walkthrough close-out state, final-review row backfill, duplicate worktree file removed, doc-lint extended) |
+| _(this commit)_ | **R8 — ChatGPT P1 review pass #7 (drift-proof commit table; walkthrough deploy reference restructured; doc-lint --strict; integration-spec comment realigned)** |
 
 ## D4 — shipped (2026-05-02)
 

@@ -1,24 +1,42 @@
 #!/usr/bin/env bash
 # scripts/doc-lint.sh — narrow placeholder/SHA detector for brief docs.
 #
-# Catches angle-bracket placeholders (`<R5 follow-up commit>`,
-# `<staging-host>`, `<deploy SHA>`) and known stale-deploy markers in
-# `docs/brief-*.md` close-out files before they ship as "completed".
+# Catches structural placeholders in `docs/brief-*.md` close-out files
+# before they ship as "completed". Two modes:
 #
-# Intentionally scoped: tests for structural placeholders only, NOT
-# prose words like "attach" that legitimately appear in templates. The
-# brief author/walker is responsible for replacing the placeholders
-# before stamping a doc as walked.
+#   - Default (in-flight) mode: catches placeholders that should never
+#     ship in any state (`<R5 follow-up commit>`, `_attach …_` blocks,
+#     stale-deploy phrasing).
+#
+#   - --strict (close-out) mode: additionally catches placeholders that
+#     are legitimate during the walker workflow but MUST be replaced
+#     before the doc is stamped as walked (`Pending Paul` evidence
+#     slots, blank `_walked by: ___ date: ___ deploy SHA: ___`
+#     sign-off lines).
+#
+# Workflow: `bash scripts/doc-lint.sh` runs clean while the walker is
+# still capturing artefacts. Once Paul has stamped the doc,
+# `bash scripts/doc-lint.sh --strict` should also run clean. CI / the
+# pre-deploy gate can flip to --strict at close-out time.
 #
 # Usage:
-#   bash scripts/doc-lint.sh [glob]
+#   bash scripts/doc-lint.sh [--strict] [glob]
 # Default glob: docs/brief-5_8b-*.md
 #
 # Exit 0 = clean, exit 1 = placeholders found.
 
 set -euo pipefail
 
-GLOB="${1:-docs/brief-5_8b-*.md}"
+STRICT=0
+ARGS=()
+for arg in "$@"; do
+  case "$arg" in
+    --strict) STRICT=1 ;;
+    *) ARGS+=("$arg") ;;
+  esac
+done
+
+GLOB="${ARGS[0]:-docs/brief-5_8b-*.md}"
 
 # Patterns considered "structural placeholders" — these MUST be replaced
 # before close-out:
@@ -41,11 +59,21 @@ PATTERNS=(
   # workflow uses tags like "**SS:**" for screenshot evidence; an
   # _attach …_ block means the slot was never filled.
   '_attach [^_]+_'
-  # The walker sign-off line uses `__________` slots that ARE intended to
-  # remain unfilled until Paul stamps the doc — those are template fixtures,
-  # not bugs to catch here. Doc-lint focuses on `<…>` structural placeholders
-  # only. The walker workflow surfaces the sign-off line through other means.
 )
+
+# --strict mode: additionally catches placeholders that are legitimate
+# during the walker workflow but MUST be replaced before close-out.
+STRICT_PATTERNS=(
+  # "Pending Paul" runtime-evidence slots — reasonable in-flight, blocking
+  # at close-out.
+  'Pending Paul'
+  # Blank walker sign-off line: any underscore run on the same line as
+  # "walked by:" / "date:" / "deploy SHA:" means the doc isn't stamped.
+  '(walked by|date|deploy SHA): _____+'
+)
+if [ "$STRICT" -eq 1 ]; then
+  PATTERNS+=("${STRICT_PATTERNS[@]}")
+fi
 
 FAIL=0
 for f in $GLOB; do
@@ -71,7 +99,11 @@ for f in $GLOB; do
 done
 
 if [ "$FAIL" -eq 0 ]; then
-  echo "✓ doc-lint: no placeholders found in $GLOB"
+  if [ "$STRICT" -eq 1 ]; then
+    echo "✓ doc-lint --strict: no placeholders found in $GLOB"
+  else
+    echo "✓ doc-lint: no placeholders found in $GLOB"
+  fi
 fi
 
 exit $FAIL

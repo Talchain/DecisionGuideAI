@@ -27,10 +27,22 @@ import type { Node, Edge } from 'reactflow'
 
 // ── Typed test fixtures ─────────────────────────────────────────────────────
 // The integration test only needs to seed a tiny subset of the canvas store.
-// Rather than cast through `unknown`-bypass, we model that subset with named
-// types and drop into Zustand's setState as a properly-typed Partial. This
-// keeps the project's loose-cast budget for src/components/results/ at the
+// We declare named fixture types and use `satisfies` so any drift in the
+// fixture keys is a TypeScript error rather than a runtime failure. The
+// project's loose-cast budget for src/components/results/ stays at the
 // D1 baseline.
+//
+// Two `unknown`-typed casts remain at the boundary, by necessity:
+//   - `report as unknown as ResultsState['report']` — `ResultsState.report`
+//     is `ReportV1 | null`, a wide PLoT shape with many required fields the
+//     integration test legitimately doesn't supply. Casting through
+//     `unknown` keeps the cast restricted to the boundary; the fixture
+//     payload itself is fully typed via `satisfies ReportFixture`.
+//   - `Node` casts inside `buildFactorNodes` — React Flow's `Node<T>`
+//     carries internal fields (positionAbsolute, dragging, selected,
+//     handleBounds) that test fixtures legitimately don't supply.
+// Both casts are "I-promise-this-shape-is-enough" boundary contracts; the
+// fixture builders themselves stay structurally type-checked.
 
 interface FactorSensitivityFixture {
   factor_id: string
