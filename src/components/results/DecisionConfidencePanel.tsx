@@ -19,6 +19,7 @@ import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionH
 import { HeroQualifier } from './HeroQualifier'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
+import { dedupTriageItems } from './utils/dedupTriageItems'
 import { TriageCard } from '@/components/shared/TriageCard'
 import type { TriageCardCategory, TriageCardAction } from '@/components/shared/TriageCard'
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
@@ -639,19 +640,9 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
       return (b.influence ?? 0) - (a.influence ?? 0)
     })
     // Dedup by canonical factor identity (targetNodeId) after sort so the
-    // highest-ranked occurrence survives. mapEvidenceGapsToActions and
-    // mapNextActionsToCards generate distinct `key` prefixes (`gap-…` vs
-    // `action-…`), so the same factor can appear in both lists with
-    // different keys but identical targetNodeId. Falls back to a normalised
-    // title when targetNodeId is missing so we still catch obvious duplicates.
-    const seen = new Set<string>()
-    return merged.filter(item => {
-      const identity = item.targetNodeId ?? item.title.trim().toLowerCase()
-      if (!identity) return true
-      if (seen.has(identity)) return false
-      seen.add(identity)
-      return true
-    })
+    // highest-ranked occurrence survives. See `dedupTriageItems` for the rule
+    // (targetNodeId first, normalised-title fallback).
+    return dedupTriageItems(merged)
   }, [data, onSetValue, nodeValueLookup, strengthenOverlayMap])
 
   const top3 = allActions.slice(0, 3)
