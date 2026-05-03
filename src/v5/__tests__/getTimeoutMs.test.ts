@@ -3,33 +3,12 @@
  * assigns extended timeout for draft-graph-triggering paths and default
  * timeout for ordinary conversation turns.
  *
- * The function is not directly exported but can be tested via its effects.
- * Since it's a module-level function in useConversation.ts, we test the
- * timeout logic by recreating the function locally with the same signature
- * (it has no external dependencies).
- *
- * v5-non-edge-proxy-routing: added `derivedStage` parameter to ensure
- * composer first-turn on empty canvas (stage='frame') gets extended timeout.
+ * Tests import directly from src/v5/getTimeoutMs.ts (the function is now
+ * exported). useConversation.ts imports from the same module, so these tests
+ * cover production behaviour rather than a manually-maintained copy.
  */
 import { describe, it, expect } from 'vitest'
-
-const DEFAULT_TIMEOUT_MS = 60_000
-const EXTENDED_TIMEOUT_MS = 120_000
-
-/**
- * Mirror of getTimeoutMs from useConversation.ts.
- * Kept in sync manually — if the function signature changes, this test
- * must be updated to match.
- */
-function getTimeoutMs(turnType?: string, triggerSurface?: string, derivedStage?: string): number {
-  if (
-    turnType === 'explicit_generate' ||
-    turnType === 'run_analysis' ||
-    triggerSurface === 'analyse_now' ||
-    derivedStage === 'frame'
-  ) return EXTENDED_TIMEOUT_MS
-  return DEFAULT_TIMEOUT_MS
-}
+import { getTimeoutMs, DEFAULT_TIMEOUT_MS, EXTENDED_TIMEOUT_MS } from '../getTimeoutMs'
 
 describe('getTimeoutMs', () => {
   describe('extended timeout (120s) for draft-graph-triggering paths', () => {
@@ -77,6 +56,16 @@ describe('getTimeoutMs', () => {
 
     it('clarification_response → 60s', () => {
       expect(getTimeoutMs('clarification_response')).toBe(DEFAULT_TIMEOUT_MS)
+    })
+  })
+
+  describe('constant values', () => {
+    it('DEFAULT_TIMEOUT_MS is 60s', () => {
+      expect(DEFAULT_TIMEOUT_MS).toBe(60_000)
+    })
+
+    it('EXTENDED_TIMEOUT_MS is 120s', () => {
+      expect(EXTENDED_TIMEOUT_MS).toBe(120_000)
     })
   })
 })

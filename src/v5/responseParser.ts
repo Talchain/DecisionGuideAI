@@ -30,11 +30,13 @@ import {
  * - `netlify`: Netlify Edge infrastructure killed the request (body contains
  *   "edge function timed out" or headers indicate Netlify).
  * - `cee`: CEE service returned an error (has x-olumi-service header).
+ * - `plot`: PLoT analysis service error (x-olumi-service: isl or plot, or
+ *   ISL-specific error codes in the body).
  * - `proxy`: Browser proxy returned a structured proxy error.
  * - `browser_timeout`: The browser's AbortController fired (caller sets this).
  * - `unknown`: Cannot determine origin.
  */
-export type ErrorSource = 'netlify' | 'cee' | 'proxy' | 'browser_timeout' | 'unknown';
+export type ErrorSource = 'netlify' | 'cee' | 'plot' | 'proxy' | 'browser_timeout' | 'unknown';
 
 /** Safe subset of response headers for diagnostics. */
 export interface DiagnosticHeaders {
@@ -82,8 +84,16 @@ function classifyErrorSource(bodyText: string, res: Response): ErrorSource {
     return 'netlify'
   }
 
-  // CEE service header
-  if (res.headers.get('x-olumi-service')) {
+  // PLoT/ISL analysis service — check before generic CEE check since ISL is
+  // a sub-service that runs within the CEE pipeline. x-olumi-service: isl or
+  // plot signals an error from the analysis layer specifically.
+  const serviceHeader = res.headers.get('x-olumi-service')
+  if (serviceHeader === 'isl' || serviceHeader === 'plot') {
+    return 'plot'
+  }
+
+  // CEE service header (any other x-olumi-service value)
+  if (serviceHeader) {
     return 'cee'
   }
 

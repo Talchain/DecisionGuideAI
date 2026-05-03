@@ -13,6 +13,7 @@ import { generateGraphHash } from '../utils/graphHash'
 import { callOrchestratorTurn, streamOrchestratorTurn, OrchestratorError } from './turnService'
 import { callV5Turn, getV5Endpoint } from '../../v5/v5Adapter'
 import { routeV5Response } from '../../v5/responseRouter'
+import { getTimeoutMs } from '../../v5/getTimeoutMs'
 import { isV5Eligible } from '../../v5/eligibility'
 import { buildV5Payload } from '../../v5/buildPayload'
 import {
@@ -175,27 +176,6 @@ export function deduplicateAgainstCommentary(
 let _streamingDiagLogged = false
 
 const LONG_RUNNING_THRESHOLD_MS = 15_000
-const DEFAULT_TIMEOUT_MS = 60_000
-const EXTENDED_TIMEOUT_MS = 120_000
-
-/**
- * Longer timeout for turns that invoke heavy CEE pipelines (draft_graph, analysis).
- *
- * `derivedStage` was added (v5-non-edge-proxy-routing) because a composer first-turn
- * on an empty canvas sends `stage: 'frame'` — CEE generates a draft_graph (40-60 s) —
- * but the turn type is `'conversation'` so only the default 60 s timeout applied.
- * When `derivedStage === 'frame'` AND the canvas has no nodes, CEE will almost
- * certainly dispatch `draft_graph`, so we use the extended timeout.
- */
-function getTimeoutMs(turnType?: string, triggerSurface?: string, derivedStage?: string): number {
-  if (
-    turnType === 'explicit_generate' ||
-    turnType === 'run_analysis' ||
-    triggerSurface === 'analyse_now' ||
-    derivedStage === 'frame' // First-turn on empty canvas → likely draft_graph
-  ) return EXTENDED_TIMEOUT_MS
-  return DEFAULT_TIMEOUT_MS
-}
 
 /** Map CEE tool names to user-facing loading labels */
 function mapToolLoadingLabel(toolName: string): string {

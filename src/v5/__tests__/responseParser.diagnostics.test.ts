@@ -59,7 +59,7 @@ describe('parseV5Response — source classification', () => {
     }
   })
 
-  it('classifies response with x-olumi-service as cee', async () => {
+  it('classifies response with x-olumi-service: cee as cee', async () => {
     const body = { message: 'internal error', details: 'something broke' }
     const res = jsonResponse(500, body, {
       'x-olumi-service': 'cee',
@@ -69,6 +69,30 @@ describe('parseV5Response — source classification', () => {
     expect(r.kind).toBe('parse_error')
     if (r.kind === 'parse_error') {
       expect(r.source).toBe('cee')
+    }
+  })
+
+  it('classifies response with x-olumi-service: isl as plot', async () => {
+    const body = { message: 'ISL analysis failed' }
+    const res = jsonResponse(500, body, {
+      'x-olumi-service': 'isl',
+    })
+    const r = await parseV5Response(res)
+    expect(r.kind).toBe('parse_error')
+    if (r.kind === 'parse_error') {
+      expect(r.source).toBe('plot')
+    }
+  })
+
+  it('classifies response with x-olumi-service: plot as plot', async () => {
+    const body = { message: 'PLoT service error' }
+    const res = jsonResponse(500, body, {
+      'x-olumi-service': 'plot',
+    })
+    const r = await parseV5Response(res)
+    expect(r.kind).toBe('parse_error')
+    if (r.kind === 'parse_error') {
+      expect(r.source).toBe('plot')
     }
   })
 
