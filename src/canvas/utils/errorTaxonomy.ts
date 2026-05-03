@@ -292,7 +292,7 @@ export const DEBUG_ERROR_EXPLANATIONS: Record<number | string, DebugErrorExplana
   },
   504: {
     label: 'Gateway Timeout',
-    hint: 'Request timed out. LLM calls can take up to 120s for complex graphs.',
+    hint: 'Request timed out. LLM calls can take up to 130s for complex graphs.',
   },
   0: {
     label: 'Network Error',

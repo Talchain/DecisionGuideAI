@@ -71,10 +71,11 @@ const ORCHESTRATOR_URL =
     ? `${import.meta.env.VITE_ORCHESTRATOR_BASE}/orchestrate/v1/turn`
     : '/bff/orchestrate/v1/turn'
 
-// Safety-net timeout — UI-layer dynamic timeout (60s/120s) fires first.
-// Must not be more restrictive than the longest UI timeout.
-const ORCHESTRATOR_TIMEOUT_MS = 120_000
-const STREAM_TIMEOUT_MS = 120_000
+// Safety-net timeout — UI-layer dynamic timeout (60s/130s) fires first.
+// Must not be more restrictive than the longest UI timeout (EXTENDED_TIMEOUT_MS=130s).
+// 135s sits above the dynamic timeout and below Render's gateway (~150s).
+const ORCHESTRATOR_TIMEOUT_MS = 135_000
+const STREAM_TIMEOUT_MS = 135_000
 const STREAM_HEARTBEAT_MS = 30_000
 
 // Streaming endpoint: override via env, or derive from base by appending /stream
