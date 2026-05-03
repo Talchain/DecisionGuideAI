@@ -109,5 +109,10 @@ export async function callV5Turn(
   return parsed;
 }
 
+/** Return the currently resolved V5 endpoint for diagnostic recording. */
+export function getV5Endpoint(): string {
+  return resolveEndpoint();
+}
+
 // Exposed for the adapter's own tests.
 export const __internals = { resolveEndpoint };

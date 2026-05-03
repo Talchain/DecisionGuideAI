@@ -52,7 +52,7 @@ function getCorsHeaders(requestOrigin: string | null): Record<string, string> | 
   return {
     'Access-Control-Allow-Origin': requestOrigin,
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-correlation-id, x-request-id',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, x-correlation-id, x-request-id, x-user-id',
     'Vary': 'Origin, Access-Control-Request-Headers',
   }
 }
@@ -101,6 +101,7 @@ export default async function handler(request: Request, _context: Context) {
     'accept',
     'x-correlation-id',
     'x-request-id',
+    'x-user-id',
   ]
 
   const headers = new Headers()
