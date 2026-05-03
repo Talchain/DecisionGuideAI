@@ -11,24 +11,24 @@ import { describe, it, expect } from 'vitest'
 import { getTimeoutMs, DEFAULT_TIMEOUT_MS, EXTENDED_TIMEOUT_MS } from '../getTimeoutMs'
 
 describe('getTimeoutMs', () => {
-  describe('extended timeout (120s) for draft-graph-triggering paths', () => {
-    it('explicit_generate (Generate Model button) → 120s', () => {
+  describe('extended timeout (130s) for draft-graph-triggering paths', () => {
+    it('explicit_generate (Generate Model button) → 130s', () => {
       expect(getTimeoutMs('explicit_generate')).toBe(EXTENDED_TIMEOUT_MS)
     })
 
-    it('run_analysis → 120s', () => {
+    it('run_analysis → 130s', () => {
       expect(getTimeoutMs('run_analysis')).toBe(EXTENDED_TIMEOUT_MS)
     })
 
-    it('analyse_now trigger surface → 120s', () => {
+    it('analyse_now trigger surface → 130s', () => {
       expect(getTimeoutMs('conversation', 'analyse_now')).toBe(EXTENDED_TIMEOUT_MS)
     })
 
-    it('frame stage (composer first-turn on empty canvas) → 120s', () => {
+    it('frame stage (composer first-turn on empty canvas) → 130s', () => {
       expect(getTimeoutMs('conversation', undefined, 'frame')).toBe(EXTENDED_TIMEOUT_MS)
     })
 
-    it('frame stage with explicit_generate → 120s (both conditions match)', () => {
+    it('frame stage with explicit_generate → 130s (both conditions match)', () => {
       expect(getTimeoutMs('explicit_generate', undefined, 'frame')).toBe(EXTENDED_TIMEOUT_MS)
     })
   })
@@ -64,8 +64,8 @@ describe('getTimeoutMs', () => {
       expect(DEFAULT_TIMEOUT_MS).toBe(60_000)
     })
 
-    it('EXTENDED_TIMEOUT_MS is 120s', () => {
-      expect(EXTENDED_TIMEOUT_MS).toBe(120_000)
+    it('EXTENDED_TIMEOUT_MS is 130s', () => {
+      expect(EXTENDED_TIMEOUT_MS).toBe(130_000)
     })
   })
 })

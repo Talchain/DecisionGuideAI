@@ -30,8 +30,7 @@ import {
  * - `netlify`: Netlify Edge infrastructure killed the request (body contains
  *   "edge function timed out" or headers indicate Netlify).
  * - `cee`: CEE service returned an error (has x-olumi-service header).
- * - `plot`: PLoT analysis service error (x-olumi-service: isl or plot, or
- *   ISL-specific error codes in the body).
+ * - `plot`: PLoT analysis service error (x-olumi-service: isl or plot).
  * - `proxy`: Browser proxy returned a structured proxy error.
  * - `browser_timeout`: The browser's AbortController fired (caller sets this).
  * - `unknown`: Cannot determine origin.
