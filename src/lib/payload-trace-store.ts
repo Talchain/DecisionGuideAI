@@ -15,6 +15,37 @@ import {
 } from './contract-validators'
 import { redactPayload, DEBUG_BUNDLE_REDACTION_OPTIONS } from '../utils/payloadRedaction'
 
+/**
+ * Scrub secret-shaped substrings from a free-form string. The repo's
+ * structural redactor (`redactPayload`) operates on KEYS — for free-form
+ * captures like `Error.cause` snippets we need a substring-level scrub
+ * before the value lands in the diagnostic bundle.
+ *
+ * Patterns covered (ordered by length so longer overlapping patterns
+ * match first):
+ *   - JWT-shape three-segment base64 (`eyJ...`).
+ *   - `bearer <token>` (case-insensitive, captures up to whitespace).
+ *   - `(api[_-]?key|token|secret|password|authorization)[\s=:]+<value>`.
+ *
+ * Replacement is a fixed `[REDACTED:<reason>]` so reviewers can see the
+ * value WAS redacted without inferring the original content. The function
+ * is local to payload-trace-store because it is the only current consumer
+ * — any future caller should consider promoting this to a shared util.
+ */
+function scrubSecretsInString(input: string): string {
+  let out = input;
+  // JWT — three base64-segment shape.
+  out = out.replace(/eyJ[\w-]+\.[\w-]+\.[\w-]+/g, '[REDACTED:JWT]');
+  // Bearer + opaque token.
+  out = out.replace(/\bbearer\s+\S+/gi, 'bearer [REDACTED]');
+  // Sensitive-key=value / sensitive-key: value pairs.
+  out = out.replace(
+    /\b(api[_-]?key|token|secret|password|authorization)\s*[:=]\s*\S+/gi,
+    '$1=[REDACTED]',
+  );
+  return out;
+}
+
 // Use shared debug-bundle redaction options for consistency across all capture paths.
 // Includes neverRedactKeys for constraint_analysis, observed_state, goal_constraints.
 const PAYLOAD_REDACTION_OPTIONS = DEBUG_BUNDLE_REDACTION_OPTIONS
@@ -60,6 +91,27 @@ export interface TracedPayload {
   /** Error message if request failed */
   error?: string
 
+  /** Native Error.name when fetch threw (e.g. "TypeError" for blocked preflight). */
+  errorName?: string
+
+  /** Safe Error.cause snippet, truncated. */
+  errorCause?: string
+
+  /**
+   * Failure-source classification for incomplete responses. Mirrors
+   * `ErrorSource` in v5/responseParser.ts but adds `'preflight_or_network'`
+   * for fetch() throws (CORS preflight blocks, offline, DNS failures, etc.)
+   * because the browser cannot expose preflight response detail to JS.
+   */
+  source?:
+    | 'cee'
+    | 'plot'
+    | 'proxy'
+    | 'netlify'
+    | 'browser_timeout'
+    | 'preflight_or_network'
+    | 'unknown'
+
   /** Whether request is complete */
   completed: boolean
 }
@@ -93,6 +145,25 @@ export interface PayloadTraceStore {
     body: unknown
     duration: number
     error?: string
+    /** Native Error.name (e.g. "TypeError", "AbortError") when fetch threw. */
+    errorName?: string
+    /** Safe-to-log Error.cause snippet when fetch threw. Truncated to 200 chars. */
+    errorCause?: string
+    /**
+     * Source classification for failed/incomplete responses. Mirrors the
+     * `ErrorSource` union in v5/responseParser.ts but adds
+     * `'preflight_or_network'` for fetch() throws (CORS preflight blocks,
+     * offline, DNS failures, etc.). The browser cannot expose preflight
+     * response detail to JS, so this classification IS the diagnostic.
+     */
+    source?:
+      | 'cee'
+      | 'plot'
+      | 'proxy'
+      | 'netlify'
+      | 'browser_timeout'
+      | 'preflight_or_network'
+      | 'unknown'
   }) => void
 
   selectPayload: (id: string | null) => void
@@ -110,11 +181,68 @@ export interface PayloadTraceStore {
 /** Maximum payloads to store (last 20 as per spec) */
 const MAX_PAYLOADS = 20
 
+/**
+ * The exact `VITE_APP_ENV` value at module-load time. Captured into the
+ * module so the diagnostic bundle and the disable-warning have a stable
+ * record without re-reading import.meta.env on every call.
+ */
+const RESOLVED_APP_ENV =
+  (import.meta.env.VITE_APP_ENV as string | undefined) ?? 'development'
+
+/**
+ * Whether payload inspection is active for this build. Module-level
+ * constant so the diagnostic bundle can record it verbatim.
+ */
+const PAYLOAD_INSPECTION_ENABLED =
+  RESOLVED_APP_ENV === 'development' || RESOLVED_APP_ENV === 'staging'
+
+/**
+ * Diagnostic surface — exposes the module-load environment + enabled
+ * state so the merged debug bundle can show WHY traces are absent.
+ * Tests may reset the warning flag; production code should not mutate
+ * the snapshot.
+ */
+export interface PayloadInspectionStatus {
+  readonly enabled: boolean
+  readonly resolvedAppEnv: string
+  readonly reason: string | null
+}
+export function getPayloadInspectionStatus(): PayloadInspectionStatus {
+  if (PAYLOAD_INSPECTION_ENABLED) {
+    return { enabled: true, resolvedAppEnv: RESOLVED_APP_ENV, reason: null }
+  }
+  return {
+    enabled: false,
+    resolvedAppEnv: RESOLVED_APP_ENV,
+    reason:
+      RESOLVED_APP_ENV === ''
+        ? 'VITE_APP_ENV is empty in this build'
+        : `VITE_APP_ENV="${RESOLVED_APP_ENV}" — payload capture is enabled only for "development" and "staging"`,
+  }
+}
+
+// One-time non-noisy info message at module load when capture is off.
+//
+// P1 fix (2026-05): gate behind `import.meta.env.DEV` so production
+// users never see console noise. The disable-reason is also surfaced
+// via `getPayloadInspectionStatus()` and persisted in the merged
+// diagnostic bundle, so reviewers running a deployed staging build
+// still have non-console paths to discover the cause.
+if (
+  !PAYLOAD_INSPECTION_ENABLED &&
+  typeof console !== 'undefined' &&
+  Boolean(import.meta.env.DEV)
+) {
+  // eslint-disable-next-line no-console
+  console.info(
+    `[diagnostic] payload inspection disabled (VITE_APP_ENV="${RESOLVED_APP_ENV}"). ` +
+      'Set VITE_APP_ENV=staging on the deploy context to capture debug bundles.',
+  )
+}
+
 /** Check if payload inspection should be enabled */
 function isPayloadInspectionEnabled(): boolean {
-  // Only in dev/staging
-  const env = import.meta.env.VITE_APP_ENV || 'development'
-  return env === 'development' || env === 'staging'
+  return PAYLOAD_INSPECTION_ENABLED
 }
 
 // ============================================================================
@@ -171,11 +299,38 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
           params.id
         )
 
+        // P1 fix (2026-05): scrub secret-shaped substrings from the
+        // captured Error.cause string so bearer tokens, JWTs, and
+        // sensitive-key=value pairs cannot leak into the diagnostic
+        // bundle. `redactPayload` only redacts by KEY, so a free-form
+        // string from Error.cause needs a substring-level pass first.
+        // We then run the structural redactor for any non-string causes
+        // (cause objects via `cause: {...}`), and finally truncate.
+        const redactedErrorCause = (() => {
+          if (params.errorCause === undefined) return undefined;
+          const stringScrubbed =
+            typeof params.errorCause === 'string'
+              ? scrubSecretsInString(params.errorCause)
+              : params.errorCause;
+          const structurallyRedacted = redactPayload(
+            stringScrubbed,
+            PAYLOAD_REDACTION_OPTIONS,
+          );
+          const asString =
+            typeof structurallyRedacted === 'string'
+              ? structurallyRedacted
+              : JSON.stringify(structurallyRedacted);
+          return asString.length > 200 ? asString.slice(0, 200) : asString;
+        })();
+
         return {
           ...p,
           status: params.status,
           duration: params.duration,
           error: params.error,
+          ...(params.errorName ? { errorName: params.errorName } : {}),
+          ...(redactedErrorCause ? { errorCause: redactedErrorCause } : {}),
+          ...(params.source ? { source: params.source } : {}),
           response: {
             headers: redactPayload(params.headers, PAYLOAD_REDACTION_OPTIONS) as Record<string, string>,
             body: redactPayload(params.body, PAYLOAD_REDACTION_OPTIONS),
@@ -201,9 +356,19 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
 
   exportPayloads: () => {
     const { payloads } = get()
+    const inspection = getPayloadInspectionStatus()
     const exportData = {
       exportedAt: new Date().toISOString(),
       environment: import.meta.env.VITE_APP_ENV || 'development',
+      // P1 fix (2026-05): inspection status mirrors the merged
+      // diagnostic bundle. Reviewers reading a raw exportPayloads()
+      // output can see WHY traces are missing without crossing into
+      // the merged-bundle path.
+      inspection: {
+        enabled: inspection.enabled,
+        resolvedAppEnv: inspection.resolvedAppEnv,
+        reason: inspection.reason,
+      },
       payloadCount: payloads.length,
       payloads: payloads.map((p) => ({
         id: p.id,
@@ -215,6 +380,12 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
         status: p.status,
         completed: p.completed,
         error: p.error,
+        // P1 fix (2026-05): include error metadata + source
+        // classification so failed/preflight requests are diagnosable
+        // from the standalone export, not just the merged debug bundle.
+        errorName: p.errorName,
+        errorCause: p.errorCause,
+        source: p.source,
         request: p.request,
         response: p.response,
         contractValidation: p.contractValidation,
@@ -355,6 +526,16 @@ export function recordResponsePayload(params: {
   body: unknown
   duration: number
   error?: string
+  errorName?: string
+  errorCause?: string
+  source?:
+    | 'cee'
+    | 'plot'
+    | 'proxy'
+    | 'netlify'
+    | 'browser_timeout'
+    | 'preflight_or_network'
+    | 'unknown'
 }): void {
   usePayloadTraceStore.getState().recordResponsePayload(params)
 }

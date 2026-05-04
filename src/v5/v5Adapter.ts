@@ -81,9 +81,45 @@ export async function callV5Turn(
         body: null,
         duration: Date.now() - requestedAt,
         error: 'AbortError',
+        errorName: 'AbortError',
+        source: 'browser_timeout',
       });
       throw err;
     }
+
+    // P0 fix (2026-05): capture native Error.name and a safe cause
+    // representation so the diagnostic bundle can distinguish "Failed to
+    // fetch" from offline / DNS / CORS-preflight-blocked.
+    //
+    // P1 fix (2026-05): pass the FULL cause string to the store —
+    // truncation now happens AFTER redaction inside the store. Earlier
+    // truncation here could chop a JWT or bearer token across the 200
+    // char boundary, defeating the secret-shape regex (which requires
+    // the full three-segment JWT pattern to match).
+    const errorName = err.name || 'Error';
+    const causeRaw = (() => {
+      const cause: unknown = (err as Error & { cause?: unknown }).cause;
+      if (cause === undefined || cause === null) return undefined;
+      if (typeof cause === 'string') return cause;
+      if (cause instanceof Error) return `${cause.name}: ${cause.message}`;
+      try {
+        return JSON.stringify(cause);
+      } catch {
+        return undefined;
+      }
+    })();
+
+    // "TypeError: Failed to fetch" is the canonical Chromium signal for
+    // a blocked CORS preflight or network failure. Firefox uses
+    // "TypeError: NetworkError when attempting to fetch resource."
+    // Either way, the response body / status of the preflight itself is
+    // not exposed to JS.
+    const isLikelyPreflightOrNetwork =
+      err.name === 'TypeError' &&
+      (err.message.includes('Failed to fetch') ||
+        err.message.includes('NetworkError') ||
+        err.message.includes('Network request failed'));
+
     recordResponsePayload({
       id: requestId,
       status: 0,
@@ -91,6 +127,9 @@ export async function callV5Turn(
       body: null,
       duration: Date.now() - requestedAt,
       error: err.message,
+      errorName,
+      ...(causeRaw ? { errorCause: causeRaw } : {}),
+      source: isLikelyPreflightOrNetwork ? 'preflight_or_network' : 'unknown',
     });
     return {
       kind: 'parse_error',
