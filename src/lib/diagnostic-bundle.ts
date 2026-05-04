@@ -588,6 +588,18 @@ export interface MergedDebugExport {
   contractTrace: {
     payloadCount: number
     payloads: unknown[]
+    /**
+     * Capture-state diagnostics. P0 fix (2026-05): when payload
+     * inspection is disabled (VITE_APP_ENV not in {development,staging}),
+     * `payloadCount` will be 0 even on a build where the UI fetched
+     * many requests. This surface explains WHY traces are absent so
+     * reviewers can correct the deploy env.
+     */
+    inspection: {
+      enabled: boolean
+      resolvedAppEnv: string
+      reason: string | null
+    }
   }
   dataShapeAnomalies: {
     count: number
@@ -862,12 +874,13 @@ export async function createMergedDebugExport(extras?: {
   errorDetails?: ErrorDetail[]
 }): Promise<MergedDebugExport> {
   // Import payload trace store dynamically to avoid circular deps
-  const { usePayloadTraceStore, getDataShapeAnomalies } = await import('./payload-trace-store')
+  const { usePayloadTraceStore, getDataShapeAnomalies, getPayloadInspectionStatus } = await import('./payload-trace-store')
 
   const diagnostic = await createDiagnosticBundle()
 
   // Get contract trace payloads
   const payloadState = usePayloadTraceStore.getState()
+  const inspection = getPayloadInspectionStatus()
   const contractTrace = {
     payloadCount: payloadState.payloads.length,
     payloads: payloadState.payloads.map((p) => ({
@@ -880,6 +893,15 @@ export async function createMergedDebugExport(extras?: {
       status: p.status,
       completed: p.completed,
       error: p.error,
+      // P0 fix (2026-05): expose richer error metadata captured by
+      // v5Adapter on fetch() throws (TypeError: Failed to fetch and
+      // friends). Browsers cannot expose blocked-preflight response
+      // detail to JS; `source: 'preflight_or_network'` is the
+      // diagnostic, and it cues the reviewer to inspect the Network
+      // panel for the underlying preflight response.
+      errorName: p.errorName,
+      errorCause: p.errorCause,
+      source: p.source,
       // Payloads are already redacted at capture time by payload-trace-store
       // (with neverTruncateKeys: ['text'] to preserve llm_raw.text).
       // Do NOT re-redact here — it would strip the neverTruncateKeys exemption.
@@ -887,6 +909,11 @@ export async function createMergedDebugExport(extras?: {
       response: p.response ?? undefined,
       contractValidation: p.contractValidation,
     })),
+    inspection: {
+      enabled: inspection.enabled,
+      resolvedAppEnv: inspection.resolvedAppEnv,
+      reason: inspection.reason,
+    },
   }
 
   // Get data shape anomalies

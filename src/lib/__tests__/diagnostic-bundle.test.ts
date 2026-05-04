@@ -49,6 +49,13 @@ vi.mock('../payload-trace-store', () => ({
     })),
   },
   getDataShapeAnomalies: vi.fn(() => []),
+  // P0 fix (2026-05): merged debug export now reads inspection status
+  // so the bundle records WHY traces are absent when capture is off.
+  getPayloadInspectionStatus: vi.fn(() => ({
+    enabled: true,
+    resolvedAppEnv: 'development',
+    reason: null,
+  })),
 }))
 
 describe('diagnostic-bundle', () => {

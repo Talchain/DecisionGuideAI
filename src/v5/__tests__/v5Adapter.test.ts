@@ -236,6 +236,101 @@ describe('callV5Turn — payload trace capture', () => {
     expect(mockRecordResponse).toHaveBeenCalledOnce()
     const resCall = mockRecordResponse.mock.calls[0][0]
     expect(resCall.error).toBe('AbortError')
+    // P0 fix (2026-05): AbortError now also classifies the source so
+    // the diagnostic bundle distinguishes user-initiated cancel from
+    // CORS preflight failure.
+    expect(resCall.errorName).toBe('AbortError')
+    expect(resCall.source).toBe('browser_timeout')
+  })
+
+  it('classifies "TypeError: Failed to fetch" as preflight_or_network (P0 fix 2026-05)', async () => {
+    const networkErr = new TypeError('Failed to fetch')
+    const fetchImpl = vi.fn().mockRejectedValue(networkErr)
+
+    const result = await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+
+    expect(result).toEqual({
+      kind: 'parse_error',
+      reason: 'network error: Failed to fetch',
+    })
+    expect(mockRecordResponse).toHaveBeenCalledOnce()
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    expect(resCall.errorName).toBe('TypeError')
+    expect(resCall.source).toBe('preflight_or_network')
+    expect(resCall.error).toBe('Failed to fetch')
+  })
+
+  it('classifies Firefox-style "TypeError: NetworkError when attempting to fetch resource." as preflight_or_network', async () => {
+    const networkErr = new TypeError('NetworkError when attempting to fetch resource.')
+    const fetchImpl = vi.fn().mockRejectedValue(networkErr)
+
+    await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    expect(resCall.errorName).toBe('TypeError')
+    expect(resCall.source).toBe('preflight_or_network')
+  })
+
+  it('captures Error.cause as a string and forwards the FULL value to the store (P1 fix 2026-05)', async () => {
+    // P1 fix (2026-05): the adapter must NOT truncate before forwarding.
+    // The store does redact-then-truncate so secret-shape regexes see
+    // the complete pattern. This test pins the contract: the adapter
+    // hands the store the raw cause; truncation is the store's job.
+    const inner = new Error('underlying socket reset')
+    const outer = new TypeError('Failed to fetch')
+    ;(outer as Error & { cause?: unknown }).cause = inner
+    const fetchImpl = vi.fn().mockRejectedValue(outer)
+
+    await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    expect(resCall.errorCause).toContain('underlying socket reset')
+    // Adapter passes the cause untruncated. The store will redact then
+    // truncate; the spy here observes the pre-store value.
+    expect(resCall.errorCause).toBe('Error: underlying socket reset')
+  })
+
+  it('forwards a long cause WITHOUT truncating so the store can redact-then-truncate (P1 fix 2026-05)', async () => {
+    // Construct a cause where a JWT-shaped secret begins NEAR the legacy
+    // 200-char boundary. The adapter must not truncate before passing,
+    // because a half-clipped JWT breaks the three-segment regex in the
+    // store's redactor and the partial token would otherwise survive.
+    const padding = 'x'.repeat(190)
+    const jwtSecret =
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.abcDEF123-_secretEnd'
+    const inner = new Error(`${padding}${jwtSecret}`)
+    const outer = new TypeError('Failed to fetch')
+    ;(outer as Error & { cause?: unknown }).cause = inner
+    const fetchImpl = vi.fn().mockRejectedValue(outer)
+
+    await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    // Adapter forwards the FULL cause (includes the complete JWT shape).
+    // The cause body in the spy assertion must contain the whole JWT
+    // string — proof that the adapter is no longer the truncator.
+    expect(resCall.errorCause).toContain(jwtSecret)
+    expect((resCall.errorCause as string).length).toBeGreaterThan(200)
+  })
+
+  it('does NOT classify a generic Error with a non-network message as preflight_or_network', async () => {
+    const genericErr = new Error('something else broke')
+    const fetchImpl = vi.fn().mockRejectedValue(genericErr)
+
+    await callV5Turn(validPayload, {
+      fetchImpl: fetchImpl as unknown as typeof fetch,
+    })
+
+    const resCall = mockRecordResponse.mock.calls[0][0]
+    expect(resCall.source).toBe('unknown')
   })
 })
 
