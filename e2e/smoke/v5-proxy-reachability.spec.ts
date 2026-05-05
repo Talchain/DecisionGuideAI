@@ -8,12 +8,21 @@
 // Netlify Edge route. A real-browser journey smoke is tracked as a P1
 // follow-up in docs/v5-testing-audit-ui.md.
 //
-// Why this file lives in the UI repo: it gives the UI deploy pipeline a
-// quick post-deploy gate against a known-good staging proxy host without
-// requiring a CEE checkout. The canonical proxy reachability test lives
-// in CEE at `tests/staging/proxy-v5-hiring-prompt.smoke.test.ts`; this is
-// the operational counterpart, intentionally a duplicate at the contract
+// Why this file lives in the UI repo: it gives operations a quick way to
+// verify proxy reachability from the UI repo's tooling without a CEE
+// checkout. The canonical proxy reachability test lives in CEE at
+// `tests/staging/proxy-v5-hiring-prompt.smoke.test.ts`; this spec is the
+// operational counterpart, intentionally a duplicate at the contract
 // layer.
+//
+// MUST NOT be wired in as a UI deploy acceptance gate. Passing this spec
+// proves only that the CEE proxy is reachable and well-formed — it does
+// NOT prove the deployed UI bundle is configured to use that proxy. A
+// UI deploy can be totally broken (wrong VITE_V5_ENDPOINT, missing flag,
+// stale chunk) while this spec stays green. Use the existing
+// `e2e/smoke/v5-exclusive-routing.spec.ts` (negative gate) plus the
+// real-browser journey smoke tracked as P1 in `docs/v5-testing-audit-ui.md`
+// for UI deploy acceptance.
 //
 // Scope (what this can prove):
 //   - the deployed CEE proxy is reachable from this network
@@ -31,11 +40,15 @@
 //
 // Gating (self-skipping):
 //   - RUN_STAGING_E2E=1
-//   - STAGING_PROXY_URL              (host that exposes /proxy/v5/turn,
-//                                    e.g. https://cee-staging.onrender.com)
-//   - STAGING_PROXY_ALLOWED_ORIGIN   (an origin allowlisted by
-//                                    BROWSER_PROXY_ALLOWED_ORIGINS on the
-//                                    target, e.g. https://staging--olumi.netlify.app)
+//   - STAGING_CEE_PROXY_URL              (host that exposes /proxy/v5/turn,
+//                                          e.g. https://cee-staging.onrender.com.
+//                                          Named with a CEE_ infix to make
+//                                          clear this is the CEE proxy, not
+//                                          the deployed UI URL.)
+//   - STAGING_CEE_PROXY_ALLOWED_ORIGIN   (an origin allowlisted by
+//                                          BROWSER_PROXY_ALLOWED_ORIGINS on
+//                                          the target, e.g.
+//                                          https://staging--olumi.netlify.app)
 //
 // Without all three the spec is skipped silently. No request is made.
 
@@ -43,11 +56,11 @@ import { test, expect } from '@playwright/test'
 import { randomUUID } from 'node:crypto'
 
 const RUN_STAGING_E2E = process.env.RUN_STAGING_E2E === '1'
-const STAGING_PROXY_URL = process.env.STAGING_PROXY_URL
-const STAGING_PROXY_ALLOWED_ORIGIN = process.env.STAGING_PROXY_ALLOWED_ORIGIN
+const STAGING_CEE_PROXY_URL = process.env.STAGING_CEE_PROXY_URL
+const STAGING_CEE_PROXY_ALLOWED_ORIGIN = process.env.STAGING_CEE_PROXY_ALLOWED_ORIGIN
 
 const SHOULD_RUN =
-  RUN_STAGING_E2E && !!STAGING_PROXY_URL && !!STAGING_PROXY_ALLOWED_ORIGIN
+  RUN_STAGING_E2E && !!STAGING_CEE_PROXY_URL && !!STAGING_CEE_PROXY_ALLOWED_ORIGIN
 
 const HIRING_BRIEF =
   'Should I hire a tech lead or two developers to increase productivity?'
@@ -73,7 +86,7 @@ const SECRET_PATTERNS: ReadonlyArray<{ name: string; re: RegExp }> = [
 ]
 
 function proxyUrl(): string {
-  return `${STAGING_PROXY_URL!.replace(/\/$/, '')}/proxy/v5/turn`
+  return `${STAGING_CEE_PROXY_URL!.replace(/\/$/, '')}/proxy/v5/turn`
 }
 
 /** Bounded, non-leaky host token for triage logs (no path, no query, no auth). */
@@ -87,8 +100,24 @@ function hostFor(url: string): string {
 
 test.skip(
   !SHOULD_RUN,
-  'staging E2E disabled (set RUN_STAGING_E2E=1 + STAGING_PROXY_URL + STAGING_PROXY_ALLOWED_ORIGIN)',
+  'staging E2E disabled (set RUN_STAGING_E2E=1 + STAGING_CEE_PROXY_URL + STAGING_CEE_PROXY_ALLOWED_ORIGIN)',
 )
+
+/** Case-insensitive contains-all check on a comma-separated header list. */
+function headerListContainsAll(
+  raw: string | null | undefined,
+  required: ReadonlyArray<string>,
+): { ok: true } | { ok: false; missing: string[] } {
+  if (!raw) return { ok: false, missing: [...required] }
+  const present = new Set(
+    raw
+      .split(',')
+      .map((s) => s.trim().toLowerCase())
+      .filter(Boolean),
+  )
+  const missing = required.filter((h) => !present.has(h.toLowerCase()))
+  return missing.length === 0 ? { ok: true } : { ok: false, missing }
+}
 
 test('OPTIONS /proxy/v5/turn handles empty-body preflight without 500', async ({
   request,
@@ -100,7 +129,7 @@ test('OPTIONS /proxy/v5/turn handles empty-body preflight without 500', async ({
   const response = await request.fetch(url, {
     method: 'OPTIONS',
     headers: {
-      Origin: STAGING_PROXY_ALLOWED_ORIGIN!,
+      Origin: STAGING_CEE_PROXY_ALLOWED_ORIGIN!,
       'Access-Control-Request-Method': 'POST',
       'Access-Control-Request-Headers':
         'content-type,accept,x-correlation-id,x-request-id',
@@ -126,8 +155,22 @@ test('OPTIONS /proxy/v5/turn handles empty-body preflight without 500', async ({
     `OPTIONS preflight returned ${response.status()}; the 500 regression was c73d1469`,
   ).toBeLessThan(500)
   expect(allowOrigin).not.toBeNull()
-  expect(allowOrigin).toBe(STAGING_PROXY_ALLOWED_ORIGIN!)
+  expect(allowOrigin).toBe(STAGING_CEE_PROXY_ALLOWED_ORIGIN!)
   expect((allowMethods ?? '').toUpperCase()).toContain('POST')
+  // Real browsers will block the POST if these headers are missing from
+  // the preflight response. Asserting them surfaces CORS drift that
+  // would otherwise only manifest as a "CORS error" in users' browsers.
+  const allowHeadersRaw = response.headers()['access-control-allow-headers'] ?? null
+  const allowHeadersCheck = headerListContainsAll(allowHeadersRaw, [
+    'content-type',
+    'x-request-id',
+  ])
+  expect(
+    allowHeadersCheck.ok,
+    `Access-Control-Allow-Headers missing required entries: ${
+      allowHeadersCheck.ok ? '' : allowHeadersCheck.missing.join(', ')
+    } (got: ${allowHeadersRaw ?? 'none'})`,
+  ).toBe(true)
 })
 
 test('POST /proxy/v5/turn returns a V5 draft graph + analysis-ready envelope', async ({
@@ -152,7 +195,7 @@ test('POST /proxy/v5/turn returns a V5 draft graph + analysis-ready envelope', a
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json',
-      Origin: STAGING_PROXY_ALLOWED_ORIGIN!,
+      Origin: STAGING_CEE_PROXY_ALLOWED_ORIGIN!,
       'X-Request-Id': requestId,
     },
     data: body,
@@ -192,7 +235,14 @@ test('POST /proxy/v5/turn returns a V5 draft graph + analysis-ready envelope', a
     'missing x-olumi-service — response did not come from CEE',
   ).toBe('cee')
   expect(headers['x-olumi-service-build'], 'missing x-olumi-service-build').toBeTruthy()
+  // Strict equality on x-request-id proves the id we sent survived the
+  // proxy path verbatim. A mismatch indicates middleware is rewriting
+  // the id, which would defeat correlation in production.
   expect(headers['x-request-id'], 'missing x-request-id echo').toBeTruthy()
+  expect(
+    headers['x-request-id'],
+    `x-request-id was rewritten: sent=${requestId} got=${headers['x-request-id']}`,
+  ).toBe(requestId)
 
   const draftGraph = envelope!.draft_graph as
     | { nodes?: unknown; edges?: unknown }

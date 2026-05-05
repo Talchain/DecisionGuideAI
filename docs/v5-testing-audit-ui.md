@@ -102,7 +102,7 @@ Headline: the V5 weakness is not test volume but the absence of a positive deplo
 | --- | --- | --- | --- | --- |
 | 1 Local focused | every change | `pnpm typecheck` + `pnpm vitest run <touched>` + lint touched | dev-only | < 60 s |
 | 2 Pre-merge | local before push | `pnpm test:full` + `pnpm test:contracts` + `pnpm e2e:smoke` | yes | < 8 min |
-| 3 Deployed-path transport gate | post-staging-deploy / explicit | `RUN_STAGING_E2E=1 STAGING_PROXY_URL=… STAGING_PROXY_ALLOWED_ORIGIN=… pnpm e2e:staging:v5` (the new spec self-skips otherwise) | manual | < 2 min |
+| 3 Deployed-path transport gate | post-staging-deploy / explicit | `RUN_STAGING_E2E=1 STAGING_CEE_PROXY_URL=… STAGING_CEE_PROXY_ALLOWED_ORIGIN=… pnpm e2e:staging:v5` (the new spec self-skips otherwise) | manual | < 2 min |
 | 4 Visual / journey | scheduled | journey-driven Playwright spec — P1 once a URL-seedable canvas or stable composer selectors are verified | informational | nightly |
 
 ## 6. Phase 3 — recommendations
@@ -114,7 +114,7 @@ Headline: the V5 weakness is not test volume but the absence of a positive deplo
 | 6 | result-consumption diagnostic trace + view-model assertions | 🟡 unmerged branch | null win-probabilities / sensitivities / drivers in UI; UI-SEM fabrication |
 | 7 | severity-aware warn-block | ✅ merged on staging | recoverable warn block rendered as fatal |
 | 8 | debug bundle contract | partial — 🟡 structure spec on P0 branch, ✅ hardening already in staging | incomplete or contradictory debug bundles; missing-section rendering |
-| 9a | proxy reachability transport gate (HTTP via `request` fixture, OPTIONS + POST) | ✅ added in this branch | OPTIONS 500 regression (c73d1469); CEE proxy host outages on the deployed transport |
+| 9a | proxy reachability transport gate (HTTP via `request` fixture, OPTIONS + POST) | ✅ added in this branch | OPTIONS 500 regression (c73d1469); CEE proxy host outages on the deployed transport; CORS Allow-Headers drift; x-request-id rewrite by intermediate middleware. **Must not be wired in as a UI deploy acceptance gate** — see warning below. |
 | 9b | real-browser journey smoke (endpoint resolution, render, results, rerun, debug export) | ❌ deferred to P1 | UI deploy regressions where the bundle uses the wrong endpoint or the canvas does not render |
 
 ### P1
@@ -143,8 +143,9 @@ Headline: the V5 weakness is not test volume but the absence of a positive deplo
 ## 8. Risks and constraints
 
 - Local commits only. No push, no deploy, no env or secret rotation, no prompt edits, no PLoT/ISL changes.
-- The new staging smoke is HTTP-only against the proxy. A journey-driven Playwright spec that drives DraftChat through the full hiring brief is deferred to P1: composer selectors and staging coordination are not safe to author without verification, and a fragile journey test would create false confidence.
-- The new smoke depends on `BROWSER_PROXY_ALLOWED_ORIGINS` containing the configured staging origin; environment gaps surface on first run and are reported, not auto-fixed.
+- **Do not wire `e2e:staging:v5` in as a UI deploy acceptance gate.** The transport-gate spec proves the CEE proxy is reachable and well-formed; it does **not** prove the deployed UI bundle is configured to use that proxy. A UI deploy can be totally broken (wrong `VITE_V5_ENDPOINT`, missing flag, stale chunk) while this spec stays green. Use the existing `e2e/smoke/v5-exclusive-routing.spec.ts` (negative gate proving zero V1 hits during bootstrap) plus the real-browser journey smoke tracked as P1 (item 9b) for UI deploy acceptance.
+- The new staging smoke is HTTP-only against the CEE proxy. A journey-driven Playwright spec that drives DraftChat through the full hiring brief is deferred to P1: composer selectors and staging coordination are not safe to author without verification, and a fragile journey test would create false confidence.
+- The new smoke depends on `BROWSER_PROXY_ALLOWED_ORIGINS` on the CEE host containing the configured staging origin; environment gaps surface on first run and are reported, not auto-fixed.
 
 ## 9. Confirmation
 
