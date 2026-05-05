@@ -721,7 +721,19 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           mode="single"
           ringCaption={hasWinProbability ? 'win probability' : undefined}
           secondaryIndicator={stabilityIndicator}
-          qualifier={readinessDimensions ? <HeroQualifier dimensions={readinessDimensions} /> : undefined}
+          qualifier={
+            // P0 V5 golden-path repair (Wave 4 wiring): pass completeness
+            // reasons alongside dimensions. HeroQualifier prefers
+            // completeness when present (partial source data is more
+            // critical than a low evidence dimension); falls back to
+            // dimensions when completeness is full.
+            readinessDimensions || (data.completeness?.reasons?.length ?? 0) > 0 ? (
+              <HeroQualifier
+                dimensions={readinessDimensions}
+                completenessReasons={data.completeness?.reasons}
+              />
+            ) : undefined
+          }
           testId="confidence-health-header"
           noCardWrapper
         />

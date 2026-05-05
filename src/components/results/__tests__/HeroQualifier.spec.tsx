@@ -85,4 +85,88 @@ describe('HeroQualifier render', () => {
     render(<HeroQualifier dimensions={{ evidence: 0.4 }} className="mt-2" />)
     expect(screen.getByTestId('hero-qualifier').className).toContain('mt-2')
   })
+
+  // P0 V5 golden-path repair (Wave 4 wiring): completeness reasons take
+  // precedence over dimension qualifiers. Pin the precedence + curated
+  // copy mapping so future changes don't accidentally surface raw codes
+  // or fall through to the dimension qualifier when source data is
+  // incomplete.
+  describe('completenessReasons (Wave 4 wiring)', () => {
+    it('renders curated copy from the first completeness reason code', () => {
+      render(
+        <HeroQualifier
+          dimensions={{ evidence: 0.85 }}
+          completenessReasons={['win_probability_missing']}
+        />,
+      )
+      const el = screen.getByTestId('hero-qualifier')
+      // Curated copy from freshnessReasons.ts
+      expect(el.textContent).toContain('Likelihood scores')
+      expect(el.getAttribute('data-qualifier-source')).toBe('completeness')
+      expect(el.getAttribute('data-qualifier-reason')).toBe('win_probability_missing')
+    })
+
+    it('completeness reasons take precedence over dimension qualifier', () => {
+      // Even when a low-evidence dimension would otherwise fire, the
+      // completeness qualifier is the more critical signal.
+      render(
+        <HeroQualifier
+          dimensions={{ evidence: 0.3 }}
+          completenessReasons={['sensitivity_missing']}
+        />,
+      )
+      const el = screen.getByTestId('hero-qualifier')
+      expect(el.getAttribute('data-qualifier-source')).toBe('completeness')
+      expect(el.getAttribute('data-qualifier-reason')).toBe('sensitivity_missing')
+      expect(el.textContent).toContain('Factor sensitivity')
+    })
+
+    it('falls through to dimension qualifier when completenessReasons is empty', () => {
+      render(<HeroQualifier dimensions={{ evidence: 0.4 }} completenessReasons={[]} />)
+      expect(screen.getByTestId('hero-qualifier').getAttribute('data-qualifier-source')).toBe(
+        'dimension',
+      )
+    })
+
+    it('unknown completeness reason code → safe generic fallback (raw code never echoed)', () => {
+      render(
+        <HeroQualifier
+          dimensions={undefined}
+          completenessReasons={['definitely_not_a_known_code_42']}
+        />,
+      )
+      const el = screen.getByTestId('hero-qualifier')
+      expect(el.textContent).not.toContain('definitely_not_a_known_code_42')
+      expect(el.textContent!.length).toBeGreaterThan(0)
+    })
+
+    it('completeness copy contains no internal terms', () => {
+      const FORBIDDEN = [
+        /\bnoop\b/i,
+        /\bzod\b/i,
+        /\bgraph_hash\b/i,
+        /\bfact_type\b/i,
+        /\bedit_graph\b/i,
+        /\bnormalised\b/i,
+      ]
+      const codes = [
+        'win_probability_missing',
+        'sensitivity_missing',
+        'robustness_unavailable',
+        'decision_review_unavailable',
+        'expected_outcome_missing',
+        'analysis_partial',
+      ]
+      for (const code of codes) {
+        const { unmount } = render(
+          <HeroQualifier dimensions={undefined} completenessReasons={[code]} />,
+        )
+        const el = screen.getByTestId('hero-qualifier')
+        for (const pat of FORBIDDEN) {
+          expect(el.textContent, `${code}: ${el.textContent}`).not.toMatch(pat)
+        }
+        unmount()
+      }
+    })
+  })
 })

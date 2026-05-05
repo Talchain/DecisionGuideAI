@@ -49,6 +49,7 @@ import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
 import { humaniseCritique } from './utils/humaniseCritique'
 import { deriveStabilityLevel } from '../../lib/stability'
+import { deriveResultCompleteness, type ResultCompleteness } from './useResultCompleteness'
 
 // =============================================================================
 // Winner Selection Helper
@@ -773,6 +774,15 @@ export interface ResultsSectionDataReturn {
   isError: boolean
   goalLabel: string
   goalNodeId?: string
+  /**
+   * P0 V5 golden-path repair (Wave 4 wiring): result-completeness
+   * verdict computed from SOURCE fields (PLoT/CEE) BEFORE the
+   * UI-SEM fabrications mask them. Surfaced so HeroQualifier and
+   * fallback panels can render curated qualifier copy when source
+   * data is incomplete, instead of fabricated values being presented
+   * as truth.
+   */
+  completeness: import('./useResultCompleteness').ResultCompleteness
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -2470,6 +2480,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     }
   }, [confidence])
 
+  // P0 V5 golden-path repair (Wave 4 wiring): consult SOURCE fields
+  // before the UI-SEM fabrications mask them. Surfaced on the return so
+  // HeroQualifier / fallback panels render curated qualifier copy
+  // honestly when source data is incomplete.
+  const completeness = useMemo<ResultCompleteness>(
+    () =>
+      deriveResultCompleteness({
+        resultsStatus,
+        report: report ?? null,
+        ceeReviewV1: runMeta?.ceeReviewV1 ?? null,
+        driversPayload: report?.drivers_payload ?? null,
+      }),
+    [resultsStatus, report, runMeta?.ceeReviewV1],
+  )
+
   return {
     recommendation,
     drivers,
@@ -2479,6 +2504,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     isError,
     goalLabel,
     goalNodeId,
+    completeness,
   }
 }
 

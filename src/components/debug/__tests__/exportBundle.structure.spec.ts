@@ -333,3 +333,76 @@ describe('buildDebugBundle — cee_trace model fields', () => {
     expect(bundle.cee_trace).toBeNull()
   })
 })
+
+// ---------------------------------------------------------------------------
+// P0 V5 golden-path repair (Wave 5 wiring): scoped pipeline status enum
+// + explicit absence-reason source. Pin the enum derivation so future
+// changes to data.services / data.payloads can't silently regress the
+// "global success cannot be reported on a failed run" property.
+// ---------------------------------------------------------------------------
+
+describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
+  beforeEach(() => {
+    import.meta.env.VITE_DEBUG_BUNDLE_V2 = 'false'
+  })
+
+  it('200 + CEE response captured → ui_render_success', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status_source).toBe('derived_from_trace')
+  })
+
+  it('5xx → proxy_or_network_failure (CANNOT be promoted to success by wire signal)', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        services: {
+          cee: {
+            name: 'CEE',
+            status: 503,
+            success: false,
+            duration_ms: 100,
+            endpoint: '/cee/draft-graph',
+          },
+          plot: null,
+          isl: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('proxy_or_network_failure')
+  })
+
+  it('CEE call missing entirely → no_cee_call_recorded source, status reflects no completion', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        services: { cee: null, plot: null, isl: null },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('proxy_or_network_failure')
+    expect(bundle.pipeline.v5_pipeline_status_source).toBe('no_cee_call_recorded')
+  })
+
+  it('200 but CEE response not captured → cee_response_not_captured source', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source).toBe('cee_response_not_captured')
+    // Without the captured response we report payload_capture_disabled,
+    // not ui_render_success — honest about absent evidence.
+    expect(bundle.pipeline.v5_pipeline_status).toBe('payload_capture_disabled')
+  })
+
+  it('legacy pipeline.status field is preserved alongside v5 enum', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    expect(bundle.pipeline.status).toBe('success')
+    expect(bundle.pipeline.v5_pipeline_status).toBeDefined()
+  })
+})

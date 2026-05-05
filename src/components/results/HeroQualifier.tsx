@@ -19,6 +19,7 @@
 
 import type { ReactNode } from 'react'
 import { typography } from '@/styles/typography'
+import { completenessReasonCopy } from './copy/freshnessReasons'
 
 const QUALIFIER_THRESHOLD = 0.7
 
@@ -45,6 +46,17 @@ export interface HeroQualifierProps {
    * Undefined or empty input → suppresses the qualifier entirely.
    */
   dimensions?: Record<string, number> | undefined
+  /**
+   * P0 V5 golden-path repair (Wave 4 wiring): completeness reason
+   * codes from `useResultCompleteness` when the rendered analysis is
+   * source-incomplete (PLoT omitted win_probability for all options,
+   * sensitivity values absent, decision review missing, etc.). When
+   * non-empty, takes precedence over the dimension-threshold qualifier
+   * — partial source coverage is a more critical message than a low
+   * evidence dimension. Codes are mapped through the curated copy
+   * table; raw codes never reach the DOM.
+   */
+  completenessReasons?: ReadonlyArray<string> | undefined
   /**
    * Optional className appended to the rendered <p>. Used by the
    * consumer to position the qualifier inside the hero card.
@@ -79,13 +91,36 @@ export function pickQualifier(
   return { dimension: lowestKey, copy: QUALIFIER_COPY[lowestKey] }
 }
 
-export function HeroQualifier({ dimensions, className = '' }: HeroQualifierProps): ReactNode {
+export function HeroQualifier({
+  dimensions,
+  completenessReasons,
+  className = '',
+}: HeroQualifierProps): ReactNode {
+  // P0 V5 golden-path repair (Wave 4 wiring): completeness reasons
+  // take precedence over dimension qualifiers. When PLoT/CEE returned
+  // source-incomplete data, the user must see why the rendered values
+  // can't be relied on — even if the dimension scores happen to be
+  // above threshold.
+  if (completenessReasons && completenessReasons.length > 0) {
+    const code = completenessReasons[0]!
+    return (
+      <p
+        className={`${typography.panelMeta} text-warning ${className}`.trim()}
+        data-testid="hero-qualifier"
+        data-qualifier-source="completeness"
+        data-qualifier-reason={code}
+      >
+        {completenessReasonCopy(code)}
+      </p>
+    )
+  }
   const picked = pickQualifier(dimensions)
   if (!picked) return null
   return (
     <p
       className={`${typography.panelMeta} text-warning ${className}`.trim()}
       data-testid="hero-qualifier"
+      data-qualifier-source="dimension"
       data-qualifier-dimension={picked.dimension}
     >
       {picked.copy}

@@ -27,6 +27,12 @@ import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
+import {
+  derivePipelineStatus,
+  type PipelineStatus,
+  type RecoverableEnvelope,
+} from '../../../lib/derivePipelineStatus'
+import type { CEEAnalysisReady } from '../../../adapters/cee/types'
 
 // =============================================================================
 // Feature Flag
@@ -64,6 +70,65 @@ interface DiagnosticInfo {
 
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? value as Record<string, unknown> : null
+}
+
+/**
+ * P0 V5 golden-path repair (Wave 5 wiring): adapter that synthesises a
+ * minimal RequestTrace shape from the bundle data and runs the scoped
+ * `derivePipelineStatus` derivation. The bundle doesn't carry a full
+ * RequestTrace per se — but `data.services.cee` carries the
+ * authoritative status / success / duration_ms, and `data.payloads`
+ * carries the response shape we need to detect a recoverable envelope.
+ *
+ * Synthesises only the fields `derivePipelineStatus` reads. Adding a
+ * full RequestTrace lookup would require threading the trace ID
+ * through the whole bundle pipeline — out of scope for this wiring;
+ * the adapter shape is sufficient.
+ */
+function deriveBundlePipelineStatus(data: DebugData): PipelineStatus {
+  const cee = data.services.cee
+  const completed = cee != null
+  const httpStatus = cee?.status ?? null
+  const errorMsg = cee?.error
+  // The recoverable rejection envelope appears inside CEE response
+  // bodies as { error: { code, retryable, category? } } on 4xx turns
+  // (Wave 6 forbidden-terms list documents the categories).
+  const ceeResponse = data.payloads.cee_response as
+    | { error?: { retryable?: boolean; category?: string | null } }
+    | null
+    | undefined
+  const recoverableEnvelope: RecoverableEnvelope | undefined =
+    ceeResponse?.error
+      ? {
+          retryable: ceeResponse.error.retryable,
+          category: ceeResponse.error.category ?? null,
+        }
+      : undefined
+  // Wire freshness from the canvas store (already on the bundle data).
+  // `analysis_ready` shape is opaque here; we only read `status` and
+  // `freshness` in the derivation.
+  const ceeAnalysisReady = (data as { ceeAnalysisReady?: CEEAnalysisReady | null })
+    .ceeAnalysisReady ?? null
+  // "Is this an analysis turn" approximation: PLoT was called or
+  // analysis_inputs were sent. The bundle doesn't track turn type
+  // directly, so we infer from PLoT presence (the only path that
+  // produces a real analysis_ready.status === 'ready' or 'failed').
+  const isAnalysisTurn = data.services.plot != null
+
+  return derivePipelineStatus({
+    trace: {
+      status: httpStatus,
+      completed,
+      error: typeof errorMsg === 'string' ? errorMsg : undefined,
+      responseHash: undefined,
+      service: cee != null ? 'cee' : undefined,
+      serviceBuild: undefined,
+    },
+    isAnalysisTurn,
+    ceeAnalysisReady,
+    recoverableEnvelope,
+    payloadCaptureDisabled: completed && !data.payloads.cee_response,
+  })
 }
 
 function getPipelinePath(value: unknown): 'unified' | 'legacy' | null {
@@ -1584,6 +1649,20 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     },
     pipeline: {
       status: data.pipeline.status,
+      // P0 V5 golden-path repair (Wave 5 wiring): scoped pipeline
+      // status enum derived from the actual trace + freshness signals.
+      // Replaces the legacy `status` string for any consumer that
+      // wants an honest verdict — `status` stays for backwards
+      // compatibility. Absence reasons are recorded explicitly so
+      // support can distinguish "we didn't capture this field" from
+      // "this field was absent on the wire".
+      v5_pipeline_status: deriveBundlePipelineStatus(data),
+      v5_pipeline_status_source:
+        data.services.cee == null
+          ? 'no_cee_call_recorded'
+          : data.payloads.cee_response == null
+            ? 'cee_response_not_captured'
+            : 'derived_from_trace',
       total_duration_ms: data.pipeline.total_duration_ms ?? null,
       llm_metadata: wirePipelineLlmMetadata(data.pipeline.llm_metadata, diagnosticTrace),
       llm_raw: data.pipeline.llm_raw ?? null,

@@ -232,4 +232,64 @@ describe('selectConversationStatus', () => {
       resultsStatus: 'streaming',
     })).ctaKind).toBeNull()
   })
+
+  // P0 V5 golden-path repair (Wave 3 wiring): wire freshness wins over
+  // local edit signal. Pin the precedence so future changes don't drift
+  // back to local-only derivation.
+  describe('wire freshness precedence (Wave 3)', () => {
+    it('wireFreshness="stale" → analysis_stale even when local says no edits', () => {
+      const result = selectConversationStatus(
+        makeInput({
+          nodeCount: 5,
+          resultsStatus: 'complete',
+          hasCompletedFirstRun: true,
+          graphEditedSinceLastRun: false,
+          wireFreshness: 'stale',
+        }),
+      )
+      expect(result.status).toBe('analysis_stale')
+    })
+
+    it('wireFreshness="fresh" → analysis_ready even when local says edited', () => {
+      // Pre-Wave-3, the local signal alone would have flagged this as
+      // stale. The wire is authoritative — the round-trip already
+      // absorbed the edit.
+      const result = selectConversationStatus(
+        makeInput({
+          nodeCount: 5,
+          resultsStatus: 'complete',
+          hasCompletedFirstRun: true,
+          graphEditedSinceLastRun: true,
+          wireFreshness: 'fresh',
+        }),
+      )
+      expect(result.status).toBe('analysis_ready')
+    })
+
+    it('wireFreshness="unknown" or absent → falls back to local edit signal', () => {
+      // Unknown is CEE saying "I couldn't decide". Local signal then
+      // takes over, preserving pre-Wave-3 behaviour for legacy turns.
+      const stale = selectConversationStatus(
+        makeInput({
+          nodeCount: 5,
+          resultsStatus: 'complete',
+          hasCompletedFirstRun: true,
+          graphEditedSinceLastRun: true,
+          wireFreshness: 'unknown',
+        }),
+      )
+      expect(stale.status).toBe('analysis_stale')
+
+      const ready = selectConversationStatus(
+        makeInput({
+          nodeCount: 5,
+          resultsStatus: 'complete',
+          hasCompletedFirstRun: true,
+          graphEditedSinceLastRun: false,
+          wireFreshness: null,
+        }),
+      )
+      expect(ready.status).toBe('analysis_ready')
+    })
+  })
 })
