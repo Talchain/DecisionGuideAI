@@ -86,6 +86,100 @@ describe('HeroQualifier render', () => {
     expect(screen.getByTestId('hero-qualifier').className).toContain('mt-2')
   })
 
+  // -------------------------------------------------------------------------
+  // P0 V5 golden-path repair (Wave 3 wiring, third-round follow-up):
+  // freshness="stale" surfaces ahead of completeness and dimension
+  // qualifiers. Pins precedence so a stale result never gets buried
+  // under a less-impactful qualifier.
+  // -------------------------------------------------------------------------
+  describe('freshness=stale precedence (Wave 3 wiring)', () => {
+    it('freshness=stale → curated stale copy + data-qualifier-source="freshness"', () => {
+      render(
+        <HeroQualifier
+          dimensions={{ evidence: 0.85 }}
+          freshness="stale"
+          freshnessReason="graph_hash_diverged"
+        />,
+      )
+      const el = screen.getByTestId('hero-qualifier')
+      expect(el.getAttribute('data-qualifier-source')).toBe('freshness')
+      // Curated copy from FRESHNESS_REASON_COPY.
+      expect(el.textContent).toContain('model has changed')
+    })
+
+    it('freshness=stale wins over completeness reasons', () => {
+      render(
+        <HeroQualifier
+          dimensions={{ evidence: 0.4 }}
+          completenessReasons={['win_probability_missing']}
+          freshness="stale"
+          freshnessReason="local_graph_edited"
+        />,
+      )
+      const el = screen.getByTestId('hero-qualifier')
+      expect(el.getAttribute('data-qualifier-source')).toBe('freshness')
+      // Curated stale-by-local-edit copy, not the completeness copy.
+      expect(el.textContent).toContain('changes since the last analysis')
+      expect(el.textContent).not.toContain('Likelihood scores')
+    })
+
+    it('freshness=fresh does NOT gate the qualifier — completeness still applies', () => {
+      render(
+        <HeroQualifier
+          dimensions={{ evidence: 0.85 }}
+          completenessReasons={['win_probability_missing']}
+          freshness="fresh"
+        />,
+      )
+      const el = screen.getByTestId('hero-qualifier')
+      // Fresh freshness doesn't suppress lower tiers — completeness wins.
+      expect(el.getAttribute('data-qualifier-source')).toBe('completeness')
+    })
+
+    it('freshness=unknown / none — does not surface (lower tiers continue)', () => {
+      render(
+        <HeroQualifier
+          dimensions={{ evidence: 0.4 }}
+          freshness="unknown"
+        />,
+      )
+      const el = screen.getByTestId('hero-qualifier')
+      expect(el.getAttribute('data-qualifier-source')).toBe('dimension')
+    })
+
+    it('freshness=stale + unknown reason code → safe generic fallback (raw code never echoed)', () => {
+      render(
+        <HeroQualifier
+          freshness="stale"
+          freshnessReason="definitely_not_a_known_code_42"
+        />,
+      )
+      const el = screen.getByTestId('hero-qualifier')
+      expect(el.textContent).not.toContain('definitely_not_a_known_code_42')
+      expect(el.textContent!.length).toBeGreaterThan(0)
+    })
+
+    it('redaction: freshness reason code never appears in DOM attributes', () => {
+      const codes = [
+        'graph_hash_diverged',
+        'graph_hash_match',
+        'no_successful_run_analysis_fact',
+        'derivation_failed',
+        'local_graph_edited',
+      ]
+      for (const code of codes) {
+        const { unmount } = render(
+          <HeroQualifier freshness="stale" freshnessReason={code} />,
+        )
+        const el = screen.getByTestId('hero-qualifier')
+        for (const attr of Array.from(el.attributes)) {
+          expect(attr.value).not.toContain(code)
+        }
+        unmount()
+      }
+    })
+  })
+
   // P0 V5 golden-path repair (Wave 4 wiring): completeness reasons take
   // precedence over dimension qualifiers. Pin the precedence + curated
   // copy mapping so future changes don't accidentally surface raw codes

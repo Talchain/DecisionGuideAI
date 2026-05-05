@@ -391,10 +391,26 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     expect(bundle.pipeline.v5_pipeline_status).toBe('proxy_or_network_failure')
   })
 
-  it('CEE call missing entirely → no_cee_call_recorded capture', () => {
+  it('CEE call missing entirely + no payloads → no_cee_call_recorded capture', () => {
     const bundle = buildDebugBundle(
       makeDebugData({
         services: { cee: null, plot: null, isl: null },
+        // Third-round review: must clear ALL payload slots — direct
+        // and downstream — to truly simulate "no CEE call". The
+        // default fixture has cee_response populated, which the
+        // post-P0.3 helper now treats as evidence of a direct CEE
+        // call. Override here to reflect the genuine "nothing was
+        // captured" scenario.
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: null,
+          cee_downstream_response: null,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
       }),
     )
     expect(bundle.pipeline.v5_pipeline_status).toBe('proxy_or_network_failure')
@@ -566,5 +582,97 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     expect(bundle.pipeline.v5_pipeline_status_source.missing_inputs).toContain(
       'envelope_freshness',
     )
+  })
+
+  // -------------------------------------------------------------------------
+  // Third-round review (P0.2 + IMP.2): isAnalysisTurn=true with
+  // ceeAnalysisReady absent must NOT report ui_render_success.
+  // -------------------------------------------------------------------------
+  it('analysis turn signalled by analysis_inputs but envelope analysis_ready absent → analysis_not_run', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: { analysis_inputs: { options: [] } },
+          cee_response: { other: 'fields' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(true)
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn_signal).toBe(
+      'analysis_inputs_present',
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_not_run')
+  })
+
+  // -------------------------------------------------------------------------
+  // Third-round review (P0.3 + IMP.1): downstream CEE payloads.
+  // -------------------------------------------------------------------------
+  it('direct CEE absent + downstream CEE response present → derived_from_downstream capture', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: { analysis_inputs: { options: [{ id: 'opt_a' }] } },
+          cee_downstream_response: {
+            analysis_ready: { status: 'ready', freshness: 'fresh' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
+    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(true)
+  })
+
+  it('downstream CEE response with failing analysis_ready → analysis_failed', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: null,
+          cee_downstream_response: {
+            analysis_ready: { status: 'needs_user_input' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+  })
+
+  it('direct CEE response wins over downstream when both present', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { analysis_ready: { status: 'ready', freshness: 'fresh' } },
+          cee_downstream_request: null,
+          cee_downstream_response: {
+            analysis_ready: { status: 'needs_user_input' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_trace')
+    expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe('ready')
+    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
   })
 })

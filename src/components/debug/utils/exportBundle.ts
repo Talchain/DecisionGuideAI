@@ -109,7 +109,11 @@ interface BundleStatusResult {
    * "every missing field has a clear reason".
    */
   source: {
-    capture: 'derived_from_trace' | 'cee_response_not_captured' | 'no_cee_call_recorded'
+    capture:
+      | 'derived_from_trace'
+      | 'derived_from_downstream'
+      | 'cee_response_not_captured'
+      | 'no_cee_call_recorded'
     is_analysis_turn: boolean
     is_analysis_turn_signal:
       | 'analysis_ready_present'
@@ -129,17 +133,77 @@ interface BundleStatusResult {
   }
 }
 
+/**
+ * Third-round review (P0.3 + IMP.1): orchestrator flows nest CEE under
+ * PLoT, surfacing payloads via `cee_downstream_request` /
+ * `cee_downstream_response` rather than the direct `cee_request` /
+ * `cee_response` fields. The bundle's other extraction paths already
+ * use this fallback (see lines ~1223-1224 and ~1745-1746); the
+ * pipeline-status derivation must too. Without this normalisation:
+ *   - A downstream-only CEE call → `services.cee == null` (depending
+ *     on bundle wiring) → emits `no_cee_call_recorded`, hiding the
+ *     real CEE state.
+ *   - A captured downstream response with a failing analysis_ready →
+ *     could fall through to `ui_render_success` because the direct
+ *     response is read first and is null.
+ * Returns the EFFECTIVE payload triplet — direct first, downstream as
+ * fallback.
+ */
+function extractEffectiveCeePayloads(data: DebugData): {
+  request: Record<string, unknown> | null
+  response: Record<string, unknown> | null
+  service: DebugData['services']['cee']
+  source: 'direct' | 'downstream' | 'none'
+} {
+  const directReq = asRecord(data.payloads.cee_request)
+  const directRes = asRecord(data.payloads.cee_response)
+  const downstreamReq = asRecord(data.payloads.cee_downstream_request)
+  const downstreamRes = asRecord(data.payloads.cee_downstream_response)
+
+  if (directReq != null || directRes != null) {
+    return {
+      request: directReq,
+      response: directRes,
+      service: data.services.cee,
+      source: 'direct',
+    }
+  }
+  if (downstreamReq != null || downstreamRes != null) {
+    // For downstream-only flows the service record may still be on
+    // `data.services.cee` (CEE was called via PLoT but the
+    // request/response landed in the downstream slot). If both are
+    // absent we still want to surface the response — derivePipelineStatus
+    // will see `service: null` and report no_cee_call_recorded.
+    return {
+      request: downstreamReq,
+      response: downstreamRes,
+      service: data.services.cee,
+      source: 'downstream',
+    }
+  }
+  return {
+    request: null,
+    response: null,
+    service: data.services.cee,
+    source: 'none',
+  }
+}
+
 function deriveBundlePipelineStatusV2(inputs: BundleStatusInputs): BundleStatusResult {
   const { data, envelopeAnalysisReady } = inputs
-  const cee = data.services.cee
-  const completed = cee != null
+  // Third-round review: read the EFFECTIVE CEE payloads (direct or
+  // downstream). The original implementation read only direct, which
+  // misclassified orchestrator flows where CEE is nested under PLoT.
+  const effective = extractEffectiveCeePayloads(data)
+  const cee = effective.service
+  const completed = cee != null || effective.response != null
   const httpStatus = cee?.status ?? null
   const errorMsg = cee?.error
 
   // Recoverable-envelope detection. CEE returns `{ error: { code,
   // retryable, category? } }` on 4xx recoverable turns; the category
   // determines whether the error was analysis-related.
-  const ceeResponse = data.payloads.cee_response as
+  const ceeResponse = effective.response as
     | {
         error?: { retryable?: boolean; category?: string | null }
         analysis_inputs?: unknown
@@ -154,10 +218,20 @@ function deriveBundlePipelineStatusV2(inputs: BundleStatusInputs): BundleStatusR
         }
       : undefined
 
-  // Read analysis_ready from the EXTRACTED envelope (not a stale store
-  // read). Shape it for derivePipelineStatus's CEEAnalysisReady type;
-  // only `status` and `freshness` are read.
-  const envelopeAR = envelopeAnalysisReady ?? null
+  // Read analysis_ready from the EFFECTIVE response (direct or
+  // downstream). Caller passes the pre-extracted direct envelope
+  // (`envelopeAnalysisReady`) for the common case; when only downstream
+  // is captured we extract from the effective response in-helper to
+  // keep the downstream path honest. Pre-fix, this relied solely on
+  // the caller's value, so a downstream-only response surfaced as
+  // "envelope absent" even when downstream carried analysis_ready.
+  const downstreamAR = (() => {
+    if (envelopeAnalysisReady != null) return null
+    if (effective.source !== 'downstream') return null
+    const resp = effective.response as { analysis_ready?: unknown } | null
+    return resp?.analysis_ready ?? null
+  })()
+  const envelopeAR = (envelopeAnalysisReady ?? downstreamAR ?? null) as AnalysisReadyShape
   const ar = envelopeAR as
     | { status?: unknown; freshness?: unknown; freshness_reason?: unknown }
     | null
@@ -193,7 +267,7 @@ function deriveBundlePipelineStatusV2(inputs: BundleStatusInputs): BundleStatusR
     isAnalysisTurn = true
   } else if (
     ceeResponse?.analysis_inputs != null ||
-    (data.payloads.cee_request as { analysis_inputs?: unknown } | null)?.analysis_inputs != null
+    (effective.request as { analysis_inputs?: unknown } | null)?.analysis_inputs != null
   ) {
     isAnalysisTurnSignal = 'analysis_inputs_present'
     isAnalysisTurn = true
@@ -223,24 +297,29 @@ function deriveBundlePipelineStatusV2(inputs: BundleStatusInputs): BundleStatusR
     isAnalysisTurn,
     ceeAnalysisReady,
     recoverableEnvelope,
-    payloadCaptureDisabled: completed && !data.payloads.cee_response,
+    payloadCaptureDisabled: completed && effective.response == null,
   })
 
   const missing: BundleStatusResult['source']['missing_inputs'] = (() => {
     const m: Array<BundleStatusResult['source']['missing_inputs'][number]> = []
-    if (!cee) m.push('cee_service_record')
-    if (!data.payloads.cee_response) m.push('cee_response_payload')
+    if (!cee && effective.source === 'none') m.push('cee_service_record')
+    if (!effective.response) m.push('cee_response_payload')
     if (!envelopeAR) m.push('envelope_analysis_ready')
     if (arFreshness === null) m.push('envelope_freshness')
     return m
   })()
 
+  // Third-round review: capture enum now distinguishes direct vs
+  // downstream so support can tell which extraction path produced the
+  // payload — critical for orchestrator flows where CEE is nested.
   const capture: BundleStatusResult['source']['capture'] =
-    cee == null
-      ? 'no_cee_call_recorded'
-      : !data.payloads.cee_response
-        ? 'cee_response_not_captured'
-        : 'derived_from_trace'
+    effective.source === 'direct'
+      ? 'derived_from_trace'
+      : effective.source === 'downstream'
+        ? 'derived_from_downstream'
+        : cee == null
+          ? 'no_cee_call_recorded'
+          : 'cee_response_not_captured'
 
   return {
     status,
@@ -695,6 +774,41 @@ interface DebugBundle {
   /** Pipeline summary */
   pipeline: {
     status: string
+    /**
+     * P0 V5 golden-path repair (Wave 5 wiring): scoped pipeline status
+     * enum derived from the actual trace + freshness signals, replacing
+     * the legacy `status` string for any consumer wanting an honest
+     * verdict. Six states cover the complete failure surface; see
+     * `derivePipelineStatus`.
+     */
+    v5_pipeline_status: PipelineStatus
+    /**
+     * Structured source field describing how the verdict was reached.
+     * Replaces the original single-string source per third-round
+     * review: "every missing field has a clear reason".
+     */
+    v5_pipeline_status_source: {
+      capture:
+        | 'derived_from_trace'
+        | 'derived_from_downstream'
+        | 'cee_response_not_captured'
+        | 'no_cee_call_recorded'
+      is_analysis_turn: boolean
+      is_analysis_turn_signal:
+        | 'analysis_ready_present'
+        | 'analysis_inputs_present'
+        | 'recoverable_analysis_envelope'
+        | 'no_analysis_signal'
+      envelope_analysis_ready_status: string | null
+      envelope_freshness: string | null
+      envelope_freshness_reason: string | null
+      missing_inputs: ReadonlyArray<
+        | 'cee_service_record'
+        | 'cee_response_payload'
+        | 'envelope_analysis_ready'
+        | 'envelope_freshness'
+      >
+    }
     total_duration_ms: number | null
     llm_metadata: unknown
     llm_raw: LlmRawData | null

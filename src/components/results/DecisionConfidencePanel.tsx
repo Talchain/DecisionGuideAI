@@ -17,6 +17,7 @@ import { AlertTriangle, Check, ChevronDown, ChevronRight, X } from 'lucide-react
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
 import { HeroQualifier } from './HeroQualifier'
+import { useAnalysisFreshnessState } from '@/lib/useAnalysisFreshnessState'
 import { ConditionalWinnerCards } from './ConditionalWinnerCards'
 import { resolveTriageBodyText } from '@/components/shared/resolveTriageBodyText'
 import { dedupTriageItems } from './utils/dedupTriageItems'
@@ -519,6 +520,12 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   onSendMessage,
   aiAffordance,
 }: DecisionConfidencePanelProps) {
+  // P0 V5 golden-path repair (Wave 3 wiring, third-round follow-up):
+  // single-source freshness verdict consumed by HeroQualifier alongside
+  // completeness reasons and dimension scores. Stale wire freshness
+  // wins above the other two qualifier sources.
+  const freshnessState = useAnalysisFreshnessState()
+
   // Post-analysis ring shows winner's win probability directly. The readiness
   // composite (Structure/Evidence/Coverage/Verified) is pre-analysis-only.
   const winProbability = data.recommendation.recommendedOption?.winProbability
@@ -722,15 +729,24 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           ringCaption={hasWinProbability ? 'win probability' : undefined}
           secondaryIndicator={stabilityIndicator}
           qualifier={
-            // P0 V5 golden-path repair (Wave 4 wiring): pass completeness
-            // reasons alongside dimensions. HeroQualifier prefers
-            // completeness when present (partial source data is more
-            // critical than a low evidence dimension); falls back to
-            // dimensions when completeness is full.
-            readinessDimensions || (data.completeness?.reasons?.length ?? 0) > 0 ? (
+            // P0 V5 golden-path repair:
+            //   Wave 3 (third-round follow-up): pass `freshness` and
+            //     `freshnessReason` from `useAnalysisFreshnessState`
+            //     so a stale CEE verdict surfaces ahead of completeness
+            //     and dimension qualifiers. Stale results are the
+            //     highest-impact warning the panel can give.
+            //   Wave 4: pass `completenessReasons` alongside dimensions.
+            //     Partial source data is more critical than a low
+            //     evidence dimension.
+            //   Existing: dimensions remain the lowest-priority qualifier.
+            readinessDimensions ||
+            (data.completeness?.reasons?.length ?? 0) > 0 ||
+            freshnessState.freshness === 'stale' ? (
               <HeroQualifier
                 dimensions={readinessDimensions}
                 completenessReasons={data.completeness?.reasons}
+                freshness={freshnessState.freshness}
+                freshnessReason={freshnessState.reason}
               />
             ) : undefined
           }

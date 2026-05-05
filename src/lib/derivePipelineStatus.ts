@@ -99,8 +99,15 @@ const ANALYSIS_FAILURE_CATEGORIES = new Set([
  *   3. 4xx with recoverable envelope and analysis-failure category →
  *      analysis_failed.
  *   4. 4xx without analysis-failure category → cee_response_received.
- *   5. 200 + analysis turn + analysis_ready.status !== 'ready' →
- *      analysis_failed.
+ *   5a. 200 + analysis turn + ceeAnalysisReady absent entirely →
+ *       analysis_not_run. The brief flagged this as a real bug
+ *       (third-round review): pre-fix, an analysis turn missing
+ *       analysis_ready fell through to ui_render_success because
+ *       `readyStatus !== undefined && readyStatus !== 'ready'`
+ *       evaluated false on `undefined`. The structured source field
+ *       captured the absence but the enum still claimed success.
+ *   5b. 200 + analysis turn + analysis_ready.status !== 'ready' →
+ *       analysis_failed.
  *   6. 200 + non-analysis turn + freshness === 'none' → analysis_not_run.
  *   7. 200 + payload capture disabled → payload_capture_disabled.
  *   8. 200 + everything else → ui_render_success.
@@ -130,7 +137,17 @@ export function derivePipelineStatus(
     return 'cee_response_received'
   }
 
-  // 5 — 200 + analysis turn + analysis_ready not in 'ready' state.
+  // 5a — 200 + analysis turn + analysis_ready ABSENT entirely.
+  // Third-round review: this case used to fall through to
+  // ui_render_success because the next branch checks `readyStatus !==
+  // undefined && readyStatus !== 'ready'`. An analysis turn whose
+  // response carries no analysis_ready cannot honestly report success
+  // — analysis didn't run (or the response was incomplete capture).
+  if (inputs.isAnalysisTurn && inputs.ceeAnalysisReady == null) {
+    return 'analysis_not_run'
+  }
+
+  // 5b — 200 + analysis turn + analysis_ready not in 'ready' state.
   if (inputs.isAnalysisTurn) {
     const readyStatus = inputs.ceeAnalysisReady?.status
     if (readyStatus !== undefined && readyStatus !== 'ready') {

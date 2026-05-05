@@ -19,7 +19,7 @@
 
 import type { ReactNode } from 'react'
 import { typography } from '@/styles/typography'
-import { completenessReasonCopy } from './copy/freshnessReasons'
+import { completenessReasonCopy, freshnessReasonCopy } from './copy/freshnessReasons'
 
 const QUALIFIER_THRESHOLD = 0.7
 
@@ -58,6 +58,23 @@ export interface HeroQualifierProps {
    */
   completenessReasons?: ReadonlyArray<string> | undefined
   /**
+   * P0 V5 golden-path repair (Wave 3 wiring, third-round follow-up):
+   * authoritative wire-side freshness state from
+   * `useAnalysisFreshnessState`. When freshness is 'stale', surface
+   * the curated stale-copy ahead of completeness and dimension
+   * qualifiers — a stale result is the highest-impact warning the
+   * panel can give. Reason codes route through the curated freshness
+   * table; raw codes never reach the DOM. Other freshness values
+   * ('fresh' / 'unknown' / 'none') do not gate this qualifier line.
+   */
+  freshness?: 'fresh' | 'stale' | 'unknown' | 'none' | undefined
+  /**
+   * Stable freshness reason code from
+   * `analysis_ready.freshness_reason` or the local-fallback selector.
+   * Mapped through `freshnessReasonCopy` to user-facing text.
+   */
+  freshnessReason?: string | null | undefined
+  /**
    * Optional className appended to the rendered <p>. Used by the
    * consumer to position the qualifier inside the hero card.
    */
@@ -94,20 +111,37 @@ export function pickQualifier(
 export function HeroQualifier({
   dimensions,
   completenessReasons,
+  freshness,
+  freshnessReason,
   className = '',
 }: HeroQualifierProps): ReactNode {
-  // P0 V5 golden-path repair (Wave 4 wiring): completeness reasons
-  // take precedence over dimension qualifiers. When PLoT/CEE returned
-  // source-incomplete data, the user must see why the rendered values
-  // can't be relied on — even if the dimension scores happen to be
-  // above threshold.
+  // Precedence (highest to lowest impact on user trust in result):
+  //   1. Stale freshness — the rendered analysis is provably out of
+  //      date relative to the current model. Highest-impact warning.
+  //   2. Completeness reasons — the analysis ran but source data was
+  //      partial (missing win_probability, sensitivity, etc.).
+  //   3. Dimension qualifiers — readiness scores below 70% on
+  //      evidence / robustness / clarity / etc.
   //
-  // FOLLOW-UP review (P1.2): the raw reason code is NOT exposed as a
-  // DOM attribute — `data-qualifier-source` is sufficient as a stable
-  // semantic test hook, and the brief's "raw codes never reach DOM"
-  // rule covers attributes as well as text. Tests assert behaviour via
-  // visible copy + the source attribute; no test depends on the raw
-  // code anymore.
+  // FOLLOW-UP review (P1.2): raw reason codes are NOT exposed as DOM
+  // attribute values. `data-qualifier-source` is sufficient as a
+  // stable semantic test hook. Tests assert via visible copy + source
+  // attribute; no test depends on raw codes.
+
+  // 1. Stale wire freshness wins above all else.
+  if (freshness === 'stale') {
+    return (
+      <p
+        className={`${typography.panelMeta} text-warning ${className}`.trim()}
+        data-testid="hero-qualifier"
+        data-qualifier-source="freshness"
+      >
+        {freshnessReasonCopy(freshnessReason ?? null)}
+      </p>
+    )
+  }
+
+  // 2. Completeness reasons (Wave 4) — partial source data.
   if (completenessReasons && completenessReasons.length > 0) {
     const code = completenessReasons[0]!
     return (
@@ -120,6 +154,8 @@ export function HeroQualifier({
       </p>
     )
   }
+
+  // 3. Dimension-threshold qualifier (existing).
   const picked = pickQualifier(dimensions)
   if (!picked) return null
   return (

@@ -158,6 +158,43 @@ describe('derivePipelineStatus — analysis_not_run', () => {
     )
     expect(result).toBe('analysis_not_run')
   })
+
+  // Third-round review (P0.2 + IMP.2): isAnalysisTurn=true with
+  // ceeAnalysisReady absent used to fall through to ui_render_success
+  // because the readyStatus check evaluated `undefined !== undefined`
+  // = false. Tighten so the absence is honest.
+  it('200 + analysis turn + ceeAnalysisReady=null → analysis_not_run (NOT ui_render_success)', () => {
+    const result = derivePipelineStatus(
+      inputs({
+        isAnalysisTurn: true,
+        ceeAnalysisReady: null,
+      }),
+    )
+    expect(result).toBe('analysis_not_run')
+  })
+
+  it('200 + analysis turn + ceeAnalysisReady=undefined → analysis_not_run', () => {
+    const result = derivePipelineStatus(
+      inputs({
+        isAnalysisTurn: true,
+        ceeAnalysisReady: undefined,
+      }),
+    )
+    expect(result).toBe('analysis_not_run')
+  })
+
+  it('200 + analysis turn + payload captured + ceeAnalysisReady=null → analysis_not_run, payload-capture flag does NOT mask the absence', () => {
+    // Belt-and-braces: even when payloadCaptureDisabled would
+    // otherwise apply, the missing analysis_ready takes precedence.
+    const result = derivePipelineStatus(
+      inputs({
+        isAnalysisTurn: true,
+        ceeAnalysisReady: null,
+        payloadCaptureDisabled: false,
+      }),
+    )
+    expect(result).toBe('analysis_not_run')
+  })
 })
 
 describe('derivePipelineStatus — payload_capture_disabled', () => {
