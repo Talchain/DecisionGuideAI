@@ -56,6 +56,7 @@
     "e2e:prod-safe": "concurrently -k \"npm:serve:dist\" \"wait-on http://localhost:4173 && playwright test e2e/prod-safe.spec.ts\"",
     "ci:bundle-policy": "node scripts/assert-safe-bundle.cjs",
     "e2e:smoke": "playwright test e2e/smoke/",
+    "e2e:staging:v5": "playwright test --config playwright.staging.config.ts",
     "e2e:safe": "playwright test e2e/safe-screen.spec.ts",
     "e2e:vitals": "playwright test e2e/webvitals.spec.ts",
     "e2e:perf": "playwright test e2e/perf/",

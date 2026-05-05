@@ -22,6 +22,13 @@ About 800 vitest tests + 90 Playwright specs across 91 files. 3 vitest tests ski
 
 ## 2. V5 coverage matrix
 
+Coverage state legend used throughout this report:
+
+- ✅ **merged on staging** — protection in place on the branch this audit lands on
+- 🟡 **on an unmerged branch** — protection drafted but not yet on staging; gap remains until that branch lands
+- ❌ **absent everywhere** — gap; needs a follow-up branch
+
+
 | Area | Files | Asserts | Gap | Catches a recent failure? |
 | --- | --- | --- | --- | --- |
 | V5 endpoint resolution | `src/v5/__tests__/v5Adapter.test.ts` | `VITE_V5_ENDPOINT` > `VITE_ORCHESTRATOR_BASE` > `/bff/orchestrate/v2/turn` fallback | live-network rejects | yes |
@@ -62,12 +69,14 @@ UI branches inspected:
 
 ### Disposition for each P0 in the plan
 
-6. **V5 result-consumption diagnostic-trace test** — **already covered**: trace doc at `docs/v5/wave-4-source-to-render-trace.md`, `useResultCompleteness.test.ts` and `DecisionConfidencePanel.completenessIntegration.spec.tsx` on `claude/p0-v5-golden-path-integration`. No duplication here. Audit references only.
-7. **Severity-aware warn-block rendering** — **already merged into staging** (commit `f6f8c108`). Reference only.
-8. **Debug bundle contract** — `exportBundle.structure.spec.ts` exists on the P0 branch; debug-bundle-hardening already in staging. **Reference only**; secret-pattern matchers across the export are an incremental P1.
-9. **Hiring-prompt staging E2E** — not covered. The existing `e2e/smoke/v5-exclusive-routing.spec.ts` is a *negative* assertion (zero V1 hits). **Implement** as `e2e/smoke/v5-hiring-prompt.spec.ts` — but as an HTTP-level proxy reachability smoke, not a composer-driven journey: composer selectors and live staging coordination are not safe to author without verification, so a journey-driven E2E is recorded as deferred P1.
+6. **V5 result-consumption diagnostic-trace test** — 🟡 on an unmerged branch (`claude/p0-v5-golden-path-integration`): trace doc at `docs/v5/wave-4-source-to-render-trace.md`, `useResultCompleteness.test.ts`, `DecisionConfidencePanel.completenessIntegration.spec.tsx`. Until that branch merges, the staging gap remains open. No duplication here.
+7. **Severity-aware warn-block rendering** — ✅ merged on staging (commit `f6f8c108`). Reference only.
+8. **Debug bundle contract** — partial: 🟡 `exportBundle.structure.spec.ts` on the P0 branch; ✅ debug-bundle-hardening already merged on staging (`8ce6b322` + `45259f7e`). Synthetic-secret matchers across the export are still ❌ absent everywhere → P1.
+9. **Hiring-prompt deployed-path smoke** — split:
+   - ❌ → ✅ **transport gate** added in this branch as `e2e/smoke/v5-proxy-reachability.spec.ts` (HTTP only via Playwright `request` fixture). Renamed from the original `v5-hiring-prompt.spec.ts` to make its non-journey nature obvious. The canonical equivalent lives in CEE at `tests/staging/proxy-v5-hiring-prompt.smoke.test.ts`; this spec is the operational counterpart so the UI deploy pipeline can run a quick post-deploy gate without a CEE checkout.
+   - ❌ **real browser journey smoke** (endpoint resolution, browser CORS, canvas render, result consumption, rerun state, debug export) — tracked as P1. Implementation outline: gate on `RUN_STAGING_E2E=1 + STAGING_UI_URL`, `await page.goto(STAGING_UI_URL + '/#/canvas')`, observe network for `/proxy/v5/turn` POST + 200 + draft graph, assert canvas renders nodes, drive Run Analysis chip, observe results panel renders non-null win probabilities. Author only after confirming a URL-seedable canvas or stable composer selectors.
 
-Net new files this branch lands: **one Playwright smoke plus this audit report**.
+Net new files this branch lands: **one Playwright transport-gate spec plus this audit report**.
 
 ## 4. Phase 1 — quality classification
 
@@ -75,8 +84,8 @@ Test classification:
 
 | File | Classification | Note |
 | --- | --- | --- |
-| `e2e/smoke/v5-exclusive-routing.spec.ts` | staging-smoke + contract | strong negative gate; needs paired positive smoke |
-| `e2e/smoke/v5-hiring-prompt.spec.ts` (new) | staging-smoke + product | proxy reachability on the deployed transport path |
+| `e2e/smoke/v5-exclusive-routing.spec.ts` | staging-smoke + contract | strong negative gate; needs paired positive journey smoke |
+| `e2e/smoke/v5-proxy-reachability.spec.ts` (new) | staging-smoke + contract | transport gate only — HTTP via Playwright `request` fixture, **not** a UI journey; do not count as UI product-confidence |
 | `src/v5/__tests__/v5Adapter.test.ts` | component | mocks fetch; cannot catch live transport regressions |
 | `src/components/results/__tests__/useResultCompleteness.test.ts` | product (after P0 merge) | view-model coverage of result rendering |
 | `src/components/debug/__tests__/exportBundle.structure.spec.ts` | contract + product | structure asserted; secret-matcher assertion not yet present |
@@ -93,8 +102,8 @@ Headline: the V5 weakness is not test volume but the absence of a positive deplo
 | --- | --- | --- | --- | --- |
 | 1 Local focused | every change | `pnpm typecheck` + `pnpm vitest run <touched>` + lint touched | dev-only | < 60 s |
 | 2 Pre-merge | local before push | `pnpm test:full` + `pnpm test:contracts` + `pnpm e2e:smoke` | yes | < 8 min |
-| 3 Deployed-path smoke | post-staging-deploy / explicit | `RUN_STAGING_E2E=1 STAGING_PROXY_URL=… STAGING_PROXY_ALLOWED_ORIGIN=… pnpm e2e:smoke` (the new spec self-skips otherwise) | manual | < 3 min |
-| 4 Visual / journey | scheduled | journey-driven Playwright spec — P1 once composer selectors and staging coordination are verified | informational | nightly |
+| 3 Deployed-path transport gate | post-staging-deploy / explicit | `RUN_STAGING_E2E=1 STAGING_PROXY_URL=… STAGING_PROXY_ALLOWED_ORIGIN=… pnpm e2e:staging:v5` (the new spec self-skips otherwise) | manual | < 2 min |
+| 4 Visual / journey | scheduled | journey-driven Playwright spec — P1 once a URL-seedable canvas or stable composer selectors are verified | informational | nightly |
 
 ## 6. Phase 3 — recommendations
 
@@ -102,10 +111,11 @@ Headline: the V5 weakness is not test volume but the absence of a positive deplo
 
 | # | Test | Status | Catches |
 | --- | --- | --- | --- |
-| 6 | result-consumption diagnostic trace + view-model assertions | covered by `claude/p0-v5-golden-path-integration` — reference only | null win-probabilities / sensitivities / drivers in UI; UI-SEM fabrication |
-| 7 | severity-aware warn-block | merged into staging — reference only | recoverable warn block rendered as fatal |
-| 8 | debug bundle contract | structure spec on P0 branch — reference only | incomplete or contradictory debug bundles; missing-section rendering |
-| 9 | hiring-prompt staging E2E | **added in this branch** as proxy reachability smoke | `/proxy/v5/turn` deployed-path regressions; CORS / env-shape regressions; non-200 transport on the real staging proxy |
+| 6 | result-consumption diagnostic trace + view-model assertions | 🟡 unmerged branch | null win-probabilities / sensitivities / drivers in UI; UI-SEM fabrication |
+| 7 | severity-aware warn-block | ✅ merged on staging | recoverable warn block rendered as fatal |
+| 8 | debug bundle contract | partial — 🟡 structure spec on P0 branch, ✅ hardening already in staging | incomplete or contradictory debug bundles; missing-section rendering |
+| 9a | proxy reachability transport gate (HTTP via `request` fixture, OPTIONS + POST) | ✅ added in this branch | OPTIONS 500 regression (c73d1469); CEE proxy host outages on the deployed transport |
+| 9b | real-browser journey smoke (endpoint resolution, render, results, rerun, debug export) | ❌ deferred to P1 | UI deploy regressions where the bundle uses the wrong endpoint or the canvas does not render |
 
 ### P1
 
@@ -138,4 +148,4 @@ Headline: the V5 weakness is not test volume but the absence of a positive deplo
 
 ## 9. Confirmation
 
-This audit is read-only review plus one new HTTP-level Playwright smoke (`e2e/smoke/v5-hiring-prompt.spec.ts`). Items 6, 7, and 8 are referenced rather than re-implemented because they exist on the in-flight P0 branches or have already merged into staging. Item 9 is implemented in its narrowest safe form; the journey E2E is recorded here as a tracked P1 follow-up.
+This audit is read-only review plus one new HTTP-level Playwright transport-gate spec (`e2e/smoke/v5-proxy-reachability.spec.ts`) and one new package-script (`e2e:staging:v5`). Items 6 and 8 are 🟡 on `claude/p0-v5-golden-path-integration` and remain a staging-coverage gap until that branch lands. Item 7 is ✅ merged on staging. Item 9 is split: the transport-gate half is added here; the real-browser journey half is ❌ deferred to P1.
