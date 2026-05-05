@@ -14,6 +14,7 @@ Scope: read-only audit plus minimal P0 additions. No prompt changes, no PLoT/ISL
 | `pnpm e2e:smoke` | Playwright `e2e/smoke/` (incl. `v5-exclusive-routing.spec.ts`) | dev server | 3 | optional |
 | `pnpm e2e:prod-safe` | Production build safety screen | none | 3 | optional |
 | `pnpm e2e:perf` | Worker layout p95 probe | none | 4 | informational |
+| `pnpm e2e:staging:v5` | Playwright transport gate against the deployed CEE proxy via `request` fixture; uses `playwright.staging.config.ts` (no dev server). Self-skips without `RUN_STAGING_E2E=1` + `STAGING_CEE_PROXY_URL` + `STAGING_CEE_PROXY_ALLOWED_ORIGIN`. **Manual-only — must not be wired into CI as a UI deploy acceptance gate** (see §8). | yes (network) | 3 | manual |
 | `pnpm typecheck` | `tsc -p tsconfig.ci.json --noEmit` | none | 1/2 | CI |
 | `pnpm lint` | ESLint with brand-token enforcement | none | 1/2 | CI |
 | Pre-push hooks | none detected | — | — | — |

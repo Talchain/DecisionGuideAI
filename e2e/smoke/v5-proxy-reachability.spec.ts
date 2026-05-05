@@ -131,8 +131,10 @@ test('OPTIONS /proxy/v5/turn handles empty-body preflight without 500', async ({
     headers: {
       Origin: STAGING_CEE_PROXY_ALLOWED_ORIGIN!,
       'Access-Control-Request-Method': 'POST',
-      'Access-Control-Request-Headers':
-        'content-type,accept,x-correlation-id,x-request-id',
+      // Only the headers the POST below actually sends. Asking for headers
+      // the POST does not use would create unrealistic preflight shape and
+      // an inconsistency between request and assertion.
+      'Access-Control-Request-Headers': 'content-type,accept,x-request-id',
     },
     timeout: PREFLIGHT_TIMEOUT_MS,
   })
@@ -140,13 +142,16 @@ test('OPTIONS /proxy/v5/turn handles empty-body preflight without 500', async ({
 
   const allowOrigin = response.headers()['access-control-allow-origin'] ?? null
   const allowMethods = response.headers()['access-control-allow-methods'] ?? null
+  const allowHeadersRawForLog =
+    response.headers()['access-control-allow-headers'] ?? null
 
   // eslint-disable-next-line no-console
   console.log(
     `[v5-proxy-reachability] OPTIONS host=${hostFor(url)} ` +
       `status=${response.status()} elapsed_ms=${elapsed_ms} ` +
       `allow_origin=${allowOrigin ?? 'none'} ` +
-      `allow_methods=${allowMethods ?? 'none'}`,
+      `allow_methods=${allowMethods ?? 'none'} ` +
+      `allow_headers=${allowHeadersRawForLog ?? 'none'}`,
   )
 
   // Catches the OPTIONS 500 regression directly (CEE c73d1469).
@@ -160,9 +165,13 @@ test('OPTIONS /proxy/v5/turn handles empty-body preflight without 500', async ({
   // Real browsers will block the POST if these headers are missing from
   // the preflight response. Asserting them surfaces CORS drift that
   // would otherwise only manifest as a "CORS error" in users' browsers.
+  // Asserts every header the POST below actually sends is allowed by
+  // the preflight response. Real browsers will block the POST if any
+  // requested header is missing from this list.
   const allowHeadersRaw = response.headers()['access-control-allow-headers'] ?? null
   const allowHeadersCheck = headerListContainsAll(allowHeadersRaw, [
     'content-type',
+    'accept',
     'x-request-id',
   ])
   expect(
