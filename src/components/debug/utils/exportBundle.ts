@@ -73,28 +73,77 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 }
 
 /**
- * P0 V5 golden-path repair (Wave 5 wiring): adapter that synthesises a
- * minimal RequestTrace shape from the bundle data and runs the scoped
- * `derivePipelineStatus` derivation. The bundle doesn't carry a full
- * RequestTrace per se — but `data.services.cee` carries the
- * authoritative status / success / duration_ms, and `data.payloads`
- * carries the response shape we need to detect a recoverable envelope.
+ * P0 V5 golden-path repair (Wave 5 wiring) + follow-up corrections.
  *
- * Synthesises only the fields `derivePipelineStatus` reads. Adding a
- * full RequestTrace lookup would require threading the trace ID
- * through the whole bundle pipeline — out of scope for this wiring;
- * the adapter shape is sufficient.
+ * Adapter that synthesises a RequestTrace shape from the bundle data
+ * and runs the scoped `derivePipelineStatus` derivation. Caller passes
+ * the EXTRACTED `envelopeAnalysisReady` (from
+ * `extractAnalysisReadyFromBlocks` / envelope root) explicitly so the
+ * derivation sees what was actually on the response, not a stale read
+ * from canvas store. Pre-fix this function read
+ * `data.ceeAnalysisReady` which doesn't exist on `DebugData`, so a
+ * captured envelope with `analysis_ready.status: 'failed'` could fall
+ * through to `ui_render_success` — flagged by review.
+ *
+ * The "is this an analysis turn" signal is now derived from the
+ * envelope (analysis_ready presence, recoverable rejection category,
+ * or analysis-shaped payload) rather than `data.services.plot != null`.
+ * The PLoT-presence heuristic misclassified non-analysis turns that
+ * touched PLoT for evidence pre-fetch and CEE-only analysis paths.
  */
-function deriveBundlePipelineStatus(data: DebugData): PipelineStatus {
+type AnalysisReadyShape =
+  | { status?: unknown; freshness?: unknown; freshness_reason?: unknown }
+  | null
+  | undefined
+
+interface BundleStatusInputs {
+  data: DebugData
+  envelopeAnalysisReady: AnalysisReadyShape
+}
+
+interface BundleStatusResult {
+  status: PipelineStatus
+  /**
+   * Structured source field describing how the verdict was reached.
+   * Replaces the original single-string source per follow-up review:
+   * "every missing field has a clear reason".
+   */
+  source: {
+    capture: 'derived_from_trace' | 'cee_response_not_captured' | 'no_cee_call_recorded'
+    is_analysis_turn: boolean
+    is_analysis_turn_signal:
+      | 'analysis_ready_present'
+      | 'analysis_inputs_present'
+      | 'recoverable_analysis_envelope'
+      | 'no_analysis_signal'
+    envelope_analysis_ready_status: string | null
+    envelope_freshness: string | null
+    envelope_freshness_reason: string | null
+    /** Inputs that were null/undefined when the verdict was computed. */
+    missing_inputs: ReadonlyArray<
+      | 'cee_service_record'
+      | 'cee_response_payload'
+      | 'envelope_analysis_ready'
+      | 'envelope_freshness'
+    >
+  }
+}
+
+function deriveBundlePipelineStatusV2(inputs: BundleStatusInputs): BundleStatusResult {
+  const { data, envelopeAnalysisReady } = inputs
   const cee = data.services.cee
   const completed = cee != null
   const httpStatus = cee?.status ?? null
   const errorMsg = cee?.error
-  // The recoverable rejection envelope appears inside CEE response
-  // bodies as { error: { code, retryable, category? } } on 4xx turns
-  // (Wave 6 forbidden-terms list documents the categories).
+
+  // Recoverable-envelope detection. CEE returns `{ error: { code,
+  // retryable, category? } }` on 4xx recoverable turns; the category
+  // determines whether the error was analysis-related.
   const ceeResponse = data.payloads.cee_response as
-    | { error?: { retryable?: boolean; category?: string | null } }
+    | {
+        error?: { retryable?: boolean; category?: string | null }
+        analysis_inputs?: unknown
+      }
     | null
     | undefined
   const recoverableEnvelope: RecoverableEnvelope | undefined =
@@ -104,18 +153,65 @@ function deriveBundlePipelineStatus(data: DebugData): PipelineStatus {
           category: ceeResponse.error.category ?? null,
         }
       : undefined
-  // Wire freshness from the canvas store (already on the bundle data).
-  // `analysis_ready` shape is opaque here; we only read `status` and
-  // `freshness` in the derivation.
-  const ceeAnalysisReady = (data as { ceeAnalysisReady?: CEEAnalysisReady | null })
-    .ceeAnalysisReady ?? null
-  // "Is this an analysis turn" approximation: PLoT was called or
-  // analysis_inputs were sent. The bundle doesn't track turn type
-  // directly, so we infer from PLoT presence (the only path that
-  // produces a real analysis_ready.status === 'ready' or 'failed').
-  const isAnalysisTurn = data.services.plot != null
 
-  return derivePipelineStatus({
+  // Read analysis_ready from the EXTRACTED envelope (not a stale store
+  // read). Shape it for derivePipelineStatus's CEEAnalysisReady type;
+  // only `status` and `freshness` are read.
+  const envelopeAR = envelopeAnalysisReady ?? null
+  const ar = envelopeAR as
+    | { status?: unknown; freshness?: unknown; freshness_reason?: unknown }
+    | null
+  const arStatus = typeof ar?.status === 'string' ? ar.status : null
+  const arFreshness = typeof ar?.freshness === 'string' ? ar.freshness : null
+  const arFreshnessReason =
+    typeof ar?.freshness_reason === 'string' ? ar.freshness_reason : null
+  const ceeAnalysisReady: CEEAnalysisReady | null = envelopeAR
+    ? ({
+        // Match the CEE adapter type; fields beyond what
+        // derivePipelineStatus reads are filled with safe defaults.
+        options: [],
+        goal_node_id: '',
+        ...(arStatus !== null
+          ? { status: arStatus as CEEAnalysisReady['status'] }
+          : {}),
+        ...(arFreshness !== null
+          ? { freshness: arFreshness as CEEAnalysisReady['freshness'] }
+          : {}),
+      } as CEEAnalysisReady)
+    : null
+
+  // Analysis-turn detection from the envelope, not from PLoT presence.
+  // Order: explicit analysis_ready on response > analysis_inputs in
+  // request body > recoverable analysis-error envelope. PLoT presence
+  // alone is no longer used because non-analysis turns can touch PLoT
+  // for evidence pre-fetch.
+  let isAnalysisTurnSignal: BundleStatusResult['source']['is_analysis_turn_signal'] =
+    'no_analysis_signal'
+  let isAnalysisTurn = false
+  if (envelopeAR != null) {
+    isAnalysisTurnSignal = 'analysis_ready_present'
+    isAnalysisTurn = true
+  } else if (
+    ceeResponse?.analysis_inputs != null ||
+    (data.payloads.cee_request as { analysis_inputs?: unknown } | null)?.analysis_inputs != null
+  ) {
+    isAnalysisTurnSignal = 'analysis_inputs_present'
+    isAnalysisTurn = true
+  } else if (recoverableEnvelope?.category) {
+    const ANALYSIS_CATS = new Set([
+      'analysis_failed',
+      'analysis_partial',
+      'analysis_blocked',
+      'plot_unavailable',
+      'plot_timeout',
+    ])
+    if (ANALYSIS_CATS.has(recoverableEnvelope.category)) {
+      isAnalysisTurnSignal = 'recoverable_analysis_envelope'
+      isAnalysisTurn = true
+    }
+  }
+
+  const status = derivePipelineStatus({
     trace: {
       status: httpStatus,
       completed,
@@ -129,6 +225,35 @@ function deriveBundlePipelineStatus(data: DebugData): PipelineStatus {
     recoverableEnvelope,
     payloadCaptureDisabled: completed && !data.payloads.cee_response,
   })
+
+  const missing: BundleStatusResult['source']['missing_inputs'] = (() => {
+    const m: Array<BundleStatusResult['source']['missing_inputs'][number]> = []
+    if (!cee) m.push('cee_service_record')
+    if (!data.payloads.cee_response) m.push('cee_response_payload')
+    if (!envelopeAR) m.push('envelope_analysis_ready')
+    if (arFreshness === null) m.push('envelope_freshness')
+    return m
+  })()
+
+  const capture: BundleStatusResult['source']['capture'] =
+    cee == null
+      ? 'no_cee_call_recorded'
+      : !data.payloads.cee_response
+        ? 'cee_response_not_captured'
+        : 'derived_from_trace'
+
+  return {
+    status,
+    source: {
+      capture,
+      is_analysis_turn: isAnalysisTurn,
+      is_analysis_turn_signal: isAnalysisTurnSignal,
+      envelope_analysis_ready_status: arStatus,
+      envelope_freshness: arFreshness,
+      envelope_freshness_reason: arFreshnessReason,
+      missing_inputs: missing,
+    },
+  }
 }
 
 function getPipelinePath(value: unknown): 'unified' | 'legacy' | null {
@@ -1647,32 +1772,29 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
           }
         : null,
     },
-    pipeline: {
-      status: data.pipeline.status,
-      // P0 V5 golden-path repair (Wave 5 wiring): scoped pipeline
-      // status enum derived from the actual trace + freshness signals.
-      // Replaces the legacy `status` string for any consumer that
-      // wants an honest verdict — `status` stays for backwards
-      // compatibility. Absence reasons are recorded explicitly so
-      // support can distinguish "we didn't capture this field" from
-      // "this field was absent on the wire".
-      v5_pipeline_status: deriveBundlePipelineStatus(data),
-      v5_pipeline_status_source:
-        data.services.cee == null
-          ? 'no_cee_call_recorded'
-          : data.payloads.cee_response == null
-            ? 'cee_response_not_captured'
-            : 'derived_from_trace',
-      total_duration_ms: data.pipeline.total_duration_ms ?? null,
-      llm_metadata: wirePipelineLlmMetadata(data.pipeline.llm_metadata, diagnosticTrace),
-      llm_raw: data.pipeline.llm_raw ?? null,
-      cee_pipeline_path: pipelineQuickFields.cee_pipeline_path
-        ?? extractPipelinePathFromTrace(diagnosticTrace),
-      cee_strp_mutations_count: pipelineQuickFields.cee_strp_mutations_count,
-      causal_claims_diagnostic: causalClaimsDiagnostic,
-      node_extraction: data.pipeline.node_extraction ?? null,
-      connectivity: data.pipeline.connectivity ?? null,
-    },
+    pipeline: (() => {
+      // P0 V5 golden-path repair (Wave 5 wiring) + follow-up: feed the
+      // EXTRACTED envelope analysis_ready into the derivation. The
+      // structured `v5_pipeline_status_source` replaces the original
+      // single string per the "every missing field has a clear reason"
+      // brief requirement.
+      const v5 = deriveBundlePipelineStatusV2({ data, envelopeAnalysisReady })
+      return {
+        status: data.pipeline.status,
+        v5_pipeline_status: v5.status,
+        v5_pipeline_status_source: v5.source,
+        total_duration_ms: data.pipeline.total_duration_ms ?? null,
+        llm_metadata: wirePipelineLlmMetadata(data.pipeline.llm_metadata, diagnosticTrace),
+        llm_raw: data.pipeline.llm_raw ?? null,
+        cee_pipeline_path:
+          pipelineQuickFields.cee_pipeline_path
+          ?? extractPipelinePathFromTrace(diagnosticTrace),
+        cee_strp_mutations_count: pipelineQuickFields.cee_strp_mutations_count,
+        causal_claims_diagnostic: causalClaimsDiagnostic,
+        node_extraction: data.pipeline.node_extraction ?? null,
+        connectivity: data.pipeline.connectivity ?? null,
+      }
+    })(),
     isl_diagnostic: {
       data_source: data.diagnostics.isl_data_source,
       downstream_calls_path_found: data.diagnostics.downstream_calls_path_found,

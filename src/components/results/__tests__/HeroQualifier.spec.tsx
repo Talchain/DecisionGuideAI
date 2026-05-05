@@ -103,7 +103,9 @@ describe('HeroQualifier render', () => {
       // Curated copy from freshnessReasons.ts
       expect(el.textContent).toContain('Likelihood scores')
       expect(el.getAttribute('data-qualifier-source')).toBe('completeness')
-      expect(el.getAttribute('data-qualifier-reason')).toBe('win_probability_missing')
+      // FOLLOW-UP review (P1.2): raw code MUST NOT appear as a DOM
+      // attribute. The semantic source attribute is sufficient.
+      expect(el.getAttribute('data-qualifier-reason')).toBeNull()
     })
 
     it('completeness reasons take precedence over dimension qualifier', () => {
@@ -117,8 +119,39 @@ describe('HeroQualifier render', () => {
       )
       const el = screen.getByTestId('hero-qualifier')
       expect(el.getAttribute('data-qualifier-source')).toBe('completeness')
-      expect(el.getAttribute('data-qualifier-reason')).toBe('sensitivity_missing')
       expect(el.textContent).toContain('Factor sensitivity')
+    })
+
+    it('redaction: raw reason codes are NOT in any DOM attribute', () => {
+      // Iterate every code in COMPLETENESS_REASON_COPY and verify the
+      // raw code never appears in any element attribute on the
+      // rendered output. The visible text comes from the curated
+      // table; attributes use a semantic source value only.
+      const codes = [
+        'win_probability_missing',
+        'sensitivity_missing',
+        'robustness_unavailable',
+        'decision_review_unavailable',
+        'expected_outcome_missing',
+      ]
+      for (const code of codes) {
+        const { container, unmount } = render(
+          <HeroQualifier dimensions={undefined} completenessReasons={[code]} />,
+        )
+        const el = screen.getByTestId('hero-qualifier')
+        for (const attr of Array.from(el.attributes)) {
+          expect(
+            attr.value,
+            `attribute ${attr.name} for code ${code}`,
+          ).not.toContain(code)
+        }
+        // Sanity: the visible text is non-empty (not the same check as
+        // attribute redaction).
+        expect(el.textContent!.length).toBeGreaterThan(0)
+        // No descendant element exposes the code either.
+        expect(container.outerHTML).not.toContain(code)
+        unmount()
+      }
     })
 
     it('falls through to dimension qualifier when completenessReasons is empty', () => {

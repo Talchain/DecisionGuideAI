@@ -346,10 +346,30 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     import.meta.env.VITE_DEBUG_BUNDLE_V2 = 'false'
   })
 
-  it('200 + CEE response captured → ui_render_success', () => {
-    const bundle = buildDebugBundle(makeDebugData())
+  it('200 + CEE response captured + analysis_ready ready → ui_render_success', () => {
+    // Provide an analysis_ready envelope so the analysis-turn signal
+    // fires explicitly (not via PLoT presence heuristic). Pipeline
+    // status reads `analysis_ready.status` and accepts 'ready'.
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: {
+            analysis_ready: { status: 'ready', freshness: 'fresh' },
+          },
+          plot_request: { prompt: 'analyze' },
+          plot_response: { result: 'ok' },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
     expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
-    expect(bundle.pipeline.v5_pipeline_status_source).toBe('derived_from_trace')
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_trace')
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(true)
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn_signal).toBe(
+      'analysis_ready_present',
+    )
   })
 
   it('5xx → proxy_or_network_failure (CANNOT be promoted to success by wire signal)', () => {
@@ -371,17 +391,20 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     expect(bundle.pipeline.v5_pipeline_status).toBe('proxy_or_network_failure')
   })
 
-  it('CEE call missing entirely → no_cee_call_recorded source, status reflects no completion', () => {
+  it('CEE call missing entirely → no_cee_call_recorded capture', () => {
     const bundle = buildDebugBundle(
       makeDebugData({
         services: { cee: null, plot: null, isl: null },
       }),
     )
     expect(bundle.pipeline.v5_pipeline_status).toBe('proxy_or_network_failure')
-    expect(bundle.pipeline.v5_pipeline_status_source).toBe('no_cee_call_recorded')
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('no_cee_call_recorded')
+    expect(bundle.pipeline.v5_pipeline_status_source.missing_inputs).toContain(
+      'cee_service_record',
+    )
   })
 
-  it('200 but CEE response not captured → cee_response_not_captured source', () => {
+  it('200 but CEE response not captured → cee_response_not_captured capture', () => {
     const bundle = buildDebugBundle(
       makeDebugData({
         payloads: {
@@ -394,9 +417,10 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
         },
       }),
     )
-    expect(bundle.pipeline.v5_pipeline_status_source).toBe('cee_response_not_captured')
-    // Without the captured response we report payload_capture_disabled,
-    // not ui_render_success — honest about absent evidence.
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('cee_response_not_captured')
+    expect(bundle.pipeline.v5_pipeline_status_source.missing_inputs).toContain(
+      'cee_response_payload',
+    )
     expect(bundle.pipeline.v5_pipeline_status).toBe('payload_capture_disabled')
   })
 
@@ -404,5 +428,143 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     const bundle = buildDebugBundle(makeDebugData())
     expect(bundle.pipeline.status).toBe('success')
     expect(bundle.pipeline.v5_pipeline_status).toBeDefined()
+  })
+
+  // -------------------------------------------------------------------------
+  // FOLLOW-UP REVIEW (P0.2 + P1.4 + IMP.1): the original wiring read
+  // `data.ceeAnalysisReady` which doesn't exist on DebugData. A
+  // failing-envelope analysis turn could fall through to
+  // `ui_render_success`. These tests pin the corrected behaviour by
+  // feeding `analysis_ready` through the response payload (which
+  // `extractAnalysisReadyFromBlocks` / envelope root extraction picks
+  // up) and asserting the verdict honestly.
+  // -------------------------------------------------------------------------
+
+  it('analysis_ready.status="needs_user_input" on 200 → analysis_failed (envelope wins over HTTP success)', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: {
+            analysis_ready: { status: 'needs_user_input', freshness: 'unknown' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+    expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe(
+      'needs_user_input',
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(true)
+  })
+
+  it('analysis_ready.status="needs_user_mapping" → analysis_failed', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: {
+            analysis_ready: { status: 'needs_user_mapping' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+  })
+
+  it('analysis_ready absent + analysis_inputs in request → analysis_inputs_present signal', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: { analysis_inputs: { options: [] } },
+          cee_response: { other: 'fields' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(true)
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn_signal).toBe(
+      'analysis_inputs_present',
+    )
+  })
+
+  it('PLoT call present but no analysis_ready / analysis_inputs → no_analysis_signal (heuristic dropped)', () => {
+    // Pre-fix this would have been classified as an analysis turn
+    // because `data.services.plot != null`. Post-fix the inference is
+    // explicit — non-analysis turns that touched PLoT are honest about
+    // not being analysis turns.
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: { evidence_query: 'something' },
+          cee_response: { evidence: 'response' },
+          plot_request: { prompt: 'evidence' },
+          plot_response: { ok: true },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn).toBe(false)
+    expect(bundle.pipeline.v5_pipeline_status_source.is_analysis_turn_signal).toBe(
+      'no_analysis_signal',
+    )
+  })
+
+  it('envelope freshness present surfaces in source field', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: {
+            analysis_ready: {
+              status: 'ready',
+              freshness: 'stale',
+              freshness_reason: 'graph_hash_diverged',
+            },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.envelope_freshness).toBe('stale')
+    expect(bundle.pipeline.v5_pipeline_status_source.envelope_freshness_reason).toBe(
+      'graph_hash_diverged',
+    )
+  })
+
+  it('missing envelope analysis_ready surfaces in missing_inputs list', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { other: 'fields' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.missing_inputs).toContain(
+      'envelope_analysis_ready',
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.missing_inputs).toContain(
+      'envelope_freshness',
+    )
   })
 })

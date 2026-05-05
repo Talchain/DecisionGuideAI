@@ -101,6 +101,13 @@ export function HeroQualifier({
   // source-incomplete data, the user must see why the rendered values
   // can't be relied on — even if the dimension scores happen to be
   // above threshold.
+  //
+  // FOLLOW-UP review (P1.2): the raw reason code is NOT exposed as a
+  // DOM attribute — `data-qualifier-source` is sufficient as a stable
+  // semantic test hook, and the brief's "raw codes never reach DOM"
+  // rule covers attributes as well as text. Tests assert behaviour via
+  // visible copy + the source attribute; no test depends on the raw
+  // code anymore.
   if (completenessReasons && completenessReasons.length > 0) {
     const code = completenessReasons[0]!
     return (
@@ -108,7 +115,6 @@ export function HeroQualifier({
         className={`${typography.panelMeta} text-warning ${className}`.trim()}
         data-testid="hero-qualifier"
         data-qualifier-source="completeness"
-        data-qualifier-reason={code}
       >
         {completenessReasonCopy(code)}
       </p>
