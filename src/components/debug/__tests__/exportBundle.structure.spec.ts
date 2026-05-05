@@ -675,4 +675,246 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe('ready')
     expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
   })
+
+  // ---------------------------------------------------------------------------
+  // FOURTH-ROUND review (P0 #1): real nested-orchestrator flow.
+  // services.cee = null, real CEE call surfaces via data.cee_downstream[0]
+  // which carries status_code / success / latency_ms / error. Pre-fix, the
+  // adapter kept service: data.services.cee (= null) → completed=true (from
+  // payload presence) but httpStatus=null → derivePipelineStatus returned
+  // proxy_or_network_failure even when the downstream response was a clean
+  // ready. Post-fix, the effective service record is synthesised from
+  // cee_downstream[0] when services.cee is null and downstream is present.
+  // ---------------------------------------------------------------------------
+  it('real nested-orchestrator: services.cee=null + cee_downstream success → ui_render_success', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        services: { cee: null, plot: { name: 'PLoT', status: 200, success: true, duration_ms: 800, endpoint: '/plot/v2/run' }, isl: null },
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: { analysis_inputs: { options: [{ id: 'opt_a' }] } },
+          cee_downstream_response: {
+            analysis_ready: { status: 'ready', freshness: 'fresh' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+        cee_downstream: [
+          {
+            endpoint: '/cee/draft-graph',
+            request: { analysis_inputs: { options: [{ id: 'opt_a' }] } },
+            response: { analysis_ready: { status: 'ready', freshness: 'fresh' } },
+            status_code: 200,
+            success: true,
+            latency_ms: 245,
+          },
+        ],
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
+  })
+
+  it('real nested-orchestrator: services.cee=null + cee_downstream 5xx → proxy_or_network_failure', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        services: { cee: null, plot: { name: 'PLoT', status: 200, success: true, duration_ms: 800, endpoint: '/plot/v2/run' }, isl: null },
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: null,
+          cee_downstream_response: null,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+        cee_downstream: [
+          {
+            endpoint: '/cee/draft-graph',
+            request: null,
+            response: null,
+            status_code: 503,
+            success: false,
+            latency_ms: 100,
+            error: 'upstream unavailable',
+          },
+        ],
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('proxy_or_network_failure')
+  })
+
+  // ---------------------------------------------------------------------------
+  // FOURTH-ROUND review (P0 #2 + IMP #2): downstream analysis_ready inside
+  // a graph_patch block. Direct path uses extractAnalysisReadyFromBlocks
+  // (root + block extraction); pre-fix the downstream path read only
+  // resp.analysis_ready, missing block-nested analysis_ready entirely.
+  // The shared readAnalysisReadyFromEnvelope helper is consumed by both.
+  // ---------------------------------------------------------------------------
+  it('downstream response with analysis_ready inside a graph_patch block → enum reflects the block-nested verdict', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: { analysis_inputs: { options: [] } },
+          cee_downstream_response: {
+            // No analysis_ready at root — only inside a block. Direct
+            // path handles this via extractAnalysisReadyFromBlocks.
+            // Pre-fix, downstream path ignored block-nested analysis_ready.
+            blocks: [
+              {
+                type: 'graph_patch',
+                operation: 'set_factor_value',
+                target_id: 'fac_1',
+                data: {
+                  analysis_ready: { status: 'needs_user_input' },
+                },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+        cee_downstream: [
+          {
+            endpoint: '/cee/draft-graph',
+            request: { analysis_inputs: { options: [] } },
+            response: { blocks: [{ type: 'graph_patch', data: { analysis_ready: { status: 'needs_user_input' } } }] },
+            status_code: 200,
+            success: true,
+            latency_ms: 150,
+          },
+        ],
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
+    expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe(
+      'needs_user_input',
+    )
+  })
+
+  it('downstream response with analysis_ready inside applied_graph block (draft_graph) → extracted', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: null,
+          cee_downstream_response: {
+            blocks: [
+              {
+                type: 'graph_patch',
+                operation: 'draft_graph',
+                target_id: 'g',
+                data: {
+                  applied_graph: {
+                    analysis_ready: { status: 'ready', freshness: 'fresh' },
+                  },
+                },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+        cee_downstream: [
+          {
+            endpoint: '/cee/draft-graph',
+            request: null,
+            response: { blocks: [{}] },
+            status_code: 200,
+            success: true,
+            latency_ms: 200,
+          },
+        ],
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBe('ready')
+    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+  })
+
+  it('direct over downstream: direct response WITHOUT analysis_ready, downstream WITH → direct still wins (precedence preserved)', () => {
+    // Critical: the precedence rule is "direct first, downstream as
+    // fallback ONLY when direct is absent". Direct response present
+    // (even if it lacks analysis_ready) must NOT trigger downstream
+    // fallback. This pins the precedence boundary.
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: { other: 'fields', analysis_inputs: { options: [] } },
+          cee_downstream_request: null,
+          cee_downstream_response: {
+            analysis_ready: { status: 'ready' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+        cee_downstream: [
+          {
+            endpoint: '/cee/draft-graph',
+            request: null,
+            response: { analysis_ready: { status: 'ready' } },
+            status_code: 200,
+            success: true,
+            latency_ms: 100,
+          },
+        ],
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_trace')
+    expect(bundle.pipeline.v5_pipeline_status_source.envelope_analysis_ready_status).toBeNull()
+    // Direct response is an analysis turn (analysis_inputs present)
+    // but no analysis_ready → analysis_not_run.
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_not_run')
+  })
+
+  it('downstream 422 with recoverable analysis envelope → analysis_failed', () => {
+    // Real downstream-only orchestrator flow: services.cee=null
+    // (outer call ran via PLoT, no direct CEE service record), and
+    // the inner CEE 422 surfaces via cee_downstream[0]. The
+    // synthesised effective service has status=422 → branch 3 of
+    // derivePipelineStatus fires → recoverable envelope category
+    // 'analysis_failed' resolves to analysis_failed.
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        services: { cee: null, plot: { name: 'PLoT', status: 200, success: true, duration_ms: 800, endpoint: '/plot/v2/run' }, isl: null },
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: null,
+          cee_downstream_response: {
+            error: { retryable: true, category: 'analysis_failed' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+        cee_downstream: [
+          {
+            endpoint: '/cee/draft-graph',
+            request: null,
+            response: { error: { retryable: true, category: 'analysis_failed' } },
+            status_code: 422,
+            success: false,
+            latency_ms: 80,
+          },
+        ],
+      }),
+    )
+    expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_failed')
+  })
 })

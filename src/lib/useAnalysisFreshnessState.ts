@@ -33,11 +33,32 @@ export function useAnalysisFreshnessState(): AnalysisFreshnessState {
   const graphEditedSinceLastRun = useCanvasStore((s) => s.graphEditedSinceLastRun)
   const resultsStatus = useCanvasStore((s) => s.results.status)
   const resultsReport = useCanvasStore((s) => s.results.report)
+  // P0 V5 golden-path repair (fourth-round review, P1 #3): React Flow
+  // nodes carry `n.type` as the structural kind; the canvas store
+  // serialises it as `n.kind`. Mixing surfaces meant freshness fallback
+  // could classify "ready" graphs as no_options_yet purely because of
+  // which read site shipped. Normalise to read all three forms in
+  // priority order so wire-compatible freshness still wins AND fallback
+  // coherence holds:
+  //   1. n.kind         — canvas store native
+  //   2. n.type         — React Flow native
+  //   3. n.data.kind    — some draft adaptors stash kind on data
+  const readNodeKind = (n: unknown): string | null => {
+    const node = n as
+      | { kind?: unknown; type?: unknown; data?: { kind?: unknown } }
+      | null
+      | undefined
+    if (!node) return null
+    if (typeof node.kind === 'string') return node.kind
+    if (typeof node.type === 'string') return node.type
+    if (typeof node.data?.kind === 'string') return node.data.kind
+    return null
+  }
   const optionCount = useCanvasStore(
-    (s) => s.nodes.filter((n) => n.kind === 'option').length,
+    (s) => s.nodes.filter((n) => readNodeKind(n) === 'option').length,
   )
   const goalCount = useCanvasStore(
-    (s) => s.nodes.filter((n) => n.kind === 'goal').length,
+    (s) => s.nodes.filter((n) => readNodeKind(n) === 'goal').length,
   )
 
   return useMemo(

@@ -149,42 +149,99 @@ interface BundleStatusResult {
  * Returns the EFFECTIVE payload triplet — direct first, downstream as
  * fallback.
  */
+/**
+ * Effective CEE service record. Synthesised from
+ * `data.cee_downstream[0]` when the direct `data.services.cee` is
+ * null but a downstream call was recorded — fixes the fourth-round
+ * P0 #1 bug where downstream-only flows reported
+ * proxy_or_network_failure because `services.cee` was null and
+ * httpStatus came back null.
+ */
+type EffectiveCeeService = {
+  status: number | null
+  success: boolean
+  duration_ms: number | null
+  error?: string
+} | null
+
 function extractEffectiveCeePayloads(data: DebugData): {
   request: Record<string, unknown> | null
   response: Record<string, unknown> | null
-  service: DebugData['services']['cee']
+  service: EffectiveCeeService
   source: 'direct' | 'downstream' | 'none'
 } {
   const directReq = asRecord(data.payloads.cee_request)
   const directRes = asRecord(data.payloads.cee_response)
   const downstreamReq = asRecord(data.payloads.cee_downstream_request)
   const downstreamRes = asRecord(data.payloads.cee_downstream_response)
+  const downstreamCall = data.cee_downstream?.[0] ?? null
 
+  // Direct path takes precedence. Direct service record is read from
+  // data.services.cee; downstream call data is ignored even if present.
   if (directReq != null || directRes != null) {
+    const direct = data.services.cee
     return {
       request: directReq,
       response: directRes,
-      service: data.services.cee,
+      service: direct
+        ? {
+            status: direct.status,
+            success: direct.success,
+            duration_ms: direct.duration_ms,
+            ...(direct.error !== undefined ? { error: direct.error } : {}),
+          }
+        : null,
       source: 'direct',
     }
   }
-  if (downstreamReq != null || downstreamRes != null) {
-    // For downstream-only flows the service record may still be on
-    // `data.services.cee` (CEE was called via PLoT but the
-    // request/response landed in the downstream slot). If both are
-    // absent we still want to surface the response — derivePipelineStatus
-    // will see `service: null` and report no_cee_call_recorded.
+
+  // Downstream path. The service record may be in data.services.cee
+  // (CEE called via PLoT but tracked in services), OR it may live in
+  // data.cee_downstream[0]. Synthesise from whichever is present —
+  // pre-fix this returned `service: data.services.cee` which was null
+  // for nested-orchestrator flows, breaking the verdict.
+  if (downstreamReq != null || downstreamRes != null || downstreamCall != null) {
+    let service: EffectiveCeeService = null
+    if (data.services.cee) {
+      const direct = data.services.cee
+      service = {
+        status: direct.status,
+        success: direct.success,
+        duration_ms: direct.duration_ms,
+        ...(direct.error !== undefined ? { error: direct.error } : {}),
+      }
+    } else if (downstreamCall) {
+      service = {
+        status: downstreamCall.status_code,
+        success: downstreamCall.success,
+        duration_ms: downstreamCall.latency_ms,
+        ...(downstreamCall.error !== undefined ? { error: downstreamCall.error } : {}),
+      }
+    }
     return {
-      request: downstreamReq,
-      response: downstreamRes,
-      service: data.services.cee,
+      request: downstreamReq ?? asRecord(downstreamCall?.request),
+      response: downstreamRes ?? asRecord(downstreamCall?.response),
+      service,
       source: 'downstream',
     }
   }
+
+  // No CEE evidence at all — direct path with services.cee value
+  // covers the "service captured but no payload" case at the top of
+  // the function.
   return {
     request: null,
     response: null,
-    service: data.services.cee,
+    service: data.services.cee
+      ? {
+          status: data.services.cee.status,
+          success: data.services.cee.success,
+          duration_ms: data.services.cee.duration_ms,
+          ...(data.services.cee.error !== undefined
+            ? { error: data.services.cee.error }
+            : {}),
+        }
+      : null,
     source: 'none',
   }
 }
@@ -218,19 +275,16 @@ function deriveBundlePipelineStatusV2(inputs: BundleStatusInputs): BundleStatusR
         }
       : undefined
 
-  // Read analysis_ready from the EFFECTIVE response (direct or
-  // downstream). Caller passes the pre-extracted direct envelope
-  // (`envelopeAnalysisReady`) for the common case; when only downstream
-  // is captured we extract from the effective response in-helper to
-  // keep the downstream path honest. Pre-fix, this relied solely on
-  // the caller's value, so a downstream-only response surfaced as
-  // "envelope absent" even when downstream carried analysis_ready.
-  const downstreamAR = (() => {
-    if (envelopeAnalysisReady != null) return null
-    if (effective.source !== 'downstream') return null
-    const resp = effective.response as { analysis_ready?: unknown } | null
-    return resp?.analysis_ready ?? null
-  })()
+  // Read analysis_ready from the EFFECTIVE response via the shared
+  // helper. Direct path uses caller's pre-extracted value (already
+  // root + block extraction). Downstream path goes through the same
+  // root + block helper — pre-fix this read only `resp.analysis_ready`
+  // and missed block-nested analysis_ready (e.g. graph_patch /
+  // applied_graph). Fourth-round P0 #2 + IMP #2.
+  const downstreamAR =
+    envelopeAnalysisReady != null || effective.source !== 'downstream'
+      ? null
+      : readAnalysisReadyFromEnvelope(effective.response)
   const envelopeAR = (envelopeAnalysisReady ?? downstreamAR ?? null) as AnalysisReadyShape
   const ar = envelopeAR as
     | { status?: unknown; freshness?: unknown; freshness_reason?: unknown }
@@ -529,6 +583,22 @@ function extractAnalysisReadyFromBlocks(envelope: Record<string, unknown> | null
     }
   }
   return null
+}
+
+/**
+ * Fourth-round review (P0 #2 + IMP #2): single helper combining
+ * envelope-root and block-nested analysis_ready extraction. Both
+ * direct CEE responses and downstream-CEE responses (orchestrator
+ * flows) flow through this helper so the extraction cannot diverge.
+ *
+ * Returns null when no analysis_ready is present at root or in any
+ * block — distinct from "envelope absent" which is the caller's
+ * responsibility to handle.
+ */
+function readAnalysisReadyFromEnvelope(envelope: Record<string, unknown> | null): unknown | null {
+  if (!envelope) return null
+  if (envelope.analysis_ready != null) return envelope.analysis_ready
+  return extractAnalysisReadyFromBlocks(envelope)
 }
 
 function extractCausalClaimsDiagnostic(ceeResponse: unknown): DebugBundle['pipeline']['causal_claims_diagnostic'] {
