@@ -1067,6 +1067,14 @@ interface DebugBundle {
   goal_constraints?: { count: number; items: unknown[] } | null
   /** CEE analysis readiness from envelope.analysis_ready. */
   analysis_ready?: unknown | null
+  /**
+   * Fifth-round review (P1 #1 + IMP #1): which path produced the
+   * envelope-derived fields above (pipeline_outcome / goal_constraints /
+   * analysis_ready / causal_claims_diagnostic). Aligned with
+   * pipeline.v5_pipeline_status_source.capture so consumers can tell
+   * direct from downstream extraction at a glance.
+   */
+  effective_cee_response_source?: 'direct' | 'downstream' | 'none'
 }
 
 // =============================================================================
@@ -1851,14 +1859,28 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
   const payloadsTruncated = detectTruncation(data.payloads)
   const graphTruncated = fullGraph ? detectTruncation(fullGraph) : false
   const truncationApplied = payloadsTruncated || graphTruncated
+  // Fifth-round review (P1 #1 + IMP #1): normalise an effective CEE
+  // response once so envelope fields, pipeline-outcome, goal_constraints,
+  // analysis_ready, and causal-claims diagnostic all read from the same
+  // source. Pre-fix, payloads.cee_response in the OUTPUT bundle fell back
+  // to downstream (line 1745-ish below) AND v5_pipeline_status read
+  // downstream — but envelope/pipeline-outcome/goal-constraints/analysis_ready
+  // continued to read direct only. Support bundles could show
+  // payloads.cee_response.analysis_ready (downstream) while top-level
+  // analysis_ready was null because envelopeRecord = direct only.
+  // Normalising here closes the inconsistency for every envelope-derived
+  // field with one definition. `effective_cee_response_source` is added
+  // below so consumers can tell direct from downstream extraction.
+  const effective = extractEffectiveCeePayloads(data)
+  const effectiveCeeResponse = effective.response
   const pipelineQuickFields = extractCeePipelineQuickFields(data)
-  const causalClaimsDiagnostic = extractCausalClaimsDiagnostic(data.payloads.cee_response)
+  const causalClaimsDiagnostic = extractCausalClaimsDiagnostic(effectiveCeeResponse)
   const islRawFields = extractIslRawFields(data.payloads.isl_response)
   const plotEnrichment = extractPlotEnrichment(data.payloads.plot_response)
 
-  // Extract envelope-level fields from cee_response (the orchestrator envelope).
-  // These are top-level fields on the envelope that the debug bundle surfaces directly.
-  const envelopeRecord = asRecord(data.payloads.cee_response)
+  // Extract envelope-level fields from the EFFECTIVE response (direct
+  // first, downstream fallback). Pre-fix these only saw direct response.
+  const envelopeRecord = effectiveCeeResponse
   const envelopePipelineOutcome = envelopeRecord?._pipeline_outcome ?? null
 
   // goal_constraints: check envelope root first, then graph_patch block data
@@ -1873,10 +1895,10 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     ? { count: gcItems.length, items: gcItems }
     : null
 
-  // analysis_ready: on graph_patch block data or envelope root (CEE may place it either way)
-  const envelopeAnalysisReady = envelopeRecord?.analysis_ready
-    ?? extractAnalysisReadyFromBlocks(envelopeRecord)
-    ?? null
+  // analysis_ready: on envelope root, graph_patch block data, or
+  // applied_graph block data. Use the shared helper consumed by the
+  // pipeline-status derivation so extraction cannot diverge.
+  const envelopeAnalysisReady = readAnalysisReadyFromEnvelope(envelopeRecord)
 
   // User actions from debug-state ring buffer
   const userActions = collectUserActions()
@@ -2093,10 +2115,15 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       } : {}),
     } : {}),
 
-    // Envelope-level fields — extracted from cee_response (orchestrator envelope)
+    // Envelope-level fields — extracted from the EFFECTIVE CEE
+    // response (direct first, downstream fallback). The
+    // effective_cee_response_source field tells consumers which path
+    // produced these values so support cannot mistake "absent" for
+    // "I read the wrong slot".
     pipeline_outcome: envelopePipelineOutcome,
     goal_constraints: envelopeGoalConstraints,
     analysis_ready: envelopeAnalysisReady,
+    effective_cee_response_source: effective.source,
   }
 }
 

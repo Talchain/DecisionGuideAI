@@ -881,6 +881,92 @@ describe('buildDebugBundle — v5_pipeline_status (Wave 5 wiring)', () => {
     expect(bundle.pipeline.v5_pipeline_status).toBe('analysis_not_run')
   })
 
+  // ---------------------------------------------------------------------------
+  // FIFTH-ROUND review (P1 #1 + IMP #1): bundle-wide consistency.
+  // When the effective response comes from downstream, top-level
+  // analysis_ready / goal_constraints / pipeline_outcome must come
+  // from the SAME effective response, not direct payloads.cee_response
+  // (which is null in downstream-only flows). The
+  // `effective_cee_response_source` field communicates this to support.
+  // ---------------------------------------------------------------------------
+  it('downstream-only: top-level analysis_ready + effective_cee_response_source reflect downstream', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        services: { cee: null, plot: { name: 'PLoT', status: 200, success: true, duration_ms: 800, endpoint: '/plot/v2/run' }, isl: null },
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: { analysis_inputs: { options: [{ id: 'opt_a' }] } },
+          cee_downstream_response: {
+            _pipeline_outcome: 'success',
+            goal_constraints: [{ id: 'gc_1' }],
+            analysis_ready: { status: 'ready', freshness: 'fresh' },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+        cee_downstream: [
+          {
+            endpoint: '/cee/draft-graph',
+            request: { analysis_inputs: { options: [{ id: 'opt_a' }] } },
+            response: {
+              _pipeline_outcome: 'success',
+              goal_constraints: [{ id: 'gc_1' }],
+              analysis_ready: { status: 'ready', freshness: 'fresh' },
+            },
+            status_code: 200,
+            success: true,
+            latency_ms: 200,
+          },
+        ],
+      }),
+    )
+    // Top-level fields populated from downstream — pre-fix these were
+    // null because envelopeRecord read direct payloads.cee_response only.
+    expect((bundle as { analysis_ready?: unknown }).analysis_ready).toEqual({
+      status: 'ready',
+      freshness: 'fresh',
+    })
+    expect((bundle as { goal_constraints?: { count: number } }).goal_constraints?.count).toBe(1)
+    expect((bundle as { pipeline_outcome?: unknown }).pipeline_outcome).toBe('success')
+    expect((bundle as { effective_cee_response_source?: string }).effective_cee_response_source).toBe(
+      'downstream',
+    )
+    // Pipeline status field aligns with envelope-derived fields.
+    expect(bundle.pipeline.v5_pipeline_status).toBe('ui_render_success')
+    expect(bundle.pipeline.v5_pipeline_status_source.capture).toBe('derived_from_downstream')
+  })
+
+  it('direct path: effective_cee_response_source=direct (precedence preserved)', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    expect((bundle as { effective_cee_response_source?: string }).effective_cee_response_source).toBe(
+      'direct',
+    )
+  })
+
+  it('no CEE evidence: effective_cee_response_source=none', () => {
+    const bundle = buildDebugBundle(
+      makeDebugData({
+        services: { cee: null, plot: null, isl: null },
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          cee_downstream_request: null,
+          cee_downstream_response: null,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        } as never,
+      }),
+    )
+    expect((bundle as { effective_cee_response_source?: string }).effective_cee_response_source).toBe(
+      'none',
+    )
+  })
+
   it('downstream 422 with recoverable analysis envelope → analysis_failed', () => {
     // Real downstream-only orchestrator flow: services.cee=null
     // (outer call ran via PLoT, no direct CEE service record), and
