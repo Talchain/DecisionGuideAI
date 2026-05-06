@@ -5,63 +5,48 @@
  * ALREADY APPLIED when they arrive. No Apply/Cancel buttons; just a
  * status card showing what changed.
  *
+ * Workstream 1 (Journey 3 / Journey 6) — receipt is now a clean human
+ * description derived UI-side from the canvas store. Raw target_id,
+ * operator codes, schema field names and before/after JSON keys MUST NOT
+ * appear in the default surface. The friendly description is built by
+ * `buildV5PatchReceipt` (mirrors the V4 friendlyOperation.ts pattern).
+ *
  * Statuses:
- *   - 'applied' — mutation applied to the graph. Show operation + target.
- *   - 'noop'    — CEE looked but nothing needed to change. Hide before/after.
+ *   - 'applied' — mutation applied to the model. Receipt shows the
+ *                 entity affected and the change in plain English.
+ *   - 'noop'    — CEE looked but nothing needed to change. Receipt
+ *                 indicates the no-op without surfacing field names.
  *
  * Design tokens (DS v5 §21.2): card frame, panel typography, semantic border.
  */
-import { type ReactElement } from 'react'
+import { useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
+import { useCanvasStore } from '../../canvas/store'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
+import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
 
 export interface V5GraphPatchBlockProps {
   block: V5GraphPatchBlockType
 }
 
-const OPERATION_LABELS: Record<V5GraphPatchBlockType['operation'], string> = {
-  set_factor_value: 'Set factor value',
-  add_constraint: 'Add constraint',
-  adjust_edge_strength: 'Adjust edge strength',
-}
-
-function formatFieldValue(val: unknown): string {
-  if (val === null || val === undefined) return '—'
-  if (typeof val === 'number') return String(val)
-  if (typeof val === 'string') return val
-  if (typeof val === 'boolean') return val ? 'true' : 'false'
-  try {
-    return JSON.stringify(val)
-  } catch {
-    return '[unserialisable]'
-  }
-}
-
-function renderChangedFields(
-  before: Record<string, unknown> | null,
-  after: Record<string, unknown> | null,
-): Array<{ field: string; before: string; after: string }> {
-  const beforeObj = before ?? {}
-  const afterObj = after ?? {}
-  const fieldSet = new Set([...Object.keys(beforeObj), ...Object.keys(afterObj)])
-  const out: Array<{ field: string; before: string; after: string }> = []
-  for (const field of fieldSet) {
-    const b = formatFieldValue(beforeObj[field])
-    const a = formatFieldValue(afterObj[field])
-    if (b !== a) out.push({ field, before: b, after: a })
-  }
-  return out
-}
-
 export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactElement {
-  const opLabel = OPERATION_LABELS[block.operation] ?? block.operation
-  const isApplied = block.status === 'applied'
-  const changes = isApplied ? renderChangedFields(block.before, block.after) : []
+  // Pull only the slices we need; useCanvasStore selectors keep the
+  // subscription scoped so the block does not re-render on unrelated
+  // store updates.
+  const nodes = useCanvasStore((s) => s.nodes)
+  const edges = useCanvasStore((s) => s.edges)
+
+  const receipt = useMemo(
+    () => buildV5PatchReceipt(block, buildV5PatchDeps(nodes, edges)),
+    [block, nodes, edges],
+  )
+
+  const isApplied = receipt.status === 'applied'
 
   return (
     <div
       data-testid="v5-graph-patch"
-      data-status={block.status}
+      data-status={receipt.status}
       data-operation={block.operation}
       className="rounded-xl border border-panel-border bg-panel p-4 space-y-2"
     >
@@ -79,29 +64,26 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
         </span>
         <h3
           className={typography.panelHeader}
-          data-testid="v5-graph-patch-operation"
+          data-testid="v5-graph-patch-action"
         >
-          {opLabel}
+          {receipt.actionLabel}
         </h3>
       </div>
-      <p className={typography.panelBody} data-testid="v5-graph-patch-target">
-        <span className="text-text-light">Target: </span>
-        <code className="text-text-body">{block.target_id}</code>
-      </p>
-      {isApplied && changes.length > 0 && (
-        <ul
-          className={`${typography.panelMeta} space-y-1`}
-          data-testid="v5-graph-patch-changes"
+      {receipt.entityLabel && (
+        <p
+          className={typography.panelBody}
+          data-testid="v5-graph-patch-entity"
         >
-          {changes.map((c) => (
-            <li key={c.field} className="flex items-center gap-2">
-              <span className="text-text-light">{c.field}:</span>
-              <span className="text-text-body">{c.before}</span>
-              <span className="text-text-light">→</span>
-              <span className="text-text-body font-medium">{c.after}</span>
-            </li>
-          ))}
-        </ul>
+          {receipt.entityLabel}
+        </p>
+      )}
+      {receipt.changeSummary && (
+        <p
+          className={`${typography.panelMeta} text-text-body`}
+          data-testid="v5-graph-patch-change"
+        >
+          {receipt.changeSummary}
+        </p>
       )}
     </div>
   )
