@@ -1,0 +1,304 @@
+{
+  "nodes": [
+    {
+      "id": "dec_assistant",
+      "type": "decision",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "decision",
+        "label": "Assistant Strategy Decision"
+      }
+    },
+    {
+      "id": "fac_annual_cost",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Annual Assistant Cost"
+      }
+    },
+    {
+      "id": "fac_setup_effort",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Onboarding and Setup Effort"
+      }
+    },
+    {
+      "id": "fac_strategic_task_value",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Value of Strategic Tasks Unlocked"
+      }
+    },
+    {
+      "id": "fac_task_delegation_breadth",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Task Delegation Breadth"
+      }
+    },
+    {
+      "id": "goal_productivity",
+      "type": "goal",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "goal",
+        "label": "Maximize Strategic Productivity and Focus"
+      }
+    },
+    {
+      "id": "opt_ai_only",
+      "type": "option",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "option",
+        "label": "AI Assistant Only"
+      }
+    },
+    {
+      "id": "opt_human_ai",
+      "type": "option",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "option",
+        "label": "Human Assistant with AI Tools"
+      }
+    },
+    {
+      "id": "opt_human_only",
+      "type": "option",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "option",
+        "label": "Human Assistant Only"
+      }
+    },
+    {
+      "id": "opt_status_quo",
+      "type": "option",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "option",
+        "label": "Continue Without Assistant (Status Quo)"
+      }
+    },
+    {
+      "id": "out_strategic_focus",
+      "type": "outcome",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "outcome",
+        "label": "Strategic Focus Gained"
+      }
+    },
+    {
+      "id": "out_task_quality",
+      "type": "outcome",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "outcome",
+        "label": "Delegated Task Quality"
+      }
+    },
+    {
+      "id": "risk_cost_burden",
+      "type": "risk",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "risk",
+        "label": "Annual Cost Burden"
+      }
+    },
+    {
+      "id": "risk_delegation_failure",
+      "type": "risk",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "risk",
+        "label": "Delegation Failure or Mismatch"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "dec_assistant->opt_ai_only",
+      "source": "dec_assistant",
+      "target": "opt_ai_only"
+    },
+    {
+      "id": "dec_assistant->opt_human_ai",
+      "source": "dec_assistant",
+      "target": "opt_human_ai"
+    },
+    {
+      "id": "dec_assistant->opt_human_only",
+      "source": "dec_assistant",
+      "target": "opt_human_only"
+    },
+    {
+      "id": "dec_assistant->opt_status_quo",
+      "source": "dec_assistant",
+      "target": "opt_status_quo"
+    },
+    {
+      "id": "fac_annual_cost->risk_cost_burden",
+      "source": "fac_annual_cost",
+      "target": "risk_cost_burden"
+    },
+    {
+      "id": "fac_setup_effort->risk_delegation_failure",
+      "source": "fac_setup_effort",
+      "target": "risk_delegation_failure"
+    },
+    {
+      "id": "fac_strategic_task_value->out_strategic_focus",
+      "source": "fac_strategic_task_value",
+      "target": "out_strategic_focus"
+    },
+    {
+      "id": "fac_task_delegation_breadth->out_strategic_focus",
+      "source": "fac_task_delegation_breadth",
+      "target": "out_strategic_focus"
+    },
+    {
+      "id": "fac_task_delegation_breadth->out_task_quality",
+      "source": "fac_task_delegation_breadth",
+      "target": "out_task_quality"
+    },
+    {
+      "id": "fac_task_delegation_breadth->risk_delegation_failure",
+      "source": "fac_task_delegation_breadth",
+      "target": "risk_delegation_failure"
+    },
+    {
+      "id": "opt_ai_only->fac_annual_cost",
+      "source": "opt_ai_only",
+      "target": "fac_annual_cost"
+    },
+    {
+      "id": "opt_ai_only->fac_setup_effort",
+      "source": "opt_ai_only",
+      "target": "fac_setup_effort"
+    },
+    {
+      "id": "opt_ai_only->fac_task_delegation_breadth",
+      "source": "opt_ai_only",
+      "target": "fac_task_delegation_breadth"
+    },
+    {
+      "id": "opt_human_ai->fac_annual_cost",
+      "source": "opt_human_ai",
+      "target": "fac_annual_cost"
+    },
+    {
+      "id": "opt_human_ai->fac_setup_effort",
+      "source": "opt_human_ai",
+      "target": "fac_setup_effort"
+    },
+    {
+      "id": "opt_human_ai->fac_task_delegation_breadth",
+      "source": "opt_human_ai",
+      "target": "fac_task_delegation_breadth"
+    },
+    {
+      "id": "opt_human_only->fac_annual_cost",
+      "source": "opt_human_only",
+      "target": "fac_annual_cost"
+    },
+    {
+      "id": "opt_human_only->fac_setup_effort",
+      "source": "opt_human_only",
+      "target": "fac_setup_effort"
+    },
+    {
+      "id": "opt_human_only->fac_task_delegation_breadth",
+      "source": "opt_human_only",
+      "target": "fac_task_delegation_breadth"
+    },
+    {
+      "id": "opt_status_quo->fac_annual_cost",
+      "source": "opt_status_quo",
+      "target": "fac_annual_cost"
+    },
+    {
+      "id": "opt_status_quo->fac_setup_effort",
+      "source": "opt_status_quo",
+      "target": "fac_setup_effort"
+    },
+    {
+      "id": "opt_status_quo->fac_task_delegation_breadth",
+      "source": "opt_status_quo",
+      "target": "fac_task_delegation_breadth"
+    },
+    {
+      "id": "out_strategic_focus->goal_productivity",
+      "source": "out_strategic_focus",
+      "target": "goal_productivity"
+    },
+    {
+      "id": "out_task_quality->goal_productivity",
+      "source": "out_task_quality",
+      "target": "goal_productivity"
+    },
+    {
+      "id": "risk_cost_burden->goal_productivity",
+      "source": "risk_cost_burden",
+      "target": "goal_productivity"
+    },
+    {
+      "id": "risk_delegation_failure->goal_productivity",
+      "source": "risk_delegation_failure",
+      "target": "goal_productivity"
+    }
+  ]
+}

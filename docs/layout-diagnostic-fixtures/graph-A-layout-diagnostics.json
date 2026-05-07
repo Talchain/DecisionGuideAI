@@ -1,0 +1,797 @@
+{
+  "graphPath": "docs/layout-diagnostic-fixtures/graph-A.json",
+  "capturedBy": "real-browser playwright on /#/canvas (CanvasMVP via POC HashRouter); pipeline diagnostics + DOM rects from the SAME run",
+  "viewportTransform": "translate(92.218px, 119.792px) scale(0.615917)",
+  "diagnostics": [
+    {
+      "stage": "afterElk",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_assistant",
+            "type": "decision",
+            "x": 467,
+            "y": 12,
+            "w": 344,
+            "h": 85
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_only",
+            "type": "option",
+            "x": 29,
+            "y": 207,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_ai",
+            "type": "option",
+            "x": 433,
+            "y": 207,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_only",
+            "type": "option",
+            "x": 837,
+            "y": 207,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 1241,
+            "y": 197,
+            "w": 344,
+            "h": 97
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_annual_cost",
+            "type": "factor",
+            "x": 12,
+            "y": 494,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_setup_effort",
+            "type": "factor",
+            "x": 820,
+            "y": 494,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_strategic_task_value",
+            "type": "factor",
+            "x": 416,
+            "y": 494,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_task_delegation_breadth",
+            "type": "factor",
+            "x": 1224,
+            "y": 494,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_strategic_focus",
+            "type": "outcome",
+            "x": 473,
+            "y": 678,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_task_quality",
+            "type": "outcome",
+            "x": 1310,
+            "y": 678,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_cost_burden",
+            "type": "risk",
+            "x": 12,
+            "y": 678,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_delegation_failure",
+            "type": "risk",
+            "x": 877,
+            "y": 678,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_productivity",
+            "type": "goal",
+            "x": 507,
+            "y": 850,
+            "w": 344,
+            "h": 98
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175149385
+    },
+    {
+      "stage": "afterTierRowSplitting",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_assistant",
+            "type": "decision",
+            "x": 467,
+            "y": 12,
+            "w": 344,
+            "h": 85
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_only",
+            "type": "option",
+            "x": 29,
+            "y": 207,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_ai",
+            "type": "option",
+            "x": 433,
+            "y": 207,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_only",
+            "type": "option",
+            "x": 837,
+            "y": 207,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 1241,
+            "y": 197,
+            "w": 344,
+            "h": 97
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_annual_cost",
+            "type": "factor",
+            "x": 12,
+            "y": 494,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_setup_effort",
+            "type": "factor",
+            "x": 820,
+            "y": 494,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_strategic_task_value",
+            "type": "factor",
+            "x": 416,
+            "y": 494,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_task_delegation_breadth",
+            "type": "factor",
+            "x": 1224,
+            "y": 494,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_strategic_focus",
+            "type": "outcome",
+            "x": 473,
+            "y": 678,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_task_quality",
+            "type": "outcome",
+            "x": 1310,
+            "y": 678,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_cost_burden",
+            "type": "risk",
+            "x": 12,
+            "y": 678,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_delegation_failure",
+            "type": "risk",
+            "x": 877,
+            "y": 678,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_productivity",
+            "type": "goal",
+            "x": 507,
+            "y": 850,
+            "w": 344,
+            "h": 98
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175149385
+    },
+    {
+      "stage": "afterNormaliseTierRows",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_assistant",
+            "type": "decision",
+            "x": 467,
+            "y": 0,
+            "w": 344,
+            "h": 85
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_only",
+            "type": "option",
+            "x": 29,
+            "y": 133,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_ai",
+            "type": "option",
+            "x": 433,
+            "y": 133,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_only",
+            "type": "option",
+            "x": 837,
+            "y": 133,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 1241,
+            "y": 133,
+            "w": 344,
+            "h": 97
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_annual_cost",
+            "type": "factor",
+            "x": 12,
+            "y": 278,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_setup_effort",
+            "type": "factor",
+            "x": 820,
+            "y": 278,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_strategic_task_value",
+            "type": "factor",
+            "x": 416,
+            "y": 278,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_task_delegation_breadth",
+            "type": "factor",
+            "x": 1224,
+            "y": 278,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_strategic_focus",
+            "type": "outcome",
+            "x": 473,
+            "y": 410,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_task_quality",
+            "type": "outcome",
+            "x": 1310,
+            "y": 410,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_cost_burden",
+            "type": "risk",
+            "x": 12,
+            "y": 530,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_delegation_failure",
+            "type": "risk",
+            "x": 877,
+            "y": 530,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_productivity",
+            "type": "goal",
+            "x": 507,
+            "y": 650,
+            "w": 344,
+            "h": 98
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175149385
+    },
+    {
+      "stage": "afterCentreRowsOnSpine",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_assistant",
+            "type": "decision",
+            "x": 467,
+            "y": 0,
+            "w": 344,
+            "h": 85
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_only",
+            "type": "option",
+            "x": -139,
+            "y": 133,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_ai",
+            "type": "option",
+            "x": 265,
+            "y": 133,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_only",
+            "type": "option",
+            "x": 669,
+            "y": 133,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 1073,
+            "y": 133,
+            "w": 344,
+            "h": 97
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_annual_cost",
+            "type": "factor",
+            "x": -139,
+            "y": 278,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_setup_effort",
+            "type": "factor",
+            "x": 669,
+            "y": 278,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_strategic_task_value",
+            "type": "factor",
+            "x": 265,
+            "y": 278,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_task_delegation_breadth",
+            "type": "factor",
+            "x": 1073,
+            "y": 278,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_strategic_focus",
+            "type": "outcome",
+            "x": 265,
+            "y": 410,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_task_quality",
+            "type": "outcome",
+            "x": 669,
+            "y": 410,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_cost_burden",
+            "type": "risk",
+            "x": 265,
+            "y": 530,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_delegation_failure",
+            "type": "risk",
+            "x": 669,
+            "y": 530,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_productivity",
+            "type": "goal",
+            "x": 467,
+            "y": 650,
+            "w": 344,
+            "h": 98
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175149385
+    },
+    {
+      "stage": "afterCollisionAndTranslation",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_assistant",
+            "type": "decision",
+            "x": 630,
+            "y": 24,
+            "w": 344,
+            "h": 85
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_only",
+            "type": "option",
+            "x": 24,
+            "y": 157,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_ai",
+            "type": "option",
+            "x": 428,
+            "y": 157,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_human_only",
+            "type": "option",
+            "x": 832,
+            "y": 157,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 1236,
+            "y": 157,
+            "w": 344,
+            "h": 97
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_annual_cost",
+            "type": "factor",
+            "x": 24,
+            "y": 302,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_setup_effort",
+            "type": "factor",
+            "x": 832,
+            "y": 302,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_strategic_task_value",
+            "type": "factor",
+            "x": 428,
+            "y": 302,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_task_delegation_breadth",
+            "type": "factor",
+            "x": 1236,
+            "y": 302,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_strategic_focus",
+            "type": "outcome",
+            "x": 428,
+            "y": 434,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_task_quality",
+            "type": "outcome",
+            "x": 832,
+            "y": 434,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_cost_burden",
+            "type": "risk",
+            "x": 428,
+            "y": 554,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_delegation_failure",
+            "type": "risk",
+            "x": 832,
+            "y": 554,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_productivity",
+            "type": "goal",
+            "x": 630,
+            "y": 674,
+            "w": 344,
+            "h": 98
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 1,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175149385
+    }
+  ],
+  "renderedBoxes": [
+    {
+      "id": "dec_assistant",
+      "domX": 480,
+      "domY": 135,
+      "domW": 136,
+      "domH": 42
+    },
+    {
+      "id": "fac_annual_cost",
+      "domX": 107,
+      "domY": 306,
+      "domW": 126,
+      "domH": 42
+    },
+    {
+      "id": "fac_setup_effort",
+      "domX": 605,
+      "domY": 306,
+      "domW": 151,
+      "domH": 42
+    },
+    {
+      "id": "fac_strategic_task_value",
+      "domX": 356,
+      "domY": 306,
+      "domW": 173,
+      "domH": 42
+    },
+    {
+      "id": "fac_task_delegation_breadth",
+      "domX": 853,
+      "domY": 306,
+      "domW": 135,
+      "domH": 42
+    },
+    {
+      "id": "goal_productivity",
+      "domX": 480,
+      "domY": 535,
+      "domW": 194,
+      "domH": 51
+    },
+    {
+      "id": "opt_ai_only",
+      "domX": 107,
+      "domY": 216,
+      "domW": 96,
+      "domH": 42
+    },
+    {
+      "id": "opt_human_ai",
+      "domX": 356,
+      "domY": 216,
+      "domW": 147,
+      "domH": 42
+    },
+    {
+      "id": "opt_human_only",
+      "domX": 605,
+      "domY": 216,
+      "domW": 115,
+      "domH": 42
+    },
+    {
+      "id": "opt_status_quo",
+      "domX": 853,
+      "domY": 216,
+      "domW": 186,
+      "domH": 50
+    },
+    {
+      "id": "out_strategic_focus",
+      "domX": 356,
+      "domY": 387,
+      "domW": 119,
+      "domH": 34
+    },
+    {
+      "id": "out_task_quality",
+      "domX": 605,
+      "domY": 387,
+      "domW": 119,
+      "domH": 34
+    },
+    {
+      "id": "risk_cost_burden",
+      "domX": 356,
+      "domY": 461,
+      "domW": 107,
+      "domH": 34
+    },
+    {
+      "id": "risk_delegation_failure",
+      "domX": 605,
+      "domY": 461,
+      "domW": 149,
+      "domH": 34
+    }
+  ]
+}

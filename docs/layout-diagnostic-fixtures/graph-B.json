@@ -1,0 +1,346 @@
+{
+  "nodes": [
+    {
+      "id": "dec_marketing",
+      "type": "decision",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "decision",
+        "label": "Marketing Approach for Product Feature Launch"
+      }
+    },
+    {
+      "id": "fac_ad_spend",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Advertising Budget"
+      }
+    },
+    {
+      "id": "fac_market_receptivity",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Market Receptivity to Feature"
+      }
+    },
+    {
+      "id": "fac_marketing_expertise",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Marketing Strategy Quality"
+      }
+    },
+    {
+      "id": "fac_marketing_salary",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Marketing Personnel Cost"
+      }
+    },
+    {
+      "id": "fac_owner_time",
+      "type": "factor",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "factor",
+        "label": "Owner Time Commitment"
+      }
+    },
+    {
+      "id": "goal_launch_success",
+      "type": "goal",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "goal",
+        "label": "Successful Product Feature Launch Within Budget"
+      }
+    },
+    {
+      "id": "opt_ai_tool",
+      "type": "option",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "option",
+        "label": "AI Tool + Increased Ad Spend"
+      }
+    },
+    {
+      "id": "opt_hire_manager",
+      "type": "option",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "option",
+        "label": "Hire Marketing Manager"
+      }
+    },
+    {
+      "id": "opt_hybrid",
+      "type": "option",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "option",
+        "label": "Fractional Marketer + AI Tool"
+      }
+    },
+    {
+      "id": "opt_status_quo",
+      "type": "option",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "option",
+        "label": "No Dedicated Marketing Resource (Status Quo)"
+      }
+    },
+    {
+      "id": "out_campaign_quality",
+      "type": "outcome",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "outcome",
+        "label": "Campaign Strategic Quality"
+      }
+    },
+    {
+      "id": "out_launch_reach",
+      "type": "outcome",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "outcome",
+        "label": "Feature Launch Reach and Awareness"
+      }
+    },
+    {
+      "id": "risk_budget_overrun",
+      "type": "risk",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "risk",
+        "label": "Budget Overrun or Misallocation"
+      }
+    },
+    {
+      "id": "risk_owner_overload",
+      "type": "risk",
+      "position": {
+        "x": 0,
+        "y": 0
+      },
+      "data": {
+        "kind": "risk",
+        "label": "Owner Time Constraint Breach"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "dec_marketing->opt_ai_tool",
+      "source": "dec_marketing",
+      "target": "opt_ai_tool"
+    },
+    {
+      "id": "dec_marketing->opt_hire_manager",
+      "source": "dec_marketing",
+      "target": "opt_hire_manager"
+    },
+    {
+      "id": "dec_marketing->opt_hybrid",
+      "source": "dec_marketing",
+      "target": "opt_hybrid"
+    },
+    {
+      "id": "dec_marketing->opt_status_quo",
+      "source": "dec_marketing",
+      "target": "opt_status_quo"
+    },
+    {
+      "id": "fac_ad_spend->out_launch_reach",
+      "source": "fac_ad_spend",
+      "target": "out_launch_reach"
+    },
+    {
+      "id": "fac_ad_spend->risk_budget_overrun",
+      "source": "fac_ad_spend",
+      "target": "risk_budget_overrun"
+    },
+    {
+      "id": "fac_market_receptivity->out_launch_reach",
+      "source": "fac_market_receptivity",
+      "target": "out_launch_reach"
+    },
+    {
+      "id": "fac_marketing_expertise->out_campaign_quality",
+      "source": "fac_marketing_expertise",
+      "target": "out_campaign_quality"
+    },
+    {
+      "id": "fac_marketing_expertise->out_launch_reach",
+      "source": "fac_marketing_expertise",
+      "target": "out_launch_reach"
+    },
+    {
+      "id": "fac_marketing_salary->risk_budget_overrun",
+      "source": "fac_marketing_salary",
+      "target": "risk_budget_overrun"
+    },
+    {
+      "id": "fac_owner_time->out_campaign_quality",
+      "source": "fac_owner_time",
+      "target": "out_campaign_quality"
+    },
+    {
+      "id": "fac_owner_time->risk_owner_overload",
+      "source": "fac_owner_time",
+      "target": "risk_owner_overload"
+    },
+    {
+      "id": "opt_ai_tool->fac_ad_spend",
+      "source": "opt_ai_tool",
+      "target": "fac_ad_spend"
+    },
+    {
+      "id": "opt_ai_tool->fac_marketing_expertise",
+      "source": "opt_ai_tool",
+      "target": "fac_marketing_expertise"
+    },
+    {
+      "id": "opt_ai_tool->fac_marketing_salary",
+      "source": "opt_ai_tool",
+      "target": "fac_marketing_salary"
+    },
+    {
+      "id": "opt_ai_tool->fac_owner_time",
+      "source": "opt_ai_tool",
+      "target": "fac_owner_time"
+    },
+    {
+      "id": "opt_hire_manager->fac_ad_spend",
+      "source": "opt_hire_manager",
+      "target": "fac_ad_spend"
+    },
+    {
+      "id": "opt_hire_manager->fac_marketing_expertise",
+      "source": "opt_hire_manager",
+      "target": "fac_marketing_expertise"
+    },
+    {
+      "id": "opt_hire_manager->fac_marketing_salary",
+      "source": "opt_hire_manager",
+      "target": "fac_marketing_salary"
+    },
+    {
+      "id": "opt_hire_manager->fac_owner_time",
+      "source": "opt_hire_manager",
+      "target": "fac_owner_time"
+    },
+    {
+      "id": "opt_hybrid->fac_ad_spend",
+      "source": "opt_hybrid",
+      "target": "fac_ad_spend"
+    },
+    {
+      "id": "opt_hybrid->fac_marketing_expertise",
+      "source": "opt_hybrid",
+      "target": "fac_marketing_expertise"
+    },
+    {
+      "id": "opt_hybrid->fac_marketing_salary",
+      "source": "opt_hybrid",
+      "target": "fac_marketing_salary"
+    },
+    {
+      "id": "opt_hybrid->fac_owner_time",
+      "source": "opt_hybrid",
+      "target": "fac_owner_time"
+    },
+    {
+      "id": "opt_status_quo->fac_ad_spend",
+      "source": "opt_status_quo",
+      "target": "fac_ad_spend"
+    },
+    {
+      "id": "opt_status_quo->fac_marketing_expertise",
+      "source": "opt_status_quo",
+      "target": "fac_marketing_expertise"
+    },
+    {
+      "id": "opt_status_quo->fac_marketing_salary",
+      "source": "opt_status_quo",
+      "target": "fac_marketing_salary"
+    },
+    {
+      "id": "opt_status_quo->fac_owner_time",
+      "source": "opt_status_quo",
+      "target": "fac_owner_time"
+    },
+    {
+      "id": "out_campaign_quality->goal_launch_success",
+      "source": "out_campaign_quality",
+      "target": "goal_launch_success"
+    },
+    {
+      "id": "out_launch_reach->goal_launch_success",
+      "source": "out_launch_reach",
+      "target": "goal_launch_success"
+    },
+    {
+      "id": "risk_budget_overrun->goal_launch_success",
+      "source": "risk_budget_overrun",
+      "target": "goal_launch_success"
+    },
+    {
+      "id": "risk_owner_overload->goal_launch_success",
+      "source": "risk_owner_overload",
+      "target": "goal_launch_success"
+    }
+  ]
+}

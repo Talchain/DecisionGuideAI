@@ -1,0 +1,844 @@
+{
+  "graphPath": "docs/layout-diagnostic-fixtures/graph-B.json",
+  "capturedBy": "real-browser playwright on /#/canvas (CanvasMVP via POC HashRouter); pipeline diagnostics + DOM rects from the SAME run",
+  "viewportTransform": "translate(92.0922px, 94.0141px) scale(0.57949)",
+  "diagnostics": [
+    {
+      "stage": "afterElk",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_marketing",
+            "type": "decision",
+            "x": 854,
+            "y": 12,
+            "w": 344,
+            "h": 93
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_tool",
+            "type": "option",
+            "x": 416,
+            "y": 222,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hire_manager",
+            "type": "option",
+            "x": 820,
+            "y": 222,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hybrid",
+            "type": "option",
+            "x": 1224,
+            "y": 222,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 1628,
+            "y": 205,
+            "w": 344,
+            "h": 105
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_ad_spend",
+            "type": "factor",
+            "x": 416,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_market_receptivity",
+            "type": "factor",
+            "x": 12,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_expertise",
+            "type": "factor",
+            "x": 820,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_salary",
+            "type": "factor",
+            "x": 1224,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_owner_time",
+            "type": "factor",
+            "x": 1628,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_campaign_quality",
+            "type": "outcome",
+            "x": 1167,
+            "y": 794,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_launch_reach",
+            "type": "outcome",
+            "x": 359,
+            "y": 794,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_budget_overrun",
+            "type": "risk",
+            "x": 763,
+            "y": 794,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_owner_overload",
+            "type": "risk",
+            "x": 1685,
+            "y": 794,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_launch_success",
+            "type": "goal",
+            "x": 797,
+            "y": 966,
+            "w": 344,
+            "h": 107
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 2,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175151977
+    },
+    {
+      "stage": "afterTierRowSplitting",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_marketing",
+            "type": "decision",
+            "x": 854,
+            "y": 12,
+            "w": 344,
+            "h": 93
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_tool",
+            "type": "option",
+            "x": 416,
+            "y": 222,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hire_manager",
+            "type": "option",
+            "x": 820,
+            "y": 222,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hybrid",
+            "type": "option",
+            "x": 1224,
+            "y": 222,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 1628,
+            "y": 205,
+            "w": 344,
+            "h": 105
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_ad_spend",
+            "type": "factor",
+            "x": 416,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_market_receptivity",
+            "type": "factor",
+            "x": 12,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_expertise",
+            "type": "factor",
+            "x": 820,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_salary",
+            "type": "factor",
+            "x": 1224,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_owner_time",
+            "type": "factor",
+            "x": 1628,
+            "y": 610,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_campaign_quality",
+            "type": "outcome",
+            "x": 1167,
+            "y": 794,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_launch_reach",
+            "type": "outcome",
+            "x": 359,
+            "y": 794,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_budget_overrun",
+            "type": "risk",
+            "x": 763,
+            "y": 794,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_owner_overload",
+            "type": "risk",
+            "x": 1685,
+            "y": 794,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_launch_success",
+            "type": "goal",
+            "x": 797,
+            "y": 966,
+            "w": 344,
+            "h": 107
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 2,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175151977
+    },
+    {
+      "stage": "afterNormaliseTierRows",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_marketing",
+            "type": "decision",
+            "x": 854,
+            "y": 0,
+            "w": 344,
+            "h": 93
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_tool",
+            "type": "option",
+            "x": 416,
+            "y": 275,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hire_manager",
+            "type": "option",
+            "x": 820,
+            "y": 275,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hybrid",
+            "type": "option",
+            "x": 1224,
+            "y": 275,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 1628,
+            "y": 141,
+            "w": 344,
+            "h": 105
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_ad_spend",
+            "type": "factor",
+            "x": 416,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_market_receptivity",
+            "type": "factor",
+            "x": 12,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_expertise",
+            "type": "factor",
+            "x": 820,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_salary",
+            "type": "factor",
+            "x": 1224,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_owner_time",
+            "type": "factor",
+            "x": 1628,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_campaign_quality",
+            "type": "outcome",
+            "x": 1167,
+            "y": 539,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_launch_reach",
+            "type": "outcome",
+            "x": 359,
+            "y": 539,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_budget_overrun",
+            "type": "risk",
+            "x": 763,
+            "y": 659,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_owner_overload",
+            "type": "risk",
+            "x": 1685,
+            "y": 659,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_launch_success",
+            "type": "goal",
+            "x": 797,
+            "y": 779,
+            "w": 344,
+            "h": 107
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 2,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175151977
+    },
+    {
+      "stage": "afterCentreRowsOnSpine",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_marketing",
+            "type": "decision",
+            "x": 854,
+            "y": 0,
+            "w": 344,
+            "h": 93
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_tool",
+            "type": "option",
+            "x": 450,
+            "y": 275,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hire_manager",
+            "type": "option",
+            "x": 854,
+            "y": 275,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hybrid",
+            "type": "option",
+            "x": 1258,
+            "y": 275,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 854,
+            "y": 141,
+            "w": 344,
+            "h": 105
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_ad_spend",
+            "type": "factor",
+            "x": 450,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_market_receptivity",
+            "type": "factor",
+            "x": 46,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_expertise",
+            "type": "factor",
+            "x": 854,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_salary",
+            "type": "factor",
+            "x": 1258,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_owner_time",
+            "type": "factor",
+            "x": 1662,
+            "y": 407,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_campaign_quality",
+            "type": "outcome",
+            "x": 1056,
+            "y": 539,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_launch_reach",
+            "type": "outcome",
+            "x": 652,
+            "y": 539,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_budget_overrun",
+            "type": "risk",
+            "x": 652,
+            "y": 659,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_owner_overload",
+            "type": "risk",
+            "x": 1056,
+            "y": 659,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_launch_success",
+            "type": "goal",
+            "x": 854,
+            "y": 779,
+            "w": 344,
+            "h": 107
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 2,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175151978
+    },
+    {
+      "stage": "afterCollisionAndTranslation",
+      "byTier": {
+        "0": [
+          {
+            "id": "dec_marketing",
+            "type": "decision",
+            "x": 832,
+            "y": 24,
+            "w": 344,
+            "h": 93
+          }
+        ],
+        "1": [
+          {
+            "id": "opt_ai_tool",
+            "type": "option",
+            "x": 428,
+            "y": 299,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hire_manager",
+            "type": "option",
+            "x": 832,
+            "y": 299,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_hybrid",
+            "type": "option",
+            "x": 1236,
+            "y": 299,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "opt_status_quo",
+            "type": "option",
+            "x": 832,
+            "y": 165,
+            "w": 344,
+            "h": 105
+          }
+        ],
+        "2": [
+          {
+            "id": "fac_ad_spend",
+            "type": "factor",
+            "x": 428,
+            "y": 431,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_market_receptivity",
+            "type": "factor",
+            "x": 24,
+            "y": 431,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_expertise",
+            "type": "factor",
+            "x": 832,
+            "y": 431,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_marketing_salary",
+            "type": "factor",
+            "x": 1236,
+            "y": 431,
+            "w": 344,
+            "h": 84
+          },
+          {
+            "id": "fac_owner_time",
+            "type": "factor",
+            "x": 1640,
+            "y": 431,
+            "w": 344,
+            "h": 84
+          }
+        ],
+        "3": [
+          {
+            "id": "out_campaign_quality",
+            "type": "outcome",
+            "x": 1034,
+            "y": 563,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "out_launch_reach",
+            "type": "outcome",
+            "x": 630,
+            "y": 563,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "4": [
+          {
+            "id": "risk_budget_overrun",
+            "type": "risk",
+            "x": 630,
+            "y": 683,
+            "w": 344,
+            "h": 72
+          },
+          {
+            "id": "risk_owner_overload",
+            "type": "risk",
+            "x": 1034,
+            "y": 683,
+            "w": 344,
+            "h": 72
+          }
+        ],
+        "5": [
+          {
+            "id": "goal_launch_success",
+            "type": "goal",
+            "x": 832,
+            "y": 803,
+            "w": 344,
+            "h": 107
+          }
+        ]
+      },
+      "subRowsByTier": {
+        "0": 1,
+        "1": 2,
+        "2": 1,
+        "3": 1,
+        "4": 1,
+        "5": 1
+      },
+      "timestamp": 1778175151978
+    }
+  ],
+  "renderedBoxes": [
+    {
+      "id": "dec_marketing",
+      "domX": 574,
+      "domY": 108,
+      "domW": 185,
+      "domH": 45
+    },
+    {
+      "id": "fac_ad_spend",
+      "domX": 340,
+      "domY": 344,
+      "domW": 108,
+      "domH": 39
+    },
+    {
+      "id": "fac_market_receptivity",
+      "domX": 106,
+      "domY": 344,
+      "domW": 145,
+      "domH": 39
+    },
+    {
+      "id": "fac_marketing_expertise",
+      "domX": 574,
+      "domY": 344,
+      "domW": 136,
+      "domH": 39
+    },
+    {
+      "id": "fac_marketing_salary",
+      "domX": 808,
+      "domY": 344,
+      "domW": 133,
+      "domH": 39
+    },
+    {
+      "id": "fac_owner_time",
+      "domX": 1042,
+      "domY": 344,
+      "domW": 131,
+      "domH": 39
+    },
+    {
+      "id": "goal_launch_success",
+      "domX": 574,
+      "domY": 559,
+      "domW": 185,
+      "domH": 52
+    },
+    {
+      "id": "opt_ai_tool",
+      "domX": 340,
+      "domY": 267,
+      "domW": 135,
+      "domH": 39
+    },
+    {
+      "id": "opt_hire_manager",
+      "domX": 574,
+      "domY": 267,
+      "domW": 116,
+      "domH": 39
+    },
+    {
+      "id": "opt_hybrid",
+      "domX": 808,
+      "domY": 267,
+      "domW": 133,
+      "domH": 39
+    },
+    {
+      "id": "opt_status_quo",
+      "domX": 574,
+      "domY": 190,
+      "domW": 185,
+      "domH": 52
+    },
+    {
+      "id": "out_campaign_quality",
+      "domX": 691,
+      "domY": 420,
+      "domW": 128,
+      "domH": 32
+    },
+    {
+      "id": "out_launch_reach",
+      "domX": 457,
+      "domY": 420,
+      "domW": 166,
+      "domH": 32
+    },
+    {
+      "id": "risk_budget_overrun",
+      "domX": 457,
+      "domY": 490,
+      "domW": 146,
+      "domH": 32
+    },
+    {
+      "id": "risk_owner_overload",
+      "domX": 691,
+      "domY": 490,
+      "domW": 140,
+      "domH": 32
+    }
+  ]
+}
