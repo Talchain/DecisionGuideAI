@@ -115,12 +115,17 @@ const FORBIDDEN_TERMS = [
   'raw_value',
   'mean',
   'std',
+  // Second-round B2 — schema/handler-mechanics terms in the rendered
+  // DOM (previously leaked via data-testid="v5-graph-patch").
+  'graph-patch',
+  'graph_patch',
+  'graphpatch',
 ] as const
 
 const FORBIDDEN_OPERATOR_GLYPHS = /(?:<=|>=|≤|≥|\blte\b|\bgte\b)/i
 
 function expectNoLeakInDOM(): void {
-  const card = screen.getByTestId('v5-graph-patch')
+  const card = screen.getByTestId('v5-change-receipt')
   // outerHTML — catches attribute-level leaks too. Earlier the leak
   // assertion only walked textContent, which let attribute leaks
   // (data-operation="add_constraint") slip past.
@@ -273,11 +278,11 @@ describe('Workstream 1 — Journey 3 wire-to-DOM (add_constraint)', () => {
 
     render(<V5GraphPatchBlock block={block} />)
 
-    expect(screen.getByTestId('v5-graph-patch-status').textContent).toBe('Applied')
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Added constraint')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('Marketing budget')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('at most £50,000')
-    expect(screen.getByTestId('v5-graph-patch-freshness-hint').textContent).toBe(
+    expect(screen.getByTestId('v5-change-status').textContent).toBe('Applied')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Added constraint')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe('Marketing budget')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('at most £50,000')
+    expect(screen.getByTestId('v5-change-freshness-hint').textContent).toBe(
       'Latest analysis is now out of date.',
     )
     expectNoLeakInDOM()
@@ -294,7 +299,7 @@ describe('Workstream 1 — Journey 3 wire-to-DOM (add_constraint)', () => {
     const block = mapV5Blocks(envelope.blocks)[0] as V5GraphPatchBlockType
 
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.queryByTestId('v5-graph-patch-freshness-hint')).toBeNull()
+    expect(screen.queryByTestId('v5-change-freshness-hint')).toBeNull()
     expectNoLeakInDOM()
   })
 })
@@ -323,12 +328,12 @@ describe('Workstream 1 — Journey 6 wire-to-DOM (set_factor_value)', () => {
 
     render(<V5GraphPatchBlock block={block} />)
 
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Updated factor')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('team morale')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale')
     // Renders user-facing raw_value + unit, NOT the normalised
     // 0.5 → 0.7 the wire envelope also carries.
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('50% → 70%')
-    expect(screen.getByTestId('v5-graph-patch-freshness-hint').textContent).toBe(
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('50% → 70%')
+    expect(screen.getByTestId('v5-change-freshness-hint').textContent).toBe(
       'Latest analysis is now out of date.',
     )
     expectNoLeakInDOM()

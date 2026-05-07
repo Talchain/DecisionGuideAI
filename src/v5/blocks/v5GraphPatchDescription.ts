@@ -111,7 +111,11 @@ const CURRENCY_PREFIXES: Record<string, string> = {
   '€': '€',
 }
 
-const PERCENT_UNITS: ReadonlySet<string> = new Set(['%', 'percent', 'PERCENT'])
+// Percent unit — match the literal `%` symbol or the word "percent"
+// case-insensitively. Lowercased before lookup so mixed-case forms
+// (e.g. `'Percent'`) collapse to the same path as `'percent'` /
+// `'PERCENT'` (NR2 — defensive, current CEE only emits `%`).
+const PERCENT_UNITS: ReadonlySet<string> = new Set(['%', 'percent'])
 
 /**
  * Format a numeric value with optional unit. Currencies render as a
@@ -135,7 +139,7 @@ export function formatConstraintValue(
     if (currencyGlyph) {
       return `${currencyGlyph}${value.toLocaleString('en-GB')}`
     }
-    if (PERCENT_UNITS.has(unit)) {
+    if (PERCENT_UNITS.has(unit.toLowerCase())) {
       return `${value.toLocaleString('en-GB')}%`
     }
     return `${value.toLocaleString('en-GB')} ${unit}`

@@ -77,6 +77,14 @@ const FORBIDDEN_TERMS = [
   'raw_value',
   'mean',
   'std',
+  // Second-round B2 additions — schema/handler-mechanics terms.
+  // The previous data-testid="v5-graph-patch" leaked "graph-patch"
+  // into outerHTML. Renamed to v5-change-receipt + the gate now
+  // catches any future regression that re-introduces the schema
+  // term in the rendered DOM.
+  'graph-patch',
+  'graph_patch',
+  'graphpatch',
 ]
 
 // Operator-glyph guard. Decision-language only — no `<=` / `>=` /
@@ -86,7 +94,7 @@ const FORBIDDEN_TERMS = [
 const FORBIDDEN_OPERATOR_GLYPHS = /(?:<=|>=|≤|≥|\blte\b|\bgte\b)/i
 
 function expectNoLeakInDOM(): void {
-  const card = screen.getByTestId('v5-graph-patch')
+  const card = screen.getByTestId('v5-change-receipt')
   // Assert against outerHTML — covers attribute-level leaks (e.g. a
   // future `data-operation="add_constraint"` regression) as well as
   // text content. Pure textContent only catches innerText leaks and
@@ -120,10 +128,10 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { value: 0.7 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Updated factor')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('team morale')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('0.5 → 0.7')
-    expect(screen.getByTestId('v5-graph-patch-status').textContent).toBe('Applied')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('0.5 → 0.7')
+    expect(screen.getByTestId('v5-change-status').textContent).toBe('Applied')
     expectNoLeakInDOM()
   })
 
@@ -137,9 +145,9 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { label: 'budget', value: 50000, unit: 'GBP', operator: 'lte' },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Added constraint')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('budget')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('at most £50,000')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Added constraint')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe('budget')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('at most £50,000')
     expectNoLeakInDOM()
   })
 
@@ -153,9 +161,9 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { strength: 0.6 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Adjusted connection')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('team morale → overall outcome')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('0.3 → 0.6')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale → overall outcome')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('0.3 → 0.6')
     expectNoLeakInDOM()
   })
 
@@ -169,9 +177,9 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { value: 0.7 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-status').textContent).toBe('No change')
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Factor already at this value')
-    expect(screen.queryByTestId('v5-graph-patch-change')).toBeNull()
+    expect(screen.getByTestId('v5-change-status').textContent).toBe('No change')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Factor already at this value')
+    expect(screen.queryByTestId('v5-change-summary')).toBeNull()
     expectNoLeakInDOM()
   })
 
@@ -185,7 +193,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { value: 0.8 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('factor')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe('factor')
     expectNoLeakInDOM()
   })
 
@@ -199,7 +207,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { strength: 0.6 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.queryByTestId('v5-graph-patch-entity')).toBeNull()
+    expect(screen.queryByTestId('v5-change-entity')).toBeNull()
     expectNoLeakInDOM()
   })
 
@@ -219,7 +227,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { value: 0.7 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-freshness-hint').textContent).toBe(
+    expect(screen.getByTestId('v5-change-freshness-hint').textContent).toBe(
       'Latest analysis is now out of date.',
     )
     expectNoLeakInDOM()
@@ -242,7 +250,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
         after: { value: 0.7 },
       }
       const { unmount } = render(<V5GraphPatchBlock block={block} />)
-      expect(screen.queryByTestId('v5-graph-patch-freshness-hint')).toBeNull()
+      expect(screen.queryByTestId('v5-change-freshness-hint')).toBeNull()
       unmount()
     }
   })
@@ -263,7 +271,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
       after: { value: 0.7 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.queryByTestId('v5-graph-patch-freshness-hint')).toBeNull()
+    expect(screen.queryByTestId('v5-change-freshness-hint')).toBeNull()
   })
 })
 
@@ -295,9 +303,9 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
       },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Added constraint')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('Marketing budget')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('at most £50,000')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Added constraint')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe('Marketing budget')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('at most £50,000')
     // outerHTML check catches: data-operation="add_constraint" attribute
     // leak (P1.1), trailing-symbol "50,000 £" (P1.3), and raw constraint
     // ids (RAW_ID_PATTERN).
@@ -318,14 +326,14 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
       after: { value: 0.7, raw_value: 70, unit: '%', cap: 100 },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Updated factor')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('team morale')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('50% → 70%')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Updated factor')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe('team morale')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('50% → 70%')
     // Critical: never the normalised decimals in the visible text.
     // (outerHTML would also catch styling tokens like `px-2.5` /
     // `py-0.5` from the design system, which are not leaks; assert
     // against the change row's textContent specifically.)
-    const change = screen.getByTestId('v5-graph-patch-change').textContent ?? ''
+    const change = screen.getByTestId('v5-change-summary').textContent ?? ''
     expect(change).not.toContain('0.5')
     expect(change).not.toContain('0.7')
     expectNoLeakInDOM()
@@ -356,13 +364,13 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
       },
     }
     render(<V5GraphPatchBlock block={block} />)
-    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Adjusted connection')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe(
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe(
       'Marketing budget → Revenue',
     )
     // Renders the `mean` magnitudes — std (the confidence band) is a
     // schema field that does not belong in the receipt.
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('0.3 → 0.6')
+    expect(screen.getByTestId('v5-change-summary').textContent).toBe('0.3 → 0.6')
     // Comprehensive leak check covers mean/std + raw ids in outerHTML.
     expectNoLeakInDOM()
   })
@@ -387,7 +395,7 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
       },
     }
     render(<V5GraphPatchBlock block={block} />)
-    const change = screen.getByTestId('v5-graph-patch-change').textContent ?? ''
+    const change = screen.getByTestId('v5-change-summary').textContent ?? ''
     expect(change).toContain('0.4')
     expect(change).toContain('-0.4')
     expect(change).toContain('direction now negative')
@@ -417,7 +425,7 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
       },
     }
     render(<V5GraphPatchBlock block={block} />)
-    const change = screen.queryByTestId('v5-graph-patch-change')
+    const change = screen.queryByTestId('v5-change-summary')
     expect(change).not.toBeNull()
     expect((change!.textContent ?? '').trim().length).toBeGreaterThan(0)
   })

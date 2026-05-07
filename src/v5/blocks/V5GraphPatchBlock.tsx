@@ -62,7 +62,7 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
     // rendering contract. Tests address the card via `data-testid` and
     // assert friendly text via the per-row testids below.
     <div
-      data-testid="v5-graph-patch"
+      data-testid="v5-change-receipt"
       className="rounded-xl border border-panel-border bg-panel p-4 space-y-2"
     >
       <div className="flex items-center gap-2">
@@ -73,13 +73,13 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
             isApplied ? 'border border-success/30' : 'border border-text-light/30',
             typography.panelMeta,
           ].join(' ')}
-          data-testid="v5-graph-patch-status"
+          data-testid="v5-change-status"
         >
           {isApplied ? 'Applied' : 'No change'}
         </span>
         <h3
           className={typography.panelHeader}
-          data-testid="v5-graph-patch-action"
+          data-testid="v5-change-action"
         >
           {receipt.actionLabel}
         </h3>
@@ -87,7 +87,7 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
       {receipt.entityLabel && (
         <p
           className={typography.panelBody}
-          data-testid="v5-graph-patch-entity"
+          data-testid="v5-change-entity"
         >
           {receipt.entityLabel}
         </p>
@@ -95,7 +95,7 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
       {receipt.changeSummary && (
         <p
           className={`${typography.panelMeta} text-text-body`}
-          data-testid="v5-graph-patch-change"
+          data-testid="v5-change-summary"
         >
           {receipt.changeSummary}
         </p>
@@ -103,7 +103,7 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
       {showStaleHint && (
         <p
           className={`${typography.panelMeta} text-text-light`}
-          data-testid="v5-graph-patch-freshness-hint"
+          data-testid="v5-change-freshness-hint"
         >
           Latest analysis is now out of date.
         </p>

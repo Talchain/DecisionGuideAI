@@ -67,6 +67,15 @@ describe('formatConstraintValue', () => {
   it('formats percent unit without space', () => {
     expect(formatConstraintValue(5, '%')).toBe('5%')
   })
+  it('formats percent unit case-insensitively (NR2)', () => {
+    // CEE currently only emits '%', but the formatter should treat
+    // 'percent' / 'Percent' / 'PERCENT' identically so a future CEE
+    // refactor that switches to a word form does not silently render
+    // `5 Percent` instead of `5%`.
+    expect(formatConstraintValue(5, 'percent')).toBe('5%')
+    expect(formatConstraintValue(5, 'Percent')).toBe('5%')
+    expect(formatConstraintValue(5, 'PERCENT')).toBe('5%')
+  })
   it('formats unitless number with thousands separator', () => {
     expect(formatConstraintValue(50000)).toBe('50,000')
   })

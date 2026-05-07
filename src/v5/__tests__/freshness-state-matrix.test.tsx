@@ -199,7 +199,7 @@ describe('V5GraphPatchBlock — receipt hint surfaces ONLY the stale state disti
         inputsMissing: [],
       })
       render(<V5GraphPatchBlock block={APPLIED_PATCH} />)
-      const hint = screen.queryByTestId('v5-graph-patch-freshness-hint')
+      const hint = screen.queryByTestId('v5-change-freshness-hint')
       if (outcome === 'visible') {
         expect(hint).not.toBeNull()
         expect(hint!.textContent).toBe('Latest analysis is now out of date.')
@@ -272,7 +272,7 @@ describe('freshness verdicts produce distinct user-facing outcomes (no collapse)
         inputsMissing: [],
       })
       render(<V5GraphPatchBlock block={APPLIED_PATCH} />)
-      const hint = screen.queryByTestId('v5-graph-patch-freshness-hint')
+      const hint = screen.queryByTestId('v5-change-freshness-hint')
       const hintText = hint ? hint.textContent ?? '' : 'NO_HINT'
 
       cleanup()
