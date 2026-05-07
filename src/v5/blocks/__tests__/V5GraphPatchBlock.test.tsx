@@ -30,10 +30,12 @@ vi.mock('../../../canvas/store', () => ({
 
 // Mock the freshness hook so each test can control the verdict
 // independently. Default is the neutral 'unknown' verdict (no hint).
-const mockFreshnessState = vi.fn(() => ({
-  freshness: 'unknown' as const,
+import type { AnalysisFreshnessState } from '../../../lib/analysisFreshnessState'
+
+const mockFreshnessState = vi.fn<[], AnalysisFreshnessState>(() => ({
+  freshness: 'unknown',
   reason: null,
-  recommendedAction: 'continue_editing' as const,
+  recommendedAction: 'continue_editing',
   inputsMissing: [],
 }))
 
