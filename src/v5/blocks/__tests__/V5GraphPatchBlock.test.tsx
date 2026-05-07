@@ -28,6 +28,19 @@ vi.mock('../../../canvas/store', () => ({
     selector({ nodes: NODES, edges: EDGES }),
 }))
 
+// Mock the freshness hook so each test can control the verdict
+// independently. Default is the neutral 'unknown' verdict (no hint).
+const mockFreshnessState = vi.fn(() => ({
+  freshness: 'unknown' as const,
+  reason: null,
+  recommendedAction: 'continue_editing' as const,
+  inputsMissing: [],
+}))
+
+vi.mock('../../../lib/useAnalysisFreshnessState', () => ({
+  useAnalysisFreshnessState: () => mockFreshnessState(),
+}))
+
 // Import AFTER the mock so the component uses the mocked store.
 import { V5GraphPatchBlock } from '../V5GraphPatchBlock'
 
@@ -55,6 +68,12 @@ function expectNoLeakInDOM(): void {
 
 beforeEach(() => {
   cleanup()
+  mockFreshnessState.mockReturnValue({
+    freshness: 'unknown',
+    reason: null,
+    recommendedAction: 'continue_editing',
+    inputsMissing: [],
+  })
 })
 
 describe('V5GraphPatchBlock — clean receipt rendering', () => {
@@ -149,5 +168,68 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
     render(<V5GraphPatchBlock block={block} />)
     expect(screen.queryByTestId('v5-graph-patch-entity')).toBeNull()
     expectNoLeakInDOM()
+  })
+
+  it('shows freshness hint when applied and prior analysis is now stale', () => {
+    mockFreshnessState.mockReturnValue({
+      freshness: 'stale',
+      reason: 'graph_hash_diverged',
+      recommendedAction: 'rerun_analysis',
+      inputsMissing: [],
+    })
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'set_factor_value',
+      target_id: 'fac_team_morale',
+      before: { value: 0.5 },
+      after: { value: 0.7 },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    expect(screen.getByTestId('v5-graph-patch-freshness-hint').textContent).toBe(
+      'Latest analysis is now out of date.',
+    )
+    expectNoLeakInDOM()
+  })
+
+  it('does NOT show freshness hint when freshness is fresh / none / unknown', () => {
+    for (const freshness of ['fresh', 'none', 'unknown'] as const) {
+      mockFreshnessState.mockReturnValue({
+        freshness,
+        reason: null,
+        recommendedAction: freshness === 'fresh' ? 'view_results' : 'continue_editing',
+        inputsMissing: [],
+      })
+      const block: V5GraphPatchBlockType = {
+        type: 'v5_graph_patch',
+        status: 'applied',
+        operation: 'set_factor_value',
+        target_id: 'fac_team_morale',
+        before: { value: 0.5 },
+        after: { value: 0.7 },
+      }
+      const { unmount } = render(<V5GraphPatchBlock block={block} />)
+      expect(screen.queryByTestId('v5-graph-patch-freshness-hint')).toBeNull()
+      unmount()
+    }
+  })
+
+  it('does NOT show freshness hint on noop status (no impact change to surface)', () => {
+    mockFreshnessState.mockReturnValue({
+      freshness: 'stale',
+      reason: 'graph_hash_diverged',
+      recommendedAction: 'rerun_analysis',
+      inputsMissing: [],
+    })
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'noop',
+      operation: 'set_factor_value',
+      target_id: 'fac_team_morale',
+      before: { value: 0.7 },
+      after: { value: 0.7 },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    expect(screen.queryByTestId('v5-graph-patch-freshness-hint')).toBeNull()
   })
 })

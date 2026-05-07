@@ -22,6 +22,7 @@
 import { useMemo, type ReactElement } from 'react'
 import { typography } from '../../styles/typography'
 import { useCanvasStore } from '../../canvas/store'
+import { useAnalysisFreshnessState } from '../../lib/useAnalysisFreshnessState'
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../canvas/conversation/types'
 import { buildV5PatchReceipt, buildV5PatchDeps } from './v5GraphPatchDescription'
 
@@ -40,6 +41,17 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
     () => buildV5PatchReceipt(block, buildV5PatchDeps(nodes, edges)),
     [block, nodes, edges],
   )
+
+  // Workstream 1, Phase 3c — distinct freshness vs structural readiness.
+  // When the mutation just landed AND a prior analysis is now out of date,
+  // surface a small hint inline with the receipt so the user understands
+  // the impact without navigating to the results panel. We deliberately
+  // only surface the 'stale' verdict here; 'fresh' / 'none' / 'unknown'
+  // would be redundant noise alongside the run/rerun chip the CEE already
+  // emits.
+  const freshness = useAnalysisFreshnessState()
+  const showStaleHint =
+    receipt.status === 'applied' && freshness.freshness === 'stale'
 
   const isApplied = receipt.status === 'applied'
 
@@ -83,6 +95,14 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
           data-testid="v5-graph-patch-change"
         >
           {receipt.changeSummary}
+        </p>
+      )}
+      {showStaleHint && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid="v5-graph-patch-freshness-hint"
+        >
+          Latest analysis is now out of date.
         </p>
       )}
     </div>
