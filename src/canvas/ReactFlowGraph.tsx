@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, type Connection, type NodeChange, type EdgeChange, useReactFlow } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useNodesInitialized, useReactFlow, useStore as useReactFlowStore, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -8,6 +8,8 @@ import { useCanvasStore } from './store'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
+import { evaluateMeasurementGate, allUnlockedNodesMeasured } from './utils/measureLayoutGate'
+import { LAYOUT_MEASUREMENT_FALLBACK_MS } from './utils/nodeLayoutConstants'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
@@ -353,25 +355,73 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const canRedo = useCanvasStore(s => s.canRedo)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
   const applyLayout = useCanvasStore(s => s.applyLayout)
-  const pendingFitView = useCanvasStore(s => s.pendingFitView)
-  const setPendingFitView = useCanvasStore(s => s.setPendingFitView)
+  // Measure-then-layout lifecycle (D2 of layout-stabilisation brief)
+  const pendingLayout = useCanvasStore(s => s.pendingLayout)
+  const layoutInProgress = useCanvasStore(s => s.layoutInProgress)
+  const layoutRequestId = useCanvasStore(s => s.layoutRequestId)
+  const layoutVersion = useCanvasStore(s => s.layoutVersion)
+  const storeNodes = useCanvasStore(s => s.nodes)
+  const nodesInitialized = useNodesInitialized()
+  const nodeLookup = useReactFlowStore(s => s.nodeLookup)
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
 
-  // Handle pending fit view request (from AI graph insertion)
   // Brief 36 Fix: Use ref for fitView to avoid effect re-running when ReactFlow updates
   const fitViewRef = useRef(fitView)
   fitViewRef.current = fitView
 
+  // Measure-then-layout effect.
+  //
+  // Gating logic lives in `evaluateMeasurementGate` (pure, unit-tested in
+  // measureLayoutGate.spec.ts). This effect glues the decision to
+  // setTimeout / applyLayout / cleanup. The captured layoutRequestId is
+  // passed to applyLayout, which silently drops the call if the store
+  // has moved past it — a fast second draft arriving before the first
+  // laid out is correctly superseded.
+  //
+  // Auto-triggered failures are routed through handleLayoutWithRecovery
+  // (I1 of post-D6 review) so the existing layoutProgressStore + retry-
+  // banner UX surfaces them, matching how manual triggers (toolbar,
+  // command palette) already report failures.
   useEffect(() => {
-    if (pendingFitView) {
-      // Small delay to allow layout to settle
-      const timer = setTimeout(() => {
-        fitViewRef.current({ padding: 0.2, duration: 400 })
-        setPendingFitView(false)
-      }, 100)
-      return () => clearTimeout(timer)
+    const decision = evaluateMeasurementGate({
+      pendingLayout,
+      layoutInProgress,
+      nodesInitialized,
+      storeNodes,
+      allUnlockedNodesMeasured: allUnlockedNodesMeasured(storeNodes, nodeLookup),
+    })
+
+    if (decision === 'idle' || decision === 'blocked') return
+
+    const capturedId = layoutRequestId
+
+    if (decision === 'run-now') {
+      handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, requestId: capturedId }))
+      return
     }
-  }, [pendingFitView, setPendingFitView])
+
+    // 'wait-with-fallback' — bounded measurement-failure safety fallback
+    // (per Correction 7 of brief). The single timer in this flow.
+    const timer = setTimeout(() => {
+      if (import.meta.env.DEV) {
+        console.warn('[layout] proceeding with fallback heights — some nodes not yet measured')
+      }
+      handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, requestId: capturedId }))
+    }, LAYOUT_MEASUREMENT_FALLBACK_MS)
+    return () => clearTimeout(timer)
+  }, [pendingLayout, layoutInProgress, layoutRequestId, nodesInitialized, nodeLookup, storeNodes, applyLayout])
+
+  // FitView triggered by layoutVersion (D5). Each successful applyLayout
+  // increments layoutVersion. We schedule fitView on the next animation
+  // frame — frame-synchronised, not a blind timer — so React Flow has
+  // committed the new positions to the DOM before fitting.
+  useEffect(() => {
+    if (layoutVersion === 0) return
+    const raf = requestAnimationFrame(() => {
+      fitViewRef.current({ padding: 0.2, duration: 400 })
+    })
+    return () => cancelAnimationFrame(raf)
+  }, [layoutVersion])
 
   const HARD_ISOLATE_MINIMAL_CANVAS = false
   if (HARD_ISOLATE_MINIMAL_CANVAS) {
@@ -1308,7 +1358,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       showProvenanceHub,
       showAIClarifier,
       comparisonModeActive,
-      pendingFitView,
+      layoutVersion,
       // Settings store
       showGrid,
       gridSize,

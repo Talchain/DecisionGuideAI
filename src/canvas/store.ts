@@ -418,9 +418,22 @@ interface CanvasState {
   } | null
   clarifierPreviewNodeIds: string[]
   clarifierPreviewEdgeIds: string[]
-  // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
-  pendingFitView: boolean
-  setPendingFitView: (value: boolean) => void
+  // Layout lifecycle (D2 of layout-stabilisation brief).
+  //
+  //   pendingLayout    — call sites flip this to true after inserting nodes;
+  //                      ReactFlowGraph runs layout once measurement completes.
+  //   layoutInProgress — prevents re-entry while applyLayout is mid-flight.
+  //   layoutVersion    — incremented at the end of every successful applyLayout
+  //                      run; ReactFlowGraph fires fitView when this changes.
+  //   layoutRequestId  — monotonic; setPendingLayout(true) bumps it. The
+  //                      measurement hook captures the id when it starts
+  //                      waiting, and applyLayout silently no-ops if the
+  //                      stored id has moved on (stale-request guard).
+  pendingLayout: boolean
+  layoutInProgress: boolean
+  layoutVersion: number
+  layoutRequestId: number
+  setPendingLayout: (value: boolean) => void
   // Track 3: Hydrated thread entries from scenario row (consumed once by useConversation, then cleared)
   _hydratedThread: unknown[] | null
   // Track 3: Hydrated scenario events from scenario row (consumed by Journey tab)
@@ -487,7 +500,7 @@ interface CanvasState {
   saveSnapshot: () => boolean
   importCanvas: (json: string) => boolean
   exportCanvas: () => string
-  applyLayout: () => Promise<void>
+  applyLayout: (opts?: { skipHistory?: boolean; requestId?: number }) => Promise<void>
   applySimpleLayout: (preset: 'grid' | 'hierarchy' | 'flow', spacing: 'small' | 'medium' | 'large') => void
   applyGuidedLayout: (policy?: Partial<import('./layout/policy').LayoutPolicy>) => void
   resetCanvas: () => void
@@ -1224,8 +1237,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     } catch { /* noop */ }
     return 'standard'
   })(),
-  // Pending fit view request (set by AI graph insertion, cleared by ReactFlowGraph)
-  pendingFitView: false,
+  // Layout lifecycle (D2 of layout-stabilisation brief)
+  pendingLayout: false,
+  layoutInProgress: false,
+  layoutVersion: 0,
+  layoutRequestId: 0,
   // Track 3: Hydrated thread/events (transient, consumed once)
   _hydratedThread: null,
   _hydratedEvents: null,
@@ -1978,18 +1994,51 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     return persistExport({ nodes, edges })
   },
 
-  applyLayout: async () => {
-    const { nodes, edges } = get()
-    
-    // Dynamic import to avoid bundling ELK if not used
-    const { layoutGraph } = await import('./utils/layout')
-    const { useLayoutStore } = await import('./layoutStore')
-    const layoutOptions = useLayoutStore.getState()
-    
-    // Push to history before layout
-    pushToHistory(get, set)
-    
+  applyLayout: async (opts) => {
+    // Pre-await guard for explicit (auto-triggered) callers: if the rid
+    // they captured before measurement no longer matches the store's
+    // latest, a newer setPendingLayout(true) has already superseded this
+    // request. Drop before doing any work.
+    if (opts?.requestId !== undefined && opts.requestId !== get().layoutRequestId) {
+      return
+    }
+
+    // Re-entry guard + synchronous claim. The claim must happen IN THE
+    // SAME SYNCHRONOUS TICK as the guard read — otherwise a second call
+    // entering during the dynamic-import yield below would pass the guard
+    // before either had marked layoutInProgress=true (e.g. user clicks
+    // "Re-layout" twice within a microtask, or two call sites trigger in
+    // the same tick). Without this, both calls would push history, run
+    // layoutGraph, and commit — double-bumping layoutVersion.
+    if (get().layoutInProgress) return
+    set({ layoutInProgress: true })
+
+    // Capture the layout generation we're committing against. Taken AFTER
+    // the synchronous claim so the snapshot reflects the rid that is in
+    // play for this run. Used by the post-await commit guard for both
+    // manual calls (no opts.requestId) and auto-triggered scoped calls.
+    const startGen = get().layoutRequestId
+    const isCurrentGen = () => get().layoutRequestId === startGen
+
     try {
+      const { nodes, edges } = get()
+
+      // Auto-triggered layouts skip pushHistory because the call site has
+      // already pushed history immediately before inserting the unlaid-out
+      // graph. A second push here would create an awkward intermediate undo
+      // state ("graph at 0,0"). Manual triggers (toolbar, /command) keep
+      // history pushing for explicit-relayout undo semantics.
+      if (!opts?.skipHistory) {
+        pushToHistory(get, set)
+      }
+
+      // Dynamic import to avoid bundling ELK if not used. Inside the try
+      // so the finally block clears layoutInProgress even if the import
+      // itself fails (network, module corruption).
+      const { layoutGraph } = await import('./utils/layout')
+      const { useLayoutStore } = await import('./layoutStore')
+      const layoutOptions = useLayoutStore.getState()
+
       const canvasSize = layoutOptions.canvasSize ?? undefined
       const { nodes: layoutedNodes, layoutNodeWidth } = await layoutGraph(
         nodes,
@@ -2003,12 +2052,40 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         canvasSize
       )
 
+      // Post-await commit guard. The awaits above are an async window during
+      // which the store's nodes/edges can change (a new draft, patch, or
+      // import). If layoutRequestId bumped while we were running, our
+      // layoutedNodes are computed from a stale snapshot — committing them
+      // would full-replace the live nodes array and lose any nodes added in
+      // the gap. Skip the commit and leave pendingLayout=true so the
+      // measurement effect picks up the newer request once layoutInProgress
+      // flips false in finally.
+      //
+      // This guard fires for manual calls too (no opts.requestId): the
+      // generation snapshot above captures the rid at start regardless of
+      // whether the caller passed one.
+      if (!isCurrentGen()) return
+
       layoutOptions.setLayoutNodeWidth(layoutNodeWidth)
-      set({ nodes: layoutedNodes })
+      set({
+        nodes: layoutedNodes,
+        layoutVersion: get().layoutVersion + 1,
+        pendingLayout: false,
+      })
     } catch (err) {
       console.error('[CANVAS] Layout failed:', err)
+      // Clear pendingLayout on failure so the measurement effect does not
+      // retrigger when layoutInProgress flips false (would be an infinite
+      // retry loop). BUT only if the generation hasn't changed — if a
+      // newer request superseded us, leave pendingLayout=true so the
+      // newer request runs.
+      if (isCurrentGen()) {
+        set({ pendingLayout: false })
+      }
       // Rethrow so callers can provide user-facing error feedback
       throw err
+    } finally {
+      set({ layoutInProgress: false })
     }
   },
 
@@ -3624,9 +3701,16 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     set({ lens: createDefaultLensState() })
   },
 
-  // Pending fit view setter
-  setPendingFitView: (value: boolean) => {
-    set({ pendingFitView: value })
+  // Pending-layout setter (D2 of layout-stabilisation brief). Setting to
+  // true also bumps layoutRequestId so the measurement hook in
+  // ReactFlowGraph can detect a second draft arriving before the first has
+  // settled and supersede it (stale-request guard).
+  setPendingLayout: (value: boolean) => {
+    if (value) {
+      set({ pendingLayout: true, layoutRequestId: get().layoutRequestId + 1 })
+    } else {
+      set({ pendingLayout: false })
+    }
   },
 
   // Debug: Raw CEE output mode setter
@@ -3811,9 +3895,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           totalEdges: get().edges.length,
         })
       }
-      handleLayoutWithRecovery(() => get().applyLayout(), {
-        onSuccess: () => set({ pendingFitView: true }),
-      })
+      // P1.3: defer layout via measurement-aware lifecycle. The hook in
+      // ReactFlowGraph runs applyLayout once nodes are measured;
+      // layoutVersion increments and drives fitView.
+      get().setPendingLayout(true)
     } else {
       // Apply permanently (finalize mode)
       pushToHistory(get, set)
@@ -3895,9 +3980,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           totalEdges: get().edges.length,
         })
       }
-      handleLayoutWithRecovery(() => get().applyLayout(), {
-        onSuccess: () => set({ pendingFitView: true }),
-      })
+      // P1.3: defer layout via measurement-aware lifecycle.
+      get().setPendingLayout(true)
     }
   },
 

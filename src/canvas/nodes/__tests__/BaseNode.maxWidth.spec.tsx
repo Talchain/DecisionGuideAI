@@ -77,10 +77,10 @@ describe('BaseNode — maxWidth (H1)', () => {
     expect(nodeEl.style.maxWidth).toBe('200px')
   })
 
-  it('uses MAX_NODE_W (320px) fallback when no maxWidth prop and no layoutNodeWidth', () => {
-    // BaseNode's pre-layout fallback is sourced from the ELK MAX_NODE_W constant
-    // (imported from ../utils/layout) so the rendered width matches ELK's
-    // assumed box size once a layout has run.
+  it('uses NODE_CARD_MAX_W (320px) fallback when no maxWidth prop and no layoutNodeWidth', () => {
+    // BaseNode's pre-layout fallback is sourced from the ELK NODE_CARD_MAX_W
+    // constant (imported from ../utils/nodeLayoutConstants) so the rendered
+    // width matches ELK's assumed box size once a layout has run.
     const { container } = render(
       <BaseNode {...baseProps} nodeType="factor" icon={Target} />
     )

@@ -31,7 +31,7 @@ let storeState: {
 
 const mocks = {
   applyLayout: vi.fn(() => Promise.resolve()),
-  setPendingFitView: vi.fn(),
+  setPendingLayout: vi.fn(),
   setOutcomeNode: vi.fn(),
   pushHistory: vi.fn(),
 }
@@ -41,7 +41,7 @@ vi.mock('../../store', () => ({
     getState: () => ({
       ...storeState,
       applyLayout: mocks.applyLayout,
-      setPendingFitView: mocks.setPendingFitView,
+      setPendingLayout: mocks.setPendingLayout,
       setOutcomeNode: mocks.setOutcomeNode,
       pushHistory: mocks.pushHistory,
     }),
@@ -330,17 +330,21 @@ describe('applyAutoApplyPatch — guards', () => {
 // ---------------------------------------------------------------------------
 
 describe('applyAutoApplyPatch — layout', () => {
-  it('triggers applyLayout after add_node operations', () => {
+  it('flips setPendingLayout(true) after add_node operations', () => {
+    // D2 of layout-stabilisation brief: auto-trigger paths defer layout
+    // via the measurement-aware lifecycle. ReactFlowGraph runs applyLayout
+    // once measurement completes; this layer only signals intent.
     const patch = makePatchBlock([
       op('add_node', 'n1', { kind: 'factor', label: 'A' }),
     ])
 
     applyAutoApplyPatch(patch)
 
-    expect(mocks.applyLayout).toHaveBeenCalledOnce()
+    expect(mocks.setPendingLayout).toHaveBeenCalledWith(true)
+    expect(mocks.applyLayout).not.toHaveBeenCalled()
   })
 
-  it('does NOT trigger layout for update-only patches', () => {
+  it('does NOT signal pending layout for update-only patches', () => {
     storeState.nodes = [{ id: 'n1', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'X' } }]
 
     const patch = makePatchBlock([
@@ -349,6 +353,7 @@ describe('applyAutoApplyPatch — layout', () => {
 
     applyAutoApplyPatch(patch)
 
+    expect(mocks.setPendingLayout).not.toHaveBeenCalled()
     expect(mocks.applyLayout).not.toHaveBeenCalled()
   })
 })

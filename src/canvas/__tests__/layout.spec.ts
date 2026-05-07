@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import { layoutGraph, groupByYRow, applyCollisionGuard } from '../utils/layout'
 import type { CanvasSize } from '../utils/layout'
+import {
+  NODE_LAYOUT_MIN_W,
+  NODE_CARD_MAX_W,
+  LAYOUT_PADDING_X,
+  LAYOUT_PADDING_Y,
+  DEFAULT_NODE_HEIGHT,
+} from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
 // ---------------------------------------------------------------------------
@@ -41,7 +48,7 @@ function checkNoOverlap(nodes: Node[], nodeW = 264, nodeH = 116): void {
 const TEST_CANVAS: CanvasSize = { width: 1300, height: 750 }
 // Narrow canvas simulating right panel open (1440 - 48 - 416 - 40 ≈ 936px)
 const NARROW_CANVAS: CanvasSize = { width: 936, height: 750 }
-// Wide canvas where 5 factors at MAX_NODE_W would previously have been
+// Wide canvas where 5 factors at NODE_CARD_MAX_W would previously have been
 // compressed under the old fit-to-viewport policy; used to verify the
 // pin-at-MAX-and-overflow rule and the uniform-stride rule.
 const WIDE_CANVAS: CanvasSize = { width: 1700, height: 900 }
@@ -249,9 +256,9 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('nodeW stays at MAX_NODE_W (320) when widest tier overflows the viewport', async () => {
+  it('nodeW stays at NODE_CARD_MAX_W (320) when widest tier overflows the viewport', async () => {
     // 5 factors on a 1700px canvas previously compressed every node to ~241px.
-    // New policy: pin every node to MAX_NODE_W and overflow horizontally.
+    // New policy: pin every node to NODE_CARD_MAX_W and overflow horizontally.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -266,7 +273,7 @@ describe('ELK Layout', () => {
       makeEdge('e9', 'f1', 'g'), makeEdge('e10', 'f5', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
-    expect(layoutNodeWidth).toBe(320)
+    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
       expect(Number.isFinite(n.position.y)).toBe(true)
@@ -327,10 +334,11 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
 
-    // ELK box width is uniform at MAX_NODE_W + sizePaddingX = 344 in this case
+    // ELK box width is uniform at NODE_CARD_MAX_W + LAYOUT_PADDING_X = 344 in this case
+    const elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
     const tierMean = (ids: string[]): number => {
       const xs = ids.map(id => laid.find(n => n.id === id)!.position.x)
-      return xs.reduce((a, b) => a + b, 0) / xs.length + 344 / 2
+      return xs.reduce((a, b) => a + b, 0) / xs.length + elkBoxW / 2
     }
     const optionCentre = tierMean(['o1', 'o2', 'o3'])
     const factorCentre = tierMean(['f1', 'f2', 'f3', 'f4', 'f5'])
@@ -339,7 +347,7 @@ describe('ELK Layout', () => {
     expect(Math.abs(optionCentre - factorCentre)).toBeLessThanOrEqual(1)
   })
 
-  it('nodeW is clamped to MIN_NODE_W (140) when tier is too wide for canvas', async () => {
+  it('nodeW is clamped to NODE_LAYOUT_MIN_W (140) when tier is too wide for canvas', async () => {
     // 14-node graph: 7 factors in tier 2. On a 936px narrow canvas,
     // 7 * 140 + 6 * 30 = 1160px > 936 * 0.85 = 795px, so multi-row fires.
     // layoutNodeWidth must equal 140.
@@ -361,8 +369,8 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
-    expect(layoutNodeWidth).toBe(140)
-    // All positions must be finite and non-overlapping (using MIN_NODE_W for overlap check)
+    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    // All positions must be finite and non-overlapping (using NODE_LAYOUT_MIN_W for overlap check)
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
       expect(Number.isFinite(n.position.y)).toBe(true)
@@ -370,7 +378,7 @@ describe('ELK Layout', () => {
   })
 
   it('multi-row splitting produces no overlapping nodes for a 7-factor tier', async () => {
-    // Same 14-node graph as above, verify non-overlap using MIN_NODE_W = 140px box
+    // Same 14-node graph as above, verify non-overlap using NODE_LAYOUT_MIN_W box
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -389,7 +397,7 @@ describe('ELK Layout', () => {
       makeEdge('e13', 'out', 'r1'), makeEdge('e14', 'r1', 'g'),
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {}, NARROW_CANVAS)
-    checkNoOverlap(laid, 140 + 24, 100 + 16) // MIN_NODE_W + ELK padding
+    checkNoOverlap(laid, NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X, DEFAULT_NODE_HEIGHT + LAYOUT_PADDING_Y)
   })
 
   it('decision node is always above options which are above factors', async () => {
@@ -444,8 +452,7 @@ describe('applyCollisionGuard', () => {
 
     // Build a positionMap mirroring the laid-out state, and a sizeMap using
     // the ELK box width returned by layoutGraph (uniform across all nodes).
-    // 24 matches sizePaddingX in layout.ts — update if that constant changes.
-    const elkBoxW = layoutNodeWidth + 24
+    const elkBoxW = layoutNodeWidth + LAYOUT_PADDING_X
     const positionMap = new Map<string, { x: number; y: number }>()
     const sizeMap = new Map<string, { width: number; height: number }>()
     for (const n of laid) {

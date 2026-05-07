@@ -24,7 +24,7 @@ vi.mock('../../../store', () => ({
       outcomeNodeId: null,
       ceeAnalysisReady: null,
       applyLayout: vi.fn(() => Promise.resolve()),
-      setPendingFitView: vi.fn(),
+      setPendingLayout: vi.fn(),
       setOutcomeNode: vi.fn(),
       currentScenarioId: null,
     }),

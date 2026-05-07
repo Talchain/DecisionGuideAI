@@ -14,12 +14,13 @@ import { applyDraftResult, backfillInterventionsOntoOptionNodes, backfillGoalThr
 // Mock canvas store
 const mockPushHistory = vi.fn()
 const mockApplyLayout = vi.fn(() => Promise.resolve())
-const mockSetPendingFitView = vi.fn()
+const mockSetPendingLayout = vi.fn()
 const mockSetOutcomeNode = vi.fn()
 const mockSetCeeAnalysisReady = vi.fn()
 const mockSetCeePipelineTrace = vi.fn()
 const mockSetCeeQuality = vi.fn()
 const mockSetGoalConstraints = vi.fn()
+const mockSetDraftCoaching = vi.fn()
 
 let storeNodes: any[] = []
 let storeEdges: any[] = []
@@ -34,12 +35,13 @@ vi.mock('../../store', () => ({
         edges: storeEdges,
         pushHistory: mockPushHistory,
         applyLayout: mockApplyLayout,
-        setPendingFitView: mockSetPendingFitView,
+        setPendingLayout: mockSetPendingLayout,
         setOutcomeNode: mockSetOutcomeNode,
         setCeeAnalysisReady: mockSetCeeAnalysisReady,
         setCeePipelineTrace: mockSetCeePipelineTrace,
         setCeeQuality: mockSetCeeQuality,
         setGoalConstraints: mockSetGoalConstraints,
+        setDraftCoaching: mockSetDraftCoaching,
         currentScenarioId: null,
         // Diff-aware batch updater mirroring store.batchUpdateNodes. Preserves
         // identity for untouched nodes and no-ops when nothing changes.
@@ -781,23 +783,14 @@ describe('backfillGoalThresholdOntoGoalNode', () => {
   })
 })
 
-describe('applyDraftResult layout failure surfacing', () => {
-  beforeEach(async () => {
+describe('applyDraftResult — measurement-aware layout deferral (D2)', () => {
+  beforeEach(() => {
     vi.clearAllMocks()
     storeNodes = []
     storeEdges = []
-    const { useLayoutProgressStore } = await import('../../layoutProgressStore')
-    useLayoutProgressStore.setState({ status: 'idle', message: null, canRetry: false, retry: null })
   })
 
-  it('routes applyLayout rejection through useLayoutProgressStore.fail with retry', async () => {
-    const { useLayoutProgressStore } = await import('../../layoutProgressStore')
-
-    // First call rejects, second call resolves — for retry verification.
-    mockApplyLayout
-      .mockImplementationOnce(() => Promise.reject(new Error('forced failure')))
-      .mockImplementationOnce(() => Promise.resolve())
-
+  it('flips setPendingLayout(true) instead of calling applyLayout directly', () => {
     const draftData = {
       nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
       edges: [],
@@ -805,24 +798,12 @@ describe('applyDraftResult layout failure surfacing', () => {
 
     applyDraftResult(draftData)
 
-    await vi.waitFor(() => {
-      expect(useLayoutProgressStore.getState().status).toBe('error')
-    })
-
-    const state = useLayoutProgressStore.getState()
-    expect(state.status).toBe('error')
-    expect(state.message).toBe('Layout failed. Try again.')
-    expect(state.canRetry).toBe(true)
-    expect(typeof state.retry).toBe('function')
-    expect(mockApplyLayout).toHaveBeenCalledTimes(1)
-
-    // Fire retry — should re-invoke applyLayout and clear the banner on success.
-    state.retry!()
-    await vi.waitFor(() => {
-      expect(mockApplyLayout).toHaveBeenCalledTimes(2)
-    })
-    await vi.waitFor(() => {
-      expect(useLayoutProgressStore.getState().status).toBe('idle')
-    })
+    expect(mockSetPendingLayout).toHaveBeenCalledWith(true)
+    // The auto-trigger path defers layout; ELK runs in ReactFlowGraph's
+    // measurement effect once nodes are measured. Failure surfacing for
+    // auto-triggered layouts lives at the ReactFlowGraph layer (the
+    // measure-then-layout effect wraps applyLayout in
+    // handleLayoutWithRecovery — see I1 of post-D6 review).
+    expect(mockApplyLayout).not.toHaveBeenCalled()
   })
 })

@@ -13,7 +13,6 @@ import { DraftGuidancePanel } from './DraftGuidancePanel'
 import { RateLimitNotice } from './RateLimitNotice'
 import { ThinkingModePopover } from './ThinkingModePopover'
 import { DEFAULT_EDGE_DATA, trimProvenance } from '../domain/edges'
-import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCeePipelineTrace } from '../../adapters/cee/types'
 import type { CEEDraftResponse, CEEv2Response, EffectDirection } from '../../adapters/cee/types'
@@ -120,9 +119,8 @@ export function DraftChat() {
   const setShowDraftChat = useCanvasStore(s => s.setShowDraftChat)
   const setLastDraftDescription = useDraftStore(s => s.setLastDraftDescription)
   const pushHistory = useCanvasStore(s => s.pushHistory)
-  const applyLayout = useCanvasStore(s => s.applyLayout)
+  const setPendingLayout = useCanvasStore(s => s.setPendingLayout)
   const setCanvasSize = useLayoutStore(s => s.setCanvasSize)
-  const setPendingFitView = useCanvasStore(s => s.setPendingFitView)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
   const captureErrorDetail = useCanvasStore(s => s.captureErrorDetail)
   const nodeCount = useCanvasStore(s => s.nodes.length)
@@ -661,9 +659,8 @@ export function DraftChat() {
         height: Math.max(400, window.innerHeight - 57 - 72),
       })
     }
-    handleLayoutWithRecovery(applyLayout, {
-      onSuccess: () => setPendingFitView(true),
-    })
+    // Defer layout until React Flow has measured the inserted nodes (D2).
+    setPendingLayout(true)
 
     // IMMEDIATE AUTOSAVE: Save right away so graph survives refresh before 30s interval
     // This eliminates the vulnerability window where AI drafts could be lost
@@ -784,7 +781,7 @@ export function DraftChat() {
     // Commit CEE coaching payload (typed, type-guarded by adapter). Null when absent.
     commitDraftCoachingToStore(draftData.draftCoaching ?? null)
 
-  }, [pushHistory, applyLayout, setPendingFitView])
+  }, [pushHistory, setPendingLayout])
 
   // Handle panel resize via drag.
   // Tranche 1 item 19: left-edge handle. Panel is anchored right, so dragging

@@ -7,7 +7,6 @@
  */
 
 import { useCanvasStore } from '../../store'
-import { handleLayoutWithRecovery } from '../../layout/handleLayoutWithRecovery'
 import { DEFAULT_EDGE_DATA } from '../../domain/edges'
 import { saveAutosave } from '../../store/scenarios'
 import { validateNodesBatch } from '../../domain/nodes'
@@ -337,12 +336,11 @@ export function applyAutoApplyPatch(patchBlock: GraphPatchBlock): ApplyPatchResu
     }
   }
 
-  // 6. Trigger layout if any nodes were added (they start at 0,0)
+  // 6. Defer layout if any nodes were added (they start at 0,0). The
+  // measurement-aware hook in ReactFlowGraph runs applyLayout once nodes
+  // are measured and layoutVersion drives fitView (D2 of brief).
   if (newNodes.length > 0) {
-    const s = useCanvasStore.getState()
-    handleLayoutWithRecovery(() => s.applyLayout(), {
-      onSuccess: () => useCanvasStore.getState().setPendingFitView(true),
-    })
+    useCanvasStore.getState().setPendingLayout(true)
   }
 
   // 7. Auto-select goal node if exactly one exists

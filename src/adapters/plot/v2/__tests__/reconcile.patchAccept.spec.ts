@@ -40,7 +40,7 @@ vi.mock('../../../../canvas/store', () => ({
       outcomeNodeId: 'goal_1',
       ceeAnalysisReady: null,
       applyLayout: vi.fn(() => Promise.resolve()),
-      setPendingFitView: vi.fn(),
+      setPendingLayout: vi.fn(),
       setOutcomeNode: vi.fn(),
       currentScenarioId: null,
       pushHistory: vi.fn(),

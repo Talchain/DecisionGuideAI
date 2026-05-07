@@ -12,7 +12,6 @@
  */
 
 import { useCanvasStore } from '../store'
-import { handleLayoutWithRecovery } from '../layout/handleLayoutWithRecovery'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { saveAutosave } from '../store/scenarios'
 import { hasAnalysisReady, isCEEv3Response } from '../../adapters/cee/types'
@@ -146,10 +145,11 @@ export function applyDraftResult(
   // shape drift is logged via devWarn in DEV builds only.
   validateNodesBatch(nodes)
 
-  // Trigger layout (all new nodes start at 0,0)
-  handleLayoutWithRecovery(() => store.applyLayout(), {
-    onSuccess: () => store.setPendingFitView(true),
-  })
+  // Defer layout until React Flow has measured the inserted nodes (D2 of
+  // layout-stabilisation brief). The measurement hook in ReactFlowGraph
+  // runs applyLayout once every unlocked node has measured.width/height,
+  // or after a 500 ms safety fallback.
+  store.setPendingLayout(true)
 
   // Immediate autosave for crash resilience
   try {

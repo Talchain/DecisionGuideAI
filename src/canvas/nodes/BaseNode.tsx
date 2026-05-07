@@ -21,7 +21,7 @@ import { useCEEInsights } from '../../hooks/useCEEInsights'
 import { useISLValidation } from '../../hooks/useISLValidation'
 import { useCanvasStore } from '../store'
 import { useLayoutStore } from '../layoutStore'
-import { MAX_NODE_W } from '../utils/layout'
+import { NODE_CARD_MAX_W } from '../utils/nodeLayoutConstants'
 import { nodeColors } from './colors'
 import { typography } from '../../styles/typography'
 import { getControllabilityBorderStyle } from '../utils/graphDisplayCalculations'
@@ -269,11 +269,11 @@ export const BaseNode = memo(({ id, nodeType, icon: _icon, data, selected, child
         minWidth: '140px',
         // Width policy:
         //  - Non-expanded: use caller's maxWidth if given, else the last layout's
-        //    width, else fall back to MAX_NODE_W so rendered width matches ELK.
+        //    width, else fall back to NODE_CARD_MAX_W so rendered width matches ELK.
         //  - Expanded: deliberately override both `maxWidth` and `layoutNodeWidth`
-        //    with MAX_NODE_W. Expanded nodes show a description panel and need
+        //    with NODE_CARD_MAX_W. Expanded nodes show a description panel and need
         //    a readable width regardless of what a caller or layout computed.
-        maxWidth: isExpanded ? `${MAX_NODE_W}px` : `${maxWidth ?? layoutNodeWidth ?? MAX_NODE_W}px`,
+        maxWidth: isExpanded ? `${NODE_CARD_MAX_W}px` : `${maxWidth ?? layoutNodeWidth ?? NODE_CARD_MAX_W}px`,
         minHeight: isExpanded ? '120px' : undefined,
       }}
     >

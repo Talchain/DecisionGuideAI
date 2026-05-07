@@ -438,7 +438,7 @@ export const OptionNode = memo((props: NodeProps) => {
         const baseline = baselineOptionInterventions?.[c.factorId] ?? c.observedValue
         // Graph v1.1 Task 6: compaction for pre-analysis pills. Bumped from 15
         // to 22 so multi-word factor labels (e.g. "Senior technical leadership")
-        // read more meaningfully before truncation; still fits MAX_NODE_W=300.
+        // read more meaningfully before truncation; still fits NODE_CARD_MAX_W=320.
         const shortLabel = compactFactorLabel(c.label, 22)
 
         if (baseline === undefined) {

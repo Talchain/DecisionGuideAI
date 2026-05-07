@@ -1628,14 +1628,11 @@ export function PayloadLabTab({ lastISLPayload, onRunTest, initialPayload, onPay
     useCanvasStore.setState({
       nodes: [...state.nodes, ...nodes],
       edges: [...state.edges, ...edges],
-      pendingFitView: true,
     })
 
-    try {
-      state.applyLayout()
-    } catch {
-      // ignore
-    }
+    // Defer layout via measurement-aware lifecycle. ReactFlowGraph runs
+    // applyLayout once nodes are measured and layoutVersion drives fitView.
+    state.setPendingLayout(true)
   }, [])
 
   const runDraftOnce = useCallback(async (runNumber: number): Promise<PromptTesterRun> => {
