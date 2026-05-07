@@ -81,8 +81,13 @@ function makeApplicatorStore(): {
       updateEdgeData: vi.fn(),
       setRunMeta: vi.fn(),
       setCeeAnalysisReady,
-      nodes: NODES.map((n) => ({ ...n, type: n.id.startsWith('goal_') ? 'goal' : 'factor' })) as V5ApplicatorStore['nodes'],
-      edges: EDGES as V5ApplicatorStore['edges'],
+      // applyV5State only reads `nodes.find((n) => n.id === target)`
+      // and the merge into n.data.observedState — the structural Node
+      // type from React Flow has stricter requirements (position, etc.)
+      // that the applicator never reads. Cast through unknown to keep
+      // the test fixture minimal.
+      nodes: NODES.map((n) => ({ ...n, type: n.id.startsWith('goal_') ? 'goal' : 'factor' })) as unknown as V5ApplicatorStore['nodes'],
+      edges: EDGES as unknown as V5ApplicatorStore['edges'],
     },
     setCeeAnalysisReady,
   }
