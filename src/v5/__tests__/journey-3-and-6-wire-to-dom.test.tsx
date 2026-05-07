@@ -140,9 +140,26 @@ function journey3Envelope(opts: { freshness: 'fresh' | 'stale' | 'unknown' | 'no
         type: 'graph_patch',
         status: 'applied',
         operation: 'add_constraint',
-        target_id: 'con_budget',
+        // Exact CEE add-constraint shape (add-constraint.ts:236–252,
+        // 269–281): target_id is the generated constraint_id; before
+        // is null on a brand-new constraint; after is the
+        // GoalConstraintT with the user-supplied unit symbol ('£' —
+        // not 'GBP') and the symbol operator ('<=' from
+        // TYPE_TO_OPERATOR). Mirroring this in the test catches a
+        // future regression where the receipt resolver is changed in
+        // a way that only happens to work with the old simplified
+        // fixture.
+        target_id: 'gc-budget-uuid',
         before: null,
-        after: { label: 'budget', value: 50000, unit: 'GBP', operator: 'lte' },
+        after: {
+          constraint_id: 'gc-budget-uuid',
+          node_id: 'f-budget',
+          operator: '<=',
+          value: 50000,
+          label: 'Marketing budget',
+          unit: '£',
+          provenance: 'explicit',
+        },
       },
     ],
     suggested_actions: [],
@@ -167,15 +184,20 @@ function journey3Envelope(opts: { freshness: 'fresh' | 'stale' | 'unknown' | 'no
 function journey6Envelope(opts: { freshness: 'fresh' | 'stale' | 'unknown' | 'none' }): OlumiResponse {
   return {
     response_version: 2,
-    assistant_text: 'I have updated team morale from 0.5 to 0.7.',
+    assistant_text: 'I have updated team morale from 50% to 70%.',
     blocks: [
       {
         type: 'graph_patch',
         status: 'applied',
         operation: 'set_factor_value',
         target_id: 'fac_team_morale',
-        before: { value: 0.5 },
-        after: { value: 0.7 },
+        // Exact CEE set_factor_value ObservedSnapshot shape
+        // (set-factor-value.ts:263): both normalised `value` AND
+        // user-facing `raw_value` + `unit` + `cap`. The receipt MUST
+        // render the user-facing pair (`50% → 70%`); falling back to
+        // `value` would surface raw normalised decimals.
+        before: { value: 0.5, raw_value: 50, unit: '%', cap: 100 },
+        after: { value: 0.7, raw_value: 70, unit: '%', cap: 100 },
       },
     ],
     suggested_actions: [],
@@ -211,7 +233,7 @@ describe('Workstream 1 — Journey 3 wire-to-DOM (add_constraint)', () => {
     expect(written.freshness_reason).toBe('graph_hash_diverged')
   })
 
-  it('mapV5Blocks renders a clean graph_patch receipt for the constraint', () => {
+  it('mapV5Blocks preserves the V5 graph_patch shape for downstream rendering', () => {
     const envelope = journey3Envelope({ freshness: 'stale' })
     const blocks = mapV5Blocks(envelope.blocks)
     expect(blocks).toHaveLength(1)
@@ -219,7 +241,7 @@ describe('Workstream 1 — Journey 3 wire-to-DOM (add_constraint)', () => {
     expect(v5Block.type).toBe('v5_graph_patch')
     expect(v5Block.operation).toBe('add_constraint')
     expect(v5Block.status).toBe('applied')
-    expect(v5Block.target_id).toBe('con_budget')
+    expect(v5Block.target_id).toBe('gc-budget-uuid')
   })
 
   it('V5GraphPatchBlock renders the friendly receipt + stale freshness hint', () => {
@@ -236,7 +258,7 @@ describe('Workstream 1 — Journey 3 wire-to-DOM (add_constraint)', () => {
 
     expect(screen.getByTestId('v5-graph-patch-status').textContent).toBe('Applied')
     expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Added constraint')
-    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('budget')
+    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('Marketing budget')
     expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('≤ £50,000')
     expect(screen.getByTestId('v5-graph-patch-freshness-hint').textContent).toBe(
       'Latest analysis is now out of date.',
@@ -286,7 +308,9 @@ describe('Workstream 1 — Journey 6 wire-to-DOM (set_factor_value)', () => {
 
     expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Updated factor')
     expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('team morale')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('0.5 → 0.7')
+    // Renders user-facing raw_value + unit, NOT the normalised
+    // 0.5 → 0.7 the wire envelope also carries.
+    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('50% → 70%')
     expect(screen.getByTestId('v5-graph-patch-freshness-hint').textContent).toBe(
       'Latest analysis is now out of date.',
     )

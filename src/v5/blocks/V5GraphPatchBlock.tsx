@@ -56,10 +56,13 @@ export function V5GraphPatchBlock({ block }: V5GraphPatchBlockProps): ReactEleme
   const isApplied = receipt.status === 'applied'
 
   return (
+    // No `data-operation` / `data-status` attributes: those would leak
+    // schema terms (e.g. `add_constraint`, `noop`) into the rendered
+    // DOM (visible via outerHTML / DevTools), breaching the V5 UI
+    // rendering contract. Tests address the card via `data-testid` and
+    // assert friendly text via the per-row testids below.
     <div
       data-testid="v5-graph-patch"
-      data-status={receipt.status}
-      data-operation={block.operation}
       className="rounded-xl border border-panel-border bg-panel p-4 space-y-2"
     >
       <div className="flex items-center gap-2">

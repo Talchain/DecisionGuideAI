@@ -46,11 +46,26 @@ function makeDeps(
 }
 
 describe('formatConstraintValue', () => {
-  it('formats GBP currency with thousands separator', () => {
+  it('formats GBP currency code with thousands separator', () => {
     expect(formatConstraintValue(50000, 'GBP')).toBe('£50,000')
   })
-  it('formats USD currency with thousands separator', () => {
+  it('formats £ currency symbol with thousands separator (CEE add-constraint emits the symbol)', () => {
+    // P1.3 regression guard: CEE add-constraint passes the user-supplied
+    // unit symbol verbatim (see add-constraint.ts:239–246). The receipt
+    // must render `£50,000`, not `50,000 £`.
+    expect(formatConstraintValue(50000, '£')).toBe('£50,000')
+  })
+  it('formats $ currency symbol with thousands separator', () => {
+    expect(formatConstraintValue(1500000, '$')).toBe('$1,500,000')
+  })
+  it('formats € currency symbol with thousands separator', () => {
+    expect(formatConstraintValue(2500, '€')).toBe('€2,500')
+  })
+  it('formats USD currency code with thousands separator', () => {
     expect(formatConstraintValue(1500000, 'USD')).toBe('$1,500,000')
+  })
+  it('formats percent unit without space', () => {
+    expect(formatConstraintValue(5, '%')).toBe('5%')
   })
   it('formats unitless number with thousands separator', () => {
     expect(formatConstraintValue(50000)).toBe('50,000')
@@ -124,6 +139,76 @@ describe('buildV5PatchReceipt — set_factor_value', () => {
     expect(r.changeSummary).toBe('')
     expect(r.status).toBe('noop')
   })
+
+  // ── P1.2 regression guard ─────────────────────────────────────────────
+  // CEE set_factor_value emits an ObservedSnapshot with both normalised
+  // `value` (e.g. 0.05) AND user-facing `raw_value` + `unit` (e.g. 5
+  // and '%') — see set-factor-value.ts:263. The receipt MUST render the
+  // user-facing pair; falling back to `value` would surface raw
+  // normalised decimals like `0.04 → 0.05` instead of `4% → 5%`.
+  it('renders raw_value + unit when CEE includes them (percent factor)', () => {
+    const deps = makeDeps([{ id: 'f-churn', label: 'Customer churn' }])
+    const r = buildV5PatchReceipt(
+      {
+        type: 'v5_graph_patch',
+        status: 'applied',
+        operation: 'set_factor_value',
+        target_id: 'f-churn',
+        before: { value: 0.04, raw_value: 4, unit: '%', cap: 100 },
+        after: { value: 0.05, raw_value: 5, unit: '%', cap: 100 },
+      },
+      deps,
+    )
+    expect(r.entityLabel).toBe('Customer churn')
+    expect(r.changeSummary).toBe('4% → 5%')
+    // Critical: never the normalised decimals.
+    expect(r.changeSummary).not.toContain('0.04')
+    expect(r.changeSummary).not.toContain('0.05')
+    expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
+  })
+
+  it('renders raw_value + unit when CEE includes them (currency factor)', () => {
+    const deps = makeDeps([{ id: 'f-budget', label: 'Marketing budget' }])
+    const r = buildV5PatchReceipt(
+      {
+        type: 'v5_graph_patch',
+        status: 'applied',
+        operation: 'set_factor_value',
+        target_id: 'f-budget',
+        before: { value: 0.4, raw_value: 40000, unit: '£', cap: 100000 },
+        after: { value: 0.5, raw_value: 50000, unit: '£', cap: 100000 },
+      },
+      deps,
+    )
+    expect(r.entityLabel).toBe('Marketing budget')
+    expect(r.changeSummary).toBe('£40,000 → £50,000')
+    // Critical: never the normalised decimals or trailing-symbol form.
+    // Trailing-symbol regex: digit-space-pound (the bug we're guarding
+    // against). The arrow separator ' → £' must not match — it has a
+    // non-digit between.
+    expect(r.changeSummary).not.toContain('0.4')
+    expect(r.changeSummary).not.toContain('0.5')
+    expect(r.changeSummary).not.toMatch(/\d £/)
+    expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
+  })
+
+  it('falls back to value when raw_value is absent (legacy / partial blocks)', () => {
+    // Defensive: a CEE block missing raw_value should still produce a
+    // sensible receipt, not a blank line.
+    const deps = makeDeps([{ id: 'fac_team_morale', label: 'team morale' }])
+    const r = buildV5PatchReceipt(
+      {
+        type: 'v5_graph_patch',
+        status: 'applied',
+        operation: 'set_factor_value',
+        target_id: 'fac_team_morale',
+        before: { value: 0.5 },
+        after: { value: 0.7 },
+      },
+      deps,
+    )
+    expect(r.changeSummary).toBe('0.5 → 0.7')
+  })
 })
 
 describe('buildV5PatchReceipt — add_constraint', () => {
@@ -179,6 +264,25 @@ describe('buildV5PatchReceipt — add_constraint', () => {
       makeDeps(),
     )
     expect(r.changeSummary).toBe('≤ £50,000')
+  })
+
+  it('renders symbol-form unit (CEE add-constraint shape) without trailing-symbol leak', () => {
+    // P1.3 regression guard at the receipt level. CEE add-constraint
+    // forwards user-supplied unit symbols (e.g. '£') verbatim and the
+    // operator as the symbol form ('<=' from TYPE_TO_OPERATOR). Prior
+    // bug rendered `50,000 £` because formatConstraintValue only knew
+    // ISO codes.
+    const r = buildV5PatchReceipt(
+      block({
+        after: { label: 'Marketing budget', value: 50000, unit: '£', operator: '<=' },
+      }),
+      makeDeps(),
+    )
+    expect(r.entityLabel).toBe('Marketing budget')
+    expect(r.changeSummary).toBe('≤ £50,000')
+    // Digit-space-pound (the bug). The legitimate '≤ £' is non-digit
+    // before the space so does not match.
+    expect(r.changeSummary).not.toMatch(/\d £/)
   })
 
   it('drops unfriendly label that looks like an id', () => {

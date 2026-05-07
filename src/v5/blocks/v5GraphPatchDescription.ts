@@ -84,17 +84,31 @@ function elementTypeFromId(id: string, fallback: string): string {
 // Value formatting.
 // ---------------------------------------------------------------------------
 
-const CURRENCY_UNITS: Record<string, string> = {
+// Currency units → human prefix glyph. Both ISO codes (CEE may emit
+// `'GBP'` from a structured proposal) AND symbol forms (CEE
+// add-constraint.ts passes the user-supplied symbol verbatim — e.g.
+// `'£'`) must render as a left-prefixed glyph on the value, not as a
+// trailing suffix. Mirroring both representations means a CEE refactor
+// that swaps one form for the other does not silently regress receipt
+// formatting from `£50,000` to `50,000 £`.
+const CURRENCY_PREFIXES: Record<string, string> = {
   GBP: '£',
+  '£': '£',
   USD: '$',
+  $: '$',
   EUR: '€',
+  '€': '€',
 }
+
+const PERCENT_UNITS: ReadonlySet<string> = new Set(['%', 'percent', 'PERCENT'])
 
 /**
  * Format a numeric value with optional unit. Currencies render as a
- * symbol prefix with thousands separators; other units render as a
- * suffix. Non-numeric values fall back to a string coercion (the
- * caller should already have filtered these).
+ * symbol prefix with thousands separators (covering both ISO codes
+ * and symbol forms). Percent renders as `N%` with no space. Other
+ * units render as a suffix with a space. Non-numeric values fall back
+ * to a string coercion (the caller should already have filtered
+ * these).
  */
 export function formatConstraintValue(
   value: unknown,
@@ -103,11 +117,16 @@ export function formatConstraintValue(
   if (typeof value !== 'number' || !Number.isFinite(value)) {
     return typeof value === 'string' ? value : '—'
   }
-  const unitKey = unit?.toUpperCase() ?? ''
-  if (unitKey && CURRENCY_UNITS[unitKey]) {
-    return `${CURRENCY_UNITS[unitKey]}${value.toLocaleString('en-GB')}`
-  }
   if (unit) {
+    // Currencies — match symbol or ISO code (case-insensitive).
+    const currencyGlyph =
+      CURRENCY_PREFIXES[unit] ?? CURRENCY_PREFIXES[unit.toUpperCase()]
+    if (currencyGlyph) {
+      return `${currencyGlyph}${value.toLocaleString('en-GB')}`
+    }
+    if (PERCENT_UNITS.has(unit)) {
+      return `${value.toLocaleString('en-GB')}%`
+    }
     return `${value.toLocaleString('en-GB')} ${unit}`
   }
   return value.toLocaleString('en-GB')
@@ -214,13 +233,34 @@ export function buildV5PatchReceipt(
     case 'set_factor_value': {
       const entityLabel = resolveNodeLabel(block.target_id, deps)
         || elementTypeFromId(block.target_id, 'factor')
-      const before = (block.before as { value?: unknown } | null)?.value
-      const after = (block.after as { value?: unknown } | null)?.value
-      const beforeStr = formatScalar(before)
-      const afterStr = formatScalar(after)
+      // CEE set_factor_value emits an ObservedSnapshot with both
+      // normalised `value` (e.g. 0.05) and user-facing `raw_value` +
+      // `unit` (e.g. 5 + '%'). The receipt MUST render the
+      // user-facing pair when present; falling back to `value` would
+      // surface raw normalised decimals (`0.04 → 0.05` instead of
+      // `4% → 5%`). See set-factor-value.ts:263 for the snapshot
+      // shape and formatFactorChange for the assistant_text mirror.
+      const beforeRaw = block.before as
+        | { value?: unknown; raw_value?: unknown; unit?: unknown }
+        | null
+      const afterRaw = block.after as
+        | { value?: unknown; raw_value?: unknown; unit?: unknown }
+        | null
+      const beforeUnit = typeof beforeRaw?.unit === 'string' ? beforeRaw.unit : null
+      const afterUnit = typeof afterRaw?.unit === 'string' ? afterRaw.unit : null
+      const beforeNumeric =
+        beforeRaw?.raw_value !== undefined ? beforeRaw.raw_value : beforeRaw?.value
+      const afterNumeric =
+        afterRaw?.raw_value !== undefined ? afterRaw.raw_value : afterRaw?.value
+      const beforeStr = beforeUnit
+        ? formatConstraintValue(beforeNumeric, beforeUnit)
+        : formatScalar(beforeNumeric)
+      const afterStr = afterUnit
+        ? formatConstraintValue(afterNumeric, afterUnit)
+        : formatScalar(afterNumeric)
       let changeSummary = ''
-      if (status === 'applied' && afterStr) {
-        changeSummary = beforeStr && beforeStr !== afterStr
+      if (status === 'applied' && afterStr && afterStr !== '—') {
+        changeSummary = beforeStr && beforeStr !== '—' && beforeStr !== afterStr
           ? `${beforeStr} → ${afterStr}`
           : afterStr
       }

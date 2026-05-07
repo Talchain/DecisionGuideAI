@@ -61,7 +61,11 @@ const FORBIDDEN_TERMS = [
 
 function expectNoLeakInDOM(): void {
   const card = screen.getByTestId('v5-graph-patch')
-  const rendered = card.textContent ?? ''
+  // Assert against outerHTML — covers attribute-level leaks (e.g. a
+  // future `data-operation="add_constraint"` regression) as well as
+  // text content. Pure textContent only catches innerText leaks and
+  // missed the data-operation regression caught in code review.
+  const rendered = card.outerHTML
   expect(rendered).not.toMatch(RAW_ID_PATTERN)
   for (const term of FORBIDDEN_TERMS) {
     expect(rendered.toLowerCase()).not.toContain(term)
@@ -233,5 +237,70 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
     }
     render(<V5GraphPatchBlock block={block} />)
     expect(screen.queryByTestId('v5-graph-patch-freshness-hint')).toBeNull()
+  })
+})
+
+// Single bug-bar test that fails on any of the three regressions caught
+// in code review (P1.1 data-operation attribute leak, P1.2 raw_value/unit
+// rendering, P1.3 currency-symbol formatting). Uses the exact CEE block
+// shape so the test is the regression contract — no synthetic shape that
+// happens to pass while the real shape regresses.
+describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)', () => {
+  it('renders the actual CEE add_constraint shape (£ symbol + "<=" operator) with no attribute leak', () => {
+    // Exact shape CEE add-constraint emits: unit is the user-supplied
+    // symbol '£' (not 'GBP'), operator is '<=' from TYPE_TO_OPERATOR,
+    // before is null on a brand-new constraint, after carries the
+    // GoalConstraintT shape.
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'add_constraint',
+      target_id: 'gc-budget-uuid',
+      before: null,
+      after: {
+        constraint_id: 'gc-budget-uuid',
+        node_id: 'f-budget',
+        operator: '<=',
+        value: 50000,
+        label: 'Marketing budget',
+        unit: '£',
+        provenance: 'explicit',
+      },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Added constraint')
+    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('Marketing budget')
+    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('≤ £50,000')
+    // outerHTML check catches: data-operation="add_constraint" attribute
+    // leak (P1.1), trailing-symbol "50,000 £" (P1.3), and raw constraint
+    // ids (RAW_ID_PATTERN).
+    expectNoLeakInDOM()
+  })
+
+  it('renders the actual CEE set_factor_value shape (raw_value + unit) without normalised-decimal leak', () => {
+    // Exact shape CEE set_factor_value emits (set-factor-value.ts:263):
+    // ObservedSnapshot with both normalised value (0.05) and user-facing
+    // raw_value (5) + unit ('%'). The receipt MUST render the
+    // user-facing pair.
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'set_factor_value',
+      target_id: 'fac_team_morale',
+      before: { value: 0.5, raw_value: 50, unit: '%', cap: 100 },
+      after: { value: 0.7, raw_value: 70, unit: '%', cap: 100 },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Updated factor')
+    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('team morale')
+    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('50% → 70%')
+    // Critical: never the normalised decimals in the visible text.
+    // (outerHTML would also catch styling tokens like `px-2.5` /
+    // `py-0.5` from the design system, which are not leaks; assert
+    // against the change row's textContent specifically.)
+    const change = screen.getByTestId('v5-graph-patch-change').textContent ?? ''
+    expect(change).not.toContain('0.5')
+    expect(change).not.toContain('0.7')
+    expectNoLeakInDOM()
   })
 })
