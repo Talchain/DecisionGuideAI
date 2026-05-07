@@ -14,10 +14,15 @@ import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../../canvas
 import { RAW_ID_PATTERN } from '../../../canvas/conversation/friendlyOperation'
 
 // Mock the canvas store so the block uses our controlled nodes/edges.
+// Includes both the underscore-prefixed ids used by simpler fixtures
+// and the dash-prefixed ids CEE adjust_edge_strength emits inside its
+// `from→to` arrow-form target_id (e.g. `f-budget→g-revenue`).
 const NODES = [
   { id: 'fac_team_morale', data: { label: 'team morale' } },
   { id: 'fac_morale', data: { label: 'team morale' } },
   { id: 'goal_outcome', data: { label: 'overall outcome' } },
+  { id: 'f-budget', data: { label: 'Marketing budget' } },
+  { id: 'g-revenue', data: { label: 'Revenue' } },
 ]
 const EDGES = [
   { id: 'edge_morale_to_outcome', source: 'fac_morale', target: 'goal_outcome' },
@@ -46,6 +51,13 @@ vi.mock('../../../lib/useAnalysisFreshnessState', () => ({
 // Import AFTER the mock so the component uses the mocked store.
 import { V5GraphPatchBlock } from '../V5GraphPatchBlock'
 
+// Forbidden internal terms in default UI surfaces. Extended after
+// code-review NR1 to cover schema field names that real CEE blocks
+// carry (constraint_id, node_id, provenance, raw_value) plus the
+// edge-strength object's internals (mean, std). Mathematical
+// operator glyphs (≤ / ≥ / <=) are also forbidden — receipts use
+// decision-language phrases ("at most" / "at least") per the
+// CEE format-confirmation table.
 const FORBIDDEN_TERMS = [
   'target_id',
   'operator',
@@ -57,7 +69,21 @@ const FORBIDDEN_TERMS = [
   'adjust_edge_strength',
   'before',
   'after',
+  // NR1 additions — schema field names emitted on CEE block payloads
+  // that real receipts must never surface.
+  'constraint_id',
+  'node_id',
+  'provenance',
+  'raw_value',
+  'mean',
+  'std',
 ]
+
+// Operator-glyph guard. Decision-language only — no `<=` / `>=` /
+// `≤` / `≥` / `lte` / `gte` strings should reach the default DOM.
+// A separate const because `'<='` / `'>='` literals are short and a
+// single regex over outerHTML is the cheapest assertion.
+const FORBIDDEN_OPERATOR_GLYPHS = /(?:<=|>=|≤|≥|\blte\b|\bgte\b)/i
 
 function expectNoLeakInDOM(): void {
   const card = screen.getByTestId('v5-graph-patch')
@@ -67,6 +93,7 @@ function expectNoLeakInDOM(): void {
   // missed the data-operation regression caught in code review.
   const rendered = card.outerHTML
   expect(rendered).not.toMatch(RAW_ID_PATTERN)
+  expect(rendered).not.toMatch(FORBIDDEN_OPERATOR_GLYPHS)
   for (const term of FORBIDDEN_TERMS) {
     expect(rendered.toLowerCase()).not.toContain(term)
   }
@@ -112,7 +139,7 @@ describe('V5GraphPatchBlock — clean receipt rendering', () => {
     render(<V5GraphPatchBlock block={block} />)
     expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Added constraint')
     expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('budget')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('≤ £50,000')
+    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('at most £50,000')
     expectNoLeakInDOM()
   })
 
@@ -270,7 +297,7 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
     render(<V5GraphPatchBlock block={block} />)
     expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Added constraint')
     expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('Marketing budget')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('≤ £50,000')
+    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('at most £50,000')
     // outerHTML check catches: data-operation="add_constraint" attribute
     // leak (P1.1), trailing-symbol "50,000 £" (P1.3), and raw constraint
     // ids (RAW_ID_PATTERN).
@@ -302,5 +329,96 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
     expect(change).not.toContain('0.5')
     expect(change).not.toContain('0.7')
     expectNoLeakInDOM()
+  })
+
+  // NR2 — realistic adjust_edge_strength shape. CEE emits
+  // `target_id` as `from→to` (handler ts:262) and `before/after` as
+  // { from, to, strength: { mean, std }, effect_direction }
+  // (handler ts:205–220). The earlier scalar-only path silently
+  // produced a blank change summary on real CEE payloads.
+  it('renders the actual CEE adjust_edge_strength shape (object strength + arrow target_id) without mean/std leak', () => {
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'adjust_edge_strength',
+      target_id: 'f-budget→g-revenue',
+      before: {
+        from: 'f-budget',
+        to: 'g-revenue',
+        strength: { mean: 0.3, std: 0.1 },
+        effect_direction: 'positive',
+      },
+      after: {
+        from: 'f-budget',
+        to: 'g-revenue',
+        strength: { mean: 0.6, std: 0.1 },
+        effect_direction: 'positive',
+      },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Adjusted connection')
+    expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe(
+      'Marketing budget → Revenue',
+    )
+    // Renders the `mean` magnitudes — std (the confidence band) is a
+    // schema field that does not belong in the receipt.
+    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('0.3 → 0.6')
+    // Comprehensive leak check covers mean/std + raw ids in outerHTML.
+    expectNoLeakInDOM()
+  })
+
+  it('renders direction-flip hint when adjust_edge_strength changes effect_direction', () => {
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'adjust_edge_strength',
+      target_id: 'f-budget→g-revenue',
+      before: {
+        from: 'f-budget',
+        to: 'g-revenue',
+        strength: { mean: 0.4, std: 0.1 },
+        effect_direction: 'positive',
+      },
+      after: {
+        from: 'f-budget',
+        to: 'g-revenue',
+        strength: { mean: -0.4, std: 0.1 },
+        effect_direction: 'negative',
+      },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    const change = screen.getByTestId('v5-graph-patch-change').textContent ?? ''
+    expect(change).toContain('0.4')
+    expect(change).toContain('-0.4')
+    expect(change).toContain('direction now negative')
+    expectNoLeakInDOM()
+  })
+
+  it('does NOT render a silent blank change summary for the object-strength shape', () => {
+    // Regression: prior scalar-only resolver returned '' for an object
+    // strength, producing an entityLabel-only receipt with no change
+    // summary. Assert the change row is present and non-empty.
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'adjust_edge_strength',
+      target_id: 'f-budget→g-revenue',
+      before: {
+        from: 'f-budget',
+        to: 'g-revenue',
+        strength: { mean: 0.2, std: 0.05 },
+        effect_direction: 'positive',
+      },
+      after: {
+        from: 'f-budget',
+        to: 'g-revenue',
+        strength: { mean: 0.5, std: 0.05 },
+        effect_direction: 'positive',
+      },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    const change = screen.queryByTestId('v5-graph-patch-change')
+    expect(change).not.toBeNull()
+    expect((change!.textContent ?? '').trim().length).toBeGreaterThan(0)
   })
 })

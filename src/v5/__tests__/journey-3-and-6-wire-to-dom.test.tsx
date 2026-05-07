@@ -93,6 +93,11 @@ function makeApplicatorStore(): {
   }
 }
 
+// Forbidden internal terms in default UI surfaces. NR1 additions
+// cover schema field names CEE blocks carry (constraint_id, node_id,
+// provenance, raw_value) plus the edge-strength object's internals
+// (mean, std). Operator glyphs are also forbidden — receipts use
+// decision-language phrases.
 const FORBIDDEN_TERMS = [
   'target_id',
   'operator',
@@ -104,14 +109,26 @@ const FORBIDDEN_TERMS = [
   'adjust_edge_strength',
   'before',
   'after',
+  'constraint_id',
+  'node_id',
+  'provenance',
+  'raw_value',
+  'mean',
+  'std',
 ] as const
+
+const FORBIDDEN_OPERATOR_GLYPHS = /(?:<=|>=|≤|≥|\blte\b|\bgte\b)/i
 
 function expectNoLeakInDOM(): void {
   const card = screen.getByTestId('v5-graph-patch')
-  const text = card.textContent ?? ''
-  expect(text).not.toMatch(RAW_ID_PATTERN)
+  // outerHTML — catches attribute-level leaks too. Earlier the leak
+  // assertion only walked textContent, which let attribute leaks
+  // (data-operation="add_constraint") slip past.
+  const rendered = card.outerHTML
+  expect(rendered).not.toMatch(RAW_ID_PATTERN)
+  expect(rendered).not.toMatch(FORBIDDEN_OPERATOR_GLYPHS)
   for (const term of FORBIDDEN_TERMS) {
-    expect(text.toLowerCase()).not.toContain(term)
+    expect(rendered.toLowerCase()).not.toContain(term)
   }
 }
 
@@ -259,7 +276,7 @@ describe('Workstream 1 — Journey 3 wire-to-DOM (add_constraint)', () => {
     expect(screen.getByTestId('v5-graph-patch-status').textContent).toBe('Applied')
     expect(screen.getByTestId('v5-graph-patch-action').textContent).toBe('Added constraint')
     expect(screen.getByTestId('v5-graph-patch-entity').textContent).toBe('Marketing budget')
-    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('≤ £50,000')
+    expect(screen.getByTestId('v5-graph-patch-change').textContent).toBe('at most £50,000')
     expect(screen.getByTestId('v5-graph-patch-freshness-hint').textContent).toBe(
       'Latest analysis is now out of date.',
     )

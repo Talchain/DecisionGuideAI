@@ -42,20 +42,31 @@ const V5_NOOP_LABELS: Record<V5GraphPatchBlock['operation'], string> = {
 }
 
 // ---------------------------------------------------------------------------
-// Operator → human glyph (used for constraints).
+// Operator → decision-language phrase (used for constraints).
+//
+// Mirrors the CEE format-confirmation table at
+// `olumi-assistants-service/src/orchestrator-v5/tools/handlers/d1-shared/
+// format-confirmation.ts:60–68` so the receipt copy stays coherent with
+// CEE's own assistant_text ("at most £50,000" / "at least 30 FTE")
+// rather than diverging into mathematical-notation glyphs (≤ / ≥).
+// Covers both the symbol form CEE emits today (`<=` / `>=` from
+// add-constraint.ts:53 TYPE_TO_OPERATOR) and the short-code form
+// (`lte` / `gte`) for forward-compat. Decision-language wording is
+// the contract: never render raw operator characters in the default
+// surface — see Workstream 1 audit contract C.
 // ---------------------------------------------------------------------------
 
-const CONSTRAINT_OPERATOR_LABELS: Record<string, string> = {
-  lte: '≤',
-  '<=': '≤',
-  gte: '≥',
-  '>=': '≥',
-  lt: '<',
-  '<': '<',
-  gt: '>',
-  '>': '>',
-  eq: '=',
-  '=': '=',
+const CONSTRAINT_OPERATOR_PHRASES: Record<string, string> = {
+  lte: 'at most',
+  '<=': 'at most',
+  gte: 'at least',
+  '>=': 'at least',
+  lt: 'less than',
+  '<': 'less than',
+  gt: 'more than',
+  '>': 'more than',
+  eq: 'exactly',
+  '=': 'exactly',
 }
 
 // ---------------------------------------------------------------------------
@@ -139,6 +150,43 @@ function formatScalar(value: unknown): string {
   if (typeof value === 'string') return value
   if (value == null) return '—'
   return ''
+}
+
+/**
+ * Coerce an edge-strength field into a scalar number for receipt
+ * rendering. CEE adjust_edge_strength emits the object form
+ * `{ mean, std }` (handler ts:218); legacy / synthetic blocks may
+ * pass a bare scalar. We surface the `mean` because it is the
+ * decision-relevant magnitude — `std` is a confidence band that
+ * does not belong in a one-line receipt summary.
+ *
+ * Returns `null` for unknown shapes so callers can branch to a
+ * blank-suppression path rather than rendering an empty string.
+ */
+function strengthScalar(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const meanRaw = (value as { mean?: unknown }).mean
+    if (typeof meanRaw === 'number' && Number.isFinite(meanRaw)) return meanRaw
+  }
+  return null
+}
+
+/**
+ * Parse the arrow-form target_id CEE adjust_edge_strength emits
+ * (`from→to`, handler ts:262). Returns null for non-arrow ids so
+ * callers can fall back to the legacy edge-id resolver.
+ */
+function parseArrowFormFromId(id: string): string | null {
+  const idx = id.indexOf('→')
+  if (idx <= 0) return null
+  return id.slice(0, idx)
+}
+
+function parseArrowFormToId(id: string): string | null {
+  const idx = id.indexOf('→')
+  if (idx <= 0 || idx === id.length - 1) return null
+  return id.slice(idx + 1)
 }
 
 // ---------------------------------------------------------------------------
@@ -280,27 +328,27 @@ export function buildV5PatchReceipt(
       const labelRaw = typeof after?.label === 'string' ? after.label : ''
       const entityLabel = labelRaw && !RAW_ID_PATTERN.test(labelRaw) ? labelRaw : ''
       const opRaw = typeof after?.operator === 'string' ? after.operator : ''
-      const operatorGlyph = CONSTRAINT_OPERATOR_LABELS[opRaw] ?? ''
+      const operatorPhrase = CONSTRAINT_OPERATOR_PHRASES[opRaw] ?? ''
       const valueStr = formatConstraintValue(
         after?.value,
         typeof after?.unit === 'string' ? after.unit : null,
       )
       let changeSummary = ''
-      if (operatorGlyph && valueStr && valueStr !== '—') {
-        changeSummary = `${operatorGlyph} ${valueStr}`.trim()
+      if (operatorPhrase && valueStr && valueStr !== '—') {
+        changeSummary = `${operatorPhrase} ${valueStr}`.trim()
       } else if (valueStr && valueStr !== '—') {
         changeSummary = valueStr
       }
       // On an applied update (before existed), prefix the prior value.
       if (status === 'applied' && before && changeSummary) {
-        const beforeOpGlyph = CONSTRAINT_OPERATOR_LABELS[
+        const beforeOpPhrase = CONSTRAINT_OPERATOR_PHRASES[
           typeof before.operator === 'string' ? before.operator : ''
         ] ?? ''
         const beforeValue = formatConstraintValue(
           before.value,
           typeof before.unit === 'string' ? before.unit : null,
         )
-        const beforeStr = `${beforeOpGlyph} ${beforeValue}`.trim()
+        const beforeStr = `${beforeOpPhrase} ${beforeValue}`.trim()
         if (beforeStr && beforeStr !== changeSummary && beforeValue !== '—') {
           changeSummary = `${beforeStr} → ${changeSummary}`
         }
@@ -309,17 +357,64 @@ export function buildV5PatchReceipt(
     }
 
     case 'adjust_edge_strength': {
-      const { from, to } = resolveEdgeEndpoints(block.target_id, deps)
-      const entityLabel = from && to ? `${from} → ${to}` : ''
-      const before = (block.before as { strength?: unknown } | null)?.strength
-      const after = (block.after as { strength?: unknown } | null)?.strength
-      const beforeStr = formatScalar(before)
-      const afterStr = formatScalar(after)
+      // CEE adjust_edge_strength emits target_id as the arrow form
+      // `from→to` (handler ts:262: `${parsed.from}→${parsed.to}`),
+      // and before/after as { from, to, strength: { mean, std },
+      // effect_direction }. The earlier scalar-only path silently
+      // produced an empty change summary on real CEE payloads. Parse
+      // both shapes here so the receipt is informative either way.
+      const beforeRaw = block.before as
+        | { from?: unknown; to?: unknown; strength?: unknown; effect_direction?: unknown }
+        | null
+      const afterRaw = block.after as
+        | { from?: unknown; to?: unknown; strength?: unknown; effect_direction?: unknown }
+        | null
+
+      // Resolve endpoints: prefer the snapshot's from/to ids (handler-
+      // emitted, canonical), fall back to parsing the arrow-form
+      // target_id, fall back to deps.edgeEndpoints (legacy edge-id
+      // shape). Each tier produces friendly labels via nodeLabels.
+      const fromId =
+        (typeof afterRaw?.from === 'string' && afterRaw.from) ||
+        (typeof beforeRaw?.from === 'string' && beforeRaw.from) ||
+        parseArrowFormFromId(block.target_id) ||
+        ''
+      const toId =
+        (typeof afterRaw?.to === 'string' && afterRaw.to) ||
+        (typeof beforeRaw?.to === 'string' && beforeRaw.to) ||
+        parseArrowFormToId(block.target_id) ||
+        ''
+      const fromLabel = fromId ? resolveNodeLabel(fromId, deps) : ''
+      const toLabel = toId ? resolveNodeLabel(toId, deps) : ''
+      let entityLabel = ''
+      if (fromLabel && toLabel) {
+        entityLabel = `${fromLabel} → ${toLabel}`
+      } else {
+        // Fall back to the legacy edge-id resolver for callers that
+        // pass an actual edge id (older fixtures / synthetic blocks).
+        const ep = resolveEdgeEndpoints(block.target_id, deps)
+        if (ep.from && ep.to) entityLabel = `${ep.from} → ${ep.to}`
+      }
+
+      const beforeStrengthScalar = strengthScalar(beforeRaw?.strength)
+      const afterStrengthScalar = strengthScalar(afterRaw?.strength)
+      const beforeStr = formatScalar(beforeStrengthScalar)
+      const afterStr = formatScalar(afterStrengthScalar)
       let changeSummary = ''
-      if (status === 'applied' && afterStr) {
-        changeSummary = beforeStr && beforeStr !== afterStr
+      if (status === 'applied' && afterStr && afterStr !== '—') {
+        changeSummary = beforeStr && beforeStr !== '—' && beforeStr !== afterStr
           ? `${beforeStr} → ${afterStr}`
           : afterStr
+      }
+
+      // Direction flips (positive ↔ negative) carry user-relevant
+      // meaning even when |strength| is unchanged. Append a short
+      // hint when the direction changed.
+      const beforeDir = typeof beforeRaw?.effect_direction === 'string' ? beforeRaw.effect_direction : null
+      const afterDir = typeof afterRaw?.effect_direction === 'string' ? afterRaw.effect_direction : null
+      if (status === 'applied' && beforeDir && afterDir && beforeDir !== afterDir) {
+        const dirHint = `direction now ${afterDir}`
+        changeSummary = changeSummary ? `${changeSummary}, ${dirHint}` : dirHint
       }
       return { actionLabel, entityLabel, changeSummary, status }
     }

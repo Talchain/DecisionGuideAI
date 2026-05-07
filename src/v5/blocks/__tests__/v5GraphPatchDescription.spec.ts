@@ -230,7 +230,7 @@ describe('buildV5PatchReceipt — add_constraint', () => {
     const r = buildV5PatchReceipt(block(), makeDeps())
     expect(r.actionLabel).toBe('Added constraint')
     expect(r.entityLabel).toBe('budget')
-    expect(r.changeSummary).toBe('≤ £50,000')
+    expect(r.changeSummary).toBe('at most £50,000')
     expectNoLeak(`${r.actionLabel} ${r.entityLabel} ${r.changeSummary}`)
   })
 
@@ -242,7 +242,7 @@ describe('buildV5PatchReceipt — add_constraint', () => {
       }),
       makeDeps(),
     )
-    expect(r.changeSummary).toBe('≤ £30,000 → ≤ £50,000')
+    expect(r.changeSummary).toBe('at most £30,000 → at most £50,000')
     expectNoLeak(r.changeSummary)
   })
 
@@ -253,7 +253,7 @@ describe('buildV5PatchReceipt — add_constraint', () => {
       }),
       makeDeps(),
     )
-    expect(r.changeSummary).toBe('≥ 30 FTE')
+    expect(r.changeSummary).toBe('at least 30 FTE')
   })
 
   it('handles symbolic operator', () => {
@@ -263,7 +263,7 @@ describe('buildV5PatchReceipt — add_constraint', () => {
       }),
       makeDeps(),
     )
-    expect(r.changeSummary).toBe('≤ £50,000')
+    expect(r.changeSummary).toBe('at most £50,000')
   })
 
   it('renders symbol-form unit (CEE add-constraint shape) without trailing-symbol leak', () => {
@@ -279,7 +279,7 @@ describe('buildV5PatchReceipt — add_constraint', () => {
       makeDeps(),
     )
     expect(r.entityLabel).toBe('Marketing budget')
-    expect(r.changeSummary).toBe('≤ £50,000')
+    expect(r.changeSummary).toBe('at most £50,000')
     // Digit-space-pound (the bug). The legitimate '≤ £' is non-digit
     // before the space so does not match.
     expect(r.changeSummary).not.toMatch(/\d £/)
