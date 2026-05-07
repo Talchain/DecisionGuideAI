@@ -343,6 +343,6 @@
       "target": "goal_launch_success"
     }
   ],
-  "_provenance": "Recovered from olumi-debug-66fc1247-20260507.json (~/Downloads); the original screenshot graph that surfaced the option-staggering bug. See docs/layout-diagnostic-report-2026-05-07.md on the claude/layout-diagnostics branch for the full trace.",
-  "_purpose": "Regression fixture for the normaliseTierRows splitter-provenance fix (commit on claude/layout-normalise-fix). DO NOT modify the topology — it specifically reproduces ELKs intra-tier Y shift when option heights vary."
+  "_provenance": "Recovered from olumi-debug-66fc1247-20260507.json (~/Downloads); the original screenshot graph that surfaced the option-staggering bug. See docs/layout-diagnostic-report-2026-05-07.md for the full trace.",
+  "_purpose": "Regression fixture for the normaliseTierRows splitter-provenance fix. DO NOT modify the topology — it specifically reproduces ELK's intra-tier Y shift when option heights vary. Intentionally exceeds PoC size cap — captures real failure case, not a recommended graph size."
 }
