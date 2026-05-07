@@ -179,12 +179,19 @@ export async function layoutGraph(
     tierAssignments.get(t)!.push(node.id)
   }
 
+  // Track which tiers `applyTierRowSplitting` deliberately split. Diagnostic
+  // 2026-05-07 found that without this signal, `normaliseTierRows` was
+  // preserving ELK's incidental intra-tier Y variation (caused by measured
+  // node-height differences) as if it were a deliberate sub-row split, which
+  // staggered options onto separate rows when no row split was requested.
+  const splitterCreatedTiers = new Set<number>()
+
   if (nodesPerRow !== null) {
-    applyTierRowSplitting(positionMap, sizeMap, tierAssignments, nodesPerRow, nodeW, gap, effectiveLayerSpacing)
+    applyTierRowSplitting(positionMap, sizeMap, tierAssignments, nodesPerRow, nodeW, gap, effectiveLayerSpacing, splitterCreatedTiers)
   }
 
   if (isDownLayout) {
-    normaliseTierRows(positionMap, sizeMap, tierAssignments, effectiveLayerSpacing)
+    normaliseTierRows(positionMap, sizeMap, tierAssignments, effectiveLayerSpacing, splitterCreatedTiers)
     centreRowsOnSpine(positionMap, sizeMap, unlocked, elkBoxW, gap)
   }
 
@@ -212,7 +219,8 @@ function applyTierRowSplitting(
   nodesPerRow: number,
   nodeW: number,
   gap: number,
-  layerSpacing: number
+  layerSpacing: number,
+  splitterCreatedTiers?: Set<number>,
 ): void {
   const subRowSpacing = Math.round(layerSpacing * 0.6)
   const sortedTiers = Array.from(tierAssignments.keys()).sort((a, b) => a - b)
@@ -229,6 +237,12 @@ function applyTierRowSplitting(
     }
 
     if (nodeIds.length <= nodesPerRow) continue
+
+    // Record that this tier was deliberately split into multiple rows so
+    // normaliseTierRows can preserve those rows. Without this signal, it
+    // would treat any intra-tier ELK Y variation as a sub-row split, which
+    // staggers options when measured node heights differ.
+    splitterCreatedTiers?.add(tier)
 
     const sorted = [...nodeIds].sort((a, b) => {
       const ax = positionMap.get(a)?.x ?? 0
@@ -275,8 +289,20 @@ function applyTierRowSplitting(
  * 1. First occupied tier sits at canonicalY = 0.
  * 2. Each subsequent tier sits at prev.canonicalY + maxHeight(prev) +
  *    effectiveLayerSpacing.
- * 3. Within a tier, sub-rows are placed cumulatively on previous sub-row's
- *    max height plus a tighter subRowSpacing.
+ * 3. Within a tier:
+ *    - If `splitterCreatedTiers` reports the tier was deliberately split by
+ *      `applyTierRowSplitting`, sub-rows are detected via `groupByYRow` and
+ *      placed cumulatively (previous sub-row's max height + subRowSpacing).
+ *    - Otherwise the entire tier is collapsed to a single canonical Y
+ *      regardless of intra-tier Y variation. ELK can produce intra-tier Y
+ *      variation when measured node heights differ — e.g. an option with a
+ *      longer label is taller and lands ~17 px above its peers, which
+ *      `groupByYRow`'s default 10 px tolerance treats as a sub-row split.
+ *      Without the explicit-split signal that variation was being preserved
+ *      as a sub-row split, staggering options onto separate rows. The
+ *      regression fixture/test for this case lives at
+ *      `src/canvas/__tests__/__fixtures__/graph-b-staggering-regression.json`
+ *      and `option-staggering fix — full pipeline` in `layout.semantic.spec.ts`.
  *
  * Empty tiers are skipped — no phantom vertical gap. Locked nodes are
  * filtered upstream so their Y is untouched.
@@ -290,6 +316,7 @@ export function normaliseTierRows(
   sizeMap: Map<string, { width: number; height: number }>,
   tierAssignments: Map<number, string[]>,
   effectiveLayerSpacing: number,
+  splitterCreatedTiers?: Set<number>,
 ): void {
   const subRowSpacing = Math.round(effectiveLayerSpacing * 0.6)
   const fallbackHeight = DEFAULT_NODE_HEIGHT + LAYOUT_PADDING_Y
@@ -304,7 +331,12 @@ export function normaliseTierRows(
     const tier = occupiedTiers[t]
     const ids = tierAssignments.get(tier)!
 
-    const subRows = groupByYRow(ids, positionMap)
+    // Sub-rows are honoured ONLY when the splitter explicitly created them
+    // for this tier. Any intra-tier Y delta produced by ELK alone is
+    // collapsed to a single canonical row.
+    const subRows = splitterCreatedTiers?.has(tier)
+      ? groupByYRow(ids, positionMap)
+      : new Map<number, string[]>([[positionMap.get(ids[0])?.y ?? 0, ids]])
     const subRowAnchors = [...subRows.keys()]
 
     let subCumulativeY = cumulativeY

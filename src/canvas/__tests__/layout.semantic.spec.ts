@@ -15,6 +15,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
 import { layoutGraph, groupByYRow, normaliseTierRows } from '../utils/layout'
 import type { CanvasSize } from '../utils/layout'
 import {
@@ -67,7 +69,12 @@ describe('normaliseTierRows — direct fixture (I.2)', () => {
     ])
     const effectiveLayerSpacing = 90
 
-    normaliseTierRows(positionMap, sizeMap, tierAssignments, effectiveLayerSpacing)
+    // Pass tier 2 in `splitterCreatedTiers` because this fixture simulates
+    // a tier that the splitter deliberately divided into sub-rows. Without
+    // that signal, normaliseTierRows now collapses intra-tier Y variation
+    // (per the staggering-bug fix); see `option staggering bug fix` test
+    // below for the collapsing-default branch.
+    normaliseTierRows(positionMap, sizeMap, tierAssignments, effectiveLayerSpacing, new Set([2]))
 
     const subRowSpacing = Math.round(effectiveLayerSpacing * 0.6) // 54
 
@@ -127,6 +134,138 @@ describe('normaliseTierRows — direct fixture (I.2)', () => {
 
     expect(positionMap.get('d')!.y).toBe(0)
     expect(positionMap.get('f')!.y).toBe(150) // 0 + 100 + 50
+  })
+
+  // Regression: option-staggering bug surfaced by the
+  // 2026-05-07 layout-pipeline diagnostic on graph B (marketing
+  // approach). When measured node heights varied, ELK shifted one
+  // option ~17 px above its peers within the same semantic tier.
+  // groupByYRow's default 10 px tolerance treated that gap as a
+  // sub-row split, and the previous normaliseTierRows preserved the
+  // split — staggering options onto two canonical rows. After the fix,
+  // normaliseTierRows must collapse any intra-tier Y variation when
+  // the tier was NOT in `splitterCreatedTiers`.
+  it('option-staggering fix — collapses ELK incidental intra-tier Y when no splitter ran', () => {
+    // Mimics graph B: 4 options, ELK placed opt_status_quo 17 px above
+    // the others (within the same tier 1).
+    const positionMap = new Map<string, { x: number; y: number }>([
+      ['opt_a', { x: 100, y: 222 }],
+      ['opt_b', { x: 400, y: 222 }],
+      ['opt_c', { x: 700, y: 222 }],
+      ['opt_status_quo', { x: 1000, y: 205 }], // 17 px above peers
+    ])
+    const sizeMap = new Map<string, { width: number; height: number }>([
+      ['opt_a', { width: 320, height: 100 }],
+      ['opt_b', { width: 320, height: 100 }],
+      ['opt_c', { width: 320, height: 100 }],
+      ['opt_status_quo', { width: 320, height: 117 }], // taller (longer label)
+    ])
+    const tierAssignments = new Map<number, string[]>([
+      [1, ['opt_a', 'opt_b', 'opt_c', 'opt_status_quo']],
+    ])
+
+    // No splitterCreatedTiers passed (or empty Set) → tier 1 must
+    // collapse to a single canonical Y regardless of the 17 px gap.
+    normaliseTierRows(positionMap, sizeMap, tierAssignments, 90)
+
+    const ys = ['opt_a', 'opt_b', 'opt_c', 'opt_status_quo'].map(
+      (id) => positionMap.get(id)!.y,
+    )
+    expect(new Set(ys).size).toBe(1) // all four on the same canonical row
+    // X positions preserved (centring is centreRowsOnSpine's job).
+    expect(positionMap.get('opt_a')!.x).toBe(100)
+    expect(positionMap.get('opt_status_quo')!.x).toBe(1000)
+  })
+
+  it('splitter signal — when splitterCreatedTiers includes the tier, sub-rows are still preserved', () => {
+    // Same fixture, but this time the caller signals that the tier was
+    // deliberately split (via applyTierRowSplitting). Sub-rows must be
+    // preserved for backwards compatibility with viewport-fit row
+    // splitting.
+    const positionMap = new Map<string, { x: number; y: number }>([
+      ['n1', { x: 0, y: 0 }],
+      ['n2', { x: 200, y: 0 }],
+      ['n3', { x: 0, y: 200 }],
+      ['n4', { x: 200, y: 200 }],
+    ])
+    const sizeMap = new Map<string, { width: number; height: number }>([
+      ['n1', { width: 320, height: 100 }],
+      ['n2', { width: 320, height: 100 }],
+      ['n3', { width: 320, height: 100 }],
+      ['n4', { width: 320, height: 100 }],
+    ])
+    const tierAssignments = new Map<number, string[]>([
+      [2, ['n1', 'n2', 'n3', 'n4']],
+    ])
+
+    normaliseTierRows(positionMap, sizeMap, tierAssignments, 90, new Set([2]))
+
+    // Two sub-rows preserved.
+    const ys = new Set(['n1', 'n2', 'n3', 'n4'].map((id) => positionMap.get(id)!.y))
+    expect(ys.size).toBe(2)
+  })
+
+  // End-to-end regression for the option-staggering bug. Loads the actual
+  // graph B fixture (the marketing-approach decision recovered from the
+  // failing screenshot run), assigns per-node measured heights that vary
+  // — long-label option `opt_status_quo` taller than peers — and runs the
+  // FULL `layoutGraph` pipeline (applyTierRowSplitting → normaliseTierRows
+  // → centreRowsOnSpine → applyCollisionGuard → applyGlobalTranslation).
+  // Asserts every option ends up on a single canonical Y. Without the fix
+  // (splitter-provenance signal in normaliseTierRows), ELK's intra-tier
+  // height-driven Y shift would have been preserved as a sub-row split,
+  // staggering opt_status_quo onto a separate row.
+  it('option-staggering fix — full pipeline (real graph B fixture, varied heights)', async () => {
+    const fixturePath = path.resolve(
+      __dirname,
+      '__fixtures__',
+      'graph-b-staggering-regression.json',
+    )
+    const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'))
+
+    // Apply heights that mimic the real-CSS-rendered measurement gap that
+    // surfaced the bug: 3 options at ~100 px, opt_status_quo notably
+    // taller. The exact numbers don't matter — what matters is that any
+    // option-tier intra-Y variation ELK induces is collapsed to a single
+    // canonical row.
+    const heights: Record<string, number> = {
+      opt_ai_tool: 100,
+      opt_hire_manager: 100,
+      opt_hybrid: 100,
+      opt_status_quo: 140, // taller (longer label)
+    }
+    const nodesWithHeights = (fixture.nodes as Node[]).map((node) => {
+      const h = heights[node.id]
+      if (!h) return node
+      return {
+        ...node,
+        height: h,
+        // measured is read by layoutGraph's getNodeDimensions in
+        // preference to node.height; populate both to be defensive.
+        measured: { width: 320, height: h },
+      } as Node
+    })
+
+    const result = await layoutGraph(
+      nodesWithHeights,
+      fixture.edges as Edge[],
+      {},
+      STD_CANVAS,
+    )
+
+    const optionYs = result.nodes
+      .filter((node) => node.type === 'option')
+      .map((node) => node.position.y)
+    expect(optionYs.length).toBe(4)
+    // All four options share a single Y (within the same canonical row).
+    expect(new Set(optionYs).size).toBe(1)
+
+    // Sanity check: factors share their tier's Y too (5 factors).
+    const factorYs = result.nodes
+      .filter((node) => node.type === 'factor')
+      .map((node) => node.position.y)
+    expect(factorYs.length).toBe(5)
+    expect(new Set(factorYs).size).toBe(1)
   })
 })
 

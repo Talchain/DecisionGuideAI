@@ -58,10 +58,13 @@ const WIDE_CANVAS: CanvasSize = { width: 1700, height: 900 }
 // ---------------------------------------------------------------------------
 
 describe('ELK Layout', () => {
+  // Use distinct semantic kinds so the canonical-tier rule places them
+  // on different rows. Three same-kind nodes would correctly share a row
+  // now that normaliseTierRows collapses intra-tier ELK Y variation.
   const mockNodes: Node[] = [
-    makeNode('1'),
-    makeNode('2'),
-    makeNode('3'),
+    makeNode('1', 'decision'),
+    makeNode('2', 'option'),
+    makeNode('3', 'option'),
   ]
 
   const mockEdges: Edge[] = [
@@ -80,7 +83,7 @@ describe('ELK Layout', () => {
       expect(Number.isFinite(node.position.y)).toBe(true)
     })
 
-    // Node 1 (source) must be above nodes 2 and 3 in DOWN layout
+    // Decision (tier 0) must be above options (tier 1) in DOWN layout.
     const node1 = nodes.find(n => n.id === '1')!
     const node2 = nodes.find(n => n.id === '2')!
     expect(node1.position.y).toBeLessThan(node2.position.y)
