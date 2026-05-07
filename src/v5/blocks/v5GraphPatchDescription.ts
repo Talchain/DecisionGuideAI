@@ -224,9 +224,12 @@ export interface V5PatchReceipt {
    */
   readonly entityLabel: string
   /**
-   * Human change description, e.g. "0.5 → 0.7" (factor), "≤ £50,000"
-   * (constraint), "moderate → strong" (edge strength). Empty when
-   * before/after offers no useful diff (e.g. on noop).
+   * Human change description, e.g. "4% → 5%" (factor),
+   * "at most £50,000" (constraint), "0.3 → 0.6" (edge strength).
+   * Empty when before/after offers no useful diff (e.g. on noop).
+   * Constraint operators render as decision-language phrases
+   * ("at most" / "at least") — never as glyphs ("≤" / "≥") — per
+   * the V5 UI rendering contract.
    */
   readonly changeSummary: string
   /**
@@ -270,7 +273,9 @@ function resolveEdgeEndpoints(
  * contains raw IDs, schema field names, or operator codes.
  *
  * `before` and `after` are read for change summary derivation (e.g.
- * "0.5 → 0.7" or "≤ £50,000") but their raw keys are never surfaced.
+ * "4% → 5%" or "at most £50,000") but their raw keys are never
+ * surfaced. Operator phrases use decision language ("at most" /
+ * "at least") rather than mathematical glyphs.
  */
 export function buildV5PatchReceipt(
   block: V5GraphPatchBlock,
