@@ -11,7 +11,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 
 import type { V5GraphPatchBlock as V5GraphPatchBlockType } from '../../../canvas/conversation/types'
-import { RAW_ID_PATTERN } from '../../../canvas/conversation/friendlyOperation'
+import { expectNoReceiptLeaks } from '../../../test/helpers/expectNoReceiptLeaks'
 
 // Mock the canvas store so the block uses our controlled nodes/edges.
 // Includes both the underscore-prefixed ids used by simpler fixtures
@@ -51,60 +51,16 @@ vi.mock('../../../lib/useAnalysisFreshnessState', () => ({
 // Import AFTER the mock so the component uses the mocked store.
 import { V5GraphPatchBlock } from '../V5GraphPatchBlock'
 
-// Forbidden internal terms in default UI surfaces. Extended after
-// code-review NR1 to cover schema field names that real CEE blocks
-// carry (constraint_id, node_id, provenance, raw_value) plus the
-// edge-strength object's internals (mean, std). Mathematical
-// operator glyphs (≤ / ≥ / <=) are also forbidden — receipts use
-// decision-language phrases ("at most" / "at least") per the
-// CEE format-confirmation table.
-const FORBIDDEN_TERMS = [
-  'target_id',
-  'operator',
-  'noop',
-  'fact_type',
-  'graph_hash',
-  'set_factor_value',
-  'add_constraint',
-  'adjust_edge_strength',
-  'before',
-  'after',
-  // NR1 additions — schema field names emitted on CEE block payloads
-  // that real receipts must never surface.
-  'constraint_id',
-  'node_id',
-  'provenance',
-  'raw_value',
-  'mean',
-  'std',
-  // Second-round B2 additions — schema/handler-mechanics terms.
-  // The previous data-testid="v5-graph-patch" leaked "graph-patch"
-  // into outerHTML. Renamed to v5-change-receipt + the gate now
-  // catches any future regression that re-introduces the schema
-  // term in the rendered DOM.
-  'graph-patch',
-  'graph_patch',
-  'graphpatch',
-]
-
-// Operator-glyph guard. Decision-language only — no `<=` / `>=` /
-// `≤` / `≥` / `lte` / `gte` strings should reach the default DOM.
-// A separate const because `'<='` / `'>='` literals are short and a
-// single regex over outerHTML is the cheapest assertion.
-const FORBIDDEN_OPERATOR_GLYPHS = /(?:<=|>=|≤|≥|\blte\b|\bgte\b)/i
-
+// Inline FORBIDDEN_TERMS / FORBIDDEN_OPERATOR_GLYPHS / expectNoLeakInDOM
+// were consolidated into the shared `expectNoReceiptLeaks` helper so V4
+// and V5 receipt tests share one source of truth. Cited terms appear in
+// failure messages — see `src/test/helpers/expectNoReceiptLeaks.ts`.
+// The shared list now includes the block-type discriminator
+// (`graph-patch` / `graph_patch` / `graphpatch`) — V5's renamed testid
+// (`v5-change-receipt`) and Tailwind-only styling means full outerHTML
+// stays clean against that term, so no V5-local exception is needed.
 function expectNoLeakInDOM(): void {
-  const card = screen.getByTestId('v5-change-receipt')
-  // Assert against outerHTML — covers attribute-level leaks (e.g. a
-  // future `data-operation="add_constraint"` regression) as well as
-  // text content. Pure textContent only catches innerText leaks and
-  // missed the data-operation regression caught in code review.
-  const rendered = card.outerHTML
-  expect(rendered).not.toMatch(RAW_ID_PATTERN)
-  expect(rendered).not.toMatch(FORBIDDEN_OPERATOR_GLYPHS)
-  for (const term of FORBIDDEN_TERMS) {
-    expect(rendered.toLowerCase()).not.toContain(term)
-  }
+  expectNoReceiptLeaks(screen.getByTestId('v5-change-receipt'))
 }
 
 beforeEach(() => {
@@ -428,5 +384,178 @@ describe('V5GraphPatchBlock — code-review regression bar (P1.1 / P1.2 / P1.3)'
     const change = screen.queryByTestId('v5-change-summary')
     expect(change).not.toBeNull()
     expect((change!.textContent ?? '').trim().length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// G2 — V5 receipt no-leak across all four freshness verdicts.
+// ---------------------------------------------------------------------------
+//
+// The component renders a stale-only inline hint
+// (`Latest analysis is now out of date.`) when status='applied' AND
+// freshness='stale'. The other three verdicts must render without any
+// freshness wording — these tests prove the per-state outerHTML stays
+// clean and that `none` does not imply analysis exists, while `unknown`
+// avoids false certainty.
+// ---------------------------------------------------------------------------
+
+describe('V5GraphPatchBlock — G2 freshness no-leak across all four verdicts', () => {
+  const FRESHNESS_VERDICTS = ['fresh', 'stale', 'none', 'unknown'] as const
+
+  it.each(FRESHNESS_VERDICTS)(
+    'outerHTML stays clean when freshness verdict is "%s"',
+    (verdict) => {
+      mockFreshnessState.mockReturnValue({
+        freshness: verdict,
+        reason: null,
+        recommendedAction:
+          verdict === 'stale'
+            ? 'rerun_analysis'
+            : verdict === 'fresh'
+              ? 'view_results'
+              : 'continue_editing',
+        inputsMissing: [],
+      })
+      const block: V5GraphPatchBlockType = {
+        type: 'v5_graph_patch',
+        status: 'applied',
+        operation: 'set_factor_value',
+        target_id: 'fac_team_morale',
+        before: { value: 0.5, raw_value: 50, unit: '%' },
+        after: { value: 0.7, raw_value: 70, unit: '%' },
+      }
+      render(<V5GraphPatchBlock block={block} />)
+      expectNoLeakInDOM()
+    },
+  )
+
+  it('on freshness=none, the receipt does not imply an analysis exists', () => {
+    // 'none' means no analysis has run yet — the receipt must not say
+    // "out of date" / "rerun" / "analysis", which would imply prior
+    // results the user could view.
+    mockFreshnessState.mockReturnValue({
+      freshness: 'none',
+      reason: 'no_options_yet',
+      recommendedAction: 'continue_editing',
+      inputsMissing: [],
+    })
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'set_factor_value',
+      target_id: 'fac_team_morale',
+      before: { value: 0.5 },
+      after: { value: 0.7 },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    const card = screen.getByTestId('v5-change-receipt')
+    const text = (card.textContent ?? '').toLowerCase()
+    expect(text).not.toContain('out of date')
+    expect(text).not.toContain('analysis')
+    expect(text).not.toMatch(/\brerun\b|\bre-run\b/)
+    // Hint testid should not render at all.
+    expect(screen.queryByTestId('v5-change-freshness-hint')).toBeNull()
+    expectNoLeakInDOM()
+  })
+
+  it('on freshness=unknown, the receipt avoids false certainty', () => {
+    // 'unknown' means the verdict cannot be derived — the receipt must
+    // not assert either "up to date" OR "out of date".
+    mockFreshnessState.mockReturnValue({
+      freshness: 'unknown',
+      reason: null,
+      recommendedAction: 'continue_editing',
+      inputsMissing: [],
+    })
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'set_factor_value',
+      target_id: 'fac_team_morale',
+      before: { value: 0.5 },
+      after: { value: 0.7 },
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    const card = screen.getByTestId('v5-change-receipt')
+    const text = (card.textContent ?? '').toLowerCase()
+    expect(text).not.toContain('out of date')
+    expect(text).not.toContain('up to date')
+    expect(screen.queryByTestId('v5-change-freshness-hint')).toBeNull()
+    expectNoLeakInDOM()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// G3 — adjust_edge_strength missing/malformed before/after stays graceful.
+// ---------------------------------------------------------------------------
+
+describe('V5GraphPatchBlock — G3 adjust_edge_strength graceful fallback', () => {
+  it('renders generic action label when before AND after are both null', () => {
+    // Worst-case: no payload to extract from. The receipt must still
+    // render the action label cleanly with no change summary and no
+    // raw shape leakage.
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'adjust_edge_strength',
+      target_id: 'edge_morale_to_outcome',
+      before: null,
+      after: null,
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    // Endpoints resolve via the canvas store fallback (edge id is in EDGES).
+    expect(screen.getByTestId('v5-change-entity').textContent).toBe(
+      'team morale → overall outcome',
+    )
+    // No raw shape — change summary is suppressed when scalars cannot be derived.
+    expect(screen.queryByTestId('v5-change-summary')).toBeNull()
+    expectNoLeakInDOM()
+  })
+
+  it('renders generic receipt when target_id does not resolve to a known edge AND before/after are both null', () => {
+    // Worst-case fallback: payload empty AND id is unmapped. The
+    // receipt must remain generic; nothing about the edge shape, no
+    // change summary, no entity row, no raw id in DOM. The `edge_`
+    // prefix is intentionally not in the production RAW_ID_PATTERN
+    // (V5 receipts resolve edges via from/to labels) — so we assert
+    // explicitly that the unmapped target_id never reaches DOM, on top
+    // of the helper's RECEIPT_FORBIDDEN_RAW_EDGE_ID_PATTERN check.
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'adjust_edge_strength',
+      target_id: 'edge_unknown_unmapped',
+      before: null,
+      after: null,
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    const card = screen.getByTestId('v5-change-receipt')
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.queryByTestId('v5-change-entity')).toBeNull()
+    expect(screen.queryByTestId('v5-change-summary')).toBeNull()
+    expect(card.outerHTML).not.toContain('edge_unknown_unmapped')
+    expectNoLeakInDOM()
+  })
+
+  it('renders gracefully when after is a scalar/string (malformed shape)', () => {
+    // Defensive: a malformed `after` value (string instead of object)
+    // must not throw and must not fall through to raw rendering. The
+    // strengthScalar() null path keeps the change summary suppressed.
+    const block: V5GraphPatchBlockType = {
+      type: 'v5_graph_patch',
+      status: 'applied',
+      operation: 'adjust_edge_strength',
+      target_id: 'edge_morale_to_outcome',
+      before: null,
+      // Cast through unknown — V5 wire schema disallows this in
+      // production, but the UI must be defensive against any
+      // schema-package drift that loosens the type at runtime.
+      after: 'oops' as unknown as null,
+    }
+    render(<V5GraphPatchBlock block={block} />)
+    expect(screen.getByTestId('v5-change-action').textContent).toBe('Adjusted connection')
+    expect(screen.queryByTestId('v5-change-summary')).toBeNull()
+    expectNoLeakInDOM()
   })
 })
