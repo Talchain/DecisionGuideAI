@@ -443,3 +443,125 @@ describe('describeOperation — add_edge with same-patch node labels (Fix 1)', (
     expect(describeOperation(op, deps)).toBe('Add connection')
   })
 })
+
+// ─────────────────────────────────────────────────────────────────────────
+// Receipt field-suffix allowlist gate (RECEIPT_FIELD_ALLOWLIST)
+//
+// `describeOperation` only renders a `: <FieldLabel>` suffix when the
+// changed key is on the receipt allowlist. The allowlist is the union
+// of `UPDATE_FIELD_PRIORITY` (priority order) and `Object.keys(FIELD_LABELS)`
+// (curated friendly labels). Foreign / drifted / malformed keys must
+// suppress the suffix and fall back to the bare label. Without the
+// gate, `friendlyFieldName` would convert arbitrary camelCase like
+// `weirdInternalKey` into "Weird internal key" — a friendly-looking
+// leak of an internal field name.
+// ─────────────────────────────────────────────────────────────────────────
+
+describe('describeOperation — receipt field-suffix allowlist gate', () => {
+  it('update_node with a known UPDATE_FIELD_PRIORITY key renders the friendly suffix', () => {
+    // Using `kind` rather than `label` because `label` is also tier-2 of
+    // resolveNodeLabel and would shadow the store-resolved entity label
+    // — that interaction belongs to the label-resolution suite, not here.
+    const op: PatchOperation = {
+      op: 'update_node',
+      target_id: 'fac_morale',
+      data: { kind: 'risk' },
+    }
+    const deps = makeDeps({ nodeLabels: new Map([['fac_morale', 'team morale']]) })
+    const result = describeOperation(op, deps)
+    expect(result).toBe('Update **team morale**: Kind')
+  })
+
+  it('update_node with a curated FIELD_LABELS-only key (not in priority list) renders the friendly suffix', () => {
+    // `baseline` is in FIELD_LABELS ("Baseline") but NOT in
+    // UPDATE_FIELD_PRIORITY. The gate must allow it through —
+    // priority order and display safety are different concepts.
+    // Same property holds for `exists_probability`, `strength_std`,
+    // `range_min`, `range_max`.
+    const op: PatchOperation = {
+      op: 'update_node',
+      target_id: 'fac_morale',
+      data: { baseline: 0.5 },
+    }
+    const deps = makeDeps({ nodeLabels: new Map([['fac_morale', 'team morale']]) })
+    const result = describeOperation(op, deps)
+    expect(result).toBe('Update **team morale**: Baseline')
+  })
+
+  it('update_node with an unknown key suppresses the suffix and renders the bare label', () => {
+    const op: PatchOperation = {
+      op: 'update_node',
+      target_id: 'fac_morale',
+      // Cast: deliberate wire-shape simulation (foreign key) — NOT an
+      // endorsed schema example. This is the leakage class the gate
+      // exists to block.
+      data: { weirdInternalKey: 'should-not-leak' } as unknown as Record<string, unknown>,
+    }
+    const deps = makeDeps({ nodeLabels: new Map([['fac_morale', 'team morale']]) })
+    const result = describeOperation(op, deps)
+    expect(result).toBe('Update **team morale**')
+    // Humanised form of the unknown key must not appear.
+    expect(result.toLowerCase()).not.toContain('weird internal key')
+    // Raw key must not appear either.
+    expect(result).not.toContain('weirdInternalKey')
+  })
+
+  it('update_edge with a curated FIELD_LABELS-only key (exists_probability) renders the friendly suffix', () => {
+    // Real-world edges carry `exists_probability` as a wire field —
+    // this is the regression case from the third-round review.
+    const op: PatchOperation = {
+      op: 'update_edge',
+      target_id: 'edge_1',
+      data: { exists_probability: 0.8 },
+    }
+    const deps = makeDeps({
+      edgeEndpoints: new Map([['edge_1', { from: 'fac_a', to: 'fac_b' }]]),
+      nodeLabels: new Map([['fac_a', 'A'], ['fac_b', 'B']]),
+    })
+    const result = describeOperation(op, deps)
+    expect(result).toBe('Update connection **A** → **B**: Existence probability')
+  })
+
+  it('update_edge with another curated FIELD_LABELS-only key (strength_std) renders the friendly suffix', () => {
+    const op: PatchOperation = {
+      op: 'update_edge',
+      target_id: 'edge_1',
+      data: { strength_std: 0.1 },
+    }
+    const deps = makeDeps({
+      edgeEndpoints: new Map([['edge_1', { from: 'fac_a', to: 'fac_b' }]]),
+      nodeLabels: new Map([['fac_a', 'A'], ['fac_b', 'B']]),
+    })
+    const result = describeOperation(op, deps)
+    expect(result).toBe('Update connection **A** → **B**: Strength uncertainty')
+  })
+
+  it('update_edge with an unknown key suppresses the suffix and renders the bare connection', () => {
+    const op: PatchOperation = {
+      op: 'update_edge',
+      target_id: 'edge_1',
+      data: { weirdEdgeMeta: { internal: true } } as unknown as Record<string, unknown>,
+    }
+    const deps = makeDeps({
+      edgeEndpoints: new Map([['edge_1', { from: 'fac_a', to: 'fac_b' }]]),
+      nodeLabels: new Map([['fac_a', 'A'], ['fac_b', 'B']]),
+    })
+    const result = describeOperation(op, deps)
+    expect(result).toBe('Update connection **A** → **B**')
+    expect(result.toLowerCase()).not.toContain('weird edge meta')
+    expect(result).not.toContain('weirdEdgeMeta')
+  })
+
+  it('update_node with a camelCase variant of a curated key (existsProbability) renders the friendly suffix', () => {
+    // CEE may emit a camelCase variant of an otherwise-curated key.
+    // The gate's snake-case parity check should accept it.
+    const op: PatchOperation = {
+      op: 'update_node',
+      target_id: 'fac_morale',
+      data: { existsProbability: 0.9 } as unknown as Record<string, unknown>,
+    }
+    const deps = makeDeps({ nodeLabels: new Map([['fac_morale', 'team morale']]) })
+    const result = describeOperation(op, deps)
+    expect(result).toBe('Update **team morale**: Existence probability')
+  })
+})

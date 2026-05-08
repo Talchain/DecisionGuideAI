@@ -146,6 +146,12 @@ export function friendlyFieldName(key: string): string {
 /**
  * Returns the first changed key from `data` according to UPDATE_FIELD_PRIORITY,
  * then any remaining keys (excluding `id`), sorted for determinism.
+ *
+ * Note: callers should NOT use the returned key to render a friendly suffix
+ * unless `isAllowlistedFieldKey` confirms it is on the known-fields
+ * allowlist — otherwise an unfamiliar payload key like `weirdInternalKey`
+ * would humanise to "Weird internal key" and leak through `friendlyFieldName`
+ * into the receipt. See `describeOperation`.
  */
 export function firstChangedKey(
   data: Record<string, unknown> | undefined,
@@ -158,6 +164,46 @@ export function firstChangedKey(
     .filter((k) => k !== 'id')
     .sort()
   return rest[0]
+}
+
+/**
+ * Allowlist gate for receipt field suffixes.
+ *
+ * Two separate concepts are deliberately combined into one display
+ * allowlist:
+ *
+ *   - `UPDATE_FIELD_PRIORITY` — ordered list used by `firstChangedKey`
+ *     to *pick* which key to surface when an update payload carries
+ *     several. Priority order, not a safety contract.
+ *   - `FIELD_LABELS` (from modelCardAdapter) — curated table of
+ *     friendly labels for receipt-renderable fields. Some entries here
+ *     (e.g. `exists_probability`, `strength_std`, `baseline`,
+ *     `range_min`, `range_max`) are valid update fields whose curated
+ *     friendly label should appear in receipts, even though they are
+ *     not part of the priority order.
+ *
+ * The receipt allowlist is the UNION of both — any key that has been
+ * intentionally added to either deserves its curated suffix. Anything
+ * else (foreign / drifted / malformed payloads) must NOT produce a
+ * humanised suffix, because `friendlyFieldName` would convert arbitrary
+ * camelCase like `anotherSecret` into "Another secret" — a
+ * friendly-looking leak of an internal field name.
+ *
+ * Exported (with the legacy name `UPDATE_FIELD_PRIORITY_SET` removed)
+ * so future contributors do not conflate priority order with display
+ * safety.
+ */
+export const RECEIPT_FIELD_ALLOWLIST: ReadonlySet<string> = new Set([
+  ...UPDATE_FIELD_PRIORITY,
+  ...Object.keys(FIELD_LABELS),
+])
+
+export function isAllowlistedFieldKey(key: string): boolean {
+  if (RECEIPT_FIELD_ALLOWLIST.has(key)) return true
+  // camelCase ↔ snake_case parity: CEE may emit a camelCase variant
+  // (e.g. `existsProbability`) of an otherwise-curated key.
+  const snake = key.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase()
+  return RECEIPT_FIELD_ALLOWLIST.has(snake)
 }
 
 // ---------------------------------------------------------------------------
@@ -256,7 +302,11 @@ export function describeOperation(op: PatchOperation, deps: DescribeOpDeps): str
       const label = resolveNodeLabel(op.target_id, deps, op.data)
       const field = firstChangedKey(op.data)
       if (!label) return generic
-      if (!field) return `Update **${label}**`
+      // Only render a field suffix when the key is on the known-fields
+      // allowlist — otherwise `friendlyFieldName` would humanise a
+      // foreign / drifted key (e.g. `anotherSecret` → "Another secret")
+      // into a friendly-looking leak of an internal field name.
+      if (!field || !isAllowlistedFieldKey(field)) return `Update **${label}**`
       return `Update **${label}**: ${friendlyFieldName(field)}`
     }
 
@@ -277,7 +327,10 @@ export function describeOperation(op: PatchOperation, deps: DescribeOpDeps): str
       const field = firstChangedKey(op.data)
       if (!from && !to) return generic
       const base = `Update connection **${from || '?'}** → **${to || '?'}**`
-      return field ? `${base}: ${friendlyFieldName(field)}` : base
+      // Same allowlist gate as update_node — never humanise an unfamiliar
+      // edge field key. Falls back to the bare connection label.
+      if (!field || !isAllowlistedFieldKey(field)) return base
+      return `${base}: ${friendlyFieldName(field)}`
     }
 
     case 'remove_edge': {
