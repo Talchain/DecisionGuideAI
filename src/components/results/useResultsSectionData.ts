@@ -43,6 +43,10 @@ import type {
   ResultsReport,
   ResultsCanvasNodeData,
   ResultsCanvasEdgeData,
+  ConfidenceSource,
+  ConfidenceFormulaVersion,
+  ConfidenceCalibrationStatus,
+  ConfidenceInputQuality,
 } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
@@ -252,6 +256,30 @@ function getRawElasticity(factor: RawFactorSensitivity | UiFactorSensitivity): n
   return 0
 }
 
+/**
+ * Type guard for the raw `confidence_provenance` object shape coming from PLoT.
+ * Validates only enum membership for the discriminated fields — extra fields
+ * (e.g. future calibration metadata) are tolerated. Returns false for any
+ * cached/old payload shape so the UI gracefully degrades to "no marker".
+ */
+function isValidConfidenceProvenance(value: unknown): value is {
+  computation_source: ConfidenceSource
+  formula_version: ConfidenceFormulaVersion
+  is_provisional: boolean
+  calibration_status: ConfidenceCalibrationStatus
+  input_quality: ConfidenceInputQuality
+} {
+  if (value == null || typeof value !== 'object') return false
+  const v = value as Record<string, unknown>
+  return (
+    (v.computation_source === 'plot_unified_from_isl_bootstrap' || v.computation_source === 'plot_unified_from_graph')
+    && v.formula_version === 'plot_unified_v2'
+    && typeof v.is_provisional === 'boolean'
+    && v.calibration_status === 'provisional_pending_pilot_calibration'
+    && (v.input_quality === 'standard' || v.input_quality === 'degenerate_fallback')
+  )
+}
+
 function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
   if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: 'positive' as const, confidence: null, importanceRank: 0 }
   const typed = raw as Record<string, unknown>
@@ -295,13 +323,28 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
       ? rawFlipRiskCategory
       : undefined
 
-  // V14.1: confidence_source — 'isl' or 'isl_default' indicates placeholder confidence
+  // V14.1: confidence_source — accepts legacy ('isl' | 'isl_default') AND
+  // new honest enum values ('plot_unified_from_isl_bootstrap' |
+  // 'plot_unified_from_graph') from PLoT. Audit A1-PRIMARY.
   const confidenceSource = typeof typed.confidence_source === 'string'
     ? typed.confidence_source
     : undefined
 
   // V14.2: sampling_stability from confidence_components (0 for ISL-defaulted, null for graph-sourced)
   const samplingStability = typed.confidence_components?.sampling_stability ?? undefined
+
+  // Audit A1-PRIMARY: confidence_provenance disclosure object — optional for
+  // backwards compat (older PLoT responses do not include this field).
+  const rawProvenance = (typed as { confidence_provenance?: unknown }).confidence_provenance
+  const confidenceProvenance = isValidConfidenceProvenance(rawProvenance)
+    ? {
+        computationSource: rawProvenance.computation_source,
+        formulaVersion: rawProvenance.formula_version,
+        isProvisional: rawProvenance.is_provisional,
+        calibrationStatus: rawProvenance.calibration_status,
+        inputQuality: rawProvenance.input_quality,
+      }
+    : undefined
 
   return {
     factorId: rawId ?? label,
@@ -316,6 +359,7 @@ function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, stri
     flipRiskCategory,
     confidenceSource,
     samplingStability,
+    confidenceProvenance,
     attributionStability: (typed.attribution_stability === 'high' || typed.attribution_stability === 'moderate' || typed.attribution_stability === 'low' || typed.attribution_stability === 'negligible') ? typed.attribution_stability : undefined,
     rankFlipRate: typeof typed.rank_flip_rate === 'number' ? typed.rank_flip_rate : undefined,
     evpi: typeof typed.evpi === 'number' ? typed.evpi : undefined,
@@ -1595,11 +1639,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           evpi: f.raw.evpi,
           evpiPercentagePoints: f.raw.evpiPercentagePoints,
           // V14.2: Default estimate pill — ISL-sourced confidence with sampling_stability === 0
-          // confidence_source 'isl' or 'isl_default' with sampling_stability === 0 → show pill
-          // confidence_source 'graph' with sampling_stability === null → intentional, no pill
+          // is treated as a placeholder. The source-name list accepts BOTH the
+          // legacy values ('isl', 'isl_default') and the new honest enum
+          // ('plot_unified_from_isl_bootstrap', audit A1-PRIMARY) so the pill
+          // semantics survive both deploy directions (old PLoT + new UI, and
+          // new PLoT + old UI). The discriminator is samplingStability === 0,
+          // which tracks ISL-side bootstrap degeneracy, not PLoT-side fallback.
           isDefaultedConfidence:
-            (f.raw.confidenceSource === 'isl' || f.raw.confidenceSource === 'isl_default')
+            (
+              f.raw.confidenceSource === 'isl'
+              || f.raw.confidenceSource === 'isl_default'
+              || f.raw.confidenceSource === 'plot_unified_from_isl_bootstrap'
+            )
             && f.raw.samplingStability === 0,
+          // Audit A1-PRIMARY: plumb provenance through for the column-header marker.
+          confidenceProvenance: f.raw.confidenceProvenance,
         }
       })
       .sort((a, b) => a.rank - b.rank) // Sort by rank

@@ -246,6 +246,38 @@ export type DriverSemanticLabel = 'biggest' | 'strong' | 'moderate' | 'minor'
  */
 export type DriverDirection = 'positive' | 'negative'
 
+// =============================================================================
+// Confidence Provenance (audit A1-PRIMARY)
+// =============================================================================
+// Mirrors PLoT's confidence_provenance object on factor_sensitivity[] entries.
+// Drives the column-header "operational estimate" disclosure marker.
+// All fields are surfaced as optional on the UI side for graceful degradation:
+// cached/old PLoT payloads have no confidence_provenance and must still render.
+
+/**
+ * Honest source label for the user-visible confidence value.
+ * Mirrors PLoT's `ConfidenceSource` (audit A1-PRIMARY): the legacy `'isl'`
+ * value misleadingly tagged PLoT-recomputed values as ISL-sourced.
+ */
+export type ConfidenceSource =
+  | 'plot_unified_from_isl_bootstrap'
+  | 'plot_unified_from_graph'
+
+export type ConfidenceFormulaVersion = 'plot_unified_v2'
+
+export type ConfidenceCalibrationStatus = 'provisional_pending_pilot_calibration'
+
+export type ConfidenceInputQuality = 'standard' | 'degenerate_fallback'
+
+export interface ConfidenceProvenance {
+  computationSource: ConfidenceSource
+  formulaVersion: ConfidenceFormulaVersion
+  /** True when the value is an operational estimate pending pilot calibration. Drives the column-header marker. */
+  isProvisional: boolean
+  calibrationStatus: ConfidenceCalibrationStatus
+  inputQuality: ConfidenceInputQuality
+}
+
 export interface DriverItem {
   /** Canonical identifier: node_id ?? factor_id ?? id ?? normalised(label) */
   factorKey: string
@@ -286,6 +318,12 @@ export interface DriverItem {
   enrichment?: FactorEnrichment
   /** V14.1: confidence is a default estimate (isl_default), not user-provided */
   isDefaultedConfidence?: boolean
+  /**
+   * Confidence provenance disclosure object (audit A1-PRIMARY).
+   * Optional for graceful degradation when receiving cached/old PLoT payloads
+   * that pre-date this field. When absent, the column-header marker is hidden.
+   */
+  confidenceProvenance?: ConfidenceProvenance
   /** ISL bootstrap: stability of this factor's attribution across model variations */
   attributionStability?: 'high' | 'moderate' | 'low' | 'negligible'
   /** True when at least one inbound edge has validation.status === 'contested' */
@@ -628,6 +666,16 @@ export interface UiFactorSensitivity {
   valueOfInformation?: number
   /** PLoT flip_risk_category - how this factor contributes to decision uncertainty */
   flipRiskCategory?: FlipRiskCategory
+  /**
+   * PLoT confidence_source — accepts BOTH new honest enum values and legacy
+   * strings ('isl', 'isl_default') so cached/old PLoT payloads still flow
+   * through the existing `isDefaultedConfidence` derivation. Audit A1-PRIMARY.
+   */
+  confidenceSource?: string
+  /** Sampling stability from confidence_components (0 → ISL bootstrap was degenerate) */
+  samplingStability?: number | null
+  /** Confidence provenance disclosure object (audit A1-PRIMARY). Optional for backwards compat. */
+  confidenceProvenance?: ConfidenceProvenance
   attributionStability?: 'high' | 'moderate' | 'low' | 'negligible'
   rankFlipRate?: number
   evpi?: number

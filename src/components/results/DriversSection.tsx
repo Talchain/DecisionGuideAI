@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, type ChangeEvent } from 'react'
-import { AlertTriangle as TriangleAlert, Check, HelpCircle, Minus } from 'lucide-react'
+import { AlertTriangle as TriangleAlert, Check, HelpCircle, Info, Minus } from 'lucide-react'
 import type { DriversSectionData, DriverItem } from './types'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -768,6 +768,20 @@ export function DriversSection({
   const TOP_DRIVERS_COUNT = 3
   const displayDrivers = showAll ? visibleDrivers : visibleDrivers.slice(0, TOP_DRIVERS_COUNT)
 
+  // Audit A1-PRIMARY: column-header disclosure marker. Render only when at
+  // least one row carries `confidence_provenance.is_provisional === true`.
+  // Cached/old PLoT payloads (no provenance) yield false → marker hidden,
+  // tooltip retains its current copy. Belt-and-braces: derive from the FULL
+  // drivers list (not the filtered visibleDrivers) so the marker reflects
+  // payload-wide provenance even when a filter has hidden the provisional row.
+  const anyConfidenceProvisional = drivers.some(d => d.confidenceProvenance?.isProvisional === true)
+  const confidenceTooltipContent = anyConfidenceProvisional
+    ? 'Confidence is an operational estimate pending pilot calibration.'
+    : "Confidence: how stable this factor's ranking is under model variations. Click the value to update. Some confidence scores reflect default estimates. Gathering evidence will make them more meaningful."
+  const confidenceAriaLabel = anyConfidenceProvisional
+    ? 'Confidence column info — operational estimate pending pilot calibration'
+    : 'Confidence column info'
+
   // Brief 5.8B D2c: dominant-factor warning relocated to the T1 card as an
   // inline `T1DominantNudge` in DecisionConfidencePanel. The legacy block
   // here is intentionally removed so the signal renders in exactly one
@@ -796,13 +810,21 @@ export function DriversSection({
               Influence
             </div>
           </Tooltip>
-          <Tooltip content="Confidence: how stable this factor's ranking is under model variations. Click the value to update. Some confidence scores reflect default estimates. Gathering evidence will make them more meaningful.">
+          <Tooltip content={confidenceTooltipContent}>
             <button
               type="button"
-              className={`${typography.panelBody} text-text-light text-right cursor-help w-full bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded`}
-              aria-label="Confidence column info"
+              className={`${typography.panelBody} text-text-light text-right cursor-help w-full bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded inline-flex items-center justify-end gap-1`}
+              aria-label={confidenceAriaLabel}
+              data-testid="drivers-confidence-header"
             >
-              Confidence
+              <span>Confidence</span>
+              {anyConfidenceProvisional && (
+                <Info
+                  className="w-3.5 h-3.5 text-text-light flex-shrink-0"
+                  aria-hidden="true"
+                  data-testid="drivers-confidence-provisional-marker"
+                />
+              )}
             </button>
           </Tooltip>
           {/* Empty cell for icon column */}
