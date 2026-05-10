@@ -293,7 +293,31 @@ export function isValidConfidenceProvenance(value: unknown): value is {
   )
 }
 
-function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
+/**
+ * Derive `isDefaultedConfidence` from a normalised factor sensitivity row.
+ *
+ * Tracks ISL-side bootstrap degeneracy (sampling_stability detected as 0,
+ * indicating ISL emitted a placeholder) — NOT PLoT-side `fallback_degenerate`,
+ * which is a different concept. Audit A1-PRIMARY: the source-name list accepts
+ * BOTH legacy values ('isl', 'isl_default') AND the new honest enum
+ * ('plot_unified_from_isl_bootstrap') so the derivation survives both deploy
+ * directions (old PLoT + new UI, and new PLoT + old UI).
+ *
+ * Exported for direct unit testing of cross-version compat behaviour.
+ */
+export function isDefaultedConfidenceFromRaw(raw: {
+  confidenceSource?: string
+  samplingStability?: number | null
+}): boolean {
+  return (
+    raw.confidenceSource === 'isl'
+    || raw.confidenceSource === 'isl_default'
+    || raw.confidenceSource === 'plot_unified_from_isl_bootstrap'
+  )
+    && raw.samplingStability === 0
+}
+
+export function normalizeFactorSensitivity(raw: unknown, nodeLabelMap: Map<string, string>): UiFactorSensitivity {
   if (raw == null || typeof raw !== 'object') return { factorId: '', label: 'Unknown factor', elasticity: 0, direction: 'positive' as const, confidence: null, importanceRank: 0 }
   const typed = raw as Record<string, unknown>
   const nf = normaliseFactorFields(typed)
@@ -1651,20 +1675,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
           rankFlipRate: f.raw.rankFlipRate,
           evpi: f.raw.evpi,
           evpiPercentagePoints: f.raw.evpiPercentagePoints,
-          // V14.2: Default estimate pill — ISL-sourced confidence with sampling_stability === 0
-          // is treated as a placeholder. The source-name list accepts BOTH the
-          // legacy values ('isl', 'isl_default') and the new honest enum
-          // ('plot_unified_from_isl_bootstrap', audit A1-PRIMARY) so the pill
-          // semantics survive both deploy directions (old PLoT + new UI, and
-          // new PLoT + old UI). The discriminator is samplingStability === 0,
-          // which tracks ISL-side bootstrap degeneracy, not PLoT-side fallback.
-          isDefaultedConfidence:
-            (
-              f.raw.confidenceSource === 'isl'
-              || f.raw.confidenceSource === 'isl_default'
-              || f.raw.confidenceSource === 'plot_unified_from_isl_bootstrap'
-            )
-            && f.raw.samplingStability === 0,
+          // V14.2: Default estimate pill — derivation extracted to
+          // `isDefaultedConfidenceFromRaw` so cross-version compat behaviour
+          // is unit-testable in isolation. See audit A1-PRIMARY.
+          isDefaultedConfidence: isDefaultedConfidenceFromRaw({
+            confidenceSource: f.raw.confidenceSource,
+            samplingStability: f.raw.samplingStability,
+          }),
           // Audit A1-PRIMARY: plumb provenance through for the column-header marker.
           confidenceProvenance: f.raw.confidenceProvenance,
         }

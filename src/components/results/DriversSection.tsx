@@ -813,7 +813,14 @@ export function DriversSection({
           <Tooltip content={confidenceTooltipContent}>
             <button
               type="button"
-              className={`${typography.panelBody} text-text-light text-right cursor-help w-full bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded inline-flex items-center justify-end gap-1`}
+              // DS v5 a11y: minimum 44×44 touch target for the header info
+              // control. Achieved via a `before:` pseudo-element overlay that
+              // extends the hit area vertically (~16px above + 16px below the
+              // ~16px text = 48px effective, ≥ 44px requirement) WITHOUT
+              // shifting the grid layout — the pseudo-element is absolutely
+              // positioned and contributes no flow height. The button keeps
+              // its `p-0` content box so column alignment is unaffected.
+              className={`${typography.panelBody} text-text-light text-right cursor-help w-full bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded inline-flex items-center justify-end gap-1 relative before:absolute before:content-[''] before:left-0 before:right-0 before:-inset-y-4`}
               aria-label={confidenceAriaLabel}
               data-testid="drivers-confidence-header"
             >

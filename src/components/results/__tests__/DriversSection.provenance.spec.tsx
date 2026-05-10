@@ -18,9 +18,13 @@
  */
 
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { DriversSection } from '../DriversSection'
-import { isValidConfidenceProvenance } from '../useResultsSectionData'
+import {
+  isValidConfidenceProvenance,
+  isDefaultedConfidenceFromRaw,
+  normalizeFactorSensitivity,
+} from '../useResultsSectionData'
 import type {
   DriversSectionData,
   DriverItem,
@@ -115,7 +119,7 @@ describe('DriversSection confidence provenance disclosure (audit A1-PRIMARY)', (
     expect(screen.getByTestId('drivers-confidence-header')).toBeInTheDocument()
   })
 
-  it('column-header tooltip copy and aria-label disclose calibration state when provisional', () => {
+  it('column-header aria-label discloses calibration state when provisional', () => {
     const data = makeDriversData([
       makeDriver({
         factorKey: 'fac_a',
@@ -131,11 +135,107 @@ describe('DriversSection confidence provenance disclosure (audit A1-PRIMARY)', (
       'aria-label',
       'Confidence column info — operational estimate pending pilot calibration',
     )
+  })
 
-    // Tooltip content lives in a Floating UI portal that renders only on
-    // hover/focus. Asserting the aria-label switch is sufficient for keyboard
-    // accessibility coverage; the displayed copy is verified at the integration
-    // tier (see staging smoke).
+  it('hovering the column header opens the tooltip with the calibration disclosure copy', async () => {
+    // Brief explicitly required tooltip-content coverage (not just aria-label).
+    // Drives the Tooltip via real hover, asserts the rendered text in the
+    // Floating UI portal.
+    const data = makeDriversData([
+      makeDriver({
+        factorKey: 'fac_a',
+        factorLabel: 'Factor A',
+        confidenceProvenance: provisionalProvenance(),
+      }),
+    ])
+
+    render(<DriversSection data={data} goalLabel="test" />)
+
+    const header = screen.getByTestId('drivers-confidence-header')
+    // Tooltip wraps children in a `<div ref={refs.setReference}>` — Floating
+    // UI's useHover attaches to that wrapper, so hover must target it.
+    const tooltipRef = header.parentElement!
+    fireEvent.pointerEnter(tooltipRef)
+    fireEvent.mouseEnter(tooltipRef)
+
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip.textContent).toBe(
+      'Confidence is an operational estimate pending pilot calibration.',
+    )
+
+    fireEvent.pointerLeave(tooltipRef)
+    fireEvent.mouseLeave(tooltipRef)
+    await waitFor(() => {
+      expect(screen.queryByRole('tooltip')).toBeNull()
+    })
+  })
+
+  it('focusing the column header (keyboard path) opens the same tooltip', async () => {
+    // Keyboard accessibility: tooltip MUST surface on focus, not just hover.
+    const data = makeDriversData([
+      makeDriver({
+        factorKey: 'fac_a',
+        factorLabel: 'Factor A',
+        confidenceProvenance: provisionalProvenance(),
+      }),
+    ])
+
+    render(<DriversSection data={data} goalLabel="test" />)
+
+    const header = screen.getByTestId('drivers-confidence-header')
+    header.focus()
+
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip.textContent).toBe(
+      'Confidence is an operational estimate pending pilot calibration.',
+    )
+  })
+
+  it('non-provisional payloads use the legacy column-header tooltip copy (forward-compat)', async () => {
+    const data = makeDriversData([
+      makeDriver({
+        factorKey: 'fac_a',
+        factorLabel: 'Factor A',
+        confidenceProvenance: provisionalProvenance({ isProvisional: false }),
+      }),
+    ])
+
+    render(<DriversSection data={data} goalLabel="test" />)
+
+    const header = screen.getByTestId('drivers-confidence-header')
+    // Tooltip wraps children in a `<div ref={refs.setReference}>` — Floating
+    // UI's useHover attaches to that wrapper, so hover must target it.
+    const tooltipRef = header.parentElement!
+    fireEvent.pointerEnter(tooltipRef)
+    fireEvent.mouseEnter(tooltipRef)
+
+    const tooltip = await screen.findByRole('tooltip')
+    // Legacy copy describes the panel mechanics; the disclosure text is
+    // reserved for the provisional case.
+    expect(tooltip.textContent).toMatch(/how stable this factor's ranking/)
+    expect(tooltip.textContent).not.toMatch(/pending pilot calibration/)
+  })
+
+  it('a11y: column-header touch target meets DS v5 ≥44px requirement via before:-inset-y-4 overlay', () => {
+    // JSDOM does not compute pseudo-element box dimensions, so we verify the
+    // class contract that drives runtime hit-area expansion. The pseudo-element
+    // adds ~16px above and below the ~16px text content (≈48px total ≥ 44px),
+    // and is absolutely positioned so it does NOT shift the surrounding grid.
+    const data = makeDriversData([
+      makeDriver({ factorKey: 'fac_a', factorLabel: 'Factor A' }),
+    ])
+
+    render(<DriversSection data={data} goalLabel="test" />)
+
+    const header = screen.getByTestId('drivers-confidence-header')
+    // Required positioning classes.
+    expect(header).toHaveClass('relative')
+    // Tailwind class assertion via className regex (toHaveClass requires
+    // an exact class name; the `before:` variant is one token).
+    expect(header.className).toMatch(/before:absolute/)
+    expect(header.className).toMatch(/before:-inset-y-4/)
+    expect(header.className).toMatch(/before:left-0/)
+    expect(header.className).toMatch(/before:right-0/)
   })
 
   it('cross-version safety: legacy confidenceSource ("isl") with no confidence_provenance renders without crashing', () => {
@@ -155,6 +255,147 @@ describe('DriversSection confidence provenance disclosure (audit A1-PRIMARY)', (
 
     expect(() => render(<DriversSection data={data} goalLabel="test" />)).not.toThrow()
     expect(screen.queryByTestId('drivers-confidence-provisional-marker')).toBeNull()
+  })
+
+  // ----------------------------------------------------------------------
+  // Data-layer tests (raw payload normalisation + cross-version compat).
+  // Exercise the actual production path:
+  //   raw payload → normalizeFactorSensitivity → UiFactorSensitivity → DriverItem
+  // rather than only the post-normalised DriverItem props the component tests
+  // above use. These pin the behaviour the brief's correction #5 cares about
+  // (deploy-order safety) where it actually lives.
+  // ----------------------------------------------------------------------
+
+  describe('normalizeFactorSensitivity (raw payload normalisation)', () => {
+    const emptyLabelMap = new Map<string, string>()
+
+    it('NEW PLoT payload: carries confidence_provenance through with all fields', () => {
+      const raw = {
+        node_id: 'fac_a',
+        sensitivity_score: 0.6,
+        direction: 'positive',
+        confidence: 0.75,
+        confidence_source: 'plot_unified_from_isl_bootstrap',
+        confidence_provenance: {
+          computation_source: 'plot_unified_from_isl_bootstrap',
+          formula_version: 'plot_unified_v2',
+          is_provisional: true,
+          calibration_status: 'provisional_pending_pilot_calibration',
+          input_quality: 'standard',
+        },
+        confidence_components: { structural_certainty: 0.5, sampling_stability: 1.0 },
+      }
+
+      const ui = normalizeFactorSensitivity(raw, emptyLabelMap)
+
+      expect(ui.confidenceSource).toBe('plot_unified_from_isl_bootstrap')
+      expect(ui.confidenceProvenance).toEqual({
+        computationSource: 'plot_unified_from_isl_bootstrap',
+        formulaVersion: 'plot_unified_v2',
+        isProvisional: true,
+        calibrationStatus: 'provisional_pending_pilot_calibration',
+        inputQuality: 'standard',
+      })
+    })
+
+    it('OLD PLoT payload (deploy-order safety): no confidence_provenance, legacy confidence_source = "isl"', () => {
+      // Simulates a NEW UI receiving a CACHED response from an old PLoT.
+      // Brief correction #5: the UI must render gracefully without the marker.
+      const raw = {
+        node_id: 'fac_a',
+        sensitivity_score: 0.6,
+        direction: 'positive',
+        confidence: 0.75,
+        confidence_source: 'isl', // legacy value — must pass through as-is
+        // no confidence_provenance field
+      }
+
+      const ui = normalizeFactorSensitivity(raw, emptyLabelMap)
+
+      expect(ui.confidenceSource).toBe('isl')
+      // Provenance must be undefined — graceful degradation; no marker.
+      expect(ui.confidenceProvenance).toBeUndefined()
+    })
+
+    it('rejects malformed confidence_provenance and degrades to undefined (no UI crash)', () => {
+      const raw = {
+        node_id: 'fac_a',
+        sensitivity_score: 0.6,
+        direction: 'positive',
+        confidence: 0.5,
+        confidence_source: 'plot_unified_from_graph',
+        // Malformed provenance — formula_version is wrong family
+        confidence_provenance: {
+          computation_source: 'plot_unified_from_graph',
+          formula_version: 'unrelated_v99',
+          is_provisional: true,
+          calibration_status: 'provisional_pending_pilot_calibration',
+          input_quality: 'standard',
+        },
+      }
+
+      const ui = normalizeFactorSensitivity(raw, emptyLabelMap)
+
+      // Source flows through untouched, but the malformed provenance is dropped.
+      expect(ui.confidenceSource).toBe('plot_unified_from_graph')
+      expect(ui.confidenceProvenance).toBeUndefined()
+    })
+  })
+
+  describe('isDefaultedConfidenceFromRaw (cross-version compat)', () => {
+    // Brief correction #6: the boolean tracks ISL-side bootstrap degeneracy
+    // (sampling_stability === 0). It must accept BOTH legacy and new honest
+    // source values so the existing "default estimate pill" feature survives
+    // both deploy directions. Audit A1-PRIMARY.
+
+    it('returns true for legacy "isl" source with samplingStability === 0', () => {
+      expect(isDefaultedConfidenceFromRaw({ confidenceSource: 'isl', samplingStability: 0 })).toBe(true)
+    })
+
+    it('returns true for legacy "isl_default" source with samplingStability === 0', () => {
+      expect(isDefaultedConfidenceFromRaw({ confidenceSource: 'isl_default', samplingStability: 0 })).toBe(true)
+    })
+
+    it('returns true for new honest "plot_unified_from_isl_bootstrap" with samplingStability === 0', () => {
+      // The deploy-order critical path: NEW UI receiving NEW PLoT payload.
+      // Without accepting the new value, the existing default-estimate pill
+      // would disappear after the PLoT side of the audit fix lands.
+      expect(isDefaultedConfidenceFromRaw({
+        confidenceSource: 'plot_unified_from_isl_bootstrap',
+        samplingStability: 0,
+      })).toBe(true)
+    })
+
+    it('returns false when samplingStability is null (graph-sourced, intentional)', () => {
+      expect(isDefaultedConfidenceFromRaw({
+        confidenceSource: 'plot_unified_from_isl_bootstrap',
+        samplingStability: null,
+      })).toBe(false)
+    })
+
+    it('returns false when samplingStability is non-zero (real bootstrap data)', () => {
+      expect(isDefaultedConfidenceFromRaw({
+        confidenceSource: 'plot_unified_from_isl_bootstrap',
+        samplingStability: 0.5,
+      })).toBe(false)
+    })
+
+    it('returns false for graph-only source even when samplingStability would otherwise match', () => {
+      // Graph-side values were never "ISL placeholders" — they should not
+      // trigger the default-estimate pill regardless of samplingStability.
+      expect(isDefaultedConfidenceFromRaw({
+        confidenceSource: 'plot_unified_from_graph',
+        samplingStability: 0,
+      })).toBe(false)
+      expect(isDefaultedConfidenceFromRaw({
+        confidenceSource: 'graph', // legacy graph value
+        samplingStability: 0,
+      })).toBe(false)
+    })
+
+    it('returns false when source is missing (defensive)', () => {
+      expect(isDefaultedConfidenceFromRaw({ samplingStability: 0 })).toBe(false)
+    })
   })
 
   // Guard-level forward-compat assertions. Locks down the raw → DriverItem
