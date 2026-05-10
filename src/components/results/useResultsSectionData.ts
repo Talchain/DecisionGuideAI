@@ -48,6 +48,7 @@ import type {
   ConfidenceCalibrationStatus,
   ConfidenceInputQuality,
 } from './types'
+import { normalizeAutoNoiseProvenance } from './types'
 import type { FactorEnrichment, NearTieInfo } from '../../lib/mappers/types'
 import { normaliseFactorFields } from '../../lib/mappers/mapFactorSensitivity'
 import { stripEncodingNotation, sanitizeCoachingText } from './utils/cleanFactorLabel'
@@ -864,6 +865,14 @@ export interface ResultsSectionDataReturn {
    * as truth.
    */
   completeness: import('./useResultCompleteness').ResultCompleteness
+  /**
+   * Audit B3 (P0): analysis-level auto-noise provenance from PLoT.
+   * `null` when the response predates this disclosure (old PLoT build,
+   * cached staging response) or when normalisation rejected a malformed
+   * payload. UI gates the visible marker on
+   * `autoNoiseProvenance?.applied && autoNoiseProvenance?.isProvisional`.
+   */
+  autoNoiseProvenance: import('./types').AutoNoiseProvenance | null
 }
 
 export function useResultsSectionData(): ResultsSectionDataReturn {
@@ -880,6 +889,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     goalThreshold,
     ceeAnalysisReady,
     rawV2FlipThresholds,
+    rawAutoNoiseProvenance,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -896,7 +906,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
       // Used as fallback in flip_thresholds defensive adaptor when mapped report doesn't carry them.
       rawV2FlipThresholds: s.rawV2Response?.robustness?.flip_thresholds ?? (s.rawV2Response as Record<string, unknown> | null)?.flip_thresholds ?? null,
+      // Audit B3: extract only auto_noise_provenance to avoid subscribing
+      // to the whole rawV2Response. Normalised at the trust boundary.
+      rawAutoNoiseProvenance: (s.rawV2Response as Record<string, unknown> | null)?.auto_noise_provenance ?? null,
     }))
+  )
+
+  const autoNoiseProvenance = useMemo(
+    () => normalizeAutoNoiseProvenance(rawAutoNoiseProvenance),
+    [rawAutoNoiseProvenance],
   )
 
   // Cast report once at trust boundary — responseMapper returns ReportV1 with V2 pass-through fields
@@ -2589,6 +2607,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     goalLabel,
     goalNodeId,
     completeness,
+    autoNoiseProvenance,
   }
 }
 

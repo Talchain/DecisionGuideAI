@@ -10,7 +10,9 @@
  * Uses shared TriageHealthHeader + TriageActionCardsBody.
  */
 
-import { useMemo, memo, type ReactNode } from 'react'
+import { useMemo, memo, useState, type ReactNode } from 'react'
+import { AlertTriangle, Check, ChevronDown, ChevronRight, Info, X } from 'lucide-react'
+import Tooltip from '@/components/Tooltip'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'
 import { HeroQualifier } from './HeroQualifier'
@@ -95,6 +97,36 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
   // completeness reasons and dimension scores. Stale wire freshness
   // wins above the other two qualifier sources.
   const freshnessState = useAnalysisFreshnessState()
+
+  // Audit B3 (P0): visible auto-noise disclosure marker. Renders only when
+  // PLoT explicitly emitted `applied=true` with a provisional calibration
+  // status — old/cached responses without the field yield no marker
+  // (graceful degradation). Mirrors A1's DriversSection.tsx Info+Tooltip
+  // pattern. User-facing copy avoids "auto-noise" / "variance" jargon per
+  // brief — `multiplier`, `formula_version`, etc. are payload-only fields
+  // and never appear in user-visible strings.
+  const showAutoNoiseMarker =
+    data.autoNoiseProvenance?.applied === true &&
+    data.autoNoiseProvenance?.isProvisional === true
+  const autoNoiseTooltipContent =
+    'Outcome ranges include an operational uncertainty adjustment pending pilot calibration.'
+  const autoNoiseAriaLabel =
+    'Outcome uncertainty adjustment — operational estimate pending pilot calibration'
+  const autoNoiseAdornment = showAutoNoiseMarker ? (
+    <Tooltip content={autoNoiseTooltipContent}>
+      <button
+        type="button"
+        // Mirrors A1's DriversSection.tsx:823 touch-target enlargement
+        // pattern: `before:` pseudo-element extends the hit area to ≥44px
+        // without affecting flow layout.
+        className="bg-transparent border-0 p-0 cursor-help inline-flex items-center justify-center text-text-light focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded relative before:absolute before:content-[''] before:left-0 before:right-0 before:-inset-3"
+        aria-label={autoNoiseAriaLabel}
+        data-testid="auto-noise-provisional-marker"
+      >
+        <Info className="w-3.5 h-3.5 text-text-light flex-shrink-0" aria-hidden="true" />
+      </button>
+    </Tooltip>
+  ) : undefined
 
   // Post-analysis ring shows winner's win probability directly. The readiness
   // composite (Structure/Evidence/Coverage/Verified) is pre-analysis-only.
@@ -276,6 +308,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
           }
           testId="confidence-health-header"
           noCardWrapper
+          titleAdornment={autoNoiseAdornment}
         />
 
         {/* Action-card body — extracted to TriageActionCardsBody for reuse by AnalysisHeroV17. */}

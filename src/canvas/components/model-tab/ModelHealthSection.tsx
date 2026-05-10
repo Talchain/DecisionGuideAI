@@ -15,6 +15,7 @@ import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import type { CeeQualityDimensions } from '../../store'
 import { DetailToggleContext } from './DetailToggleContext'
+import type { AutoNoiseProvenance } from '../../../components/results/types'
 
 /** Audit trail data from PLoT response */
 export interface AuditTrailData {
@@ -25,6 +26,14 @@ export interface AuditTrailData {
   inferenceWarnings: Array<{ code?: string; severity?: string; message?: string }> | null
   recommendationStability: number | null
   autoNoiseApplied: boolean | null
+  /**
+   * Audit B3 (P0): structured disclosure metadata for the auto-noise
+   * adjustment. Null when the response is from an older PLoT build that
+   * does not emit the field, or when normalisation rejected a malformed
+   * payload — the accordion falls back to the legacy `autoNoiseApplied`
+   * boolean and the visible marker simply does not render.
+   */
+  autoNoiseProvenance: AutoNoiseProvenance | null
   stabilityPenaltyFactor: number | null
 }
 
@@ -228,9 +237,14 @@ function ModelHealthSectionInner({
               )}
               {auditTrail.autoNoiseApplied != null && (
                 <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Auto-noise</span>
-                  <span className={`${typography.panelMeta} text-text-body text-right`}>
-                    {auditTrail.autoNoiseApplied ? 'Applied' : 'Not applied'}
+                  <span className={`${typography.panelMeta} text-text-light`}>Outcome uncertainty adjustment</span>
+                  <span
+                    className={`${typography.panelMeta} text-text-body text-right`}
+                    data-testid="model-health-auto-noise-row"
+                  >
+                    {auditTrail.autoNoiseApplied
+                      ? 'Operational adjustment applied (calibration pending).'
+                      : 'No additional uncertainty adjustment applied.'}
                   </span>
                 </>
               )}

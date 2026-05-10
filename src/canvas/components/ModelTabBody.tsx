@@ -32,6 +32,7 @@ import type { UserAction, ValidationMetadata } from '../domain/validation'
 import type { EdgeData } from '../domain/edges'
 import { RisksSection } from './model-tab/RisksSection'
 import { ModelHealthSection } from './model-tab/ModelHealthSection'
+import { normalizeAutoNoiseProvenance } from '../../components/results/types'
 import { ModelTabHeader } from './model-tab/ModelTabHeader'
 import { ReanalyseBar } from './model-tab/ReanalyseBar'
 import { ModelFooter } from './model-tab/ModelFooter'
@@ -284,6 +285,7 @@ export const ModelTabBody = memo(function ModelTabBody({
     })(),
     recommendationStability: robustness?.recommendationStability ?? null,
     autoNoiseApplied: (rawV2Response as any)?.auto_noise_applied ?? (rawV2Response as any)?._meta?.auto_noise_applied ?? null,
+    autoNoiseProvenance: normalizeAutoNoiseProvenance((rawV2Response as any)?.auto_noise_provenance),
     stabilityPenaltyFactor: (rawV2Response as any)?.stability_penalty_factor ?? null,
   }), [rawV2Response, repairsApplied, results, robustness])
 
