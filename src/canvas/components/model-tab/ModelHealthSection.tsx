@@ -117,6 +117,12 @@ function ModelHealthSectionInner({
       auditTrail.nSamples != null ||
       auditTrail.recommendationStability != null ||
       auditTrail.autoNoiseApplied != null ||
+      // Audit B3 (P0): provenance counts as an audit signal in its own
+      // right. Without this, a payload-drift case where the boolean is
+      // null but valid provenance exists would treat the whole section
+      // as pre-analysis, producing mixed pre-analysis copy alongside the
+      // provenance-fallback row that the audit-trail render block emits.
+      auditTrail.autoNoiseProvenance != null ||
       auditTrail.stabilityPenaltyFactor != null ||
       (auditTrail.repairsApplied != null && auditTrail.repairsApplied.length > 0) ||
       (auditTrail.inferenceWarnings != null && auditTrail.inferenceWarnings.length > 0)

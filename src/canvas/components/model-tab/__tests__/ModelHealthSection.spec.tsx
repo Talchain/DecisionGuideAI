@@ -242,6 +242,41 @@ describe('ModelHealthSection', () => {
       expect(screen.queryByTestId('model-health-auto-noise-row')).not.toBeInTheDocument()
     })
 
+    it('treats autoNoiseProvenance alone as an audit signal (no mixed pre-analysis content)', () => {
+      // Audit-feedback P1-3: payload drift where provenance arrives
+      // without the boolean must not trip the pre-analysis branch — that
+      // would render the "Run analysis to see..." copy alongside the
+      // provenance-fallback row that the audit-trail block emits.
+      render(
+        <DetailToggleContext.Provider value={{ showDetail: true }}>
+          <ModelHealthSection
+            auditTrail={makeAudit({
+              autoNoiseApplied: null,
+              autoNoiseProvenance: {
+                applied: true,
+                effect: 'widens_outcome_and_risk_uncertainty',
+                formulaVersion: 'plot_auto_v1',
+                multiplier: 1.0,
+                noiseDistribution: 'normal_zero_mean_outcome_std',
+                filterScope: 'outcome_and_risk_nodes',
+                isProvisional: true,
+                calibrationStatus: 'provisional_pending_pilot_calibration',
+              },
+              seedUsed: null,
+              responseHash: null,
+              nSamples: null,
+              recommendationStability: null,
+              stabilityPenaltyFactor: null,
+            })}
+          />
+        </DetailToggleContext.Provider>
+      )
+      // Pre-analysis block must NOT render — provenance is enough signal.
+      expect(screen.queryByTestId('model-card-pre-analysis')).not.toBeInTheDocument()
+      // The provenance-derived audit row IS rendered.
+      expect(screen.getByTestId('model-health-auto-noise-row')).toBeInTheDocument()
+    })
+
     it('falls back to autoNoiseProvenance.applied when autoNoiseApplied is null but provenance is valid', () => {
       // Defensive guard against payload drift: a future PLoT build that
       // emits structured provenance without the boolean echo should still

@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { renderHook } from '@testing-library/react'
 import { useResultsSectionData } from '../useResultsSectionData'
 import { useCanvasStore } from '../../../canvas/store'
+import type { V2RunResponse } from '../../../adapters/plot/v2/types'
 
 const PLOT_V3_BASE = {
   status: 'complete',
@@ -24,18 +25,26 @@ const PLOT_V3_BASE = {
   },
 } as const
 
-function setStore(rawV2Response: Record<string, unknown> | null) {
+/**
+ * Typed setStore — `rawV2Response` is `Partial<V2RunResponse>` rather
+ * than `Record<string, unknown>` so the tests exercise the typed contract
+ * instead of an untyped record. The cast on the full setState call
+ * remains because the canvas store has many required fields the hook
+ * does not consume; that pattern matches the rest of the suite (see
+ * `useResultsSectionData.spec.ts`).
+ */
+function setStore(rawV2Response: Partial<V2RunResponse> | null): void {
   useCanvasStore.setState({
     results: { ...PLOT_V3_BASE } as any,
     runMeta: {} as any,
     nodes: [],
     edges: [],
     hasCompletedFirstRun: true,
-    rawV2Response: rawV2Response as any,
+    rawV2Response: rawV2Response as V2RunResponse | null,
   } as any)
 }
 
-const validProvenance = {
+const validProvenance: NonNullable<V2RunResponse['auto_noise_provenance']> = {
   applied: true,
   effect: 'widens_outcome_and_risk_uncertainty',
   formula_version: 'plot_auto_v1',
@@ -88,12 +97,16 @@ describe('useResultsSectionData — autoNoiseProvenance integration (audit B3)',
   })
 
   it('returns null when the response carries a malformed provenance payload', () => {
+    // The cast is deliberate: the typed contract forbids partial
+    // provenance, but the runtime contract must defend against
+    // server-side drift / cached payloads. Asserting the normaliser
+    // rejects the malformed shape requires constructing one.
     setStore({
       analysis_status: 'computed',
       auto_noise_provenance: {
         applied: true,
         // Missing every other required field.
-      },
+      } as NonNullable<V2RunResponse['auto_noise_provenance']>,
     })
     const { result } = renderHook(() => useResultsSectionData())
     expect(result.current.autoNoiseProvenance).toBeNull()
