@@ -258,11 +258,19 @@ function getRawElasticity(factor: RawFactorSensitivity | UiFactorSensitivity): n
 
 /**
  * Type guard for the raw `confidence_provenance` object shape coming from PLoT.
- * Validates only enum membership for the discriminated fields — extra fields
- * (e.g. future calibration metadata) are tolerated. Returns false for any
- * cached/old payload shape so the UI gracefully degrades to "no marker".
+ *
+ * Forward-compat: this UI ships ahead of Jinghui calibration. When PLoT bumps
+ * to `plot_unified_v3` (or extends `calibration_status` / `input_quality`
+ * vocabularies), the column-header `is_provisional` disclosure must continue
+ * to render — losing it would silently regress the audit A1-PRIMARY fix.
+ *
+ * Therefore the guard accepts `formula_version` matching the
+ * `plot_unified_<n>` family, and tolerates unknown enum values for
+ * `calibration_status` / `input_quality`. The UI only renders the
+ * `is_provisional` boolean today; the strict literal types stay on the
+ * payload-level interface so downstream typed consumers can still narrow.
  */
-function isValidConfidenceProvenance(value: unknown): value is {
+export function isValidConfidenceProvenance(value: unknown): value is {
   computation_source: ConfidenceSource
   formula_version: ConfidenceFormulaVersion
   is_provisional: boolean
@@ -271,12 +279,17 @@ function isValidConfidenceProvenance(value: unknown): value is {
 } {
   if (value == null || typeof value !== 'object') return false
   const v = value as Record<string, unknown>
+  const computationSourceValid =
+    v.computation_source === 'plot_unified_from_isl_bootstrap'
+    || v.computation_source === 'plot_unified_from_graph'
+  const formulaVersionValid =
+    typeof v.formula_version === 'string' && /^plot_unified_v\d+$/.test(v.formula_version)
   return (
-    (v.computation_source === 'plot_unified_from_isl_bootstrap' || v.computation_source === 'plot_unified_from_graph')
-    && v.formula_version === 'plot_unified_v2'
+    computationSourceValid
+    && formulaVersionValid
     && typeof v.is_provisional === 'boolean'
-    && v.calibration_status === 'provisional_pending_pilot_calibration'
-    && (v.input_quality === 'standard' || v.input_quality === 'degenerate_fallback')
+    && typeof v.calibration_status === 'string'
+    && typeof v.input_quality === 'string'
   )
 }
 

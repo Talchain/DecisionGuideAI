@@ -263,11 +263,20 @@ export type ConfidenceSource =
   | 'plot_unified_from_isl_bootstrap'
   | 'plot_unified_from_graph'
 
-export type ConfidenceFormulaVersion = 'plot_unified_v2'
+/**
+ * Forward-compat note: `formulaVersion`, `calibrationStatus`, and `inputQuality`
+ * are deliberately typed as plain `string` on the UI mirror. PLoT's typed
+ * payload uses narrow literal unions today, but this UI ships ahead of
+ * Jinghui's calibration brief — when PLoT bumps the formula or extends the
+ * status vocabulary, the UI must continue to render the `is_provisional`
+ * disclosure marker without code changes. The narrow types live on PLoT's
+ * `FactorSensitivityResultV3` for typed downstream consumers.
+ */
+export type ConfidenceFormulaVersion = string
 
-export type ConfidenceCalibrationStatus = 'provisional_pending_pilot_calibration'
+export type ConfidenceCalibrationStatus = string
 
-export type ConfidenceInputQuality = 'standard' | 'degenerate_fallback'
+export type ConfidenceInputQuality = string
 
 export interface ConfidenceProvenance {
   computationSource: ConfidenceSource

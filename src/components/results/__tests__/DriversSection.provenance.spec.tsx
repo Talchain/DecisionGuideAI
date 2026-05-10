@@ -20,6 +20,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import { DriversSection } from '../DriversSection'
+import { isValidConfidenceProvenance } from '../useResultsSectionData'
 import type {
   DriversSectionData,
   DriverItem,
@@ -154,5 +155,90 @@ describe('DriversSection confidence provenance disclosure (audit A1-PRIMARY)', (
 
     expect(() => render(<DriversSection data={data} goalLabel="test" />)).not.toThrow()
     expect(screen.queryByTestId('drivers-confidence-provisional-marker')).toBeNull()
+  })
+
+  // Guard-level forward-compat assertions. Locks down the raw → DriverItem
+  // mapping path: when PLoT extends the metadata vocabulary, the guard must
+  // still accept the payload so `confidenceProvenance` lands on the DriverItem
+  // and the column-header marker stays visible.
+  describe('isValidConfidenceProvenance guard (raw payload)', () => {
+    it('accepts the current plot_unified_v2 payload shape', () => {
+      expect(isValidConfidenceProvenance({
+        computation_source: 'plot_unified_from_isl_bootstrap',
+        formula_version: 'plot_unified_v2',
+        is_provisional: true,
+        calibration_status: 'provisional_pending_pilot_calibration',
+        input_quality: 'standard',
+      })).toBe(true)
+    })
+
+    it('accepts a future plot_unified_v3 payload with extended status / input_quality strings', () => {
+      // Hypothetical post-Jinghui-calibration payload — the guard MUST accept
+      // it so `is_provisional` survives. Without this, the audit A1-PRIMARY
+      // fix silently regresses on the next PLoT bump.
+      expect(isValidConfidenceProvenance({
+        computation_source: 'plot_unified_from_graph',
+        formula_version: 'plot_unified_v3',
+        is_provisional: true,
+        calibration_status: 'partially_calibrated_pilot_2026q4',
+        input_quality: 'bootstrap_resampled',
+      })).toBe(true)
+    })
+
+    it('rejects malformed payloads (defence in depth)', () => {
+      expect(isValidConfidenceProvenance(null)).toBe(false)
+      expect(isValidConfidenceProvenance(undefined)).toBe(false)
+      expect(isValidConfidenceProvenance('not-an-object')).toBe(false)
+      // Wrong computation_source value
+      expect(isValidConfidenceProvenance({
+        computation_source: 'isl', // legacy value — must be rejected
+        formula_version: 'plot_unified_v2',
+        is_provisional: true,
+        calibration_status: 'provisional_pending_pilot_calibration',
+        input_quality: 'standard',
+      })).toBe(false)
+      // Non-matching formula_version family
+      expect(isValidConfidenceProvenance({
+        computation_source: 'plot_unified_from_graph',
+        formula_version: 'unrelated_formula_v1',
+        is_provisional: true,
+        calibration_status: 'provisional_pending_pilot_calibration',
+        input_quality: 'standard',
+      })).toBe(false)
+      // is_provisional non-boolean
+      expect(isValidConfidenceProvenance({
+        computation_source: 'plot_unified_from_graph',
+        formula_version: 'plot_unified_v2',
+        is_provisional: 'true', // string — must be rejected
+        calibration_status: 'provisional_pending_pilot_calibration',
+        input_quality: 'standard',
+      })).toBe(false)
+    })
+  })
+
+  it('forward-compat: marker still renders when PLoT bumps formulaVersion / calibrationStatus / inputQuality', () => {
+    // Locks down behaviour for when PLoT bumps to plot_unified_v3 (Jinghui
+    // calibration) or extends calibration / input-quality vocabularies. The
+    // is_provisional disclosure must continue to drive the marker even when
+    // the surrounding metadata vocabulary has evolved beyond what this UI
+    // version knows about. Without this guarantee, deploying the UI ahead of
+    // PLoT silently regresses the audit A1-PRIMARY fix.
+    const data = makeDriversData([
+      makeDriver({
+        factorKey: 'fac_a',
+        factorLabel: 'Factor A',
+        confidenceProvenance: {
+          computationSource: 'plot_unified_from_isl_bootstrap',
+          formulaVersion: 'plot_unified_v3', // hypothetical future bump
+          isProvisional: true,
+          calibrationStatus: 'partially_calibrated_pilot_2026q4', // hypothetical future state
+          inputQuality: 'bootstrap_resampled', // hypothetical future state
+        },
+      }),
+    ])
+
+    render(<DriversSection data={data} goalLabel="test" />)
+
+    expect(screen.getByTestId('drivers-confidence-provisional-marker')).toBeInTheDocument()
   })
 })
