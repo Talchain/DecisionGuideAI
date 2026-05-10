@@ -284,8 +284,8 @@ export const ModelTabBody = memo(function ModelTabBody({
       return Array.isArray(raw) ? raw : null
     })(),
     recommendationStability: robustness?.recommendationStability ?? null,
-    autoNoiseApplied: (rawV2Response as any)?.auto_noise_applied ?? (rawV2Response as any)?._meta?.auto_noise_applied ?? null,
-    autoNoiseProvenance: normalizeAutoNoiseProvenance((rawV2Response as any)?.auto_noise_provenance),
+    autoNoiseApplied: rawV2Response?.auto_noise_applied ?? null,
+    autoNoiseProvenance: normalizeAutoNoiseProvenance(rawV2Response?.auto_noise_provenance),
     stabilityPenaltyFactor: (rawV2Response as any)?.stability_penalty_factor ?? null,
   }), [rawV2Response, repairsApplied, results, robustness])
 

@@ -235,19 +235,33 @@ function ModelHealthSectionInner({
                   </span>
                 </>
               )}
-              {auditTrail.autoNoiseApplied != null && (
-                <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Outcome uncertainty adjustment</span>
-                  <span
-                    className={`${typography.panelMeta} text-text-body text-right`}
-                    data-testid="model-health-auto-noise-row"
-                  >
-                    {auditTrail.autoNoiseApplied
-                      ? 'Operational adjustment applied (calibration pending).'
-                      : 'No additional uncertainty adjustment applied.'}
-                  </span>
-                </>
-              )}
+              {(() => {
+                // Audit B3: prefer the explicit boolean echo, but fall
+                // back to the structured provenance's `applied` field
+                // when the boolean is null and provenance is valid. This
+                // keeps the accordion useful under payload drift where
+                // PLoT might emit the structured block alone (a
+                // future-state we don't expect today, but defending
+                // against costs nothing).
+                const applied =
+                  auditTrail.autoNoiseApplied
+                  ?? auditTrail.autoNoiseProvenance?.applied
+                  ?? null
+                if (applied == null) return null
+                return (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Outcome uncertainty adjustment</span>
+                    <span
+                      className={`${typography.panelMeta} text-text-body text-right`}
+                      data-testid="model-health-auto-noise-row"
+                    >
+                      {applied
+                        ? 'Operational adjustment applied (calibration pending).'
+                        : 'No additional uncertainty adjustment applied.'}
+                    </span>
+                  </>
+                )
+              })()}
               {auditTrail.stabilityPenaltyFactor != null && (
                 <>
                   <span className={`${typography.panelMeta} text-text-light`}>Stability penalty</span>

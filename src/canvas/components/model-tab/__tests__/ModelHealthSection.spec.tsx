@@ -242,6 +242,34 @@ describe('ModelHealthSection', () => {
       expect(screen.queryByTestId('model-health-auto-noise-row')).not.toBeInTheDocument()
     })
 
+    it('falls back to autoNoiseProvenance.applied when autoNoiseApplied is null but provenance is valid', () => {
+      // Defensive guard against payload drift: a future PLoT build that
+      // emits structured provenance without the boolean echo should still
+      // populate the accordion row. Today's PLoT always emits both, so
+      // this is an audit-feedback Imp-3 follow-up.
+      render(
+        <DetailToggleContext.Provider value={{ showDetail: true }}>
+          <ModelHealthSection
+            auditTrail={makeAudit({
+              autoNoiseApplied: null,
+              autoNoiseProvenance: {
+                applied: true,
+                effect: 'widens_outcome_and_risk_uncertainty',
+                formulaVersion: 'plot_auto_v1',
+                multiplier: 1.0,
+                noiseDistribution: 'normal_zero_mean_outcome_std',
+                filterScope: 'outcome_and_risk_nodes',
+                isProvisional: true,
+                calibrationStatus: 'provisional_pending_pilot_calibration',
+              },
+            })}
+          />
+        </DetailToggleContext.Provider>
+      )
+      const row = screen.getByTestId('model-health-auto-noise-row')
+      expect(row).toHaveTextContent('Operational adjustment applied (calibration pending).')
+    })
+
     it('uses no user-facing technical jargon — payload-only fields stay out of the DOM', () => {
       render(
         <DetailToggleContext.Provider value={{ showDetail: true }}>

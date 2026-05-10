@@ -118,8 +118,13 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
         type="button"
         // Mirrors A1's DriversSection.tsx:823 touch-target enlargement
         // pattern: `before:` pseudo-element extends the hit area to ≥44px
-        // without affecting flow layout.
-        className="bg-transparent border-0 p-0 cursor-help inline-flex items-center justify-center text-text-light focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded relative before:absolute before:content-[''] before:left-0 before:right-0 before:-inset-3"
+        // without affecting flow layout. The icon glyph is 14px (w-3.5);
+        // `-inset-4` adds 16px of pseudo-element bleed on every axis,
+        // giving a 14 + 32 = 46px effective hit area (DS v5 / WCAG 2.5.5
+        // requires ≥44px). A1's pattern uses `-inset-y-4` because the
+        // anchor text supplies horizontal width; for an icon-only button
+        // we extend symmetrically.
+        className="bg-transparent border-0 p-0 cursor-help inline-flex items-center justify-center text-text-light focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info rounded relative before:absolute before:content-[''] before:-inset-4"
         aria-label={autoNoiseAriaLabel}
         data-testid="auto-noise-provisional-marker"
       >

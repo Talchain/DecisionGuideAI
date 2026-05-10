@@ -11,7 +11,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { DecisionConfidencePanel } from '../DecisionConfidencePanel'
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type {
@@ -176,6 +176,45 @@ describe('DecisionConfidencePanel — auto-noise provenance disclosure (audit B3
       'aria-label',
       'Outcome uncertainty adjustment — operational estimate pending pilot calibration',
     )
+  })
+
+  it('hovering the marker reveals the verbatim tooltip copy', async () => {
+    // Tooltip primitive wraps the marker in a <div> that owns Floating UI's
+    // useHover. Hover events must target that wrapper (mirrors the A1
+    // DriversSection.provenance.spec.tsx pattern).
+    render(<DecisionConfidencePanel data={makeData(provisionalProvenance())} onSendMessage={() => {}} />)
+    const marker = screen.getByTestId('auto-noise-provisional-marker')
+    const tooltipRef = marker.parentElement!
+    fireEvent.pointerEnter(tooltipRef)
+    fireEvent.mouseEnter(tooltipRef)
+
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip.textContent).toBe(
+      'Outcome ranges include an operational uncertainty adjustment pending pilot calibration.',
+    )
+  })
+
+  it('focusing the marker reveals the same tooltip (keyboard accessibility)', async () => {
+    render(<DecisionConfidencePanel data={makeData(provisionalProvenance())} onSendMessage={() => {}} />)
+    const marker = screen.getByTestId('auto-noise-provisional-marker') as HTMLButtonElement
+    marker.focus()
+
+    const tooltip = await screen.findByRole('tooltip')
+    expect(tooltip.textContent).toBe(
+      'Outcome ranges include an operational uncertainty adjustment pending pilot calibration.',
+    )
+  })
+
+  it('marker hit area extends to ≥44px via the `before:-inset-4` pseudo-element pattern', () => {
+    // Touch target spec: WCAG 2.5.5 / DS v5 require ≥44px on every axis.
+    // Icon glyph is w-3.5 h-3.5 (14px); -inset-4 (16px on each side) gives
+    // 14 + 32 = 46px effective hit area. Asserting the class presence
+    // pins the configuration so a future drift back to -inset-3 (38px)
+    // fails this test.
+    render(<DecisionConfidencePanel data={makeData(provisionalProvenance())} onSendMessage={() => {}} />)
+    const marker = screen.getByTestId('auto-noise-provisional-marker')
+    expect(marker.className).toContain('before:-inset-4')
+    expect(marker.className).not.toMatch(/before:-inset-(0|1|2|3)\b/)
   })
 
   it('payload-only enum literals never appear in the rendered DOM', () => {

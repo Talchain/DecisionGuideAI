@@ -907,8 +907,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // Used as fallback in flip_thresholds defensive adaptor when mapped report doesn't carry them.
       rawV2FlipThresholds: s.rawV2Response?.robustness?.flip_thresholds ?? (s.rawV2Response as Record<string, unknown> | null)?.flip_thresholds ?? null,
       // Audit B3: extract only auto_noise_provenance to avoid subscribing
-      // to the whole rawV2Response. Normalised at the trust boundary.
-      rawAutoNoiseProvenance: (s.rawV2Response as Record<string, unknown> | null)?.auto_noise_provenance ?? null,
+      // to the whole rawV2Response. Typed via V2RunResponse since PLoT
+      // commit 562e461; normalised at the trust boundary below.
+      rawAutoNoiseProvenance: s.rawV2Response?.auto_noise_provenance ?? null,
     }))
   )
 

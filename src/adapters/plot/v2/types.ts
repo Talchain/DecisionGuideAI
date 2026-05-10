@@ -408,6 +408,36 @@ export interface V2RunResponse {
   dominant_factor?: { factor_id: string; factor_label: string }
 
   // ==========================================================================
+  // Audit B3 (P0) — auto-noise disclosure
+  // ==========================================================================
+
+  /**
+   * Whether ISL applied its operational auto-noise heuristic on this run.
+   * Echoed verbatim from ISL's `_metadata.auto_noise_applied`. `null` when
+   * ISL omitted the flag entirely (PLoT logs `auto_noise_flag_missing_from_isl`
+   * when this happens on a computed/partial response). Absent on
+   * `analysis_status: 'blocked' | 'failed'`.
+   */
+  auto_noise_applied?: boolean | null
+  /**
+   * Analysis-level auto-noise provenance metadata (audit B3). Always
+   * carries full formula provenance, including when `applied: false`.
+   * Absent on `analysis_status: 'blocked' | 'failed'`. Forward-compat:
+   * enum slots are typed `string` so future calibration values from PLoT
+   * do not crash old UI builds (mirrors A1 `confidence_provenance`).
+   */
+  auto_noise_provenance?: {
+    applied: boolean
+    effect: string
+    formula_version: string
+    multiplier: number
+    noise_distribution: string
+    filter_scope: string
+    is_provisional: boolean
+    calibration_status: string
+  }
+
+  // ==========================================================================
   // M1 CEE Review Fields (optional enrichment)
   // ==========================================================================
 
