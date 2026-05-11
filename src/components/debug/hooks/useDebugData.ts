@@ -1466,6 +1466,51 @@ function getDownstreamCallsPathsChecked(): string[] {
 }
 
 /**
+ * Forward-compatible recognisers for PLoT confidence provenance.
+ *
+ * Background: pre-A1, PLoT emitted `confidence_source: 'bootstrap_sampling'`
+ * directly on each `factor_sensitivity` entry. Post-A1, PLoT unified the
+ * pipeline and now emits values like `plot_unified_from_isl_bootstrap` /
+ * `plot_unified_from_graph` (see `useResultsSectionData.ts:274-295` for the
+ * A1 forward-compat guard pattern). Keeping the diagnostic check pinned to
+ * the legacy literal caused `confidence_source_bootstrap` to silently
+ * return false on current production data despite confidence being sourced
+ * correctly. We widen acceptance to the new family while preserving the
+ * legacy literal for older bundles.
+ *
+ * Two distinct namespaces — do not conflate:
+ *   - `confidence_source` values: `plot_unified_from_*` family
+ *   - `formula_version` values: `plot_unified_v\d+` family (used elsewhere
+ *     where formula_version is validated, not by this bootstrap check)
+ */
+const CONFIDENCE_SOURCE_FAMILY = /^plot_unified_from_[a-z0-9_]+$/
+const FORMULA_VERSION_FAMILY = /^plot_unified_v\d+$/
+
+/**
+ * True when the `confidence_source` value indicates a bootstrap-derived
+ * confidence — accepts the legacy literal `bootstrap_sampling`, the
+ * specific post-A1 value `plot_unified_from_isl_bootstrap`, and any
+ * other `plot_unified_from_*` family value to absorb future PLoT
+ * source additions without silent regression.
+ */
+export function isBootstrapConfidenceSource(value: unknown): boolean {
+  if (typeof value !== 'string') return false
+  if (value === 'bootstrap_sampling') return true
+  if (value === 'plot_unified_from_isl_bootstrap') return true
+  return CONFIDENCE_SOURCE_FAMILY.test(value)
+}
+
+/**
+ * True when a `formula_version` string belongs to the recognised
+ * `plot_unified_v\d+` family. Companion to `isBootstrapConfidenceSource`
+ * for the distinct formula_version namespace; not used by the bootstrap
+ * check itself but exported for callers that validate provenance shape.
+ */
+export function isPlotUnifiedFormulaVersion(value: unknown): boolean {
+  return typeof value === 'string' && FORMULA_VERSION_FAMILY.test(value)
+}
+
+/**
  * Find the path where llm_raw was found in CEE response
  */
 function findLlmRawPath(ceeResponse: unknown): string | null {
@@ -1537,7 +1582,7 @@ function extractDiagnosticChecks(
   const plotFactorSensitivity = Array.isArray(plot?.factor_sensitivity) ? plot.factor_sensitivity as Record<string, unknown>[] : []
 
   const hasBootstrapSource = plotFactorSensitivity.some(
-    (f) => f.confidence_source === 'bootstrap_sampling'
+    (f) => isBootstrapConfidenceSource(f.confidence_source)
   )
 
   // --- Nodes & edges for confidence/intercept checks ---
