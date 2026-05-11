@@ -1639,7 +1639,7 @@ function findLlmRawPath(ceeResponse: unknown): string | null {
  *   - diagnosticTrace: the envelope's _diagnostic_trace (or runMeta.ceeDiagnosticTrace),
  *     used as fallback for cee_trace_present and llm_raw_available.
  */
-function extractDiagnosticChecks(
+export function extractDiagnosticChecks(
   plotResponse: unknown,
   ceeResponse: unknown,
   islResponse: unknown,
@@ -2514,7 +2514,7 @@ function extractOrchestratorStatus(ceeResponse: unknown): OrchestratorStatus | n
  * Extract V12.4 category field presence check from CEE response nodes.
  * Checks factors for the category field.
  */
-function extractV12_4Checks(ceeResponse: unknown): V12_4Checks {
+export function extractV12_4Checks(ceeResponse: unknown): V12_4Checks {
   if (!ceeResponse || typeof ceeResponse !== 'object') {
     return { status: 'not_collected', reason: 'cee_response_missing' }
   }
@@ -2692,7 +2692,7 @@ function extractServiceTiming(
  * (any of the six version fields is missing), so consumers reading the
  * boolean no longer get a false positive on partially-populated payloads.
  */
-function extractSchemaVersions(
+export function extractSchemaVersions(
   ceeRequest: unknown,
   ceeResponse: unknown,
   plotRequest: unknown,
