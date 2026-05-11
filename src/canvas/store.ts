@@ -1429,7 +1429,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       weight: data.weight !== undefined ? Math.max(0, Math.min(2, data.weight)) : undefined,
       belief: data.belief !== undefined ? Math.max(0, Math.min(1, data.belief)) : undefined
     }
-    get().updateEdge(id, { data: clampedData })
+    // Cast: updateEdge declares data: EdgeData but the implementation merges
+    // partial-data updates (line 1405). Same partial-update contract observed
+    // by every other call site that passes incomplete data.
+    get().updateEdge(id, { data: clampedData as EdgeData })
   },
 
   onNodesChange: (changes) => {
