@@ -1751,12 +1751,17 @@ export function extractDiagnosticChecks(
   const factorConfidenceDifferentiated = factorConfidenceUniqueValues.length > 1
 
   // --- Nodes & edges for confidence/intercept checks ---
-  // Priority: CEE response top-level (direct draft flow) > canvas store (orchestrator flow)
+  // Priority: CEE response top-level (direct draft flow) > graph envelope
+  // (draft-chat-shaped variant) > canvas store (orchestrator flow, handled
+  // below). Replaces the older `(cee as any)?.graph` casts with the typed
+  // `asRecord` guard already in scope — preserves the same semantic fallback
+  // without weakening boundary safety on malformed CEE responses.
+  const ceeGraph = asRecord(cee?.graph)
   const ceeNodes = Array.isArray(cee?.nodes) ? cee.nodes as Record<string, unknown>[]
-    : Array.isArray((cee as any)?.graph?.nodes) ? (cee as any).graph.nodes as Record<string, unknown>[]
+    : Array.isArray(ceeGraph?.nodes) ? ceeGraph.nodes as Record<string, unknown>[]
     : []
   const ceeEdges = Array.isArray(cee?.edges) ? cee.edges as Record<string, unknown>[]
-    : Array.isArray((cee as any)?.graph?.edges) ? (cee as any).graph.edges as Record<string, unknown>[]
+    : Array.isArray(ceeGraph?.edges) ? ceeGraph.edges as Record<string, unknown>[]
     : []
 
   // Fallback decisions: use canvas store data when CEE response is an envelope
