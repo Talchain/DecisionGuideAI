@@ -720,8 +720,8 @@ export function sampleDualBelief(
  */
 export function noisyOr(
   x: number,
-  strength = EDGE_CONSTRAINTS.functionParams.noisyOrStrength.default,
-  leak = EDGE_CONSTRAINTS.functionParams.noisyOrLeak.default
+  strength: number = EDGE_CONSTRAINTS.functionParams.noisyOrStrength.default,
+  leak: number = EDGE_CONSTRAINTS.functionParams.noisyOrLeak.default
 ): number {
   const clampedX = Math.max(0, Math.min(1, x))
   const clampedStrength = Math.max(0, Math.min(1, strength))
@@ -757,8 +757,8 @@ export function noisyOr(
  */
 export function logistic(
   x: number,
-  bias = EDGE_CONSTRAINTS.functionParams.logisticBias.default,
-  scale = EDGE_CONSTRAINTS.functionParams.logisticScale.default
+  bias: number = EDGE_CONSTRAINTS.functionParams.logisticBias.default,
+  scale: number = EDGE_CONSTRAINTS.functionParams.logisticScale.default
 ): number {
   const clampedX = Math.max(0, Math.min(1, x))
   const clampedScale = Math.max(0.5, Math.min(10, scale))
@@ -806,8 +806,8 @@ export function logistic(
  */
 export function noisyAndNot(
   x: number,
-  baseRate = EDGE_CONSTRAINTS.functionParams.noisyAndNotBaseRate.default,
-  strength = EDGE_CONSTRAINTS.functionParams.noisyAndNotStrength.default
+  baseRate: number = EDGE_CONSTRAINTS.functionParams.noisyAndNotBaseRate.default,
+  strength: number = EDGE_CONSTRAINTS.functionParams.noisyAndNotStrength.default
 ): number {
   const clampedX = Math.max(0, Math.min(1, x))
   const clampedBaseRate = Math.max(0, Math.min(1, baseRate))
