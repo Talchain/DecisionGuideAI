@@ -44,7 +44,7 @@ export interface ValidationError {
 export function validateDocumentName(
   name: string,
   existingNames: string[],
-  excludeId?: string
+  _excludeId?: string
 ): ValidationError | null {
   const trimmed = name.trim()
 
