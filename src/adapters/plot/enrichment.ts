@@ -15,11 +15,8 @@ import type {
   RobustnessResult,
   RobustnessLabel,
   SensitiveParameter,
-  ValueOfInformation,
-  RobustnessBound,
-  RankedOptionWithRobustness,
 } from '../../canvas/components/RecommendationCard/types'
-import type { ISLValidationResponse } from '../isl/types'
+import type { ISLValidationResponse, ISLValidationSuggestion } from '../isl/types'
 import { isPlotEnrichmentEnabled } from '../../flags'
 
 // =============================================================================
@@ -177,8 +174,10 @@ export function hasEnrichment(
   if (!('metadata' in enrichment)) return false
   if (typeof enrichment.metadata !== 'object' || enrichment.metadata === null) return false
 
-  // Validate metadata has required fields
-  const metadata = enrichment.metadata as Record<string, unknown>
+  // Validate metadata has required fields.
+  // Cast through unknown: this is a runtime type guard treating the typed
+  // metadata as opaque shape for explicit field validation.
+  const metadata = enrichment.metadata as unknown as Record<string, unknown>
   if (typeof metadata.isl_enabled !== 'boolean') return false
   if (!['quick', 'standard', 'deep'].includes(metadata.detail_level as string)) return false
 
@@ -577,7 +576,7 @@ export function extractValidationFromEnrichment(
     const validation = enrichment.causal_validation
 
     // Transform to ISLValidationResponse format
-    const suggestions = validation.warnings?.map((warning, idx) => ({
+    const suggestions: ISLValidationSuggestion[] = validation.warnings?.map((warning, idx) => ({
       id: `warning-${idx}`,
       type: 'logic_error' as const,
       severity: 'warning' as const,
