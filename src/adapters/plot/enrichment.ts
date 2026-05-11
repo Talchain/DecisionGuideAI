@@ -78,8 +78,10 @@ export interface PLoTFactorSensitivity {
  * Contains robustness assessment, sensitive edges, and factor sensitivity
  */
 export interface PLoTSensitivityAnalysis {
-  /** Overall robustness label (derived from analysis) */
-  overall_robustness?: 'robust' | 'moderate' | 'fragile' | number
+  /** Overall robustness label (derived from analysis). 'unknown' is emitted
+   * when the backend cannot assess robustness from the available data;
+   * generateNarrativeFromSensitivity handles it explicitly (Bug 4). */
+  overall_robustness?: 'robust' | 'moderate' | 'fragile' | 'unknown' | number
   /** Per-edge sensitivity data (from ISL /causal/sensitivity/detailed) */
   edges: PLoTEdgeSensitivity[]
   /** Per-factor sensitivity data (from ISL /robustness/analyze/v2 - deep mode only) */
