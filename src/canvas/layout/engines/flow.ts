@@ -13,7 +13,7 @@ const PADDING = 50
  */
 export function applyFlowLayout(
   nodes: LayoutNode[],
-  edges: LayoutEdge[],
+  _edges: LayoutEdge[],
   spacing: LayoutSpacing,
   preserveIds: Set<string> = new Set()
 ): LayoutResult {
