@@ -152,7 +152,7 @@ export function sanitizeCeeReviewPayload(
   return {
     ...payload,
     blocks,
-    readiness: readiness!,
+    readiness,
   }
 }
 
