@@ -291,10 +291,30 @@ export interface DiagnosticChecks {
   ui_edge_e_values_available: boolean
   /** factor_evpi array is non-empty */
   evpi_present: boolean
-  /** factor_sensitivity confidence values have > 1 unique value */
+  /**
+   * Edge-level confidence differentiation: more than one unique value across
+   * non-structural edge `exists_probability` / `belief_exists`. Note the
+   * historic field name says "confidence" but the source is edge probabilities,
+   * not per-factor confidence — see `factor_confidence_differentiated` for the
+   * factor-level signal.
+   */
   confidence_differentiated: boolean
-  /** Unique confidence values seen (for debugging uniform-confidence issues) */
+  /**
+   * Unique edge-probability values seen (for debugging uniform-confidence issues).
+   * Same edge-level source as `confidence_differentiated`.
+   */
   confidence_unique_values: number[]
+  /**
+   * Factor-level confidence differentiation: more than one unique value across
+   * `plot_enrichment.factor_sensitivity[*].confidence`. Distinct from
+   * `confidence_differentiated` which reads edge probabilities. Added in
+   * audit follow-up D2 to surface the per-factor analytical signal the brief
+   * intended; original `confidence_unique_values` field-name semantics are
+   * preserved to avoid breaking the goldenFixture lock.
+   */
+  factor_confidence_differentiated: boolean
+  /** Unique factor-level confidence values from `plot_enrichment.factor_sensitivity[*].confidence`, sorted ascending, 3-decimal stable precision. */
+  factor_confidence_unique_values: number[]
   /** Any factor has confidence_source === "bootstrap_sampling" */
   confidence_source_bootstrap: boolean
   /** Any node has a numeric intercept value (including zero) */
@@ -1714,6 +1734,21 @@ function extractDiagnosticChecks(
     (f) => isBootstrapConfidenceSource(f.confidence_source)
   )
 
+  // D2 — factor-level confidence collector. Distinct from edge-probability
+  // collector below (which powers the legacy `confidence_*` fields). Reading
+  // `plot.factor_sensitivity[*].confidence` so the analytical "are factor
+  // confidences differentiated?" question has a truthful signal.
+  const factorConfidenceSet = new Set<number>()
+  for (const fs of plotFactorSensitivity) {
+    if (typeof fs.confidence === 'number' && Number.isFinite(fs.confidence)) {
+      // Stable 3-decimal precision avoids spurious "differentiated" results
+      // from floating-point noise on equivalent values.
+      factorConfidenceSet.add(Number(fs.confidence.toFixed(3)))
+    }
+  }
+  const factorConfidenceUniqueValues = [...factorConfidenceSet].sort((a, b) => a - b)
+  const factorConfidenceDifferentiated = factorConfidenceUniqueValues.length > 1
+
   // --- Nodes & edges for confidence/intercept checks ---
   // Priority: CEE response top-level (direct draft flow) > canvas store (orchestrator flow)
   const ceeNodes = Array.isArray(cee?.nodes) ? cee.nodes as Record<string, unknown>[]
@@ -1813,6 +1848,8 @@ function extractDiagnosticChecks(
     evpi_present: islFactorEvpi.length > 0,
     confidence_differentiated: uniqueConfidence.size > 1,
     confidence_unique_values: [...uniqueConfidence].sort((a, b) => a - b),
+    factor_confidence_differentiated: factorConfidenceDifferentiated,
+    factor_confidence_unique_values: factorConfidenceUniqueValues,
     confidence_source_bootstrap: hasBootstrapSource,
     intercept_populated: hasIntercept,
     epsilon_std_present: hasEpsilonStd,
