@@ -39,7 +39,7 @@ describe('extractDecisionReview', () => {
     const r = extractDecisionReview({ decision_review: validDR })
     expect(r).not.toBeNull()
     expect(r?.intent).toBe('selection')
-    expect(r?.readiness.level).toBe('ready')
+    expect(r?.readiness?.level).toBe('ready')
     expect(r?.blocks).toHaveLength(1)
   })
 

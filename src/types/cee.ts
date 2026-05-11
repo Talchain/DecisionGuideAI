@@ -64,7 +64,7 @@ export interface ReviewReadiness {
 export interface CeeDecisionReviewPayloadV1 {
   intent: ReviewIntent
   analysis_state: AnalysisState
-  readiness: ReviewReadiness
+  readiness?: ReviewReadiness
   blocks: ReviewBlock[]
   /** Index signature for future-proofing */
   [key: string]: unknown
