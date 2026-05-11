@@ -3176,10 +3176,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     })
 
     // Crash resilience
-    saveAutosave(
-      draftChatPreDraftSnapshot.nodes,
-      draftChatPreDraftSnapshot.edges,
-    )
+    scenarios.saveAutosave({
+      timestamp: Date.now(),
+      nodes: draftChatPreDraftSnapshot.nodes,
+      edges: draftChatPreDraftSnapshot.edges,
+    })
   },
 
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => {
