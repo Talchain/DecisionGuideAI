@@ -457,6 +457,29 @@ describe('PLoT Enrichment Adapters', () => {
       })
       expect(extractRobustnessFromEnrichment(lowResponse)!.robustness_label).toBe('fragile')
     })
+
+    // Bug 4 regression: when overall_robustness is the string 'unknown',
+    // generateNarrativeFromSensitivity used to fall through the switch and
+    // return undefined, causing the narrative section to silently not render.
+    // The 'unknown' case now returns a non-empty fallback narrative.
+    it('returns a non-empty narrative when robustness label is unknown', () => {
+      vi.mocked(isPlotEnrichmentEnabled).mockReturnValue(true)
+      const response = createResponseWithEnrichment({
+        sensitivity_analysis: {
+          overall_robustness: 'unknown',
+          edges: [{ edge_id: 'e1', from: 'a', to: 'b', sensitivity_score: 0.5 }],
+          top_drivers: ['price', 'demand'],
+        },
+        metadata: { isl_enabled: true, detail_level: 'deep' },
+      })
+
+      const result = extractRobustnessFromEnrichment(response)
+      expect(result).not.toBe(null)
+      expect(result!.robustness_label).toBe('unknown')
+      expect(typeof result!.narrative).toBe('string')
+      expect(result!.narrative.length).toBeGreaterThan(0)
+      expect(result!.narrative).toContain('could not be assessed')
+    })
   })
 
   describe('extractValidationFromEnrichment', () => {

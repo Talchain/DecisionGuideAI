@@ -530,6 +530,8 @@ function generateNarrativeFromSensitivity(
       return `${factorInfo}The analysis shows moderate sensitivity to some parameters. ${fragileEdgeCount > 0 ? `${fragileEdgeCount} edges are particularly sensitive.` : ''} Key drivers are ${topDrivers}.`
     case 'fragile':
       return `${factorInfo}The recommendation is sensitive to parameter values. ${fragileEdgeCount} edges could flip the outcome. Consider reducing uncertainty in ${topDrivers}.`
+    case 'unknown':
+      return `Robustness could not be assessed from the available data. Key drivers are ${topDrivers}.`
   }
 }
 
