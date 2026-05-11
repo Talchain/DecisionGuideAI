@@ -276,7 +276,10 @@ export interface ExportData {
 export function exportCanvas(state: { nodes: Node[]; edges: Edge<EdgeData>[] }): string {
   // Use migration API to produce current schema snapshot
   const snapshot = exportSnapshot(state.nodes, state.edges)
-  const sanitized = sanitizeState(snapshot)
+  // Boundary cast: Zod schemas use .passthrough() (load-bearing per CIL 0.2)
+  // which widens edge.data.validation to unknown; the structural shape matches
+  // PersistedState at runtime.
+  const sanitized = sanitizeState(snapshot as unknown as PersistedState)
   return JSON.stringify(sanitized, null, 2)
 }
 
@@ -292,7 +295,8 @@ export function importCanvas(json: string): { nodes: Node[]; edges: Edge<EdgeDat
     }
 
     // Sanitize all strings
-    const sanitized = sanitizeState(normalized)
+    // Boundary cast: same passthrough rationale as exportCanvas above.
+    const sanitized = sanitizeState(normalized as unknown as PersistedState)
 
     // Basic validation
     if (!Array.isArray(sanitized.nodes) || !Array.isArray(sanitized.edges)) {
