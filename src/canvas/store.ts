@@ -1112,8 +1112,12 @@ function createDebugSet<T>(originalSet: SetState<T>, debugEnabled: boolean): Set
 const _stateDebugEnabled = isStateDebugEnabled()
 
 export const useCanvasStore = create<CanvasState>((originalSet, get) => {
-  // Wrap set with debugging if enabled
-  const set = createDebugSet(originalSet, _stateDebugEnabled)
+  // Wrap set with debugging if enabled.
+  // Cast: Zustand's setState is overloaded (replace?: false vs replace: true),
+  // local SetState declares a single signature with replace?: boolean. The
+  // wrapper preserves runtime behaviour exactly — only the static signature
+  // differs.
+  const set = createDebugSet(originalSet as SetState<CanvasState>, _stateDebugEnabled)
 
   return {
   nodes: initialNodes,
