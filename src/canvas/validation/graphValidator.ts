@@ -218,7 +218,8 @@ function detectMissingLabels(nodes: Node[]): ValidationIssue[] {
   const issues: ValidationIssue[] = []
 
   for (const node of nodes) {
-    if (!node.data.label || node.data.label.trim() === '') {
+    const label = node.data.label
+    if (!label || typeof label !== 'string' || label.trim() === '') {
       issues.push({
         id: `missing-label-${node.id}`,
         type: 'missing_label',
