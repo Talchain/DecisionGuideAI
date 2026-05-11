@@ -4020,10 +4020,13 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       timestamp: new Date().toISOString(),
       graph: { nodes, edges },
       lastRun: results.report ? {
-        summary: results.report.summary,
-        p10: results.report.p10,
-        p50: results.report.p50,
-        p90: results.report.p90,
+        // summary lives at insights.summary on ReportV1; bands prefer the
+        // normalised run.bands path with results.{conservative,likely,optimistic}
+        // as the legacy fallback (matches extractP50 in runHistory.ts:266).
+        summary: results.report.insights?.summary,
+        p10: results.report.run?.bands?.p10 ?? results.report.results?.conservative ?? null,
+        p50: results.report.run?.bands?.p50 ?? results.report.results?.likely ?? null,
+        p90: results.report.run?.bands?.p90 ?? results.report.results?.optimistic ?? null,
         seed: results.seed,
         hash: results.hash
       } : null,
