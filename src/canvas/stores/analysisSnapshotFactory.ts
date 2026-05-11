@@ -109,7 +109,7 @@ function extractConditionalWinners(
 function extractEdgeEValues(
   robustness: V2RunResponse['robustness'],
   nodes: Node[],
-  edges: Edge[],
+  _edges: Edge[],
 ): AnalysisSnapshot['edgeEValues'] {
   const raw = (robustness as Record<string, unknown> | undefined)?.edge_e_values
   if (!Array.isArray(raw)) return []
