@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Olumi v17 colour-led decision hero</title>
+  <style>
+    :root {
+      --canvas: #F4F0EA;
+      --panel: #FEFEFE;
+      --soft: #FEF9F3;
+      --border: #EEE6D8;
+      --text: #3F3F3E;
+      --header: #262626;
+      --muted: #908D8D;
+      --info: #63ADCF;
+      --success: #67C89E;
+      --warning: #FFA656;
+      --danger: #EA7B4B;
+      --purple: #AAA7E4;
+      --taupe: #B0A899;
+      --radius: 14px;
+      --pill: 999px;
+      --shadow: 0 1px 2px rgba(38,38,38,.06);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--canvas);
+      color: var(--text);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: grid;
+      place-items: start center;
+      padding: 24px;
+    }
+    .wrap { width: 380px; display: grid; gap: 10px; }
+    .switcher { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+    .switcher button,
+    .actions-button,
+    .chip,
+    .text-button,
+    .icon-button,
+    .menu-item {
+      font: inherit;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      cursor: pointer;
+    }
+    .switcher button { min-height: 28px; padding: 0 9px; border-radius: var(--pill); color: var(--muted); font-size: 11px; }
+    .switcher button.active { color: var(--header); background: var(--soft); border-color: color-mix(in srgb, var(--info) 45%, var(--border)); }
+    .hero { background: var(--panel); border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow); overflow: visible; }
+    .hero-inner { padding: 10px; display: grid; gap: 8px; }
+    .top,
+    .dim-head,
+    .question-head,
+    .question-actions,
+    .section-head,
+    .row-main,
+    .row-title-line,
+    .row-actions,
+    .also-line,
+    .footer,
+    .footer-checks,
+    .drawer-actions { display: flex; align-items: center; }
+    .top { justify-content: space-between; gap: 8px; }
+    .strength { flex: 1; min-width: 0; display: grid; gap: 5px; }
+    .dim-head { justify-content: space-between; gap: 8px; }
+    .title { margin: 0; font-size: 12px; line-height: 1.2; font-weight: 650; color: var(--header); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sub { margin: 0; font-size: 11px; line-height: 1.2; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .colour-strip { display: grid; grid-template-columns: 1.05fr .85fr 1fr .95fr; gap: 3px; }
+    .strip-segment { height: 7px; border-radius: var(--pill); background: var(--border); overflow: hidden; }
+    .strip-fill { height: 100%; border-radius: var(--pill); }
+    .strip-fill.structure { background: var(--success); }
+    .strip-fill.evidence { background: var(--warning); }
+    .strip-fill.coverage { background: var(--info); }
+    .strip-fill.input { background: var(--purple); }
+    .legend { display: grid; grid-template-columns: 1.05fr .85fr 1fr .95fr; gap: 3px; }
+    .legend-item { display: flex; align-items: center; gap: 3px; min-width: 0; color: var(--muted); font-size: 10px; line-height: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .legend-dot { width: 6px; height: 6px; border-radius: 50%; flex: none; }
+    .legend-dot.structure { background: var(--success); }
+    .legend-dot.evidence { background: var(--warning); }
+    .legend-dot.coverage { background: var(--info); }
+    .legend-dot.input { background: var(--purple); }
+    .actions-menu { position: relative; flex: none; }
+    .actions-button { min-height: 30px; padding: 0 10px; border-radius: var(--pill); font-size: 12px; }
+    .actions-popover { display: none; position: absolute; top: 36px; right: 0; width: 220px; padding: 6px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); box-shadow: 0 6px 18px rgba(38,38,38,.10); z-index: 20; }
+    .actions-menu.open .actions-popover { display: grid; gap: 2px; }
+    .menu-item { border: 0; min-height: 36px; padding: 7px 8px; border-radius: 8px; background: transparent; display: grid; grid-template-columns: 18px 1fr; gap: 7px; align-items: center; text-align: left; font-size: 12px; line-height: 1.2; }
+    .menu-item:hover, .menu-item:focus-visible { background: var(--soft); outline: none; }
+    .menu-item .ico { color: var(--info); font-size: 11px; }
+    .context-card,
+    .question-card,
+    .checks-card { border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); }
+    .context-card { padding: 8px 9px; display: grid; gap: 5px; }
+    .result-line { margin: 0; font-size: 12px; line-height: 1.35; color: var(--header); font-weight: 650; }
+    .reason-line { margin: 0; font-size: 12px; line-height: 1.35; color: var(--text); }
+    .meta-pills { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+    .meta-pill { display: inline-flex; min-height: 21px; align-items: center; gap: 4px; padding: 0 7px; border: 1px solid var(--border); border-radius: var(--pill); color: var(--muted); font-size: 11px; line-height: 1; }
+    .meta-pill.warn { color: color-mix(in srgb, var(--warning) 75%, var(--header)); border-color: color-mix(in srgb, var(--warning) 45%, var(--border)); }
+    .meta-pill.danger { color: color-mix(in srgb, var(--danger) 75%, var(--header)); border-color: color-mix(in srgb, var(--danger) 45%, var(--border)); }
+    .meta-pill.reflect { color: color-mix(in srgb, var(--purple) 75%, var(--header)); border-color: color-mix(in srgb, var(--purple) 55%, var(--border)); }
+    .question-card { padding: 8px 9px; display: grid; gap: 7px; }
+    .question-head, .section-head { justify-content: space-between; gap: 8px; color: var(--muted); font-size: 11px; line-height: 1.2; }
+    .question-head strong, .section-head strong { color: var(--header); font-size: 12px; font-weight: 650; }
+    .inline-toggle { border: 0; background: transparent; padding: 0; color: var(--muted); font: inherit; font-size: 11px; cursor: pointer; }
+    .inline-toggle:hover, .inline-toggle:focus-visible { color: var(--info); outline: none; }
+    .question { margin: 0; font-size: 12px; line-height: 1.35; color: var(--header); font-weight: 650; }
+    .question-actions { gap: 5px; flex-wrap: wrap; }
+    .chip { min-height: 28px; border-radius: var(--pill); padding: 0 9px; font-size: 11px; line-height: 1; }
+    .chip.selected, .chip:hover, .chip:focus-visible { border-color: var(--info); color: var(--info); background: var(--soft); outline: none; }
+    .extra-questions, .hidden-checks { display: none; }
+    .extra-questions.open { display: grid; gap: 6px; }
+    .hidden-checks.open { display: block; border-top: 1px solid var(--border); }
+    .mini-question { border-top: 1px solid var(--border); padding-top: 6px; display: grid; gap: 5px; }
+    .mini-question p { margin: 0; font-size: 12px; line-height: 1.3; color: var(--text); }
+    .checks-card { overflow: hidden; }
+    .check-row { min-height: 64px; padding: 8px 9px; border-bottom: 1px solid var(--border); display: grid; gap: 5px; background: var(--panel); }
+    .check-row:last-child { border-bottom: 0; }
+    .check-row.evidence { background: linear-gradient(0deg, color-mix(in srgb, var(--warning) 8%, transparent), color-mix(in srgb, var(--warning) 8%, transparent)), var(--panel); }
+    .check-row.risk { background: linear-gradient(0deg, color-mix(in srgb, var(--danger) 6%, transparent), color-mix(in srgb, var(--danger) 6%, transparent)), var(--panel); }
+    .check-row.coverage { background: linear-gradient(0deg, color-mix(in srgb, var(--info) 6%, transparent), color-mix(in srgb, var(--info) 6%, transparent)), var(--panel); }
+    .check-row.reflect { background: linear-gradient(0deg, color-mix(in srgb, var(--purple) 7%, transparent), color-mix(in srgb, var(--purple) 7%, transparent)), var(--panel); }
+    .check-row.causal { background: linear-gradient(0deg, color-mix(in srgb, var(--taupe) 8%, transparent), color-mix(in srgb, var(--taupe) 8%, transparent)), var(--panel); }
+    .row-main { justify-content: space-between; gap: 8px; }
+    .row-copy { min-width: 0; flex: 1; display: grid; gap: 5px; }
+    .row-title-line { gap: 6px; min-width: 0; }
+    .category-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+    .category-dot.evidence { background: var(--warning); }
+    .category-dot.risk { background: var(--danger); }
+    .category-dot.coverage { background: var(--info); }
+    .category-dot.reflect { background: var(--purple); }
+    .category-dot.causal { background: var(--taupe); }
+    .category-dot.ready { background: var(--success); }
+    .check-title { margin: 0; font-size: 12px; line-height: 1.2; color: var(--header); font-weight: 650; min-width: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .priority { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); font-size: 11px; flex: none; }
+    .priority-bar { width: 26px; height: 3px; background: var(--border); border-radius: var(--pill); overflow: hidden; }
+    .priority-fill { height: 100%; border-radius: var(--pill); }
+    .priority-fill.evidence { background: var(--warning); }
+    .priority-fill.risk { background: var(--danger); }
+    .priority-fill.coverage { background: var(--info); }
+    .priority-fill.reflect { background: var(--purple); }
+    .priority-fill.causal { background: var(--taupe); }
+    .priority-fill.ready { background: var(--success); }
+    .row-reason { margin: 0; font-size: 12px; line-height: 1.3; color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+    .row-actions { gap: 4px; flex: none; justify-content: flex-end; }
+    .icon-button { width: 30px; height: 30px; border-radius: var(--pill); display: grid; place-items: center; color: var(--muted); font-size: 12px; line-height: 1; flex: none; }
+    .icon-button.primary { color: var(--info); border-color: color-mix(in srgb, var(--info) 65%, var(--border)); }
+    .icon-button.confirm { color: var(--success); border-color: color-mix(in srgb, var(--success) 55%, var(--border)); }
+    .icon-button:hover, .icon-button:focus-visible, .text-button:hover, .text-button:focus-visible { outline: none; border-color: var(--info); color: var(--info); background: var(--soft); }
+    .also-line { gap: 7px; flex-wrap: wrap; padding: 7px 9px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; line-height: 1.2; }
+    .also-line strong { color: var(--header); font-weight: 650; }
+    .also-link { border: 0; background: transparent; color: var(--text); padding: 0; font: inherit; font-size: 11px; cursor: pointer; }
+    .also-link:hover, .also-link:focus-visible { color: var(--info); outline: none; }
+    .footer { justify-content: space-between; gap: 8px; padding-top: 1px; }
+    .footer-left { display: grid; gap: 3px; min-width: 0; }
+    .footer-checks { gap: 6px; flex-wrap: wrap; font-size: 11px; color: var(--muted); }
+    .footer-check { display: inline-flex; align-items: center; gap: 3px; white-space: nowrap; }
+    .footer-check.ok { color: color-mix(in srgb, var(--success) 70%, var(--header)); }
+    .footer-check.warn { color: color-mix(in srgb, var(--warning) 70%, var(--header)); }
+    .footer-check.reflect { color: color-mix(in srgb, var(--purple) 72%, var(--header)); }
+    .footer-check.risk { color: color-mix(in srgb, var(--danger) 72%, var(--header)); }
+    .text-button { min-height: 30px; border-radius: var(--pill); padding: 0 10px; font-size: 12px; line-height: 1; flex: none; }
+    .text-button.primary { background: var(--info); color: #fff; border-color: var(--info); }
+    .text-button.primary:hover, .text-button.primary:focus-visible { background: var(--success); border-color: var(--success); color: #fff; }
+    .chat-drawer { display: none; border: 1px solid color-mix(in srgb, var(--info) 55%, var(--border)); border-radius: var(--radius); background: var(--panel); padding: 9px; gap: 7px; }
+    .chat-drawer.open { display: grid; }
+    .chat-drawer p { margin: 0; font-size: 12px; line-height: 1.35; color: var(--text); }
+    .chat-drawer p strong { color: var(--header); font-weight: 650; }
+    .chat-drawer textarea { width: 100%; min-height: 54px; border: 1px solid var(--border); border-radius: 10px; padding: 7px; resize: vertical; font: inherit; font-size: 12px; }
+    .drawer-actions { justify-content: flex-end; gap: 6px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="switcher" aria-label="Prototype state selector">
+      <span>Prototype states:</span>
+      <button class="active" data-state="moderate">Moderate</button>
+      <button data-state="weak">Weak</button>
+      <button data-state="reflect">Reflect</button>
+      <button data-state="strong">Strong</button>
+    </div>
+
+    <section class="hero" aria-label="Decision-strengthening hero panel">
+      <div class="hero-inner">
+        <header class="top">
+          <div class="strength">
+            <div class="dim-head">
+              <p class="title" id="strengthTitle">Strengthen this decision</p>
+              <p class="sub" id="strengthCount">3 of 7 checked</p>
+            </div>
+            <div class="colour-strip" id="colourStrip" aria-label="Decision readiness dimensions"></div>
+            <div class="legend" aria-hidden="true">
+              <span class="legend-item"><span class="legend-dot structure"></span>Structure</span>
+              <span class="legend-item"><span class="legend-dot evidence"></span>Evidence</span>
+              <span class="legend-item"><span class="legend-dot coverage"></span>Coverage</span>
+              <span class="legend-item"><span class="legend-dot input"></span>User input</span>
+            </div>
+            <p class="sub" id="checkedLine">Checked: goal · cost range · time impact</p>
+          </div>
+          <div class="actions-menu" id="actionsMenu">
+            <button class="actions-button" id="actionsToggle" aria-haspopup="menu" aria-expanded="false">Actions ▾</button>
+            <div class="actions-popover" role="menu" id="actionsPopover"></div>
+          </div>
+        </header>
+
+        <section class="context-card" aria-label="Result context">
+          <p class="result-line" id="resultLine"></p>
+          <p class="reason-line" id="reasonLine"></p>
+          <div class="meta-pills" id="metaPills"></div>
+        </section>
+
+        <section class="question-card" aria-label="Key question">
+          <div class="question-head"><strong>Key question</strong><button class="inline-toggle" id="questionsToggle" aria-expanded="false">+3 ▾</button></div>
+          <p class="question" id="questionText"></p>
+          <div class="question-actions" id="questionChips"></div>
+          <div class="extra-questions" id="extraQuestions"></div>
+        </section>
+
+        <div class="section-head"><strong>Needs your input</strong><button class="inline-toggle" id="checksToggle" aria-expanded="false">+3 ▾</button></div>
+        <section class="checks-card" aria-label="Items needing your input">
+          <div id="visibleChecks"></div>
+          <div class="hidden-checks" id="hiddenChecks"></div>
+          <div class="also-line" id="alsoLine"></div>
+        </section>
+
+        <footer class="footer">
+          <div class="footer-left">
+            <div class="footer-checks" id="footerChecks"></div>
+            <p class="sub" id="footerHint">Check top item</p>
+          </div>
+          <button class="text-button primary" id="footerCta">Check key estimate</button>
+        </footer>
+      </div>
+    </section>
+
+    <div class="chat-drawer" id="chatDrawer" aria-live="polite">
+      <p><strong>Work through with AI</strong></p>
+      <p id="chatPrompt">Select an action to start a focused prompt.</p>
+      <textarea aria-label="Add your context" placeholder="Add your context, or send as-is..."></textarea>
+      <div class="drawer-actions"><button class="chip" id="closeChat">Close</button><button class="chip selected">Send</button></div>
+    </div>
+  </div>
+
+  <script>
+    const ACTIONS = {
+      ai: ['✦', 'Work through with AI', 'primary'],
+      discuss: ['◌', 'Discuss with AI', ''],
+      edit: ['✎', 'Edit', ''],
+      confirm: ['✓', 'Confirm', 'confirm'],
+      add: ['+', 'Add', ''],
+      challenge: ['⚑', 'Challenge this', ''],
+      brief: ['▣', 'Create brief', 'primary']
+    };
+
+    const MENU = [
+      ['Review key inputs with AI', 'Walk me through the highest-priority inputs one at a time. Ask what I know before suggesting changes.'],
+      ['Show evidence gaps', 'Show only the factors, risks and assumptions where my input would most improve the analysis.'],
+      ['Compare my view with Olumi', 'Compare what I have provided with what Olumi inferred. Highlight the biggest differences.'],
+      ['Challenge the current result', 'Challenge the current result. Make the strongest case for the next closest option.'],
+      ['Run a pre-mortem', 'If the leading option underperformed, what most likely went wrong?'],
+      ['Use the outside view', 'Ask what comparable decisions I know, then help me reason from base rates.']
+    ];
+
+    const STATES = {
+      moderate: {
+        count: '3 of 7 checked', checked: 'Checked: goal · cost range · time impact', inferred: 'You checked 3 inputs · Olumi inferred 4',
+        strip: [['structure', 90], ['evidence', 42], ['coverage', 78], ['input', 43]],
+        result: 'Tech Lead currently leads.',
+        reason: 'If leadership capacity is lower than modelled, Two Developers could overtake.',
+        meta: [['Result moderate','warn'], ['Evidence limited','warn'], ['2 checks matter','warn']],
+        question: 'How confident are you in the leadership capacity estimate?',
+        chips: ['High', 'Some', 'Not sure', 'Add note'],
+        questions: ['What would make Tech Lead underperform?', 'Are the alternatives genuinely different?', 'What evidence would change your view?'],
+        checks: [
+          row('Leadership capacity', 'High evidence priority. This strongly influences the outcome. Check whether the estimate matches your experience.', 'High', 'evidence', ['ai','discuss','edit','confirm'], 100),
+          row('Downside risks', 'Medium evidence priority. No clear failure path is modelled for the leading option.', 'Medium', 'risk', ['ai','add','discuss'], 72),
+          row('Option difference', 'Medium evidence priority. Your alternatives may work through similar factors.', 'Medium', 'coverage', ['ai','discuss','edit'], 48)
+        ],
+        hidden: [row('Success threshold','Medium evidence priority. Define what would count as good enough.','Medium','evidence',['ai','edit','confirm'],42), row('Main connection','Check whether leadership capacity really affects delivery speed in your context.','Low','causal',['ai','edit'],32), row('Outside view','Compare this with similar hiring decisions before relying on the result.','Low','reflect',['ai','discuss'],28)],
+        also: ['Outside view', 'Main connection', 'Pre-mortem'],
+        footer: [['✓ Result clear','ok'], ['✓ Stable','ok'], ['⚠ Evidence','warn'], ['◌ Framing','reflect']],
+        hint: 'Check the highest-priority input', cta: 'Check key estimate'
+      },
+      weak: {
+        count: '1 of 7 checked', checked: 'Checked: goal', inferred: 'You checked 1 input · Olumi inferred 6',
+        strip: [['structure', 68], ['evidence', 18], ['coverage', 45], ['input', 14]],
+        result: 'No option currently leads clearly.',
+        reason: 'Several high-impact inputs need your judgement before the analysis is useful.',
+        meta: [['Result fragile','danger'], ['Evidence thin','danger'], ['Weak separation','warn']],
+        question: 'Which estimate do you feel least confident about right now?',
+        chips: ['Cost', 'Leadership', 'Adoption', 'Add note'],
+        questions: ['What evidence do you already have?', 'Which estimate feels most uncertain?', 'What would make one option clearly weaker?'],
+        checks: [row('Evidence quality','High evidence priority. Several estimates come from Olumi rather than your context.','High','evidence',['ai','discuss','edit','confirm'],100), row('Swing factor','High evidence priority. One factor could change which option comes out ahead.','High','risk',['ai','edit','confirm'],82), row('Success threshold','Medium evidence priority. Define what good enough looks like.','Medium','evidence',['ai','edit','confirm'],58)],
+        hidden: [row('Downside risks','Medium evidence priority. Add what could go wrong for each leading path.','Medium','risk',['ai','add'],50), row('Option difference','Your alternatives may be too similar to test a real trade-off.','Medium','coverage',['ai','discuss','edit'],42), row('Outside view','Use comparable decisions to ground the estimates.','Low','reflect',['ai','discuss'],26)],
+        also: ['Downside risks', 'Option difference', 'Outside view'],
+        footer: [['✕ Result clear','warn'], ['✕ Stable','warn'], ['⚠ Evidence','warn'], ['✓ Framing','ok']],
+        hint: 'Improve inputs first', cta: 'Review weak inputs'
+      },
+      reflect: {
+        count: '4 of 7 checked', checked: 'Checked: goal · cost · time · target', inferred: 'You checked 4 inputs · Olumi inferred 3',
+        strip: [['structure', 88], ['evidence', 54], ['coverage', 72], ['input', 57]],
+        result: 'Tech Lead currently leads.',
+        reason: 'Could early preference for one route be influencing how the alternatives are framed?',
+        meta: [['Stable result',''], ['Reflective check','reflect'], ['Challenge useful','reflect']],
+        question: 'What would make Tech Lead the wrong approach?',
+        chips: ['Cost overrun', 'Hiring delay', 'Wrong skills', 'Add note'],
+        questions: ['What would a sceptic challenge first?', 'Are you placing too much weight on one factor?', 'What evidence would change your view?'],
+        checks: [row('Challenge the leading option','Use consider-the-opposite. Make the strongest case for the next closest option.','High','reflect',['ai','discuss','challenge'],100), row('Outside view','Use comparable decisions to check whether this pattern usually holds.','Medium','reflect',['ai','discuss'],70), row('Pre-mortem','Imagine the leading option underperformed. Identify what went wrong.','Medium','risk',['ai','challenge'],64)],
+        hidden: [row('Disconfirming evidence','Define what evidence would make you change direction.','Medium','reflect',['ai','add'],56), row('Option difference','Check whether the alternatives test meaningfully different approaches.','Low','coverage',['ai','edit'],34), row('Main connection','Review the connection driving most of the result.','Low','causal',['ai','edit'],32)],
+        also: ['Disconfirming evidence', 'Main connection', 'Broaden options'],
+        footer: [['✓ Result clear','ok'], ['✓ Stable','ok'], ['⚠ Evidence','warn'], ['◌ Framing','reflect']],
+        hint: 'Challenge before deciding', cta: 'Challenge result'
+      },
+      strong: {
+        count: '7 of 7 checked', checked: 'Checked: inputs · target · risks · options · mechanism', inferred: 'You checked 7 inputs · Olumi inferred 0',
+        strip: [['structure', 96], ['evidence', 86], ['coverage', 92], ['input', 100]],
+        result: 'Tech Lead currently leads clearly.',
+        reason: 'The result holds under most plausible variations, and the main caveats are known.',
+        meta: [['Stable result',''], ['Evidence adequate',''], ['Ready to brief','']],
+        question: 'What caveat should appear in the decision brief?',
+        chips: ['Cost', 'Hiring time', 'Team fit', 'Add note'],
+        questions: ['What should stakeholders know?', 'What assumption should be monitored?', 'What would trigger a revisit?'],
+        checks: [row('Create decision brief','Capture the result, rationale, assumptions and caveats.','Ready','ready',['brief','discuss'],100), row('Discuss caveats','Add the main caveat before sharing the decision.','Low','reflect',['discuss'],25), row('Final pre-mortem','Optional last check before committing resources.','Low','risk',['ai','challenge'],22)],
+        hidden: [row('Outside view','Optional base-rate check for similar decisions.','Low','reflect',['ai','discuss'],16), row('Next closest option','Explain why it performs lower under current assumptions.','Low','coverage',['discuss'],12), row('Main connection','Optional review of the most important mechanism.','Low','causal',['ai','edit'],10)],
+        also: ['Caveats', 'Next closest option', 'Revisit trigger'],
+        footer: [['✓ Result clear','ok'], ['✓ Stable','ok'], ['✓ Evidence','ok'], ['✓ Framing','ok']],
+        hint: 'Ready to brief', cta: 'Create decision brief'
+      }
+    };
+
+    function row(title, reason, priority, category, actions, valueWidth) { return { title, reason, priority, category, actions, valueWidth }; }
+
+    const els = {
+      buttons: document.querySelectorAll('[data-state]'), strip: document.getElementById('colourStrip'), count: document.getElementById('strengthCount'), checked: document.getElementById('checkedLine'),
+      result: document.getElementById('resultLine'), reason: document.getElementById('reasonLine'), meta: document.getElementById('metaPills'), q: document.getElementById('questionText'), chips: document.getElementById('questionChips'),
+      qToggle: document.getElementById('questionsToggle'), extraQ: document.getElementById('extraQuestions'), cToggle: document.getElementById('checksToggle'), visible: document.getElementById('visibleChecks'), hidden: document.getElementById('hiddenChecks'),
+      also: document.getElementById('alsoLine'), footer: document.getElementById('footerChecks'), hint: document.getElementById('footerHint'), cta: document.getElementById('footerCta'), menu: document.getElementById('actionsMenu'), menuBtn: document.getElementById('actionsToggle'), pop: document.getElementById('actionsPopover'), drawer: document.getElementById('chatDrawer'), prompt: document.getElementById('chatPrompt'), close: document.getElementById('closeChat')
+    };
+
+    function action(key, prompt) {
+      const [icon, label, cls] = ACTIONS[key];
+      return `<button class="icon-button ${cls}" title="${label}" aria-label="${label}" data-prompt="${prompt.replaceAll('"','&quot;')}">${icon}</button>`;
+    }
+    function renderRow(item) {
+      const prompt = `Help me with ${item.title}. Ask one focused question first, then suggest the smallest useful update.`;
+      return `<article class="check-row ${item.category || ''}"><div class="row-main"><div class="row-copy"><div class="row-title-line"><span class="category-dot ${item.category}" title="${item.category}"></span><p class="check-title">${item.title}</p><span class="priority" title="Evidence priority"><span class="priority-bar"><span class="priority-fill ${item.category}" style="width:${item.valueWidth}%"></span></span>${item.priority}</span></div><p class="row-reason">${item.reason}</p></div><div class="row-actions">${item.actions.map(a => action(a, prompt)).join('')}</div></div></article>`;
+    }
+    function openPrompt(text) { els.prompt.textContent = text; els.drawer.classList.add('open'); els.drawer.querySelector('textarea').focus(); }
+    function bindPrompts() { document.querySelectorAll('[data-prompt]').forEach(b => b.onclick = () => openPrompt(b.getAttribute('data-prompt'))); }
+
+    function render(stateName) {
+      const s = STATES[stateName];
+      els.count.textContent = s.count;
+      els.checked.textContent = `${s.checked} · ${s.inferred}`;
+      els.strip.innerHTML = s.strip.map(([name, pct]) => `<div class="strip-segment" title="${name}: ${pct}%"><div class="strip-fill ${name}" style="width:${pct}%"></div></div>`).join('');
+      els.result.textContent = s.result;
+      els.reason.textContent = s.reason;
+      els.meta.innerHTML = s.meta.map(([text, cls]) => `<span class="meta-pill ${cls}">${text}</span>`).join('');
+      els.q.textContent = s.question;
+      els.chips.innerHTML = s.chips.map((c, i) => `<button class="chip ${i === 1 ? 'selected' : ''}">${c}</button>`).join('');
+      els.qToggle.textContent = `+${s.questions.length} ▾`;
+      els.extraQ.classList.remove('open');
+      els.extraQ.innerHTML = s.questions.map(q => `<div class="mini-question"><p>${q}</p><div class="question-actions"><button class="chip">Answer</button>${action('ai', `Help me answer: ${q}`)}</div></div>`).join('');
+      els.cToggle.textContent = `+${s.hidden.length} ▾`;
+      els.hidden.classList.remove('open');
+      els.visible.innerHTML = s.checks.map(renderRow).join('');
+      els.hidden.innerHTML = s.hidden.map(renderRow).join('');
+      els.also.innerHTML = `<strong>Also:</strong> ${s.also.map(a => `<button class="also-link" data-prompt="Help me with ${a}. Ask one focused question first.">${a}</button>`).join(' · ')}`;
+      els.footer.innerHTML = s.footer.map(([text, cls]) => `<span class="footer-check ${cls}">${text}</span>`).join('');
+      els.hint.textContent = s.hint;
+      els.cta.textContent = s.cta;
+      els.cta.onclick = () => openPrompt(`Help me ${s.cta.toLowerCase()}. Ask one focused question first.`);
+      els.pop.innerHTML = MENU.map(([label, prompt]) => `<button class="menu-item" role="menuitem" data-prompt="${prompt.replaceAll('"','&quot;')}"><span class="ico">✦</span><span>${label}</span></button>`).join('');
+      bindPrompts();
+    }
+
+    els.buttons.forEach(btn => btn.onclick = () => { els.buttons.forEach(b => b.classList.remove('active')); btn.classList.add('active'); render(btn.dataset.state); });
+    els.menuBtn.onclick = () => { const open = els.menu.classList.toggle('open'); els.menuBtn.setAttribute('aria-expanded', String(open)); };
+    els.qToggle.onclick = () => { const open = els.extraQ.classList.toggle('open'); els.qToggle.textContent = open ? 'Hide ▴' : `+${els.extraQ.children.length} ▾`; els.qToggle.setAttribute('aria-expanded', String(open)); };
+    els.cToggle.onclick = () => { const open = els.hidden.classList.toggle('open'); els.cToggle.textContent = open ? 'Hide ▴' : `+${els.hidden.children.length} ▾`; els.cToggle.setAttribute('aria-expanded', String(open)); };
+    els.close.onclick = () => els.drawer.classList.remove('open');
+    render('moderate');
+  </script>
+</body>
+</html>
