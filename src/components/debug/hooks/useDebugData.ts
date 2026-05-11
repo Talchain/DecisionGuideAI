@@ -271,8 +271,24 @@ export interface DiagnosticChecks {
   llm_raw_path_found: string | null
 
   // Pipeline field presence checks
-  /** edge_e_values array is non-empty */
+  /**
+   * @deprecated Conflates three distinct layers (ISL / PLoT public / UI). Prefer
+   * `isl_edge_e_values_present`, `plot_edge_e_values_exposed`, or
+   * `ui_edge_e_values_available` depending on which question you actually want
+   * to answer. Aliased here to `ui_edge_e_values_available` — the surface a UI
+   * consumer would depend on.
+   */
   e_values_present: boolean
+  /** ISL downstream response carries edge e-values (at `robustness.edge_e_values` or top-level `edge_e_values`). */
+  isl_edge_e_values_present: boolean
+  /** PLoT public response exposes edge e-values (at `robustness.edge_e_values` or top-level). */
+  plot_edge_e_values_exposed: boolean
+  /**
+   * UI layer (`plot_enrichment.edge_e_values`) has edge e-values available
+   * for consumption. Derived from the same source `extractPlotEnrichment`
+   * reads (`plot.robustness.edge_e_values`).
+   */
+  ui_edge_e_values_available: boolean
   /** factor_evpi array is non-empty */
   evpi_present: boolean
   /** factor_sensitivity confidence values have > 1 unique value */
@@ -1641,8 +1657,54 @@ function extractDiagnosticChecks(
   }
   const effectiveLlmRawPath = llmRawPath ?? diagTraceLlmRawPath
 
-  // New pipeline field presence checks
-  const islEdgeEValues = Array.isArray(isl?.edge_e_values) ? isl.edge_e_values as unknown[] : []
+  // D3 — three-layer edge_e_values probe.
+  //
+  // Path verification on bundles 50b336a6 / a4b32ee2 (2026-05-10): ISL emits
+  // edge e-values at `robustness.edge_e_values` (NOT top-level), but PLoT
+  // public response exposes them at neither path. This is a PLoT public
+  // exposure gap, surfaced via the split below; do not modify PLoT in this
+  // brief. See `diagnostic-rendering-smoke.sh` for the staging assertion.
+  const asRecord = (v: unknown): Record<string, unknown> | null =>
+    v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : null
+  const islEdgeEValuesRobustness = Array.isArray((isl?.robustness as Record<string, unknown> | undefined)?.edge_e_values)
+    ? (isl!.robustness as Record<string, unknown>).edge_e_values as unknown[]
+    : []
+  const islEdgeEValuesTopLevel = Array.isArray(isl?.edge_e_values) ? isl.edge_e_values as unknown[] : []
+  // Downstream-calls ISL fallback (orchestrator flow with no direct isl_response).
+  const downstreamIsl =
+    asRecord((asRecord(plot?.downstream_calls)?.isl) as unknown) ??
+    (Array.isArray((plot?.downstream_calls as Record<string, unknown>)?.isl)
+      ? asRecord(((plot!.downstream_calls as Record<string, unknown>).isl as unknown[])[0])
+      : null)
+  const downstreamIslResponse = asRecord(downstreamIsl?.response_payload) ?? asRecord(downstreamIsl?.response)
+  const downstreamIslRobustnessEvs = Array.isArray((downstreamIslResponse?.robustness as Record<string, unknown> | undefined)?.edge_e_values)
+    ? (downstreamIslResponse!.robustness as Record<string, unknown>).edge_e_values as unknown[]
+    : []
+  const downstreamIslTopLevelEvs = Array.isArray(downstreamIslResponse?.edge_e_values)
+    ? downstreamIslResponse!.edge_e_values as unknown[]
+    : []
+  const islHasEdgeEValues =
+    islEdgeEValuesRobustness.length > 0 ||
+    islEdgeEValuesTopLevel.length > 0 ||
+    downstreamIslRobustnessEvs.length > 0 ||
+    downstreamIslTopLevelEvs.length > 0
+
+  // PLoT public layer: primary path is `robustness.edge_e_values`, fallback is top-level.
+  const plotEdgeEValuesRobustness = Array.isArray((plot?.robustness as Record<string, unknown> | undefined)?.edge_e_values)
+    ? (plot!.robustness as Record<string, unknown>).edge_e_values as unknown[]
+    : []
+  const plotEdgeEValuesTopLevel = Array.isArray(plot?.edge_e_values) ? plot.edge_e_values as unknown[] : []
+  const plotPublicHasEdgeEValues = plotEdgeEValuesRobustness.length > 0 || plotEdgeEValuesTopLevel.length > 0
+
+  // UI / enrichment layer mirrors `extractPlotEnrichment` (exportBundle.ts:511):
+  // it reads `plot.robustness.edge_e_values`. If PLoT public has none, UI has none.
+  const uiEdgeEValuesAvailable = plotEdgeEValuesRobustness.length > 0
+
+  // Legacy alias: prior contract pointed at `isl?.edge_e_values` (top-level only),
+  // which silently returned false post-A1 when ISL moved e-values under
+  // `robustness`. Aliasing to `ui_edge_e_values_available` matches the surface
+  // a UI consumer would actually depend on; see JSDoc on `e_values_present`.
+  const islEdgeEValues = uiEdgeEValuesAvailable ? plotEdgeEValuesRobustness : []
   const islFactorEvpi = Array.isArray(isl?.factor_evpi) ? isl.factor_evpi as unknown[] : []
 
   // PLoT factor_sensitivity — used for bootstrap source check
@@ -1741,8 +1803,13 @@ function extractDiagnosticChecks(
     llm_raw_available: effectiveLlmRawPath !== null,
     llm_raw_path_found: effectiveLlmRawPath,
 
-    // Pipeline field presence checks
-    e_values_present: islEdgeEValues.length > 0,
+    // Pipeline field presence checks — D3 three-layer split.
+    // Legacy `e_values_present` is aliased to the UI-layer signal; new
+    // consumers should read the layer-specific fields directly.
+    e_values_present: uiEdgeEValuesAvailable,
+    isl_edge_e_values_present: islHasEdgeEValues,
+    plot_edge_e_values_exposed: plotPublicHasEdgeEValues,
+    ui_edge_e_values_available: uiEdgeEValuesAvailable,
     evpi_present: islFactorEvpi.length > 0,
     confidence_differentiated: uniqueConfidence.size > 1,
     confidence_unique_values: [...uniqueConfidence].sort((a, b) => a - b),
