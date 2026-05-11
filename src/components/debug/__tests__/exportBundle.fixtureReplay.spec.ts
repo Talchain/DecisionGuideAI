@@ -10,7 +10,7 @@
  * weakening to non-null.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import {
   extractDiagnosticChecks,
   extractSchemaVersions,
@@ -18,6 +18,26 @@ import {
   isBootstrapConfidenceSource,
   isPlotUnifiedFormulaVersion,
 } from '../hooks/useDebugData'
+
+// Mock canvas store at module top for the D8 + fallback replays below.
+// The pure-extractor tests in this file do not touch the store, so this mock
+// is a no-op for them. captureDisplayState (used in the D8 replay describe)
+// reads from getState() — the test populates `displayStateMockState` before
+// each captureDisplayState invocation.
+interface DisplayStateMockState {
+  nodes: Array<{ id: string; data: Record<string, unknown> }>
+  edges: Array<{ id: string }>
+  results: { status: string | null; report?: unknown; apiResponse?: Record<string, unknown> } | null
+  ceeAnalysisReady: { status?: string } | null
+  graphEditedSinceLastRun: boolean
+  showResultsPanel?: boolean
+  showInspectorPanel?: boolean
+  showDraftChat?: boolean
+}
+let displayStateMockState: DisplayStateMockState | undefined
+vi.mock('../../../canvas/store', () => ({
+  useCanvasStore: { getState: () => displayStateMockState },
+}))
 
 // JSON fixtures — copies of ~/Downloads/olumi-debug-{50b336a6,a4b32ee2}-20260510.json,
 // saved into the repo with `.pre-fix` suffix as regression baselines.
@@ -76,13 +96,20 @@ describe('Fixture replay: pre-fix staging bundles (D1-D8)', () => {
 
     it('D2 (legacy): existing edge-derived confidence_* fields are sourced separately', () => {
       const dc = diagnosticsFor(b)
-      // In this replay harness we deliberately do not plumb canvasEdges, so the
-      // edge-probability collector finds nothing — that produces an empty
-      // `confidence_unique_values`. The point of this assertion is that the
-      // edge-derived and factor-derived fields draw from DIFFERENT sources:
-      // factor_confidence_unique_values = [0.25, 0.375], edge-derived = [].
-      // The two sets must never alias.
-      expect(dc.confidence_unique_values).not.toEqual(dc.factor_confidence_unique_values)
+      // Harness limitation declared upfront, then exact value asserted: this
+      // replay deliberately does not plumb canvasEdges into extractDiagnosticChecks
+      // (the bundle's edges are captured separately in `full_graph.edges`, not in
+      // a shape the extractor accepts). With no edge source, the edge-probability
+      // collector produces an EMPTY set — exactly `[]`. That exact-value check
+      // is stronger than the prior `not.toEqual(factor_*)` because it would catch
+      // any future change that silently aliases the legacy collector onto the
+      // factor source. The contract under test: edge-derived and factor-derived
+      // fields draw from DIFFERENT sources; harness with empty edges → [].
+      expect(dc.confidence_unique_values).toEqual([])
+      expect(dc.confidence_differentiated).toBe(false)
+      // Cross-check non-aliasing: factor source must remain populated even when
+      // legacy collector is empty — i.e. the two never share an underlying read.
+      expect(dc.factor_confidence_unique_values).toEqual([0.25, 0.375])
     })
 
     it('D3: ISL has edge_e_values via robustness; PLoT public exposes none', () => {
@@ -282,5 +309,177 @@ describe('D8: rank_displayed deterministic tie-handling (synthetic)', () => {
     })
     // Tie-break: opt_a < opt_b < opt_c alphabetically
     expect(sorted.map((r) => r.optionId)).toEqual(['opt_a', 'opt_b', 'opt_c'])
+  })
+})
+
+// =============================================================================
+// captureDisplayState replays — exercise the real export code path with a
+// canvas-store mock built from the staging fixture. These tests replace the
+// previous synthetic-only D8 coverage with a real-fixture rank assertion
+// (brief revision item 7), and add coverage for the option_probabilities
+// tertiary fallback (improvement #1 from review).
+// =============================================================================
+
+interface StagingFactor {
+  id: string
+  label: string
+  kind: string
+  observed_state?: unknown
+}
+interface StagingOption {
+  id: string
+  label: string
+  kind: string
+  observed_state?: unknown
+}
+interface StagingBundle {
+  full_graph: { factors: StagingFactor[]; options: StagingOption[]; edges: unknown[] }
+  payloads: { plot_response: Record<string, unknown> | null }
+}
+
+function mockStateFromBundle(
+  bundle: StagingBundle,
+  overrides: Partial<{ apiResponseOverride: Record<string, unknown> }> = {},
+): DisplayStateMockState {
+  const factorNodes = bundle.full_graph.factors
+    .filter((f) => f.kind === 'factor')
+    .map((f) => ({
+      id: f.id,
+      data: { label: f.label, kind: 'factor', type: 'factor', observedState: f.observed_state ?? null },
+    }))
+  const optionNodes = bundle.full_graph.options.map((o) => ({
+    id: o.id,
+    data: { label: o.label, kind: 'option', type: 'option', observedState: o.observed_state ?? null },
+  }))
+  const plotResponse = bundle.payloads.plot_response ?? {}
+  const apiResponse = overrides.apiResponseOverride ?? {
+    option_comparison: plotResponse.option_comparison ?? [],
+    options: plotResponse.options ?? [],
+    factor_sensitivity: plotResponse.factor_sensitivity ?? [],
+  }
+  return {
+    nodes: [...factorNodes, ...optionNodes],
+    edges: (bundle.full_graph.edges ?? []).map((_e, i) => ({ id: `e_${i}` })),
+    results: { status: 'complete', report: { option_comparison: apiResponse.option_comparison }, apiResponse },
+    ceeAnalysisReady: { status: 'ready' },
+    graphEditedSinceLastRun: false,
+    showResultsPanel: true,
+  }
+}
+
+describe('D8: rank_displayed real-fixture replay (brief revision item 7)', () => {
+  // Exact requirement: bundle 50b336a6 has opt_hire_manager (win_prob ~0.914)
+  // ranked 1 and opt_ai_tool (~0.067) last. Production OptionCards.tsx sorts
+  // by win_probability descending, so capture must do the same.
+  it('50b336a6: full rank ordering by win_probability desc — opt_hire_manager=1, opt_status_quo=last', async () => {
+    displayStateMockState = mockStateFromBundle(bundle50b336a6 as unknown as StagingBundle)
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBe(4)
+    const byId = new Map(rendered.map((r) => [r.id, r]))
+    // Win probabilities in this bundle: opt_hire_manager 0.91425, opt_ai_tool 0.06725,
+    // opt_hybrid 0.01425, opt_status_quo 0.00425. Brief revision item 7 asserted
+    // opt_ai_tool was "last" — that was a data inaccuracy in the brief; opt_ai_tool
+    // is rank 2, opt_status_quo is rank 4 (last). Test pins the actual ordering.
+    expect(byId.get('opt_hire_manager')?.rank_displayed).toBe(1)
+    expect(byId.get('opt_ai_tool')?.rank_displayed).toBe(2)
+    expect(byId.get('opt_hybrid')?.rank_displayed).toBe(3)
+    expect(byId.get('opt_status_quo')?.rank_displayed).toBe(4)
+    // Provenance: every rank source must be analytical (all four options have win_probability)
+    for (const r of rendered) {
+      expect(r.rank_source).toBe('win_probability_desc')
+    }
+    // Monotonic descending win_probability across sorted ranks
+    const sortedByRank = [...rendered].sort((a, b) => (a.rank_displayed ?? 0) - (b.rank_displayed ?? 0))
+    for (let i = 1; i < sortedByRank.length; i++) {
+      const prev = sortedByRank[i - 1].win_probability_displayed ?? -Infinity
+      const cur = sortedByRank[i].win_probability_displayed ?? -Infinity
+      expect(prev).toBeGreaterThanOrEqual(cur)
+    }
+  })
+
+  it('a4b32ee2: top-ranked option (highest win_probability) has rank_displayed === 1', async () => {
+    displayStateMockState = mockStateFromBundle(bundleA4b32ee2 as unknown as StagingBundle)
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBeGreaterThan(0)
+    // The top-ranked option must be the one with the highest win_probability.
+    const top = rendered.find((r) => r.rank_displayed === 1)!
+    const maxWp = rendered.reduce(
+      (m, r) => Math.max(m, r.win_probability_displayed ?? -Infinity),
+      -Infinity,
+    )
+    expect(top.win_probability_displayed).toBe(maxWp)
+  })
+})
+
+describe('D5: option_probabilities tertiary-fallback replay (improvement #1)', () => {
+  // Reshape bundle 50b336a6's apiResponse so neither option_comparison nor
+  // options is present — only option_probabilities[node_id] is populated.
+  // The capture must still resolve win_probability via the third path, with
+  // win_probability_source = 'payloads.plot_response.option_probabilities.win_probability'.
+  // Without this fallback the capture would mark every option 'unmatched' and
+  // rank_source would collapse to 'canvas_order' — a real regression risk
+  // when PLoT shapes data into the node-id map shape instead of the array
+  // shapes the UI hook reads via recommendation.allOptions.
+  it('uses option_probabilities[node_id].win_probability when arrays are absent', async () => {
+    const b = bundle50b336a6 as unknown as StagingBundle
+    const oc = (b.payloads.plot_response?.option_comparison as Array<Record<string, unknown>>) ?? []
+    // Build option_probabilities map from the same data the bundle provides
+    // under option_comparison, then strip the array fields entirely.
+    const optionProbabilities: Record<string, Record<string, number>> = {}
+    for (const o of oc) {
+      if (typeof o.option_id === 'string' && typeof o.win_probability === 'number') {
+        optionProbabilities[o.option_id] = { win_probability: o.win_probability }
+      }
+    }
+    displayStateMockState = mockStateFromBundle(b, {
+      apiResponseOverride: {
+        option_comparison: [],
+        options: [],
+        option_probabilities: optionProbabilities,
+        factor_sensitivity: b.payloads.plot_response?.factor_sensitivity ?? [],
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBe(4)
+    // Every option resolves via the third path
+    for (const r of rendered) {
+      expect(r.win_probability_source).toBe(
+        'payloads.plot_response.option_probabilities.win_probability',
+      )
+      expect(typeof r.win_probability_displayed).toBe('number')
+    }
+    // Rank is still analytical (all options have win_probability via fallback)
+    expect(rendered.every((r) => r.rank_source === 'win_probability_desc')).toBe(true)
+    // Same winner as the primary-path replay above
+    const top = rendered.find((r) => r.rank_displayed === 1)!
+    expect(top.id).toBe('opt_hire_manager')
+  })
+
+  it('falls through to unmatched only when ALL three paths are absent', async () => {
+    const b = bundle50b336a6 as unknown as StagingBundle
+    displayStateMockState = mockStateFromBundle(b, {
+      apiResponseOverride: {
+        option_comparison: [],
+        options: [],
+        // No option_probabilities key at all
+        factor_sensitivity: b.payloads.plot_response?.factor_sensitivity ?? [],
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBe(4)
+    for (const r of rendered) {
+      expect(r.win_probability_source).toBe('unmatched')
+      expect(r.win_probability_displayed).toBeNull()
+    }
+    // No analytical rank possible — falls back to canvas order
+    expect(rendered.every((r) => r.rank_source === 'canvas_order')).toBe(true)
   })
 })

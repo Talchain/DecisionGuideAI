@@ -679,6 +679,7 @@ function extractCeePipelineQuickFields(data: DebugData): {
 export type WinProbabilitySource =
   | 'payloads.plot_response.option_comparison.win_probability'
   | 'payloads.plot_response.options.win_probability'
+  | 'payloads.plot_response.option_probabilities.win_probability'
   | 'results.apiResponse.option_comparison.win_probability'
   | 'unmatched'
 
@@ -1790,6 +1791,15 @@ export async function captureDisplayState(): Promise<DisplayState> {
       Array<Record<string, unknown>> | undefined) ?? []
     const plotOptions = (apiResponse?.options as
       Array<Record<string, unknown>> | undefined) ?? []
+    // Tertiary fallback: PLoT shapes data into a node-id-keyed map at
+    // `option_probabilities[node_id].win_probability`. This is the underlying
+    // source `useResultsSectionData.ts:1042` reads when building
+    // `recommendation.allOptions[*].winProbability` for the UI — see brief
+    // revision item 5. Reading the wire field directly avoids replicating
+    // the hook's normaliser at capture time while preserving the third-tier
+    // resilience the brief required.
+    const optionProbabilities = (apiResponse?.option_probabilities as
+      Record<string, Record<string, unknown> | undefined> | undefined) ?? {}
     const factorSensitivity = (apiResponse?.factor_sensitivity as
       FactorSensitivityEntry[] | undefined) ?? []
 
@@ -1836,6 +1846,21 @@ export async function captureDisplayState(): Promise<DisplayState> {
           label: nodeLabel ?? (typeof match.option_label === 'string' ? match.option_label : null),
           winProbability: match.win_probability,
           source: 'payloads.plot_response.options.win_probability',
+        }
+      }
+      // 3) PLoT response option_probabilities[node_id] (tertiary fallback).
+      // This is the wire-layer source the UI hook reads via
+      // recommendation.allOptions — see comment above the optionProbabilities
+      // declaration. Distinct source enum makes loss-of-canonical-PLoT-path
+      // observable in exported diagnostics.
+      const probEntry = optionProbabilities[node.id]
+      if (probEntry && typeof probEntry.win_probability === 'number') {
+        return {
+          node,
+          optionId: node.id ?? null,
+          label: nodeLabel,
+          winProbability: probEntry.win_probability,
+          source: 'payloads.plot_response.option_probabilities.win_probability',
         }
       }
       return { node, optionId: node.id ?? null, label: nodeLabel, winProbability: null, source: 'unmatched' }
