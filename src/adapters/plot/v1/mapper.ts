@@ -171,11 +171,11 @@ export function graphToV1Request(
         }
         if (n.data?.prior !== undefined) {
           // Clamp to 0-1 range
-          node.prior = Math.max(0, Math.min(1, n.data.prior))
+          node.prior = Math.max(0, Math.min(1, n.data.prior as number))
         }
         if (n.data?.utility !== undefined) {
           // Clamp to -1..+1 range
-          node.utility = Math.max(-1, Math.min(1, n.data.utility))
+          node.utility = Math.max(-1, Math.min(1, n.data.utility as number))
         }
 
         return node
