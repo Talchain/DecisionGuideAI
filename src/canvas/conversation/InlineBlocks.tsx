@@ -836,10 +836,10 @@ const EvidenceBlockRenderer = memo(function EvidenceBlockRenderer({
             onClick={hasGraph ? handleApplyToModel : undefined}
             disabled={!hasGraph}
             title={!hasGraph ? 'Generate a model first' : undefined}
-            className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelMeta} font-medium bg-transparent border rounded-full transition-colors ${
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 ${typography.panelBody} bg-panel border border-panel-border rounded-full transition-colors ${
               hasGraph
-                ? 'border-info/40 text-info hover:border-info hover:bg-info-light cursor-pointer'
-                : 'border-border text-text-muted cursor-not-allowed opacity-60'
+                ? 'text-text-body hover:bg-panel-hover cursor-pointer'
+                : 'text-text-light cursor-not-allowed opacity-60'
             }`}
             data-testid="apply-to-model-chip"
           >

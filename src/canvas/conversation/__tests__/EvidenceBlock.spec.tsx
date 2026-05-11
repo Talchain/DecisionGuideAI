@@ -155,3 +155,98 @@ describe('Apply to model button', () => {
     expect(mockSendChip).not.toHaveBeenCalled()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Apply to model — DS v5 §21.4 action-chip contract (class-level regression)
+//
+// Behavioural tests above do not catch CSS regressions. These assert the
+// concrete chip class set so that forbidden tokens (bg-info-light, text-info,
+// border-info/40, text-text-muted, font-medium override on panel tokens)
+// cannot silently return.
+// ---------------------------------------------------------------------------
+
+describe('Apply to model — DS v5 §21.4 action-chip contract', () => {
+  beforeEach(() => {
+    useGuidanceStore.setState({ _sendChip: vi.fn() })
+  })
+
+  afterEach(() => {
+    useGuidanceStore.setState({ _sendChip: null })
+    useCanvasStore.setState({ nodes: [] })
+  })
+
+  it('enabled state matches §21.4 (panelBody, bg-panel, border-panel-border, hover:bg-panel-hover)', () => {
+    useCanvasStore.setState({ nodes: [{ id: 'n1' }] as any })
+    render(<InlineBlocks blocks={[makeEvidence()]} />)
+    const cls = screen.getByTestId('apply-to-model-chip').className
+
+    // §21.4 required classes
+    expect(cls).toContain('bg-panel')
+    expect(cls).toContain('border-panel-border')
+    expect(cls).toContain('hover:bg-panel-hover')
+    expect(cls).toContain('rounded-full')
+    // panelBody token is `text-xs … leading-relaxed` — assert both to disambiguate from panelMeta
+    expect(cls).toContain('text-xs')
+    expect(cls).toContain('leading-relaxed')
+    // Pill text is neutral
+    expect(cls).toContain('text-text-body')
+  })
+
+  it('does not regress to legacy/forbidden classes (enabled)', () => {
+    useCanvasStore.setState({ nodes: [{ id: 'n1' }] as any })
+    render(<InlineBlocks blocks={[makeEvidence()]} />)
+    const cls = screen.getByTestId('apply-to-model-chip').className
+
+    // No light-fill on pills (DS rule)
+    expect(cls).not.toContain('bg-info-light')
+    // No coloured text on pills (DS rule)
+    expect(cls).not.toMatch(/\btext-info\b/)
+    expect(cls).not.toMatch(/\btext-success\b/)
+    expect(cls).not.toMatch(/\btext-danger\b/)
+    expect(cls).not.toMatch(/\btext-warning\b/)
+    // Wrong border opacity / undefined token. The broader regex catches any
+    // info-coloured border opacity, including the /30 variant the first U1
+    // commit (2c74a294) shipped before the §21.4 migration. Keep the explicit
+    // /40 and /30 checks for documentation alongside the regex.
+    expect(cls).not.toContain('border-info/40')
+    expect(cls).not.toContain('border-info/30')
+    expect(cls).not.toMatch(/\bborder-info\b/)
+    expect(cls).not.toContain('hover:border-info')
+    expect(cls).not.toContain('text-text-muted')
+    // panelMeta size — chip uses panelBody per §21.4
+    expect(cls).not.toContain('text-[11px]')
+    // No font-weight overrides on panel tokens
+    expect(cls).not.toMatch(/\bfont-medium\b/)
+    expect(cls).not.toMatch(/\bfont-semibold\b/)
+    expect(cls).not.toMatch(/\bfont-bold\b/)
+  })
+
+  it('disabled state uses text-text-light and no forbidden tokens', () => {
+    useCanvasStore.setState({ nodes: [] })
+    render(<InlineBlocks blocks={[makeEvidence()]} />)
+    const btn = screen.getByTestId('apply-to-model-chip')
+    const cls = btn.className
+
+    expect(btn).toBeDisabled()
+    expect(cls).toContain('text-text-light')
+    expect(cls).not.toContain('text-text-muted')
+    // Disabled state still on the §21.4 surface
+    expect(cls).toContain('bg-panel')
+    expect(cls).toContain('border-panel-border')
+    // Mirror the enabled-state forbidden set so a disabled-only regression
+    // is also caught.
+    expect(cls).not.toContain('bg-info-light')
+    expect(cls).not.toMatch(/\btext-info\b/)
+    expect(cls).not.toMatch(/\btext-success\b/)
+    expect(cls).not.toMatch(/\btext-danger\b/)
+    expect(cls).not.toMatch(/\btext-warning\b/)
+    expect(cls).not.toContain('border-info/40')
+    expect(cls).not.toContain('border-info/30')
+    expect(cls).not.toMatch(/\bborder-info\b/)
+    expect(cls).not.toContain('hover:border-info')
+    expect(cls).not.toContain('text-[11px]')
+    expect(cls).not.toMatch(/\bfont-medium\b/)
+    expect(cls).not.toMatch(/\bfont-semibold\b/)
+    expect(cls).not.toMatch(/\bfont-bold\b/)
+  })
+})
