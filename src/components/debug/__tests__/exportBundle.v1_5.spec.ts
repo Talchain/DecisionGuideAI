@@ -173,7 +173,7 @@ describe('Debug Bundle V1.5', () => {
       canvas_node_count: 5,
       canvas_edge_count: 3,
       canvas_node_types: { factor: 3, option: 1, goal: 1 },
-      rendered_options: [{ id: 'o1', label_displayed: 'Plan A', win_probability_displayed: '96.2%', rank_displayed: 1 }],
+      rendered_options: [{ id: 'o1', option_id: 'o1', label_displayed: 'Plan A', win_probability_displayed: 0.962, win_probability_source: 'payloads.plot_response.option_comparison.win_probability', rank_displayed: 1, rank_source: 'win_probability_desc' }],
       rendered_factors: null,
       analysis_status_displayed: 'complete',
       hero_headline_displayed: 'Plan A is recommended',
@@ -282,18 +282,60 @@ describe('Debug Bundle V1.5', () => {
         cee_response: { trace: { schema_version: 'v3' } },
         plot_request: { schema_version: 'v3' },
         plot_response: { meta: { schema_version: 'v3' } },
+        isl_request: { schema_version: 'v3' },
+        isl_response: { meta: { schema_version: 'v3' } },
+      },
+    }))
+    expect(bundle.schema_versions).toBeDefined()
+    expect(bundle.schema_versions!.cee_request).toBe('v3')
+    // D6 tri-state contract: all six populated and equal → matched
+    expect(bundle.schema_versions!.consistency_status).toBe('matched')
+    expect(bundle.schema_versions!.consistent).toBe(true)
+  })
+
+  // D6: tri-state — unknown when any of the six versions is missing
+  it('reports schema_versions.consistency_status="unknown" when any version is missing', () => {
+    const bundle = buildDebugBundle(makeDebugData({
+      schema_versions: null,
+      payloads: {
+        cee_request: { schema_version: 'v3' },
+        cee_response: { trace: { schema_version: 'v3' } },
+        plot_request: { schema_version: 'v3' },
+        plot_response: { meta: { schema_version: 'v3' } },
+        // ISL versions missing — partial population must NOT be reported as matched
         isl_request: null,
         isl_response: null,
       },
     }))
     expect(bundle.schema_versions).toBeDefined()
-    expect(bundle.schema_versions!.cee_request).toBe('v3')
-    expect(bundle.schema_versions!.consistent).toBe(true)
+    expect(bundle.schema_versions!.consistency_status).toBe('unknown')
+    expect(bundle.schema_versions!.unknown_reason).toBe('missing_schema_versions')
+    // Legacy boolean is null when status is unknown (no more false positives)
+    expect(bundle.schema_versions!.consistent).toBeNull()
   })
 
-  // v12_4_checks passthrough
-  it('passes through v12_4_checks when present', () => {
+  // D6: tri-state — mismatched when all six are populated but differ
+  it('reports schema_versions.consistency_status="mismatched" when versions differ', () => {
+    const bundle = buildDebugBundle(makeDebugData({
+      schema_versions: null,
+      payloads: {
+        cee_request: { schema_version: 'v3' },
+        cee_response: { trace: { schema_version: 'v3' } },
+        plot_request: { schema_version: 'v3' },
+        plot_response: { meta: { schema_version: 'v4' } },
+        isl_request: { schema_version: 'v3' },
+        isl_response: { meta: { schema_version: 'v3' } },
+      },
+    }))
+    expect(bundle.schema_versions!.consistency_status).toBe('mismatched')
+    expect(bundle.schema_versions!.unknown_reason).toBeUndefined()
+    expect(bundle.schema_versions!.consistent).toBe(false)
+  })
+
+  // v12_4_checks passthrough — D7 widened to discriminated union
+  it('passes through v12_4_checks collected shape when present', () => {
     const checks = {
+      status: 'collected' as const,
       category_field_present: true,
       nodes_with_category: ['f1', 'f2'],
       nodes_missing_category: [],
@@ -303,9 +345,20 @@ describe('Debug Bundle V1.5', () => {
     expect(bundle.v12_4_checks).toEqual(checks)
   })
 
-  it('v12_4_checks is null when not present', () => {
+  // D7: passthrough still accepts bare null from legacy DebugData fixtures
+  it('v12_4_checks is null when DebugData passes null (legacy passthrough)', () => {
     const bundle = buildDebugBundle(makeDebugData({ v12_4_checks: null }))
     expect(bundle.v12_4_checks).toBeNull()
+  })
+
+  // D7: named "not_collected" state passes through end-to-end
+  it('passes through v12_4_checks not_collected named state', () => {
+    const unavailable = {
+      status: 'not_collected' as const,
+      reason: 'cee_response_missing' as const,
+    }
+    const bundle = buildDebugBundle(makeDebugData({ v12_4_checks: unavailable }))
+    expect(bundle.v12_4_checks).toEqual(unavailable)
   })
 
   // Readme
@@ -439,12 +492,14 @@ describe('Debug Bundle V1.5', () => {
         cee_downstream_response: { trace: { schema_version: 'v4' } },
         plot_request: { schema_version: 'v4' },
         plot_response: { meta: { schema_version: 'v4' } },
-        isl_request: null,
-        isl_response: null,
+        isl_request: { schema_version: 'v4' },
+        isl_response: { meta: { schema_version: 'v4' } },
       },
     }))
     expect(bundle.schema_versions!.cee_request).toBe('v4')
     expect(bundle.schema_versions!.cee_response).toBe('v4')
+    // D6 tri-state: all six (CEE via downstream + PLoT + ISL) populated and equal → matched
+    expect(bundle.schema_versions!.consistency_status).toBe('matched')
     expect(bundle.schema_versions!.consistent).toBe(true)
   })
 
@@ -480,7 +535,7 @@ describe('Debug Bundle V1.5', () => {
       canvas_node_count: 3,
       canvas_edge_count: 1,
       canvas_node_types: { factor: 1, option: 1, goal: 1 },
-      rendered_options: [{ id: 'o1', label_displayed: 'Plan A', win_probability_displayed: '96%', rank_displayed: 1 }],
+      rendered_options: [{ id: 'o1', option_id: 'o1', label_displayed: 'Plan A', win_probability_displayed: 0.96, win_probability_source: 'payloads.plot_response.option_comparison.win_probability', rank_displayed: 1, rank_source: 'win_probability_desc' }],
       rendered_factors: null,
       analysis_status_displayed: 'complete',
       hero_headline_displayed: 'Plan A is recommended',
@@ -513,7 +568,7 @@ describe('Debug Bundle V1.5', () => {
         repair_summary: null,
       } as never,
       orchestrator: orchestratorData as never,
-      v12_4_checks: { category_field_present: true, nodes_with_category: ['f1'], nodes_missing_category: [], category_values: { f1: 'controllable' } },
+      v12_4_checks: { status: 'collected', category_field_present: true, nodes_with_category: ['f1'], nodes_missing_category: [], category_values: { f1: 'controllable' } },
     }), {
       includeFullGraph: true,
       graphData: makeGraphData(),
@@ -576,9 +631,12 @@ describe('Debug Bundle V1.5', () => {
     expect(grGate?.status).toBe('pass')
     expect(grGate?.message).toContain('corrected')
 
-    // v12_4_checks
+    // v12_4_checks — D7 discriminated union; narrow on status before reading fields
     expect(bundle.v12_4_checks).toBeDefined()
-    expect(bundle.v12_4_checks!.category_field_present).toBe(true)
+    expect(bundle.v12_4_checks!.status).toBe('collected')
+    if (bundle.v12_4_checks!.status === 'collected') {
+      expect(bundle.v12_4_checks.category_field_present).toBe(true)
+    }
 
     // export_summary_schema
     expect(bundle.export_summary_schema.runtime_capture_included).toBe(true)

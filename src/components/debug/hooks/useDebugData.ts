@@ -447,9 +447,15 @@ export interface OrchestratorStatus {
 }
 
 /**
- * V12.4 category field presence check for factors
+ * V12.4 category field presence check for factors — collected shape.
+ *
+ * The `status` discriminator (added in D7 of audit follow-up
+ * `claude-ui/diagnostic-check-and-rendering-fixes`) lets consumers tell
+ * apart "we collected this trace" from "no producer emitted it yet".
+ * Prior contract used bare `null` for both, which was a silent gap.
  */
-export interface V12_4Checks {
+export interface V12_4ChecksCollected {
+  status: 'collected'
   /** Whether category field is present on any factor */
   category_field_present: boolean
   /** Node IDs that have category field */
@@ -459,6 +465,35 @@ export interface V12_4Checks {
   /** Map of node ID to category value */
   category_values: Record<string, string>
 }
+
+/** Stable enum strings explaining why v12_4 trace could not be collected. */
+export type V12_4ChecksNotCollectedReason =
+  | 'cee_response_missing'
+  | 'cee_nodes_missing'
+  | 'no_factor_nodes'
+
+/**
+ * V12.4 category field presence check — named "not collected" state.
+ *
+ * Emitted when the producer cannot extract the trace from the CEE response.
+ * Owning workstream: CEE (V5-frozen). Unblock condition: CEE response
+ * carrying a v12_4 trace block on factor nodes.
+ */
+export interface V12_4ChecksNotCollected {
+  status: 'not_collected'
+  reason: V12_4ChecksNotCollectedReason
+}
+
+/**
+ * Backwards-compatible union for `v12_4_checks`.
+ *
+ * Existing consumers that read fields like `category_field_present` work
+ * unchanged on the `collected` branch (just gate on `status === 'collected'`).
+ * Consumers expecting bare `null` should migrate to checking the `status`
+ * discriminator; the bundle field type still permits `null` so older
+ * passthrough fixtures continue to round-trip.
+ */
+export type V12_4Checks = V12_4ChecksCollected | V12_4ChecksNotCollected
 
 // Shared chain types from @talchain/schemas
 import type { PlotRequestIdChain, DraftGraphTrace } from '@talchain/schemas'
@@ -519,7 +554,30 @@ export interface ServiceTiming {
 }
 
 /**
- * Schema version consistency check
+ * Tri-state consistency status for `SchemaVersions`.
+ *
+ * - `matched`: all six request/response schema versions are populated AND equal.
+ * - `mismatched`: all six are populated but at least two differ.
+ * - `unknown`: at least one of the six is missing — consistency cannot be
+ *   verified honestly. Prior contract returned `consistent: true` here, a
+ *   false positive that masked the diagnostic signal.
+ */
+export type SchemaVersionConsistencyStatus = 'matched' | 'mismatched' | 'unknown'
+
+/** Stable enum strings explaining why `consistency_status` is `unknown`. */
+export type SchemaVersionUnknownReason = 'missing_schema_versions'
+
+/**
+ * Schema version consistency check.
+ *
+ * `consistent` is retained as a boolean for backwards compatibility with
+ * existing consumers, but is widened to `boolean | null` — `null` is emitted
+ * when `consistency_status === 'unknown'`. New consumers should prefer
+ * `consistency_status` and `unknown_reason`.
+ *
+ * See audit follow-up brief `claude-ui/diagnostic-check-and-rendering-fixes`
+ * (D6) and `~/Documents/Olumi/audits/2026-05-truth-table/fixtures/staging-runs/
+ * CHANGELOG.md` for migration guidance.
  */
 export interface SchemaVersions {
   /** CEE request schema version */
@@ -534,8 +592,17 @@ export interface SchemaVersions {
   isl_request?: string | null
   /** ISL response schema version */
   isl_response?: string | null
-  /** Whether versions are consistent */
-  consistent: boolean
+  /**
+   * @deprecated Prefer `consistency_status`. Widened to `boolean | null`:
+   * `null` when status is `unknown` (any required version field is missing),
+   * `true` when all six versions are populated and equal, `false` when all
+   * six are populated but differ.
+   */
+  consistent: boolean | null
+  /** Tri-state consistency contract — see `SchemaVersionConsistencyStatus`. */
+  consistency_status: SchemaVersionConsistencyStatus
+  /** Populated only when `consistency_status === 'unknown'`. */
+  unknown_reason?: SchemaVersionUnknownReason
 }
 
 /**
@@ -2343,8 +2410,10 @@ function extractOrchestratorStatus(ceeResponse: unknown): OrchestratorStatus | n
  * Extract V12.4 category field presence check from CEE response nodes.
  * Checks factors for the category field.
  */
-function extractV12_4Checks(ceeResponse: unknown): V12_4Checks | null {
-  if (!ceeResponse || typeof ceeResponse !== 'object') return null
+function extractV12_4Checks(ceeResponse: unknown): V12_4Checks {
+  if (!ceeResponse || typeof ceeResponse !== 'object') {
+    return { status: 'not_collected', reason: 'cee_response_missing' }
+  }
 
   const cee = ceeResponse as Record<string, unknown>
 
@@ -2355,7 +2424,9 @@ function extractV12_4Checks(ceeResponse: unknown): V12_4Checks | null {
     ((cee.response as Record<string, unknown>)?.nodes as unknown[]) ??
     ((cee.response as Record<string, unknown>)?.graph as Record<string, unknown>)?.nodes as unknown[]
 
-  if (!Array.isArray(nodes)) return null
+  if (!Array.isArray(nodes)) {
+    return { status: 'not_collected', reason: 'cee_nodes_missing' }
+  }
 
   // Filter to factors only
   const factors = nodes.filter((n): n is Record<string, unknown> => {
@@ -2365,7 +2436,9 @@ function extractV12_4Checks(ceeResponse: unknown): V12_4Checks | null {
     return kind?.toLowerCase() === 'factor'
   })
 
-  if (factors.length === 0) return null
+  if (factors.length === 0) {
+    return { status: 'not_collected', reason: 'no_factor_nodes' }
+  }
 
   const nodesWithCategory: string[] = []
   const nodesMissingCategory: string[] = []
@@ -2386,6 +2459,7 @@ function extractV12_4Checks(ceeResponse: unknown): V12_4Checks | null {
   }
 
   return {
+    status: 'collected',
     category_field_present: nodesWithCategory.length > 0,
     nodes_with_category: nodesWithCategory,
     nodes_missing_category: nodesMissingCategory,
@@ -2507,12 +2581,20 @@ function extractServiceTiming(
 
 /**
  * Extract schema versions from payloads for consistency check.
+ *
+ * Tri-state contract (audit follow-up D6): `consistency_status` is the
+ * honest signal — `matched`/`mismatched`/`unknown`. The legacy `consistent`
+ * boolean is widened to `boolean | null`: `null` when status is `unknown`
+ * (any of the six version fields is missing), so consumers reading the
+ * boolean no longer get a false positive on partially-populated payloads.
  */
 function extractSchemaVersions(
   ceeRequest: unknown,
   ceeResponse: unknown,
   plotRequest: unknown,
-  plotResponse: unknown
+  plotResponse: unknown,
+  islRequest: unknown = null,
+  islResponse: unknown = null,
 ): SchemaVersions | null {
   const extractVersion = (payload: unknown, paths: string[][]): string | null => {
     if (!payload || typeof payload !== 'object') return null
@@ -2555,23 +2637,66 @@ function extractSchemaVersions(
     ['meta', 'schema_version'],
   ])
 
-  // If no versions found, return null
-  if (!ceeReqVersion && !ceeResVersion && !plotReqVersion && !plotResVersion) {
+  const islReqVersion = extractVersion(islRequest, [
+    ['schema_version'],
+    ['version'],
+    ['meta', 'schema_version'],
+  ])
+
+  const islResVersion = extractVersion(islResponse, [
+    ['schema_version'],
+    ['version'],
+    ['trace', 'schema_version'],
+    ['meta', 'schema_version'],
+  ])
+
+  const allVersions: Array<string | null> = [
+    ceeReqVersion,
+    ceeResVersion,
+    plotReqVersion,
+    plotResVersion,
+    islReqVersion,
+    islResVersion,
+  ]
+
+  // Preserve historical behaviour: when no versions at all are found, the
+  // upstream payloadBundle is effectively empty (e.g. session never ran).
+  // Return null so the bundle field stays null on that path.
+  if (allVersions.every((v) => v == null)) {
     return null
   }
 
-  // Check consistency - versions should match within request/response pairs
-  const versions = [ceeReqVersion, ceeResVersion, plotReqVersion, plotResVersion].filter(Boolean)
-  const uniqueVersions = new Set(versions)
-  const consistent = uniqueVersions.size <= 1
+  const anyNull = allVersions.some((v) => v == null)
+  const allPresent = !anyNull
+  const allEqual = allPresent && new Set(allVersions).size === 1
 
-  return {
+  let consistencyStatus: SchemaVersionConsistencyStatus
+  let consistent: boolean | null
+  let unknownReason: SchemaVersionUnknownReason | undefined
+  if (anyNull) {
+    consistencyStatus = 'unknown'
+    consistent = null
+    unknownReason = 'missing_schema_versions'
+  } else if (allEqual) {
+    consistencyStatus = 'matched'
+    consistent = true
+  } else {
+    consistencyStatus = 'mismatched'
+    consistent = false
+  }
+
+  const result: SchemaVersions = {
     cee_request: ceeReqVersion,
     cee_response: ceeResVersion,
     plot_request: plotReqVersion,
     plot_response: plotResVersion,
+    isl_request: islReqVersion,
+    isl_response: islResVersion,
     consistent,
+    consistency_status: consistencyStatus,
   }
+  if (unknownReason) result.unknown_reason = unknownReason
+  return result
 }
 
 /**
@@ -3489,7 +3614,9 @@ export function useDebugData(): DebugData {
       payloadBundle.cee_request,
       payloadBundle.cee_response,
       payloadBundle.plot_request,
-      payloadBundle.plot_response
+      payloadBundle.plot_response,
+      payloadBundle.isl_request,
+      payloadBundle.isl_response,
     )
     const cee_observability = extractCEEObservability(payloadBundle.cee_response)
 

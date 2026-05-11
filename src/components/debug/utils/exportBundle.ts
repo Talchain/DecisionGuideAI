@@ -21,6 +21,8 @@ import type {
   FeatureFlagsAtRequest,
   ServiceTiming,
   SchemaVersions,
+  SchemaVersionConsistencyStatus,
+  SchemaVersionUnknownReason,
   CEEObservabilityData,
 } from '../hooks/useDebugData'
 import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
@@ -1478,10 +1480,37 @@ function collectSchemaVersions(data: DebugData): SchemaVersions {
   const islRequestVersion = (islReq?.schema_version ?? islReq?._schema_version ?? islReq?.version) as string | null ?? null
   const islResponseVersion = (islRes?.schema_version ?? (asRecord(islRes?.meta)?.schema_version)) as string | null ?? null
 
-  const versions = [ceeRequestVersion, ceeResponseVersion, plotRequestVersion, plotResponseVersion, islRequestVersion, islResponseVersion].filter(Boolean)
-  const consistent = versions.length <= 1 || new Set(versions).size === 1
+  // Tri-state consistency (audit follow-up D6). Honest about "unknown" when
+  // any of the six fields is missing — previously this path returned
+  // `consistent: true` on all-null inputs (a false positive).
+  const allVersions: Array<string | null> = [
+    ceeRequestVersion,
+    ceeResponseVersion,
+    plotRequestVersion,
+    plotResponseVersion,
+    islRequestVersion,
+    islResponseVersion,
+  ]
+  const anyNull = allVersions.some((v) => v == null)
+  const allPresent = !anyNull
+  const allEqual = allPresent && new Set(allVersions).size === 1
 
-  return {
+  let consistencyStatus: SchemaVersionConsistencyStatus
+  let consistent: boolean | null
+  let unknownReason: SchemaVersionUnknownReason | undefined
+  if (anyNull) {
+    consistencyStatus = 'unknown'
+    consistent = null
+    unknownReason = 'missing_schema_versions'
+  } else if (allEqual) {
+    consistencyStatus = 'matched'
+    consistent = true
+  } else {
+    consistencyStatus = 'mismatched'
+    consistent = false
+  }
+
+  const result: SchemaVersions = {
     cee_request: ceeRequestVersion,
     cee_response: ceeResponseVersion,
     plot_request: plotRequestVersion,
@@ -1489,7 +1518,10 @@ function collectSchemaVersions(data: DebugData): SchemaVersions {
     isl_request: islRequestVersion,
     isl_response: islResponseVersion,
     consistent,
+    consistency_status: consistencyStatus,
   }
+  if (unknownReason) result.unknown_reason = unknownReason
+  return result
 }
 
 // =============================================================================
