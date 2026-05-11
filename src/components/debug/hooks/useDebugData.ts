@@ -1720,11 +1720,12 @@ export function extractDiagnosticChecks(
   // it reads `plot.robustness.edge_e_values`. If PLoT public has none, UI has none.
   const uiEdgeEValuesAvailable = plotEdgeEValuesRobustness.length > 0
 
-  // Legacy alias: prior contract pointed at `isl?.edge_e_values` (top-level only),
-  // which silently returned false post-A1 when ISL moved e-values under
-  // `robustness`. Aliasing to `ui_edge_e_values_available` matches the surface
-  // a UI consumer would actually depend on; see JSDoc on `e_values_present`.
-  const islEdgeEValues = uiEdgeEValuesAvailable ? plotEdgeEValuesRobustness : []
+  // Legacy alias: prior `e_values_present` pointed at `isl?.edge_e_values`
+  // (top-level only), which silently returned false post-A1 when ISL moved
+  // e-values under `robustness`. The alias is now wired to
+  // `ui_edge_e_values_available` directly in the return statement below — the
+  // surface a UI consumer would actually depend on; see JSDoc on
+  // `e_values_present` for the deprecation note.
   const islFactorEvpi = Array.isArray(isl?.factor_evpi) ? isl.factor_evpi as unknown[] : []
 
   // PLoT factor_sensitivity — used for bootstrap source check
