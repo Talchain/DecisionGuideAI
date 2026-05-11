@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod'
-import { NodeDataSchema, AnyNodeDataSchema } from './nodes'
+import { AnyNodeDataSchema } from './nodes'
 import { EdgeDataSchema, DEFAULT_EDGE_DATA } from './edges'
 import { captureError } from '../../lib/monitoring'
 
