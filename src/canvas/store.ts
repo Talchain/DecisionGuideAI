@@ -141,12 +141,12 @@ function tryRestoreResultsFromHistory(
     const run = runs.find(r => r.hash === resultHash)
     if (run) {
       restoreFn(run)
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env?.NODE_ENV === 'development') {
         console.debug('[canvas] Restored results from history:', resultHash)
       }
       return true
     }
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env?.NODE_ENV === 'development') {
       console.debug('[canvas] Run not found in history:', resultHash)
     }
   } catch (e) {
