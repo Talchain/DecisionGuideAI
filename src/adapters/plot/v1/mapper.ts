@@ -169,13 +169,16 @@ export function graphToV1Request(
         if (n.data?.kind) {
           node.kind = n.data.kind
         }
-        if (n.data?.prior !== undefined) {
+        // V1Node.prior is typed `number` (v1/types.ts:14). Guard at the
+        // boundary: skip the field for malformed (non-numeric) inputs
+        // rather than serialise NaN, which the V1 backend rejects.
+        if (typeof n.data?.prior === 'number') {
           // Clamp to 0-1 range
-          node.prior = Math.max(0, Math.min(1, n.data.prior as number))
+          node.prior = Math.max(0, Math.min(1, n.data.prior))
         }
-        if (n.data?.utility !== undefined) {
+        if (typeof n.data?.utility === 'number') {
           // Clamp to -1..+1 range
-          node.utility = Math.max(-1, Math.min(1, n.data.utility as number))
+          node.utility = Math.max(-1, Math.min(1, n.data.utility))
         }
 
         return node
