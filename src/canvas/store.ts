@@ -4,7 +4,7 @@ import { Node, Edge, applyNodeChanges, applyEdgeChanges, NodeChange, EdgeChange 
 import { saveSnapshot as persistSnapshot, importCanvas as persistImport, exportCanvas as persistExport } from './persist'
 import { setsEqual, mapsEqual } from './store/utils'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS, type EdgeData } from './domain/edges'
-import { NODE_REGISTRY, type NodeType } from './domain/nodes'
+import { NODE_REGISTRY, type NodeType, type NodeData } from './domain/nodes'
 import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
@@ -2463,8 +2463,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           }
         }
       }
-      // Robustness accessed via index signature (not typed on ReportV1)
-      const reportRecord = currentReport as Record<string, unknown>
+      // Robustness accessed via index signature (not typed on ReportV1).
+      // Cast through unknown: same pattern as enrichment.ts:181 — typed shape
+      // treated as opaque for runtime field probing.
+      const reportRecord = currentReport as unknown as Record<string, unknown>
       const robustness = reportRecord.robustness as Record<string, unknown> | undefined
       const rankingStability =
         typeof robustness?.recommendation_stability === 'number' ? robustness.recommendation_stability :
@@ -3475,7 +3477,12 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   cycleLensOption: (direction) => {
     const state = get()
     if (state.lens.active !== 'option') return
-    const options = state.results.report?.option_comparison
+    // option_comparison is a real V2RunResponse field that flows into the
+    // ReportV1-typed slot but isn't declared on the static type. Mirrors
+    // the established cast pattern at LensDropdown.tsx:96 (same field,
+    // same purpose — lens picker dropdown vs. lens cycle hotkey).
+    const options = (state.results.report as Record<string, unknown> | null | undefined)
+      ?.option_comparison as Array<{ option_id: string; option_label: string }> | undefined
     if (!Array.isArray(options) || options.length === 0) return
 
     const currentId = state.lens.selectedOptionId
@@ -4044,7 +4051,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     // Reset history and selection for clean state
     if (loaded.nodes || loaded.edges) {
       updates.history = { past: [], future: [] }
-      updates.selection = { nodeIds: new Set(), edgeIds: new Set() }
+      updates.selection = { nodeIds: new Set(), edgeIds: new Set(), anchorPosition: null }
       updates.touchedNodeIds = new Set()
     }
 
@@ -4120,7 +4127,7 @@ export type InvalidNode = InvalidNodeInfo
  * Uses shared validation util with touched node tracking to avoid flagging pristine nodes
  */
 export const getInvalidNodes = (state: CanvasState): InvalidNode[] => {
-  return getInvalidNodesUtil(state.nodes, state.edges, state.touchedNodeIds)
+  return getInvalidNodesUtil(state.nodes as Node<NodeData>[], state.edges, state.touchedNodeIds)
 }
 
 /**
@@ -4136,7 +4143,7 @@ export const hasValidationErrors = (state: CanvasState): boolean => {
  * Otherwise returns the first invalid node
  */
 export const getNextInvalidNode = (state: CanvasState, currentNodeId?: string): InvalidNode | null => {
-  return getNextInvalidNodeUtil(state.nodes, state.edges, state.touchedNodeIds, currentNodeId)
+  return getNextInvalidNodeUtil(state.nodes as Node<NodeData>[], state.edges, state.touchedNodeIds, currentNodeId)
 }
 
 /**
