@@ -896,7 +896,7 @@ function logConstraintClearIfPresent(
     console.info('[constraint-trace] store-clear', {
       source: 'READINESS_CLEAR_FIELDS',
       cleared_count: prev.length,
-      constraint_ids: prev.map((c) => c.constraint_id),
+      constraint_ids: prev.map((c) => c.id),
       trigger,
     })
   }
