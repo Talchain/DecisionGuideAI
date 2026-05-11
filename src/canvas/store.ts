@@ -1204,23 +1204,26 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   dimmedNodeIds: new Set<string>(),
   confirmedNodeIds: new Set<string>(),
   hoveredOptionId: null,
-  // Graph Lens: ephemeral canvas filtering state
-  lens: {
-    active: 'full' as const,
-    selectedOptionId: null,
-    _dimmedNodeIds: new Set<string>(),
-    _dimmedEdgeIds: new Set<string>(),
-    _sensitivityWeights: new Map<string, number>(),
-    _sensitivityQuartiles: null,
-    _fragileEdgeIds: new Set<string>(),
-  },
+  // Graph Lens: ephemeral canvas filtering state.
+  // Bug 6: previous inline init covered only 7 of the 12 LensState fields,
+  // omitting _hiddenNodeIds, _hiddenEdgeIds, _causalEdgeParams,
+  // _evidenceNodeClass, _evidenceEdgeClass (added in Brief 5 expanded
+  // lenses). Use the canonical factory that returns the full shape — and
+  // is already used at every reset call site in this file.
+  lens: createDefaultLensState(),
   // M5: Grounding & Provenance
   documents: [],
   citations: [],
   provenanceRedactionEnabled: true, // M5: Redaction ON by default
-  // S7-FILEOPS: Document management initial state
+  // S7-FILEOPS: Document management initial state.
+  // Bug 5: loadSortPreferences returns { sortField, sortDirection } —
+  // spreading those keys silently failed to initialise the canvas store's
+  // documentSortField/Direction fields, so the documents list ignored
+  // saved user preferences on initial load until the user interacted with
+  // the sort controls. Map explicitly to the canonical names.
   documentSearchQuery: loadSearchQuery(),
-  ...loadSortPreferences(),
+  documentSortField: loadSortPreferences().sortField,
+  documentSortDirection: loadSortPreferences().sortDirection,
   // A.7: External mutation suppression reference count (0 = inactive)
   _externalMutationActive: 0,
   _suppressHistory: false,
