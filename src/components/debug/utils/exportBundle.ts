@@ -675,12 +675,15 @@ function extractCeePipelineQuickFields(data: DebugData): {
 // user actions, panel state
 // =============================================================================
 
-/** Where the captured win_probability came from in the response payload. */
+/**
+ * Where the captured win_probability came from in the response payload.
+ * Limited to values the exporter actually emits. If a new fallback path is
+ * added in resolveOption, add the corresponding enum member here.
+ */
 export type WinProbabilitySource =
   | 'payloads.plot_response.option_comparison.win_probability'
   | 'payloads.plot_response.options.win_probability'
   | 'payloads.plot_response.option_probabilities.win_probability'
-  | 'results.apiResponse.option_comparison.win_probability'
   | 'unmatched'
 
 /** How the captured rank was computed (analytical vs canvas fallback). */

@@ -368,9 +368,15 @@ function mockStateFromBundle(
 }
 
 describe('D8: rank_displayed real-fixture replay (brief revision item 7)', () => {
-  // Exact requirement: bundle 50b336a6 has opt_hire_manager (win_prob ~0.914)
-  // ranked 1 and opt_ai_tool (~0.067) last. Production OptionCards.tsx sorts
-  // by win_probability descending, so capture must do the same.
+  // Bundle 50b336a6 actual win-probability ordering (verified in test below):
+  //   opt_hire_manager  0.91425  →  rank 1
+  //   opt_ai_tool       0.06725  →  rank 2
+  //   opt_hybrid        0.01425  →  rank 3
+  //   opt_status_quo    0.00425  →  rank 4 (last)
+  // Production OptionCards.tsx sorts by win_probability descending, so capture
+  // must do the same. Brief revision item 7 originally stated opt_ai_tool was
+  // "last"; that was a data inaccuracy — see the per-assertion comment below
+  // for the full reconciliation.
   it('50b336a6: full rank ordering by win_probability desc — opt_hire_manager=1, opt_status_quo=last', async () => {
     displayStateMockState = mockStateFromBundle(bundle50b336a6 as unknown as StagingBundle)
     const { captureDisplayState } = await import('../utils/exportBundle')
