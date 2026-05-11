@@ -9,7 +9,6 @@
 import type {
   CeeDecisionReviewPayloadV1,
   ReviewBlock,
-  ReviewReadiness,
   ReadinessLevel,
   ReadinessFactor,
   BlockId,
@@ -153,7 +152,7 @@ export function sanitizeCeeReviewPayload(
   return {
     ...payload,
     blocks,
-    readiness,
+    readiness: readiness!,
   }
 }
 
