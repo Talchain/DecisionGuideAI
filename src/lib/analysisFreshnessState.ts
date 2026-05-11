@@ -184,8 +184,7 @@ export function deriveAnalysisFreshnessState(
     return {
       freshness: 'none',
       reason: wireReason ?? 'no_successful_run_yet',
-      recommendedAction:
-        inputs.resultsStatus === 'running' ? null : 'run_analysis',
+      recommendedAction: isRunInFlight(inputs.resultsStatus) ? null : 'run_analysis',
       inputsMissing,
     }
   }
@@ -196,7 +195,15 @@ export function deriveAnalysisFreshnessState(
     ...NEUTRAL,
     freshness: 'unknown',
     reason: wireReason ?? 'cee_freshness_unknown',
-    recommendedAction: inputs.resultsStatus === 'running' ? null : 'run_analysis',
+    recommendedAction: isRunInFlight(inputs.resultsStatus) ? null : 'run_analysis',
     inputsMissing,
   }
+}
+
+// A run is "in flight" — actively progressing — when the SSE pipeline is
+// preparing, connecting, or streaming. The pre-existing `=== 'running'`
+// check was always false (no such ResultsStatus member), so the suppression
+// silently never fired. This restores the intended gate.
+function isRunInFlight(status: ResultsState['status']): boolean {
+  return status === 'preparing' || status === 'connecting' || status === 'streaming'
 }

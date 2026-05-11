@@ -143,12 +143,30 @@ describe('deriveAnalysisFreshnessState — local fallback when wire absent', () 
     expect(result.recommendedAction).toBe('add_options')
   })
 
-  it('analysis running → recommendedAction=null (don\'t suggest a run already in progress)', () => {
-    const result = deriveAnalysisFreshnessState(
-      inputs({ ceeAnalysisReady: null, hasOptions: true, resultsStatus: 'running' }),
-    )
-    expect(result.recommendedAction).toBeNull()
-  })
+  // Bug 2 regression: the suppression branch previously checked
+  // `resultsStatus === 'running'`, but 'running' is not a member of
+  // ResultsStatus — the comparison was always false and the suppression
+  // never fired. The actively-progressing statuses are
+  // 'preparing' | 'connecting' | 'streaming'.
+  it.each(['preparing', 'connecting', 'streaming'] as const)(
+    'analysis %s → recommendedAction=null (don\'t suggest a run already in progress)',
+    (status) => {
+      const result = deriveAnalysisFreshnessState(
+        inputs({ ceeAnalysisReady: null, hasOptions: true, resultsStatus: status }),
+      )
+      expect(result.recommendedAction).toBeNull()
+    },
+  )
+
+  it.each(['idle', 'complete', 'error', 'cancelled'] as const)(
+    'analysis %s with no successful run → recommendedAction=run_analysis (not suppressed)',
+    (status) => {
+      const result = deriveAnalysisFreshnessState(
+        inputs({ ceeAnalysisReady: null, hasOptions: true, resultsStatus: status }),
+      )
+      expect(result.recommendedAction).toBe('run_analysis')
+    },
+  )
 })
 
 describe('deriveAnalysisFreshnessState — wire "none" passes reason through', () => {
