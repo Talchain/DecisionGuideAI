@@ -3,7 +3,7 @@ import { SPACING_VALUES } from '../types'
 
 export function applyHierarchyLayout(
   nodes: LayoutNode[],
-  edges: LayoutEdge[],
+  _edges: LayoutEdge[],
   spacing: LayoutSpacing,
   preserveIds: Set<string> = new Set()
 ): LayoutResult {
