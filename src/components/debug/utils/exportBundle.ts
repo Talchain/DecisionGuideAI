@@ -673,6 +673,24 @@ function extractCeePipelineQuickFields(data: DebugData): {
 // user actions, panel state
 // =============================================================================
 
+/** Where the captured win_probability came from in the response payload. */
+export type WinProbabilitySource =
+  | 'payloads.plot_response.option_comparison.win_probability'
+  | 'payloads.plot_response.options.win_probability'
+  | 'results.apiResponse.option_comparison.win_probability'
+  | 'unmatched'
+
+/** How the captured rank was computed (analytical vs canvas fallback). */
+export type RankSource = 'win_probability_desc' | 'canvas_order' | 'unranked'
+
+/** Where the captured influence / sensitivity value came from. */
+export type FactorMetricSource =
+  | 'plot_enrichment.factor_sensitivity.influence_score'
+  | 'plot_enrichment.factor_sensitivity.sensitivity_score'
+  | 'results.apiResponse.factor_sensitivity.influence_score'
+  | 'results.apiResponse.factor_sensitivity.sensitivity_score'
+  | 'unmatched'
+
 /** V1.5: Display state snapshot — what the UI actually rendered at export time */
 export interface DisplayState {
   active_panel: string | null
@@ -683,15 +701,49 @@ export interface DisplayState {
   canvas_node_types: Record<string, number>
   rendered_options: Array<{
     id: string
+    /** Option ID resolved from PLoT response option_comparison/options when available. */
+    option_id: string | null
     label_displayed: string | null
-    win_probability_displayed: string | null
+    /**
+     * Raw numeric win_probability mirroring `payloads.plot_response.option_comparison[*].win_probability`.
+     * Capture-time passthrough — UI consumers apply their own formatting (e.g. `Math.round(x * 100)%`).
+     */
+    win_probability_displayed: number | null
+    /** Provenance discriminator: which payload path supplied `win_probability_displayed`. */
+    win_probability_source: WinProbabilitySource
+    /**
+     * Analytical rank computed from `win_probability` descending, matching the
+     * sort order used by `OptionCards.tsx` (`OptionCards.tsx:506-513`) so the
+     * bundle reflects what the user actually sees in the rendered list.
+     * Deterministic tie-break: equal win_probability → secondary sort by option_id ascending.
+     */
     rank_displayed: number | null
+    /** How `rank_displayed` was computed: analytical sort, canvas fallback, or unranked. */
+    rank_source: RankSource
   }> | null
   rendered_factors: Array<{
     id: string
+    /** Factor ID resolved from PLoT factor_sensitivity when available. */
+    factor_id: string | null
     label_displayed: string | null
     value_displayed: string | null
-    sensitivity_displayed: string | null
+    /**
+     * Raw numeric INFLUENCE (rank-based structural causal importance) — the value
+     * the production factor card actually displays under the "Influence" column
+     * (`DriversSection.tsx:805-810`). Sourced from `factor_sensitivity[*].influence_score`.
+     */
+    influence_displayed: number | null
+    /** Provenance discriminator for `influence_displayed`. */
+    influence_source: FactorMetricSource
+    /**
+     * Raw numeric SENSITIVITY (elasticity-based magnitude with direction sign) —
+     * sourced from `factor_sensitivity[*].sensitivity_score`. Distinct concept
+     * from influence; captured separately to preserve analytical fidelity even
+     * though the production card does not visibly render this metric today.
+     */
+    sensitivity_displayed: number | null
+    /** Provenance discriminator for `sensitivity_displayed`. */
+    sensitivity_source: FactorMetricSource
   }> | null
   analysis_status_displayed: string | null
   hero_headline_displayed: string | null
@@ -1598,15 +1650,57 @@ function deriveHeroHeadline(
   return null
 }
 
-/** Extract rendered factor state from canvas nodes for display_state */
+/**
+ * Normalise a label for fuzzy matching between canvas nodes and PLoT
+ * response entries. Case-insensitive, trims whitespace, collapses internal
+ * whitespace. Intentionally simple — capture-time matching only.
+ */
+function normaliseLabel(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  return value.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+interface FactorSensitivityEntry {
+  factor_id?: unknown
+  factor_label?: unknown
+  factor?: unknown
+  influence_score?: unknown
+  sensitivity_score?: unknown
+}
+
+/**
+ * Extract rendered factor state from canvas nodes for display_state, enriching
+ * with influence and sensitivity values from PLoT `factor_sensitivity` when
+ * available. Mirrors the production factor-card data flow
+ * (`DriversSection.tsx:269` / `DriversSection.tsx:805-810`): the "Influence"
+ * column displays `influence_score`; sensitivity is captured separately for
+ * analytical fidelity even though it is not visibly rendered.
+ */
 function extractRenderedFactors(
   nodes: Array<{ id: string; data: unknown }>,
+  factorSensitivity: FactorSensitivityEntry[],
+  factorMetricSource: {
+    influence: FactorMetricSource
+    sensitivity: FactorMetricSource
+  },
 ): DisplayState['rendered_factors'] {
   const factorNodes = nodes.filter((n) => {
     const d = n.data as Record<string, unknown> | undefined
     return d?.kind === 'factor' || d?.type === 'factor'
   })
   if (factorNodes.length === 0) return null
+
+  const matchFactor = (
+    nodeId: string,
+    nodeLabel: unknown,
+  ): FactorSensitivityEntry | undefined => {
+    const norm = normaliseLabel(nodeLabel)
+    return factorSensitivity.find((fs) => {
+      if (typeof fs.factor_id === 'string' && fs.factor_id === nodeId) return true
+      const fsLabel = normaliseLabel(fs.factor_label ?? fs.factor)
+      return Boolean(norm) && norm === fsLabel
+    })
+  }
 
   return factorNodes.map((n) => {
     const d = n.data as Record<string, unknown>
@@ -1616,11 +1710,19 @@ function extractRenderedFactors(
     const valueStr = typeof value === 'number'
       ? (unit ? `${value} ${unit}` : String(value))
       : null
+    const match = matchFactor(n.id, d?.label)
+    const influenceVal = typeof match?.influence_score === 'number' ? match.influence_score : null
+    const sensitivityVal = typeof match?.sensitivity_score === 'number' ? match.sensitivity_score : null
+    const factorId = typeof match?.factor_id === 'string' ? match.factor_id : n.id ?? null
     return {
       id: n.id,
+      factor_id: factorId,
       label_displayed: (d?.label as string) ?? null,
       value_displayed: valueStr,
-      sensitivity_displayed: null, // Sensitivity is computed at results time, not stored on nodes
+      influence_displayed: influenceVal,
+      influence_source: influenceVal !== null ? factorMetricSource.influence : 'unmatched',
+      sensitivity_displayed: sensitivityVal,
+      sensitivity_source: sensitivityVal !== null ? factorMetricSource.sensitivity : 'unmatched',
     }
   })
 }
@@ -1651,20 +1753,99 @@ export async function captureDisplayState(): Promise<DisplayState> {
 
     // Extract rendered options (from results if available)
     const results = state.results as Record<string, unknown> | null | undefined
+    const apiResponse = results?.apiResponse as Record<string, unknown> | null | undefined
+    const optionComparison = (apiResponse?.option_comparison as
+      Array<Record<string, unknown>> | undefined) ?? []
+    const plotOptions = (apiResponse?.options as
+      Array<Record<string, unknown>> | undefined) ?? []
+    const factorSensitivity = (apiResponse?.factor_sensitivity as
+      FactorSensitivityEntry[] | undefined) ?? []
+
     const optionNodes = nodes.filter((n) => {
       const d = n.data as Record<string, unknown> | undefined
       return d?.kind === 'option' || d?.type === 'option'
     })
-    const renderedOptions = optionNodes.length > 0
-      ? optionNodes.map((n, idx) => {
-          const d = n.data as Record<string, unknown>
-          return {
-            id: n.id,
-            label_displayed: (d?.label as string) ?? null,
-            win_probability_displayed: null as string | null,
-            rank_displayed: idx + 1,
-          }
-        })
+
+    interface ResolvedOption {
+      node: { id: string; data: unknown }
+      optionId: string | null
+      label: string | null
+      winProbability: number | null
+      source: WinProbabilitySource
+    }
+
+    const resolveOption = (node: { id: string; data: unknown }): ResolvedOption => {
+      const d = node.data as Record<string, unknown> | undefined
+      const nodeLabel = (d?.label as string) ?? null
+      const norm = normaliseLabel(nodeLabel)
+      // 1) PLoT response option_comparison (primary)
+      let match = optionComparison.find((o) => {
+        if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
+        return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
+      })
+      if (match && typeof match.win_probability === 'number') {
+        return {
+          node,
+          optionId: typeof match.option_id === 'string' ? match.option_id : node.id,
+          label: nodeLabel ?? (typeof match.option_label === 'string' ? match.option_label : null) ?? (typeof match.option === 'string' ? match.option : null),
+          winProbability: match.win_probability,
+          source: 'payloads.plot_response.option_comparison.win_probability',
+        }
+      }
+      // 2) PLoT response options (fallback)
+      match = plotOptions.find((o) => {
+        if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
+        return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
+      })
+      if (match && typeof match.win_probability === 'number') {
+        return {
+          node,
+          optionId: typeof match.option_id === 'string' ? match.option_id : node.id,
+          label: nodeLabel ?? (typeof match.option_label === 'string' ? match.option_label : null),
+          winProbability: match.win_probability,
+          source: 'payloads.plot_response.options.win_probability',
+        }
+      }
+      return { node, optionId: node.id ?? null, label: nodeLabel, winProbability: null, source: 'unmatched' }
+    }
+
+    const resolvedOptions = optionNodes.map(resolveOption)
+    const allHaveWinProb = resolvedOptions.length > 0
+      && resolvedOptions.every((r) => typeof r.winProbability === 'number')
+
+    let rankByNodeId: Map<string, number>
+    let rankSource: RankSource
+    if (allHaveWinProb) {
+      // Analytical rank, mirroring OptionCards.tsx:506-513 production sort.
+      // Deterministic tie-break: equal win_probability → secondary sort by option_id asc.
+      const sorted = [...resolvedOptions].sort((a, b) => {
+        const delta = (b.winProbability ?? -Infinity) - (a.winProbability ?? -Infinity)
+        if (delta !== 0) return delta
+        const idA = a.optionId ?? a.node.id ?? ''
+        const idB = b.optionId ?? b.node.id ?? ''
+        return idA < idB ? -1 : idA > idB ? 1 : 0
+      })
+      rankByNodeId = new Map(sorted.map((r, i) => [r.node.id, i + 1]))
+      rankSource = 'win_probability_desc'
+    } else if (resolvedOptions.length > 0) {
+      // Fallback: canvas iteration order. Loss-of-data is observable via rank_source.
+      rankByNodeId = new Map(resolvedOptions.map((r, i) => [r.node.id, i + 1]))
+      rankSource = 'canvas_order'
+    } else {
+      rankByNodeId = new Map()
+      rankSource = 'unranked'
+    }
+
+    const renderedOptions = resolvedOptions.length > 0
+      ? resolvedOptions.map((r) => ({
+          id: r.node.id,
+          option_id: r.optionId,
+          label_displayed: r.label,
+          win_probability_displayed: r.winProbability,
+          win_probability_source: r.source,
+          rank_displayed: rankByNodeId.get(r.node.id) ?? null,
+          rank_source: rankSource,
+        }))
       : null
 
     // Determine active panel
@@ -1705,7 +1886,10 @@ export async function captureDisplayState(): Promise<DisplayState> {
       canvas_edge_count: edges.length,
       canvas_node_types: nodeTypes,
       rendered_options: renderedOptions,
-      rendered_factors: extractRenderedFactors(nodes),
+      rendered_factors: extractRenderedFactors(nodes, factorSensitivity, {
+        influence: 'plot_enrichment.factor_sensitivity.influence_score',
+        sensitivity: 'plot_enrichment.factor_sensitivity.sensitivity_score',
+      }),
       analysis_status_displayed: analysisStatus,
       hero_headline_displayed: deriveHeroHeadline(results, optionNodes.length),
       analysis_display_state: displayView.state,
