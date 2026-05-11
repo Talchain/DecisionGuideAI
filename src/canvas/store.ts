@@ -9,13 +9,13 @@ import { applyLayout, applyLayoutWithPolicy } from './layout'
 import { mergePolicy } from './layout/policy'
 import { policyToPreset, policyToSpacing } from './layout/adapters'
 import { getInvalidNodes as getInvalidNodesUtil, getNextInvalidNode as getNextInvalidNodeUtil, type InvalidNodeInfo } from './utils/validateOutgoing'
-import type { ReportV1, ErrorV1 } from '../adapters/plot/types'
+import type { ReportV1 } from '../adapters/plot/types'
 import type { V2RunResponse } from '../adapters/plot/v2/types'
 import type { PLoTEnrichment } from '../adapters/plot/enrichment'
 import { trackResultsViewed, trackIssuesOpened } from './utils/sandboxTelemetry'
 import { addRun, generateGraphHash, loadRuns, type StoredRun } from './store/runHistory'
 import * as scenarios from './store/scenarios'
-import type { Scenario, ScenarioFraming } from './store/scenarios'
+import type { ScenarioFraming } from './store/scenarios'
 import type { GraphHealth, ValidationIssue, NeedleMover } from './validation/types'
 import type { Document, Citation } from './share/types'
 import type { ComparisonResult } from './snapshots/types'
@@ -51,7 +51,6 @@ import {
   isDuplicateEdge,
   wouldCreateCycle,
   wouldExceedLimits,
-  limitExceededMessage,
   type LimitExceeded,
 } from './validation/graphGuardrails'
 // Task C: Panel coordination — opening one right panel closes others
@@ -2432,7 +2431,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
     }))
   },
 
-  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1, ceeTraceV1, ceeErrorV1, enrichment, resultsSource, rawV2Response }) => {
+  resultsComplete: ({ report, hash, drivers, ceeReview, ceeTrace, ceeError, ceeReviewV1: _ceeReviewV1, ceeTraceV1: _ceeTraceV1, ceeErrorV1: _ceeErrorV1, enrichment, resultsSource, rawV2Response }) => {
     const { nodes, edges, results, currentScenarioId, graphHealth: existingHealth } = get()
 
     const finishedAt = Date.now()
