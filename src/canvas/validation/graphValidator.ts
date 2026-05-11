@@ -6,7 +6,7 @@
 import type { Node, Edge } from '@xyflow/react'
 import type { EdgeData } from '../domain/edges'
 import { getEdgeKey } from '../domain/edgeUtils'
-import type { ValidationIssue, GraphHealth, IssueType, IssueSeverity } from './types'
+import type { ValidationIssue, GraphHealth, IssueType } from './types'
 
 /**
  * Validate entire graph and return issues
