@@ -16,9 +16,13 @@
  * byte-for-byte PLoT" — see olumi-schemas/src/orchestrator/handler-results.ts).
  *
  * No silent defaults: missing numerics surface as `null`/`undefined`. Option
- * IDs are taken verbatim from `win_probabilities` keys (no synthesised
- * `opt_0`/`opt_1` placeholders). Sensitivity entries are read against the
- * full alias set documented in the backend's deriveTopDriversFromTopLevel
+ * IDs come from the canonical `enrichment.option_comparison[].option_id`
+ * when present (the source of truth even though `block.win_probabilities`
+ * may be keyed by labels in real staging); they fall back to the raw
+ * `win_probabilities` keys only when no `option_comparison` exists, and
+ * the duplicate-label guard prevents false precision in that fallback.
+ * Sensitivity entries are read against the full alias set documented in the
+ * backend's deriveTopDriversFromTopLevel
  * (olumi-assistants-service/src/orchestrator-v5/context/analysis-fallback.ts).
  *
  * Pure function — no store reads, no side effects, no DEV-time logging
@@ -234,7 +238,10 @@ export interface MapV5AnalysisOptions {
   /**
    * Optional override for response_hash. When omitted the hash is derived
    * deterministically from the block (summary + leading_option_id +
-   * win_probabilities) so identical analyses dedupe in the store.
+   * win_probabilities + canonical-serialised enrichment) so identical
+   * analyses dedupe in the store, but enrichment-only deltas (updated
+   * factor_sensitivity / robustness / option_comparison with unchanged
+   * probabilities) still produce a distinct hash and re-hydrate.
    */
   responseHash?: string
 }
@@ -454,6 +461,47 @@ export function mapV5AnalysisToReport(
       enrichment: block.enrichment,
     })
 
+  // Headline `results` triple (conservative/likely/optimistic) is consumed
+  // by DetailedAnalysisSection, DecisionSummary, OutcomesSignal, and
+  // TemplatesPanel as the p10 / p50 / p90 of the headline option's outcome
+  // distribution. V4 derives these from the FIRST option's confidence_interval
+  // and emits `null` when the CI is absent (passing through the type's
+  // declared `number` via implicit narrowing — see
+  // src/adapters/plot/v2/responseMapper.ts:486-490). The V5 mapper mirrors
+  // that contract: prefer the LEADING option's outcome (semantically more
+  // meaningful than "first by array order"), fall back to the first
+  // option_comparison entry, and surface `null` when neither has usable
+  // quantiles. Fabricated zeros — earlier behaviour — would mislead every
+  // consumer to render "0" instead of "no data".
+  const headlineOption = (() => {
+    if (resolvedOptions.length === 0) return undefined
+    if (block.leading_option_id) {
+      const byLeader = resolvedOptions.find((r) => r.optionId === block.leading_option_id)
+      if (byLeader) return byLeader
+    }
+    return resolvedOptions[0]
+  })()
+  const headlineOutcome = isPlainObject(headlineOption?.enriched.outcome)
+    ? headlineOption!.enriched.outcome
+    : undefined
+  const headlineCI = Array.isArray(headlineOption?.enriched.confidence_interval)
+    ? headlineOption!.enriched.confidence_interval
+    : null
+  const headlineCiLow =
+    headlineCI && safeFiniteNumber(headlineCI[0]) !== undefined
+      ? (headlineCI[0] as number)
+      : null
+  const headlineCiHigh =
+    headlineCI && safeFiniteNumber(headlineCI[1]) !== undefined
+      ? (headlineCI[1] as number)
+      : null
+  const headlineConservative = safeFiniteNumber(headlineOutcome?.p10) ?? headlineCiLow
+  const headlineLikely =
+    safeFiniteNumber(headlineOutcome?.p50) ??
+    safeFiniteNumber(headlineOutcome?.mean) ??
+    (headlineCiLow != null && headlineCiHigh != null ? (headlineCiLow + headlineCiHigh) / 2 : null)
+  const headlineOptimistic = safeFiniteNumber(headlineOutcome?.p90) ?? headlineCiHigh
+
   const report: ReportV1 = {
     schema: 'report.v1',
     meta: {
@@ -466,10 +514,13 @@ export function mapV5AnalysisToReport(
       response_hash_algo: 'sha256',
       normalized: true,
     },
+    // Type lies (number, not number | null) — V4 does the same. Downstream
+    // consumers narrow-check before display; passing fabricated 0 here
+    // would render as "0" in DetailedAnalysisSection / DecisionSummary etc.
     results: {
-      conservative: 0,
-      likely: 0,
-      optimistic: 0,
+      conservative: headlineConservative as unknown as number,
+      likely: headlineLikely as unknown as number,
+      optimistic: headlineOptimistic as unknown as number,
     },
     confidence,
     drivers,

@@ -808,6 +808,114 @@ describe('mapV5AnalysisToReport — label-keyed resolution unit cases', () => {
   })
 })
 
+describe('mapV5AnalysisToReport — headline results (conservative/likely/optimistic) derive from leading option, never fabricated 0', () => {
+  // Regression guard: report.results.{conservative,likely,optimistic} is
+  // consumed by DetailedAnalysisSection, DecisionSummary, OutcomesSignal,
+  // TemplatesPanel as the headline p10/p50/p90. Earlier draft hardcoded
+  // these to 0, which would render as "0" in every consumer instead of
+  // "no data". The mapper now derives from the LEADING option's outcome
+  // (or first option if no leader), with null when no usable data exists.
+
+  it('headline results derive from leading option_comparison outcome quantiles', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a',
+      win_probabilities: { opt_a: 0.7, opt_b: 0.3 },
+      enrichment: {
+        option_comparison: [
+          { id: 'opt_a', option_id: 'opt_a', option_label: 'A', outcome: { mean: 12.5, p10: 8, p50: 12, p90: 17 } },
+          { id: 'opt_b', option_id: 'opt_b', option_label: 'B', outcome: { mean: 7, p10: 3, p50: 6.5, p90: 11 } },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block)
+    // Pulled from opt_a (leading) outcome — NOT from opt_b, NOT zeros.
+    expect(report.results.conservative).toBe(8)
+    expect(report.results.likely).toBe(12)
+    expect(report.results.optimistic).toBe(17)
+  })
+
+  it('headline results fall back to first option_comparison entry when leading_option_id does not match any entry', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_phantom', // not in option_comparison
+      win_probabilities: { opt_a: 0.6 },
+      enrichment: {
+        option_comparison: [
+          { id: 'opt_a', option_id: 'opt_a', option_label: 'A', outcome: { p10: 1, p50: 2, p90: 3 } },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block)
+    expect(report.results.conservative).toBe(1)
+    expect(report.results.likely).toBe(2)
+    expect(report.results.optimistic).toBe(3)
+  })
+
+  it('headline results derive from confidence_interval when outcome is absent', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a',
+      win_probabilities: { opt_a: 1 },
+      enrichment: {
+        option_comparison: [
+          { id: 'opt_a', option_id: 'opt_a', option_label: 'A', confidence_interval: [10, 20] },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block)
+    expect(report.results.conservative).toBe(10)
+    expect(report.results.likely).toBe(15) // CI midpoint
+    expect(report.results.optimistic).toBe(20)
+  })
+
+  it('headline results are null (not 0) when no option_comparison entry has outcome or CI data', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a',
+      win_probabilities: { opt_a: 1 },
+      enrichment: {
+        option_comparison: [
+          { id: 'opt_a', option_id: 'opt_a', option_label: 'A' /* no outcome, no CI */ },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block)
+    // Type-lie tolerated for V4 parity; runtime value is null, NOT 0.
+    expect(report.results.conservative).toBeNull()
+    expect(report.results.likely).toBeNull()
+    expect(report.results.optimistic).toBeNull()
+  })
+
+  it('headline results are null (not 0) when enrichment has no option_comparison at all', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: null,
+      win_probabilities: { opt_a: 0.5 },
+      enrichment: {},
+    }
+    const report = mapV5AnalysisToReport(block)
+    expect(report.results.conservative).toBeNull()
+    expect(report.results.likely).toBeNull()
+    expect(report.results.optimistic).toBeNull()
+  })
+
+  it('real staging fixture: headline results pull from opt_hire_local (the leader) outcome', () => {
+    const block = realStagingFixture.blocks[0] as AnalysisResultBlock
+    const report = mapV5AnalysisToReport(block)
+    // Exact values from the staging fixture's opt_hire_local.outcome:
+    //   p10: -0.032343256259984, p50: 0.25567048396546965, p90: 0.4781610864397162
+    expect(report.results.conservative).toBe(-0.032343256259984)
+    expect(report.results.likely).toBe(0.25567048396546965)
+    expect(report.results.optimistic).toBe(0.4781610864397162)
+  })
+})
+
 describe('mapV5AnalysisToReport — deterministic hash + minimal envelope', () => {
   it('returns a valid minimal ReportV1 when block carries only summary + leading_option_id', () => {
     const block = baseBlock({ leading_option_id: 'opt_a' })
