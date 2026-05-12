@@ -1,0 +1,382 @@
+/**
+ * AnalysisHeroV17 — glossary compliance (banned-term scanner, three layers).
+ *
+ * Per docs/brief-analysis-hero-v17-implementation.md §3 step 8:
+ * scan
+ *   1. Hard-coded strings in v17 hero source files
+ *   2. View-model output from buildAnalysisHeroViewModel
+ *   3. Post-interpolation rendered DOM text
+ *
+ * The test-side banned list lives at src/test/glossaryBannedTerms.ts.
+ * The production hero has its own narrower fallback check; this scanner
+ * is the broader regression net.
+ */
+
+import { describe, it, expect } from 'vitest'
+import { readFileSync, existsSync, readdirSync, statSync } from 'fs'
+import { join } from 'path'
+import { render } from '@testing-library/react'
+import { findBannedTerm, GLOSSARY_BANNED_TERMS } from '../../../../test/glossaryBannedTerms'
+import { buildAnalysisHeroViewModel } from '../buildAnalysisHeroViewModel'
+import { AnalysisHeroV17 } from '../../AnalysisHeroV17'
+import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
+import type { ResultsVM } from '../../types'
+import type {
+  ConfidenceSectionData,
+  DecisionResultData,
+  EvidenceGapItem,
+  OptionResult,
+  FragileEdgeItem,
+} from '../../types'
+
+// ── Fixture helper ──────────────────────────────────────────────────────────
+
+function makeData(overrides: {
+  winnerLabel?: string
+  gapLabels?: string[]
+  fragileFromLabel?: string
+  fragileAltLabel?: string
+  stability?: number
+} = {}): ResultsSectionDataReturn {
+  const winner: OptionResult = {
+    id: 'opt_a',
+    label: overrides.winnerLabel ?? 'Option A',
+    winProbability: 0.7,
+  } as OptionResult
+
+  const recommendation: DecisionResultData = {
+    recommendedOption: winner,
+    allOptions: [winner, { id: 'opt_b', label: 'Option B', winProbability: 0.3 } as OptionResult],
+    goalLabel: 'Maximise success',
+    isSingleOption: false,
+    analysisStatus: 'computed',
+    recommendationStability: overrides.stability ?? 0.7,
+    coachingReadinessDimensions: { evidence: 0.6, robustness: 0.7, clarity: 0.65 },
+  } as DecisionResultData
+
+  const gaps: EvidenceGapItem[] = (overrides.gapLabels ?? []).map((label, i) => ({
+    factorId: `n_${i}`,
+    factorLabel: label,
+    confidence: 60,
+    voi: 0.5 - i * 0.1,
+    evpiPp: 25,
+    targetNodeId: `n_${i}`,
+  } as EvidenceGapItem))
+
+  const fragile: FragileEdgeItem | undefined = overrides.fragileFromLabel ? {
+    fromId: 'nf',
+    fromLabel: overrides.fragileFromLabel,
+    toId: 'ny',
+    toLabel: 'Outcome',
+    switchProbability: 0.42,
+    alternativeWinnerLabel: overrides.fragileAltLabel ?? 'Option B',
+  } as FragileEdgeItem : undefined
+
+  const confidence: ConfidenceSectionData = {
+    tier: { tier: 'fair', icon: 'AlertTriangle', label: 'Fair', description: 'd' },
+    qualityScore: 60,
+    uncertainties: [],
+    topUncertainties: [],
+    improvements: [],
+    topImprovements: [],
+    evidenceGaps: gaps,
+    topEvidenceGaps: gaps,
+    nextActions: [],
+    topNextActions: [],
+    topFragileEdge: fragile,
+  } as ConfidenceSectionData
+
+  return {
+    recommendation,
+    drivers: { drivers: [], topDrivers: [], driversStatus: 'computed', totalCount: 0, hasMagnitudeData: false },
+    confidence,
+    improvements: { improvements: [], count: 0, hasHighPriority: false },
+    isLoading: false,
+    isError: false,
+    goalLabel: 'Goal',
+  } as ResultsSectionDataReturn
+}
+
+function makeVm(): ResultsVM {
+  return {
+    decisionState: 'robust',
+    gapTop2: 0.4,
+    hinge: null,
+    evidenceLevel: 'fair',
+    topAction: null,
+    raw: makeData(),
+  } as ResultsVM
+}
+
+// ── Layer 1: VM output ──────────────────────────────────────────────────────
+
+describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
+  function vmStrings(vm: ReturnType<typeof buildAnalysisHeroViewModel>): string[] {
+    const acc: string[] = []
+    if (vm.checkedCount) acc.push(vm.checkedCount)
+    if (vm.contribution.text) acc.push(vm.contribution.text)
+    acc.push(vm.resultLine)
+    if (vm.reasonLine) acc.push(vm.reasonLine)
+    vm.metaPills.forEach(p => acc.push(p.label))
+    if (vm.keyQuestion) {
+      acc.push(vm.keyQuestion.text)
+      acc.push(...vm.keyQuestion.extras)
+      acc.push(...vm.keyQuestion.chips)
+    }
+    for (const r of [...vm.inputRows, ...vm.hiddenRows]) {
+      acc.push(r.title, r.reason, r.priority, r.chatPrompt)
+    }
+    vm.alsoLinks.forEach(a => { acc.push(a.label); acc.push(a.chatPrompt) })
+    vm.footerChecks.forEach(c => acc.push(c.label))
+    acc.push(vm.footerHint, vm.footerCta.label, vm.footerCta.chatPrompt)
+    return acc
+  }
+
+  it('clean fixture → no banned term in any VM string', () => {
+    const vm = buildAnalysisHeroViewModel({
+      data: makeData({ gapLabels: ['Cost', 'Time'] }),
+      vm: makeVm(),
+      confirmedFactorCount: 0,
+      totalFactorCount: 5,
+      fragileEdgeCount: 0,
+    })
+    for (const s of vmStrings(vm)) {
+      const hit = findBannedTerm(s)
+      expect(hit, `Banned term "${hit}" found in: "${s}"`).toBeNull()
+    }
+  })
+
+  it('user-supplied label contains banned term → key question swaps in generic fallback, never amplifies banned label', () => {
+    const vm = buildAnalysisHeroViewModel({
+      data: makeData({ gapLabels: ['the winning team'] }),
+      vm: makeVm(),
+      confirmedFactorCount: 0,
+      totalFactorCount: 5,
+      fragileEdgeCount: 0,
+    })
+    // Row title preserves the user's label — we do not rewrite user data.
+    expect(vm.inputRows[0].title).toBe('the winning team')
+    // But the templated KEY QUESTION must NOT contain the banned term.
+    expect(vm.keyQuestion).toBeTruthy()
+    expect(findBannedTerm(vm.keyQuestion!.text)).toBeNull()
+  })
+
+  it('fragile fromLabel contains banned term → reason line falls back, no leak', () => {
+    const vm = buildAnalysisHeroViewModel({
+      data: makeData({ fragileFromLabel: 'graph traversal cost' }),
+      vm: makeVm(),
+      confirmedFactorCount: 0,
+      totalFactorCount: 5,
+      fragileEdgeCount: 1,
+    })
+    if (vm.reasonLine) {
+      expect(findBannedTerm(vm.reasonLine)).toBeNull()
+    }
+  })
+
+  it('all four state branches produce banned-term-clean VMs', () => {
+    const fixtures = [
+      // weak
+      { data: makeData({ winnerLabel: undefined, gapLabels: ['A', 'B', 'C', 'D'] }), vmState: 'indeterminate' as const },
+      // moderate
+      { data: makeData({ gapLabels: ['Cost'] }), vmState: 'sensitive' as const },
+      // reflect — bias findings present
+      { data: { ...makeData({ stability: 0.7 }), confidence: { ...makeData({ stability: 0.7 }).confidence, m2BiasFindings: [{ type: 'Anchoring', source: 't', description: 'Past spend in brief', affectedElements: [], linkedCritiqueCode: '' }] } } as ResultsSectionDataReturn, vmState: 'robust' as const },
+      // strong
+      { data: makeData({ stability: 0.9 }), vmState: 'robust' as const },
+    ]
+    for (const f of fixtures) {
+      const vm = buildAnalysisHeroViewModel({
+        data: f.data,
+        vm: { ...makeVm(), decisionState: f.vmState } as ResultsVM,
+        confirmedFactorCount: 0,
+        totalFactorCount: 5,
+        fragileEdgeCount: 0,
+      })
+      for (const s of vmStrings(vm)) {
+        expect(findBannedTerm(s), `state ${f.vmState}: "${s}"`).toBeNull()
+      }
+    }
+  })
+})
+
+// ── Layer 2: Post-interpolation rendered DOM ────────────────────────────────
+
+describe('AnalysisHeroV17 — glossary compliance (rendered DOM)', () => {
+  // The v17 hero composes the existing TriageActionCardsBody below its own
+  // top section. The body's content predates this brief and is OUT OF SCOPE
+  // here — the scan scopes itself to v17's own rendered subtrees so it does
+  // not flag pre-existing copy as a v17 regression.
+  const V17_OWN_TESTIDS = [
+    'hero-v17-strip',
+    'hero-v17-contribution',
+    'hero-v17-result-context',
+    'hero-v17-key-question',
+    'hero-v17-input-rows',
+    'hero-v17-footer',
+    'hero-v17-actions-toggle',
+    'hero-v17-actions-menu',
+  ] as const
+
+  it('rendered text content carries no banned term across rich fixture (v17 hero subtree only)', () => {
+    const { container } = render(
+      <AnalysisHeroV17
+        data={makeData({ gapLabels: ['Cost range', 'Time impact', 'Adoption'], fragileFromLabel: 'leadership capacity', fragileAltLabel: 'Two Developers', stability: 0.7 })}
+        vm={makeVm()}
+        fragileEdgeCount={1}
+      />,
+    )
+    const offenders: Array<{ scope: string; text: string; hit: string }> = []
+    for (const id of V17_OWN_TESTIDS) {
+      const root = container.querySelector(`[data-testid="${id}"]`)
+      if (!root) continue
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
+      let n: Node | null
+      while ((n = walker.nextNode())) {
+        const text = (n as Text).data
+        const hit = findBannedTerm(text)
+        if (hit) offenders.push({ scope: id, text, hit })
+      }
+    }
+    expect(offenders, offenders.length
+      ? offenders.map(o => `[${o.scope}] "${o.hit}" in "${o.text}"`).join('\n')
+      : '',
+    ).toEqual([])
+  })
+
+  it('rendered text never contains user-supplied banned label (label is title-only and never re-templated)', () => {
+    const { container } = render(
+      <AnalysisHeroV17
+        data={makeData({ gapLabels: ['the winning team'] })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+      />,
+    )
+    // The user's label appears verbatim in the row title — that's correct,
+    // we do not rewrite user data. But the templated key question must use
+    // the generic fallback ("this factor"), so a deeper text-content scan
+    // around the key-question card should not contain "the winning team".
+    const kq = container.querySelector('[data-testid="hero-v17-key-question-text"]')
+    if (kq) {
+      expect(kq.textContent).not.toContain('the winning team')
+    }
+  })
+})
+
+// ── Layer 3: Hard-coded source strings ──────────────────────────────────────
+
+describe('AnalysisHeroV17 — glossary compliance (source files)', () => {
+  function* walkSourceFiles(dir: string): Generator<string> {
+    for (const entry of readdirSync(dir)) {
+      const fullPath = join(dir, entry)
+      const stat = statSync(fullPath)
+      if (stat.isDirectory()) {
+        if (entry === '__tests__') continue
+        yield* walkSourceFiles(fullPath)
+      } else if (entry.endsWith('.tsx') || entry.endsWith('.ts')) {
+        yield fullPath
+      }
+    }
+  }
+
+  /**
+   * Extract user-facing string literals from a TS/TSX source file by
+   * matching:
+   *   - JSX text children (between > and <)
+   *   - Single-quoted, double-quoted, and template-literal strings
+   *
+   * Skip comments, import statements, console statements, log messages,
+   * type-name string literals, JSX attribute internal tokens (className,
+   * data-testid, aria-label keys, etc. — those are addressable separately
+   * if needed but typically internal).
+   *
+   * This is a pragmatic best-effort scanner — its goal is to catch
+   * regressions where a user-facing string ends up containing a banned
+   * term in source.
+   */
+  function extractCandidateStrings(source: string): string[] {
+    const out: string[] = []
+    // Remove single-line and block comments first.
+    const noComments = source
+      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/\/\/.*$/gm, ' ')
+    // Pull out double-quoted, single-quoted, and template-literal contents.
+    const literalRe = /'([^'\\]*(?:\\.[^'\\]*)*)'|"([^"\\]*(?:\\.[^"\\]*)*)"|`([^`\\]*(?:\\.[^`\\]*)*)`/g
+    let m: RegExpExecArray | null
+    while ((m = literalRe.exec(noComments))) {
+      out.push(m[1] ?? m[2] ?? m[3] ?? '')
+    }
+    // Plus JSX text — content between > and < that isn't whitespace-only.
+    const jsxTextRe = />([^<>{]+)</g
+    while ((m = jsxTextRe.exec(noComments))) {
+      const t = m[1].trim()
+      if (t) out.push(t)
+    }
+    return out
+  }
+
+  // Allow-list of strings that legitimately contain a banned term inside a
+  // non-user-facing context (CSS class fragments, data-testid suffixes,
+  // identifier names baked into a literal, etc.). Each entry must be
+  // self-evidently a non-user-facing occurrence.
+  const SOURCE_ALLOWLIST = [
+    // Internal banned-term list itself — appears in src/test/glossaryBannedTerms.ts.
+    /^recommend$/i, /^recommended$/i, /^recommendation$/i, /^winner$/i, /^winning$/i, /^best choice$/i,
+    /^wins$/i, /^win rate$/i, /^chance of winning$/i, /^probability of success$/i,
+    /^recommendation stability$/i, /^robustness score$/i, /^confidence score$/i,
+    /^elasticity$/i, /^factor sensitivity$/i, /^sensitivity score$/i, /^beta coefficient$/i,
+    /^exists probability$/i, /^belief exists$/i, /^epistemic uncertainty$/i,
+    /^strength mean$/i, /^b coefficient$/i, /^regression weight$/i,
+    /^EVPI$/i, /^expected value of perfect information$/i, /^VOI$/i, /^voi ranking$/i,
+    /^fragile edge$/i, /^switch probability$/i, /^marginal switch probability$/i,
+    /^stochastic$/i, /^random sampling$/i,
+    /^graph$/i, /^DAG$/i, /^SCM$/i, /^structural causal model$/i, /^nodes and edges$/i,
+    /^blocked$/i, /^cannot run$/i, /^fix issues$/i, /^fix issue$/i, /^required actions$/i, /^validation errors$/i,
+    /^you have a bias$/i, /^bias detected$/i, /^you are exhibiting$/i,
+    /^prior range$/i, /^posterior$/i, /^variance$/i,
+    /^headline_type$/i, /^observed state$/i, /^observed_state$/i, /^canonical_state$/i,
+    /^exists_probability$/i, /^voi$/i, /^attribution_stability$/i, /^rank_flip_rate$/i,
+    /^model_critiques$/i, /^strength_mean$/i, /^strength_std$/i, /^intervention$/i,
+    /^bootstrap$/i, /^perturbation$/i, /^ISL$/i, /^PLoT$/i, /^CEE$/i,
+    // Allow GLOSSARY_BANNED_TERMS identifier itself, and meta strings about
+    // the list (in HIGH_RISK_TERMS array literal inside buildAnalysisHeroViewModel.ts).
+    /^[a-z][a-z_]*$/i,  // bare identifier-shaped strings (e.g. action enum values).
+  ]
+
+  function isAllowedLiteral(literal: string): boolean {
+    return SOURCE_ALLOWLIST.some(re => re.test(literal))
+  }
+
+  it('no hard-coded user-facing string in v17 hero source files contains a banned term', () => {
+    const heroDir = join(__dirname, '..')
+    const componentFile = join(__dirname, '..', '..', 'AnalysisHeroV17.tsx')
+    const files: string[] = []
+    if (existsSync(heroDir)) files.push(...Array.from(walkSourceFiles(heroDir)))
+    if (existsSync(componentFile)) files.push(componentFile)
+
+    const offenders: Array<{ file: string; literal: string; hit: string }> = []
+    for (const file of files) {
+      // Skip test files themselves.
+      if (file.includes('__tests__')) continue
+      const src = readFileSync(file, 'utf8')
+      const literals = extractCandidateStrings(src)
+      for (const lit of literals) {
+        const hit = findBannedTerm(lit)
+        if (hit && !isAllowedLiteral(lit)) {
+          offenders.push({ file, literal: lit, hit })
+        }
+      }
+    }
+    expect(offenders, offenders.length
+      ? `Banned terms found in v17 hero source:\n` + offenders.map(o => `  ${o.file}\n    "${o.literal}" → ${o.hit}`).join('\n')
+      : '',
+    ).toEqual([])
+  })
+
+  it('GLOSSARY_BANNED_TERMS test asset is non-empty and contains canonical entries', () => {
+    expect(GLOSSARY_BANNED_TERMS.length).toBeGreaterThan(20)
+    expect(GLOSSARY_BANNED_TERMS).toContain('winner')
+    expect(GLOSSARY_BANNED_TERMS).toContain('graph')
+    expect(GLOSSARY_BANNED_TERMS).toContain('EVPI')
+  })
+})

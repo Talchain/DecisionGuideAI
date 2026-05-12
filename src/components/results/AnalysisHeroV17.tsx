@@ -23,7 +23,7 @@
 import { memo, useMemo, useState, type ReactNode } from 'react'
 import {
   Sparkles, MessageCircle, Pencil, Check as CheckIcon, Plus, Flag, FileText,
-  ChevronDown, ChevronRight, Check, X,
+  ChevronDown, Check, X,
 } from 'lucide-react'
 import { typography } from '@/styles/typography'
 import { useCanvasStore } from '@/canvas/store'
@@ -33,7 +33,6 @@ import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import type { ResultsVM } from './types'
 import { buildAnalysisHeroViewModel } from './analysisHeroV17/buildAnalysisHeroViewModel'
 import type {
-  AnalysisHeroVM,
   DimensionSegment,
   HeroRow,
   KeyQuestion,
