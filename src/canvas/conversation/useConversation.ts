@@ -2698,10 +2698,24 @@ export function useConversation(): UseConversationReturn {
             // between request and response, this response is stale and
             // must not regress V5 state. See applyV5State's top-of-
             // function invariant.
-            const stateApply = applyV5State(target.response, useCanvasStore.getState(), {
-              turnClientId,
-              currentClientTurnId: activeV5TurnIdRef.current,
-            })
+            // The full canvas store already satisfies the legacy V5ApplicatorStore
+            // surface (stage, graph_patch, runMeta, ceeAnalysisReady). Step 5
+            // (results hydration, 2026-05-12) reads `currentResultsHash` for
+            // dedupe — the store carries that value at `results.hash`, not at
+            // the top level, so we splice it in here rather than widening the
+            // store shape upstream.
+            const v5StoreSnapshot = useCanvasStore.getState()
+            const stateApply = applyV5State(
+              target.response,
+              {
+                ...v5StoreSnapshot,
+                currentResultsHash: v5StoreSnapshot.results?.hash ?? null,
+              },
+              {
+                turnClientId,
+                currentClientTurnId: activeV5TurnIdRef.current,
+              },
+            )
             if (import.meta.env.DEV) {
               if (stateApply.applied.length > 0) {
                 console.warn('[sendTurn V5] state applied:', stateApply.applied)

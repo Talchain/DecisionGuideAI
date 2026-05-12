@@ -12,7 +12,7 @@
  */
 
 export interface V5StateLogCtx {
-  step_number: 1 | 2 | 3 | 4
+  step_number: 1 | 2 | 3 | 4 | 5
   step_name: string
   /** Field names read from the V5 response at this step (never values). */
   input_keys: readonly string[]

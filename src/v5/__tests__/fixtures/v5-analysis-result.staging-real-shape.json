@@ -1,0 +1,246 @@
+{
+  "__source__": "Redacted from olumi-assistants-service-cee-ws1/tests/fixtures/cross-service/v5-turn.run-analysis.staging.json",
+  "__captured_at__": "2026-04-30T15:18:13.322Z",
+  "__captured_against__": "cee-staging.onrender.com / build 3bb151b",
+  "__notes__": "block.win_probabilities is keyed by option LABELS in real staging (not option_ids). enrichment.option_comparison provides the canonical option_id <-> option_label mapping. This fixture proves the mapper resolves label-keyed win_probabilities to id-keyed option_probabilities via option_comparison lookup.",
+  "response_version": 2,
+  "assistant_text": "Ran analysis on your current scenario.",
+  "blocks": [
+    {
+      "type": "analysis_result",
+      "summary": "Ran analysis on your current scenario.",
+      "leading_option_id": "opt_hire_local",
+      "win_probabilities": {
+        "Hire Two Senior Engineers Locally": 0.7193333333333334,
+        "Engage Offshore Partner": 0.054,
+        "Maintain Current Team (Status Quo)": 0.22533333333333333,
+        "Introduce Tiered Pricing for Gradual Hiring": 0.0013333333333333333
+      },
+      "enrichment": {
+        "option_comparison": [
+          {
+            "id": "opt_hire_local",
+            "option_id": "opt_hire_local",
+            "option_label": "Hire Two Senior Engineers Locally",
+            "win_probability": 0.7193333333333334,
+            "outcome": {
+              "mean": 0.23738816930471338,
+              "std": 0.2038227722573291,
+              "p10": -0.032343256259984,
+              "p50": 0.25567048396546965,
+              "p90": 0.4781610864397162,
+              "n_samples": 1000,
+              "n_valid_samples": 1000,
+              "validity_ratio": 1
+            }
+          },
+          {
+            "id": "opt_offshore",
+            "option_id": "opt_offshore",
+            "option_label": "Engage Offshore Partner",
+            "win_probability": 0.054,
+            "outcome": {
+              "mean": -0.018731465612763915,
+              "std": 0.23564911160953672,
+              "p10": -0.33661857408479445,
+              "p50": -0.008841477119347269,
+              "p90": 0.2731568353844233,
+              "n_samples": 1000,
+              "n_valid_samples": 1000,
+              "validity_ratio": 1
+            }
+          },
+          {
+            "id": "opt_status_quo",
+            "option_id": "opt_status_quo",
+            "option_label": "Maintain Current Team (Status Quo)",
+            "win_probability": 0.22533333333333333,
+            "outcome": {
+              "mean": 0.1532310946292253,
+              "std": 0.08239545291341459,
+              "p10": 0.0414029025062178,
+              "p50": 0.1600100924568532,
+              "p90": 0.25588875563055646,
+              "n_samples": 1000,
+              "n_valid_samples": 1000,
+              "validity_ratio": 1
+            }
+          },
+          {
+            "id": "opt_tiered_pricing",
+            "option_id": "opt_tiered_pricing",
+            "option_label": "Introduce Tiered Pricing for Gradual Hiring",
+            "win_probability": 0.0013333333333333333,
+            "outcome": {
+              "mean": 0.14956494518602742,
+              "std": 0.12261773920425771,
+              "p10": -0.014252341936082205,
+              "p50": 0.15983345417333378,
+              "p90": 0.2991353629850236,
+              "n_samples": 1000,
+              "n_valid_samples": 1000,
+              "validity_ratio": 1
+            }
+          }
+        ],
+        "factor_sensitivity": [
+          {
+            "factor_id": "fac_eng_capacity",
+            "factor_label": "Engineering Capacity",
+            "sensitivity_score": 0.43249999999999994,
+            "elasticity": 1,
+            "direction": "positive",
+            "importance_rank": 1
+          },
+          {
+            "factor_id": "fac_offshore",
+            "factor_label": "Offshore Engagement",
+            "sensitivity_score": -0.33599999999999997,
+            "elasticity": 0.7768786127167631,
+            "direction": "negative",
+            "importance_rank": 2
+          },
+          {
+            "factor_id": "fac_talent_market",
+            "factor_label": "Local Talent Market Tightness",
+            "sensitivity_score": -0.23249999999999998,
+            "elasticity": 0.5375722543352601,
+            "direction": "negative",
+            "importance_rank": 3
+          }
+        ],
+        "robustness": {
+          "fragile_edges": [
+            {
+              "edge_id": "fac_eng_capacity->out_delivery_throughput",
+              "from_id": "fac_eng_capacity",
+              "to_id": "out_delivery_throughput",
+              "switch_probability": 0.452,
+              "marginal_switch_probability": 0.09,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Engineering Capacity",
+              "to_label": "Q3 Roadmap Delivery Throughput",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            },
+            {
+              "edge_id": "out_delivery_throughput->goal_q3_delivery",
+              "from_id": "out_delivery_throughput",
+              "to_id": "goal_q3_delivery",
+              "switch_probability": 0.388,
+              "marginal_switch_probability": 0.09,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Q3 Roadmap Delivery Throughput",
+              "to_label": "Deliver Q3 Roadmap Commitments",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            },
+            {
+              "edge_id": "fac_hiring_cost->risk_cost_overrun",
+              "from_id": "fac_hiring_cost",
+              "to_id": "risk_cost_overrun",
+              "switch_probability": 0.084,
+              "marginal_switch_probability": 0,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Hiring and Staffing Cost",
+              "to_label": "Budget Overrun Risk",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            },
+            {
+              "edge_id": "risk_cost_overrun->goal_q3_delivery",
+              "from_id": "risk_cost_overrun",
+              "to_id": "goal_q3_delivery",
+              "switch_probability": 0.432,
+              "marginal_switch_probability": 0.16,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Budget Overrun Risk",
+              "to_label": "Deliver Q3 Roadmap Commitments",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            },
+            {
+              "edge_id": "out_team_quality->goal_q3_delivery",
+              "from_id": "out_team_quality",
+              "to_id": "goal_q3_delivery",
+              "switch_probability": 0.24,
+              "marginal_switch_probability": 0,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Team Capability and Code Quality",
+              "to_label": "Deliver Q3 Roadmap Commitments",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            },
+            {
+              "edge_id": "risk_onboarding_delay->goal_q3_delivery",
+              "from_id": "risk_onboarding_delay",
+              "to_id": "goal_q3_delivery",
+              "switch_probability": 0.288,
+              "marginal_switch_probability": 0,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Onboarding and Ramp-Up Delay",
+              "to_label": "Deliver Q3 Roadmap Commitments",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            },
+            {
+              "edge_id": "fac_eng_capacity->risk_onboarding_delay",
+              "from_id": "fac_eng_capacity",
+              "to_id": "risk_onboarding_delay",
+              "switch_probability": 0.16,
+              "marginal_switch_probability": 0,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Engineering Capacity",
+              "to_label": "Onboarding and Ramp-Up Delay",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            },
+            {
+              "edge_id": "fac_eng_capacity->out_team_quality",
+              "from_id": "fac_eng_capacity",
+              "to_id": "out_team_quality",
+              "switch_probability": 0.316,
+              "marginal_switch_probability": 0,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Engineering Capacity",
+              "to_label": "Team Capability and Code Quality",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            },
+            {
+              "edge_id": "risk_coordination->goal_q3_delivery",
+              "from_id": "risk_coordination",
+              "to_id": "goal_q3_delivery",
+              "switch_probability": 0.196,
+              "marginal_switch_probability": 0,
+              "alternative_winner_id": "opt_status_quo",
+              "from_label": "Offshore Coordination Failure",
+              "to_label": "Deliver Q3 Roadmap Commitments",
+              "severity": "warning",
+              "alternative_winner_label": "Maintain Current Team (Status Quo)"
+            }
+          ],
+          "robust_edges": [
+            {
+              "edge_id": "fac_offshore->out_delivery_throughput",
+              "from_id": "fac_offshore",
+              "to_id": "out_delivery_throughput",
+              "switch_probability": 1,
+              "from_label": "Offshore Engagement",
+              "to_label": "Q3 Roadmap Delivery Throughput",
+              "alternative_winner_id": null,
+              "alternative_winner_label": null
+            }
+          ],
+          "is_robust": true,
+          "level": "moderate",
+          "recommendation_stability": 0.7193333333333334,
+          "recommended_option_id": "opt_hire_local"
+        }
+      }
+    }
+  ],
+  "suggested_actions": [],
+  "insights": [],
+  "stage_indicator": "analyse"
+}
