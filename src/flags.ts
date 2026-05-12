@@ -285,12 +285,16 @@ const FLAGS_CONFIG = {
   },
   // Analysis hero v17: decision-strengthening hero on the post-analysis Analysis tab.
   // When ON, AnalysisHeroV17 renders INSTEAD OF DecisionConfidencePanel at the
-  // ResultsBody top-of-card render slot. Off by default everywhere; staging
-  // deploys set VITE_FEATURE_ANALYSIS_HERO_V17=1 at build time.
-  // See docs/brief-analysis-hero-v17-implementation.md.
+  // ResultsBody top-of-card render slot.
+  //
+  // `defaultValue: true` — staging-review default. Flip back to off-by-default
+  // (remove this line) before promoting to production if the v17 hero hasn't
+  // been approved for general release. localStorage / env-var overrides still
+  // work either way. See docs/brief-analysis-hero-v17-implementation.md.
   analysisHeroV17: {
     envKey: 'VITE_FEATURE_ANALYSIS_HERO_V17',
     storageKey: 'feature.analysisHeroV17',
+    defaultValue: true,
   },
   // Analysis hero v17 — opt-in comparison mode. When ON, BOTH the new hero
   // AND the existing DecisionConfidencePanel render (new hero above), for
