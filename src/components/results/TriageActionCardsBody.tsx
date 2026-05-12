@@ -53,6 +53,17 @@ interface TriageActionCardsBodyProps {
   onSendMessage?: (text: string) => void
   /** Brief 5.8B D2c: AI affordance rendered inside the T1 checks-footer MissingKnowledgePrompt. */
   aiAffordance?: ReactNode
+  /**
+   * When true, the EVPI-ranked triage queue, stability narrative, and
+   * `AlsoConsiderDisclosure` are suppressed — the v17 hero composes this
+   * body and renders its own `HeroInputRows` for the same data, so we
+   * must not duplicate the queue. The flip-risk callout, conditional
+   * scenarios, dominant nudge, and T1 checks footer all still render —
+   * those are contextual signals the v17 top section does not duplicate.
+   *
+   * Default: false (legacy DecisionConfidencePanel rendering — queue on).
+   */
+  suppressTriageQueue?: boolean
 }
 
 // ── Action item mapping ─────────────────────────────────────────────────────
@@ -474,6 +485,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
   nodeValueLookup,
   onSendMessage,
   aiAffordance,
+  suppressTriageQueue = false,
 }: TriageActionCardsBodyProps) {
   // Brief 5.8B D2b — strengthen overlay map. CEE coaching.strengthen_items
   // (sourced from the canvas store; persisted across pre→post analysis) are
@@ -553,8 +565,13 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
       )}
 
       {/* 3. Stability narrative + unified EVPI-ranked queue.
-          Card #1 gets the .ac.em info-bordered treatment. */}
-      {(top3.length > 0 || data.confidence.topEvidenceGapsEmpty) && (
+          Card #1 gets the .ac.em info-bordered treatment.
+          Suppressed when nested in AnalysisHeroV17 — that hero renders its
+          own HeroInputRows for the same `topEvidenceGaps`, so the queue
+          here would duplicate the surface. The other body blocks
+          (flip-risk, conditional scenarios, dominant nudge, T1 checks
+          footer) are contextual signals and stay rendered. */}
+      {!suppressTriageQueue && (top3.length > 0 || data.confidence.topEvidenceGapsEmpty) && (
         <div className="border-t border-panel-border pt-3 space-y-2">
           <StabilityNarrative
             itemCount={top3.length}

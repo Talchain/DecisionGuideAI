@@ -21,6 +21,31 @@
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { HeroRow, PriorityBand, RowAction, RowCategory, HeroState } from './analysisHeroVM.types'
 
+// ── Glossary-safe label interpolation ───────────────────────────────────────
+// Mirrors the same in-builder check used by buildAnalysisHeroViewModel.ts:
+// if a user-supplied label contains a banned term, generated copy uses a
+// generic fallback ("this factor", "the leading option") rather than
+// amplifying the banned text. The user's data is never rewritten — only
+// the GENERATED copy is sanitised. The broader test-side scanner lives at
+// src/test/glossaryBannedTerms.ts; production code mirrors a narrower
+// high-risk list to keep the gate local and fast.
+const ROW_HIGH_RISK_TERMS = [
+  'winner', 'winning', 'recommendation', 'recommended',
+  'graph', 'node', 'edge', 'edges', 'EVPI', 'VOI',
+  'elasticity', 'sensitivity score', 'exists probability',
+  'bias detected', 'cannot run', 'fix issue',
+]
+function rowContainsBannedTerm(text: string | null | undefined): boolean {
+  if (!text) return false
+  const lower = text.toLowerCase()
+  return ROW_HIGH_RISK_TERMS.some(t => lower.includes(t.toLowerCase()))
+}
+function safeRowLabel(raw: string | null | undefined, fallback: string): string {
+  if (!raw) return fallback
+  if (rowContainsBannedTerm(raw)) return fallback
+  return raw
+}
+
 /** VOI → priority band + bar width. Bands match investigation §11.1. */
 function bandFromVoi(voi: number | null | undefined): { band: PriorityBand; width: number } {
   if (voi == null || !Number.isFinite(voi)) return { band: 'Low', width: 30 }
@@ -58,9 +83,16 @@ function buildReason(
   return `${priorityLede}${ground}`.trim()
 }
 
-/** Single-row chat prefill — matches the v17 prototype template, glossary-safe. */
-function chatPromptFor(title: string): string {
-  return `Help me with ${title}. Ask one focused question first, then suggest the smallest useful update.`
+/**
+ * Single-row chat prefill — matches the v17 prototype template, glossary-safe.
+ * User-supplied labels that trip the scanner are swapped for a generic
+ * phrase BEFORE interpolation. The row's own `title` field still preserves
+ * the user's exact label — we do not rewrite user data, only the
+ * generated prompt that names it.
+ */
+function chatPromptFor(title: string, fallback = 'this factor'): string {
+  const safe = safeRowLabel(title, fallback)
+  return `Help me with ${safe}. Ask one focused question first, then suggest the smallest useful update.`
 }
 
 // ── Source-specific builders ────────────────────────────────────────────────
@@ -69,11 +101,13 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
   const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
   if (!fragile) return null
   const title = fragile.fromLabel
+  const safeFrom = safeRowLabel(fragile.fromLabel, 'a key factor')
+  const safeAlt = safeRowLabel(fragile.alternativeWinnerLabel ?? null, 'the next option')
   const { band, width } = bandFromVoi(0.6) // fragile edges are inherently high-priority
   const reason = buildReason(
     'risk',
     band,
-    `If ${fragile.fromLabel} shifts, ${fragile.alternativeWinnerLabel ?? 'the next option'} could come out ahead.`,
+    `If ${safeFrom} shifts, ${safeAlt} could come out ahead.`,
   )
   return {
     key: `risk-${fragile.fromId}`,
@@ -100,9 +134,13 @@ function evidenceGapRows(data: ResultsSectionDataReturn): HeroRow[] {
   return sorted.map(gap => {
     const targetId = gap.targetNodeId ?? gap.factorId
     const { band, width } = bandFromVoi(gap.voi)
-    const ground = gap.suggestion
+    // Suggestion may carry pre-existing upstream copy that contains a
+    // banned term (e.g. legacy "could change the recommendation"). Fall
+    // back to a clean generic ground rather than rendering it verbatim.
+    const fallbackGround = 'This factor influences the outcome. Check whether the current estimate matches your experience.'
+    const ground = gap.suggestion && !rowContainsBannedTerm(gap.suggestion)
       ? gap.suggestion
-      : `This factor influences the outcome. Check whether the current estimate matches your experience.`
+      : fallbackGround
     return {
       key: `evidence-${gap.factorId}`,
       title: gap.factorLabel,
@@ -141,17 +179,23 @@ function coverageRow(data: ResultsSectionDataReturn): HeroRow | null {
 
 function reflectRows(data: ResultsSectionDataReturn): HeroRow[] {
   const findings = data.confidence.m2BiasFindings ?? []
-  return findings.map((f, i) => ({
-    key: `reflect-${i}`,
-    title: f.type || 'Reflective check',
-    reason: buildReason('reflect', 'Medium', f.description ?? 'Worth considering whether this pattern is influencing the framing.'),
-    priority: 'Medium' as const,
-    priorityWidth: 60,
-    category: 'reflect' as const,
-    actions: actionsForCategory('reflect', false),
-    targetNodeId: undefined,
-    chatPrompt: chatPromptFor(f.type || 'reflective check'),
-  }))
+  return findings.map((f, i) => {
+    const rawTitle = f.type || 'Reflective check'
+    const safeReason = rowContainsBannedTerm(f.description)
+      ? 'Worth considering whether this pattern is influencing the framing.'
+      : (f.description ?? 'Worth considering whether this pattern is influencing the framing.')
+    return {
+      key: `reflect-${i}`,
+      title: rawTitle,
+      reason: buildReason('reflect', 'Medium', safeReason),
+      priority: 'Medium' as const,
+      priorityWidth: 60,
+      category: 'reflect' as const,
+      actions: actionsForCategory('reflect', false),
+      targetNodeId: undefined,
+      chatPrompt: chatPromptFor(rawTitle, 'this reflective check'),
+    }
+  })
 }
 
 function readyRow(): HeroRow {

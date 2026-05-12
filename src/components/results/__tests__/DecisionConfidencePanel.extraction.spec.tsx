@@ -254,4 +254,64 @@ describe('DecisionConfidencePanel — TriageActionCardsBody extraction regressio
       ]
     `)
   })
+
+  // ── Full rendered-HTML zero-diff snapshots ────────────────────────────────
+  // The testid-outline snapshots above lock structural identity. These full-
+  // HTML snapshots lock TEXT content, ATTRIBUTE values, tag hierarchy, and
+  // ARIA labels — catching drift the testid scan can miss (e.g. a copy
+  // change, a button label edit, an aria-label rename). Class attributes
+  // are stripped so cosmetic CSS evolution doesn't churn the snapshot — we
+  // are policing behaviour and content, not styling.
+  //
+  // Captured AFTER the extraction landed. The wider 61-test
+  // DecisionConfidencePanel suite (caveatGuarantee / completenessIntegration
+  // / heroD2a / hotfix5_8b / polishD4 / t1D2c / t1Structure / unifiedQueueD2b)
+  // covered the pre/post behavioural equivalence at extraction time; these
+  // snapshots are the forward regression guard.
+
+  function normaliseHtml(root: Element): string {
+    const clone = root.cloneNode(true) as Element
+    // Strip class and style attributes (cosmetic churn) and remove empty
+    // attribute artefacts so the snapshot remains readable.
+    clone.querySelectorAll('*').forEach(el => {
+      el.removeAttribute('class')
+      el.removeAttribute('style')
+    })
+    // Strip top-level too.
+    clone.removeAttribute('class')
+    clone.removeAttribute('style')
+    return clone.outerHTML
+  }
+
+  it('rich state: full rendered-HTML snapshot (zero-diff gate, classes stripped)', () => {
+    const { container } = render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)
+    const card = container.querySelector('[data-testid="t1-decision-confidence-card"]')
+    expect(card).toBeTruthy()
+    const html = normaliseHtml(card!)
+    expect(html).toMatchSnapshot()
+  })
+
+  it('sparse state: full rendered-HTML snapshot (zero-diff gate, classes stripped)', () => {
+    const { container } = render(
+      <DecisionConfidencePanel
+        data={makeData({ withFragile: false, withDominant: false, withGap: false })}
+        onSendMessage={() => {}}
+      />,
+    )
+    const card = container.querySelector('[data-testid="t1-decision-confidence-card"]')
+    expect(card).toBeTruthy()
+    const html = normaliseHtml(card!)
+    expect(html).toMatchSnapshot()
+  })
+
+  it('flag-off ResultsBody zero-diff: only DCP renders, no v17 hero leaks', () => {
+    // We do not render <ResultsBody> here (other tests cover that). This
+    // unit-level guard asserts that the extracted DCP, used standalone,
+    // does not emit any v17-marker testid. If a future refactor wired
+    // hero content into the DCP body, this would fail.
+    const { container } = render(<DecisionConfidencePanel data={makeData()} onSendMessage={() => {}} />)
+    expect(container.querySelector('[data-testid="analysis-hero-v17"]')).toBeNull()
+    expect(container.querySelector('[data-testid="analysis-hero-v17-card"]')).toBeNull()
+    expect(container.querySelector('[data-testid^="hero-v17-"]')).toBeNull()
+  })
 })
