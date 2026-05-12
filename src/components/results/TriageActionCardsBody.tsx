@@ -64,6 +64,15 @@ interface TriageActionCardsBodyProps {
    * Default: false (legacy DecisionConfidencePanel rendering — queue on).
    */
   suppressTriageQueue?: boolean
+  /**
+   * When true, body literals that are glossary-bannned in legacy form
+   * ("Winner" / "No winner") swap to glossary-compliant alternatives
+   * ("Has leading option" / "No clear leader"). Default false — legacy
+   * `DecisionConfidencePanel` rendering keeps its existing copy and
+   * tests untouched. AnalysisHeroV17 passes true so the v17 card is
+   * glossary-compliant end-to-end. (Per P1.2 review feedback.)
+   */
+  useV17Copy?: boolean
 }
 
 // ── Action item mapping ─────────────────────────────────────────────────────
@@ -315,9 +324,11 @@ function T1DominantNudge({
 function T1ChecksFooter({
   data,
   aiAffordance,
+  useV17Copy = false,
 }: {
   data: ResultsSectionDataReturn
   aiAffordance?: ReactNode
+  useV17Copy?: boolean
 }) {
   const hasWinner = !!data.recommendation.recommendedOption
   const stability = data.recommendation.recommendationStability
@@ -329,13 +340,18 @@ function T1ChecksFooter({
   const addressed = gaps.filter(g => typeof g.confidence === 'number' && g.confidence >= 50).length
   const total = gaps.length
 
+  // v17 mode uses glossary-compliant labels; legacy mode keeps the original
+  // copy so the eight pre-existing DCP spec files still pass.
+  const winnerOkLabel = useV17Copy ? 'Has leading option' : 'Winner'
+  const winnerNotOkLabel = useV17Copy ? 'No clear leader' : 'No winner'
+
   return (
     <div className="border-t border-panel-border pt-3" data-testid="t1-checks-footer">
       <div className={`flex items-center flex-wrap gap-x-3 gap-y-1 ${typography.panelMeta} text-text-light`}>
         <ChecksGlyph
           ok={hasWinner}
-          okLabel="Winner"
-          notOkLabel="No winner"
+          okLabel={winnerOkLabel}
+          notOkLabel={winnerNotOkLabel}
           dataTestid="checks-winner"
         />
         <ChecksGlyph
@@ -486,23 +502,30 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
   onSendMessage,
   aiAffordance,
   suppressTriageQueue = false,
+  useV17Copy = false,
 }: TriageActionCardsBodyProps) {
   // Brief 5.8B D2b — strengthen overlay map. CEE coaching.strengthen_items
   // (sourced from the canvas store; persisted across pre→post analysis) are
   // matched against post-analysis triage card titles via normalised exact
   // match (case-insensitive trim). Reuses the pre-analysis utility verbatim
-  // so the matching contract stays in lockstep.
+  // so the matching contract stays in lockstep. When the queue is
+  // suppressed (v17 mode), this work is skipped — no need to compute an
+  // overlay map for a queue that won't render.
   const draftCoachingStrengthenItems = useCanvasStore(s => s.draftCoaching?.strengthenItems ?? null)
   const strengthenOverlayMap = useMemo(
-    () => buildStrengthenOverlayMap(draftCoachingStrengthenItems),
-    [draftCoachingStrengthenItems],
+    () => (suppressTriageQueue ? null : buildStrengthenOverlayMap(draftCoachingStrengthenItems)),
+    [draftCoachingStrengthenItems, suppressTriageQueue],
   )
 
   // Brief 5.8B D2b — single EVPI-ranked queue. The earlier split (evidence
   // gaps under one header, next actions under another) is gone. Top 3 render
   // as one stack with the first item visually emphasised; remainder roll
   // under "Also consider".
+  //
+  // When the queue is suppressed (v17 mode), bail early — the mapping +
+  // sort + dedup is pure waste if the result never reaches the DOM.
   const allActions = useMemo(() => {
+    if (suppressTriageQueue) return []
     const gaps = mapEvidenceGapsToActions(data, onSetValue, nodeValueLookup)
     const next = mapNextActionsToCards(data)
     const merged = [...gaps, ...next].map(item =>
@@ -518,7 +541,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
     // highest-ranked occurrence survives. See `dedupTriageItems` for the rule
     // (targetNodeId first, normalised-title fallback).
     return dedupTriageItems(merged)
-  }, [data, onSetValue, nodeValueLookup, strengthenOverlayMap])
+  }, [data, onSetValue, nodeValueLookup, strengthenOverlayMap, suppressTriageQueue])
 
   const top3 = allActions.slice(0, 3)
   const quickFix = allActions.slice(3, 6)
@@ -641,7 +664,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
       />
 
       {/* 4. T1 checks footer — Brief 5.8B D2c step 3. */}
-      <T1ChecksFooter data={data} aiAffordance={aiAffordance} />
+      <T1ChecksFooter data={data} aiAffordance={aiAffordance} useV17Copy={useV17Copy} />
     </>
   )
 })

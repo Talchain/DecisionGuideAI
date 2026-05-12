@@ -24,6 +24,10 @@ import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { ResultsVM } from '../types'
 import { selectHeroState } from './stateSelection'
 import { rankHeroRows } from './rowRanking'
+// Single canonical glossary matcher — shared across the production hero
+// AND the test scanner so what production guards against == what tests
+// catch. (Per P1.1 review feedback.)
+import { containsBannedTerm, safeInterpolatedLabel as safeLabel } from './glossaryCheck'
 import type {
   AnalysisHeroVM,
   DimensionSegment,
@@ -35,34 +39,6 @@ import type {
   FooterCta,
   AlsoLink,
 } from './analysisHeroVM.types'
-
-// ── Lightweight production-side glossary check ──────────────────────────────
-// The comprehensive scanner lives in tests (src/test/glossaryBannedTerms.ts).
-// This in-builder check is narrower: it gates interpolated user-supplied
-// labels so banned terms cannot leak into generated copy. If a label fails,
-// the builder substitutes a generic phrase. The user's data is never
-// rewritten — only the generated copy is sanitised.
-//
-// Keep this list short on purpose. The broader test scanner enforces the
-// full glossary in src/test/glossaryBannedTerms.ts.
-const HIGH_RISK_TERMS = [
-  'winner', 'winning', 'recommendation', 'recommended',
-  'graph', 'node', 'edge', 'edges', 'EVPI', 'VOI',
-  'elasticity', 'sensitivity score', 'exists probability',
-  'bias detected', 'cannot run', 'fix issue',
-] as const
-
-function containsBannedTerm(text: string | null | undefined): boolean {
-  if (!text) return false
-  const lower = text.toLowerCase()
-  return HIGH_RISK_TERMS.some(t => lower.includes(t.toLowerCase()))
-}
-
-function safeLabel(raw: string | null | undefined, fallback: string): string {
-  if (!raw) return fallback
-  if (containsBannedTerm(raw)) return fallback
-  return raw
-}
 
 // ── Dimensions ──────────────────────────────────────────────────────────────
 //

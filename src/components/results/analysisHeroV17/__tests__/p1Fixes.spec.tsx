@@ -101,7 +101,7 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null })
   })
 
-  it('moderate CTA: when _prefillChat is null AND _sendMessage is available, NOTHING auto-sends', () => {
+  it('moderate CTA: when _prefillChat is null, the CTA renders disabled — no auto-send, no focus', () => {
     const sendSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: sendSpy })
     const focusSpy = vi.fn()
@@ -114,16 +114,38 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
         onFocusNode={focusSpy}
       />,
     )
-    fireEvent.click(screen.getByTestId('hero-v17-footer-cta'))
-
-    // Focus IS called (moderate CTA focuses the factor first).
-    expect(focusSpy).toHaveBeenCalledWith('n_c')
-    // But _sendMessage must NOT be called — prefill-only path means no
-    // auto-send fallback. Silent no-op is the safe behaviour.
+    const cta = screen.getByTestId('hero-v17-footer-cta') as HTMLButtonElement
+    // Per the "dead buttons" improvement: when chat-prefill is unavailable,
+    // the CTA renders disabled. Clicking does nothing — focus and send
+    // are both gated. UX is explicit (greyed out + tooltip) rather than
+    // silent no-op on a visually-active button.
+    expect(cta.disabled).toBe(true)
+    fireEvent.click(cta)
+    expect(focusSpy).not.toHaveBeenCalled()
     expect(sendSpy).not.toHaveBeenCalled()
   })
 
-  it('row AI action: when _prefillChat is null, does NOT auto-send via _sendMessage', () => {
+  it('moderate CTA: when _prefillChat IS available, focus runs THEN prefill (no auto-send)', () => {
+    const prefillSpy = vi.fn()
+    const sendSpy = vi.fn()
+    useGuidanceStore.setState({ _prefillChat: prefillSpy, _sendMessage: sendSpy })
+    const focusSpy = vi.fn()
+
+    render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.7, gaps: [gap('Cost', 'n_c', 0.5)] })}
+        vm={makeVm()}
+        fragileEdgeCount={0}
+        onFocusNode={focusSpy}
+      />,
+    )
+    fireEvent.click(screen.getByTestId('hero-v17-footer-cta'))
+    expect(focusSpy).toHaveBeenCalledWith('n_c')
+    expect(prefillSpy).toHaveBeenCalledTimes(1)
+    expect(sendSpy).not.toHaveBeenCalled()  // moderate never auto-sends
+  })
+
+  it('row AI action: when _prefillChat is null, button is disabled — click does NOT auto-send', () => {
     const sendSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: sendSpy })
 
@@ -135,11 +157,19 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
       />,
     )
     // First action icon on the first row is the AI button (Sparkles).
+    // When the IconBtn renders disabled, the aria-label sits on its
+    // wrapping <span> (for tooltip-fires-on-hover), not on the inner
+    // <button>. We look for the wrapper, then drill into the disabled
+    // button.
     const row = screen.getByTestId('hero-v17-input-rows').querySelector('article')
     expect(row).toBeTruthy()
-    const aiBtn = row!.querySelector('button[aria-label="Work through with AI"]')
+    const aiWrapper = row!.querySelector('[aria-label="Work through with AI"]')
+    expect(aiWrapper).toBeTruthy()
+    const aiBtn = aiWrapper!.querySelector('button') as HTMLButtonElement | null
+      ?? (aiWrapper as HTMLButtonElement) // when enabled, the <button> itself carries aria-label
     expect(aiBtn).toBeTruthy()
-    fireEvent.click(aiBtn!)
+    expect(aiBtn.disabled).toBe(true)
+    fireEvent.click(aiBtn)
     expect(sendSpy).not.toHaveBeenCalled()
   })
 

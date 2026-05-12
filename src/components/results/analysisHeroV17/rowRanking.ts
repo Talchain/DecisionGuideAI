@@ -20,31 +20,16 @@
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
 import type { HeroRow, PriorityBand, RowAction, RowCategory, HeroState } from './analysisHeroVM.types'
-
-// ── Glossary-safe label interpolation ───────────────────────────────────────
-// Mirrors the same in-builder check used by buildAnalysisHeroViewModel.ts:
-// if a user-supplied label contains a banned term, generated copy uses a
-// generic fallback ("this factor", "the leading option") rather than
-// amplifying the banned text. The user's data is never rewritten — only
-// the GENERATED copy is sanitised. The broader test-side scanner lives at
-// src/test/glossaryBannedTerms.ts; production code mirrors a narrower
-// high-risk list to keep the gate local and fast.
-const ROW_HIGH_RISK_TERMS = [
-  'winner', 'winning', 'recommendation', 'recommended',
-  'graph', 'node', 'edge', 'edges', 'EVPI', 'VOI',
-  'elasticity', 'sensitivity score', 'exists probability',
-  'bias detected', 'cannot run', 'fix issue',
-]
-function rowContainsBannedTerm(text: string | null | undefined): boolean {
-  if (!text) return false
-  const lower = text.toLowerCase()
-  return ROW_HIGH_RISK_TERMS.some(t => lower.includes(t.toLowerCase()))
-}
-function safeRowLabel(raw: string | null | undefined, fallback: string): string {
-  if (!raw) return fallback
-  if (rowContainsBannedTerm(raw)) return fallback
-  return raw
-}
+// Single canonical glossary matcher shared across production + test
+// scanner — see glossaryCheck.ts. Row builders sanitise generated copy
+// (chat prompts, reasons) against the same list the test scanner
+// enforces, so a banned term cannot ship undetected. Row TITLES still
+// preserve the user's verbatim label — only generated copy uses the
+// fallback. (Per P1.1 review feedback.)
+import {
+  containsBannedTerm as rowContainsBannedTerm,
+  safeInterpolatedLabel as safeRowLabel,
+} from './glossaryCheck'
 
 /** VOI → priority band + bar width. Bands match investigation §11.1. */
 function bandFromVoi(voi: number | null | undefined): { band: PriorityBand; width: number } {

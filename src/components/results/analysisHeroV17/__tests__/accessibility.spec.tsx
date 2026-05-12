@@ -14,9 +14,10 @@
  *   - When stability is null/NaN, no stability-band pill renders at all.
  */
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { AnalysisHeroV17 } from '../../AnalysisHeroV17'
+import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
 import type { ResultsVM } from '../../types'
 import type {
@@ -79,6 +80,14 @@ function gap(label: string, factorId: string, voi: number): EvidenceGapItem {
 // ── Accessibility ───────────────────────────────────────────────────────────
 
 describe('AnalysisHeroV17 — accessibility', () => {
+  // Set up chat-prefill availability so menu/CTA buttons render enabled.
+  // Without this, the "dead buttons" improvement would disable them and
+  // legitimate keyboard/menu tests would fail because the trigger can't
+  // open the menu.
+  beforeEach(() => {
+    useGuidanceStore.setState({ _prefillChat: () => {}, _sendMessage: () => {} })
+  })
+
   it('all icon buttons in the action row have an accessible name', () => {
     render(
       <AnalysisHeroV17

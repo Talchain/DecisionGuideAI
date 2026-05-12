@@ -19,9 +19,11 @@ interface HeroInputRowsProps {
     action: RowAction,
     payload: { chatPrompt: string; targetNodeId: string | undefined },
   ) => void
+  /** Forwarded to HeroActionRow so prefill-only icons render disabled when chat is unavailable. */
+  chatPrefillAvailable: boolean
 }
 
-export function HeroInputRows({ inputRows, hiddenRows, dispatchRowAction }: HeroInputRowsProps) {
+export function HeroInputRows({ inputRows, hiddenRows, dispatchRowAction, chatPrefillAvailable }: HeroInputRowsProps) {
   const [expanded, setExpanded] = useState(false)
   if (inputRows.length === 0 && hiddenRows.length === 0) return null
   return (
@@ -41,11 +43,11 @@ export function HeroInputRows({ inputRows, hiddenRows, dispatchRowAction }: Hero
         )}
       </div>
       <div className="flex flex-col">
-        {inputRows.map(row => <HeroInputRow key={row.key} row={row} dispatchRowAction={dispatchRowAction} />)}
+        {inputRows.map(row => <HeroInputRow key={row.key} row={row} dispatchRowAction={dispatchRowAction} chatPrefillAvailable={chatPrefillAvailable} />)}
       </div>
       {expanded && (
         <div className="flex flex-col" data-testid="hero-v17-hidden-rows">
-          {hiddenRows.map(row => <HeroInputRow key={row.key} row={row} dispatchRowAction={dispatchRowAction} />)}
+          {hiddenRows.map(row => <HeroInputRow key={row.key} row={row} dispatchRowAction={dispatchRowAction} chatPrefillAvailable={chatPrefillAvailable} />)}
         </div>
       )}
     </section>
@@ -55,9 +57,10 @@ export function HeroInputRows({ inputRows, hiddenRows, dispatchRowAction }: Hero
 interface HeroInputRowProps {
   row: HeroRow
   dispatchRowAction: HeroInputRowsProps['dispatchRowAction']
+  chatPrefillAvailable: boolean
 }
 
-function HeroInputRow({ row, dispatchRowAction }: HeroInputRowProps) {
+function HeroInputRow({ row, dispatchRowAction, chatPrefillAvailable }: HeroInputRowProps) {
   return (
     <article
       className={`px-2.5 py-2 border-b border-panel-border last:border-b-0 ${ROW_TINT_CLASS[row.category]}`}
@@ -82,6 +85,7 @@ function HeroInputRow({ row, dispatchRowAction }: HeroInputRowProps) {
           chatPrompt={row.chatPrompt}
           targetNodeId={row.targetNodeId}
           dispatchAction={dispatchRowAction}
+          chatPrefillAvailable={chatPrefillAvailable}
         />
       </div>
     </article>

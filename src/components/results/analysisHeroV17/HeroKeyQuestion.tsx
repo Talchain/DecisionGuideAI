@@ -14,9 +14,11 @@ import type { KeyQuestion } from './analysisHeroVM.types'
 interface Props {
   keyQuestion: KeyQuestion
   onPrefillChat: (text: string) => void
+  /** When false, the answer chips render as disabled. */
+  chatPrefillAvailable: boolean
 }
 
-export function HeroKeyQuestion({ keyQuestion, onPrefillChat }: Props) {
+export function HeroKeyQuestion({ keyQuestion, onPrefillChat, chatPrefillAvailable }: Props) {
   const [expanded, setExpanded] = useState(false)
   return (
     <section
@@ -53,7 +55,9 @@ export function HeroKeyQuestion({ keyQuestion, onPrefillChat }: Props) {
               key={chip}
               type="button"
               onClick={() => onPrefillChat(`${keyQuestion.text} My answer: ${chip}`)}
-              className={`px-2 py-0.5 rounded-full border border-panel-border bg-transparent ${typography.panelMeta} text-text-body hover:border-info hover:text-info focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+              disabled={!chatPrefillAvailable}
+              title={chatPrefillAvailable ? undefined : 'Open the chat panel to answer'}
+              className={`px-2 py-0.5 rounded-full border border-panel-border bg-transparent ${typography.panelMeta} text-text-body hover:border-info hover:text-info focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-panel-border disabled:hover:text-text-body`}
             >
               {chip}
             </button>

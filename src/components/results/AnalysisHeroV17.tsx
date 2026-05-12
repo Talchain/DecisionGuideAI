@@ -91,6 +91,13 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   })
   const totalFactorCount = useCanvasStore(s => s.nodes?.filter(isFactorNode).length ?? 0)
 
+  // Track chat-prefill availability. When the conversation panel is
+  // mounted, it registers `_prefillChat`; when unmounted/closed, the
+  // wire is null. Subscribing here re-renders subcomponents so prefill-
+  // dependent actions can render as disabled — visually clear rather
+  // than a dead-click no-op. (Per the "actions appear dead" improvement.)
+  const chatPrefillAvailable = useGuidanceStore(s => s._prefillChat !== null)
+
   const heroVm = useMemo(
     () => buildAnalysisHeroViewModel({
       data,
@@ -176,7 +183,7 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
               </p>
             )}
           </div>
-          <HeroActionsMenu onPrefillChat={prefillChat} />
+          <HeroActionsMenu onPrefillChat={prefillChat} chatPrefillAvailable={chatPrefillAvailable} />
         </header>
 
         <HeroResultContext
@@ -186,13 +193,18 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
         />
 
         {heroVm.keyQuestion && (
-          <HeroKeyQuestion keyQuestion={heroVm.keyQuestion} onPrefillChat={prefillChat} />
+          <HeroKeyQuestion
+            keyQuestion={heroVm.keyQuestion}
+            onPrefillChat={prefillChat}
+            chatPrefillAvailable={chatPrefillAvailable}
+          />
         )}
 
         <HeroInputRows
           inputRows={heroVm.inputRows}
           hiddenRows={heroVm.hiddenRows}
           dispatchRowAction={dispatchRowAction}
+          chatPrefillAvailable={chatPrefillAvailable}
         />
 
         <HeroFooter
@@ -202,6 +214,7 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
           footerCta={heroVm.footerCta}
           onAlsoClick={handleAlsoClick}
           onCtaClick={handleCtaClick}
+          chatPrefillAvailable={chatPrefillAvailable}
         />
 
         {/* Action-card body — same component DecisionConfidencePanel uses.
@@ -222,6 +235,7 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
           onSendMessage={onSendMessage}
           aiAffordance={aiAffordance}
           suppressTriageQueue
+          useV17Copy
         />
       </div>
     </div>

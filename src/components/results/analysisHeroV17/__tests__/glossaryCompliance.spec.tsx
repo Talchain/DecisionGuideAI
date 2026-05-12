@@ -16,7 +16,11 @@ import { describe, it, expect } from 'vitest'
 import { readFileSync, existsSync, readdirSync, statSync } from 'fs'
 import { join } from 'path'
 import { render } from '@testing-library/react'
-import { findBannedTerm, GLOSSARY_BANNED_TERMS } from '../../../../test/glossaryBannedTerms'
+import {
+  findBannedTerm,
+  GLOSSARY_BANNED_TERMS,
+  HARD_CODED_SOURCE_ALLOWLIST,
+} from '../../../../test/glossaryBannedTerms'
 import { buildAnalysisHeroViewModel } from '../buildAnalysisHeroViewModel'
 import { AnalysisHeroV17 } from '../../AnalysisHeroV17'
 import type { ResultsSectionDataReturn } from '../../useResultsSectionData'
@@ -315,36 +319,16 @@ describe('AnalysisHeroV17 — glossary compliance (source files)', () => {
     return out
   }
 
-  // Allow-list of strings that legitimately contain a banned term inside a
-  // non-user-facing context (CSS class fragments, data-testid suffixes,
-  // identifier names baked into a literal, etc.). Each entry must be
-  // self-evidently a non-user-facing occurrence.
-  const SOURCE_ALLOWLIST = [
-    // Internal banned-term list itself — appears in src/test/glossaryBannedTerms.ts.
-    /^recommend$/i, /^recommended$/i, /^recommendation$/i, /^winner$/i, /^winning$/i, /^best choice$/i,
-    /^wins$/i, /^win rate$/i, /^chance of winning$/i, /^probability of success$/i,
-    /^recommendation stability$/i, /^robustness score$/i, /^confidence score$/i,
-    /^elasticity$/i, /^factor sensitivity$/i, /^sensitivity score$/i, /^beta coefficient$/i,
-    /^exists probability$/i, /^belief exists$/i, /^epistemic uncertainty$/i,
-    /^strength mean$/i, /^b coefficient$/i, /^regression weight$/i,
-    /^EVPI$/i, /^expected value of perfect information$/i, /^VOI$/i, /^voi ranking$/i,
-    /^fragile edge$/i, /^switch probability$/i, /^marginal switch probability$/i,
-    /^stochastic$/i, /^random sampling$/i,
-    /^graph$/i, /^DAG$/i, /^SCM$/i, /^structural causal model$/i, /^nodes and edges$/i,
-    /^blocked$/i, /^cannot run$/i, /^fix issues$/i, /^fix issue$/i, /^required actions$/i, /^validation errors$/i,
-    /^you have a bias$/i, /^bias detected$/i, /^you are exhibiting$/i,
-    /^prior range$/i, /^posterior$/i, /^variance$/i,
-    /^headline_type$/i, /^observed state$/i, /^observed_state$/i, /^canonical_state$/i,
-    /^exists_probability$/i, /^voi$/i, /^attribution_stability$/i, /^rank_flip_rate$/i,
-    /^model_critiques$/i, /^strength_mean$/i, /^strength_std$/i, /^intervention$/i,
-    /^bootstrap$/i, /^perturbation$/i, /^ISL$/i, /^PLoT$/i, /^CEE$/i,
-    // Allow GLOSSARY_BANNED_TERMS identifier itself, and meta strings about
-    // the list (in HIGH_RISK_TERMS array literal inside buildAnalysisHeroViewModel.ts).
-    /^[a-z][a-z_]*$/i,  // bare identifier-shaped strings (e.g. action enum values).
-  ]
-
+  // Allow-list of EXPLICIT identifier patterns that legitimately appear
+  // in v17 hero source as non-user-facing string literals (TypeScript
+  // discriminator values, action enum strings, etc.). The list lives in
+  // src/test/glossaryBannedTerms.ts so additions require deliberate
+  // review. The earlier bare-identifier catchall `/^[a-z][a-z_]*$/i` was
+  // removed because it would have masked a future exact banned literal
+  // added as a user-facing string. (Per P1 "Improvement: tighten
+  // allowlist" review feedback.)
   function isAllowedLiteral(literal: string): boolean {
-    return SOURCE_ALLOWLIST.some(re => re.test(literal))
+    return HARD_CODED_SOURCE_ALLOWLIST.some(re => re.test(literal))
   }
 
   it('no hard-coded user-facing string in v17 hero source files contains a banned term', () => {
@@ -356,8 +340,11 @@ describe('AnalysisHeroV17 — glossary compliance (source files)', () => {
 
     const offenders: Array<{ file: string; literal: string; hit: string }> = []
     for (const file of files) {
-      // Skip test files themselves.
+      // Skip test files themselves, and skip the glossaryCheck source —
+      // it IS the canonical banned-term list, so by construction it
+      // contains every banned term as data.
       if (file.includes('__tests__')) continue
+      if (file.endsWith('/glossaryCheck.ts')) continue
       const src = readFileSync(file, 'utf8')
       const literals = extractCandidateStrings(src)
       for (const lit of literals) {
@@ -378,5 +365,123 @@ describe('AnalysisHeroV17 — glossary compliance (source files)', () => {
     expect(GLOSSARY_BANNED_TERMS).toContain('winner')
     expect(GLOSSARY_BANNED_TERMS).toContain('graph')
     expect(GLOSSARY_BANNED_TERMS).toContain('EVPI')
+  })
+})
+
+// ── Layer 4: Comprehensive iteration — every banned term as a user label ────
+
+/**
+ * Per the P1.1 review feedback: production fallback must cover every term
+ * in the canonical list. This test sweeps the entire `GLOSSARY_BANNED_TERMS`
+ * list, substituting each one as a user-supplied factor label, and asserts
+ * that nothing the VM builder generates (chat prompts, key-question text,
+ * reason copy) amplifies the banned term. The row TITLE field is allowed
+ * to carry the user's verbatim label — we never rewrite user data.
+ */
+describe('AnalysisHeroV17 — comprehensive banned-term sweep through user labels', () => {
+  /**
+   * Returns every string field the VM emits — except `inputRows[].title`
+   * and `hiddenRows[].title`, which legitimately preserve user labels.
+   */
+  function generatedCopyOnly(vm: ReturnType<typeof import('../buildAnalysisHeroViewModel').buildAnalysisHeroViewModel>): string[] {
+    const acc: string[] = []
+    if (vm.checkedCount) acc.push(vm.checkedCount)
+    if (vm.contribution.text) acc.push(vm.contribution.text)
+    acc.push(vm.resultLine)
+    if (vm.reasonLine) acc.push(vm.reasonLine)
+    vm.metaPills.forEach(p => acc.push(p.label))
+    if (vm.keyQuestion) {
+      acc.push(vm.keyQuestion.text)
+      acc.push(...vm.keyQuestion.extras)
+      acc.push(...vm.keyQuestion.chips)
+    }
+    // Skip row.title (user label preserved). Scan reason + chatPrompt only.
+    for (const r of [...vm.inputRows, ...vm.hiddenRows]) {
+      acc.push(r.reason, r.priority, r.chatPrompt)
+    }
+    vm.alsoLinks.forEach(a => { acc.push(a.label); acc.push(a.chatPrompt) })
+    vm.footerChecks.forEach(c => acc.push(c.label))
+    acc.push(vm.footerHint, vm.footerCta.label, vm.footerCta.chatPrompt)
+    return acc
+  }
+
+  it.each(GLOSSARY_BANNED_TERMS as readonly string[])(
+    'banned term "%s" never amplified into generated copy when used as a factor label',
+    (term) => {
+      // Insert the banned term inside a realistic factor label, then build
+      // a VM that has this row at rank 1 (so the key question + footer CTA
+      // template would interpolate it if the production gate failed).
+      const factorLabel = `${term} as a factor`
+      const data = makeData({ gapLabels: [factorLabel] })
+      const vm = buildAnalysisHeroViewModel({
+        data,
+        vm: makeVm(),
+        confirmedFactorCount: 0,
+        totalFactorCount: 5,
+        fragileEdgeCount: 0,
+      })
+
+      // Row title preserves the user's label verbatim — we never rewrite
+      // user data. That's intentional.
+      expect(vm.inputRows[0].title).toBe(factorLabel)
+
+      // But every piece of GENERATED copy must be clean of the banned term.
+      const offenders: Array<{ field: string; text: string }> = []
+      for (const line of generatedCopyOnly(vm)) {
+        const hit = findBannedTerm(line)
+        if (hit) offenders.push({ field: hit, text: line })
+      }
+      expect(offenders, offenders.length
+        ? `Banned term "${term}" leaked into generated copy:\n` + offenders.map(o => `  ${o.field}: "${o.text}"`).join('\n')
+        : '',
+      ).toEqual([])
+    },
+  )
+
+  it('fragile-edge fromLabel sweep: every banned term substituted as the fragile factor name is also gated', () => {
+    const offenders: Array<{ term: string; text: string }> = []
+    for (const term of GLOSSARY_BANNED_TERMS as readonly string[]) {
+      const fromLabel = `the ${term} factor`
+      const data = makeData({ fragileFromLabel: fromLabel })
+      const vm = buildAnalysisHeroViewModel({
+        data,
+        vm: makeVm(),
+        confirmedFactorCount: 0,
+        totalFactorCount: 5,
+        fragileEdgeCount: 1,
+      })
+      // Reason line interpolates `fromLabel` only via safeInterpolatedLabel.
+      if (vm.reasonLine) {
+        const hit = findBannedTerm(vm.reasonLine)
+        if (hit) offenders.push({ term, text: vm.reasonLine })
+      }
+    }
+    expect(offenders, offenders.length
+      ? `Banned terms leaked via fragile fromLabel:\n` + offenders.map(o => `  [${o.term}] "${o.text}"`).join('\n')
+      : '',
+    ).toEqual([])
+  })
+
+  it('row chatPrompt sweep: every banned term substituted as a row title is gated', () => {
+    const offenders: Array<{ term: string; prompt: string }> = []
+    for (const term of GLOSSARY_BANNED_TERMS as readonly string[]) {
+      const factorLabel = `the ${term} factor`
+      const data = makeData({ gapLabels: [factorLabel] })
+      const vm = buildAnalysisHeroViewModel({
+        data,
+        vm: makeVm(),
+        confirmedFactorCount: 0,
+        totalFactorCount: 5,
+        fragileEdgeCount: 0,
+      })
+      const row = vm.inputRows[0]
+      if (!row) continue
+      const hit = findBannedTerm(row.chatPrompt)
+      if (hit) offenders.push({ term, prompt: row.chatPrompt })
+    }
+    expect(offenders, offenders.length
+      ? `Row chatPrompts leaked banned terms:\n` + offenders.map(o => `  [${o.term}] "${o.prompt}"`).join('\n')
+      : '',
+    ).toEqual([])
   })
 })

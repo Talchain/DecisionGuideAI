@@ -11,6 +11,8 @@ import { typography } from '@/styles/typography'
 
 interface Props {
   onPrefillChat: (text: string) => void
+  /** When false, the menu trigger renders as disabled — all items prefill. */
+  chatPrefillAvailable: boolean
 }
 
 const MENU_ITEMS: Array<{ label: string; prompt: string }> = [
@@ -26,7 +28,7 @@ const MENU_ITEMS: Array<{ label: string; prompt: string }> = [
   { label: 'Use the outside view', prompt: 'Ask what comparable decisions I know, then help me reason from base rates.' },
 ]
 
-export function HeroActionsMenu({ onPrefillChat }: Props) {
+export function HeroActionsMenu({ onPrefillChat, chatPrefillAvailable }: Props) {
   const [open, setOpen] = useState(false)
   return (
     <div className="relative flex-shrink-0">
@@ -35,7 +37,9 @@ export function HeroActionsMenu({ onPrefillChat }: Props) {
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-panel-border bg-panel hover:bg-panel-hover ${typography.panelMeta} text-text-body cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
+        disabled={!chatPrefillAvailable}
+        title={chatPrefillAvailable ? undefined : 'Open the chat panel to use Actions'}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-panel-border bg-panel hover:bg-panel-hover ${typography.panelMeta} text-text-body cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-panel`}
         data-testid="hero-v17-actions-toggle"
       >
         Actions
