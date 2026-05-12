@@ -4,6 +4,7 @@ import { Suspense, lazy, Component, ReactNode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { initVersionCache } from './lib/version-cache';
 import { preloadPrompts } from './lib/prompt-preloader';
+import { bootAnalysisHeroCompareFromUrl } from './components/results/analysisHeroV17/comparisonFlagBoot';
 
 declare global {
   interface Window {
@@ -153,6 +154,11 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
 (function boot() {
   try {
     log('boot:start', { href: location.href, token: ENTRY_PROOF_TOKEN });
+
+    // Analysis hero v17 — read ?analysisHeroCompare=1|0 from URL once and
+    // persist to the standard flag-factory localStorage key. No per-render
+    // URL parsing. See docs/brief-analysis-hero-v17-implementation.md §3 step 9.
+    bootAnalysisHeroCompareFromUrl();
 
     const rootEl = document.getElementById('root');
     if (!rootEl) throw new Error('#root not found');

@@ -283,6 +283,24 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_DETERMINISTIC_CEE',
     storageKey: 'feature.deterministicCee',
   },
+  // Analysis hero v17: decision-strengthening hero on the post-analysis Analysis tab.
+  // When ON, AnalysisHeroV17 renders INSTEAD OF DecisionConfidencePanel at the
+  // ResultsBody top-of-card render slot. Off by default everywhere; staging
+  // deploys set VITE_FEATURE_ANALYSIS_HERO_V17=1 at build time.
+  // See docs/brief-analysis-hero-v17-implementation.md.
+  analysisHeroV17: {
+    envKey: 'VITE_FEATURE_ANALYSIS_HERO_V17',
+    storageKey: 'feature.analysisHeroV17',
+  },
+  // Analysis hero v17 — opt-in comparison mode. When ON, BOTH the new hero
+  // AND the existing DecisionConfidencePanel render (new hero above), for
+  // internal visual review only. Never default-on. Bootable via the URL
+  // param `?analysisHeroCompare=1` (and clearable with `=0`) — see the
+  // boot-step in src/main.tsx.
+  analysisHeroCompare: {
+    envKey: 'VITE_FEATURE_ANALYSIS_HERO_COMPARE',
+    storageKey: 'feature.analysisHeroCompare',
+  },
 } as const
 
 // ============================================================================
@@ -345,6 +363,8 @@ const flags = {
   graphLens: makeFlag(FLAGS_CONFIG.graphLens),
   orchestratorRenderingV2: makeFlag(FLAGS_CONFIG.orchestratorRenderingV2),
   deterministicCee: makeFlag(FLAGS_CONFIG.deterministicCee),
+  analysisHeroV17: makeFlag(FLAGS_CONFIG.analysisHeroV17),
+  analysisHeroCompare: makeFlag(FLAGS_CONFIG.analysisHeroCompare),
 }
 
 // Export with original naming convention for backward compatibility
@@ -403,6 +423,8 @@ export const isCrossHighlightEnabled = flags.crossHighlight
 export const isGraphLensEnabled = flags.graphLens
 export const isOrchestratorRenderingV2Enabled = flags.orchestratorRenderingV2
 export const isDeterministicCeeEnabled = flags.deterministicCee
+export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
+export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
 
 
 // ============================================================================

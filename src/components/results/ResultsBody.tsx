@@ -25,6 +25,8 @@ import { StressTestSection } from './StressTestSection'
 import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBoundary'
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
+import { AnalysisHeroV17 } from './AnalysisHeroV17'
+import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
   edgeId: string
@@ -160,28 +162,65 @@ export const ResultsBody = memo(function ResultsBody({
 // Phase 2.3: Cross-highlight — flash an option card when a GraphLink references it
   const optionCardRefs = useRef<Map<string, HTMLDivElement>>(new Map())
 
+  // Analysis hero v17 — flag-gated substitution. When `analysisHeroV17` is on,
+  // AnalysisHeroV17 renders INSTEAD OF DecisionConfidencePanel. When
+  // `analysisHeroCompare` is on (regardless of v17), BOTH render with v17 above
+  // — opt-in comparison mode for internal review only.
+  // See docs/brief-analysis-hero-v17-implementation.md §3 step 10.
+  const showV17 = isAnalysisHeroV17Enabled()
+  const showCompare = isAnalysisHeroCompareEnabled()
+
+  const aiAffordance = (
+    <DiscussWithAiButton
+      element={{ kind: 'missing' }}
+      ariaLabel="Tell AI about something missing from the results"
+    />
+  )
+
+  const heroV17Element = (
+    <AnalysisHeroV17
+      data={resultsSectionData}
+      vm={vm}
+      fragileEdgeCount={fragileEdgeCount}
+      onFocusNode={onFocusNode}
+      verifiedCount={verifiedCount}
+      influenceCoverage={influenceCoverage}
+      onConfirm={staleOnConfirmFactor}
+      onSetValue={staleOnSetFactorValue}
+      expertMode={expertMode}
+      nodeValueLookup={nodeValueLookup}
+      onSendMessage={onSendMessage}
+      aiAffordance={aiAffordance}
+    />
+  )
+
+  const decisionConfidenceElement = (
+    <DecisionConfidencePanel
+      data={resultsSectionData}
+      onFocusNode={onFocusNode}
+      verifiedCount={verifiedCount}
+      influenceCoverage={influenceCoverage}
+      onConfirm={staleOnConfirmFactor}
+      onSetValue={staleOnSetFactorValue}
+      expertMode={expertMode}
+      nodeValueLookup={nodeValueLookup}
+      onSendMessage={onSendMessage}
+      aiAffordance={aiAffordance}
+    />
+  )
+
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
+      {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
+      {showCompare && (
+        <SectionErrorBoundary section="Analysis hero v17">
+          {heroV17Element}
+        </SectionErrorBoundary>
+      )}
       <SectionErrorBoundary section="Decision confidence">
-        <DecisionConfidencePanel
-          data={resultsSectionData}
-          onFocusNode={onFocusNode}
-          verifiedCount={verifiedCount}
-          influenceCoverage={influenceCoverage}
-          onConfirm={staleOnConfirmFactor}
-          onSetValue={staleOnSetFactorValue}
-          expertMode={expertMode}
-          nodeValueLookup={nodeValueLookup}
-          onSendMessage={onSendMessage}
-          aiAffordance={
-            <DiscussWithAiButton
-              element={{ kind: 'missing' }}
-              ariaLabel="Tell AI about something missing from the results"
-            />
-          }
-        />
+        {showV17 && !showCompare ? heroV17Element : decisionConfidenceElement}
       </SectionErrorBoundary>
 
       {/* Old RecommendationSection/HeroSection suppressed — triage panel replaces it */}
