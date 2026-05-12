@@ -15,6 +15,7 @@
  */
 
 import { memo, useMemo, type ReactNode } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { typography } from '@/styles/typography'
 import { useCanvasStore } from '@/canvas/store'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
@@ -79,32 +80,45 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   onSendMessage,
   aiAffordance,
 }: AnalysisHeroV17Props) {
-  // Provenance-grounded inputs: factor count + confirmed-factor count from
-  // the canvas store. Verified bar uses these per investigation §5.3 +
-  // brief §3 step 9. The pre-analysis `verifiedCount` prop is a separate
-  // signal (pre-analysis verifications) and is deliberately not used here.
-  const confirmedFactorCount = useCanvasStore(s => {
-    if (!s.confirmedNodeIds || !s.nodes) return 0
-    const factorIds = new Set(s.nodes.filter(isFactorNode).map(n => n.id))
-    let count = 0
-    s.confirmedNodeIds.forEach(id => { if (factorIds.has(id)) count += 1 })
-    return count
-  })
-  const totalFactorCount = useCanvasStore(s => s.nodes?.filter(isFactorNode).length ?? 0)
+  // Single canvas-store subscription covering every signal we need.
+  // Iterates `nodes` exactly once per change and returns a primitive
+  // record so `useShallow` re-renders the hero only when one of the
+  // values actually changes — not on every unrelated canvas state shift.
+  // (Performance fix: replaces 5 separate useCanvasStore subscriptions
+  // that each re-evaluated independently and re-filtered s.nodes.)
+  const canvasDerived = useCanvasStore(useShallow(s => {
+    const nodes = s.nodes ?? []
+    const factorIds = new Set<string>()
+    let hasGoal = false
+    let riskCount = 0
+    for (const n of nodes) {
+      if (isFactorNode(n)) factorIds.add(n.id)
+      else if (isGoalNode(n)) hasGoal = true
+      else if (isRiskNode(n)) riskCount += 1
+    }
+    let confirmedFactorCount = 0
+    if (s.confirmedNodeIds) {
+      s.confirmedNodeIds.forEach(id => { if (factorIds.has(id)) confirmedFactorCount += 1 })
+    }
+    return {
+      confirmedFactorCount,
+      totalFactorCount: factorIds.size,
+      hasGoalNode: hasGoal,
+      edgeCount: s.edges?.length ?? 0,
+      riskCount,
+    }
+  }))
+  const { confirmedFactorCount, totalFactorCount, hasGoalNode, edgeCount, riskCount } = canvasDerived
 
-  // Structural signals for the Structure + Coverage bars (P1.1). Each
-  // signal is a direct presence check on canvas state or recommendation
-  // data — no invented numbers. See canvasSignals.ts for the derivation
-  // rationale (equal-weight composite over four boolean signals each).
-  const hasGoalNode = useCanvasStore(s => (s.nodes ?? []).some(isGoalNode))
-  const factorCount = totalFactorCount
-  const edgeCount = useCanvasStore(s => s.edges?.length ?? 0)
-  const riskCount = useCanvasStore(s => s.nodes?.filter(isRiskNode).length ?? 0)
-  const optionCount = data.recommendation.allOptions.length
-  const hasBaseline = !!data.recommendation.baselineId
+  // Recommendation-derived signals. Defensive against bundles that lack
+  // a recommendation slice — render the hero in its empty state rather
+  // than crashing the SectionErrorBoundary.
+  const recommendation = data?.recommendation
+  const optionCount = recommendation?.allOptions?.length ?? 0
+  const hasBaseline = !!recommendation?.baselineId
   const hasGoalThreshold =
-    typeof data.recommendation.goalThreshold === 'number'
-    && Number.isFinite(data.recommendation.goalThreshold)
+    typeof recommendation?.goalThreshold === 'number'
+    && Number.isFinite(recommendation.goalThreshold)
 
   // Track chat-prefill availability. When the conversation panel is
   // mounted, it registers `_prefillChat`; when unmounted/closed, the
@@ -123,7 +137,7 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
       structureSignals: {
         hasGoal: hasGoalNode,
         hasMultipleOptions: optionCount >= 2,
-        hasFactors: factorCount > 0,
+        hasFactors: totalFactorCount > 0,
         hasConnections: edgeCount > 0,
       },
       coverageSignals: {
@@ -135,7 +149,7 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
     }),
     [
       data, vm, confirmedFactorCount, totalFactorCount, fragileEdgeCount,
-      hasGoalNode, optionCount, factorCount, edgeCount, riskCount,
+      hasGoalNode, optionCount, edgeCount, riskCount,
       hasBaseline, hasGoalThreshold,
     ],
   )

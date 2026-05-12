@@ -172,6 +172,34 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.footerCta.kind).toBe('create-decision-brief')
       expect(vm.keyQuestion).toBeNull()
     })
+
+    it('defensive: undefined data does not crash — renders empty-state VM', () => {
+      // Bundles in flight / error states may omit `data.recommendation` or
+      // `data.confidence`. The VM builder must not throw — the
+      // SectionErrorBoundary fallback is worse UX than a hero in its
+      // empty state.
+      expect(() => buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: undefined as unknown as ResultsSectionDataReturn,
+        vm: undefined as unknown as ResultsVM,
+      })).not.toThrow()
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: undefined as unknown as ResultsSectionDataReturn,
+        vm: undefined as unknown as ResultsVM,
+      })
+      expect(vm.state).toBe('weak')
+      expect(vm.resultLine).toBe('No option currently leads clearly.')
+      expect(vm.reasonLine).toBeNull()
+    })
+
+    it('defensive: data with no recommendation slice does not crash', () => {
+      expect(() => buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: { confidence: makeData().confidence } as ResultsSectionDataReturn,
+        vm: makeVm(),
+      })).not.toThrow()
+    })
   })
 
   describe('dimensions', () => {

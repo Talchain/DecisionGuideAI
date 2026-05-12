@@ -83,7 +83,7 @@ function chatPromptFor(title: string, fallback = 'this factor'): string {
 // ── Source-specific builders ────────────────────────────────────────────────
 
 function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
-  const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
+  const fragile = data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
   if (!fragile) return null
   const title = fragile.fromLabel
   const safeFrom = safeRowLabel(fragile.fromLabel, 'a key factor')
@@ -108,7 +108,7 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
 }
 
 function evidenceGapRows(data: ResultsSectionDataReturn): HeroRow[] {
-  const gaps = data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []
+  const gaps = data?.confidence?.topEvidenceGaps ?? data?.confidence?.evidenceGaps ?? []
   // Sort by VOI desc (deterministic; alphabetical tie-break).
   const sorted = [...gaps].sort((a, b) => {
     const aVoi = a.voi ?? -1
@@ -141,7 +141,7 @@ function evidenceGapRows(data: ResultsSectionDataReturn): HeroRow[] {
 }
 
 function coverageRow(data: ResultsSectionDataReturn): HeroRow | null {
-  const optionCount = data.recommendation.allOptions.length
+  const optionCount = data?.recommendation?.allOptions?.length ?? 0
   if (optionCount >= 2) return null
   // Single-option model: coverage row prompting to add an alternative.
   const title = 'Option coverage'
@@ -163,7 +163,7 @@ function coverageRow(data: ResultsSectionDataReturn): HeroRow | null {
 }
 
 function reflectRows(data: ResultsSectionDataReturn): HeroRow[] {
-  const findings = data.confidence.m2BiasFindings ?? []
+  const findings = data?.confidence?.m2BiasFindings ?? []
   return findings.map((f, i) => {
     const rawTitle = f.type || 'Reflective check'
     const safeReason = rowContainsBannedTerm(f.description)

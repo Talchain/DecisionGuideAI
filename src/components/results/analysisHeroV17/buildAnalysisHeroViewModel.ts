@@ -80,7 +80,7 @@ function buildDimensions(
   structureSignals: StructureSignals,
   coverageSignals: CoverageSignals,
 ): DimensionSegment[] {
-  const dims = data.recommendation.coachingReadinessDimensions
+  const dims = data?.recommendation?.coachingReadinessDimensions
   const verified = totalFactorCount > 0
     ? Math.min(1, confirmedFactorCount / totalFactorCount)
     : 0
@@ -122,14 +122,14 @@ function clamp01(v: number | undefined | null): number {
 // ── Result context ──────────────────────────────────────────────────────────
 
 function buildResultLine(data: ResultsSectionDataReturn): string {
-  const winner = data.recommendation.recommendedOption
+  const winner = data?.recommendation?.recommendedOption
   if (!winner) return 'No option currently leads clearly.'
   const label = safeLabel(winner.label, 'The leading option')
   return `${label} currently leads.`
 }
 
 function buildReasonLine(data: ResultsSectionDataReturn): string | null {
-  const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
+  const fragile = data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
   if (fragile) {
     const from = safeLabel(fragile.fromLabel, 'a key factor')
     const alt = safeLabel(fragile.alternativeWinnerLabel ?? null, 'the next option')
@@ -145,7 +145,7 @@ function buildMetaPills(
   state: HeroState,
 ): MetaPill[] {
   const pills: MetaPill[] = []
-  const stability = data.recommendation.recommendationStability
+  const stability = data?.recommendation?.recommendationStability
   // Result-state pill bound to stability bands (glossary §3).
   if (typeof stability === 'number' && Number.isFinite(stability)) {
     if (stability < 0.5) {
@@ -158,10 +158,11 @@ function buildMetaPills(
       pills.push({ label: 'Highly stable', tone: 'neutral' })
     }
   }
-  // Evidence pill driven by evidenceLevel from the VM.
-  if (vm.evidenceLevel === 'needs_work') {
+  // Evidence pill driven by evidenceLevel from the VM. Defensive `?.`
+  // because `vm` may be missing in a degraded bundle.
+  if (vm?.evidenceLevel === 'needs_work') {
     pills.push({ label: 'Evidence thin', tone: 'danger' })
-  } else if (vm.evidenceLevel === 'fair') {
+  } else if (vm?.evidenceLevel === 'fair') {
     pills.push({ label: 'Evidence limited', tone: 'warn' })
   } else {
     pills.push({ label: 'Evidence adequate', tone: 'neutral' })
@@ -184,11 +185,12 @@ function selectKeyQuestion(
   if (state === 'strong') return null
 
   // 1. Decision-review prompt verbatim (if clean).
-  const dqp = data.confidence.m2DecisionQualityPrompts?.[0]?.question
+  const dqps = data?.confidence?.m2DecisionQualityPrompts ?? []
+  const dqp = dqps[0]?.question
   if (dqp && !containsBannedTerm(dqp)) {
     return {
       text: dqp,
-      extras: (data.confidence.m2DecisionQualityPrompts ?? []).slice(1, 4).map(p => p.question).filter(q => q && !containsBannedTerm(q)),
+      extras: dqps.slice(1, 4).map(p => p.question).filter(q => q && !containsBannedTerm(q)),
       chips: ['High', 'Some', 'Not sure', 'Add note'],
     }
   }
@@ -252,10 +254,10 @@ function buildFooterChecks(
   vm: ResultsVM,
   state: HeroState,
 ): FooterCheck[] {
-  const hasWinner = !!data.recommendation.recommendedOption
-  const stability = data.recommendation.recommendationStability
+  const hasWinner = !!data?.recommendation?.recommendedOption
+  const stability = data?.recommendation?.recommendationStability
   const stable = typeof stability === 'number' && Number.isFinite(stability) && stability >= 0.85
-  const evidenceOk = vm.evidenceLevel === 'good'
+  const evidenceOk = vm?.evidenceLevel === 'good'
 
   return [
     { label: hasWinner ? 'Result clear' : 'No clear result', tone: hasWinner ? 'ok' : 'warn' },
@@ -334,14 +336,23 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
     structureSignals, coverageSignals,
   } = args
 
+  // Defensive accessors. Bundles in flight or in error states may omit
+  // slices the hero reads. The SectionErrorBoundary catches crashes, but
+  // a graceful empty-state render is preferable to a fallback panel.
+  const recommendation = data?.recommendation
+  const confidence = data?.confidence
+  const allOptions = recommendation?.allOptions ?? []
+  const evidenceGaps = confidence?.topEvidenceGaps ?? confidence?.evidenceGaps ?? []
+  const biasFindings = confidence?.m2BiasFindings ?? []
+
   const state = selectHeroState({
-    hasWinner: !!data.recommendation.recommendedOption,
-    decisionState: vm.decisionState,
-    stability: data.recommendation.recommendationStability ?? null,
-    evidenceGapCount: (data.confidence.topEvidenceGaps ?? data.confidence.evidenceGaps ?? []).length,
+    hasWinner: !!recommendation?.recommendedOption,
+    decisionState: vm?.decisionState ?? 'indeterminate',
+    stability: recommendation?.recommendationStability ?? null,
+    evidenceGapCount: evidenceGaps.length,
     fragileEdgeCount,
-    optionCount: data.recommendation.allOptions.length,
-    biasFindings: (data.confidence.m2BiasFindings ?? []).length,
+    optionCount: allOptions.length,
+    biasFindings: biasFindings.length,
     framingFlag: false, // Not plumbed in v1.
   })
 
