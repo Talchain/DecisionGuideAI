@@ -61,12 +61,13 @@ describe('applyV5State [v5-state] debug logging', () => {
     vi.stubEnv('VITE_V5_STATE_DEBUG', 'true')
     applyV5State(makeMinimalAnalyseResponse(), makeStore())
     const calls = (infoSpy.mock.calls as unknown[][]).filter((c) => c[0] === '[v5-state]')
-    // 4 numbered steps, each logs exactly once per applyV5State invocation
-    expect(calls.length).toBe(4)
+    // 5 numbered steps, each logs exactly once per applyV5State invocation
+    // (step 5 is results hydration, added 2026-05-12)
+    expect(calls.length).toBe(5)
     const stepNumbers = calls
       .map((c) => (c[1] as { step_number: number }).step_number)
       .sort()
-    expect(stepNumbers).toEqual([1, 2, 3, 4])
+    expect(stepNumbers).toEqual([1, 2, 3, 4, 5])
   })
 
   it('never includes user text — only keys/counts/enum values', () => {

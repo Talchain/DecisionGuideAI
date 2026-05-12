@@ -32,11 +32,13 @@
 import type { OlumiResponse, StageType } from '@talchain/schemas/boundary'
 import type { Edge, Node } from '@xyflow/react'
 
+import type { ReportV1 } from '../adapters/plot/types'
 import type { CEEAnalysisReady } from '../adapters/cee/types'
 import type { CeeDecisionReviewPayloadV1 } from '../types/cee'
 import type { ScenarioStage } from '../types/scenario'
 import { logV5StateStep } from './debugLog'
 import { extractDecisionReview } from './decisionReviewAdapter'
+import { mapV5AnalysisToReport } from './mapV5AnalysisToReport'
 import { v5StageToScenarioStage } from './stageMapper'
 
 /**
@@ -55,6 +57,33 @@ export interface V5ApplicatorStore {
   setRunMeta: (meta: { ceeReviewV1: CeeDecisionReviewPayloadV1 | null }) => void
   /** Write (or clear) the CEE analysis_ready payload that gates the run. */
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  /**
+   * Results hydration (V5-exclusive path). When the response carries an
+   * analysis_result block, the applicator builds a ReportV1 via
+   * mapV5AnalysisToReport and calls this setter so the main Results panel
+   * renders V5 analyses without selector changes (mirrors the V4 envelope
+   * path at useConversation.ts:1865+). Optional so the applicator stays
+   * testable against minimal store doubles.
+   *
+   * The real canvas store's resultsComplete accepts a wider params shape
+   * (drivers, cee*, rawV2Response); the V5 path only uses the narrow
+   * subset declared here. TypeScript's structural subtyping accepts the
+   * wider real implementation in this slot.
+   */
+  resultsComplete?: (params: {
+    report: ReportV1
+    hash: string
+    resultsSource?: 'direct' | 'conversation'
+    enrichment?: unknown
+    rawV2Response?: unknown
+  }) => void
+  /**
+   * Current results hash for dedupe. When the new analysis hash matches
+   * this value, the applicator skips the resultsComplete write — same
+   * pattern as the V4 path (useConversation.ts:1861). null when no
+   * analysis has been hydrated yet.
+   */
+  currentResultsHash?: string | null
 }
 
 /**
@@ -554,6 +583,90 @@ export function applyV5State(
       output_keys: [],
       applied: false,
       skip_reason: 'missing_on_conversational_turn',
+    })
+  }
+
+  // 5. Results hydration. When the response carries an analysis_result
+  // block, build a ReportV1 via mapV5AnalysisToReport and hydrate the
+  // canvas store's results slice via resultsComplete. Mirrors the V4
+  // envelope path at useConversation.ts:1865+ so the main Results panel
+  // renders V5 analyses without selector changes.
+  //
+  // Dedupe by hash: skip the write when the new block's hash matches the
+  // store's currentResultsHash. The stale-turn invariant at the top of
+  // applyV5State already covers this write (any stale response returns
+  // before reaching step 5).
+  //
+  // Gated on store.resultsComplete being provided. The applicator is
+  // tested against minimal store doubles that may omit it; callers in
+  // useConversation.ts wire the real store action. When omitted, the
+  // step is a no-op and `deferred` records why.
+  const analysisBlock = response.blocks.find(
+    (b): b is Extract<V5Block, { type: 'analysis_result' }> =>
+      b.type === 'analysis_result',
+  )
+  if (analysisBlock) {
+    if (typeof store.resultsComplete === 'function') {
+      const report = mapV5AnalysisToReport(analysisBlock)
+      const hash = report.model_card.response_hash
+      const prevHash = store.currentResultsHash ?? null
+      if (hash !== prevHash) {
+        store.resultsComplete({
+          report,
+          hash,
+          resultsSource: 'conversation',
+          // V5 carries no V2 envelope; pass null so the canvas store's
+          // V2-shaped enrichment / rawV2Response slots are explicitly
+          // cleared rather than left to a stale prior write.
+          enrichment: null,
+          rawV2Response: null,
+        })
+        applied.push('analysis_result:results_hydrated')
+        logV5StateStep({
+          step_number: 5,
+          step_name: 'results_hydration',
+          input_keys: [
+            'analysis_result',
+            'win_probabilities',
+            'enrichment',
+            'leading_option_id',
+          ],
+          output_keys: ['results.report', 'results.hash'],
+          applied: true,
+        })
+      } else {
+        logV5StateStep({
+          step_number: 5,
+          step_name: 'results_hydration',
+          input_keys: ['analysis_result'],
+          output_keys: [],
+          applied: false,
+          skip_reason: 'duplicate_hash',
+        })
+      }
+    } else {
+      deferred.push({
+        reason: 'results_hydration_store_lacks_resultsComplete',
+        block: analysisBlock,
+        detail: 'Applicator was passed a store without resultsComplete; analysis_result block content not hydrated into results.report.',
+      })
+      logV5StateStep({
+        step_number: 5,
+        step_name: 'results_hydration',
+        input_keys: ['analysis_result'],
+        output_keys: [],
+        applied: false,
+        skip_reason: 'store_lacks_resultsComplete',
+      })
+    }
+  } else {
+    logV5StateStep({
+      step_number: 5,
+      step_name: 'results_hydration',
+      input_keys: [],
+      output_keys: [],
+      applied: false,
+      skip_reason: 'no_analysis_result_block',
     })
   }
 
