@@ -151,15 +151,28 @@ This section catalogues every datum the v17 hero requires and where it lives tod
 
 ### 4.2 Readiness colour strip
 
+**Correction (post-implementation review):** the paths shown in earlier drafts of this report
+(`data.confidence.dimensions.structure/evidence/coverage`) do not exist. The actual data shape
+supplies only `data.recommendation.coachingReadinessDimensions: { evidence, robustness, clarity }`
+— three dimensions, none of which directly maps to v17's intended labels. The implementation
+therefore *derives* Structure and Coverage from real canvas/recommendation signals rather than
+relabelling unrelated dimensions. See [src/components/results/analysisHeroV17/canvasSignals.ts](../../src/components/results/analysisHeroV17/canvasSignals.ts).
+
 | Segment | Source | Reliability |
 |---|---|---|
-| Structure | `data.confidence.dimensions.structure` (post-analysis composite) | Always |
-| Evidence | `data.confidence.dimensions.evidence` | Always |
-| Coverage | `data.confidence.dimensions.coverage` | Always |
+| **Structure** | Equal-weight composite over four canvas signals — each contributes 0.25:<br>• `hasGoal` (goal node present in canvas)<br>• `hasMultipleOptions` (`data.recommendation.allOptions.length >= 2`)<br>• `hasFactors` (≥1 factor node)<br>• `hasConnections` (≥1 edge) | Always |
+| **Evidence** | `data.recommendation.coachingReadinessDimensions.evidence` (verbatim) | Always |
+| **Coverage** | Equal-weight composite over four signals — each contributes 0.25:<br>• `hasMultipleOptions`<br>• `hasRisks` (≥1 risk node)<br>• `hasBaseline` (`data.recommendation.baselineId != null`)<br>• `hasGoalThreshold` (`data.recommendation.goalThreshold != null && isFinite`) | Always |
 | **v17 spec: "User input"** | per-factor provenance counts (user vs Olumi vs default) | **Missing** in UI today |
 | **v1 substitute: "Verified"** | `confirmedNodeIds.size / factorCount` from canvas store | Always |
 
-The fourth bar is the single largest data risk. See Section 6.
+The equal-weight composite is the most honest derivation given that:
+- Each signal is a direct presence check on real data (no invented numbers).
+- The four signals per dimension match the v17 prototype's stated intent for that segment.
+- Differential weighting would itself require justification we don't have.
+
+The fourth bar (Verified) remains the single largest semantic compromise versus v17's "User input"
+spec — see Section 6.
 
 ### 4.3 Key question card
 
@@ -793,6 +806,7 @@ All previously open questions have been resolved by Paul during Phase 0. The rem
 2. **Per-factor provenance backend.** Wire the provenance fields enumerated in Section 5.4 so the fourth bar can become "User input" and the contribution line can render honestly.
 3. **`scenario_contexts` plumbing.** The Decision Review v5.2 prompt is supposed to produce scenario contexts; the UI doesn't receive them. This blocks the most descriptive reason-line in the v17 hero.
 4. **`decision_quality_prompts` renderer repair.** `DecisionQualityChecks.tsx` is known-broken (per project memory). Repairing it raises the reliability of the Key-question card from "rarely DQP, usually template" to "usually DQP".
+5. **Chat-availability open-from-elsewhere API.** The v17 hero disables prefill-only action buttons when `_prefillChat` is null. That wire is null when [`DraftChat.tsx`](../../src/canvas/components/DraftChat.tsx) is in its local `isMinimized` state — a common state. Currently there is no exposed action to set `isMinimized` from outside the component, so the hero cannot click-to-open-and-prefill. Adding a store-backed minimise/expand action would let the hero call `setChatMinimised(false)` before prefill — clean UX, broader scope. Until then, the v17 hero falls back to disabling its prefill-only buttons with the explanatory tooltip "Open the chat panel to use this action". The reflect-state CTA (which uses `_sendMessage`, not prefill) is gated by the same check because both wires register together in `ConversationPanel`'s mount-time `useEffect`.
 
 ---
 

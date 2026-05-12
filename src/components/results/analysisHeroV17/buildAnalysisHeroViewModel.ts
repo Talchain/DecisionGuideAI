@@ -28,6 +28,13 @@ import { rankHeroRows } from './rowRanking'
 // AND the test scanner so what production guards against == what tests
 // catch. (Per P1.1 review feedback.)
 import { containsBannedTerm, safeInterpolatedLabel as safeLabel } from './glossaryCheck'
+// Genuine Structure + Coverage signal derivation (P1.1 round-3 review).
+import {
+  deriveStructureScore,
+  deriveCoverageScore,
+  type StructureSignals,
+  type CoverageSignals,
+} from './canvasSignals'
 import type {
   AnalysisHeroVM,
   DimensionSegment,
@@ -43,17 +50,35 @@ import type {
 // ── Dimensions ──────────────────────────────────────────────────────────────
 //
 // v17 prescribes a 4-segment strip: Structure / Evidence / Coverage / Verified.
-// The data layer supplies three readiness dimensions:
-//   - `coachingReadinessDimensions.evidence`   → "Evidence"
-//   - `coachingReadinessDimensions.robustness` → "Structure"   (mapped — model robustness IS the available structural signal)
-//   - `coachingReadinessDimensions.clarity`    → "Coverage"    (mapped — framing clarity IS the available coverage signal)
-// The fourth segment ("Verified") uses the canvas store's
-// confirmedFactorCount / totalFactorCount ratio. Documented in the
-// implementation close-out report.
+// Each segment is grounded in real signals (P1.1 round-3 review):
+//
+//   - "Structure"  ← canvasSignals.deriveStructureScore(
+//                       { hasGoal, hasMultipleOptions, hasFactors, hasConnections })
+//                    Equal-weight composite over four model-completeness
+//                    checks. Matches v17 prototype's "structural completeness"
+//                    intent — distinct from robustness, which measures result
+//                    stability, not model completeness.
+//
+//   - "Evidence"   ← data.recommendation.coachingReadinessDimensions.evidence
+//                    Verbatim — this dimension's semantic already matches
+//                    v17's "evidence/calibration quality" intent.
+//
+//   - "Coverage"   ← canvasSignals.deriveCoverageScore(
+//                       { hasMultipleOptions, hasRisks, hasBaseline, hasGoalThreshold })
+//                    Equal-weight composite over four coverage checks. Matches
+//                    v17 prototype's "option/risk/goal coverage" intent —
+//                    distinct from clarity, which measures framing quality.
+//
+//   - "Verified"   ← confirmedFactorCount / totalFactorCount
+//                    Counts of factor nodes the user has explicitly confirmed.
+//                    Stands in for "User input" until per-factor provenance is
+//                    plumbed; relabelled to be honest about what it measures.
 function buildDimensions(
   data: ResultsSectionDataReturn,
   confirmedFactorCount: number,
   totalFactorCount: number,
+  structureSignals: StructureSignals,
+  coverageSignals: CoverageSignals,
 ): DimensionSegment[] {
   const dims = data.recommendation.coachingReadinessDimensions
   const verified = totalFactorCount > 0
@@ -62,9 +87,9 @@ function buildDimensions(
   return [
     {
       label: 'Structure',
-      value: clamp01(dims?.robustness),
+      value: deriveStructureScore(structureSignals),
       token: 'success',
-      tooltip: 'How dependable the model structure is — based on robustness signals.',
+      tooltip: 'Model completeness: goal, options, factors, and connections.',
     },
     {
       label: 'Evidence',
@@ -74,9 +99,9 @@ function buildDimensions(
     },
     {
       label: 'Coverage',
-      value: clamp01(dims?.clarity),
+      value: deriveCoverageScore(coverageSignals),
       token: 'info',
-      tooltip: 'How clearly the decision and options are framed.',
+      tooltip: 'Coverage of options, risks, baseline, and goal target.',
     },
     {
       label: 'Verified',
@@ -297,10 +322,17 @@ export interface AnalysisHeroBuilderArgs {
   totalFactorCount: number
   /** Fragile-edge count from `meta.fragileEdgeCount` (for state selection). */
   fragileEdgeCount: number
+  /** Canvas-derived signals for the Structure strip segment. */
+  structureSignals: StructureSignals
+  /** Canvas + recommendation-derived signals for the Coverage strip segment. */
+  coverageSignals: CoverageSignals
 }
 
 export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): AnalysisHeroVM {
-  const { data, vm, confirmedFactorCount, totalFactorCount, fragileEdgeCount } = args
+  const {
+    data, vm, confirmedFactorCount, totalFactorCount, fragileEdgeCount,
+    structureSignals, coverageSignals,
+  } = args
 
   const state = selectHeroState({
     hasWinner: !!data.recommendation.recommendedOption,
@@ -318,7 +350,7 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
   const hiddenRows = allRows.slice(3, 6)
   const topRow = inputRows[0]
 
-  const dimensions = buildDimensions(data, confirmedFactorCount, totalFactorCount)
+  const dimensions = buildDimensions(data, confirmedFactorCount, totalFactorCount, structureSignals, coverageSignals)
   const resultLine = buildResultLine(data)
   const reasonLine = buildReasonLine(data)
   const metaPills = buildMetaPills(data, vm, state)

@@ -21,6 +21,11 @@ import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import type { ResultsVM } from './types'
 import { buildAnalysisHeroViewModel } from './analysisHeroV17/buildAnalysisHeroViewModel'
+import {
+  isFactorNode,
+  isRiskNode,
+  isGoalNode,
+} from './analysisHeroV17/canvasSignals'
 import type { AlsoLink } from './analysisHeroV17/analysisHeroVM.types'
 import { ReadinessColourStrip } from './analysisHeroV17/ReadinessColourStrip'
 import { HeroResultContext } from './analysisHeroV17/HeroResultContext'
@@ -53,14 +58,10 @@ export interface AnalysisHeroV17Props {
   aiAffordance?: ReactNode
 }
 
-// Widened factor filter — covers nodes whose React Flow `type` is
-// 'factor' OR whose `data.kind === 'factor'`. Schema-v2 nodes can use
-// either convention; we count both.
-function isFactorNode(n: { type?: string | undefined; data?: unknown }): boolean {
-  if (n.type === 'factor') return true
-  const data = n.data as { kind?: string } | undefined
-  return data?.kind === 'factor'
-}
+// Factor / risk / goal node guards live in canvasSignals.ts — typed
+// without `as any`, narrowing via the `in` operator. The hero pulls
+// them in to compute the Verified denominator, Structure score, and
+// Coverage score (P1.1 + P1.6).
 
 export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   data,
@@ -91,6 +92,20 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   })
   const totalFactorCount = useCanvasStore(s => s.nodes?.filter(isFactorNode).length ?? 0)
 
+  // Structural signals for the Structure + Coverage bars (P1.1). Each
+  // signal is a direct presence check on canvas state or recommendation
+  // data — no invented numbers. See canvasSignals.ts for the derivation
+  // rationale (equal-weight composite over four boolean signals each).
+  const hasGoalNode = useCanvasStore(s => (s.nodes ?? []).some(isGoalNode))
+  const factorCount = totalFactorCount
+  const edgeCount = useCanvasStore(s => s.edges?.length ?? 0)
+  const riskCount = useCanvasStore(s => s.nodes?.filter(isRiskNode).length ?? 0)
+  const optionCount = data.recommendation.allOptions.length
+  const hasBaseline = !!data.recommendation.baselineId
+  const hasGoalThreshold =
+    typeof data.recommendation.goalThreshold === 'number'
+    && Number.isFinite(data.recommendation.goalThreshold)
+
   // Track chat-prefill availability. When the conversation panel is
   // mounted, it registers `_prefillChat`; when unmounted/closed, the
   // wire is null. Subscribing here re-renders subcomponents so prefill-
@@ -105,8 +120,24 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
       confirmedFactorCount,
       totalFactorCount,
       fragileEdgeCount: fragileEdgeCount ?? 0,
+      structureSignals: {
+        hasGoal: hasGoalNode,
+        hasMultipleOptions: optionCount >= 2,
+        hasFactors: factorCount > 0,
+        hasConnections: edgeCount > 0,
+      },
+      coverageSignals: {
+        hasMultipleOptions: optionCount >= 2,
+        hasRisks: riskCount > 0,
+        hasBaseline,
+        hasGoalThreshold,
+      },
     }),
-    [data, vm, confirmedFactorCount, totalFactorCount, fragileEdgeCount],
+    [
+      data, vm, confirmedFactorCount, totalFactorCount, fragileEdgeCount,
+      hasGoalNode, optionCount, factorCount, edgeCount, riskCount,
+      hasBaseline, hasGoalThreshold,
+    ],
   )
 
   // Chat wires. Read from guidance store at dispatch time so a

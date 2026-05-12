@@ -112,6 +112,20 @@ function makeVm(): ResultsVM {
   } as ResultsVM
 }
 
+// Default structure + coverage signals: fully complete. Glossary tests
+// don't probe the strip values; this keeps each VM call site terse.
+const HERO_DEFAULTS = {
+  confirmedFactorCount: 0,
+  totalFactorCount: 5,
+  fragileEdgeCount: 0,
+  structureSignals: {
+    hasGoal: true, hasMultipleOptions: true, hasFactors: true, hasConnections: true,
+  },
+  coverageSignals: {
+    hasMultipleOptions: true, hasRisks: true, hasBaseline: true, hasGoalThreshold: true,
+  },
+}
+
 // ── Layer 1: VM output ──────────────────────────────────────────────────────
 
 describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
@@ -140,9 +154,7 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
     const vm = buildAnalysisHeroViewModel({
       data: makeData({ gapLabels: ['Cost', 'Time'] }),
       vm: makeVm(),
-      confirmedFactorCount: 0,
-      totalFactorCount: 5,
-      fragileEdgeCount: 0,
+      ...HERO_DEFAULTS,
     })
     for (const s of vmStrings(vm)) {
       const hit = findBannedTerm(s)
@@ -154,9 +166,7 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
     const vm = buildAnalysisHeroViewModel({
       data: makeData({ gapLabels: ['the winning team'] }),
       vm: makeVm(),
-      confirmedFactorCount: 0,
-      totalFactorCount: 5,
-      fragileEdgeCount: 0,
+      ...HERO_DEFAULTS,
     })
     // Row title preserves the user's label — we do not rewrite user data.
     expect(vm.inputRows[0].title).toBe('the winning team')
@@ -169,8 +179,7 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
     const vm = buildAnalysisHeroViewModel({
       data: makeData({ fragileFromLabel: 'graph traversal cost' }),
       vm: makeVm(),
-      confirmedFactorCount: 0,
-      totalFactorCount: 5,
+      ...HERO_DEFAULTS,
       fragileEdgeCount: 1,
     })
     if (vm.reasonLine) {
@@ -193,9 +202,7 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
       const vm = buildAnalysisHeroViewModel({
         data: f.data,
         vm: { ...makeVm(), decisionState: f.vmState } as ResultsVM,
-        confirmedFactorCount: 0,
-        totalFactorCount: 5,
-        fragileEdgeCount: 0,
+        ...HERO_DEFAULTS,
       })
       for (const s of vmStrings(vm)) {
         expect(findBannedTerm(s), `state ${f.vmState}: "${s}"`).toBeNull()
@@ -207,22 +214,14 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
 // ── Layer 2: Post-interpolation rendered DOM ────────────────────────────────
 
 describe('AnalysisHeroV17 — glossary compliance (rendered DOM)', () => {
-  // The v17 hero composes the existing TriageActionCardsBody below its own
-  // top section. The body's content predates this brief and is OUT OF SCOPE
-  // here — the scan scopes itself to v17's own rendered subtrees so it does
-  // not flag pre-existing copy as a v17 regression.
-  const V17_OWN_TESTIDS = [
-    'hero-v17-strip',
-    'hero-v17-contribution',
-    'hero-v17-result-context',
-    'hero-v17-key-question',
-    'hero-v17-input-rows',
-    'hero-v17-footer',
-    'hero-v17-actions-toggle',
-    'hero-v17-actions-menu',
-  ] as const
+  // Per P1.2 round-3 review: the scan covers the ENTIRE rendered v17
+  // card — including the composed TriageActionCardsBody when invoked
+  // with `useV17Copy` — not just the v17 top subtrees. This way any
+  // banned literal that ships in flag-on mode is caught, regardless of
+  // whether it originates in v17 components or in the legacy body
+  // running in v17-copy mode.
 
-  it('rendered text content carries no banned term across rich fixture (v17 hero subtree only)', () => {
+  it('full rendered v17 card carries no banned term across rich fixture', () => {
     const { container } = render(
       <AnalysisHeroV17
         data={makeData({ gapLabels: ['Cost range', 'Time impact', 'Adoption'], fragileFromLabel: 'leadership capacity', fragileAltLabel: 'Two Developers', stability: 0.7 })}
@@ -230,22 +229,63 @@ describe('AnalysisHeroV17 — glossary compliance (rendered DOM)', () => {
         fragileEdgeCount={1}
       />,
     )
-    const offenders: Array<{ scope: string; text: string; hit: string }> = []
-    for (const id of V17_OWN_TESTIDS) {
-      const root = container.querySelector(`[data-testid="${id}"]`)
-      if (!root) continue
-      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-      let n: Node | null
-      while ((n = walker.nextNode())) {
-        const text = (n as Text).data
-        const hit = findBannedTerm(text)
-        if (hit) offenders.push({ scope: id, text, hit })
-      }
+    const card = container.querySelector('[data-testid="analysis-hero-v17-card"]')
+    expect(card).toBeTruthy()
+    const offenders: Array<{ text: string; hit: string }> = []
+    const walker = document.createTreeWalker(card!, NodeFilter.SHOW_TEXT)
+    let n: Node | null
+    while ((n = walker.nextNode())) {
+      const text = (n as Text).data
+      const hit = findBannedTerm(text)
+      if (hit) offenders.push({ text, hit })
     }
     expect(offenders, offenders.length
-      ? offenders.map(o => `[${o.scope}] "${o.hit}" in "${o.text}"`).join('\n')
+      ? `Banned terms in rendered v17 card:\n` + offenders.map(o => `  "${o.hit}" in "${o.text}"`).join('\n')
       : '',
     ).toEqual([])
+  })
+
+  it('strong-state full v17 card (ready row + body contextual blocks) is clean', () => {
+    const { container } = render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.9 })}
+        vm={{ ...makeVm(), decisionState: 'robust', evidenceLevel: 'good' } as ResultsVM}
+        fragileEdgeCount={0}
+      />,
+    )
+    const card = container.querySelector('[data-testid="analysis-hero-v17-card"]')
+    const offenders: Array<{ text: string; hit: string }> = []
+    const walker = document.createTreeWalker(card!, NodeFilter.SHOW_TEXT)
+    let n: Node | null
+    while ((n = walker.nextNode())) {
+      const text = (n as Text).data
+      const hit = findBannedTerm(text)
+      if (hit) offenders.push({ text, hit })
+    }
+    expect(offenders).toEqual([])
+  })
+
+  it('weak-state full v17 card (no winner, many gaps) is clean', () => {
+    const { container } = render(
+      <AnalysisHeroV17
+        data={{
+          ...makeData({ gapLabels: ['A', 'B', 'C', 'D'] }),
+          recommendation: { ...makeData().recommendation, recommendedOption: null, allOptions: [] },
+        } as ResultsSectionDataReturn}
+        vm={{ ...makeVm(), decisionState: 'indeterminate' } as ResultsVM}
+        fragileEdgeCount={0}
+      />,
+    )
+    const card = container.querySelector('[data-testid="analysis-hero-v17-card"]')
+    const offenders: Array<{ text: string; hit: string }> = []
+    const walker = document.createTreeWalker(card!, NodeFilter.SHOW_TEXT)
+    let n: Node | null
+    while ((n = walker.nextNode())) {
+      const text = (n as Text).data
+      const hit = findBannedTerm(text)
+      if (hit) offenders.push({ text, hit })
+    }
+    expect(offenders).toEqual([])
   })
 
   it('rendered text never contains user-supplied banned label (label is title-only and never re-templated)', () => {
@@ -416,9 +456,7 @@ describe('AnalysisHeroV17 — comprehensive banned-term sweep through user label
       const vm = buildAnalysisHeroViewModel({
         data,
         vm: makeVm(),
-        confirmedFactorCount: 0,
-        totalFactorCount: 5,
-        fragileEdgeCount: 0,
+        ...HERO_DEFAULTS,
       })
 
       // Row title preserves the user's label verbatim — we never rewrite
@@ -446,8 +484,7 @@ describe('AnalysisHeroV17 — comprehensive banned-term sweep through user label
       const vm = buildAnalysisHeroViewModel({
         data,
         vm: makeVm(),
-        confirmedFactorCount: 0,
-        totalFactorCount: 5,
+        ...HERO_DEFAULTS,
         fragileEdgeCount: 1,
       })
       // Reason line interpolates `fromLabel` only via safeInterpolatedLabel.
@@ -470,9 +507,7 @@ describe('AnalysisHeroV17 — comprehensive banned-term sweep through user label
       const vm = buildAnalysisHeroViewModel({
         data,
         vm: makeVm(),
-        confirmedFactorCount: 0,
-        totalFactorCount: 5,
-        fragileEdgeCount: 0,
+        ...HERO_DEFAULTS,
       })
       const row = vm.inputRows[0]
       if (!row) continue

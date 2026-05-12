@@ -109,10 +109,25 @@ function gap(label: string, factorId: string, voi: number): EvidenceGapItem {
   } as EvidenceGapItem
 }
 
+// Default structure + coverage signals: "fully complete" so existing
+// tests that don't care about strip values aren't perturbed. Strip-
+// specific tests override these locally.
 const STD_ARGS = {
   confirmedFactorCount: 0,
   totalFactorCount: 5,
   fragileEdgeCount: 0,
+  structureSignals: {
+    hasGoal: true,
+    hasMultipleOptions: true,
+    hasFactors: true,
+    hasConnections: true,
+  },
+  coverageSignals: {
+    hasMultipleOptions: true,
+    hasRisks: true,
+    hasBaseline: true,
+    hasGoalThreshold: true,
+  },
 }
 
 describe('buildAnalysisHeroViewModel', () => {
@@ -192,14 +207,60 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.dimensions.find(d => d.label === 'Verified')!.value).toBe(0)
     })
 
-    it('dimensions clamp to [0,1]', () => {
+    it('Evidence clamps to [0,1] when coachingReadinessDimensions.evidence is out of range', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ dimensions: { evidence: 1.5, robustness: -0.2, clarity: 0.5 } }),
+        data: makeData({ dimensions: { evidence: 1.5, robustness: 0.5, clarity: 0.5 } }),
         vm: makeVm(),
       })
       expect(vm.dimensions.find(d => d.label === 'Evidence')!.value).toBe(1)
-      expect(vm.dimensions.find(d => d.label === 'Structure')!.value).toBe(0)
+    })
+
+    it('Structure score is derived from canvas signals — not from robustness', () => {
+      // All four structure signals present → score 1.0.
+      const full = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ dimensions: { evidence: 0.5, robustness: 0.0, clarity: 0.5 } }),
+        vm: makeVm(),
+        structureSignals: { hasGoal: true, hasMultipleOptions: true, hasFactors: true, hasConnections: true },
+      })
+      expect(full.dimensions.find(d => d.label === 'Structure')!.value).toBe(1)
+
+      // No structure signals → score 0.0 even if robustness is high.
+      const empty = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ dimensions: { evidence: 0.5, robustness: 0.99, clarity: 0.5 } }),
+        vm: makeVm(),
+        structureSignals: { hasGoal: false, hasMultipleOptions: false, hasFactors: false, hasConnections: false },
+      })
+      expect(empty.dimensions.find(d => d.label === 'Structure')!.value).toBe(0)
+
+      // Two of four signals → 0.5.
+      const half = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData(),
+        vm: makeVm(),
+        structureSignals: { hasGoal: true, hasMultipleOptions: true, hasFactors: false, hasConnections: false },
+      })
+      expect(half.dimensions.find(d => d.label === 'Structure')!.value).toBe(0.5)
+    })
+
+    it('Coverage score is derived from canvas + recommendation signals — not from clarity', () => {
+      const full = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ dimensions: { evidence: 0.5, robustness: 0.5, clarity: 0.0 } }),
+        vm: makeVm(),
+        coverageSignals: { hasMultipleOptions: true, hasRisks: true, hasBaseline: true, hasGoalThreshold: true },
+      })
+      expect(full.dimensions.find(d => d.label === 'Coverage')!.value).toBe(1)
+
+      const empty = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ dimensions: { evidence: 0.5, robustness: 0.5, clarity: 0.99 } }),
+        vm: makeVm(),
+        coverageSignals: { hasMultipleOptions: false, hasRisks: false, hasBaseline: false, hasGoalThreshold: false },
+      })
+      expect(empty.dimensions.find(d => d.label === 'Coverage')!.value).toBe(0)
     })
   })
 
