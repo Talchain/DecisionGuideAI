@@ -652,14 +652,22 @@ describe('mapV5AnalysisToReport — duplicate-label edge case', () => {
     expect(report.option_probabilities!.opt_a2.win_probability).toBe(0.3)
   })
 
-  it('path A degraded: when option_comparison entries lack win_probability AND two share the same label, both fall back to the same block.win_probabilities[label] value (acknowledged limitation)', () => {
-    // This is the genuine edge case: option_comparison present but entries
-    // omit win_probability, so we fall through to block.win_probabilities[
-    // option_label] — and two options sharing a label collide. This is a
-    // backend-side data-quality issue (option_comparison entries SHOULD
-    // carry their own win_probability when win_probabilities is
-    // label-keyed); the mapper preserves honest behaviour rather than
-    // synthesising a delta.
+  it('path A degraded: when option_comparison entries lack win_probability AND two share the same label, BOTH omit win_probability (no false precision)', () => {
+    // The genuine edge case: option_comparison present but entries omit
+    // win_probability, AND two options share an option_label.
+    //
+    // The label-keyed block.win_probabilities Record cannot disambiguate
+    // two options that share a label. Earlier drafts of this mapper let
+    // BOTH options fall through to block.win_probabilities[label] and
+    // each receive the same value — false precision from ambiguous data.
+    //
+    // The mapper now detects label duplication among option_comparison
+    // entries and skips the label-keyed fallback for any duplicated
+    // label. The two options surface with NO win_probability, which is
+    // the honest representation: "we cannot tell which option this
+    // 0.6 belongs to". Backend should populate
+    // option_comparison.win_probability per option when this
+    // configuration is possible.
     const block: AnalysisResultBlock = {
       type: 'analysis_result',
       summary: '',
@@ -676,12 +684,44 @@ describe('mapV5AnalysisToReport — duplicate-label edge case', () => {
     const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
       option_probabilities?: Record<string, { win_probability?: number }>
     }
-    // Both options collapse to the same value — the mapper does not invent
-    // a tie-break. Acknowledged limitation; backend should populate
-    // option_comparison.win_probability per option when this configuration
-    // is possible.
-    expect(report.option_probabilities!.opt_a1.win_probability).toBe(0.6)
-    expect(report.option_probabilities!.opt_a2.win_probability).toBe(0.6)
+    // Both option entries exist but win_probability is omitted on each.
+    expect(report.option_probabilities!.opt_a1).toBeDefined()
+    expect(report.option_probabilities!.opt_a2).toBeDefined()
+    expect(report.option_probabilities!.opt_a1.win_probability).toBeUndefined()
+    expect(report.option_probabilities!.opt_a2.win_probability).toBeUndefined()
+  })
+
+  it('path A mixed: when one duplicate-label entry has its own win_probability and the other does not, only the explicit one renders', () => {
+    // Regression guard for the duplicate-label fix. A per-entry
+    // win_probability is canonical and trumps the duplicate-label
+    // ambiguity check; the entry that lacks one must still omit.
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a1',
+      win_probabilities: { 'Hire Locally': 0.6 },
+      enrichment: {
+        option_comparison: [
+          { id: 'opt_a1', option_id: 'opt_a1', option_label: 'Hire Locally', win_probability: 0.55 },
+          { id: 'opt_a2', option_id: 'opt_a2', option_label: 'Hire Locally' /* no win_probability */ },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_probabilities?: Record<string, { win_probability?: number }>
+      option_comparison?: Array<{ option_id: string; win_probability?: number }>
+    }
+    // Explicit entry: uses its own canonical value.
+    expect(report.option_probabilities!.opt_a1.win_probability).toBe(0.55)
+    // Ambiguous-label entry: omitted, not silently set to 0.6.
+    expect(report.option_probabilities!.opt_a2.win_probability).toBeUndefined()
+
+    // Same guarantee applies to the inspector OutcomePanel passthrough.
+    const ocByOptId = new Map(
+      report.option_comparison!.map((o) => [o.option_id, o]),
+    )
+    expect(ocByOptId.get('opt_a1')?.win_probability).toBe(0.55)
+    expect(ocByOptId.get('opt_a2')?.win_probability).toBeUndefined()
   })
 
   it('path B: option_comparison absent AND label-keyed win_probabilities — labels survive as Record keys with no disambiguation (Results panel honestly misses by node.id)', () => {

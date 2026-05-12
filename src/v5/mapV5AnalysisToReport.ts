@@ -303,10 +303,25 @@ export function mapV5AnalysisToReport(
   //   1. enrichment.option_comparison[*].win_probability (canonical)
   //   2. block.win_probabilities[option_id]  (block-keyed-by-id)
   //   3. block.win_probabilities[option_label] (block-keyed-by-label,
-  //      real staging behaviour as of 2026-04-30 build 3bb151b)
+  //      real staging behaviour as of 2026-04-30 build 3bb151b) — ONLY
+  //      when the label is unique among option_comparison entries.
+  //      Duplicate labels with no per-entry win_probability collapse to
+  //      undefined rather than to a shared value: a label-keyed Record
+  //      cannot disambiguate two options that share a label, and
+  //      rendering both at the same number is false precision, not
+  //      "honest miss". See duplicate-label tests for the contract.
   // Path B (no option_comparison): emit entries keyed by win_probabilities
   // keys verbatim. Honest miss in the Results panel when those keys are
   // labels.
+  const labelOccurrences = new Map<string, number>()
+  for (const r of resolvedOptions) {
+    if (r.optionLabel !== undefined) {
+      labelOccurrences.set(r.optionLabel, (labelOccurrences.get(r.optionLabel) ?? 0) + 1)
+    }
+  }
+  const labelIsUnique = (label: string | undefined): label is string =>
+    label !== undefined && (labelOccurrences.get(label) ?? 0) === 1
+
   const iterator: Array<{ optionId: string; enriched: RawOptionEnrichmentEntry | undefined; label: string | undefined }> =
     resolvedOptions.length > 0
       ? resolvedOptions.map((r) => ({
@@ -320,7 +335,7 @@ export function mapV5AnalysisToReport(
     const winProb =
       safeFiniteNumber(enriched?.win_probability) ??
       safeFiniteNumber(winProbs[optionId]) ??
-      (label !== undefined ? safeFiniteNumber(winProbs[label]) : undefined)
+      (labelIsUnique(label) ? safeFiniteNumber(winProbs[label]) : undefined)
 
     const ci = Array.isArray(enriched?.confidence_interval)
       ? enriched.confidence_interval
@@ -520,10 +535,15 @@ export function mapV5AnalysisToReport(
       ({ optionId, optionLabel, enriched }) => {
         const entry: InspectorOptionComparison = { option_id: optionId }
         if (optionLabel) entry.option_label = optionLabel
+        // Mirror the duplicate-label guard from the option_probabilities
+        // resolution: labels shared by multiple option_comparison entries
+        // must NOT use the label-keyed winProbs fallback, because the
+        // OutcomePanel would render multiple rows at the same numeric
+        // probability — false precision from ambiguous source data.
         const winProb =
           safeFiniteNumber(enriched.win_probability) ??
           safeFiniteNumber(winProbs[optionId]) ??
-          (optionLabel !== undefined ? safeFiniteNumber(winProbs[optionLabel]) : undefined)
+          (labelIsUnique(optionLabel) ? safeFiniteNumber(winProbs[optionLabel]) : undefined)
         if (winProb !== undefined) entry.win_probability = winProb
         const expected = safeFiniteNumber(enriched.expected_outcome)
         if (expected !== undefined) entry.expected_outcome = expected
@@ -560,15 +580,33 @@ export function mapV5AnalysisToReport(
 }
 
 /**
- * Stable canonical JSON serialiser — sorts object keys at every nesting
- * level so the resulting string is byte-identical for two values that
- * differ only by key-insertion order. Used by deriveBlockHash so the
- * Results-panel dedupe responds to genuine content changes (e.g. updated
- * factor_sensitivity) rather than to incidental key reordering.
+ * Stable serialiser used by deriveBlockHash. Sorts object keys at every
+ * nesting level so the resulting string is byte-identical for two values
+ * that differ only by key-insertion order — meaning incidental object-key
+ * reordering does not invalidate dedupe, but genuine content changes
+ * (updated factor_sensitivity, etc.) do.
+ *
+ * NOT strictly JSON-canonical (a real wire payload coming through
+ * JSON.parse cannot contain `undefined` or symbols, but defensive
+ * production callers might pass them in). Both `undefined` and `null`
+ * serialise to `"null"` here, and unsupported types (functions, symbols)
+ * also map to `"null"`. The hash purpose is content equality, and
+ * collapsing JSON-unrepresentable values to a single sentinel is honest
+ * for that purpose. Object properties whose value is `undefined` are
+ * preserved in the key order rather than omitted (JSON would drop them)
+ * so the serialisation stays sensitive to "this key exists but is
+ * unset" vs "this key is absent" — both rare for the wire payload but
+ * relevant if a caller hands us a synthesised block.
  */
 function stableStringify(value: unknown): string {
-  if (value === null || typeof value !== 'object') {
-    return JSON.stringify(value)
+  if (value === undefined) return 'null'
+  if (value === null) return 'null'
+  if (typeof value === 'function' || typeof value === 'symbol') return 'null'
+  if (typeof value !== 'object') {
+    const serialised = JSON.stringify(value)
+    // JSON.stringify can return undefined for e.g. NaN/Infinity wrapped
+    // in unsupported contexts; collapse to "null" for hash purposes.
+    return serialised ?? 'null'
   }
   if (Array.isArray(value)) {
     return '[' + value.map(stableStringify).join(',') + ']'
