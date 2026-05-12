@@ -138,17 +138,7 @@ export interface AnalysisHeroVM {
   footerCta: FooterCta
 }
 
-/**
- * Inputs to the VM builder. Kept as a flat record so the builder is
- * easily testable without instantiating the full ResultsSectionDataReturn.
- */
-export interface AnalysisHeroBuilderInputs {
-  /** From useResultsSectionData. */
-  data: import('../useResultsSectionData').ResultsSectionDataReturn
-  /** From buildResultsVM. */
-  vm: import('../buildResultsVM').ResultsVM
-  /** From canvas store — number of confirmed factor nodes. */
-  confirmedFactorCount: number
-  /** From canvas store — total factor-node count. */
-  totalFactorCount: number
-}
+// `AnalysisHeroBuilderArgs` (the actual VM-builder input shape) lives in
+// `buildAnalysisHeroViewModel.ts` alongside the function it parameterises.
+// An earlier stub here became dead after the structureSignals + coverageSignals
+// fields were added round-3; removed to avoid drift.
