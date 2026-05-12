@@ -498,6 +498,213 @@ describe('mapV5AnalysisToReport — real staging payload (label-keyed win_probab
   })
 })
 
+describe('mapV5AnalysisToReport — option_comparison passthrough for the inspector OutcomePanel', () => {
+  // OutcomePanel.OptionComparisonSection at
+  // src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx:70 reads
+  // `report.option_comparison[]` directly. The V4 mapper never populated
+  // this; the V5 enrichment carries it byte-for-byte from PLoT so the V5
+  // path passes it through. Tests below pin the inspector-consumed shape
+  // (option_id + option_label + win_probability + outcome.{mean,p10,p50,p90})
+  // so a downstream reshape would fail loudly.
+
+  it('passes through option_comparison entries keyed by option_id with the OutcomePanel-consumed fields', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a',
+      win_probabilities: { opt_a: 0.6, opt_b: 0.4 },
+      enrichment: {
+        option_comparison: [
+          {
+            id: 'opt_a',
+            option_id: 'opt_a',
+            option_label: 'Option A',
+            win_probability: 0.6,
+            outcome: { mean: 12.5, p10: 8, p50: 12, p90: 17 },
+          },
+          {
+            id: 'opt_b',
+            option_id: 'opt_b',
+            option_label: 'Option B',
+            win_probability: 0.4,
+            outcome: { mean: 8, p10: 4, p50: 7.5, p90: 12 },
+          },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_comparison?: Array<{
+        option_id: string
+        option_label?: string
+        win_probability?: number
+        outcome?: { mean?: number | null; p10?: number | null; p50?: number | null; p90?: number | null }
+      }>
+    }
+    expect(report.option_comparison).toBeDefined()
+    expect(report.option_comparison).toHaveLength(2)
+
+    const optA = report.option_comparison!.find((o) => o.option_id === 'opt_a')!
+    expect(optA.option_label).toBe('Option A')
+    expect(optA.win_probability).toBe(0.6)
+    expect(optA.outcome).toEqual({ mean: 12.5, p10: 8, p50: 12, p90: 17 })
+
+    const optB = report.option_comparison!.find((o) => o.option_id === 'opt_b')!
+    expect(optB.win_probability).toBe(0.4)
+  })
+
+  it('option_comparison_status passes through from enrichment when present', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a',
+      win_probabilities: { opt_a: 1 },
+      enrichment: {
+        option_comparison: [{ id: 'opt_a', option_id: 'opt_a', option_label: 'A', win_probability: 1 }],
+        option_comparison_status: 'computed',
+      },
+    }
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_comparison_status?: string
+    }
+    expect(report.option_comparison_status).toBe('computed')
+  })
+
+  it('option_comparison omitted from report when enrichment lacks it (honest miss, no synthetic rows)', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: null,
+      win_probabilities: { opt_a: 0.5 },
+      enrichment: {}, // no option_comparison
+    }
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_comparison?: unknown
+    }
+    expect(report.option_comparison).toBeUndefined()
+  })
+
+  it('option_comparison entries with no outcome data omit the outcome field rather than emit null-filled placeholder', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a',
+      win_probabilities: { opt_a: 0.7 },
+      enrichment: {
+        option_comparison: [
+          { id: 'opt_a', option_id: 'opt_a', option_label: 'A', win_probability: 0.7 },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_comparison?: Array<{ option_id: string; outcome?: unknown }>
+    }
+    expect(report.option_comparison![0].outcome).toBeUndefined()
+  })
+
+  it('real staging fixture produces option_comparison with all 4 options and exact win_probabilities', () => {
+    const block = realStagingFixture.blocks[0] as AnalysisResultBlock
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_comparison?: Array<{ option_id: string; win_probability?: number }>
+    }
+    expect(report.option_comparison).toBeDefined()
+    expect(report.option_comparison).toHaveLength(4)
+    const byId = new Map(report.option_comparison!.map((o) => [o.option_id, o]))
+    expect(byId.get('opt_hire_local')?.win_probability).toBe(0.7193333333333334)
+    expect(byId.get('opt_offshore')?.win_probability).toBe(0.054)
+    expect(byId.get('opt_status_quo')?.win_probability).toBe(0.22533333333333333)
+    expect(byId.get('opt_tiered_pricing')?.win_probability).toBe(0.0013333333333333333)
+  })
+})
+
+describe('mapV5AnalysisToReport — duplicate-label edge case', () => {
+  // The reviewer flagged: when block.win_probabilities is keyed by labels
+  // (real staging behaviour) AND two options happen to share a label,
+  // the label-keyed Record cannot distinguish them. The mapper must
+  // handle this correctly in path A (option_comparison present) — each
+  // option_comparison entry has its own win_probability, so duplicate
+  // labels are not ambiguous — and document the limitation in path B
+  // (option_comparison absent).
+
+  it('path A: duplicate option_labels disambiguate correctly because option_comparison carries per-option win_probability', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a1',
+      // Block-level win_probabilities is label-keyed (real-staging shape)
+      // and two options share the SAME label — collision is unavoidable
+      // at this level.
+      win_probabilities: { 'Hire Locally': 0.6 },
+      enrichment: {
+        option_comparison: [
+          // Each option_comparison entry carries its own canonical win_probability
+          { id: 'opt_a1', option_id: 'opt_a1', option_label: 'Hire Locally', win_probability: 0.6 },
+          { id: 'opt_a2', option_id: 'opt_a2', option_label: 'Hire Locally', win_probability: 0.3 },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_probabilities?: Record<string, { win_probability?: number }>
+    }
+    // option_comparison.win_probability takes precedence over the
+    // label-keyed block.win_probabilities, so the two duplicate-label
+    // options retain distinct probabilities.
+    expect(report.option_probabilities!.opt_a1.win_probability).toBe(0.6)
+    expect(report.option_probabilities!.opt_a2.win_probability).toBe(0.3)
+  })
+
+  it('path A degraded: when option_comparison entries lack win_probability AND two share the same label, both fall back to the same block.win_probabilities[label] value (acknowledged limitation)', () => {
+    // This is the genuine edge case: option_comparison present but entries
+    // omit win_probability, so we fall through to block.win_probabilities[
+    // option_label] — and two options sharing a label collide. This is a
+    // backend-side data-quality issue (option_comparison entries SHOULD
+    // carry their own win_probability when win_probabilities is
+    // label-keyed); the mapper preserves honest behaviour rather than
+    // synthesising a delta.
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: 'opt_a1',
+      win_probabilities: { 'Hire Locally': 0.6 },
+      enrichment: {
+        option_comparison: [
+          // No win_probability on either entry
+          { id: 'opt_a1', option_id: 'opt_a1', option_label: 'Hire Locally' },
+          { id: 'opt_a2', option_id: 'opt_a2', option_label: 'Hire Locally' },
+        ],
+      },
+    }
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_probabilities?: Record<string, { win_probability?: number }>
+    }
+    // Both options collapse to the same value — the mapper does not invent
+    // a tie-break. Acknowledged limitation; backend should populate
+    // option_comparison.win_probability per option when this configuration
+    // is possible.
+    expect(report.option_probabilities!.opt_a1.win_probability).toBe(0.6)
+    expect(report.option_probabilities!.opt_a2.win_probability).toBe(0.6)
+  })
+
+  it('path B: option_comparison absent AND label-keyed win_probabilities — labels survive as Record keys with no disambiguation (Results panel honestly misses by node.id)', () => {
+    const block: AnalysisResultBlock = {
+      type: 'analysis_result',
+      summary: '',
+      leading_option_id: null,
+      // Label-keyed win_probabilities, no enrichment to resolve.
+      win_probabilities: { 'Hire Locally': 0.6 },
+      enrichment: {},
+    }
+    const report = mapV5AnalysisToReport(block) as ReturnType<typeof mapV5AnalysisToReport> & {
+      option_probabilities?: Record<string, { win_probability?: number }>
+    }
+    // Path B emits verbatim. No id-keyed entry exists — the selector
+    // lookup `optionProbs[node.id]` honestly misses rather than
+    // mismatching against the wrong canvas node.
+    expect(Object.keys(report.option_probabilities!).sort()).toEqual(['Hire Locally'])
+    expect(report.option_probabilities!['Hire Locally'].win_probability).toBe(0.6)
+    expect(report.option_probabilities!.opt_anything).toBeUndefined()
+  })
+})
+
 describe('mapV5AnalysisToReport — label-keyed resolution unit cases', () => {
   it('win_probabilities keyed by labels: option_comparison.option_label resolves to canonical option_id', () => {
     const block: AnalysisResultBlock = {
@@ -590,6 +797,56 @@ describe('mapV5AnalysisToReport — deterministic hash + minimal envelope', () =
     const reportA = mapV5AnalysisToReport(blockA)
     const reportB = mapV5AnalysisToReport(blockB)
     expect(reportA.model_card.response_hash).not.toBe(reportB.model_card.response_hash)
+  })
+
+  it('enrichment delta produces a different hash even when summary/leading/win_probabilities are identical (dedupe regression guard)', () => {
+    // Regression guard for the dedupe hole the brief codex review flagged:
+    // the same summary + leading + win_probabilities with changed
+    // factor_sensitivity / robustness must NOT be deduped away — the
+    // Results panel needs to re-hydrate when enrichment changes.
+    const blockA = baseBlock({
+      win_probabilities: { opt_a: 0.6, opt_b: 0.4 },
+      enrichment: {
+        factor_sensitivity: [
+          { factor_id: 'fac_x', label: 'X', sensitivity: 0.3 },
+        ],
+      },
+    })
+    const blockB = baseBlock({
+      win_probabilities: { opt_a: 0.6, opt_b: 0.4 },
+      enrichment: {
+        factor_sensitivity: [
+          { factor_id: 'fac_x', label: 'X', sensitivity: 0.9 }, // changed magnitude
+        ],
+      },
+    })
+
+    const reportA = mapV5AnalysisToReport(blockA)
+    const reportB = mapV5AnalysisToReport(blockB)
+    expect(reportA.model_card.response_hash).not.toBe(reportB.model_card.response_hash)
+  })
+
+  it('enrichment with re-ordered keys produces the SAME hash (stable canonical serialisation)', () => {
+    // Counterpart to the previous test: incidental object-key reordering
+    // must not invalidate dedupe (otherwise the same response received
+    // twice would double-hydrate).
+    const blockA = baseBlock({
+      enrichment: {
+        factor_sensitivity: [{ factor_id: 'fac_x', label: 'X', sensitivity: 0.3 }],
+        robustness: { fragile_edges: ['e1'], robust_edges: ['e2'] },
+      },
+    })
+    const blockB = baseBlock({
+      enrichment: {
+        // Same content, different top-level key order
+        robustness: { robust_edges: ['e2'], fragile_edges: ['e1'] },
+        factor_sensitivity: [{ label: 'X', sensitivity: 0.3, factor_id: 'fac_x' }],
+      },
+    })
+
+    const reportA = mapV5AnalysisToReport(blockA)
+    const reportB = mapV5AnalysisToReport(blockB)
+    expect(reportA.model_card.response_hash).toBe(reportB.model_card.response_hash)
   })
 
   it('caller-provided responseHash overrides derived hash', () => {

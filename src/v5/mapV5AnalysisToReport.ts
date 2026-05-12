@@ -423,12 +423,20 @@ export function mapV5AnalysisToReport(
 
   // Deterministic response_hash when caller has none. Stable across identical
   // blocks so the store's hash-dedupe in resultsComplete works.
+  //
+  // Includes the full enrichment payload (stable-serialised) so two blocks
+  // with the same summary + leading_option_id + win_probabilities but
+  // changed factor_sensitivity / robustness / option_comparison produce
+  // DIFFERENT hashes and re-hydrate the Results panel. Earlier drafts hashed
+  // only the top-level keys, which let enrichment-only deltas (legitimate
+  // re-analysis with same probabilities) silently dedupe.
   const responseHash =
     options.responseHash ??
     deriveBlockHash({
       summary: block.summary,
       leading_option_id: block.leading_option_id,
       win_probabilities: winProbs,
+      enrichment: block.enrichment,
     })
 
   const report: ReportV1 = {
@@ -482,6 +490,68 @@ export function mapV5AnalysisToReport(
     // src/components/results/types.ts:777) explicitly widens this field.
     widened.option_probabilities = option_probabilities as unknown as ReportV1['option_probabilities']
   }
+
+  // Inspector-facing `option_comparison` passthrough. The right-hand
+  // OutcomePanel.OptionComparisonSection at
+  // src/canvas/ui/inspector-v2/panels/OutcomePanel.tsx:70 reads
+  // `r?.option_comparison as OptionComparisonEntry[]` and renders
+  // ranked rows with win-probability bars. The V4 mapper never
+  // populated this field (it is a pre-existing gap on V4); the V5
+  // enrichment carries `option_comparison` byte-for-byte from PLoT,
+  // so the V5 path can fix the inspector without changing OutcomePanel.
+  // Shape narrowed to the OutcomePanel-consumed subset
+  // (option_id, option_label, win_probability, outcome) — extra
+  // enrichment fields are deliberately dropped so they don't leak
+  // into the inspector's DOM.
+  if (resolvedOptions.length > 0) {
+    type InspectorOptionComparison = {
+      option_id: string
+      option_label?: string
+      win_probability?: number
+      expected_outcome?: number
+      outcome?: {
+        mean?: number | null
+        p10?: number | null
+        p50?: number | null
+        p90?: number | null
+      }
+    }
+    const optionComparison: InspectorOptionComparison[] = resolvedOptions.map(
+      ({ optionId, optionLabel, enriched }) => {
+        const entry: InspectorOptionComparison = { option_id: optionId }
+        if (optionLabel) entry.option_label = optionLabel
+        const winProb =
+          safeFiniteNumber(enriched.win_probability) ??
+          safeFiniteNumber(winProbs[optionId]) ??
+          (optionLabel !== undefined ? safeFiniteNumber(winProbs[optionLabel]) : undefined)
+        if (winProb !== undefined) entry.win_probability = winProb
+        const expected = safeFiniteNumber(enriched.expected_outcome)
+        if (expected !== undefined) entry.expected_outcome = expected
+        const outcome = isPlainObject(enriched.outcome) ? enriched.outcome : undefined
+        if (outcome) {
+          const mean = safeFiniteNumber(outcome.mean)
+          const p10 = safeFiniteNumber(outcome.p10)
+          const p50 = safeFiniteNumber(outcome.p50)
+          const p90 = safeFiniteNumber(outcome.p90)
+          if (mean !== undefined || p10 !== undefined || p50 !== undefined || p90 !== undefined) {
+            entry.outcome = {
+              mean: mean ?? null,
+              p10: p10 ?? null,
+              p50: p50 ?? null,
+              p90: p90 ?? null,
+            }
+          }
+        }
+        return entry
+      },
+    )
+    widened.option_comparison = optionComparison
+    // OutcomePanel also checks option_comparison_status. Mirror the
+    // top-level enrichment field when present so error/pending states
+    // pass through verbatim.
+    const ocStatus = safeString(enrichment?.option_comparison_status)
+    if (ocStatus !== undefined) widened.option_comparison_status = ocStatus
+  }
   if (block.summary.length > 0) {
     widened.summary = block.summary
   }
@@ -490,8 +560,35 @@ export function mapV5AnalysisToReport(
 }
 
 /**
- * Deterministic 16-hex-char hash derived from block content. Stable across
- * identical inputs so the store's hash-dedupe path doesn't double-write.
+ * Stable canonical JSON serialiser — sorts object keys at every nesting
+ * level so the resulting string is byte-identical for two values that
+ * differ only by key-insertion order. Used by deriveBlockHash so the
+ * Results-panel dedupe responds to genuine content changes (e.g. updated
+ * factor_sensitivity) rather than to incidental key reordering.
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== 'object') {
+    return JSON.stringify(value)
+  }
+  if (Array.isArray(value)) {
+    return '[' + value.map(stableStringify).join(',') + ']'
+  }
+  const obj = value as Record<string, unknown>
+  const keys = Object.keys(obj).sort()
+  return (
+    '{' +
+    keys.map((k) => JSON.stringify(k) + ':' + stableStringify(obj[k])).join(',') +
+    '}'
+  )
+}
+
+/**
+ * Deterministic 16-hex-char hash derived from block content INCLUDING the
+ * full enrichment payload. Stable across identical inputs so the store's
+ * hash-dedupe path doesn't double-write, and DISTINCT for any block whose
+ * enrichment differs (so re-runs that produce updated drivers / robustness
+ * / option_comparison hydrate the Results panel fresh).
+ *
  * Lightweight non-crypto digest — collisions are extremely unlikely across
  * the population of analysis blocks a single session produces, and the
  * dedupe is best-effort (a collision wastes one set() call, not user data).
@@ -500,6 +597,7 @@ function deriveBlockHash(parts: {
   summary: string
   leading_option_id: string | null
   win_probabilities: Record<string, number>
+  enrichment: Record<string, unknown> | undefined
 }): string {
   // Canonicalise win_probabilities key order so identical content hashes
   // regardless of object key insertion order.
@@ -507,7 +605,8 @@ function deriveBlockHash(parts: {
     .sort()
     .map((k) => `${k}:${parts.win_probabilities[k]}`)
     .join(',')
-  const seed = `${parts.summary}|${parts.leading_option_id ?? ''}|${sortedProbs}`
+  const enrichmentSerialised = stableStringify(parts.enrichment ?? null)
+  const seed = `${parts.summary}|${parts.leading_option_id ?? ''}|${sortedProbs}|${enrichmentSerialised}`
 
   // FNV-1a 64-bit (BigInt) — deterministic, no crypto dependency.
   let h = 0xcbf29ce484222325n
