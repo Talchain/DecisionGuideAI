@@ -38,8 +38,65 @@ window unverified; both briefs remain DRAFT pending review).
 DGAI merge (#138, #139, #140 and any future DGAI PRs) is paused until
 this is fixed.
 
-- **Symptom**: Netlify production build for DGAI fails the bundle-
-  budget rule on the latest merged commit. The staging URL
+### Most recent Netlify failure (2026-05-13)
+
+| Field | Value |
+|---|---|
+| Failed deploy commit | `27153431` (origin/staging HEAD) |
+| Failed entry chunk | `index-7UZyxHxP.js` |
+| Raw size | 155.71 KB |
+| Gzipped size | **50.49 KB** |
+| Budget | 50 KB |
+| Overage | 0.49 KB |
+
+**`/version.json` confirms staging is NOT serving the expected latest
+DGAI commit.** As of 2026-05-13 (mid-afternoon UTC) `/version.json`
+returns `21c6d1e22f` (timestamp 2026-05-12T21:10:12Z) — the last
+SUCCESSFUL deploy. Every commit on `origin/staging` since then
+(`b5802b78`, `0ff7a654`, `da7a15e1`, `7d4aaa26`, `93514909`,
+`8da600e9`, `58eaa426`, `9f465e5c`, `27153431`) has either failed
+to deploy on bundle budget or has not been attempted by Netlify.
+
+### Fix in flight — PR #142
+
+P0 unblocker PR opened: **https://github.com/Talchain/DecisionGuideAI/pull/142**
+
+Branch `claude/v5-p0-deploy-unblocker`, head `e5f3245d`, based on
+`origin/staging @ 27153431`.
+
+- **Local Vite-reported entry-chunk gzip**: 50.92 KB → 47.86 KB
+  (Δ −3.06 KB). With the same ~0.4 KB Netlify-zlib drift observed on
+  the unfixed build (local 50.92 → Netlify 50.49), the fixed entry
+  should land at **~47.5 KB on Netlify Linux** — 2.5 KB margin under
+  the 50 KB budget.
+- **Picker bug also fixed**: `scripts/verify-bundle-budget.mjs:50-52`
+  used `Array.find` on `readdirSync` output, which masked the real
+  entry chunk on macOS for ~5 days. Picker now resolves via
+  `dist/index.html`'s `<script type="module" src=...>` reference
+  with a size-ordered fallback.
+- **Scope**: 4 files, +152 / −84 lines, 1 new file. No package /
+  lockfile / prompt / schema / backend / generated-file changes. No
+  router or boot-flow refactor.
+- **Build verification**: `npm run build:ci` passes locally; verifier
+  reports 46.73 KB on the real entry chunk.
+
+### Implication for ongoing work
+
+- **Staging assertions** made against `/version.json @ 21c6d1e2` are
+  technically valid for that SHA but **do NOT cover any code merged
+  to `origin/staging` since 2026-05-12 21:10 UTC**. Every "verified
+  on staging" claim about V5 Phase 1 / Phase 2 work in the past
+  ~36 hours is provisional until #142 lands and `/version.json`
+  catches up to the intended SHA.
+- Branch `claude/serene-bell-8a7861` carries additional v17-hero
+  polish commits (`5a610832`, `c0eb5075`) NOT on `origin/staging`.
+  Any v17-hero observations made on staging today reflect the
+  pre-polish `21c6d1e2` build, not those local commits.
+
+### Symptom (original report)
+
+- Netlify production build for DGAI fails the bundle-budget rule on
+  the latest merged commit. The staging URL
   (`https://staging--olumi.netlify.app/`) **may not be serving the
   expected latest DGAI SHA** — code that appears to have shipped may
   not actually be deployed.
