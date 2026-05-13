@@ -179,6 +179,25 @@ class BootErrorBoundary extends Component<{ children: ReactNode }, { error: Erro
       // Silently ignore - server falls back to defaults
     });
 
+    // Lazy-load the dev-console diagnostics helper after first paint. The
+    // helper installs `window.__analysisHeroV17` for staging reviewers but
+    // is not needed for any first-paint behaviour, so it stays out of the
+    // eager entry chunk. Split out of `comparisonFlagBoot.ts` on
+    // 2026-05-13 (P0 deploy-unblocker) so the `@/flags` dependency chain
+    // leaves the entry chunk. `requestIdleCallback` with a `setTimeout`
+    // fallback covers browsers without rIC (older Safari).
+    const scheduleDevHelper: (cb: () => void) => void =
+      typeof (window as any).requestIdleCallback === 'function'
+        ? (cb) => (window as any).requestIdleCallback(cb)
+        : (cb) => { setTimeout(cb, 1); };
+    scheduleDevHelper(() => {
+      import('./components/results/analysisHeroV17/comparisonFlagDevHelper')
+        .then((m) => m.installAnalysisHeroV17DevHelper())
+        .catch(() => {
+          // Silent — dev helper is a convenience, not load-bearing.
+        });
+    });
+
     // Phase 2: upgrade to full app (next microtask is enough; avoids extra layout thrash)
     queueMicrotask(() => {
       root.render(
