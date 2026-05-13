@@ -679,8 +679,17 @@ function extractCeePipelineQuickFields(data: DebugData): {
  * Where the captured win_probability came from in the response payload.
  * Limited to values the exporter actually emits. If a new fallback path is
  * added in resolveOption, add the corresponding enum member here.
+ *
+ * V5 canonical source (added 2026-05-13, Phase 1 of V5 completion plan):
+ * `state.results.report.option_probabilities` is hydrated by
+ * `applyV5State` step 5 / `mapV5AnalysisToReport` (PR #137) on every
+ * V5 `run_analysis` turn. This is the ONLY source populated for V5
+ * single-scenario runs; the V4 `apiResponse.*` paths below remain as
+ * fallbacks for Comparison-mode (which writes `apiResponse` via
+ * `enterComparisonMode` / `useScenarioComparison`).
  */
 export type WinProbabilitySource =
+  | 'state.results.report.option_probabilities.win_probability'
   | 'payloads.plot_response.option_comparison.win_probability'
   | 'payloads.plot_response.options.win_probability'
   | 'payloads.plot_response.option_probabilities.win_probability'
@@ -689,8 +698,19 @@ export type WinProbabilitySource =
 /** How the captured rank was computed (analytical vs canvas fallback). */
 export type RankSource = 'win_probability_desc' | 'canvas_order' | 'unranked'
 
-/** Where the captured influence / sensitivity value came from. */
+/**
+ * Where the captured influence / sensitivity value came from.
+ *
+ * V5 canonical source (added 2026-05-13, Phase 1):
+ * `state.results.report.factor_sensitivity` is hydrated by
+ * `applyV5State` step 5 / `mapV5AnalysisToReport` and carries
+ * `{factor_id, factor_label, sensitivity, direction}` per factor. The
+ * sensitivity field is already absolute-magnitude (V4 alias-priority
+ * resolution applied in the mapper), so no further conversion needed
+ * here.
+ */
 export type FactorMetricSource =
+  | 'state.results.report.factor_sensitivity.sensitivity'
   | 'plot_enrichment.factor_sensitivity.influence_score'
   | 'plot_enrichment.factor_sensitivity.sensitivity_score'
   | 'results.apiResponse.factor_sensitivity.influence_score'
@@ -1711,6 +1731,19 @@ interface FactorSensitivityEntry {
  * (`DriversSection.tsx:269` / `DriversSection.tsx:805-810`): the "Influence"
  * column displays `influence_score`; sensitivity is captured separately for
  * analytical fidelity even though it is not visibly rendered.
+ *
+ * V5-aware (added 2026-05-13, Phase 1): when
+ * `state.results.report.factor_sensitivity` is hydrated by the V5 mapper,
+ * it takes precedence over the V4 `factorSensitivity` argument because V5
+ * single-scenario turns do not populate `apiResponse.factor_sensitivity`.
+ * V5 entries carry `{factor_id, factor_label, sensitivity, direction}` —
+ * the `sensitivity` field is already absolute-magnitude (alias-priority
+ * resolution applied in the mapper), so it maps directly to
+ * `sensitivity_displayed`. V5 has no separate `influence_score` field on
+ * the report, so V4 `influence_score` falls through to the legacy source
+ * when V4 data is also present (Comparison-mode); otherwise influence is
+ * `null` / `unmatched` (honest miss for V5-only turns until the contract
+ * surfaces an explicit `influence` field on the report shape).
  */
 function extractRenderedFactors(
   nodes: Array<{ id: string; data: unknown }>,
@@ -1719,6 +1752,7 @@ function extractRenderedFactors(
     influence: FactorMetricSource
     sensitivity: FactorMetricSource
   },
+  reportFactorSensitivity: Array<Record<string, unknown>> = [],
 ): DisplayState['rendered_factors'] {
   const factorNodes = nodes.filter((n) => {
     const d = n.data as Record<string, unknown> | undefined
@@ -1738,6 +1772,23 @@ function extractRenderedFactors(
     })
   }
 
+  // V5 lookup — keyed by factor_id (canonical option_id-style ID), with
+  // a label-fallback mirror of the V4 matcher for parity. Returns the
+  // raw V5 entry when matched, or undefined when not.
+  const matchV5Factor = (
+    nodeId: string,
+    nodeLabel: unknown,
+  ): Record<string, unknown> | undefined => {
+    const norm = normaliseLabel(nodeLabel)
+    return reportFactorSensitivity.find((fs) => {
+      if (typeof fs?.factor_id === 'string' && fs.factor_id === nodeId) return true
+      const fsLabel = normaliseLabel(
+        (fs?.factor_label as string | undefined) ?? (fs?.label as string | undefined),
+      )
+      return Boolean(norm) && norm === fsLabel
+    })
+  }
+
   return factorNodes.map((n) => {
     const d = n.data as Record<string, unknown>
     const obs = d?.observedState as Record<string, unknown> | undefined
@@ -1746,19 +1797,45 @@ function extractRenderedFactors(
     const valueStr = typeof value === 'number'
       ? (unit ? `${value} ${unit}` : String(value))
       : null
-    const match = matchFactor(n.id, d?.label)
-    const influenceVal = typeof match?.influence_score === 'number' ? match.influence_score : null
-    const sensitivityVal = typeof match?.sensitivity_score === 'number' ? match.sensitivity_score : null
-    const factorId = typeof match?.factor_id === 'string' ? match.factor_id : n.id ?? null
+
+    // V5 source first (Phase 1 fix). The mapper already absolute-values
+    // the magnitude under the `sensitivity` key.
+    const v5Match = matchV5Factor(n.id, d?.label)
+    const v5Sensitivity = typeof v5Match?.sensitivity === 'number' ? v5Match.sensitivity : null
+
+    const v4Match = matchFactor(n.id, d?.label)
+    const v4InfluenceVal = typeof v4Match?.influence_score === 'number' ? v4Match.influence_score : null
+    const v4SensitivityVal = typeof v4Match?.sensitivity_score === 'number' ? v4Match.sensitivity_score : null
+
+    // Sensitivity: V5 wins when present; V4 fallback for Comparison-mode.
+    const sensitivityVal = v5Sensitivity ?? v4SensitivityVal
+    const sensitivitySource: FactorMetricSource =
+      v5Sensitivity !== null
+        ? 'state.results.report.factor_sensitivity.sensitivity'
+        : v4SensitivityVal !== null
+          ? factorMetricSource.sensitivity
+          : 'unmatched'
+
+    // Influence: V5 has no current `influence_score` analog on the
+    // report shape (Phase-3A contract may add one). Stay V4-only for
+    // now; honest unmatched when V5-only turn lacks influence data.
+    const influenceVal = v4InfluenceVal
+    const influenceSource: FactorMetricSource =
+      influenceVal !== null ? factorMetricSource.influence : 'unmatched'
+
+    const factorId =
+      typeof v5Match?.factor_id === 'string' ? v5Match.factor_id
+      : typeof v4Match?.factor_id === 'string' ? v4Match.factor_id
+      : n.id ?? null
     return {
       id: n.id,
       factor_id: factorId,
       label_displayed: (d?.label as string) ?? null,
       value_displayed: valueStr,
       influence_displayed: influenceVal,
-      influence_source: influenceVal !== null ? factorMetricSource.influence : 'unmatched',
+      influence_source: influenceSource,
       sensitivity_displayed: sensitivityVal,
-      sensitivity_source: sensitivityVal !== null ? factorMetricSource.sensitivity : 'unmatched',
+      sensitivity_source: sensitivitySource,
     }
   })
 }
@@ -1789,18 +1866,32 @@ export async function captureDisplayState(): Promise<DisplayState> {
 
     // Extract rendered options (from results if available)
     const results = state.results as Record<string, unknown> | null | undefined
+
+    // V5 canonical source (added 2026-05-13, Phase 1):
+    // `state.results.report.option_probabilities` is hydrated by
+    // `mapV5AnalysisToReport` + `applyV5State` step 5 (PR #137) on every
+    // V5 `run_analysis` turn. This is the ONLY source populated for V5
+    // single-scenario runs because V5 envelopes do not write
+    // `state.results.apiResponse` (only Comparison-mode does, via
+    // `enterComparisonMode` / `useScenarioComparison`). Reading the
+    // V5 source first means V5 turns now carry numeric
+    // `win_probability_displayed` in debug bundles instead of always
+    // `null` / `unmatched`. Same V4 fallbacks below for Comparison-mode.
+    const resultsReport = (results as { report?: Record<string, unknown> | null } | null | undefined)?.report
+    const reportOptionProbabilities = (resultsReport?.option_probabilities as
+      Record<string, Record<string, unknown> | undefined> | undefined) ?? {}
+    const reportFactorSensitivity = (resultsReport?.factor_sensitivity as
+      Array<Record<string, unknown>> | undefined) ?? []
+
     const apiResponse = results?.apiResponse as Record<string, unknown> | null | undefined
     const optionComparison = (apiResponse?.option_comparison as
       Array<Record<string, unknown>> | undefined) ?? []
     const plotOptions = (apiResponse?.options as
       Array<Record<string, unknown>> | undefined) ?? []
-    // Tertiary fallback: PLoT shapes data into a node-id-keyed map at
-    // `option_probabilities[node_id].win_probability`. This is the underlying
-    // source `useResultsSectionData.ts:1042` reads when building
-    // `recommendation.allOptions[*].winProbability` for the UI — see brief
-    // revision item 5. Reading the wire field directly avoids replicating
-    // the hook's normaliser at capture time while preserving the third-tier
-    // resilience the brief required.
+    // Legacy V4 tertiary fallback: PLoT shapes data into a node-id-keyed
+    // map at `option_probabilities[node_id].win_probability`. The V5 path
+    // above supersedes this; retained for Comparison-mode compat where
+    // `apiResponse.option_probabilities` is the only source.
     const optionProbabilities = (apiResponse?.option_probabilities as
       Record<string, Record<string, unknown> | undefined> | undefined) ?? {}
     const factorSensitivity = (apiResponse?.factor_sensitivity as
@@ -1823,7 +1914,23 @@ export async function captureDisplayState(): Promise<DisplayState> {
       const d = node.data as Record<string, unknown> | undefined
       const nodeLabel = (d?.label as string) ?? null
       const norm = normaliseLabel(nodeLabel)
-      // 1) PLoT response option_comparison (primary)
+
+      // 0) V5 canonical: state.results.report.option_probabilities
+      // (added 2026-05-13, Phase 1). Keyed by canonical option_id which
+      // by `applyDraftResult` contract equals the canvas node.id. PR
+      // #137 hydrates this on every V5 run_analysis turn.
+      const v5Entry = reportOptionProbabilities[node.id]
+      if (v5Entry && typeof v5Entry.win_probability === 'number') {
+        return {
+          node,
+          optionId: node.id,
+          label: nodeLabel,
+          winProbability: v5Entry.win_probability,
+          source: 'state.results.report.option_probabilities.win_probability',
+        }
+      }
+
+      // 1) PLoT response option_comparison (V4 / Comparison-mode primary)
       let match = optionComparison.find((o) => {
         if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
         return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
@@ -1946,10 +2053,15 @@ export async function captureDisplayState(): Promise<DisplayState> {
       canvas_edge_count: edges.length,
       canvas_node_types: nodeTypes,
       rendered_options: renderedOptions,
-      rendered_factors: extractRenderedFactors(nodes, factorSensitivity, {
-        influence: 'plot_enrichment.factor_sensitivity.influence_score',
-        sensitivity: 'plot_enrichment.factor_sensitivity.sensitivity_score',
-      }),
+      rendered_factors: extractRenderedFactors(
+        nodes,
+        factorSensitivity,
+        {
+          influence: 'plot_enrichment.factor_sensitivity.influence_score',
+          sensitivity: 'plot_enrichment.factor_sensitivity.sensitivity_score',
+        },
+        reportFactorSensitivity,
+      ),
       analysis_status_displayed: analysisStatus,
       hero_headline_displayed: deriveHeroHeadline(results, optionNodes.length),
       analysis_display_state: displayView.state,
