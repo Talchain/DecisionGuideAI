@@ -3,6 +3,7 @@ import type { Node, Edge } from '@xyflow/react'
 import {
   graphNeedsInitialLayout,
   getGraphIdentityKey,
+  STACKED_SPREAD_PX,
 } from '../utils/graphNeedsInitialLayout'
 
 function node(id: string, x: number, y: number, locked = false): Node {
@@ -101,6 +102,11 @@ describe('graphNeedsInitialLayout — predicate', () => {
     const nodes = [node('a', 0, 0), node('b', 40, 0), node('c', 0, 0)]
     expect(graphNeedsInitialLayout(nodes)).toBe(false)
   })
+
+  it('exposes STACKED_SPREAD_PX as a tunable export', () => {
+    expect(typeof STACKED_SPREAD_PX).toBe('number')
+    expect(STACKED_SPREAD_PX).toBe(40)
+  })
 })
 
 describe('getGraphIdentityKey — composite key with structural hash', () => {
@@ -174,6 +180,17 @@ describe('getGraphIdentityKey — composite key with structural hash', () => {
     const e2: Edge = { source: 'n1', target: 'n3' } as Edge
     const k1 = getGraphIdentityKey('scA', nodesA, [e1])
     const k2 = getGraphIdentityKey('scA', nodesA, [e2])
+    expect(k1).not.toBe(k2)
+  })
+
+  it('encodes ids defensively so delimiter-bearing ids cannot collide', () => {
+    // If structuralHash used a naive `join(",")` separator, the two
+    // node sets below would serialise to the same string. JSON.stringify
+    // encoding makes them distinct.
+    const nodesAB: Node[] = [node('a,b', 0, 0), node('c', 0, 0)]
+    const nodesACommaB: Node[] = [node('a', 0, 0), node('b,c', 0, 0)]
+    const k1 = getGraphIdentityKey('scA', nodesAB, [])
+    const k2 = getGraphIdentityKey('scA', nodesACommaB, [])
     expect(k1).not.toBe(k2)
   })
 })

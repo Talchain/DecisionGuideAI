@@ -56,37 +56,52 @@ describe('useInitialLayoutGuard', () => {
   })
 
   it('fires once when an existing scenario hydrates with stacked nodes', () => {
+    const requestIdBefore = useCanvasStore.getState().layoutRequestId
     seed({ nodes: stackedNodes(['a', 'b', 'c']), currentScenarioId: 'scA' })
     const { rerender } = renderHook(() => useInitialLayoutGuard())
     expect(setPendingLayoutSpy).toHaveBeenCalledTimes(1)
     expect(setPendingLayoutSpy).toHaveBeenCalledWith(true)
+    // Spy calls through to the real store action — verify the resulting
+    // transition actually occurred.
+    expect(useCanvasStore.getState().pendingLayout).toBe(true)
+    expect(useCanvasStore.getState().layoutRequestId).toBe(requestIdBefore + 1)
     // Re-render without state change — must not re-fire.
     rerender()
     expect(setPendingLayoutSpy).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().layoutRequestId).toBe(requestIdBefore + 1)
   })
 
   it('does not fire when an existing scenario has meaningful saved positions', () => {
+    const requestIdBefore = useCanvasStore.getState().layoutRequestId
     seed({ nodes: spreadNodes(['a', 'b', 'c']), currentScenarioId: 'scA' })
     renderHook(() => useInitialLayoutGuard())
     expect(setPendingLayoutSpy).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().pendingLayout).toBe(false)
+    expect(useCanvasStore.getState().layoutRequestId).toBe(requestIdBefore)
   })
 
   it('same scenario id with changed graph structure fires once for the new structural key', () => {
+    const requestIdBefore = useCanvasStore.getState().layoutRequestId
     seed({ nodes: stackedNodes(['a', 'b']), currentScenarioId: 'scA', edges: [e('e1', 'a', 'b')] })
     renderHook(() => useInitialLayoutGuard())
     expect(setPendingLayoutSpy).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().layoutRequestId).toBe(requestIdBefore + 1)
 
-    // Same scenario id, different node/edge set, still stacked.
+    // Same scenario id, different node/edge set, still stacked. `seed`
+    // resets pendingLayout to false so the guard's "in flight" early-
+    // return doesn't suppress evaluation for the new structural key.
     seed({
       nodes: stackedNodes(['a', 'b', 'c']),
       currentScenarioId: 'scA',
       edges: [e('e1', 'a', 'b'), e('e2', 'b', 'c')],
     })
     expect(setPendingLayoutSpy).toHaveBeenCalledTimes(2)
+    expect(useCanvasStore.getState().layoutRequestId).toBe(requestIdBefore + 2)
   })
 
   it('spread positions are not "consumed" — the same graph can fire later if it becomes stacked', () => {
     // Start meaningful — guard does not fire, and does not mark the key as fired.
+    const requestIdBefore = useCanvasStore.getState().layoutRequestId
     seed({
       nodes: spreadNodes(['a', 'b', 'c']),
       currentScenarioId: 'scA',
@@ -94,6 +109,8 @@ describe('useInitialLayoutGuard', () => {
     })
     renderHook(() => useInitialLayoutGuard())
     expect(setPendingLayoutSpy).not.toHaveBeenCalled()
+    expect(useCanvasStore.getState().pendingLayout).toBe(false)
+    expect(useCanvasStore.getState().layoutRequestId).toBe(requestIdBefore)
 
     // Same identity key, but now stacked. Guard must still recover.
     seed({
@@ -102,6 +119,8 @@ describe('useInitialLayoutGuard', () => {
       edges: [e('e1', 'a', 'b'), e('e2', 'b', 'c')],
     })
     expect(setPendingLayoutSpy).toHaveBeenCalledTimes(1)
+    expect(useCanvasStore.getState().pendingLayout).toBe(true)
+    expect(useCanvasStore.getState().layoutRequestId).toBe(requestIdBefore + 1)
   })
 
   it('scenario A→B switch fires for B when B is stacked, even if A was meaningful', () => {

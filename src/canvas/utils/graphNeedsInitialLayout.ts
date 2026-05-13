@@ -1,6 +1,13 @@
 import type { Node, Edge } from '@xyflow/react'
 
-const STACKED_SPREAD_PX = 40
+/**
+ * Maximum absolute x or y spread (px) below which a set of unlocked nodes
+ * is treated as stacked. Exported so tests and future tuning can read it
+ * without duplicating the constant. Three abutting laid-out nodes span
+ * hundreds of px (node widths are ~200 px), so 40 is well below any real
+ * layout while still detecting visually overlapped origins.
+ */
+export const STACKED_SPREAD_PX = 40
 
 function isLocked(node: Node): boolean {
   return (node.data as Record<string, unknown> | undefined)?.locked === true
@@ -51,9 +58,12 @@ function fnv1a32(input: string): string {
 }
 
 function structuralHash(nodes: Node[], edges: Edge[]): string {
+  // JSON.stringify produces a delimiter-safe encoding: array brackets and
+  // quoted strings cannot be confused with id content even if an id were
+  // ever to contain a comma or pipe.
   const nodeIds = nodes.map((n) => n.id).sort()
   const edgeIds = edges.map(edgeIdentity).sort()
-  return fnv1a32(`${nodeIds.join(',')}|${edgeIds.join(',')}`)
+  return fnv1a32(JSON.stringify([nodeIds, edgeIds]))
 }
 
 export function getGraphIdentityKey(
