@@ -108,6 +108,39 @@ describe('useMeasureThenLayout', () => {
     expect(applySpy.mock.calls[0][0]).toEqual({ skipHistory: true, requestId: 1 })
   })
 
+  it('fallback deadline survives effect re-renders instead of restarting the full timeout', () => {
+    const applySpy = vi
+      .spyOn(useCanvasStore.getState(), 'applyLayout')
+      .mockImplementation(() => Promise.resolve())
+
+    seedSingleNode()
+    mockNodesInitialized = false
+
+    const { rerender } = renderHook(() => useMeasureThenLayout())
+
+    act(() => {
+      vi.advanceTimersByTime(300)
+    })
+    expect(applySpy).not.toHaveBeenCalled()
+
+    // React Flow can emit a fresh nodeLookup object repeatedly while
+    // measurement is still incomplete. The hook must keep the original
+    // fallback deadline instead of restarting another full 500 ms timer.
+    mockNodeLookup = new Map([['a', { measured: { width: 320, height: 0 } }]])
+    rerender()
+
+    act(() => {
+      vi.advanceTimersByTime(LAYOUT_MEASUREMENT_FALLBACK_MS - 301)
+    })
+    expect(applySpy).not.toHaveBeenCalled()
+
+    act(() => {
+      vi.advanceTimersByTime(1)
+    })
+    expect(applySpy).toHaveBeenCalledTimes(1)
+    expect(applySpy.mock.calls[0][0]).toEqual({ skipHistory: true, requestId: 1 })
+  })
+
   it('cleanup cancels the fallback timer when pendingLayout flips false before it fires', () => {
     const applySpy = vi
       .spyOn(useCanvasStore.getState(), 'applyLayout')

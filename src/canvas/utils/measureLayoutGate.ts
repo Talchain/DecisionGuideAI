@@ -56,10 +56,20 @@ export interface GateInputs {
  *   - 'wait-with-fallback' when measurement is incomplete; caller starts
  *     the safety timer.
  */
+// 2026-05-14 P0 fix: rely on `allUnlockedNodesMeasured` alone. React Flow's
+// `useNodesInitialized()` could stay false in real browser environments
+// even when every unlocked node had measured width and height — leaving the
+// gate permanently in 'wait-with-fallback' and starving the fallback timer
+// (effect re-renders cancelled it before it could fire). The Playwright
+// repro for the failing class lives at
+// `e2e/canvas.layout-regression-v5-fresh-draft.spec.ts`.
+// `allUnlockedNodesMeasured` is exactly the condition ELK needs;
+// `nodesInitialized` stays in the inputs shape only for backwards
+// compatibility with the existing test surface.
 export function evaluateMeasurementGate(inputs: GateInputs): GateDecision {
   if (!inputs.pendingLayout) return 'idle'
   if (inputs.layoutInProgress) return 'blocked'
-  if (inputs.nodesInitialized && inputs.allUnlockedNodesMeasured) return 'run-now'
+  if (inputs.allUnlockedNodesMeasured) return 'run-now'
   return 'wait-with-fallback'
 }
 

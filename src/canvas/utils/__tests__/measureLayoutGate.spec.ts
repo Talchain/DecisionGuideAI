@@ -55,7 +55,13 @@ describe('evaluateMeasurementGate', () => {
     ).toBe('run-now')
   })
 
-  it('returns "wait-with-fallback" when nodesInitialized is false', () => {
+  // 2026-05-14 P0 fix: gate no longer requires React Flow's `nodesInitialized`.
+  // `allUnlockedNodesMeasured` is the actual condition ELK needs; React Flow's
+  // stricter internal flag could stay false in real browser environments even
+  // when every unlocked node had real width and height, leaving the gate
+  // permanently in `wait-with-fallback`. See
+  // `e2e/canvas.layout-regression-v5-fresh-draft.spec.ts` for the failing class.
+  it('returns "run-now" when allUnlockedNodesMeasured is true, regardless of nodesInitialized', () => {
     expect(
       evaluateMeasurementGate({
         pendingLayout: true,
@@ -64,7 +70,7 @@ describe('evaluateMeasurementGate', () => {
         storeNodes: [n('a')],
         allUnlockedNodesMeasured: true,
       }),
-    ).toBe('wait-with-fallback')
+    ).toBe('run-now')
   })
 
   it('returns "wait-with-fallback" when at least one unlocked node is unmeasured', () => {
