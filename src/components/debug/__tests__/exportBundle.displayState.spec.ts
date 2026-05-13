@@ -156,15 +156,19 @@ describe('captureDisplayState — canonical analysis display fields', () => {
 })
 
 // V5-aware capture (added 2026-05-13, Phase 1 of V5 completion plan).
-// The exporter previously read win_probability and factor_sensitivity ONLY
-// from `state.results.apiResponse.*` (V4 / Comparison-mode shape). V5
-// single-scenario `run_analysis` turns never populate `apiResponse`, so
-// every V5 turn produced `win_probability_displayed: null` /
-// `win_probability_source: "unmatched"` regardless of UI render state.
-// Phase 1 adds `state.results.report.option_probabilities` and
-// `state.results.report.factor_sensitivity` as the FIRST sources in
-// resolveOption() and extractRenderedFactors() respectively, so V5 debug
-// bundles carry numeric values matching what the user sees.
+// The exporter previously read win_probability and factor_sensitivity from
+// `state.results.apiResponse.*` — a field that never resolved in production
+// (apiResponse lives on useComparisonStore, not on canvas-store results).
+// PR #141 fixes the read path by sourcing from `state.rawV2Response.*` (the
+// canonical wire response at canvas-store root, populated by `resultsComplete`)
+// primary, with `state.results.report.option_probabilities` (the V5
+// mapper-synthesised keyed map) as the report fallback for runs where
+// rawV2Response is null (e.g. historical Supabase-hydrated runs).
+//
+// Factor sensitivity is read from `rawV2Response.factor_sensitivity` only:
+// `report.factor_sensitivity` is the V5 mapper-narrowed shape that drops
+// `influence_score`/`sensitivity_score` per-field, so report-only fallback
+// stays honest-miss (`unmatched`) rather than fabricating values.
 describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion plan)', () => {
   beforeEach(() => {
     mockState = {
@@ -176,7 +180,7 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     }
   })
 
-  it('V5 happy path: rendered_options[*].win_probability_source === state.results.report.option_probabilities.win_probability', async () => {
+  it('V5 happy path: rendered_options[*].win_probability_source === results.report.option_probabilities.win_probability (report fallback when rawV2Response is null)', async () => {
     mockState = {
       ceeAnalysisReady: { status: 'ready' },
       graphEditedSinceLastRun: false,
@@ -207,11 +211,11 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     // numeric value flows through, not null/unmatched.
     expect(byId.get('opt_hire_local')?.win_probability_displayed).toBe(0.7193333333333334)
     expect(byId.get('opt_hire_local')?.win_probability_source).toBe(
-      'state.results.report.option_probabilities.win_probability',
+      'results.report.option_probabilities.win_probability',
     )
     expect(byId.get('opt_offshore')?.win_probability_displayed).toBe(0.054)
     expect(byId.get('opt_offshore')?.win_probability_source).toBe(
-      'state.results.report.option_probabilities.win_probability',
+      'results.report.option_probabilities.win_probability',
     )
     // No more "unmatched" on V5 turns.
     for (const row of result.rendered_options!) {
@@ -219,7 +223,7 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     }
   })
 
-  it('V5 + V4 simultaneous (Comparison-mode + V5 hydration): V5 source wins per the new ordering', async () => {
+  it('rawV2Response + report simultaneous: rawV2Response.option_comparison wins (canonical wire is primary)', async () => {
     mockState = {
       ceeAnalysisReady: { status: 'ready' },
       graphEditedSinceLastRun: false,
@@ -227,55 +231,63 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
         { id: 'opt_a', data: { label: 'A', kind: 'option', type: 'option' } },
       ],
       edges: [],
+      // Canonical wire at canvas-store root — the primary read path.
+      rawV2Response: {
+        option_comparison: [{ option_id: 'opt_a', option_label: 'A', win_probability: 0.4 }],
+      },
       results: {
         status: 'complete',
         report: {
+          // Report carries a conflicting value — wire wins because it
+          // appears first in resolveOption()'s chain.
           option_probabilities: { opt_a: { win_probability: 0.7, confidence: 0.5 } },
         },
-        // V4 / Comparison-mode also present with a CONFLICTING value —
-        // V5 source wins because it appears first in the chain.
-        apiResponse: {
-          option_comparison: [{ option_id: 'opt_a', option_label: 'A', win_probability: 0.4 }],
-        },
       },
     }
     const captureDisplayState = await importCapture()
     const result = await captureDisplayState()
     const row = result.rendered_options!.find((r) => r.id === 'opt_a')
-    expect(row?.win_probability_displayed).toBe(0.7) // V5, not V4
-    expect(row?.win_probability_source).toBe(
-      'state.results.report.option_probabilities.win_probability',
-    )
-  })
-
-  it('V4-only regression guard (Comparison-mode users): no V5 hydration → falls back to apiResponse path unchanged', async () => {
-    mockState = {
-      ceeAnalysisReady: { status: 'ready' },
-      graphEditedSinceLastRun: false,
-      nodes: [
-        { id: 'opt_a', data: { label: 'A', kind: 'option', type: 'option' } },
-      ],
-      edges: [],
-      results: {
-        status: 'complete',
-        report: {
-          // No option_probabilities — V5 path empty, V4 fallback expected.
-        },
-        apiResponse: {
-          option_comparison: [{ option_id: 'opt_a', option_label: 'A', win_probability: 0.4 }],
-        },
-      },
-    }
-    const captureDisplayState = await importCapture()
-    const result = await captureDisplayState()
-    const row = result.rendered_options!.find((r) => r.id === 'opt_a')
-    expect(row?.win_probability_displayed).toBe(0.4) // V4 fallback
+    expect(row?.win_probability_displayed).toBe(0.4) // wire, not report
     expect(row?.win_probability_source).toBe(
       'payloads.plot_response.option_comparison.win_probability',
     )
   })
 
-  it('V5 factor_sensitivity flows into rendered_factors with the V5 source label', async () => {
+  it('rawV2Response.option_comparison only (wire path): source is canonical option_comparison', async () => {
+    mockState = {
+      ceeAnalysisReady: { status: 'ready' },
+      graphEditedSinceLastRun: false,
+      nodes: [
+        { id: 'opt_a', data: { label: 'A', kind: 'option', type: 'option' } },
+      ],
+      edges: [],
+      // Wire-only — the canonical PLoT response surface.
+      rawV2Response: {
+        option_comparison: [{ option_id: 'opt_a', option_label: 'A', win_probability: 0.4 }],
+      },
+      results: {
+        status: 'complete',
+        report: {},
+      },
+    }
+    const captureDisplayState = await importCapture()
+    const result = await captureDisplayState()
+    const row = result.rendered_options!.find((r) => r.id === 'opt_a')
+    expect(row?.win_probability_displayed).toBe(0.4)
+    expect(row?.win_probability_source).toBe(
+      'payloads.plot_response.option_comparison.win_probability',
+    )
+  })
+
+  it('report.factor_sensitivity without rawV2Response: honest-miss (V5 mapper drops influence_score/sensitivity_score)', async () => {
+    // The V5 mapper narrows report.factor_sensitivity to
+    // {factor_id, factor_label, sensitivity, direction} — without the
+    // per-field `influence_score`/`sensitivity_score` keys that the bundle
+    // surface advertises. Reading from this report shape would either
+    // silently miss the metrics the factor card displays (V5 mapper drops
+    // them) or fabricate a misleading provenance label. PR #141's design
+    // chooses honest-miss: when rawV2Response.factor_sensitivity is absent,
+    // both influence_source and sensitivity_source stay `unmatched`.
     mockState = {
       ceeAnalysisReady: { status: 'ready' },
       graphEditedSinceLastRun: false,
@@ -300,18 +312,22 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     expect(row.factor_id).toBe('fac_eng_capacity')
     expect(row.label_displayed).toBe('Engineering Capacity')
     expect(row.value_displayed).toBe('80 %')
-    // V5 source: sensitivity flows through with the V5 enum value.
-    expect(row.sensitivity_displayed).toBe(0.4325)
-    expect(row.sensitivity_source).toBe('state.results.report.factor_sensitivity.sensitivity')
-    // Influence has no V5 analog yet — honest unmatched.
+    // Honest-miss under PR #141's design — no rawV2Response means no wire
+    // factor_sensitivity to read, and report.factor_sensitivity is
+    // deliberately NOT a fallback because the V5 mapper narrows the shape.
+    expect(row.sensitivity_displayed).toBeNull()
+    expect(row.sensitivity_source).toBe('unmatched')
     expect(row.influence_displayed).toBeNull()
     expect(row.influence_source).toBe('unmatched')
   })
 
-  it('staging fixture shape: full V5 envelope round-trips with all V5 sources, never unmatched', async () => {
-    // Mirrors the captured staging fixture used by the wire-to-selector
-    // test (`v5-analysis-result.staging-real-shape.json`). Asserts the
-    // exporter no longer lies about V5 turns.
+  it('staging fixture shape (report-only fallback): all options surface numeric win_probability via report; factor stays honest-miss', async () => {
+    // Mirrors a Supabase-hydrated staging shape where rawV2Response is null
+    // (historical runs and Supabase hydration explicitly clear it — see
+    // canvas/store.ts:2715, 2757) and only the mapper-synthesised report is
+    // present. PR #141's design surfaces option win_probabilities via the
+    // report fallback while keeping factor metrics honest-miss (the V5 mapper
+    // drops influence_score/sensitivity_score from report.factor_sensitivity).
     mockState = {
       ceeAnalysisReady: { status: 'ready' },
       graphEditedSinceLastRun: false,
@@ -341,19 +357,20 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     const captureDisplayState = await importCapture()
     const result = await captureDisplayState()
 
-    // All four options have numeric win_probability_displayed AND V5 source.
+    // All four options surface numeric win_probability via the report fallback.
     expect(result.rendered_options).toHaveLength(4)
     for (const row of result.rendered_options!) {
       expect(typeof row.win_probability_displayed).toBe('number')
       expect(row.win_probability_source).toBe(
-        'state.results.report.option_probabilities.win_probability',
+        'results.report.option_probabilities.win_probability',
       )
     }
 
-    // Factor sensitivity also flows.
+    // Factor sensitivity stays honest-miss — see the dedicated test above
+    // for the rationale (V5 mapper narrows report.factor_sensitivity).
     expect(result.rendered_factors).toHaveLength(1)
     const facRow = result.rendered_factors![0]
-    expect(facRow.sensitivity_displayed).toBe(0.43249999999999994)
-    expect(facRow.sensitivity_source).toBe('state.results.report.factor_sensitivity.sensitivity')
+    expect(facRow.sensitivity_displayed).toBeNull()
+    expect(facRow.sensitivity_source).toBe('unmatched')
   })
 })
