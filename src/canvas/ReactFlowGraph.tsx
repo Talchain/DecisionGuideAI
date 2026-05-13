@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useMemo, useRef, lazy, Suspense, memo } from 'react'
 import { useLocation } from 'react-router-dom'
-import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useNodesInitialized, useReactFlow, useStore as useReactFlowStore, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
+import { ReactFlow, ReactFlowProvider, MiniMap, Background, BackgroundVariant, SelectionMode, useReactFlow, type Connection, type NodeChange, type EdgeChange } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 // Note: shallow from 'zustand/shallow' was removed - causes infinite loops with Zustand v5
 // Use individual selectors instead (see React #185 fix comment below)
@@ -8,9 +8,9 @@ import { useCanvasStore } from './store'
 import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
-import { evaluateMeasurementGate, allUnlockedNodesMeasured } from './utils/measureLayoutGate'
 import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
-import { LAYOUT_MEASUREMENT_FALLBACK_MS } from './utils/nodeLayoutConstants'
+import { useMeasureThenLayout } from './hooks/useMeasureThenLayout'
+import { useFitViewOnLayoutVersion } from './hooks/useFitViewOnLayoutVersion'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
 import { useKeyboardShortcuts } from './useKeyboardShortcuts'
@@ -356,80 +356,27 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const canRedo = useCanvasStore(s => s.canRedo)
   const resetCanvas = useCanvasStore(s => s.resetCanvas)
   const applyLayout = useCanvasStore(s => s.applyLayout)
-  // Measure-then-layout lifecycle (D2 of layout-stabilisation brief)
-  const pendingLayout = useCanvasStore(s => s.pendingLayout)
-  const layoutInProgress = useCanvasStore(s => s.layoutInProgress)
-  const layoutRequestId = useCanvasStore(s => s.layoutRequestId)
+  // `layoutVersion` is referenced by the render-tracking diagnostics below
+  // (~line 1297). The actual measurement and fitView lifecycle effects
+  // were extracted into `useMeasureThenLayout` and
+  // `useFitViewOnLayoutVersion` so they can be exercised end-to-end in
+  // ReactFlowGraph.layoutLifecycle.integration.spec.tsx.
   const layoutVersion = useCanvasStore(s => s.layoutVersion)
-  const storeNodes = useCanvasStore(s => s.nodes)
-  const nodesInitialized = useNodesInitialized()
-  const nodeLookup = useReactFlowStore(s => s.nodeLookup)
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
 
-  // Safety-net: existing-scenario load paths (`loadScenario`,
-  // `hydrateGraphSlice`, `importCanvas`) don't all call setPendingLayout(true),
-  // so a persisted graph with {0,0} positions can hydrate without ever
-  // entering the measure-then-layout pipeline. This hook detects stacked
-  // unlocked nodes and requests a layout pass once per graph identity.
+  // Three-hook layout lifecycle. Order does not matter — each hook owns
+  // its own dep array and state subscription:
+  //   - useInitialLayoutGuard: detects stacked-load and requests a layout
+  //   - useMeasureThenLayout: gates applyLayout on node measurement readiness
+  //   - useFitViewOnLayoutVersion: RAF-synced fitView after each successful layout
   useInitialLayoutGuard()
+  useMeasureThenLayout()
+  useFitViewOnLayoutVersion()
 
-  // Brief 36 Fix: Use ref for fitView to avoid effect re-running when ReactFlow updates
+  // Brief 36 Fix: Use ref for fitView so the `handleFitView` callback
+  // below has a stable reference even when ReactFlow updates.
   const fitViewRef = useRef(fitView)
   fitViewRef.current = fitView
-
-  // Measure-then-layout effect.
-  //
-  // Gating logic lives in `evaluateMeasurementGate` (pure, unit-tested in
-  // measureLayoutGate.spec.ts). This effect glues the decision to
-  // setTimeout / applyLayout / cleanup. The captured layoutRequestId is
-  // passed to applyLayout, which silently drops the call if the store
-  // has moved past it — a fast second draft arriving before the first
-  // laid out is correctly superseded.
-  //
-  // Auto-triggered failures are routed through handleLayoutWithRecovery
-  // (I1 of post-D6 review) so the existing layoutProgressStore + retry-
-  // banner UX surfaces them, matching how manual triggers (toolbar,
-  // command palette) already report failures.
-  useEffect(() => {
-    const decision = evaluateMeasurementGate({
-      pendingLayout,
-      layoutInProgress,
-      nodesInitialized,
-      storeNodes,
-      allUnlockedNodesMeasured: allUnlockedNodesMeasured(storeNodes, nodeLookup),
-    })
-
-    if (decision === 'idle' || decision === 'blocked') return
-
-    const capturedId = layoutRequestId
-
-    if (decision === 'run-now') {
-      handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, requestId: capturedId }))
-      return
-    }
-
-    // 'wait-with-fallback' — bounded measurement-failure safety fallback
-    // (per Correction 7 of brief). The single timer in this flow.
-    const timer = setTimeout(() => {
-      if (import.meta.env.DEV) {
-        console.warn('[layout] proceeding with fallback heights — some nodes not yet measured')
-      }
-      handleLayoutWithRecovery(() => applyLayout({ skipHistory: true, requestId: capturedId }))
-    }, LAYOUT_MEASUREMENT_FALLBACK_MS)
-    return () => clearTimeout(timer)
-  }, [pendingLayout, layoutInProgress, layoutRequestId, nodesInitialized, nodeLookup, storeNodes, applyLayout])
-
-  // FitView triggered by layoutVersion (D5). Each successful applyLayout
-  // increments layoutVersion. We schedule fitView on the next animation
-  // frame — frame-synchronised, not a blind timer — so React Flow has
-  // committed the new positions to the DOM before fitting.
-  useEffect(() => {
-    if (layoutVersion === 0) return
-    const raf = requestAnimationFrame(() => {
-      fitViewRef.current({ padding: 0.2, duration: 400 })
-    })
-    return () => cancelAnimationFrame(raf)
-  }, [layoutVersion])
 
   const HARD_ISOLATE_MINIMAL_CANVAS = false
   if (HARD_ISOLATE_MINIMAL_CANVAS) {

@@ -1,105 +1,79 @@
 /**
- * End-to-end proof that the initial-layout safety-net guard plays nicely
- * with the existing measurement + fitView lifecycle.
+ * End-to-end proof that the three layout-lifecycle hooks chain correctly.
  *
- * The guard itself is unit-tested in useInitialLayoutGuard.spec.tsx (it
- * imports the production hook directly — no simulation). What this file
- * adds is a *chain* test:
+ * Imports the real production hooks — no simulation:
+ *   - useInitialLayoutGuard           (src/canvas/hooks/useInitialLayoutGuard.ts)
+ *   - useMeasureThenLayout            (src/canvas/hooks/useMeasureThenLayout.ts)
+ *   - useFitViewOnLayoutVersion       (src/canvas/hooks/useFitViewOnLayoutVersion.ts)
  *
- *   guard.setPendingLayout(true)
- *     → measurement effect picks up pendingLayout + measured nodes
- *     → applyLayout commits spread positions and bumps layoutVersion
- *     → fitView effect fires once via requestAnimationFrame
+ * `@xyflow/react` is mocked because React Flow's hooks require a Provider
+ * (mounting a real one would also load the canvas, ELK, etc., which is
+ * out of scope for a lifecycle test). The mock surfaces:
+ *   - useNodesInitialized → returns mockNodesInitialized
+ *   - useStore            → exposes a controllable nodeLookup
+ *   - useReactFlow        → returns { fitView: spy, ... }
  *
- * The measurement and fitView effects are inline in ReactFlowGraph.tsx
- * (no production hook to import), so they are simulated here using the
- * same pattern as measureLayoutEffect.spec.tsx. The guard hook itself is
- * NOT simulated — `useInitialLayoutGuard` is imported and called as-is.
- *
- * applyLayout is mocked to deterministically commit spread positions and
- * bump layoutVersion. The real applyLayout dynamically imports ELK; this
- * suite is about lifecycle wiring, not the layout algorithm.
+ * `applyLayout` is mocked at the canvas store to commit spread positions
+ * synchronously and bump layoutVersion. The real applyLayout dynamically
+ * imports ELK; this suite is about lifecycle wiring, not ELK output.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { useEffect, useRef } from 'react'
 import type { Node } from '@xyflow/react'
 import { useCanvasStore } from '../store'
 import { useInitialLayoutGuard } from '../hooks/useInitialLayoutGuard'
-import {
-  evaluateMeasurementGate,
-  allUnlockedNodesMeasured,
-} from '../utils/measureLayoutGate'
+import { useMeasureThenLayout } from '../hooks/useMeasureThenLayout'
+import { useFitViewOnLayoutVersion } from '../hooks/useFitViewOnLayoutVersion'
 
 let mockNodesInitialized = true
 let mockNodeLookup = new Map<string, { measured?: { width?: number; height?: number } }>()
+const fitViewSpy = vi.fn()
 
 vi.mock('@xyflow/react', () => ({
   useNodesInitialized: () => mockNodesInitialized,
   useStore: <T,>(selector: (s: { nodeLookup: typeof mockNodeLookup }) => T) =>
     selector({ nodeLookup: mockNodeLookup }),
+  useReactFlow: () => ({
+    fitView: fitViewSpy,
+  }),
 }))
 
-/**
- * Combines the production guard hook with thin mirrors of the inline
- * effects in ReactFlowGraph.tsx (measurement → applyLayout, layoutVersion
- * → fitView). The mirrors track the existing measureLayoutEffect.spec
- * pattern; the guard is the real production hook.
- */
-function useLayoutLifecycleHarness(fitView: () => void) {
+// `handleLayoutWithRecovery` (used by useMeasureThenLayout) writes to a
+// progress store and triggers retries. For pure lifecycle wiring we want
+// to invoke applyLayout directly without that machinery.
+vi.mock('../layout/handleLayoutWithRecovery', () => ({
+  handleLayoutWithRecovery: (fn: () => Promise<void> | void) => fn(),
+}))
+
+function useLayoutLifecycle(): void {
   useInitialLayoutGuard()
-
-  const pendingLayout = useCanvasStore((s) => s.pendingLayout)
-  const layoutInProgress = useCanvasStore((s) => s.layoutInProgress)
-  const layoutRequestId = useCanvasStore((s) => s.layoutRequestId)
-  const layoutVersion = useCanvasStore((s) => s.layoutVersion)
-  const storeNodes = useCanvasStore((s) => s.nodes)
-  const applyLayout = useCanvasStore((s) => s.applyLayout)
-
-  useEffect(() => {
-    const decision = evaluateMeasurementGate({
-      pendingLayout,
-      layoutInProgress,
-      nodesInitialized: mockNodesInitialized,
-      storeNodes,
-      allUnlockedNodesMeasured: allUnlockedNodesMeasured(storeNodes, mockNodeLookup),
-    })
-    if (decision === 'idle' || decision === 'blocked') return
-    const capturedId = layoutRequestId
-    if (decision === 'run-now') {
-      void applyLayout({ skipHistory: true, requestId: capturedId })
-    }
-    // 'wait-with-fallback' path intentionally omitted: every test sets
-    // measurement complete (nodesInitialized + nodeLookup) so the gate
-    // always returns 'run-now' or 'idle'/'blocked'.
-  }, [pendingLayout, layoutInProgress, layoutRequestId, storeNodes, applyLayout])
-
-  const fitViewRef = useRef(fitView)
-  fitViewRef.current = fitView
-  useEffect(() => {
-    if (layoutVersion === 0) return
-    const raf = requestAnimationFrame(() => fitViewRef.current())
-    return () => cancelAnimationFrame(raf)
-  }, [layoutVersion])
+  useMeasureThenLayout()
+  useFitViewOnLayoutVersion()
 }
 
 function buildMeasuredNodes(ids: string[], at: { x: number; y: number }): Node[] {
-  return ids.map((id) => ({
-    id,
-    type: 'factor',
-    position: { x: at.x, y: at.y },
-    data: { label: id },
-  } as Node))
+  return ids.map(
+    (id) =>
+      ({
+        id,
+        type: 'factor',
+        position: { x: at.x, y: at.y },
+        data: { label: id },
+      } as Node),
+  )
 }
 
 function buildSpreadNodes(ids: string[]): Node[] {
-  return ids.map((id, i) => ({
-    id,
-    type: 'factor',
-    position: { x: i * 320, y: 0 },
-    data: { label: id },
-  } as Node))
+  return ids.map(
+    (id, i) =>
+      ({
+        id,
+        type: 'factor',
+        position: { x: i * 320, y: 0 },
+        data: { label: id },
+      } as Node),
+  )
 }
 
 function seedMeasuredLookup(ids: string[]) {
@@ -108,12 +82,13 @@ function seedMeasuredLookup(ids: string[]) {
   )
 }
 
-function mockApplyLayoutWithSpread(): ReturnType<typeof vi.spyOn> {
+function mockApplyLayoutWithSpread() {
   return vi
     .spyOn(useCanvasStore.getState(), 'applyLayout')
     .mockImplementation(async () => {
-      // Simulate layoutGraph: rewrite unlocked nodes to a horizontal row,
-      // preserve locked positions, bump layoutVersion, clear pendingLayout.
+      // Mirror layoutGraph's preserveLocked behaviour: rewrite unlocked
+      // nodes onto a horizontal row, leave locked nodes at their
+      // persisted positions.
       const current = useCanvasStore.getState().nodes
       let i = 0
       const laidOut = current.map((n) => {
@@ -133,8 +108,8 @@ function mockApplyLayoutWithSpread(): ReturnType<typeof vi.spyOn> {
 }
 
 async function flushPipeline() {
-  // Drain promise microtasks (applyLayout is async) and RAF callbacks
-  // (fitView schedules via requestAnimationFrame).
+  // Promise microtasks (applyLayout is async) + the RAF callback that
+  // useFitViewOnLayoutVersion schedules.
   await act(async () => {
     await Promise.resolve()
     await Promise.resolve()
@@ -146,9 +121,9 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
   beforeEach(() => {
     vi.useFakeTimers()
     useCanvasStore.getState().resetCanvas()
-    // resetCanvas() does not reset the layout lifecycle counters — they
-    // are session-scoped. Reset them explicitly so the fitView effect
-    // doesn't fire from a residual layoutVersion left by a prior test.
+    // resetCanvas does not reset the layout lifecycle counters — they
+    // are session-scoped. Reset them so a previous test's bump doesn't
+    // fire fitView on mount.
     useCanvasStore.setState({
       pendingLayout: false,
       layoutInProgress: false,
@@ -157,15 +132,16 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     } as never)
     mockNodesInitialized = true
     mockNodeLookup = new Map()
+    fitViewSpy.mockReset()
   })
 
   afterEach(() => {
     vi.useRealTimers()
+    vi.restoreAllMocks()
   })
 
-  it('stacked existing scenario → final positions are spread and fitView fires once (acceptance #1 + #6)', async () => {
+  it('stacked existing scenario → final positions are spread and fitView fires once with the production contract (acceptance #1 + #6)', async () => {
     const applySpy = mockApplyLayoutWithSpread()
-    const fitView = vi.fn()
 
     const ids = ['a', 'b', 'c']
     seedMeasuredLookup(ids)
@@ -179,11 +155,12 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
       } as never)
     })
 
-    renderHook(() => useLayoutLifecycleHarness(fitView))
+    renderHook(() => useLayoutLifecycle())
     await flushPipeline()
 
     // Whole chain ran exactly once.
     expect(applySpy).toHaveBeenCalledTimes(1)
+    expect(applySpy.mock.calls[0][0]).toMatchObject({ skipHistory: true })
 
     // Final positions are no longer stacked.
     const final = useCanvasStore.getState().nodes
@@ -191,20 +168,18 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     const xSpread = Math.max(...xs) - Math.min(...xs)
     expect(xSpread).toBeGreaterThan(40)
 
-    // fitView fired exactly once after layoutVersion incremented.
-    expect(fitView).toHaveBeenCalledTimes(1)
+    // fitView fired exactly once with the production contract — asserted
+    // directly against the real useFitViewOnLayoutVersion hook output.
+    expect(fitViewSpy).toHaveBeenCalledTimes(1)
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: 0.2, duration: 400 })
 
-    // Final store state is settled.
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
     expect(useCanvasStore.getState().layoutInProgress).toBe(false)
     expect(useCanvasStore.getState().layoutVersion).toBeGreaterThan(0)
-
-    applySpy.mockRestore()
   })
 
   it('saved-position scenario → guard, applyLayout, and fitView all stay quiet (acceptance #2)', async () => {
     const applySpy = mockApplyLayoutWithSpread()
-    const fitView = vi.fn()
 
     const ids = ['a', 'b', 'c']
     seedMeasuredLookup(ids)
@@ -218,25 +193,61 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
       } as never)
     })
 
-    renderHook(() => useLayoutLifecycleHarness(fitView))
+    renderHook(() => useLayoutLifecycle())
     await flushPipeline()
 
     expect(applySpy).not.toHaveBeenCalled()
-    expect(fitView).not.toHaveBeenCalled()
+    expect(fitViewSpy).not.toHaveBeenCalled()
     expect(useCanvasStore.getState().pendingLayout).toBe(false)
     expect(useCanvasStore.getState().layoutVersion).toBe(0)
 
-    // Positions unchanged.
     const final = useCanvasStore.getState().nodes
     expect((final[0].position as { x: number }).x).toBe(0)
     expect((final[1].position as { x: number }).x).toBe(320)
+  })
 
-    applySpy.mockRestore()
+  it('locked nodes are preserved through the full pipeline (acceptance #3)', async () => {
+    const applySpy = mockApplyLayoutWithSpread()
+
+    const nodes: Node[] = [
+      {
+        id: 'locked',
+        type: 'factor',
+        position: { x: 0, y: 0 },
+        data: { locked: true, label: 'locked' },
+      } as Node,
+      { id: 'a', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'a' } } as Node,
+      { id: 'b', type: 'factor', position: { x: 0, y: 0 }, data: { label: 'b' } } as Node,
+    ]
+    // `allUnlockedNodesMeasured` skips locked nodes — only the two
+    // unlocked nodes need measurement entries.
+    mockNodeLookup = new Map([
+      ['a', { measured: { width: 200, height: 100 } }],
+      ['b', { measured: { width: 200, height: 100 } }],
+    ])
+    act(() => {
+      useCanvasStore.setState({
+        nodes: nodes as never,
+        edges: [] as never,
+        currentScenarioId: 'scA',
+        pendingLayout: false,
+        layoutInProgress: false,
+      } as never)
+    })
+
+    renderHook(() => useLayoutLifecycle())
+    await flushPipeline()
+
+    expect(applySpy).toHaveBeenCalledTimes(1)
+    const final = useCanvasStore.getState().nodes
+    const lockedFinal = final.find((n) => n.id === 'locked')
+    expect(lockedFinal?.position).toEqual({ x: 0, y: 0 })
+    expect(fitViewSpy).toHaveBeenCalledTimes(1)
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: 0.2, duration: 400 })
   })
 
   it('scenario A→B switch lays out B when B is stacked and fires fitView once for B (acceptance #5 + #6)', async () => {
     const applySpy = mockApplyLayoutWithSpread()
-    const fitView = vi.fn()
 
     const idsA = ['a1', 'a2']
     seedMeasuredLookup(idsA)
@@ -250,12 +261,12 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
       } as never)
     })
 
-    renderHook(() => useLayoutLifecycleHarness(fitView))
+    renderHook(() => useLayoutLifecycle())
     await flushPipeline()
 
-    // Scenario A had meaningful positions — nothing fired.
+    // A had meaningful positions — nothing fired.
     expect(applySpy).not.toHaveBeenCalled()
-    expect(fitView).not.toHaveBeenCalled()
+    expect(fitViewSpy).not.toHaveBeenCalled()
 
     // Switch to a stacked scenario B (mimics ScenarioSwitcher click /
     // useScenario.loadScenario → hydrateGraphSlice).
@@ -273,12 +284,10 @@ describe('Layout lifecycle — guard ↔ measurement ↔ applyLayout ↔ fitView
     await flushPipeline()
 
     expect(applySpy).toHaveBeenCalledTimes(1)
-
     const final = useCanvasStore.getState().nodes
     const xs = final.map((n) => (n.position as { x: number }).x)
     expect(Math.max(...xs) - Math.min(...xs)).toBeGreaterThan(40)
-    expect(fitView).toHaveBeenCalledTimes(1)
-
-    applySpy.mockRestore()
+    expect(fitViewSpy).toHaveBeenCalledTimes(1)
+    expect(fitViewSpy).toHaveBeenCalledWith({ padding: 0.2, duration: 400 })
   })
 })

@@ -45,7 +45,11 @@ function edgeIdentity(edge: Edge): string {
   if (typeof edge.id === 'string' && edge.id.length > 0) return edge.id
   const source = edge.source ?? (edge as { from?: string }).from ?? ''
   const target = edge.target ?? (edge as { to?: string }).to ?? ''
-  return `${source}->${target}`
+  // Include source/target handles so parallel edges between the same two
+  // nodes (via different ports / handles) produce distinct identities.
+  const sourceHandle = edge.sourceHandle ?? ''
+  const targetHandle = edge.targetHandle ?? ''
+  return `${source}:${sourceHandle}->${target}:${targetHandle}`
 }
 
 function fnv1a32(input: string): string {

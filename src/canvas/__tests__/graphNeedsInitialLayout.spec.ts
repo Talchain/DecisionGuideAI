@@ -193,4 +193,43 @@ describe('getGraphIdentityKey — composite key with structural hash', () => {
     const k2 = getGraphIdentityKey('scA', nodesACommaB, [])
     expect(k1).not.toBe(k2)
   })
+
+  it('id-less edges with the same nodes but different handles produce distinct keys', () => {
+    // Two parallel edges between the same nodes via different source
+    // handles. With a source-only fallback they would collide; the
+    // handle-aware fallback distinguishes them.
+    const edgeViaTopHandle: Edge = {
+      source: 'n1',
+      target: 'n2',
+      sourceHandle: 'top',
+      targetHandle: 'in',
+    } as Edge
+    const edgeViaBottomHandle: Edge = {
+      source: 'n1',
+      target: 'n2',
+      sourceHandle: 'bottom',
+      targetHandle: 'in',
+    } as Edge
+    const k1 = getGraphIdentityKey('scA', nodesA, [edgeViaTopHandle])
+    const k2 = getGraphIdentityKey('scA', nodesA, [edgeViaBottomHandle])
+    expect(k1).not.toBe(k2)
+  })
+
+  it('id-less edges with matching source/target/handles produce the same key', () => {
+    const e1: Edge = {
+      source: 'n1',
+      target: 'n2',
+      sourceHandle: 'a',
+      targetHandle: 'b',
+    } as Edge
+    const e2: Edge = {
+      source: 'n1',
+      target: 'n2',
+      sourceHandle: 'a',
+      targetHandle: 'b',
+    } as Edge
+    expect(getGraphIdentityKey('scA', nodesA, [e1])).toBe(
+      getGraphIdentityKey('scA', nodesA, [e2]),
+    )
+  })
 })
