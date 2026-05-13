@@ -26,7 +26,56 @@ owned by 2c, consolidation in 2c PR not deferred); `graph_patch` and
 `composeHandlerFailureBody` IN Phase 2c scope; Phase 2a.1 brief
 DRAFTING NOW; Phase 2c diagnosis COMPLETE, next step is brief not
 implementation; Olumi smoke sequencing requires FULL Phase 2 ready
-(1,2a,2a.1,2b,2c,2d landed) or deferral explicitly recorded).
+(1,2a,2a.1,2b,2c,2d landed) or deferral explicitly recorded;
+**P0 (2026-05-13 late)**: DGAI staging deploy FAILING on bundle
+budget — all DGAI merges PAUSED until budget passes and
+`/version.json` confirms intended SHA; staging assertions in pause
+window unverified; both briefs remain DRAFT pending review).
+
+## 🚨 P0 DEPLOY-UNBLOCKER — DGAI MERGES PAUSED (2026-05-13)
+
+**DGAI staging deploy is currently FAILING on bundle budget.** Every
+DGAI merge (#138, #139, #140 and any future DGAI PRs) is paused until
+this is fixed.
+
+- **Symptom**: Netlify production build for DGAI fails the bundle-
+  budget rule on the latest merged commit. The staging URL
+  (`https://staging--olumi.netlify.app/`) **may not be serving the
+  expected latest DGAI SHA** — code that appears to have shipped may
+  not actually be deployed.
+- **Implication for staging verification**: any "verified on staging"
+  claim made between the most recent successful deploy and the
+  unblock is **provisional** until `/version.json` (or equivalent
+  SHA-fingerprint) confirms the intended commit is being served.
+  Treat all V5 Phase 1 G1 / Phase 2 staging assertions in this window
+  as unverified.
+- **DGAI merge policy until unblocked**:
+  1. **No DGAI PR merges** (including #138 tracker downstream PRs and
+     #140 UI companion) until bundle budget passes AND `/version.json`
+     confirms the intended SHA on staging.
+  2. Backend-only PRs on `olumi-assistants-service` (#169, #170) are
+     **not blocked** by the DGAI deploy failure — they deploy to
+     Render, not Netlify. **However**, #140 cannot merge before
+     #170 deploys (paired-deploy rule), so backend #170 merging
+     without the DGAI unblock would still leave Phase 2b incomplete.
+  3. **Tracker PR #139** is doc-only and produces no bundle impact,
+     but **is paused for merge** alongside the rest of the DGAI
+     queue to preserve the "merge order is sequencing" invariant —
+     allowing the doc PR to land alone would create a tracker that
+     declares a paused queue while itself merged.
+- **Investigation in flight (2026-05-13)**: read-only diagnosis
+  launched to identify (a) where bundle budget is enforced, (b)
+  current breach size, (c) suspected offending commit(s) on
+  `origin/staging`, (d) recommended fix path (raise budget vs
+  surgical lazy-load vs revert). Diagnosis doc will land at
+  `~/.claude/plans/dgai-deploy-unblocker-bundle-budget-2026-05-13.md`.
+- **Unblock criteria** (this section gets removed when met):
+  1. Bundle budget passes on the latest `origin/staging` HEAD.
+  2. `/version.json` (or equivalent SHA fingerprint) on
+     `https://staging--olumi.netlify.app/` matches the latest
+     `origin/staging` HEAD.
+  3. Any staging assertions made during the pause window are re-run
+     against the genuine latest SHA.
 
 ## Phase-completion semantics — IMPORTANT
 
@@ -917,6 +966,12 @@ defer to CI for the baseline-diff comparison.
 
 ### Recommended merge order (2026-05-13) — **sequencing only, not approval**
 
+> 🚨 **DGAI merges PAUSED on bundle-budget P0** (see top of tracker).
+> The order below resumes once `/version.json` confirms the intended
+> SHA is being served by staging. Backend olumi-assistants-service
+> PRs are not directly blocked but cannot independently complete
+> Phase 2b (paired-deploy rule).
+
 The four open PRs are sequenced in this order. **This is the merge
 ORDER plan, not a blanket merge approval.** Each PR still requires
 Codex review before merge; #170 must additionally deploy to staging
@@ -1142,6 +1197,17 @@ Phase 1 ships.**
 
 ## Change log
 
+- 2026-05-13 (late evening, P0 deploy-unblocker): **DGAI staging
+  deploy failing on bundle budget.** All DGAI merges (#138, #139,
+  #140) PAUSED. Staging may not be serving the expected latest
+  DGAI SHA. Backend olumi-assistants-service PRs (#169, #170) not
+  directly blocked but cannot independently close Phase 2b
+  (paired-deploy rule). Read-only diagnosis launched; diagnosis
+  doc to land at
+  `~/.claude/plans/dgai-deploy-unblocker-bundle-budget-2026-05-13.md`.
+  Unblock criteria recorded at top of tracker. **Briefs paused for
+  review**: Phase 2a.1 + Phase 2c briefs remain DRAFT; no
+  implementation work.
 - 2026-05-13 (late evening, second directional correction):
   **Merge order is sequencing only, not approval** — Codex review
   required for #138, #169, #170, #140; #170 must deploy before #140.
