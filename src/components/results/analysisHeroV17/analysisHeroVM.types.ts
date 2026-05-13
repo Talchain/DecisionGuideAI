@@ -104,17 +104,23 @@ export interface FooterCta {
   focusTargetId: string | undefined
 }
 
+/**
+ * @deprecated Fix 1 (2026-05-13): the v17 hero used to render a separate
+ * "{n} inputs verified" line below the strip in addition to the strip's
+ * own `checkedCount`. Two lines, same number. Removed in favour of
+ * `checkedCount` as the single source of truth. The type and field stay
+ * for backward compatibility (text always null); next major bump can
+ * remove it.
+ */
 export interface ContributionLine {
-  /** When `verifiedCount > 0`, the line reads "N inputs verified".
-   *  When falsy, the line is hidden. */
   text: string | null
 }
 
 export interface AnalysisHeroVM {
   state: HeroState
-  /** Visible above the title — e.g. "3 of 7 checked". */
+  /** Verified-count summary above the title — "No inputs verified" / "1 input verified" / "N inputs verified". */
   checkedCount: string | null
-  /** Optional grounded verified-count summary — null when not shown. */
+  /** @deprecated See `ContributionLine`. Always `{ text: null }`. */
   contribution: ContributionLine
   /** 4-segment readiness colour strip (Structure / Evidence / Coverage / Verified). */
   dimensions: DimensionSegment[]

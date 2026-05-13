@@ -146,12 +146,17 @@ function buildMetaPills(
 ): MetaPill[] {
   const pills: MetaPill[] = []
   const stability = data?.recommendation?.recommendationStability
-  // Result-state pill bound to stability bands (glossary §3).
+  // Result-state pill bound to stability bands (glossary §3). Copy
+  // normalised so all four bands have the same shape (Fix 2): noun-led
+  // or noun-trailing was inconsistent across "Result fragile" vs
+  // "Stable result" vs "Highly stable". The new shape keeps the glossary
+  // band label (Fragile / Moderate / Stable / Highly stable) front and
+  // centre with consistent context.
   if (typeof stability === 'number' && Number.isFinite(stability)) {
     if (stability < 0.5) {
-      pills.push({ label: 'Result fragile', tone: 'danger' })
+      pills.push({ label: 'Fragile result', tone: 'danger' })
     } else if (stability < 0.7) {
-      pills.push({ label: 'Result moderate', tone: 'warn' })
+      pills.push({ label: 'Moderate stability', tone: 'warn' })
     } else if (stability < 0.85) {
       pills.push({ label: 'Stable result', tone: 'neutral' })
     } else {
@@ -159,11 +164,14 @@ function buildMetaPills(
     }
   }
   // Evidence pill driven by evidenceLevel from the VM. Defensive `?.`
-  // because `vm` may be missing in a degraded bundle.
+  // because `vm` may be missing in a degraded bundle. Labels reflowed
+  // (Fix 2): "Evidence thin" → "Evidence limited" (the awkward word goes);
+  // "Evidence limited" (fair) → "Evidence moderate" (mid-tier rename so
+  // there's no collision); good stays "Evidence adequate".
   if (vm?.evidenceLevel === 'needs_work') {
-    pills.push({ label: 'Evidence thin', tone: 'danger' })
+    pills.push({ label: 'Evidence limited', tone: 'danger' })
   } else if (vm?.evidenceLevel === 'fair') {
-    pills.push({ label: 'Evidence limited', tone: 'warn' })
+    pills.push({ label: 'Evidence moderate', tone: 'warn' })
   } else {
     pills.push({ label: 'Evidence adequate', tone: 'neutral' })
   }
@@ -233,8 +241,8 @@ function selectKeyQuestion(
 // ── Also-line + footer + CTA ───────────────────────────────────────────────
 
 function buildAlsoLinks(state: HeroState): AlsoLink[] {
-  // Static, glossary-aligned set. Same trio across most states; strong state
-  // surfaces a brief-oriented set instead.
+  // Strong state: 3 guided-chat items about the brief content. All
+  // contract-safe (no run_* exercise handlers implied).
   if (state === 'strong') {
     return [
       { label: 'Caveats', chatPrompt: 'Help me list the main caveats that should appear in the decision brief.' },
@@ -242,10 +250,15 @@ function buildAlsoLinks(state: HeroState): AlsoLink[] {
       { label: 'Revisit trigger', chatPrompt: 'What would trigger me to revisit this decision later?' },
     ]
   }
+  // Non-strong: previously included "Outside view" and "Pre-mortem", both
+  // of which map to needs-handler intents in V5 contract v1.3 §3 and
+  // were removed. Only "Main connection" survived the contract filter —
+  // a single item triggers the minimum-items rule (Fix 7) at the
+  // HeroFooter level, which hides the line entirely. Returning the
+  // single item keeps the data structure honest; the renderer handles
+  // the visual hide.
   return [
-    { label: 'Outside view', chatPrompt: 'Help me reason from base rates of similar decisions. Ask what comparable decisions I know.' },
     { label: 'Main connection', chatPrompt: 'Review the main connection driving the result with me.' },
-    { label: 'Pre-mortem', chatPrompt: 'If the leading option underperformed, what most likely went wrong?' },
   ]
 }
 
@@ -289,7 +302,12 @@ function buildFooterCta(state: HeroState, topRow: HeroRow | undefined): FooterCt
       }
     case 'reflect':
       return {
-        label: 'Challenge result',
+        // Internal kind retained for compatibility; user-facing copy is
+        // "Test the result" to avoid implying a formal devil's advocacy
+        // handler (which is `Needs handler` per V5 contract v1.3 §3).
+        // The dispatcher in AnalysisHeroV17.handleCtaClick uses
+        // prefillChat for this kind — no auto-send anywhere in the hero.
+        label: 'Test the result',
         kind: 'challenge-result',
         chatPrompt: 'Challenge the current leading option. Make the strongest case for the next closest option.',
         focusTargetId: undefined,
@@ -371,16 +389,30 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
   const footerHint = buildFooterHint(state)
   const alsoLinks = buildAlsoLinks(state)
 
-  // Contribution line: only show grounded verified count.
-  const contribution = confirmedFactorCount > 0
-    ? { text: `${confirmedFactorCount} input${confirmedFactorCount === 1 ? '' : 's'} verified` }
-    : { text: null }
+  // checkedCount: count-only phrasing (Fix 1). The old "0 of 4 verified"
+  // form read against the four-segment strip — a coincidence in some
+  // models, but visually misleading. New form drops the total entirely
+  // and uses singular/plural "input(s)" so it's unambiguously about
+  // inputs, not dimensions.
+  //
+  // Hidden when there are no factors in the model.
+  let checkedCount: string | null
+  if (totalFactorCount === 0) {
+    checkedCount = null
+  } else if (confirmedFactorCount === 0) {
+    checkedCount = 'No inputs verified'
+  } else if (confirmedFactorCount === 1) {
+    checkedCount = '1 input verified'
+  } else {
+    checkedCount = `${confirmedFactorCount} inputs verified`
+  }
 
-  // checkedCount mirrors v17's "3 of 7 checked" pattern. Hidden when no
-  // total is known.
-  const checkedCount = totalFactorCount > 0
-    ? `${confirmedFactorCount} of ${totalFactorCount} verified`
-    : null
+  // `contribution` was a second redundant line below the strip showing
+  // the same count. Removed (Fix 1): `checkedCount` is the single source
+  // of truth. Field retained on the VM for backward compatibility but
+  // always returns `{ text: null }` so the renderer (which already
+  // hides null text) renders nothing.
+  const contribution = { text: null as string | null }
 
   return {
     state,

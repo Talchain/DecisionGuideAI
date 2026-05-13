@@ -1,8 +1,19 @@
 /**
  * HeroActionsMenu — top-right "Actions ▾" dropdown.
  *
- * Static set of glossary-aligned chat-prefill prompts. No provenance
- * overclaim copy ("what Olumi inferred" was reworded per the P1.2 review).
+ * Static set of glossary-aligned chat-prefill prompts. All items map to
+ * `start_guided_chat` per V5 contract v1.3 §3.
+ *
+ * (Fix 8) Two items dropped because they map to `Needs handler` intents:
+ *   - "Run a pre-mortem" → run_pre_mortem (Needs handler) — removed
+ *   - "Use the outside view" → run_outside_view (Needs handler) — removed
+ * One item renamed to avoid implying a formal devil's advocacy handler:
+ *   - "Challenge the current result" → "Test the result" (start_guided_chat)
+ *
+ * (Fix 6) Trigger button is HIDDEN when chat-prefill is unavailable. The
+ * earlier disabled-button treatment showed a dead button in the common
+ * case of chat being minimised. Every menu item depends on prefill, so
+ * the trigger is only useful when chat is open.
  */
 
 import { useState } from 'react'
@@ -11,7 +22,7 @@ import { typography } from '@/styles/typography'
 
 interface Props {
   onPrefillChat: (text: string) => void
-  /** When false, the menu trigger renders as disabled — all items prefill. */
+  /** When false, the entire trigger + menu is hidden — every menu item is prefill. */
   chatPrefillAvailable: boolean
 }
 
@@ -23,13 +34,16 @@ const MENU_ITEMS: Array<{ label: string; prompt: string }> = [
   // asks the user to walk through their inputs and makes no implicit claim
   // about origin.
   { label: 'Review my inputs', prompt: 'Walk me through the inputs I have provided. Ask me about anything that might need a closer look before relying on the result.' },
-  { label: 'Challenge the current result', prompt: 'Challenge the current result. Make the strongest case for the next closest option.' },
-  { label: 'Run a pre-mortem', prompt: 'If the leading option underperformed, what most likely went wrong?' },
-  { label: 'Use the outside view', prompt: 'Ask what comparable decisions I know, then help me reason from base rates.' },
+  // Renamed from "Challenge the current result" (Fix 8) to avoid reading
+  // like a formal devil's advocacy exercise (`run_devils_advocacy` is
+  // Needs handler in V5 contract v1.3).
+  { label: 'Test the result', prompt: 'Challenge the current leading option. Make the strongest case for the next closest option.' },
 ]
 
 export function HeroActionsMenu({ onPrefillChat, chatPrefillAvailable }: Props) {
   const [open, setOpen] = useState(false)
+  // Fix 6: hide the entire trigger when prefill is unavailable.
+  if (!chatPrefillAvailable) return null
   return (
     <div className="relative flex-shrink-0">
       <button
@@ -37,9 +51,7 @@ export function HeroActionsMenu({ onPrefillChat, chatPrefillAvailable }: Props) 
         onClick={() => setOpen(o => !o)}
         aria-haspopup="menu"
         aria-expanded={open}
-        disabled={!chatPrefillAvailable}
-        title={chatPrefillAvailable ? undefined : 'Open the chat panel to use Actions'}
-        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-panel-border bg-panel hover:bg-panel-hover ${typography.panelMeta} text-text-body cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-panel`}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border border-panel-border bg-panel hover:bg-panel-hover ${typography.panelMeta} text-text-body cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
         data-testid="hero-v17-actions-toggle"
       >
         Actions

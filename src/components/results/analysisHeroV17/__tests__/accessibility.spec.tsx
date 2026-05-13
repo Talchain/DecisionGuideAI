@@ -194,41 +194,57 @@ describe('AnalysisHeroV17 — "Fragile" label binding to stability', () => {
     return null
   }
 
-  it('stability 0.4 → "Result fragile" pill renders with danger tone', () => {
+  // Pill labels normalised in Fix 2:
+  //   "Result fragile"  → "Fragile result"
+  //   "Result moderate" → "Moderate stability"
+  //   "Stable result"   unchanged
+  //   "Highly stable"   unchanged
+
+  it('stability 0.4 → "Fragile result" pill renders with danger tone', () => {
     render(<AnalysisHeroV17 data={makeData({ stability: 0.4 })} vm={makeVm()} fragileEdgeCount={0} />)
-    const pill = findPill('Result fragile')
+    const pill = findPill('Fragile result')
     expect(pill).toBeTruthy()
     expect(pill!.className).toContain('text-danger')
   })
 
   it('stability 0.5 exactly → NOT fragile (boundary)', () => {
     render(<AnalysisHeroV17 data={makeData({ stability: 0.5 })} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(findPill('Result fragile')).toBeNull()
-    expect(findPill('Result moderate')).toBeTruthy()
+    expect(findPill('Fragile result')).toBeNull()
+    expect(findPill('Moderate stability')).toBeTruthy()
   })
 
   it('stability 0.7 → "Stable result"', () => {
     render(<AnalysisHeroV17 data={makeData({ stability: 0.7 })} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(findPill('Result fragile')).toBeNull()
+    expect(findPill('Fragile result')).toBeNull()
     expect(findPill('Stable result')).toBeTruthy()
   })
 
   it('stability 0.9 → "Highly stable"', () => {
     render(<AnalysisHeroV17 data={makeData({ stability: 0.9 })} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(findPill('Result fragile')).toBeNull()
+    expect(findPill('Fragile result')).toBeNull()
     expect(findPill('Highly stable')).toBeTruthy()
   })
 
   it('stability missing → no stability-band pill renders at all', () => {
     render(<AnalysisHeroV17 data={makeData({ stability: undefined })} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(findPill('Result fragile')).toBeNull()
-    expect(findPill('Result moderate')).toBeNull()
+    expect(findPill('Fragile result')).toBeNull()
+    expect(findPill('Moderate stability')).toBeNull()
     expect(findPill('Stable result')).toBeNull()
     expect(findPill('Highly stable')).toBeNull()
   })
 
-  it('"Result fragile" copy NEVER renders when stability >= 0.5 (anti-drift)', () => {
+  it('"Fragile result" copy NEVER renders when stability >= 0.5 (anti-drift)', () => {
     for (const stability of [0.5, 0.6, 0.7, 0.85, 0.9, 1]) {
+      const { container, unmount } = render(
+        <AnalysisHeroV17 data={makeData({ stability })} vm={makeVm()} fragileEdgeCount={0} />,
+      )
+      expect(container.textContent ?? '').not.toContain('Fragile result')
+      unmount()
+    }
+  })
+
+  it('Fix-2 anti-drift: the legacy "Result fragile" copy never appears at any stability', () => {
+    for (const stability of [0.0, 0.25, 0.49, 0.5, 0.7, 0.9, 1]) {
       const { container, unmount } = render(
         <AnalysisHeroV17 data={makeData({ stability })} vm={makeVm()} fragileEdgeCount={0} />,
       )

@@ -101,7 +101,7 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: null })
   })
 
-  it('moderate CTA: when _prefillChat is null, the CTA renders disabled — no auto-send, no focus', () => {
+  it('moderate CTA: when _prefillChat is null, CTA stays visible with "Focus key estimate" label and focuses on click (Fix 6)', () => {
     const sendSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: sendSpy })
     const focusSpy = vi.fn()
@@ -115,14 +115,13 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
       />,
     )
     const cta = screen.getByTestId('hero-v17-footer-cta') as HTMLButtonElement
-    // Per the "dead buttons" improvement: when chat-prefill is unavailable,
-    // the CTA renders disabled. Clicking does nothing — focus and send
-    // are both gated. UX is explicit (greyed out + tooltip) rather than
-    // silent no-op on a visually-active button.
-    expect(cta.disabled).toBe(true)
+    // The moderate-state CTA stays visible even when chat is closed
+    // (Fix 6) because its focus side-effect is still useful. The label
+    // flips to "Focus key estimate" to be honest about what works.
+    expect(cta.textContent).toBe('Focus key estimate')
     fireEvent.click(cta)
-    expect(focusSpy).not.toHaveBeenCalled()
-    expect(sendSpy).not.toHaveBeenCalled()
+    expect(focusSpy).toHaveBeenCalledWith('n_c')  // focus runs
+    expect(sendSpy).not.toHaveBeenCalled()        // never auto-sends
   })
 
   it('moderate CTA: when _prefillChat IS available, focus runs THEN prefill (no auto-send)', () => {
@@ -145,7 +144,7 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
     expect(sendSpy).not.toHaveBeenCalled()  // moderate never auto-sends
   })
 
-  it('row AI action: when _prefillChat is null, button is disabled — click does NOT auto-send', () => {
+  it('row AI action: when _prefillChat is null, the button is HIDDEN (Fix 6)', () => {
     const sendSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: null, _sendMessage: sendSpy })
 
@@ -156,24 +155,20 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
         fragileEdgeCount={0}
       />,
     )
-    // First action icon on the first row is the AI button (Sparkles).
-    // When the IconBtn renders disabled, the aria-label sits on its
-    // wrapping <span> (for tooltip-fires-on-hover), not on the inner
-    // <button>. We look for the wrapper, then drill into the disabled
-    // button.
+    // Fix 6 swapped the earlier disabled-button treatment for full
+    // hiding. Edit/Confirm stay visible (they don't need prefill); AI,
+    // Discuss, Add, Challenge, Brief disappear when chat is closed.
     const row = screen.getByTestId('hero-v17-input-rows').querySelector('article')
     expect(row).toBeTruthy()
-    const aiWrapper = row!.querySelector('[aria-label="Work through with AI"]')
-    expect(aiWrapper).toBeTruthy()
-    const aiBtn = aiWrapper!.querySelector('button') as HTMLButtonElement | null
-      ?? (aiWrapper as HTMLButtonElement) // when enabled, the <button> itself carries aria-label
-    expect(aiBtn).toBeTruthy()
-    expect(aiBtn.disabled).toBe(true)
-    fireEvent.click(aiBtn)
+    expect(row!.querySelector('[aria-label="Work through with AI"]')).toBeNull()
+    expect(row!.querySelector('[aria-label="Discuss with AI"]')).toBeNull()
+    // The evidence row has a target node → Edit + Confirm should still render.
+    expect(row!.querySelector('[aria-label="Edit"]')).toBeTruthy()
+    expect(row!.querySelector('[aria-label="Confirm"]')).toBeTruthy()
     expect(sendSpy).not.toHaveBeenCalled()
   })
 
-  it('REFLECT CTA: when _sendMessage is available, IS called (reflect is the only auto-send)', () => {
+  it('REFLECT CTA: prefills via _prefillChat — does NOT auto-send (Fix 9)', () => {
     const sendSpy = vi.fn()
     const prefillSpy = vi.fn()
     useGuidanceStore.setState({ _prefillChat: prefillSpy, _sendMessage: sendSpy })
@@ -191,11 +186,15 @@ describe('AnalysisHeroV17 — P1.1: prefillChat never auto-sends', () => {
         fragileEdgeCount={0}
       />,
     )
-    fireEvent.click(screen.getByTestId('hero-v17-footer-cta'))
-    expect(sendSpy).toHaveBeenCalledTimes(1)
-    expect(sendSpy.mock.calls[0][0]).toContain('Challenge the current leading option')
-    // Prefill must NOT be called for reflect — only sendMessage.
-    expect(prefillSpy).not.toHaveBeenCalled()
+    const cta = screen.getByTestId('hero-v17-footer-cta')
+    // Fix 9: label renamed to avoid implying a formal devil's advocacy
+    // handler (run_devils_advocacy is Needs handler in V5 contract v1.3).
+    expect(cta.textContent).toBe('Test the result')
+    fireEvent.click(cta)
+    // Prefill is called; sendMessage (auto-send) never fires.
+    expect(prefillSpy).toHaveBeenCalledTimes(1)
+    expect(prefillSpy.mock.calls[0][0]).toContain('Challenge the current leading option')
+    expect(sendSpy).not.toHaveBeenCalled()
   })
 
   it('prefill is preferred over send when _prefillChat IS available (no double-fire)', () => {
@@ -294,14 +293,20 @@ describe('rowRanking — P1.4: row chatPrompts use safe fallback for banned labe
     expect(row.chatPrompt).toContain('this factor')
   })
 
-  it('fragile edge row with banned-term fromLabel → reason uses "a key factor"', () => {
+  it('fragile edge row with banned-term fromLabel → reason is the Fix-3 action-oriented copy (no interpolation of the user label)', () => {
     const data = makeData({ fragileFromLabel: 'graph traversal cost' })
     const rows = rankHeroRows(data, 'moderate')
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
-    // Reason must not amplify "graph".
+    // Fix 3: the risk row's reason no longer interpolates the upstream
+    // factor label at all — it's a static action-oriented one-liner.
+    // So the banned-term issue is moot by construction.
     expect(riskRow!.reason.toLowerCase()).not.toContain('graph traversal')
-    expect(riskRow!.reason).toContain('a key factor')
+    expect(riskRow!.reason).toContain('Highest-priority assumption')
+    // chatPrompt still uses safeRowLabel, so the banned-term label
+    // becomes "this factor" in generated copy.
+    expect(riskRow!.chatPrompt.toLowerCase()).not.toContain('graph traversal')
+    expect(riskRow!.chatPrompt).toContain('this factor')
   })
 
   it('clean labels pass through untouched', () => {
@@ -324,6 +329,18 @@ describe('AnalysisHeroV17 — P1.5: factor filter widens with data.kind', () => 
     })
   })
 
+  // Fix 1 dropped the separate `hero-v17-contribution` element; assertions
+  // moved to the strip's `checkedCount` text (rendered inside hero-v17-strip).
+  function strippedVerifiedText(): string {
+    const strip = screen.queryByTestId('hero-v17-strip')
+    // The checkedCount is the second visible text in the strip header
+    // (after "Strengthen this decision"). Match the inputs-verified
+    // pattern directly.
+    const text = strip?.textContent ?? ''
+    const m = text.match(/(\d+ input(s)? verified|No inputs verified)/)
+    return m ? m[0] : ''
+  }
+
   it('counts a node whose React Flow type is undefined but data.kind === "factor"', () => {
     useCanvasStore.setState({
       nodes: [
@@ -333,9 +350,7 @@ describe('AnalysisHeroV17 — P1.5: factor filter widens with data.kind', () => 
       confirmedNodeIds: new Set(['n_factor_by_kind']),
     })
     render(<AnalysisHeroV17 data={makeData()} vm={makeVm()} fragileEdgeCount={0} />)
-    // The widened filter sees 1 factor (kind), 1 confirmed factor → Verified 100%.
-    // Easiest assertion: the contribution line reads "1 input verified".
-    expect(screen.queryByTestId('hero-v17-contribution')?.textContent).toBe('1 input verified')
+    expect(strippedVerifiedText()).toBe('1 input verified')
   })
 
   it('counts nodes whose React Flow type IS "factor" (legacy path still works)', () => {
@@ -346,15 +361,18 @@ describe('AnalysisHeroV17 — P1.5: factor filter widens with data.kind', () => 
       confirmedNodeIds: new Set(['n_legacy']),
     })
     render(<AnalysisHeroV17 data={makeData()} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(screen.queryByTestId('hero-v17-contribution')?.textContent).toBe('1 input verified')
+    expect(strippedVerifiedText()).toBe('1 input verified')
   })
 
-  it('zero factors → contribution line hidden, no NaN', () => {
+  it('zero factors → checkedCount hidden, no NaN, no "of 0" leak', () => {
     useCanvasStore.setState({
       nodes: [{ id: 'n_g', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal' } } as never],
       confirmedNodeIds: new Set<string>(),
     })
     render(<AnalysisHeroV17 data={makeData()} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(screen.queryByTestId('hero-v17-contribution')).toBeNull()
+    expect(strippedVerifiedText()).toBe('')
+    // Anti-drift: the legacy "0 of 4 verified" form is gone.
+    const strip = screen.queryByTestId('hero-v17-strip')
+    expect(strip?.textContent ?? '').not.toMatch(/\d+ of \d+ verified/)
   })
 })

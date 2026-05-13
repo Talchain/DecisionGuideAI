@@ -1,10 +1,21 @@
 /**
  * HeroFooter — also-line + footer check glyphs + state-dependent CTA.
  *
- * Only the reflect-state CTA auto-sends (handled by the caller via
- * `onCtaClick`). All other CTAs prefill. See investigation §11.4 for the
- * full state→handler map and brief §3 step 6 for moderate-state focus-
- * then-prefill sequencing.
+ * No auto-send paths after Fix 9 — every state's CTA is prefill-only.
+ * The caller (`AnalysisHeroV17.handleCtaClick`) dispatches through
+ * `prefillChat`; this component just renders.
+ *
+ * (Fix 7) Also-line minimum-items rule: the "Also:" lede only renders
+ * with 2+ safe links. With 0 or 1, the whole row is hidden — a single-
+ * item "Also: X" reads awkwardly and adds visual clutter.
+ *
+ * (Fix 6) When chat-prefill is unavailable the prefill-dependent
+ * surfaces hide:
+ *   - Also-line is hidden entirely (every link is prefill)
+ *   - Footer CTA is hidden for weak / reflect / strong states
+ *   - Moderate CTA stays visible with a softer label "Focus key
+ *     estimate" because its focus side-effect is still useful without
+ *     chat — onFocusNode runs even when prefill no-ops.
  */
 
 import { Check, X } from 'lucide-react'
@@ -19,24 +30,36 @@ interface Props {
   footerCta: FooterCta
   onAlsoClick: (link: AlsoLink) => void
   onCtaClick: () => void
-  /** When false, the CTA + Also: links render as disabled (they all prefill chat). */
+  /** When false, prefill-dependent surfaces hide. */
   chatPrefillAvailable: boolean
 }
 
 export function HeroFooter({ alsoLinks, footerChecks, footerHint, footerCta, onAlsoClick, onCtaClick, chatPrefillAvailable }: Props) {
+  // Also-line visibility: minimum-items rule (Fix 7) AND chat
+  // availability (Fix 6). Need both ≥ 2 safe items AND chat open.
+  const showAlsoLine = chatPrefillAvailable && alsoLinks.length >= 2
+
+  // CTA visibility (Fix 6):
+  //   - moderate (check-key-estimate): always visible; focus side-effect
+  //     remains useful without chat. Label flips to "Focus key estimate"
+  //     when chat is closed.
+  //   - all other states: prefill-only — hide when chat is closed.
+  const showCta = chatPrefillAvailable || footerCta.kind === 'check-key-estimate'
+  const ctaLabel = !chatPrefillAvailable && footerCta.kind === 'check-key-estimate'
+    ? 'Focus key estimate'
+    : footerCta.label
+
   return (
     <section className="flex flex-col gap-2 pt-2 border-t border-panel-border" data-testid="hero-v17-footer">
-      {alsoLinks.length > 0 && (
-        <div className={`flex items-center gap-1.5 flex-wrap ${typography.panelMeta} text-text-light`}>
+      {showAlsoLine && (
+        <div className={`flex items-center gap-1.5 flex-wrap ${typography.panelMeta} text-text-light`} data-testid="hero-v17-also-line">
           <strong className="text-text-header font-semibold">Also:</strong>
           {alsoLinks.map((link, i) => (
             <span key={link.label} className="flex items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => onAlsoClick(link)}
-                disabled={!chatPrefillAvailable}
-                title={chatPrefillAvailable ? undefined : 'Open the chat panel to use Also: links'}
-                className="text-text-body hover:text-info focus-visible:outline-none focus-visible:underline cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:text-text-body"
+                className="text-text-body hover:text-info focus-visible:outline-none focus-visible:underline cursor-pointer"
               >
                 {link.label}
               </button>
@@ -61,22 +84,16 @@ export function HeroFooter({ alsoLinks, footerChecks, footerHint, footerCta, onA
           </div>
           <p className={`${typography.panelMeta} text-text-light`}>{footerHint}</p>
         </div>
-        <button
-          type="button"
-          onClick={onCtaClick}
-          // The reflect-state CTA uses _sendMessage (auto-send), all
-          // other states use _prefillChat. Disable only when the relevant
-          // wire is unavailable. _sendMessage availability is reported
-          // separately via the same flag pattern; for simplicity here we
-          // treat chatPrefillAvailable as the proxy because the chat
-          // panel registers both wires on mount.
-          disabled={!chatPrefillAvailable}
-          title={chatPrefillAvailable ? undefined : 'Open the chat panel to use this action'}
-          className={`px-3 py-1.5 rounded-full bg-primary text-text-on-color border border-primary hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info ${typography.panelMeta} font-medium flex-shrink-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-primary`}
-          data-testid="hero-v17-footer-cta"
-        >
-          {footerCta.label}
-        </button>
+        {showCta && (
+          <button
+            type="button"
+            onClick={onCtaClick}
+            className={`px-3 py-1.5 rounded-full bg-primary text-text-on-color border border-primary hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info ${typography.panelMeta} font-medium flex-shrink-0`}
+            data-testid="hero-v17-footer-cta"
+          >
+            {ctaLabel}
+          </button>
+        )}
       </div>
     </section>
   )

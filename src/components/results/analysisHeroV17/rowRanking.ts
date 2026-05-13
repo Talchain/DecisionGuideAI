@@ -39,21 +39,28 @@ function bandFromVoi(voi: number | null | undefined): { band: PriorityBand; widt
   return { band: 'Low', width: 30 }
 }
 
-/** Action set per row category. Right-aligned cluster on every row. */
+/**
+ * Action set per row category. Right-aligned cluster on every row.
+ *
+ * (Fix 4) Standardised ordering: positions 1-2 are always `ai` + `discuss`,
+ * then category-specific actions. Gives consistent visual rhythm across
+ * different row types. Count still varies by category (intentional) but
+ * positional differences are now intentional rather than accidental.
+ */
 function actionsForCategory(category: RowCategory, hasTarget: boolean): RowAction[] {
   switch (category) {
     case 'evidence':
       return hasTarget ? ['ai', 'discuss', 'edit', 'confirm'] : ['ai', 'discuss']
     case 'risk':
-      return hasTarget ? ['ai', 'add', 'discuss'] : ['ai', 'discuss']
+      return hasTarget ? ['ai', 'discuss', 'add'] : ['ai', 'discuss']
     case 'coverage':
       return ['ai', 'discuss', 'add']
     case 'reflect':
       return ['ai', 'discuss', 'challenge']
     case 'causal':
-      return hasTarget ? ['ai', 'edit'] : ['ai', 'discuss']
+      return hasTarget ? ['ai', 'discuss', 'edit'] : ['ai', 'discuss']
     case 'ready':
-      return ['brief', 'discuss']
+      return ['ai', 'discuss', 'brief']
   }
 }
 
@@ -86,13 +93,15 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
   const fragile = data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
   if (!fragile) return null
   const title = fragile.fromLabel
-  const safeFrom = safeRowLabel(fragile.fromLabel, 'a key factor')
-  const safeAlt = safeRowLabel(fragile.alternativeWinnerLabel ?? null, 'the next option')
   const { band, width } = bandFromVoi(0.6) // fragile edges are inherently high-priority
+  // (Fix 3) Reason is action-oriented and does not repeat the fragility
+  // prose already shown in the result-context line. The row's TITLE
+  // already carries the factor name; the reason no longer names it
+  // again. Fits comfortably in two panelBody lines — no truncation.
   const reason = buildReason(
     'risk',
     band,
-    `If ${safeFrom} shifts, ${safeAlt} could come out ahead.`,
+    'Highest-priority assumption. Most likely to change which option leads.',
   )
   return {
     key: `risk-${fragile.fromId}`,
@@ -119,10 +128,13 @@ function evidenceGapRows(data: ResultsSectionDataReturn): HeroRow[] {
   return sorted.map(gap => {
     const targetId = gap.targetNodeId ?? gap.factorId
     const { band, width } = bandFromVoi(gap.voi)
-    // Suggestion may carry pre-existing upstream copy that contains a
-    // banned term (e.g. legacy "could change the recommendation"). Fall
-    // back to a clean generic ground rather than rendering it verbatim.
-    const fallbackGround = 'This factor influences the outcome. Check whether the current estimate matches your experience.'
+    // (Fix 3) Tightened fallback ground — no longer duplicates "This
+    // factor influences the outcome", which was redundant when paired
+    // with the priority lede. Suggestion may carry pre-existing
+    // upstream copy that contains a banned term (e.g. legacy "could
+    // change the recommendation"). Fall back to the clean ground when
+    // the upstream prose is unsafe.
+    const fallbackGround = 'Check whether this estimate matches your experience.'
     const ground = gap.suggestion && !rowContainsBannedTerm(gap.suggestion)
       ? gap.suggestion
       : fallbackGround
@@ -148,10 +160,12 @@ function coverageRow(data: ResultsSectionDataReturn): HeroRow | null {
   return {
     key: 'coverage-options',
     title,
+    // (Fix 3) Tightened: action-oriented one-liner instead of the
+    // longer two-sentence explanation that was prone to truncation.
     reason: buildReason(
       'coverage',
       'Medium',
-      'Your model has only one option. Adding a comparable alternative would show whether this approach genuinely performs best.',
+      'Add a comparable alternative to test a real trade-off.',
     ),
     priority: 'Medium',
     priorityWidth: 60,

@@ -48,16 +48,17 @@ export function HeroKeyQuestion({ keyQuestion, onPrefillChat, chatPrefillAvailab
       >
         {keyQuestion.text}
       </p>
-      {keyQuestion.chips.length > 0 && (
-        <div className="flex items-center gap-1 flex-wrap">
+      {/* (Fix 6) Chips are prefill-only. When chat is unavailable, hide
+          the entire chip strip rather than render dead buttons. The
+          key-question text still renders so the user can read it. */}
+      {chatPrefillAvailable && keyQuestion.chips.length > 0 && (
+        <div className="flex items-center gap-1 flex-wrap" data-testid="hero-v17-key-question-chips">
           {keyQuestion.chips.map(chip => (
             <button
               key={chip}
               type="button"
               onClick={() => onPrefillChat(`${keyQuestion.text} My answer: ${chip}`)}
-              disabled={!chatPrefillAvailable}
-              title={chatPrefillAvailable ? undefined : 'Open the chat panel to answer'}
-              className={`px-2 py-0.5 rounded-full border border-panel-border bg-transparent ${typography.panelMeta} text-text-body hover:border-info hover:text-info focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:border-panel-border disabled:hover:text-text-body`}
+              className={`px-2 py-0.5 rounded-full border border-panel-border bg-transparent ${typography.panelMeta} text-text-body hover:border-info hover:text-info focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-info`}
             >
               {chip}
             </button>

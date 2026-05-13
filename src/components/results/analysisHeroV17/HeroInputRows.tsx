@@ -66,7 +66,9 @@ function HeroInputRow({ row, dispatchRowAction, chatPrefillAvailable }: HeroInpu
       className={`px-2.5 py-2 border-b border-panel-border last:border-b-0 ${ROW_TINT_CLASS[row.category]}`}
       data-testid={`hero-v17-row-${row.category}`}
     >
-      <div className="flex items-start gap-2 justify-between">
+      {/* (Fix 5) gap-2 → gap-3 to give the right-aligned action cluster
+          breathing room from the priority pill. */}
+      <div className="flex items-start gap-3 justify-between">
         <div className="flex flex-col gap-1 min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-w-0">
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${CATEGORY_DOT_CLASS[row.category]}`} aria-hidden="true" />

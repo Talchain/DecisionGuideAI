@@ -16,7 +16,9 @@
 
 import { memo, useMemo, type ReactNode } from 'react'
 import { useShallow } from 'zustand/react/shallow'
-import { typography } from '@/styles/typography'
+// `typography` import removed (Fix 1) — the contribution-line `<p>` that
+// referenced it was dropped, and no other JSX in this composer reads
+// typography classes directly (children handle their own).
 import { useCanvasStore } from '@/canvas/store'
 import { useGuidanceStore } from '@/canvas/stores/guidanceStore'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
@@ -157,23 +159,18 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   // Chat wires. Read from guidance store at dispatch time so a
   // re-registration after ConversationPanel mounts is picked up cleanly.
   //
-  // IMPORTANT: prefillChat must NEVER auto-send. Per Paul's direction
-  // (brief §3 step 6 + §4.3), only the reflect-state CTA may auto-send.
-  // If `_prefillChat` is unavailable (e.g. ConversationPanel hasn't
-  // mounted yet), this no-ops — far better than silently amplifying the
-  // user's intent to an unrequested send.
+  // IMPORTANT: prefillChat must NEVER auto-send. If `_prefillChat` is
+  // unavailable (e.g. ConversationPanel hasn't mounted), this no-ops —
+  // the affected action buttons are already hidden via the
+  // chatPrefillAvailable plumbing (Fix 6), so this is belt-and-braces.
+  //
+  // (Fix 9) The reflect-state CTA used to auto-send via `_sendMessage`.
+  // Per Paul's directive — to keep clear of the `run_devils_advocacy`
+  // contract zone — reflect is now also prefill-only. The hero has zero
+  // auto-send paths.
   const prefillChat = (text: string) => {
     const p = useGuidanceStore.getState()._prefillChat
     if (p) p(text)
-  }
-  // sendMessage IS auto-send. Used only by the reflect-state CTA. If
-  // `_sendMessage` isn't available, fall back to prefill — degrading
-  // from auto-send to prefill is safe; promoting prefill to auto-send
-  // would not be.
-  const sendMessage = (text: string) => {
-    const s = useGuidanceStore.getState()._sendMessage
-    if (s) s(text)
-    else prefillChat(text)
   }
 
   // prefillChat is a stable getState() closure; only re-bind when the
@@ -188,24 +185,23 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   }
 
   // State-dependent CTA. Moderate state focuses the factor first, then
-  // prefills (no auto-send, no timing hacks). Reflect state auto-sends.
-  // All others prefill only. (Investigation §11.4 + brief §3 step 6.)
+  // prefills. All states are prefill-only now (Fix 9 — reflect-state
+  // auto-send removed for V5 contract v1.3 alignment).
+  //
+  // When chat is closed, prefill-dependent CTAs are hidden upstream in
+  // HeroFooter. The moderate-state CTA stays visible with a softer
+  // label ("Focus key estimate") because its focus side-effect remains
+  // useful without chat.
   const handleCtaClick = () => {
     const cta = heroVm.footerCta
     if (cta.kind === 'check-key-estimate') {
       if (cta.focusTargetId && onFocusNode) {
-        // Focus is synchronous — fire it first, then prefill in the same
-        // call stack. No setTimeout, no sleeps.
         onFocusNode(cta.focusTargetId)
       }
       prefillChat(cta.chatPrompt)
       return
     }
-    if (cta.kind === 'challenge-result') {
-      sendMessage(cta.chatPrompt) // reflect state — auto-send is approved
-      return
-    }
-    // weak / strong: prefill only.
+    // weak / strong / reflect (challenge-result): prefill only.
     prefillChat(cta.chatPrompt)
   }
 
@@ -222,11 +218,10 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
               checkedCount={heroVm.checkedCount}
               dimensions={heroVm.dimensions}
             />
-            {heroVm.contribution.text && (
-              <p className={`mt-1.5 ${typography.panelMeta} text-text-light`} data-testid="hero-v17-contribution">
-                {heroVm.contribution.text}
-              </p>
-            )}
+            {/* (Fix 1) `contribution` line removed — `checkedCount` is the
+                single source of truth for the verified-count display.
+                The VM field is preserved for backward compatibility but
+                its text is always null. */}
           </div>
           <HeroActionsMenu onPrefillChat={prefillChat} chatPrefillAvailable={chatPrefillAvailable} />
         </header>

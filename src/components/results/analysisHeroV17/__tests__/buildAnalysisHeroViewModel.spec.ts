@@ -292,27 +292,34 @@ describe('buildAnalysisHeroViewModel', () => {
     })
   })
 
-  describe('contribution line', () => {
-    it('hidden when confirmedFactorCount is 0', () => {
+  describe('contribution line (deprecated post-Fix-1)', () => {
+    // Fix 1 (2026-05-13): the contribution line was a second redundant
+    // line below the strip showing the same verified count as
+    // `checkedCount`. Removed. `contribution.text` is now always null.
+    // The single source of truth for the count is `checkedCount` —
+    // covered by the new "checkedCount line" block below.
+
+    it.each([0, 1, 3, 5])('contribution.text is always null (count=%i)', (count) => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData(),
+        vm: makeVm(),
+        confirmedFactorCount: count,
+      })
+      expect(vm.contribution.text).toBeNull()
+    })
+  })
+
+  describe('checkedCount line (Fix 1)', () => {
+    it('reads "No inputs verified" when count is 0 and total > 0', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData(),
         vm: makeVm(),
         confirmedFactorCount: 0,
+        totalFactorCount: 4,
       })
-      expect(vm.contribution.text).toBeNull()
-    })
-
-    it('renders verified count when > 0, never "You checked X · Olumi inferred Y"', () => {
-      const vm = buildAnalysisHeroViewModel({
-        ...STD_ARGS,
-        data: makeData(),
-        vm: makeVm(),
-        confirmedFactorCount: 3,
-      })
-      expect(vm.contribution.text).toBe('3 inputs verified')
-      expect(vm.contribution.text).not.toContain('Olumi inferred')
-      expect(vm.contribution.text).not.toContain('checked')
+      expect(vm.checkedCount).toBe('No inputs verified')
     })
 
     it('singular grammar at 1', () => {
@@ -321,8 +328,34 @@ describe('buildAnalysisHeroViewModel', () => {
         data: makeData(),
         vm: makeVm(),
         confirmedFactorCount: 1,
+        totalFactorCount: 4,
       })
-      expect(vm.contribution.text).toBe('1 input verified')
+      expect(vm.checkedCount).toBe('1 input verified')
+    })
+
+    it('plural grammar at 2+, no longer mentions total to avoid colliding with the 4-segment strip', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData(),
+        vm: makeVm(),
+        confirmedFactorCount: 3,
+        totalFactorCount: 7,
+      })
+      expect(vm.checkedCount).toBe('3 inputs verified')
+      // Fix-1 anti-drift: the old "0 of 4 verified" / "N of M verified"
+      // form is no longer used.
+      expect(vm.checkedCount).not.toContain(' of ')
+    })
+
+    it('hidden when totalFactorCount is 0', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData(),
+        vm: makeVm(),
+        confirmedFactorCount: 0,
+        totalFactorCount: 0,
+      })
+      expect(vm.checkedCount).toBeNull()
     })
   })
 
@@ -425,21 +458,67 @@ describe('buildAnalysisHeroViewModel', () => {
     })
   })
 
-  describe('meta pills', () => {
-    it('binds "Result fragile" label to stability < 0.5 only', () => {
+  describe('meta pills (Fix 2 label normalisation)', () => {
+    it('binds "Fragile result" label to stability < 0.5 only', () => {
       const fragile = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.4 }),
         vm: makeVm(),
       })
-      expect(fragile.metaPills.some(p => p.label === 'Result fragile')).toBe(true)
+      expect(fragile.metaPills.some(p => p.label === 'Fragile result')).toBe(true)
+      // Anti-drift: legacy label gone.
+      expect(fragile.metaPills.some(p => p.label === 'Result fragile')).toBe(false)
 
       const stable = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7 }),
         vm: makeVm(),
       })
-      expect(stable.metaPills.some(p => p.label === 'Result fragile')).toBe(false)
+      expect(stable.metaPills.some(p => p.label === 'Fragile result')).toBe(false)
+    })
+
+    it('stability bands → labels: 0.4 Fragile result; 0.6 Moderate stability; 0.75 Stable result; 0.9 Highly stable', () => {
+      const cases: Array<[number, string]> = [
+        [0.4, 'Fragile result'],
+        [0.6, 'Moderate stability'],
+        [0.75, 'Stable result'],
+        [0.9, 'Highly stable'],
+      ]
+      for (const [stability, expectedLabel] of cases) {
+        const vm = buildAnalysisHeroViewModel({
+          ...STD_ARGS,
+          data: makeData({ stability }),
+          vm: makeVm(),
+        })
+        expect(vm.metaPills.some(p => p.label === expectedLabel), `stability ${stability}`).toBe(true)
+      }
+    })
+
+    it('evidenceLevel → pill: needs_work=Evidence limited; fair=Evidence moderate; good=Evidence adequate', () => {
+      const cases: Array<['needs_work' | 'fair' | 'good', string]> = [
+        ['needs_work', 'Evidence limited'],
+        ['fair', 'Evidence moderate'],
+        ['good', 'Evidence adequate'],
+      ]
+      for (const [level, expectedLabel] of cases) {
+        const vm = buildAnalysisHeroViewModel({
+          ...STD_ARGS,
+          data: makeData({ stability: 0.7 }),
+          vm: makeVm({ evidenceLevel: level }),
+        })
+        expect(vm.metaPills.some(p => p.label === expectedLabel), `level ${level}`).toBe(true)
+      }
+    })
+
+    it('the legacy "Evidence thin" pill never appears (Fix 2 anti-drift)', () => {
+      for (const level of ['needs_work', 'fair', 'good'] as const) {
+        const vm = buildAnalysisHeroViewModel({
+          ...STD_ARGS,
+          data: makeData({ stability: 0.7 }),
+          vm: makeVm({ evidenceLevel: level }),
+        })
+        expect(vm.metaPills.some(p => p.label === 'Evidence thin')).toBe(false)
+      }
     })
 
     it('no stability pill at all when stability is null', () => {
@@ -448,8 +527,7 @@ describe('buildAnalysisHeroViewModel', () => {
         data: makeData({ stability: undefined }),
         vm: makeVm(),
       })
-      // Should not contain any of the stability-band labels.
-      const stabilityLabels = ['Result fragile', 'Result moderate', 'Stable result', 'Highly stable']
+      const stabilityLabels = ['Fragile result', 'Moderate stability', 'Stable result', 'Highly stable']
       expect(vm.metaPills.filter(p => stabilityLabels.includes(p.label))).toHaveLength(0)
     })
   })
@@ -486,13 +564,20 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.footerCta.focusTargetId).toBeUndefined()
     })
 
-    it('reflect → challenge-result (auto-send semantics flagged via kind)', () => {
+    it('reflect → challenge-result kind, "Test the result" label (Fix 9)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7, bias: [{ type: 'A', description: 'd' }] }),
         vm: makeVm({ decisionState: 'robust' }),
       })
+      // Internal kind retained for handler stability.
       expect(vm.footerCta.kind).toBe('challenge-result')
+      // User-facing label renamed to avoid implying a formal devil's
+      // advocacy handler (`run_devils_advocacy` is Needs handler per
+      // V5 contract v1.3 §3).
+      expect(vm.footerCta.label).toBe('Test the result')
+      // Anti-drift: the old "Challenge result" label is gone.
+      expect(vm.footerCta.label).not.toBe('Challenge result')
     })
 
     it('strong → create-decision-brief (prefill)', () => {
@@ -518,19 +603,30 @@ describe('buildAnalysisHeroViewModel', () => {
     })
   })
 
-  describe('also-line + footer checks', () => {
-    it('non-strong: outside view + main connection + pre-mortem', () => {
+  describe('also-line + footer checks (Fix 7 contract filter)', () => {
+    it('non-strong: Outside view + Pre-mortem absent (contract: needs-handler), Main connection retained', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7, gaps: [gap('A', 'a', 0.4)] }),
         vm: makeVm(),
       })
       const labels = vm.alsoLinks.map(l => l.label)
-      expect(labels).toContain('Outside view')
-      expect(labels).toContain('Pre-mortem')
+      expect(labels).not.toContain('Outside view')
+      expect(labels).not.toContain('Pre-mortem')
+      expect(labels).toContain('Main connection')
     })
 
-    it('strong: caveats + next closest + revisit trigger', () => {
+    it('non-strong: only 1 safe link → minimum-items rule triggers at the renderer (alsoLinks.length < 2)', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.7, gaps: [gap('A', 'a', 0.4)] }),
+        vm: makeVm(),
+      })
+      // The renderer (HeroFooter) hides the "Also:" lede when count < 2.
+      expect(vm.alsoLinks.length).toBeLessThan(2)
+    })
+
+    it('strong: caveats + next closest + revisit trigger (3 safe items, renders normally)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.9 }),
@@ -539,6 +635,7 @@ describe('buildAnalysisHeroViewModel', () => {
       const labels = vm.alsoLinks.map(l => l.label)
       expect(labels).toContain('Caveats')
       expect(labels).toContain('Revisit trigger')
+      expect(vm.alsoLinks.length).toBeGreaterThanOrEqual(2)
     })
 
     it('footer checks render 4 items per state', () => {
@@ -551,18 +648,7 @@ describe('buildAnalysisHeroViewModel', () => {
     })
   })
 
-  describe('checkedCount line', () => {
-    it('mirrors v17 pattern with verified count + total', () => {
-      const vm = buildAnalysisHeroViewModel({
-        ...STD_ARGS,
-        data: makeData(),
-        vm: makeVm(),
-        confirmedFactorCount: 2,
-        totalFactorCount: 7,
-      })
-      expect(vm.checkedCount).toBe('2 of 7 verified')
-    })
-
+  describe('checkedCount legacy null-total case', () => {
     it('null when total is 0', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,

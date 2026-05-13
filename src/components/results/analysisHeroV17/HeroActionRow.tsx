@@ -3,11 +3,15 @@
  * Thin wrapper around the shared IconBtn primitive; preserves the
  * deterministic action ordering from the VM.
  *
- * Prefill-only actions (ai / discuss / add / challenge / brief) render as
- * disabled when the chat-prefill wire is unavailable (the conversation
- * panel hasn't mounted, or has been unmounted). Edit/Confirm don't need
- * prefill — they call onFocusNode / onConfirm directly — so they stay
- * enabled regardless. (Per the "dead buttons" improvement in review.)
+ * (Fix 6 — round 4) Prefill-only actions (ai / discuss / add / challenge
+ * / brief) are HIDDEN when the chat-prefill wire is unavailable. The
+ * earlier disabled-button treatment looked like dead buttons in the
+ * common case (chat minimised by default post-analysis). Edit/Confirm
+ * don't need prefill — they call onFocusNode / onConfirm directly — so
+ * they stay visible regardless.
+ *
+ * (Fix 5) Inter-icon gap increased from gap-0.5 (2px) → gap-1 (4px) for
+ * a bit of breathing room inside the cluster.
  */
 
 import { IconBtn } from '@/canvas/components/pre-analysis/primitives/IconBtn'
@@ -24,27 +28,31 @@ export interface HeroActionRowProps {
   chatPrompt: string
   targetNodeId: string | undefined
   dispatchAction: (action: RowAction, payload: { chatPrompt: string; targetNodeId: string | undefined }) => void
-  /** When false, prefill-only actions render as disabled. */
+  /** When false, prefill-only actions are hidden (not just disabled). */
   chatPrefillAvailable: boolean
 }
 
 export function HeroActionRow({
   actions, chatPrompt, targetNodeId, dispatchAction, chatPrefillAvailable,
 }: HeroActionRowProps) {
+  // Filter prefill-only actions out entirely when chat is closed —
+  // edit/confirm remain. If the filter empties the list, render nothing.
+  const visibleActions = chatPrefillAvailable
+    ? actions
+    : actions.filter(a => !PREFILL_DEPENDENT_ACTIONS.has(a))
+  if (visibleActions.length === 0) return null
   return (
-    <div className="flex items-center gap-0.5 flex-shrink-0" role="group" aria-label="Row actions">
-      {actions.map(a => {
+    <div className="flex items-center gap-1 flex-shrink-0" role="group" aria-label="Row actions">
+      {visibleActions.map(a => {
         const def = ACTION_ICON[a]
-        const disabled = !chatPrefillAvailable && PREFILL_DEPENDENT_ACTIONS.has(a)
         return (
           <IconBtn
             key={a}
             icon={def.Icon}
-            tooltip={disabled ? `${def.tooltip} — open the chat panel to use this action` : def.tooltip}
+            tooltip={def.tooltip}
             variant={def.variant}
             onClick={() => dispatchAction(a, { chatPrompt, targetNodeId })}
             ariaLabel={def.tooltip}
-            disabled={disabled}
           />
         )
       })}
