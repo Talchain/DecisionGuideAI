@@ -35,7 +35,12 @@ KB (3.20 KB margin); DGAI merge queue UNPAUSED. Both briefs remain
 DRAFT pending review; **v5 Analysis-tab data contract v1_3 committed
 to this repo on PR #139 at canonical path
 `docs/v5/v5-analysis-tab-data-contract-v1_3.md` — FROZEN and
-version-controlled**).
+version-controlled**; **post-Codex corrections (2026-05-13 late)**:
+runtime PRs precede docs in the recommended order (#138 → #169 →
+#170 → #140; #139 non-blocking); Phase 2b whitelist text aligned
+with #170's actual three-entry set; `~/.claude/plans/...` paths
+explicitly labelled as local notes; post-merge verification
+protocol added).
 
 ## ✅ P0 DEPLOY-UNBLOCKER — RESOLVED (2026-05-13T15:34:01Z)
 
@@ -106,17 +111,29 @@ every future commit is back to coin-flipping; with it, 3.20 KB margin.
 
 ### DGAI merge queue: UNPAUSED
 
-The recommended merge order (sequencing only; Codex review still
-required for each PR) resumes:
-1. ~~DGAI #142 (P0 deploy-unblocker)~~ — ✅ MERGED.
-2. DGAI #139 (tracker) — Codex review pending.
-3. DGAI #138 (Phase 1) — Codex review pending.
-4. olumi-assistants-service #169 (Phase 2a) — Codex review pending.
-5. olumi-assistants-service #170 + DGAI #140 (Phase 2b paired-deploy)
-   — Codex review pending; #170 must merge + deploy before #140.
+Recommended order **for runtime release** (Codex review still required
+for each PR; **revised 2026-05-13 post-Codex** to put runtime PRs
+ahead of the docs-only tracker — docs should not gate runtime):
+
+1. ~~DGAI #142 (P0 deploy-unblocker)~~ — ✅ MERGED at `f0013169`.
+2. **DGAI #138 (Phase 1 — debug exporter + visible-render)** —
+   rebased onto current `staging` (which now includes #142) and
+   bundle-budget verified before merge. Codex review pending.
+3. **olumi-assistants-service #169 (Phase 2a — Step 3 label
+   resolution)** — backend; deploys to Render. Codex review pending.
+4. **olumi-assistants-service #170 (Phase 2b backend — chip-click
+   bypass)** — backend; **must merge AND deploy to Render staging
+   before #140**. Codex review pending.
+5. **DGAI #140 (Phase 2b UI companion)** — UI; merges and deploys
+   only after #170 is live on backend staging. Codex review pending.
+6. **DGAI #139 (this tracker)** — doc-only; **non-blocking for
+   runtime**. Lands at the team's convenience; can run in parallel
+   with any of the above. Recommended placement: after #138 so the
+   tracker on `staging` reflects the runtime delivery, but it is
+   explicitly NOT a runtime gate.
 ### Diagnostic references
 
-- Original diagnosis: `~/.claude/plans/dgai-deploy-unblocker-bundle-budget-2026-05-13.md`
+- Original diagnosis: `~/.claude/plans/dgai-deploy-unblocker-bundle-budget-2026-05-13.md` *(local note; key findings reproduced inline in the change-log entry below)*
 - PR #142 merge commit: `f0013169`
 - Tracker change-log entry: see "Change log" below for the resolution timestamp.
 
@@ -165,16 +182,30 @@ gate passes (see "Gates" section).
 
 ## Implementation briefs (per phase, current)
 
-- **Phase 1 — debug exporter:** `~/.claude/plans/exportbundle-v5-aware-fix-brief.md`
-- **Phase 1 — visible-render verification (diagnosis):** `~/.claude/plans/area-1-staging-verification-2026-05-13.md`
-  + DevTools-only fallback if automated path fails: `~/.claude/plans/area-1-devtools-verification-script.md`
-- **Phase 2a — Step 3 label resolution:** `~/.claude/plans/area-3-step3-label-resolution-brief.md`
-- **Phase 2b — safe-chip dispatch:** `~/.claude/plans/v5-chip-click-router-bypass-workstream.md`
+> **Path-convention note (2026-05-13):** Paths beginning with
+> `~/.claude/plans/…` below are **local working notes on the
+> authoring machine, NOT canonical artefacts in this repository.**
+> They are linked here for the author's traceability, not for
+> reviewer consumption. **The canonical, version-controlled
+> artefacts are the V5_CURRENT_STATE.md tracker itself (this file)
+> and the FROZEN v1_3 data contract at
+> [`docs/v5/v5-analysis-tab-data-contract-v1_3.md`](docs/v5/v5-analysis-tab-data-contract-v1_3.md).**
+> All operational content from the local briefs (acceptance criteria,
+> scope statements, file:line targets, decisions) that reviewers need
+> is reproduced inline in this tracker. If a future brief lands as a
+> committed file, this note plus the relevant section reference will
+> be updated.
+
+- **Phase 1 — debug exporter:** `~/.claude/plans/exportbundle-v5-aware-fix-brief.md` *(local note)*
+- **Phase 1 — visible-render verification (diagnosis):** `~/.claude/plans/area-1-staging-verification-2026-05-13.md` *(local note)*
+  + DevTools-only fallback if automated path fails: `~/.claude/plans/area-1-devtools-verification-script.md` *(local note)*
+- **Phase 2a — Step 3 label resolution:** `~/.claude/plans/area-3-step3-label-resolution-brief.md` *(local note)*
+- **Phase 2b — safe-chip dispatch:** `~/.claude/plans/v5-chip-click-router-bypass-workstream.md` *(local note)*
 - **Phase 2c — raw / internal value suppression:** brief TBD (see Phase 2c §below for scope sketch)
 - **Phase 2d — edit_graph no-op honesty + negative-intent fast path:** brief consolidated into Phase 2d §below; backend-primary
 - **Phase 3 — full coaching layer:** brief TBD (gated on Phase 2 G2 + Phase 2 homework decision)
 - **Phase 4 — V4 retirement + scientific cleanup:** brief TBD (gated on Phase 3 G3)
-- **Area 1 shipped (closed at hydration layer):** `~/.claude/plans/area-1-v5-analysis-hydration-brief.md` (PR #137, merged at `21c6d1e2`)
+- **Area 1 shipped (closed at hydration layer):** `~/.claude/plans/area-1-v5-analysis-hydration-brief.md` *(local note)* (PR #137, merged at `21c6d1e2`)
 
 ---
 
@@ -315,17 +346,25 @@ gate passes (see "Gates" section).
   pre-PR behaviour for any user who lands on staging mid-deploy.
 - **What lands**:
   - Generalise `dispatchChipClickRunAnalysis` →
-    `dispatchDeterministicChipClick(actionType)` whitelist-based dispatcher
-    so chip-clicks with `chip.action_type` in the safe set
-    (`run_analysis`, `explain_result`, `what_would_flip`, candidate
-    `compare_options`) bypass full LLM routing / ORIENT.
+    `dispatchDeterministicChipClick(actionType)` whitelist-based
+    dispatcher. **Backend whitelist (as implemented in PR #170):**
+    `DETERMINISTIC_CHIP_ACTION_TYPES = { run_analysis,
+    explain_results, what_would_flip }` — exactly three entries; the
+    plural `explain_results` is the canonical action type. The
+    singular `explain_result` is a UI-only legacy alias kept in
+    `ACTION_TO_TURN_TYPE` (DGAI #140) for any pre-existing chip
+    surface that emits the singular form; it is **not** in the
+    backend whitelist and would throw at dispatch if ever sent
+    (intentional — no orphan dispatch). `compare_options` is
+    **not** in the whitelist; it was a candidate during diagnosis
+    but excluded from #170's scope.
   - Saves ~12s per chip click that currently pays the ORIENT-Sonnet
     tax even though the chip already declared the handler. Confirmed
     against [chip-click-dispatch.ts:9-15 header comment](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/chip-click-dispatch.ts).
 - **Acceptance (sub-gate)**:
-  - [ ] Unit tests cover safe-chip deterministic dispatch (each
-        whitelisted action_type).
-  - [ ] Telemetry: `explain_result` / `what_would_flip` chips no
+  - [ ] Unit tests cover safe-chip deterministic dispatch (each of
+        the three whitelisted action_types).
+  - [ ] Telemetry: `explain_results` / `what_would_flip` chips no
         longer hit CEE Anthropic routing — `llm_calls_used: 0` AND
         end-to-end latency drops to <2s (was ~13s).
   - [ ] No regression for `edit_graph` / `draft_graph` routing.
@@ -809,6 +848,98 @@ When this gate passes, the scientific surface is publicly defensible.
 
 ---
 
+## Post-merge verification protocol (2026-05-13, post-Codex)
+
+Each PR in the queue has a per-merge verification protocol. After
+every merge in the runtime sequence (#138 → #169 → #170 → #140),
+the responsible engineer runs the corresponding checklist and records
+the result in this tracker via a follow-up commit on `staging` (or a
+fast-follow doc PR if `staging` is otherwise locked). Failure on any
+step halts the queue until the cause is recorded and either fixed
+or explicitly deferred.
+
+### After #138 merges (DGAI staging)
+- [ ] Netlify deploy completes successfully.
+- [ ] `https://staging--olumi.netlify.app/version.json` serves the
+      #138 merge SHA.
+- [ ] `npm run build:ci` on the merged HEAD: entry-chunk gzip
+      recorded; remains under 50 KB.
+- [ ] Run targeted suites: exportBundle (must pass), Results panel
+      (must pass).
+- [ ] Run one V5 `run_analysis` against staging; export debug
+      bundle; verify all rendered options carry numeric
+      `win_probability_displayed` sourced from
+      `state.results.report.option_probabilities` (the V5 path
+      added in PR #138).
+- [ ] Phase 1 G1 (visible-render assertion) recorded against the
+      deployed SHA.
+
+### After #169 merges (backend Render staging)
+- [ ] Render deploy completes successfully; health endpoint green.
+- [ ] Replay an `edit_graph` payload containing `remove_node` and a
+      multi-op `add_node + remove_node + update_node` compound; in
+      both, assert `recent_changes`, `safe_summary`, and
+      `assistant_text` contain the real factor labels (not raw IDs,
+      not "the relevant factor", not slug-shaped fragments).
+- [ ] **Do NOT use edge-edit (`update_edge` / `remove_edge`) replays
+      as passing evidence.** Edge labels remain out of scope until
+      Phase 2a.1 lands; smoke scenarios involving edge edits must be
+      excluded or explicitly marked deferred.
+
+### After #170 merges (backend Render staging) — BEFORE #140 is merged
+- [ ] Render deploy completes successfully; health endpoint green.
+- [ ] Replay direct backend calls for chip-click payloads with
+      `action_type ∈ {explain_results, what_would_flip}`. For each:
+      - `llm_calls_used: 0` (no Sonnet/ORIENT routing).
+      - Handler fact committed (deterministic-fallback path fired).
+      - Response prose contains no raw IDs, no schema-internal terms,
+        no debug language.
+- [ ] Replay an unsupported `action_type` (e.g. `arbitrary_unknown`)
+      and a mutation `action_type` (e.g. `set_factor_value`): verify
+      they do NOT bypass — the dispatcher throws / falls through to
+      TurnExecutor.
+- [ ] Record the #170 deploy SHA in this tracker as the precondition
+      for #140 merge.
+
+### After #140 merges (DGAI staging) — only after #170 is live on Render
+- [ ] Netlify deploy completes successfully.
+- [ ] `/version.json` serves the #140 merge SHA.
+- [ ] From the UI on `https://staging--olumi.netlify.app/`, run a
+      V5 `run_analysis`; verify the post-analysis chips include
+      "Explain the result" and "What would make this flip?" as
+      executable chips (not prompt chips).
+- [ ] Click each chip; verify:
+      - End-to-end latency <2s.
+      - Backend receives plural `explain_results` /
+        `what_would_flip` (not singular).
+      - Response narrative renders cleanly (no raw IDs / glyphs /
+        debug terms in the rendered DOM).
+- [ ] Manual UI verification of mutation chips (e.g.
+      `set_factor_value` if surfaced today) still routes via
+      TurnExecutor, not the deterministic dispatcher.
+
+### Before manual testing on staging (Olumi experience smoke gate)
+- [ ] All four PR post-merge checklists above pass on the deployed
+      staging SHAs.
+- [ ] Bundle budget remains green on the latest staging build.
+- [ ] #170-before-#140 deployment receipt recorded.
+- [ ] Known baseline failures documented separately (do not describe
+      the full test suite as "green" while baseline OOM/flake state
+      persists; baseline-diff is the merge criterion).
+- [ ] Edge-edit manual scenarios excluded until Phase 2a.1 lands,
+      OR explicitly marked deferred with rationale.
+
+### Telemetry follow-up (recorded for Phase 2 closure observation)
+Codex flagged on 2026-05-13 that the latency proof for #170 is
+mostly indirect (via persisted `duration_ms`, `llm_calls_used`,
+freshness `dispatch_path`) and lacks a single explicit
+bypass-vs-routed telemetry event with `action_type`, `dispatch_path`,
+`llm_calls_used`, and duration co-located. **This is a follow-up,
+not a #170 merge blocker** — record under Phase 2 closure observation
+work; do not add to #170 mid-flight.
+
+---
+
 ## Olumi experience smoke (Phase 2 → Phase 3 gate)
 
 **Sequencing (2026-05-13 directional correction):** the Olumi
@@ -1013,35 +1144,44 @@ defer to CI for the baseline-diff comparison.
   executable chips would be filtered out by the V5 UI's
   `V5_ENABLED_ACTIONS` check before they reach the dispatcher.**
 
-### Recommended merge order (2026-05-13) — **sequencing only, not approval**
+### Recommended merge order (2026-05-13, revised post-Codex) — **runtime first, docs non-blocking**
 
 > ✅ **DGAI merge queue UNPAUSED on 2026-05-13T15:34:01Z** (PR #142
 > merged at `f0013169`, Netlify deploy + `/version.json` confirmed).
-> Each PR still requires Codex review before merge; #170 must
-> additionally deploy to staging before #140 is merged.
+>
+> **Revised order (post-Codex review, 2026-05-13 late):** runtime PRs
+> precede the docs-only tracker. The earlier ordering placed #139 first
+> to "preserve sequencing invariant"; Codex correctly flagged this as
+> docs gating runtime, which is wrong. Tracker is non-blocking and
+> lands when convenient.
 
-The four open PRs are sequenced in this order. **This is the merge
-ORDER plan, not a blanket merge approval.** Each PR still requires
-Codex review before merge; #170 must additionally deploy to staging
-before #140 is merged.
+**This is the merge ORDER plan, not a blanket merge approval.** Each
+PR still requires Codex review before merge.
 
-1. **DGAI #139** — tracker (`V5_CURRENT_STATE.md`). Lands the canonical
-   programme document first so subsequent PRs' tracker references
-   point at a tracked file. Doc-only. **Codex review required before
-   merge.**
-2. **DGAI #138** — Phase 1 (debug exporter V5 awareness +
+1. **DGAI #138** — Phase 1 (debug exporter V5 awareness +
    visible-render proof). Lands the G1 evidence path. UI-only.
+   **REQUIRED BEFORE MERGE**: rebase onto current `staging` (post-#142)
+   AND run `npm run build:ci` to capture the entry-chunk gzip size
+   on the rebased state, posted to PR #138 as evidence. Bundle margin
+   is thin (~3.20 KB at `f0013169`); empirical proof needed that #138
+   does not push back over. **Codex review required before merge.**
+2. **olumi-assistants-service #169** — Phase 2a (Step 3 label
+   resolution). Backend-only, no UI changes required. Deploys to
+   Render. **Codex review required before merge.**
+3. **olumi-assistants-service #170** — Phase 2b backend (chip-click
+   bypass). Backend; deploys to Render. **Codex review required
+   before merge.** **#170 must merge AND deploy to Render staging
+   BEFORE #140 is merged.**
+4. **DGAI #140** — Phase 2b UI companion. UI; deploys to Netlify.
+   Merge gated on #170 being live on Render. Reversing or parallelising
+   the deploy would put UI chips on staging whose backend dispatcher
+   does not yet exist — strictly worse than the pre-PR baseline.
    **Codex review required before merge.**
-3. **olumi-assistants-service #169** — Phase 2a (Step 3 label
-   resolution). Backend-only, no UI changes required. **Codex review
+5. **DGAI #139** — this tracker. Doc-only; **non-blocking for
+   runtime.** Lands at the team's convenience; recommended placement
+   after #138 so the tracker on `staging` reflects shipped runtime
+   delivery, but explicitly NOT a runtime gate. **Codex review
    required before merge.**
-4. **olumi-assistants-service #170 then DGAI #140 — paired deploy.**
-   Both PRs require **Codex review before merge**. **#170 must merge
-   AND deploy to staging BEFORE #140 is merged.** Reversing or
-   parallelising the deploy would put UI chips on staging whose
-   backend dispatcher does not yet exist, which is strictly worse
-   than the pre-PR baseline for any user landing on staging
-   mid-deploy.
 
 Subsequent work (Phase 2a.1 edge-label follow-up, Phase 2c diagnosis,
 Phase 2d telemetry honesty, Olumi experience smoke) sequences after
@@ -1248,6 +1388,47 @@ Phase 1 ships.**
 
 ## Change log
 
+- 2026-05-13 (late, post-Codex corrections): **Codex review of the
+  coordinated PR set surfaced four reviewer-actionable items** —
+  three doc/tracker-correctness, one runtime-blocker on #138:
+  - **#138 BLOCKER**: rebase onto current `staging` (which now
+    includes #142's deploy-unblocker fix) and verify `build:ci`
+    bundle budget remains green before merge. Done in this round:
+    #138 rebased onto `f0013169`, head now `4dbb5304`, entry chunk
+    `index-BAdBKbkT.js` = 46.74 KB / 50 KB (3.26 KB margin —
+    debug-exporter changes contribute essentially zero entry-chunk
+    weight). Posted to PR #138 as evidence.
+  - **Merge-order revision**: runtime PRs precede docs. New order
+    is #138 → #169 → #170 → #140, with #139 non-blocking for
+    runtime (docs should not gate runtime release). Updated both
+    occurrences in this tracker (DGAI merge queue section + the
+    dedicated Recommended-merge-order section). Earlier text that
+    placed #139 first to "preserve sequencing invariant" was
+    docs-gating-runtime and is fixed.
+  - **Phase 2b whitelist alignment**: the implementation brief
+    section previously listed the safe set as
+    `{run_analysis, explain_result, what_would_flip, candidate
+    compare_options}` — drifted from #170's actual implementation,
+    which whitelists exactly
+    `{run_analysis, explain_results, what_would_flip}`. Tracker now
+    matches the code; singular `explain_result` clarified as a
+    UI-only legacy alias not in the backend whitelist;
+    `compare_options` explicitly out of scope.
+  - **`~/.claude/plans/...` reference hygiene**: added an explicit
+    path-convention note at the top of the Implementation-briefs
+    section labelling those paths as **local working notes, not
+    canonical artefacts**. All operational content from those
+    briefs is reproduced inline in this tracker. The canonical
+    in-repo artefacts are this tracker and the v1_3 data contract.
+  - **Post-merge verification protocol added** (mirrors Codex's
+    checklist): per-PR verification steps for #138/#169/#170/#140
+    plus an "before manual testing" gate.
+  - **Telemetry follow-up recorded** (not a blocker): #170's
+    latency proof is indirect (via persisted fields); a single
+    explicit bypass-vs-routed telemetry event with `action_type`,
+    `dispatch_path`, `llm_calls_used`, and duration would be
+    stronger. Logged as Phase 2 closure observation work; **not**
+    added to #170 mid-flight.
 - 2026-05-13 (late, contract committed to repo): **v5 Analysis-tab
   data contract v1_3 added to this repository on PR #139** at
   canonical path
