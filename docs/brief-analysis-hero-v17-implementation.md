@@ -135,7 +135,7 @@ Action handlers per investigation §14:
 4. **If focus is async, unreliable, or cannot be guaranteed cleanly, fall back to chat prefill only and document the limitation in a comment on the handler.**
 5. **Do not add timing hacks, sleeps, or brittle async workarounds.**
 
-Only the reflect-state CTA auto-sends (investigation §11.4).
+**Updated 2026-05-13 (commit `5a610832`, Fix 9 of the round-4 polish pass):** the reflect-state CTA was relabelled "Test the result" and switched from auto-send to prefill-only. The v17 hero now has **zero auto-send paths**. The earlier "Only the reflect-state CTA auto-sends" rule from investigation §11.4 is superseded — see the updated table in §11.4 of the investigation doc.
 
 ### Step 7 — Right-aligned action row + Actions menu
 

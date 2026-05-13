@@ -499,7 +499,7 @@ State→hint→CTA table:
 |---|---|---|---|
 | weak | "Improve inputs first" | "Review weak inputs" | cautious, input-first |
 | moderate | "Check the highest-priority input" | "Check key estimate" | balanced |
-| reflect | "Challenge before deciding" | "Challenge result" | reflective |
+| reflect | "Challenge before deciding" | "Test the result" | reflective <!-- updated 2026-05-13: see §11.4 note --> |
 | strong | "Ready to brief" | "Create decision brief" | forward-looking |
 
 ---
@@ -575,16 +575,24 @@ Category is **never inferred from copy or context**; it is assigned at VM-build 
 
 ### 11.4 Footer CTA → handler map (deterministic)
 
+> **Updated 2026-05-13 (commit `5a610832`, Fix 9 of the round-4 polish pass):**
+> the reflect-state CTA was relabelled "Test the result" and switched from
+> auto-send to prefill-only. The v17 hero now has **zero auto-send paths**
+> in either the row dispatcher or the footer CTA. The table below has
+> been updated to reflect current code. The original investigation table
+> (which treated reflect as auto-send) is preserved in commits prior to
+> `5a610832` if needed for historical reference.
+
 | State | Footer label | Sequencing | Auto-send? |
 |---|---|---|---|
 | weak | "Review weak inputs" | `_prefillChat('Walk me through the highest-priority inputs one at a time. Ask what I know before suggesting changes.')` | **No** — prefill, user reviews and sends |
 | moderate | "Check key estimate" | 1. `onFocusNode(topRow.factorId)` first (so the relevant factor is selected when the prefilled message appears). 2. Then `_prefillChat('Check whether the estimate for ${safeLabel} matches my experience.')`. | **No** — prefill only |
-| reflect | "Challenge result" | `_sendMessage('Challenge the current leading option. Make the strongest case for the next closest option.')` | **Yes** — auto-send (this is a discussion-starter, not a per-factor edit) |
+| reflect | "Test the result" | `_prefillChat('Challenge the current leading option. Make the strongest case for the next closest option.')` | **No** — prefill only (changed from auto-send in Fix 9) |
 | strong | "Create decision brief" | `_prefillChat('Help me capture the result, rationale, key assumptions and caveats as a decision brief.')` | **No** — prefill only |
 
-**Moderate-state sequencing note.** Paul's direction: focus the relevant factor first, then prefill. If `onFocusNode` is asynchronous or `topRow.factorId` is null, document the limitation and fall back to **prefill only** (no auto-send, no focus). A unit test asserts this fallback path.
+**Moderate-state sequencing note.** Paul's direction: focus the relevant factor first, then prefill. If `onFocusNode` is asynchronous or `topRow.factorId` is null, document the limitation and fall back to **prefill only** (no focus). A unit test asserts this fallback path.
 
-**Auto-send rule.** Only the reflect-state CTA auto-sends. All other CTAs use `_prefillChat` so the user can review or edit before sending.
+**Auto-send rule.** After Fix 9 (commit `5a610832`), NO hero CTA auto-sends. All four state CTAs use `_prefillChat` so the user can review or edit before sending. `_sendMessage` remains imported by the composer as a future fallback but no current path calls it.
 
 ---
 
@@ -748,7 +756,7 @@ Every coaching row must pass Ground → Propose, where "Ground" cites the data t
 
 - Open a known weak decision, observe weak state.
 - Open a known moderate decision, observe moderate state and `onFocusNode` sequencing on the CTA.
-- Open a known reflect/biased decision, observe reflect state and auto-send on the CTA.
+- Open a known reflect/biased decision, observe reflect state. The CTA prefills the chat ("Test the result") — the user reviews then sends. (Per Fix 9 / commit `5a610832`, the reflect CTA no longer auto-sends.)
 - Open a known strong decision, observe strong state.
 - Toggle `?analysisHeroCompare=1` → both heroes render, ordered correctly.
 - Toggle `?analysisHeroCompare=0` → comparison disappears on next render.
@@ -806,7 +814,7 @@ All previously open questions have been resolved by Paul during Phase 0. The rem
 2. **Per-factor provenance backend.** Wire the provenance fields enumerated in Section 5.4 so the fourth bar can become "User input" and the contribution line can render honestly.
 3. **`scenario_contexts` plumbing.** The Decision Review v5.2 prompt is supposed to produce scenario contexts; the UI doesn't receive them. This blocks the most descriptive reason-line in the v17 hero.
 4. **`decision_quality_prompts` renderer repair.** `DecisionQualityChecks.tsx` is known-broken (per project memory). Repairing it raises the reliability of the Key-question card from "rarely DQP, usually template" to "usually DQP".
-5. **Chat-availability open-from-elsewhere API.** The v17 hero disables prefill-only action buttons when `_prefillChat` is null. That wire is null when [`DraftChat.tsx`](../../src/canvas/components/DraftChat.tsx) is in its local `isMinimized` state — a common state. Currently there is no exposed action to set `isMinimized` from outside the component, so the hero cannot click-to-open-and-prefill. Adding a store-backed minimise/expand action would let the hero call `setChatMinimised(false)` before prefill — clean UX, broader scope. Until then, the v17 hero falls back to disabling its prefill-only buttons with the explanatory tooltip "Open the chat panel to use this action". The reflect-state CTA (which uses `_sendMessage`, not prefill) is gated by the same check because both wires register together in `ConversationPanel`'s mount-time `useEffect`.
+5. **Chat-availability open-from-elsewhere API.** The v17 hero **hides** (no longer disables — see Fix 6 in commit `5a610832`) prefill-only action buttons when `_prefillChat` is null. That wire is null when [`DraftChat.tsx`](../../src/canvas/components/DraftChat.tsx) is in its local `isMinimized` state — a common state. Currently there is no exposed action to set `isMinimized` from outside the component, so the hero cannot click-to-open-and-prefill. Adding a store-backed minimise/expand action would let the hero call `setChatMinimised(false)` before prefill — clean UX, broader scope. Until then, prefill-dependent surfaces (row icons, Actions menu, key-question chips, Also-line, weak/reflect/strong CTAs) gracefully hide when chat is closed; the moderate CTA stays visible with the softer label "Focus key estimate". The reflect-state CTA also hides because after Fix 9 it routes through `_prefillChat` — both wires register together in `ConversationPanel`'s mount-time `useEffect`.
 
 ---
 
