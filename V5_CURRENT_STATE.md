@@ -17,7 +17,16 @@ gated; Phase 2b trade-off RESOLVED as Option (i) ship-as-is interim;
 recorded; Phase 2a.1 edge-label scope clarified as `from::to` →
 friendly endpoint labels before Olumi smoke; Phase 2c diagnosis kicked
 off as read-only; data contract reference bumped to
-`v5-analysis-tab-data-contract-v1_3.md` and marked FROZEN).
+`v5-analysis-tab-data-contract-v1_3.md` and marked FROZEN;
+**second-pass corrections (2026-05-13 late, post-diagnosis)**: merge
+order is SEQUENCING ONLY (Codex review still required for each PR);
+Phase 2c boundary decisions RESOLVED (operator glyphs always stripped
+from prose, `from::to` owned by 2a.1, raw IDs/schema/Zod/internal
+owned by 2c, consolidation in 2c PR not deferred); `graph_patch` and
+`composeHandlerFailureBody` IN Phase 2c scope; Phase 2a.1 brief
+DRAFTING NOW; Phase 2c diagnosis COMPLETE, next step is brief not
+implementation; Olumi smoke sequencing requires FULL Phase 2 ready
+(1,2a,2a.1,2b,2c,2d landed) or deferral explicitly recorded).
 
 ## Phase-completion semantics — IMPORTANT
 
@@ -247,11 +256,61 @@ gate passes (see "Gates" section).
   assistants-service#170's `chip-generator` change. Required co-merge.
 
 #### Phase 2c — Raw / internal value suppression in user-facing copy
-- **Status**: ✅ **Phase 2c.0 diagnosis COMPLETE (2026-05-13).**
-  Diagnosis doc at `~/.claude/plans/phase-2c-raw-value-suppression-diagnosis.md`
-  (251 lines, baseline `origin/staging @ d60b90a2`). **Next gate: brief
-  drafting decision. No implementation PR permitted until the brief
-  resolves the 8 open questions surfaced in the diagnosis.**
+- **Status**: 📝 **Phase 2c.0 diagnosis COMPLETE (2026-05-13);
+  Phase 2c.1 brief DRAFTING NOW.** Diagnosis doc at
+  `~/.claude/plans/phase-2c-raw-value-suppression-diagnosis.md`
+  (251 lines, baseline `origin/staging @ d60b90a2`). Implementation
+  brief landing at `~/.claude/plans/phase-2c-raw-value-suppression-brief.md`.
+  **No implementation PR permitted until the brief is reviewed.**
+
+##### Phase 2c boundary decisions — RESOLVED (2026-05-13)
+
+These decisions answer the 8 open questions surfaced by the
+diagnosis. The brief writes against them as constraints, not options.
+
+- **Operator glyphs in prose: ALWAYS strip.** No exceptions in
+  `assistant_text`, block prose, chip text, review-card copy, or any
+  surface a standard user sees. `≥`/`≤`/`>=`/`<=`/`->` are translated
+  to "at least"/"at most"/"to" or removed.
+- **Operator glyphs in structured technical / debug fields: ALLOWED**
+  only if those fields are NOT visible in the standard user
+  experience. The brief must enumerate which structured fields qualify
+  and document the contract that the UI does not render them.
+- **`from::to` edge-label resolution: owned by Phase 2a.1, NOT 2c.**
+  Phase 2a.1 turns `from::to` into a friendly label
+  (`"the link from <X> to <Y>"`). Phase 2c does not re-implement this
+  — but it MAY add a defensive last-resort scrub if a slug-shape
+  pattern leaks past Phase 2a.1 on an unanticipated path.
+- **Phase 2c owns ALL remaining suppression:** raw IDs (`opt_*`,
+  `fac_*`, `goal_*`, `e_*`, `con_*`), schema-internal terms
+  (`constraint_id`, `node_id`, `provenance`, `raw_value`, `mean`,
+  `std`, etc.), Zod field paths, internal vocabulary (e.g.
+  `"the validator rejected this"` style phrases), and the
+  prose-vs-structured-field rules.
+- **`graph_patch` block: IN Phase 2c scope** if it reaches the
+  standard user-facing UI. **Do NOT strip internal/action fields the
+  UI requires** to render or invoke follow-ups; ensure the rendered
+  copy and labels derived from those fields are display-safe. The
+  brief must record exactly which `graph_patch` sub-fields the
+  standard UI reads, and apply suppression only on the surfaces the
+  user sees.
+- **`composeHandlerFailureBody` / `args_validation_failed`: IN
+  Phase 2c scope.** Zod issue messages and schema field paths must
+  be rewritten into plain-language, user-safe messages — never
+  pass-through with stack-trace strip.
+- **Counts / element-type words.** `"nodes"` / `"edges"` are treated
+  as ordinary English in this domain and are NOT in scope. The
+  applied-path fallback `"Graph now has N nodes and M edges."` is
+  acceptable; the brief flags it but does not change it.
+- **Helper `sanitiseForUser` `"unknown"` placeholder.** Replace with
+  the `PREFIX_GENERIC` `"the relevant <kind>"`-family wording, or
+  better, with a typed-context-aware phrase. The brief decides per
+  call-site.
+- **Regex / suppression-set consolidation: IN Phase 2c PR**, not
+  deferred to a separate refactor. The brief lays out the consolidated
+  shape (single `entity-id` source of truth, single forbidden-tokens
+  source of truth, single operator-glyph translator) and the migration
+  steps.
 - **Diagnosis top-line findings:**
   - **Three centralised suppression mechanisms exist** (good):
     `sanitiseUserFacingText` (entity-ID scrubber driven by
@@ -655,10 +714,27 @@ When this gate passes, the scientific surface is publicly defensible.
 
 ## Olumi experience smoke (Phase 2 → Phase 3 gate)
 
-After Phase 2 G2 passes, run **3-5 scripted scenarios** with binary
-pass/fail. Each scenario tests whether the experience now feels
-coherent, fast, readable, and useful enough to continue broader manual
-testing.
+**Sequencing (2026-05-13 directional correction):** the Olumi
+experience smoke runs **after the FULL Phase 2 surface is ready**:
+
+- Phase 1 (debug exporter + visible-render proof) landed and on staging
+- Phase 2a (Step 3 label resolution) landed
+- Phase 2a.1 (edge-label `from::to` → friendly labels) landed
+- Phase 2b (chip-click bypass — backend #170 + UI #140) landed in
+  paired-deploy order
+- Phase 2c (raw / internal value suppression) landed
+- Phase 2d (edit_graph no-op honesty + strict negative-intent fast
+  path) landed
+
+OR any deliberate deferral of one of the above sub-phases must be
+**explicitly recorded in this tracker with rationale** before the
+smoke runs. Implicit deferral is not acceptable — a missing sub-phase
+without a recorded rationale blocks the smoke gate.
+
+After the above precondition is met, run **3-5 scripted scenarios**
+with binary pass/fail. Each scenario tests whether the experience now
+feels coherent, fast, readable, and useful enough to continue broader
+manual testing.
 
 Suggested scenario shape (Paul refines before running):
 
@@ -839,22 +915,29 @@ defer to CI for the baseline-diff comparison.
   executable chips would be filtered out by the V5 UI's
   `V5_ENABLED_ACTIONS` check before they reach the dispatcher.**
 
-### Recommended merge order (2026-05-13)
+### Recommended merge order (2026-05-13) — **sequencing only, not approval**
 
-The four open PRs must merge in this order:
+The four open PRs are sequenced in this order. **This is the merge
+ORDER plan, not a blanket merge approval.** Each PR still requires
+Codex review before merge; #170 must additionally deploy to staging
+before #140 is merged.
 
 1. **DGAI #139** — tracker (`V5_CURRENT_STATE.md`). Lands the canonical
    programme document first so subsequent PRs' tracker references
-   point at a tracked file. Doc-only.
+   point at a tracked file. Doc-only. **Codex review required before
+   merge.**
 2. **DGAI #138** — Phase 1 (debug exporter V5 awareness +
    visible-render proof). Lands the G1 evidence path. UI-only.
+   **Codex review required before merge.**
 3. **olumi-assistants-service #169** — Phase 2a (Step 3 label
-   resolution). Backend-only, no UI changes required.
-4. **olumi-assistants-service #170 + DGAI #140 — paired deploy.**
-   Backend #170 MUST merge + deploy first; DGAI #140 follows
-   immediately. Reversing the order would put UI chips on staging
-   whose backend dispatcher does not yet exist, which is strictly
-   worse than the pre-PR baseline for any user landing on staging
+   resolution). Backend-only, no UI changes required. **Codex review
+   required before merge.**
+4. **olumi-assistants-service #170 then DGAI #140 — paired deploy.**
+   Both PRs require **Codex review before merge**. **#170 must merge
+   AND deploy to staging BEFORE #140 is merged.** Reversing or
+   parallelising the deploy would put UI chips on staging whose
+   backend dispatcher does not yet exist, which is strictly worse
+   than the pre-PR baseline for any user landing on staging
    mid-deploy.
 
 Subsequent work (Phase 2a.1 edge-label follow-up, Phase 2c diagnosis,
@@ -1013,6 +1096,16 @@ carries the friendly representation, or the sanitiser learns to parse
 `from::to` and look both endpoints up in `preGraph`. Bare slug emission
 in user-visible surfaces is unacceptable.
 
+**Brief status: DRAFTING NOW (2026-05-13).** Brief lands at
+`~/.claude/plans/phase-2a-1-edge-label-resolution-brief.md`. Covers:
+`update_edge` and `remove_edge` operations; `from::to` parser;
+endpoint label resolution via postGraph then preGraph (with the same
+union-merge pattern Phase 2a established for nodes); test obligations
+including "user-facing copy never says 'the relevant factor' for edge
+edits" + replay fixture coverage; implementation file:line targets
+(`buildAppliedChanges` for the upstream label, `sanitiseAffectedEntityLabel`
+for the egress fallback parser).
+
 The Phase 2a backend agent surfaced this limitation while implementing
 node-label preGraph threading (PR #169):
 
@@ -1049,6 +1142,26 @@ Phase 1 ships.**
 
 ## Change log
 
+- 2026-05-13 (late evening, second directional correction):
+  **Merge order is sequencing only, not approval** — Codex review
+  required for #138, #169, #170, #140; #170 must deploy before #140.
+  **Phase 2c boundary decisions RESOLVED**: operator glyphs always
+  stripped from prose, allowed only in non-user-visible structured
+  fields; `from::to` resolution owned by Phase 2a.1; raw IDs / schema
+  terms / Zod paths / internal terms / prose-vs-structured rules
+  owned by Phase 2c; regex/suppression-set consolidation in the
+  Phase 2c PR (not deferred). **`graph_patch` IN Phase 2c scope** if
+  it reaches the standard UI; do not strip internal/action fields
+  the UI requires, but rendered copy/labels must be display-safe.
+  **`composeHandlerFailureBody` / `args_validation_failed` IN
+  Phase 2c scope** — Zod paths and schema fields rewritten into
+  plain-language messages. **Phase 2a.1 brief drafting NOW** at
+  `~/.claude/plans/phase-2a-1-edge-label-resolution-brief.md` before
+  the Olumi experience smoke. **Phase 2c diagnosis COMPLETE; next
+  step is scoped brief, NOT implementation.** **Olumi experience
+  smoke gate sequencing** clarified: runs after FULL Phase 2 ready
+  (1, 2a, 2a.1, 2b, 2c, 2d landed) or any deliberate deferral
+  explicitly recorded with rationale.
 - 2026-05-13 (late evening, directional corrections):
   **Phase-completion semantics** — phases are PR-open until merged,
   deployed and staging-gated; Phases 1, 2a, 2b explicitly reflagged
