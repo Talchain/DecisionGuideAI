@@ -9,6 +9,7 @@ import { useComparisonStore } from './stores/comparisonStore'
 import { DEFAULT_EDGE_DATA, USER_EDGE_DEFAULTS } from './domain/edges'
 import { parseRunHash } from './utils/shareLink'
 import { evaluateMeasurementGate, allUnlockedNodesMeasured } from './utils/measureLayoutGate'
+import { useInitialLayoutGuard } from './hooks/useInitialLayoutGuard'
 import { LAYOUT_MEASUREMENT_FALLBACK_MS } from './utils/nodeLayoutConstants'
 import { nodeTypes } from './nodes/registry'
 import { StyledEdge } from './edges/StyledEdge'
@@ -364,6 +365,13 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   const nodesInitialized = useNodesInitialized()
   const nodeLookup = useReactFlowStore(s => s.nodeLookup)
   const debugMode: CanvasDebugMode = getCanvasDebugMode()
+
+  // Safety-net: existing-scenario load paths (`loadScenario`,
+  // `hydrateGraphSlice`, `importCanvas`) don't all call setPendingLayout(true),
+  // so a persisted graph with {0,0} positions can hydrate without ever
+  // entering the measure-then-layout pipeline. This hook detects stacked
+  // unlocked nodes and requests a layout pass once per graph identity.
+  useInitialLayoutGuard()
 
   // Brief 36 Fix: Use ref for fitView to avoid effect re-running when ReactFlow updates
   const fitViewRef = useRef(fitView)
