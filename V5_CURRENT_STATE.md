@@ -40,7 +40,15 @@ runtime PRs precede docs in the recommended order (#138 → #169 →
 #170 → #140; #139 non-blocking); Phase 2b whitelist text aligned
 with #170's actual three-entry set; `~/.claude/plans/...` paths
 explicitly labelled as local notes; post-merge verification
-protocol added).
+protocol added; **second-round post-Codex polish (2026-05-13 late
+late)**: #139 rebased onto current staging; Phase 1 status block,
+file list, and Open-PRs entries updated with rebased #138 head
+`4dbb5304` + base `f0013169` + actual test filenames
+(`exportBundle.displayState.spec.ts` and
+`OptionCards.v5-visible-render.spec.tsx`); `#L...` line anchors
+applied to four GitHub URLs; every remaining inline
+`~/.claude/plans/...` reference annotated; #170 post-merge
+routing-log check added).
 
 ## ✅ P0 DEPLOY-UNBLOCKER — RESOLVED (2026-05-13T15:34:01Z)
 
@@ -214,9 +222,11 @@ gate passes (see "Gates" section).
 ### Phase 1 — Debug exporter V5 awareness + visible-render verification
 - **Status**: 🔄 **PR-open, NOT complete** — PR #138 OPEN
   (https://github.com/Talchain/DecisionGuideAI/pull/138) at branch
-  `claude/v5-phase1-debug-exporter`, head `3d84df0e`. Awaiting Codex
-  review + merge + staging deploy + G1 visible-render assertion on
-  deployed staging. **Phase 1 only closes once all four are met.**
+  `claude/v5-phase1-debug-exporter`, **head `4dbb5304`, rebased onto
+  `origin/staging @ f0013169`** (post-#142 deploy-unblocker).
+  Awaiting Codex review + merge + staging deploy + G1 visible-render
+  assertion on deployed staging. **Phase 1 only closes once all four
+  are met.**
 - **Blockers**: none
 - **Upstream context**: PR #137 (V5 Results-panel hydration) **MERGED**
   at `21c6d1e22f34d0ea8c03e219ccb31ba4baa3afd4` on 2026-05-12. Code path
@@ -243,36 +253,48 @@ gate passes (see "Gates" section).
      DevTools snippet, not a manual click-through.**
 - **G1 acceptance** (per the baseline-diff testing principle, §Hard
   constraints):
-  - [x] `pnpm typecheck` clean (verified locally on `3d84df0e`).
-  - [x] **Targeted tests pass** — 4 visible-render + 5 V5-aware
-        exporter tests, all green.
-  - [x] **Relevant full suites pass**: exportBundle (132/132, +5 new),
-        Results (908/908, +4 new), V5 (403/403, unchanged).
-  - [x] **Baseline-diff against `origin/staging @ 21c6d1e2`**: zero
-        NEW deterministic failures.
-  - [x] Rich exporter test fixture round-trip: V5 source resolves
-        first; V4 fallbacks unchanged; staging-fixture exercise shows
-        all 4 options carry numeric `win_probability_displayed` and
-        `win_probability_source ===
-        'state.results.report.option_probabilities.win_probability'`.
+  - [x] `pnpm typecheck` clean (verified locally on rebased head
+        `4dbb5304`).
+  - [x] **Targeted tests pass** on rebased head.
+  - [x] **Bundle budget green on rebased head**: `npm run build:ci`
+        produces entry chunk `index-BAdBKbkT.js` at **46.74 KB / 50 KB
+        (3.26 KB margin)**. Debug-exporter changes contribute
+        essentially 0 KB to the entry chunk (bare staging is
+        46.73 KB; #138 rebased is 46.74 KB).
+  - [x] **Baseline-diff against `origin/staging @ f0013169`** (post-
+        #142 deploy-unblocker): zero NEW deterministic failures.
+  - [x] Exporter test fixture round-trip: V5 source resolves first;
+        V4 fallbacks unchanged; fixture exercise shows option-card
+        win-probability surfaced from
+        `state.results.report.option_probabilities`.
   - [x] **Visible-render assertion: component test mounts production
         `OptionCards` with V5-shape `OptionResult` data and asserts
         exact rendered DOM percentages via `data-testid="win-pct-<id>"`.**
   - [x] **No manual DevTools dependency for closure.** The DevTools
         script in `~/.claude/plans/area-1-devtools-verification-script.md`
-        is the documented fallback only — primary closure is automated.
+        *(local note)* is the documented fallback only — primary
+        closure is automated.
   - [ ] Codex review approval.
-- **Files**:
-  - `src/components/debug/utils/exportBundle.ts` (lines 683-698 enum
-    extension; ~1822-1869 `resolveOption()`; ~1759 factor-sensitivity
-    resolver)
-  - `src/components/debug/__tests__/exportBundle.fixtureReplay.spec.ts`
-    (mock at lines 355-359)
-  - `src/components/debug/__tests__/exportBundle.v1_5.spec.ts` (3 new
-    cases — V5 happy path, V5+V4 simultaneous, V4-only regression guard)
-  - **NEW** Results-panel render test under
-    `src/components/results/__tests__/` (e.g.
-    `Results.v5-render.spec.tsx`) using the staging fixture
+  - [ ] Deployed-staging assertion: after #138 merges and Netlify
+        flips `/version.json`, run a V5 `run_analysis` against
+        staging and verify the export bundle reports
+        `win_probability_displayed` for every rendered option (this
+        is the G1 close-out per the post-merge protocol below).
+- **Files actually changed in #138** (per `git diff origin/staging
+  --stat` at head `4dbb5304`):
+  - `src/components/debug/utils/exportBundle.ts` — modified;
+    `WinProbabilitySource` / `FactorMetricSource` enums extended with
+    the V5 entry as first member; `resolveOption()` and the factor-
+    sensitivity resolver consult `state.results.report.*` ahead of
+    the V4 `apiResponse.*` fallbacks.
+  - **NEW** `src/components/debug/__tests__/exportBundle.displayState.spec.ts`
+    — exporter-side coverage for the V5 path (203 lines added).
+  - **NEW** `src/components/results/__tests__/OptionCards.v5-visible-render.spec.tsx`
+    — visible-render assertion: mounts `OptionCards` with V5-shape
+    fixtures and asserts rendered DOM percentages via
+    `data-testid="win-pct-<id>"` (184 lines added).
+  - `src/generated/validators.js` — generated-file timestamp churn
+    from `generate:validators`; not a meaningful change.
 - **Evidence today**:
   - UI hook reads `report.option_probabilities` at
     `src/components/results/useResultsSectionData.ts:1042` — user-facing
@@ -313,7 +335,7 @@ gate passes (see "Gates" section).
     the final-sanitisation step at the fact-builder boundary) is
     widened to accept and consult `preGraph` too. Threading `preGraph`
     through `resolveElementLabel` only is **insufficient** — the
-    downstream sanitiser ([backend `src/orchestrator-v5/handlers/edit-graph-fact-builder.ts:329-351`](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/edit-graph-fact-builder.ts))
+    downstream sanitiser ([backend `src/orchestrator-v5/handlers/edit-graph-fact-builder.ts:329-351`](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/edit-graph-fact-builder.ts#L329-L351))
     re-strips a recovered label back to "the relevant factor" /
     "the relevant element" if it can't validate against the post-edit
     graph. **Both layers must accept `preGraph`.**
@@ -360,7 +382,7 @@ gate passes (see "Gates" section).
     but excluded from #170's scope.
   - Saves ~12s per chip click that currently pays the ORIENT-Sonnet
     tax even though the chip already declared the handler. Confirmed
-    against [chip-click-dispatch.ts:9-15 header comment](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/chip-click-dispatch.ts).
+    against [chip-click-dispatch.ts:9-15 header comment](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/chip-click-dispatch.ts#L9-L15).
 - **Acceptance (sub-gate)**:
   - [ ] Unit tests cover safe-chip deterministic dispatch (each of
         the three whitelisted action_types).
@@ -390,8 +412,12 @@ gate passes (see "Gates" section).
 - **Status**: 📝 **Phase 2c.0 diagnosis COMPLETE (2026-05-13);
   Phase 2c.1 brief DRAFTING NOW.** Diagnosis doc at
   `~/.claude/plans/phase-2c-raw-value-suppression-diagnosis.md`
-  (251 lines, baseline `origin/staging @ d60b90a2`). Implementation
-  brief landing at `~/.claude/plans/phase-2c-raw-value-suppression-brief.md`.
+  *(local note; key findings — three centralised mechanisms, four
+  scattered regex sets, top-3 highest-risk leakage paths,
+  8 open questions — reproduced inline below.)* Implementation
+  brief landing at `~/.claude/plans/phase-2c-raw-value-suppression-brief.md`
+  *(local note; brief not yet committed; scope reproduced inline in
+  the Phase 2c boundary decisions section below).*
   **No implementation PR permitted until the brief is reviewed.**
 
 ##### Phase 2c boundary decisions — RESOLVED (2026-05-13)
@@ -496,7 +522,9 @@ diagnosis. The brief writes against them as constraints, not options.
     whether existing safety (e.g.
     `compose/forbidden-user-facing-phrases.ts`) could have caught it.
   - Output: written diagnosis doc filed at
-    `~/.claude/plans/phase-2c-raw-value-suppression-diagnosis.md`.
+    `~/.claude/plans/phase-2c-raw-value-suppression-diagnosis.md`
+    *(local note)*. Diagnosis is COMPLETE as of 2026-05-13; findings
+    summarised in the Phase 2c status block above.
 - **What lands** (initial scope hypothesis — to be refined by diagnosis):
   - Audit assistant-text composer + chip-text composer for emissions
     that include raw IDs (`opt_*`, `fac_*`, `goal_*`, `e_*`),
@@ -540,12 +568,12 @@ diagnosis. The brief writes against them as constraints, not options.
   - **Telemetry honesty first.** Distinct counters for
     `edit_graph.applied`, `.rejected`, `.no_op_zero_operations`,
     `.no_op_negative_intent`. Log line at
-    [`edit-graph-dispatch.ts:991`](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/edit-graph-dispatch.ts)
+    [`edit-graph-dispatch.ts:991`](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/edit-graph-dispatch.ts#L991)
     augmented with `mutation_applied` + `operations_count` so
     operators can read the true outcome alongside `was_rejected`.
   - **Strict negative-intent fast path** — extends the existing
     deterministic block at
-    [`edit-graph-dispatch.ts:503-610`](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/edit-graph-dispatch.ts)
+    [`edit-graph-dispatch.ts:503-610`](https://github.com/Talchain/olumi-assistants-service/blob/staging/src/orchestrator-v5/handlers/edit-graph-dispatch.ts#L503-L610)
     (currently scoped to `add_risk` only) with explicit literal matches
     for "no change", "no changes", "keep it as is", "keep as is",
     "leave it", "leave it as is", "don't change", "do not change".
@@ -894,6 +922,11 @@ or explicitly deferred.
       - Handler fact committed (deterministic-fallback path fired).
       - Response prose contains no raw IDs, no schema-internal terms,
         no debug language.
+- [ ] **Routing-log check (per Codex follow-up)**: confirm the
+      replay's routing log does NOT show `routeWithToolUse` being
+      invoked for the deterministic chip clicks. This is the cleanest
+      direct evidence the bypass fired, even before the explicit
+      bypass-vs-routed telemetry event lands as Phase 2 closure work.
 - [ ] Replay an unsupported `action_type` (e.g. `arbitrary_unknown`)
       and a mutation `action_type` (e.g. `set_factor_value`): verify
       they do NOT bypass — the dispatcher throws / falls through to
@@ -1092,57 +1125,67 @@ defer to CI for the baseline-diff comparison.
 
 ### Open PRs (Phase 1 + Phase 2)
 - **DGAI #138 — Phase 1 (debug exporter V5 awareness + visible-render proof).**
-  Awaiting Codex review. Branch `claude/v5-phase1-debug-exporter`,
-  base `origin/staging @ 21c6d1e2`. 132/132 exporter tests pass;
-  908/908 Results tests pass; 403/403 V5 tests unchanged; typecheck
-  clean; zero baseline-diff failures.
+  Branch `claude/v5-phase1-debug-exporter`, **head `4dbb5304`,
+  rebased onto `origin/staging @ f0013169`** (post-#142 deploy-
+  unblocker). Awaiting Codex review. `npm run build:ci` on the
+  rebased head passes; entry chunk gzip = 46.74 KB / 50 KB
+  (3.26 KB margin). Targeted exporter + Results suites pass;
+  typecheck clean; zero baseline-diff failures vs the rebased base.
+  Evidence posted to PR #138 (comment `4444018279`).
 - **olumi-assistants-service #169 — Phase 2a (Step 3 label resolution).**
-  PR open; **GitHub CI `Lint, TypeCheck, Unit Tests` job currently RED.**
-  Local agent verification: targeted (12/12 + 60/60), integration
-  (189/189), wider (825/825), zero regressions in baseline-diff;
-  `tsc -p tsconfig.build.json --noEmit` clean. CI failures are
-  pre-existing test-file typecheck noise per CLAUDE.md note —
-  **explicit baseline-diff evidence must be added to PR description**
-  before reviewer can call CI red as a merge blocker. Branch
-  `claude/v5-step2a-step3-label-resolution`, base
-  `origin/staging @ d60b90a2`. Reviewer findings to address before
-  merge: (a) fix misleading pre/post comment at `edit-graph.ts:2701`
-  (`buildAppliedChanges` is post-primary, pre-fallback; comment
-  currently suggests pre-primary); (b) reconcile CI red with
-  baseline-diff evidence; (c) the edge-label gap reclassified as
-  Phase 2a.1 follow-up (see above).
+  Branch `claude/v5-step2a-step3-label-resolution`, head
+  `0c708319`, base `origin/staging @ d60b90a2`. **GitHub CI `Lint,
+  TypeCheck, Unit Tests` job is baseline-red** (`tsc --noEmit`
+  test-file noise per CLAUDE.md). Baseline-diff evidence ADDED to
+  PR description (CI-red reconciliation section). Round-2 reviewer
+  findings addressed: (a) misleading pre/post comment at
+  `edit-graph.ts:2701` corrected in `0c708319`; (b) baseline-diff
+  evidence moved into PR body; (c) edge-label gap reclassified as
+  Phase 2a.1 follow-up (see Phase 2a.1 section). Awaiting Codex
+  review.
 - **olumi-assistants-service #170 — Phase 2b (chip-click router bypass).**
-  PR open; **GitHub CI `Lint, TypeCheck, Unit Tests` job is baseline-red**
-  (`tsc --noEmit` test-file noise per CLAUDE.md note). Round-2 reviewer
-  findings ADDRESSED: (a) chip-generator post-analysis "Explain the
-  result" + decide-fragile "What would make this flip?" chips converted
-  to executable `action_type` chips at `chip-generator.ts:218-235` +
-  `502-518`; (b) 2 new happy-path tests added in
-  `chip-click-dispatch.test.ts` exercising `buildAnalysisFromPriorFacts`
-  reconstruction and asserting handler receives hydrated
-  `{analysisProjection, analysisFreshness:'fresh', analysisReady:'ready'}`;
-  (c) baseline-diff evidence to be moved from comments into PR
-  description (this tracker entry tracks the PR body update task);
-  (d) stale `route-v2.ts:656` comment about no-new-dispatcher for
-  `what_would_flip` corrected. Local verification: 13/13 unit
-  (chip-click-dispatch) + 9/9 chip-click-dispatch-analysis-ready +
-  3/3 new integration; full `tsc --noEmit`: 450 errors / 453 baseline
-  (−3 net, ZERO new attributable); no package/lockfile churn. Branch
-  `claude/v5-step2b-chip-click-bypass`.
+  Branch `claude/v5-step2b-chip-click-bypass`, head `aa181283`.
+  **GitHub CI `Lint, TypeCheck, Unit Tests` job is baseline-red**
+  (`tsc --noEmit` test-file noise per CLAUDE.md). Round-2 reviewer
+  findings all addressed: (a) chip-generator post-analysis "Explain
+  the result" + decide-fragile "What would make this flip?" chips
+  converted to executable `action_type` chips at
+  `chip-generator.ts` lines ~218-237 + ~500-518; (b) 2 new
+  happy-path tests in `chip-click-dispatch.test.ts` exercising
+  `buildAnalysisFromPriorFacts` reconstruction; (c) baseline-diff
+  evidence ADDED to PR body (per-handler validation, test counts,
+  Netlify-vs-local drift accounting); (d) stale `route-v2.ts`
+  no-new-dispatcher comment corrected. Local verification: 13/13
+  chip-click-dispatch unit tests + 9/9 chip-click-dispatch-analysis-
+  ready + 3/3 new integration; full `tsc --noEmit`: 450 errors /
+  453 baseline (−3 net, ZERO new attributable); no package/lockfile
+  churn. Awaiting Codex review. **Codex follow-up (not a blocker):**
+  add an explicit bypass-vs-routed telemetry event with
+  `action_type`, `dispatch_path`, `llm_calls_used`, and duration —
+  recorded as Phase 2 closure observation work, not added mid-flight.
 - **DGAI #140 — Phase 2b UI chip whitelist + plural dispatch.**
   Companion to olumi-assistants-service#170. Branch
-  `claude/v5-phase2b-ui-chip-whitelist`, base
+  `claude/v5-phase2b-ui-chip-whitelist`, head `ce608a85`, base
   `origin/staging @ 21c6d1e2`. Extends `V5_ENABLED_ACTIONS` with
   `explain_results` + `what_would_flip` so the new executable chips
-  emitted by the backend chip-generator are not silently filtered out
-  by the V5 UI gate. Adds plural `explain_results: 'explain'` to
-  `ACTION_TO_TURN_TYPE` so chip clicks resolve to a turn type even when
-  the chip carries the backend-canonical plural action_type. 446/446
-  V5 tests pass; build typecheck clean; zero baseline-diff failures;
-  no package/lockfile churn. **Without this co-merge, the latency win
-  is inert: the backend bypass exists but the chip-generator's new
-  executable chips would be filtered out by the V5 UI's
-  `V5_ENABLED_ACTIONS` check before they reach the dispatcher.**
+  emitted by the backend chip-generator are not silently filtered
+  out by the V5 UI gate. Adds plural `explain_results: 'explain'`
+  to `ACTION_TO_TURN_TYPE` so chip clicks resolve to a turn type
+  even when the chip carries the backend-canonical plural
+  action_type. 446/446 V5 tests pass; build typecheck clean; zero
+  baseline-diff failures; no package/lockfile churn. **Co-merge
+  requirement**: backend #170 must merge AND deploy to Render
+  staging before #140 is merged. Awaiting Codex review. **Note**:
+  base is pre-#142; not a runtime concern for this UI-only PR but
+  the merge mechanic will pull #142's changes in via Git as part
+  of merging.
+- **DGAI #139 — V5 programme tracker (this PR).** Branch
+  `claude/v5-current-state-tracker`, rebased onto `origin/staging`
+  (current head includes the FROZEN data contract at
+  `docs/v5/v5-analysis-tab-data-contract-v1_3.md`). **Doc-only,
+  non-blocking for runtime.** Lands when convenient; recommended
+  after #138 so the tracker on `staging` reflects shipped runtime
+  delivery. Awaiting Codex review.
 
 ### Recommended merge order (2026-05-13, revised post-Codex) — **runtime first, docs non-blocking**
 
@@ -1343,7 +1386,9 @@ carries the friendly representation, or the sanitiser learns to parse
 in user-visible surfaces is unacceptable.
 
 **Brief status: DRAFTING NOW (2026-05-13).** Brief lands at
-`~/.claude/plans/phase-2a-1-edge-label-resolution-brief.md`. Covers:
+`~/.claude/plans/phase-2a-1-edge-label-resolution-brief.md`
+*(local note; brief not yet committed; scope reproduced inline below).*
+Covers:
 `update_edge` and `remove_edge` operations; `from::to` parser;
 endpoint label resolution via postGraph then preGraph (with the same
 union-merge pattern Phase 2a established for nodes); test obligations
@@ -1388,6 +1433,44 @@ Phase 1 ships.**
 
 ## Change log
 
+- 2026-05-13 (late, second-round post-Codex polish): **Codex
+  follow-up review of the post-correction tracker** surfaced seven
+  doc-hygiene SHOULD-FIX items + one observation (#138 blocker
+  cleared). All seven applied:
+  - #139 rebased onto current `staging` (`f0013169`) so the PR diff
+    context matches the corrected staging state. New head SHAs
+    applied; PR is mergeable.
+  - Phase 1 status block updated: head `3d84df0e` → `4dbb5304`,
+    base `21c6d1e2` → `f0013169`, baseline-diff target updated.
+    Bundle-budget evidence (46.74 KB / 50 KB) added inline.
+  - **#138 file list corrected.** Was: `exportBundle.fixtureReplay.spec.ts`,
+    `exportBundle.v1_5.spec.ts`, hypothetical `Results.v5-render.spec.tsx`.
+    Now (actual diff vs `origin/staging`): NEW
+    `src/components/debug/__tests__/exportBundle.displayState.spec.ts`
+    + NEW `src/components/results/__tests__/OptionCards.v5-visible-render.spec.tsx`
+    + modified `src/components/debug/utils/exportBundle.ts`.
+    Reviewers chasing the wrong files would have come up empty.
+  - Open PRs section refreshed: #138 entry shows new base/head +
+    bundle evidence; #169/#170 entries note the round-2 reviewer
+    findings as ADDRESSED (no longer "to be moved into PR body");
+    added an explicit DGAI #139 entry to the Open-PRs list with
+    rebased status.
+  - `#L...` line anchors applied to four GitHub links flagged by
+    Codex/Gemini: `edit-graph-fact-builder.ts#L329-L351`,
+    `chip-click-dispatch.ts#L9-L15`, `edit-graph-dispatch.ts#L991`,
+    `edit-graph-dispatch.ts#L503-L610`.
+  - Every remaining inline `~/.claude/plans/...` reference annotated
+    `*(local note)*` (was: only the briefs section + 1 inline ref).
+    Convention note retained at top of Implementation Briefs.
+  - Post-merge protocol extended for #170 with an explicit
+    routing-log assertion (`routeWithToolUse` must NOT be invoked
+    for deterministic chip clicks) as the cleanest direct evidence
+    the bypass fired, until the explicit bypass-vs-routed telemetry
+    event lands as Phase 2 closure work.
+  - Codex's "#138 blocker cleared" is an observation, not an
+    action; recorded for completeness.
+  - **Telemetry follow-up** for #170 confirmed as Phase 2 closure
+    observation work (not added to #170 mid-flight).
 - 2026-05-13 (late, post-Codex corrections): **Codex review of the
   coordinated PR set surfaced four reviewer-actionable items** —
   three doc/tracker-correctness, one runtime-blocker on #138:
@@ -1463,7 +1546,8 @@ Phase 1 ships.**
   directly blocked but cannot independently close Phase 2b
   (paired-deploy rule). Read-only diagnosis launched; diagnosis
   doc to land at
-  `~/.claude/plans/dgai-deploy-unblocker-bundle-budget-2026-05-13.md`.
+  `~/.claude/plans/dgai-deploy-unblocker-bundle-budget-2026-05-13.md`
+  *(local note)*.
   Unblock criteria recorded at top of tracker. **Briefs paused for
   review**: Phase 2a.1 + Phase 2c briefs remain DRAFT; no
   implementation work.
@@ -1481,8 +1565,8 @@ Phase 1 ships.**
   **`composeHandlerFailureBody` / `args_validation_failed` IN
   Phase 2c scope** — Zod paths and schema fields rewritten into
   plain-language messages. **Phase 2a.1 brief drafting NOW** at
-  `~/.claude/plans/phase-2a-1-edge-label-resolution-brief.md` before
-  the Olumi experience smoke. **Phase 2c diagnosis COMPLETE; next
+  `~/.claude/plans/phase-2a-1-edge-label-resolution-brief.md`
+  *(local note)* before the Olumi experience smoke. **Phase 2c diagnosis COMPLETE; next
   step is scoped brief, NOT implementation.** **Olumi experience
   smoke gate sequencing** clarified: runs after FULL Phase 2 ready
   (1, 2a, 2a.1, 2b, 2c, 2d landed) or any deliberate deferral
