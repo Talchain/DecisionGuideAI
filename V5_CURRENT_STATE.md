@@ -17,7 +17,7 @@ gated; Phase 2b trade-off RESOLVED as Option (i) ship-as-is interim;
 recorded; Phase 2a.1 edge-label scope clarified as `from::to` →
 friendly endpoint labels before Olumi smoke; Phase 2c diagnosis kicked
 off as read-only; data contract reference bumped to
-`v5-analysis-tab-data-contract-v1_3.md` and marked FROZEN;
+`docs/v5/v5-analysis-tab-data-contract-v1_3.md` and marked FROZEN;
 **second-pass corrections (2026-05-13 late, post-diagnosis)**: merge
 order is SEQUENCING ONLY (Codex review still required for each PR);
 Phase 2c boundary decisions RESOLVED (operator glyphs always stripped
@@ -32,7 +32,10 @@ budget — RESOLVED 2026-05-13T15:34:01Z. PR #142 merged at
 `f0013169`; Netlify build completed in 1m 32s; `/version.json`
 serves the merged SHA; entry chunk on Netlify wire = 46.80 KB / 50
 KB (3.20 KB margin); DGAI merge queue UNPAUSED. Both briefs remain
-DRAFT pending review).
+DRAFT pending review; **v5 Analysis-tab data contract v1_3 committed
+to this repo on PR #139 at canonical path
+`docs/v5/v5-analysis-tab-data-contract-v1_3.md` — FROZEN and
+version-controlled**).
 
 ## ✅ P0 DEPLOY-UNBLOCKER — RESOLVED (2026-05-13T15:34:01Z)
 
@@ -153,7 +156,7 @@ Scientific-audit gate          : ISL B3, PLoT B3, EVPI clamp, flip-threshold
 |---|---|---|
 | **1** | Debug exporter V5 awareness + visible Results rendering proof | Bundles + tests stop lying about V5 turns; visible-render is automated |
 | **2** | Restore core journey reliability and speed (4 sub-PRs: 2a labels, 2b chip-click bypass, 2c raw-value suppression *diagnosis-first*, 2d no-op honesty *after 2a/2b*) | "What changed?" names real entities; chip clicks fast; assistant copy doesn't leak raw IDs; no-op edits honest + fast |
-| **3A** | Minimum coaching contract — emit ReviewCard / Coaching / Evidence / Exercise blocks conforming to `v5-analysis-tab-data-contract-v1_3.md`; auto-invoke decision_review with guardrails | Coaching meets UX §9.1 + §9.2 |
+| **3A** | Minimum coaching contract — emit ReviewCard / Coaching / Evidence / Exercise blocks conforming to [`docs/v5/v5-analysis-tab-data-contract-v1_3.md`](docs/v5/v5-analysis-tab-data-contract-v1_3.md); auto-invoke decision_review with guardrails | Coaching meets UX §9.1 + §9.2 |
 | **3B** | Full coaching layer — draft_graph coaching outputs, coaching_state persistence, evidence-ranked coaching, formatting/layout, chip↔coaching coherence | Coaching meets UX §9.3 + §9.4 |
 | **4** | V4 retirement, scientific cleanup, methodology / audit | Single-codepath V5; scientific gate also passed; no V4 dead code |
 
@@ -575,9 +578,10 @@ data contract and lets the Analysis tab render coaching without
 guessing at shapes.
 
 - **Hard constraint:** Phase 3A output shapes must conform to the
-  v5 Analysis-tab data contract
-  (`olumi-coaching-ux-requirements-v1.md`'s companion doc
-  `v5-analysis-tab-data-contract-v1_3.md`), especially:
+  v5 Analysis-tab data contract (companion doc to
+  `olumi-coaching-ux-requirements-v1.md`) at canonical in-repo path
+  [`docs/v5/v5-analysis-tab-data-contract-v1_3.md`](docs/v5/v5-analysis-tab-data-contract-v1_3.md),
+  especially:
   - `ReviewCardBlock`
   - `CoachingBlock`
   - `EvidenceBlock`
@@ -585,10 +589,14 @@ guessing at shapes.
   - interaction intents
   - freshness / staleness semantics
   - suppression rules
-  - **Contract status: FROZEN at `v5-analysis-tab-data-contract-v1_3.md`
-    (2026-05-13). This is the canonical authoritative shape for Phase
-    3A. Subsequent contract revisions land as `v1_4.md`, `v1_5.md` and
-    are recorded in the change log; v1_3 is not edited in place.**
+  - **Contract status: FROZEN and version-controlled at
+    [`docs/v5/v5-analysis-tab-data-contract-v1_3.md`](docs/v5/v5-analysis-tab-data-contract-v1_3.md)
+    (2026-05-13; landed in repo on the tracker PR #139). This is the
+    canonical authoritative shape for Phase 3A. Subsequent contract
+    revisions land as new versioned files
+    (`docs/v5/v5-analysis-tab-data-contract-v1_4.md`, `…v1_5.md`)
+    and are recorded in this tracker's change log; v1_3 is not
+    edited in place.**
 - **Six adopted corrections to the contract (carry through Phase 3A):**
   1. **Separate display text from machine references.** All
      coaching blocks expose `target_refs` (machine-readable IDs)
@@ -882,7 +890,8 @@ keep diffs orthogonal so the two sub-PRs can land independently.
 `useConversation.ts` during Phases 2 and 3. The Analysis-tab workstream
 consumes V5 contract artifacts (envelope shapes, `decision_review`
 output, structured coaching blocks per
-`v5-analysis-tab-data-contract-v1_3.md`) but does **not** modify
+[`docs/v5/v5-analysis-tab-data-contract-v1_3.md`](docs/v5/v5-analysis-tab-data-contract-v1_3.md))
+but does **not** modify
 `useConversation.ts`. Analysis tab rendering reads from `useCanvasStore`
 slices (`results.report`, the future `coachingStore`) and from
 selector hooks (`useResultsSectionData`, the future
@@ -1149,12 +1158,15 @@ reviewers see it explicitly.
   `olumi-coaching-ux-requirements-v1.md`, §9.1–9.4. §9.1 + §9.2 are the
   Phase 3A acceptance standard; §9.3 + §9.4 are the Phase 3B acceptance
   standard. Removed from Phase 3 blocker list.
-- ✅ **v5 Analysis-tab data contract source**:
-  `v5-analysis-tab-data-contract-v1_3.md` — **FROZEN as the canonical
-  authoritative shape for Phase 3A** (2026-05-13). Six adopted
-  contract corrections recorded in Phase 3A scope above. Future
-  revisions land as new versioned files (`v1_4.md`, etc.) and are
-  recorded in the change log.
+- ✅ **v5 Analysis-tab data contract source**: [`docs/v5/v5-analysis-tab-data-contract-v1_3.md`](docs/v5/v5-analysis-tab-data-contract-v1_3.md)
+  — **FROZEN and version-controlled** in this repo at the canonical
+  path above (landed on PR #139, 2026-05-13). This is the canonical
+  authoritative shape for Phase 3A. Six adopted contract corrections
+  are reproduced inline in §2 of the contract doc and cross-
+  referenced from Phase 3A scope above. Future revisions land as new
+  versioned files (`docs/v5/v5-analysis-tab-data-contract-v1_4.md`,
+  etc.) and are recorded in this tracker's change log; v1_3 is not
+  edited in place.
 - ✅ **`useConversation.ts` ownership during Phases 2–3**: V5 owns it
   under the working assumption that Analysis-tab work consumes V5
   contract artifacts but does not modify the dispatcher. Surface
@@ -1236,6 +1248,17 @@ Phase 1 ships.**
 
 ## Change log
 
+- 2026-05-13 (late, contract committed to repo): **v5 Analysis-tab
+  data contract v1_3 added to this repository on PR #139** at
+  canonical path
+  [`docs/v5/v5-analysis-tab-data-contract-v1_3.md`](docs/v5/v5-analysis-tab-data-contract-v1_3.md).
+  Contract is now FROZEN AND version-controlled in this repo
+  (previously held as a frozen working doc outside the repo). All
+  tracker references updated to the in-repo path. No content drift
+  from the prior frozen state; the six adopted corrections are
+  reproduced verbatim inside §2 of the contract doc. Future contract
+  revisions land as new versioned files (`v1_4.md`, etc.) under the
+  same `docs/v5/` directory; v1_3 is not edited in place.
 - 2026-05-13T15:34:01Z (P0 deploy-unblocker — **RESOLVED**):
   PR #142 merged at `f0013169e17498adff11bc980e7dbc558b8c823e`
   (2026-05-13T15:32:29Z). Netlify deploy completed 2026-05-13T15:34:01Z
