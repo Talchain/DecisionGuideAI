@@ -34,8 +34,32 @@ function getGzippedSize(filePath) {
 }
 
 /**
- * Find the main JavaScript bundle file
- * Vite generates files like: index-[hash].js
+ * Find the main JavaScript bundle file.
+ *
+ * Vite emits multiple `index-*.js` chunks per build (entry + lucide / debug-
+ * state companions). The real entry chunk is whichever filename is
+ * referenced from `dist/index.html` as `<script type="module" src=...>`.
+ * Resolving via the HTML is the only authoritative answer; using
+ * `readdirSync` + `Array.find` is filesystem-order-dependent (macOS APFS
+ * returns lex order; Linux ext4 returns hash order) and silently picks
+ * a non-entry companion on some platforms — masking budget breaches.
+ *
+ * Picker corrected 2026-05-13 (P0 deploy-unblocker). Previous behaviour
+ * was `files.find(f => f.startsWith('index-') && ...)` which on macOS
+ * was reporting the ~10 KB lucide companion instead of the ~50 KB
+ * real entry, so local `build:ci` had been passing while Netlify
+ * intermittently failed.
+ *
+ * Resolution policy (failure-mode discipline — Codex review 2026-05-13):
+ * 1. If `dist/index.html` exists, the entry script reference IS the
+ *    authoritative answer. If the file exists but the regex doesn't
+ *    match, or the referenced file is missing from `dist/assets/`,
+ *    FAIL CLOSED (return null → exit 1). We refuse to "guess" via
+ *    filesystem scan; that's how the original Array.find bug masked
+ *    a 5-day-silent budget breach.
+ * 2. The size-ordered filesystem-scan fallback only fires when
+ *    `dist/index.html` is absent — a true outlier (Vite is configured
+ *    to emit it; tests without an HTML emitter would be the only case).
  */
 function findMainBundle(distPath) {
   if (!existsSync(distPath)) {
@@ -44,20 +68,42 @@ function findMainBundle(distPath) {
     return null
   }
 
-  const files = readdirSync(distPath)
-
-  // Look for index-*.js (main bundle)
-  const mainBundle = files.find(file =>
-    file.startsWith('index-') && file.endsWith('.js') && !file.endsWith('.map')
-  )
-
-  if (!mainBundle) {
-    console.error('[Bundle Budget] ❌ Main bundle (index-*.js) not found')
-    console.error('[Bundle Budget]    Available files:', files.join(', '))
-    return null
+  // Primary (authoritative): resolve via dist/index.html.
+  const distRoot = join(distPath, '..')
+  const indexHtmlPath = join(distRoot, 'index.html')
+  if (existsSync(indexHtmlPath)) {
+    const html = readFileSync(indexHtmlPath, 'utf8')
+    // Match <script type="module" ... src="/assets/index-XXXX.js">
+    const match = html.match(/<script[^>]+type=["']module["'][^>]+src=["']\/?assets\/(index-[A-Za-z0-9_-]+\.js)["']/)
+    if (!match || !match[1]) {
+      console.error('[Bundle Budget] ❌ dist/index.html exists but no <script type="module" src="/assets/index-*.js"> entry found')
+      console.error('[Bundle Budget]    Refusing to guess via filesystem scan — fix the picker if Vite output shape changed.')
+      return null
+    }
+    const entryPath = join(distPath, match[1])
+    if (!existsSync(entryPath)) {
+      console.error('[Bundle Budget] ❌ dist/index.html references', match[1], 'but the file is missing from dist/assets/')
+      console.error('[Bundle Budget]    Refusing to guess via filesystem scan.')
+      return null
+    }
+    return entryPath
   }
 
-  return join(distPath, mainBundle)
+  // True fallback (dist/index.html absent — rare; tests / non-standard
+  // build outputs). Pick the LARGEST `index-*.js` deterministically.
+  // The HTML-absent case is the only situation where filesystem scanning
+  // is acceptable.
+  const files = readdirSync(distPath)
+    .filter(f => f.startsWith('index-') && f.endsWith('.js') && !f.endsWith('.map'))
+  if (files.length === 0) {
+    console.error('[Bundle Budget] ❌ Main bundle (index-*.js) not found')
+    console.error('[Bundle Budget]    Available files:', readdirSync(distPath).join(', '))
+    return null
+  }
+  const largest = files
+    .map(f => ({ name: f, size: statSync(join(distPath, f)).size }))
+    .sort((a, b) => b.size - a.size)[0]
+  return join(distPath, largest.name)
 }
 
 function main() {
