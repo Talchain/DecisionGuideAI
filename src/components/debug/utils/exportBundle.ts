@@ -677,22 +677,23 @@ function extractCeePipelineQuickFields(data: DebugData): {
 
 /**
  * Where the captured win_probability came from in the response payload.
- * Limited to values the exporter actually emits. If a new fallback path is
- * added in resolveOption, add the corresponding enum member here.
  *
- * V5 canonical source (added 2026-05-13, Phase 1 of V5 completion plan):
- * `state.results.report.option_probabilities` is hydrated by
- * `applyV5State` step 5 / `mapV5AnalysisToReport` (PR #137) on every
- * V5 `run_analysis` turn. This is the ONLY source populated for V5
- * single-scenario runs; the V4 `apiResponse.*` paths below remain as
- * fallbacks for Comparison-mode (which writes `apiResponse` via
- * `enterComparisonMode` / `useScenarioComparison`).
+ * Provenance labels are bundle-level paths: they describe where a consumer
+ * reading the exported JSON would find the same datum. The exporter sources
+ * the raw V2 wire shape from `state.rawV2Response` (canvas-store root), which
+ * is faithfully captured into the bundle under `payloads.plot_response`. The
+ * `results.report.option_probabilities` fallback is the V4/V5 mapper-
+ * synthesised keyed map (`src/v5/mapV5AnalysisToReport.ts:557`,
+ * `src/components/results/useResultsSectionData.ts:1042`) — distinct from the
+ * raw wire response, so it carries a distinct label.
+ *
+ * If a new fallback path is added in resolveOption, add the corresponding
+ * enum member here.
  */
 export type WinProbabilitySource =
-  | 'state.results.report.option_probabilities.win_probability'
   | 'payloads.plot_response.option_comparison.win_probability'
   | 'payloads.plot_response.options.win_probability'
-  | 'payloads.plot_response.option_probabilities.win_probability'
+  | 'results.report.option_probabilities.win_probability'
   | 'unmatched'
 
 /** How the captured rank was computed (analytical vs canvas fallback). */
@@ -701,20 +702,17 @@ export type RankSource = 'win_probability_desc' | 'canvas_order' | 'unranked'
 /**
  * Where the captured influence / sensitivity value came from.
  *
- * V5 canonical source (added 2026-05-13, Phase 1):
- * `state.results.report.factor_sensitivity` is hydrated by
- * `applyV5State` step 5 / `mapV5AnalysisToReport` and carries
- * `{factor_id, factor_label, sensitivity, direction}` per factor. The
- * sensitivity field is already absolute-magnitude (V4 alias-priority
- * resolution applied in the mapper), so no further conversion needed
- * here.
+ * As with WinProbabilitySource, provenance is bundle-level: the wire-level V2
+ * factor_sensitivity array travels from `state.rawV2Response.factor_sensitivity`
+ * (canvas-store root) into the bundle under `payloads.plot_response.factor_sensitivity`.
+ * The previous `plot_enrichment.factor_sensitivity.*` labels were misleading —
+ * `plot_enrichment` mirrors the same data at a different bundle key and was never
+ * the read source; the dead `results.apiResponse.*` labels referenced a non-
+ * existent canvas-store field and have been removed.
  */
 export type FactorMetricSource =
-  | 'state.results.report.factor_sensitivity.sensitivity'
-  | 'plot_enrichment.factor_sensitivity.influence_score'
-  | 'plot_enrichment.factor_sensitivity.sensitivity_score'
-  | 'results.apiResponse.factor_sensitivity.influence_score'
-  | 'results.apiResponse.factor_sensitivity.sensitivity_score'
+  | 'payloads.plot_response.factor_sensitivity.influence_score'
+  | 'payloads.plot_response.factor_sensitivity.sensitivity_score'
   | 'unmatched'
 
 /** V1.5: Display state snapshot — what the UI actually rendered at export time */
@@ -1675,34 +1673,80 @@ async function buildPanelState(): Promise<PanelStateV1_5> {
 // =============================================================================
 
 /**
+ * Statuses where the function will derive an analytical winner headline.
+ * Production canvas-store writes `ResultsStatus === 'complete'`
+ * (`src/canvas/store.ts:168, 2488`) on analysis completion. The legacy
+ * `'success'` and `'computed'` values are kept to tolerate older fixtures
+ * and externally constructed payloads. Hoisted to module scope so the Set
+ * is allocated once (Codex round-2 review).
+ */
+const HEADLINE_OK_STATUSES: ReadonlySet<string> = new Set([
+  'complete',
+  'success',
+  'computed',
+])
+
+/**
  * Derive the hero headline that HeroSection.tsx would display.
  * Mirrors the M1 headline logic: "{Winner} performs best" when analysis
  * succeeded with multiple options, or status-based fallbacks.
+ *
+ * `optionComparison` is the already-resolved wire-level option_comparison
+ * array — sourced from `state.rawV2Response.option_comparison` at the
+ * captureDisplayState call site. Passed in pre-resolved so this function
+ * does not re-read the (non-existent) `results.apiResponse` field; see the
+ * data-source comment block in `captureDisplayState` for the full rationale.
+ *
+ * Honest-missing contract (mirrors the D4/D5/D8 tri-state principle): only
+ * entries with a numeric, finite `win_probability` participate in the sort.
+ * If every entry is missing `win_probability` (or the array is empty), the
+ * function returns `null` rather than emitting a confident "{first label}
+ * performs best" — which would otherwise be the first option_comparison
+ * entry preserved by the stable sort, not an analytical winner. Per
+ * `V2OptionComparison.win_probability` (`src/adapters/plot/v2/types.ts:161`)
+ * the field is optional, so partial / malformed wire shapes are a real
+ * production possibility.
+ *
+ * Report-only fallback policy (Codex round-2 follow-up): `hero_headline_displayed`
+ * is a legacy field (`exportBundle.displayState.spec.ts:4` — canonical
+ * `analysis_display_*` fields supersede it). It deliberately does NOT mirror
+ * the D5/D8 fallback chain into `results.report.option_probabilities` — the
+ * mapped report carries win-probabilities keyed by node ID but not the
+ * option_label needed for the headline string; resolving labels would
+ * require a separate canvas-node lookup, expanding scope on a legacy
+ * surface. Report-only loads therefore return `null` for the headline. The
+ * canonical `analysis_display_headline` is the field consumers should rely
+ * on for the headline contract going forward.
  */
 function deriveHeroHeadline(
   results: Record<string, unknown> | null | undefined,
   optionCount: number,
+  optionComparison: Array<Record<string, unknown>>,
 ): string | null {
   if (!results) return null
   const status = results.status as string | undefined
-  if (status !== 'success' && status !== 'computed') return status ? `Analysis ${status}` : null
+  if (status === undefined || !HEADLINE_OK_STATUSES.has(status)) {
+    return status ? `Analysis ${status}` : null
+  }
   if (optionCount === 0) return 'No options to evaluate'
 
-  // Find winner from option_comparison (same source as HeroSection)
-  const apiResponse = results.apiResponse as Record<string, unknown> | undefined
-  const comparison = apiResponse?.option_comparison as
-    Array<{ option_label?: string; win_probability?: number }> | undefined
-  if (comparison && comparison.length > 0) {
-    const sorted = [...comparison].sort(
-      (a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0),
-    )
-    const winnerLabel = sorted[0]?.option_label
-    if (winnerLabel) {
-      if (optionCount === 1) return `${winnerLabel} is your only option`
-      return `${winnerLabel} performs best`
-    }
+  // Find winner from option_comparison (same source as HeroSection). Filter
+  // to entries with a numeric `win_probability` BEFORE sorting so all-missing
+  // arrays can't emit a fabricated headline via lexicographic tie-break.
+  const comparison = optionComparison as
+    Array<{ option_label?: string; win_probability?: number }>
+  const ranked = comparison.filter(
+    (o) => typeof o.win_probability === 'number' && Number.isFinite(o.win_probability),
+  )
+  if (ranked.length === 0) return null
+  const sorted = [...ranked].sort(
+    (a, b) => (b.win_probability as number) - (a.win_probability as number),
+  )
+  const winnerLabel = sorted[0]?.option_label
+  if (winnerLabel) {
+    if (optionCount === 1) return `${winnerLabel} is your only option`
+    return `${winnerLabel} performs best`
   }
-
   return null
 }
 
@@ -1731,19 +1775,6 @@ interface FactorSensitivityEntry {
  * (`DriversSection.tsx:269` / `DriversSection.tsx:805-810`): the "Influence"
  * column displays `influence_score`; sensitivity is captured separately for
  * analytical fidelity even though it is not visibly rendered.
- *
- * V5-aware (added 2026-05-13, Phase 1): when
- * `state.results.report.factor_sensitivity` is hydrated by the V5 mapper,
- * it takes precedence over the V4 `factorSensitivity` argument because V5
- * single-scenario turns do not populate `apiResponse.factor_sensitivity`.
- * V5 entries carry `{factor_id, factor_label, sensitivity, direction}` —
- * the `sensitivity` field is already absolute-magnitude (alias-priority
- * resolution applied in the mapper), so it maps directly to
- * `sensitivity_displayed`. V5 has no separate `influence_score` field on
- * the report, so V4 `influence_score` falls through to the legacy source
- * when V4 data is also present (Comparison-mode); otherwise influence is
- * `null` / `unmatched` (honest miss for V5-only turns until the contract
- * surfaces an explicit `influence` field on the report shape).
  */
 function extractRenderedFactors(
   nodes: Array<{ id: string; data: unknown }>,
@@ -1752,7 +1783,6 @@ function extractRenderedFactors(
     influence: FactorMetricSource
     sensitivity: FactorMetricSource
   },
-  reportFactorSensitivity: Array<Record<string, unknown>> = [],
 ): DisplayState['rendered_factors'] {
   const factorNodes = nodes.filter((n) => {
     const d = n.data as Record<string, unknown> | undefined
@@ -1772,23 +1802,6 @@ function extractRenderedFactors(
     })
   }
 
-  // V5 lookup — keyed by factor_id (canonical option_id-style ID), with
-  // a label-fallback mirror of the V4 matcher for parity. Returns the
-  // raw V5 entry when matched, or undefined when not.
-  const matchV5Factor = (
-    nodeId: string,
-    nodeLabel: unknown,
-  ): Record<string, unknown> | undefined => {
-    const norm = normaliseLabel(nodeLabel)
-    return reportFactorSensitivity.find((fs) => {
-      if (typeof fs?.factor_id === 'string' && fs.factor_id === nodeId) return true
-      const fsLabel = normaliseLabel(
-        (fs?.factor_label as string | undefined) ?? (fs?.label as string | undefined),
-      )
-      return Boolean(norm) && norm === fsLabel
-    })
-  }
-
   return factorNodes.map((n) => {
     const d = n.data as Record<string, unknown>
     const obs = d?.observedState as Record<string, unknown> | undefined
@@ -1797,45 +1810,24 @@ function extractRenderedFactors(
     const valueStr = typeof value === 'number'
       ? (unit ? `${value} ${unit}` : String(value))
       : null
-
-    // V5 source first (Phase 1 fix). The mapper already absolute-values
-    // the magnitude under the `sensitivity` key.
-    const v5Match = matchV5Factor(n.id, d?.label)
-    const v5Sensitivity = typeof v5Match?.sensitivity === 'number' ? v5Match.sensitivity : null
-
-    const v4Match = matchFactor(n.id, d?.label)
-    const v4InfluenceVal = typeof v4Match?.influence_score === 'number' ? v4Match.influence_score : null
-    const v4SensitivityVal = typeof v4Match?.sensitivity_score === 'number' ? v4Match.sensitivity_score : null
-
-    // Sensitivity: V5 wins when present; V4 fallback for Comparison-mode.
-    const sensitivityVal = v5Sensitivity ?? v4SensitivityVal
-    const sensitivitySource: FactorMetricSource =
-      v5Sensitivity !== null
-        ? 'state.results.report.factor_sensitivity.sensitivity'
-        : v4SensitivityVal !== null
-          ? factorMetricSource.sensitivity
-          : 'unmatched'
-
-    // Influence: V5 has no current `influence_score` analog on the
-    // report shape (Phase-3A contract may add one). Stay V4-only for
-    // now; honest unmatched when V5-only turn lacks influence data.
-    const influenceVal = v4InfluenceVal
-    const influenceSource: FactorMetricSource =
-      influenceVal !== null ? factorMetricSource.influence : 'unmatched'
-
-    const factorId =
-      typeof v5Match?.factor_id === 'string' ? v5Match.factor_id
-      : typeof v4Match?.factor_id === 'string' ? v4Match.factor_id
-      : n.id ?? null
+    const match = matchFactor(n.id, d?.label)
+    // Finite-number guard mirrors the resolveOption check for consistency
+    // (Codex round-3 follow-up). JSON cannot carry NaN/Infinity from the
+    // wire, but any future producer surfacing non-finite values should
+    // collapse to `unmatched` honestly rather than display a confident
+    // numeric.
+    const influenceVal = typeof match?.influence_score === 'number' && Number.isFinite(match.influence_score) ? match.influence_score : null
+    const sensitivityVal = typeof match?.sensitivity_score === 'number' && Number.isFinite(match.sensitivity_score) ? match.sensitivity_score : null
+    const factorId = typeof match?.factor_id === 'string' ? match.factor_id : n.id ?? null
     return {
       id: n.id,
       factor_id: factorId,
       label_displayed: (d?.label as string) ?? null,
       value_displayed: valueStr,
       influence_displayed: influenceVal,
-      influence_source: influenceSource,
+      influence_source: influenceVal !== null ? factorMetricSource.influence : 'unmatched',
       sensitivity_displayed: sensitivityVal,
-      sensitivity_source: sensitivitySource,
+      sensitivity_source: sensitivityVal !== null ? factorMetricSource.sensitivity : 'unmatched',
     }
   })
 }
@@ -1864,37 +1856,52 @@ export async function captureDisplayState(): Promise<DisplayState> {
       nodeTypes[kind] = (nodeTypes[kind] ?? 0) + 1
     }
 
-    // Extract rendered options (from results if available)
+    // ─── Analytical data sources at capture time ───────────────────────────
+    //
+    // The raw V2 PLoT response is held at `state.rawV2Response` (canvas-store
+    // root, populated by `resultsComplete` in `src/canvas/store.ts`). This is
+    // the same wire shape that the bundle captures under
+    // `payloads.plot_response`, so it carries:
+    //   - option_comparison[*].win_probability
+    //   - options[*].win_probability (legacy V2 alias)
+    //   - factor_sensitivity[*].{influence_score, sensitivity_score}
+    //
+    // The mapper-synthesised `option_probabilities` keyed by canvas node ID
+    // lives on `state.results.report.option_probabilities` — the same shape
+    // `useResultsSectionData.ts:1042` reads when building
+    // `recommendation.allOptions[*].winProbability` for the UI. This is the
+    // fallback when `rawV2Response` is null (e.g. historical Supabase loads
+    // — see `src/canvas/store.ts:2715, 2757`).
+    //
+    // The previous read path (`state.results.apiResponse`) referenced a
+    // non-existent canvas-store field — `ResultsState` (canvas/store.ts:170)
+    // declares only `report` and `enrichment`. Real production state always
+    // produced empty lookup maps, so every option fell through to
+    // `unmatched` and rank_source collapsed to `canvas_order` even when
+    // analytical data was available end-to-end.
     const results = state.results as Record<string, unknown> | null | undefined
+    const rawV2Response = (state as Record<string, unknown>).rawV2Response as
+      Record<string, unknown> | null | undefined
+    const report = (results?.report as Record<string, unknown> | null | undefined) ?? null
 
-    // V5 canonical source (added 2026-05-13, Phase 1):
-    // `state.results.report.option_probabilities` is hydrated by
-    // `mapV5AnalysisToReport` + `applyV5State` step 5 (PR #137) on every
-    // V5 `run_analysis` turn. This is the ONLY source populated for V5
-    // single-scenario runs because V5 envelopes do not write
-    // `state.results.apiResponse` (only Comparison-mode does, via
-    // `enterComparisonMode` / `useScenarioComparison`). Reading the
-    // V5 source first means V5 turns now carry numeric
-    // `win_probability_displayed` in debug bundles instead of always
-    // `null` / `unmatched`. Same V4 fallbacks below for Comparison-mode.
-    const resultsReport = (results as { report?: Record<string, unknown> | null } | null | undefined)?.report
-    const reportOptionProbabilities = (resultsReport?.option_probabilities as
+    const optionComparison = (rawV2Response?.option_comparison as
+      Array<Record<string, unknown>> | undefined) ?? []
+    const plotOptions = (rawV2Response?.options as
+      Array<Record<string, unknown>> | undefined) ?? []
+    // Tertiary fallback for win_probability only — keyed by canvas node ID
+    // on the mapped report. V2RunResponse does NOT declare option_probabilities
+    // at root (`src/adapters/plot/v2/types.ts:378-446`), so this is genuinely
+    // a different bundle path than the wire arrays above and carries a
+    // distinct provenance label.
+    const optionProbabilities = (report?.option_probabilities as
       Record<string, Record<string, unknown> | undefined> | undefined) ?? {}
-    const reportFactorSensitivity = (resultsReport?.factor_sensitivity as
-      Array<Record<string, unknown>> | undefined) ?? []
-
-    const apiResponse = results?.apiResponse as Record<string, unknown> | null | undefined
-    const optionComparison = (apiResponse?.option_comparison as
-      Array<Record<string, unknown>> | undefined) ?? []
-    const plotOptions = (apiResponse?.options as
-      Array<Record<string, unknown>> | undefined) ?? []
-    // Legacy V4 tertiary fallback: PLoT shapes data into a node-id-keyed
-    // map at `option_probabilities[node_id].win_probability`. The V5 path
-    // above supersedes this; retained for Comparison-mode compat where
-    // `apiResponse.option_probabilities` is the only source.
-    const optionProbabilities = (apiResponse?.option_probabilities as
-      Record<string, Record<string, unknown> | undefined> | undefined) ?? {}
-    const factorSensitivity = (apiResponse?.factor_sensitivity as
+    // factor_sensitivity with `influence_score`/`sensitivity_score` lives
+    // only on the raw wire shape. The V5 mapper narrows `report.factor_sensitivity`
+    // to `{factor_id, factor_label, sensitivity, direction}` (no influence_score),
+    // so a report-only fallback here would silently miss the metrics the
+    // factor card actually displays. When `rawV2Response` is null, factor
+    // metrics stay `unmatched` — honest tri-state.
+    const factorSensitivity = (rawV2Response?.factor_sensitivity as
       FactorSensitivityEntry[] | undefined) ?? []
 
     const optionNodes = nodes.filter((n) => {
@@ -1910,32 +1917,26 @@ export async function captureDisplayState(): Promise<DisplayState> {
       source: WinProbabilitySource
     }
 
+    // Honest-missing finite-number check shared across the three win_probability
+    // resolution tiers (Codex round-3 follow-up): the rest of the export already
+    // applies this principle for the hero headline. JSON from the wire cannot
+    // carry NaN/Infinity, but the mapper-synthesised tertiary fallback
+    // (`report.option_probabilities`) traverses local math and could
+    // theoretically surface a non-finite value; treating those as "unmatched"
+    // is consistent with the D4/D5/D8 tri-state contract and removes the
+    // internal-consistency nit Codex flagged.
+    const isFiniteWinProb = (v: unknown): v is number =>
+      typeof v === 'number' && Number.isFinite(v)
     const resolveOption = (node: { id: string; data: unknown }): ResolvedOption => {
       const d = node.data as Record<string, unknown> | undefined
       const nodeLabel = (d?.label as string) ?? null
       const norm = normaliseLabel(nodeLabel)
-
-      // 0) V5 canonical: state.results.report.option_probabilities
-      // (added 2026-05-13, Phase 1). Keyed by canonical option_id which
-      // by `applyDraftResult` contract equals the canvas node.id. PR
-      // #137 hydrates this on every V5 run_analysis turn.
-      const v5Entry = reportOptionProbabilities[node.id]
-      if (v5Entry && typeof v5Entry.win_probability === 'number') {
-        return {
-          node,
-          optionId: node.id,
-          label: nodeLabel,
-          winProbability: v5Entry.win_probability,
-          source: 'state.results.report.option_probabilities.win_probability',
-        }
-      }
-
-      // 1) PLoT response option_comparison (V4 / Comparison-mode primary)
+      // 1) PLoT response option_comparison (primary)
       let match = optionComparison.find((o) => {
         if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
         return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
       })
-      if (match && typeof match.win_probability === 'number') {
+      if (match && isFiniteWinProb(match.win_probability)) {
         return {
           node,
           optionId: typeof match.option_id === 'string' ? match.option_id : node.id,
@@ -1949,7 +1950,7 @@ export async function captureDisplayState(): Promise<DisplayState> {
         if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
         return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
       })
-      if (match && typeof match.win_probability === 'number') {
+      if (match && isFiniteWinProb(match.win_probability)) {
         return {
           node,
           optionId: typeof match.option_id === 'string' ? match.option_id : node.id,
@@ -1958,27 +1959,33 @@ export async function captureDisplayState(): Promise<DisplayState> {
           source: 'payloads.plot_response.options.win_probability',
         }
       }
-      // 3) PLoT response option_probabilities[node_id] (tertiary fallback).
-      // This is the wire-layer source the UI hook reads via
-      // recommendation.allOptions — see comment above the optionProbabilities
-      // declaration. Distinct source enum makes loss-of-canonical-PLoT-path
-      // observable in exported diagnostics.
+      // 3) `report.option_probabilities[node_id]` (tertiary fallback).
+      // Mapper-synthesised keyed map — what `useResultsSectionData.ts:1042`
+      // reads to build `recommendation.allOptions[*].winProbability` for the
+      // UI. Distinct from the wire arrays above (V2RunResponse has no
+      // option_probabilities at root) so this carries a distinct provenance
+      // label — a consumer reading the exported bundle finds this datum at
+      // `results.report.option_probabilities`, not at `payloads.plot_response`.
       const probEntry = optionProbabilities[node.id]
-      if (probEntry && typeof probEntry.win_probability === 'number') {
+      if (probEntry && isFiniteWinProb(probEntry.win_probability)) {
         return {
           node,
           optionId: node.id ?? null,
           label: nodeLabel,
           winProbability: probEntry.win_probability,
-          source: 'payloads.plot_response.option_probabilities.win_probability',
+          source: 'results.report.option_probabilities.win_probability',
         }
       }
       return { node, optionId: node.id ?? null, label: nodeLabel, winProbability: null, source: 'unmatched' }
     }
 
     const resolvedOptions = optionNodes.map(resolveOption)
+    // `allHaveWinProb` now mirrors the finite-number guard above so the
+    // rank-source decision is consistent: any non-finite slipping through
+    // would have been resolved as null/unmatched anyway, but this keeps the
+    // intent explicit.
     const allHaveWinProb = resolvedOptions.length > 0
-      && resolvedOptions.every((r) => typeof r.winProbability === 'number')
+      && resolvedOptions.every((r) => isFiniteWinProb(r.winProbability))
 
     let rankByNodeId: Map<string, number>
     let rankSource: RankSource
@@ -2053,17 +2060,12 @@ export async function captureDisplayState(): Promise<DisplayState> {
       canvas_edge_count: edges.length,
       canvas_node_types: nodeTypes,
       rendered_options: renderedOptions,
-      rendered_factors: extractRenderedFactors(
-        nodes,
-        factorSensitivity,
-        {
-          influence: 'plot_enrichment.factor_sensitivity.influence_score',
-          sensitivity: 'plot_enrichment.factor_sensitivity.sensitivity_score',
-        },
-        reportFactorSensitivity,
-      ),
+      rendered_factors: extractRenderedFactors(nodes, factorSensitivity, {
+        influence: 'payloads.plot_response.factor_sensitivity.influence_score',
+        sensitivity: 'payloads.plot_response.factor_sensitivity.sensitivity_score',
+      }),
       analysis_status_displayed: analysisStatus,
-      hero_headline_displayed: deriveHeroHeadline(results, optionNodes.length),
+      hero_headline_displayed: deriveHeroHeadline(results, optionNodes.length, optionComparison),
       analysis_display_state: displayView.state,
       analysis_display_headline: displayView.headline,
     }

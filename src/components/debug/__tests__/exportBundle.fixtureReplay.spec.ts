@@ -24,10 +24,21 @@ import {
 // is a no-op for them. captureDisplayState (used in the D8 replay describe)
 // reads from getState() — the test populates `displayStateMockState` before
 // each captureDisplayState invocation.
+//
+// Shape mirrors production: raw V2 wire response lives at the canvas-store
+// root as `rawV2Response`; the mapper-synthesised report lives at
+// `results.report`. The previous mock shape carried a synthetic
+// `results.apiResponse` field that does NOT exist on real `ResultsState`
+// (canvas/store.ts:170-191) — the export's broken read happened to find data
+// only because the mock pre-flattened it there. Real production never
+// populates `apiResponse`, so the test infrastructure had been masking the
+// D4/D5/D8 bug. The new mock shape proves the export reads from the real
+// sources the production canvas-store actually provides.
 interface DisplayStateMockState {
   nodes: Array<{ id: string; data: Record<string, unknown> }>
   edges: Array<{ id: string }>
-  results: { status: string | null; report?: unknown; apiResponse?: Record<string, unknown> } | null
+  rawV2Response: Record<string, unknown> | null
+  results: { status: string | null; report?: unknown } | null
   ceeAnalysisReady: { status?: string } | null
   graphEditedSinceLastRun: boolean
   showResultsPanel?: boolean
@@ -314,10 +325,18 @@ describe('D8: rank_displayed deterministic tie-handling (synthetic)', () => {
 
 // =============================================================================
 // captureDisplayState replays — exercise the real export code path with a
-// canvas-store mock built from the staging fixture. These tests replace the
-// previous synthetic-only D8 coverage with a real-fixture rank assertion
-// (brief revision item 7), and add coverage for the option_probabilities
-// tertiary fallback (improvement #1 from review).
+// canvas-store mock built to match production shape:
+//   - state.rawV2Response (canvas-store root) carries the raw V2 PLoT wire
+//     response: option_comparison, options (legacy), factor_sensitivity.
+//   - state.results.report carries the V4/V5 mapper-synthesised
+//     option_probabilities keyed by canvas node ID (the same shape
+//     useResultsSectionData.ts:1042 reads for recommendation.allOptions).
+// The previous mock helper synthesised a `results.apiResponse` field that does
+// not exist on real `ResultsState` (canvas/store.ts:170-191); the export's
+// broken read happened to find data only because the mock pre-flattened it.
+// Real production never populated that field, so the test infrastructure had
+// been masking the D4/D5/D8 production bug — the mock shape below proves the
+// export reads from the canonical sources the canvas store actually provides.
 // =============================================================================
 
 interface StagingFactor {
@@ -337,9 +356,26 @@ interface StagingBundle {
   payloads: { plot_response: Record<string, unknown> | null }
 }
 
+interface MockOverrides {
+  /** Replace rawV2Response wholesale (or set null to simulate "no raw wire"). */
+  rawV2ResponseOverride?: Record<string, unknown> | null
+  /** Replace results.report wholesale (or set null for "no mapped report"). */
+  reportOverride?: Record<string, unknown> | null
+}
+
+/**
+ * Build a canvas-store mock from a staging bundle. Mirrors the shape the
+ * real canvas store populates after a PLoT run:
+ *   - `rawV2Response` at root: { option_comparison, options?, factor_sensitivity? }
+ *     copied from `bundle.payloads.plot_response` (the bundle captures the
+ *     same wire shape under that key).
+ *   - `results.report` carrying nothing extra by default; the report-mapped
+ *     `option_probabilities` keyed map is populated only via `reportOverride`
+ *     so tests targeting the fallback can opt in.
+ */
 function mockStateFromBundle(
   bundle: StagingBundle,
-  overrides: Partial<{ apiResponseOverride: Record<string, unknown> }> = {},
+  overrides: MockOverrides = {},
 ): DisplayStateMockState {
   const factorNodes = bundle.full_graph.factors
     .filter((f) => f.kind === 'factor')
@@ -352,15 +388,24 @@ function mockStateFromBundle(
     data: { label: o.label, kind: 'option', type: 'option', observedState: o.observed_state ?? null },
   }))
   const plotResponse = bundle.payloads.plot_response ?? {}
-  const apiResponse = overrides.apiResponseOverride ?? {
-    option_comparison: plotResponse.option_comparison ?? [],
-    options: plotResponse.options ?? [],
-    factor_sensitivity: plotResponse.factor_sensitivity ?? [],
-  }
+  // Default rawV2Response: pass through the bundle's plot_response wire shape
+  // verbatim. The shape matches V2RunResponse fields the export reads
+  // (option_comparison, options, factor_sensitivity).
+  const rawV2Response = overrides.rawV2ResponseOverride === undefined
+    ? {
+        option_comparison: plotResponse.option_comparison ?? [],
+        options: plotResponse.options ?? [],
+        factor_sensitivity: plotResponse.factor_sensitivity ?? [],
+      }
+    : overrides.rawV2ResponseOverride
+  // Default report: empty object (no mapped option_probabilities). Tests
+  // exercising the report-only fallback override this explicitly.
+  const report = overrides.reportOverride === undefined ? {} : overrides.reportOverride
   return {
     nodes: [...factorNodes, ...optionNodes],
     edges: (bundle.full_graph.edges ?? []).map((_e, i) => ({ id: `e_${i}` })),
-    results: { status: 'complete', report: { option_comparison: apiResponse.option_comparison }, apiResponse },
+    rawV2Response,
+    results: { status: 'complete', report },
     ceeAnalysisReady: { status: 'ready' },
     graphEditedSinceLastRun: false,
     showResultsPanel: true,
@@ -421,20 +466,20 @@ describe('D8: rank_displayed real-fixture replay (brief revision item 7)', () =>
   })
 })
 
-describe('D5: option_probabilities tertiary-fallback replay (improvement #1)', () => {
-  // Reshape bundle 50b336a6's apiResponse so neither option_comparison nor
-  // options is present — only option_probabilities[node_id] is populated.
-  // The capture must still resolve win_probability via the third path, with
-  // win_probability_source = 'payloads.plot_response.option_probabilities.win_probability'.
-  // Without this fallback the capture would mark every option 'unmatched' and
-  // rank_source would collapse to 'canvas_order' — a real regression risk
-  // when PLoT shapes data into the node-id map shape instead of the array
-  // shapes the UI hook reads via recommendation.allOptions.
-  it('uses option_probabilities[node_id].win_probability when arrays are absent', async () => {
+describe('D5: report.option_probabilities tertiary-fallback replay', () => {
+  // The tertiary fallback covers the historical-load shape: `rawV2Response`
+  // is null (e.g. a Supabase-hydrated run — see canvas/store.ts:2715, 2757)
+  // but the mapper-synthesised `report.option_probabilities` keyed map
+  // survives. The capture must still resolve win_probability via the third
+  // path with the truthful provenance label
+  // `results.report.option_probabilities.win_probability` (a different bundle
+  // path than the wire arrays — V2RunResponse has no option_probabilities at
+  // root, so this label correctly distinguishes "mapped report" from "wire").
+  it('uses report.option_probabilities[node_id].win_probability when rawV2Response is null', async () => {
     const b = bundle50b336a6 as unknown as StagingBundle
     const oc = (b.payloads.plot_response?.option_comparison as Array<Record<string, unknown>>) ?? []
     // Build option_probabilities map from the same data the bundle provides
-    // under option_comparison, then strip the array fields entirely.
+    // under option_comparison — the V4/V5 mapper writes the same map shape.
     const optionProbabilities: Record<string, Record<string, number>> = {}
     for (const o of oc) {
       if (typeof o.option_id === 'string' && typeof o.win_probability === 'number') {
@@ -442,12 +487,10 @@ describe('D5: option_probabilities tertiary-fallback replay (improvement #1)', (
       }
     }
     displayStateMockState = mockStateFromBundle(b, {
-      apiResponseOverride: {
-        option_comparison: [],
-        options: [],
-        option_probabilities: optionProbabilities,
-        factor_sensitivity: b.payloads.plot_response?.factor_sensitivity ?? [],
-      },
+      // Simulate "historical load": rawV2Response not available, but a
+      // populated report carries the mapper-synthesised keyed map.
+      rawV2ResponseOverride: null,
+      reportOverride: { option_probabilities: optionProbabilities },
     })
     const { captureDisplayState } = await import('../utils/exportBundle')
     const ds = await captureDisplayState()
@@ -456,7 +499,7 @@ describe('D5: option_probabilities tertiary-fallback replay (improvement #1)', (
     // Every option resolves via the third path
     for (const r of rendered) {
       expect(r.win_probability_source).toBe(
-        'payloads.plot_response.option_probabilities.win_probability',
+        'results.report.option_probabilities.win_probability',
       )
       expect(typeof r.win_probability_displayed).toBe('number')
     }
@@ -470,12 +513,9 @@ describe('D5: option_probabilities tertiary-fallback replay (improvement #1)', (
   it('falls through to unmatched only when ALL three paths are absent', async () => {
     const b = bundle50b336a6 as unknown as StagingBundle
     displayStateMockState = mockStateFromBundle(b, {
-      apiResponseOverride: {
-        option_comparison: [],
-        options: [],
-        // No option_probabilities key at all
-        factor_sensitivity: b.payloads.plot_response?.factor_sensitivity ?? [],
-      },
+      // Wire arrays absent and report carries no option_probabilities map.
+      rawV2ResponseOverride: { option_comparison: [], options: [], factor_sensitivity: [] },
+      reportOverride: {},
     })
     const { captureDisplayState } = await import('../utils/exportBundle')
     const ds = await captureDisplayState()
@@ -487,5 +527,399 @@ describe('D5: option_probabilities tertiary-fallback replay (improvement #1)', (
     }
     // No analytical rank possible — falls back to canvas order
     expect(rendered.every((r) => r.rank_source === 'canvas_order')).toBe(true)
+  })
+})
+
+// =============================================================================
+// D4/D5/D8 fix: real-shape regression replay against the minimal redacted
+// e33acb92 fixture. This is the bundle that surfaced the production bug
+// (every surface unmatched, rank_source canvas_order despite full PLoT data
+// being available end-to-end). The fixture preserves the exact failing IDs
+// and metric values; user text, prompts, request traces, and unrelated
+// payloads were stripped — see the fixture's _meta.removed array.
+// =============================================================================
+
+import e33acb92Minimal from './fixtures/staging-bundles/olumi-debug-e33acb92-20260512.minimal.json'
+
+interface MinimalE33Fixture {
+  canvas: { nodes: Array<{ id: string; kind: string; label: string; observedState?: unknown }> }
+  rawV2Response: {
+    option_comparison: Array<{ option_id: string; option_label?: string; win_probability: number }>
+    factor_sensitivity: Array<{
+      factor_id: string
+      factor_label?: string
+      influence_score: number
+      sensitivity_score: number
+      direction?: 'positive' | 'negative'
+    }>
+    [k: string]: unknown
+  }
+  report: { option_probabilities: Record<string, { win_probability: number; goal_probability?: number }> }
+}
+
+function mockStateFromMinimalE33(
+  overrides: MockOverrides = {},
+): DisplayStateMockState {
+  const fx = e33acb92Minimal as MinimalE33Fixture
+  const nodes = fx.canvas.nodes.map((n) => ({
+    id: n.id,
+    data: {
+      label: n.label,
+      kind: n.kind,
+      type: n.kind,
+      observedState: n.observedState ?? null,
+    },
+  }))
+  const rawV2Response = overrides.rawV2ResponseOverride === undefined
+    ? (fx.rawV2Response as unknown as Record<string, unknown>)
+    : overrides.rawV2ResponseOverride
+  const report = overrides.reportOverride === undefined
+    ? (fx.report as unknown as Record<string, unknown>)
+    : overrides.reportOverride
+  return {
+    nodes,
+    edges: [],
+    rawV2Response,
+    results: { status: 'complete', report },
+    ceeAnalysisReady: { status: 'ready' },
+    graphEditedSinceLastRun: false,
+    showResultsPanel: true,
+  }
+}
+
+describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shape)', () => {
+  // Win-probability ordering in this fixture (from the real bundle):
+  //   opt_tech_lead     0.8865   →  rank 1
+  //   opt_two_devs      0.1105   →  rank 2
+  //   opt_status_quo    0.0025   →  rank 3
+  //   opt_one_dev       0.0005   →  rank 4 (smallest)
+  // The original bundle shipped every option with win_probability_source =
+  // 'unmatched' and rank_source = 'canvas_order' — opt_one_dev got rank 1
+  // because it was the lexicographic-first canvas node. Asserting the
+  // correct analytical ordering pins the fix.
+
+  it('D5 / D8: rendered_options carry numeric win_probability and analytical rank', async () => {
+    displayStateMockState = mockStateFromMinimalE33()
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBe(4)
+    const byId = new Map(rendered.map((r) => [r.id, r]))
+    // Win probability — numeric, matching the wire values byte-for-byte
+    expect(byId.get('opt_tech_lead')?.win_probability_displayed).toBe(0.8865)
+    expect(byId.get('opt_two_devs')?.win_probability_displayed).toBe(0.1105)
+    expect(byId.get('opt_status_quo')?.win_probability_displayed).toBe(0.0025)
+    expect(byId.get('opt_one_dev')?.win_probability_displayed).toBe(0.0005)
+    // Analytical rank — descending win_probability
+    expect(byId.get('opt_tech_lead')?.rank_displayed).toBe(1)
+    expect(byId.get('opt_two_devs')?.rank_displayed).toBe(2)
+    expect(byId.get('opt_status_quo')?.rank_displayed).toBe(3)
+    expect(byId.get('opt_one_dev')?.rank_displayed).toBe(4)
+    // Provenance — every option resolved via the wire-level primary tier
+    for (const r of rendered) {
+      expect(r.win_probability_source).toBe('payloads.plot_response.option_comparison.win_probability')
+      expect(r.rank_source).toBe('win_probability_desc')
+    }
+  })
+
+  it('D4: rendered_factors carry numeric influence_score and sensitivity_score (incl. negative)', async () => {
+    displayStateMockState = mockStateFromMinimalE33()
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_factors ?? []
+    expect(rendered.length).toBe(4)
+    const byId = new Map(rendered.map((r) => [r.id, r]))
+    // Influence — full precision wire values
+    expect(byId.get('fac_tech_lead')?.influence_displayed).toBe(1.0)
+    expect(byId.get('fac_dev_capacity')?.influence_displayed).toBe(0.5748502994011976)
+    expect(byId.get('fac_team_experience')?.influence_displayed).toBe(0.4167664670658682)
+    expect(byId.get('fac_hiring_cost')?.influence_displayed).toBe(0.311377245508982)
+    // Sensitivity — including the negative −0.13 (fac_hiring_cost). The
+    // export's typeof-number check preserves the sign; clamping to 0 would
+    // silently lie about the direction of the effect.
+    expect(byId.get('fac_tech_lead')?.sensitivity_displayed).toBe(0.41750000000000004)
+    expect(byId.get('fac_dev_capacity')?.sensitivity_displayed).toBe(0.24000000000000002)
+    expect(byId.get('fac_team_experience')?.sensitivity_displayed).toBe(0.174)
+    expect(byId.get('fac_hiring_cost')?.sensitivity_displayed).toBe(-0.13)
+    // Provenance — every factor resolved via the wire-level source
+    for (const r of rendered) {
+      expect(r.influence_source).toBe('payloads.plot_response.factor_sensitivity.influence_score')
+      expect(r.sensitivity_source).toBe('payloads.plot_response.factor_sensitivity.sensitivity_score')
+    }
+  })
+
+  // Negative case 1: production has neither raw wire nor a populated report.
+  // The export must mark every surface unmatched honestly — not fabricate
+  // zeros, not promote a stale source. rank_source must collapse to
+  // canvas_order, the explicit "no analytical data" provenance.
+  it('honest unmatched when both rawV2Response and report.option_probabilities are absent', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: null,
+      reportOverride: {},
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const options = ds.rendered_options ?? []
+    const factors = ds.rendered_factors ?? []
+    expect(options.length).toBe(4)
+    expect(factors.length).toBe(4)
+    for (const r of options) {
+      expect(r.win_probability_source).toBe('unmatched')
+      expect(r.win_probability_displayed).toBeNull()
+      expect(r.rank_source).toBe('canvas_order')
+    }
+    for (const r of factors) {
+      expect(r.influence_source).toBe('unmatched')
+      expect(r.influence_displayed).toBeNull()
+      expect(r.sensitivity_source).toBe('unmatched')
+      expect(r.sensitivity_displayed).toBeNull()
+    }
+  })
+
+  // Negative case 2: report-only fallback path. rawV2Response is null, but
+  // results.report.option_probabilities is populated (V5 mapper-only shape,
+  // e.g. supabase-hydrated historical run). Win_probability resolves via the
+  // report tier; factor influence/sensitivity correctly stay unmatched
+  // because the V5 mapper narrows report.factor_sensitivity and drops
+  // influence_score/sensitivity_score — surfacing this honestly is the
+  // contract (UI-SEM-style honesty: missing data must look missing, not zero).
+  it('report-only fallback resolves win_probability via report tier; factor metrics stay unmatched', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: null,
+      // Use the same option_probabilities from the fixture — exercises the
+      // mapper-synthesised path with no wire data behind it.
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const options = ds.rendered_options ?? []
+    const factors = ds.rendered_factors ?? []
+    expect(options.length).toBe(4)
+    for (const r of options) {
+      expect(r.win_probability_source).toBe('results.report.option_probabilities.win_probability')
+      expect(typeof r.win_probability_displayed).toBe('number')
+      expect(r.rank_source).toBe('win_probability_desc')
+    }
+    // Top-ranked option still derived from the same numbers
+    const byId = new Map(options.map((r) => [r.id, r]))
+    expect(byId.get('opt_tech_lead')?.rank_displayed).toBe(1)
+    // Factor metrics: no raw wire, no influence/sensitivity → unmatched
+    for (const r of factors) {
+      expect(r.influence_source).toBe('unmatched')
+      expect(r.influence_displayed).toBeNull()
+      expect(r.sensitivity_source).toBe('unmatched')
+      expect(r.sensitivity_displayed).toBeNull()
+    }
+  })
+
+  // Codex review on PR #141 surfaced a pre-existing gap: deriveHeroHeadline
+  // only treated 'success'/'computed' as winner-headline states, while
+  // production canvas-store writes `ResultsStatus === 'complete'`
+  // (src/canvas/store.ts:168, 2488). The winner branch was unreachable in
+  // production — even after this PR's data-source fix, `optionComparison`
+  // would never be consulted on a real complete run. The fix adds 'complete'
+  // to the accepted statuses. `hero_headline_displayed` is a legacy field
+  // (canonical `analysis_display_*` fields supersede it; see
+  // exportBundle.displayState.spec.ts:4), but as long as it ships in
+  // bundles, its derivation must reach the analytical-winner branch on a
+  // real complete run.
+  it('hero_headline_displayed derives analytical winner on production results.status === "complete"', async () => {
+    displayStateMockState = mockStateFromMinimalE33()
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    // opt_tech_lead is the analytical winner (win_probability 0.8865) — the
+    // fixture's results.status is 'complete', matching the real production
+    // path. Previously the function returned 'Analysis complete' (literal
+    // fallback for non-success/computed status), masking the analytical
+    // winner.
+    expect(ds.hero_headline_displayed).toBe('Hire a Tech Lead performs best')
+  })
+
+  it('hero_headline_displayed honours legacy "success" / "computed" statuses', async () => {
+    // Tolerance for older fixtures and externally constructed payloads.
+    for (const legacyStatus of ['success', 'computed']) {
+      displayStateMockState = mockStateFromMinimalE33()
+      // Override the results.status set by the mock helper.
+      displayStateMockState.results = {
+        ...displayStateMockState.results!,
+        status: legacyStatus,
+      }
+      const { captureDisplayState } = await import('../utils/exportBundle')
+      const ds = await captureDisplayState()
+      expect(ds.hero_headline_displayed).toBe('Hire a Tech Lead performs best')
+    }
+  })
+
+  // Codex round-2 review on PR #141: V2OptionComparison.win_probability is
+  // optional (src/adapters/plot/v2/types.ts:161). A malformed or partial
+  // option_comparison where no entry carries a numeric win_probability must
+  // NOT emit "{first label} performs best" — that would fabricate a
+  // confident headline from no analytical signal. The honest-missing
+  // contract returns null instead, mirroring the D4/D5/D8 tri-state
+  // principle (unmatched stays unmatched, never zero-promoted).
+  it('hero_headline_displayed is null when option_comparison entries lack numeric win_probability', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: {
+        option_comparison: [
+          { option_id: 'opt_one_dev', option_label: 'Hire One Senior Developer' /* no win_probability */ },
+          { option_id: 'opt_tech_lead', option_label: 'Hire a Tech Lead' /* no win_probability */ },
+          { option_id: 'opt_two_devs', option_label: 'Hire Two Developers' /* no win_probability */ },
+          { option_id: 'opt_status_quo', option_label: 'Keep Current Team (Status Quo)' /* no win_probability */ },
+        ],
+        factor_sensitivity: [],
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    // No analytical winner → null headline. The pre-Codex implementation
+    // would have emitted "Hire One Senior Developer performs best" — the
+    // first option_comparison entry, picked because Array.prototype.sort is
+    // stable and `?? 0` made every entry compare equal. Codex round-3 noted
+    // the earlier "lexicographic-first" wording was inaccurate: the bug is
+    // input-array-order preservation, not alphabetic sorting.
+    expect(ds.hero_headline_displayed).toBeNull()
+  })
+
+  it('hero_headline_displayed is null when win_probability values are non-finite (NaN / Infinity)', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: {
+        option_comparison: [
+          { option_id: 'opt_a', option_label: 'A', win_probability: Number.NaN },
+          { option_id: 'opt_b', option_label: 'B', win_probability: Number.POSITIVE_INFINITY },
+        ],
+        factor_sensitivity: [],
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    expect(ds.hero_headline_displayed).toBeNull()
+  })
+
+  // Codex round-3 follow-up: D5 win_probability resolution applies the same
+  // finite-number guard the hero headline uses. JSON cannot carry NaN /
+  // Infinity from the wire, but the mapper-synthesised tertiary fallback
+  // (`results.report.option_probabilities`) traverses local math and could
+  // theoretically surface non-finite values. Internal consistency: non-
+  // finite anywhere → unmatched, never zero-promoted into the rank order.
+  // Codex round-4 precision: the previous test name claimed "all three
+  // tiers" but the body disabled the report fallback, only exercising the
+  // wire tier. The shared `isFiniteWinProb` helper at
+  // `exportBundle.ts` guards all three tiers identically — but explicit
+  // per-tier coverage is more honest about what's pinned.
+
+  it('D5: non-finite win_probability on rawV2Response.option_comparison (wire tier) → unmatched honestly', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: {
+        option_comparison: [
+          { option_id: 'opt_one_dev', option_label: 'Hire One Senior Developer', win_probability: Number.NaN },
+          { option_id: 'opt_tech_lead', option_label: 'Hire a Tech Lead', win_probability: Number.POSITIVE_INFINITY },
+          { option_id: 'opt_two_devs', option_label: 'Hire Two Developers', win_probability: Number.NEGATIVE_INFINITY },
+          { option_id: 'opt_status_quo', option_label: 'Keep Current Team (Status Quo)' /* missing */ },
+        ],
+        factor_sensitivity: [],
+      },
+      // Disable the report-tier fallback so this test isolates the finite-
+      // check on the wire tier. The report tier is covered by the next
+      // test below; the headline `NaN/Infinity → null` test pins the
+      // symmetric guard in deriveHeroHeadline.
+      reportOverride: {},
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBe(4)
+    // Every option resolves to unmatched — no entry has a finite
+    // win_probability anywhere in the resolution chain (wire tier rejects
+    // non-finite; report tier disabled by reportOverride: {}).
+    for (const r of rendered) {
+      expect(r.win_probability_source).toBe('unmatched')
+      expect(r.win_probability_displayed).toBeNull()
+    }
+    // No analytical rank → canvas_order fallback
+    expect(rendered.every((r) => r.rank_source === 'canvas_order')).toBe(true)
+  })
+
+  it('D5: non-finite win_probability on results.report.option_probabilities (mapper tier) → unmatched honestly', async () => {
+    // Isolate the report tier: rawV2Response: null forces the resolver
+    // past the two wire tiers into `report.option_probabilities[node.id]`.
+    // Non-finite values on the mapper-synthesised path must collapse to
+    // unmatched the same way the wire tier does — Codex round-4 noted this
+    // tier was guarded by `isFiniteWinProb` but not explicitly covered.
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: null,
+      reportOverride: {
+        option_probabilities: {
+          opt_one_dev: { win_probability: Number.NaN },
+          opt_tech_lead: { win_probability: Number.POSITIVE_INFINITY },
+          opt_two_devs: { win_probability: Number.NEGATIVE_INFINITY },
+          opt_status_quo: { /* win_probability missing entirely */ } as Record<string, unknown>,
+        },
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBe(4)
+    // Every option resolves to unmatched — mapper-synthesised non-finite
+    // values must NOT promote to a confident percentage via the report
+    // tier, matching the wire-tier honesty.
+    for (const r of rendered) {
+      expect(r.win_probability_source).toBe('unmatched')
+      expect(r.win_probability_displayed).toBeNull()
+    }
+    expect(rendered.every((r) => r.rank_source === 'canvas_order')).toBe(true)
+  })
+
+  it('D4: non-finite influence_score / sensitivity_score → unmatched honestly', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: {
+        option_comparison: [],
+        factor_sensitivity: [
+          { factor_id: 'fac_tech_lead', factor_label: 'Tech Lead in Place', influence_score: Number.NaN, sensitivity_score: 0.4 },
+          { factor_id: 'fac_dev_capacity', factor_label: 'Developer Capacity', influence_score: 0.5, sensitivity_score: Number.POSITIVE_INFINITY },
+        ],
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const factors = ds.rendered_factors ?? []
+    const byId = new Map(factors.map((r) => [r.id, r]))
+    // Non-finite influence on fac_tech_lead → influence_source unmatched,
+    // but sensitivity_score is finite (0.4) → sensitivity_source remains
+    // payload-resolved. Asymmetric per-field finite check is the correct
+    // honest behaviour.
+    expect(byId.get('fac_tech_lead')?.influence_source).toBe('unmatched')
+    expect(byId.get('fac_tech_lead')?.influence_displayed).toBeNull()
+    expect(byId.get('fac_tech_lead')?.sensitivity_displayed).toBe(0.4)
+    // Mirror on fac_dev_capacity: influence finite, sensitivity non-finite.
+    expect(byId.get('fac_dev_capacity')?.influence_displayed).toBe(0.5)
+    expect(byId.get('fac_dev_capacity')?.sensitivity_source).toBe('unmatched')
+    expect(byId.get('fac_dev_capacity')?.sensitivity_displayed).toBeNull()
+  })
+
+  // Codex round-2 follow-up: documents the deliberate choice that
+  // hero_headline_displayed (legacy field) does NOT mirror the D5/D8
+  // fallback chain into report.option_probabilities. The mapped report
+  // carries win-probabilities keyed by node ID but not the option_label
+  // needed to build the headline string; expanding scope to do a separate
+  // canvas-node label lookup on a legacy surface is deliberate scope
+  // discipline. Consumers should use the canonical
+  // analysis_display_headline going forward.
+  it('hero_headline_displayed is null on report-only fallback (legacy field does not mirror D5/D8 chain)', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: null,
+      // Use the same option_probabilities from the fixture — D5 win_probability
+      // fallback succeeds for the option cards, but the legacy headline path
+      // deliberately returns null.
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    // Sanity: D5 fallback DID resolve win_probability for the options
+    expect(
+      ds.rendered_options?.every(
+        (r) => r.win_probability_source === 'results.report.option_probabilities.win_probability',
+      ),
+    ).toBe(true)
+    // But the legacy hero headline does not extend to the report-derived path
+    expect(ds.hero_headline_displayed).toBeNull()
   })
 })

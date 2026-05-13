@@ -1,0 +1,58 @@
+{
+  "_meta": {
+    "source": "olumi-debug-e33acb92-20260512.json",
+    "redacted": true,
+    "purpose": "Minimal redacted fixture preserving the real failing shape for D4/D5/D8 diagnostic-rendering regression. Production canvas-store state has NO results.apiResponse; the analytical PLoT response is at state.rawV2Response (root) and a mapper-synthesised option_probabilities map is at state.results.report. This fixture captures only the IDs and metric values needed to exercise the export's join logic. User text, prompts, request traces, build metadata, and unrelated payloads were stripped.",
+    "preserves": [
+      "canvas option/factor IDs and labels (so id-keyed and label-keyed lookups exercise both paths)",
+      "rawV2Response.option_comparison (4 entries with win_probability)",
+      "rawV2Response.factor_sensitivity (4 entries with influence_score and sensitivity_score, including a negative sensitivity)",
+      "report.option_probabilities (4 entries) for the report-only fallback path"
+    ],
+    "removed": [
+      "all CEE / ISL / PLoT prompts and user text",
+      "request_id_chain, llm_calls, console_logs, fact_objects",
+      "build versions, feature flags, environment metadata",
+      "full graph nodes/edges beyond the option/factor IDs needed for matching",
+      "decision_brief, rationale, m1_coaching and all other narrative content"
+    ]
+  },
+  "canvas": {
+    "nodes": [
+      { "id": "opt_one_dev",         "kind": "option", "label": "Hire One Senior Developer" },
+      { "id": "opt_status_quo",      "kind": "option", "label": "Keep Current Team (Status Quo)" },
+      { "id": "opt_tech_lead",       "kind": "option", "label": "Hire a Tech Lead" },
+      { "id": "opt_two_devs",        "kind": "option", "label": "Hire Two Developers" },
+      { "id": "fac_tech_lead",       "kind": "factor", "label": "Tech Lead in Place",                  "observedState": { "value": 0.0, "unit": "scale" } },
+      { "id": "fac_dev_capacity",    "kind": "factor", "label": "Developer Capacity",                  "observedState": { "value": 0.3, "unit": "scale" } },
+      { "id": "fac_team_experience", "kind": "factor", "label": "Team Technical Experience Level",    "observedState": { "value": 0.2, "unit": "scale" } },
+      { "id": "fac_hiring_cost",     "kind": "factor", "label": "Hiring and Salary Cost",             "observedState": { "value": 0.5, "unit": "scale" } }
+    ]
+  },
+  "rawV2Response": {
+    "analysis_status": "computed",
+    "option_comparison_status": "computed",
+    "robustness_status": "computed",
+    "drivers_status": "computed",
+    "option_comparison": [
+      { "option_id": "opt_one_dev",    "option_label": "Hire One Senior Developer",     "win_probability": 0.0005 },
+      { "option_id": "opt_status_quo", "option_label": "Keep Current Team (Status Quo)", "win_probability": 0.0025 },
+      { "option_id": "opt_tech_lead",  "option_label": "Hire a Tech Lead",              "win_probability": 0.8865 },
+      { "option_id": "opt_two_devs",   "option_label": "Hire Two Developers",            "win_probability": 0.1105 }
+    ],
+    "factor_sensitivity": [
+      { "factor_id": "fac_tech_lead",       "factor_label": "Tech Lead in Place",                "influence_score": 1.0,                "sensitivity_score":  0.41750000000000004, "direction": "positive" },
+      { "factor_id": "fac_dev_capacity",    "factor_label": "Developer Capacity",                "influence_score": 0.5748502994011976, "sensitivity_score":  0.24000000000000002, "direction": "positive" },
+      { "factor_id": "fac_team_experience", "factor_label": "Team Technical Experience Level",   "influence_score": 0.4167664670658682, "sensitivity_score":  0.174,               "direction": "positive" },
+      { "factor_id": "fac_hiring_cost",     "factor_label": "Hiring and Salary Cost",            "influence_score": 0.311377245508982,  "sensitivity_score": -0.13,                "direction": "negative" }
+    ]
+  },
+  "report": {
+    "option_probabilities": {
+      "opt_one_dev":    { "win_probability": 0.0005, "goal_probability": 0.10 },
+      "opt_status_quo": { "win_probability": 0.0025, "goal_probability": 0.12 },
+      "opt_tech_lead":  { "win_probability": 0.8865, "goal_probability": 0.78 },
+      "opt_two_devs":   { "win_probability": 0.1105, "goal_probability": 0.35 }
+    }
+  }
+}
