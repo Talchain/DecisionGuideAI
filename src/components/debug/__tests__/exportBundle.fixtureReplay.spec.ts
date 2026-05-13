@@ -748,4 +748,74 @@ describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shap
       expect(ds.hero_headline_displayed).toBe('Hire a Tech Lead performs best')
     }
   })
+
+  // Codex round-2 review on PR #141: V2OptionComparison.win_probability is
+  // optional (src/adapters/plot/v2/types.ts:161). A malformed or partial
+  // option_comparison where no entry carries a numeric win_probability must
+  // NOT emit "{first label} performs best" for the lexicographic-first
+  // option — that would fabricate a confident headline from no analytical
+  // signal. The honest-missing contract returns null instead, mirroring the
+  // D4/D5/D8 tri-state principle (unmatched stays unmatched, never zero-
+  // promoted).
+  it('hero_headline_displayed is null when option_comparison entries lack numeric win_probability', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: {
+        option_comparison: [
+          { option_id: 'opt_one_dev', option_label: 'Hire One Senior Developer' /* no win_probability */ },
+          { option_id: 'opt_tech_lead', option_label: 'Hire a Tech Lead' /* no win_probability */ },
+          { option_id: 'opt_two_devs', option_label: 'Hire Two Developers' /* no win_probability */ },
+          { option_id: 'opt_status_quo', option_label: 'Keep Current Team (Status Quo)' /* no win_probability */ },
+        ],
+        factor_sensitivity: [],
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    // No analytical winner → null headline. The pre-Codex implementation
+    // would have emitted "Hire One Senior Developer performs best" (lexico-
+    // first option) because the sort treats missing as 0 and is stable.
+    expect(ds.hero_headline_displayed).toBeNull()
+  })
+
+  it('hero_headline_displayed is null when win_probability values are non-finite (NaN / Infinity)', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: {
+        option_comparison: [
+          { option_id: 'opt_a', option_label: 'A', win_probability: Number.NaN },
+          { option_id: 'opt_b', option_label: 'B', win_probability: Number.POSITIVE_INFINITY },
+        ],
+        factor_sensitivity: [],
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    expect(ds.hero_headline_displayed).toBeNull()
+  })
+
+  // Codex round-2 follow-up: documents the deliberate choice that
+  // hero_headline_displayed (legacy field) does NOT mirror the D5/D8
+  // fallback chain into report.option_probabilities. The mapped report
+  // carries win-probabilities keyed by node ID but not the option_label
+  // needed to build the headline string; expanding scope to do a separate
+  // canvas-node label lookup on a legacy surface is deliberate scope
+  // discipline. Consumers should use the canonical
+  // analysis_display_headline going forward.
+  it('hero_headline_displayed is null on report-only fallback (legacy field does not mirror D5/D8 chain)', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: null,
+      // Use the same option_probabilities from the fixture — D5 win_probability
+      // fallback succeeds for the option cards, but the legacy headline path
+      // deliberately returns null.
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    // Sanity: D5 fallback DID resolve win_probability for the options
+    expect(
+      ds.rendered_options?.every(
+        (r) => r.win_probability_source === 'results.report.option_probabilities.win_probability',
+      ),
+    ).toBe(true)
+    // But the legacy hero headline does not extend to the report-derived path
+    expect(ds.hero_headline_displayed).toBeNull()
+  })
 })

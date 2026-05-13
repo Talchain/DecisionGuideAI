@@ -1673,6 +1673,20 @@ async function buildPanelState(): Promise<PanelStateV1_5> {
 // =============================================================================
 
 /**
+ * Statuses where the function will derive an analytical winner headline.
+ * Production canvas-store writes `ResultsStatus === 'complete'`
+ * (`src/canvas/store.ts:168, 2488`) on analysis completion. The legacy
+ * `'success'` and `'computed'` values are kept to tolerate older fixtures
+ * and externally constructed payloads. Hoisted to module scope so the Set
+ * is allocated once (Codex round-2 review).
+ */
+const HEADLINE_OK_STATUSES: ReadonlySet<string> = new Set([
+  'complete',
+  'success',
+  'computed',
+])
+
+/**
  * Derive the hero headline that HeroSection.tsx would display.
  * Mirrors the M1 headline logic: "{Winner} performs best" when analysis
  * succeeded with multiple options, or status-based fallbacks.
@@ -1682,6 +1696,25 @@ async function buildPanelState(): Promise<PanelStateV1_5> {
  * captureDisplayState call site. Passed in pre-resolved so this function
  * does not re-read the (non-existent) `results.apiResponse` field; see the
  * data-source comment block in `captureDisplayState` for the full rationale.
+ *
+ * Honest-missing contract (mirrors the D4/D5/D8 tri-state principle): only
+ * entries with a numeric `win_probability` participate in the sort. If every
+ * entry is missing `win_probability` (or the array is empty), the function
+ * returns `null` rather than emitting a confident "{first label} performs
+ * best" for a lexicographic accident. Per `V2OptionComparison.win_probability`
+ * (`src/adapters/plot/v2/types.ts:161`) the field is optional, so partial /
+ * malformed wire shapes are a real production possibility.
+ *
+ * Report-only fallback policy (Codex round-2 follow-up): `hero_headline_displayed`
+ * is a legacy field (`exportBundle.displayState.spec.ts:4` — canonical
+ * `analysis_display_*` fields supersede it). It deliberately does NOT mirror
+ * the D5/D8 fallback chain into `results.report.option_probabilities` — the
+ * mapped report carries win-probabilities keyed by node ID but not the
+ * option_label needed for the headline string; resolving labels would
+ * require a separate canvas-node lookup, expanding scope on a legacy
+ * surface. Report-only loads therefore return `null` for the headline. The
+ * canonical `analysis_display_headline` is the field consumers should rely
+ * on for the headline contract going forward.
  */
 function deriveHeroHeadline(
   results: Record<string, unknown> | null | undefined,
@@ -1690,32 +1723,28 @@ function deriveHeroHeadline(
 ): string | null {
   if (!results) return null
   const status = results.status as string | undefined
-  // Production canvas-store writes `ResultsStatus === 'complete'`
-  // (`src/canvas/store.ts:168, 2488`) on analysis completion. The legacy
-  // `'success'` and `'computed'` values are kept to tolerate older fixtures
-  // and externally constructed payloads, but `'complete'` is the only value
-  // a real production run produces — without it here the winner branch
-  // below was unreachable in production. See Codex review on PR #141.
-  const HEADLINE_OK_STATUSES = new Set(['complete', 'success', 'computed'])
   if (status === undefined || !HEADLINE_OK_STATUSES.has(status)) {
     return status ? `Analysis ${status}` : null
   }
   if (optionCount === 0) return 'No options to evaluate'
 
-  // Find winner from option_comparison (same source as HeroSection)
+  // Find winner from option_comparison (same source as HeroSection). Filter
+  // to entries with a numeric `win_probability` BEFORE sorting so all-missing
+  // arrays can't emit a fabricated headline via lexicographic tie-break.
   const comparison = optionComparison as
     Array<{ option_label?: string; win_probability?: number }>
-  if (comparison && comparison.length > 0) {
-    const sorted = [...comparison].sort(
-      (a, b) => (b.win_probability ?? 0) - (a.win_probability ?? 0),
-    )
-    const winnerLabel = sorted[0]?.option_label
-    if (winnerLabel) {
-      if (optionCount === 1) return `${winnerLabel} is your only option`
-      return `${winnerLabel} performs best`
-    }
+  const ranked = comparison.filter(
+    (o) => typeof o.win_probability === 'number' && Number.isFinite(o.win_probability),
+  )
+  if (ranked.length === 0) return null
+  const sorted = [...ranked].sort(
+    (a, b) => (b.win_probability as number) - (a.win_probability as number),
+  )
+  const winnerLabel = sorted[0]?.option_label
+  if (winnerLabel) {
+    if (optionCount === 1) return `${winnerLabel} is your only option`
+    return `${winnerLabel} performs best`
   }
-
   return null
 }
 
