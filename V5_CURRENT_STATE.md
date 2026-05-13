@@ -247,11 +247,52 @@ gate passes (see "Gates" section).
   assistants-service#170's `chip-generator` change. Required co-merge.
 
 #### Phase 2c — Raw / internal value suppression in user-facing copy
-- **Status**: 🔍 **Phase 2c.0 diagnosis IN PROGRESS (read-only).**
-  Kicked off 2026-05-13 (late evening) per directional correction.
-  Output diagnosis doc due before any brief or fix PR. **No
-  implementation work permitted until the diagnosis identifies actual
-  leakage paths on real V5 turns.**
+- **Status**: ✅ **Phase 2c.0 diagnosis COMPLETE (2026-05-13).**
+  Diagnosis doc at `~/.claude/plans/phase-2c-raw-value-suppression-diagnosis.md`
+  (251 lines, baseline `origin/staging @ d60b90a2`). **Next gate: brief
+  drafting decision. No implementation PR permitted until the brief
+  resolves the 8 open questions surfaced in the diagnosis.**
+- **Diagnosis top-line findings:**
+  - **Three centralised suppression mechanisms exist** (good):
+    `sanitiseUserFacingText` (entity-ID scrubber driven by
+    `ENTITY_ID_LEAK_RE` + slug-shape gate),
+    `sanitiseOlumiResponseForEgress` (envelope walker at the chokepoint),
+    and `FORBIDDEN_USER_FACING_PHRASES` + `SUCCESS_CLAIM_PATTERNS`
+    (phrase-level fail-shut).
+  - **Four hand-rolled regex sets sit around them** (scattered):
+    `safeLabel`/`looksLikeId` in helpers.ts,
+    `FORBIDDEN_INTERNAL_TERM_PATTERNS` in validator-explanation.ts,
+    `FORBIDDEN_USER_TEXT_TERMS` for recovery chips,
+    `JARGON_TOKENS` in the fact builder.
+  - **Multiple ad-hoc renderers bypass the central scrubbers.**
+- **Top-3 highest-risk leakage paths** (candidates for Phase 2c
+  implementation brief):
+  1. **`graph_patch` block** at `compose.ts:162-170` — known deferred
+     gap; emits raw `target_id`, `before`, `after` with `constraint_id`,
+     `node_id`, operator glyphs, `raw_value`, `mean`, `std` verbatim;
+     explicitly skipped by the egress walker.
+  2. **`resolveElementLabel` raw-path fallback** at V4
+     `edit-graph.ts:1309-1319` — returns raw entity ID when the node
+     isn't in the graph; the raw ID flows through
+     `buildOperationDescription` into prose like `"Removed edge from
+     fac_x to opt_y"`, with `->` glyph leak in value-update strings.
+     **Note: overlaps with the Phase 2a node-label fix (PR #169) and
+     the Phase 2a.1 edge-label follow-up.**
+  3. **`composeHandlerFailureBody:args_validation_failed`** —
+     interpolates Zod issue messages containing raw schema field paths
+     via `sanitiseForUser`, which strips stack traces but not schema
+     field names; also emits literal `"unknown"` placeholders.
+- **Open questions for the brief** (8, summarised — full list in
+  diagnosis doc):
+  - Operator-glyph leakage scope (acceptable in math-heavy
+    explanations? always strip?).
+  - `from::to` boundary with Phase 2a.1 (where does Phase 2a.1 stop
+    and Phase 2c start for edge-label leakage?).
+  - Structured-field vs prose treatment for `leading_option_id` and
+    similar machine-readable IDs that legitimately appear in
+    structured blocks.
+  - Whether to consolidate the four parallel regex sets in this PR or
+    treat consolidation as a separate refactor.
 - **Phase 2c.0 — Diagnosis (must precede brief):**
   - Survey real V5 staging turns (`analysis_result`, `explain_result`,
     `what_would_flip`, `edit_graph` apply / reject / no-op) for
