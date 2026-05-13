@@ -800,7 +800,13 @@ describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shap
   // (`results.report.option_probabilities`) traverses local math and could
   // theoretically surface non-finite values. Internal consistency: non-
   // finite anywhere → unmatched, never zero-promoted into the rank order.
-  it('D5: non-finite win_probability across all three tiers → unmatched honestly', async () => {
+  // Codex round-4 precision: the previous test name claimed "all three
+  // tiers" but the body disabled the report fallback, only exercising the
+  // wire tier. The shared `isFiniteWinProb` helper at
+  // `exportBundle.ts` guards all three tiers identically — but explicit
+  // per-tier coverage is more honest about what's pinned.
+
+  it('D5: non-finite win_probability on rawV2Response.option_comparison (wire tier) → unmatched honestly', async () => {
     displayStateMockState = mockStateFromMinimalE33({
       rawV2ResponseOverride: {
         option_comparison: [
@@ -812,9 +818,9 @@ describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shap
         factor_sensitivity: [],
       },
       // Disable the report-tier fallback so this test isolates the finite-
-      // check on the wire tier. The same finite guard applies symmetrically
-      // to the report tier — covered separately by the report-only test
-      // below and by the headline `NaN/Infinity → null` test.
+      // check on the wire tier. The report tier is covered by the next
+      // test below; the headline `NaN/Infinity → null` test pins the
+      // symmetric guard in deriveHeroHeadline.
       reportOverride: {},
     })
     const { captureDisplayState } = await import('../utils/exportBundle')
@@ -822,12 +828,44 @@ describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shap
     const rendered = ds.rendered_options ?? []
     expect(rendered.length).toBe(4)
     // Every option resolves to unmatched — no entry has a finite
-    // win_probability anywhere in the resolution chain.
+    // win_probability anywhere in the resolution chain (wire tier rejects
+    // non-finite; report tier disabled by reportOverride: {}).
     for (const r of rendered) {
       expect(r.win_probability_source).toBe('unmatched')
       expect(r.win_probability_displayed).toBeNull()
     }
     // No analytical rank → canvas_order fallback
+    expect(rendered.every((r) => r.rank_source === 'canvas_order')).toBe(true)
+  })
+
+  it('D5: non-finite win_probability on results.report.option_probabilities (mapper tier) → unmatched honestly', async () => {
+    // Isolate the report tier: rawV2Response: null forces the resolver
+    // past the two wire tiers into `report.option_probabilities[node.id]`.
+    // Non-finite values on the mapper-synthesised path must collapse to
+    // unmatched the same way the wire tier does — Codex round-4 noted this
+    // tier was guarded by `isFiniteWinProb` but not explicitly covered.
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: null,
+      reportOverride: {
+        option_probabilities: {
+          opt_one_dev: { win_probability: Number.NaN },
+          opt_tech_lead: { win_probability: Number.POSITIVE_INFINITY },
+          opt_two_devs: { win_probability: Number.NEGATIVE_INFINITY },
+          opt_status_quo: { /* win_probability missing entirely */ } as Record<string, unknown>,
+        },
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBe(4)
+    // Every option resolves to unmatched — mapper-synthesised non-finite
+    // values must NOT promote to a confident percentage via the report
+    // tier, matching the wire-tier honesty.
+    for (const r of rendered) {
+      expect(r.win_probability_source).toBe('unmatched')
+      expect(r.win_probability_displayed).toBeNull()
+    }
     expect(rendered.every((r) => r.rank_source === 'canvas_order')).toBe(true)
   })
 
