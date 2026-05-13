@@ -49,6 +49,17 @@ function getGzippedSize(filePath) {
  * was reporting the ~10 KB lucide companion instead of the ~50 KB
  * real entry, so local `build:ci` had been passing while Netlify
  * intermittently failed.
+ *
+ * Resolution policy (failure-mode discipline — Codex review 2026-05-13):
+ * 1. If `dist/index.html` exists, the entry script reference IS the
+ *    authoritative answer. If the file exists but the regex doesn't
+ *    match, or the referenced file is missing from `dist/assets/`,
+ *    FAIL CLOSED (return null → exit 1). We refuse to "guess" via
+ *    filesystem scan; that's how the original Array.find bug masked
+ *    a 5-day-silent budget breach.
+ * 2. The size-ordered filesystem-scan fallback only fires when
+ *    `dist/index.html` is absent — a true outlier (Vite is configured
+ *    to emit it; tests without an HTML emitter would be the only case).
  */
 function findMainBundle(distPath) {
   if (!existsSync(distPath)) {
@@ -57,25 +68,31 @@ function findMainBundle(distPath) {
     return null
   }
 
-  // Primary: resolve via dist/index.html's <script type="module" src=...>
+  // Primary (authoritative): resolve via dist/index.html.
   const distRoot = join(distPath, '..')
   const indexHtmlPath = join(distRoot, 'index.html')
   if (existsSync(indexHtmlPath)) {
     const html = readFileSync(indexHtmlPath, 'utf8')
     // Match <script type="module" ... src="/assets/index-XXXX.js">
     const match = html.match(/<script[^>]+type=["']module["'][^>]+src=["']\/?assets\/(index-[A-Za-z0-9_-]+\.js)["']/)
-    if (match && match[1]) {
-      const entryPath = join(distPath, match[1])
-      if (existsSync(entryPath)) {
-        return entryPath
-      }
-      console.error('[Bundle Budget] ⚠️  index.html references', match[1], 'but file missing from dist/assets; falling back to filesystem scan')
+    if (!match || !match[1]) {
+      console.error('[Bundle Budget] ❌ dist/index.html exists but no <script type="module" src="/assets/index-*.js"> entry found')
+      console.error('[Bundle Budget]    Refusing to guess via filesystem scan — fix the picker if Vite output shape changed.')
+      return null
     }
+    const entryPath = join(distPath, match[1])
+    if (!existsSync(entryPath)) {
+      console.error('[Bundle Budget] ❌ dist/index.html references', match[1], 'but the file is missing from dist/assets/')
+      console.error('[Bundle Budget]    Refusing to guess via filesystem scan.')
+      return null
+    }
+    return entryPath
   }
 
-  // Fallback: pick the LARGEST `index-*.js` in dist/assets/. Deterministic
-  // (size order, not FS order). Mirrors Netlify behaviour better than
-  // Array.find but is still a fallback — primary path is the HTML lookup.
+  // True fallback (dist/index.html absent — rare; tests / non-standard
+  // build outputs). Pick the LARGEST `index-*.js` deterministically.
+  // The HTML-absent case is the only situation where filesystem scanning
+  // is acceptable.
   const files = readdirSync(distPath)
     .filter(f => f.startsWith('index-') && f.endsWith('.js') && !f.endsWith('.map'))
   if (files.length === 0) {
