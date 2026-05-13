@@ -38,12 +38,16 @@ import type {
   OptionResult,
   FragileEdge,
   DriverItem,
+  ConditionalWinner,
 } from '../../types'
 
 // ── Fixtures with banned-term labels ────────────────────────────────────────
 
 const BANNED_FACTOR_LABEL = 'Recommendation analysis'         // contains "Recommendation"
 const BANNED_ALT_WINNER_LABEL = 'Winner option B'             // contains "Winner"
+const BANNED_CONDITIONAL_FACTOR_LABEL = 'Recommendation tier' // contains "Recommendation"
+const BANNED_HIGH_BUCKET_LABEL = 'Best choice path'           // contains "Best choice"
+const BANNED_LOW_BUCKET_LABEL = 'Winning approach'            // contains "Winning"
 
 function makeFragileEdge(): FragileEdge {
   return {
@@ -65,6 +69,17 @@ function makeDominantDriver(): DriverItem {
     influenceScore: 0.92,
     normalisedInfluence: 0.92,
   } as DriverItem
+}
+
+function makeConditionalWinner(): ConditionalWinner {
+  return {
+    factor_label: BANNED_CONDITIONAL_FACTOR_LABEL,
+    factor_id: 'n_cond_factor',
+    split_value: 100,
+    split_unit: undefined,
+    high_bucket: { winner_label: BANNED_HIGH_BUCKET_LABEL, win_probability: 0.7 },
+    low_bucket: { winner_label: BANNED_LOW_BUCKET_LABEL, win_probability: 0.3 },
+  }
 }
 
 function makeData(): ResultsSectionDataReturn {
@@ -94,6 +109,9 @@ function makeData(): ResultsSectionDataReturn {
     evidenceGaps: [], topEvidenceGaps: [],
     nextActions: [], topNextActions: [],
     topFragileEdge: makeFragileEdge(),
+    // (Round-7 P1.2) Conditional scenarios with banned-term labels in
+    // every interpolated field — header, factor_label, both winner_labels.
+    conditionalWinners: [makeConditionalWinner()],
   } as ConfidenceSectionData
   return {
     recommendation,
@@ -224,6 +242,68 @@ describe('TriageActionCardsBody — composed-body label safety', () => {
     })
   })
 
+  describe('ConditionalWinnerCards — v17 mode', () => {
+    it('header tooltip + sr-only text drop the banned "recommendation" word', () => {
+      render(
+        <TriageActionCardsBody
+          data={makeData()}
+          suppressTriageQueue
+          useV17Copy
+          onFocusNode={() => {}}
+        />,
+      )
+      const cards = screen.getByTestId('conditional-winner-cards') as HTMLElement
+      // The header `<span>` carries both `title` (tooltip) and an `<span
+      // class="sr-only">` (screen-reader text). Both should be free of
+      // banned terms.
+      const headerHelp = cards.querySelector('span[title]') as HTMLElement | null
+      expect(headerHelp).not.toBeNull()
+      expect(containsBannedTerm(headerHelp!.getAttribute('title'))).toBe(false)
+      const srOnly = cards.querySelector('.sr-only') as HTMLElement | null
+      expect(srOnly).not.toBeNull()
+      expect(containsBannedTerm(srOnly!.textContent)).toBe(false)
+    })
+
+    it('prose and Above/Below footer interpolate via safeInterpolatedLabel; no banned terms remain', () => {
+      render(
+        <TriageActionCardsBody
+          data={makeData()}
+          suppressTriageQueue
+          useV17Copy
+          onFocusNode={() => {}}
+        />,
+      )
+      const cards = screen.getByTestId('conditional-winner-cards') as HTMLElement
+      // The full visible text — prose + Above/Below — should be clean.
+      expect(containsBannedTerm(cards.textContent)).toBe(false)
+      // Sanity: the data WAS rendered (we didn't accidentally suppress
+      // the cards). The split value 100 is a stable, non-banned proxy.
+      expect(cards.textContent).toContain('100')
+    })
+  })
+
+  describe('ConditionalWinnerCards — legacy mode', () => {
+    it('renders raw labels verbatim in header tooltip and prose (unchanged legacy behaviour)', () => {
+      render(
+        <TriageActionCardsBody
+          data={makeData()}
+          suppressTriageQueue={false}
+          useV17Copy={false}
+          onFocusNode={() => {}}
+        />,
+      )
+      const cards = screen.getByTestId('conditional-winner-cards') as HTMLElement
+      const headerHelp = cards.querySelector('span[title]') as HTMLElement | null
+      expect(headerHelp).not.toBeNull()
+      expect(headerHelp!.getAttribute('title')).toMatch(/recommendation/i)
+      // Prose still contains the raw factor label.
+      expect(cards.textContent).toContain(BANNED_CONDITIONAL_FACTOR_LABEL)
+      // Above/Below footer still contains the raw bucket labels.
+      expect(cards.textContent).toContain(BANNED_HIGH_BUCKET_LABEL)
+      expect(cards.textContent).toContain(BANNED_LOW_BUCKET_LABEL)
+    })
+  })
+
   describe('whole-body scan in v17 mode', () => {
     it('every aria-label and title attribute is glossary-clean even with banned-term inputs', () => {
       const { container } = render(
@@ -244,6 +324,28 @@ describe('TriageActionCardsBody — composed-body label safety', () => {
         if (containsBannedTerm(v)) offenders.push({ kind: 'title', value: v })
       })
       expect(offenders, `found banned terms in generated attributes: ${JSON.stringify(offenders, null, 2)}`).toEqual([])
+    })
+
+    it('all rendered visible text across the entire composed body is glossary-clean', () => {
+      // (Round-7 P1.2) Whole-body visible-text scan. Catches any future
+      // banned-term leak introduced via new sub-components or templates,
+      // including the conditional-scenarios block now covered by the
+      // fixture. The visible identity span inside `T1DominantNudge` still
+      // contains the raw `BANNED_FACTOR_LABEL` — that span is explicitly
+      // user data and is excluded from this sweep via its data-testid.
+      const { container } = render(
+        <TriageActionCardsBody
+          data={makeData()}
+          suppressTriageQueue
+          useV17Copy
+          onFocusNode={() => {}}
+        />,
+      )
+      // Clone, then strip the dominant-nudge identity span (user data).
+      const clone = container.cloneNode(true) as HTMLElement
+      clone.querySelectorAll('[data-testid="t1-dominant-nudge"] span.font-semibold').forEach(el => el.remove())
+      const text = clone.textContent ?? ''
+      expect(containsBannedTerm(text), `banned term found in visible text:\n  raw: ${JSON.stringify(text)}`).toBe(false)
     })
   })
 })

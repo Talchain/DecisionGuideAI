@@ -73,7 +73,7 @@ interface TriageActionCardsBodyProps {
   suppressTriageQueue?: boolean
   /**
    * v17 hero opt-in for glossary-safe copy across the body sub-components.
-   * When true, applies in three distinct places:
+   * When true, applies in FOUR distinct places:
    *   1. `T1ChecksFooter` literals: "Winner" / "No winner" →
    *      "Has leading option" / "No clear leader".
    *   2. `T1DominantNudge`: rewrites the trailing tooltip sentence
@@ -84,11 +84,16 @@ interface TriageActionCardsBodyProps {
    *   3. `T1FlipRiskCallout`: sanitises `fragile.fromLabel` and
    *      `alternativeWinnerLabel` interpolations in the generated prose
    *      and Validate-button text via `safeInterpolatedLabel`.
+   *   4. `ConditionalWinnerCards`: rewrites the header help text
+   *      ("…change the recommendation…" → "…change which option leads…")
+   *      and gates four user-supplied label interpolations
+   *      (`factor_label`, the chosen `alt`, plus the Above/Below bucket
+   *      `winner_label`s) via `safeInterpolatedLabel`. (Round-7 P1.1.)
    *
-   * The visible bolded identity span in each nudge still renders the raw
+   * The dominant nudge's visible identity span still renders the raw
    * user label — only generated wrapping copy is gated. Default false —
    * legacy `DecisionConfidencePanel` rendering keeps its existing copy
-   * and tests untouched. (Per P1.1/P1.2 round-5 review feedback.)
+   * and tests untouched.
    */
   useV17Copy?: boolean
 }
@@ -648,6 +653,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
             winners={data.confidence.conditionalWinners}
             recommendedLabel={data.recommendation.recommendedOption?.label}
             onFocusNode={onFocusNode}
+            useV17Copy={useV17Copy}
           />
         </div>
       )}

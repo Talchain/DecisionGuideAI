@@ -20,6 +20,11 @@ import { GitBranch, Info } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { focusNodeById } from '../../canvas/utils/focusHelpers'
 import type { ConditionalWinner } from './types'
+// Canonical glossary check shared with the v17 hero row builders + body
+// sub-components. Used in v17 mode to sanitise user-supplied factor /
+// option labels before they enter generated prose. The raw label still
+// appears verbatim in the legacy panel (default useV17Copy=false).
+import { safeInterpolatedLabel } from './analysisHeroV17/glossaryCheck'
 
 const MAX_CONDITIONAL_CARDS = 3
 
@@ -28,12 +33,28 @@ interface ConditionalWinnerCardsProps {
   /** Label of the overall recommended option (drives direction wording). */
   recommendedLabel?: string
   onFocusNode?: (nodeId: string) => void
+  /**
+   * v17 hero mode (Round-7 review). When true:
+   *   - The header info tooltip + sr-only text drop the banned word
+   *     "recommendation" in favour of "which option leads".
+   *   - All four interpolated user labels (`factor_label`, the chosen
+   *     `alt` winner_label, and the two bucket `winner_label`s in the
+   *     Above/Below footer) route through `safeInterpolatedLabel` so a
+   *     user-named option like "Winning strategy" cannot smuggle a
+   *     banned term into the visible prose. The raw label still appears
+   *     verbatim when `useV17Copy=false` (legacy panel rendering).
+   *
+   * Default: false — `DecisionConfidencePanel` (legacy) keeps its
+   * existing copy and tests untouched.
+   */
+  useV17Copy?: boolean
 }
 
 export function ConditionalWinnerCards({
   winners,
   recommendedLabel,
   onFocusNode,
+  useV17Copy = false,
 }: ConditionalWinnerCardsProps) {
   const flipping = useMemo(
     () => winners.filter(w => w.high_bucket.winner_label !== w.low_bucket.winner_label),
@@ -41,6 +62,11 @@ export function ConditionalWinnerCards({
   )
   if (flipping.length === 0) return null
   const visible = flipping.slice(0, MAX_CONDITIONAL_CARDS)
+  // (Round-7 P1.1) Glossary-safe header copy when composed inside the v17
+  // hero. Legacy panel keeps the original wording.
+  const headerHelpText = useV17Copy
+    ? 'Factors that change which option leads when they shift'
+    : 'Factors that change the recommendation when they shift'
 
   return (
     <div className="space-y-2 pt-2 border-t border-panel-border/50" data-testid="conditional-winner-cards">
@@ -51,10 +77,10 @@ export function ConditionalWinnerCards({
         </h4>
         <span
           className={`${typography.panelMeta} text-text-light`}
-          title="Factors that change the recommendation when they shift"
+          title={headerHelpText}
         >
           <Info className="w-3.5 h-3.5" aria-hidden="true" />
-          <span className="sr-only">Factors that change the recommendation when they shift</span>
+          <span className="sr-only">{headerHelpText}</span>
         </span>
       </div>
       {visible.map((w, idx) => {
@@ -75,6 +101,21 @@ export function ConditionalWinnerCards({
         const direction = highIsAlt ? 'exceeds' : 'falls below'
         const alt = highIsAlt ? w.high_bucket.winner_label : w.low_bucket.winner_label
         const splitSuffix = w.split_unit ? w.split_unit : ''
+        // (Round-7 P1.1) v17 mode: gate every user-supplied label that
+        // enters the visible prose through `safeInterpolatedLabel`. The
+        // legacy panel keeps the raw labels verbatim (default).
+        const factorLabelDisplay = useV17Copy
+          ? safeInterpolatedLabel(w.factor_label, 'this factor')
+          : w.factor_label
+        const altDisplay = useV17Copy
+          ? safeInterpolatedLabel(alt, 'the other option')
+          : alt
+        const highLabelDisplay = useV17Copy
+          ? safeInterpolatedLabel(w.high_bucket.winner_label, 'the other option')
+          : w.high_bucket.winner_label
+        const lowLabelDisplay = useV17Copy
+          ? safeInterpolatedLabel(w.low_bucket.winner_label, 'the other option')
+          : w.low_bucket.winner_label
         return (
           <div
             key={`${w.factor_id}-${idx}`}
@@ -85,11 +126,11 @@ export function ConditionalWinnerCards({
             onKeyDown={canFocus ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFocus() } } : undefined}
           >
             <p className={`${typography.panelBody} text-text-body`}>
-              When <span className="text-text-header">{w.factor_label}</span> {direction} {w.split_value.toLocaleString()}{splitSuffix}, <span className="text-text-header">{alt}</span> leads instead.
+              When <span className="text-text-header">{factorLabelDisplay}</span> {direction} {w.split_value.toLocaleString()}{splitSuffix}, <span className="text-text-header">{altDisplay}</span> leads instead.
             </p>
             <div className={`${typography.panelMeta} text-text-light mt-1 flex gap-4`}>
-              <span>Above: {w.high_bucket.winner_label} ({Math.round(w.high_bucket.win_probability * 100)}%)</span>
-              <span>Below: {w.low_bucket.winner_label} ({Math.round(w.low_bucket.win_probability * 100)}%)</span>
+              <span>Above: {highLabelDisplay} ({Math.round(w.high_bucket.win_probability * 100)}%)</span>
+              <span>Below: {lowLabelDisplay} ({Math.round(w.low_bucket.win_probability * 100)}%)</span>
             </div>
           </div>
         )
