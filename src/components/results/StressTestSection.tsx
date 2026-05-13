@@ -105,7 +105,7 @@ function SensitiveAssumptionCard({
     >
       <span className={`${typography.panelMeta} text-warning`}>Sensitive</span>
       <p className={`${typography.panelBody} text-text-body`}>
-        {cleanLabel}. A shift could change the recommendation.
+        {cleanLabel}. A shift could change the result.
       </p>
       <button
         type="button"
