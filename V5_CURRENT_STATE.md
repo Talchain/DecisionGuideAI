@@ -8,7 +8,9 @@ Last updated: 2026-05-13 (post-reconciliation corrections — decision_review
 Option A recorded; UX §9 acceptance source recorded; data contract
 constraint added; Phase 3 split into 3A minimum coaching contract + 3B
 full coaching layer; testing-gate principle clarified as baseline-diff;
-useConversation.ts ownership recorded for Phases 2–3).
+useConversation.ts ownership recorded for Phases 2–3; Phase 2b round-2
+reviewer findings addressed in olumi-assistants-service#170 + companion
+DGAI#140 UI chip whitelist PR).
 
 ## Programme shape
 
@@ -201,6 +203,14 @@ gate passes (see "Gates" section).
   - `src/canvas/conversation/zones/SuggestedChips.tsx`
     (`V5_ENABLED_ACTIONS` at line 26).
   - `src/canvas/conversation/useConversation.ts` (dispatch site).
+- **UI companion PR**: **DGAI #140**
+  (`https://github.com/Talchain/DecisionGuideAI/pull/140`,
+  branch `claude/v5-phase2b-ui-chip-whitelist`). Extends
+  `V5_ENABLED_ACTIONS` with `explain_results` + `what_would_flip` and
+  adds plural alias `explain_results: 'explain'` to `ACTION_TO_TURN_TYPE`.
+  Without this companion PR the backend bypass is inert because the V5
+  UI filter would hide every new executable chip emitted by olumi-
+  assistants-service#170's `chip-generator` change. Required co-merge.
 
 #### Phase 2c — Raw / internal value suppression in user-facing copy
 - **Status**: **diagnosis-only first**, then brief, then implementation.
@@ -720,49 +730,72 @@ defer to CI for the baseline-diff comparison.
   baseline-diff evidence; (c) the edge-label gap reclassified as
   Phase 2a.1 follow-up (see above).
 - **olumi-assistants-service #170 — Phase 2b (chip-click router bypass).**
-  PR open; **GitHub CI `Lint, TypeCheck, Unit Tests` job currently RED.**
-  Local agent verification: 11/11 new unit + 9/9 existing + 3/3 new
-  integration + 305/305 aggregate (+14 net); full `tsc --noEmit`: 450
-  errors / 453 baseline (−3 net, ZERO new attributable); no
-  package/lockfile churn. **Reviewer findings to address before merge:**
-  (a) **P1 — fix `chip-generator.ts:216` post-analysis "Explain the
-  result" chip to emit executable `action_type: 'explain_results'`
-  rather than `promptChip(...)` with no action_type**; (b) **P1 — add
-  happy-path test exercising prior-fact reconstruction** (currently
-  only precondition-fail cases tested); (c) **P1 — CI baseline-diff
-  reconciliation in PR description**; (d) **P2 — fix stale comment at
-  `route-v2.ts:656`** about no-new-dispatcher for `what_would_flip`.
-  See "Phase 2b reviewer findings" section below for full details.
+  PR open; **GitHub CI `Lint, TypeCheck, Unit Tests` job is baseline-red**
+  (`tsc --noEmit` test-file noise per CLAUDE.md note). Round-2 reviewer
+  findings ADDRESSED: (a) chip-generator post-analysis "Explain the
+  result" + decide-fragile "What would make this flip?" chips converted
+  to executable `action_type` chips at `chip-generator.ts:218-235` +
+  `502-518`; (b) 2 new happy-path tests added in
+  `chip-click-dispatch.test.ts` exercising `buildAnalysisFromPriorFacts`
+  reconstruction and asserting handler receives hydrated
+  `{analysisProjection, analysisFreshness:'fresh', analysisReady:'ready'}`;
+  (c) baseline-diff evidence to be moved from comments into PR
+  description (this tracker entry tracks the PR body update task);
+  (d) stale `route-v2.ts:656` comment about no-new-dispatcher for
+  `what_would_flip` corrected. Local verification: 13/13 unit
+  (chip-click-dispatch) + 9/9 chip-click-dispatch-analysis-ready +
+  3/3 new integration; full `tsc --noEmit`: 450 errors / 453 baseline
+  (−3 net, ZERO new attributable); no package/lockfile churn. Branch
+  `claude/v5-step2b-chip-click-bypass`.
+- **DGAI #140 — Phase 2b UI chip whitelist + plural dispatch.**
+  Companion to olumi-assistants-service#170. Branch
+  `claude/v5-phase2b-ui-chip-whitelist`, base
+  `origin/staging @ 21c6d1e2`. Extends `V5_ENABLED_ACTIONS` with
+  `explain_results` + `what_would_flip` so the new executable chips
+  emitted by the backend chip-generator are not silently filtered out
+  by the V5 UI gate. Adds plural `explain_results: 'explain'` to
+  `ACTION_TO_TURN_TYPE` so chip clicks resolve to a turn type even when
+  the chip carries the backend-canonical plural action_type. 446/446
+  V5 tests pass; build typecheck clean; zero baseline-diff failures;
+  no package/lockfile churn. **Without this co-merge, the latency win
+  is inert: the backend bypass exists but the chip-generator's new
+  executable chips would be filtered out by the V5 UI's
+  `V5_ENABLED_ACTIONS` check before they reach the dispatcher.**
 
-### Phase 2b reviewer findings (2026-05-13) — fixes required before merge
+### Phase 2b reviewer findings (2026-05-13) — round-2 status
 
 Round-2 reviewer of PR #170 surfaced **two P1 gaps + one P2 stale-comment**
-the agent's initial implementation missed:
+plus a follow-on P1 UI-side blocker; all four are now addressed (the
+backend three on PR #170, the UI one on the new DGAI #140 companion):
 
-1. **P1: "Explain the result" chip still routes through Sonnet.**
-   `src/orchestrator-v5/compose/chip-generator.ts:216` still emits the
-   post-analysis "Explain the result" chip via `promptChip(...)`, which
-   has no `action_type`. The new deterministic `explain_results`
-   dispatcher exists, but it is never invoked by this chip click. PR
-   #170 currently overclaims the ~12s win because the most common
-   chip-click path doesn't hit the bypass. **Required fix:** convert
-   the post-analysis explain chip to executable
-   `action_type: 'explain_results'` chip. Same for any
-   `what_would_flip` chips currently emitted as prompt chips (e.g.
-   the fragile-decide prompt) if Phase 2b is to claim the full win.
-2. **P1: Test coverage gap on the happy path.**
-   The new route-v2 chip-click-explain integration test only proves
-   precondition-fail / no-prior-analysis cases. The mitigation depends
-   on reconstructing `analysisProjection`, `analysisFreshness`, and
-   `analysisReady` from real prior facts via
-   `buildAnalysisFromPriorFacts` — that happy path is not currently
-   exercised. **Required test:** real-handler test with prior
-   successful `run_analysis` fact and persisted graph; assert
-   `answer_source: deterministic_fallback` rather than
-   `precondition_unmet: true`.
-3. **P2: Stale comment.** `src/orchestrator/route-v2.ts:656` still
-   reads "no new dispatcher for `what_would_flip`", but the PR now
-   dispatches it. Update or remove.
+1. ✅ **P1 ADDRESSED: "Explain the result" chip now emits executable
+   `action_type`.** `src/orchestrator-v5/compose/chip-generator.ts:218-235`
+   post-analysis "Explain the result" chip converted to executable
+   `action_type: 'explain_results'` chip. Same conversion applied at
+   `502-518` for the decide-fragile "What would make this flip?"
+   prompt → `action_type: 'what_would_flip'`. The deterministic
+   bypass is now reachable from the chip-click paths reviewers flagged.
+2. ✅ **P1 ADDRESSED: Happy-path test coverage added.**
+   `src/orchestrator-v5/handlers/__tests__/chip-click-dispatch.test.ts`
+   adds 2 tests exercising prior-fact reconstruction via
+   `buildAnalysisFromPriorFacts`; both assert handler receives hydrated
+   `{analysisProjection, analysisFreshness:'fresh', analysisReady:'ready'}`
+   from the chip-click path (one for `explain_results`, one for
+   `what_would_flip`). `buildTurnContext` mock refactored to be
+   hoisted so per-test overrides drive the reconstruction inputs.
+3. ✅ **P2 ADDRESSED: Stale comment.**
+   `src/orchestrator/route-v2.ts:656` "no new dispatcher" comment
+   corrected to reflect the new dispatcher.
+4. ✅ **P1 ADDRESSED (UI side, DGAI #140): UI chip whitelist gap.**
+   Without a parallel UI change the backend's chip-emission fix is
+   inert because the V5 UI's `V5_ENABLED_ACTIONS` filter in
+   `src/canvas/conversation/zones/SuggestedChips.tsx` would drop the
+   newly executable chips before they reach the dispatcher. DGAI #140
+   extends `V5_ENABLED_ACTIONS` with `explain_results` and
+   `what_would_flip` and adds plural `explain_results: 'explain'` to
+   `ACTION_TO_TURN_TYPE` in `useConversation.ts` (the singular legacy
+   alias was already mapped). 446/446 UI tests pass; build typecheck
+   clean; zero baseline-diff failures.
 
 ### Phase 2b trade-off — DECISION NEEDED before merge
 
