@@ -19,7 +19,10 @@ interface HeroInputRowsProps {
     action: RowAction,
     payload: { chatPrompt: string; targetNodeId: string | undefined },
   ) => void
-  /** Forwarded to HeroActionRow so prefill-only icons render disabled when chat is unavailable. */
+  /** Forwarded to HeroActionRow. When false, prefill-only icons (ai/discuss/
+   *  add/challenge/brief) are filtered out of the row entirely — they do NOT
+   *  render disabled. Edit + Confirm remain visible because they dispatch
+   *  through onFocusNode / onConfirm and don't require an open chat. */
   chatPrefillAvailable: boolean
 }
 

@@ -79,8 +79,15 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
   onConfirm,
   expertMode: _expertMode,
   nodeValueLookup,
-  onSendMessage,
-  aiAffordance,
+  // (Round-5 P1.1) These two props are accepted on the public interface
+  // for compatibility with DecisionConfidencePanel's prop shape but are
+  // INTENTIONALLY NOT forwarded into TriageActionCardsBody — they're
+  // both auto-send wires (Research chip + DiscussWithAiButton ai
+  // affordance). The v17 hero must have zero auto-send paths, so we
+  // accept-and-ignore. The body renders its contextual blocks without
+  // those two surfaces in v17 mode.
+  onSendMessage: _onSendMessage,
+  aiAffordance: _aiAffordance,
 }: AnalysisHeroV17Props) {
   // Single canvas-store subscription covering every signal we need.
   // Iterates `nodes` exactly once per change and returns a primitive
@@ -264,6 +271,11 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
             callout, conditional scenarios, dominant-factor nudge, T1
             checks footer) still render — those are signals the v17 top
             section does not duplicate. */}
+        {/* (Round-5 P1.1) onSendMessage + aiAffordance intentionally NOT
+            forwarded. Both are auto-send wires (Research chip +
+            DiscussWithAiButton). v17 must have zero auto-send paths,
+            so the body composes without them — Research chip + AI
+            affordance simply don't render in v17 mode. */}
         <TriageActionCardsBody
           data={data}
           onFocusNode={onFocusNode}
@@ -272,8 +284,6 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
           onSetValue={onSetValue}
           onConfirm={onConfirm}
           nodeValueLookup={nodeValueLookup}
-          onSendMessage={onSendMessage}
-          aiAffordance={aiAffordance}
           suppressTriageQueue
           useV17Copy
         />

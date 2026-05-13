@@ -6,9 +6,11 @@
  *   - edit                                    → onFocusNode (prefill fallback)
  *   - confirm                                 → onConfirm   (prefill fallback)
  *
- * `prefillChat` must NEVER auto-send. Only the reflect-state CTA uses
- * `sendMessage` (auto-send), and that path runs through `handleCtaClick`,
- * not through this dispatcher.
+ * `prefillChat` must NEVER auto-send. After Fix 9 (Round-4 polish pass) the
+ * reflect-state CTA was relabelled "Test the result" and switched from
+ * auto-send to prefill, so the v17 hero now has ZERO auto-send paths in
+ * either this dispatcher or the footer CTA. `sendMessage` is still imported
+ * by the composer as a future-fallback, but no current path calls it.
  */
 
 import type { RowAction } from './analysisHeroVM.types'

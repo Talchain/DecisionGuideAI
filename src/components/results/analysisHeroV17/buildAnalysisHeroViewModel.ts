@@ -12,9 +12,15 @@
  * v1 fallbacks (per Paul's approved direction):
  *   - The fourth strip segment is labelled "Verified" (not "User input")
  *     and sourced from confirmedFactorCount / totalFactorCount.
- *   - The contribution line shows "{n} inputs verified" or is hidden — no
- *     "You checked X · Olumi inferred Y" because per-factor provenance is
- *     not available.
+ *   - The verified count surfaces ONCE — via `checkedCount` rendered to the
+ *     right of the dimension strip ("No inputs verified" / "1 input verified"
+ *     / "N inputs verified"). The earlier separate `contribution` line below
+ *     the strip was removed in Fix 1 of the Round-4 polish pass because it
+ *     duplicated the strip's count. `contribution.text` is always `null` and
+ *     the field is retained only for backward compatibility (deprecated;
+ *     scheduled for removal in the next major VM bump).
+ *   - Per-factor provenance ("You checked X · Olumi inferred Y") remains
+ *     unimplemented because the data is not available upstream.
  *   - `decision_quality_prompts` is consumed when present; otherwise a
  *     category-driven template is used; if no safe grounded question can
  *     be produced, the Key-question card is hidden.

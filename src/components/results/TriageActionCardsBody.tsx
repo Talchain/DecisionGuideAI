@@ -254,10 +254,18 @@ function T1DominantNudge({
   data,
   onFocusNode,
   onSendMessage,
+  useV17Copy = false,
 }: {
   data: ResultsSectionDataReturn
   onFocusNode?: (nodeId: string) => void
   onSendMessage?: (text: string) => void
+  /**
+   * v17 hero mode — apply glossary-safe copy and suppress auto-send chips.
+   * The Research chip dispatches `onSendMessage` (auto-send) and is therefore
+   * hidden when the v17 hero composes this body. The "recommendation could
+   * change" sentence is rewritten to glossary-safe language.
+   */
+  useV17Copy?: boolean
 }) {
   const drivers = data.drivers
   const topDriver = drivers.topDrivers?.[0] ?? drivers.drivers?.[0]
@@ -274,7 +282,14 @@ function T1DominantNudge({
     ?? topDriver?.factorKey
     ?? null
   const explanation = `drives ${dominantPct}% of the outcome.`
-  const fullExplanation = `Dominant factor: ${dominantLabel} ${explanation} If your assumptions about this factor are wrong, the recommendation could change.`
+  // (Round-5 P1.2) v17 mode rewrites the trailing sentence to glossary-safe
+  // copy. The legacy version contains "the recommendation could change",
+  // which trips the glossary scanner. Pre-v17 callers keep the original
+  // wording unchanged to avoid silent UX shifts in the legacy panel.
+  const trailingClause = useV17Copy
+    ? 'If your assumptions about this factor are wrong, the leading option could change.'
+    : 'If your assumptions about this factor are wrong, the recommendation could change.'
+  const fullExplanation = `Dominant factor: ${dominantLabel} ${explanation} ${trailingClause}`
 
   return (
     <div
@@ -301,7 +316,10 @@ function T1DominantNudge({
           Validate
         </button>
       )}
-      {onSendMessage && (
+      {/* (Round-5 P1.1) Research chip dispatches `onSendMessage` — auto-send.
+          v17 hero has zero auto-send paths, so the chip is suppressed when
+          useV17Copy is true. Legacy panel still renders it. */}
+      {!useV17Copy && onSendMessage && (
         <button
           type="button"
           onClick={() => onSendMessage(`Can you research ${dominantLabel} and suggest a reasonable estimate with sources?`)}
@@ -661,6 +679,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
         data={data}
         onFocusNode={onFocusNode}
         onSendMessage={onSendMessage}
+        useV17Copy={useV17Copy}
       />
 
       {/* 4. T1 checks footer — Brief 5.8B D2c step 3. */}

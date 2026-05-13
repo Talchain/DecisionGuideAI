@@ -92,7 +92,7 @@ export interface FooterCheck {
 export type FooterCtaKind =
   | 'review-weak-inputs'      // weak — prefill only
   | 'check-key-estimate'      // moderate — focus first, then prefill, no auto-send
-  | 'challenge-result'        // reflect — auto-send
+  | 'challenge-result'        // reflect — prefill only ("Test the result"); kept as name for handler stability after Fix 9 dropped auto-send
   | 'create-decision-brief'   // strong — prefill only
 
 export interface FooterCta {
