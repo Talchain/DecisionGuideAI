@@ -1698,12 +1698,14 @@ const HEADLINE_OK_STATUSES: ReadonlySet<string> = new Set([
  * data-source comment block in `captureDisplayState` for the full rationale.
  *
  * Honest-missing contract (mirrors the D4/D5/D8 tri-state principle): only
- * entries with a numeric `win_probability` participate in the sort. If every
- * entry is missing `win_probability` (or the array is empty), the function
- * returns `null` rather than emitting a confident "{first label} performs
- * best" for a lexicographic accident. Per `V2OptionComparison.win_probability`
- * (`src/adapters/plot/v2/types.ts:161`) the field is optional, so partial /
- * malformed wire shapes are a real production possibility.
+ * entries with a numeric, finite `win_probability` participate in the sort.
+ * If every entry is missing `win_probability` (or the array is empty), the
+ * function returns `null` rather than emitting a confident "{first label}
+ * performs best" — which would otherwise be the first option_comparison
+ * entry preserved by the stable sort, not an analytical winner. Per
+ * `V2OptionComparison.win_probability` (`src/adapters/plot/v2/types.ts:161`)
+ * the field is optional, so partial / malformed wire shapes are a real
+ * production possibility.
  *
  * Report-only fallback policy (Codex round-2 follow-up): `hero_headline_displayed`
  * is a legacy field (`exportBundle.displayState.spec.ts:4` — canonical
@@ -1809,8 +1811,13 @@ function extractRenderedFactors(
       ? (unit ? `${value} ${unit}` : String(value))
       : null
     const match = matchFactor(n.id, d?.label)
-    const influenceVal = typeof match?.influence_score === 'number' ? match.influence_score : null
-    const sensitivityVal = typeof match?.sensitivity_score === 'number' ? match.sensitivity_score : null
+    // Finite-number guard mirrors the resolveOption check for consistency
+    // (Codex round-3 follow-up). JSON cannot carry NaN/Infinity from the
+    // wire, but any future producer surfacing non-finite values should
+    // collapse to `unmatched` honestly rather than display a confident
+    // numeric.
+    const influenceVal = typeof match?.influence_score === 'number' && Number.isFinite(match.influence_score) ? match.influence_score : null
+    const sensitivityVal = typeof match?.sensitivity_score === 'number' && Number.isFinite(match.sensitivity_score) ? match.sensitivity_score : null
     const factorId = typeof match?.factor_id === 'string' ? match.factor_id : n.id ?? null
     return {
       id: n.id,
@@ -1910,6 +1917,16 @@ export async function captureDisplayState(): Promise<DisplayState> {
       source: WinProbabilitySource
     }
 
+    // Honest-missing finite-number check shared across the three win_probability
+    // resolution tiers (Codex round-3 follow-up): the rest of the export already
+    // applies this principle for the hero headline. JSON from the wire cannot
+    // carry NaN/Infinity, but the mapper-synthesised tertiary fallback
+    // (`report.option_probabilities`) traverses local math and could
+    // theoretically surface a non-finite value; treating those as "unmatched"
+    // is consistent with the D4/D5/D8 tri-state contract and removes the
+    // internal-consistency nit Codex flagged.
+    const isFiniteWinProb = (v: unknown): v is number =>
+      typeof v === 'number' && Number.isFinite(v)
     const resolveOption = (node: { id: string; data: unknown }): ResolvedOption => {
       const d = node.data as Record<string, unknown> | undefined
       const nodeLabel = (d?.label as string) ?? null
@@ -1919,7 +1936,7 @@ export async function captureDisplayState(): Promise<DisplayState> {
         if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
         return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
       })
-      if (match && typeof match.win_probability === 'number') {
+      if (match && isFiniteWinProb(match.win_probability)) {
         return {
           node,
           optionId: typeof match.option_id === 'string' ? match.option_id : node.id,
@@ -1933,7 +1950,7 @@ export async function captureDisplayState(): Promise<DisplayState> {
         if (typeof o?.option_id === 'string' && o.option_id === node.id) return true
         return Boolean(norm) && normaliseLabel(o?.option_label ?? o?.option) === norm
       })
-      if (match && typeof match.win_probability === 'number') {
+      if (match && isFiniteWinProb(match.win_probability)) {
         return {
           node,
           optionId: typeof match.option_id === 'string' ? match.option_id : node.id,
@@ -1950,7 +1967,7 @@ export async function captureDisplayState(): Promise<DisplayState> {
       // label — a consumer reading the exported bundle finds this datum at
       // `results.report.option_probabilities`, not at `payloads.plot_response`.
       const probEntry = optionProbabilities[node.id]
-      if (probEntry && typeof probEntry.win_probability === 'number') {
+      if (probEntry && isFiniteWinProb(probEntry.win_probability)) {
         return {
           node,
           optionId: node.id ?? null,
@@ -1963,8 +1980,12 @@ export async function captureDisplayState(): Promise<DisplayState> {
     }
 
     const resolvedOptions = optionNodes.map(resolveOption)
+    // `allHaveWinProb` now mirrors the finite-number guard above so the
+    // rank-source decision is consistent: any non-finite slipping through
+    // would have been resolved as null/unmatched anyway, but this keeps the
+    // intent explicit.
     const allHaveWinProb = resolvedOptions.length > 0
-      && resolvedOptions.every((r) => typeof r.winProbability === 'number')
+      && resolvedOptions.every((r) => isFiniteWinProb(r.winProbability))
 
     let rankByNodeId: Map<string, number>
     let rankSource: RankSource

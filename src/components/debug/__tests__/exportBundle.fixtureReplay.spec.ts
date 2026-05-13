@@ -752,11 +752,10 @@ describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shap
   // Codex round-2 review on PR #141: V2OptionComparison.win_probability is
   // optional (src/adapters/plot/v2/types.ts:161). A malformed or partial
   // option_comparison where no entry carries a numeric win_probability must
-  // NOT emit "{first label} performs best" for the lexicographic-first
-  // option — that would fabricate a confident headline from no analytical
-  // signal. The honest-missing contract returns null instead, mirroring the
-  // D4/D5/D8 tri-state principle (unmatched stays unmatched, never zero-
-  // promoted).
+  // NOT emit "{first label} performs best" — that would fabricate a
+  // confident headline from no analytical signal. The honest-missing
+  // contract returns null instead, mirroring the D4/D5/D8 tri-state
+  // principle (unmatched stays unmatched, never zero-promoted).
   it('hero_headline_displayed is null when option_comparison entries lack numeric win_probability', async () => {
     displayStateMockState = mockStateFromMinimalE33({
       rawV2ResponseOverride: {
@@ -772,8 +771,11 @@ describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shap
     const { captureDisplayState } = await import('../utils/exportBundle')
     const ds = await captureDisplayState()
     // No analytical winner → null headline. The pre-Codex implementation
-    // would have emitted "Hire One Senior Developer performs best" (lexico-
-    // first option) because the sort treats missing as 0 and is stable.
+    // would have emitted "Hire One Senior Developer performs best" — the
+    // first option_comparison entry, picked because Array.prototype.sort is
+    // stable and `?? 0` made every entry compare equal. Codex round-3 noted
+    // the earlier "lexicographic-first" wording was inaccurate: the bug is
+    // input-array-order preservation, not alphabetic sorting.
     expect(ds.hero_headline_displayed).toBeNull()
   })
 
@@ -790,6 +792,70 @@ describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shap
     const { captureDisplayState } = await import('../utils/exportBundle')
     const ds = await captureDisplayState()
     expect(ds.hero_headline_displayed).toBeNull()
+  })
+
+  // Codex round-3 follow-up: D5 win_probability resolution applies the same
+  // finite-number guard the hero headline uses. JSON cannot carry NaN /
+  // Infinity from the wire, but the mapper-synthesised tertiary fallback
+  // (`results.report.option_probabilities`) traverses local math and could
+  // theoretically surface non-finite values. Internal consistency: non-
+  // finite anywhere → unmatched, never zero-promoted into the rank order.
+  it('D5: non-finite win_probability across all three tiers → unmatched honestly', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: {
+        option_comparison: [
+          { option_id: 'opt_one_dev', option_label: 'Hire One Senior Developer', win_probability: Number.NaN },
+          { option_id: 'opt_tech_lead', option_label: 'Hire a Tech Lead', win_probability: Number.POSITIVE_INFINITY },
+          { option_id: 'opt_two_devs', option_label: 'Hire Two Developers', win_probability: Number.NEGATIVE_INFINITY },
+          { option_id: 'opt_status_quo', option_label: 'Keep Current Team (Status Quo)' /* missing */ },
+        ],
+        factor_sensitivity: [],
+      },
+      // Disable the report-tier fallback so this test isolates the finite-
+      // check on the wire tier. The same finite guard applies symmetrically
+      // to the report tier — covered separately by the report-only test
+      // below and by the headline `NaN/Infinity → null` test.
+      reportOverride: {},
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const rendered = ds.rendered_options ?? []
+    expect(rendered.length).toBe(4)
+    // Every option resolves to unmatched — no entry has a finite
+    // win_probability anywhere in the resolution chain.
+    for (const r of rendered) {
+      expect(r.win_probability_source).toBe('unmatched')
+      expect(r.win_probability_displayed).toBeNull()
+    }
+    // No analytical rank → canvas_order fallback
+    expect(rendered.every((r) => r.rank_source === 'canvas_order')).toBe(true)
+  })
+
+  it('D4: non-finite influence_score / sensitivity_score → unmatched honestly', async () => {
+    displayStateMockState = mockStateFromMinimalE33({
+      rawV2ResponseOverride: {
+        option_comparison: [],
+        factor_sensitivity: [
+          { factor_id: 'fac_tech_lead', factor_label: 'Tech Lead in Place', influence_score: Number.NaN, sensitivity_score: 0.4 },
+          { factor_id: 'fac_dev_capacity', factor_label: 'Developer Capacity', influence_score: 0.5, sensitivity_score: Number.POSITIVE_INFINITY },
+        ],
+      },
+    })
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    const factors = ds.rendered_factors ?? []
+    const byId = new Map(factors.map((r) => [r.id, r]))
+    // Non-finite influence on fac_tech_lead → influence_source unmatched,
+    // but sensitivity_score is finite (0.4) → sensitivity_source remains
+    // payload-resolved. Asymmetric per-field finite check is the correct
+    // honest behaviour.
+    expect(byId.get('fac_tech_lead')?.influence_source).toBe('unmatched')
+    expect(byId.get('fac_tech_lead')?.influence_displayed).toBeNull()
+    expect(byId.get('fac_tech_lead')?.sensitivity_displayed).toBe(0.4)
+    // Mirror on fac_dev_capacity: influence finite, sensitivity non-finite.
+    expect(byId.get('fac_dev_capacity')?.influence_displayed).toBe(0.5)
+    expect(byId.get('fac_dev_capacity')?.sensitivity_source).toBe('unmatched')
+    expect(byId.get('fac_dev_capacity')?.sensitivity_displayed).toBeNull()
   })
 
   // Codex round-2 follow-up: documents the deliberate choice that
