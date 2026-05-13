@@ -710,4 +710,42 @@ describe('D4/D5/D8: e33acb92 real-shape regression (production canvas-store shap
       expect(r.sensitivity_displayed).toBeNull()
     }
   })
+
+  // Codex review on PR #141 surfaced a pre-existing gap: deriveHeroHeadline
+  // only treated 'success'/'computed' as winner-headline states, while
+  // production canvas-store writes `ResultsStatus === 'complete'`
+  // (src/canvas/store.ts:168, 2488). The winner branch was unreachable in
+  // production — even after this PR's data-source fix, `optionComparison`
+  // would never be consulted on a real complete run. The fix adds 'complete'
+  // to the accepted statuses. `hero_headline_displayed` is a legacy field
+  // (canonical `analysis_display_*` fields supersede it; see
+  // exportBundle.displayState.spec.ts:4), but as long as it ships in
+  // bundles, its derivation must reach the analytical-winner branch on a
+  // real complete run.
+  it('hero_headline_displayed derives analytical winner on production results.status === "complete"', async () => {
+    displayStateMockState = mockStateFromMinimalE33()
+    const { captureDisplayState } = await import('../utils/exportBundle')
+    const ds = await captureDisplayState()
+    // opt_tech_lead is the analytical winner (win_probability 0.8865) — the
+    // fixture's results.status is 'complete', matching the real production
+    // path. Previously the function returned 'Analysis complete' (literal
+    // fallback for non-success/computed status), masking the analytical
+    // winner.
+    expect(ds.hero_headline_displayed).toBe('Hire a Tech Lead performs best')
+  })
+
+  it('hero_headline_displayed honours legacy "success" / "computed" statuses', async () => {
+    // Tolerance for older fixtures and externally constructed payloads.
+    for (const legacyStatus of ['success', 'computed']) {
+      displayStateMockState = mockStateFromMinimalE33()
+      // Override the results.status set by the mock helper.
+      displayStateMockState.results = {
+        ...displayStateMockState.results!,
+        status: legacyStatus,
+      }
+      const { captureDisplayState } = await import('../utils/exportBundle')
+      const ds = await captureDisplayState()
+      expect(ds.hero_headline_displayed).toBe('Hire a Tech Lead performs best')
+    }
+  })
 })

@@ -1690,7 +1690,16 @@ function deriveHeroHeadline(
 ): string | null {
   if (!results) return null
   const status = results.status as string | undefined
-  if (status !== 'success' && status !== 'computed') return status ? `Analysis ${status}` : null
+  // Production canvas-store writes `ResultsStatus === 'complete'`
+  // (`src/canvas/store.ts:168, 2488`) on analysis completion. The legacy
+  // `'success'` and `'computed'` values are kept to tolerate older fixtures
+  // and externally constructed payloads, but `'complete'` is the only value
+  // a real production run produces — without it here the winner branch
+  // below was unreachable in production. See Codex review on PR #141.
+  const HEADLINE_OK_STATUSES = new Set(['complete', 'success', 'computed'])
+  if (status === undefined || !HEADLINE_OK_STATUSES.has(status)) {
+    return status ? `Analysis ${status}` : null
+  }
   if (optionCount === 0) return 'No options to evaluate'
 
   // Find winner from option_comparison (same source as HeroSection)
