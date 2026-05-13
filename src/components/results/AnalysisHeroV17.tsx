@@ -56,8 +56,20 @@ export interface AnalysisHeroV17Props {
   onConfirm?: (nodeId: string) => void
   expertMode?: boolean
   nodeValueLookup?: Record<string, { value: number | null; unit: string | null; cap: number | null; displayValue?: string | null }>
-  /** Used by the action-card body's dominant-factor "Research" chip — pass through unchanged. */
+  /**
+   * Accepted for interface compatibility with `DecisionConfidencePanel`
+   * (the legacy panel forwards this to the dominant-factor Research chip
+   * for auto-send). The v17 hero has zero auto-send paths after Fix 9
+   * of the round-4 polish pass, so this prop is INTENTIONALLY IGNORED
+   * here — see the underscore-prefix destructure below. (Round-5 P1.1.)
+   */
   onSendMessage?: (text: string) => void
+  /**
+   * Accepted for interface compatibility with `DecisionConfidencePanel`
+   * (the legacy panel renders this inside `MissingKnowledgePrompt`, whose
+   * AI affordance prefers `_sendMessage` over `_prefillChat`). v17 hero
+   * INTENTIONALLY IGNORES it to avoid re-introducing an auto-send path.
+   */
   aiAffordance?: ReactNode
 }
 

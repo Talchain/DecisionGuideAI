@@ -26,6 +26,13 @@ import type { TriageCardCategory, TriageCardAction } from '@/components/shared/T
 import type { ScientificEditorProps } from '@/components/shared/ScientificEditor'
 import { TargetProbabilityBars } from './TargetProbabilityBars'
 import { stripEncodingNotation, cleanFactorLabel } from './utils/cleanFactorLabel'
+// Canonical glossary check shared with the v17 hero row builders. Used in
+// v17 mode (`useV17Copy === true`) to sanitise user-supplied labels before
+// they are interpolated into GENERATED prose, aria-labels, or titles. The
+// raw label is still preserved verbatim in visible identity fields (the
+// bolded factor-name span) — only the generated text around it is gated.
+// See analysisHeroV17/glossaryCheck.ts header for the dependency rationale.
+import { safeInterpolatedLabel } from './analysisHeroV17/glossaryCheck'
 import { typography } from '@/styles/typography'
 import type { ResultsSectionDataReturn } from './useResultsSectionData'
 import { MissingKnowledgePrompt } from '@/components/shared/MissingKnowledgePrompt'
@@ -65,12 +72,23 @@ interface TriageActionCardsBodyProps {
    */
   suppressTriageQueue?: boolean
   /**
-   * When true, body literals that are glossary-bannned in legacy form
-   * ("Winner" / "No winner") swap to glossary-compliant alternatives
-   * ("Has leading option" / "No clear leader"). Default false — legacy
-   * `DecisionConfidencePanel` rendering keeps its existing copy and
-   * tests untouched. AnalysisHeroV17 passes true so the v17 card is
-   * glossary-compliant end-to-end. (Per P1.2 review feedback.)
+   * v17 hero opt-in for glossary-safe copy across the body sub-components.
+   * When true, applies in three distinct places:
+   *   1. `T1ChecksFooter` literals: "Winner" / "No winner" →
+   *      "Has leading option" / "No clear leader".
+   *   2. `T1DominantNudge`: rewrites the trailing tooltip sentence
+   *      ("the recommendation could change" → "the leading option could
+   *      change") AND sanitises the `dominantLabel` interpolation in
+   *      `aria-label` + `title` via `safeInterpolatedLabel`. Also
+   *      suppresses the auto-send Research chip.
+   *   3. `T1FlipRiskCallout`: sanitises `fragile.fromLabel` and
+   *      `alternativeWinnerLabel` interpolations in the generated prose
+   *      and Validate-button text via `safeInterpolatedLabel`.
+   *
+   * The visible bolded identity span in each nudge still renders the raw
+   * user label — only generated wrapping copy is gated. Default false —
+   * legacy `DecisionConfidencePanel` rendering keeps its existing copy
+   * and tests untouched. (Per P1.1/P1.2 round-5 review feedback.)
    */
   useV17Copy?: boolean
 }
@@ -206,15 +224,34 @@ function ResultChecks({ data }: { data: ResultsSectionDataReturn }) {
 function T1FlipRiskCallout({
   data,
   onFocusNode,
+  useV17Copy = false,
 }: {
   data: ResultsSectionDataReturn
   onFocusNode?: (nodeId: string) => void
+  /**
+   * v17 hero mode — sanitise user-supplied labels before interpolating them
+   * into the generated prose. Legacy callers (`DecisionConfidencePanel`)
+   * pass labels through unchanged (default false). (Round-5 P1.1 + P1.2.)
+   */
+  useV17Copy?: boolean
 }) {
   const fragile = data.confidence.topFragileEdge ?? data.confidence.m1CoachingTopFragileEdge
   if (!fragile) return null
   const switchPct = fragile.switchProbability != null
     ? Math.round(fragile.switchProbability * 100)
     : null
+  // (Round-5 P1.1) In v17 mode, swap a banned-term label for a generic
+  // phrase BEFORE interpolating into the visible prose, aria text, and
+  // button copy. The raw label still appears in the legacy panel verbatim.
+  const fromLabelDisplay = useV17Copy
+    ? safeInterpolatedLabel(fragile.fromLabel, 'this factor')
+    : fragile.fromLabel
+  const altWinnerLabelDisplay = useV17Copy
+    ? safeInterpolatedLabel(fragile.alternativeWinnerLabel, 'the next option')
+    : fragile.alternativeWinnerLabel
+  const validateLabel = useV17Copy
+    ? safeInterpolatedLabel(stripEncodingNotation(fragile.fromLabel), 'this factor')
+    : stripEncodingNotation(fragile.fromLabel)
   return (
     <div
       className="flex items-start gap-2 px-3 py-2 rounded-lg border border-warning/30 bg-panel"
@@ -222,8 +259,8 @@ function T1FlipRiskCallout({
     >
       <AlertTriangle size={14} className="text-warning flex-shrink-0 mt-0.5" aria-hidden="true" />
       <p className={`${typography.panelBody} text-text-body`}>
-        If <strong>{fragile.fromLabel}</strong> shifts,{' '}
-        <strong>{fragile.alternativeWinnerLabel}</strong> could overtake
+        If <strong>{fromLabelDisplay}</strong> shifts,{' '}
+        <strong>{altWinnerLabelDisplay}</strong> could overtake
         {switchPct != null && ` (${switchPct}% probability)`}.
         {onFocusNode && fragile.fromId && (
           <>
@@ -233,7 +270,7 @@ function T1FlipRiskCallout({
               onClick={() => onFocusNode(fragile.fromId)}
               className="text-info hover:underline cursor-pointer"
             >
-              Validate {stripEncodingNotation(fragile.fromLabel)}
+              Validate {validateLabel}
             </button>
           </>
         )}
@@ -289,7 +326,16 @@ function T1DominantNudge({
   const trailingClause = useV17Copy
     ? 'If your assumptions about this factor are wrong, the leading option could change.'
     : 'If your assumptions about this factor are wrong, the recommendation could change.'
-  const fullExplanation = `Dominant factor: ${dominantLabel} ${explanation} ${trailingClause}`
+  // (Round-5 P1.1) v17 mode: the dominant factor's label is user data and
+  // still appears VERBATIM in the visible identity span. But when the same
+  // label gets interpolated into generated text (aria-label, title), gate
+  // it through the canonical glossary check so a user-named factor like
+  // "Best choice analysis" cannot smuggle a banned term into accessibility
+  // output. Legacy panel keeps the raw label in both places.
+  const labelForGeneratedCopy = useV17Copy
+    ? safeInterpolatedLabel(dominantLabel, 'this factor')
+    : dominantLabel
+  const fullExplanation = `Dominant factor: ${labelForGeneratedCopy} ${explanation} ${trailingClause}`
 
   return (
     <div
@@ -303,6 +349,7 @@ function T1DominantNudge({
       {/* Factor name never truncates; explanation text takes remaining space and clips. */}
       <p className={`${typography.panelMeta} text-text-body min-w-0 flex-1 flex items-baseline gap-1 overflow-hidden`}>
         <span className="whitespace-nowrap"><strong>Dominant factor:</strong></span>
+        {/* Visible identity span — always renders the raw user label, even in v17 mode. */}
         <span className="font-semibold whitespace-nowrap">{dominantLabel}</span>
         <span className={`truncate min-w-0 flex-1 text-text-light`}>{explanation}</span>
       </p>
@@ -311,7 +358,7 @@ function T1DominantNudge({
           type="button"
           onClick={() => onFocusNode(dominantFocusId)}
           className={`flex-shrink-0 px-2 py-0.5 rounded-full ${typography.panelMeta} text-warning border border-warning/30 bg-transparent hover:bg-panel-hover cursor-pointer focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-warning`}
-          aria-label={`Validate ${dominantLabel} on canvas`}
+          aria-label={`Validate ${labelForGeneratedCopy} on canvas`}
         >
           Validate
         </button>
@@ -590,7 +637,7 @@ export const TriageActionCardsBody = memo(function TriageActionCardsBody({
       {/* 2a. Flip-risk callout (moved out of ResultChecks per D2c step 1). */}
       {(data.confidence.topFragileEdge || data.confidence.m1CoachingTopFragileEdge) && (
         <div className="border-t border-panel-border pt-3">
-          <T1FlipRiskCallout data={data} onFocusNode={onFocusNode} />
+          <T1FlipRiskCallout data={data} onFocusNode={onFocusNode} useV17Copy={useV17Copy} />
         </div>
       )}
 
