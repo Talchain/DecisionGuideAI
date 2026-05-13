@@ -19,6 +19,12 @@ describe('ACTION_TO_TURN_TYPE mapping', () => {
   const expectedMappings: Record<string, string> = {
     run_analysis: 'run_analysis',
     explain_result: 'explain',
+    // Phase 2b of the V5 completion plan (2026-05-13): backend handler ID
+    // is the PLURAL `explain_results`. Singular kept as legacy alias
+    // because chip-generator's prompt chips used it as a discriminator.
+    // Both must map identically to 'explain' so the deterministic
+    // chip-click bypass fires regardless of which alias the chip carries.
+    explain_results: 'explain',
     compare_options: 'explain',
     what_would_flip: 'explain',
     challenge_assumption: 'conversation',

@@ -1096,7 +1096,17 @@ export interface PatchRejectionInfo {
 /** Deterministic action_type → turn type mapping. Falls back to 'conversation' for unknown actions. Exported for tests. */
 export const ACTION_TO_TURN_TYPE: Record<string, Exclude<TurnType, 'system_event'>> = {
   run_analysis: 'run_analysis',
+  // V5 backend handler ID is the PLURAL `explain_results` (see backend
+  // `src/orchestrator-v5/handlers/chip-click-dispatch.ts:137-141` whitelist +
+  // `src/orchestrator-v5/compose/chip-generator.ts` chip emission, post-
+  // Phase-2b). Singular `explain_result` retained as a legacy alias because
+  // the chip-generator's `promptChip(...)` used it as a discriminator string
+  // for years and existing chip surfaces still emit it; either form must
+  // reach the same 'explain' turn type so dispatch is consistent and the
+  // deterministic chip-click bypass fires regardless of which alias the
+  // chip carries.
   explain_result: 'explain',
+  explain_results: 'explain',
   compare_options: 'explain',
   what_would_flip: 'explain',
   challenge_assumption: 'conversation',
