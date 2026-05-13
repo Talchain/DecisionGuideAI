@@ -10,7 +10,26 @@ constraint added; Phase 3 split into 3A minimum coaching contract + 3B
 full coaching layer; testing-gate principle clarified as baseline-diff;
 useConversation.ts ownership recorded for Phases 2–3; Phase 2b round-2
 reviewer findings addressed in olumi-assistants-service#170 + companion
-DGAI#140 UI chip whitelist PR).
+DGAI#140 UI chip whitelist PR; **directional corrections (2026-05-13
+late)**: phases are PR-open not complete until merged+deployed+staging-
+gated; Phase 2b trade-off RESOLVED as Option (i) ship-as-is interim;
+#170+#140 paired deployment ordering recorded; recommended merge order
+recorded; Phase 2a.1 edge-label scope clarified as `from::to` →
+friendly endpoint labels before Olumi smoke; Phase 2c diagnosis kicked
+off as read-only; data contract reference bumped to
+`v5-analysis-tab-data-contract-v1_3.md` and marked FROZEN).
+
+## Phase-completion semantics — IMPORTANT
+
+A phase is **PR-open** until:
+1. its PR(s) have **merged** to `staging` of the relevant repo(s), AND
+2. the merge has **deployed** to staging (Netlify / Render), AND
+3. the staging gate (G1 for Phase 1, G2 for Phase 2 + Olumi experience
+   smoke, etc.) has been verified against deployed staging.
+
+Per this rule, as of the most recent update **Phases 1, 2a, and 2b are
+ALL PR-open, NOT complete.** Do not describe them as "done" in any
+communication until the gate condition above is met.
 
 ## Programme shape
 
@@ -36,7 +55,7 @@ Scientific-audit gate          : ISL B3, PLoT B3, EVPI clamp, flip-threshold
 |---|---|---|
 | **1** | Debug exporter V5 awareness + visible Results rendering proof | Bundles + tests stop lying about V5 turns; visible-render is automated |
 | **2** | Restore core journey reliability and speed (4 sub-PRs: 2a labels, 2b chip-click bypass, 2c raw-value suppression *diagnosis-first*, 2d no-op honesty *after 2a/2b*) | "What changed?" names real entities; chip clicks fast; assistant copy doesn't leak raw IDs; no-op edits honest + fast |
-| **3A** | Minimum coaching contract — emit ReviewCard / Coaching / Evidence / Exercise blocks conforming to `v5-analysis-tab-data-contract-v1.md`; auto-invoke decision_review with guardrails | Coaching meets UX §9.1 + §9.2 |
+| **3A** | Minimum coaching contract — emit ReviewCard / Coaching / Evidence / Exercise blocks conforming to `v5-analysis-tab-data-contract-v1_3.md`; auto-invoke decision_review with guardrails | Coaching meets UX §9.1 + §9.2 |
 | **3B** | Full coaching layer — draft_graph coaching outputs, coaching_state persistence, evidence-ranked coaching, formatting/layout, chip↔coaching coherence | Coaching meets UX §9.3 + §9.4 |
 | **4** | V4 retirement, scientific cleanup, methodology / audit | Single-codepath V5; scientific gate also passed; no V4 dead code |
 
@@ -61,9 +80,11 @@ gate passes (see "Gates" section).
 ## Phase status
 
 ### Phase 1 — Debug exporter V5 awareness + visible-render verification
-- **Status**: 🔄 **PR #138 OPEN** (https://github.com/Talchain/DecisionGuideAI/pull/138)
-  at branch `claude/v5-phase1-debug-exporter`, head `3d84df0e`. Awaiting
-  Codex review.
+- **Status**: 🔄 **PR-open, NOT complete** — PR #138 OPEN
+  (https://github.com/Talchain/DecisionGuideAI/pull/138) at branch
+  `claude/v5-phase1-debug-exporter`, head `3d84df0e`. Awaiting Codex
+  review + merge + staging deploy + G1 visible-render assertion on
+  deployed staging. **Phase 1 only closes once all four are met.**
 - **Blockers**: none
 - **Upstream context**: PR #137 (V5 Results-panel hydration) **MERGED**
   at `21c6d1e22f34d0ea8c03e219ccb31ba4baa3afd4` on 2026-05-12. Code path
@@ -146,6 +167,12 @@ gate passes (see "Gates" section).
 - **Sub-structure**:
 
 #### Phase 2a — Step 3 label resolution (preGraph through both layers)
+- **Status**: 🔄 **PR-open, NOT complete** —
+  olumi-assistants-service#169 open at branch
+  `claude/v5-step2a-step3-label-resolution`. Awaiting Codex review +
+  merge + staging deploy + manual replay verification. **Does not close
+  Phase 2a until Phase 2a.1 (edge-label `from::to` → friendly labels)
+  has also landed before the Olumi experience smoke.**
 - **What lands**:
   - `resolveElementLabel(id, currentNodes, currentEdges, preGraph)` —
     new `preGraph` parameter, used so deleted/changed entities still
@@ -178,6 +205,13 @@ gate passes (see "Gates" section).
     — `sanitiseAffectedEntityLabel` widened to accept `preGraph`.
 
 #### Phase 2b — Deterministic chip-click dispatch for safe chip actions
+- **Status**: 🔄 **PR-open, NOT complete** —
+  olumi-assistants-service#170 (backend) and DGAI#140 (UI companion)
+  both open. **Paired deployment**: merge + deploy #170 FIRST, then
+  merge + deploy #140. Do NOT deploy #140 before #170 — the UI
+  whitelist would expose chips whose backend dispatcher does not yet
+  exist on staging, producing a worse latency outcome than the current
+  pre-PR behaviour for any user who lands on staging mid-deploy.
 - **What lands**:
   - Generalise `dispatchChipClickRunAnalysis` →
     `dispatchDeterministicChipClick(actionType)` whitelist-based dispatcher
@@ -213,9 +247,11 @@ gate passes (see "Gates" section).
   assistants-service#170's `chip-generator` change. Required co-merge.
 
 #### Phase 2c — Raw / internal value suppression in user-facing copy
-- **Status**: **diagnosis-only first**, then brief, then implementation.
-  Do **not** start a fix PR until the diagnosis identifies actual
-  leakage paths on real V5 turns.
+- **Status**: 🔍 **Phase 2c.0 diagnosis IN PROGRESS (read-only).**
+  Kicked off 2026-05-13 (late evening) per directional correction.
+  Output diagnosis doc due before any brief or fix PR. **No
+  implementation work permitted until the diagnosis identifies actual
+  leakage paths on real V5 turns.**
 - **Phase 2c.0 — Diagnosis (must precede brief):**
   - Survey real V5 staging turns (`analysis_result`, `explain_result`,
     `what_would_flip`, `edit_graph` apply / reject / no-op) for
@@ -352,7 +388,7 @@ guessing at shapes.
 - **Hard constraint:** Phase 3A output shapes must conform to the
   v5 Analysis-tab data contract
   (`olumi-coaching-ux-requirements-v1.md`'s companion doc
-  `v5-analysis-tab-data-contract-v1.md`), especially:
+  `v5-analysis-tab-data-contract-v1_3.md`), especially:
   - `ReviewCardBlock`
   - `CoachingBlock`
   - `EvidenceBlock`
@@ -360,10 +396,10 @@ guessing at shapes.
   - interaction intents
   - freshness / staleness semantics
   - suppression rules
-  - **Contract status: DRAFT, pending V5 + Analysis-tab confirmation.
-    Treat as authoritative for Phase 3A but allow targeted revisions
-    when V5 and Analysis-tab implementations surface gaps. Each
-    revision is recorded in the change log.**
+  - **Contract status: FROZEN at `v5-analysis-tab-data-contract-v1_3.md`
+    (2026-05-13). This is the canonical authoritative shape for Phase
+    3A. Subsequent contract revisions land as `v1_4.md`, `v1_5.md` and
+    are recorded in the change log; v1_3 is not edited in place.**
 - **Six adopted corrections to the contract (carry through Phase 3A):**
   1. **Separate display text from machine references.** All
      coaching blocks expose `target_refs` (machine-readable IDs)
@@ -640,7 +676,7 @@ keep diffs orthogonal so the two sub-PRs can land independently.
 `useConversation.ts` during Phases 2 and 3. The Analysis-tab workstream
 consumes V5 contract artifacts (envelope shapes, `decision_review`
 output, structured coaching blocks per
-`v5-analysis-tab-data-contract-v1.md`) but does **not** modify
+`v5-analysis-tab-data-contract-v1_3.md`) but does **not** modify
 `useConversation.ts`. Analysis tab rendering reads from `useCanvasStore`
 slices (`results.report`, the future `coachingStore`) and from
 selector hooks (`useResultsSectionData`, the future
@@ -762,6 +798,28 @@ defer to CI for the baseline-diff comparison.
   executable chips would be filtered out by the V5 UI's
   `V5_ENABLED_ACTIONS` check before they reach the dispatcher.**
 
+### Recommended merge order (2026-05-13)
+
+The four open PRs must merge in this order:
+
+1. **DGAI #139** — tracker (`V5_CURRENT_STATE.md`). Lands the canonical
+   programme document first so subsequent PRs' tracker references
+   point at a tracked file. Doc-only.
+2. **DGAI #138** — Phase 1 (debug exporter V5 awareness +
+   visible-render proof). Lands the G1 evidence path. UI-only.
+3. **olumi-assistants-service #169** — Phase 2a (Step 3 label
+   resolution). Backend-only, no UI changes required.
+4. **olumi-assistants-service #170 + DGAI #140 — paired deploy.**
+   Backend #170 MUST merge + deploy first; DGAI #140 follows
+   immediately. Reversing the order would put UI chips on staging
+   whose backend dispatcher does not yet exist, which is strictly
+   worse than the pre-PR baseline for any user landing on staging
+   mid-deploy.
+
+Subsequent work (Phase 2a.1 edge-label follow-up, Phase 2c diagnosis,
+Phase 2d telemetry honesty, Olumi experience smoke) sequences after
+this block — see the relevant phase sections for details.
+
 ### Phase 2b reviewer findings (2026-05-13) — round-2 status
 
 Round-2 reviewer of PR #170 surfaced **two P1 gaps + one P2 stale-comment**
@@ -797,7 +855,7 @@ backend three on PR #170, the UI one on the new DGAI #140 companion):
    alias was already mapped). 446/446 UI tests pass; build typecheck
    clean; zero baseline-diff failures.
 
-### Phase 2b trade-off — DECISION NEEDED before merge
+### Phase 2b trade-off — RESOLVED (2026-05-13): Option (i) ship-as-is interim
 
 The brief's premise "ORIENT produces context the handlers don't use"
 turned out to be **incorrect** for v0.9+. Both `explain_results` and
@@ -818,26 +876,37 @@ turned out to be **incorrect** for v0.9+. Both `explain_results` and
   deterministic fallback (template-shaped), not by Sonnet on each
   chip click. Less context-sensitive, more predictable.
 
-**Decision to make:**
-- **(i) Ship as-is** (deterministic prose, fast). Phase 3 coaching
-  layer would later reintroduce Sonnet-quality explanation via the
-  structured coaching contract (which would also need to live on a
-  cached `decision_review` invocation, not in the chip-click hot path).
-- **(ii) Defer Phase 2b** until ORIENT-context handling is
-  architecturally separated from chip-click latency (likely Phase 3
-  scope expansion).
-- **(iii) Ship Phase 2b but exclude `explain_results` /
-  `what_would_flip` from the whitelist** (keeping only `run_analysis`),
-  which negates the user-facing latency win.
+**Decision (2026-05-13): Option (i) — ship as-is as an interim
+latency fix.** The deterministic explanation path is acceptable
+temporarily because Phase 3A will replace it with
+`decision_review`-backed coaching (per the resolved Option A homework
+decision above). The bypass saves ~12s per chip click today; Phase 3A
+restores Sonnet-quality copy via cached coaching output rather than
+on-path ORIENT.
 
-Recommendation surfaced from this agent run: **(i) ship as-is**, with
-the trade-off documented in the PR description and the deterministic
-prose path treated as an interim until Phase 3 coaching ships with
-proper per-chip-click context routing.
+Rejected:
+- **(ii) Defer Phase 2b** — the latency cost is corrosive enough that
+  shipping a deterministic interim wins net for the next ~weeks of
+  manual testing.
+- **(iii) Ship without `explain_results`/`what_would_flip`** — negates
+  the user-facing win entirely.
 
-Trade-off transparency: documented in PR #170 dispatcher source JSDoc
-and "Per-handler validation" section so future reviewers see it
-explicitly.
+**Codex review focus for PR #170 deterministic prose:**
+- **Raw values** — `composeExplainResultsFallback` /
+  `composeWhatWouldFlipFallback` outputs scanned for raw IDs (`opt_*`,
+  `fac_*`, `goal_*`, `e_*`), operator-glyphs (`<=`, `>=`, `≤`, `≥`),
+  schema-internal field names (`constraint_id`, `node_id`,
+  `provenance`, `raw_value`, `mean`, `std`).
+- **Internal terms** — any backend-vocabulary terms ("structural
+  readiness", "freshness=stale", "node sensitivity") that should not
+  reach a user.
+- **Template-copy awkwardness** — sentence fragments, missing
+  determiners, double-spaces, glued-together substitutions, "the
+  relevant factor" / "the relevant element" fallthroughs.
+
+Trade-off transparency: documented in PR #170 dispatcher source JSDoc,
+"Per-handler validation" section, and the PR description so future
+reviewers see it explicitly.
 
 ### Operational corrections to my prior status claims
 - ⚠️ **Full Test Suite is NOT clean.** Post-merge run on `21c6d1e2`
@@ -863,9 +932,11 @@ explicitly.
   Phase 3A acceptance standard; §9.3 + §9.4 are the Phase 3B acceptance
   standard. Removed from Phase 3 blocker list.
 - ✅ **v5 Analysis-tab data contract source**:
-  `v5-analysis-tab-data-contract-v1.md`. Treated as DRAFT-but-authoritative
-  for Phase 3A; six adopted contract corrections recorded in Phase 3A
-  scope above. Each future revision recorded in change log.
+  `v5-analysis-tab-data-contract-v1_3.md` — **FROZEN as the canonical
+  authoritative shape for Phase 3A** (2026-05-13). Six adopted
+  contract corrections recorded in Phase 3A scope above. Future
+  revisions land as new versioned files (`v1_4.md`, etc.) and are
+  recorded in the change log.
 - ✅ **`useConversation.ts` ownership during Phases 2–3**: V5 owns it
   under the working assumption that Analysis-tab work consumes V5
   contract artifacts but does not modify the dispatcher. Surface
@@ -885,11 +956,21 @@ explicitly.
 
 ### Phase 2a follow-up — edge-label sanitisation gap (Phase 2a.1, **manual-testing blocker**)
 
-Reviewer-corrected classification (2026-05-13): this is **Phase 2a
-follow-up**, NOT Phase 4 scientific cleanup. Edge edits are normal
-graph edits in the core user journey; "the relevant factor" appearing
-on edge updates is a Step 3 trust issue, not polish. **Broad manual
-testing must exclude edge-edit Step 3 assertions until this is fixed.**
+Reviewer-corrected classification (2026-05-13, reaffirmed in
+directional corrections): this is **Phase 2a follow-up**, NOT Phase 4
+scientific cleanup. Edge edits are normal graph edits in the core
+user journey; "the relevant factor" appearing on edge updates is a
+Step 3 trust issue, not polish. **Broad manual testing must exclude
+edge-edit Step 3 assertions until this is fixed, and Phase 2a.1 MUST
+land before the Olumi experience smoke gate runs.**
+
+**Required behaviour** (per directional correction): edge labels
+emitted to user copy MUST resolve `from::to` slug paths into friendly
+endpoint labels, e.g. `"fac_b::goal_y"` → `"the link from <label of
+fac_b> to <label of goal_y>"`. Either `AppliedChangeItem.label`
+carries the friendly representation, or the sanitiser learns to parse
+`from::to` and look both endpoints up in `preGraph`. Bare slug emission
+in user-visible surfaces is unacceptable.
 
 The Phase 2a backend agent surfaced this limitation while implementing
 node-label preGraph threading (PR #169):
@@ -927,14 +1008,32 @@ Phase 1 ships.**
 
 ## Change log
 
+- 2026-05-13 (late evening, directional corrections):
+  **Phase-completion semantics** — phases are PR-open until merged,
+  deployed and staging-gated; Phases 1, 2a, 2b explicitly reflagged
+  PR-open. **Phase 2b trade-off RESOLVED** as Option (i) ship-as-is
+  interim with Codex review focus on raw values, internal terms,
+  template-copy awkwardness. **#170 + #140 paired deployment** ordering
+  recorded (backend first, then UI). **Recommended merge order**
+  (#139 → #138 → #169 → #170+#140) added. **Phase 2a.1 edge-label
+  follow-up** scope clarified to resolve `from::to` paths into friendly
+  endpoint labels before the Olumi experience smoke. **Phase 2c
+  diagnosis** kicked off as read-only (no implementation until leakage
+  paths are mapped). **`v5-analysis-tab-data-contract-v1_3.md` FROZEN**
+  (was DRAFT). **Coaching UX §9 explicitly recorded as the Phase 3
+  acceptance standard**. **Baseline-diff testing discipline reaffirmed**
+  — do not describe full suite as green while baseline-failure state
+  persists.
 - 2026-05-13 (late evening): **Post-reconciliation corrections.**
   decision_review invocation = Option A (auto-invoke with guardrails)
   recorded; UX §9 source = `olumi-coaching-ux-requirements-v1.md` §9.1–9.4
-  recorded; **`v5-analysis-tab-data-contract-v1.md` adopted as Phase 3A
-  hard constraint** (DRAFT, pending V5+Analysis-tab confirmation) with
-  six corrections (target_refs, standard block metadata, Analysis-tab
-  owns visual rendering, CEE emits freshness/status/reason, verify
-  intents against handler/action registry, copy-length+fallback rules).
+  recorded as the Phase 3 acceptance standard (§9.1+§9.2 → Phase 3A,
+  §9.3+§9.4 → Phase 3B); **`v5-analysis-tab-data-contract-v1_3.md`
+  FROZEN as Phase 3A hard constraint** with six adopted corrections
+  (target_refs, standard block metadata, Analysis-tab owns visual
+  rendering, CEE emits freshness/status/reason, verify intents against
+  handler/action registry, copy-length+fallback rules). Future contract
+  revisions ship as new versioned files; v1_3 not edited in place.
   Phase 3 split into **3A (minimum coaching contract)** and
   **3B (full coaching layer)**. Testing-gate principle clarified:
   baseline-diff (no NEW deterministic failures vs prior HEAD), not
