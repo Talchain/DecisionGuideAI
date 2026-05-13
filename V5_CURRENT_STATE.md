@@ -27,112 +27,95 @@ owned by 2c, consolidation in 2c PR not deferred); `graph_patch` and
 DRAFTING NOW; Phase 2c diagnosis COMPLETE, next step is brief not
 implementation; Olumi smoke sequencing requires FULL Phase 2 ready
 (1,2a,2a.1,2b,2c,2d landed) or deferral explicitly recorded;
-**P0 (2026-05-13 late)**: DGAI staging deploy FAILING on bundle
-budget — all DGAI merges PAUSED until budget passes and
-`/version.json` confirms intended SHA; staging assertions in pause
-window unverified; both briefs remain DRAFT pending review).
+**P0 (2026-05-13 late)**: DGAI staging deploy was FAILING on bundle
+budget — RESOLVED 2026-05-13T15:34:01Z. PR #142 merged at
+`f0013169`; Netlify build completed in 1m 32s; `/version.json`
+serves the merged SHA; entry chunk on Netlify wire = 46.80 KB / 50
+KB (3.20 KB margin); DGAI merge queue UNPAUSED. Both briefs remain
+DRAFT pending review).
 
-## 🚨 P0 DEPLOY-UNBLOCKER — DGAI MERGES PAUSED (2026-05-13)
+## ✅ P0 DEPLOY-UNBLOCKER — RESOLVED (2026-05-13T15:34:01Z)
 
-**DGAI staging deploy is currently FAILING on bundle budget.** Every
-DGAI merge (#138, #139, #140 and any future DGAI PRs) is paused until
-this is fixed.
+**DGAI staging deploy is live on the intended SHA. DGAI merge queue
+unpaused.**
 
-### Most recent Netlify failure (2026-05-13)
+### Resolution receipt
 
 | Field | Value |
 |---|---|
-| Failed deploy commit | `27153431` (origin/staging HEAD) |
-| Failed entry chunk | `index-7UZyxHxP.js` |
-| Raw size | 155.71 KB |
-| Gzipped size | **50.49 KB** |
-| Budget | 50 KB |
-| Overage | 0.49 KB |
+| Merge commit (PR #142) | **`f0013169e17498adff11bc980e7dbc558b8c823e`** |
+| Merge timestamp | 2026-05-13T15:32:29Z |
+| Netlify deploy completed | 2026-05-13T15:34:01Z (1m 32s after merge) |
+| Staging `/version.json` | `{"commit":"f0013169...","short":"f0013169","timestamp":"2026-05-13T15:34:01Z"}` ✅ matches merge SHA |
+| Staging `https://staging--olumi.netlify.app/` | HTTP 200, served `index-DR5PhpmI.js` ✅ app loads |
+| Entry chunk on Netlify wire (gzipped) | **47,921 bytes = 46.80 KB / 50 KB budget — 3.20 KB margin** |
+| Netlify `verify-bundle-budget.mjs` step | ✅ passed (deploy could not have completed otherwise; /version.json is written by the same `build:ci` command in netlify.toml) |
+| Local Vite-reported gzip (for cross-check) | 46.73 KB (within ~0.1 KB of Netlify; the consistent gzip drift on the unfixed build is now resolved) |
 
-**`/version.json` confirms staging is NOT serving the expected latest
-DGAI commit.** As of 2026-05-13 (mid-afternoon UTC) `/version.json`
-returns `21c6d1e22f` (timestamp 2026-05-12T21:10:12Z) — the last
-SUCCESSFUL deploy. Every commit on `origin/staging` since then
-(`b5802b78`, `0ff7a654`, `da7a15e1`, `7d4aaa26`, `93514909`,
-`8da600e9`, `58eaa426`, `9f465e5c`, `27153431`) has either failed
-to deploy on bundle budget or has not been attempted by Netlify.
+### What PR #142 did
 
-### Fix in flight — PR #142
+- **Split `comparisonFlagBoot.ts`**: kept `bootAnalysisHeroCompareFromUrl()`
+  lightweight (URL → localStorage write, no `@/flags` import); moved
+  the `window.__analysisHeroV17` dev-console helper into a new sibling
+  file `comparisonFlagDevHelper.ts` loaded lazily from `main.tsx` via
+  `requestIdleCallback` (with `setTimeout` fallback).
+- **Fixed picker bug** at `scripts/verify-bundle-budget.mjs:50-52`:
+  resolves entry via `dist/index.html`'s `<script type="module">`
+  reference. Falls back to a size-ordered scan only when
+  `dist/index.html` is absent.
+- **Hardened the fallback** (Codex P3 follow-up, same PR): if
+  `dist/index.html` exists but the regex misses or the file is gone,
+  fail closed (exit 1) — no silent guessing. The same theme that
+  caused the original 5-day silent breach.
 
-P0 unblocker PR opened: **https://github.com/Talchain/DecisionGuideAI/pull/142**
+### Why it took the form it did
 
-Branch `claude/v5-p0-deploy-unblocker`, head `e5f3245d`, based on
-`origin/staging @ 27153431`.
+Locally, the picker had been masking the real entry chunk for ~5 days
+by picking the 9 KB lucide companion instead of the 50 KB real entry.
+The eager import at `src/main.tsx:7` of `bootAnalysisHeroCompareFromUrl`
+pulled the `@/flags` dependency chain into the entry chunk, anchoring
+it at 49–51 KB and making every commit a coin-flip against Netlify
+gzip. Splitting the helper removed ~3 KB; fixing the picker means
+future eager-import creep will fail `build:ci` locally before reaching
+Netlify.
 
-- **Local Vite-reported entry-chunk gzip**: 50.92 KB → 47.86 KB
-  (Δ −3.06 KB). With the same ~0.4 KB Netlify-zlib drift observed on
-  the unfixed build (local 50.92 → Netlify 50.49), the fixed entry
-  should land at **~47.5 KB on Netlify Linux** — 2.5 KB margin under
-  the 50 KB budget.
-- **Picker bug also fixed**: `scripts/verify-bundle-budget.mjs:50-52`
-  used `Array.find` on `readdirSync` output, which masked the real
-  entry chunk on macOS for ~5 days. Picker now resolves via
-  `dist/index.html`'s `<script type="module" src=...>` reference
-  with a size-ordered fallback.
-- **Scope**: 4 files, +152 / −84 lines, 1 new file. No package /
-  lockfile / prompt / schema / backend / generated-file changes. No
-  router or boot-flow refactor.
-- **Build verification**: `npm run build:ci` passes locally; verifier
-  reports 46.73 KB on the real entry chunk.
+### Mid-flight state change (recorded for posterity)
+
+PR #142 was originally based on `origin/staging @ 27153431`. Between
+when the P0 was reported and when the merge happened, 5 additional
+v17-hero polish commits landed on staging (`5a610832`, `c0eb5075`,
+`8a60da83`, `d3443744`, `f5546fd1`), and one of them (`c0eb5075`,
+"flag default-off") brought the entry chunk back down enough that
+Netlify started serving `f5546fd1` successfully at 49.72 KB — still
+knife-edge but technically under budget. PR #142 was rebased onto
+`f5546fd1`, retested (build:ci ✅, tsc ✅, 222/222 v17 tests ✅), and
+merged. The fix is still load-bearing on the new HEAD: without it,
+every future commit is back to coin-flipping; with it, 3.20 KB margin.
 
 ### Implication for ongoing work
 
-- **Staging assertions** made against `/version.json @ 21c6d1e2` are
-  technically valid for that SHA but **do NOT cover any code merged
-  to `origin/staging` since 2026-05-12 21:10 UTC**. Every "verified
-  on staging" claim about V5 Phase 1 / Phase 2 work in the past
-  ~36 hours is provisional until #142 lands and `/version.json`
-  catches up to the intended SHA.
-- Branch `claude/serene-bell-8a7861` carries additional v17-hero
-  polish commits (`5a610832`, `c0eb5075`) NOT on `origin/staging`.
-  Any v17-hero observations made on staging today reflect the
-  pre-polish `21c6d1e2` build, not those local commits.
+- **All staging assertions on / after 2026-05-13T15:34:01Z are valid**.
+- Any V5 Phase 1 G1 / Phase 2 staging assertion made between
+  2026-05-12T21:10:12Z (last good deploy before P0) and
+  2026-05-13T15:34:01Z (this resolution) is **provisional** — those
+  assertions were against `/version.json @ 21c6d1e2`, not the
+  intended HEAD. Re-run them now that the SHA gap is closed.
 
-### Symptom (original report)
+### DGAI merge queue: UNPAUSED
 
-- Netlify production build for DGAI fails the bundle-budget rule on
-  the latest merged commit. The staging URL
-  (`https://staging--olumi.netlify.app/`) **may not be serving the
-  expected latest DGAI SHA** — code that appears to have shipped may
-  not actually be deployed.
-- **Implication for staging verification**: any "verified on staging"
-  claim made between the most recent successful deploy and the
-  unblock is **provisional** until `/version.json` (or equivalent
-  SHA-fingerprint) confirms the intended commit is being served.
-  Treat all V5 Phase 1 G1 / Phase 2 staging assertions in this window
-  as unverified.
-- **DGAI merge policy until unblocked**:
-  1. **No DGAI PR merges** (including #138 tracker downstream PRs and
-     #140 UI companion) until bundle budget passes AND `/version.json`
-     confirms the intended SHA on staging.
-  2. Backend-only PRs on `olumi-assistants-service` (#169, #170) are
-     **not blocked** by the DGAI deploy failure — they deploy to
-     Render, not Netlify. **However**, #140 cannot merge before
-     #170 deploys (paired-deploy rule), so backend #170 merging
-     without the DGAI unblock would still leave Phase 2b incomplete.
-  3. **Tracker PR #139** is doc-only and produces no bundle impact,
-     but **is paused for merge** alongside the rest of the DGAI
-     queue to preserve the "merge order is sequencing" invariant —
-     allowing the doc PR to land alone would create a tracker that
-     declares a paused queue while itself merged.
-- **Investigation in flight (2026-05-13)**: read-only diagnosis
-  launched to identify (a) where bundle budget is enforced, (b)
-  current breach size, (c) suspected offending commit(s) on
-  `origin/staging`, (d) recommended fix path (raise budget vs
-  surgical lazy-load vs revert). Diagnosis doc will land at
-  `~/.claude/plans/dgai-deploy-unblocker-bundle-budget-2026-05-13.md`.
-- **Unblock criteria** (this section gets removed when met):
-  1. Bundle budget passes on the latest `origin/staging` HEAD.
-  2. `/version.json` (or equivalent SHA fingerprint) on
-     `https://staging--olumi.netlify.app/` matches the latest
-     `origin/staging` HEAD.
-  3. Any staging assertions made during the pause window are re-run
-     against the genuine latest SHA.
+The recommended merge order (sequencing only; Codex review still
+required for each PR) resumes:
+1. ~~DGAI #142 (P0 deploy-unblocker)~~ — ✅ MERGED.
+2. DGAI #139 (tracker) — Codex review pending.
+3. DGAI #138 (Phase 1) — Codex review pending.
+4. olumi-assistants-service #169 (Phase 2a) — Codex review pending.
+5. olumi-assistants-service #170 + DGAI #140 (Phase 2b paired-deploy)
+   — Codex review pending; #170 must merge + deploy before #140.
+### Diagnostic references
+
+- Original diagnosis: `~/.claude/plans/dgai-deploy-unblocker-bundle-budget-2026-05-13.md`
+- PR #142 merge commit: `f0013169`
+- Tracker change-log entry: see "Change log" below for the resolution timestamp.
 
 ## Phase-completion semantics — IMPORTANT
 
@@ -1023,11 +1006,10 @@ defer to CI for the baseline-diff comparison.
 
 ### Recommended merge order (2026-05-13) — **sequencing only, not approval**
 
-> 🚨 **DGAI merges PAUSED on bundle-budget P0** (see top of tracker).
-> The order below resumes once `/version.json` confirms the intended
-> SHA is being served by staging. Backend olumi-assistants-service
-> PRs are not directly blocked but cannot independently complete
-> Phase 2b (paired-deploy rule).
+> ✅ **DGAI merge queue UNPAUSED on 2026-05-13T15:34:01Z** (PR #142
+> merged at `f0013169`, Netlify deploy + `/version.json` confirmed).
+> Each PR still requires Codex review before merge; #170 must
+> additionally deploy to staging before #140 is merged.
 
 The four open PRs are sequenced in this order. **This is the merge
 ORDER plan, not a blanket merge approval.** Each PR still requires
@@ -1254,8 +1236,24 @@ Phase 1 ships.**
 
 ## Change log
 
-- 2026-05-13 (late evening, P0 deploy-unblocker): **DGAI staging
-  deploy failing on bundle budget.** All DGAI merges (#138, #139,
+- 2026-05-13T15:34:01Z (P0 deploy-unblocker — **RESOLVED**):
+  PR #142 merged at `f0013169e17498adff11bc980e7dbc558b8c823e`
+  (2026-05-13T15:32:29Z). Netlify deploy completed 2026-05-13T15:34:01Z
+  (1m 32s after merge). `/version.json` flipped to `f0013169` —
+  confirms staging is serving the merged SHA. App loads (HTTP 200 on
+  `https://staging--olumi.netlify.app/`); entry chunk
+  `index-DR5PhpmI.js` ships at 47,921 bytes (46.80 KB) gzipped on
+  the Netlify wire — 3.20 KB margin under the 50 KB budget.
+  Netlify `verify-bundle-budget.mjs` step necessarily passed
+  (the `/version.json` is written by the same `build:ci` command).
+  Mid-flight: PR #142 was rebased onto a new `origin/staging` HEAD
+  (`f5546fd1`) that had advanced 5 v17-hero polish commits during
+  the deploy pause; clean rebase, build/typecheck/tests still green,
+  fix still load-bearing (without it, bare staging entry chunk was
+  49.72 KB — back to knife-edge). **DGAI merge queue UNPAUSED.**
+  Tracker top-of-file banner flipped from 🚨 to ✅.
+- 2026-05-13 (late evening, P0 deploy-unblocker initial report):
+  **DGAI staging deploy failing on bundle budget.** All DGAI merges (#138, #139,
   #140) PAUSED. Staging may not be serving the expected latest
   DGAI SHA. Backend olumi-assistants-service PRs (#169, #170) not
   directly blocked but cannot independently close Phase 2b
