@@ -207,8 +207,10 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     const result = await captureDisplayState()
     expect(result.rendered_options).toHaveLength(2)
     const byId = new Map(result.rendered_options!.map((r) => [r.id, r]))
-    // Exact value from staging — proves V5 source is read first AND that
-    // numeric value flows through, not null/unmatched.
+    // No rawV2Response in the mock: this exercises the report fallback path
+    // (resolveOption tier 3). Exact values from staging — proves the
+    // report.option_probabilities fallback resolves to a numeric value
+    // rather than collapsing to null/unmatched.
     expect(byId.get('opt_hire_local')?.win_probability_displayed).toBe(0.7193333333333334)
     expect(byId.get('opt_hire_local')?.win_probability_source).toBe(
       'results.report.option_probabilities.win_probability',
@@ -217,7 +219,7 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     expect(byId.get('opt_offshore')?.win_probability_source).toBe(
       'results.report.option_probabilities.win_probability',
     )
-    // No more "unmatched" on V5 turns.
+    // Report fallback resolves every option — none collapse to `unmatched`.
     for (const row of result.rendered_options!) {
       expect(row.win_probability_source).not.toBe('unmatched')
     }
