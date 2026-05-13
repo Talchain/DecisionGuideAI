@@ -23,7 +23,20 @@ import type { ActionChip } from '../types'
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
 // not in this list are filtered out when V5 is active. On V4 this set is
 // unused — all chips pass through unchanged.
-const V5_ENABLED_ACTIONS = new Set<string>(['run_analysis', 'edit_graph', 'draft_graph'])
+//
+// Phase 2b of the V5 completion plan (2026-05-13): added `explain_results`
+// and `what_would_flip`. Backend PR olumi-assistants-service#170 emits these
+// as executable `action_type` chips and the new
+// `dispatchDeterministicChipClick` path bypasses Sonnet ORIENT (~12s saved
+// per click). Without these entries here, the V5 UI's filter below would
+// HIDE the new executable chips, defeating the latency fix entirely.
+const V5_ENABLED_ACTIONS = new Set<string>([
+  'run_analysis',
+  'edit_graph',
+  'draft_graph',
+  'explain_results',
+  'what_would_flip',
+])
 
 // Chips whose action_type is in this set require analysis readiness
 // (ceeAnalysisReady.status === 'ready') before they can render. Without it,

@@ -127,6 +127,82 @@ describe('SuggestedChips readiness gate', () => {
     expect(screen.queryByTestId('suggested-chip-chip_unknown')).toBeNull()
   })
 
+  // Phase 2b of the V5 completion plan (2026-05-13): backend PR
+  // olumi-assistants-service#170 emits post-analysis "Explain the result"
+  // and decide-fragile "What would make this flip?" as executable
+  // action_type chips so the new dispatchDeterministicChipClick path can
+  // bypass Sonnet ORIENT (~12s win per click). The V5 UI filter must
+  // recognise these as known executable chips, otherwise they'd be
+  // treated as "unknown" by the test above and HIDDEN — defeating the
+  // user-visible latency win.
+  it('shows explain_results chip when V5 is active (Phase 2b — added to V5_ENABLED_ACTIONS)', () => {
+    setReady('ready')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'chip_action_explain_results',
+            label: 'Explain the result',
+            action_type: 'explain_results',
+          }),
+        ]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByTestId('suggested-chip-chip_action_explain_results'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows what_would_flip chip when V5 is active (Phase 2b)', () => {
+    setReady('ready')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'chip_action_what_would_flip',
+            label: 'What could change the outcome?',
+            action_type: 'what_would_flip',
+          }),
+        ]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByTestId('suggested-chip-chip_action_what_would_flip'),
+    ).toBeInTheDocument()
+  })
+
+  it('shows explain_results AND what_would_flip even without analysis readiness (NOT readiness-gated like run_analysis)', () => {
+    // These are post-analysis-context chips that wrap deterministic
+    // explanation handlers — they don't require a fresh analysis to be
+    // useful. Only `run_analysis` itself is readiness-gated.
+    setReady(null) // no readiness
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'chip_action_explain_results',
+            label: 'Explain the result',
+            action_type: 'explain_results',
+          }),
+          makeChip({
+            id: 'chip_action_what_would_flip',
+            label: 'What could change the outcome?',
+            action_type: 'what_would_flip',
+          }),
+        ]}
+        onChipClick={vi.fn()}
+      />,
+    )
+    expect(
+      screen.getByTestId('suggested-chip-chip_action_explain_results'),
+    ).toBeInTheDocument()
+    expect(
+      screen.getByTestId('suggested-chip-chip_action_what_would_flip'),
+    ).toBeInTheDocument()
+  })
+
   it('does not hide run_analysis when V5 is off (V4 passthrough)', () => {
     vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', '')
     setReady(null) // no readiness, but V5 is off so the gate does not apply
