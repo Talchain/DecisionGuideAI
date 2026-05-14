@@ -62,11 +62,14 @@ export function ConditionalWinnerCards({
   )
   if (flipping.length === 0) return null
   const visible = flipping.slice(0, MAX_CONDITIONAL_CARDS)
-  // (Round-7 P1.1) Glossary-safe header copy when composed inside the v17
-  // hero. Legacy panel keeps the original wording.
+  // (Round-7 P1.1, P0 follow-up) Glossary-safe header copy. Both v17 hero
+  // and legacy panel now use glossary-safe wording — the P0 surface-copy
+  // cleanup retired the "the recommendation" legacy string. The branches
+  // remain distinct so the v17 hero can use the more pointed "which
+  // option leads" phrasing.
   const headerHelpText = useV17Copy
     ? 'Factors that change which option leads when they shift'
-    : 'Factors that change the recommendation when they shift'
+    : 'Factors that change the result when they shift'
 
   return (
     <div className="space-y-2 pt-2 border-t border-panel-border/50" data-testid="conditional-winner-cards">

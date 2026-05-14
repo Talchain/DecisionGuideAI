@@ -54,7 +54,7 @@ export function AdvancedMetricsSection({
               {graphQuality.recommendation && (
                 <div className="font-sans mt-3 p-3 bg-analytical-50 rounded-lg border border-analytical-200">
                   <div className="font-sans text-xs font-medium text-analytical-800 mb-1">
-                    Recommendation
+                    Suggestion
                   </div>
                   <div className="font-sans text-xs text-charcoal-900">{graphQuality.recommendation}</div>
                 </div>

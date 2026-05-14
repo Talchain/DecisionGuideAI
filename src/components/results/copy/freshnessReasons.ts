@@ -39,7 +39,7 @@ export const FRESHNESS_REASON_COPY: Readonly<Record<string, string>> = {
 
   // From the Wave 3 local-fallback selector
   local_graph_edited:
-    'You have made changes since the last analysis. Re-run to refresh the recommendation.',
+    'You have made changes since the last analysis. Re-run to refresh the analysis.',
   local_results_match:
     'Your analysis matches the current model.',
   no_options_yet:

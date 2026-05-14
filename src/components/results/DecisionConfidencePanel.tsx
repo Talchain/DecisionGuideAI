@@ -239,7 +239,7 @@ export const DecisionConfidencePanel = memo(function DecisionConfidencePanel({
     if (!readinessDimensions) return undefined
     return [
       { label: 'Evidence', value: readinessDimensions.evidence, tooltip: 'How well-supported your factor estimates are.' },
-      { label: 'Robustness', value: readinessDimensions.robustness, tooltip: 'How sensitive the recommendation is to assumption shifts.' },
+      { label: 'Robustness', value: readinessDimensions.robustness, tooltip: 'How sensitive the result is to assumption shifts.' },
       { label: 'Framing', value: readinessDimensions.clarity, tooltip: 'How clearly the decision and options are framed.' },
     ]
   }, [readinessDimensions])
