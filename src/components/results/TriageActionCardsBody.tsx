@@ -151,7 +151,7 @@ function mapEvidenceGapsToActions(
     // through the shared resolver so pre- and post-analysis agree.
     const { text: detail } = resolveTriageBodyText({
       coaching: gap.suggestion,
-      generic: `This factor has ${gap.confidence}% confidence. Improving it could change the recommendation.`,
+      generic: `This factor has ${gap.confidence}% confidence. Improving it could change the result.`,
     })
     return {
       key: `gap-${gap.factorId}-${i}`,
