@@ -15,6 +15,7 @@ import { SectionErrorBoundary } from '../GraphTextView'
 import { Accordion } from '../../../components/results/Accordion'
 import type { CeeQualityDimensions } from '../../store'
 import { DetailToggleContext } from './DetailToggleContext'
+import type { AutoNoiseProvenance } from '../../../components/results/types'
 
 /** Audit trail data from PLoT response */
 export interface AuditTrailData {
@@ -25,6 +26,14 @@ export interface AuditTrailData {
   inferenceWarnings: Array<{ code?: string; severity?: string; message?: string }> | null
   recommendationStability: number | null
   autoNoiseApplied: boolean | null
+  /**
+   * Audit B3 (P0): structured disclosure metadata for the auto-noise
+   * adjustment. Null when the response is from an older PLoT build that
+   * does not emit the field, or when normalisation rejected a malformed
+   * payload — the accordion falls back to the legacy `autoNoiseApplied`
+   * boolean and the visible marker simply does not render.
+   */
+  autoNoiseProvenance: AutoNoiseProvenance | null
   stabilityPenaltyFactor: number | null
 }
 
@@ -108,6 +117,12 @@ function ModelHealthSectionInner({
       auditTrail.nSamples != null ||
       auditTrail.recommendationStability != null ||
       auditTrail.autoNoiseApplied != null ||
+      // Audit B3 (P0): provenance counts as an audit signal in its own
+      // right. Without this, a payload-drift case where the boolean is
+      // null but valid provenance exists would treat the whole section
+      // as pre-analysis, producing mixed pre-analysis copy alongside the
+      // provenance-fallback row that the audit-trail render block emits.
+      auditTrail.autoNoiseProvenance != null ||
       auditTrail.stabilityPenaltyFactor != null ||
       (auditTrail.repairsApplied != null && auditTrail.repairsApplied.length > 0) ||
       (auditTrail.inferenceWarnings != null && auditTrail.inferenceWarnings.length > 0)
@@ -226,14 +241,33 @@ function ModelHealthSectionInner({
                   </span>
                 </>
               )}
-              {auditTrail.autoNoiseApplied != null && (
-                <>
-                  <span className={`${typography.panelMeta} text-text-light`}>Auto-noise</span>
-                  <span className={`${typography.panelMeta} text-text-body text-right`}>
-                    {auditTrail.autoNoiseApplied ? 'Applied' : 'Not applied'}
-                  </span>
-                </>
-              )}
+              {(() => {
+                // Audit B3: prefer the explicit boolean echo, but fall
+                // back to the structured provenance's `applied` field
+                // when the boolean is null and provenance is valid. This
+                // keeps the accordion useful under payload drift where
+                // PLoT might emit the structured block alone (a
+                // future-state we don't expect today, but defending
+                // against costs nothing).
+                const applied =
+                  auditTrail.autoNoiseApplied
+                  ?? auditTrail.autoNoiseProvenance?.applied
+                  ?? null
+                if (applied == null) return null
+                return (
+                  <>
+                    <span className={`${typography.panelMeta} text-text-light`}>Outcome uncertainty adjustment</span>
+                    <span
+                      className={`${typography.panelMeta} text-text-body text-right`}
+                      data-testid="model-health-auto-noise-row"
+                    >
+                      {applied
+                        ? 'Operational adjustment applied (calibration pending).'
+                        : 'No additional uncertainty adjustment applied.'}
+                    </span>
+                  </>
+                )
+              })()}
               {auditTrail.stabilityPenaltyFactor != null && (
                 <>
                   <span className={`${typography.panelMeta} text-text-light`}>Stability penalty</span>

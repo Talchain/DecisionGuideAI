@@ -77,6 +77,13 @@ export interface TriageHealthHeaderProps {
    * the parent wrapper owns layout.
    */
   noCardWrapper?: boolean
+  /**
+   * Audit B3 (P0): optional inline adornment rendered immediately after the
+   * title text — used to anchor the auto-noise disclosure marker (Info icon
+   * + Tooltip) on the post-analysis trust panel. Pre-analysis callers leave
+   * it `undefined` and the title renders unchanged.
+   */
+  titleAdornment?: ReactNode
 }
 
 function DimensionBar({ dim }: { dim: TriageDimension }) {
@@ -115,6 +122,7 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
   qualifier,
   secondaryIndicator,
   noCardWrapper = false,
+  titleAdornment,
 }: TriageHealthHeaderProps) {
   const [coachingDismissed, setCoachingDismissed] = useState(false)
 
@@ -139,6 +147,14 @@ export const TriageHealthHeader = memo(function TriageHealthHeader({
     >
       {hideTitle ? (
         <p className="sr-only">{title}</p>
+      ) : titleAdornment != null ? (
+        // When an adornment is present, lift the title out of <p> so the
+        // adornment (which may contain block-level children, e.g. a Tooltip's
+        // wrapping <div>) does not violate <p>-cannot-contain-<div> nesting.
+        <div className={`${typography.panelHeader} text-text-header flex items-center gap-1`}>
+          <span>{title}</span>
+          {titleAdornment}
+        </div>
       ) : (
         <p className={`${typography.panelHeader} text-text-header`}>{title}</p>
       )}

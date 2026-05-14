@@ -287,6 +287,75 @@ export interface ConfidenceProvenance {
   inputQuality: ConfidenceInputQuality
 }
 
+// ─── Auto-noise provenance (audit B3) ───────────────────────────────────────
+//
+// Analysis-level disclosure for the operational variance adjustment ISL
+// applies in `_apply_auto_scaled_noise`. PLoT emits the snake_case payload
+// `auto_noise_provenance`; this UI type is the camelCase normalised form.
+//
+// Forward-compat: enum slots are typed `string` (mirrors A1's relaxed
+// confidence-provenance types — see commit e46f305f) so future calibration
+// values from PLoT do not crash old UI builds.
+//
+// UI surfaces ONLY the boolean gate (`applied && isProvisional`). All other
+// fields are payload-only debug metadata and must NEVER be rendered as
+// user-facing text.
+
+export type AutoNoiseEffect = string
+export type AutoNoiseFormulaVersion = string
+export type AutoNoiseDistribution = string
+export type AutoNoiseFilterScope = string
+export type AutoNoiseCalibrationStatus = string
+
+export interface AutoNoiseProvenance {
+  applied: boolean
+  effect: AutoNoiseEffect
+  formulaVersion: AutoNoiseFormulaVersion
+  multiplier: number
+  noiseDistribution: AutoNoiseDistribution
+  filterScope: AutoNoiseFilterScope
+  /** Drives whether the visible disclosure marker renders. */
+  isProvisional: boolean
+  calibrationStatus: AutoNoiseCalibrationStatus
+}
+
+/**
+ * Normalise a raw PLoT `auto_noise_provenance` payload (snake_case) into
+ * the UI's `AutoNoiseProvenance` (camelCase). Returns `null` on missing,
+ * non-object, or malformed input — never throws, never partially fills.
+ *
+ * Graceful degradation: an old PLoT build without the field, or a cached
+ * staging response, will return `null` here and the marker will simply
+ * not render. No silent typecast.
+ */
+export function normalizeAutoNoiseProvenance(raw: unknown): AutoNoiseProvenance | null {
+  if (raw === null || typeof raw !== 'object') return null
+  const r = raw as Record<string, unknown>
+
+  if (typeof r.applied !== 'boolean') return null
+  if (typeof r.is_provisional !== 'boolean') return null
+  if (typeof r.multiplier !== 'number' || !Number.isFinite(r.multiplier)) return null
+
+  const stringFields: Array<['effect' | 'formula_version' | 'noise_distribution' | 'filter_scope' | 'calibration_status', string]> = []
+  for (const key of ['effect', 'formula_version', 'noise_distribution', 'filter_scope', 'calibration_status'] as const) {
+    const v = r[key]
+    if (typeof v !== 'string' || v.length === 0) return null
+    stringFields.push([key, v])
+  }
+  const m = Object.fromEntries(stringFields) as Record<typeof stringFields[number][0], string>
+
+  return {
+    applied: r.applied,
+    effect: m.effect,
+    formulaVersion: m.formula_version,
+    multiplier: r.multiplier,
+    noiseDistribution: m.noise_distribution,
+    filterScope: m.filter_scope,
+    isProvisional: r.is_provisional,
+    calibrationStatus: m.calibration_status,
+  }
+}
+
 export interface DriverItem {
   /** Canonical identifier: node_id ?? factor_id ?? id ?? normalised(label) */
   factorKey: string

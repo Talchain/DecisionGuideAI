@@ -46,6 +46,7 @@ describe('ModelHealthSection', () => {
       inferenceWarnings: null,
       recommendationStability: null,
       autoNoiseApplied: null,
+      autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
     render(<ModelHealthSection auditTrail={emptyAudit} factorCount={3} edgeCount={5} />)
@@ -66,6 +67,7 @@ describe('ModelHealthSection', () => {
       inferenceWarnings: null,
       recommendationStability: null,
       autoNoiseApplied: null,
+      autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
     render(<ModelHealthSection auditTrail={auditTrail} />)
@@ -81,6 +83,7 @@ describe('ModelHealthSection', () => {
       inferenceWarnings: null,
       recommendationStability: 0.71,
       autoNoiseApplied: null,
+      autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
     render(<ModelHealthSection auditTrail={auditTrail} ceeQuality={{ overall: 7.2, structure: 8, causality: 6.5, coverage: 7, safety: 7.5 }} />)
@@ -101,6 +104,7 @@ describe('ModelHealthSection', () => {
       ],
       recommendationStability: null,
       autoNoiseApplied: null,
+      autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
     render(<ModelHealthSection auditTrail={auditTrail} />)
@@ -119,6 +123,7 @@ describe('ModelHealthSection', () => {
       ],
       recommendationStability: null,
       autoNoiseApplied: null,
+      autoNoiseProvenance: null,
       stabilityPenaltyFactor: 0.90,
     }
     render(<ModelHealthSection auditTrail={auditTrail} />)
@@ -134,6 +139,7 @@ describe('ModelHealthSection', () => {
       inferenceWarnings: null,
       recommendationStability: null,
       autoNoiseApplied: null,
+      autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
     render(<ModelHealthSection auditTrail={auditTrail} />)
@@ -152,6 +158,7 @@ describe('ModelHealthSection', () => {
       inferenceWarnings: null,
       recommendationStability: 0.71,
       autoNoiseApplied: true,
+      autoNoiseProvenance: null,
       stabilityPenaltyFactor: null,
     }
     render(
@@ -186,5 +193,148 @@ describe('ModelHealthSection', () => {
       </DetailToggleContext.Provider>
     )
     expect(screen.queryByTestId('quality-row-structure')).not.toBeInTheDocument()
+  })
+
+  // ─── Audit B3: auto-noise disclosure copy ────────────────────────────────
+  describe('auto-noise disclosure (audit B3)', () => {
+    function makeAudit(overrides: Partial<AuditTrailData>): AuditTrailData {
+      return {
+        seedUsed: '42',
+        responseHash: 'abc',
+        nSamples: 1000,
+        repairsApplied: null,
+        inferenceWarnings: null,
+        recommendationStability: null,
+        autoNoiseApplied: null,
+        autoNoiseProvenance: null,
+        stabilityPenaltyFactor: null,
+        ...overrides,
+      }
+    }
+
+    it('renders non-technical copy when auto-noise was applied', () => {
+      render(
+        <DetailToggleContext.Provider value={{ showDetail: true }}>
+          <ModelHealthSection auditTrail={makeAudit({ autoNoiseApplied: true })} />
+        </DetailToggleContext.Provider>
+      )
+      const row = screen.getByTestId('model-health-auto-noise-row')
+      expect(row).toHaveTextContent('Operational adjustment applied (calibration pending).')
+      expect(screen.getByText('Outcome uncertainty adjustment')).toBeInTheDocument()
+    })
+
+    it('renders non-technical copy when auto-noise was not applied', () => {
+      render(
+        <DetailToggleContext.Provider value={{ showDetail: true }}>
+          <ModelHealthSection auditTrail={makeAudit({ autoNoiseApplied: false })} />
+        </DetailToggleContext.Provider>
+      )
+      const row = screen.getByTestId('model-health-auto-noise-row')
+      expect(row).toHaveTextContent('No additional uncertainty adjustment applied.')
+    })
+
+    it('omits the row entirely when autoNoiseApplied is null (legacy/no signal)', () => {
+      render(
+        <DetailToggleContext.Provider value={{ showDetail: true }}>
+          <ModelHealthSection auditTrail={makeAudit({ autoNoiseApplied: null })} />
+        </DetailToggleContext.Provider>
+      )
+      expect(screen.queryByTestId('model-health-auto-noise-row')).not.toBeInTheDocument()
+    })
+
+    it('treats autoNoiseProvenance alone as an audit signal (no mixed pre-analysis content)', () => {
+      // Audit-feedback P1-3: payload drift where provenance arrives
+      // without the boolean must not trip the pre-analysis branch — that
+      // would render the "Run analysis to see..." copy alongside the
+      // provenance-fallback row that the audit-trail block emits.
+      render(
+        <DetailToggleContext.Provider value={{ showDetail: true }}>
+          <ModelHealthSection
+            auditTrail={makeAudit({
+              autoNoiseApplied: null,
+              autoNoiseProvenance: {
+                applied: true,
+                effect: 'widens_outcome_and_risk_uncertainty',
+                formulaVersion: 'plot_auto_v1',
+                multiplier: 1.0,
+                noiseDistribution: 'normal_zero_mean_outcome_std',
+                filterScope: 'outcome_and_risk_nodes',
+                isProvisional: true,
+                calibrationStatus: 'provisional_pending_pilot_calibration',
+              },
+              seedUsed: null,
+              responseHash: null,
+              nSamples: null,
+              recommendationStability: null,
+              stabilityPenaltyFactor: null,
+            })}
+          />
+        </DetailToggleContext.Provider>
+      )
+      // Pre-analysis block must NOT render — provenance is enough signal.
+      expect(screen.queryByTestId('model-card-pre-analysis')).not.toBeInTheDocument()
+      // The provenance-derived audit row IS rendered.
+      expect(screen.getByTestId('model-health-auto-noise-row')).toBeInTheDocument()
+    })
+
+    it('falls back to autoNoiseProvenance.applied when autoNoiseApplied is null but provenance is valid', () => {
+      // Defensive guard against payload drift: a future PLoT build that
+      // emits structured provenance without the boolean echo should still
+      // populate the accordion row. Today's PLoT always emits both, so
+      // this is an audit-feedback Imp-3 follow-up.
+      render(
+        <DetailToggleContext.Provider value={{ showDetail: true }}>
+          <ModelHealthSection
+            auditTrail={makeAudit({
+              autoNoiseApplied: null,
+              autoNoiseProvenance: {
+                applied: true,
+                effect: 'widens_outcome_and_risk_uncertainty',
+                formulaVersion: 'plot_auto_v1',
+                multiplier: 1.0,
+                noiseDistribution: 'normal_zero_mean_outcome_std',
+                filterScope: 'outcome_and_risk_nodes',
+                isProvisional: true,
+                calibrationStatus: 'provisional_pending_pilot_calibration',
+              },
+            })}
+          />
+        </DetailToggleContext.Provider>
+      )
+      const row = screen.getByTestId('model-health-auto-noise-row')
+      expect(row).toHaveTextContent('Operational adjustment applied (calibration pending).')
+    })
+
+    it('uses no user-facing technical jargon — payload-only fields stay out of the DOM', () => {
+      render(
+        <DetailToggleContext.Provider value={{ showDetail: true }}>
+          <ModelHealthSection
+            auditTrail={makeAudit({
+              autoNoiseApplied: true,
+              autoNoiseProvenance: {
+                applied: true,
+                effect: 'widens_outcome_and_risk_uncertainty',
+                formulaVersion: 'plot_auto_v1',
+                multiplier: 1.0,
+                noiseDistribution: 'normal_zero_mean_outcome_std',
+                filterScope: 'outcome_and_risk_nodes',
+                isProvisional: true,
+                calibrationStatus: 'provisional_pending_pilot_calibration',
+              },
+            })}
+          />
+        </DetailToggleContext.Provider>
+      )
+      const audit = screen.getByTestId('model-health-audit')
+      const text = audit.textContent ?? ''
+      // Payload-only enum literals must never leak into rendered text.
+      expect(text).not.toMatch(/plot_auto_v1/)
+      expect(text).not.toMatch(/normal_zero_mean_outcome_std/)
+      expect(text).not.toMatch(/outcome_and_risk_nodes/)
+      expect(text).not.toMatch(/widens_outcome_and_risk_uncertainty/)
+      expect(text).not.toMatch(/provisional_pending_pilot_calibration/)
+      expect(text).not.toMatch(/auto-noise/i)
+      expect(text).not.toMatch(/variance/i)
+    })
   })
 })
