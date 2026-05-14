@@ -75,6 +75,7 @@ describe('normalizeAutoNoiseProvenance', () => {
       'filter_scope',
       'calibration_status',
     ] as const) {
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { [key]: _omit, ...rest } = validRaw
       expect(normalizeAutoNoiseProvenance(rest)).toBeNull()
       expect(normalizeAutoNoiseProvenance({ ...validRaw, [key]: '' })).toBeNull()
