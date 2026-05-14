@@ -149,6 +149,7 @@ function buildMetaPills(
   data: ResultsSectionDataReturn,
   vm: ResultsVM,
   state: HeroState,
+  hasFragileFactor: boolean,
 ): MetaPill[] {
   const pills: MetaPill[] = []
   const stability = data?.recommendation?.recommendationStability
@@ -158,13 +159,21 @@ function buildMetaPills(
   // "Stable result" vs "Highly stable". The new shape keeps the glossary
   // band label (Fragile / Moderate / Stable / Highly stable) front and
   // centre with consistent context.
+  //
+  // 0.7–0.85 + fragile factor present: soften "Stable result" to
+  // "Mostly stable" so it reads consistently with the grounded
+  // "Sensitive assumption" footer check. When no fragile factor exists,
+  // keep "Stable result" — there is no contradiction with the footer.
   if (typeof stability === 'number' && Number.isFinite(stability)) {
     if (stability < 0.5) {
       pills.push({ label: 'Fragile result', tone: 'danger' })
     } else if (stability < 0.7) {
       pills.push({ label: 'Moderate stability', tone: 'warn' })
     } else if (stability < 0.85) {
-      pills.push({ label: 'Stable result', tone: 'neutral' })
+      pills.push({
+        label: hasFragileFactor ? 'Mostly stable' : 'Stable result',
+        tone: 'neutral',
+      })
     } else {
       pills.push({ label: 'Highly stable', tone: 'neutral' })
     }
@@ -209,17 +218,24 @@ function selectKeyQuestion(
     }
   }
 
-  // 2. Template from the top row's category + label.
+  // 2. Template from the top row's category. All current row categories
+  // (evidence / causal / risk) target factors or estimates, so they share
+  // a single factor-targeted template. The factor label is intentionally
+  // not interpolated — the row title above the key-question card already
+  // names it, and the generic phrasing reads cleanly for any factor type
+  // (capacities, costs, risks, budgets, etc).
+  //
+  // TODO: when hero rows can target options directly (e.g. an
+  // option-comparison row), use the option-targeted template
+  // `"What would make this option underperform?"`. Not wired yet because
+  // no current row category resolves to an option target.
   if (topRow && topRow.title) {
-    const label = safeLabel(topRow.title, 'this factor')
     let candidate: string | null = null
     switch (topRow.category) {
       case 'evidence':
       case 'causal':
-        candidate = `How confident are you in the ${label} estimate?`
-        break
       case 'risk':
-        candidate = `What would make ${label} underperform?`
+        candidate = 'How confident are you this estimate is realistic?'
         break
       case 'coverage':
         candidate = 'Are the alternatives genuinely different?'
@@ -272,15 +288,29 @@ function buildFooterChecks(
   data: ResultsSectionDataReturn,
   vm: ResultsVM,
   state: HeroState,
+  hasFragileFactor: boolean,
 ): FooterCheck[] {
   const hasWinner = !!data?.recommendation?.recommendedOption
   const stability = data?.recommendation?.recommendationStability
   const stable = typeof stability === 'number' && Number.isFinite(stability) && stability >= 0.85
   const evidenceOk = vm?.evidenceLevel === 'good'
 
+  // Stability check is grounded: only name a specific "Sensitive
+  // assumption" when a fragile/sensitive factor actually exists in the
+  // data. Otherwise use the generic "Stability limited" — describes the
+  // system-level state without implying a single named driver.
+  let stabilityLabel: string
+  if (stable) {
+    stabilityLabel = 'Stable'
+  } else if (hasFragileFactor) {
+    stabilityLabel = 'Sensitive assumption'
+  } else {
+    stabilityLabel = 'Stability limited'
+  }
+
   return [
     { label: hasWinner ? 'Result clear' : 'No clear result', tone: hasWinner ? 'ok' : 'warn' },
-    { label: stable ? 'Stable' : 'Sensitive', tone: stable ? 'ok' : 'warn' },
+    { label: stabilityLabel, tone: stable ? 'ok' : 'warn' },
     { label: evidenceOk ? 'Evidence covered' : 'Evidence gaps', tone: evidenceOk ? 'ok' : 'warn' },
     { label: state === 'reflect' ? 'Reflective check' : 'Framing OK', tone: state === 'reflect' ? 'reflect' : 'ok' },
   ]
@@ -385,12 +415,21 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
   const hiddenRows = allRows.slice(3, 6)
   const topRow = inputRows[0]
 
+  // A fragile/sensitive factor exists when PLoT surfaces one as the top
+  // fragile edge (preferred) or via the M1 coaching fallback. This is the
+  // same signal `fragileEdgeRow` and `buildReasonLine` already use, kept
+  // in one place so meta-pill softening and footer-check grounding stay
+  // in lock-step with what the user actually sees.
+  const hasFragileFactor = !!(
+    data?.confidence?.topFragileEdge ?? data?.confidence?.m1CoachingTopFragileEdge
+  )
+
   const dimensions = buildDimensions(data, confirmedFactorCount, totalFactorCount, structureSignals, coverageSignals)
   const resultLine = buildResultLine(data)
   const reasonLine = buildReasonLine(data)
-  const metaPills = buildMetaPills(data, vm, state)
+  const metaPills = buildMetaPills(data, vm, state, hasFragileFactor)
   const keyQuestion = selectKeyQuestion(data, topRow, state)
-  const footerChecks = buildFooterChecks(data, vm, state)
+  const footerChecks = buildFooterChecks(data, vm, state, hasFragileFactor)
   const footerCta = buildFooterCta(state, topRow)
   const footerHint = buildFooterHint(state)
   const alsoLinks = buildAlsoLinks(state)

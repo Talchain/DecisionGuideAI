@@ -52,7 +52,12 @@ function actionsForCategory(category: RowCategory, hasTarget: boolean): RowActio
     case 'evidence':
       return hasTarget ? ['ai', 'discuss', 'edit', 'confirm'] : ['ai', 'discuss']
     case 'risk':
-      return hasTarget ? ['ai', 'discuss', 'add'] : ['ai', 'discuss']
+      // `add` previously rendered the Plus icon here, but the icon implied a
+      // direct model mutation that does not happen — `add` just routes to the
+      // same `prefillChat` handler as `ai`/`discuss`, so it was both
+      // ambiguous and redundant. Drop until there is a real Add-context
+      // affordance with a clear tooltip.
+      return ['ai', 'discuss']
     case 'coverage':
       return ['ai', 'discuss', 'add']
     case 'reflect':
@@ -94,15 +99,12 @@ function fragileEdgeRow(data: ResultsSectionDataReturn): HeroRow | null {
   if (!fragile) return null
   const title = fragile.fromLabel
   const { band, width } = bandFromVoi(0.6) // fragile edges are inherently high-priority
-  // (Fix 3) Reason is action-oriented and does not repeat the fragility
-  // prose already shown in the result-context line. The row's TITLE
-  // already carries the factor name; the reason no longer names it
-  // again. Fits comfortably in two panelBody lines — no truncation.
-  const reason = buildReason(
-    'risk',
-    band,
-    'Highest-priority assumption. Most likely to change which option leads.',
-  )
+  // Short, complete sentence — the priority bar already shows "High",
+  // so the `High evidence priority. ` lede `buildReason` would prepend
+  // pushes the visible copy to two lines and truncates mid-sentence on
+  // the current panel width. Render the bare ground string so it fits
+  // on one line as-rendered.
+  const reason = 'Check this first. It could change the result.'
   return {
     key: `risk-${fragile.fromId}`,
     title,

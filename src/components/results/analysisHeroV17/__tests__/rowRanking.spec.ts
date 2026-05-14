@@ -185,3 +185,50 @@ describe('rankHeroRows', () => {
     expect(rows[0].chatPrompt).toContain('Cost')
   })
 })
+
+describe('rankHeroRows — polish pass: fragile/risk row shape', () => {
+  it('fragile/risk row reason is the short final copy with no priority lede', () => {
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_f', fromLabel: 'Hiring rate', alternativeWinnerLabel: 'Option B' },
+      }),
+      'moderate',
+    )
+    const riskRow = rows.find(r => r.category === 'risk')
+    expect(riskRow).toBeTruthy()
+    // Exact rendered string — the priority bar already shows "High", so
+    // the `High evidence priority. ` lede that `buildReason` would have
+    // prepended is deliberately suppressed for this row to avoid mid-
+    // sentence truncation at current panel width.
+    expect(riskRow!.reason).toBe('Check this first. It could change the result.')
+    expect(riskRow!.reason).not.toContain('evidence priority')
+    // Anti-drift on the prior copy.
+    expect(riskRow!.reason).not.toContain('Highest-priority assumption')
+    expect(riskRow!.reason).not.toContain('Most likely to change')
+  })
+
+  it('fragile/risk row action set drops the Plus (add) icon', () => {
+    const rows = rankHeroRows(
+      makeData({
+        fragile: { fromId: 'n_f', fromLabel: 'Hiring rate', alternativeWinnerLabel: 'Option B' },
+      }),
+      'moderate',
+    )
+    const riskRow = rows.find(r => r.category === 'risk')
+    expect(riskRow).toBeTruthy()
+    expect(riskRow!.actions).toEqual(['ai', 'discuss'])
+    expect(riskRow!.actions).not.toContain('add')
+  })
+
+  it('coverage row still keeps the add action (semantic match — adding an alternative)', () => {
+    const rows = rankHeroRows(
+      makeData({
+        options: [{ id: 'opt_a', label: 'Only option', winProbability: 1 } as OptionResult],
+      }),
+      'moderate',
+    )
+    const coverageRow = rows.find(r => r.category === 'coverage')
+    expect(coverageRow).toBeTruthy()
+    expect(coverageRow!.actions).toContain('add')
+  })
+})

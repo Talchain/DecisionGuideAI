@@ -383,16 +383,22 @@ describe('buildAnalysisHeroViewModel', () => {
         vm: makeVm({ decisionState: 'sensitive' }),
       })
       // Falls through to category-keyed template for the top evidence row.
-      expect(vm.keyQuestion?.text).toBe('How confident are you in the Cost estimate?')
+      // The factor label is intentionally not interpolated — the row title
+      // above the question already names it.
+      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
     })
 
-    it('templates from top row for evidence category', () => {
+    it('templates from top row for evidence category — generic phrasing, no label interpolation', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7, gaps: [gap('Marketing spend', 'nm', 0.6)] }),
         vm: makeVm(),
       })
-      expect(vm.keyQuestion?.text).toContain('Marketing spend')
+      // Polish-pass: the factor label is NOT interpolated into the question.
+      // The row title carries the label visually; the question stays generic
+      // so it reads cleanly for any factor type.
+      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
+      expect(vm.keyQuestion?.text).not.toContain('Marketing spend')
     })
 
     it('hides Key-question card when no DQP and no rows', () => {
@@ -404,7 +410,28 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion).toBeNull()
     })
 
-    it('user-supplied factor label containing banned term → falls back to generic phrase, never rewrites user data', () => {
+    it('risk-category top row → same factor/estimate template, no "underperform"', () => {
+      // Polish-pass refinement 3: a factor-targeted risk row (the fragile
+      // edge) must not say "underperform" — that verb fits options, not
+      // factors/estimates/risks/costs/capacities.
+      const fragile = {
+        fromId: 'n_f', fromLabel: 'Technical Leadership Capacity',
+        toId: 'n_x', toLabel: 'Outcome',
+        switchProbability: 0.42,
+        alternativeWinnerLabel: 'Option B',
+      } as FragileEdgeItem
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.7, fragile }),
+        vm: makeVm({ decisionState: 'sensitive' }),
+      })
+      expect(vm.inputRows[0].category).toBe('risk')
+      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
+      expect(vm.keyQuestion?.text.toLowerCase()).not.toContain('underperform')
+      expect(vm.keyQuestion?.text).not.toContain('Technical Leadership Capacity')
+    })
+
+    it('user-supplied factor label containing banned term → row title preserves user data, question stays generic', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
@@ -415,8 +442,10 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       // Row title preserves the user's label (we never rewrite user data).
       expect(vm.inputRows[0].title).toBe('the winning team')
-      // But the templated question swaps in the generic fallback.
-      expect(vm.keyQuestion?.text).toBe('How confident are you in the this factor estimate?')
+      // Polish-pass: the question template no longer interpolates the
+      // factor label, so banned-term smuggling via labels is moot here.
+      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
+      expect(vm.keyQuestion?.text.toLowerCase()).not.toContain('winning')
     })
   })
 
@@ -645,6 +674,92 @@ describe('buildAnalysisHeroViewModel', () => {
         vm: makeVm(),
       })
       expect(vm.footerChecks).toHaveLength(4)
+    })
+  })
+
+  // ── Polish pass: grounded stability/sensitivity wording ────────────────
+  // The hero used to show "Stable result" alongside a generic "Sensitive"
+  // footer check at 0.7–0.85 stability, which read contradictory. The
+  // grounded rule below ties both labels to whether a fragile/sensitive
+  // factor is actually present in the data.
+
+  describe('grounded stability + sensitivity wording', () => {
+    const fragileEdge = {
+      fromId: 'n_f',
+      fromLabel: 'Hiring rate',
+      toId: 'n_x',
+      toLabel: 'Outcome',
+      switchProbability: 0.42,
+      alternativeWinnerLabel: 'Option B',
+    } as FragileEdgeItem
+
+    it('0.75 stability with NO fragile factor → "Stable result" pill + "Stability limited" check', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.75 }),
+        vm: makeVm(),
+      })
+      expect(vm.metaPills.map(p => p.label)).toContain('Stable result')
+      expect(vm.metaPills.map(p => p.label)).not.toContain('Mostly stable')
+      const stabilityCheck = vm.footerChecks[1]
+      expect(stabilityCheck.label).toBe('Stability limited')
+      // Anti-drift: the bare "Sensitive" must not appear, and we must
+      // not over-claim a specific assumption when none is grounded.
+      expect(stabilityCheck.label).not.toBe('Sensitive')
+      expect(stabilityCheck.label).not.toBe('Sensitive assumption')
+    })
+
+    it('0.75 stability WITH fragile factor → "Mostly stable" pill + "Sensitive assumption" check', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.75, fragile: fragileEdge }),
+        vm: makeVm(),
+      })
+      expect(vm.metaPills.map(p => p.label)).toContain('Mostly stable')
+      expect(vm.metaPills.map(p => p.label)).not.toContain('Stable result')
+      const stabilityCheck = vm.footerChecks[1]
+      expect(stabilityCheck.label).toBe('Sensitive assumption')
+    })
+
+    it('low stability WITH fragile factor → fragile/moderate pill + "Sensitive assumption" check', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.6, fragile: fragileEdge }),
+        vm: makeVm(),
+      })
+      // Pill stays "Moderate stability" — the soften only applies to the
+      // 0.7–0.85 band; below that the pessimistic pill is already accurate.
+      expect(vm.metaPills.map(p => p.label)).toContain('Moderate stability')
+      expect(vm.footerChecks[1].label).toBe('Sensitive assumption')
+    })
+
+    it('low stability WITHOUT fragile factor → "Stability limited" check (not "Sensitive assumption")', () => {
+      const vm = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.4 }),
+        vm: makeVm(),
+      })
+      const stabilityCheck = vm.footerChecks[1]
+      expect(stabilityCheck.label).toBe('Stability limited')
+      // The fragile-result pill is still surfaced at the system level —
+      // this only governs the footer check, where over-claiming a single
+      // named assumption when none is grounded would be wrong.
+      expect(vm.metaPills.map(p => p.label)).toContain('Fragile result')
+    })
+
+    it('≥0.85 stability → "Stable" check regardless of fragile-factor presence', () => {
+      const withFragile = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.9, fragile: fragileEdge }),
+        vm: makeVm(),
+      })
+      const withoutFragile = buildAnalysisHeroViewModel({
+        ...STD_ARGS,
+        data: makeData({ stability: 0.9 }),
+        vm: makeVm(),
+      })
+      expect(withFragile.footerChecks[1].label).toBe('Stable')
+      expect(withoutFragile.footerChecks[1].label).toBe('Stable')
     })
   })
 

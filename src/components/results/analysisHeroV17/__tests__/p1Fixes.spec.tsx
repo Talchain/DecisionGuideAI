@@ -293,16 +293,18 @@ describe('rowRanking — P1.4: row chatPrompts use safe fallback for banned labe
     expect(row.chatPrompt).toContain('this factor')
   })
 
-  it('fragile edge row with banned-term fromLabel → reason is the Fix-3 action-oriented copy (no interpolation of the user label)', () => {
+  it('fragile edge row with banned-term fromLabel → reason is the action-oriented copy (no interpolation of the user label)', () => {
     const data = makeData({ fragileFromLabel: 'graph traversal cost' })
     const rows = rankHeroRows(data, 'moderate')
     const riskRow = rows.find(r => r.category === 'risk')
     expect(riskRow).toBeTruthy()
-    // Fix 3: the risk row's reason no longer interpolates the upstream
-    // factor label at all — it's a static action-oriented one-liner.
-    // So the banned-term issue is moot by construction.
+    // The risk row's reason no longer interpolates the upstream factor
+    // label at all — it's a static action-oriented one-liner. So the
+    // banned-term issue is moot by construction.
     expect(riskRow!.reason.toLowerCase()).not.toContain('graph traversal')
-    expect(riskRow!.reason).toContain('Highest-priority assumption')
+    // Polish-pass: shortened to single sentence that fits one rendered
+    // line. The priority bar already shows the band, so no lede.
+    expect(riskRow!.reason).toBe('Check this first. It could change the result.')
     // chatPrompt still uses safeRowLabel, so the banned-term label
     // becomes "this factor" in generated copy.
     expect(riskRow!.chatPrompt.toLowerCase()).not.toContain('graph traversal')
@@ -374,5 +376,43 @@ describe('AnalysisHeroV17 — P1.5: factor filter widens with data.kind', () => 
     // Anti-drift: the legacy "0 of 4 verified" form is gone.
     const strip = screen.queryByTestId('hero-v17-strip')
     expect(strip?.textContent ?? '').not.toMatch(/\d+ of \d+ verified/)
+  })
+})
+
+// ── Polish pass — fragile/risk row rendered DOM guardrail ────────────────────
+//
+// Reviewer P1: the truncation fix was only unit-tested as a string. We can't
+// validate pixel-width truncation in JSDOM (no layout engine), but we CAN
+// guard against the two ways truncation could silently re-creep in:
+//   1. The full reason string failing to land verbatim in the rendered DOM
+//      (e.g. if a future change reintroduces the `High evidence priority.`
+//      lede and someone clips it at the source).
+//   2. A trailing ellipsis character being baked into the text content
+//      (e.g. a future copy edit that adds `…` directly instead of relying
+//      on CSS).
+// Final pixel-level visual verification still requires a browser pass.
+
+describe('AnalysisHeroV17 — polish pass: fragile/risk row rendered DOM', () => {
+  beforeEach(() => {
+    useGuidanceStore.setState({ _prefillChat: () => {}, _sendMessage: () => {} })
+    useCanvasStore.setState({ nodes: [], confirmedNodeIds: new Set<string>() })
+  })
+
+  it('top-ranked risk row renders the short reason verbatim with no ellipsis', () => {
+    const { container } = render(
+      <AnalysisHeroV17
+        data={makeData({ stability: 0.7, fragileFromLabel: 'Technical Leadership Capacity' })}
+        vm={makeVm()}
+        fragileEdgeCount={1}
+      />,
+    )
+    const text = container.textContent ?? ''
+    expect(text).toContain('Check this first. It could change the result.')
+    // Anti-drift on the previous longer copy that caused the truncation.
+    expect(text).not.toContain('Highest-priority assumption')
+    expect(text).not.toContain('Most likely to change which option leads')
+    // Anti-drift on text-level ellipsis (CSS line-clamp uses '…' as the
+    // replacement char — we never want it baked into the source string).
+    expect(text).not.toContain('…')
   })
 })
