@@ -10,8 +10,8 @@
  * Uses shared TriageHealthHeader + TriageActionCardsBody.
  */
 
-import { useMemo, memo, useState, type ReactNode } from 'react'
-import { AlertTriangle, Check, ChevronDown, ChevronRight, Info, X } from 'lucide-react'
+import { useMemo, memo, type ReactNode } from 'react'
+import { Info } from 'lucide-react'
 import Tooltip from '@/components/Tooltip'
 import { TriageHealthHeader } from '@/components/shared/TriageHealthHeader'
 import type { DecisionHealthRingDimensions } from '@/components/shared/DecisionHealthRing'

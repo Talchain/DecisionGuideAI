@@ -284,7 +284,15 @@ export const ModelTabBody = memo(function ModelTabBody({
       return Array.isArray(raw) ? raw : null
     })(),
     recommendationStability: robustness?.recommendationStability ?? null,
-    autoNoiseApplied: rawV2Response?.auto_noise_applied ?? null,
+    // Legacy fallback: older PLoT builds emitted the flag under `_meta`
+    // before it was promoted to a top-level field. Cached/hydrated bundles
+    // captured pre-promotion still rely on this read path; without it the
+    // Model card audit row vanishes for those bundles. Same `as any` shape
+    // as stabilityPenaltyFactor below (legacy fields aren't on V2RunResponse).
+    autoNoiseApplied:
+      rawV2Response?.auto_noise_applied
+      ?? (rawV2Response as any)?._meta?.auto_noise_applied
+      ?? null,
     autoNoiseProvenance: normalizeAutoNoiseProvenance(rawV2Response?.auto_noise_provenance),
     stabilityPenaltyFactor: (rawV2Response as any)?.stability_penalty_factor ?? null,
   }), [rawV2Response, repairsApplied, results, robustness])
