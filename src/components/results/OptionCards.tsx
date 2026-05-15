@@ -17,7 +17,12 @@
 
 import { useRef, useState, useCallback, type RefObject } from 'react'
 import { typography } from '../../styles/typography'
-import { formatPercent as formatPct } from '../../utils/formatPercent'
+import {
+  formatPercent as formatPct,
+  formatProbabilityWithResolution,
+  isAboveSimulationResolution,
+  isBelowSimulationResolution,
+} from '../../utils/formatPercent'
 import { ExpertBlock } from './ExpertBlock'
 import { formatOptionLabelForCard } from './utils/cleanFactorLabel'
 import { highlightNode, clearHighlight } from '../../canvas/utils/highlightHelpers'
@@ -57,6 +62,12 @@ export interface OptionCardsProps {
   confidenceTier?: ConfidenceTier
   /** Brief 5.4 QA Item 4: stability gate for winner chip hedging (mirrors certaintyCopy threshold) */
   recommendationStability?: number
+  /**
+   * Display-honesty (UI-SEM-050): when true, render a single qualifying
+   * sentence inside the leading option's card noting meaningful downside
+   * in the lower simulated range.
+   */
+  leadingOptionDownsideFlag?: boolean
 }
 
 /** Fallback description when no story headline is available */
@@ -268,6 +279,7 @@ function OptionCard({
   expertMode = false,
   confidenceTier,
   recommendationStability,
+  leadingOptionDownsideFlag,
 }: {
   option: OptionResult
   isWinner: boolean
@@ -293,6 +305,12 @@ function OptionCard({
   confidenceTier?: ConfidenceTier
   /** Brief 5.4 QA Item 4: stability gate for winner chip hedging (mirrors certaintyCopy threshold) */
   recommendationStability?: number
+  /**
+   * Display-honesty (UI-SEM-050): when true and this card is the leading
+   * option, render a single qualifying sentence noting meaningful downside
+   * in the lower simulated range. Display-only.
+   */
+  leadingOptionDownsideFlag?: boolean
 }) {
   // Brief 5.8B D3: per-rank palette (success / info / option / panel-border)
   // collapsed to a 2-state hierarchy — winner cards get `border-success/30`,
@@ -350,12 +368,20 @@ function OptionCard({
         )}
         <span className="flex-1" />
         {option.winProbability != null && (
-          <Tooltip content={`Leads in ${Math.round(option.winProbability * 100)}% of simulated scenarios`}>
+          <Tooltip
+            content={
+              isBelowSimulationResolution(option.winProbability, option.nValidSamples)
+                ? 'This option did not lead in any of the simulation runs, so its true chance may be below the current resolution.'
+                : isAboveSimulationResolution(option.winProbability, option.nValidSamples)
+                  ? 'This option led in every simulation run, so its display value reflects the current simulation resolution.'
+                  : `Leads in ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)} of simulated scenarios`
+            }
+          >
             <span
               className={`${typography.panelHeader} text-text-header tabular-nums flex-shrink-0`}
               data-testid={`win-pct-${option.id}`}
             >
-              {formatPct(option.winProbability, { fromDecimal: true })}
+              {formatProbabilityWithResolution(option.winProbability, option.nValidSamples)}
             </span>
           </Tooltip>
         )}
@@ -371,7 +397,7 @@ function OptionCard({
         <div
           className="w-full rounded-full overflow-hidden"
           style={{ height: 5, backgroundColor: 'var(--border-default, #EEE6D8)' }}
-          title={`Leading-option probability: ${Math.round(option.winProbability * 100)}%`}
+          title={`Leading-option probability: ${formatProbabilityWithResolution(option.winProbability, option.nValidSamples)}`}
         >
           <div
             className="h-full rounded-full transition-all duration-300"
@@ -381,6 +407,19 @@ function OptionCard({
             }}
           />
         </div>
+      )}
+
+      {/* Display-honesty (UI-SEM-050): qualifying sentence for the leading
+          option when its lower simulated range includes meaningful downside.
+          Reuses the existing outlined-pill pattern (border-info/30) — no new
+          colour or component primitive. */}
+      {isWinner && leadingOptionDownsideFlag === true && !neutralised && (
+        <p
+          className={`${typography.panelMeta} text-text-light`}
+          data-testid={`leading-option-downside-${option.id}`}
+        >
+          This option currently leads, but the lower range of simulated outcomes includes meaningful downside.
+        </p>
       )}
 
       {/* Stat rows */}
@@ -491,6 +530,7 @@ export function OptionCards({
   expertMode,
   confidenceTier,
   recommendationStability,
+  leadingOptionDownsideFlag,
 }: OptionCardsProps) {
   // Internal ref map if none provided externally
   const internalRefMap = useRef<Map<string, HTMLDivElement>>(new Map())
@@ -601,6 +641,7 @@ export function OptionCards({
             expertMode={expertMode}
             confidenceTier={confidenceTier}
             recommendationStability={recommendationStability}
+            leadingOptionDownsideFlag={leadingOptionDownsideFlag}
           />
         )
       })}

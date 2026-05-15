@@ -20,3 +20,87 @@ export function formatPercent(
   if (sign && pct > 0) return `+${rounded}%`
   return `${rounded}%`
 }
+
+/**
+ * Display-honesty: format a Monte Carlo win probability as a percentage,
+ * acknowledging the simulation-resolution floor / ceiling rather than
+ * rounding silently to "0%" or "100%".
+ *
+ * Threshold derives from sample count:
+ *   value < 1/n         -> "<{1/n as percent}", e.g. "<0.1%" at n=1000
+ *   value > 1 - 1/n     -> ">{1 - 1/n as percent}", e.g. ">99.9%" at n=1000
+ *   otherwise           -> normal percent rendering
+ *
+ * When `nSamples` is undefined or non-positive, falls back to legacy
+ * percentage formatting (via formatPercent) so existing call sites that
+ * cannot supply a sample count continue to work unchanged.
+ *
+ * Always operates on the raw decimal probability — the displayed string
+ * changes, the source numeric value does not.
+ *
+ * @param value - Raw probability in [0, 1]
+ * @param nSamples - Per-option n_valid_samples, or fallback n_samples / meta.n_samples
+ */
+export function formatProbabilityWithResolution(
+  value: number,
+  nSamples: number | null | undefined,
+): string {
+  if (nSamples === null || nSamples === undefined || !Number.isFinite(nSamples) || nSamples <= 0) {
+    return formatPercent(value, { fromDecimal: true })
+  }
+
+  const threshold = 1 / nSamples
+  if (value < threshold) {
+    return `<${thresholdAsPercent(threshold)}`
+  }
+  if (value > 1 - threshold) {
+    return `>${thresholdAsPercent(1 - threshold)}`
+  }
+  return formatPercent(value, { fromDecimal: true })
+}
+
+/**
+ * Format a sample-count-derived threshold (in [0, 1]) as a percent string.
+ * Picks the smallest decimal precision that renders the value distinctly
+ * from 0% / 100% — e.g. 0.01 -> "1%", 0.001 -> "0.1%", 0.0001 -> "0.01%",
+ * 0.999 -> "99.9%".
+ */
+function thresholdAsPercent(threshold: number): string {
+  const pct = threshold * 100
+  for (let precision = 0; precision <= 6; precision++) {
+    const rendered = pct.toFixed(precision)
+    if (Number(rendered) !== 0 && Number(rendered) !== 100) {
+      return `${rendered}%`
+    }
+  }
+  return `${pct.toFixed(6)}%`
+}
+
+/**
+ * Whether the given value should be reported as below the simulation
+ * resolution at the given sample count. Used to gate user-facing helper
+ * copy explaining why "<X%" appears.
+ */
+export function isBelowSimulationResolution(
+  value: number,
+  nSamples: number | null | undefined,
+): boolean {
+  if (nSamples === null || nSamples === undefined || !Number.isFinite(nSamples) || nSamples <= 0) {
+    return false
+  }
+  return value < 1 / nSamples
+}
+
+/**
+ * Whether the given value should be reported as above the simulation
+ * resolution at the given sample count.
+ */
+export function isAboveSimulationResolution(
+  value: number,
+  nSamples: number | null | undefined,
+): boolean {
+  if (nSamples === null || nSamples === undefined || !Number.isFinite(nSamples) || nSamples <= 0) {
+    return false
+  }
+  return value > 1 - 1 / nSamples
+}

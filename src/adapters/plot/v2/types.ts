@@ -134,6 +134,20 @@ export interface V2Outcome {
   p10: number
   p50: number
   p90: number
+  /**
+   * Total Monte Carlo samples drawn for this option (optional — present when
+   * ISL emits it on the per-option outcome object).
+   */
+  n_samples?: number
+  /**
+   * Number of valid (non-NaN) samples for this option. Used by display-honesty
+   * UI to derive the simulation-resolution floor / ceiling per option.
+   */
+  n_valid_samples?: number
+  /**
+   * Ratio of valid to total samples (n_valid_samples / n_samples).
+   */
+  validity_ratio?: number
 }
 
 /**
@@ -436,6 +450,21 @@ export interface V2RunResponse {
     is_provisional: boolean
     calibration_status: string
   }
+
+  /**
+   * Display-honesty: high-level classification of `flip_thresholds[]` from
+   * PLoT, computed at the post-denormalised response-assembly boundary.
+   * Lets the Results UI render the all-no-effect / partial / unresolved
+   * cases honestly without re-deriving from individual `flip_reason` strings.
+   * Optional — present on PLoT builds shipping the display-honesty PR.
+   */
+  flip_thresholds_status?: 'computed' | 'all_no_effect' | 'partial_no_effect' | 'unresolved' | 'unavailable'
+
+  /**
+   * First-seen `flip_reason` string when `flip_thresholds_status === 'unresolved'`.
+   * Payload-only debug metadata; never user-facing copy.
+   */
+  flip_thresholds_status_reason?: string
 
   // ==========================================================================
   // M1 CEE Review Fields (optional enrichment)
