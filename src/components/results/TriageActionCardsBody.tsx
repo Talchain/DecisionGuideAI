@@ -324,13 +324,14 @@ function T1DominantNudge({
     ?? topDriver?.factorKey
     ?? null
   const explanation = `drives ${dominantPct}% of the outcome.`
-  // (Round-5 P1.2) v17 mode rewrites the trailing sentence to glossary-safe
-  // copy. The legacy version contains "the recommendation could change",
-  // which trips the glossary scanner. Pre-v17 callers keep the original
-  // wording unchanged to avoid silent UX shifts in the legacy panel.
+  // (Round-5 P1.2, P0 follow-up) Both v17 and legacy modes use glossary-
+  // safe copy. The legacy branch previously contained "the recommendation
+  // could change"; the P0 surface-copy cleanup retired that. The two
+  // branches diverge only in noun choice — v17 hero says "the leading
+  // option", legacy panel says "the result".
   const trailingClause = useV17Copy
     ? 'If your assumptions about this factor are wrong, the leading option could change.'
-    : 'If your assumptions about this factor are wrong, the recommendation could change.'
+    : 'If your assumptions about this factor are wrong, the result could change.'
   // (Round-5 P1.1) v17 mode: the dominant factor's label is user data and
   // still appears VERBATIM in the visible identity span. But when the same
   // label gets interpolated into generated text (aria-label, title), gate
