@@ -1,10 +1,9 @@
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useRef, useState } from 'react'
 import { BarChart3, Shuffle, Activity } from 'lucide-react'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import {
   ANALYSIS_TAB_STRIP_WIDTH,
   Z_ANALYSIS_OVERLAY,
-  Z_ANALYSIS_SCRIM,
 } from './constants'
 
 // Brief §4.5 / step 13 — at 1440–1599px viewports in Focus mode the
@@ -33,6 +32,7 @@ export const AnalysisTabStripOverlay = memo(function AnalysisTabStripOverlay({
   onActiveTabChange,
 }: AnalysisTabStripOverlayProps) {
   const [openTab, setOpenTab] = useState<TabId | null>(null)
+  const stripRef = useRef<HTMLElement>(null)
 
   // Reset when the overlay deactivates.
   useEffect(() => {
@@ -71,6 +71,35 @@ export const AnalysisTabStripOverlay = memo(function AnalysisTabStripOverlay({
     return () => document.removeEventListener('keydown', handleKeyDown, { capture: true } as AddEventListenerOptions)
   }, [openTab, handleClose])
 
+  // Outside-click closes the overlay. The previous z-890 scrim sat below
+  // the AI column (z 900), so clicks on the column landed on the column
+  // and never reached the scrim — the overlay wouldn't close even though
+  // the click was outside the expanded dock + strip. A document-level
+  // pointerdown handler that excludes ONLY the strip and the dock fixes
+  // this: clicking the AI column, canvas, tools rail, or anywhere else
+  // dismisses the overlay.
+  useEffect(() => {
+    if (openTab === null) return
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node | null
+      if (!target) return
+      if (stripRef.current?.contains(target)) return
+      const dock = document.querySelector('[data-testid="outputs-dock"]')
+      if (dock?.contains(target)) return
+      handleClose()
+    }
+    // Run on the next tick so the same pointerdown that opened the tab
+    // doesn't immediately close it (the click bubbles up before this
+    // listener attaches if we register synchronously).
+    const id = setTimeout(() => {
+      document.addEventListener('pointerdown', handlePointerDown)
+    }, 0)
+    return () => {
+      clearTimeout(id)
+      document.removeEventListener('pointerdown', handlePointerDown)
+    }
+  }, [openTab, handleClose])
+
   if (!active) return null
 
   return (
@@ -79,6 +108,7 @@ export const AnalysisTabStripOverlay = memo(function AnalysisTabStripOverlay({
           bottom:bottombar+1rem. Sits ABOVE OutputsDock so the dock is
           visually replaced. */}
       <nav
+        ref={stripRef}
         data-testid="ai-panel-v2-tab-strip"
         aria-label="Analysis tabs"
         className="flex flex-col items-center gap-2 py-3 bg-panel border border-panel-border rounded-2xl shadow-1"
@@ -115,17 +145,9 @@ export const AnalysisTabStripOverlay = memo(function AnalysisTabStripOverlay({
         })}
       </nav>
 
-      {/* Click-outside scrim. It sits below OutputsDock so the expanded
-          dock remains interactive, but above the canvas for outside-close. */}
-      {openTab !== null && (
-        <div
-          data-testid="ai-panel-v2-tab-strip-scrim"
-          onClick={handleClose}
-          className="fixed inset-0 bg-transparent"
-          style={{ zIndex: Z_ANALYSIS_SCRIM }}
-          aria-hidden="true"
-        />
-      )}
+      {/* Outside-click detection lives in the document-level pointerdown
+          handler above (see effect). A z-index scrim couldn't catch clicks
+          on the AI column at z=900 — the document handler can. */}
     </>
   )
 })

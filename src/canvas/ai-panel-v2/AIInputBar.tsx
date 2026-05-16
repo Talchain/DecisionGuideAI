@@ -1,7 +1,9 @@
 import {
+  forwardRef,
   memo,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useLayoutEffect,
   useRef,
   useState,
@@ -37,11 +39,19 @@ interface AIInputBarProps {
   onAttach: () => void
 }
 
-export const AIInputBar = memo(function AIInputBar({
+// Imperative handle so external flows (inspector "Ask about this", analysis
+// hero prefill actions) routed through guidanceStore._prefillChat can
+// populate the visible textarea instead of a non-existent ChatComposer ref.
+export interface AIInputBarHandle {
+  setText: (text: string) => void
+  focus: () => void
+}
+
+export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(function AIInputBar({
   onSend,
   isThinking,
   onAttach,
-}: AIInputBarProps) {
+}, ref) {
   const placeholder = useStageAwarePlaceholder()
   const [value, setValue] = useState('')
   const [cogOpen, setCogOpen] = useState(false)
@@ -92,6 +102,16 @@ export const AIInputBar = memo(function AIInputBar({
     // Intentionally leave `value` alone so the user can resume after the
     // turn completes — no auto-clear surprises.
   }, [isThinking])
+
+  useImperativeHandle(ref, () => ({
+    setText: (text: string) => {
+      setValue(text)
+      // Focus the textarea after a microtask so React commits the value
+      // first; otherwise the cursor lands at the wrong position.
+      queueMicrotask(() => textareaRef.current?.focus())
+    },
+    focus: () => textareaRef.current?.focus(),
+  }), [])
 
   const canSend = value.trim().length > 0 && !isThinking
 
@@ -152,4 +172,4 @@ export const AIInputBar = memo(function AIInputBar({
       </div>
     </div>
   )
-})
+}))

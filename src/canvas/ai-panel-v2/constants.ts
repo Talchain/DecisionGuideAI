@@ -47,11 +47,12 @@ export const ARROW_KEY_RESIZE_PX = 20
 // below modal/dialog overlays.
 export const Z_AI_PANEL_BASE = 900
 
-// Focus-mode chrome sits above the right dock when it visually replaces the
-// dock with a 48px strip. The click-outside scrim sits below OutputsDock so
-// the expanded dock remains interactive while outside clicks still close it.
+// Focus column sits at the same layer as OutputsDock; the tab strip sits
+// above the dock so it visually replaces the dock at 1440-1599. Outside-
+// click is now handled by a document-level pointerdown listener inside
+// AnalysisTabStripOverlay (not a z-index scrim — the AI column at z=900
+// would have intercepted scrim clicks).
 export const Z_FOCUS_COLUMN = Z_AI_PANEL_BASE
-export const Z_ANALYSIS_SCRIM = Z_AI_PANEL_BASE - 10
 export const Z_ANALYSIS_OVERLAY = Z_AI_PANEL_BASE + 20
 
 export type AIPanelMode = 'compact' | 'conversation' | 'focus'

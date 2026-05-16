@@ -7,7 +7,10 @@
  * `AIInputBar` replaces ConversationPanel's heavy ChatComposer via the
  * `hideComposer` prop — same handler matrix, new input UI.
  *
- * Step 6 adds SelectionPill (top) and StaleAnalysisBadge (above input).
+ * Prefill target: AIZone provides a `prefillChat` callback to
+ * ConversationPanel so external flows (inspector "Ask about this",
+ * analysis hero prefill) populate the visible AIInputBar instead of the
+ * non-existent legacy composer ref.
  *
  * Singleton invariant (correction #9): exactly one `useConversation()`
  * call per active AI surface. Under FF on, DraftChat is unmounted, so
@@ -17,13 +20,14 @@
 import { memo, useCallback, useRef } from 'react'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useConversation } from '../conversation/useConversation'
-import { AIInputBar } from './AIInputBar'
+import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { SelectionPill } from './SelectionPill'
 import { StaleAnalysisBadge } from './StaleAnalysisBadge'
 
 export const AIZone = memo(function AIZone() {
   const conversation = useConversation()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const inputBarRef = useRef<AIInputBarHandle>(null)
 
   const handleAttach = useCallback(() => {
     fileInputRef.current?.click()
@@ -36,6 +40,10 @@ export const AIZone = memo(function AIZone() {
     [conversation],
   )
 
+  const handlePrefill = useCallback((text: string) => {
+    inputBarRef.current?.setText(text)
+  }, [])
+
   return (
     <div data-testid="ai-panel-v2-zone" className="flex flex-col h-full min-h-0">
       <SelectionPill />
@@ -44,9 +52,11 @@ export const AIZone = memo(function AIZone() {
         onCollapse={noop}
         onAttach={handleAttach}
         hideComposer
+        prefillChat={handlePrefill}
       />
       <StaleAnalysisBadge />
       <AIInputBar
+        ref={inputBarRef}
         onSend={handleSend}
         isThinking={conversation.isThinking}
         onAttach={handleAttach}

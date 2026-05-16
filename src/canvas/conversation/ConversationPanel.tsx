@@ -40,6 +40,14 @@ interface ConversationPanelProps {
    * matrix + guidanceStore registration) intact. Default false.
    */
   hideComposer?: boolean
+  /**
+   * When provided, overrides the default `_prefillChat` registration so
+   * that external flows (inspector "Ask about this", analysis hero
+   * prefill actions) populate the v2 AIInputBar instead of the
+   * non-existent ChatComposer ref. Required-in-spirit when `hideComposer`
+   * is true; without it, prefill silently no-ops.
+   */
+  prefillChat?: (text: string) => void
 }
 
 function createPanelInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
@@ -76,6 +84,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   onCollapse,
   onAttach,
   hideComposer = false,
+  prefillChat: prefillChatOverride,
 }: ConversationPanelProps) {
   const {
     messages, isThinking, longRunningHint,
@@ -435,7 +444,14 @@ export const ConversationPanel = memo(function ConversationPanel({
   useEffect(() => {
     const sendChipByLabelMessage = (label: string, message: string) =>
       sendChip({ id: `evidence-apply-${Date.now()}`, label, message, intent: 'primary' })
-    const prefillChat = (text: string) => composerRef.current?.replaceText(text)
+    // When `hideComposer` is true (AI panel v2) the legacy composerRef is
+    // never mounted, so the default prefill would silently no-op. Use the
+    // caller-supplied override (which targets the visible AIInputBar) so
+    // inspector "Ask about this" and analysis hero prefill actions
+    // actually populate the textarea. Otherwise fall back to the legacy
+    // composer ref.
+    const prefillChat = prefillChatOverride
+      ?? ((text: string) => composerRef.current?.replaceText(text))
     useGuidanceStore.getState().registerConversationCallbacks(
       sendMessage,
       handleScrollToPatch,
@@ -447,7 +463,7 @@ export const ConversationPanel = memo(function ConversationPanel({
     return () => {
       useGuidanceStore.setState({ _sendMessage: null, _runAnalysis: null, _sendChip: null, _scrollToPatch: null, _prefillChat: null, _dispatchAction: null })
     }
-  }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis, dispatchAction])
+  }, [sendMessage, handleScrollToPatch, sendChip, handleRunAnalysis, dispatchAction, prefillChatOverride])
 
   const handleInsertText = useCallback((text: string) => {
     composerRef.current?.replaceText(text)
