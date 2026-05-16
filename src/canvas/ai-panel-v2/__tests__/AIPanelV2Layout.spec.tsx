@@ -1,23 +1,39 @@
 import { describe, it, expect, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { fireEvent, render, screen, cleanup } from '@testing-library/react'
 
 // Mock heavy children to keep this at the mounting level.
 vi.mock('../AIZone', () => ({
   AIZone: () => <div data-testid="stub-ai-zone" />,
 }))
 vi.mock('../PullTab', () => ({
-  PullTab: ({ activeMode }: { activeMode: string }) => (
-    <div data-testid="stub-pull-tab" data-active-mode={activeMode} />
+  PullTab: ({
+    activeMode,
+    onModeClick,
+  }: {
+    activeMode: string
+    onModeClick: (mode: 'compact' | 'conversation' | 'focus') => void
+  }) => (
+    <div data-testid="stub-pull-tab" data-active-mode={activeMode}>
+      <button type="button" data-testid="stub-focus-mode" onClick={() => onModeClick('focus')}>
+        Focus
+      </button>
+    </div>
   ),
 }))
 
 import { AIPanelV2Layout } from '../AIPanelV2Layout'
-import { AI_PANEL_V2_WIDTH, Z_AI_PANEL_BASE, AI_ZONE_MIN_HEIGHT } from '../constants'
+import {
+  AI_PANEL_V2_WIDTH,
+  Z_AI_PANEL_BASE,
+  AI_ZONE_MIN_HEIGHT,
+  ANALYSIS_TAB_STRIP_WIDTH,
+} from '../constants'
 import { isAiPanelV2Enabled } from '../../../flags'
 
 afterEach(() => {
   cleanup()
+  Object.defineProperty(window, 'innerWidth', { writable: true, value: 1024 })
   document.documentElement.style.removeProperty('--olumi-ai-panel-dock-width')
   document.documentElement.style.removeProperty('--olumi-ai-panel-bottom')
 })
@@ -80,6 +96,44 @@ describe('AIPanelV2Layout (step 5 — vertical split + PullTab)', () => {
   it('has an accessible label', () => {
     render(<AIPanelV2Layout />)
     expect(screen.getByLabelText(/ai conversation/i)).toBeInTheDocument()
+  })
+
+  it('collapses the dock to the tab-strip width in 1440-1599 Focus mode and expands it while an overlay tab is open', () => {
+    Object.defineProperty(window, 'innerWidth', { writable: true, value: 1500 })
+    render(<AIPanelV2Layout />)
+
+    fireEvent.click(screen.getByTestId('stub-focus-mode'))
+
+    expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-dock-width'))
+      .toBe(`${ANALYSIS_TAB_STRIP_WIDTH}px`)
+
+    fireEvent.click(screen.getByTestId('ai-panel-v2-tab-results'))
+
+    expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-dock-width'))
+      .toBe(`${AI_PANEL_V2_WIDTH}px`)
+  })
+
+  it('slides the Focus AI column LEFT when a tab-strip tab opens so the expanded dock has room', () => {
+    // At 1440-1599 with no tab open: dock is a 48px strip, AI column sits
+    // close to the right (right = 48 + 12 margin + 12 gutter = 72px).
+    // When a tab opens, the dock expands to 400px and the column must
+    // shift left or it would overlap the dock at the same z-index. The
+    // delta = AI_PANEL_V2_WIDTH − ANALYSIS_TAB_STRIP_WIDTH.
+    Object.defineProperty(window, 'innerWidth', { writable: true, value: 1500 })
+    render(<AIPanelV2Layout />)
+    fireEvent.click(screen.getByTestId('stub-focus-mode'))
+
+    const aside = screen.getByTestId('ai-panel-v2-layout')
+    const stripRight = parseFloat(aside.style.right)
+    expect(stripRight).toBeCloseTo(ANALYSIS_TAB_STRIP_WIDTH + 12 + 12, 0)
+
+    fireEvent.click(screen.getByTestId('ai-panel-v2-tab-results'))
+    const openRight = parseFloat(aside.style.right)
+    expect(openRight).toBeCloseTo(AI_PANEL_V2_WIDTH + 12 + 12, 0)
+    expect(openRight - stripRight).toBeCloseTo(
+      AI_PANEL_V2_WIDTH - ANALYSIS_TAB_STRIP_WIDTH,
+      0,
+    )
   })
 })
 

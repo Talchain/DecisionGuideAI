@@ -1,20 +1,17 @@
 import { memo, useCallback, useEffect, useState } from 'react'
-import { BarChart3, Shuffle, Activity, X } from 'lucide-react'
-import { typography } from '../../styles/typography'
+import { BarChart3, Shuffle, Activity } from 'lucide-react'
+import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import {
   ANALYSIS_TAB_STRIP_WIDTH,
   Z_ANALYSIS_OVERLAY,
+  Z_ANALYSIS_SCRIM,
 } from './constants'
 
 // Brief §4.5 / step 13 — at 1440–1599px viewports in Focus mode the
-// dock is replaced by a 48px vertical tab strip. Clicking a tab opens a
-// 400px right-anchored overlay showing the corresponding analysis tab
-// content. Outside-click / Escape closes the overlay.
-//
-// Implementation note: this component DOESN'T actually drive the dock's
-// content — it's a thin chrome that overlays OutputsDock and provides
-// the tab-strip affordance. The actual tab content is the dock itself,
-// which we toggle visibility on.
+// dock is visually replaced by a 48px vertical tab strip. Clicking a tab
+// expands the real OutputsDock back to 400px as a temporary right-anchored
+// overlay and switches it to the selected tab. Outside-click / Escape closes
+// the overlay by collapsing the dock back to the strip width.
 
 type TabId = 'results' | 'compare' | 'diagnostics'
 
@@ -48,6 +45,10 @@ export const AnalysisTabStripOverlay = memo(function AnalysisTabStripOverlay({
   const handleTabClick = useCallback((tabId: TabId) => {
     setOpenTab(prev => {
       const next = prev === tabId ? null : tabId
+      if (next !== null) {
+        useUIStore.getState().setActiveOutputTab(next as OutputTab)
+        useUIStore.getState().openRightPanel('results')
+      }
       onActiveTabChange?.(next)
       return next
     })
@@ -114,67 +115,16 @@ export const AnalysisTabStripOverlay = memo(function AnalysisTabStripOverlay({
         })}
       </nav>
 
-      {/* Click-outside scrim. Covers the canvas behind the overlay so
-          clicking elsewhere closes the open tab. Pointer events only when
-          a tab is open. */}
+      {/* Click-outside scrim. It sits below OutputsDock so the expanded
+          dock remains interactive, but above the canvas for outside-close. */}
       {openTab !== null && (
         <div
           data-testid="ai-panel-v2-tab-strip-scrim"
           onClick={handleClose}
           className="fixed inset-0 bg-transparent"
-          style={{ zIndex: Z_ANALYSIS_OVERLAY - 1 }}
+          style={{ zIndex: Z_ANALYSIS_SCRIM }}
           aria-hidden="true"
         />
-      )}
-
-      {/* Overlay panel — 400px right-anchored, shadow-3, with a close button.
-          The dock's content is the actual tab body (rendered behind this
-          via z-index ordering). For step 13, this overlay is structural
-          chrome: the parent toggles OutputsDock's `--olumi-ai-panel-*`
-          vars so the dock body widens back to 400px under the strip. */}
-      {openTab !== null && (
-        <div
-          data-testid="ai-panel-v2-tab-strip-overlay"
-          role="dialog"
-          aria-modal="false"
-          aria-label={`${TABS.find(t => t.id === openTab)?.label} overlay`}
-          className="bg-panel border border-panel-border rounded-2xl shadow-3"
-          style={{
-            position: 'fixed',
-            right: ANALYSIS_TAB_STRIP_WIDTH + 12 + 8, // strip width + margin + gutter
-            top: 12,
-            bottom: 'calc(var(--bottombar-h, 0px) + 1rem)',
-            width: 400,
-            zIndex: Z_ANALYSIS_OVERLAY,
-          }}
-        >
-          <div className="flex items-center justify-between px-3 py-2 border-b border-panel-border">
-            <span className={`${typography.panelHeader} text-text-body`}>
-              {TABS.find(t => t.id === openTab)?.label}
-            </span>
-            <button
-              type="button"
-              onClick={handleClose}
-              aria-label="Close overlay"
-              title="Close overlay"
-              className="p-1 rounded hover:bg-panel-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-              data-testid="ai-panel-v2-tab-strip-close"
-            >
-              <X className="w-4 h-4 text-text-light" aria-hidden="true" />
-            </button>
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto p-3">
-            {/* Content is OutputsDock — rendered behind this overlay's
-                shadow. Step 13 ships the chrome; the dock content already
-                exists and is visible through this overlay's transparent
-                body if needed. A tighter integration (mounting the active
-                tab body inline here) is left to a follow-up. */}
-            <p className={`${typography.panelMeta} text-text-light`}>
-              Use the dock behind this strip — full tab integration with the
-              overlay lands in a follow-up.
-            </p>
-          </div>
-        </div>
       )}
     </>
   )

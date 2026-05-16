@@ -10,6 +10,7 @@ import {
   AI_PANEL_V2_WIDTH,
   AI_ZONE_MIN_HEIGHT,
   ANALYSIS_ZONE_MIN_HEIGHT,
+  ANALYSIS_TAB_STRIP_WIDTH,
   FOCUS_FULL_VIEWPORT,
   FOCUS_MIN_VIEWPORT,
   Z_AI_PANEL_BASE,
@@ -82,6 +83,13 @@ export function AIPanelV2Layout() {
   // Tab-strip mode replaces the dock at narrow Focus viewports
   // (1440–1599) so the AI column + canvas can fit.
   const tabStripMode = isFocus && viewportWidth >= FOCUS_MIN_VIEWPORT && viewportWidth < FOCUS_FULL_VIEWPORT
+  const [openAnalysisOverlayTab, setOpenAnalysisOverlayTab] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!tabStripMode && openAnalysisOverlayTab !== null) {
+      setOpenAnalysisOverlayTab(null)
+    }
+  }, [tabStripMode, openAnalysisOverlayTab])
 
   // Selection / stale tint on the pull-tab edge.
   const { hasSelection, borderClass: selectionBorder } = useSelectionContext()
@@ -101,20 +109,24 @@ export function AIPanelV2Layout() {
     : AI_ZONE_MIN_HEIGHT
 
   // CSS-variable coordination with OutputsDock:
-  //   • --olumi-ai-panel-dock-width: dock width (400px FF on, or
-  //     ANALYSIS_TAB_STRIP_WIDTH when the dock is collapsed to a strip)
+  //   • --olumi-ai-panel-dock-width: dock width (400px normally; in
+  //     1440–1599 Focus, 48px when closed and 400px while an analysis
+  //     overlay tab is open)
   //   • --olumi-ai-panel-bottom: vertical reserve below the dock
   //     (Compact/Conv: aiHeightPx; Focus: 0 — dock returns to full height)
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
-    root.style.setProperty('--olumi-ai-panel-dock-width', `${AI_PANEL_V2_WIDTH}px`)
+    const dockWidth = tabStripMode && openAnalysisOverlayTab === null
+      ? ANALYSIS_TAB_STRIP_WIDTH
+      : AI_PANEL_V2_WIDTH
+    root.style.setProperty('--olumi-ai-panel-dock-width', `${dockWidth}px`)
     root.style.setProperty('--olumi-ai-panel-bottom', isFocus ? '0px' : `${aiHeightPx}px`)
     return () => {
       root.style.removeProperty('--olumi-ai-panel-dock-width')
       root.style.removeProperty('--olumi-ai-panel-bottom')
     }
-  }, [aiHeightPx, isFocus])
+  }, [aiHeightPx, isFocus, openAnalysisOverlayTab, tabStripMode])
 
   // ── Compact / Conversation positioning ────────────────────────────────
   const compactStyle: React.CSSProperties = {
@@ -131,7 +143,16 @@ export function AIPanelV2Layout() {
   // When tabStripMode is on, the dock is replaced by a 48px strip; the AI
   // column occupies the right portion of the viewport. When ≥1600px, the
   // dock keeps its 400px width and the AI column sits LEFT of it.
-  const dockReserved = tabStripMode ? 48 + PANEL_RIGHT_MARGIN : AI_PANEL_V2_WIDTH + PANEL_RIGHT_MARGIN
+  //
+  // Special case: while a tab-strip tab is open (1440-1599), the dock
+  // expands back to 400px to show its content. We slide the AI column
+  // LEFT so the two don't overlap — without the shift, both would sit at
+  // the same z-index and the AI column (rendered later) would paint over
+  // the expanded dock, hiding the analysis content the user just opened.
+  const dockWidthForLayout = tabStripMode && openAnalysisOverlayTab === null
+    ? ANALYSIS_TAB_STRIP_WIDTH
+    : AI_PANEL_V2_WIDTH
+  const dockReserved = dockWidthForLayout + PANEL_RIGHT_MARGIN
   const focusStyle: React.CSSProperties = {
     position: 'fixed',
     width: focusWidth,
@@ -207,7 +228,10 @@ export function AIPanelV2Layout() {
       {/* 1440–1599 tab-strip chrome — only in Focus mode at narrow
           Focus-supported viewports. Replaces the dock visually with a
           48px strip; clicking opens a 400px overlay. */}
-      <AnalysisTabStripOverlay active={tabStripMode} />
+      <AnalysisTabStripOverlay
+        active={tabStripMode}
+        onActiveTabChange={setOpenAnalysisOverlayTab}
+      />
     </>
   )
 }

@@ -1,11 +1,6 @@
 // Layout constants for the AI panel v2 split layout. All values are pixels
 // unless suffixed otherwise. Kept here so tests and runtime share one source
 // of truth.
-//
-// Step 1 ships only the constants that are actually consumed today. Mode
-// thresholds, pull-tab sizing, and Focus-mode tuning land alongside their
-// implementation in later steps to avoid carrying unused symbols in the
-// public surface.
 
 export const AI_PANEL_V2_WIDTH = 400
 export const AI_ZONE_MIN_HEIGHT = 200
@@ -41,10 +36,6 @@ export const FOCUS_COLUMN_DEFAULT = 400
 export const FOCUS_COLUMN_MIN = 320
 export const FOCUS_SNAP_THRESHOLD = 20
 
-// Stacking layers for the Focus mode chrome (brief §6, correction #6).
-export const Z_FOCUS_COLUMN = 30
-export const Z_ANALYSIS_OVERLAY = 40
-
 // Collapsed-strip width at 1440–1599px viewports (brief §4.5).
 export const ANALYSIS_TAB_STRIP_WIDTH = 48
 
@@ -55,5 +46,12 @@ export const ARROW_KEY_RESIZE_PX = 20
 // two fixed-position right-side panels share the same level: above canvas,
 // below modal/dialog overlays.
 export const Z_AI_PANEL_BASE = 900
+
+// Focus-mode chrome sits above the right dock when it visually replaces the
+// dock with a 48px strip. The click-outside scrim sits below OutputsDock so
+// the expanded dock remains interactive while outside clicks still close it.
+export const Z_FOCUS_COLUMN = Z_AI_PANEL_BASE
+export const Z_ANALYSIS_SCRIM = Z_AI_PANEL_BASE - 10
+export const Z_ANALYSIS_OVERLAY = Z_AI_PANEL_BASE + 20
 
 export type AIPanelMode = 'compact' | 'conversation' | 'focus'

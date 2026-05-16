@@ -23,8 +23,8 @@
 | 9 — EntityLink + GraphPatchBlock FF-gated footer | ✅ | `9cf72f3a` |
 | 10 — Block width QA at 360px | ✅ | browser-verified (366px content) |
 | 11 — Compact/Conversation checkpoint commit + close-out | ✅ | `fb61691e` |
-| 12 — Focus mode horizontal drag + AIFocusColumn | ✅ | `e5b9da1c` (or latest) |
-| 13 — 1440–1599 tab-strip overlay | ✅ | bundled with 12 |
+| 12 — Focus mode horizontal drag + AIFocusColumn | ✅ | `2902fd3f` + local follow-up patch |
+| 13 — 1440–1599 tab-strip overlay | ✅ | bundled with 12; local follow-up patch makes the strip drive the real OutputsDock tab body |
 | 14 — Reduced-motion audit | ✅ | bundled `fb61691e` + step-12 commit |
 | 15 — Voice input | ⏭ deferred per plan as optional |
 
@@ -49,7 +49,7 @@ Browser-side under FF on with the compact AIInputBar:
 | Viewport | Behaviour | Verified |
 |---|---|---|
 | ≥ 1600px | Three-column: tools rail + canvas + AI column (400×872 at right=424) + dock | ✅ at 1680px |
-| 1440–1599px | AI column + canvas; dock replaced by 48px tab strip; clicking a tab opens 400px overlay at z-40; Escape closes | ✅ at 1500px |
+| 1440–1599px | AI column + canvas; dock collapses to a 48px tab strip; clicking a tab expands the real OutputsDock to a temporary 400px overlay and switches to that tab; Escape closes | ✅ at 1500px |
 | < 1440px | Focus disabled; viewport guard drops out of Focus → Compact if previously active | ✅ at 1300px |
 
 Snap-back: dragging right-edge of AI column toward the dock and releasing within `FOCUS_COLUMN_MIN + 20px` fires `onExit()` → `setMode('compact')`. Unit-tested in `FocusMode.spec.tsx`.
@@ -83,7 +83,7 @@ src/canvas/ai-panel-v2/
 ├── SelectionPill.tsx                 primary selection cue (brief §6.1)
 ├── StaleAnalysisBadge.tsx            text-first stale badge; Rerun → useV2Run
 ├── PullTab.tsx                       three labels + drag handle; selection/stale tint
-├── AnalysisTabStripOverlay.tsx       48px strip + 400px overlay (1440–1599 Focus)
+├── AnalysisTabStripOverlay.tsx       48px strip that expands the real OutputsDock overlay (1440–1599 Focus)
 ├── RightPanelMount.tsx               FF gating block (real component tests import)
 ├── hooks/
 │   ├── usePanelSplit.ts              ratio + activeMode + axis detection + arrow keys
@@ -92,7 +92,7 @@ src/canvas/ai-panel-v2/
 │   └── useStageAwarePlaceholder.ts   5-state placeholder matrix
 ├── utils/
 │   └── entityColour.ts               kind → border-token
-└── __tests__/                        59 ai-panel-v2 tests across 8 files
+└── __tests__/                        63 ai-panel-v2 tests across 9 files
 
 src/canvas/conversation/components/
 ├── EntityLink.tsx                    click-to-highlight (brief §9.2)
@@ -112,11 +112,11 @@ FF-gated external integration points (no FF-off behaviour change):
 ## Verification summary
 
 - ✅ `npm run typecheck` clean across whole repo
-- ✅ 64 ai-panel-v2 + EntityLink tests pass across 9 files
+- ✅ 68 ai-panel-v2 + EntityLink tests pass across 10 files
 - ✅ Lint clean on touched files (0 new warnings)
 - ✅ Browser FF off at 1280×800: DraftChat mounted, OutputsDock visible, no AI v2 layout, no flag-specific CSS vars set, no errors
 - ✅ Browser FF on at 1680×900: AI v2 panel + DraftChat unmounted; mode click switches preset (Compact ↔ Conversation); Focus engages (panel becomes 400-wide full-height column at right=424); CSS var `--olumi-ai-panel-bottom` flips from height to 0 in Focus
-- ✅ Browser FF on at 1500×900: Focus + tab-strip mode; clicking results tab opens overlay; Escape closes overlay
+- ✅ Browser FF on at 1500×900: Focus + tab-strip mode; closed dock width is 48px, clicking a tab expands the real OutputsDock overlay, Escape closes overlay
 - ✅ Browser FF on at 1300×900: Focus disabled, auto-drops to Compact on narrow
 - ⚠ 1 pre-existing test failure (`useConversation.hook.spec.ts > V5 graph re-fetch on analyse response`) — reproduces on `origin/staging`; unrelated
 
@@ -136,7 +136,7 @@ FF-gated external integration points (no FF-off behaviour change):
 
 ```
 $ git log --oneline origin/staging..HEAD
-e5b9da1c  feat(ai-panel-v2): steps 12 & 13 — Focus mode + tab-strip overlay
+2902fd3f  feat(ai-panel-v2): steps 12 & 13 — Focus mode + tab-strip overlay
 fb61691e  feat(ai-panel-v2): step 14 — reduced-motion audit + Compact/Conversation checkpoint
 9cf72f3a  feat(ai-panel-v2): steps 8 & 9 — Back-to-results link + EntityLink
 5ee14003  feat(ai-panel-v2): step 6 — selection pill + stale badge + tint + tab warning
@@ -154,6 +154,5 @@ f5561a40  feat(ai-panel-v2): step 3 — compact AIInputBar + CogPopover
 |---|---|
 | ReadinessGuidanceCard (step 7) | Existing PreAnalysisPanel inside OutputsDock already covers all four brief trigger conditions. Build a slim v2-specific card only if pilot UX demands it. |
 | EntityLink wired into Commentary/Evidence/Scenario block renderers | Those block types don't carry `related_elements` in the current `types.ts` contract. Wiring lands when their schemas grow related_elements (post-V5 contract update). |
-| Tighter integration of `AnalysisTabStripOverlay` overlay content | Step 13 ships the strip chrome + overlay frame; the active tab's full content rendering inside the overlay (rather than relying on the dock behind) is a UX polish follow-up. |
 | Voice input (step 15) | Plan-marked optional from day one. |
 | Stale-bar pulse animation | Brief §6.2 spec'd 1s pulse; current implementation is text-first static tint (per correction #15 priority). Add 1s pulse if QA shows users miss the stale signal without it. |

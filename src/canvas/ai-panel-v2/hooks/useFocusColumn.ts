@@ -37,7 +37,12 @@ export function useFocusColumn({ onExit }: UseFocusColumnOptions): UseFocusColum
   const [isResizing, setIsResizing] = useState(false)
   const dragStartXRef = useRef(0)
   const dragStartWidthRef = useRef(FOCUS_COLUMN_DEFAULT)
+  const latestWidthRef = useRef(FOCUS_COLUMN_DEFAULT)
   const dragEdgeRef = useRef<'left' | 'right' | null>(null)
+
+  useEffect(() => {
+    latestWidthRef.current = width
+  }, [width])
 
   const clampWidth = useCallback((px: number): number => {
     const maxWidth = typeof window === 'undefined' ? 1200 : Math.floor(window.innerWidth * 0.5)
@@ -76,12 +81,7 @@ export function useFocusColumn({ onExit }: UseFocusColumnOptions): UseFocusColum
     }
     const handleUp = () => {
       const edge = dragEdgeRef.current
-      const finalWidth = (() => {
-        // Read latest width from state via a synchronous setter trick: we
-        // already have `width` from the closure but it may be stale; use
-        // the most recent set value via the ref-mirroring pattern.
-        return width
-      })()
+      const finalWidth = latestWidthRef.current
       setIsResizing(false)
       dragEdgeRef.current = null
       // Snap-back: only when the right-edge drag brought the column close
@@ -102,7 +102,7 @@ export function useFocusColumn({ onExit }: UseFocusColumnOptions): UseFocusColum
       document.removeEventListener('pointerup', handleUp)
       document.removeEventListener('pointercancel', handleUp)
     }
-  }, [isResizing, clampWidth, onExit, width])
+  }, [isResizing, clampWidth, onExit])
 
   return {
     width,
