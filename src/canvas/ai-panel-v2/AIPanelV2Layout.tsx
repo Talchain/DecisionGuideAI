@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { AIZone } from './AIZone'
 import {
   AI_PANEL_V2_WIDTH,
   AI_ZONE_MIN_HEIGHT,
@@ -71,11 +72,7 @@ export function AIPanelV2Layout() {
         data-testid="ai-panel-v2-ai-zone"
         className="flex-1 min-h-0 overflow-hidden"
       >
-        {/* AIZone (SelectionPill + ChatThread + StaleBadge + AIInputBar)
-            arrives in steps 2–6. Step 1 ships an empty zone so the split
-            layout and CSS-variable coordination can be verified without
-            touching conversation wiring. DraftChat stays mounted in both
-            flag states until the in-panel input lands. */}
+        <AIZone />
       </div>
     </aside>
   )

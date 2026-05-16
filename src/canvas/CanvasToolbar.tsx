@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback, lazy, Suspense } from 'react'
 import { PanelsTopLeft, Sparkles } from 'lucide-react'
 import { useCanvasStore } from './store'
+import { isAiPanelV2Enabled } from '../flags'
 import { typography } from '../styles/typography'
 import { useReactFlow } from '@xyflow/react'
 import { SnapshotManager } from './components/SnapshotManager'
@@ -301,21 +302,21 @@ export function CanvasToolbar() {
           <span>Templates</span>
         </button>
 
-        {/* AI: describe your decision to draft a starter model. Stays mounted
-            in both FF states for step 1 of AI panel v2 — the in-panel input
-            bar isn't wired yet, so the toolbar toggle is still the entry
-            point. Hidden in a later step once the persistent right-panel
-            input lands. */}
-        <button
-          onClick={() => setShowDraftChat(!showDraftChat)}
-          className="p-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center gap-1.5 text-sky-700 bg-white hover:bg-sky-50 focus:ring-sky-400 border border-sky-300"
-          title="Describe your decision to draft a starter model"
-          aria-label="Open Quick Draft assistant"
-          data-testid="btn-quick-draft"
-        >
-          <Sparkles className="w-4 h-4" />
-          <span>AI</span>
-        </button>
+        {/* AI: opens the DraftChat overlay. Hidden when FF_AI_PANEL_V2 is on
+            because the AI conversation lives persistently in the right
+            panel (AIPanelV2Layout → AIZone), so there's no overlay to open. */}
+        {!isAiPanelV2Enabled() && (
+          <button
+            onClick={() => setShowDraftChat(!showDraftChat)}
+            className="p-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center gap-1.5 text-sky-700 bg-white hover:bg-sky-50 focus:ring-sky-400 border border-sky-300"
+            title="Describe your decision to draft a starter model"
+            aria-label="Open Quick Draft assistant"
+            data-testid="btn-quick-draft"
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>AI</span>
+          </button>
+        )}
 
         {/* Phase 2: Run Mode Selector & Run Button (visible when nodes.length >= 1) */}
         {nodes.length >= 1 && (

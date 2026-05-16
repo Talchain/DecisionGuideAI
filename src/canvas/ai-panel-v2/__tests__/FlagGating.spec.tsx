@@ -39,16 +39,18 @@ describe('RightPanelMount — FF_AI_PANEL_V2 mounting contract', () => {
     expect(screen.queryByTestId('stub-ai-panel-v2')).toBeNull()
   })
 
-  it('FF on (step 1): AI panel v2 mounts alongside dock; DraftChat stays mounted', () => {
-    // Step 1 of the rollout intentionally keeps DraftChat mounted under FF on
-    // so context-menu "Ask AI" and the toolbar toggle stay functional until
-    // the in-panel input lands. If a later step starts hiding DraftChat,
-    // this assertion must be updated together with RightPanelMount.
+  it('FF on: AI panel v2 mounts; DraftChat is hidden (singleton contract)', () => {
+    // Step 2-4 contract: under FF on, AIZone owns the conversation. DraftChat
+    // is unmounted so exactly one `useConversation()` instance is active —
+    // satisfies the approved plan's singleton checkpoint (correction #9).
+    // Context-menu "Ask AI" still works because it routes through the
+    // `_sendMessage` callback registered by AIZone's ConversationPanel; the
+    // `setShowDraftChat(true)` call is a harmless no-op.
     vi.spyOn(flags, 'isAiPanelV2Enabled').mockReturnValue(true)
     render(<RightPanelMount />)
     expect(screen.getByTestId('stub-outputs-dock')).toBeInTheDocument()
     expect(screen.getByTestId('stub-ai-panel-v2')).toBeInTheDocument()
-    expect(screen.getByTestId('stub-draft-chat')).toBeInTheDocument()
+    expect(screen.queryByTestId('stub-draft-chat')).toBeNull()
   })
 
   it('ReactFlowGraph mounts RightPanelMount (production wiring sanity check)', () => {
@@ -58,7 +60,9 @@ describe('RightPanelMount — FF_AI_PANEL_V2 mounting contract', () => {
     // directly.
     const source = readFileSync(resolve(__dirname, '../../ReactFlowGraph.tsx'), 'utf8')
     expect(source).toMatch(/<RightPanelMount\s*\/>/)
-    // Guard against the legacy inline shape coming back.
+    // Guard against the legacy inline shape coming back: if a future change
+    // re-inlines OutputsDock or DraftChat directly into ReactFlowGraph, the
+    // RightPanelMount FF gating is bypassed and this test fails fast.
     expect(source).not.toMatch(/<PanelErrorBoundary panel="Results">\s*<OutputsDock\s*\/>\s*<\/PanelErrorBoundary>/)
     expect(source).not.toMatch(/<PanelErrorBoundary panel="Draft Chat">\s*<DraftChat\s*\/>/)
   })
