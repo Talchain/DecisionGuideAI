@@ -620,16 +620,22 @@ export function mapV2ResponseToReportV1(
           // the same source as fresh runs. Without this pass-through, the
           // resolution-aware win-probability formatter falls back to the
           // legacy "0%" / "100%" rendering whenever a result is rehydrated
-          // through the mapper.
-          outcome: {
-            mean: rawMean,
-            p10,
-            p50,
-            p90,
-            ...(typeof outcome?.n_samples === 'number' ? { n_samples: outcome.n_samples } : {}),
-            ...(typeof outcome?.n_valid_samples === 'number' ? { n_valid_samples: outcome.n_valid_samples } : {}),
-            ...(typeof outcome?.validity_ratio === 'number' ? { validity_ratio: outcome.validity_ratio } : {}),
-          },
+          // through the mapper. Guarded with safeNumber so NaN / Infinity
+          // from an upstream regression cannot reach the UI.
+          outcome: (() => {
+            const nSamples = safeNumber(outcome?.n_samples)
+            const nValidSamples = safeNumber(outcome?.n_valid_samples)
+            const validityRatio = safeNumber(outcome?.validity_ratio)
+            return {
+              mean: rawMean,
+              p10,
+              p50,
+              p90,
+              ...(nSamples !== null ? { n_samples: nSamples } : {}),
+              ...(nValidSamples !== null ? { n_valid_samples: nValidSamples } : {}),
+              ...(validityRatio !== null ? { validity_ratio: validityRatio } : {}),
+            }
+          })(),
           // Multi-constraint analysis (when goal_constraints were provided in request)
           constraint_analysis: opt.constraint_analysis,
         }
@@ -669,10 +675,21 @@ export function mapV2ResponseToReportV1(
     // B2: Pass through PLoT-classified fields for UI consumption
     confidence_tier: v2Response.confidence_tier,
     dominant_factor: v2Response.dominant_factor,
-    // Display-honesty: pass through PLoT's flip_thresholds classification
-    // so the all-no-effect / partial / unresolved UX survives a save +
-    // hydrate cycle, not only fresh-run raw responses. Mirrors the raw
-    // pass-through in useResultsSectionData.
+    // Display-honesty: pass through PLoT's top-level flip_thresholds[]
+    // array AND its status classification so the all-no-effect / partial /
+    // unresolved UX survives a save + hydrate cycle, not only fresh-run
+    // raw responses. PLoT v2 emits flip_thresholds at the response root
+    // (see plot-lite-service routes/v2/run.ts:2010), but legacy responses
+    // also nested it under robustness; we accept either source and prefer
+    // the top-level one.
+    ...((() => {
+      const topLevel = v2Response.flip_thresholds
+      const nested = v2Response.robustness?.flip_thresholds
+      const source = Array.isArray(topLevel)
+        ? topLevel
+        : Array.isArray(nested) ? nested : undefined
+      return source ? { flip_thresholds: source } : {}
+    })()),
     ...(v2Response.flip_thresholds_status ? { flip_thresholds_status: v2Response.flip_thresholds_status } : {}),
     ...(v2Response.flip_thresholds_status_reason ? { flip_thresholds_status_reason: v2Response.flip_thresholds_status_reason } : {}),
   }

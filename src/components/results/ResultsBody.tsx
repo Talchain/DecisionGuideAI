@@ -333,7 +333,9 @@ export const ResultsBody = memo(function ResultsBody({
                 data-testid="flip-thresholds-status-note"
                 role="note"
               >
-                Some factors did not change the leading option within the current range.
+                {resultsSectionData.recommendation.flipThresholdsHasUnresolved
+                  ? 'Some factors did not change the leading option within the current range, and others could not be resolved.'
+                  : 'Some factors did not change the leading option within the current range.'}
               </p>
             )}
             <TornadoChart

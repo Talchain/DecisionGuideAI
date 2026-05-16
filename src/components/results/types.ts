@@ -201,6 +201,14 @@ export interface DecisionResultData {
    */
   flipThresholdsStatus?: 'computed' | 'all_no_effect' | 'partial_no_effect' | 'unresolved' | 'unavailable'
   /**
+   * Display-honesty: signals that the flip_thresholds[] array also
+   * contained unresolved entries (timeout / error / insufficient
+   * precision) alongside computed and no_effect ones. Used by the UI
+   * to soften copy on `'partial_no_effect'` so it doesn't imply every
+   * non-computed factor was a harmless no-effect case.
+   */
+  flipThresholdsHasUnresolved?: boolean
+  /**
    * Display-honesty: leading option has meaningful downside in the lower
    * range of simulated outcomes (deterministic: leading option's
    * `outcome.p10 < 0`). Drives a single qualifying sentence in the

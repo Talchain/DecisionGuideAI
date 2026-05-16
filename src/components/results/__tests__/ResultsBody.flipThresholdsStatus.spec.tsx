@@ -145,7 +145,7 @@ describe('ResultsBody — display-honesty (B) flip_thresholds_status', () => {
     expect(note.getAttribute('role')).toBe('note')
   })
 
-  it("renders 'Some factors did not change the leading option…' for partial_no_effect", () => {
+  it("renders 'Some factors did not change the leading option…' for partial_no_effect with no unresolved entries", () => {
     render(
       <ResultsBody
         resultsSectionData={makeData({ flipThresholdsStatus: 'partial_no_effect' })}
@@ -156,6 +156,24 @@ describe('ResultsBody — display-honesty (B) flip_thresholds_status', () => {
     const note = screen.getByTestId('flip-thresholds-status-note')
     expect(note).toBeInTheDocument()
     expect(note.textContent).toBe('Some factors did not change the leading option within the current range.')
+  })
+
+  it("renders the mixed-with-unresolved variant when partial_no_effect also has unresolved entries (avoids implying all non-computed were harmless)", () => {
+    render(
+      <ResultsBody
+        resultsSectionData={makeData({
+          flipThresholdsStatus: 'partial_no_effect',
+          flipThresholdsHasUnresolved: true,
+        })}
+        tornadoData={tornadoData}
+        onSendMessage={() => {}}
+      />,
+    )
+    const note = screen.getByTestId('flip-thresholds-status-note')
+    expect(note).toBeInTheDocument()
+    expect(note.textContent).toBe(
+      'Some factors did not change the leading option within the current range, and others could not be resolved.',
+    )
   })
 
   it('renders no note for computed classification', () => {

@@ -891,6 +891,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     rawV2FlipThresholds,
     rawAutoNoiseProvenance,
     rawFlipThresholdsStatus,
+    rawFlipThresholdsStatusReason,
     rawMetaNSamples,
   } = useCanvasStore(
     useShallow((s) => ({
@@ -916,6 +917,12 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       // (companion to PR claude-plot/display-honesty). Optional — older
       // PLoT builds omit the field, in which case we leave UX unchanged.
       rawFlipThresholdsStatus: (s.rawV2Response as { flip_thresholds_status?: string } | null | undefined)?.flip_thresholds_status ?? null,
+      // Display-honesty: PLoT-supplied reason string from the same field.
+      // Drives copy variation on 'partial_no_effect' when unresolved
+      // entries are present (mixed computed + no_effect + unresolved),
+      // so UI can avoid wording that implies all non-computed factors
+      // were harmless no-effect cases.
+      rawFlipThresholdsStatusReason: (s.rawV2Response as { flip_thresholds_status_reason?: string } | null | undefined)?.flip_thresholds_status_reason ?? null,
       // Display-honesty: root meta.n_samples used as fallback resolution
       // source when an option lacks per-option n_valid_samples.
       rawMetaNSamples: s.rawV2Response?.meta?.n_samples ?? null,
@@ -1373,6 +1380,13 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         | 'unresolved'
         | 'unavailable'
         | undefined,
+      // Display-honesty: presence of the reason field (raw or mapped)
+      // signals that unresolved entries are mixed in. Exposed as a
+      // boolean so the UI never needs to inspect the raw string.
+      flipThresholdsHasUnresolved: Boolean(
+        rawFlipThresholdsStatusReason
+          ?? (report as { flip_thresholds_status_reason?: string } | null | undefined)?.flip_thresholds_status_reason,
+      ),
       /**
        * UI-SEM-050: Leading-option downside flag.
        *
@@ -1467,7 +1481,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawMetaNSamples])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)

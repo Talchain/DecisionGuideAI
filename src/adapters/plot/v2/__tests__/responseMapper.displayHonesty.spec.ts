@@ -59,8 +59,11 @@ function makeResponse(overrides: Partial<V2RunResponse> = {}): V2RunResponse {
     critiques: [],
     drivers: [{ node_id: 'd', label: 'D', contribution: 0.5, direction: 'positive' }],
     edge_sensitivity: [],
-    factor_sensitivity: [],
-    robustness: { fragile_edges: [], robust_edges: [] },
+    // Non-empty factor_sensitivity AND at least one robust edge keep the
+    // mapper's `computed-but-empty` anomaly detector quiet so failure
+    // output isn't drowned in stderr noise from unrelated anomalies.
+    factor_sensitivity: [{ factor_id: 'f1', elasticity: 0.4, importance_rank: 1 }],
+    robustness: { fragile_edges: [], robust_edges: ['e1'] },
     response_hash: 'h',
     meta: { seed_used: '42', n_samples: 1000, detail_level: 'standard', latency_ms: 100 },
     ...overrides,
@@ -112,6 +115,72 @@ describe('responseMapper display-honesty', () => {
       expect(outcome?.n_samples).toBeUndefined()
       expect(outcome?.n_valid_samples).toBeUndefined()
       expect(outcome?.validity_ratio).toBeUndefined()
+    })
+
+    it('rejects NaN / Infinity on sample fields (safeNumber guard)', () => {
+      const response = makeResponse({
+        option_comparison: [
+          {
+            option_id: 'opt_a',
+            option_label: 'Option A',
+            confidence_interval: [30, 70],
+            win_probability: 0.65,
+            outcome: {
+              mean: 50,
+              std: 12,
+              p10: 30,
+              p50: 50,
+              p90: 70,
+              // Upstream regression simulation: NaN / Infinity must NOT
+              // reach the UI as undefined-or-bad sample counts.
+              n_samples: NaN as unknown as number,
+              n_valid_samples: Infinity as unknown as number,
+              validity_ratio: -Infinity as unknown as number,
+            },
+          },
+        ],
+      })
+
+      const outcome = mapV2ResponseToReportV1(response, { seed: 42 })
+        .option_probabilities?.opt_a?.outcome
+
+      expect(outcome).toBeDefined()
+      expect(outcome?.n_samples).toBeUndefined()
+      expect(outcome?.n_valid_samples).toBeUndefined()
+      expect(outcome?.validity_ratio).toBeUndefined()
+    })
+  })
+
+  describe('top-level flip_thresholds[] pass-through', () => {
+    it('passes top-level flip_thresholds[] from V2 response onto the mapped report (PLoT v2/run wire shape)', () => {
+      const flips = [
+        { factor_id: 'f1', factor_label: 'F1', flip_value: 0.4, flip_reason: 'found', current_value: 0.5, direction: 'decrease' },
+      ]
+      const response = makeResponse({ flip_thresholds: flips })
+
+      const report = mapV2ResponseToReportV1(response, { seed: 42 })
+
+      expect((report as { flip_thresholds?: unknown }).flip_thresholds).toEqual(flips)
+    })
+
+    it('falls back to robustness.flip_thresholds when the V2 response only nests them there (legacy shape)', () => {
+      const nested = [
+        { factor_id: 'f2', factor_label: 'F2', flip_value: null, flip_reason: 'no_effect_within_bounds', current_value: 0.5, direction: 'increase' },
+      ]
+      const response = makeResponse({
+        flip_thresholds: undefined,
+        robustness: { fragile_edges: [], robust_edges: ['e1'], flip_thresholds: nested as unknown as never },
+      })
+
+      const report = mapV2ResponseToReportV1(response, { seed: 42 })
+
+      expect((report as { flip_thresholds?: unknown }).flip_thresholds).toEqual(nested)
+    })
+
+    it('omits report.flip_thresholds when neither source is present', () => {
+      const report = mapV2ResponseToReportV1(makeResponse(), { seed: 42 })
+
+      expect((report as { flip_thresholds?: unknown }).flip_thresholds).toBeUndefined()
     })
   })
 

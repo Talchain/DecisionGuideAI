@@ -452,6 +452,14 @@ export interface V2RunResponse {
   }
 
   /**
+   * Display-honesty: top-level flip_thresholds[] array as emitted by
+   * PLoT v2/run. Legacy responses also nested it under
+   * `robustness.flip_thresholds` — both shapes are accepted by the
+   * mapper, which prefers this top-level field when present.
+   */
+  flip_thresholds?: Array<Record<string, unknown>>
+
+  /**
    * Display-honesty: high-level classification of `flip_thresholds[]` from
    * PLoT, computed at the post-denormalised response-assembly boundary.
    * Lets the Results UI render the all-no-effect / partial / unresolved
@@ -461,8 +469,12 @@ export interface V2RunResponse {
   flip_thresholds_status?: 'computed' | 'all_no_effect' | 'partial_no_effect' | 'unresolved' | 'unavailable'
 
   /**
-   * First-seen `flip_reason` string when `flip_thresholds_status === 'unresolved'`.
-   * Payload-only debug metadata; never user-facing copy.
+   * First-seen `flip_reason` string from an unresolved entry. Populated
+   * when `flip_thresholds_status === 'unresolved'`, OR on
+   * `'partial_no_effect'` when unresolved entries are present alongside
+   * computed and no_effect ones (lets the UI soften copy that would
+   * otherwise imply all non-computed factors were harmless no-effect
+   * cases). Payload-only debug metadata; never user-facing copy.
    */
   flip_thresholds_status_reason?: string
 
