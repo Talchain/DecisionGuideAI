@@ -613,11 +613,22 @@ export function mapV2ResponseToReportV1(
           expected,
           // Full outcome distribution for Results Panel display
           // expected is mean (average), p50 is median — semantically distinct
+          //
+          // Display-honesty: preserve per-option sample counts (from PLoT
+          // outcome.n_samples / outcome.n_valid_samples / validity_ratio)
+          // so saved or hydrated results can derive `nValidSamples` from
+          // the same source as fresh runs. Without this pass-through, the
+          // resolution-aware win-probability formatter falls back to the
+          // legacy "0%" / "100%" rendering whenever a result is rehydrated
+          // through the mapper.
           outcome: {
             mean: rawMean,
             p10,
             p50,
             p90,
+            ...(typeof outcome?.n_samples === 'number' ? { n_samples: outcome.n_samples } : {}),
+            ...(typeof outcome?.n_valid_samples === 'number' ? { n_valid_samples: outcome.n_valid_samples } : {}),
+            ...(typeof outcome?.validity_ratio === 'number' ? { validity_ratio: outcome.validity_ratio } : {}),
           },
           // Multi-constraint analysis (when goal_constraints were provided in request)
           constraint_analysis: opt.constraint_analysis,
@@ -635,6 +646,10 @@ export function mapV2ResponseToReportV1(
           p10?: number | null
           p50?: number | null
           p90?: number | null
+          /** Display-honesty: per-option sample counts preserved for resolution-aware formatting. */
+          n_samples?: number
+          n_valid_samples?: number
+          validity_ratio?: number
         }
         constraint_analysis?: import('../../../types/constraints').ConstraintAnalysis
       }>
@@ -654,6 +669,12 @@ export function mapV2ResponseToReportV1(
     // B2: Pass through PLoT-classified fields for UI consumption
     confidence_tier: v2Response.confidence_tier,
     dominant_factor: v2Response.dominant_factor,
+    // Display-honesty: pass through PLoT's flip_thresholds classification
+    // so the all-no-effect / partial / unresolved UX survives a save +
+    // hydrate cycle, not only fresh-run raw responses. Mirrors the raw
+    // pass-through in useResultsSectionData.
+    ...(v2Response.flip_thresholds_status ? { flip_thresholds_status: v2Response.flip_thresholds_status } : {}),
+    ...(v2Response.flip_thresholds_status_reason ? { flip_thresholds_status_reason: v2Response.flip_thresholds_status_reason } : {}),
   }
 }
 

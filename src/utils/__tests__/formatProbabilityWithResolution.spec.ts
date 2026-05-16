@@ -27,12 +27,18 @@ describe('formatProbabilityWithResolution', () => {
       expect(formatProbabilityWithResolution(0.0005, 1000)).toBe('<0.1%')
     })
 
-    it('renders a value at the threshold as a normal percent (1/1000 = 0.1% boundary)', () => {
-      // 0.001 is NOT strictly < threshold; falls through to normal formatting
-      expect(formatProbabilityWithResolution(0.001, 1000)).toBe('0%')
+    it('renders one observed win in 1000 as 0.1%, never as 0%', () => {
+      // 0.001 = 1/1000: a SINGLE observed win must not collapse to "0%",
+      // which would be visually identical to "below resolution".
+      expect(formatProbabilityWithResolution(0.001, 1000)).toBe('0.1%')
     })
 
-    it('renders a typical mid-range probability normally', () => {
+    it('renders 999 wins in 1000 as 99.9%, never as 100%', () => {
+      // Symmetric guard at the upper boundary.
+      expect(formatProbabilityWithResolution(0.999, 1000)).toBe('99.9%')
+    })
+
+    it('renders a typical mid-range probability normally (no spurious decimals)', () => {
       expect(formatProbabilityWithResolution(0.58, 1000)).toBe('58%')
     })
   })

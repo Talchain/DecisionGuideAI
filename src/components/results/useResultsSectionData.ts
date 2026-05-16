@@ -1360,14 +1360,19 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
       // Display-honesty: PLoT-side classification of flip_thresholds[].
       // Optional — older PLoT builds omit it, in which case downstream UX
-      // behaves exactly as before (silent absence).
-      flipThresholdsStatus: (rawFlipThresholdsStatus as
+      // behaves exactly as before (silent absence). Fallback chain mirrors
+      // the flip_thresholds defensive adaptor above: read raw first (fresh
+      // runs), then the mapped report (saved / hydrated results) so the
+      // new UX survives a hydrate cycle through responseMapper.
+      flipThresholdsStatus: (rawFlipThresholdsStatus
+        ?? (report as { flip_thresholds_status?: string } | null | undefined)?.flip_thresholds_status
+        ?? undefined) as
         | 'computed'
         | 'all_no_effect'
         | 'partial_no_effect'
         | 'unresolved'
         | 'unavailable'
-        | null) ?? undefined,
+        | undefined,
       /**
        * UI-SEM-050: Leading-option downside flag.
        *

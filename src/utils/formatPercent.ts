@@ -29,7 +29,10 @@ export function formatPercent(
  * Threshold derives from sample count:
  *   value < 1/n         -> "<{1/n as percent}", e.g. "<0.1%" at n=1000
  *   value > 1 - 1/n     -> ">{1 - 1/n as percent}", e.g. ">99.9%" at n=1000
- *   otherwise           -> normal percent rendering
+ *   otherwise           -> percent rendering with enough decimals to keep
+ *                          the value distinct from 0% / 100% (so one win
+ *                          in 1000 renders as "0.1%", not "0%", and 999
+ *                          wins in 1000 as "99.9%", not "100%")
  *
  * When `nSamples` is undefined or non-positive, falls back to legacy
  * percentage formatting (via formatPercent) so existing call sites that
@@ -56,7 +59,26 @@ export function formatProbabilityWithResolution(
   if (value > 1 - threshold) {
     return `>${thresholdAsPercent(1 - threshold)}`
   }
-  return formatPercent(value, { fromDecimal: true })
+  // Mid-range. Use integer precision when possible; bump precision when an
+  // integer render would falsely collapse to 0% / 100% (e.g. one observed
+  // win in 1000 -> 0.1%, not 0%; 999 wins in 1000 -> 99.9%, not 100%).
+  return inRangeAsPercent(value)
+}
+
+/**
+ * Format an in-range probability so the displayed value never falsely
+ * implies absolute certainty. Picks the smallest decimal precision that
+ * keeps the rendered value distinctly non-zero AND non-100.
+ */
+function inRangeAsPercent(value: number): string {
+  const pct = value * 100
+  for (let precision = 0; precision <= 6; precision++) {
+    const rendered = pct.toFixed(precision)
+    if (Number(rendered) !== 0 && Number(rendered) !== 100) {
+      return `${rendered}%`
+    }
+  }
+  return `${pct.toFixed(6)}%`
 }
 
 /**
