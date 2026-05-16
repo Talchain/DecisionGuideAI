@@ -41,7 +41,8 @@ import {
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
 import { DeltaInterpretation } from './DeltaInterpretation'
-import { isJourneyTabEnabled, isCompareTabEnabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled } from '../../flags'
+import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { countFactorsToVerify } from './model-tab/utils'
 import { getObjectiveText, getGoalDirection } from '../utils/getObjectiveText'
 import { computeDelta, deriveVerdict } from '../utils/interpretOutcome'
@@ -1038,6 +1039,11 @@ export function OutputsDock() {
     window.addEventListener('mouseup', handleUp)
   }
 
+  // AI panel v2: stale-aware warning indicator on the Results tab label.
+  // Strictly FF-gated — no behaviour change when FF_AI_PANEL_V2 is off.
+  const { isStale } = useStaleGuard()
+  const showResultsTabStaleWarning = isAiPanelV2Enabled() && isStale
+
   // Task C: Panel coordination — hide OutputsDock when an overlay panel is active
   const activeRightPanel = useUIStore(s => s.activeRightPanel)
   const isOverlayPanelActive = activeRightPanel === 'provenance' || activeRightPanel === 'clarifier'
@@ -1121,8 +1127,15 @@ export function OutputsDock() {
                   }`}
                   style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
                 >
-                  <span className="inline-flex items-center gap-1">
+                  <span className={`inline-flex items-center gap-1${tab.id === 'results' && showResultsTabStaleWarning ? ' text-warning' : ''}`}>
                     {tab.label}
+                    {tab.id === 'results' && showResultsTabStaleWarning && (
+                      <AlertTriangle
+                        className="w-3 h-3 text-warning"
+                        aria-label="Analysis is stale"
+                        data-testid="results-tab-stale-icon"
+                      />
+                    )}
                     {tab.id === 'diagnostics' && factorsToVerify > 0 && (
                       <span
                         className="inline-flex items-center justify-center rounded-full bg-warning text-text-on-color"

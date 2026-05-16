@@ -1,7 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AIZone } from './AIZone'
 import { PullTab } from './PullTab'
 import { usePanelSplit } from './hooks/usePanelSplit'
+import { useSelectionContext } from './hooks/useSelectionContext'
+import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import {
   AI_PANEL_V2_WIDTH,
   AI_ZONE_MIN_HEIGHT,
@@ -57,6 +59,19 @@ export function AIPanelV2Layout() {
   const { aiRatio, activeMode, startDrag, setMode, adjustByPx } = usePanelSplit({
     getPanelHeight,
   })
+
+  // Brief §6.1/§6.2/§6.3 — supplementary tint colour for the pull-tab.
+  // Priority: selection > stale > default. Selection always wins because
+  // it represents the active user interaction; stale state is also
+  // surfaced text-first via StaleAnalysisBadge so the lack of tint
+  // doesn't hide it.
+  const { hasSelection, borderClass: selectionBorder } = useSelectionContext()
+  const { isStale } = useStaleGuard()
+  const tintBorderClass = useMemo(() => {
+    if (hasSelection) return selectionBorder
+    if (isStale) return 'border-warning'
+    return 'border-panel-border'
+  }, [hasSelection, selectionBorder, isStale])
 
   // AI-zone height in pixels — derived from ratio, with the same min-zone
   // clamp the hook applies. We compute here too so the CSS variable used by
@@ -120,6 +135,8 @@ export function AIPanelV2Layout() {
           onModeClick={setMode}
           onStartDrag={startDrag}
           onAdjustByPx={adjustByPx}
+          tintBorderClass={tintBorderClass}
+          staleAnnouncement={isStale && !hasSelection}
         />
         <div
           data-testid="ai-panel-v2-ai-zone"

@@ -7,15 +7,19 @@
  * `AIInputBar` replaces ConversationPanel's heavy ChatComposer via the
  * `hideComposer` prop — same handler matrix, new input UI.
  *
+ * Step 6 adds SelectionPill (top) and StaleAnalysisBadge (above input).
+ *
  * Singleton invariant (correction #9): exactly one `useConversation()`
- * call per active AI surface. Under FF on, DraftChat is unmounted, so this
- * is the only instance.
+ * call per active AI surface. Under FF on, DraftChat is unmounted, so
+ * this is the only instance.
  */
 
 import { memo, useCallback, useRef } from 'react'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import { useConversation } from '../conversation/useConversation'
 import { AIInputBar } from './AIInputBar'
+import { SelectionPill } from './SelectionPill'
+import { StaleAnalysisBadge } from './StaleAnalysisBadge'
 
 export const AIZone = memo(function AIZone() {
   const conversation = useConversation()
@@ -34,21 +38,19 @@ export const AIZone = memo(function AIZone() {
 
   return (
     <div data-testid="ai-panel-v2-zone" className="flex flex-col h-full min-h-0">
+      <SelectionPill />
       <ConversationPanel
         conversation={conversation}
         onCollapse={noop}
         onAttach={handleAttach}
         hideComposer
       />
+      <StaleAnalysisBadge />
       <AIInputBar
         onSend={handleSend}
         isThinking={conversation.isThinking}
         onAttach={handleAttach}
       />
-      {/* Hidden file input for the cog popover's attach action. Reuses the
-          DraftChat pattern: a hidden <input type="file" /> triggered by the
-          attach handler. Actual upload wiring lands with the evidence
-          features in a later brief. */}
       <input
         ref={fileInputRef}
         type="file"

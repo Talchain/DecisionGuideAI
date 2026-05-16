@@ -32,6 +32,19 @@ interface PullTabProps {
   onModeClick: (mode: AIPanelMode) => void
   onStartDrag: (event: React.PointerEvent) => void
   onAdjustByPx: (deltaPx: number) => void
+  /**
+   * Border tint colour class for the AI-zone top edge (brief §6.1
+   * secondary cue / §6.2 stale tint). Applied to the label strip's bottom
+   * border so it sits on the resize boundary. Defaults to the panel
+   * border (no tint).
+   */
+  tintBorderClass?: string
+  /**
+   * When true, animate a single slow pulse (1s) of the warning colour
+   * before falling back to the static tint. Brief §6.2. Skipped under
+   * prefers-reduced-motion (step 14 audit).
+   */
+  staleAnnouncement?: boolean
 }
 
 const MODE_LABELS: { mode: AIPanelMode; label: string; tooltip: string }[] = [
@@ -63,6 +76,8 @@ export const PullTab = memo(function PullTab({
   onModeClick,
   onStartDrag,
   onAdjustByPx,
+  tintBorderClass = 'border-panel-border',
+  staleAnnouncement = false,
 }: PullTabProps) {
   const focusEnabled = useFocusEnabled()
 
@@ -110,11 +125,21 @@ export const PullTab = memo(function PullTab({
           height: PULL_TAB_HEIGHT - PULL_TAB_LABEL_HEIGHT,
         }}
       />
-      {/* Visible label strip — three mode buttons. */}
+      {/* Visible label strip — three mode buttons. Border carries the
+          selection / stale tint so it sits exactly on the resize boundary.
+          Pulse animation for stale state lands in step 14 (reduced-motion
+          audit); for now the colour is the text-first stale badge's
+          supplement. */}
       <div
         role="tablist"
         aria-label="AI panel mode"
-        className="pointer-events-auto flex items-center justify-center gap-1 bg-panel border border-panel-border rounded-t-lg shadow-1 px-1"
+        data-stale={staleAnnouncement ? 'true' : 'false'}
+        data-tint-class={tintBorderClass}
+        className={[
+          'pointer-events-auto flex items-center justify-center gap-1',
+          'bg-panel border rounded-t-lg shadow-1 px-1 transition-colors',
+          tintBorderClass,
+        ].join(' ')}
         style={{
           width: PULL_TAB_LABEL_WIDTH,
           height: PULL_TAB_LABEL_HEIGHT,
