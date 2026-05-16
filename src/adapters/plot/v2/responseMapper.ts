@@ -613,12 +613,34 @@ export function mapV2ResponseToReportV1(
           expected,
           // Full outcome distribution for Results Panel display
           // expected is mean (average), p50 is median — semantically distinct
-          outcome: {
-            mean: rawMean,
-            p10,
-            p50,
-            p90,
-          },
+          //
+          // Display-honesty: preserve per-option sample counts (from PLoT
+          // outcome.n_samples / outcome.n_valid_samples / validity_ratio)
+          // so saved or hydrated results can derive `nValidSamples` from
+          // the same source as fresh runs. Without this pass-through, the
+          // resolution-aware win-probability formatter falls back to the
+          // legacy "0%" / "100%" rendering whenever a result is rehydrated
+          // through the mapper.
+          //
+          // Bounded guards reject upstream regressions at the trust
+          // boundary: counts must be POSITIVE INTEGERS (NaN, Infinity,
+          // negatives, zero and floats are dropped); validity_ratio must
+          // be a finite number in [0, 1]. The downstream selector and
+          // formatter assume valid ranges.
+          outcome: (() => {
+            const nSamples = positiveIntegerOrNull(outcome?.n_samples)
+            const nValidSamples = positiveIntegerOrNull(outcome?.n_valid_samples)
+            const validityRatio = boundedRatioOrNull(outcome?.validity_ratio)
+            return {
+              mean: rawMean,
+              p10,
+              p50,
+              p90,
+              ...(nSamples !== null ? { n_samples: nSamples } : {}),
+              ...(nValidSamples !== null ? { n_valid_samples: nValidSamples } : {}),
+              ...(validityRatio !== null ? { validity_ratio: validityRatio } : {}),
+            }
+          })(),
           // Multi-constraint analysis (when goal_constraints were provided in request)
           constraint_analysis: opt.constraint_analysis,
         }
@@ -635,6 +657,10 @@ export function mapV2ResponseToReportV1(
           p10?: number | null
           p50?: number | null
           p90?: number | null
+          /** Display-honesty: per-option sample counts preserved for resolution-aware formatting. */
+          n_samples?: number
+          n_valid_samples?: number
+          validity_ratio?: number
         }
         constraint_analysis?: import('../../../types/constraints').ConstraintAnalysis
       }>
@@ -654,6 +680,23 @@ export function mapV2ResponseToReportV1(
     // B2: Pass through PLoT-classified fields for UI consumption
     confidence_tier: v2Response.confidence_tier,
     dominant_factor: v2Response.dominant_factor,
+    // Display-honesty: pass through PLoT's top-level flip_thresholds[]
+    // array AND its status classification so the all-no-effect / partial /
+    // unresolved UX survives a save + hydrate cycle, not only fresh-run
+    // raw responses. PLoT v2 emits flip_thresholds at the response root
+    // (see plot-lite-service routes/v2/run.ts:2010), but legacy responses
+    // also nested it under robustness; we accept either source and prefer
+    // the top-level one.
+    ...((() => {
+      const topLevel = v2Response.flip_thresholds
+      const nested = v2Response.robustness?.flip_thresholds
+      const source = Array.isArray(topLevel)
+        ? topLevel
+        : Array.isArray(nested) ? nested : undefined
+      return source ? { flip_thresholds: source } : {}
+    })()),
+    ...(v2Response.flip_thresholds_status ? { flip_thresholds_status: v2Response.flip_thresholds_status } : {}),
+    ...(v2Response.flip_thresholds_status_reason ? { flip_thresholds_status_reason: v2Response.flip_thresholds_status_reason } : {}),
   }
 }
 
@@ -927,6 +970,32 @@ function safeNumber(value: unknown): number | null {
     return value
   }
   return null
+}
+
+/**
+ * Display-honesty: positive-integer guard for Monte Carlo sample counts.
+ * Sample counts must be POSITIVE INTEGERS — rejects NaN, Infinity,
+ * negatives, zero, and non-integer floats. Used at the V2-response trust
+ * boundary so the downstream formatter never divides by an invalid `n`.
+ */
+function positiveIntegerOrNull(value: unknown): number | null {
+  const n = safeNumber(value)
+  if (n === null) return null
+  if (n <= 0) return null
+  if (!Number.isInteger(n)) return null
+  return n
+}
+
+/**
+ * Display-honesty: bounded-ratio guard for `validity_ratio` (and any
+ * other [0, 1] proportion fields added later). Rejects NaN, Infinity,
+ * and values outside [0, 1].
+ */
+function boundedRatioOrNull(value: unknown): number | null {
+  const n = safeNumber(value)
+  if (n === null) return null
+  if (n < 0 || n > 1) return null
+  return n
 }
 
 /**

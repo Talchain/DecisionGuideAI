@@ -890,6 +890,9 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
     ceeAnalysisReady,
     rawV2FlipThresholds,
     rawAutoNoiseProvenance,
+    rawFlipThresholdsStatus,
+    rawFlipThresholdsStatusReason,
+    rawMetaNSamples,
   } = useCanvasStore(
     useShallow((s) => ({
       results: s.results,
@@ -905,11 +908,32 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ceeAnalysisReady: s.ceeAnalysisReady,
       // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
       // Used as fallback in flip_thresholds defensive adaptor when mapped report doesn't carry them.
-      rawV2FlipThresholds: s.rawV2Response?.robustness?.flip_thresholds ?? (s.rawV2Response as Record<string, unknown> | null)?.flip_thresholds ?? null,
+      // Display-honesty: PLoT v2/run emits flip_thresholds at the top level
+      // (see plot-lite-service routes/v2/run.ts:2010); legacy responses
+      // nested it under robustness. Prefer top-level so fresh-run and
+      // hydrated-via-mapper precedence agree (the mapper also prefers
+      // top-level — see responseMapper.ts display-honesty block).
+      rawV2FlipThresholds:
+        (s.rawV2Response as { flip_thresholds?: unknown } | null | undefined)?.flip_thresholds
+        ?? s.rawV2Response?.robustness?.flip_thresholds
+        ?? null,
       // Audit B3: extract only auto_noise_provenance to avoid subscribing
       // to the whole rawV2Response. Typed via V2RunResponse since PLoT
       // commit 562e461; normalised at the trust boundary below.
       rawAutoNoiseProvenance: s.rawV2Response?.auto_noise_provenance ?? null,
+      // Display-honesty: PLoT-side classification of flip_thresholds[]
+      // (companion to PR claude-plot/display-honesty). Optional — older
+      // PLoT builds omit the field, in which case we leave UX unchanged.
+      rawFlipThresholdsStatus: (s.rawV2Response as { flip_thresholds_status?: string } | null | undefined)?.flip_thresholds_status ?? null,
+      // Display-honesty: PLoT-supplied reason string from the same field.
+      // Drives copy variation on 'partial_no_effect' when unresolved
+      // entries are present (mixed computed + no_effect + unresolved),
+      // so UI can avoid wording that implies all non-computed factors
+      // were harmless no-effect cases.
+      rawFlipThresholdsStatusReason: (s.rawV2Response as { flip_thresholds_status_reason?: string } | null | undefined)?.flip_thresholds_status_reason ?? null,
+      // Display-honesty: root meta.n_samples used as fallback resolution
+      // source when an option lacks per-option n_valid_samples.
+      rawMetaNSamples: s.rawV2Response?.meta?.n_samples ?? null,
     }))
   )
 
@@ -1145,6 +1169,21 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         ? jointGoalProb
         : unconstrained
 
+      // Display-honesty: per-option valid sample count for resolution-aware
+      // probability formatting. Fallback chain prefers per-option signal,
+      // then per-option total, then root meta. Source values only — display
+      // formatting happens at render time.
+      const rawNValid = (optionOutcome as { n_valid_samples?: number }).n_valid_samples
+      const rawNTotal = (optionOutcome as { n_samples?: number }).n_samples
+      const nValidSamples =
+        typeof rawNValid === 'number' && Number.isFinite(rawNValid) && rawNValid > 0
+          ? rawNValid
+          : typeof rawNTotal === 'number' && Number.isFinite(rawNTotal) && rawNTotal > 0
+            ? rawNTotal
+            : typeof rawMetaNSamples === 'number' && Number.isFinite(rawMetaNSamples) && rawMetaNSamples > 0
+              ? rawMetaNSamples
+              : undefined
+
       return {
         id: nodeId,
         label: (node.data as ResultsCanvasNodeData)?.label || nodeId,
@@ -1163,6 +1202,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         p90: scaledP90,
         isRecommended: false, // Will be set immutably below
         winProbability: prob.win_probability,
+        nValidSamples,
         goalProbability,
         // Multi-constraint analysis (from ISL when goal_constraints were provided)
         constraintAnalysis: prob.constraint_analysis,
@@ -1333,6 +1373,43 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       nearTie,
       // Task 6: Flip thresholds for tipping points visualisation
       flipThresholds: flipThresholds.length > 0 ? flipThresholds : undefined,
+      // Display-honesty: PLoT-side classification of flip_thresholds[].
+      // Optional — older PLoT builds omit it, in which case downstream UX
+      // behaves exactly as before (silent absence). Fallback chain mirrors
+      // the flip_thresholds defensive adaptor above: read raw first (fresh
+      // runs), then the mapped report (saved / hydrated results) so the
+      // new UX survives a hydrate cycle through responseMapper.
+      flipThresholdsStatus: (rawFlipThresholdsStatus
+        ?? (report as { flip_thresholds_status?: string } | null | undefined)?.flip_thresholds_status
+        ?? undefined) as
+        | 'computed'
+        | 'all_no_effect'
+        | 'partial_no_effect'
+        | 'unresolved'
+        | 'unavailable'
+        | undefined,
+      // Display-honesty: presence of the reason field (raw or mapped)
+      // signals that unresolved entries are mixed in. Exposed as a
+      // boolean so the UI never needs to inspect the raw string.
+      flipThresholdsHasUnresolved: Boolean(
+        rawFlipThresholdsStatusReason
+          ?? (report as { flip_thresholds_status_reason?: string } | null | undefined)?.flip_thresholds_status_reason,
+      ),
+      /**
+       * UI-SEM-050: Leading-option downside flag.
+       *
+       * Deterministic display gate: true when the recommended option's
+       * lower-percentile outcome (p10) is below zero, signalling meaningful
+       * downside risk that should qualify an otherwise-positive lead.
+       * Display-only — does not affect ranking, scoring, or any forwarded
+       * value. Undefined when p10 is unavailable.
+       *
+       * Classification: legitimate display formatting (additive qualifier).
+       */
+      leadingOptionDownsideFlag:
+        recommendedOption?.outcome?.p10 != null && Number.isFinite(recommendedOption.outcome.p10)
+          ? recommendedOption.outcome.p10 < 0
+          : undefined,
       // v7: Whether outcome values are normalised model scores (no goalThresholdCap)
       isNormalised: isNormalisedResult,
       // M1 Coaching fields (Task 2) — sanitized at data layer
@@ -1412,7 +1489,7 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
         return hasWarningCritiques || hasFragileEdges
       })(),
     }
-  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds])
+  }, [hasCompletedFirstRun, report, nodes, goalLabel, goalNodeId, outcomeUnit, outcomeUnitSymbol, currentScenarioFraming, m1Coaching, nodeLabelMap, goalThreshold, goalThresholdCap, effectiveGoalThreshold, ceeAnalysisReady, m1ReviewAssumptions, rawV2FlipThresholds, rawFlipThresholdsStatus, rawFlipThresholdsStatusReason, rawMetaNSamples])
 
   // ==========================================================================
   // Drivers Section Data (with dynamic normalisation)

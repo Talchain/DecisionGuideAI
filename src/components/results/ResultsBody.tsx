@@ -271,6 +271,7 @@ export const ResultsBody = memo(function ResultsBody({
               expertMode={expertMode}
               confidenceTier={resultsSectionData.confidence.tier.tier}
               recommendationStability={resultsSectionData.recommendation.recommendationStability}
+              leadingOptionDownsideFlag={resultsSectionData.recommendation.leadingOptionDownsideFlag}
             />
             {/* TippingPoints removed — superseded by TornadoChart (Brief 5.4 Phase 1) */}
           </div>
@@ -312,6 +313,31 @@ export const ResultsBody = memo(function ResultsBody({
           testId="accordion-tornado"
         >
           <SectionErrorBoundary section="Tornado">
+            {/* Display-honesty: when PLoT classifies the post-denormalised
+                flip_thresholds[] as all-no-effect or partial-no-effect,
+                render one short explanatory line so absent markers do not
+                read as actionable insight. Reuses panel typography only —
+                no new colour or component. */}
+            {resultsSectionData.recommendation.flipThresholdsStatus === 'all_no_effect' && (
+              <p
+                className="text-sm text-text-light mb-3"
+                data-testid="flip-thresholds-status-note"
+                role="note"
+              >
+                No single tested factor changed the leading option within the current range.
+              </p>
+            )}
+            {resultsSectionData.recommendation.flipThresholdsStatus === 'partial_no_effect' && (
+              <p
+                className="text-sm text-text-light mb-3"
+                data-testid="flip-thresholds-status-note"
+                role="note"
+              >
+                {resultsSectionData.recommendation.flipThresholdsHasUnresolved
+                  ? 'Some factors did not change the leading option within the current range, and others could not be resolved.'
+                  : 'Some factors did not change the leading option within the current range.'}
+              </p>
+            )}
             <TornadoChart
               rows={tornadoData.rows}
               expectedOutcome={tornadoData.expectedOutcome}

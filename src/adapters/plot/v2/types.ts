@@ -134,6 +134,20 @@ export interface V2Outcome {
   p10: number
   p50: number
   p90: number
+  /**
+   * Total Monte Carlo samples drawn for this option (optional — present when
+   * ISL emits it on the per-option outcome object).
+   */
+  n_samples?: number
+  /**
+   * Number of valid (non-NaN) samples for this option. Used by display-honesty
+   * UI to derive the simulation-resolution floor / ceiling per option.
+   */
+  n_valid_samples?: number
+  /**
+   * Ratio of valid to total samples (n_valid_samples / n_samples).
+   */
+  validity_ratio?: number
 }
 
 /**
@@ -436,6 +450,33 @@ export interface V2RunResponse {
     is_provisional: boolean
     calibration_status: string
   }
+
+  /**
+   * Display-honesty: top-level flip_thresholds[] array as emitted by
+   * PLoT v2/run. Legacy responses also nested it under
+   * `robustness.flip_thresholds` — both shapes are accepted by the
+   * mapper, which prefers this top-level field when present.
+   */
+  flip_thresholds?: Array<Record<string, unknown>>
+
+  /**
+   * Display-honesty: high-level classification of `flip_thresholds[]` from
+   * PLoT, computed at the post-denormalised response-assembly boundary.
+   * Lets the Results UI render the all-no-effect / partial / unresolved
+   * cases honestly without re-deriving from individual `flip_reason` strings.
+   * Optional — present on PLoT builds shipping the display-honesty PR.
+   */
+  flip_thresholds_status?: 'computed' | 'all_no_effect' | 'partial_no_effect' | 'unresolved' | 'unavailable'
+
+  /**
+   * First-seen `flip_reason` string from an unresolved entry. Populated
+   * when `flip_thresholds_status === 'unresolved'`, OR on
+   * `'partial_no_effect'` when unresolved entries are present alongside
+   * computed and no_effect ones (lets the UI soften copy that would
+   * otherwise imply all non-computed factors were harmless no-effect
+   * cases). Payload-only debug metadata; never user-facing copy.
+   */
+  flip_thresholds_status_reason?: string
 
   // ==========================================================================
   // M1 CEE Review Fields (optional enrichment)

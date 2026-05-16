@@ -119,6 +119,14 @@ export interface OptionResult {
   p90: number | null
   isRecommended: boolean
   winProbability?: number
+  /**
+   * Display-honesty: per-option valid Monte Carlo sample count (from
+   * PLoT outcome.n_valid_samples, with fallback to outcome.n_samples /
+   * meta.n_samples). Used to derive the simulation-resolution floor /
+   * ceiling for `winProbability` display ("<0.1%" / ">99.9%" at n=1000).
+   * Source value only — display formatting happens at render time.
+   */
+  nValidSamples?: number
   /** Optional goal probability when no distribution data exists. */
   goalProbability?: number | null
   /** Task 2.1: Whether this option is the baseline for comparison */
@@ -184,6 +192,30 @@ export interface DecisionResultData {
   nearTie?: NearTieInfo
   /** Task 6: Flip thresholds for tipping points visualisation */
   flipThresholds?: FlipThreshold[]
+  /**
+   * Display-honesty: PLoT classification of the post-denormalised
+   * `flip_thresholds[]` array. Drives the all-no-effect / partial /
+   * unresolved UX so the section is not presented as actionable insight
+   * when no factor changed the leading option within the current range.
+   * Optional — present on PLoT builds shipping the display-honesty PR.
+   */
+  flipThresholdsStatus?: 'computed' | 'all_no_effect' | 'partial_no_effect' | 'unresolved' | 'unavailable'
+  /**
+   * Display-honesty: signals that the flip_thresholds[] array also
+   * contained unresolved entries (timeout / error / insufficient
+   * precision) alongside computed and no_effect ones. Used by the UI
+   * to soften copy on `'partial_no_effect'` so it doesn't imply every
+   * non-computed factor was a harmless no-effect case.
+   */
+  flipThresholdsHasUnresolved?: boolean
+  /**
+   * Display-honesty: leading option has meaningful downside in the lower
+   * range of simulated outcomes (deterministic: leading option's
+   * `outcome.p10 < 0`). Drives a single qualifying sentence in the
+   * leading-option summary. Undefined when p10 unavailable.
+   * @see UI-SEM-050
+   */
+  leadingOptionDownsideFlag?: boolean
 
   // ==========================================================================
   // M1 Coaching Fields (deterministic, not LLM-generated)
