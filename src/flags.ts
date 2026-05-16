@@ -307,6 +307,15 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ANALYSIS_HERO_COMPARE',
     storageKey: 'feature.analysisHeroCompare',
   },
+  // AI panel v2 — phased rollout for the right-panel AI conversation. Step 1
+  // mounts the split-layout scaffold behind the flag while leaving the
+  // existing DraftChat surface live; later steps move the input/thread into
+  // the panel and add Compact / Conversation / Focus modes. Default OFF.
+  // See src/canvas/ai-panel-v2/ for the new components.
+  aiPanelV2: {
+    envKey: 'VITE_FEATURE_AI_PANEL_V2',
+    storageKey: 'feature.aiPanelV2',
+  },
 } as const
 
 // ============================================================================
@@ -371,6 +380,7 @@ const flags = {
   deterministicCee: makeFlag(FLAGS_CONFIG.deterministicCee),
   analysisHeroV17: makeFlag(FLAGS_CONFIG.analysisHeroV17),
   analysisHeroCompare: makeFlag(FLAGS_CONFIG.analysisHeroCompare),
+  aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
 }
 
 // Export with original naming convention for backward compatibility
@@ -431,6 +441,7 @@ export const isOrchestratorRenderingV2Enabled = flags.orchestratorRenderingV2
 export const isDeterministicCeeEnabled = flags.deterministicCee
 export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
 export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
+export const isAiPanelV2Enabled = flags.aiPanelV2
 
 
 // ============================================================================
@@ -464,4 +475,3 @@ export function dumpFlags() {
     }
   }
 }
-

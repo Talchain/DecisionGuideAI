@@ -301,7 +301,11 @@ export function CanvasToolbar() {
           <span>Templates</span>
         </button>
 
-        {/* AI: describe your decision to draft a starter model */}
+        {/* AI: describe your decision to draft a starter model. Stays mounted
+            in both FF states for step 1 of AI panel v2 — the in-panel input
+            bar isn't wired yet, so the toolbar toggle is still the entry
+            point. Hidden in a later step once the persistent right-panel
+            input lands. */}
         <button
           onClick={() => setShowDraftChat(!showDraftChat)}
           className="p-1.5 text-sm font-medium rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 flex items-center gap-1.5 text-sky-700 bg-white hover:bg-sky-50 focus:ring-sky-400 border border-sky-300"

@@ -1054,10 +1054,22 @@ export function OutputsDock() {
       className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={{
         position: 'fixed',
-        width: state.isOpen ? 'var(--dock-right-expanded, 24rem)' : 'var(--dock-right-collapsed, 2.5rem)',
+        // --olumi-ai-panel-dock-width is a flag-specific override written by
+        // AIPanelV2Layout (FF_AI_PANEL_V2 on). When unset (FF off, or expanded
+        // collapsed state) the existing chain wins: user-resized
+        // --dock-right-expanded → 24rem stylesheet default. This preserves
+        // the dock's runtime resize feature instead of clobbering it.
+        width: state.isOpen
+          ? 'var(--olumi-ai-panel-dock-width, var(--dock-right-expanded, 24rem))'
+          : 'var(--dock-right-collapsed, 2.5rem)',
         right: 12,
         top: 12,
-        bottom: 'calc(var(--bottombar-h) + 1rem)',
+        // --olumi-ai-panel-bottom: written by AIPanelV2Layout when
+        // FF_AI_PANEL_V2 is on, to reserve vertical space below the dock for
+        // the AI conversation zone. Unset (FF off) the var fallback resolves
+        // to 0px, so the computed bottom value equals the legacy
+        // `calc(var(--bottombar-h) + 1rem)`.
+        bottom: 'calc(var(--bottombar-h) + 1rem + var(--olumi-ai-panel-bottom, 0px))',
         background: 'rgba(255, 255, 255, 0.95)',
         backdropFilter: 'blur(8px)',
         border: '1px solid var(--border-default)',

@@ -49,7 +49,8 @@ import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
-import { DraftChat } from './components/DraftChat'
+// DraftChat is mounted inside RightPanelMount along with OutputsDock and
+// (when FF_AI_PANEL_V2 is on) AIPanelV2Layout.
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
@@ -74,7 +75,8 @@ import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
-import { OutputsDock } from './components/OutputsDock'
+// OutputsDock is mounted inside RightPanelMount.
+import { RightPanelMount } from './ai-panel-v2/RightPanelMount'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
@@ -2172,10 +2174,12 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         />
       )}
 
-      {/* OutputsDock (Results panel) - render in both old and new layouts */}
-      <PanelErrorBoundary panel="Results">
-        <OutputsDock />
-      </PanelErrorBoundary>
+      {/* Right-edge mounts (Results dock + optional AI panel v2 + legacy
+          DraftChat). The FF gate lives inside RightPanelMount so tests can
+          render the real branching logic instead of mirroring it. See
+          src/canvas/ai-panel-v2/RightPanelMount.tsx for the step-1 contract
+          and the temporary DraftChat coexistence note. */}
+      <RightPanelMount />
 
       {/* Expanded lenses: contextual info panel overlay */}
       <LensInfoPanel />
@@ -2185,11 +2189,6 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         currentNodes={nodes.length}
         currentEdges={edges.length}
       />
-
-      {/* R1: Draft My Model chat loop (bottom overlay above toolbar) */}
-      <PanelErrorBoundary panel="Draft Chat">
-        <DraftChat />
-      </PanelErrorBoundary>
 
       {/* Week 3: AI Coaching nudges moved to GuidancePanel in OutputsDock */}
 
