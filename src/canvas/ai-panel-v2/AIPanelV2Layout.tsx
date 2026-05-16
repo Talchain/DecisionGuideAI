@@ -16,8 +16,6 @@ import {
   Z_AI_PANEL_BASE,
   Z_FOCUS_COLUMN,
 } from './constants'
-import type { AIPanelMode } from './constants'
-
 // Right-edge AI panel + Focus mode coordination.
 //
 // Two positioning modes, but ONE persistent AIZone (so `useConversation`

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AI_ZONE_MIN_HEIGHT,
   ANALYSIS_ZONE_MIN_HEIGHT,
-  ARROW_KEY_RESIZE_PX,
   COMPACT_AI_RATIO,
   CONVERSATION_AI_RATIO,
   FOCUS_MIN_VIEWPORT,
@@ -194,5 +193,3 @@ export function usePanelSplit({ getPanelHeight }: UsePanelSplitOptions): UsePane
     adjustByPx,
   }
 }
-
-export { ARROW_KEY_RESIZE_PX }
