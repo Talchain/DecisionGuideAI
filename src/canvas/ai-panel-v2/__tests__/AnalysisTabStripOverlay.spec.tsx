@@ -47,13 +47,22 @@ describe('AnalysisTabStripOverlay', () => {
     expect(onActiveTabChange).toHaveBeenLastCalledWith(null)
   })
 
-  it('document pointerdown outside the strip + dock closes the overlay', async () => {
+  it('capture-phase pointerdown closes outside strip + dock but keeps both interactive', async () => {
     // Stand in for OutputsDock so the handler can recognise "inside dock"
     // clicks (which must NOT close).
     const dock = document.createElement('div')
     dock.setAttribute('data-testid', 'outputs-dock')
     document.body.appendChild(dock)
 
+    // Stand in for the AI column so we can verify clicks there close the
+    // overlay (since AI column is "outside" the strip+dock) WITHOUT
+    // suppressing the underlying click (textarea focus, etc.).
+    const aiPanel = document.createElement('div')
+    aiPanel.setAttribute('data-testid', 'ai-panel-v2-layout')
+    document.body.appendChild(aiPanel)
+
+    // Stand in for true-outside surface (canvas / tools rail) — clicks
+    // here must close AND have their default suppressed.
     const outside = document.createElement('div')
     outside.setAttribute('data-testid', 'fake-canvas')
     document.body.appendChild(outside)
@@ -71,11 +80,34 @@ describe('AnalysisTabStripOverlay', () => {
     fireEvent.pointerDown(dock)
     expect(onActiveTabChange).not.toHaveBeenLastCalledWith(null)
 
-    // Click outside (e.g. AI column / canvas) — must close.
-    fireEvent.pointerDown(outside)
+    // Click "inside the strip" (an active-tab button) — must NOT close.
+    // We re-click the active tab to test this; the strip's own handler
+    // toggles the tab off, but the outside-click handler must not also
+    // fire (or we'd get a double-close path).
+    fireEvent.pointerDown(screen.getByTestId('ai-panel-v2-tab-results'))
+    expect(onActiveTabChange).not.toHaveBeenLastCalledWith(null)
+
+    // Click on the AI column — outside strip+dock so the overlay closes,
+    // BUT preventDefault must NOT fire (AI column clicks keep working).
+    // jsdom doesn't ship a PointerEvent constructor; use Event which
+    // exercises the same dispatch path our handler subscribes to.
+    const aiEvent = new Event('pointerdown', { bubbles: true, cancelable: true })
+    aiPanel.dispatchEvent(aiEvent)
     expect(onActiveTabChange).toHaveBeenLastCalledWith(null)
+    expect(aiEvent.defaultPrevented).toBe(false)
+
+    // Re-open and click on a true-outside surface — overlay closes AND
+    // preventDefault fires so the underlying canvas/tool doesn't react.
+    onActiveTabChange.mockClear()
+    fireEvent.click(screen.getByTestId('ai-panel-v2-tab-results'))
+    await act(async () => { await new Promise(r => setTimeout(r, 0)) })
+    const outsideEvent = new Event('pointerdown', { bubbles: true, cancelable: true })
+    outside.dispatchEvent(outsideEvent)
+    expect(onActiveTabChange).toHaveBeenLastCalledWith(null)
+    expect(outsideEvent.defaultPrevented).toBe(true)
 
     document.body.removeChild(dock)
+    document.body.removeChild(aiPanel)
     document.body.removeChild(outside)
   })
 })

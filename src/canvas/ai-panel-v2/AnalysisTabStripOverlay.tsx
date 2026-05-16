@@ -74,10 +74,16 @@ export const AnalysisTabStripOverlay = memo(function AnalysisTabStripOverlay({
   // Outside-click closes the overlay. The previous z-890 scrim sat below
   // the AI column (z 900), so clicks on the column landed on the column
   // and never reached the scrim — the overlay wouldn't close even though
-  // the click was outside the expanded dock + strip. A document-level
-  // pointerdown handler that excludes ONLY the strip and the dock fixes
-  // this: clicking the AI column, canvas, tools rail, or anywhere else
-  // dismisses the overlay.
+  // the click was outside the expanded dock + strip.
+  //
+  // Implementation runs on the CAPTURE phase so the close fires before
+  // any underlying handler (React Flow node selection, canvas pan, etc.)
+  // can react to the same pointerdown. For clicks that land outside the
+  // panel-v2 surface entirely — i.e. the canvas / tools rail — we also
+  // stopPropagation + preventDefault so the dismiss click doesn't *also*
+  // select a node or pan the canvas. Clicks inside the AI column are
+  // allowed to propagate (the textarea still focuses, send button still
+  // fires).
   useEffect(() => {
     if (openTab === null) return
     const handlePointerDown = (event: PointerEvent) => {
@@ -86,17 +92,27 @@ export const AnalysisTabStripOverlay = memo(function AnalysisTabStripOverlay({
       if (stripRef.current?.contains(target)) return
       const dock = document.querySelector('[data-testid="outputs-dock"]')
       if (dock?.contains(target)) return
+
       handleClose()
+
+      // True-outside targets (canvas, tools rail): suppress the underlying
+      // interaction so the dismiss click doesn't also activate a node or
+      // canvas tool. AI-column clicks (textarea, buttons inside the
+      // persistent v2 panel) are left alone so users can keep typing.
+      const aiPanel = document.querySelector('[data-testid="ai-panel-v2-layout"]')
+      if (aiPanel?.contains(target)) return
+      event.stopPropagation()
+      event.preventDefault()
     }
     // Run on the next tick so the same pointerdown that opened the tab
     // doesn't immediately close it (the click bubbles up before this
     // listener attaches if we register synchronously).
     const id = setTimeout(() => {
-      document.addEventListener('pointerdown', handlePointerDown)
+      document.addEventListener('pointerdown', handlePointerDown, { capture: true })
     }, 0)
     return () => {
       clearTimeout(id)
-      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('pointerdown', handlePointerDown, { capture: true } as AddEventListenerOptions)
     }
   }, [openTab, handleClose])
 

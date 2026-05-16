@@ -1,8 +1,8 @@
 # AI panel v2 — Final delivery summary
 
-**Status:** All 15 plan steps complete (step 15 deferred per plan as optional). Two P1 fixes follow review.
+**Status:** All 15 plan steps complete (step 15 deferred per plan as optional). Follow-up P1 fixes have landed in subsequent commits.
 **Branch:** `claude/stoic-jang-052395`
-**Commits ahead of `origin/staging`:** 12
+**Commits ahead of `origin/staging`:** 11 (see commit list below — updated each fix round)
 **Flag:** `FF_AI_PANEL_V2` (default `false`, env `VITE_FEATURE_AI_PANEL_V2`, storage `feature.aiPanelV2`)
 
 ---
@@ -112,13 +112,13 @@ FF-gated external integration points (no FF-off behaviour change):
 ## Verification summary
 
 - ✅ `npm run typecheck` clean across whole repo
-- ✅ 70 ai-panel-v2 + EntityLink tests pass across 11 files
+- ✅ 67 ai-panel-v2 + 5 EntityLink tests pass across 11 files (10 ai-panel-v2 + 1 EntityLink)
 - ✅ Lint clean on touched files (0 new warnings)
 - ✅ Browser FF off at 1280×800: DraftChat mounted, OutputsDock visible, no AI v2 layout, no flag-specific CSS vars set, no errors
 - ✅ Browser FF on at 1680×900: AI v2 panel + DraftChat unmounted; mode click switches preset (Compact ↔ Conversation); Focus engages (panel becomes 400-wide full-height column at right=424); CSS var `--olumi-ai-panel-bottom` flips from height to 0 in Focus
-- ✅ Browser FF on at 1500×900: Focus + tab-strip mode; closed dock width is 48px, clicking a tab expands the real OutputsDock overlay; clicking outside the strip+dock (including the AI column) closes the overlay; Escape closes the overlay; clicking inside the dock does NOT close it
+- ✅ Browser FF on at 1500×900: Focus + tab-strip mode; closed dock width is 48px, clicking a tab expands the real OutputsDock overlay; capture-phase outside-click closes the overlay and suppresses the underlying click for true-outside targets (canvas) while AI-column clicks keep working; Escape closes; clicking inside the dock or strip does NOT close
 - ✅ Browser FF on at 1300×900: Focus disabled, auto-drops to Compact on narrow
-- ✅ Prefill — guidanceStore `_prefillChat` populates the visible `AIInputBar` textarea instead of silently no-op'ing against the unmounted `composerRef`
+- ✅ Prefill — `useGuidanceStore.getState()._prefillChat` (registered by `ConversationPanel` via the `AIZone.prefillChat` prop) populates the visible `AIInputBar` textarea. End-to-end via the real registration path in `Prefill.spec.tsx`
 - ⚠ 1 pre-existing test failure (`useConversation.hook.spec.ts > V5 graph re-fetch on analyse response`) — reproduces on `origin/staging`; unrelated
 
 ## Hard constraints — all held
@@ -131,16 +131,15 @@ FF-gated external integration points (no FF-off behaviour change):
 - ✅ No prompt content changes
 - ✅ No new analysis trigger pathway (Rerun uses `useV2Run.runV2Analysis`)
 - ✅ No changes to FF-off behaviour
-- ✅ No push to remote — 12 commits sit locally on `claude/stoic-jang-052395`
+- ✅ No push to remote — 11 commits sit locally on `claude/stoic-jang-052395` (this round's fix commit is appended on top)
 
 ## Commit list
 
 ```
 $ git log --oneline origin/staging..HEAD
-<P1.2>    fix(ai-panel-v2): outside-click closes 1440-1599 overlay (AI column too)
-<P1.1>    fix(ai-panel-v2): prefillChat targets visible AIInputBar under FF on
+56b9d574  fix(ai-panel-v2): prefill targets visible AIInputBar + overlay outside-click
 d10b4a80  fix(ai-panel-v2): slide AI column left when tab-strip tab opens
-<docs>    docs(ai-panel-v2): final delivery summary — all 15 plan steps closed
+aefe4baa  docs(ai-panel-v2): final delivery summary — all 15 plan steps closed
 2902fd3f  feat(ai-panel-v2): steps 12 & 13 — Focus mode + tab-strip overlay
 fb61691e  feat(ai-panel-v2): step 14 — reduced-motion audit + Compact/Conversation checkpoint
 9cf72f3a  feat(ai-panel-v2): steps 8 & 9 — Back-to-results link + EntityLink
