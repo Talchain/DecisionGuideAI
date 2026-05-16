@@ -6,10 +6,11 @@
  */
 
 import { memo, useState, useCallback, type KeyboardEvent } from 'react'
-import { X, Code2, Spline, HelpCircle } from 'lucide-react'
+import { X, Code2, Spline, HelpCircle, ArrowLeft } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { NodeShapeIndicator } from '../../nodes/NodeShapeIndicator'
 import { useCanvasStore } from '../../store'
+import { isAiPanelV2Enabled } from '../../../flags'
 import type { InspectorShellProps } from './types'
 import { EditableLabel } from './shared/EditableLabel'
 
@@ -118,8 +119,24 @@ export const InspectorShell = memo(function InspectorShell({
             )}
           </div>
 
-          {/* Tech toggle + Close */}
+          {/* Back to results (FF v2) + Tech toggle + Close. The "Back to
+              results" affordance is the brief §8 link surfaced when the
+              inspector replaces analysis content in the embedded top zone
+              (correction #5). Strictly FF-gated so the legacy inspector
+              chrome is unchanged when FF off. */}
           <div className="flex gap-1 items-center flex-shrink-0">
+            {isAiPanelV2Enabled() && (
+              <button
+                onClick={onClose}
+                title="Back to results"
+                aria-label="Back to results"
+                className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-info hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-info ${typography.panelMeta}`}
+                data-testid="inspector-back-to-results"
+              >
+                <ArrowLeft size={12} aria-hidden="true" />
+                <span>Back to results</span>
+              </button>
+            )}
             <button
               onClick={() => onTechToggleChange(!techMode)}
               title={techMode ? 'Hide technical detail' : 'Show technical detail'}

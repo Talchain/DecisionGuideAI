@@ -17,6 +17,8 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { ChevronDown, ChevronUp } from 'lucide-react'
 import { typography } from '../../../styles/typography'
 import { useCanvasStore } from '../../store'
+import { isAiPanelV2Enabled } from '../../../flags'
+import { EntityLink } from '../components/EntityLink'
 import type {
   GraphPatchBlock as GraphPatchBlockType,
   ProposalBlock as ProposalBlockType,
@@ -580,6 +582,30 @@ export function GraphPatchBlockRenderer({
               </button>
             </>
           )}
+        </div>
+      )}
+      {/* AI panel v2 — click-to-highlight footer (brief §9.2). Renders
+          related_elements as EntityLinks below the patch body. Strictly
+          FF-gated: when FF_AI_PANEL_V2 is off, this block is skipped and
+          the legacy patch card renders unchanged. */}
+      {isAiPanelV2Enabled() && Array.isArray(relatedElements) && relatedElements.length > 0 && (
+        <div
+          className={`flex flex-wrap items-center gap-1 mt-2 pt-2 border-t border-panel-border ${typography.panelMeta} text-text-light`}
+          data-testid="patch-related-elements"
+        >
+          <span aria-hidden="true">Related:</span>
+          {relatedElements.map((rel, i) => {
+            const id = rel.node_id ?? rel.edge_id
+            if (!id) return null
+            const label = rel.label ?? id
+            const kind = rel.edge_id ? 'edge' : 'node'
+            return (
+              <span key={`${id}-${i}`} className="inline-flex items-center">
+                <EntityLink id={id} label={label} kind={kind} />
+                {i < relatedElements.length - 1 && <span className="text-text-light/60" aria-hidden="true">,</span>}
+              </span>
+            )
+          })}
         </div>
       )}
     </div>
