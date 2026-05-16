@@ -32,6 +32,14 @@ interface ConversationPanelProps {
   conversation: UseConversationReturn
   onCollapse: () => void
   onAttach: () => void
+  /**
+   * When true, ChatComposer is not rendered. AI panel v2 (FF_AI_PANEL_V2)
+   * uses this to swap in the compact AIInputBar from
+   * `src/canvas/ai-panel-v2/AIInputBar.tsx` while keeping the rest of
+   * ConversationPanel (ChatThread + the patch/chip/feedback handler
+   * matrix + guidanceStore registration) intact. Default false.
+   */
+  hideComposer?: boolean
 }
 
 function createPanelInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
@@ -67,6 +75,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   conversation,
   onCollapse,
   onAttach,
+  hideComposer = false,
 }: ConversationPanelProps) {
   const {
     messages, isThinking, longRunningHint,
@@ -506,6 +515,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   // panel header corner.
   return (
     <>
+      {!hideComposer && (
       <div
         className="flex items-center justify-end bg-panel flex-shrink-0"
         style={{
@@ -534,6 +544,7 @@ export const ConversationPanel = memo(function ConversationPanel({
           <ChevronsRight className="w-4 h-4" strokeWidth={1.8} aria-hidden="true" />
         </button>
       </div>
+      )}
 
       <ChatThread
         messages={messages}
@@ -551,20 +562,22 @@ export const ConversationPanel = memo(function ConversationPanel({
         onProposalConfirm={handleProposalConfirm}
       />
 
-      <ChatComposer
-        ref={composerRef}
-        conversation={conversation}
-        onCollapse={onCollapse}
-        onScrollToPatch={handleScrollToPatch}
-        onOpenInspector={handleOpenInspector}
-        onGenerateModel={handleGenerateModel}
-        onBriefStateChange={handleBriefStateChange}
-        onInsertText={handleInsertText}
-        onAttach={onAttach}
-        onRunAnalysis={handleRunAnalysis}
-        canRunAnalysis={runGateResult.allowed && !isV2RunInFlight}
-        runBlockedReason={runBlockedReason}
-      />
+      {!hideComposer && (
+        <ChatComposer
+          ref={composerRef}
+          conversation={conversation}
+          onCollapse={onCollapse}
+          onScrollToPatch={handleScrollToPatch}
+          onOpenInspector={handleOpenInspector}
+          onGenerateModel={handleGenerateModel}
+          onBriefStateChange={handleBriefStateChange}
+          onInsertText={handleInsertText}
+          onAttach={onAttach}
+          onRunAnalysis={handleRunAnalysis}
+          canRunAnalysis={runGateResult.allowed && !isV2RunInFlight}
+          runBlockedReason={runBlockedReason}
+        />
+      )}
     </>
   )
 })
