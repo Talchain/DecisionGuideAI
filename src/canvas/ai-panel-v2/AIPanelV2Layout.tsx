@@ -56,7 +56,7 @@ export function AIPanelV2Layout() {
 
   const getPanelHeight = useCallback(() => availableHeightPx, [availableHeightPx])
 
-  const { aiRatio, activeMode, startDrag, setMode, adjustByPx } = usePanelSplit({
+  const { aiRatio, activeMode, isDragging, startDrag, setMode, adjustByPx } = usePanelSplit({
     getPanelHeight,
   })
 
@@ -123,9 +123,16 @@ export function AIPanelV2Layout() {
           right: PANEL_RIGHT_MARGIN,
           bottom: PANEL_BOTTOM_OFFSET_CSS,
           zIndex: Z_AI_PANEL_BASE,
+          // Brief §11.5 "Mode switch transition": 300ms slide under standard
+          // motion, instant under prefers-reduced-motion. We piggy-back on
+          // --duration-base (300ms standard, 0.01ms under reduced motion —
+          // see src/styles/brand.css). Disabled while dragging so the
+          // height tracks the pointer in real time.
+          transition: isDragging ? 'none' : 'height var(--duration-base, 300ms) ease-out',
         }}
         data-ai-ratio={aiRatio.toFixed(3)}
         data-active-mode={activeMode}
+        data-is-dragging={isDragging ? 'true' : 'false'}
       >
         {/* PullTab is positioned outside the rounded clip so it can extend
             above the panel's top edge. The panel container uses
