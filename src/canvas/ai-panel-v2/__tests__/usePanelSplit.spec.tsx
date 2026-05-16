@@ -1,6 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-import { fireEvent } from '@testing-library/dom'
 
 import { usePanelSplit } from '../hooks/usePanelSplit'
 import {
@@ -72,16 +71,18 @@ describe('usePanelSplit — mode + clamp', () => {
 
     const fakeEvent = {
       button: 0,
+      clientX: 200,
       clientY: 500,
       preventDefault: () => {},
     } as unknown as React.PointerEvent
     act(() => result.current.startDrag(fakeEvent))
 
-    // jsdom's PointerEvent constructor needs an explicit `clientY` because
-    // synthesised PointerEvents don't read it from the init dict the way
-    // browsers do — set the property directly.
-    const dispatchMove = (clientY: number) => {
-      const ev = new Event('pointermove', { bubbles: true }) as PointerEvent & { clientY: number }
+    // jsdom's PointerEvent doesn't read clientX/Y from the init dict the
+    // way browsers do — set both properties directly so axis detection
+    // can compare them.
+    const dispatchMove = (clientY: number, clientX = 200) => {
+      const ev = new Event('pointermove', { bubbles: true }) as PointerEvent & { clientX: number; clientY: number }
+      Object.defineProperty(ev, 'clientX', { value: clientX })
       Object.defineProperty(ev, 'clientY', { value: clientY })
       act(() => { document.dispatchEvent(ev) })
     }

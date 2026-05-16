@@ -34,6 +34,19 @@ export const PULL_TAB_LABEL_WIDTH = 160
 
 // Focus-mode viewport rules (brief §4.5).
 export const FOCUS_MIN_VIEWPORT = 1440
+export const FOCUS_FULL_VIEWPORT = 1600
+
+// Focus column dimensions + snap-back tolerance (brief §4.6).
+export const FOCUS_COLUMN_DEFAULT = 400
+export const FOCUS_COLUMN_MIN = 320
+export const FOCUS_SNAP_THRESHOLD = 20
+
+// Stacking layers for the Focus mode chrome (brief §6, correction #6).
+export const Z_FOCUS_COLUMN = 30
+export const Z_ANALYSIS_OVERLAY = 40
+
+// Collapsed-strip width at 1440–1599px viewports (brief §4.5).
+export const ANALYSIS_TAB_STRIP_WIDTH = 48
 
 // Vertical drag arrow-key step (brief §11.4).
 export const ARROW_KEY_RESIZE_PX = 20

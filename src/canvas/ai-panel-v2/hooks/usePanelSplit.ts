@@ -5,23 +5,23 @@ import {
   ARROW_KEY_RESIZE_PX,
   COMPACT_AI_RATIO,
   CONVERSATION_AI_RATIO,
+  FOCUS_MIN_VIEWPORT,
   MODE_THRESHOLDS,
 } from '../constants'
 import type { AIPanelMode } from '../constants'
 
-// Vertical split between analysis (top) + AI zone (bottom). Owns:
-//   • aiRatio          — current ratio (0..1), AI-zone height / panel height
-//   • activeMode       — Compact/Conversation/Focus derived from ratio +
-//                        explicit user clicks (free position outside
-//                        threshold bands shows nearest mode)
-//   • setMode          — click handler; jumps ratio to the preset
-//   • startDrag        — pointer-down handler for the pull-tab drag region
-//   • adjustByPx       — arrow-key support (brief §11.4)
+// Vertical split between analysis (top) + AI zone (bottom) PLUS Focus mode
+// switching. Owns:
+//   • aiRatio          — current vertical ratio (0..1) for Compact/Conv
+//   • activeMode       — Compact / Conversation / Focus
+//   • isDragging       — true while a drag is in progress
+//   • setMode          — click handler; jumps to preset
+//   • startDrag        — pointer-down on the pull-tab drag region
+//   • adjustByPx       — ±N px arrow-key support
 //
-// Drag uses pointer events on the document so dragging continues even when
-// the pointer leaves the tab. Min-height clamping happens in pixels using
-// the live panel height (passed via getPanelHeight ref) so the constraints
-// remain meaningful across viewport sizes.
+// Drag axis detection: first 8px commits the axis. Vertical drag resizes
+// the Compact/Conv ratio. Horizontal LEFT drag (only when viewport ≥
+// FOCUS_MIN_VIEWPORT) switches to Focus mode.
 
 export interface UsePanelSplitOptions {
   /** Returns the panel's current pixel height. Read live during drag. */
@@ -44,7 +44,6 @@ function deriveModeFromRatio(ratio: number): AIPanelMode {
   if (ratio >= MODE_THRESHOLDS.conversation.min && ratio <= MODE_THRESHOLDS.conversation.max) {
     return 'conversation'
   }
-  // Free position — pick nearest preset by distance to its midpoint.
   const compactMid = (MODE_THRESHOLDS.compact.min + MODE_THRESHOLDS.compact.max) / 2
   const conversationMid = (MODE_THRESHOLDS.conversation.min + MODE_THRESHOLDS.conversation.max) / 2
   return Math.abs(ratio - compactMid) < Math.abs(ratio - conversationMid)
@@ -56,28 +55,44 @@ function clampRatio(ratio: number, panelHeightPx: number): number {
   if (panelHeightPx <= 0) return ratio
   const minRatio = AI_ZONE_MIN_HEIGHT / panelHeightPx
   const maxRatio = (panelHeightPx - ANALYSIS_ZONE_MIN_HEIGHT) / panelHeightPx
-  if (minRatio > maxRatio) {
-    // Panel too short for both minimums — give the AI zone its minimum
-    // share and let the analysis zone shrink. The visible result is the AI
-    // zone at exactly AI_ZONE_MIN_HEIGHT and analysis using whatever's left.
-    return minRatio
-  }
+  if (minRatio > maxRatio) return minRatio
   return Math.min(maxRatio, Math.max(minRatio, ratio))
+}
+
+function focusEnabledAtViewport(): boolean {
+  if (typeof window === 'undefined') return false
+  return window.innerWidth >= FOCUS_MIN_VIEWPORT
 }
 
 export function usePanelSplit({ getPanelHeight }: UsePanelSplitOptions): UsePanelSplitResult {
   const [aiRatio, setAiRatio] = useState(COMPACT_AI_RATIO)
   const [explicitMode, setExplicitMode] = useState<AIPanelMode | null>(null)
+  const [focusActive, setFocusActive] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
 
-  // Refs used inside pointer move/up handlers so the listeners stay stable.
+  const dragStartXRef = useRef(0)
   const dragStartYRef = useRef(0)
   const dragStartRatioRef = useRef(0)
-  const axisCommittedRef = useRef<'vertical' | null>(null)
+  const axisCommittedRef = useRef<'vertical' | 'horizontal' | null>(null)
 
-  const activeMode = useMemo(() => {
-    // Explicit click "wins" only while the ratio still matches its band.
-    // Once the user drags out of the band, the highlight follows the ratio.
+  // Viewport guard: if the user narrows the window below FOCUS_MIN_VIEWPORT
+  // while Focus is active, drop back to the last non-Focus preset so the
+  // disabled-Focus state in the PullTab is consistent.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onResize = () => {
+      if (focusActive && !focusEnabledAtViewport()) {
+        setFocusActive(false)
+        setExplicitMode('compact')
+        setAiRatio(clampRatio(COMPACT_AI_RATIO, getPanelHeight()))
+      }
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [focusActive, getPanelHeight])
+
+  const activeMode = useMemo<AIPanelMode>(() => {
+    if (focusActive) return 'focus'
     if (explicitMode === 'compact' && aiRatio >= MODE_THRESHOLDS.compact.min && aiRatio <= MODE_THRESHOLDS.compact.max) {
       return 'compact'
     }
@@ -85,30 +100,36 @@ export function usePanelSplit({ getPanelHeight }: UsePanelSplitOptions): UsePane
       return 'conversation'
     }
     return deriveModeFromRatio(aiRatio)
-  }, [aiRatio, explicitMode])
+  }, [focusActive, aiRatio, explicitMode])
 
   const setMode = useCallback((mode: AIPanelMode) => {
+    if (mode === 'focus') {
+      if (!focusEnabledAtViewport()) return
+      setFocusActive(true)
+      setExplicitMode('focus')
+      return
+    }
+    setFocusActive(false)
     setExplicitMode(mode)
     if (mode === 'compact') {
       setAiRatio(clampRatio(COMPACT_AI_RATIO, getPanelHeight()))
     } else if (mode === 'conversation') {
       setAiRatio(clampRatio(CONVERSATION_AI_RATIO, getPanelHeight()))
     }
-    // Focus mode does not modify the vertical split — it's handled by a
-    // sibling layout in step 12.
   }, [getPanelHeight])
 
   const adjustByPx = useCallback((deltaPx: number) => {
+    if (focusActive) return // vertical resize doesn't apply in Focus mode
     const h = getPanelHeight()
     if (h <= 0) return
     setAiRatio(prev => clampRatio(prev + deltaPx / h, h))
     setExplicitMode(null)
-  }, [getPanelHeight])
+  }, [focusActive, getPanelHeight])
 
   const startDrag = useCallback((event: React.PointerEvent) => {
-    // Only primary mouse / touch — ignore right-clicks and stylus barrel taps.
     if (event.button !== 0) return
     event.preventDefault()
+    dragStartXRef.current = event.clientX
     dragStartYRef.current = event.clientY
     dragStartRatioRef.current = aiRatio
     axisCommittedRef.current = null
@@ -118,20 +139,40 @@ export function usePanelSplit({ getPanelHeight }: UsePanelSplitOptions): UsePane
   useEffect(() => {
     if (!isDragging) return
     const handleMove = (ev: PointerEvent) => {
-      const h = getPanelHeight()
-      if (h <= 0) return
-      // Vertical drag: dragging tab DOWN expands the AI zone (its top moves
-      // up). The pull-tab sits at the AI zone's top edge, so moving the
-      // pointer up shrinks the AI zone (analysis grows) and vice versa.
+      const dx = ev.clientX - dragStartXRef.current
       const dy = ev.clientY - dragStartYRef.current
-      // Axis detection: vertical drags commit at >=8px movement. Horizontal
-      // axis is reserved for step 12 (Focus mode).
-      if (axisCommittedRef.current === null && Math.abs(dy) < 8) return
-      axisCommittedRef.current = 'vertical'
-      // Inverted because tab is at the AI zone's TOP edge.
-      const proposedRatio = dragStartRatioRef.current - dy / h
-      setAiRatio(clampRatio(proposedRatio, h))
-      setExplicitMode(null)
+
+      if (axisCommittedRef.current === null) {
+        if (Math.abs(dx) < 8 && Math.abs(dy) < 8) return
+        // Commit whichever axis moved further past the dead-zone.
+        if (Math.abs(dx) > Math.abs(dy)) {
+          // Horizontal commit only matters if the user is dragging LEFT
+          // (positive direction = right; we want leftward = negative dx
+          // → triggers Focus). Brief §4.3: "Dragging the tab to the left
+          // pulls the AI zone out". Horizontal drag is disabled below
+          // FOCUS_MIN_VIEWPORT.
+          if (dx < 0 && focusEnabledAtViewport()) {
+            axisCommittedRef.current = 'horizontal'
+            setFocusActive(true)
+            setExplicitMode('focus')
+            setIsDragging(false) // Focus engaged; release the drag handle
+            return
+          }
+          // Right-drag or no-focus-allowed → fall through to vertical.
+          axisCommittedRef.current = 'vertical'
+        } else {
+          axisCommittedRef.current = 'vertical'
+        }
+      }
+
+      if (axisCommittedRef.current === 'vertical') {
+        if (focusActive) return // can't vertically resize a detached column
+        const h = getPanelHeight()
+        if (h <= 0) return
+        const proposedRatio = dragStartRatioRef.current - dy / h
+        setAiRatio(clampRatio(proposedRatio, h))
+        setExplicitMode(null)
+      }
     }
     const handleUp = () => setIsDragging(false)
     document.addEventListener('pointermove', handleMove)
@@ -142,7 +183,7 @@ export function usePanelSplit({ getPanelHeight }: UsePanelSplitOptions): UsePane
       document.removeEventListener('pointerup', handleUp)
       document.removeEventListener('pointercancel', handleUp)
     }
-  }, [isDragging, getPanelHeight])
+  }, [isDragging, focusActive, getPanelHeight])
 
   return {
     aiRatio,
@@ -154,5 +195,4 @@ export function usePanelSplit({ getPanelHeight }: UsePanelSplitOptions): UsePane
   }
 }
 
-// Re-export for tests and arrow-key wiring outside the hook.
 export { ARROW_KEY_RESIZE_PX }

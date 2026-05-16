@@ -1,46 +1,57 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { AIZone } from './AIZone'
+import { AnalysisTabStripOverlay } from './AnalysisTabStripOverlay'
 import { PullTab } from './PullTab'
 import { usePanelSplit } from './hooks/usePanelSplit'
+import { useFocusColumn } from './hooks/useFocusColumn'
 import { useSelectionContext } from './hooks/useSelectionContext'
 import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import {
   AI_PANEL_V2_WIDTH,
   AI_ZONE_MIN_HEIGHT,
   ANALYSIS_ZONE_MIN_HEIGHT,
+  FOCUS_FULL_VIEWPORT,
+  FOCUS_MIN_VIEWPORT,
   Z_AI_PANEL_BASE,
+  Z_FOCUS_COLUMN,
 } from './constants'
+import type { AIPanelMode } from './constants'
 
-// Bottom-right AI panel that sits BELOW OutputsDock. The two coordinate
-// through CSS variables on document.documentElement:
+// Right-edge AI panel + Focus mode coordination.
 //
-//   --olumi-ai-panel-bottom        height reserved below the dock
-//   --olumi-ai-panel-dock-width    width override for the dock
+// Two positioning modes, but ONE persistent AIZone (so `useConversation`
+// state survives mode toggles — singleton invariant from correction #9):
 //
-// FF off → variables unset, dock fills its legacy bounding box.
-// FF on  → this layout sets the height of the AI panel based on the
-//          current split ratio; the dock contracts in lock-step.
+//   Compact / Conversation:
+//     • Panel fixed at bottom-right, height = ratio × available height
+//     • Dock contracts via --olumi-ai-panel-bottom
 //
-// `usePanelSplit` owns the live aiRatio (Compact/Conversation modes).
-// PullTab anchors to the panel's top edge so users can click to switch
-// modes or drag to resize. Focus mode (horizontal drag) ships in step 12.
+//   Focus:
+//     • Panel fixed full-height as a column, LEFT of the dock (≥1600px)
+//       or replacing the dock area (1440–1599px tab-strip mode)
+//     • Dock reserves 0 below (--olumi-ai-panel-bottom: 0px)
+//     • Width controlled by useFocusColumn (320 min, 50vw max)
+//     • Left edge is the resize handle; right edge snaps back to Compact
 
 const PANEL_RIGHT_MARGIN = 12
 const PANEL_BOTTOM_OFFSET_CSS = 'calc(var(--bottombar-h, 0px) + 1rem)'
 
-// Available vertical budget the AI panel can claim, in pixels:
-//   100vh − dock top inset (12px) − dock bottom margin (1rem) − analysis min
-// The hook clamps the ratio to keep the dock's minimum height honest.
-const AVAILABLE_HEIGHT_CSS = `calc(100vh - ${PANEL_RIGHT_MARGIN}px - 1rem - var(--bottombar-h, 0px))`
-
 export function AIPanelV2Layout() {
-  // A 1px sentinel measures the *available* vertical budget (viewport −
-  // chrome). We compute pixel-clamping against this rather than reading
-  // window.innerHeight directly, because the bottombar-h and 1rem terms
-  // resolve through CSS only.
+  // Track viewport width for the 1440–1599 tab-strip mode and to disable
+  // Focus below FOCUS_MIN_VIEWPORT.
+  const [viewportWidth, setViewportWidth] = useState(() =>
+    typeof window === 'undefined' ? 1600 : window.innerWidth,
+  )
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const onResize = () => setViewportWidth(window.innerWidth)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  // Sentinel sized to the dock's vertical budget for honest pixel clamps.
   const measureRef = useRef<HTMLDivElement>(null)
   const [availableHeightPx, setAvailableHeightPx] = useState(0)
-
   useLayoutEffect(() => {
     if (!measureRef.current || typeof ResizeObserver === 'undefined') return
     const el = measureRef.current
@@ -53,18 +64,26 @@ export function AIPanelV2Layout() {
     observer.observe(el)
     return () => observer.disconnect()
   }, [])
-
   const getPanelHeight = useCallback(() => availableHeightPx, [availableHeightPx])
 
   const { aiRatio, activeMode, isDragging, startDrag, setMode, adjustByPx } = usePanelSplit({
     getPanelHeight,
   })
 
-  // Brief §6.1/§6.2/§6.3 — supplementary tint colour for the pull-tab.
-  // Priority: selection > stale > default. Selection always wins because
-  // it represents the active user interaction; stale state is also
-  // surfaced text-first via StaleAnalysisBadge so the lack of tint
-  // doesn't hide it.
+  // useFocusColumn exits to Compact on snap-back drag.
+  const handleFocusExit = useCallback(() => {
+    setMode('compact')
+  }, [setMode])
+  const { width: focusWidth, isResizing: isFocusResizing, startLeftEdgeResize, startRightEdgeResize } = useFocusColumn({
+    onExit: handleFocusExit,
+  })
+
+  const isFocus = activeMode === 'focus'
+  // Tab-strip mode replaces the dock at narrow Focus viewports
+  // (1440–1599) so the AI column + canvas can fit.
+  const tabStripMode = isFocus && viewportWidth >= FOCUS_MIN_VIEWPORT && viewportWidth < FOCUS_FULL_VIEWPORT
+
+  // Selection / stale tint on the pull-tab edge.
   const { hasSelection, borderClass: selectionBorder } = useSelectionContext()
   const { isStale } = useStaleGuard()
   const tintBorderClass = useMemo(() => {
@@ -73,32 +92,58 @@ export function AIPanelV2Layout() {
     return 'border-panel-border'
   }, [hasSelection, selectionBorder, isStale])
 
-  // AI-zone height in pixels — derived from ratio, with the same min-zone
-  // clamp the hook applies. We compute here too so the CSS variable used by
-  // the dock matches the actual pixel height exactly.
+  // Vertical AI-zone pixel height (Compact/Conv only).
   const aiHeightPx = availableHeightPx > 0
     ? Math.max(
         AI_ZONE_MIN_HEIGHT,
         Math.min(availableHeightPx - ANALYSIS_ZONE_MIN_HEIGHT, availableHeightPx * aiRatio),
       )
     : AI_ZONE_MIN_HEIGHT
-  const aiHeightCss = `${aiHeightPx}px`
 
+  // CSS-variable coordination with OutputsDock:
+  //   • --olumi-ai-panel-dock-width: dock width (400px FF on, or
+  //     ANALYSIS_TAB_STRIP_WIDTH when the dock is collapsed to a strip)
+  //   • --olumi-ai-panel-bottom: vertical reserve below the dock
+  //     (Compact/Conv: aiHeightPx; Focus: 0 — dock returns to full height)
   useEffect(() => {
     if (typeof document === 'undefined') return
     const root = document.documentElement
     root.style.setProperty('--olumi-ai-panel-dock-width', `${AI_PANEL_V2_WIDTH}px`)
-    root.style.setProperty('--olumi-ai-panel-bottom', aiHeightCss)
+    root.style.setProperty('--olumi-ai-panel-bottom', isFocus ? '0px' : `${aiHeightPx}px`)
     return () => {
       root.style.removeProperty('--olumi-ai-panel-dock-width')
       root.style.removeProperty('--olumi-ai-panel-bottom')
     }
-  }, [aiHeightCss])
+  }, [aiHeightPx, isFocus])
+
+  // ── Compact / Conversation positioning ────────────────────────────────
+  const compactStyle: React.CSSProperties = {
+    position: 'fixed',
+    width: AI_PANEL_V2_WIDTH,
+    height: `${aiHeightPx}px`,
+    right: PANEL_RIGHT_MARGIN,
+    bottom: PANEL_BOTTOM_OFFSET_CSS,
+    zIndex: Z_AI_PANEL_BASE,
+    transition: isDragging ? 'none' : 'height var(--duration-base, 300ms) ease-out, width var(--duration-base, 300ms) ease-out, right var(--duration-base, 300ms) ease-out',
+  }
+
+  // ── Focus positioning ─────────────────────────────────────────────────
+  // When tabStripMode is on, the dock is replaced by a 48px strip; the AI
+  // column occupies the right portion of the viewport. When ≥1600px, the
+  // dock keeps its 400px width and the AI column sits LEFT of it.
+  const dockReserved = tabStripMode ? 48 + PANEL_RIGHT_MARGIN : AI_PANEL_V2_WIDTH + PANEL_RIGHT_MARGIN
+  const focusStyle: React.CSSProperties = {
+    position: 'fixed',
+    width: focusWidth,
+    top: PANEL_RIGHT_MARGIN,
+    bottom: PANEL_BOTTOM_OFFSET_CSS,
+    right: dockReserved + 12, // 12px gutter between the AI column and the dock
+    zIndex: Z_FOCUS_COLUMN,
+    transition: isDragging || isFocusResizing ? 'none' : 'width var(--duration-base, 300ms) ease-out, right var(--duration-base, 300ms) ease-out',
+  }
 
   return (
     <>
-      {/* Off-screen sentinel: same vertical budget as the dock so we
-          measure pixels honestly without reading window.innerHeight. */}
       <div
         ref={measureRef}
         aria-hidden="true"
@@ -116,27 +161,12 @@ export function AIPanelV2Layout() {
         data-testid="ai-panel-v2-layout"
         aria-label="AI conversation"
         className="flex flex-col pointer-events-auto bg-panel border border-panel-border rounded-2xl overflow-visible shadow-2"
-        style={{
-          position: 'fixed',
-          width: AI_PANEL_V2_WIDTH,
-          height: aiHeightCss,
-          right: PANEL_RIGHT_MARGIN,
-          bottom: PANEL_BOTTOM_OFFSET_CSS,
-          zIndex: Z_AI_PANEL_BASE,
-          // Brief §11.5 "Mode switch transition": 300ms slide under standard
-          // motion, instant under prefers-reduced-motion. We piggy-back on
-          // --duration-base (300ms standard, 0.01ms under reduced motion —
-          // see src/styles/brand.css). Disabled while dragging so the
-          // height tracks the pointer in real time.
-          transition: isDragging ? 'none' : 'height var(--duration-base, 300ms) ease-out',
-        }}
+        style={isFocus ? focusStyle : compactStyle}
         data-ai-ratio={aiRatio.toFixed(3)}
         data-active-mode={activeMode}
         data-is-dragging={isDragging ? 'true' : 'false'}
+        data-viewport-mode={tabStripMode ? 'tab-strip' : 'full'}
       >
-        {/* PullTab is positioned outside the rounded clip so it can extend
-            above the panel's top edge. The panel container uses
-            overflow-visible to permit that. */}
         <PullTab
           activeMode={activeMode}
           onModeClick={setMode}
@@ -145,6 +175,28 @@ export function AIPanelV2Layout() {
           tintBorderClass={tintBorderClass}
           staleAnnouncement={isStale && !hasSelection}
         />
+        {isFocus && (
+          <>
+            {/* Left-edge resize handle — widens the Focus column. */}
+            <div
+              data-testid="ai-panel-v2-focus-left-edge"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Resize Focus column"
+              onPointerDown={startLeftEdgeResize}
+              className="absolute inset-y-0 left-0 w-1 cursor-ew-resize z-10"
+            />
+            {/* Right-edge resize handle — narrow / snap back to Compact. */}
+            <div
+              data-testid="ai-panel-v2-focus-right-edge"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label="Exit Focus mode"
+              onPointerDown={startRightEdgeResize}
+              className="absolute inset-y-0 right-0 w-1 cursor-ew-resize z-10"
+            />
+          </>
+        )}
         <div
           data-testid="ai-panel-v2-ai-zone"
           className="flex flex-col flex-1 min-h-0 bg-panel overflow-hidden rounded-2xl"
@@ -152,8 +204,10 @@ export function AIPanelV2Layout() {
           <AIZone />
         </div>
       </aside>
+      {/* 1440–1599 tab-strip chrome — only in Focus mode at narrow
+          Focus-supported viewports. Replaces the dock visually with a
+          48px strip; clicking opens a 400px overlay. */}
+      <AnalysisTabStripOverlay active={tabStripMode} />
     </>
   )
 }
-
-export { AVAILABLE_HEIGHT_CSS }
