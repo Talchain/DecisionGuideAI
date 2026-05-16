@@ -1,20 +1,20 @@
-import { describe, it, expect, afterEach } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, cleanup } from '@testing-library/react'
 
-import { AIPanelV2Layout } from '../AIPanelV2Layout'
-import {
-  AI_PANEL_V2_WIDTH,
-  AI_ZONE_MIN_HEIGHT,
-  ANALYSIS_ZONE_MIN_HEIGHT,
-  COMPACT_AI_RATIO,
-  Z_AI_PANEL_BASE,
-} from '../constants'
-import { isAiPanelV2Enabled } from '../../../flags'
+// Mock heavy children to keep this at the mounting level.
+vi.mock('../AIZone', () => ({
+  AIZone: () => <div data-testid="stub-ai-zone" />,
+}))
+vi.mock('../PullTab', () => ({
+  PullTab: ({ activeMode }: { activeMode: string }) => (
+    <div data-testid="stub-pull-tab" data-active-mode={activeMode} />
+  ),
+}))
 
-const EXPECTED_HEIGHT_CSS = `clamp(${AI_ZONE_MIN_HEIGHT}px, ${Math.round(
-  COMPACT_AI_RATIO * 100
-)}vh, calc(100vh - 12px - 1rem - var(--bottombar-h, 0px) - ${ANALYSIS_ZONE_MIN_HEIGHT}px))`
+import { AIPanelV2Layout } from '../AIPanelV2Layout'
+import { AI_PANEL_V2_WIDTH, Z_AI_PANEL_BASE, AI_ZONE_MIN_HEIGHT } from '../constants'
+import { isAiPanelV2Enabled } from '../../../flags'
 
 afterEach(() => {
   cleanup()
@@ -22,25 +22,26 @@ afterEach(() => {
   document.documentElement.style.removeProperty('--olumi-ai-panel-bottom')
 })
 
-describe('AIPanelV2Layout (step 1 skeleton)', () => {
-  it('renders the AI zone container with the panel testid', () => {
+describe('AIPanelV2Layout (step 5 — vertical split + PullTab)', () => {
+  it('mounts AIZone and PullTab inside the layout', () => {
     render(<AIPanelV2Layout />)
     expect(screen.getByTestId('ai-panel-v2-layout')).toBeInTheDocument()
     expect(screen.getByTestId('ai-panel-v2-ai-zone')).toBeInTheDocument()
+    expect(screen.getByTestId('stub-pull-tab')).toBeInTheDocument()
+    expect(screen.getByTestId('stub-ai-zone')).toBeInTheDocument()
   })
 
   it('writes the flag-specific dock width override (never --dock-right-expanded)', () => {
     render(<AIPanelV2Layout />)
     expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-dock-width'))
       .toBe(`${AI_PANEL_V2_WIDTH}px`)
-    // Must NOT touch the dock's persisted width state.
     expect(document.documentElement.style.getPropertyValue('--dock-right-expanded')).toBe('')
   })
 
-  it('writes --olumi-ai-panel-bottom as a clamped height with min-zone enforcement', () => {
+  it('writes a pixel-valued --olumi-ai-panel-bottom (no static clamp string)', () => {
     render(<AIPanelV2Layout />)
-    expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-bottom'))
-      .toBe(EXPECTED_HEIGHT_CSS)
+    const v = document.documentElement.style.getPropertyValue('--olumi-ai-panel-bottom')
+    expect(v).toMatch(/^\d+px$/)
   })
 
   it('removes both CSS variables on unmount (no residue when FF flips off)', () => {
@@ -59,7 +60,24 @@ describe('AIPanelV2Layout (step 1 skeleton)', () => {
     expect(aside.style.zIndex).toBe(String(Z_AI_PANEL_BASE))
   })
 
-it('has an accessible label', () => {
+  it('exposes the active mode and ratio via data attributes for diagnostics', () => {
+    render(<AIPanelV2Layout />)
+    const aside = screen.getByTestId('ai-panel-v2-layout')
+    expect(aside.getAttribute('data-active-mode')).toBe('compact')
+    const ratio = Number(aside.getAttribute('data-ai-ratio'))
+    expect(ratio).toBeGreaterThan(0)
+    expect(ratio).toBeLessThan(1)
+  })
+
+  it('the initial AI-zone height is at least the configured min', () => {
+    render(<AIPanelV2Layout />)
+    const aside = screen.getByTestId('ai-panel-v2-layout')
+    // Without a ResizeObserver firing, the sentinel reports 0 so the
+    // height falls back to AI_ZONE_MIN_HEIGHT px.
+    expect(aside.style.height).toBe(`${AI_ZONE_MIN_HEIGHT}px`)
+  })
+
+  it('has an accessible label', () => {
     render(<AIPanelV2Layout />)
     expect(screen.getByLabelText(/ai conversation/i)).toBeInTheDocument()
   })

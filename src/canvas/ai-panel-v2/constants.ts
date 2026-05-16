@@ -14,6 +14,29 @@ export const ANALYSIS_ZONE_MIN_HEIGHT = 200
 // Default ratio when no user override exists. Matches the Compact preset
 // from the design proposal.
 export const COMPACT_AI_RATIO = 0.30
+export const CONVERSATION_AI_RATIO = 0.55
+
+// Mode highlight thresholds — `ratio` = AI-zone height / panel height.
+// Outside both ranges the nearest mode is highlighted (free position).
+// Per the brief's correction #1.
+export const MODE_THRESHOLDS = {
+  compact: { min: 0.25, max: 0.40 },
+  conversation: { min: 0.41, max: 0.65 },
+} as const
+
+// Pull-tab sizing (brief §4.1, correction #12):
+// 64px total effective hit area; 160×36 visible label strip centred
+// horizontally; ~28px transparent drag zone above the labels covering the
+// resize boundary.
+export const PULL_TAB_HEIGHT = 64
+export const PULL_TAB_LABEL_HEIGHT = 36
+export const PULL_TAB_LABEL_WIDTH = 160
+
+// Focus-mode viewport rules (brief §4.5).
+export const FOCUS_MIN_VIEWPORT = 1440
+
+// Vertical drag arrow-key step (brief §11.4).
+export const ARROW_KEY_RESIZE_PX = 20
 
 // Stacking layer for the AI panel chrome — matches OutputsDock (900) so the
 // two fixed-position right-side panels share the same level: above canvas,
