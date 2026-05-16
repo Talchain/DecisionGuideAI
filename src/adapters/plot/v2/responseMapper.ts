@@ -620,12 +620,17 @@ export function mapV2ResponseToReportV1(
           // the same source as fresh runs. Without this pass-through, the
           // resolution-aware win-probability formatter falls back to the
           // legacy "0%" / "100%" rendering whenever a result is rehydrated
-          // through the mapper. Guarded with safeNumber so NaN / Infinity
-          // from an upstream regression cannot reach the UI.
+          // through the mapper.
+          //
+          // Bounded guards reject upstream regressions at the trust
+          // boundary: counts must be POSITIVE INTEGERS (NaN, Infinity,
+          // negatives, zero and floats are dropped); validity_ratio must
+          // be a finite number in [0, 1]. The downstream selector and
+          // formatter assume valid ranges.
           outcome: (() => {
-            const nSamples = safeNumber(outcome?.n_samples)
-            const nValidSamples = safeNumber(outcome?.n_valid_samples)
-            const validityRatio = safeNumber(outcome?.validity_ratio)
+            const nSamples = positiveIntegerOrNull(outcome?.n_samples)
+            const nValidSamples = positiveIntegerOrNull(outcome?.n_valid_samples)
+            const validityRatio = boundedRatioOrNull(outcome?.validity_ratio)
             return {
               mean: rawMean,
               p10,
@@ -965,6 +970,32 @@ function safeNumber(value: unknown): number | null {
     return value
   }
   return null
+}
+
+/**
+ * Display-honesty: positive-integer guard for Monte Carlo sample counts.
+ * Sample counts must be POSITIVE INTEGERS — rejects NaN, Infinity,
+ * negatives, zero, and non-integer floats. Used at the V2-response trust
+ * boundary so the downstream formatter never divides by an invalid `n`.
+ */
+function positiveIntegerOrNull(value: unknown): number | null {
+  const n = safeNumber(value)
+  if (n === null) return null
+  if (n <= 0) return null
+  if (!Number.isInteger(n)) return null
+  return n
+}
+
+/**
+ * Display-honesty: bounded-ratio guard for `validity_ratio` (and any
+ * other [0, 1] proportion fields added later). Rejects NaN, Infinity,
+ * and values outside [0, 1].
+ */
+function boundedRatioOrNull(value: unknown): number | null {
+  const n = safeNumber(value)
+  if (n === null) return null
+  if (n < 0 || n > 1) return null
+  return n
 }
 
 /**

@@ -908,7 +908,15 @@ export function useResultsSectionData(): ResultsSectionDataReturn {
       ceeAnalysisReady: s.ceeAnalysisReady,
       // Extract only flip_thresholds from raw V2 response to avoid subscribing to entire object.
       // Used as fallback in flip_thresholds defensive adaptor when mapped report doesn't carry them.
-      rawV2FlipThresholds: s.rawV2Response?.robustness?.flip_thresholds ?? (s.rawV2Response as Record<string, unknown> | null)?.flip_thresholds ?? null,
+      // Display-honesty: PLoT v2/run emits flip_thresholds at the top level
+      // (see plot-lite-service routes/v2/run.ts:2010); legacy responses
+      // nested it under robustness. Prefer top-level so fresh-run and
+      // hydrated-via-mapper precedence agree (the mapper also prefers
+      // top-level — see responseMapper.ts display-honesty block).
+      rawV2FlipThresholds:
+        (s.rawV2Response as { flip_thresholds?: unknown } | null | undefined)?.flip_thresholds
+        ?? s.rawV2Response?.robustness?.flip_thresholds
+        ?? null,
       // Audit B3: extract only auto_noise_provenance to avoid subscribing
       // to the whole rawV2Response. Typed via V2RunResponse since PLoT
       // commit 562e461; normalised at the trust boundary below.

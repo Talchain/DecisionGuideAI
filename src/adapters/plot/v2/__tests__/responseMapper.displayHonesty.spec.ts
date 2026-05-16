@@ -117,7 +117,7 @@ describe('responseMapper display-honesty', () => {
       expect(outcome?.validity_ratio).toBeUndefined()
     })
 
-    it('rejects NaN / Infinity on sample fields (safeNumber guard)', () => {
+    it('rejects NaN / Infinity on sample fields', () => {
       const response = makeResponse({
         option_comparison: [
           {
@@ -148,6 +148,68 @@ describe('responseMapper display-honesty', () => {
       expect(outcome?.n_samples).toBeUndefined()
       expect(outcome?.n_valid_samples).toBeUndefined()
       expect(outcome?.validity_ratio).toBeUndefined()
+    })
+
+    it('rejects sample counts that are zero, negative, or non-integer (positive-integer guard)', () => {
+      const response = makeResponse({
+        option_comparison: [
+          {
+            option_id: 'opt_a',
+            option_label: 'Option A',
+            confidence_interval: [30, 70],
+            win_probability: 0.65,
+            outcome: {
+              mean: 50, std: 12, p10: 30, p50: 50, p90: 70,
+              n_samples: 0,         // not positive
+              n_valid_samples: -5,  // negative
+              // validity_ratio omitted for this case
+            },
+          },
+          {
+            option_id: 'opt_b',
+            option_label: 'Option B',
+            confidence_interval: [20, 60],
+            win_probability: 0.35,
+            outcome: {
+              mean: 35, std: 14, p10: 20, p50: 35, p90: 60,
+              n_samples: 999.5,      // non-integer
+              n_valid_samples: 100,  // valid; must survive
+            },
+          },
+        ],
+      })
+
+      const optA = mapV2ResponseToReportV1(response, { seed: 42 }).option_probabilities?.opt_a?.outcome
+      const optB = mapV2ResponseToReportV1(response, { seed: 42 }).option_probabilities?.opt_b?.outcome
+
+      expect(optA?.n_samples).toBeUndefined()       // zero rejected
+      expect(optA?.n_valid_samples).toBeUndefined() // negative rejected
+      expect(optB?.n_samples).toBeUndefined()       // non-integer rejected
+      expect(optB?.n_valid_samples).toBe(100)       // valid count preserved
+    })
+
+    it('rejects validity_ratio values outside [0, 1] (bounded-ratio guard)', () => {
+      const out = (vr: number) => makeResponse({
+        option_comparison: [
+          {
+            option_id: 'opt_a',
+            option_label: 'Option A',
+            confidence_interval: [30, 70],
+            win_probability: 0.65,
+            outcome: { mean: 50, std: 12, p10: 30, p50: 50, p90: 70, validity_ratio: vr },
+          },
+        ],
+      })
+
+      expect(mapV2ResponseToReportV1(out(-0.1), { seed: 42 })
+        .option_probabilities?.opt_a?.outcome?.validity_ratio).toBeUndefined()
+      expect(mapV2ResponseToReportV1(out(1.5), { seed: 42 })
+        .option_probabilities?.opt_a?.outcome?.validity_ratio).toBeUndefined()
+      // Boundary cases must survive: 0 and 1 are valid ratios.
+      expect(mapV2ResponseToReportV1(out(0), { seed: 42 })
+        .option_probabilities?.opt_a?.outcome?.validity_ratio).toBe(0)
+      expect(mapV2ResponseToReportV1(out(1), { seed: 42 })
+        .option_probabilities?.opt_a?.outcome?.validity_ratio).toBe(1)
     })
   })
 
@@ -193,7 +255,7 @@ describe('responseMapper display-honesty', () => {
       expect((report as { flip_thresholds_status?: string }).flip_thresholds_status).toBe('all_no_effect')
     })
 
-    it('passes flip_thresholds_status_reason when present (unresolved case)', () => {
+    it('passes flip_thresholds_status_reason when PLoT emits it (unresolved case)', () => {
       const response = makeResponse({
         flip_thresholds_status: 'unresolved',
         flip_thresholds_status_reason: 'timeout',
@@ -203,6 +265,23 @@ describe('responseMapper display-honesty', () => {
 
       expect((report as { flip_thresholds_status?: string }).flip_thresholds_status).toBe('unresolved')
       expect((report as { flip_thresholds_status_reason?: string }).flip_thresholds_status_reason).toBe('timeout')
+    })
+
+    it('passes flip_thresholds_status_reason when PLoT emits it on partial_no_effect+unresolved (mixed-with-unresolved case)', () => {
+      // Per the PLoT classifier contract, status_reason is also emitted
+      // on 'partial_no_effect' when unresolved entries are present
+      // alongside computed and no_effect ones. The mapper must surface
+      // it in BOTH cases so DGAI can soften copy that would otherwise
+      // imply every non-computed factor was a harmless no_effect case.
+      const response = makeResponse({
+        flip_thresholds_status: 'partial_no_effect',
+        flip_thresholds_status_reason: 'insufficient_precision',
+      })
+
+      const report = mapV2ResponseToReportV1(response, { seed: 42 })
+
+      expect((report as { flip_thresholds_status?: string }).flip_thresholds_status).toBe('partial_no_effect')
+      expect((report as { flip_thresholds_status_reason?: string }).flip_thresholds_status_reason).toBe('insufficient_precision')
     })
 
     it('omits flip_thresholds_status when the V2 response does not carry it (older PLoT builds)', () => {

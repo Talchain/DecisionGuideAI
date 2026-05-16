@@ -142,6 +142,75 @@ describe('useResultsSectionData — display-honesty (report → VM fallback)', (
     })
   })
 
+  describe('fresh-run flip_thresholds source precedence (top-level wins over nested)', () => {
+    it('prefers rawV2Response.flip_thresholds over rawV2Response.robustness.flip_thresholds when both are present', () => {
+      // Fresh-run + hydrated runs must use the same precedence so the
+      // UI behaviour does not diverge when the same PLoT response is
+      // served from a cache vs computed live. The mapper prefers
+      // top-level (see responseMapper display-honesty block); this test
+      // pins the same contract on the raw-response path.
+      const topLevel = [
+        { factor_id: 'top_f1', factor_label: 'Top-level F1', flip_value: 0.4, flip_reason: 'found', current_value: 0.5, direction: 'decrease' as const, alternative_winner_label: 'B' },
+      ]
+      const nested = [
+        { factor_id: 'nested_f1', factor_label: 'Nested F1', flip_value: 0.2, flip_reason: 'found', current_value: 0.5, direction: 'decrease' as const, alternative_winner_label: 'C' },
+      ]
+      useCanvasStore.setState({
+        // Empty results.report so the selector's report-side defensive
+        // adaptor cannot supply flip_thresholds — forces it to fall
+        // back to rawV2Response.
+        results: { status: 'complete', progress: 100, report: {} } as any,
+        runMeta: {} as any,
+        nodes: OPTION_NODES as any,
+        edges: [],
+        hasCompletedFirstRun: true,
+        rawV2Response: {
+          ...makeV2Response(),
+          flip_thresholds: topLevel,
+          robustness: {
+            fragile_edges: [], robust_edges: ['e1'],
+            flip_thresholds: nested as unknown as never,
+          },
+        } as any,
+      } as any)
+
+      const { result } = renderHook(() => useResultsSectionData())
+      const flips = result.current.recommendation?.flipThresholds ?? []
+
+      expect(flips).toHaveLength(1)
+      expect(flips[0]?.node_id).toBe('top_f1')
+      // Negative assertion to catch a future precedence regression:
+      expect(flips[0]?.node_id).not.toBe('nested_f1')
+    })
+
+    it('falls back to rawV2Response.robustness.flip_thresholds when top-level is absent (legacy shape)', () => {
+      const nested = [
+        { factor_id: 'nested_f1', factor_label: 'Nested F1', flip_value: 0.2, flip_reason: 'found', current_value: 0.5, direction: 'decrease' as const, alternative_winner_label: 'C' },
+      ]
+      useCanvasStore.setState({
+        results: { status: 'complete', progress: 100, report: {} } as any,
+        runMeta: {} as any,
+        nodes: OPTION_NODES as any,
+        edges: [],
+        hasCompletedFirstRun: true,
+        rawV2Response: {
+          ...makeV2Response(),
+          // flip_thresholds intentionally absent at top level.
+          robustness: {
+            fragile_edges: [], robust_edges: ['e1'],
+            flip_thresholds: nested as unknown as never,
+          },
+        } as any,
+      } as any)
+
+      const { result } = renderHook(() => useResultsSectionData())
+      const flips = result.current.recommendation?.flipThresholds ?? []
+
+      expect(flips).toHaveLength(1)
+      expect(flips[0]?.node_id).toBe('nested_f1')
+    })
+  })
+
   describe('flipThresholdsStatus propagates from mapped report', () => {
     it('exposes flipThresholdsStatus on DecisionResultData when raw response is absent (hydrated/saved path)', () => {
       setStoreWithMappedReport(makeV2Response({ flip_thresholds_status: 'all_no_effect' }))
