@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import './panelTypography.css'
 import { AIZone } from './AIZone'
 import { AnalysisTabStripOverlay } from './AnalysisTabStripOverlay'
 import { PullTab } from './PullTab'
@@ -250,7 +251,7 @@ export function AIPanelV2Layout() {
           data-testid="ai-panel-v2-ai-zone"
           className="flex flex-col flex-1 min-h-0 bg-panel overflow-hidden rounded-2xl"
         >
-          <AIZone conversation={conversation} />
+          <AIZone conversation={conversation} activeMode={activeMode} />
         </div>
       </aside>
 

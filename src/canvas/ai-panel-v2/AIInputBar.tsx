@@ -51,6 +51,13 @@ interface AIInputBarProps {
 export interface AIInputBarHandle {
   setText: (text: string) => void
   focus: () => void
+  /**
+   * Force-close any open cog popover. Belt-and-braces companion to the
+   * popover's own capture-phase outside-click handler — keyboard
+   * activation of the mode tabs (Enter / Space) does not fire pointer
+   * events, so the outside-click handler alone can miss those paths.
+   */
+  closePopover: () => void
 }
 
 export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(function AIInputBar({
@@ -126,6 +133,7 @@ export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(fun
       queueMicrotask(() => textareaRef.current?.focus())
     },
     focus: () => textareaRef.current?.focus(),
+    closePopover: () => setCogOpen(false),
   }), [])
 
   const canSend = value.trim().length > 0 && !isThinking

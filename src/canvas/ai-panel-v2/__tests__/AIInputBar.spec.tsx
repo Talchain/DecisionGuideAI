@@ -109,8 +109,11 @@ describe('AIInputBar (step 3 — brief §5.1 compact mockup)', () => {
     setup()
     await act(async () => { screen.getByTestId('ai-panel-v2-cog').click() })
     expect(screen.getByTestId('ai-panel-v2-cog-popover')).toBeInTheDocument()
+    // Capture-phase pointerdown is what the popover listens for now
+    // (so mode-control buttons that stopPropagation() on pointerdown
+    // still trigger dismiss). Dispatch pointerdown, not mousedown.
     await act(async () => {
-      document.body.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }))
+      document.body.dispatchEvent(new Event('pointerdown', { bubbles: true }))
     })
     expect(screen.queryByTestId('ai-panel-v2-cog-popover')).toBeNull()
   })

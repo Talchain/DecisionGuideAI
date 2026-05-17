@@ -32,7 +32,12 @@ export const CogPopover = memo(function CogPopover({
   useEffect(() => {
     if (!open) return
 
-    const handleMouseDown = (event: MouseEvent) => {
+    // Capture-phase pointerdown so mode-control buttons that call
+    // event.stopPropagation() on their own pointerdown (PullTab does this
+    // to suppress drag-start) still trigger the outside-click handler.
+    // Bubble-phase mousedown was getting consumed before the document
+    // listener saw it, leaving the popover open after a mode click.
+    const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null
       if (!target) return
       if (popoverRef.current?.contains(target)) return
@@ -49,10 +54,10 @@ export const CogPopover = memo(function CogPopover({
       onClose()
     }
 
-    document.addEventListener('mousedown', handleMouseDown)
+    document.addEventListener('pointerdown', handlePointerDown, { capture: true })
     document.addEventListener('keydown', handleKeyDown, { capture: true })
     return () => {
-      document.removeEventListener('mousedown', handleMouseDown)
+      document.removeEventListener('pointerdown', handlePointerDown, { capture: true } as AddEventListenerOptions)
       document.removeEventListener('keydown', handleKeyDown, { capture: true } as AddEventListenerOptions)
     }
   }, [open, onClose, anchorRef])

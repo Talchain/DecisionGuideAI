@@ -118,9 +118,16 @@ export const PullTab = memo(function PullTab({
         ].join(' ')}
         data-stale={staleAnnouncement ? 'true' : 'false'}
       >
+        {/* A11y: the active mode is omitted from the tablist by design
+            (only the two non-current modes render). That leaves every
+            visible tab with aria-selected="false", which gives screen
+            readers no anchor for the current mode. The tablist's own
+            aria-label carries the current-mode announcement
+            ("AI panel mode, currently <Mode>") so the active state is
+            verbalised even though no tab carries aria-selected="true". */}
         <div
           role="tablist"
-          aria-label="AI panel mode"
+          aria-label={`AI panel mode, currently ${MODE_META[activeMode].label}`}
           className="flex items-center gap-0.5"
         >
           {visibleModes.map(mode => {

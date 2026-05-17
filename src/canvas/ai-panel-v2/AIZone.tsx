@@ -24,18 +24,34 @@ import { useGuidanceStore } from '../stores/guidanceStore'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { SelectionPill } from './SelectionPill'
 import { StaleAnalysisBadge } from './StaleAnalysisBadge'
+import type { AIPanelMode } from './constants'
 
 const WELCOME_GUIDANCE =
   'Describe your decision, the options you’re weighing, and what a good outcome looks like.'
 
 interface AIZoneProps {
   conversation: UseConversationReturn
+  /**
+   * Current panel mode (compact/conversation/focus). Used to close any
+   * open cog popover when the user switches modes — the popover's own
+   * outside-click handler covers pointer paths, this prop covers
+   * keyboard activation (Enter/Space) of the mode tabs which never
+   * fires pointer events.
+   */
+  activeMode?: AIPanelMode
 }
 
-export const AIZone = memo(function AIZone({ conversation }: AIZoneProps) {
+export const AIZone = memo(function AIZone({ conversation, activeMode }: AIZoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const inputBarRef = useRef<AIInputBarHandle>(null)
   const welcomeInputRef = useRef<AIInputBarHandle>(null)
+
+  // Close cog popover when the active mode changes (belt-and-braces
+  // alongside CogPopover's capture-phase pointerdown listener).
+  useEffect(() => {
+    inputBarRef.current?.closePopover()
+    welcomeInputRef.current?.closePopover()
+  }, [activeMode])
 
   const handleAttach = useCallback(() => {
     fileInputRef.current?.click()

@@ -3,7 +3,24 @@
 **Date:** 2026-05-17
 **Branch:** `claude/stoic-jang-052395`
 **Origin staging at start of batch:** `c6e26f50` (pushed at end of round 1)
-**Local commits ahead of `origin/staging`:** 3 — `05ab2390`, `434805f4`, `c75de727` (and a follow-up commit on top of this doc update)
+**Local commits ahead of `origin/staging`** (verbatim `git log --oneline origin/staging..HEAD`):
+
+```
+56647af1 chore(outputs-dock): clear 6 unused-vars warnings + document embedding seam
+a95961ab fix(ai-panel-v2): real-path embedded wiring test + drop no-op fallback
+c75de727 fix(ai-panel-v2): discriminated embedded prop + ownership doc + per-row walkthrough
+434805f4 fix(ai-panel-v2): singleton invariant + welcome _sendMessage + a11y + DS v5
+05ab2390 fix(ai-panel-v2): UX batch 1 — critical layout + welcome state + mode redesign
+```
+
+A follow-up commit landing on top of this doc update covers the
+post-batch-1-review tightening: scoped `panelBody` typography +
+normalised line-height on the panel-v2 message bubbles, tablist
+`aria-label` that announces the current mode, capture-phase
+`pointerdown` for the cog popover plus an imperative
+`closePopover()` driven by `activeMode` changes (covers keyboard
+activation of the mode tabs).
+
 **Flag:** `FF_AI_PANEL_V2` (default `false`)
 
 This doc captures concrete runtime artefacts for each UX-batch-1 acceptance row. The first round (12 commits) was already pushed to staging; this batch sits locally pending review.
@@ -218,24 +235,25 @@ the dock file itself.
 
 ---
 
-## What's local vs pushed
+## What's local vs pushed (verbatim `git log --oneline origin/staging..HEAD`)
 
 ```
-$ git log --oneline origin/staging..HEAD
+56647af1 chore(outputs-dock): clear 6 unused-vars warnings + document embedding seam
+a95961ab fix(ai-panel-v2): real-path embedded wiring test + drop no-op fallback
 c75de727 fix(ai-panel-v2): discriminated embedded prop + ownership doc + per-row walkthrough
 434805f4 fix(ai-panel-v2): singleton invariant + welcome _sendMessage + a11y + DS v5
 05ab2390 fix(ai-panel-v2): UX batch 1 — critical layout + welcome state + mode redesign
 ```
 
-A follow-up commit sits on top of this snapshot with: no-op fallback
-removed from `OutputsDockEmbeddedHost` (the discriminated union already
-requires the prop at compile time — a runtime crash is the desired
-signal if someone bypasses the types), `EmbeddedSendWiring.spec.tsx`
-rewritten to render the real OutputsDock (no wrapper mock; the
-`ModelTabBody.onSendMessage` capture proves the prop flows through the
-real host + body code path), this doc updated to match the
-`git log origin/staging..HEAD` output above, and the lint-clean claim
-narrowed to the directories it actually covers.
+The post-review tightening commit that lands on top of this doc edit
+adds: panel-v2-scoped 12px/1.5 message-bubble typography (overrides
+the legacy 16px/1.65 only inside the v2 surface, FF-off renders
+unchanged), tablist `aria-label="AI panel mode, currently <Mode>"` so
+the active mode is verbalised even though only non-current modes
+render as tabs, and capture-phase `pointerdown` outside-click on the
+cog popover + an imperative `closePopover()` driven by `activeMode`
+changes (the latter covers keyboard activation paths that never fire
+pointer events).
 
 `FINAL_DELIVERY.md` from the original delivery sweep still references the 12 commits that were pushed to staging at `c6e26f50` — it's accurate as historical record of the original delivery and unchanged here. UX batch 1 + this round are appended above.
 
