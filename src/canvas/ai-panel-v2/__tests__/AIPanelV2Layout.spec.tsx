@@ -2,7 +2,7 @@ import { describe, it, expect, afterEach, vi } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { fireEvent, render, screen, cleanup } from '@testing-library/react'
 
-// Mock heavy children to keep this at the mounting level.
+// Mock heavy children so the test stays at the mounting level.
 vi.mock('../AIZone', () => ({
   AIZone: () => <div data-testid="stub-ai-zone" />,
 }))
@@ -21,119 +21,102 @@ vi.mock('../PullTab', () => ({
     </div>
   ),
 }))
+vi.mock('../../components/OutputsDock', () => ({
+  OutputsDock: ({ embedded }: { embedded?: boolean }) => (
+    <div data-testid="stub-outputs-dock" data-embedded={String(!!embedded)} />
+  ),
+}))
 
 import { AIPanelV2Layout } from '../AIPanelV2Layout'
 import {
   AI_PANEL_V2_WIDTH,
   Z_AI_PANEL_BASE,
   AI_ZONE_MIN_HEIGHT,
-  ANALYSIS_TAB_STRIP_WIDTH,
 } from '../constants'
 import { isAiPanelV2Enabled } from '../../../flags'
 
 afterEach(() => {
   cleanup()
   Object.defineProperty(window, 'innerWidth', { writable: true, value: 1024 })
-  document.documentElement.style.removeProperty('--olumi-ai-panel-dock-width')
-  document.documentElement.style.removeProperty('--olumi-ai-panel-bottom')
 })
 
-describe('AIPanelV2Layout (step 5 — vertical split + PullTab)', () => {
-  it('mounts AIZone and PullTab inside the layout', () => {
+describe('AIPanelV2Layout — single container: analysis zone + AI zone (Fix 1)', () => {
+  it('mounts both zones — OutputsDock(embedded) at top + AIZone at bottom', () => {
     render(<AIPanelV2Layout />)
+    // Analysis zone
+    expect(screen.getByTestId('ai-panel-v2-analysis-zone')).toBeInTheDocument()
+    expect(screen.getByTestId('stub-outputs-dock')).toBeInTheDocument()
+    expect(screen.getByTestId('stub-outputs-dock').dataset.embedded).toBe('true')
+    // AI zone
     expect(screen.getByTestId('ai-panel-v2-layout')).toBeInTheDocument()
     expect(screen.getByTestId('ai-panel-v2-ai-zone')).toBeInTheDocument()
-    expect(screen.getByTestId('stub-pull-tab')).toBeInTheDocument()
     expect(screen.getByTestId('stub-ai-zone')).toBeInTheDocument()
+    expect(screen.getByTestId('stub-pull-tab')).toBeInTheDocument()
   })
 
-  it('writes the flag-specific dock width override (never --dock-right-expanded)', () => {
+  it('exactly one OutputsDock is mounted (singleton at the layout level)', () => {
     render(<AIPanelV2Layout />)
-    expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-dock-width'))
-      .toBe(`${AI_PANEL_V2_WIDTH}px`)
-    expect(document.documentElement.style.getPropertyValue('--dock-right-expanded')).toBe('')
+    expect(screen.getAllByTestId('stub-outputs-dock')).toHaveLength(1)
   })
 
-  it('writes a pixel-valued --olumi-ai-panel-bottom (no static clamp string)', () => {
+  it('AI zone has its own testid distinct from the analysis zone', () => {
     render(<AIPanelV2Layout />)
-    const v = document.documentElement.style.getPropertyValue('--olumi-ai-panel-bottom')
-    expect(v).toMatch(/^\d+px$/)
+    const ai = screen.getByTestId('ai-panel-v2-layout')
+    const analysis = screen.getByTestId('ai-panel-v2-analysis-zone')
+    expect(ai).not.toBe(analysis)
+    expect(ai.getAttribute('aria-label')).toBe('AI conversation')
+    expect(analysis.getAttribute('aria-label')).toBe('Analysis')
   })
 
-  it('removes both CSS variables on unmount (no residue when FF flips off)', () => {
-    const { unmount } = render(<AIPanelV2Layout />)
-    unmount()
-    expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-dock-width')).toBe('')
-    expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-bottom')).toBe('')
-  })
-
-  it('is fixed-position at the configured width, right offset, and z-index', () => {
+  it('AI zone is fixed-positioned at the right edge with the configured width + z-index', () => {
     render(<AIPanelV2Layout />)
-    const aside = screen.getByTestId('ai-panel-v2-layout')
-    expect(aside.style.position).toBe('fixed')
-    expect(aside.style.width).toBe(`${AI_PANEL_V2_WIDTH}px`)
-    expect(aside.style.right).toBe('12px')
-    expect(aside.style.zIndex).toBe(String(Z_AI_PANEL_BASE))
+    const ai = screen.getByTestId('ai-panel-v2-layout')
+    expect(ai.style.position).toBe('fixed')
+    expect(ai.style.width).toBe(`${AI_PANEL_V2_WIDTH}px`)
+    expect(ai.style.right).toBe('12px')
+    expect(ai.style.zIndex).toBe(String(Z_AI_PANEL_BASE))
   })
 
-  it('exposes the active mode and ratio via data attributes for diagnostics', () => {
+  it('analysis zone is fixed-positioned at the top-right with the configured width', () => {
     render(<AIPanelV2Layout />)
-    const aside = screen.getByTestId('ai-panel-v2-layout')
-    expect(aside.getAttribute('data-active-mode')).toBe('compact')
-    const ratio = Number(aside.getAttribute('data-ai-ratio'))
+    const a = screen.getByTestId('ai-panel-v2-analysis-zone')
+    expect(a.style.position).toBe('fixed')
+    expect(a.style.width).toBe(`${AI_PANEL_V2_WIDTH}px`)
+    expect(a.style.right).toBe('12px')
+    expect(a.style.top).toBe('12px')
+  })
+
+  it('exposes the active mode + ratio via data attributes for diagnostics', () => {
+    render(<AIPanelV2Layout />)
+    const ai = screen.getByTestId('ai-panel-v2-layout')
+    expect(ai.getAttribute('data-active-mode')).toBe('compact')
+    const ratio = Number(ai.getAttribute('data-ai-ratio'))
     expect(ratio).toBeGreaterThan(0)
     expect(ratio).toBeLessThan(1)
   })
 
-  it('the initial AI-zone height is at least the configured min', () => {
+  it('initial AI-zone height is at least AI_ZONE_MIN_HEIGHT', () => {
     render(<AIPanelV2Layout />)
-    const aside = screen.getByTestId('ai-panel-v2-layout')
-    // Without a ResizeObserver firing, the sentinel reports 0 so the
-    // height falls back to AI_ZONE_MIN_HEIGHT px.
-    expect(aside.style.height).toBe(`${AI_ZONE_MIN_HEIGHT}px`)
+    const ai = screen.getByTestId('ai-panel-v2-layout')
+    expect(ai.style.height).toBe(`${AI_ZONE_MIN_HEIGHT}px`)
   })
 
-  it('has an accessible label', () => {
-    render(<AIPanelV2Layout />)
-    expect(screen.getByLabelText(/ai conversation/i)).toBeInTheDocument()
-  })
-
-  it('collapses the dock to the tab-strip width in 1440-1599 Focus mode and expands it while an overlay tab is open', () => {
-    Object.defineProperty(window, 'innerWidth', { writable: true, value: 1500 })
-    render(<AIPanelV2Layout />)
-
-    fireEvent.click(screen.getByTestId('stub-focus-mode'))
-
-    expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-dock-width'))
-      .toBe(`${ANALYSIS_TAB_STRIP_WIDTH}px`)
-
-    fireEvent.click(screen.getByTestId('ai-panel-v2-tab-results'))
-
-    expect(document.documentElement.style.getPropertyValue('--olumi-ai-panel-dock-width'))
-      .toBe(`${AI_PANEL_V2_WIDTH}px`)
-  })
-
-  it('slides the Focus AI column LEFT when a tab-strip tab opens so the expanded dock has room', () => {
-    // At 1440-1599 with no tab open: dock is a 48px strip, AI column sits
-    // close to the right (right = 48 + 12 margin + 12 gutter = 72px).
-    // When a tab opens, the dock expands to 400px and the column must
-    // shift left or it would overlap the dock at the same z-index. The
-    // delta = AI_PANEL_V2_WIDTH − ANALYSIS_TAB_STRIP_WIDTH.
+  it('hides the analysis zone in 1440-1599 Focus tab-strip mode (no tab open)', () => {
     Object.defineProperty(window, 'innerWidth', { writable: true, value: 1500 })
     render(<AIPanelV2Layout />)
     fireEvent.click(screen.getByTestId('stub-focus-mode'))
+    const analysis = screen.getByTestId('ai-panel-v2-analysis-zone')
+    expect(analysis.getAttribute('data-tab-strip-hidden')).toBe('true')
+  })
 
-    const aside = screen.getByTestId('ai-panel-v2-layout')
-    const stripRight = parseFloat(aside.style.right)
-    expect(stripRight).toBeCloseTo(ANALYSIS_TAB_STRIP_WIDTH + 12 + 12, 0)
-
+  it('reveals the analysis zone again when a tab opens in tab-strip mode', () => {
+    Object.defineProperty(window, 'innerWidth', { writable: true, value: 1500 })
+    render(<AIPanelV2Layout />)
+    fireEvent.click(screen.getByTestId('stub-focus-mode'))
+    // Open a tab via the strip (rendered by AnalysisTabStripOverlay).
     fireEvent.click(screen.getByTestId('ai-panel-v2-tab-results'))
-    const openRight = parseFloat(aside.style.right)
-    expect(openRight).toBeCloseTo(AI_PANEL_V2_WIDTH + 12 + 12, 0)
-    expect(openRight - stripRight).toBeCloseTo(
-      AI_PANEL_V2_WIDTH - ANALYSIS_TAB_STRIP_WIDTH,
-      0,
-    )
+    const analysis = screen.getByTestId('ai-panel-v2-analysis-zone')
+    expect(analysis.getAttribute('data-tab-strip-hidden')).toBe('false')
   })
 })
 

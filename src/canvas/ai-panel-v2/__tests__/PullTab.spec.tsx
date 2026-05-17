@@ -36,34 +36,35 @@ function renderTab(props: Partial<React.ComponentProps<typeof PullTab>> = {}) {
   return { onModeClick, onStartDrag, onAdjustByPx }
 }
 
-describe('PullTab (step 5 — brief §4 pull-tab)', () => {
-  it('renders all three mode labels with the correct testids', () => {
+describe('PullTab — left-anchored icon control (Fix 4)', () => {
+  it('renders ONLY the two non-active modes as icon buttons', () => {
     resizeWindow(1600)
-    renderTab()
-    expect(screen.getByTestId('ai-panel-v2-mode-compact')).toBeInTheDocument()
+    renderTab({ activeMode: 'compact' })
+    // Active mode is implicit — not shown.
+    expect(screen.queryByTestId('ai-panel-v2-mode-compact')).toBeNull()
     expect(screen.getByTestId('ai-panel-v2-mode-conversation')).toBeInTheDocument()
     expect(screen.getByTestId('ai-panel-v2-mode-focus')).toBeInTheDocument()
   })
 
-  it('exposes role="tablist" and role="tab" with aria-selected', () => {
+  it('switches the visible set when the active mode changes', () => {
     resizeWindow(1600)
     renderTab({ activeMode: 'conversation' })
-    expect(screen.getByRole('tablist')).toBeInTheDocument()
-    const tabs = screen.getAllByRole('tab')
-    expect(tabs).toHaveLength(3)
-    const conv = screen.getByTestId('ai-panel-v2-mode-conversation')
-    expect(conv.getAttribute('aria-selected')).toBe('true')
-    expect(screen.getByTestId('ai-panel-v2-mode-compact').getAttribute('aria-selected')).toBe('false')
+    expect(screen.queryByTestId('ai-panel-v2-mode-conversation')).toBeNull()
+    expect(screen.getByTestId('ai-panel-v2-mode-compact')).toBeInTheDocument()
+    expect(screen.getByTestId('ai-panel-v2-mode-focus')).toBeInTheDocument()
   })
 
-  it('highlights the active mode via data-active', () => {
+  it('exposes role="tablist" + role="tab" + aria-labels', () => {
     resizeWindow(1600)
     renderTab({ activeMode: 'compact' })
-    expect(screen.getByTestId('ai-panel-v2-mode-compact').dataset.active).toBe('true')
-    expect(screen.getByTestId('ai-panel-v2-mode-conversation').dataset.active).toBe('false')
+    expect(screen.getByRole('tablist')).toBeInTheDocument()
+    const tabs = screen.getAllByRole('tab')
+    expect(tabs).toHaveLength(2) // active mode hidden
+    expect(screen.getByLabelText(/conversation mode/i)).toBeInTheDocument()
+    expect(screen.getByLabelText(/focus mode/i)).toBeInTheDocument()
   })
 
-  it('clicking an inactive mode calls onModeClick with that mode', async () => {
+  it('clicking an icon calls onModeClick with that mode', async () => {
     resizeWindow(1600)
     const { onModeClick } = renderTab({ activeMode: 'compact' })
     await act(async () => {
@@ -72,7 +73,7 @@ describe('PullTab (step 5 — brief §4 pull-tab)', () => {
     expect(onModeClick).toHaveBeenCalledWith('conversation')
   })
 
-  it('disables Focus when viewport < FOCUS_MIN_VIEWPORT', async () => {
+  it('disables Focus icon when viewport < FOCUS_MIN_VIEWPORT', async () => {
     resizeWindow(FOCUS_MIN_VIEWPORT - 1)
     const { onModeClick } = renderTab({ activeMode: 'compact' })
     const focusBtn = screen.getByTestId('ai-panel-v2-mode-focus')
@@ -82,13 +83,13 @@ describe('PullTab (step 5 — brief §4 pull-tab)', () => {
     expect(onModeClick).not.toHaveBeenCalled()
   })
 
-  it('enables Focus when viewport ≥ FOCUS_MIN_VIEWPORT', () => {
+  it('enables Focus icon when viewport ≥ FOCUS_MIN_VIEWPORT', () => {
     resizeWindow(FOCUS_MIN_VIEWPORT)
     renderTab({ activeMode: 'compact' })
     expect(screen.getByTestId('ai-panel-v2-mode-focus')).not.toBeDisabled()
   })
 
-  it('pointer-down on the drag region calls onStartDrag', () => {
+  it('pointer-down on the drag chrome calls onStartDrag', () => {
     resizeWindow(1600)
     const { onStartDrag } = renderTab()
     const drag = screen.getByTestId('ai-panel-v2-pull-tab-drag')
@@ -96,7 +97,15 @@ describe('PullTab (step 5 — brief §4 pull-tab)', () => {
     expect(onStartDrag).toHaveBeenCalledTimes(1)
   })
 
-  it('arrow keys on the drag region adjust by ±20px (brief §11.4)', () => {
+  it('pointer-down on an icon does NOT trigger drag start (only mode switch)', () => {
+    resizeWindow(1600)
+    const { onStartDrag } = renderTab({ activeMode: 'compact' })
+    const icon = screen.getByTestId('ai-panel-v2-mode-conversation')
+    fireEvent.pointerDown(icon, { button: 0, clientX: 100, clientY: 100 })
+    expect(onStartDrag).not.toHaveBeenCalled()
+  })
+
+  it('arrow keys on the drag chrome adjust by ±20px (brief §11.4)', () => {
     resizeWindow(1600)
     const { onAdjustByPx } = renderTab()
     const drag = screen.getByTestId('ai-panel-v2-pull-tab-drag')

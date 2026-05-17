@@ -39,16 +39,18 @@ describe('RightPanelMount — FF_AI_PANEL_V2 mounting contract', () => {
     expect(screen.queryByTestId('stub-ai-panel-v2')).toBeNull()
   })
 
-  it('FF on: AI panel v2 mounts; DraftChat is hidden (singleton contract)', () => {
-    // Step 2-4 contract: under FF on, AIZone owns the conversation. DraftChat
-    // is unmounted so exactly one `useConversation()` instance is active —
-    // satisfies the approved plan's singleton checkpoint (correction #9).
-    // Context-menu "Ask AI" still works because it routes through the
-    // `_sendMessage` callback registered by AIZone's ConversationPanel; the
-    // `setShowDraftChat(true)` call is a harmless no-op.
+  it('FF on: AI panel v2 mounts; OutputsDock + DraftChat are NOT mounted by RightPanelMount', () => {
+    // Updated contract (Fix 1): under FF on, AIPanelV2Layout owns the
+    // entire right-panel surface and mounts <OutputsDock embedded />
+    // internally. RightPanelMount must NOT also mount OutputsDock or
+    // DraftChat — that would either double-mount the dock or leave the
+    // legacy chat overlay around. Singleton invariant (correction #9)
+    // requires exactly one OutputsDock and exactly one useConversation
+    // surface; the embedded OutputsDock inside AIPanelV2Layout fulfills
+    // the first; AIZone fulfills the second.
     vi.spyOn(flags, 'isAiPanelV2Enabled').mockReturnValue(true)
     render(<RightPanelMount />)
-    expect(screen.getByTestId('stub-outputs-dock')).toBeInTheDocument()
+    expect(screen.queryByTestId('stub-outputs-dock')).toBeNull()
     expect(screen.getByTestId('stub-ai-panel-v2')).toBeInTheDocument()
     expect(screen.queryByTestId('stub-draft-chat')).toBeNull()
   })

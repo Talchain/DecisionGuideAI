@@ -37,6 +37,12 @@ interface AIInputBarProps {
   isThinking: boolean
   // Attachment trigger, surfaced via the cog popover.
   onAttach: () => void
+  /**
+   * 'compact' (default) is the pinned bottom-of-zone bar used during a
+   * live conversation. 'welcome' is the centred, larger variant used as
+   * the first-use entry point when no messages exist yet.
+   */
+  variant?: 'compact' | 'welcome'
 }
 
 // Imperative handle so external flows (inspector "Ask about this", analysis
@@ -51,22 +57,31 @@ export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(fun
   onSend,
   isThinking,
   onAttach,
+  variant = 'compact',
 }, ref) {
-  const placeholder = useStageAwarePlaceholder()
+  // In welcome variant the guidance text above the field carries the
+  // "Describe your decision..." copy, so an additional stage-aware
+  // placeholder inside the textarea would be a redundant duplicate.
+  const stagePlaceholder = useStageAwarePlaceholder()
+  const placeholder = variant === 'welcome' ? '' : stagePlaceholder
   const [value, setValue] = useState('')
   const [cogOpen, setCogOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cogButtonRef = useRef<HTMLButtonElement>(null)
 
   // Auto-grow: measure scrollHeight after every value change, clamp between
-  // resting and max so the textarea grows up to ~3 lines then scrolls.
+  // resting and max so the textarea grows up to ~3 lines (compact) or ~6
+  // lines (welcome) then scrolls.
+  const isWelcomeVariant = variant === 'welcome'
   useLayoutEffect(() => {
     const el = textareaRef.current
     if (!el) return
     el.style.height = 'auto'
-    const next = Math.min(MAX_HEIGHT_PX, Math.max(RESTING_HEIGHT_PX, el.scrollHeight))
+    const minH = isWelcomeVariant ? 96 : RESTING_HEIGHT_PX
+    const maxH = isWelcomeVariant ? 168 : MAX_HEIGHT_PX
+    const next = Math.min(maxH, Math.max(minH, el.scrollHeight))
     el.style.height = `${next}px`
-  }, [value])
+  }, [value, isWelcomeVariant])
 
   const handleSend = useCallback(() => {
     const trimmed = value.trim()
@@ -114,11 +129,24 @@ export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(fun
   }), [])
 
   const canSend = value.trim().length > 0 && !isThinking
+  const isWelcome = variant === 'welcome'
+
+  // Welcome variant has a taller default textarea height + more padding
+  // to feel like the obvious starting point of a fresh conversation.
+  const welcomeRestingHeight = 96
+  const welcomeMaxHeight = 168
+  const restingHeight = isWelcome ? welcomeRestingHeight : RESTING_HEIGHT_PX
+  const maxHeight = isWelcome ? welcomeMaxHeight : MAX_HEIGHT_PX
 
   return (
     <div
-      className="relative flex-shrink-0 px-3 py-2 bg-panel border-t border-panel-border"
+      className={
+        isWelcome
+          ? 'relative w-full px-6 py-2'
+          : 'relative flex-shrink-0 px-3 py-2 bg-panel border-t border-default'
+      }
       data-testid="ai-panel-v2-input-bar"
+      data-variant={variant}
     >
       <CogPopover
         open={cogOpen}
@@ -126,7 +154,7 @@ export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(fun
         onClose={handleCogClose}
         onAttach={onAttach}
       />
-      <div className="relative flex items-stretch bg-panel border border-panel-border rounded-lg focus-within:border-info/40 transition-colors">
+      <div className="relative flex items-stretch bg-panel border border-default rounded-lg focus-within:border-info/40 transition-colors">
         <textarea
           ref={textareaRef}
           value={value}
@@ -136,13 +164,11 @@ export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(fun
           disabled={isThinking}
           rows={1}
           className={`flex-1 min-w-0 resize-none bg-transparent px-3 py-2 pr-12 ${typography.panelBody} text-text-body placeholder:text-text-light focus:outline-none disabled:opacity-60`}
-          style={{ height: `${RESTING_HEIGHT_PX}px`, maxHeight: `${MAX_HEIGHT_PX}px` }}
+          style={{ height: `${restingHeight}px`, maxHeight: `${maxHeight}px` }}
           aria-label="Ask the AI"
           data-testid="ai-panel-v2-textarea"
+          autoFocus={isWelcome}
         />
-        {/* Vertical icon stack inside the right corner of the field. The
-            cog sits above the send button so it doesn't get hidden behind
-            the cursor on long input. */}
         <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex flex-col gap-0.5">
           <button
             ref={cogButtonRef}

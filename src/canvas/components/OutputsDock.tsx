@@ -135,7 +135,25 @@ const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
 ]
 
-export function OutputsDock() {
+interface OutputsDockProps {
+  /**
+   * When true the dock renders as a flex child filling its parent
+   * container instead of as a fixed-position overlay. Used by AI panel v2
+   * (FF_AI_PANEL_V2 on) which mounts the dock inside its own column-flex
+   * layout. The dock keeps its full content surface (tabs + body) but
+   * drops its own chrome (border, shadow, fixed positioning, width var,
+   * collapse chevrons) since the parent owns those.
+   *
+   * Embedded mode also renders an empty tab strip when the graph is
+   * empty (instead of unmounting entirely), so the user always sees the
+   * analysis surface anchored in the top zone.
+   *
+   * Defaults to false — FF-off behaviour is unchanged.
+   */
+  embedded?: boolean
+}
+
+export function OutputsDock({ embedded = false }: OutputsDockProps = {}) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
     isOpen: true,
@@ -930,6 +948,10 @@ export function OutputsDock() {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
+    // When embedded inside AIPanelV2Layout, the parent owns layout —
+    // skip writing --dock-right-offset so we don't fight the parent's
+    // own positioning logic.
+    if (embedded) return
     const root = document.documentElement
     const value = state.isOpen ? 'var(--dock-right-expanded)' : 'var(--dock-right-collapsed)'
     root.style.setProperty('--dock-right-offset', value)
@@ -937,7 +959,7 @@ export function OutputsDock() {
     return () => {
       root.style.setProperty('--dock-right-offset', '0rem')
     }
-  }, [state.isOpen])
+  }, [state.isOpen, embedded])
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') return
     try {
@@ -1048,17 +1070,28 @@ export function OutputsDock() {
   const activeRightPanel = useUIStore(s => s.activeRightPanel)
   const isOverlayPanelActive = activeRightPanel === 'provenance' || activeRightPanel === 'clarifier'
 
-  // Empty state: unmount when canvas has no nodes (nothing to show)
-  if (!hasGraphContent) {
+  // Empty state: unmount when canvas has no nodes (FF off). Under FF v2 we
+  // keep the dock mounted in embedded mode so the analysis tab strip is
+  // always present in the right-panel top zone — even before any nodes
+  // exist. The embedded tab body handles the empty state per tab.
+  if (!hasGraphContent && !embedded) {
     return null
   }
   // When an overlay panel is active, keep mounted (preserve scroll position,
   // tab state, effect continuity) but hide visually via CSS.
 
-  return (
-    <aside
-      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
-      style={{
+  // Style branch: embedded mode fills the parent (the AI panel v2 column-
+  // flex container provides the bounding box, border, and shadow). The
+  // legacy fixed-position chrome only applies when not embedded.
+  const asideStyle: React.CSSProperties = embedded
+    ? {
+        position: 'relative',
+        width: '100%',
+        height: '100%',
+        background: 'transparent',
+        overflow: 'hidden',
+      }
+    : {
         position: 'fixed',
         // --olumi-ai-panel-dock-width is a flag-specific override written by
         // AIPanelV2Layout (FF_AI_PANEL_V2 on). When unset (FF off, or expanded
@@ -1083,11 +1116,17 @@ export function OutputsDock() {
         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
         zIndex: 900,
         overflow: 'hidden',
-      }}
+      }
+
+  return (
+    <aside
+      className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
+      style={asideStyle}
       aria-label="Outputs dock"
       data-testid="outputs-dock"
+      data-embedded={embedded ? 'true' : 'false'}
     >
-      {state.isOpen && (
+      {state.isOpen && !embedded && (
         <div
           aria-hidden="true"
           onMouseDown={handleResizeStart}
@@ -1164,14 +1203,16 @@ export function OutputsDock() {
             >
               {'</>'}
             </button>
-            <button
-              type="button"
-              onClick={toggleOpen}
-              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
-              aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
-            >
-              {state.isOpen ? '>' : '<'}
-            </button>
+            {!embedded && (
+              <button
+                type="button"
+                onClick={toggleOpen}
+                className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
+                aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
+              >
+                {state.isOpen ? '>' : '<'}
+              </button>
+            )}
           </div>
         )}
       </div>

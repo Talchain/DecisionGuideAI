@@ -1,63 +1,46 @@
-import { memo, useCallback, useEffect, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useState } from 'react'
 import type { KeyboardEvent } from 'react'
-import { typography } from '../../styles/typography'
+import { Maximize2, MessageSquare, PanelBottomClose } from 'lucide-react'
 import {
   ARROW_KEY_RESIZE_PX,
   FOCUS_MIN_VIEWPORT,
-  PULL_TAB_HEIGHT,
-  PULL_TAB_LABEL_HEIGHT,
-  PULL_TAB_LABEL_WIDTH,
   type AIPanelMode,
 } from './constants'
 
-// Brief §4 — Pull-tab.
+// Brief Fix 4 — Mode control redesign.
 //
-//   ┌─────────────────────┐
-//   │ ●Compact  Conv  Foc ├─ ─ ─ drag bar across the AI zone's top edge
-//   └─────────────────────┘
+// Left-anchored compact icon strip on the AI zone's top edge. Shows ONLY
+// the two modes the user is NOT currently in (the active mode is implicit
+// — it's the state the user is looking at).
 //
-// • 64px total effective hit area (drag zone + label strip)
-// • Visible label strip: ~160×36, centred horizontally inside the tab
-// • Transparent vertical-drag zone above the labels covers the resize boundary
-// • Click a label → switch to that mode's preset ratio
-// • Vertical drag on the tab body / handle → resize the split
-// • Focus label is disabled <1440px viewport (brief §4.5)
-// • Arrow keys (with focus on the drag handle): ±20px steps
+// The strip doubles as the visible anchor point for the vertical resize
+// drag handle. The full top edge of the AI zone remains draggable (the
+// parent renders a wider invisible drag region around this control).
 //
-// Step 5 wires Compact + Conversation. Focus mode (horizontal drag,
-// AIFocusColumn) lands in step 12.
+//   bg-panel + border border-default + rounded-md + shadow-1
+//   36×36 hit area per icon
+//   role="tablist" + role="tab" + tooltips
+//   keyboard: arrow keys adjust the split, Enter activates an icon
 
 interface PullTabProps {
   activeMode: AIPanelMode
   onModeClick: (mode: AIPanelMode) => void
   onStartDrag: (event: React.PointerEvent) => void
   onAdjustByPx: (deltaPx: number) => void
-  /**
-   * Border tint colour class for the AI-zone top edge (brief §6.1
-   * secondary cue / §6.2 stale tint). Applied to the label strip's bottom
-   * border so it sits on the resize boundary. Defaults to the panel
-   * border (no tint).
-   */
+  /** Border tint colour class for the strip border (brief §6.1). */
   tintBorderClass?: string
-  /**
-   * When true, animate a single slow pulse (1s) of the warning colour
-   * before falling back to the static tint. Brief §6.2. Skipped under
-   * prefers-reduced-motion (step 14 audit).
-   */
   staleAnnouncement?: boolean
 }
 
-const MODE_LABELS: { mode: AIPanelMode; label: string; tooltip: string }[] = [
-  { mode: 'compact', label: 'Compact', tooltip: 'Switch to Compact' },
-  { mode: 'conversation', label: 'Conv', tooltip: 'Switch to Conversation' },
-  { mode: 'focus', label: 'Focus', tooltip: 'Switch to Focus' },
-]
+const ALL_MODES: AIPanelMode[] = ['compact', 'conversation', 'focus']
+
+const MODE_META: Record<AIPanelMode, { label: string; tooltip: string; Icon: typeof MessageSquare }> = {
+  compact: { label: 'Compact', tooltip: 'Compact mode', Icon: PanelBottomClose },
+  conversation: { label: 'Conversation', tooltip: 'Conversation mode', Icon: MessageSquare },
+  focus: { label: 'Focus', tooltip: 'Focus mode', Icon: Maximize2 },
+}
 
 function useFocusEnabled(): boolean {
-  // Subscribe to viewport width so the Focus label disables itself when the
-  // window is too narrow. SSR-safe default: assume disabled until first
-  // measurement; the layout never renders without a window, so this is just
-  // a guard.
   const [enabled, setEnabled] = useState(() => {
     if (typeof window === 'undefined') return false
     return window.innerWidth >= FOCUS_MIN_VIEWPORT
@@ -76,10 +59,18 @@ export const PullTab = memo(function PullTab({
   onModeClick,
   onStartDrag,
   onAdjustByPx,
-  tintBorderClass = 'border-panel-border',
+  tintBorderClass = 'border-default',
   staleAnnouncement = false,
 }: PullTabProps) {
   const focusEnabled = useFocusEnabled()
+
+  // Show only the two modes the user is NOT currently in. The active mode
+  // is implicit; switching is a directed action ("go to ___") rather than
+  // a pick-from-three set.
+  const visibleModes = useMemo(
+    () => ALL_MODES.filter(m => m !== activeMode),
+    [activeMode],
+  )
 
   const handleLabelClick = useCallback((mode: AIPanelMode) => {
     if (mode === 'focus' && !focusEnabled) return
@@ -89,7 +80,6 @@ export const PullTab = memo(function PullTab({
   const handleHandleKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
     if (event.key === 'ArrowUp') {
       event.preventDefault()
-      // Up = AI zone grows upward (claim more height).
       onAdjustByPx(-ARROW_KEY_RESIZE_PX)
     } else if (event.key === 'ArrowDown') {
       event.preventDefault()
@@ -100,17 +90,17 @@ export const PullTab = memo(function PullTab({
   return (
     <div
       data-testid="ai-panel-v2-pull-tab"
-      className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center pointer-events-none"
-      style={{
-        // Sits above the AI zone's top edge — the parent container sets
-        // position: relative on the AI zone wrapper so this can anchor.
-        top: -PULL_TAB_HEIGHT / 2,
-        height: PULL_TAB_HEIGHT,
-        width: PULL_TAB_LABEL_WIDTH,
-      }}
+      className="absolute left-3 top-0 -translate-y-1/2 pointer-events-none flex items-center"
+      // height = single label-strip height so the visible chrome stays
+      // compact; the parent renders a wider invisible drag region around
+      // this control covering the full top edge of the AI zone.
     >
-      {/* Transparent vertical-drag region above the labels. Covers the
-          resize boundary so users can grab the edge directly. */}
+      {/* Transparent drag region around the visible chrome — picks up
+          drag intent before clicks reach the icon buttons. The control's
+          own click handlers receive the click only when the user
+          actually clicked on an icon (the buttons are pointer-events:
+          auto, this wrapper is pointer-events: auto so it stays
+          interactive). */}
       <div
         data-testid="ai-panel-v2-pull-tab-drag"
         role="separator"
@@ -119,65 +109,52 @@ export const PullTab = memo(function PullTab({
         tabIndex={0}
         onPointerDown={onStartDrag}
         onKeyDown={handleHandleKeyDown}
-        className="pointer-events-auto cursor-ns-resize focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-        style={{
-          width: PULL_TAB_LABEL_WIDTH,
-          height: PULL_TAB_HEIGHT - PULL_TAB_LABEL_HEIGHT,
-        }}
-      />
-      {/* Visible label strip — three mode buttons. Border carries the
-          selection / stale tint so it sits exactly on the resize boundary.
-          Pulse animation for stale state lands in step 14 (reduced-motion
-          audit); for now the colour is the text-first stale badge's
-          supplement. */}
-      <div
-        role="tablist"
-        aria-label="AI panel mode"
-        data-stale={staleAnnouncement ? 'true' : 'false'}
-        data-tint-class={tintBorderClass}
         className={[
-          'pointer-events-auto flex items-center justify-center gap-1',
-          'bg-panel border rounded-t-lg shadow-1 px-1 transition-colors',
+          'pointer-events-auto cursor-ns-resize',
+          'flex items-center gap-1 bg-panel rounded-md shadow-1 px-1 py-0.5',
+          'border transition-colors',
           tintBorderClass,
+          'focus:outline-none focus-visible:ring-2 focus-visible:ring-info',
         ].join(' ')}
-        style={{
-          width: PULL_TAB_LABEL_WIDTH,
-          height: PULL_TAB_LABEL_HEIGHT,
-        }}
+        data-stale={staleAnnouncement ? 'true' : 'false'}
       >
-        {MODE_LABELS.map(({ mode, label, tooltip }) => {
-          const isActive = activeMode === mode
-          const disabled = mode === 'focus' && !focusEnabled
-          const title = disabled
-            ? 'Focus mode needs a wider screen'
-            : tooltip
-          return (
-            <button
-              key={mode}
-              type="button"
-              role="tab"
-              aria-selected={isActive}
-              aria-disabled={disabled}
-              tabIndex={isActive ? 0 : -1}
-              disabled={disabled}
-              onClick={() => handleLabelClick(mode)}
-              title={title}
-              data-testid={`ai-panel-v2-mode-${mode}`}
-              data-active={isActive ? 'true' : 'false'}
-              className={[
-                'inline-flex items-center justify-center px-2 py-1 rounded-sm',
-                typography.panelMeta,
-                'font-medium',
-                isActive ? 'bg-panel text-info border border-info/30' : 'text-text-light hover:text-text-body border border-transparent',
-                disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-info',
-              ].join(' ')}
-              style={{ minWidth: 36, minHeight: 28 }}
-            >
-              {label}
-            </button>
-          )
-        })}
+        <div
+          role="tablist"
+          aria-label="AI panel mode"
+          className="flex items-center gap-0.5"
+        >
+          {visibleModes.map(mode => {
+            const { label, tooltip, Icon } = MODE_META[mode]
+            const disabled = mode === 'focus' && !focusEnabled
+            const title = disabled ? 'Focus mode needs a wider screen' : tooltip
+            return (
+              <button
+                key={mode}
+                type="button"
+                role="tab"
+                aria-selected={false}
+                aria-disabled={disabled}
+                aria-label={tooltip}
+                tabIndex={-1}
+                disabled={disabled}
+                onPointerDown={ev => ev.stopPropagation()}
+                onClick={() => handleLabelClick(mode)}
+                title={title}
+                data-testid={`ai-panel-v2-mode-${mode}`}
+                className={[
+                  'inline-flex items-center justify-center rounded-sm',
+                  'text-text-light hover:text-text-body',
+                  disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+                  'focus:outline-none focus-visible:ring-2 focus-visible:ring-info',
+                ].join(' ')}
+                style={{ minWidth: 36, minHeight: 36 }}
+              >
+                <Icon className="w-4 h-4" aria-hidden="true" />
+                <span className="sr-only">{label}</span>
+              </button>
+            )
+          })}
+        </div>
       </div>
     </div>
   )
