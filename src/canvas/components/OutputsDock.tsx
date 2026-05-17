@@ -29,7 +29,7 @@ import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
-import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource, selectPreviousReport } from '../store'
+import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
 import { loadRuns, type StoredRun } from '../store/runHistory'
 import * as runsBus from '../store/runsBus'
 import { typography } from '../../styles/typography'
@@ -85,14 +85,11 @@ import { useScenarioComparison } from '../hooks/useScenarioComparison'
 import { useRobustness } from '../hooks/useRobustness'
 import { mapRobustness } from '../../lib/mappers/mapRobustness'
 import type { MappedRobustness } from '../../lib/mappers/types'
-import { getUiSurfaceState, type InteractionStateSnapshot } from '../../lib/debug-state'
 // ScenarioComparison modal removed - now rendered as ComparisonCanvasLayout in ReactFlowGraph
 import type { CritiqueItemV1 } from '../../adapters/plot/types'
 import { verboseDebug } from '../../utils/verboseLog'
 import { AnalysisFooter } from '../shared/AnalysisFooter'
 import { derivePostFooterStatus, derivePostFooterMeta } from './utils/postAnalysisFooter'
-import { StabilityGauge } from '../../components/shared/StabilityGauge'
-import { DeltaIndicator } from '../../components/shared/DeltaIndicator'
 import { DEFAULT_EDGE_DATA } from '../domain/edges'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
 
@@ -136,7 +133,25 @@ const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
 ]
 
 /**
- * Discriminated union so `embeddedSendMessage` is REQUIRED whenever
+ * Layout-integration seam (not a deeper ownership change).
+ *
+ * The `embedded` + `embeddedSendMessage` props exist purely so the AI
+ * panel v2 layout (`src/canvas/ai-panel-v2/AIPanelV2Layout.tsx`) can
+ * host the dock as one of two stacked zones inside the right column
+ * while the conversation singleton lives one level up. This is a
+ * scoped layout adapter — the dock's data model, tabs, and internal
+ * state are unchanged. The standalone (non-embedded) path is the only
+ * one used under FF off.
+ *
+ * **Post-PoC review trigger:** if more AI-specific props start to land
+ * here (e.g. selection context, panel-mode awareness, focus-coordination
+ * callbacks), the coupling has outgrown an adapter and the integration
+ * should be lifted into either (a) a shared context the dock subscribes
+ * to, or (b) an explicit `<OutputsDockHost>` wrapper that owns AI-side
+ * concerns and keeps `OutputsDock.tsx` agnostic. Track that decision
+ * before adding the next AI-shaped prop.
+ *
+ * Discriminated union below makes `embeddedSendMessage` REQUIRED when
  * `embedded={true}`. The previous shape allowed `<OutputsDock embedded />`
  * to compile without a send handler, which silently no-op'd the dock's
  * pre-analysis chip-fires — a real footgun. With this shape:
@@ -145,9 +160,6 @@ const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
  *   <OutputsDock embedded={false} />                         ✅
  *   <OutputsDock embedded embeddedSendMessage={fn} />        ✅
  *   <OutputsDock embedded />                                 ❌ compile error
- *
- * In dev a runtime check also warns if somehow the prop is missing
- * (e.g. callers using `as unknown` to bypass the type).
  */
 type OutputsDockProps =
   | { embedded?: false; embeddedSendMessage?: never }
@@ -290,9 +302,6 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
   const setCeeAnalysisReady = useCanvasStore(s => s.setCeeAnalysisReady)
   // P2: Success target affordance - threshold update
   const setGoalThreshold = useCanvasStore(s => s.setGoalThreshold)
-  // A1: Delta indicators between analysis runs
-  const previousReport = useCanvasStore(selectPreviousReport)
-
   // Guidance items for results surface — filter to graph/option/framing targets only
   const allGuidanceItems = useGuidanceStore(s => s.guidanceItems)
   const setActiveGuidanceItem = useGuidanceStore(s => s.setActiveGuidanceItem)
@@ -1860,6 +1869,11 @@ type CompareSelection = {
   currentId: string | null
 }
 
+// Dead code: replaced by `CompareTabBodyV2` (imported above and rendered in
+// the diagnostics tab). Retained pending a separate cleanup commit; the
+// eslint-disable below silences the unused-function warning without
+// pulling a ~390-line delete into this scoped review.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function CompareTabBody() {
   // Read scenario metadata and current results hash once per render without
   // subscribing this component to store updates. This avoids nested
