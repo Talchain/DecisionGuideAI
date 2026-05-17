@@ -1,25 +1,31 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
 import { render, screen, cleanup, act } from '@testing-library/react'
 
-// Regression test for the embedded-dock send wiring (Imp #2).
+// Real-path regression test for the embedded-dock send wiring.
 //
-// Goal: prove that AIPanelV2Layout passes its singleton conversation's
-// sendMessage into the embedded OutputsDock — so a send from inside the
-// dock body lands on the same conversation instance as a send from the
-// visible AIZone, never on a second hook-owned instance.
+// The previous version of this spec mocked `<OutputsDock>` to capture
+// the prop AIPanelV2Layout passed it — that proved the LAYOUT side of
+// the contract but said nothing about whether the REAL OutputsDock
+// wrapper threaded the prop through to its body without spinning up
+// a second useConversation call. This rewrite renders the real
+// `<OutputsDock embedded embeddedSendMessage={spy} />` and asserts the
+// embedded host:
+//   1. Does NOT call useConversation (the body sees the prop, not a
+//      second hook return value).
+//   2. Renders the dock body (proving the prop reached the body without
+//      a runtime crash from the discriminated union).
+//   3. Forwards the exact sendMessage reference through to the body's
+//      child surfaces (verified via the PreAnalysisPanel mock that
+//      captures onSendMessage).
 //
-// Strategy: spy on useConversation at the module level. The spy returns
-// a stable conversation object whose sendMessage identity is captured.
-// We mock OutputsDock (the wrapper) so we can capture the
-// `embeddedSendMessage` prop it receives. The assertion: the captured
-// prop IS the conversation.sendMessage returned by the spy — by
-// reference. Invoking the captured prop also lands on that exact mock.
+// The companion `SingletonInvariant.spec.tsx` covers the layout-level
+// integration (AIPanelV2Layout calls useConversation exactly once across
+// both zones). This file owns the OutputsDock-internal contract.
 
-const captured = vi.hoisted(() => ({
-  embeddedSendFromProp: null as ((text: string) => unknown) | null,
-  zoneSendMessage: null as ((text: string) => unknown) | null,
-  sharedSendMessage: vi.fn().mockResolvedValue(undefined),
+const { useConversationSpy, capturedPreAnalysisSend } = vi.hoisted(() => ({
+  useConversationSpy: vi.fn(),
+  capturedPreAnalysisSend: { current: null as ((text: string) => unknown) | null },
 }))
 
 vi.mock('../../conversation/useConversation', async () => {
@@ -28,89 +34,122 @@ vi.mock('../../conversation/useConversation', async () => {
   )
   return {
     ...actual,
-    useConversation: () => ({
-      messages: [],
-      isThinking: false,
-      longRunningHint: null,
-      lastFailedInput: null,
-      sendMessage: captured.sharedSendMessage,
-      sendSystemEvent: vi.fn(),
-      sendChip: vi.fn(),
-      dispatchAction: vi.fn(),
-      clearHistory: vi.fn(),
-      retryLast: vi.fn(),
-      cancelTurn: vi.fn(),
-      patchBlockStates: new Map(),
-      setPatchBlockState: vi.fn(),
-      patchRejections: new Map(),
-      setPatchRejection: vi.fn(),
-    }),
+    useConversation: () => {
+      useConversationSpy()
+      return {
+        messages: [],
+        isThinking: false,
+        longRunningHint: null,
+        lastFailedInput: null,
+        sendMessage: vi.fn(),
+        sendSystemEvent: vi.fn(),
+        sendChip: vi.fn(),
+        dispatchAction: vi.fn(),
+        clearHistory: vi.fn(),
+        retryLast: vi.fn(),
+        cancelTurn: vi.fn(),
+        patchBlockStates: new Map(),
+        setPatchBlockState: vi.fn(),
+        patchRejections: new Map(),
+        setPatchRejection: vi.fn(),
+      }
+    },
   }
 })
 
-// Mock the OutputsDock wrapper to capture the embeddedSendMessage prop
-// AIPanelV2Layout supplies. The actual wrapper (production code) wires
-// this prop through to OutputsDockBody — verified separately by
-// SingletonInvariant.spec.tsx. Here we focus on the LAYOUT-side wiring:
-// the prop must be the singleton conversation's sendMessage.
-vi.mock('../../components/OutputsDock', () => ({
-  OutputsDock: (props: { embedded?: boolean; embeddedSendMessage?: (text: string) => unknown }) => {
-    if (props.embedded && props.embeddedSendMessage) {
-      captured.embeddedSendFromProp = props.embeddedSendMessage
-    }
-    return (
-      <div
-        data-testid="outputs-dock"
-        data-embedded={String(!!props.embedded)}
-        data-has-send={String(typeof props.embeddedSendMessage === 'function')}
-      />
-    )
+// Stub peripherals so the real OutputsDock body renders without router
+// or orchestrator. We mock PreAnalysisPanel specifically because it's
+// the inner consumer of `sendMessage` we want to observe — the prop
+// flows OutputsDock → OutputsDockEmbeddedHost → OutputsDockBody →
+// PreAnalysisPanel.onSendMessage. Capturing its onSendMessage prop
+// gives us the strongest "the real reference reached a real child"
+// assertion the test can make without a full browser run.
+vi.mock('../../hooks/useV2Run', () => ({
+  useV2Run: () => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn(), isRunning: false }),
+}))
+vi.mock('../../hooks/useGraphReadiness', () => ({
+  useGraphReadiness: () => ({ readiness: null }),
+}))
+vi.mock('../../../hooks/useScenario', () => ({
+  useScenario: () => ({
+    isPersistenceActive: false,
+    supabaseSaveStatus: 'idle',
+    supabaseSaveError: null,
+  }),
+}))
+// Capture onSendMessage on whichever child surface mounts first. The
+// dock body forwards `sendMessage` to PreAnalysisPanel (pre-run path)
+// and ModelTabBody (diagnostics tab). We seed dock storage to the
+// diagnostics tab below so ModelTabBody renders deterministically
+// without depending on the canvas store having nodes.
+vi.mock('../../components/pre-analysis', () => ({
+  PreAnalysisPanel: (props: { onSendMessage?: (text: string) => unknown }) => {
+    capturedPreAnalysisSend.current = props.onSendMessage ?? null
+    return <div data-testid="pre-analysis-panel-stub" />
+  },
+}))
+vi.mock('../../components/ModelTabBody', () => ({
+  ModelTabBody: (props: { onSendMessage?: (text: string) => unknown }) => {
+    capturedPreAnalysisSend.current = props.onSendMessage ?? null
+    return <div data-testid="model-tab-body-stub" />
   },
 }))
 
-// Stub AIZone (we test the LAYOUT side here, not the zone internals).
-vi.mock('../AIZone', () => ({
-  AIZone: ({ conversation }: { conversation: { sendMessage: (text: string) => unknown } }) => {
-    captured.zoneSendMessage = conversation.sendMessage
-    return <div data-testid="ai-zone-stub" />
-  },
-}))
+import { OutputsDock } from '../../components/OutputsDock'
 
-import { AIPanelV2Layout } from '../AIPanelV2Layout'
+const DOCK_STORAGE_KEY = 'canvas.outputsDock.v1'
+
+beforeEach(() => {
+  // Seed the dock to the diagnostics tab so ModelTabBody renders
+  // (the body's onSendMessage forwarding into a stable consumer).
+  // Otherwise the dock defaults to 'results', whose pre-run panel only
+  // mounts when nodes.length > 0.
+  // NOTE: useDockState reads from sessionStorage, not localStorage.
+  window.sessionStorage.setItem(
+    DOCK_STORAGE_KEY,
+    JSON.stringify({ isOpen: true, activeTab: 'diagnostics' }),
+  )
+})
 
 afterEach(() => {
   cleanup()
-  captured.embeddedSendFromProp = null
-  captured.zoneSendMessage = null
-  captured.sharedSendMessage.mockReset()
+  window.sessionStorage.removeItem(DOCK_STORAGE_KEY)
+  useConversationSpy.mockReset()
+  capturedPreAnalysisSend.current = null
 })
 
-describe('Embedded dock send wiring — AIPanelV2Layout threads the singleton sendMessage to OutputsDock', () => {
-  it('passes embeddedSendMessage to OutputsDock when embedded', () => {
-    render(<AIPanelV2Layout />)
+describe('Embedded OutputsDock — real-path wiring through the wrapper, host, and body', () => {
+  it('does NOT call useConversation when embedded (the host skips the hook)', () => {
+    const spy = vi.fn()
+    render(<OutputsDock embedded embeddedSendMessage={spy} />)
+    expect(useConversationSpy).toHaveBeenCalledTimes(0)
+  })
+
+  it('renders the real dock body when embedded (no crash from missing prop)', () => {
+    const spy = vi.fn()
+    render(<OutputsDock embedded embeddedSendMessage={spy} />)
     const dock = screen.getByTestId('outputs-dock')
     expect(dock.dataset.embedded).toBe('true')
-    expect(dock.dataset.hasSend).toBe('true')
-    expect(captured.embeddedSendFromProp).toBeTypeOf('function')
   })
 
-  it('the embedded sendMessage IS the singleton conversation.sendMessage (same reference)', () => {
-    render(<AIPanelV2Layout />)
-    expect(captured.embeddedSendFromProp).toBe(captured.sharedSendMessage)
+  it('threads the embeddedSendMessage prop through to a body child (ModelTabBody) by reference', () => {
+    const spy = vi.fn()
+    render(<OutputsDock embedded embeddedSendMessage={spy} />)
+    expect(capturedPreAnalysisSend.current).toBe(spy)
   })
 
-  it('AIZone receives the SAME sendMessage as embedded OutputsDock (one conversation instance, two consumers)', () => {
-    render(<AIPanelV2Layout />)
-    expect(captured.zoneSendMessage).toBe(captured.embeddedSendFromProp)
-    expect(captured.zoneSendMessage).toBe(captured.sharedSendMessage)
-  })
-
-  it('calling the embedded sendMessage invokes the singleton mock exactly once', async () => {
-    render(<AIPanelV2Layout />)
+  it('invoking the captured sendMessage hits the caller-supplied spy exactly once', async () => {
+    const spy = vi.fn()
+    render(<OutputsDock embedded embeddedSendMessage={spy} />)
     await act(async () => {
-      captured.embeddedSendFromProp?.('Investigate this driver')
+      capturedPreAnalysisSend.current?.('Investigate this driver')
     })
-    expect(captured.sharedSendMessage).toHaveBeenCalledTimes(1)
-    expect(captured.sharedSendMessage).toHaveBeenCalledWith('Investigate this driver')
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy).toHaveBeenCalledWith('Investigate this driver')
+  })
+
+  it('the standalone variant DOES call useConversation (regression guard for the other branch)', () => {
+    render(<OutputsDock />)
+    expect(useConversationSpy).toHaveBeenCalledTimes(1)
   })
 })

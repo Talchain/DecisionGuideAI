@@ -3,8 +3,7 @@
 **Date:** 2026-05-17
 **Branch:** `claude/stoic-jang-052395`
 **Origin staging at start of batch:** `c6e26f50` (pushed at end of round 1)
-**HEAD now:** `434805f4` (will be updated on next commit)
-**Local commits ahead of `origin/staging`:** 2 (`05ab2390`, `434805f4`)
+**Local commits ahead of `origin/staging`:** 3 — `05ab2390`, `434805f4`, `c75de727` (and a follow-up commit on top of this doc update)
 **Flag:** `FF_AI_PANEL_V2` (default `false`)
 
 This doc captures concrete runtime artefacts for each UX-batch-1 acceptance row. The first round (12 commits) was already pushed to staging; this batch sits locally pending review.
@@ -189,8 +188,15 @@ Open-tab state (after clicking results in the strip):
 ```
 $ npx vitest run src/canvas/ai-panel-v2 src/canvas/conversation/components/__tests__
  Test Files  13 passed (13)
-      Tests  80 passed (80)
+      Tests  81 passed (81)
 ```
+
+The +1 over the prior round comes from a standalone-branch regression
+guard in the rewritten `EmbeddedSendWiring.spec.tsx` (asserts that the
+non-embedded `<OutputsDock />` still calls `useConversation` exactly
+once). The other four tests in that file now exercise the real embedded
+host through to a body child (`ModelTabBody.onSendMessage` captured by
+reference) rather than mocking the wrapper itself.
 
 ```
 $ npm run typecheck
@@ -203,17 +209,33 @@ $ npx eslint src/canvas/ai-panel-v2 src/canvas/conversation/components
 ✖ 0 problems
 ```
 
+`OutputsDock.tsx` carries 6 pre-existing unused-import warnings (lines
+88, 94, 95, 294, 1863) that pre-date this branch — `git blame` shows
+them landed on staging. They are intentionally out of scope here; the
+"lint clean" claim above is scoped to the touched directories
+(`src/canvas/ai-panel-v2` + `src/canvas/conversation/components`), not
+the dock file itself.
+
 ---
 
 ## What's local vs pushed
 
 ```
 $ git log --oneline origin/staging..HEAD
+c75de727 fix(ai-panel-v2): discriminated embedded prop + ownership doc + per-row walkthrough
 434805f4 fix(ai-panel-v2): singleton invariant + welcome _sendMessage + a11y + DS v5
 05ab2390 fix(ai-panel-v2): UX batch 1 — critical layout + welcome state + mode redesign
 ```
 
-Plus this commit (walkthrough doc + final P1.1 hardening + Imp 2 spec).
+A follow-up commit sits on top of this snapshot with: no-op fallback
+removed from `OutputsDockEmbeddedHost` (the discriminated union already
+requires the prop at compile time — a runtime crash is the desired
+signal if someone bypasses the types), `EmbeddedSendWiring.spec.tsx`
+rewritten to render the real OutputsDock (no wrapper mock; the
+`ModelTabBody.onSendMessage` capture proves the prop flows through the
+real host + body code path), this doc updated to match the
+`git log origin/staging..HEAD` output above, and the lint-clean claim
+narrowed to the directories it actually covers.
 
 `FINAL_DELIVERY.md` from the original delivery sweep still references the 12 commits that were pushed to staging at `c6e26f50` — it's accurate as historical record of the original delivery and unchanged here. UX batch 1 + this round are appended above.
 

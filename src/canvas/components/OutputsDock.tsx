@@ -161,14 +161,6 @@ type OutputsDockProps =
  */
 export function OutputsDock(props: OutputsDockProps = {}) {
   if (props.embedded) {
-    if (import.meta.env.DEV && typeof props.embeddedSendMessage !== 'function') {
-      // Belt-and-braces: the discriminated union should already catch
-      // this at compile time. The dev warning fires if a caller
-      // bypassed the types (e.g. via `as unknown`) so the silent
-      // no-op never reaches production.
-      // eslint-disable-next-line no-console
-      console.error('[OutputsDock] embedded=true requires embeddedSendMessage')
-    }
     return <OutputsDockEmbeddedHost embeddedSendMessage={props.embeddedSendMessage} />
   }
   return <OutputsDockStandaloneHost />
@@ -179,18 +171,13 @@ function OutputsDockStandaloneHost() {
   return <OutputsDockBody embedded={false} sendMessage={sendMessage} />
 }
 
-function OutputsDockEmbeddedHost({ embeddedSendMessage }: { embeddedSendMessage?: (text: string) => Promise<void> | void }) {
-  // Last-resort fallback to a logging no-op so production never hangs
-  // on a missing handler — the dev console.error above is the canonical
-  // signal that the caller wired things up incorrectly.
-  const sendMessage = embeddedSendMessage
-    ?? ((text: string) => {
-      if (import.meta.env.DEV) {
-        // eslint-disable-next-line no-console
-        console.error('[OutputsDock] embedded send invoked without a handler:', text)
-      }
-    })
-  return <OutputsDockBody embedded sendMessage={sendMessage} />
+function OutputsDockEmbeddedHost({ embeddedSendMessage }: { embeddedSendMessage: (text: string) => Promise<void> | void }) {
+  // No fallback — the discriminated OutputsDockProps requires
+  // embeddedSendMessage at compile time, and we'd rather a runtime crash
+  // surface a wiring bug than have chip-fires silently no-op in
+  // production. Callers bypassing the types with `as unknown` will
+  // hit a TypeError in the dock body — exactly what we want.
+  return <OutputsDockBody embedded sendMessage={embeddedSendMessage} />
 }
 
 interface OutputsDockBodyProps {
