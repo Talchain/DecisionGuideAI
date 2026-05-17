@@ -1,11 +1,13 @@
 # AI panel v2 — UX batch 1 walkthrough
 
-**Date:** 2026-05-17
+**Date:** 2026-05-18
 **Branch:** `claude/stoic-jang-052395`
 **Origin staging at start of batch:** `c6e26f50` (pushed at end of round 1)
 **Local commits ahead of `origin/staging`** (verbatim `git log --oneline origin/staging..HEAD`):
 
 ```
+69ab0daf refactor(outputs-dock): delete dead CompareTabBody chain (~400 lines)
+efd26cd8 fix(ai-panel-v2): batch-1 review P1s — scoped panelBody typography, a11y tablist, popover dismiss
 56647af1 chore(outputs-dock): clear 6 unused-vars warnings + document embedding seam
 a95961ab fix(ai-panel-v2): real-path embedded wiring test + drop no-op fallback
 c75de727 fix(ai-panel-v2): discriminated embedded prop + ownership doc + per-row walkthrough
@@ -13,13 +15,18 @@ c75de727 fix(ai-panel-v2): discriminated embedded prop + ownership doc + per-row
 05ab2390 fix(ai-panel-v2): UX batch 1 — critical layout + welcome state + mode redesign
 ```
 
-A follow-up commit landing on top of this doc update covers the
-post-batch-1-review tightening: scoped `panelBody` typography +
-normalised line-height on the panel-v2 message bubbles, tablist
-`aria-label` that announces the current mode, capture-phase
-`pointerdown` for the cog popover plus an imperative
-`closePopover()` driven by `activeMode` changes (covers keyboard
-activation of the mode tabs).
+A follow-up commit landing on top of this doc edit replaces the
+short-lived CSS hack (`panelTypography.css` keyed on `data-testid`
+selectors with a universal `*` descendant rule — a styling-via-test-id
+anti-pattern that risked shrinking unrelated nested controls) with an
+explicit `compact?: boolean` prop on MessageBubble, threaded through
+ChatThread → ChatMessage from ConversationPanel. The same commit
+implements scroll-position preservation across Focus ↔ Compact
+transitions (capture-before-commit + clamp-on-restore via the
+ChatThread `scrollListRef` handle) and adds a real-path integration
+test that proves both the capture-phase pointer outside-click and the
+imperative `closePopover()` path close the cog popover on mode
+switch.
 
 **Flag:** `FF_AI_PANEL_V2` (default `false`)
 
@@ -238,6 +245,8 @@ the dock file itself.
 ## What's local vs pushed (verbatim `git log --oneline origin/staging..HEAD`)
 
 ```
+69ab0daf refactor(outputs-dock): delete dead CompareTabBody chain (~400 lines)
+efd26cd8 fix(ai-panel-v2): batch-1 review P1s — scoped panelBody typography, a11y tablist, popover dismiss
 56647af1 chore(outputs-dock): clear 6 unused-vars warnings + document embedding seam
 a95961ab fix(ai-panel-v2): real-path embedded wiring test + drop no-op fallback
 c75de727 fix(ai-panel-v2): discriminated embedded prop + ownership doc + per-row walkthrough
@@ -245,15 +254,12 @@ c75de727 fix(ai-panel-v2): discriminated embedded prop + ownership doc + per-row
 05ab2390 fix(ai-panel-v2): UX batch 1 — critical layout + welcome state + mode redesign
 ```
 
-The post-review tightening commit that lands on top of this doc edit
-adds: panel-v2-scoped 12px/1.5 message-bubble typography (overrides
-the legacy 16px/1.65 only inside the v2 surface, FF-off renders
-unchanged), tablist `aria-label="AI panel mode, currently <Mode>"` so
-the active mode is verbalised even though only non-current modes
-render as tabs, and capture-phase `pointerdown` outside-click on the
-cog popover + an imperative `closePopover()` driven by `activeMode`
-changes (the latter covers keyboard activation paths that never fire
-pointer events).
+A follow-up commit landing on top of this doc edit replaces the
+short-lived CSS hack from `efd26cd8` with the explicit
+`compact?: boolean` prop chain (MessageBubble → ChatMessage →
+ChatThread → ConversationPanel → AIZone), implements scroll-position
+preservation, and adds a real-path integration test for popover
+dismiss on mode switch.
 
 `FINAL_DELIVERY.md` from the original delivery sweep still references the 12 commits that were pushed to staging at `c6e26f50` — it's accurate as historical record of the original delivery and unchanged here. UX batch 1 + this round are appended above.
 

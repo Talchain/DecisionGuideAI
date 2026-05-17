@@ -116,6 +116,14 @@ interface MessageBubbleProps {
   onFeedback?: (turnId: string, rating: 'up' | 'down') => void
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
+  /**
+   * When true, render message body text with DS v5 panelBody (12px /
+   * leading-relaxed) instead of the legacy body (16px / leading-relaxed).
+   * AI panel v2 sets this via the ChatThread → ChatMessage prop chain;
+   * the legacy DraftChat surface leaves it false. Default false to
+   * preserve FF-off behaviour.
+   */
+  compact?: boolean
 }
 
 export const MessageBubble = memo(function MessageBubble({
@@ -128,6 +136,7 @@ export const MessageBubble = memo(function MessageBubble({
   onFeedback,
   onArtefactMessage,
   onProposalConfirm,
+  compact = false,
 }: MessageBubbleProps) {
   const isUser = message.role === 'user'
 
@@ -212,9 +221,11 @@ export const MessageBubble = memo(function MessageBubble({
       data-testid={`message-${message.role}`}
     >
       <div
-        className={`${typography.body} ${styles.markdownContent} ${
-          isProvisional ? styles.provisionalText : ''
-        } ${!isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''}`}
+        className={`${compact ? typography.panelBody : typography.body} ${styles.markdownContent} ${
+          compact ? styles.markdownContentCompact : ''
+        } ${isProvisional ? styles.provisionalText : ''} ${
+          !isUser && isOrchestratorRenderingV2Enabled() ? styles.v2AssistantText : ''
+        }`}
         data-streaming={isStreaming || undefined}
         // eslint-disable-next-line security/no-unsafe-innerhtml -- sanitised by safeRichText (allowlist: strong, br, ul, li; br.md-gap for rule degradation)
         dangerouslySetInnerHTML={{

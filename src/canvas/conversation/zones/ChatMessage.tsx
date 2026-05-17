@@ -49,6 +49,8 @@ interface ChatMessageProps {
   onFeedback?: (turnId: string, rating: 'up' | 'down') => void
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
+  /** AI panel v2 surface — render message body at panelBody (12px). */
+  compact?: boolean
 }
 
 export const ChatMessage = memo(function ChatMessage({
@@ -65,6 +67,7 @@ export const ChatMessage = memo(function ChatMessage({
   onFeedback,
   onArtefactMessage,
   onProposalConfirm,
+  compact,
 }: ChatMessageProps) {
   const category = getMessageCategory(message)
   const borderClass = CATEGORY_BORDER[category]
@@ -105,6 +108,7 @@ export const ChatMessage = memo(function ChatMessage({
         onFeedback={onFeedback}
         onArtefactMessage={onArtefactMessage}
         onProposalConfirm={onProposalConfirm}
+        compact={compact}
       />
     </div>
   )

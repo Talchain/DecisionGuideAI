@@ -32,6 +32,17 @@ interface ChatThreadProps {
   onRetry: () => void
   onArtefactMessage?: (message: string) => void
   onProposalConfirm?: (proposalId: string) => void
+  /** AI panel v2 surface — render message body at panelBody (12px). */
+  compact?: boolean
+  /**
+   * External handle so the parent can capture/restore the thread's
+   * scroll position across mode transitions (AI panel v2 Compact ↔
+   * Focus). When provided, the thread populates it with the scroll
+   * container ref and the smart-scroll auto-pin to bottom is
+   * suppressed on the FIRST layout after re-mount so a parent-driven
+   * restoreScrollTop call wins.
+   */
+  scrollListRef?: React.MutableRefObject<HTMLDivElement | null>
 }
 
 /** Derive a thinking label from the hint. */
@@ -54,9 +65,19 @@ export const ChatThread = memo(function ChatThread({
   onRetry,
   onArtefactMessage,
   onProposalConfirm,
+  compact,
+  scrollListRef,
 }: ChatThreadProps) {
   const { listRef, listEndRef, showNewMessageIndicator, handleScroll, scrollToBottom } =
     useSmartScroll({ messageCount: messages.length, isThinking })
+
+  // Mirror the internal listRef into an externally-provided ref so the
+  // parent (AI panel v2 layout) can capture and restore scrollTop
+  // across mode transitions. The mirror runs on every commit so the
+  // external ref tracks list re-mounts on resize.
+  if (scrollListRef) {
+    scrollListRef.current = listRef.current
+  }
 
   // Has the conversation produced any finalized (non-streaming) assistant messages?
   const hasFinalizedAssistant = messages.some(m => m.role === 'assistant' && !m.isStreaming)
@@ -126,6 +147,7 @@ export const ChatThread = memo(function ChatThread({
             onFeedback={onFeedback}
             onArtefactMessage={onArtefactMessage}
             onProposalConfirm={onProposalConfirm}
+            compact={compact}
           />
         )
         // Attach suggested chips directly below the last assistant message

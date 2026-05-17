@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import './panelTypography.css'
 import { AIZone } from './AIZone'
 import { AnalysisTabStripOverlay } from './AnalysisTabStripOverlay'
 import { PullTab } from './PullTab'

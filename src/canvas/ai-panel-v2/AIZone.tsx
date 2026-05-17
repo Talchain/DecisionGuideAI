@@ -16,7 +16,7 @@
  * the registration once it mounts in the standard state.
  */
 
-import { memo, useCallback, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { ConversationPanel } from '../conversation/ConversationPanel'
 import type { UseConversationReturn } from '../conversation/useConversation'
@@ -45,12 +45,50 @@ export const AIZone = memo(function AIZone({ conversation, activeMode }: AIZoneP
   const fileInputRef = useRef<HTMLInputElement>(null)
   const inputBarRef = useRef<AIInputBarHandle>(null)
   const welcomeInputRef = useRef<AIInputBarHandle>(null)
+  // Scroll preservation across mode transitions. ChatThread mirrors its
+  // scroll container into `threadScrollRef`. Before activeMode changes
+  // we cache scrollTop into `savedScrollTopRef`; after the new mode's
+  // layout commits we restore it. Without this, the user loses their
+  // place when toggling Focus ↔ Compact because the scrollable container
+  // is briefly non-scrollable (content fits) in Focus, then becomes
+  // scrollable again in Compact at scrollTop=0.
+  const threadScrollRef = useRef<HTMLDivElement | null>(null)
+  const savedScrollTopRef = useRef<number | null>(null)
+  const prevActiveModeRef = useRef<AIPanelMode | undefined>(activeMode)
 
   // Close cog popover when the active mode changes (belt-and-braces
   // alongside CogPopover's capture-phase pointerdown listener).
+  // Also capture the thread's current scrollTop BEFORE React commits the
+  // new mode's layout — useEffect runs after commit, so we read here as
+  // soon as we detect a pending mode change (via the prev-mode ref).
   useEffect(() => {
     inputBarRef.current?.closePopover()
     welcomeInputRef.current?.closePopover()
+  }, [activeMode])
+
+  // Save scrollTop on every render where the mode is about to change.
+  // Synchronous read so we capture the OLD layout's offset.
+  if (prevActiveModeRef.current !== activeMode && threadScrollRef.current) {
+    savedScrollTopRef.current = threadScrollRef.current.scrollTop
+  }
+  prevActiveModeRef.current = activeMode
+
+  // After the new mode's layout commits, if the scroll container is now
+  // scrollable (content overflows), restore the saved offset clamped to
+  // the new scrollHeight - clientHeight range. useLayoutEffect runs
+  // before paint so the restore is invisible.
+  useLayoutEffect(() => {
+    const el = threadScrollRef.current
+    const saved = savedScrollTopRef.current
+    if (!el || saved == null) return
+    const maxScroll = el.scrollHeight - el.clientHeight
+    if (maxScroll > 0) {
+      el.scrollTop = Math.min(saved, maxScroll)
+    }
+    // Don't clear savedScrollTopRef — a subsequent mode change should
+    // overwrite it with the fresh capture, but if the thread re-mounts
+    // (e.g. transitioning through welcome state) we still have the last
+    // known offset to restore.
   }, [activeMode])
 
   const handleAttach = useCallback(() => {
@@ -142,6 +180,8 @@ export const AIZone = memo(function AIZone({ conversation, activeMode }: AIZoneP
         onAttach={handleAttach}
         hideComposer
         prefillChat={handlePrefill}
+        compact
+        scrollListRef={threadScrollRef}
       />
       <StaleAnalysisBadge />
       <AIInputBar

@@ -48,6 +48,20 @@ interface ConversationPanelProps {
    * is true; without it, prefill silently no-ops.
    */
   prefillChat?: (text: string) => void
+  /**
+   * When true, ChatThread renders message body at panelBody (12px /
+   * leading 1.5) instead of body (16px / leading 1.65) — DS v5
+   * requirement for the AI panel v2 surface. Default false to preserve
+   * legacy DraftChat rendering under FF off.
+   */
+  compact?: boolean
+  /**
+   * Externally-provided ref the panel mirrors the ChatThread scroll
+   * container into so AI panel v2 can capture/restore scrollTop across
+   * mode transitions. Optional — when omitted, the thread's own
+   * smart-scroll runs unchanged.
+   */
+  scrollListRef?: React.MutableRefObject<HTMLDivElement | null>
 }
 
 function createPanelInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
@@ -85,6 +99,8 @@ export const ConversationPanel = memo(function ConversationPanel({
   onAttach,
   hideComposer = false,
   prefillChat: prefillChatOverride,
+  compact = false,
+  scrollListRef,
 }: ConversationPanelProps) {
   const {
     messages, isThinking, longRunningHint,
@@ -576,6 +592,8 @@ export const ConversationPanel = memo(function ConversationPanel({
         onRetry={retryLast}
         onArtefactMessage={handleArtefactMessage}
         onProposalConfirm={handleProposalConfirm}
+        compact={compact}
+        scrollListRef={scrollListRef}
       />
 
       {!hideComposer && (

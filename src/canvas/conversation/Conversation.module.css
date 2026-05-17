@@ -30,6 +30,13 @@
   white-space: normal;
   line-height: 1.65;
 }
+/* Compact variant for AI panel v2 — DS v5 panelBody (12px) typography
+   plus normalised line-height so the same prose renders identically
+   across Compact / Conversation / Focus modes. Focus reveals more
+   content via WIDTH, not by changing leading. */
+.markdownContentCompact {
+  line-height: 1.5;
+}
 .markdownContent p {
   margin: 0 0 14px;
 }
