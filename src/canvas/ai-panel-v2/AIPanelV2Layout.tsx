@@ -40,10 +40,22 @@ const PULL_TAB_DRAG_BAND_HEIGHT = 16
 
 export function AIPanelV2Layout() {
   // Singleton useConversation() for the entire AI panel v2 surface.
-  // Lives here (not in AIZone) so the same instance can be threaded into
-  // both the embedded OutputsDock (for its pre-analysis chip-fires) and
-  // AIZone (the main chat surface). FF off renders neither — OutputsDock
-  // calls its own useConversation in OutputsDockStandaloneHost.
+  //
+  // ── Architecture deviation from the literal brief ───────────────────
+  // The approved plan's correction #9 said "useConversation() is called
+  // exactly once at the top of AIZone". The brief's intent was the
+  // singleton invariant — ONE instance — not the literal location. With
+  // the Fix 1 restructure (AIPanelV2Layout owning both zones), the hook
+  // moved one level up so the SAME instance can be threaded into both
+  // the embedded OutputsDock (for its pre-analysis chip-fires) and
+  // AIZone (the main chat surface). The invariant is preserved: exactly
+  // one useConversation() across the panel-v2 tree (asserted by
+  // SingletonInvariant.spec.tsx). Tests + close-out reference the
+  // invariant by name ("single conversation instance") rather than the
+  // call site.
+  //
+  // FF off renders neither — OutputsDock calls its own useConversation
+  // in OutputsDockStandaloneHost.
   const conversation = useConversation()
 
   const [viewportWidth, setViewportWidth] = useState(() =>

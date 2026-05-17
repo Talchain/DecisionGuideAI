@@ -1,8 +1,8 @@
 # AI panel v2 — Final delivery summary
 
-**Status:** All 15 plan steps complete (step 15 deferred per plan as optional). Follow-up P1 fixes have landed in subsequent commits.
+**Status:** All 15 plan steps complete (step 15 deferred per plan as optional). The original-delivery commits documented here were pushed to `origin/staging` at HEAD `c6e26f50`. Follow-up UX batches sit locally on this branch — see `docs/ai-panel-v2/UX_BATCH_1_WALKTHROUGH.md` for the current state.
 **Branch:** `claude/stoic-jang-052395`
-**Commits ahead of `origin/staging`:** 11 (see commit list below — updated each fix round)
+**Origin staging at end of this delivery sweep:** `c6e26f50` (12 commits 80c4bf60…c6e26f50 landed)
 **Flag:** `FF_AI_PANEL_V2` (default `false`, env `VITE_FEATURE_AI_PANEL_V2`, storage `feature.aiPanelV2`)
 
 ---

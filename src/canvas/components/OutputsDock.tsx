@@ -135,32 +135,23 @@ const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
   ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
 ]
 
-interface OutputsDockProps {
-  /**
-   * When true the dock renders as a flex child filling its parent
-   * container instead of as a fixed-position overlay. Used by AI panel v2
-   * (FF_AI_PANEL_V2 on) which mounts the dock inside its own column-flex
-   * layout. The dock keeps its full content surface (tabs + body) but
-   * drops its own chrome (border, shadow, fixed positioning, width var,
-   * collapse chevrons) since the parent owns those.
-   *
-   * Embedded mode also renders an empty tab strip when the graph is
-   * empty (instead of unmounting entirely), so the user always sees the
-   * analysis surface anchored in the top zone.
-   *
-   * Defaults to false — FF-off behaviour is unchanged.
-   */
-  embedded?: boolean
-  /**
-   * When `embedded` is true, the parent supplies the chat send callback.
-   * The embedded code path does NOT call useConversation() itself so the
-   * AI panel v2 singleton invariant (one useConversation per active AI
-   * surface, in AIZone) holds. Ignored when embedded is false.
-   */
-  embeddedSendMessage?: (text: string) => Promise<void> | void
-}
-
-const noopSend = (_text: string) => {}
+/**
+ * Discriminated union so `embeddedSendMessage` is REQUIRED whenever
+ * `embedded={true}`. The previous shape allowed `<OutputsDock embedded />`
+ * to compile without a send handler, which silently no-op'd the dock's
+ * pre-analysis chip-fires — a real footgun. With this shape:
+ *
+ *   <OutputsDock />                                          ✅
+ *   <OutputsDock embedded={false} />                         ✅
+ *   <OutputsDock embedded embeddedSendMessage={fn} />        ✅
+ *   <OutputsDock embedded />                                 ❌ compile error
+ *
+ * In dev a runtime check also warns if somehow the prop is missing
+ * (e.g. callers using `as unknown` to bypass the type).
+ */
+type OutputsDockProps =
+  | { embedded?: false; embeddedSendMessage?: never }
+  | { embedded: true; embeddedSendMessage: (text: string) => Promise<void> | void }
 
 /**
  * Public OutputsDock entry point. Branches on `embedded` to ensure the
@@ -168,9 +159,17 @@ const noopSend = (_text: string) => {}
  * AIZone is the singleton source of the conversation. The standalone
  * variant keeps its own useConversation() call as before (FF off).
  */
-export function OutputsDock({ embedded = false, embeddedSendMessage }: OutputsDockProps = {}) {
-  if (embedded) {
-    return <OutputsDockEmbeddedHost embeddedSendMessage={embeddedSendMessage} />
+export function OutputsDock(props: OutputsDockProps = {}) {
+  if (props.embedded) {
+    if (import.meta.env.DEV && typeof props.embeddedSendMessage !== 'function') {
+      // Belt-and-braces: the discriminated union should already catch
+      // this at compile time. The dev warning fires if a caller
+      // bypassed the types (e.g. via `as unknown`) so the silent
+      // no-op never reaches production.
+      // eslint-disable-next-line no-console
+      console.error('[OutputsDock] embedded=true requires embeddedSendMessage')
+    }
+    return <OutputsDockEmbeddedHost embeddedSendMessage={props.embeddedSendMessage} />
   }
   return <OutputsDockStandaloneHost />
 }
@@ -181,7 +180,17 @@ function OutputsDockStandaloneHost() {
 }
 
 function OutputsDockEmbeddedHost({ embeddedSendMessage }: { embeddedSendMessage?: (text: string) => Promise<void> | void }) {
-  return <OutputsDockBody embedded sendMessage={embeddedSendMessage ?? noopSend} />
+  // Last-resort fallback to a logging no-op so production never hangs
+  // on a missing handler — the dev console.error above is the canonical
+  // signal that the caller wired things up incorrectly.
+  const sendMessage = embeddedSendMessage
+    ?? ((text: string) => {
+      if (import.meta.env.DEV) {
+        // eslint-disable-next-line no-console
+        console.error('[OutputsDock] embedded send invoked without a handler:', text)
+      }
+    })
+  return <OutputsDockBody embedded sendMessage={sendMessage} />
 }
 
 interface OutputsDockBodyProps {
