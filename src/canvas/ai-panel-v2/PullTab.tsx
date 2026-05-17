@@ -135,7 +135,12 @@ export const PullTab = memo(function PullTab({
                 aria-selected={false}
                 aria-disabled={disabled}
                 aria-label={tooltip}
-                tabIndex={-1}
+                // P1.1 — each visible icon is Tab-reachable. The active
+                // mode isn't in this list (it's implicit), so there is no
+                // roving "selected" tab to focus first. Both icons get
+                // tabIndex=0 so keyboard users can Tab through them.
+                // Resize arrow-key support remains on the drag separator.
+                tabIndex={disabled ? -1 : 0}
                 disabled={disabled}
                 onPointerDown={ev => ev.stopPropagation()}
                 onClick={() => handleLabelClick(mode)}

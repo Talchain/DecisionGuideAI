@@ -151,15 +151,53 @@ interface OutputsDockProps {
    * Defaults to false — FF-off behaviour is unchanged.
    */
   embedded?: boolean
+  /**
+   * When `embedded` is true, the parent supplies the chat send callback.
+   * The embedded code path does NOT call useConversation() itself so the
+   * AI panel v2 singleton invariant (one useConversation per active AI
+   * surface, in AIZone) holds. Ignored when embedded is false.
+   */
+  embeddedSendMessage?: (text: string) => Promise<void> | void
 }
 
-export function OutputsDock({ embedded = false }: OutputsDockProps = {}) {
+const noopSend = (_text: string) => {}
+
+/**
+ * Public OutputsDock entry point. Branches on `embedded` to ensure the
+ * embedded variant never calls useConversation() — the AI panel v2
+ * AIZone is the singleton source of the conversation. The standalone
+ * variant keeps its own useConversation() call as before (FF off).
+ */
+export function OutputsDock({ embedded = false, embeddedSendMessage }: OutputsDockProps = {}) {
+  if (embedded) {
+    return <OutputsDockEmbeddedHost embeddedSendMessage={embeddedSendMessage} />
+  }
+  return <OutputsDockStandaloneHost />
+}
+
+function OutputsDockStandaloneHost() {
+  const { sendMessage } = useConversation()
+  return <OutputsDockBody embedded={false} sendMessage={sendMessage} />
+}
+
+function OutputsDockEmbeddedHost({ embeddedSendMessage }: { embeddedSendMessage?: (text: string) => Promise<void> | void }) {
+  return <OutputsDockBody embedded sendMessage={embeddedSendMessage ?? noopSend} />
+}
+
+interface OutputsDockBodyProps {
+  embedded: boolean
+  sendMessage: (text: string) => Promise<void> | void
+}
+
+function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
     isOpen: true,
     activeTab: 'results',
   })
-  const { sendMessage } = useConversation()
+  // sendMessage comes from props (useConversation lives in the host
+  // wrapper) so the embedded variant doesn't create a second
+  // conversation instance — see OutputsDockEmbeddedHost above.
 
   // Tab guards: if persisted tab references a disabled flag, reset to 'results'
   useEffect(() => {
@@ -1122,7 +1160,11 @@ export function OutputsDock({ embedded = false }: OutputsDockProps = {}) {
     <aside
       className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={asideStyle}
-      aria-label="Outputs dock"
+      // When embedded, the parent aside in AIPanelV2Layout carries the
+      // user-facing "Analysis" label; this inner aside drops its own
+      // aria-label so screen readers don't announce nested duplicates.
+      // The data-testid is preserved either way for selector stability.
+      aria-label={embedded ? undefined : 'Outputs dock'}
       data-testid="outputs-dock"
       data-embedded={embedded ? 'true' : 'false'}
     >
@@ -1133,7 +1175,13 @@ export function OutputsDock({ embedded = false }: OutputsDockProps = {}) {
           className="absolute inset-y-0 left-0 w-1 cursor-col-resize bg-transparent hover:bg-panel-border/60"
         />
       )}
-      <div className="sticky top-0 z-10 border-b border-panel-border rounded-t-2xl" style={{ background: 'rgba(255, 255, 255, 0.95)' }}>
+      <div
+        className={[
+          'sticky top-0 z-10 border-b rounded-t-2xl',
+          embedded ? 'bg-panel border-default' : 'border-panel-border',
+        ].join(' ')}
+        style={embedded ? undefined : { background: 'rgba(255, 255, 255, 0.95)' }}
+      >
         {!state.isOpen && (
           <div className="flex items-center justify-end px-2 py-2">
             <button
@@ -1159,12 +1207,20 @@ export function OutputsDock({ embedded = false }: OutputsDockProps = {}) {
                   type="button"
                   onClick={() => handleTabClick(tab.id)}
                   data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : undefined}
-                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+                  className={`flex-1 px-2 py-1 rounded ${embedded ? typography.panelMeta : typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     state.activeTab === tab.id
-                      ? 'text-info border-b-2 border-info'
-                      : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
+                      ? embedded
+                        ? 'text-info bg-info/10 border-b-2 border-info'
+                        : 'text-info border-b-2 border-info'
+                      : embedded
+                        ? 'text-text-light hover:bg-panel-hover hover:text-text-body border-b-2 border-transparent'
+                        : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
                   }`}
-                  style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
+                  style={
+                    state.activeTab === tab.id && !embedded
+                      ? { backgroundColor: 'rgba(82,163,200,0.15)' }
+                      : undefined
+                  }
                 >
                   <span className={`inline-flex items-center gap-1${tab.id === 'results' && showResultsTabStaleWarning ? ' text-warning' : ''}`}>
                     {tab.label}
@@ -1177,8 +1233,15 @@ export function OutputsDock({ embedded = false }: OutputsDockProps = {}) {
                     )}
                     {tab.id === 'diagnostics' && factorsToVerify > 0 && (
                       <span
-                        className="inline-flex items-center justify-center rounded-full bg-warning text-text-on-color"
-                        style={{ fontSize: 11, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }}
+                        className={[
+                          'inline-flex items-center justify-center rounded-full bg-warning text-text-on-color font-semibold',
+                          embedded ? typography.panelMeta : '',
+                        ].join(' ')}
+                        style={
+                          embedded
+                            ? { minWidth: 16, height: 16, padding: '0 4px' }
+                            : { fontSize: 11, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }
+                        }
                         title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
                         data-testid="model-tab-verify-badge"
                       >

@@ -3,6 +3,7 @@ import { AIZone } from './AIZone'
 import { AnalysisTabStripOverlay } from './AnalysisTabStripOverlay'
 import { PullTab } from './PullTab'
 import { OutputsDock } from '../components/OutputsDock'
+import { useConversation } from '../conversation/useConversation'
 import { usePanelSplit } from './hooks/usePanelSplit'
 import { useFocusColumn } from './hooks/useFocusColumn'
 import { useSelectionContext } from './hooks/useSelectionContext'
@@ -38,6 +39,13 @@ const PANEL_BOTTOM_OFFSET_CSS = 'calc(var(--bottombar-h, 0px) + 1rem)'
 const PULL_TAB_DRAG_BAND_HEIGHT = 16
 
 export function AIPanelV2Layout() {
+  // Singleton useConversation() for the entire AI panel v2 surface.
+  // Lives here (not in AIZone) so the same instance can be threaded into
+  // both the embedded OutputsDock (for its pre-analysis chip-fires) and
+  // AIZone (the main chat surface). FF off renders neither — OutputsDock
+  // calls its own useConversation in OutputsDockStandaloneHost.
+  const conversation = useConversation()
+
   const [viewportWidth, setViewportWidth] = useState(() =>
     typeof window === 'undefined' ? 1600 : window.innerWidth,
   )
@@ -102,17 +110,13 @@ export function AIPanelV2Layout() {
     : AI_ZONE_MIN_HEIGHT
   const analysisHeightPx = availableHeightPx > 0 ? availableHeightPx - aiHeightPx : 0
 
-  if (typeof document !== 'undefined') {
-    // Compat shim for the legacy fixed-positioned OutputsDock chain:
-    // when FF is ON we keep --olumi-ai-panel-dock-width unset because the
-    // dock is embedded (its width comes from the parent flex layout, not
-    // a CSS variable). Set to AI_PANEL_V2_WIDTH only for the
-    // AnalysisTabStripOverlay path which still relies on the var to size
-    // the fixed-positioned overlay.
-  }
-
-  // ── Compact / Conversation: full-height right column with both zones ──
-  // ── Focus: AIZone detaches as a separate column to the LEFT of dock ──
+  // ── Compact / Conversation: AI zone pinned at bottom, dock above ──
+  // ── Focus: AI zone detaches as a separate column LEFT of dock ──
+  //
+  // The two zones are independent fixed-positioned siblings (not a
+  // single shared container) so OutputsDock retains its mounted React
+  // tree across mode toggles. Their bounds are coordinated to look like
+  // a single split column — see the position math below.
 
   return (
     <>
@@ -133,7 +137,9 @@ export function AIPanelV2Layout() {
       {/* ── Analysis zone (top in Compact/Conv; right column in Focus) ─
           In 1440-1599 tab-strip mode, hide the analysis zone while no
           tab is open — the 48px strip is the only visible analysis
-          chrome. Clicking a tab re-shows the full dock as an overlay. */}
+          chrome. Clicking a tab re-shows the full dock as an overlay.
+          In Focus mode the zone runs top to bottom (top + bottom
+          positioning; no explicit height needed). */}
       <aside
         data-testid="ai-panel-v2-analysis-zone"
         aria-label="Analysis"
@@ -143,18 +149,24 @@ export function AIPanelV2Layout() {
           top: PANEL_RIGHT_MARGIN,
           right: PANEL_RIGHT_MARGIN,
           width: AI_PANEL_V2_WIDTH,
-          height: isFocus
-            ? `calc(100vh - ${PANEL_RIGHT_MARGIN * 2}px - ${PANEL_BOTTOM_OFFSET_CSS.replace('calc(', '').replace(')', '')})`
-            : analysisHeightPx > 0
-              ? `${analysisHeightPx}px`
-              : `calc(70vh - ${PANEL_RIGHT_MARGIN}px)`,
+          // Compact/Conv: height = budget − ai zone; Focus: top + bottom
+          // implicit height (no explicit `height`) so the dock fills the
+          // available column. The previous string-spliced calc was
+          // double-mangling PANEL_BOTTOM_OFFSET_CSS into a + 1rem term.
+          ...(isFocus
+            ? { bottom: PANEL_BOTTOM_OFFSET_CSS }
+            : {
+                height: analysisHeightPx > 0
+                  ? `${analysisHeightPx}px`
+                  : `calc(70vh - ${PANEL_RIGHT_MARGIN}px)`,
+              }),
           zIndex: Z_AI_PANEL_BASE,
           transition: isDragging ? 'none' : 'height var(--duration-base, 300ms) ease-out',
           display: tabStripMode && openAnalysisOverlayTab === null ? 'none' : undefined,
         }}
         data-tab-strip-hidden={tabStripMode && openAnalysisOverlayTab === null ? 'true' : 'false'}
       >
-        <OutputsDock embedded />
+        <OutputsDock embedded embeddedSendMessage={conversation.sendMessage} />
       </aside>
 
       {/* ── AI zone (bottom in Compact/Conv, left column in Focus) ──── */}
@@ -226,7 +238,7 @@ export function AIPanelV2Layout() {
           data-testid="ai-panel-v2-ai-zone"
           className="flex flex-col flex-1 min-h-0 bg-panel overflow-hidden rounded-2xl"
         >
-          <AIZone />
+          <AIZone conversation={conversation} />
         </div>
       </aside>
 

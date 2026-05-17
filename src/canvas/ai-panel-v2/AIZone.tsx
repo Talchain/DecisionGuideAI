@@ -1,26 +1,25 @@
 /**
- * AIZone — owns the right-panel AI conversation surface.
+ * AIZone — the AI conversation surface inside the right panel.
  *
- * Calls `useConversation()` exactly once and routes its instance into
- * either:
- *   • the welcome state (centred composer + guidance text) when no
- *     messages exist yet, or
- *   • the standard state (ConversationPanel + ChatThread + pinned bottom
- *     AIInputBar) once the conversation has at least one message.
+ * The `useConversation()` singleton lives in AIPanelV2Layout (one level
+ * up) so the same instance can be threaded into both the embedded
+ * OutputsDock (for its pre-analysis chip-fires) and AIZone (the main
+ * chat surface). AIZone receives that instance as a prop and renders
+ * one of two states based on `messages.length`:
  *
- * Prefill target: AIZone provides `prefillChat` to ConversationPanel so
- * external flows (inspector "Ask about this", analysis hero prefill)
- * populate the visible AIInputBar instead of the unmounted composerRef.
+ *   • welcome  — first-use centred composer + guidance text
+ *   • standard — pinned ConversationPanel + bottom AIInputBar
  *
- * Singleton invariant (correction #9): exactly one `useConversation()`
- * call per active AI surface. Under FF on, DraftChat is unmounted, so
- * this is the only instance.
+ * Welcome state registers _prefillChat + _sendMessage on guidanceStore
+ * directly so inspector "Ask about this" and context-menu Ask AI work
+ * before the first message lands. ConversationPanel's effect takes over
+ * the registration once it mounts in the standard state.
  */
 
 import { memo, useCallback, useEffect, useRef } from 'react'
 import { typography } from '../../styles/typography'
 import { ConversationPanel } from '../conversation/ConversationPanel'
-import { useConversation } from '../conversation/useConversation'
+import type { UseConversationReturn } from '../conversation/useConversation'
 import { useGuidanceStore } from '../stores/guidanceStore'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { SelectionPill } from './SelectionPill'
@@ -29,8 +28,11 @@ import { StaleAnalysisBadge } from './StaleAnalysisBadge'
 const WELCOME_GUIDANCE =
   'Describe your decision, the options you’re weighing, and what a good outcome looks like.'
 
-export const AIZone = memo(function AIZone() {
-  const conversation = useConversation()
+interface AIZoneProps {
+  conversation: UseConversationReturn
+}
+
+export const AIZone = memo(function AIZone({ conversation }: AIZoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const inputBarRef = useRef<AIInputBarHandle>(null)
   const welcomeInputRef = useRef<AIInputBarHandle>(null)
@@ -47,29 +49,37 @@ export const AIZone = memo(function AIZone() {
   )
 
   const handlePrefill = useCallback((text: string) => {
-    // Whichever input bar is currently mounted receives the prefill. The
-    // welcome bar is mounted only when messages.length === 0; otherwise
-    // the standard compact bar is mounted. Both expose the same handle.
     ;(inputBarRef.current ?? welcomeInputRef.current)?.setText(text)
   }, [])
 
   const showWelcome = conversation.messages.length === 0
 
-  // In welcome state ConversationPanel is not mounted, so its
-  // _prefillChat registration never fires. Register it from AIZone so
-  // external flows (inspector "Ask about this", analysis hero prefill)
-  // still populate the welcome composer's textarea. Once a message lands
-  // and the standard variant mounts, ConversationPanel's effect takes
-  // over (same callback, idempotent overwrite).
+  // Welcome-state cross-surface registration. Inspector "Ask about
+  // this" / context-menu Ask AI / analysis hero actions all read
+  // _sendMessage + _prefillChat from guidanceStore. ConversationPanel
+  // doesn't mount in welcome state, so its registration effect never
+  // fires — register here instead. When the user sends the first
+  // message and ConversationPanel mounts, its own effect re-registers
+  // the same callbacks (idempotent overwrite).
   useEffect(() => {
     if (!showWelcome) return
-    useGuidanceStore.setState({ _prefillChat: handlePrefill })
+    const sendForExternals = (text: string) => {
+      void conversation.sendMessage(text, { debugSource: 'ai_panel_v2_welcome_external' })
+    }
+    useGuidanceStore.setState({
+      _prefillChat: handlePrefill,
+      _sendMessage: sendForExternals,
+    })
     return () => {
-      if (useGuidanceStore.getState()._prefillChat === handlePrefill) {
+      const state = useGuidanceStore.getState()
+      if (state._prefillChat === handlePrefill) {
         useGuidanceStore.setState({ _prefillChat: null })
       }
+      if (state._sendMessage === sendForExternals) {
+        useGuidanceStore.setState({ _sendMessage: null })
+      }
     }
-  }, [showWelcome, handlePrefill])
+  }, [showWelcome, handlePrefill, conversation])
 
   if (showWelcome) {
     return (
