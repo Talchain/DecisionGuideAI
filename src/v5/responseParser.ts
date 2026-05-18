@@ -155,11 +155,11 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
  *     strict validation as-is.
  *   - `phase3`: entries with a `type` in PHASE3_TOLERATED_BLOCK_TYPES.
  *     Preserved verbatim and stashed in the sidecar.
- *   - `unknown`: shape-broken entries (non-object, missing `type`, or any
- *     `type` neither in the legacy schema nor in the Phase 3 whitelist).
- *     The parser hard-fails when this bucket is non-empty and surfaces
- *     offending types via `unknown_block_types` so the debug bundle can
- *     name them.
+ *   - `unknownTypes`: a deduped + sorted list of offending `type` labels
+ *     (or shape descriptors like `'array'` / `'<missing-type>'`) for any
+ *     entry that is neither legacy-known nor in the Phase 3 whitelist.
+ *     The parser hard-fails when this list is non-empty and surfaces it
+ *     verbatim via `unknown_block_types` for the debug bundle.
  *
  * Original input is NOT mutated. The returned arrays are new arrays of the
  * same entries (referential to the original block objects).
@@ -167,32 +167,26 @@ const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
 function splitBlocksTolerance(blocks: unknown[]): {
   known: unknown[];
   phase3: unknown[];
-  unknown: unknown[];
   unknownTypes: string[];
 } {
   const known: unknown[] = [];
   const phase3: unknown[] = [];
-  const unknown: unknown[] = [];
   const unknownTypeSet = new Set<string>();
   for (const entry of blocks) {
     if (entry === null || entry === undefined) {
-      unknown.push(entry);
       unknownTypeSet.add(entry === null ? 'null' : 'undefined');
       continue;
     }
     if (Array.isArray(entry)) {
-      unknown.push(entry);
       unknownTypeSet.add('array');
       continue;
     }
     if (typeof entry !== 'object') {
-      unknown.push(entry);
       unknownTypeSet.add(typeof entry);
       continue;
     }
     const type = (entry as { type?: unknown }).type;
     if (typeof type !== 'string') {
-      unknown.push(entry);
       unknownTypeSet.add('<missing-type>');
       continue;
     }
@@ -204,14 +198,13 @@ function splitBlocksTolerance(blocks: unknown[]): {
       known.push(entry);
       continue;
     }
-    unknown.push(entry);
     unknownTypeSet.add(type);
   }
   // Dedupe + sort so multiple unknown blocks of the same type don't bloat
   // the parse_error reason / debug bundle, and the ordering is stable for
   // reviewers diffing two captures.
   const unknownTypes = [...unknownTypeSet].sort();
-  return { known, phase3, unknown, unknownTypes };
+  return { known, phase3, unknownTypes };
 }
 
 // ---------------------------------------------------------------------------
@@ -321,6 +314,17 @@ export type ParseFailureKind =
   | 'schema_mismatch'
   | 'unknown_block_types'
 
+/**
+ * Literal value of `V5ParseResult['kind']` for the parse-error branch.
+ * Exported so the debug bundle (and any other consumer that introspects
+ * a captured response body) discriminates the envelope by this constant
+ * rather than a hand-rolled string literal — keeps the wire-shape contract
+ * centralised. If the kind label ever changes here, every comparison
+ * follows automatically.
+ */
+export const V5_PARSE_ERROR_KIND = 'parse_error' as const
+export type V5ParseErrorKind = typeof V5_PARSE_ERROR_KIND
+
 export type V5ParseResult =
   | { kind: 'response'; response: OlumiResponse }
   | { kind: 'boundary_error'; error: BoundaryError }
@@ -416,7 +420,7 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     const split = splitBlocksTolerance(
       (known as Record<string, unknown>).blocks as unknown[],
     )
-    if (split.unknown.length > 0) {
+    if (split.unknownTypes.length > 0) {
       // Hard-fail when truly unknown block types appear. The raw response
       // is preserved verbatim so reviewers can inspect the offending
       // payload via the debug bundle.

@@ -443,6 +443,13 @@ describe('callV5Turn runtime/traced sidecar split', () => {
     expect(
       (runtimeResponse as Record<string | symbol, unknown>)[ADDITIVE_EXTENSIONS_KEY],
     ).toBeDefined()
+    // JSON.stringify is the canonical wire-serialisation path consumers
+    // hit (egress validation logs, prompt-cache fingerprints, network
+    // re-emit). The non-enumerable sidecar MUST NOT leak through it.
+    const stringified = JSON.stringify(result.response)
+    expect(stringified).not.toContain(ADDITIVE_EXTENSIONS_KEY)
+    expect(stringified).not.toContain('phase3_blocks_from_blocks_array')
+    expect(stringified).not.toContain('__original_top_level_keys__')
 
     // Trace clone: sidecar is ENUMERABLE so the trace store's
     // Object.keys-based redactor preserves it for the debug bundle.

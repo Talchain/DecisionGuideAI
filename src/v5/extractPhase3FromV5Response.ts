@@ -1,13 +1,21 @@
 /**
- * extractPhase3FromV5Response — read Phase 3 coaching/review/evidence content
- * out of a V5 OlumiResponse without losing fidelity.
+ * extractPhase3FromV5Response — read Phase 3 coaching / review / evidence /
+ * exercise content out of a V5 OlumiResponse without losing fidelity.
  *
- * CEE V5 Phase 3A may carry coaching content in one of three places:
- *   1. The additive sidecar attached by responseParser (ADDITIVE_EXTENSIONS_KEY).
- *   2. `analysis_ready` (declared as passthrough in the V5 schema).
- *   3. The `analysis_result` block's `enrichment` record (passthrough).
+ * CEE V5 Phase 3A may carry coaching content in one of four places:
+ *   1. The additive sidecar attached by responseParser, at the sidecar
+ *      root (conventional `phase3_blocks`, per-type arrays, or single
+ *      `review_card`). Source: 'sidecar'.
+ *   2. The same sidecar's `phase3_blocks_from_blocks_array` slot — Phase 3
+ *      blocks the parser lifted out of `blocks[]` per the v1.3 contract,
+ *      stashed there to keep `OlumiResponse.blocks` strict-schema-clean.
+ *      Source: 'sidecar_blocks_array'.
+ *   3. `analysis_ready` (declared as passthrough in the V5 schema).
+ *      Source: 'analysis_ready'.
+ *   4. The `analysis_result` block's `enrichment` record (passthrough).
+ *      Source: 'enrichment'.
  *
- * This extractor harvests Phase 3 surfaces from all three and returns:
+ * This extractor harvests Phase 3 surfaces from all four and returns:
  *   - `rawBlocks`: the original block payloads, preserved verbatim so
  *     downstream consumers can keep `freshness`, `action_intent`,
  *     `priority_rank`, `target_refs`, `graph_hash_at_generation`, etc.

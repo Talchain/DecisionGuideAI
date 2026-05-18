@@ -46,6 +46,7 @@ import {
   ORIGINAL_TOP_LEVEL_KEYS_KEY,
   PHASE3_SIDECAR_BLOCKS_KEY,
   PHASE3_TOLERATED_BLOCK_TYPES,
+  V5_PARSE_ERROR_KIND,
   type ParseFailureKind,
 } from '../../../v5/responseParser'
 
@@ -2582,7 +2583,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     //       the original 200 JSON sits at `raw`.
     // We classify here so the bundle reflects both cases honestly.
     const ceeIsParseErrorEnvelope =
-      ceeResponseObject !== null && ceeResponseObject.kind === 'parse_error'
+      ceeResponseObject !== null && ceeResponseObject.kind === V5_PARSE_ERROR_KIND
     const ceeRawResponseObject: Record<string, unknown> | null =
       ceeIsParseErrorEnvelope &&
       ceeResponseObject !== null &&
