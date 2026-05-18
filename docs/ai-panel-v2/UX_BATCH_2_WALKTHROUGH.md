@@ -11,21 +11,36 @@ tests). Layout is now driven by canvas + analysis state plus an
 explicit minimise/float toggle, not by user-managed Compact/Conv/Focus
 tabs.
 
-## Local commits ahead of `origin/staging`
+## Local commits ahead of `origin/staging` (verbatim)
 
 ```
 $ git log --oneline origin/staging..HEAD
+ea817bec fix(ai-panel-v2): batch 2 review P1s — full draft + scroll + focus preservation
 30b06082 feat(ai-panel-v2): batch 2 — state-led layout, minimise/float controls, simplified settings menu
 ```
 
-A follow-up commit landing on top of this doc captures the post-batch-2
-review tightening: MinimisedBar input lifted to layout `draftText`,
-focus transfer from minimised → docked on expand, scroll-position
-preservation across `view.kind` transitions, stronger State 2
-assertion that OutputsDock is mounted as `embedded` with a live send
-handler (not a blank panel), refreshed stale `AIZone` comments, and
-two integration test files (`DraftPreservation.spec.tsx`,
-`FloatingDragResize.spec.tsx`).
+A follow-up commit lands on top of this doc edit and captures the
+post-review-round-2 tightening:
+
+- Scroll preservation rewritten to the canonical React lifecycle —
+  capture in the layout-effect CLEANUP (DOM still valid), restore in
+  the layout-effect BODY (new container mounted), clear
+  `savedScrollTopRef` after each restore so a later unrelated render
+  doesn't reapply a stale value. Replaces the earlier "mutate refs
+  during render" approach.
+- New `ScrollPreservation.spec.tsx` (3 tests) drives the layout
+  through docked → minimised → docked and docked → floating → docked
+  against a real scrollable mock ConversationPanel that defines
+  `scrollHeight`/`clientHeight` so the offset actually applies. Third
+  test asserts the stale-state clearing branch.
+- New `State2Readiness.spec.tsx` (4 tests) replaces the
+  prop-introspection-only assertion with a fidelity-mocked
+  OutputsDock that replays its real pre-run branch
+  (`isPreRun && nodes.length > 0 → PreAnalysisPanel`) and asserts:
+  the readiness card renders inside the analysis zone, receives a
+  function `onSendMessage`, disappears on transition to
+  post-analysis, and never renders in welcome (blank-panel regression
+  guard).
 
 ## Five states
 
@@ -60,18 +75,33 @@ Performed against the worktree's POC dev server (`localhost:5176`):
 
 | Across | Draft text | Scroll position | Conversation state |
 |---|---|---|---|
-| docked ↔ minimised | ✅ (layout-owned `draftText`, controlled inputs on both) | ✅ (`savedScrollTopRef` captured pre-swap, restored in `useLayoutEffect`) | ✅ (singleton `useConversation()` in layout) |
+| docked ↔ minimised | ✅ (layout-owned `draftText`, controlled inputs on both) | ✅ (capture in layout-effect cleanup, restore in layout-effect body, clear ref after restore) | ✅ (singleton `useConversation()` in layout) |
 | docked ↔ floating | ✅ | ✅ | ✅ |
 | minimised ↔ floating | ✅ (both controlled by layout) | ✅ | ✅ |
 | Welcome → docked | ✅ (Welcome composer now also controlled) | n/a (no thread in welcome) | ✅ |
 | Expand from minimised | additionally transfers FOCUS to the docked textarea via `focusOnNextDockRef` flag + `surfaceRef.current.focusInput()` | ✅ | ✅ |
 
+Scroll preservation evidence: `ScrollPreservation.spec.tsx` drives the
+layout through both `docked ↔ minimised` and `docked ↔ floating`
+transitions against a ConversationPanel mock that defines a real
+`scrollHeight`/`clientHeight` pair. The third test asserts that an
+unrelated re-render (same `view.kind`, different message count) does
+NOT reapply a stale scrollTop — the ref-clear after restore is what
+guarantees this.
+
+Browser evidence for scroll preservation was deferred this round:
+the dev tab was in background visibility and the local orchestrator
+isn't reachable, so live messages don't populate and a real scroll
+test in the browser couldn't be staged. The integration test above is
+the authoritative proof for this batch; a live browser pass can be
+appended to the next round once the orchestrator is reachable.
+
 ## Tests — exact counts
 
 ```
 $ npx vitest run src/canvas/ai-panel-v2
- Test Files  16 passed (16)
-      Tests  87 passed (87)
+ Test Files  18 passed (18)
+      Tests  94 passed (94)
 ```
 
 New spec files in batch 2:
@@ -81,8 +111,10 @@ New spec files in batch 2:
 - `FloatingPanel.spec.tsx`
 - `useFloatingPanel.spec.tsx`
 - `usePanelView.spec.tsx`
-- `DraftPreservation.spec.tsx` ← post-review (4 view transitions)
-- `FloatingDragResize.spec.tsx` ← post-review (8 cases incl. viewport-clamp regressions)
+- `DraftPreservation.spec.tsx` ← post-review-1 (2 tests: 4 view transitions + minimised-focus-transfer)
+- `FloatingDragResize.spec.tsx` ← post-review-1 (8 cases incl. viewport-clamp regressions)
+- `ScrollPreservation.spec.tsx` ← post-review-2 (3 tests with real scrollable thread)
+- `State2Readiness.spec.tsx` ← post-review-2 (4 tests with fidelity-mocked OutputsDock)
 
 Existing rewritten for the state-led model: `AIPanelV2Layout.spec.tsx`
 (now with a State-2 assertion that OutputsDock mounts as `embedded`
@@ -127,7 +159,13 @@ scoped to `src/canvas/ai-panel-v2` only.
 
 ## Hard constraints — all held
 
-- No new Zustand store; no `localStorage`/`sessionStorage` for v2 state
+- **No new Zustand store; no `localStorage`/`sessionStorage` for the
+  AI panel v2 surface.** Scope clarification: `OutputsDock` itself
+  uses `sessionStorage` (key `canvas.outputsDock.v1`) for its own tab
+  + open-state persistence — that's pre-existing behaviour from
+  before Batch 1 and lives entirely inside `useDockState` in
+  `src/canvas/hooks/useDockState.ts`. This batch does NOT introduce
+  any new storage; the v2 layout owns no persisted state.
 - No `as any` / `as unknown` introduced
 - No new semantic transforms (no new UI-SEM ID)
 - No CEE / PLoT request shape changes

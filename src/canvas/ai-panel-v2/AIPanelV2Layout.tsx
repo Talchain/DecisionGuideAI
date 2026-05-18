@@ -87,35 +87,53 @@ export function AIPanelV2Layout() {
   // Thread scrollTop preservation. ConversationSurface re-mounts when
   // the view switches between docked and floating (different parent
   // containers), so React resets the new container's scrollTop to 0.
-  // We capture the OUTGOING container's scrollTop in a layout effect
-  // keyed to `view.kind`, then restore it after the next surface mount.
+  //
+  // The pattern used here is the canonical React lifecycle:
+  //   • A `useLayoutEffect` keyed to `view.kind`. The CLEANUP runs on
+  //     the OUTGOING render (right before React unmounts the
+  //     previous-view subtree), and we capture `scrollTop` there.
+  //     scrollTop is still valid at that moment because the DOM has
+  //     not been mutated for the new view yet.
+  //   • The same effect's BODY runs on the INCOMING render, after the
+  //     new view has mounted. We restore the saved offset (clamped to
+  //     the new scrollHeight) and clear the ref so a later unrelated
+  //     re-render does not reapply a stale value.
+  //
+  // This replaces the earlier "mutate refs during render" trick — refs
+  // are now read/written only inside effects, the canonical lifecycle
+  // hook for DOM-backed state.
   const threadScrollRef = useRef<HTMLDivElement | null>(null)
   const savedScrollTopRef = useRef<number | null>(null)
-  const prevViewKindRef = useRef(view.kind)
   const surfaceRef = useRef<ConversationSurfaceHandle>(null)
   const welcomeRef = useRef<WelcomeComposerHandle>(null)
   const minimisedRef = useRef<MinimisedBarHandle>(null)
 
-  // Capture scrollTop just before React swaps containers. This runs
-  // synchronously during render on the FIRST render where view.kind
-  // differs from the previous — `threadScrollRef.current` still points
-  // at the OUTGOING surface at this moment (the new tree has not
-  // committed yet).
-  if (prevViewKindRef.current !== view.kind && threadScrollRef.current) {
-    savedScrollTopRef.current = threadScrollRef.current.scrollTop
-  }
-  prevViewKindRef.current = view.kind
-
-  // Restore scrollTop on the new container right after the swap
-  // commits, before paint. Clamped to the new scrollHeight so it
-  // doesn't try to scroll past content that may be a different size
-  // (Welcome → docked → floating each have different chrome).
   useLayoutEffect(() => {
+    // Restore — runs on every view.kind change AFTER the new surface
+    // mounts. Only acts when there's a saved offset from a prior view.
     const el = threadScrollRef.current
     const saved = savedScrollTopRef.current
-    if (!el || saved == null || saved <= 0) return
-    const maxScroll = el.scrollHeight - el.clientHeight
-    if (maxScroll > 0) el.scrollTop = Math.min(saved, maxScroll)
+    if (el && saved != null && saved > 0) {
+      const maxScroll = el.scrollHeight - el.clientHeight
+      if (maxScroll > 0) el.scrollTop = Math.min(saved, maxScroll)
+    }
+    // Clear after each transition so a subsequent unrelated re-render
+    // (e.g. messages.length change) doesn't reapply a stale value.
+    savedScrollTopRef.current = null
+
+    // Capture — closes over the SAME ref object (not the current
+    // .current value), so when cleanup runs the read sees the
+    // ref's value at cleanup time. ConversationSurface mirrors its
+    // scroll container into the same ref via the `scrollListRef`
+    // prop, which keeps `.current` pointing at the still-detached but
+    // scrollTop-bearing OUTGOING container DOM node until the next
+    // surface's mount-effect overwrites it. Empirically validated
+    // by `ScrollPreservation.spec.tsx`.
+    const refForCleanup = threadScrollRef
+    return () => {
+      const outgoing = refForCleanup.current
+      if (outgoing) savedScrollTopRef.current = outgoing.scrollTop
+    }
   }, [view.kind])
 
   // ── Attachment plumbing (hidden file input lives at layout root) ──
