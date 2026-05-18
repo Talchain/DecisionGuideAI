@@ -15,6 +15,7 @@
  */
 
 import type { AnalysisStateSource } from '../canvas/hooks/useAnalysisStateSource'
+import type { ParseFailureKind } from '../v5/responseParser'
 
 export type AnalysisFactStatus = 'present' | 'missing' | 'unknown_not_checked'
 
@@ -37,8 +38,39 @@ export interface V5CeeCapture {
   parse_ok: boolean
   parse_error: string | null
   response_top_level_keys: string[] | null
-  /** Whether additive extensions were detected on the response root. */
+  /**
+   * Whether the bundle carries the VERBATIM pre-validation JSON body.
+   *   - Parse-error path: true when the parser envelope preserved `raw`
+   *     (the JSON.parse output before strict validation).
+   *   - Success path: false. The trace stores a parsed clone (validated,
+   *     `blocks[]` pruned of tolerated Phase 3 entries, `__additive__`
+   *     sidecar promoted to an enumerable key) — not the literal wire
+   *     JSON. Reviewers reconstructing the wire shape combine
+   *     `response_top_level_keys` (sourced from sidecar metadata) with
+   *     the phase3 sidecar.
+   */
+  raw_response_present: boolean
+  /** Why parsing failed; null on success. */
+  parse_failure_kind: ParseFailureKind | null
+  /**
+   * Offending block `type` values when parse_failure_kind is
+   * `unknown_block_types`. Null otherwise.
+   */
+  unknown_block_types: string[] | null
+  /**
+   * Whether top-level additive extensions (NOT phase 3 blocks-array
+   * entries) were detected. Phase 3 blocks have dedicated fields below.
+   */
   has_additive_extensions: boolean
+  /**
+   * Count of v1.3 Phase 3 blocks tolerated out of `blocks[]` by the parser
+   * (review_card / coaching / evidence / exercise). Distinct from
+   * `has_additive_extensions` because Phase 3 blocks live inside `blocks[]`
+   * per the contract, not as top-level additive fields.
+   */
+  phase3_blocks_tolerated_count: number
+  /** Distinct, sorted Phase 3 block types observed (subset of the whitelist). */
+  phase3_block_types: string[]
   source: 'proxy_v5_turn'
 }
 

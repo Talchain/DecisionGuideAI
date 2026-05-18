@@ -41,7 +41,14 @@ import {
   type V5CeeCapture,
 } from '../../../lib/v5CanonicalAnalysisDiagnostics'
 import { isV5CanonicalAnalysisEnabled } from '../../../flags'
-import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
+import {
+  ADDITIVE_EXTENSIONS_KEY,
+  ORIGINAL_TOP_LEVEL_KEYS_KEY,
+  PHASE3_SIDECAR_BLOCKS_KEY,
+  PHASE3_TOLERATED_BLOCK_TYPES,
+  V5_PARSE_ERROR_KIND,
+  type ParseFailureKind,
+} from '../../../v5/responseParser'
 
 // =============================================================================
 // Feature Flag
@@ -2562,12 +2569,35 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const storeState = useCanvasStore.getState()
     const fact = storeState.v5AnalysisFact
 
+    const ceeRequest = bundle.payloads.cee_request
     const ceeResponse = bundle.payloads.cee_response
     const ceeResponseObject =
       ceeResponse && typeof ceeResponse === 'object' && !Array.isArray(ceeResponse)
         ? (ceeResponse as Record<string, unknown>)
         : null
-    const responseBlocks = ceeResponseObject?.blocks
+
+    // The captured body may be either:
+    //   (a) a successful OlumiResponse (object), or
+    //   (b) a `parse_error` envelope from responseParser: `{ kind:
+    //       'parse_error', reason, raw?, parse_failure_kind?, ... }`. In (b)
+    //       the original 200 JSON sits at `raw`.
+    // We classify here so the bundle reflects both cases honestly.
+    const ceeIsParseErrorEnvelope =
+      ceeResponseObject !== null && ceeResponseObject.kind === V5_PARSE_ERROR_KIND
+    const ceeRawResponseObject: Record<string, unknown> | null =
+      ceeIsParseErrorEnvelope &&
+      ceeResponseObject !== null &&
+      typeof ceeResponseObject.raw === 'object' &&
+      ceeResponseObject.raw !== null &&
+      !Array.isArray(ceeResponseObject.raw)
+        ? (ceeResponseObject.raw as Record<string, unknown>)
+        : ceeIsParseErrorEnvelope
+          ? null
+          : ceeResponseObject
+
+    // analysis_result detection runs against the RAW response when present
+    // so a parse_error doesn't hide the upstream Phase 3-tolerated payload.
+    const responseBlocks = ceeRawResponseObject?.blocks
     const ceeResponseHasAnalysisResult = Array.isArray(responseBlocks)
       ? responseBlocks.some(
           (b) =>
@@ -2578,36 +2608,164 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         )
       : false
 
-    const ceeService = data.services.cee ?? null
-    // services.cee carries { status, duration_ms, success } only — endpoint
-    // is not on the type. We surface request_id + status + duration; the
-    // exact URL is recoverable from getV5Endpoint() but reading it here
-    // would re-resolve env at export time, which is misleading when the
-    // capture pre-dates the export.
-    const v5Capture: V5CeeCapture | null = ceeService
-      ? {
-          request_id: data.overall.request_id,
-          scenario_id: storeState.currentScenarioId,
-          turn_id: fact?.analysisHash ?? null,
-          endpoint: null,
-          status: ceeService.status,
-          duration_ms: ceeService.duration_ms,
-          request_present: bundle.payloads.cee_request !== null,
-          response_present: ceeResponseObject !== null,
-          parse_ok: ceeResponseObject !== null,
-          parse_error: null,
-          response_top_level_keys: ceeResponseObject
-            ? Object.keys(ceeResponseObject).sort()
-            : null,
-          has_additive_extensions:
-            ceeResponseObject !== null &&
-            Object.prototype.hasOwnProperty.call(
-              ceeResponseObject,
-              ADDITIVE_EXTENSIONS_KEY,
+    // Enumerate Phase 3 blocks landing inside `blocks[]` (whitelisted set
+    // only). Read from the parsed response's sidecar first; if the parser
+    // failed before stashing the sidecar, fall back to scanning the raw
+    // blocks array.
+    const phase3FromSidecar = (() => {
+      if (ceeResponseObject === null || ceeIsParseErrorEnvelope) return null
+      const sidecar = (ceeResponseObject as Record<string | symbol, unknown>)[
+        ADDITIVE_EXTENSIONS_KEY as unknown as string
+      ]
+      if (!sidecar || typeof sidecar !== 'object' || Array.isArray(sidecar)) return null
+      const fromBlocksArray = (sidecar as Record<string, unknown>)[
+        PHASE3_SIDECAR_BLOCKS_KEY
+      ]
+      return Array.isArray(fromBlocksArray) ? fromBlocksArray : null
+    })()
+    const phase3FromRaw = phase3FromSidecar === null && Array.isArray(responseBlocks)
+      ? responseBlocks.filter(
+          (b) =>
+            b !== null &&
+            typeof b === 'object' &&
+            !Array.isArray(b) &&
+            typeof (b as Record<string, unknown>).type === 'string' &&
+            (PHASE3_TOLERATED_BLOCK_TYPES as ReadonlySet<string>).has(
+              (b as Record<string, unknown>).type as string,
             ),
-          source: 'proxy_v5_turn',
-        }
+        )
       : null
+    const phase3Source = phase3FromSidecar ?? phase3FromRaw ?? []
+    const phase3BlockTypes = Array.from(
+      new Set(
+        phase3Source
+          .map((b) =>
+            b !== null && typeof b === 'object' && !Array.isArray(b)
+              ? ((b as Record<string, unknown>).type as string)
+              : null,
+          )
+          .filter((t): t is string => typeof t === 'string'),
+      ),
+    ).sort()
+
+    // ceeService is no longer the gate — payload-trace evidence
+    // (cee_request / cee_response) is sufficient to emit a capture object,
+    // and parse failures must populate the diagnostic even when the
+    // services slice is empty.
+    const ceeService = data.services.cee ?? null
+    const requestPresent = ceeRequest !== null && ceeRequest !== undefined
+    const responsePresent = ceeResponse !== null && ceeResponse !== undefined
+    const parseOk = responsePresent && !ceeIsParseErrorEnvelope
+
+    const parseError = ceeIsParseErrorEnvelope
+      ? (() => {
+          const reason =
+            typeof ceeResponseObject?.reason === 'string'
+              ? (ceeResponseObject.reason as string)
+              : 'parse_error'
+          return reason.length > 500 ? `${reason.slice(0, 500)}…` : reason
+        })()
+      : null
+    const parseFailureKind: ParseFailureKind | null = ceeIsParseErrorEnvelope
+      ? (typeof ceeResponseObject?.parse_failure_kind === 'string'
+          ? (ceeResponseObject.parse_failure_kind as ParseFailureKind)
+          : 'schema_mismatch')
+      : null
+    const unknownBlockTypes = ceeIsParseErrorEnvelope &&
+      Array.isArray(ceeResponseObject?.unknown_block_types)
+      ? (ceeResponseObject!.unknown_block_types as unknown[]).filter(
+          (t): t is string => typeof t === 'string',
+        )
+      : null
+
+    // response_top_level_keys — must reflect the ORIGINAL CEE root shape,
+    // not the parsed clone (which has `__additive__` promoted as an
+    // enumerable key and is missing the demoted top-level Phase 3 extras
+    // like analysis_freshness / has_run_analysis_fact / freshness_reason).
+    //
+    // Source precedence:
+    //   1. Parse-error envelope → keys of `envelope.raw` (verbatim original).
+    //   2. Success path with sidecar carrying ORIGINAL_TOP_LEVEL_KEYS_KEY
+    //      metadata (parser writes this whenever any sidecar is emitted).
+    //   3. Fallback: keys of the captured body (parsed clone). Honest only
+    //      when no sidecar is present — i.e. CEE emitted no top-level
+    //      additives AND no Phase 3 blocks AND the parsed shape equals
+    //      the wire shape.
+    const successSidecar: Record<string, unknown> | null =
+      ceeResponseObject !== null && !ceeIsParseErrorEnvelope
+        ? (() => {
+            const sc = (ceeResponseObject as Record<string | symbol, unknown>)[
+              ADDITIVE_EXTENSIONS_KEY as unknown as string
+            ]
+            return sc && typeof sc === 'object' && !Array.isArray(sc)
+              ? (sc as Record<string, unknown>)
+              : null
+          })()
+        : null
+    const originalKeysFromSidecar = successSidecar
+      ? (successSidecar[ORIGINAL_TOP_LEVEL_KEYS_KEY] as unknown)
+      : null
+    const responseTopLevelKeys: string[] | null = ceeIsParseErrorEnvelope
+      ? ceeRawResponseObject !== null
+        ? Object.keys(ceeRawResponseObject).sort()
+        : null
+      : Array.isArray(originalKeysFromSidecar)
+        ? (originalKeysFromSidecar as unknown[]).filter(
+            (k): k is string => typeof k === 'string',
+          )
+        : ceeResponseObject !== null
+          ? Object.keys(ceeResponseObject).sort()
+          : null
+
+    // raw_response_present — true iff the bundle carries the VERBATIM
+    // pre-validation JSON body. The parser preserves it on the parse_error
+    // path via `envelope.raw`. On success the trace stores a parsed clone
+    // (validated, blocks pruned, sidecar promoted to an enumerable key) —
+    // not the literal wire JSON — so this is honestly false. Reviewers
+    // wanting to reconstruct the original use `response_top_level_keys`
+    // (now sourced from sidecar metadata) plus the phase3 sidecar.
+    const rawResponsePresent = ceeIsParseErrorEnvelope && ceeRawResponseObject !== null
+
+    // `has_additive_extensions` is documented as TOP-LEVEL additive
+    // extensions only — the kind of unknown keys CEE emits at the
+    // response root ahead of a schema bump. The sidecar may also carry
+    // diagnostic metadata (Phase 3 blocks lifted out of `blocks[]`,
+    // original top-level key list); those are NOT top-level additive
+    // fields and must not flip this flag. Compute from the sidecar's
+    // remaining keys after excluding the metadata slots.
+    const hasAdditiveExtensions = (() => {
+      if (successSidecar === null) return false
+      for (const k of Object.keys(successSidecar)) {
+        if (k === PHASE3_SIDECAR_BLOCKS_KEY) continue
+        if (k === ORIGINAL_TOP_LEVEL_KEYS_KEY) continue
+        return true
+      }
+      return false
+    })()
+
+    const v5Capture: V5CeeCapture | null =
+      requestPresent || responsePresent || ceeService
+        ? {
+            request_id: data.overall.request_id,
+            scenario_id: storeState.currentScenarioId,
+            turn_id: fact?.analysisHash ?? null,
+            endpoint: null,
+            status: ceeService?.status ?? null,
+            duration_ms: ceeService?.duration_ms ?? null,
+            request_present: requestPresent,
+            response_present: responsePresent,
+            parse_ok: parseOk,
+            parse_error: parseError,
+            response_top_level_keys: responseTopLevelKeys,
+            raw_response_present: rawResponsePresent,
+            parse_failure_kind: parseFailureKind,
+            unknown_block_types: unknownBlockTypes,
+            has_additive_extensions: hasAdditiveExtensions,
+            phase3_blocks_tolerated_count: phase3Source.length,
+            phase3_block_types: phase3BlockTypes,
+            source: 'proxy_v5_turn',
+          }
+        : null
 
     const plotRequestCaptured = bundle.payloads.plot_request !== null
 

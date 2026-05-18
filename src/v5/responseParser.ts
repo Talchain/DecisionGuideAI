@@ -16,13 +16,21 @@
  *
  * Additive top-level tolerance (v5-canonical-analysis brief, correction 7):
  * - OlumiResponseSchema is .strict() so unknown top-level keys would fail
- *   parse. CEE may emit additive top-level fields (e.g. guidance_items,
- *   phase 3 coaching/review_card/evidence blocks, analysis_freshness)
- *   ahead of a schema-package bump. To tolerate these without losing them,
- *   unknown top-level keys are split off into an `additiveExtensions` map
- *   BEFORE strict validation, then attached to the parsed result via a
- *   non-enumerable sidecar (`__additive__`). Nested schemas remain strict —
- *   only the response root is widened.
+ *   parse. Unknown top-level keys are split off into an `additiveExtensions`
+ *   map BEFORE strict validation, then attached to the parsed result via a
+ *   non-enumerable sidecar (`__additive__`).
+ *
+ * v1.3 Phase 3 blocks-array tolerance (Phase 3 fix, 2026-05-18):
+ * - CEE emits the v1.3 Phase 3 block types `review_card | coaching |
+ *   evidence | exercise` INSIDE `blocks[]` per the frozen contract. The
+ *   vendored @talchain/schemas (0.8.1) does not yet include them in the
+ *   `blocks[]` discriminated union, so a literal pass-through fails strict
+ *   validation. We tolerate ONLY this canonical whitelist by splitting
+ *   `blocks[]` into known-to-schema, phase3-tolerated, and truly-unknown
+ *   before validation. Known blocks go to strict validation; phase3 blocks
+ *   are attached to the sidecar under `phase3_blocks_from_blocks_array`;
+ *   truly-unknown types still produce a `parse_error` whose `reason`
+ *   enumerates the offending types. Nested product schemas remain strict.
  */
 import {
   OlumiResponseSchema,
@@ -33,6 +41,46 @@ import {
 
 /** Sidecar key used to carry additive extensions on a parsed OlumiResponse. */
 export const ADDITIVE_EXTENSIONS_KEY = '__additive__' as const;
+
+/**
+ * Sidecar key inside the additive-extensions map under which v1.3 Phase 3
+ * blocks pulled out of `blocks[]` are stashed. Consumers (e.g.
+ * extractPhase3FromV5Response) read this slot directly.
+ */
+export const PHASE3_SIDECAR_BLOCKS_KEY = 'phase3_blocks_from_blocks_array' as const;
+
+/**
+ * Sidecar key carrying the pre-validation top-level key list of the raw
+ * CEE body. Recorded only when a sidecar is being emitted (i.e. on success
+ * paths where additive top-level keys or Phase 3 blocks were tolerated).
+ * Diagnostic-only — lets the debug bundle report the ORIGINAL CEE root
+ * shape instead of the parsed-clone shape (which has `__additive__`
+ * promoted as an enumerable key in the trace store).
+ */
+export const ORIGINAL_TOP_LEVEL_KEYS_KEY = '__original_top_level_keys__' as const;
+
+/**
+ * Whitelist of v1.3 Phase 3 block types tolerated inside `blocks[]`. Any
+ * other unknown `type` discriminator inside `blocks[]` still hard-fails the
+ * parse so accidental schema drift is detected.
+ *
+ * Exported as `ReadonlySet` to prevent accidental mutation of the
+ * tolerated-type allowlist at consumer boundaries (.add/.delete are not
+ * available on the public type). The underlying Set is constructed from a
+ * literal tuple so the union member type can still be derived.
+ */
+export type Phase3ToleratedBlockType =
+  | 'review_card'
+  | 'coaching'
+  | 'evidence'
+  | 'exercise';
+
+export const PHASE3_TOLERATED_BLOCK_TYPES: ReadonlySet<Phase3ToleratedBlockType> = new Set<Phase3ToleratedBlockType>([
+  'review_card',
+  'coaching',
+  'evidence',
+  'exercise',
+]);
 
 /**
  * OlumiResponse extended with the additive sidecar. Consumers reading
@@ -79,6 +127,84 @@ function splitAdditiveExtensions(raw: unknown): {
     }
   }
   return { known, extensions };
+}
+
+/**
+ * Block types declared by the strict @talchain/schemas (0.8.1) discriminated
+ * union for `blocks[]`. Source: dist/boundary/blocks.js inside the vendored
+ * tarball. Kept as a DGAI-side mirror so the parser can classify entries
+ * BEFORE strict validation and give a precise diagnostic on truly unknown
+ * types. If the schema package adds a block type, add it here too; a missed
+ * type produces a clear parse_error (the offender is named in
+ * `unknown_block_types`), which the tests will catch.
+ */
+const LEGACY_SCHEMA_KNOWN_BLOCK_TYPES: ReadonlySet<string> = new Set([
+  'text',
+  'error',
+  'analysis_result',
+  'graph_patch',
+  'explanation',
+  'comparison',
+  'flip_analysis',
+  'draft_graph',
+]);
+
+/**
+ * Classify the entries of `blocks[]` against the v1.3 contract:
+ *   - `known`: entries with a `type` in the legacy schema. Forwarded to
+ *     strict validation as-is.
+ *   - `phase3`: entries with a `type` in PHASE3_TOLERATED_BLOCK_TYPES.
+ *     Preserved verbatim and stashed in the sidecar.
+ *   - `unknownTypes`: a deduped + sorted list of offending `type` labels
+ *     (or shape descriptors like `'array'` / `'<missing-type>'`) for any
+ *     entry that is neither legacy-known nor in the Phase 3 whitelist.
+ *     The parser hard-fails when this list is non-empty and surfaces it
+ *     verbatim via `unknown_block_types` for the debug bundle.
+ *
+ * Original input is NOT mutated. The returned arrays are new arrays of the
+ * same entries (referential to the original block objects).
+ */
+function splitBlocksTolerance(blocks: unknown[]): {
+  known: unknown[];
+  phase3: unknown[];
+  unknownTypes: string[];
+} {
+  const known: unknown[] = [];
+  const phase3: unknown[] = [];
+  const unknownTypeSet = new Set<string>();
+  for (const entry of blocks) {
+    if (entry === null || entry === undefined) {
+      unknownTypeSet.add(entry === null ? 'null' : 'undefined');
+      continue;
+    }
+    if (Array.isArray(entry)) {
+      unknownTypeSet.add('array');
+      continue;
+    }
+    if (typeof entry !== 'object') {
+      unknownTypeSet.add(typeof entry);
+      continue;
+    }
+    const type = (entry as { type?: unknown }).type;
+    if (typeof type !== 'string') {
+      unknownTypeSet.add('<missing-type>');
+      continue;
+    }
+    if (PHASE3_TOLERATED_BLOCK_TYPES.has(type as Phase3ToleratedBlockType)) {
+      phase3.push(entry);
+      continue;
+    }
+    if (LEGACY_SCHEMA_KNOWN_BLOCK_TYPES.has(type)) {
+      known.push(entry);
+      continue;
+    }
+    unknownTypeSet.add(type);
+  }
+  // Dedupe + sort so multiple unknown blocks of the same type don't bloat
+  // the parse_error reason / debug bundle, and the ordering is stable for
+  // reviewers diffing two captures.
+  const unknownTypes = [...unknownTypeSet].sort();
+  return { known, phase3, unknownTypes };
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +303,28 @@ function truncateBody(text: string, maxLen = 500): string {
 // Result types
 // ---------------------------------------------------------------------------
 
+/**
+ * Why a parse_error fired. Surfaced verbatim in the debug bundle so a
+ * reader can distinguish a transport-level non-JSON body from a schema
+ * mismatch from an unknown block type from a malformed-known nested shape.
+ */
+export type ParseFailureKind =
+  | 'non_json'
+  | 'non_ok_non_boundary'
+  | 'schema_mismatch'
+  | 'unknown_block_types'
+
+/**
+ * Literal value of `V5ParseResult['kind']` for the parse-error branch.
+ * Exported so the debug bundle (and any other consumer that introspects
+ * a captured response body) discriminates the envelope by this constant
+ * rather than a hand-rolled string literal — keeps the wire-shape contract
+ * centralised. If the kind label ever changes here, every comparison
+ * follows automatically.
+ */
+export const V5_PARSE_ERROR_KIND = 'parse_error' as const
+export type V5ParseErrorKind = typeof V5_PARSE_ERROR_KIND
+
 export type V5ParseResult =
   | { kind: 'response'; response: OlumiResponse }
   | { kind: 'boundary_error'; error: BoundaryError }
@@ -187,6 +335,10 @@ export type V5ParseResult =
       raw?: unknown
       source?: ErrorSource
       diagnosticHeaders?: DiagnosticHeaders
+      /** Why parsing failed; populated for all parse_error branches. */
+      parse_failure_kind?: ParseFailureKind
+      /** Populated when parse_failure_kind === 'unknown_block_types'. */
+      unknown_block_types?: string[]
     };
 
 // ---------------------------------------------------------------------------
@@ -208,6 +360,7 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
       http_status: res.status,
       source: 'unknown',
       diagnosticHeaders: captureDiagnosticHeaders(res),
+      parse_failure_kind: 'non_json',
     };
   }
 
@@ -224,6 +377,7 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
       raw: truncateBody(text),
       source,
       diagnosticHeaders: captureDiagnosticHeaders(res),
+      parse_failure_kind: 'non_json',
     };
   }
 
@@ -242,35 +396,93 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
       raw,
       source,
       diagnosticHeaders: captureDiagnosticHeaders(res),
+      parse_failure_kind: 'non_ok_non_boundary',
     };
   }
 
   // 2xx path: must parse as OlumiResponse.
-  // Tolerance step: split additive top-level keys off the known surface so
-  // strict validation only sees the declared shape. Nested schemas remain
-  // strict (unknown keys inside blocks / suggested_actions / etc. still fail).
+  // Tolerance step 1: split additive top-level keys off the known surface
+  // so strict validation only sees the declared shape.
   const { known, extensions } = splitAdditiveExtensions(raw);
-  const parsed = OlumiResponseSchema.safeParse(known);
-  if (parsed.success) {
-    if (Object.keys(extensions).length === 0) {
-      return { kind: 'response', response: parsed.data };
+
+  // Tolerance step 2 (Phase 3 blocks-array fix): if `blocks` is an array,
+  // classify each entry. Schema-known entries continue to strict validation;
+  // Phase 3 whitelist entries get stashed in the sidecar; truly unknown
+  // entries trigger a hard parse_error that names the offending types.
+  let phase3Blocks: readonly unknown[] = []
+  let knownForValidation: unknown = known
+  if (
+    known !== null &&
+    typeof known === 'object' &&
+    !Array.isArray(known) &&
+    Array.isArray((known as Record<string, unknown>).blocks)
+  ) {
+    const split = splitBlocksTolerance(
+      (known as Record<string, unknown>).blocks as unknown[],
+    )
+    if (split.unknownTypes.length > 0) {
+      // Hard-fail when truly unknown block types appear. The raw response
+      // is preserved verbatim so reviewers can inspect the offending
+      // payload via the debug bundle.
+      return {
+        kind: 'parse_error',
+        reason: `unknown block type(s) in blocks[]: ${split.unknownTypes.join(', ')}`,
+        http_status: res.status,
+        raw,
+        diagnosticHeaders: captureDiagnosticHeaders(res),
+        parse_failure_kind: 'unknown_block_types',
+        unknown_block_types: split.unknownTypes,
+      }
     }
-    // Attach extensions via a non-enumerable, readonly property. Consumers
-    // who care opt in via the ADDITIVE_EXTENSIONS_KEY symbol; everyone else
-    // sees the unchanged OlumiResponse shape.
-    const withExt: OlumiResponseWithExtensions = parsed.data;
+    // Replace blocks for validation with the legacy-known slice, leaving
+    // the raw input untouched. We build a shallow clone of the known
+    // surface (which is itself already a shallow clone of raw produced by
+    // splitAdditiveExtensions).
+    knownForValidation = {
+      ...(known as Record<string, unknown>),
+      blocks: split.known,
+    }
+    phase3Blocks = split.phase3
+  }
+
+  const parsed = OlumiResponseSchema.safeParse(knownForValidation)
+  if (parsed.success) {
+    const hasTopLevelExt = Object.keys(extensions).length > 0
+    const hasPhase3 = phase3Blocks.length > 0
+    if (!hasTopLevelExt && !hasPhase3) {
+      return { kind: 'response', response: parsed.data }
+    }
+    // Compose the sidecar payload. Top-level additive keys keep their
+    // existing surface. Phase 3 blocks pulled out of blocks[] land under a
+    // distinct key so consumers can read them without conflating with
+    // top-level additive keys. The pre-validation top-level keys are
+    // stashed too, so the debug bundle can faithfully report the ORIGINAL
+    // CEE root shape (the parsed clone surfaces `__additive__` and drops
+    // the demoted top-level extras, so its keys list is misleading).
+    const sidecar: Record<string, unknown> = { ...extensions }
+    if (hasPhase3) {
+      sidecar[PHASE3_SIDECAR_BLOCKS_KEY] = Object.freeze(phase3Blocks.slice())
+    }
+    if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
+      sidecar[ORIGINAL_TOP_LEVEL_KEYS_KEY] = Object.freeze(
+        Object.keys(raw as Record<string, unknown>).sort(),
+      )
+    }
+    const withExt: OlumiResponseWithExtensions = parsed.data
     Object.defineProperty(withExt, ADDITIVE_EXTENSIONS_KEY, {
-      value: Object.freeze(extensions),
+      value: Object.freeze(sidecar),
       enumerable: false,
       writable: false,
       configurable: false,
-    });
-    return { kind: 'response', response: withExt };
+    })
+    return { kind: 'response', response: withExt }
   }
   return {
     kind: 'parse_error',
     reason: 'body did not match OlumiResponse schema',
     http_status: res.status,
     raw,
+    diagnosticHeaders: captureDiagnosticHeaders(res),
+    parse_failure_kind: 'schema_mismatch',
   };
 }

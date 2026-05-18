@@ -18,7 +18,12 @@
 import type { OrchestratorTurnPayload } from '@talchain/schemas/boundary';
 
 import { recordRequestPayload, recordResponsePayload } from '../lib/payload-trace-store';
-import { parseV5Response, type V5ParseResult } from './responseParser';
+import {
+  ADDITIVE_EXTENSIONS_KEY,
+  parseV5Response,
+  type OlumiResponseWithExtensions,
+  type V5ParseResult,
+} from './responseParser';
 
 export type V5CallResult = V5ParseResult;
 
@@ -138,11 +143,34 @@ export async function callV5Turn(
   }
 
   const parsed = await parseV5Response(res);
+
+  // Build a trace-safe diagnostic body.
+  //
+  // The parser attaches its additive-extensions sidecar (top-level keys
+  // outside the strict schema + v1.3 Phase 3 blocks tolerated out of
+  // `blocks[]`) as a NON-ENUMERABLE property so it stays invisible to
+  // JSON.stringify and normal enumeration. The diagnostic trace store
+  // redacts via Object.keys (src/utils/payloadRedaction.ts:247), which
+  // SKIPS non-enumerable properties — dropping the sidecar before the
+  // debug bundle can read it. Promote the sidecar to an ENUMERABLE
+  // property on a shallow clone so it survives redaction. The runtime
+  // `parsed.response` object stays untouched (its sidecar remains
+  // non-enumerable for non-diagnostic consumers).
+  let traceBody: unknown
+  if (parsed.kind === 'response') {
+    const additive = (parsed.response as OlumiResponseWithExtensions)[ADDITIVE_EXTENSIONS_KEY]
+    traceBody = additive
+      ? { ...parsed.response, [ADDITIVE_EXTENSIONS_KEY]: additive }
+      : parsed.response
+  } else {
+    traceBody = parsed
+  }
+
   recordResponsePayload({
     id: requestId,
     status: res.status,
     headers: Object.fromEntries(res.headers.entries()),
-    body: parsed.kind === 'response' ? parsed.response : parsed,
+    body: traceBody,
     duration: Date.now() - requestedAt,
   });
   return parsed;

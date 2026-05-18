@@ -200,9 +200,12 @@ export interface ResultsState {
  * current scenario?". Generic `ceeAnalysisReady` readiness MUST NOT be used
  * as a substitute.
  *
- * Phase 3 blocks (coaching / review_card / evidence) are preserved verbatim
- * in `rawBlocks` so consumers can read freshness, action_intent,
- * priority_rank, target_refs, and graph_hash_at_generation directly.
+ * Phase 3 blocks (coaching / review_card / evidence / exercise) are
+ * preserved verbatim in `rawBlocks` so consumers can read freshness,
+ * action_intent, priority_rank, target_refs, and graph_hash_at_generation
+ * directly. The `source` discriminator tracks where the parser harvested
+ * each block (sidecar / analysis_ready / enrichment / blocks[] via the
+ * Phase 3 tolerance shim).
  */
 export interface V5AnalysisFactState {
   /** The scenarioId this fact attaches to. Cleared when scenario changes. */
@@ -217,10 +220,10 @@ export interface V5AnalysisFactState {
   freshnessReason: string | null
   /** Raw Phase 3 blocks preserved verbatim — no field flattening. */
   rawBlocks: Array<{
-    type: 'coaching' | 'review_card' | 'evidence'
+    type: 'coaching' | 'review_card' | 'evidence' | 'exercise'
     raw: Record<string, unknown>
     id: string
-    source: 'sidecar' | 'analysis_ready' | 'enrichment'
+    source: 'sidecar' | 'analysis_ready' | 'enrichment' | 'sidecar_blocks_array'
   }>
   /** When this slice was written (ms since epoch). Diagnostics only. */
   writtenAt: number
