@@ -60,6 +60,11 @@ describe('parseV5Response additive top-level tolerance', () => {
     }
     const result = await parseV5Response(makeResponse(payload))
     expect(result.kind).toBe('parse_error')
+    if (result.kind !== 'parse_error') throw new Error('unreachable')
+    // Phase 3 fix: every parse_error now carries an explicit failure kind so
+    // the debug bundle can distinguish a malformed-known block from an
+    // unknown-type or non-JSON failure.
+    expect(result.parse_failure_kind).toBe('schema_mismatch')
   })
 
   it('still fails parse when a known top-level field is the wrong type', async () => {
@@ -69,6 +74,8 @@ describe('parseV5Response additive top-level tolerance', () => {
     }
     const result = await parseV5Response(makeResponse(payload))
     expect(result.kind).toBe('parse_error')
+    if (result.kind !== 'parse_error') throw new Error('unreachable')
+    expect(result.parse_failure_kind).toBe('schema_mismatch')
   })
 
   it('sidecar is frozen and non-enumerable', async () => {

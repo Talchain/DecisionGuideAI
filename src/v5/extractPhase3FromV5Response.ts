@@ -29,11 +29,15 @@
  */
 import type { OlumiResponse } from '@talchain/schemas/boundary'
 
-import { ADDITIVE_EXTENSIONS_KEY, type OlumiResponseWithExtensions } from './responseParser'
+import {
+  ADDITIVE_EXTENSIONS_KEY,
+  PHASE3_SIDECAR_BLOCKS_KEY,
+  type OlumiResponseWithExtensions,
+} from './responseParser'
 
 // ─── Types ─────────────────────────────────────────────────────────────
 
-export type Phase3BlockType = 'coaching' | 'review_card' | 'evidence'
+export type Phase3BlockType = 'coaching' | 'review_card' | 'evidence' | 'exercise'
 
 export type AnalysisFreshness = 'fresh' | 'stale' | 'unknown' | 'none'
 
@@ -47,7 +51,7 @@ export interface Phase3RawBlock {
   /** Stable id when CEE provided one; falls back to a derived id otherwise. */
   id: string
   /** Source location, useful for diagnostics. */
-  source: 'sidecar' | 'analysis_ready' | 'enrichment'
+  source: 'sidecar' | 'analysis_ready' | 'enrichment' | 'sidecar_blocks_array'
 }
 
 /** Subset shape derived from a Phase 3 block for the legacy GuidanceItem
@@ -96,7 +100,12 @@ function safeBoolean(v: unknown): boolean | undefined {
   return typeof v === 'boolean' ? v : undefined
 }
 
-const PHASE3_TYPES: ReadonlySet<Phase3BlockType> = new Set(['coaching', 'review_card', 'evidence'])
+const PHASE3_TYPES: ReadonlySet<Phase3BlockType> = new Set([
+  'coaching',
+  'review_card',
+  'evidence',
+  'exercise',
+])
 
 function isPhase3BlockType(v: unknown): v is Phase3BlockType {
   return typeof v === 'string' && PHASE3_TYPES.has(v as Phase3BlockType)
@@ -306,6 +315,28 @@ export function extractPhase3FromV5Response(
   const sidecar = (response as OlumiResponseWithExtensions)[ADDITIVE_EXTENSIONS_KEY]
   if (sidecar && isPlainObject(sidecar)) {
     collectFromContainer(sidecar, 'sidecar', rawBlocks, seenIds, 'sidecar')
+
+    // 1b. Phase 3 blocks pulled out of `blocks[]` by responseParser are
+    // stashed under PHASE3_SIDECAR_BLOCKS_KEY as a flat array. Each entry is
+    // a verbatim block payload with a string `type` already validated
+    // against the Phase 3 whitelist. Preserve the original ordering so
+    // downstream consumers can rebuild the block sequence.
+    const fromBlocksArray = sidecar[PHASE3_SIDECAR_BLOCKS_KEY]
+    if (Array.isArray(fromBlocksArray)) {
+      for (let i = 0; i < fromBlocksArray.length; i++) {
+        const entry = fromBlocksArray[i]
+        if (!isPlainObject(entry)) continue
+        const type = entry.type
+        if (!isPhase3BlockType(type)) continue
+        const id =
+          safeString(entry.block_id) ??
+          safeString(entry.id) ??
+          `sidecar_blocks_array:${type}[${i}]`
+        if (seenIds.has(id)) continue
+        seenIds.add(id)
+        rawBlocks.push({ type, raw: entry, id, source: 'sidecar_blocks_array' })
+      }
+    }
   }
 
   // 2. analysis_ready passthrough.
