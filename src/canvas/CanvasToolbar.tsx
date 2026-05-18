@@ -304,7 +304,8 @@ export function CanvasToolbar() {
 
         {/* AI: opens the DraftChat overlay. Hidden when FF_AI_PANEL_V2 is on
             because the AI conversation lives persistently in the right
-            panel (AIPanelV2Layout → AIZone), so there's no overlay to open. */}
+            panel (AIPanelV2Layout owns the surface directly), so there's
+            no overlay to open. */}
         {!isAiPanelV2Enabled() && (
           <button
             onClick={() => setShowDraftChat(!showDraftChat)}

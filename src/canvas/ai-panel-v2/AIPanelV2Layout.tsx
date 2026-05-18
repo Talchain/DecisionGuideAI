@@ -78,11 +78,45 @@ export function AIPanelV2Layout() {
   }, [state, setRatio])
 
   // ── Lifted state that must survive dock/undock/minimise ───────────
+  // Draft text is lifted so the textarea contents are shared across
+  // every variant (Welcome / docked AIInputBar / MinimisedBar input /
+  // floating AIInputBar). The brief requires draft preservation across
+  // dock/undock — controlled-input pattern on each surface is what
+  // honours that contract.
   const [draftText, setDraftText] = useState('')
+  // Thread scrollTop preservation. ConversationSurface re-mounts when
+  // the view switches between docked and floating (different parent
+  // containers), so React resets the new container's scrollTop to 0.
+  // We capture the OUTGOING container's scrollTop in a layout effect
+  // keyed to `view.kind`, then restore it after the next surface mount.
   const threadScrollRef = useRef<HTMLDivElement | null>(null)
+  const savedScrollTopRef = useRef<number | null>(null)
+  const prevViewKindRef = useRef(view.kind)
   const surfaceRef = useRef<ConversationSurfaceHandle>(null)
   const welcomeRef = useRef<WelcomeComposerHandle>(null)
   const minimisedRef = useRef<MinimisedBarHandle>(null)
+
+  // Capture scrollTop just before React swaps containers. This runs
+  // synchronously during render on the FIRST render where view.kind
+  // differs from the previous — `threadScrollRef.current` still points
+  // at the OUTGOING surface at this moment (the new tree has not
+  // committed yet).
+  if (prevViewKindRef.current !== view.kind && threadScrollRef.current) {
+    savedScrollTopRef.current = threadScrollRef.current.scrollTop
+  }
+  prevViewKindRef.current = view.kind
+
+  // Restore scrollTop on the new container right after the swap
+  // commits, before paint. Clamped to the new scrollHeight so it
+  // doesn't try to scroll past content that may be a different size
+  // (Welcome → docked → floating each have different chrome).
+  useLayoutEffect(() => {
+    const el = threadScrollRef.current
+    const saved = savedScrollTopRef.current
+    if (!el || saved == null || saved <= 0) return
+    const maxScroll = el.scrollHeight - el.clientHeight
+    if (maxScroll > 0) el.scrollTop = Math.min(saved, maxScroll)
+  }, [view.kind])
 
   // ── Attachment plumbing (hidden file input lives at layout root) ──
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -125,7 +159,26 @@ export function AIPanelV2Layout() {
   // ── Display toggle handlers ───────────────────────────────────────
   const handleMinimise = useCallback(() => setDisplay('minimised'), [setDisplay])
   const handleFloat = useCallback(() => setDisplay('floating'), [setDisplay])
-  const handleDockOrExpand = useCallback(() => setDisplay('docked'), [setDisplay])
+  // Expanding from minimised should both restore the docked layout AND
+  // land focus on the docked AIInputBar — the user was already typing
+  // in the minimised input, so we move focus + cursor without losing
+  // momentum. A ref-flag is set here, and the docked layout's mount
+  // effect consumes it to call `surfaceRef.current?.focusInput()`.
+  const focusOnNextDockRef = useRef(false)
+  const handleDockOrExpand = useCallback(() => {
+    focusOnNextDockRef.current = true
+    setDisplay('docked')
+  }, [setDisplay])
+
+  // After the docked layout commits in response to expand, transfer
+  // focus into the AIInputBar. useLayoutEffect runs before paint so
+  // there is no perceivable focus blink.
+  useLayoutEffect(() => {
+    if (view.kind !== 'docked') return
+    if (!focusOnNextDockRef.current) return
+    focusOnNextDockRef.current = false
+    surfaceRef.current?.focusInput()
+  }, [view.kind])
 
   // ── Pixel heights for the docked split ────────────────────────────
   const { aiHeightPx, analysisHeightPx } = useMemo(() => {
@@ -194,6 +247,8 @@ export function AIPanelV2Layout() {
             onSend={handleSend}
             isThinking={conversation.isThinking}
             onAttach={handleAttach}
+            value={draftText}
+            onValueChange={setDraftText}
           />
         </aside>
       </>
@@ -276,6 +331,8 @@ export function AIPanelV2Layout() {
             onExpand={handleDockOrExpand}
             onAttach={handleAttach}
             isThinking={conversation.isThinking}
+            value={draftText}
+            onValueChange={setDraftText}
           />
         </aside>
       </>

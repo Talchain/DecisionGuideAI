@@ -30,8 +30,9 @@ const RESTING_HEIGHT_PX = 40
 const MAX_HEIGHT_PX = 72
 
 interface AIInputBarProps {
-  // Send is wired to useConversation().sendMessage by the parent (AIZone), so
-  // the singleton invariant holds — exactly one sender, one network call.
+  // Send is wired to useConversation().sendMessage by the parent
+  // (AIPanelV2Layout, via ConversationSurface), so the singleton
+  // invariant holds — exactly one sender, one network call.
   onSend: (text: string) => Promise<void> | void
   // True while a turn is in flight. Disables the textarea + send button.
   isThinking: boolean

@@ -35,14 +35,32 @@ interface MinimisedBarProps {
   onExpand: () => void
   onAttach: () => void
   isThinking: boolean
+  /**
+   * Optional controlled value + setter. When BOTH are provided the
+   * input becomes controlled and shares the layout-owned draft with
+   * the docked AIInputBar and the floating ConversationSurface —
+   * required for the brief's "draft text preserved across dock/undock"
+   * contract. Omitted → falls back to internal state for legacy use.
+   */
+  value?: string
+  onValueChange?: (next: string) => void
 }
 
 export const MinimisedBar = memo(
   forwardRef<MinimisedBarHandle, MinimisedBarProps>(function MinimisedBar(
-    { onSend, onExpand, onAttach, isThinking },
+    { onSend, onExpand, onAttach, isThinking, value: controlledValue, onValueChange },
     ref,
   ) {
-    const [value, setValue] = useState('')
+    const isControlled = controlledValue !== undefined && onValueChange !== undefined
+    const [internalValue, setInternalValue] = useState('')
+    const value = isControlled ? controlledValue : internalValue
+    const setValue = useCallback(
+      (next: string) => {
+        if (isControlled) onValueChange?.(next)
+        else setInternalValue(next)
+      },
+      [isControlled, onValueChange],
+    )
     const [cogOpen, setCogOpen] = useState(false)
     const inputRef = useRef<HTMLInputElement>(null)
     const cogButtonRef = useRef<HTMLButtonElement>(null)
@@ -53,7 +71,7 @@ export const MinimisedBar = memo(
       if (!trimmed || isThinking) return
       void onSend(trimmed)
       setValue('')
-    }, [value, isThinking, onSend])
+    }, [value, isThinking, onSend, setValue])
 
     const handleKeyDown = useCallback(
       (event: React.KeyboardEvent<HTMLInputElement>) => {
@@ -89,7 +107,7 @@ export const MinimisedBar = memo(
         focus: () => inputRef.current?.focus(),
         closePopover: () => setCogOpen(false),
       }),
-      [],
+      [setValue],
     )
 
     const canSend = value.trim().length > 0 && !isThinking

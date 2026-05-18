@@ -160,7 +160,7 @@ type OutputsDockProps =
 /**
  * Public OutputsDock entry point. Branches on `embedded` to ensure the
  * embedded variant never calls useConversation() — the AI panel v2
- * AIZone is the singleton source of the conversation. The standalone
+ * AIPanelV2Layout is the singleton source of the conversation. The standalone
  * variant keeps its own useConversation() call as before (FF off).
  */
 export function OutputsDock(props: OutputsDockProps = {}) {

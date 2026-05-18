@@ -38,14 +38,31 @@ interface WelcomeComposerProps {
   onSend: (text: string) => Promise<void> | void
   isThinking: boolean
   onAttach: () => void
+  /**
+   * Optional controlled value + setter. When BOTH are provided the
+   * textarea shares the layout-owned draft text so a partial entry
+   * written here survives a state transition (e.g. user adds a node
+   * to the canvas before sending the welcome message).
+   */
+  value?: string
+  onValueChange?: (next: string) => void
 }
 
 export const WelcomeComposer = memo(
   forwardRef<WelcomeComposerHandle, WelcomeComposerProps>(function WelcomeComposer(
-    { onSend, isThinking, onAttach },
+    { onSend, isThinking, onAttach, value: controlledValue, onValueChange },
     ref,
   ) {
-    const [value, setValue] = useState('')
+    const isControlled = controlledValue !== undefined && onValueChange !== undefined
+    const [internalValue, setInternalValue] = useState('')
+    const value = isControlled ? controlledValue : internalValue
+    const setValue = useCallback(
+      (next: string) => {
+        if (isControlled) onValueChange?.(next)
+        else setInternalValue(next)
+      },
+      [isControlled, onValueChange],
+    )
     const [cogOpen, setCogOpen] = useState(false)
     const textareaRef = useRef<HTMLTextAreaElement>(null)
     const cogButtonRef = useRef<HTMLButtonElement>(null)
@@ -66,7 +83,7 @@ export const WelcomeComposer = memo(
       if (!trimmed || isThinking) return
       void onSend(trimmed)
       setValue('')
-    }, [value, isThinking, onSend])
+    }, [value, isThinking, onSend, setValue])
 
     const handleKeyDown = useCallback(
       (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -94,7 +111,7 @@ export const WelcomeComposer = memo(
         focus: () => textareaRef.current?.focus(),
         closePopover: () => setCogOpen(false),
       }),
-      [],
+      [setValue],
     )
 
     const canSend = value.trim().length > 0 && !isThinking

@@ -9,12 +9,14 @@ import { isAiPanelV2Enabled } from '../../flags'
 //
 // Contract:
 //   FF off  →  <OutputsDock /> + <DraftChat />, no AI panel v2.
-//   FF on   →  <AIPanelV2Layout /> only. AIPanelV2Layout internally mounts
-//              <OutputsDock embedded /> + <AIZone /> as a single split
-//              column. DraftChat is unmounted so AIZone's useConversation
-//              is the only AI instance (singleton invariant per
-//              correction #9). Context-menu "Ask AI" routes through the
-//              registered _sendMessage from AIZone's ConversationPanel.
+//   FF on   →  <AIPanelV2Layout /> only. AIPanelV2Layout owns the
+//              singleton useConversation() and renders one of five
+//              views (welcome / docked / minimised / floating —
+//              docked further split into pre-analysis and
+//              post-analysis). DraftChat is unmounted so the v2 layout
+//              is the only AI instance (singleton invariant).
+//              Context-menu "Ask AI" routes through the registered
+//              _sendMessage from AIPanelV2Layout's prefill effect.
 
 export function RightPanelMount() {
   const aiPanelOn = isAiPanelV2Enabled()

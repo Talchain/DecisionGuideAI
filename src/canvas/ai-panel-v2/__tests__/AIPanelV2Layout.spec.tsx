@@ -55,9 +55,23 @@ vi.mock('../../conversation/useConversation', async () => {
   }
 })
 
-// Stub heavy children so the layout boots in jsdom.
+// Stub heavy children so the layout boots in jsdom. The OutputsDock
+// stub records the props it receives so tests can assert it was mounted
+// with `embedded=true` AND a non-no-op `embeddedSendMessage` — i.e. the
+// analysis zone is genuinely connected to the conversation, not just a
+// blank panel.
+const capturedOutputsDockProps: { embedded?: boolean; embeddedSendMessage?: unknown }[] = []
 vi.mock('../../components/OutputsDock', () => ({
-  OutputsDock: () => <div data-testid="stub-outputs-dock" />,
+  OutputsDock: (props: { embedded?: boolean; embeddedSendMessage?: unknown }) => {
+    capturedOutputsDockProps.push(props)
+    return (
+      <div
+        data-testid="stub-outputs-dock"
+        data-embedded={String(!!props.embedded)}
+        data-has-send={String(typeof props.embeddedSendMessage === 'function')}
+      />
+    )
+  },
 }))
 vi.mock('../../conversation/ConversationPanel', () => ({
   ConversationPanel: () => <div data-testid="stub-conversation-panel" />,
@@ -74,6 +88,7 @@ beforeEach(() => {
   canvasState.edges = []
   canvasState.results = { status: 'idle', hash: null }
   conversationMessages.length = 0
+  capturedOutputsDockProps.length = 0
 })
 
 describe('AIPanelV2Layout — state-led views', () => {
@@ -91,6 +106,24 @@ describe('AIPanelV2Layout — state-led views', () => {
     expect(screen.getByTestId('ai-panel-v2-analysis-zone')).toBeInTheDocument()
     expect(screen.getByTestId('ai-panel-v2-layout')).toHaveAttribute('data-view', 'docked')
     expect(screen.getByTestId('ai-panel-v2-layout')).toHaveAttribute('data-state', 'pre-analysis')
+  })
+
+  it('State 2 surfaces the analysis content (OutputsDock embedded), not a blank panel', () => {
+    // Regression guard for the brief's contract: "model-without-analysis
+    // renders readiness guidance and does not expose a blank or
+    // misleading analysis surface." OutputsDock owns the pre-analysis
+    // readiness card internally (PreAnalysisPanel mounts when
+    // isPreRun && nodes.length > 0). What this test guarantees from
+    // the layout side is that the dock is mounted as `embedded` with a
+    // real send wired up — i.e. the readiness card can fire chips.
+    canvasState.nodes = [{ id: 'n1' }]
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
+    render(<AIPanelV2Layout />)
+    const dock = screen.getByTestId('stub-outputs-dock')
+    expect(dock.dataset.embedded).toBe('true')
+    expect(dock.dataset.hasSend).toBe('true')
+    expect(capturedOutputsDockProps.at(-1)?.embedded).toBe(true)
+    expect(typeof capturedOutputsDockProps.at(-1)?.embeddedSendMessage).toBe('function')
   })
 
   it('State 3 (post-analysis): analysis result → docked with data-state=post-analysis', () => {
