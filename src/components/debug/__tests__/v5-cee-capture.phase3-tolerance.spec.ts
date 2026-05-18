@@ -251,6 +251,54 @@ describe('v5_cee_capture — parse-failure path', () => {
     )
     expect(diag.debug_capture_status).toBe('parse_failed')
   })
+
+  it('mixed blocks (Phase 3 + unknown) → parse fails AND phase3 count populated from raw fallback', async () => {
+    // Pin the design: when CEE emits both tolerated Phase 3 blocks AND a
+    // truly-unknown block type inside `blocks[]`, the parser hard-fails
+    // (the unknown type dominates) — but the debug bundle must still
+    // surface the Phase 3 blocks the parser would have tolerated, sourced
+    // from the captured raw envelope. That lets reviewers see "CEE did
+    // emit review_card + coaching, the unknown_future_type is the
+    // offender" rather than collapsing both signals into a single
+    // failure with no Phase 3 visibility.
+    const fixture = ceeFixture() // includes analysis_result + review_card + coaching
+    ;(fixture.blocks as unknown[]).push({
+      type: 'totally_unknown_future_type',
+      payload: { whatever: 1 },
+    })
+    const parsed = await parseV5Response(makeResponse(fixture))
+    expect(parsed.kind).toBe('parse_error')
+
+    const data = makeDebugData({
+      payloads: {
+        cee_request: { kind: 'message', message: 'run' },
+        cee_response: parsed as unknown as Record<string, unknown>,
+        plot_request: null,
+        plot_response: null,
+        isl_request: null,
+        isl_response: null,
+      },
+    })
+
+    const bundle = await buildDebugBundleAsync(data)
+    const capture = bundle.v5_canonical_analysis!.v5_cee_capture!
+
+    // Parse failure still dominates the capture status.
+    expect(capture.parse_ok).toBe(false)
+    expect(capture.parse_failure_kind).toBe('unknown_block_types')
+    expect(capture.unknown_block_types).toEqual(['totally_unknown_future_type'])
+
+    // But the Phase 3 blocks the parser WOULD have tolerated must still
+    // be visible to the reviewer — sourced from the parse_error
+    // envelope's `raw.blocks[]` via the bundle's raw fallback path.
+    expect(capture.phase3_blocks_tolerated_count).toBe(2)
+    expect(capture.phase3_block_types).toEqual(['coaching', 'review_card'])
+
+    // raw_response_present remains true here — the parse_error envelope
+    // preserved the verbatim pre-validation JSON, which is the basis for
+    // the raw fallback enumeration.
+    expect(capture.raw_response_present).toBe(true)
+  })
 })
 
 describe('v5_cee_capture — end-to-end through redactor', () => {

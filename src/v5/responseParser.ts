@@ -63,16 +63,24 @@ export const ORIGINAL_TOP_LEVEL_KEYS_KEY = '__original_top_level_keys__' as cons
  * Whitelist of v1.3 Phase 3 block types tolerated inside `blocks[]`. Any
  * other unknown `type` discriminator inside `blocks[]` still hard-fails the
  * parse so accidental schema drift is detected.
+ *
+ * Exported as `ReadonlySet` to prevent accidental mutation of the
+ * tolerated-type allowlist at consumer boundaries (.add/.delete are not
+ * available on the public type). The underlying Set is constructed from a
+ * literal tuple so the union member type can still be derived.
  */
-export const PHASE3_TOLERATED_BLOCK_TYPES = new Set([
+export type Phase3ToleratedBlockType =
+  | 'review_card'
+  | 'coaching'
+  | 'evidence'
+  | 'exercise';
+
+export const PHASE3_TOLERATED_BLOCK_TYPES: ReadonlySet<Phase3ToleratedBlockType> = new Set<Phase3ToleratedBlockType>([
   'review_card',
   'coaching',
   'evidence',
   'exercise',
-] as const);
-
-export type Phase3ToleratedBlockType =
-  typeof PHASE3_TOLERATED_BLOCK_TYPES extends Set<infer T> ? T : never;
+]);
 
 /**
  * OlumiResponse extended with the additive sidecar. Consumers reading

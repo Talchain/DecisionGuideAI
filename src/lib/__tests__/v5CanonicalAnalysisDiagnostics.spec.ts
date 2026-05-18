@@ -24,7 +24,12 @@ function capture(overrides: Partial<V5CeeCapture> = {}): V5CeeCapture {
     parse_ok: true,
     parse_error: null,
     response_top_level_keys: ['blocks', 'assistant_text'],
+    raw_response_present: false,
+    parse_failure_kind: null,
+    unknown_block_types: null,
     has_additive_extensions: false,
+    phase3_blocks_tolerated_count: 0,
+    phase3_block_types: [],
     source: 'proxy_v5_turn',
     ...overrides,
   }
