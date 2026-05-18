@@ -35,6 +35,13 @@ import {
   type RecoverableEnvelope,
 } from '../../../lib/derivePipelineStatus'
 import type { CEEAnalysisReady } from '../../../adapters/cee/types'
+import {
+  classifyV5CanonicalAnalysisDiagnostic,
+  type V5CanonicalAnalysisDiagnostic,
+  type V5CeeCapture,
+} from '../../../lib/v5CanonicalAnalysisDiagnostics'
+import { isV5CanonicalAnalysisEnabled } from '../../../flags'
+import { ADDITIVE_EXTENSIONS_KEY } from '../../../v5/responseParser'
 
 // =============================================================================
 // Feature Flag
@@ -1025,6 +1032,15 @@ interface DebugBundle {
   }
   /** CEE option interventions (ceeAnalysisReady.options) — real intervention data */
   cee_options?: Array<Record<string, unknown>> | null
+  /**
+   * V5 canonical-analysis diagnostic (v5-canonical-analysis brief PR 1).
+   * Surfaces analysis_state_source / analysis_fact_status /
+   * debug_capture_status alongside the captured V5 CEE turn so
+   * consumers can distinguish "no CEE call made" from
+   * "CEE call made and failed". Reuses derivePipelineStatus for the
+   * underlying decision tree.
+   */
+  v5_canonical_analysis?: V5CanonicalAnalysisDiagnostic
 
   // Enhancement sections (Debug Panel V2.1)
 
@@ -2532,6 +2548,81 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     } catch {
       // Canvas store not accessible — keep null
     }
+  }
+
+  // v5-canonical-analysis brief PR 1: emit the additive diagnostic block.
+  // Pulls from canvas store + the already-assembled bundle so we don't
+  // re-read payload-trace-store directly here.
+  try {
+    const { readAnalysisStateSourceFromStore } = await import(
+      '../../../canvas/hooks/useAnalysisStateSource'
+    )
+    const sourceResult = readAnalysisStateSourceFromStore()
+    const { useCanvasStore } = await import('../../../canvas/store')
+    const storeState = useCanvasStore.getState()
+    const fact = storeState.v5AnalysisFact
+
+    const ceeResponse = bundle.payloads.cee_response
+    const ceeResponseObject =
+      ceeResponse && typeof ceeResponse === 'object' && !Array.isArray(ceeResponse)
+        ? (ceeResponse as Record<string, unknown>)
+        : null
+    const responseBlocks = ceeResponseObject?.blocks
+    const ceeResponseHasAnalysisResult = Array.isArray(responseBlocks)
+      ? responseBlocks.some(
+          (b) =>
+            b !== null &&
+            typeof b === 'object' &&
+            !Array.isArray(b) &&
+            (b as Record<string, unknown>).type === 'analysis_result',
+        )
+      : false
+
+    const ceeService = data.services.cee ?? null
+    // services.cee carries { status, duration_ms, success } only — endpoint
+    // is not on the type. We surface request_id + status + duration; the
+    // exact URL is recoverable from getV5Endpoint() but reading it here
+    // would re-resolve env at export time, which is misleading when the
+    // capture pre-dates the export.
+    const v5Capture: V5CeeCapture | null = ceeService
+      ? {
+          request_id: data.overall.request_id,
+          scenario_id: storeState.currentScenarioId,
+          turn_id: fact?.analysisHash ?? null,
+          endpoint: null,
+          status: ceeService.status,
+          duration_ms: ceeService.duration_ms,
+          request_present: bundle.payloads.cee_request !== null,
+          response_present: ceeResponseObject !== null,
+          parse_ok: ceeResponseObject !== null,
+          parse_error: null,
+          response_top_level_keys: ceeResponseObject
+            ? Object.keys(ceeResponseObject).sort()
+            : null,
+          has_additive_extensions:
+            ceeResponseObject !== null &&
+            Object.prototype.hasOwnProperty.call(
+              ceeResponseObject,
+              ADDITIVE_EXTENSIONS_KEY,
+            ),
+          source: 'proxy_v5_turn',
+        }
+      : null
+
+    const plotRequestCaptured = bundle.payloads.plot_request !== null
+
+    bundle.v5_canonical_analysis = classifyV5CanonicalAnalysisDiagnostic({
+      canonicalFlagOn: isV5CanonicalAnalysisEnabled(),
+      analysisStateSource: sourceResult.source,
+      factPresentForScenario: sourceResult.factPresentForScenario,
+      ceeResponseHasAnalysisResult,
+      v5Capture,
+      hasResultsReport: sourceResult.hasResultsReport,
+      plotRequestCaptured,
+    })
+  } catch {
+    // Diagnostic is additive — never fail the bundle on classification
+    // errors. The absence of v5_canonical_analysis itself is a signal.
   }
 
   return bundle

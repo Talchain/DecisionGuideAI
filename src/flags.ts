@@ -316,6 +316,17 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_AI_PANEL_V2',
     storageKey: 'feature.aiPanelV2',
   },
+  // V5 canonical analysis path — when ON, all user-visible analysis triggers
+  // (OutputsDock "Run", Compare-tab rerun, goal-threshold rerun) route through
+  // the existing V5 chip-action dispatch (action_type: 'run_analysis',
+  // source: 'chip') so CEE persists a run_analysis fact and Phase 3 coaching
+  // can attach. Direct PLoT /v2/run becomes legacy/dev-only.
+  // Default OFF — independent of VITE_ENABLE_V5_ORCHESTRATOR and
+  // VITE_ENABLE_LEGACY_DIRECT_RUN so it can be rolled back independently.
+  v5CanonicalAnalysis: {
+    envKey: 'VITE_V5_CANONICAL_ANALYSIS',
+    storageKey: 'feature.v5CanonicalAnalysis',
+  },
 } as const
 
 // ============================================================================
@@ -381,6 +392,7 @@ const flags = {
   analysisHeroV17: makeFlag(FLAGS_CONFIG.analysisHeroV17),
   analysisHeroCompare: makeFlag(FLAGS_CONFIG.analysisHeroCompare),
   aiPanelV2: makeFlag(FLAGS_CONFIG.aiPanelV2),
+  v5CanonicalAnalysis: makeFlag(FLAGS_CONFIG.v5CanonicalAnalysis),
 }
 
 // Export with original naming convention for backward compatibility
@@ -442,6 +454,7 @@ export const isDeterministicCeeEnabled = flags.deterministicCee
 export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
 export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
 export const isAiPanelV2Enabled = flags.aiPanelV2
+export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
 
 
 // ============================================================================

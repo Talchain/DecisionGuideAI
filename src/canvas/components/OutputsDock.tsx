@@ -37,7 +37,8 @@ import {
   trackAutoFixSuccess,
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
-import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled } from '../../flags'
+import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled } from '../../flags'
+import { isV5Eligible } from '../../v5/eligibility'
 import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { countFactorsToVerify } from './model-tab/utils'
 import { getGoalDirection } from '../utils/getObjectiveText'
@@ -469,6 +470,16 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
   const runBlockedTooltip = getRunButtonTooltip(runGateResult)
 
   // Handle Run button click
+  //
+  // v5-canonical-analysis brief: when VITE_V5_CANONICAL_ANALYSIS=true AND
+  // VITE_ENABLE_V5_ORCHESTRATOR=true, the Run path emits a chip-shaped
+  // dispatch (action_type: 'run_analysis', source: 'chip') so CEE persists
+  // a run_analysis fact and Phase 3 coaching can attach. This is the EXACT
+  // same payload shape the suggested-chips emit — we do NOT route through
+  // free-text LLM, and we do NOT use a generic conversation message
+  // (per correction 1).
+  //
+  // When the canonical flag is off, behaviour is unchanged: direct V2.
   const handleRunAnalysis = useCallback(async () => {
     if (!canRunAnalysis) return
     // Capture pre-analysis review progress for transition bridge
@@ -512,6 +523,32 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
       option_count: comparison.optionNodes.length,
       template_id: (framing as any)?.templateId || 'canvas-graph',
     })
+
+    // Canonical V5 chip-action path. Mirrors what suggested chips do for
+    // action_type:'run_analysis' — same chip metadata, same dispatcher.
+    const canonical = isV5CanonicalAnalysisEnabled() &&
+      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+    if (canonical) {
+      const dispatch = useGuidanceStore.getState()._dispatchAction
+      if (dispatch) {
+        // Fire-and-forget — the dispatcher streams the response and
+        // routeV5Response handles all state mutations. We deliberately do
+        // NOT await: the OutputsDock UI subscribes to canvas store status
+        // for spinner state.
+        dispatch({
+          action_type: 'run_analysis',
+          label: 'Run analysis',
+          message: 'Run analysis',
+          source: 'chip',
+        })
+        return
+      }
+      if (import.meta.env.DEV) {
+        console.warn(
+          '[OutputsDock] canonical flag is on but _dispatchAction is not registered; falling back to V2.',
+        )
+      }
+    }
     await runV2Analysis()
   }, [canRunAnalysis, runV2Analysis, framing, nodes, edges, comparison.optionNodes.length])
 
@@ -571,10 +608,41 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
     console.warn('[OutputsDock] Added Status Quo baseline option:', newNode.id)
   }, [nodes, addNode, updateNode, addEdge, setCeeAnalysisReady])
 
-  // P2 Task 1: Handle threshold change and trigger re-run
+  // P2 Task 1: Handle threshold change and trigger re-run.
+  //
+  // Commit-only semantics: the upstream input fires this only on a committed
+  // change (Apply button / blur), never on live keystrokes. A small debounce
+  // ref guards against accidental double-fire (rapid re-Apply within 500ms
+  // collapses to one rerun) per v5-canonical-analysis brief correction 6.
+  //
+  // Routing mirrors handleRunAnalysis: canonical flag ON → chip dispatch,
+  // OFF → direct V2.
+  const lastThresholdRerunAtRef = useRef<number>(0)
   const handleApplyThreshold = useCallback((threshold: number | null) => {
     setGoalThreshold(threshold)
-    // Trigger re-run after threshold update
+    const now = Date.now()
+    if (now - lastThresholdRerunAtRef.current < 500) return
+    lastThresholdRerunAtRef.current = now
+    const canonical = isV5CanonicalAnalysisEnabled() &&
+      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+    if (canonical) {
+      const dispatch = useGuidanceStore.getState()._dispatchAction
+      if (dispatch) {
+        dispatch({
+          action_type: 'run_analysis',
+          parameters: threshold !== null ? { goal_threshold: threshold } : undefined,
+          label: 'Run analysis',
+          message: 'Run analysis',
+          source: 'chip',
+        })
+        return
+      }
+      if (import.meta.env.DEV) {
+        console.warn(
+          '[OutputsDock] canonical flag is on but _dispatchAction is not registered; falling back to V2 for threshold rerun.',
+        )
+      }
+    }
     runV2Analysis()
   }, [setGoalThreshold, runV2Analysis])
 

@@ -25,6 +25,10 @@ import {
 import { mapV5Blocks } from '../../v5/blocks/mapV5Blocks'
 import { deriveV5Stage } from '../../v5/stageMapper'
 import { applyV5State } from '../../v5/applyV5State'
+import {
+  extractPhase3FromV5Response,
+  v5ResponseHasRunAnalysisFact,
+} from '../../v5/extractPhase3FromV5Response'
 import { FAILURE_USER_TEXT } from '@talchain/schemas/boundary'
 import { isOrchestratorV2Enabled, isOrchestratorStreamingEnabled, isThreadHydrateEnabled, isThreadPersistEnabled } from '../../flags'
 import { assembleAnalysisInputsSummary } from '../analysis/assembleAnalysisInputsSummary'
@@ -2733,6 +2737,76 @@ export function useConversation(): UseConversationReturn {
               if (stateApply.deferred.length > 0) {
                 console.warn('[sendTurn V5] state deferred:', stateApply.deferred)
               }
+            }
+
+            // Phase 3 extraction (v5-canonical-analysis brief).
+            //
+            // The extractor reads from three locations — the additive sidecar
+            // attached by responseParser, `analysis_ready` passthrough, and
+            // each `analysis_result` block's enrichment. Raw blocks are
+            // preserved verbatim so consumers can read freshness,
+            // action_intent, priority_rank, target_refs, and
+            // graph_hash_at_generation directly.
+            //
+            // Per correction 4: this code does NOT clear v5AnalysisFact or
+            // guidanceItems on responses that lack Phase 3 content. Stale
+            // data is cleared only on explicit no-analysis / orphan / reset
+            // states (scenario switch in store.ts; orphan classification
+            // computed by useAnalysisStateSource).
+            //
+            // Per correction 3: the v5AnalysisFact slice is only written
+            // when CEE emitted real run_analysis fact signals (an
+            // analysis_result block plus freshness='fresh' or explicit
+            // has_run_analysis_fact=true). Generic readiness is never a
+            // substitute.
+            const phase3 = extractPhase3FromV5Response(target.response)
+            const factPresent = v5ResponseHasRunAnalysisFact(target.response, phase3)
+            if (factPresent) {
+              const analysisHash = useCanvasStore.getState().results?.hash ?? null
+              useCanvasStore.getState().setV5AnalysisFact({
+                scenarioId: useCanvasStore.getState().currentScenarioId,
+                analysisHash,
+                hasRunAnalysisFact: phase3.hasRunAnalysisFact,
+                freshness: phase3.analysisFreshness,
+                freshnessReason: phase3.freshnessReason,
+                rawBlocks: phase3.rawBlocks.map((b) => ({
+                  type: b.type,
+                  raw: b.raw,
+                  id: b.id,
+                  source: b.source,
+                })),
+                writtenAt: Date.now(),
+              })
+            } else if (phase3.hasRunAnalysisFact === false ||
+                       phase3.analysisFreshness === 'none') {
+              // CEE explicitly says "no successful run_analysis fact" — this
+              // is a legitimate clear (not a blind one). Drop the slice.
+              useCanvasStore.getState().setV5AnalysisFact(null)
+            }
+            // else: response carries no signal either way — leave the
+            // existing fact slice untouched. Conversational turns must not
+            // wipe a prior analysis fact.
+
+            // Populate GuidanceStore from derived Phase 3 items ONLY when
+            // the response carries them. Empty Phase 3 on a conversational
+            // turn is NOT a signal to clear — that would race against the
+            // V4 envelope path's guidance writes and erase legitimate
+            // coaching from a prior turn.
+            if (phase3.guidanceItems.length > 0) {
+              const guidance: GuidanceItem[] = phase3.guidanceItems.map((g) => ({
+                item_id: g.item_id,
+                signal_code: g.signal_code,
+                category: g.category,
+                source: g.source,
+                title: g.title,
+                ...(g.detail ? { detail: g.detail } : {}),
+                primary_action: g.primary_action,
+                ...(g.target_object ? { target_object: g.target_object } : {}),
+                ...(g.related_elements ? { related_elements: g.related_elements } : {}),
+                ...(g.valid_while ? { valid_while: g.valid_while } : {}),
+                priority: g.priority,
+              }))
+              useGuidanceStore.getState().setGuidanceItems(guidance)
             }
 
             // Primary path: inline graph in response.draft_graph (CEE v0.8.0+).

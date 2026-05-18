@@ -190,6 +190,42 @@ export interface ResultsState {
   resultsSource?: 'direct' | 'conversation'
 }
 
+/**
+ * V5 analysis-fact state — written when a CEE V5 OlumiResponse carries an
+ * `analysis_result` block plus the explicit run_analysis fact signals
+ * (analysis_freshness, has_run_analysis_fact) emitted by Phase 3A.
+ *
+ * Per v5-canonical-analysis brief correction 3: this slice is the canonical
+ * source-of-truth for "is there a successful V5 analysis fact for the
+ * current scenario?". Generic `ceeAnalysisReady` readiness MUST NOT be used
+ * as a substitute.
+ *
+ * Phase 3 blocks (coaching / review_card / evidence) are preserved verbatim
+ * in `rawBlocks` so consumers can read freshness, action_intent,
+ * priority_rank, target_refs, and graph_hash_at_generation directly.
+ */
+export interface V5AnalysisFactState {
+  /** The scenarioId this fact attaches to. Cleared when scenario changes. */
+  scenarioId: string | null
+  /** Hash of the analysis_result that produced this fact — matches results.hash. */
+  analysisHash: string | null
+  /** Strict CEE-emitted boolean when present; null when CEE did not emit it. */
+  hasRunAnalysisFact: boolean | null
+  /** CEE's freshness signal for the fact (fresh/stale/unknown/none). */
+  freshness: 'fresh' | 'stale' | 'unknown' | 'none' | null
+  /** Reason CEE gave alongside freshness (e.g. 'no_successful_run_analysis_fact'). */
+  freshnessReason: string | null
+  /** Raw Phase 3 blocks preserved verbatim — no field flattening. */
+  rawBlocks: Array<{
+    type: 'coaching' | 'review_card' | 'evidence'
+    raw: Record<string, unknown>
+    id: string
+    source: 'sidecar' | 'analysis_ready' | 'enrichment'
+  }>
+  /** When this slice was written (ms since epoch). Diagnostics only. */
+  writtenAt: number
+}
+
 export type SseDiagnostics = {
   resumes: number
   trims: 0 | 1
@@ -328,6 +364,17 @@ interface CanvasState {
   // draftChatPreDraftSnapshot stays here because undoDraft writes it atomically
   // alongside nodes/edges/readiness/lens in a single set() call.
   draftChatPreDraftSnapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null
+  // V5 canonical analysis (v5-canonical-analysis brief): raw Phase 3 content
+  // extracted from the last V5 OlumiResponse plus the explicit
+  // run_analysis fact signals CEE emits alongside it. Held verbatim — no
+  // field flattening — so downstream consumers (Inspector, AI panel,
+  // diagnostics) can read freshness, action_intent, priority_rank,
+  // target_refs, graph_hash_at_generation directly off the raw blocks.
+  //
+  // Source of truth for "do we have a real V5 analysis fact for the
+  // current scenario" — NOT ceeAnalysisReady (which is generic model
+  // readiness, not proof of a successful run_analysis fact).
+  v5AnalysisFact: V5AnalysisFactState | null
   // CEE V3: analysis_ready payload from last draft
   // Used by useV2Run to build requests with resolved interventions
   ceeAnalysisReady: CEEAnalysisReady | null
@@ -581,6 +628,13 @@ interface CanvasState {
   setDraftChatPreDraftSnapshot: (snapshot: { nodes: Node[]; edges: Edge<EdgeData>[] } | null) => void
   undoDraft: () => void
   setCeeAnalysisReady: (analysisReady: CEEAnalysisReady | null) => void
+  /**
+   * Write the V5 analysis-fact slice. Pass null to clear (e.g. on scenario
+   * switch). Do NOT clear on every conversational turn — per
+   * v5-canonical-analysis brief correction 4, only clear on explicit
+   * no-analysis / orphan / reset states.
+   */
+  setV5AnalysisFact: (fact: V5AnalysisFactState | null) => void
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => void
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => void
   setCeePipelineTrace: (trace: CeePipelineTrace | null) => void
@@ -1172,6 +1226,8 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // CEE V3: analysis_ready payload
   ceeAnalysisReady: null,
   ceeAnalysisReadyNodeIds: null,
+  // V5 canonical analysis fact (v5-canonical-analysis brief)
+  v5AnalysisFact: null,
   // CEE coaching payload (session-local; never persisted)
   draftCoaching: null,
   // CEE goal constraints from draft-graph response root
@@ -2205,6 +2261,9 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // Clear CEE analysis_ready payload, pipeline trace, quality, and constraints
       ceeAnalysisReady: null,
       ceeAnalysisReadyNodeIds: null,
+      // V5 canonical analysis fact — clear on scenario reset (the fact does
+      // not survive a graph reset; rerun analysis to mint a fresh one).
+      v5AnalysisFact: null,
       draftCoaching: null,
       goalConstraints: null,
       ceePipelineTrace: null,
@@ -3223,6 +3282,10 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
 
   setDraftCoaching: (coaching: CEEDraftCoaching | null) => {
     set({ draftCoaching: coaching })
+  },
+
+  setV5AnalysisFact: (fact: V5AnalysisFactState | null) => {
+    set({ v5AnalysisFact: fact })
   },
 
   setGoalConstraints: (constraints: CEEGoalConstraint[] | null) => {

@@ -9,12 +9,16 @@ import { _clearTraces, getInteractionChains } from '../../../lib/debug-state'
 const {
   mockIsOrchestratorV2Enabled,
   mockIsLegacyDirectRunEnabled,
+  mockIsV5CanonicalAnalysisEnabled,
+  mockIsV5Eligible,
   mockUseV2Run,
   mockShowToast,
   mockUsePreAnalysisData,
 } = vi.hoisted(() => ({
   mockIsOrchestratorV2Enabled: vi.fn(() => true),
   mockIsLegacyDirectRunEnabled: vi.fn(() => false),
+  mockIsV5CanonicalAnalysisEnabled: vi.fn(() => false),
+  mockIsV5Eligible: vi.fn(() => ({ eligible: false, reason: 'flag_off' })),
   mockUseV2Run: vi.fn(() => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })),
   mockShowToast: vi.fn(),
   mockUsePreAnalysisData: vi.fn(() => ({})),
@@ -37,8 +41,13 @@ vi.mock('../../../flags', async (importOriginal) => {
     isOrchestratorV2Enabled: mockIsOrchestratorV2Enabled,
     isLegacyDirectRunEnabled: mockIsLegacyDirectRunEnabled,
     isJourneyTabEnabled: vi.fn(() => false),
+    isV5CanonicalAnalysisEnabled: mockIsV5CanonicalAnalysisEnabled,
   }
 })
+
+vi.mock('../../../v5/eligibility', () => ({
+  isV5Eligible: mockIsV5Eligible,
+}))
 
 vi.mock('../../hooks/useV2Run', () => ({
   useV2Run: () => mockUseV2Run(),
@@ -109,6 +118,8 @@ describe('OutputsDock analyse convergence', () => {
 
     mockIsOrchestratorV2Enabled.mockReturnValue(true)
     mockIsLegacyDirectRunEnabled.mockReturnValue(false)
+    mockIsV5CanonicalAnalysisEnabled.mockReturnValue(false)
+    mockIsV5Eligible.mockReturnValue({ eligible: false, reason: 'flag_off' } as any)
     mockUseV2Run.mockReturnValue({ runV2Analysis: vi.fn(), cancelRun: vi.fn() })
     mockUsePreAnalysisData.mockReturnValue({})
 
@@ -180,6 +191,84 @@ describe('OutputsDock analyse convergence', () => {
     unmount()
 
     expect(mockShowToast).not.toHaveBeenCalled()
+  })
+
+  describe('v5 canonical analysis routing (v5-canonical-analysis brief)', () => {
+    it('fires chip-shaped dispatchAction with action_type=run_analysis when canonical flag is on AND V5 eligible', () => {
+      const dispatchAction = vi.fn()
+      const runV2Analysis = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+
+      render(<OutputsDock />)
+      fireEvent.click(screen.getByTestId('outputs-run-button'))
+
+      // Correction 8: exact chip/action payload shape — action_type
+      // 'run_analysis', source 'chip', no free-text LLM route.
+      expect(dispatchAction).toHaveBeenCalledTimes(1)
+      const call = dispatchAction.mock.calls[0][0]
+      expect(call.action_type).toBe('run_analysis')
+      expect(call.source).toBe('chip')
+      expect(call.label).toBe('Run analysis')
+      // The message field is required by dispatchAction's chip semantics;
+      // it must not be free-text/user-typed copy.
+      expect(typeof call.message).toBe('string')
+      expect(call.message.length).toBeGreaterThan(0)
+
+      // Correction 8: no direct /v2/run under canonical flag.
+      expect(runV2Analysis).not.toHaveBeenCalled()
+    })
+
+    it('falls back to direct V2 when canonical flag is off (control case)', () => {
+      const dispatchAction = vi.fn()
+      const runV2Analysis = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(false)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+
+      render(<OutputsDock />)
+      fireEvent.click(screen.getByTestId('outputs-run-button'))
+
+      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+      expect(dispatchAction).not.toHaveBeenCalled()
+    })
+
+    it('falls back to direct V2 when canonical flag is on but V5 is not eligible', () => {
+      const dispatchAction = vi.fn()
+      const runV2Analysis = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: false, reason: 'flag_off' } as any)
+
+      useGuidanceStore.setState({ _dispatchAction: dispatchAction } as any)
+
+      render(<OutputsDock />)
+      fireEvent.click(screen.getByTestId('outputs-run-button'))
+
+      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+      expect(dispatchAction).not.toHaveBeenCalled()
+    })
+
+    it('falls back to direct V2 when canonical flag is on but no _dispatchAction is registered', () => {
+      const runV2Analysis = vi.fn()
+      mockUseV2Run.mockReturnValue({ runV2Analysis, cancelRun: vi.fn() })
+      mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
+      mockIsV5Eligible.mockReturnValue({ eligible: true } as any)
+
+      // Note: _dispatchAction NOT set — simulates ConversationPanel not yet
+      // mounted or registered.
+      useGuidanceStore.setState({ _dispatchAction: null } as any)
+
+      render(<OutputsDock />)
+      fireEvent.click(screen.getByTestId('outputs-run-button'))
+
+      expect(runV2Analysis).toHaveBeenCalledTimes(1)
+    })
   })
 
   it('renders factual footer status copy without compare navigation text', () => {

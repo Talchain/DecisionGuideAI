@@ -3,6 +3,9 @@ import { AlertTriangle } from 'lucide-react'
 import { typography } from '../../styles/typography'
 import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { useV2Run } from '../hooks/useV2Run'
+import { useGuidanceStore } from '../stores/guidanceStore'
+import { isV5CanonicalAnalysisEnabled } from '../../flags'
+import { isV5Eligible } from '../../v5/eligibility'
 
 // Brief §5.4 / §6.2 — persistent badge above the input bar when the
 // graph has changed since the last analysis run.
@@ -12,8 +15,12 @@ import { useV2Run } from '../hooks/useV2Run'
 // Text-first (correction #15): icon + body text + clickable Rerun link.
 // Colour is supplementary. Returns null when the analysis isn't stale.
 //
-// Rerun goes through the existing run pathway (useV2Run.runV2Analysis) —
-// no new analysis trigger surface per correction #10.
+// Rerun goes through the existing run pathway (useV2Run.runV2Analysis) by
+// default — no new analysis trigger surface per correction #10.
+//
+// v5-canonical-analysis brief: when the canonical flag is on, route through
+// the same chip-action path that OutputsDock / suggested chips use, so CEE
+// persists a run_analysis fact and Phase 3 coaching can attach.
 
 export const StaleAnalysisBadge = memo(function StaleAnalysisBadge() {
   const { isStale } = useStaleGuard()
@@ -21,6 +28,21 @@ export const StaleAnalysisBadge = memo(function StaleAnalysisBadge() {
 
   const handleRerun = useCallback(() => {
     if (isRunning) return
+    if (
+      isV5CanonicalAnalysisEnabled() &&
+      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+    ) {
+      const dispatch = useGuidanceStore.getState()._dispatchAction
+      if (dispatch) {
+        dispatch({
+          action_type: 'run_analysis',
+          label: 'Run analysis',
+          message: 'Run analysis',
+          source: 'chip',
+        })
+        return
+      }
+    }
     void runV2Analysis()
   }, [isRunning, runV2Analysis])
 

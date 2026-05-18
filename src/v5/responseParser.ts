@@ -13,6 +13,16 @@
  *   non-JSON failures for debugging Netlify Edge / proxy / CEE errors.
  * - Classifies error source from response body and headers.
  * - Captures safe diagnostic headers (service, build, request-id).
+ *
+ * Additive top-level tolerance (v5-canonical-analysis brief, correction 7):
+ * - OlumiResponseSchema is .strict() so unknown top-level keys would fail
+ *   parse. CEE may emit additive top-level fields (e.g. guidance_items,
+ *   phase 3 coaching/review_card/evidence blocks, analysis_freshness)
+ *   ahead of a schema-package bump. To tolerate these without losing them,
+ *   unknown top-level keys are split off into an `additiveExtensions` map
+ *   BEFORE strict validation, then attached to the parsed result via a
+ *   non-enumerable sidecar (`__additive__`). Nested schemas remain strict —
+ *   only the response root is widened.
  */
 import {
   OlumiResponseSchema,
@@ -20,6 +30,56 @@ import {
   type OlumiResponse,
   type BoundaryError,
 } from '@talchain/schemas/boundary';
+
+/** Sidecar key used to carry additive extensions on a parsed OlumiResponse. */
+export const ADDITIVE_EXTENSIONS_KEY = '__additive__' as const;
+
+/**
+ * OlumiResponse extended with the additive sidecar. Consumers reading
+ * unknown-but-tolerated fields (e.g. guidance items, phase-3 blocks) should
+ * read `response[ADDITIVE_EXTENSIONS_KEY]` rather than expanding the strict
+ * schema in @talchain/schemas.
+ */
+export type OlumiResponseWithExtensions = OlumiResponse & {
+  readonly [ADDITIVE_EXTENSIONS_KEY]?: Readonly<Record<string, unknown>>;
+};
+
+/** Top-level keys the strict OlumiResponseSchema declares. */
+const KNOWN_OLUMI_TOP_LEVEL_KEYS: ReadonlySet<string> = new Set([
+  'response_version',
+  'assistant_text',
+  'blocks',
+  'suggested_actions',
+  'insights',
+  'stage_indicator',
+  'draft_graph',
+  'analysis_ready',
+]);
+
+/**
+ * Split a raw response into the known surface (validated by zod) and a map
+ * of additive top-level keys. Mutating the raw object is avoided — the input
+ * may be referenced by diagnostic capture layers.
+ */
+function splitAdditiveExtensions(raw: unknown): {
+  known: unknown;
+  extensions: Record<string, unknown>;
+} {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) {
+    return { known: raw, extensions: {} };
+  }
+  const source = raw as Record<string, unknown>;
+  const known: Record<string, unknown> = {};
+  const extensions: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(source)) {
+    if (KNOWN_OLUMI_TOP_LEVEL_KEYS.has(k)) {
+      known[k] = v;
+    } else {
+      extensions[k] = v;
+    }
+  }
+  return { known, extensions };
+}
 
 // ---------------------------------------------------------------------------
 // Error source classification
@@ -186,9 +246,26 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
   }
 
   // 2xx path: must parse as OlumiResponse.
-  const parsed = OlumiResponseSchema.safeParse(raw);
+  // Tolerance step: split additive top-level keys off the known surface so
+  // strict validation only sees the declared shape. Nested schemas remain
+  // strict (unknown keys inside blocks / suggested_actions / etc. still fail).
+  const { known, extensions } = splitAdditiveExtensions(raw);
+  const parsed = OlumiResponseSchema.safeParse(known);
   if (parsed.success) {
-    return { kind: 'response', response: parsed.data };
+    if (Object.keys(extensions).length === 0) {
+      return { kind: 'response', response: parsed.data };
+    }
+    // Attach extensions via a non-enumerable, readonly property. Consumers
+    // who care opt in via the ADDITIVE_EXTENSIONS_KEY symbol; everyone else
+    // sees the unchanged OlumiResponse shape.
+    const withExt: OlumiResponseWithExtensions = parsed.data;
+    Object.defineProperty(withExt, ADDITIVE_EXTENSIONS_KEY, {
+      value: Object.freeze(extensions),
+      enumerable: false,
+      writable: false,
+      configurable: false,
+    });
+    return { kind: 'response', response: withExt };
   }
   return {
     kind: 'parse_error',

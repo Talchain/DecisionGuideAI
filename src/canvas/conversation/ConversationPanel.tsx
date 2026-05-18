@@ -27,6 +27,8 @@ import { beginInteractionChain, getUiSurfaceState, recordCrossSurfaceEvent, reco
 import { canRunAnalysis as canRunAnalysisUtil, getRunButtonTooltip } from '../utils/canRunAnalysis'
 import { useV2Run } from '../hooks/useV2Run'
 import { useGraphReadiness } from '../hooks/useGraphReadiness'
+import { isV5CanonicalAnalysisEnabled } from '../../flags'
+import { isV5Eligible } from '../../v5/eligibility'
 
 interface ConversationPanelProps {
   conversation: UseConversationReturn
@@ -454,8 +456,25 @@ export const ConversationPanel = memo(function ConversationPanel({
         composer_text_length: composerText.length,
       },
     })
+
+    // v5-canonical-analysis brief: when canonical flag + V5 eligibility
+    // are on, route through the existing chip-action dispatch so CEE
+    // persists a run_analysis fact. Mirrors OutputsDock.handleRunAnalysis.
+    // Same exact payload shape as suggested chips — never free-text.
+    if (
+      isV5CanonicalAnalysisEnabled() &&
+      isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
+    ) {
+      void dispatchAction({
+        action_type: 'run_analysis',
+        label: 'Run analysis',
+        message: 'Run analysis',
+        source: 'chip',
+      })
+      return
+    }
     void runV2Analysis()
-  }, [messages.length, runGateResult.allowed, isV2RunInFlight, runV2Analysis])
+  }, [messages.length, runGateResult.allowed, isV2RunInFlight, runV2Analysis, dispatchAction])
 
   useEffect(() => {
     const sendChipByLabelMessage = (label: string, message: string) =>

@@ -177,8 +177,13 @@ describe('Hotfix item 4 — Run analysis gate combines readiness + in-flight', (
     )
     // Guard asserts both structural readiness AND in-flight.
     expect(src).toMatch(/if \(!runGateResult\.allowed \|\| isV2RunInFlight\) return/)
-    // Dep array includes isV2RunInFlight so the callback is current.
-    expect(src).toMatch(/\[messages\.length, runGateResult\.allowed, isV2RunInFlight, runV2Analysis\]/)
+    // Dep array includes isV2RunInFlight so the callback is current. The
+    // v5-canonical-analysis brief added `dispatchAction` to the deps when
+    // the canonical chip path is taken, so the assertion tolerates the
+    // optional dispatchAction tail.
+    expect(src).toMatch(
+      /\[messages\.length, runGateResult\.allowed, isV2RunInFlight, runV2Analysis(?:, dispatchAction)?\]/,
+    )
   })
 
   it('in-flight tooltip surfaces "Analysis in progress"', async () => {

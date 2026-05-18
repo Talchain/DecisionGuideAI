@@ -26,6 +26,7 @@ import { SectionErrorBoundary } from '../../canvas/components/SectionErrorBounda
 import { DiscussWithAiButton } from '@/canvas/components/pre-analysis/DiscussWithAiButton'
 import { DecisionConfidencePanel } from './DecisionConfidencePanel'
 import { AnalysisHeroV17 } from './AnalysisHeroV17'
+import { AnalysisOrphanBanner } from './AnalysisOrphanBanner'
 import { isAnalysisHeroV17Enabled, isAnalysisHeroCompareEnabled } from '@/flags'
 
 export interface StrengthCorrectionDisplay {
@@ -211,6 +212,11 @@ export const ResultsBody = memo(function ResultsBody({
 
   return (
     <div className="flex flex-col gap-4" data-testid="outputs-results-redesign">
+
+      {/* Orphan banner — Results from a non-CEE path with no run_analysis
+          fact for the scenario. Renders only when canonical flag is ON and
+          there is no V5 fact attached. */}
+      <AnalysisOrphanBanner />
 
       {/* ── DECISION CONFIDENCE TRIAGE ────────────────────────────── */}
       {/* Comparison mode: v17 ABOVE legacy panel. Opt-in only. */}
