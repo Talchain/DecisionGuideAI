@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 /**
- * V5 Phase 3 blocks-array tolerance — end-to-end regression.
+ * V5 Phase 3 blocks-array tolerance — parser/extractor/state regressions.
  *
  * Acceptance brief (canonical V5 analysis, 2026-05-18):
  *   The vendored @talchain/schemas@0.8.1 does not include the frozen v1.3
@@ -17,26 +17,13 @@
  * truly-unknown entries still hard-fail and are named in the debug
  * bundle.
  *
- * These tests cover the ten acceptance points from the brief:
- *   1. Realistic CEE response (analysis_result + review_card + coaching)
- *      parses successfully.
- *   2. Phase 3 blocks are preserved in the sidecar with `raw` intact.
- *   3. `response.blocks` after strict validation contains only legacy
- *      schema-known entries.
- *   4. extractPhase3FromV5Response reads the sidecar Phase 3 blocks and
- *      writes them into v5AnalysisFact.rawBlocks.
- *   5. Results report is applied from the analysis_result block (store
- *      slice set).
- *   6. useAnalysisStateSource returns 'cee_v5_run_analysis' for the
- *      attached fact.
- *   7. The typed-error path does not render — routeV5Response returns a
- *      content target, not `typed_error`.
- *   8. Unknown block type inside blocks[] still fails parse and is
- *      enumerated in v5_cee_capture.parse_error / unknown_block_types.
- *   9. Malformed-known nested block (missing required field) still fails
- *      parse — nested product schemas remain strict.
- *  10. The debug bundle's v5_cee_capture is populated on parse failure
- *      rather than being null.
+ * NOTE: debug-bundle integration assertions live in
+ *   src/components/debug/__tests__/v5-cee-capture.phase3-tolerance.spec.ts
+ * Pulling buildDebugBundleAsync / DebugData into the v5 typecheck graph
+ * (tsconfig.ci.json includes only specific files plus the src/v5/ tree)
+ * would surface latent type errors in untouched debug modules and break
+ * CI. Keep the v5 spec focused on parser/extractor and runtime store
+ * behaviour.
  */
 import '@testing-library/jest-dom/vitest'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
@@ -73,8 +60,6 @@ import {
 } from '../../canvas/hooks/useAnalysisStateSource'
 import { useCanvasStore } from '../../canvas/store'
 import type { V5AnalysisFactState } from '../../canvas/store'
-import { buildDebugBundleAsync } from '../../components/debug/utils/exportBundle'
-import type { DebugData } from '../../components/debug/hooks/useDebugData'
 import { callV5Turn } from '../v5Adapter'
 import { usePayloadTraceStore } from '../../lib/payload-trace-store'
 
@@ -154,74 +139,6 @@ function makeResponse(body: unknown, status = 200, headers: Record<string, strin
   })
 }
 
-function makeDebugData(overrides: Partial<DebugData> = {}): DebugData {
-  return {
-    overall: { status: 'success', total_duration_ms: 100, request_id: 'req-test-1' },
-    services: { cee: null, plot: null, isl: null },
-    error: null,
-    builds: { ui: 'test', cee: null, plot: null, isl: null },
-    diagnostics: {
-      plot_has_downstream_calls: false,
-      downstream_calls_path_found: null,
-      downstream_calls_paths_checked: [],
-      isl_data_source: 'none',
-      cee_trace_present: false,
-      cee_degraded: false,
-      llm_raw_available: false,
-      llm_raw_path_found: null,
-      e_values_present: false,
-      isl_edge_e_values_present: false,
-      plot_edge_e_values_exposed: false,
-      ui_edge_e_values_available: false,
-      evpi_present: false,
-      confidence_differentiated: false,
-      confidence_unique_values: [],
-      factor_confidence_differentiated: false,
-      factor_confidence_unique_values: [],
-      confidence_source_bootstrap: false,
-      intercept_populated: false,
-      epsilon_std_present: false,
-      response_hash_present: false,
-      mca_computed: false,
-    },
-    ceeTrace: null,
-    corrections: [],
-    correctionsSummary: null,
-    pipeline: {
-      status: 'success',
-      total_duration_ms: 100,
-      stages: [],
-      connectivity: { decision_count: 0, option_count: 0, goal_count: 0, factor_count: 0, edge_count: 0 },
-    },
-    payloads: {
-      cee_request: null,
-      cee_response: null,
-      plot_request: null,
-      plot_response: null,
-      isl_request: null,
-      isl_response: null,
-    },
-    gates: [],
-    validation: { summary: { errors: 0, warnings: 0, info: 0 }, issues: [] },
-    winningOption: null,
-    robustness: { status: 'unavailable', stability: null, context_label: 'N/A', description: '' },
-    hasData: true,
-    orchestrator: null,
-    v12_4_checks: null,
-    request_id_chain: null,
-    feature_flags_at_request: null,
-    timing: null,
-    schema_versions: null,
-    cee_observability: null,
-    m1_coaching: null,
-    m2_review: null,
-    cee_downstream: null,
-    cee_operations: null,
-    diagnostic_trace: null,
-    ...overrides,
-  }
-}
-
 beforeEach(() => {
   vi.clearAllMocks()
   mockIsV5CanonicalAnalysisEnabled.mockReturnValue(true)
@@ -297,6 +214,121 @@ describe('parser tolerance — happy path (analysis_result + review_card + coach
     // assistant_text is '' and there is one analysis_result block, so
     // routing classifies as `blocks`.
     expect(target.kind).toBe('blocks')
+  })
+})
+
+// ── All four canonical Phase 3 types — accepting exactly these is the
+// central contract; the happy-path fixture only exercises two, so this
+// test pins coverage for evidence and exercise as well.
+
+describe('parser tolerance — all four canonical Phase 3 types', () => {
+  function fourTypesFixture(): Record<string, unknown> {
+    return {
+      response_version: 2,
+      assistant_text: '',
+      blocks: [
+        { type: 'analysis_result', summary: 'leads', leading_option_id: 'opt-a' },
+        {
+          type: 'review_card',
+          block_id: 'rc-1',
+          signal_id: 'rc:1',
+          card_kind: 'narrative',
+        },
+        {
+          type: 'coaching',
+          block_id: 'co-1',
+          signal_id: 'co:1',
+          coaching_kind: 'strengthen',
+          title: 'Strengthen evidence',
+        },
+        {
+          type: 'evidence',
+          block_id: 'ev-1',
+          signal_id: 'ev:1',
+          factor_ref: 'node-A',
+          target_refs: [{ type: 'node', id: 'node-A' }],
+        },
+        {
+          type: 'exercise',
+          block_id: 'ex-1',
+          signal_id: 'ex:1',
+          exercise_kind: 'pre_mortem',
+          title: 'Pre-mortem',
+        },
+      ],
+      suggested_actions: [],
+      insights: [],
+      stage_indicator: 'analyse',
+    }
+  }
+
+  it('parses successfully and routes every type to the right bucket', async () => {
+    const result = await parseV5Response(makeResponse(fourTypesFixture()))
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+
+    // Legacy-known set in response.blocks; Phase 3 set in sidecar.
+    expect(result.response.blocks.map((b) => b.type)).toEqual(['analysis_result'])
+
+    const sidecar = (result.response as Record<string | symbol, unknown>)[
+      ADDITIVE_EXTENSIONS_KEY
+    ] as Record<string, unknown>
+    const phase3 = sidecar[PHASE3_SIDECAR_BLOCKS_KEY] as Array<Record<string, unknown>>
+    expect(phase3).toHaveLength(4)
+    const sidecarTypes = phase3.map((b) => b.type).sort()
+    expect(sidecarTypes).toEqual(['coaching', 'evidence', 'exercise', 'review_card'])
+
+    // Each block's discriminating field survives verbatim.
+    expect(phase3.find((b) => b.type === 'review_card')!.card_kind).toBe('narrative')
+    expect(phase3.find((b) => b.type === 'coaching')!.coaching_kind).toBe('strengthen')
+    expect(phase3.find((b) => b.type === 'evidence')!.factor_ref).toBe('node-A')
+    expect(phase3.find((b) => b.type === 'exercise')!.exercise_kind).toBe('pre_mortem')
+  })
+
+  it('extractor surfaces all four types with raw intact', async () => {
+    const result = await parseV5Response(makeResponse(fourTypesFixture()))
+    if (result.kind !== 'response') throw new Error('parse failed')
+    const extraction = extractPhase3FromV5Response(result.response)
+
+    expect(extraction.rawBlocks).toHaveLength(4)
+    const extractedTypes = extraction.rawBlocks.map((b) => b.type).sort()
+    expect(extractedTypes).toEqual(['coaching', 'evidence', 'exercise', 'review_card'])
+    // All four come from the blocks-array sidecar source.
+    for (const block of extraction.rawBlocks) {
+      expect(block.source).toBe('sidecar_blocks_array')
+    }
+    // Raw payload verbatim — pick a discriminating field from each type.
+    expect(extraction.rawBlocks.find((b) => b.type === 'review_card')!.raw.block_id).toBe('rc-1')
+    expect(extraction.rawBlocks.find((b) => b.type === 'coaching')!.raw.block_id).toBe('co-1')
+    expect(extraction.rawBlocks.find((b) => b.type === 'evidence')!.raw.block_id).toBe('ev-1')
+    expect(extraction.rawBlocks.find((b) => b.type === 'exercise')!.raw.block_id).toBe('ex-1')
+  })
+
+  it('callV5Turn carries all four types through to the trace clone sidecar', async () => {
+    usePayloadTraceStore.setState({ payloads: [], selectedId: null } as any)
+    const fetchImpl: typeof fetch = async () =>
+      new Response(JSON.stringify(fourTypesFixture()), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+    const result = await callV5Turn(
+      { kind: 'message', message: 'run analysis' } as never,
+      { fetchImpl },
+    )
+    expect(result.kind).toBe('response')
+
+    const traced = usePayloadTraceStore.getState().payloads
+    expect(traced).toHaveLength(1)
+    const tracedBody = traced[0].response?.body as Record<string, unknown>
+    const tracedSidecar = tracedBody[ADDITIVE_EXTENSIONS_KEY] as Record<string, unknown>
+    const tracedPhase3 = tracedSidecar[PHASE3_SIDECAR_BLOCKS_KEY] as Array<Record<string, unknown>>
+    expect(tracedPhase3.map((b) => b.type).sort()).toEqual([
+      'coaching',
+      'evidence',
+      'exercise',
+      'review_card',
+    ])
   })
 })
 
@@ -386,7 +418,40 @@ describe('extractor + store-level state source', () => {
   })
 })
 
-// ── 8–10. Negative paths + debug bundle ───────────────────────────────
+// ── Runtime sidecar non-enumerable contract ────────────────────────────
+
+describe('callV5Turn runtime/traced sidecar split', () => {
+  it('runtime response keeps sidecar non-enumerable; traced clone is enumerable', async () => {
+    usePayloadTraceStore.setState({ payloads: [], selectedId: null } as any)
+    const fetchImpl: typeof fetch = async () =>
+      new Response(JSON.stringify(ceeFixture()), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
+
+    const result = await callV5Turn(
+      { kind: 'message', message: 'run analysis' } as never,
+      { fetchImpl },
+    )
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') throw new Error('unreachable')
+
+    // Runtime contract: JSON.stringify and ordinary Object.keys consumers
+    // do NOT see `__additive__` on the OlumiResponse surface.
+    const runtimeResponse = result.response as Record<string, unknown>
+    expect(Object.keys(runtimeResponse)).not.toContain(ADDITIVE_EXTENSIONS_KEY)
+    expect(
+      (runtimeResponse as Record<string | symbol, unknown>)[ADDITIVE_EXTENSIONS_KEY],
+    ).toBeDefined()
+
+    // Trace clone: sidecar is ENUMERABLE so the trace store's
+    // Object.keys-based redactor preserves it for the debug bundle.
+    const traced = usePayloadTraceStore.getState().payloads
+    expect(traced).toHaveLength(1)
+    const tracedBody = traced[0].response?.body as Record<string, unknown>
+    expect(Object.keys(tracedBody)).toContain(ADDITIVE_EXTENSIONS_KEY)
+  })
+})
 
 // ── Drift guard — keep LEGACY_SCHEMA_KNOWN_BLOCK_TYPES in sync ─────────
 
@@ -402,17 +467,10 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
    * LEGACY_SCHEMA_KNOWN_BLOCK_TYPES in src/v5/responseParser.ts.
    */
   it('mirrors every block type declared by the vendored schema', () => {
-    // Reach into zod internals — `discriminatedUnion` carries the
-    // discriminator values in `_def.optionsMap` as a Map keyed by the
-    // literal value. This is stable across zod 3.x; if zod upgrades and
-    // breaks this access, the test fails loudly and surfaces the issue.
     const def = (BlockSchema as unknown as { _def: { optionsMap?: Map<string, unknown> } })._def
     expect(def.optionsMap).toBeDefined()
     const declaredTypes = new Set<string>(def.optionsMap!.keys())
 
-    // Mirror imported from the parser via a runtime check rather than
-    // re-exporting the private set — we test the actual behaviour by
-    // sending one block of each declared type through parseV5Response.
     // Phase 3 whitelist must NOT overlap with the legacy schema set; if
     // a Phase 3 type lands in the schema, the parser still treats it as
     // a tolerated phase3 entry — surface that conflict here.
@@ -466,16 +524,11 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
     for (const decl of declaredTypes) {
       const minimal = minimalEachType[decl]
       if (!minimal) {
-        // A new declared type that we don't have a sample for — this is
-        // exactly the drift case the guard catches. Surface it by name.
         missing.push(decl)
         continue
       }
       const parsed = BlockSchema.safeParse(minimal)
       if (!parsed.success) {
-        // If our hand-built sample is wrong for a renamed schema, fail
-        // with both the offending type and the zod error so the next
-        // editor knows exactly what changed.
         throw new Error(
           `drift: block type "${decl}" no longer accepts the canonical minimal sample. ` +
             `Update LEGACY_SCHEMA_KNOWN_BLOCK_TYPES and minimalEachType. zod error: ${parsed.error.message}`,
@@ -497,10 +550,7 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
    * separate hand-mirrored set (`LEGACY_SCHEMA_KNOWN_BLOCK_TYPES`); a
    * type that the vendored schema accepts but the mirror omits would be
    * misrouted into the `unknown` bucket and hard-fail at runtime even
-   * though the BlockSchema check above passes. This test fires
-   * `parseV5Response` against an OlumiResponse wrapping the minimal
-   * block sample for every declared type, asserting `kind === 'response'`
-   * on each. Catches mirror omissions.
+   * though the BlockSchema check above passes.
    */
   it('round-trips every declared block type through parseV5Response', async () => {
     const def = (BlockSchema as unknown as { _def: { optionsMap?: Map<string, unknown> } })._def
@@ -543,7 +593,7 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
     const misrouted: string[] = []
     for (const decl of declaredTypes) {
       const sample = minimalEachType[decl]
-      if (!sample) continue // covered by the previous test's `missing` array
+      if (!sample) continue
 
       const payload = { ...baseShell, blocks: [sample] }
       const result = await parseV5Response(
@@ -572,6 +622,8 @@ describe('LEGACY_SCHEMA_KNOWN_BLOCK_TYPES drift guard', () => {
   })
 })
 
+// ── Negative paths — unknown and malformed blocks ─────────────────────
+
 describe('parser strictness — unknown and malformed blocks', () => {
   it('(8) unknown block type inside blocks[] still fails parse with enumerated types', async () => {
     const fixture = ceeFixture()
@@ -590,6 +642,35 @@ describe('parser strictness — unknown and malformed blocks', () => {
     expect((result.raw as Record<string, unknown>).blocks).toBeTruthy()
   })
 
+  it('multiple unknown blocks of the same type dedupe to a single entry in unknown_block_types', async () => {
+    const fixture = ceeFixture()
+    ;(fixture.blocks as unknown[]).push(
+      { type: 'totally_unknown_future_type', a: 1 },
+      { type: 'totally_unknown_future_type', a: 2 },
+      { type: 'another_unknown_type', b: 3 },
+    )
+    const result = await parseV5Response(makeResponse(fixture))
+    expect(result.kind).toBe('parse_error')
+    if (result.kind !== 'parse_error') throw new Error('unreachable')
+    // Dedupe + sort so reviewers see a clean, stable list — not a bloated
+    // one with each unknown block duplicated.
+    expect(result.unknown_block_types).toEqual([
+      'another_unknown_type',
+      'totally_unknown_future_type',
+    ])
+  })
+
+  it('an array entry inside blocks[] is classified as `array`, not `object`', async () => {
+    const fixture = ceeFixture()
+    ;(fixture.blocks as unknown[]).push(['not', 'a', 'block'])
+    const result = await parseV5Response(makeResponse(fixture))
+    expect(result.kind).toBe('parse_error')
+    if (result.kind !== 'parse_error') throw new Error('unreachable')
+    expect(result.parse_failure_kind).toBe('unknown_block_types')
+    expect(result.unknown_block_types).toContain('array')
+    expect(result.unknown_block_types).not.toContain('object')
+  })
+
   it('(9) malformed-known block still fails parse — nested product schemas remain strict', async () => {
     const fixture = ceeFixture()
     ;(fixture.blocks as unknown[]).push({ type: 'text' /* required `content` missing */ })
@@ -597,261 +678,5 @@ describe('parser strictness — unknown and malformed blocks', () => {
     expect(result.kind).toBe('parse_error')
     if (result.kind !== 'parse_error') throw new Error('unreachable')
     expect(result.parse_failure_kind).toBe('schema_mismatch')
-  })
-})
-
-describe('debug bundle — v5_cee_capture populated on parse failure', () => {
-  it('(10) parse-error envelope flows into v5_cee_capture with parse_ok=false + enumerated types', async () => {
-    // Construct the parse_error envelope exactly as recordResponsePayload
-    // would have stored it under bundle.payloads.cee_response when
-    // parseV5Response hard-fails on an unknown block type.
-    const fixture = ceeFixture()
-    ;(fixture.blocks as unknown[]).push({ type: 'totally_unknown_future_type' })
-    const parsed = await parseV5Response(makeResponse(fixture))
-    expect(parsed.kind).toBe('parse_error')
-
-    // Seed the store so the canonical-analysis classifier has the bits it
-    // needs to read alongside the capture.
-    useCanvasStore.setState({
-      results: { status: 'idle' },
-      currentScenarioId: 'scenario-A',
-      v5AnalysisFact: null,
-    } as any)
-
-    const data = makeDebugData({
-      payloads: {
-        cee_request: { kind: 'message', message: 'run' },
-        // Mirror what v5Adapter's recordResponsePayload writes when parse fails.
-        cee_response: parsed as unknown as Record<string, unknown>,
-        plot_request: null,
-        plot_response: null,
-        isl_request: null,
-        isl_response: null,
-      },
-    })
-
-    const bundle = await buildDebugBundleAsync(data)
-    expect(bundle.v5_canonical_analysis).toBeDefined()
-    const diag = bundle.v5_canonical_analysis!
-    expect(diag.v5_cee_capture).not.toBeNull()
-    const capture = diag.v5_cee_capture!
-
-    expect(capture.parse_ok).toBe(false)
-    expect(capture.response_present).toBe(true)
-    expect(capture.raw_response_present).toBe(true)
-    expect(capture.parse_failure_kind).toBe('unknown_block_types')
-    expect(capture.unknown_block_types).toEqual(['totally_unknown_future_type'])
-    expect(capture.parse_error ?? '').toContain('totally_unknown_future_type')
-    // Top-level keys read from the raw envelope, not the parse_error wrapper.
-    expect(capture.response_top_level_keys).toEqual(
-      expect.arrayContaining(['response_version', 'assistant_text', 'blocks']),
-    )
-    // Classifier maps parse_ok:false to debug_capture_status:'parse_failed'.
-    expect(diag.debug_capture_status).toBe('parse_failed')
-  })
-
-  it('end-to-end: callV5Turn → trace-store redactor → bundle preserves Phase 3 fields', async () => {
-    // P1 regression — the parser stashes Phase 3 blocks on a
-    // NON-ENUMERABLE sidecar so they don't leak into JSON.stringify. The
-    // trace store's redactor uses Object.keys (skips non-enumerable), so
-    // a literal "store the parsed response" would lose the sidecar before
-    // the bundle reads it. v5Adapter promotes the sidecar to an
-    // enumerable property on a shallow clone for the trace body — this
-    // test proves the clone survives the redactor and the bundle still
-    // populates phase3_blocks_tolerated_count + phase3_block_types.
-
-    // Clear any prior trace entries from the shared zustand store.
-    usePayloadTraceStore.setState({ payloads: [], selectedId: null } as any)
-
-    const fixture = ceeFixture()
-    const fetchImpl: typeof fetch = async () =>
-      new Response(JSON.stringify(fixture), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      })
-
-    const result = await callV5Turn(
-      { kind: 'message', message: 'run analysis' } as never,
-      { fetchImpl },
-    )
-    expect(result.kind).toBe('response')
-    if (result.kind !== 'response') throw new Error('unreachable')
-
-    // Pin the intended split between runtime contract safety and
-    // diagnostic exportability:
-    //   - The runtime `result.response` keeps the sidecar NON-ENUMERABLE
-    //     so JSON.stringify, Object.keys, and ordinary consumers don't
-    //     see `__additive__` leaking onto the OlumiResponse surface.
-    //   - The trace clone (what v5Adapter records into the trace store)
-    //     promotes the sidecar to an ENUMERABLE property so the redactor
-    //     (Object.keys-based) preserves it for the debug bundle.
-    const runtimeResponse = result.response as Record<string, unknown>
-    expect(Object.keys(runtimeResponse)).not.toContain(ADDITIVE_EXTENSIONS_KEY)
-    // Bracket access still reaches the non-enumerable sidecar.
-    expect(
-      (runtimeResponse as Record<string | symbol, unknown>)[ADDITIVE_EXTENSIONS_KEY],
-    ).toBeDefined()
-
-    // Reach into the trace store to pull what the bundle assembler will
-    // read from in production (post-redaction).
-    const traced = usePayloadTraceStore.getState().payloads
-    expect(traced).toHaveLength(1)
-    const tracedBody = traced[0].response?.body as Record<string, unknown> | undefined
-    expect(tracedBody).toBeDefined()
-
-    // Sidecar must be present and ENUMERABLE on the traced body
-    // (post-redaction) — the diagnostic split with the runtime object.
-    const tracedKeys = Object.keys(tracedBody!)
-    expect(tracedKeys).toContain(ADDITIVE_EXTENSIONS_KEY)
-    const tracedSidecar = tracedBody![ADDITIVE_EXTENSIONS_KEY] as Record<string, unknown>
-    expect(tracedSidecar).toBeDefined()
-    expect(Array.isArray(tracedSidecar[PHASE3_SIDECAR_BLOCKS_KEY])).toBe(true)
-    const tracedPhase3 = tracedSidecar[PHASE3_SIDECAR_BLOCKS_KEY] as Array<Record<string, unknown>>
-    expect(tracedPhase3).toHaveLength(2)
-    expect(tracedPhase3.map((b) => b.type).sort()).toEqual(['coaching', 'review_card'])
-
-    // Now drive buildDebugBundleAsync with this real traced body — proves
-    // the diagnostic fields populate end-to-end through redaction.
-    useCanvasStore.setState({
-      results: {
-        status: 'complete',
-        report: { schema: 'report.v1' } as any,
-        hash: 'hash-e2e',
-      },
-      currentScenarioId: 'scenario-A',
-      v5AnalysisFact: {
-        scenarioId: 'scenario-A',
-        analysisHash: 'hash-e2e',
-        hasRunAnalysisFact: true,
-        freshness: 'fresh',
-        freshnessReason: null,
-        rawBlocks: [],
-        writtenAt: Date.now(),
-      } satisfies V5AnalysisFactState,
-    } as any)
-
-    const data = makeDebugData({
-      services: {
-        cee: {
-          name: 'CEE',
-          status: 200,
-          success: true,
-          duration_ms: 312,
-          endpoint: '/bff/orchestrate/v2/turn',
-        },
-        plot: null,
-        isl: null,
-      },
-      payloads: {
-        cee_request: traced[0].request?.body as Record<string, unknown> | null,
-        cee_response: tracedBody as Record<string, unknown>,
-        plot_request: null,
-        plot_response: null,
-        isl_request: null,
-        isl_response: null,
-      },
-    })
-
-    const bundle = await buildDebugBundleAsync(data)
-    const capture = bundle.v5_canonical_analysis!.v5_cee_capture!
-    expect(capture.parse_ok).toBe(true)
-    expect(capture.has_additive_extensions).toBe(true)
-    expect(capture.phase3_blocks_tolerated_count).toBe(2)
-    expect(capture.phase3_block_types).toEqual(['coaching', 'review_card'])
-    // Honest semantics on success: the trace stores a parsed clone, NOT
-    // the literal wire JSON. response_top_level_keys must still reflect
-    // the original CEE root shape (via the parser's sidecar metadata).
-    expect(capture.raw_response_present).toBe(false)
-    expect(capture.response_top_level_keys).not.toContain('__additive__')
-    expect(capture.response_top_level_keys).toEqual(
-      expect.arrayContaining([
-        'analysis_freshness',
-        'has_run_analysis_fact',
-        'freshness_reason',
-      ]),
-    )
-  })
-
-  it('parse-success envelope populates v5_cee_capture with phase3 counts', async () => {
-    const parsed = await parseV5Response(makeResponse(ceeFixture()))
-    expect(parsed.kind).toBe('response')
-    if (parsed.kind !== 'response') throw new Error('unreachable')
-
-    // Seed the store with the matching fact + report so the diagnostic
-    // shows the successful canonical state.
-    useCanvasStore.setState({
-      results: {
-        status: 'complete',
-        report: { schema: 'report.v1' } as any,
-        hash: 'hash-success',
-      },
-      currentScenarioId: 'scenario-A',
-      v5AnalysisFact: {
-        scenarioId: 'scenario-A',
-        analysisHash: 'hash-success',
-        hasRunAnalysisFact: true,
-        freshness: 'fresh',
-        freshnessReason: null,
-        rawBlocks: [],
-        writtenAt: Date.now(),
-      } satisfies V5AnalysisFactState,
-    } as any)
-
-    const data = makeDebugData({
-      services: {
-        cee: {
-          name: 'CEE',
-          status: 200,
-          success: true,
-          duration_ms: 312,
-          endpoint: '/bff/orchestrate/v2/turn',
-        },
-        plot: null,
-        isl: null,
-      },
-      payloads: {
-        cee_request: { kind: 'message', message: 'run' },
-        cee_response: parsed.response as unknown as Record<string, unknown>,
-        plot_request: null,
-        plot_response: null,
-        isl_request: null,
-        isl_response: null,
-      },
-    })
-
-    const bundle = await buildDebugBundleAsync(data)
-    const diag = bundle.v5_canonical_analysis!
-    expect(diag.v5_cee_capture).not.toBeNull()
-    const capture = diag.v5_cee_capture!
-
-    expect(capture.parse_ok).toBe(true)
-    expect(capture.parse_error).toBeNull()
-    expect(capture.parse_failure_kind).toBeNull()
-    // Success path stores a parsed clone, not the verbatim wire JSON, so
-    // raw_response_present must be honest about that.
-    expect(capture.raw_response_present).toBe(false)
-    // But response_top_level_keys must STILL reflect the ORIGINAL CEE
-    // root shape, sourced from the parser's sidecar metadata. The fixture
-    // emits analysis_freshness / has_run_analysis_fact / freshness_reason
-    // at the root; the parsed clone demotes them into __additive__, but
-    // the original-keys stash preserves the wire view for diagnostics.
-    expect(capture.response_top_level_keys).toEqual(
-      [
-        'analysis_freshness',
-        'assistant_text',
-        'blocks',
-        'freshness_reason',
-        'has_run_analysis_fact',
-        'insights',
-        'response_version',
-        'stage_indicator',
-        'suggested_actions',
-      ].sort(),
-    )
-    // __additive__ must NOT leak into response_top_level_keys.
-    expect(capture.response_top_level_keys).not.toContain('__additive__')
-    expect(capture.phase3_blocks_tolerated_count).toBe(2)
-    expect(capture.phase3_block_types).toEqual(['coaching', 'review_card'])
-    expect(diag.debug_capture_status).toBe('complete')
   })
 })

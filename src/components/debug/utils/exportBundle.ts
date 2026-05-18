@@ -2725,13 +2725,22 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // (now sourced from sidecar metadata) plus the phase3 sidecar.
     const rawResponsePresent = ceeIsParseErrorEnvelope && ceeRawResponseObject !== null
 
-    const hasAdditiveExtensions =
-      ceeResponseObject !== null &&
-      !ceeIsParseErrorEnvelope &&
-      Object.prototype.hasOwnProperty.call(
-        ceeResponseObject,
-        ADDITIVE_EXTENSIONS_KEY,
-      )
+    // `has_additive_extensions` is documented as TOP-LEVEL additive
+    // extensions only — the kind of unknown keys CEE emits at the
+    // response root ahead of a schema bump. The sidecar may also carry
+    // diagnostic metadata (Phase 3 blocks lifted out of `blocks[]`,
+    // original top-level key list); those are NOT top-level additive
+    // fields and must not flip this flag. Compute from the sidecar's
+    // remaining keys after excluding the metadata slots.
+    const hasAdditiveExtensions = (() => {
+      if (successSidecar === null) return false
+      for (const k of Object.keys(successSidecar)) {
+        if (k === PHASE3_SIDECAR_BLOCKS_KEY) continue
+        if (k === ORIGINAL_TOP_LEVEL_KEYS_KEY) continue
+        return true
+      }
+      return false
+    })()
 
     const v5Capture: V5CeeCapture | null =
       requestPresent || responsePresent || ceeService

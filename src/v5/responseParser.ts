@@ -165,17 +165,27 @@ function splitBlocksTolerance(blocks: unknown[]): {
   const known: unknown[] = [];
   const phase3: unknown[] = [];
   const unknown: unknown[] = [];
-  const unknownTypes: string[] = [];
+  const unknownTypeSet = new Set<string>();
   for (const entry of blocks) {
-    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    if (entry === null || entry === undefined) {
       unknown.push(entry);
-      unknownTypes.push(typeof entry);
+      unknownTypeSet.add(entry === null ? 'null' : 'undefined');
+      continue;
+    }
+    if (Array.isArray(entry)) {
+      unknown.push(entry);
+      unknownTypeSet.add('array');
+      continue;
+    }
+    if (typeof entry !== 'object') {
+      unknown.push(entry);
+      unknownTypeSet.add(typeof entry);
       continue;
     }
     const type = (entry as { type?: unknown }).type;
     if (typeof type !== 'string') {
       unknown.push(entry);
-      unknownTypes.push('<missing-type>');
+      unknownTypeSet.add('<missing-type>');
       continue;
     }
     if (PHASE3_TOLERATED_BLOCK_TYPES.has(type as Phase3ToleratedBlockType)) {
@@ -187,8 +197,12 @@ function splitBlocksTolerance(blocks: unknown[]): {
       continue;
     }
     unknown.push(entry);
-    unknownTypes.push(type);
+    unknownTypeSet.add(type);
   }
+  // Dedupe + sort so multiple unknown blocks of the same type don't bloat
+  // the parse_error reason / debug bundle, and the ordering is stable for
+  // reviewers diffing two captures.
+  const unknownTypes = [...unknownTypeSet].sort();
   return { known, phase3, unknown, unknownTypes };
 }
 
