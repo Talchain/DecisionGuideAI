@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
-import { Paperclip } from 'lucide-react'
+import { Brain, Mic, Paperclip } from 'lucide-react'
 import { typography } from '../../styles/typography'
 
 interface CogPopoverProps {
@@ -11,15 +11,63 @@ interface CogPopoverProps {
   onAttach: () => void
 }
 
-// Cog popover dismissal contract (per correction #7):
-//   • outside click closes
-//   • Escape closes (only when popover is open — does NOT hijack Escape elsewhere)
-//   • selecting an item closes and runs the action
-//   • focus returns to the cog button after close (parent handles by re-focusing
-//     the cog ref on close)
-//   • does NOT close on focus loss while the user is composing in the input
-//     (textarea sibling); we only listen to mousedown / Escape, never to
-//     `blur` on the popover itself.
+// Cog popover dismissal contract:
+//   • outside click closes (capture-phase pointerdown — so mode/header
+//     buttons that stopPropagation on bubble pointerdown still dismiss)
+//   • Escape closes (only when popover is open — does NOT hijack Escape
+//     elsewhere)
+//   • selecting an enabled item closes and runs the action
+//   • focus returns to the cog button after close (parent handles by
+//     re-focusing the cog ref on close)
+//
+// Menu items (Batch 2):
+//   1. Attach evidence       — functional (Paperclip)
+//   2. Voice mode            — disabled (Mic). Badge "Coming soon".
+//   3. Decision depth        — disabled (Brain). Badge "Coming soon".
+//      Replaces any raw model selector for pilot users. When enabled
+//      (future) it will surface Quick / Standard / Deep / Expert tiers
+//      reflecting decision complexity, not raw model names.
+//
+// The dev-only model selector is intentionally NOT rendered here; if it
+// returns it needs a flag-gated dev-mode branch outside this surface.
+
+interface MenuItemProps {
+  icon: typeof Paperclip
+  label: string
+  onClick?: () => void
+  comingSoon?: boolean
+  testId: string
+}
+
+function MenuItem({ icon: Icon, label, onClick, comingSoon = false, testId }: MenuItemProps) {
+  const disabled = comingSoon || !onClick
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={disabled ? undefined : onClick}
+      aria-disabled={disabled}
+      disabled={disabled}
+      className={`flex items-center gap-2 w-full px-3 py-2 ${typography.panelBody} text-text-body ${
+        disabled
+          ? 'opacity-60 cursor-default'
+          : 'hover:bg-panel-hover focus:outline-none focus-visible:bg-panel-hover'
+      }`}
+      data-testid={testId}
+    >
+      <Icon className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />
+      <span className="flex-1 text-left">{label}</span>
+      {comingSoon && (
+        <span
+          className={`${typography.panelMeta} text-text-light border border-default rounded-full px-1.5 py-0.5`}
+          aria-label="Coming soon"
+        >
+          Coming soon
+        </span>
+      )}
+    </button>
+  )
+}
 
 export const CogPopover = memo(function CogPopover({
   open,
@@ -33,10 +81,8 @@ export const CogPopover = memo(function CogPopover({
     if (!open) return
 
     // Capture-phase pointerdown so mode-control buttons that call
-    // event.stopPropagation() on their own pointerdown (PullTab does this
-    // to suppress drag-start) still trigger the outside-click handler.
-    // Bubble-phase mousedown was getting consumed before the document
-    // listener saw it, leaving the popover open after a mode click.
+    // event.stopPropagation() on their own pointerdown still trigger
+    // the outside-click handler.
     const handlePointerDown = (event: PointerEvent) => {
       const target = event.target as Node | null
       if (!target) return
@@ -48,8 +94,8 @@ export const CogPopover = memo(function CogPopover({
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key !== 'Escape') return
       // Stop propagation so the document-level Escape priority chain
-      // (Focus overlay → inspector → deselect — step 13) does not also
-      // fire on the same keystroke.
+      // (Focus overlay → inspector → deselect) does not also fire on
+      // the same keystroke.
       event.stopPropagation()
       onClose()
     }
@@ -75,19 +121,26 @@ export const CogPopover = memo(function CogPopover({
       role="menu"
       aria-label="Input options"
       data-testid="ai-panel-v2-cog-popover"
-      className="absolute right-0 bottom-full mb-2 min-w-[160px] bg-panel border border-panel-border rounded-lg shadow-2 py-1"
-      // Sits above the input bar, anchored to the cog's bottom-right
+      className="absolute right-0 bottom-full mb-2 min-w-[200px] bg-panel border border-default rounded-lg shadow-2 py-1"
     >
-      <button
-        type="button"
-        role="menuitem"
+      <MenuItem
+        icon={Paperclip}
+        label="Attach evidence"
         onClick={handleAttachClick}
-        className={`flex items-center gap-2 w-full px-3 py-1.5 ${typography.panelBody} text-text-body hover:bg-panel-hover focus:outline-none focus-visible:bg-panel-hover`}
-        data-testid="ai-panel-v2-cog-attach"
-      >
-        <Paperclip className="w-3.5 h-3.5 text-text-light" aria-hidden="true" />
-        <span>Attach evidence</span>
-      </button>
+        testId="ai-panel-v2-cog-attach"
+      />
+      <MenuItem
+        icon={Mic}
+        label="Voice mode"
+        comingSoon
+        testId="ai-panel-v2-cog-voice"
+      />
+      <MenuItem
+        icon={Brain}
+        label="Decision depth"
+        comingSoon
+        testId="ai-panel-v2-cog-depth"
+      />
     </div>
   )
 })

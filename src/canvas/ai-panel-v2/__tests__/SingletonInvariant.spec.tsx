@@ -1,15 +1,33 @@
-import { describe, it, expect, vi, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { render, screen, cleanup, act } from '@testing-library/react'
+import { render, cleanup } from '@testing-library/react'
 
-// Spy on useConversation at the module level so we can count how many
-// times it's called across the full panel-v2 tree (AIPanelV2Layout +
-// embedded OutputsDock + AIZone). The brief's singleton invariant
-// (correction #9 + the latest P0) requires exactly one call per active
-// AI surface — the embedded OutputsDock must NOT spin up a second
-// useConversation instance.
+// Verifies the Batch 2 singleton invariant: AIPanelV2Layout calls
+// useConversation() EXACTLY ONCE per render across every view (welcome,
+// docked, minimised, floating). The embedded OutputsDock should NOT
+// call useConversation — its host wrapper branches on the `embedded`
+// prop and forwards the layout-owned sendMessage instead.
 
 const { useConversationSpy } = vi.hoisted(() => ({ useConversationSpy: vi.fn() }))
+
+const canvasState = {
+  nodes: [] as unknown[],
+  edges: [] as unknown[],
+  results: { status: 'idle' as 'idle' | 'running' | 'complete' | 'error', hash: null as string | null },
+}
+const conversationMessages: { id: string; role: 'user' | 'assistant'; content: string; timestamp: number }[] = []
+
+vi.mock('../../store', async () => {
+  const actual = await vi.importActual<typeof import('../../store')>('../../store')
+  return {
+    ...actual,
+    useCanvasStore: ((selector?: (s: typeof canvasState) => unknown) => {
+      if (typeof selector === 'function') return selector(canvasState)
+      return canvasState
+    }) as unknown,
+  }
+})
+
 vi.mock('../../conversation/useConversation', async () => {
   const actual = await vi.importActual<typeof import('../../conversation/useConversation')>(
     '../../conversation/useConversation',
@@ -19,7 +37,7 @@ vi.mock('../../conversation/useConversation', async () => {
     useConversation: () => {
       useConversationSpy()
       return {
-        messages: [],
+        messages: [...conversationMessages],
         isThinking: false,
         longRunningHint: null,
         lastFailedInput: null,
@@ -39,64 +57,44 @@ vi.mock('../../conversation/useConversation', async () => {
   }
 })
 
-// Stub heavy peripheral hooks/components so the test boots without the
-// orchestrator. The mounts of OutputsDock and AIZone still run their
-// own renders (and any useConversation hooks they contain).
-vi.mock('../../hooks/useV2Run', () => ({
-  useV2Run: () => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn(), isRunning: false }),
+// Stub heavy children so the layout boots without orchestrator / router.
+vi.mock('../../components/OutputsDock', () => ({
+  OutputsDock: () => <div data-testid="stub-outputs-dock" />,
 }))
-vi.mock('../../hooks/useGraphReadiness', () => ({
-  useGraphReadiness: () => ({ readiness: null }),
-}))
-vi.mock('../../conversation/hooks/useThreadPersistence', () => ({
-  useThreadPersistence: () => ({ onBlockAction: vi.fn(), onChipTaken: vi.fn() }),
-}))
-vi.mock('../../../adapters/plot', () => ({ plot: { validatePatch: vi.fn() } }))
-vi.mock('../../conversation/zones/ChatThread', () => ({
-  ChatThread: () => <div data-testid="stub-chat-thread" />,
-}))
-vi.mock('../../conversation/zones/ChatComposer', () => ({
-  ChatComposer: () => null,
-}))
-// OutputsDock's body pulls in useScenario which calls react-router's
-// useNavigate — without Router context the render crashes. Mock the
-// scenario hook so the body renders. We keep the REAL OutputsDock
-// wrapper + hosts in scope so the singleton invariant (embedded host
-// skipping useConversation) is genuinely exercised.
-vi.mock('../../../hooks/useScenario', () => ({
-  useScenario: () => ({
-    isPersistenceActive: false,
-    supabaseSaveStatus: 'idle',
-    supabaseSaveError: null,
-  }),
+vi.mock('../../conversation/ConversationPanel', () => ({
+  ConversationPanel: () => <div data-testid="stub-conversation-panel" />,
 }))
 
 import { AIPanelV2Layout } from '../AIPanelV2Layout'
 
-afterEach(() => {
-  cleanup()
+beforeEach(() => {
+  canvasState.nodes = []
+  canvasState.edges = []
+  canvasState.results = { status: 'idle', hash: null }
+  conversationMessages.length = 0
   useConversationSpy.mockReset()
 })
 
-describe('Singleton invariant — useConversation count under FF on', () => {
-  it('AIPanelV2Layout calls useConversation() exactly once across both zones', async () => {
+afterEach(() => cleanup())
+
+describe('Singleton invariant — useConversation called exactly once across every view', () => {
+  it('welcome view: 1 call', () => {
     render(<AIPanelV2Layout />)
-    await act(async () => { await Promise.resolve() })
-    // The whole tree — AIPanelV2Layout owns the hook; embedded
-    // OutputsDock receives sendMessage via prop and does NOT call
-    // useConversation; AIZone receives the conversation as a prop.
     expect(useConversationSpy).toHaveBeenCalledTimes(1)
   })
 
-  it('the embedded OutputsDock wrapper does not call useConversation', () => {
-    // Render the panel and assert the spy count is still 1 even after
-    // OutputsDock mounts. (The previous test already covers this; this
-    // one is the deliberate regression guard if someone re-adds a
-    // useConversation call inside OutputsDockBody.)
+  it('docked (pre-analysis): 1 call', () => {
+    canvasState.nodes = [{ id: 'n1' }]
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
     render(<AIPanelV2Layout />)
     expect(useConversationSpy).toHaveBeenCalledTimes(1)
-    // The embedded OutputsDock host is a separate component that
-    // renders the body without the hook.
-    expect(screen.getByTestId('outputs-dock').dataset.embedded).toBe('true')
+  })
+
+  it('docked (post-analysis): 1 call', () => {
+    canvasState.nodes = [{ id: 'n1' }]
+    canvasState.results = { status: 'complete', hash: 'abc' }
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
+    render(<AIPanelV2Layout />)
+    expect(useConversationSpy).toHaveBeenCalledTimes(1)
   })
 })

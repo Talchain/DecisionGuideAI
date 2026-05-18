@@ -1,127 +1,149 @@
-import { describe, it, expect, afterEach, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest'
 import '@testing-library/jest-dom/vitest'
-import { fireEvent, render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, act } from '@testing-library/react'
+import type { UseConversationReturn } from '../../conversation/useConversation'
 
-// Mock heavy children so the test stays at the mounting level.
-vi.mock('../AIZone', () => ({
-  AIZone: () => <div data-testid="stub-ai-zone" />,
-}))
-vi.mock('../PullTab', () => ({
-  PullTab: ({
-    activeMode,
-    onModeClick,
-  }: {
-    activeMode: string
-    onModeClick: (mode: 'compact' | 'conversation' | 'focus') => void
-  }) => (
-    <div data-testid="stub-pull-tab" data-active-mode={activeMode}>
-      <button type="button" data-testid="stub-focus-mode" onClick={() => onModeClick('focus')}>
-        Focus
-      </button>
-    </div>
-  ),
-}))
+// Integration tests for the Batch 2 state-led AIPanelV2Layout. Verifies
+// the 5 views switch based on canvas + conversation state, that the
+// minimise/float/dock controls toggle display, and that the analysis
+// zone is HIDDEN in the welcome view.
+
+// Mutable canvas-store state for state-led derivation in tests.
+const canvasState = {
+  nodes: [] as unknown[],
+  edges: [] as unknown[],
+  results: { status: 'idle' as 'idle' | 'running' | 'complete' | 'error', hash: null as string | null },
+}
+
+// Mutable conversation messages. Tests assign before render to flip views.
+const conversationMessages: { id: string; role: 'user' | 'assistant'; content: string; timestamp: number }[] = []
+
+vi.mock('../../store', async () => {
+  const actual = await vi.importActual<typeof import('../../store')>('../../store')
+  return {
+    ...actual,
+    useCanvasStore: ((selector?: (s: typeof canvasState) => unknown) => {
+      if (typeof selector === 'function') return selector(canvasState)
+      return canvasState
+    }) as unknown,
+  }
+})
+
+vi.mock('../../conversation/useConversation', async () => {
+  const actual = await vi.importActual<typeof import('../../conversation/useConversation')>(
+    '../../conversation/useConversation',
+  )
+  return {
+    ...actual,
+    useConversation: (): UseConversationReturn => ({
+      messages: [...conversationMessages],
+      isThinking: false,
+      longRunningHint: null,
+      lastFailedInput: null,
+      sendMessage: vi.fn().mockResolvedValue(undefined),
+      sendSystemEvent: vi.fn(),
+      sendChip: vi.fn(),
+      dispatchAction: vi.fn(),
+      clearHistory: vi.fn(),
+      retryLast: vi.fn(),
+      cancelTurn: vi.fn(),
+      patchBlockStates: new Map(),
+      setPatchBlockState: vi.fn(),
+      patchRejections: new Map(),
+      setPatchRejection: vi.fn(),
+    }),
+  }
+})
+
+// Stub heavy children so the layout boots in jsdom.
 vi.mock('../../components/OutputsDock', () => ({
-  OutputsDock: ({ embedded }: { embedded?: boolean }) => (
-    <div data-testid="stub-outputs-dock" data-embedded={String(!!embedded)} />
-  ),
+  OutputsDock: () => <div data-testid="stub-outputs-dock" />,
+}))
+vi.mock('../../conversation/ConversationPanel', () => ({
+  ConversationPanel: () => <div data-testid="stub-conversation-panel" />,
 }))
 
 import { AIPanelV2Layout } from '../AIPanelV2Layout'
-import {
-  AI_PANEL_V2_WIDTH,
-  Z_AI_PANEL_BASE,
-  AI_ZONE_MIN_HEIGHT,
-} from '../constants'
-import { isAiPanelV2Enabled } from '../../../flags'
 
 afterEach(() => {
   cleanup()
-  Object.defineProperty(window, 'innerWidth', { writable: true, value: 1024 })
 })
 
-describe('AIPanelV2Layout — single container: analysis zone + AI zone (Fix 1)', () => {
-  it('mounts both zones — OutputsDock(embedded) at top + AIZone at bottom', () => {
+beforeEach(() => {
+  canvasState.nodes = []
+  canvasState.edges = []
+  canvasState.results = { status: 'idle', hash: null }
+  conversationMessages.length = 0
+})
+
+describe('AIPanelV2Layout — state-led views', () => {
+  it('State 1 (welcome): no messages + no nodes → WelcomeComposer, NO analysis zone', () => {
     render(<AIPanelV2Layout />)
-    // Analysis zone
+    expect(screen.getByTestId('ai-panel-v2-welcome')).toBeInTheDocument()
+    expect(screen.queryByTestId('ai-panel-v2-analysis-zone')).toBeNull()
+    expect(screen.queryByTestId('stub-outputs-dock')).toBeNull()
+  })
+
+  it('State 2 (pre-analysis): nodes but no analysis → analysis zone + AI zone split', () => {
+    canvasState.nodes = [{ id: 'n1' }]
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
+    render(<AIPanelV2Layout />)
     expect(screen.getByTestId('ai-panel-v2-analysis-zone')).toBeInTheDocument()
-    expect(screen.getByTestId('stub-outputs-dock')).toBeInTheDocument()
-    expect(screen.getByTestId('stub-outputs-dock').dataset.embedded).toBe('true')
-    // AI zone
-    expect(screen.getByTestId('ai-panel-v2-layout')).toBeInTheDocument()
-    expect(screen.getByTestId('ai-panel-v2-ai-zone')).toBeInTheDocument()
-    expect(screen.getByTestId('stub-ai-zone')).toBeInTheDocument()
-    expect(screen.getByTestId('stub-pull-tab')).toBeInTheDocument()
+    expect(screen.getByTestId('ai-panel-v2-layout')).toHaveAttribute('data-view', 'docked')
+    expect(screen.getByTestId('ai-panel-v2-layout')).toHaveAttribute('data-state', 'pre-analysis')
   })
 
-  it('exactly one OutputsDock is mounted (singleton at the layout level)', () => {
+  it('State 3 (post-analysis): analysis result → docked with data-state=post-analysis', () => {
+    canvasState.nodes = [{ id: 'n1' }]
+    canvasState.results = { status: 'complete', hash: 'abc' }
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
     render(<AIPanelV2Layout />)
-    expect(screen.getAllByTestId('stub-outputs-dock')).toHaveLength(1)
+    expect(screen.getByTestId('ai-panel-v2-layout')).toHaveAttribute('data-state', 'post-analysis')
   })
 
-  it('AI zone has its own testid distinct from the analysis zone', () => {
+  it('State 4 (minimised): clicking minimise switches the layout to data-view=minimised + MinimisedBar', () => {
+    canvasState.nodes = [{ id: 'n1' }]
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
     render(<AIPanelV2Layout />)
-    const ai = screen.getByTestId('ai-panel-v2-layout')
-    const analysis = screen.getByTestId('ai-panel-v2-analysis-zone')
-    expect(ai).not.toBe(analysis)
-    expect(ai.getAttribute('aria-label')).toBe('AI conversation')
-    expect(analysis.getAttribute('aria-label')).toBe('Analysis')
+    const minBtn = screen.getByTestId('ai-panel-v2-minimise')
+    act(() => { minBtn.click() })
+    expect(screen.getByTestId('ai-panel-v2-layout')).toHaveAttribute('data-view', 'minimised')
+    expect(screen.getByTestId('ai-panel-v2-minimised-bar')).toBeInTheDocument()
+    // Analysis zone is STILL rendered (it expands to fill above the bar).
+    expect(screen.getByTestId('ai-panel-v2-analysis-zone')).toBeInTheDocument()
   })
 
-  it('AI zone is fixed-positioned at the right edge with the configured width + z-index', () => {
+  it('State 5 (floating): clicking float switches to a FloatingPanel + analysis stays docked', () => {
+    canvasState.nodes = [{ id: 'n1' }]
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
     render(<AIPanelV2Layout />)
-    const ai = screen.getByTestId('ai-panel-v2-layout')
-    expect(ai.style.position).toBe('fixed')
-    expect(ai.style.width).toBe(`${AI_PANEL_V2_WIDTH}px`)
-    expect(ai.style.right).toBe('12px')
-    expect(ai.style.zIndex).toBe(String(Z_AI_PANEL_BASE))
+    const floatBtn = screen.getByTestId('ai-panel-v2-float')
+    act(() => { floatBtn.click() })
+    expect(screen.getByTestId('ai-panel-v2-floating')).toBeInTheDocument()
+    expect(screen.getByTestId('ai-panel-v2-analysis-zone')).toBeInTheDocument()
+    // Docked AI layout is NOT mounted while floating.
+    expect(screen.queryByTestId('ai-panel-v2-layout')).toBeNull()
   })
 
-  it('analysis zone is fixed-positioned at the top-right with the configured width', () => {
+  it('floating panel "Dock" button returns to docked view', () => {
+    canvasState.nodes = [{ id: 'n1' }]
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
     render(<AIPanelV2Layout />)
-    const a = screen.getByTestId('ai-panel-v2-analysis-zone')
-    expect(a.style.position).toBe('fixed')
-    expect(a.style.width).toBe(`${AI_PANEL_V2_WIDTH}px`)
-    expect(a.style.right).toBe('12px')
-    expect(a.style.top).toBe('12px')
+    act(() => { screen.getByTestId('ai-panel-v2-float').click() })
+    const dockBtn = screen.getByTestId('ai-panel-v2-floating-dock')
+    act(() => { dockBtn.click() })
+    expect(screen.queryByTestId('ai-panel-v2-floating')).toBeNull()
+    expect(screen.getByTestId('ai-panel-v2-layout')).toHaveAttribute('data-view', 'docked')
   })
 
-  it('exposes the active mode + ratio via data attributes for diagnostics', () => {
+  it('minimised bar expand button returns to docked view', () => {
+    canvasState.nodes = [{ id: 'n1' }]
+    conversationMessages.push({ id: 'm1', role: 'user', content: 'hi', timestamp: 0 })
     render(<AIPanelV2Layout />)
-    const ai = screen.getByTestId('ai-panel-v2-layout')
-    expect(ai.getAttribute('data-active-mode')).toBe('compact')
-    const ratio = Number(ai.getAttribute('data-ai-ratio'))
-    expect(ratio).toBeGreaterThan(0)
-    expect(ratio).toBeLessThan(1)
-  })
-
-  it('initial AI-zone height is at least AI_ZONE_MIN_HEIGHT', () => {
-    render(<AIPanelV2Layout />)
-    const ai = screen.getByTestId('ai-panel-v2-layout')
-    expect(ai.style.height).toBe(`${AI_ZONE_MIN_HEIGHT}px`)
-  })
-
-  it('hides the analysis zone in 1440-1599 Focus tab-strip mode (no tab open)', () => {
-    Object.defineProperty(window, 'innerWidth', { writable: true, value: 1500 })
-    render(<AIPanelV2Layout />)
-    fireEvent.click(screen.getByTestId('stub-focus-mode'))
-    const analysis = screen.getByTestId('ai-panel-v2-analysis-zone')
-    expect(analysis.getAttribute('data-tab-strip-hidden')).toBe('true')
-  })
-
-  it('reveals the analysis zone again when a tab opens in tab-strip mode', () => {
-    Object.defineProperty(window, 'innerWidth', { writable: true, value: 1500 })
-    render(<AIPanelV2Layout />)
-    fireEvent.click(screen.getByTestId('stub-focus-mode'))
-    // Open a tab via the strip (rendered by AnalysisTabStripOverlay).
-    fireEvent.click(screen.getByTestId('ai-panel-v2-tab-results'))
-    const analysis = screen.getByTestId('ai-panel-v2-analysis-zone')
-    expect(analysis.getAttribute('data-tab-strip-hidden')).toBe('false')
-  })
-})
-
-describe('FF_AI_PANEL_V2 default', () => {
-  it('is off by default (no env var, no localStorage override)', () => {
-    expect(isAiPanelV2Enabled()).toBe(false)
+    act(() => { screen.getByTestId('ai-panel-v2-minimise').click() })
+    expect(screen.getByTestId('ai-panel-v2-minimised-bar')).toBeInTheDocument()
+    act(() => { screen.getByTestId('ai-panel-v2-minimised-expand').click() })
+    expect(screen.queryByTestId('ai-panel-v2-minimised-bar')).toBeNull()
+    expect(screen.getByTestId('ai-panel-v2-layout')).toHaveAttribute('data-view', 'docked')
   })
 })

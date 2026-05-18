@@ -43,6 +43,15 @@ interface AIInputBarProps {
    * the first-use entry point when no messages exist yet.
    */
   variant?: 'compact' | 'welcome'
+  /**
+   * Optional controlled value + change handler. When BOTH are provided
+   * the textarea becomes controlled — useful for lifting the draft up
+   * so it survives across dock/undock view transitions in Batch 2.
+   * When omitted (the default) the bar keeps its own internal value
+   * state for backward compatibility.
+   */
+  value?: string
+  onValueChange?: (next: string) => void
 }
 
 // Imperative handle so external flows (inspector "Ask about this", analysis
@@ -65,13 +74,28 @@ export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(fun
   isThinking,
   onAttach,
   variant = 'compact',
+  value: controlledValue,
+  onValueChange,
 }, ref) {
   // In welcome variant the guidance text above the field carries the
   // "Describe your decision..." copy, so an additional stage-aware
   // placeholder inside the textarea would be a redundant duplicate.
   const stagePlaceholder = useStageAwarePlaceholder()
   const placeholder = variant === 'welcome' ? '' : stagePlaceholder
-  const [value, setValue] = useState('')
+  const isControlled = controlledValue !== undefined && onValueChange !== undefined
+  const [internalValue, setInternalValue] = useState('')
+  const value = isControlled ? controlledValue : internalValue
+  const setValue = useCallback(
+    (next: string | ((prev: string) => string)) => {
+      if (isControlled) {
+        const resolved = typeof next === 'function' ? next(controlledValue ?? '') : next
+        onValueChange?.(resolved)
+      } else {
+        setInternalValue(next)
+      }
+    },
+    [isControlled, controlledValue, onValueChange],
+  )
   const [cogOpen, setCogOpen] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const cogButtonRef = useRef<HTMLButtonElement>(null)
@@ -95,7 +119,7 @@ export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(fun
     if (!trimmed || isThinking) return
     void onSend(trimmed)
     setValue('')
-  }, [value, isThinking, onSend])
+  }, [value, isThinking, onSend, setValue])
 
   const handleKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -134,7 +158,7 @@ export const AIInputBar = memo(forwardRef<AIInputBarHandle, AIInputBarProps>(fun
     },
     focus: () => textareaRef.current?.focus(),
     closePopover: () => setCogOpen(false),
-  }), [])
+  }), [setValue])
 
   const canSend = value.trim().length > 0 && !isThinking
   const isWelcome = variant === 'welcome'

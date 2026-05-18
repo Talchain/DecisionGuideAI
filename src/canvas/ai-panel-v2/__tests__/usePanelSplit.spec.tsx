@@ -1,106 +1,63 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { renderHook, act } from '@testing-library/react'
-
 import { usePanelSplit } from '../hooks/usePanelSplit'
 import {
   AI_ZONE_MIN_HEIGHT,
   ANALYSIS_ZONE_MIN_HEIGHT,
-  COMPACT_AI_RATIO,
-  CONVERSATION_AI_RATIO,
-  MODE_THRESHOLDS,
+  POST_ANALYSIS_AI_RATIO,
+  PRE_ANALYSIS_AI_RATIO,
 } from '../constants'
 
-function setup(panelHeight = 1000) {
-  return renderHook(() => usePanelSplit({ getPanelHeight: () => panelHeight }))
-}
+const PANEL_HEIGHT = 800
 
-describe('usePanelSplit — mode + clamp', () => {
-  it('starts in Compact mode with the Compact preset ratio', () => {
-    const { result } = setup()
-    expect(result.current.activeMode).toBe('compact')
-    expect(result.current.aiRatio).toBeCloseTo(COMPACT_AI_RATIO, 5)
+describe('usePanelSplit — vertical resize (Batch 2)', () => {
+  it('starts at the supplied initialRatio (default = PRE_ANALYSIS_AI_RATIO)', () => {
+    const { result } = renderHook(() => usePanelSplit({ getPanelHeight: () => PANEL_HEIGHT }))
+    expect(result.current.aiRatio).toBe(PRE_ANALYSIS_AI_RATIO)
   })
 
-  it('clicking Conversation jumps to the Conversation preset', () => {
-    const { result } = setup()
-    act(() => result.current.setMode('conversation'))
-    expect(result.current.activeMode).toBe('conversation')
-    expect(result.current.aiRatio).toBeCloseTo(CONVERSATION_AI_RATIO, 5)
+  it('respects initialRatio when provided', () => {
+    const { result } = renderHook(() =>
+      usePanelSplit({ getPanelHeight: () => PANEL_HEIGHT, initialRatio: POST_ANALYSIS_AI_RATIO }),
+    )
+    expect(result.current.aiRatio).toBe(POST_ANALYSIS_AI_RATIO)
   })
 
-  it('clicking Compact jumps back to the Compact preset', () => {
-    const { result } = setup()
-    act(() => result.current.setMode('conversation'))
-    act(() => result.current.setMode('compact'))
-    expect(result.current.activeMode).toBe('compact')
-    expect(result.current.aiRatio).toBeCloseTo(COMPACT_AI_RATIO, 5)
+  it('setRatio clamps to the min/max heights derived from the panel height', () => {
+    const { result } = renderHook(() => usePanelSplit({ getPanelHeight: () => PANEL_HEIGHT }))
+    act(() => result.current.setRatio(0.01))
+    expect(result.current.aiRatio).toBe(AI_ZONE_MIN_HEIGHT / PANEL_HEIGHT)
+    act(() => result.current.setRatio(0.99))
+    expect(result.current.aiRatio).toBe((PANEL_HEIGHT - ANALYSIS_ZONE_MIN_HEIGHT) / PANEL_HEIGHT)
   })
 
-  it('arrow-key adjust clamps to AI_ZONE_MIN_HEIGHT', () => {
-    const PANEL = 1000
-    const { result } = setup(PANEL)
-    // Big negative shrink → would go below min.
-    act(() => result.current.adjustByPx(-10_000))
-    expect(result.current.aiRatio * PANEL).toBeCloseTo(AI_ZONE_MIN_HEIGHT, 5)
+  it('adjustByPx shifts the ratio by the equivalent of the supplied pixel delta', () => {
+    const { result } = renderHook(() => usePanelSplit({ getPanelHeight: () => PANEL_HEIGHT }))
+    const start = result.current.aiRatio
+    act(() => result.current.adjustByPx(80))
+    expect(result.current.aiRatio).toBeCloseTo(start + 80 / PANEL_HEIGHT, 4)
   })
 
-  it('arrow-key adjust clamps to leave at least ANALYSIS_ZONE_MIN_HEIGHT for the dock', () => {
-    const PANEL = 1000
-    const { result } = setup(PANEL)
-    act(() => result.current.adjustByPx(10_000))
-    const aiPx = result.current.aiRatio * PANEL
-    expect(aiPx).toBeCloseTo(PANEL - ANALYSIS_ZONE_MIN_HEIGHT, 5)
-  })
-
-  it('mode highlight follows the ratio when it leaves the explicit band', () => {
-    const PANEL = 1000
-    const { result } = setup(PANEL)
-    // Click Compact (ratio = 0.30, in compact band)
-    act(() => result.current.setMode('compact'))
-    expect(result.current.activeMode).toBe('compact')
-    // Drag up by enough to leave the compact band into the conversation band.
-    act(() => result.current.adjustByPx(220)) // ~+0.22 ratio → ~0.52
-    expect(result.current.aiRatio).toBeGreaterThan(MODE_THRESHOLDS.compact.max)
-    expect(result.current.activeMode).toBe('conversation')
-  })
-
-  it('vertical drag updates the ratio after the 8px axis dead-zone', () => {
-    const PANEL = 1000
-    const { result } = setup(PANEL)
-    const initialRatio = result.current.aiRatio
-
-    const fakeEvent = {
+  it('startDrag sets isDragging true; pointerup clears it', () => {
+    const { result } = renderHook(() => usePanelSplit({ getPanelHeight: () => PANEL_HEIGHT }))
+    const ev = {
       button: 0,
-      clientX: 200,
-      clientY: 500,
-      preventDefault: () => {},
+      clientX: 100,
+      clientY: 200,
+      preventDefault: vi.fn(),
     } as unknown as React.PointerEvent
-    act(() => result.current.startDrag(fakeEvent))
-
-    // jsdom's PointerEvent doesn't read clientX/Y from the init dict the
-    // way browsers do — set both properties directly so axis detection
-    // can compare them.
-    const dispatchMove = (clientY: number, clientX = 200) => {
-      const ev = new Event('pointermove', { bubbles: true }) as PointerEvent & { clientX: number; clientY: number }
-      Object.defineProperty(ev, 'clientX', { value: clientX })
-      Object.defineProperty(ev, 'clientY', { value: clientY })
-      act(() => { document.dispatchEvent(ev) })
-    }
-    const dispatchUp = () => {
-      const ev = new Event('pointerup', { bubbles: true })
-      act(() => { document.dispatchEvent(ev) })
-    }
-
-    // Small movement below 8px should NOT change the ratio (axis not committed).
-    dispatchMove(504)
-    expect(result.current.aiRatio).toBeCloseTo(initialRatio, 5)
-
-    // Movement past 8px commits the axis and changes the ratio.
-    dispatchMove(480)
-    // Moving UP (smaller clientY) at the AI-zone top edge expands the AI zone.
-    expect(result.current.aiRatio).toBeGreaterThan(initialRatio)
-
-    dispatchUp()
+    act(() => result.current.startDrag(ev))
+    expect(result.current.isDragging).toBe(true)
+    act(() => {
+      document.dispatchEvent(new Event('pointerup'))
+    })
     expect(result.current.isDragging).toBe(false)
+  })
+
+  it('returns 0 if getPanelHeight is 0 (no-op for adjustByPx)', () => {
+    const { result } = renderHook(() => usePanelSplit({ getPanelHeight: () => 0 }))
+    const before = result.current.aiRatio
+    act(() => result.current.adjustByPx(100))
+    expect(result.current.aiRatio).toBe(before)
   })
 })

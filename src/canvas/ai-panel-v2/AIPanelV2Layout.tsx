@@ -1,75 +1,49 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { AIZone } from './AIZone'
-import { AnalysisTabStripOverlay } from './AnalysisTabStripOverlay'
-import { PullTab } from './PullTab'
 import { OutputsDock } from '../components/OutputsDock'
 import { useConversation } from '../conversation/useConversation'
+import { useGuidanceStore } from '../stores/guidanceStore'
+import { AIHeaderStrip } from './AIHeaderStrip'
+import { ConversationSurface, type ConversationSurfaceHandle } from './ConversationSurface'
+import { FloatingPanel } from './FloatingPanel'
+import { MinimisedBar, type MinimisedBarHandle } from './MinimisedBar'
+import { WelcomeComposer, type WelcomeComposerHandle } from './WelcomeComposer'
 import { usePanelSplit } from './hooks/usePanelSplit'
-import { useFocusColumn } from './hooks/useFocusColumn'
-import { useSelectionContext } from './hooks/useSelectionContext'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
+import { usePanelView } from './hooks/usePanelView'
 import {
+  AI_HEADER_STRIP_HEIGHT,
   AI_PANEL_V2_WIDTH,
   AI_ZONE_MIN_HEIGHT,
   ANALYSIS_ZONE_MIN_HEIGHT,
-  FOCUS_FULL_VIEWPORT,
-  FOCUS_MIN_VIEWPORT,
+  MINIMISED_BAR_HEIGHT,
+  PANEL_BOTTOM_OFFSET_CSS,
+  PANEL_RIGHT_MARGIN,
+  POST_ANALYSIS_AI_RATIO,
+  PRE_ANALYSIS_AI_RATIO,
   Z_AI_PANEL_BASE,
-  Z_FOCUS_COLUMN,
 } from './constants'
-// Right-edge AI panel — single container, two zones.
-//
-//   Compact / Conversation:
-//     • Outer column-flex container fixed to the right edge of viewport
-//     • Top zone:  <OutputsDock embedded />  (analysis surface)
-//     • Bottom zone: <AIZone />              (AI conversation)
-//     • Split ratio driven by usePanelSplit; PullTab on the boundary
-//
-//   Focus:
-//     • OutputsDock keeps its top-right position (full height)
-//     • AIZone detaches as a left-of-dock column controlled by useFocusColumn
-//     • PullTab still anchors at AIZone's top edge
-//
-// AIZone owns the singleton useConversation() instance (correction #9).
-// OutputsDock is mounted EXACTLY ONCE inside this layout, sharing state
-// across mode toggles — it does NOT mount/unmount on Compact↔Focus.
 
-const PANEL_RIGHT_MARGIN = 12
-const PANEL_BOTTOM_OFFSET_CSS = 'calc(var(--bottombar-h, 0px) + 1rem)'
-const PULL_TAB_DRAG_BAND_HEIGHT = 16
+// Right-edge AI panel (Batch 2 — state-led).
+//
+// View matrix (driven by `usePanelView`):
+//   • welcome      → full-panel WelcomeComposer; analysis HIDDEN
+//   • docked (pre) → 35% analysis / 65% AI
+//   • docked (post)→ 65% analysis / 35% AI
+//   • minimised    → analysis fills (panel - 48px); 48px bar at bottom
+//   • floating     → analysis 100%; FloatingPanel as separate aside
+//
+// Single useConversation() instance lives here and is threaded into both
+// the embedded OutputsDock (for chip-fires) and the ConversationSurface
+// (the chat thread + input). Draft text is lifted up so it survives
+// across dock/undock/minimise transitions.
 
 export function AIPanelV2Layout() {
-  // Singleton useConversation() for the entire AI panel v2 surface.
-  //
-  // ── Architecture deviation from the literal brief ───────────────────
-  // The approved plan's correction #9 said "useConversation() is called
-  // exactly once at the top of AIZone". The brief's intent was the
-  // singleton invariant — ONE instance — not the literal location. With
-  // the Fix 1 restructure (AIPanelV2Layout owning both zones), the hook
-  // moved one level up so the SAME instance can be threaded into both
-  // the embedded OutputsDock (for its pre-analysis chip-fires) and
-  // AIZone (the main chat surface). The invariant is preserved: exactly
-  // one useConversation() across the panel-v2 tree (asserted by
-  // SingletonInvariant.spec.tsx). Tests + close-out reference the
-  // invariant by name ("single conversation instance") rather than the
-  // call site.
-  //
-  // FF off renders neither — OutputsDock calls its own useConversation
-  // in OutputsDockStandaloneHost.
+  // ── Singleton conversation ────────────────────────────────────────
   const conversation = useConversation()
 
-  const [viewportWidth, setViewportWidth] = useState(() =>
-    typeof window === 'undefined' ? 1600 : window.innerWidth,
-  )
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const onResize = () => setViewportWidth(window.innerWidth)
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
-  }, [])
+  // ── Derived state-led view ────────────────────────────────────────
+  const { view, state, setDisplay } = usePanelView({ conversation })
 
-  // Sentinel measures the vertical budget honestly so pixel clamps
-  // respect the actual usable height (viewport minus top/bottom chrome).
+  // ── Sentinel measures the usable vertical budget ──────────────────
   const measureRef = useRef<HTMLDivElement>(null)
   const [availableHeightPx, setAvailableHeightPx] = useState(0)
   useLayoutEffect(() => {
@@ -86,51 +60,91 @@ export function AIPanelV2Layout() {
   }, [])
   const getPanelHeight = useCallback(() => availableHeightPx, [availableHeightPx])
 
-  const { aiRatio, activeMode, isDragging, startDrag, setMode, adjustByPx } = usePanelSplit({
+  // ── Vertical split (Docked States 2 + 3) ──────────────────────────
+  const { aiRatio, isDragging, startDrag, adjustByPx, setRatio } = usePanelSplit({
     getPanelHeight,
+    initialRatio: state === 'post-analysis' ? POST_ANALYSIS_AI_RATIO : PRE_ANALYSIS_AI_RATIO,
   })
 
-  const handleFocusExit = useCallback(() => setMode('compact'), [setMode])
-  const { width: focusWidth, isResizing: isFocusResizing, startLeftEdgeResize, startRightEdgeResize } = useFocusColumn({
-    onExit: handleFocusExit,
-  })
-
-  const isFocus = activeMode === 'focus'
-  const tabStripMode = isFocus && viewportWidth >= FOCUS_MIN_VIEWPORT && viewportWidth < FOCUS_FULL_VIEWPORT
-  const [openAnalysisOverlayTab, setOpenAnalysisOverlayTab] = useState<string | null>(null)
-
+  // Snap ratio to the right preset when the derived state transitions.
+  // Tracks the previous state so we only snap on transitions, leaving
+  // user-resize freedom intact while a state is stable.
+  const prevStateRef = useRef(state)
   useEffect(() => {
-    if (!tabStripMode && openAnalysisOverlayTab !== null) {
-      setOpenAnalysisOverlayTab(null)
+    if (prevStateRef.current === state) return
+    prevStateRef.current = state
+    if (state === 'pre-analysis') setRatio(PRE_ANALYSIS_AI_RATIO)
+    else if (state === 'post-analysis') setRatio(POST_ANALYSIS_AI_RATIO)
+  }, [state, setRatio])
+
+  // ── Lifted state that must survive dock/undock/minimise ───────────
+  const [draftText, setDraftText] = useState('')
+  const threadScrollRef = useRef<HTMLDivElement | null>(null)
+  const surfaceRef = useRef<ConversationSurfaceHandle>(null)
+  const welcomeRef = useRef<WelcomeComposerHandle>(null)
+  const minimisedRef = useRef<MinimisedBarHandle>(null)
+
+  // ── Attachment plumbing (hidden file input lives at layout root) ──
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const handleAttach = useCallback(() => fileInputRef.current?.click(), [])
+
+  // ── Send + prefill ────────────────────────────────────────────────
+  const handleSend = useCallback(
+    async (text: string) => {
+      setDraftText('')
+      await conversation.sendMessage(text, { debugSource: 'ai_panel_v2_input' })
+    },
+    [conversation],
+  )
+
+  const handlePrefill = useCallback((text: string) => {
+    setDraftText(text)
+    // Focus the active variant's input.
+    if (view.kind === 'welcome') welcomeRef.current?.focus()
+    else if (view.kind === 'minimised') minimisedRef.current?.focus()
+    else surfaceRef.current?.focusInput()
+  }, [view.kind])
+
+  // Register prefill + external send into guidanceStore. The same
+  // handler works for all view kinds because draftText is layout-owned.
+  useEffect(() => {
+    const sendForExternals = (text: string) => {
+      void conversation.sendMessage(text, { debugSource: 'ai_panel_v2_external' })
     }
-  }, [tabStripMode, openAnalysisOverlayTab])
+    useGuidanceStore.setState({
+      _prefillChat: handlePrefill,
+      _sendMessage: sendForExternals,
+    })
+    return () => {
+      const s = useGuidanceStore.getState()
+      if (s._prefillChat === handlePrefill) useGuidanceStore.setState({ _prefillChat: null })
+      if (s._sendMessage === sendForExternals) useGuidanceStore.setState({ _sendMessage: null })
+    }
+  }, [conversation, handlePrefill])
 
-  const { hasSelection, borderClass: selectionBorder } = useSelectionContext()
-  const { isStale } = useStaleGuard()
-  const tintBorderClass = useMemo(() => {
-    if (hasSelection) return selectionBorder
-    if (isStale) return 'border-warning'
-    return 'border-default'
-  }, [hasSelection, selectionBorder, isStale])
+  // ── Display toggle handlers ───────────────────────────────────────
+  const handleMinimise = useCallback(() => setDisplay('minimised'), [setDisplay])
+  const handleFloat = useCallback(() => setDisplay('floating'), [setDisplay])
+  const handleDockOrExpand = useCallback(() => setDisplay('docked'), [setDisplay])
 
-  // AI-zone pixel height (Compact/Conv only).
-  const aiHeightPx = availableHeightPx > 0
-    ? Math.max(
-        AI_ZONE_MIN_HEIGHT,
-        Math.min(availableHeightPx - ANALYSIS_ZONE_MIN_HEIGHT, availableHeightPx * aiRatio),
-      )
-    : AI_ZONE_MIN_HEIGHT
-  const analysisHeightPx = availableHeightPx > 0 ? availableHeightPx - aiHeightPx : 0
+  // ── Pixel heights for the docked split ────────────────────────────
+  const { aiHeightPx, analysisHeightPx } = useMemo(() => {
+    if (availableHeightPx <= 0) {
+      return { aiHeightPx: AI_ZONE_MIN_HEIGHT, analysisHeightPx: 0 }
+    }
+    const rawAi = availableHeightPx * aiRatio
+    const aiH = Math.max(
+      AI_ZONE_MIN_HEIGHT,
+      Math.min(availableHeightPx - ANALYSIS_ZONE_MIN_HEIGHT, rawAi),
+    )
+    return { aiHeightPx: aiH, analysisHeightPx: availableHeightPx - aiH }
+  }, [availableHeightPx, aiRatio])
 
-  // ── Compact / Conversation: AI zone pinned at bottom, dock above ──
-  // ── Focus: AI zone detaches as a separate column LEFT of dock ──
-  //
-  // The two zones are independent fixed-positioned siblings (not a
-  // single shared container) so OutputsDock retains its mounted React
-  // tree across mode toggles. Their bounds are coordinated to look like
-  // a single split column — see the position math below.
+  // ── Renderers per view ────────────────────────────────────────────
 
-  return (
+  // Shared sentinel + hidden file input always rendered so the
+  // measurement and attachment plumbing don't churn on view changes.
+  const plumbing = (
     <>
       <div
         ref={measureRef}
@@ -145,13 +159,133 @@ export function AIPanelV2Layout() {
           pointerEvents: 'none',
         }}
       />
+      <input
+        ref={fileInputRef}
+        type="file"
+        className="hidden"
+        aria-hidden="true"
+        tabIndex={-1}
+        data-testid="ai-panel-v2-file-input"
+      />
+    </>
+  )
 
-      {/* ── Analysis zone (top in Compact/Conv; right column in Focus) ─
-          In 1440-1599 tab-strip mode, hide the analysis zone while no
-          tab is open — the 48px strip is the only visible analysis
-          chrome. Clicking a tab re-shows the full dock as an overlay.
-          In Focus mode the zone runs top to bottom (top + bottom
-          positioning; no explicit height needed). */}
+  // State 1 — Welcome: full-panel composer, analysis HIDDEN.
+  if (view.kind === 'welcome') {
+    return (
+      <>
+        {plumbing}
+        <aside
+          data-testid="ai-panel-v2-layout"
+          data-view="welcome"
+          aria-label="AI conversation"
+          className="flex flex-col pointer-events-auto bg-panel border border-default rounded-2xl overflow-hidden shadow-2"
+          style={{
+            position: 'fixed',
+            top: PANEL_RIGHT_MARGIN,
+            right: PANEL_RIGHT_MARGIN,
+            bottom: PANEL_BOTTOM_OFFSET_CSS,
+            width: AI_PANEL_V2_WIDTH,
+            zIndex: Z_AI_PANEL_BASE,
+          }}
+        >
+          <WelcomeComposer
+            ref={welcomeRef}
+            onSend={handleSend}
+            isThinking={conversation.isThinking}
+            onAttach={handleAttach}
+          />
+        </aside>
+      </>
+    )
+  }
+
+  // State 5 — Floating: analysis 100% docked, AI as a separate floating aside.
+  if (view.kind === 'floating') {
+    return (
+      <>
+        {plumbing}
+        <aside
+          data-testid="ai-panel-v2-analysis-zone"
+          aria-label="Analysis"
+          className="flex flex-col pointer-events-auto bg-panel border border-default rounded-2xl overflow-hidden shadow-2"
+          style={{
+            position: 'fixed',
+            top: PANEL_RIGHT_MARGIN,
+            right: PANEL_RIGHT_MARGIN,
+            bottom: PANEL_BOTTOM_OFFSET_CSS,
+            width: AI_PANEL_V2_WIDTH,
+            zIndex: Z_AI_PANEL_BASE,
+          }}
+        >
+          <OutputsDock embedded embeddedSendMessage={conversation.sendMessage} />
+        </aside>
+        <FloatingPanel onDock={handleDockOrExpand}>
+          <ConversationSurface
+            ref={surfaceRef}
+            conversation={conversation}
+            draftText={draftText}
+            onDraftChange={setDraftText}
+            scrollListRef={threadScrollRef}
+            onAttach={handleAttach}
+            onPrefill={text => setDraftText(text)}
+            onSend={handleSend}
+          />
+        </FloatingPanel>
+      </>
+    )
+  }
+
+  // State 4 — Minimised: analysis fills minus the bar; bar pinned at bottom.
+  if (view.kind === 'minimised') {
+    const barH = MINIMISED_BAR_HEIGHT
+    return (
+      <>
+        {plumbing}
+        <aside
+          data-testid="ai-panel-v2-analysis-zone"
+          aria-label="Analysis"
+          className="flex flex-col pointer-events-auto bg-panel border border-default rounded-2xl overflow-hidden shadow-2"
+          style={{
+            position: 'fixed',
+            top: PANEL_RIGHT_MARGIN,
+            right: PANEL_RIGHT_MARGIN,
+            bottom: `calc(${PANEL_BOTTOM_OFFSET_CSS} + ${barH}px + 8px)`,
+            width: AI_PANEL_V2_WIDTH,
+            zIndex: Z_AI_PANEL_BASE,
+          }}
+        >
+          <OutputsDock embedded embeddedSendMessage={conversation.sendMessage} />
+        </aside>
+        <aside
+          data-testid="ai-panel-v2-layout"
+          data-view="minimised"
+          aria-label="AI conversation (minimised)"
+          className="flex flex-col pointer-events-auto bg-panel border border-default rounded-2xl overflow-hidden shadow-2"
+          style={{
+            position: 'fixed',
+            right: PANEL_RIGHT_MARGIN,
+            bottom: PANEL_BOTTOM_OFFSET_CSS,
+            width: AI_PANEL_V2_WIDTH,
+            zIndex: Z_AI_PANEL_BASE,
+          }}
+        >
+          <MinimisedBar
+            ref={minimisedRef}
+            onSend={handleSend}
+            onExpand={handleDockOrExpand}
+            onAttach={handleAttach}
+            isThinking={conversation.isThinking}
+          />
+        </aside>
+      </>
+    )
+  }
+
+  // States 2 + 3 — Docked split.
+  return (
+    <>
+      {plumbing}
       <aside
         data-testid="ai-panel-v2-analysis-zone"
         aria-label="Analysis"
@@ -161,40 +295,22 @@ export function AIPanelV2Layout() {
           top: PANEL_RIGHT_MARGIN,
           right: PANEL_RIGHT_MARGIN,
           width: AI_PANEL_V2_WIDTH,
-          // Compact/Conv: height = budget − ai zone; Focus: top + bottom
-          // implicit height (no explicit `height`) so the dock fills the
-          // available column. The previous string-spliced calc was
-          // double-mangling PANEL_BOTTOM_OFFSET_CSS into a + 1rem term.
-          ...(isFocus
-            ? { bottom: PANEL_BOTTOM_OFFSET_CSS }
-            : {
-                height: analysisHeightPx > 0
-                  ? `${analysisHeightPx}px`
-                  : `calc(70vh - ${PANEL_RIGHT_MARGIN}px)`,
-              }),
+          height: analysisHeightPx > 0
+            ? `${analysisHeightPx}px`
+            : `calc(70vh - ${PANEL_RIGHT_MARGIN}px)`,
           zIndex: Z_AI_PANEL_BASE,
           transition: isDragging ? 'none' : 'height var(--duration-base, 300ms) ease-out',
-          display: tabStripMode && openAnalysisOverlayTab === null ? 'none' : undefined,
         }}
-        data-tab-strip-hidden={tabStripMode && openAnalysisOverlayTab === null ? 'true' : 'false'}
       >
         <OutputsDock embedded embeddedSendMessage={conversation.sendMessage} />
       </aside>
-
-      {/* ── AI zone (bottom in Compact/Conv, left column in Focus) ──── */}
       <aside
         data-testid="ai-panel-v2-layout"
+        data-view="docked"
+        data-state={view.kind === 'docked' ? view.state : undefined}
         aria-label="AI conversation"
-        className="flex flex-col pointer-events-auto bg-panel border border-default rounded-2xl overflow-visible shadow-2"
-        style={isFocus ? {
-          position: 'fixed',
-          width: focusWidth,
-          top: PANEL_RIGHT_MARGIN,
-          bottom: PANEL_BOTTOM_OFFSET_CSS,
-          right: AI_PANEL_V2_WIDTH + PANEL_RIGHT_MARGIN + 12,
-          zIndex: Z_FOCUS_COLUMN,
-          transition: isDragging || isFocusResizing ? 'none' : 'width var(--duration-base, 300ms) ease-out, right var(--duration-base, 300ms) ease-out',
-        } : {
+        className="flex flex-col pointer-events-auto bg-panel border border-default rounded-2xl overflow-hidden shadow-2"
+        style={{
           position: 'fixed',
           width: AI_PANEL_V2_WIDTH,
           height: `${aiHeightPx}px`,
@@ -204,61 +320,31 @@ export function AIPanelV2Layout() {
           transition: isDragging ? 'none' : 'height var(--duration-base, 300ms) ease-out',
         }}
         data-ai-ratio={aiRatio.toFixed(3)}
-        data-active-mode={activeMode}
         data-is-dragging={isDragging ? 'true' : 'false'}
-        data-viewport-mode={tabStripMode ? 'tab-strip' : 'full'}
       >
-        {/* Wide invisible drag band at the AI zone's top edge — the
-            visible PullTab anchors at left. The whole band picks up
-            vertical drag, but icons inside the visible chrome stop
-            propagation so clicks switch modes instead. */}
-        <div
-          aria-hidden="true"
-          onPointerDown={startDrag}
-          className={isFocus ? 'hidden' : 'absolute left-0 right-0 -top-2 cursor-ns-resize z-10'}
-          style={{ height: PULL_TAB_DRAG_BAND_HEIGHT, pointerEvents: 'auto' }}
-        />
-        <PullTab
-          activeMode={activeMode}
-          onModeClick={setMode}
+        <AIHeaderStrip
           onStartDrag={startDrag}
           onAdjustByPx={adjustByPx}
-          tintBorderClass={tintBorderClass}
-          staleAnnouncement={isStale && !hasSelection}
+          onMinimise={handleMinimise}
+          onFloat={handleFloat}
         />
-        {isFocus && (
-          <>
-            <div
-              data-testid="ai-panel-v2-focus-left-edge"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Resize Focus column"
-              onPointerDown={startLeftEdgeResize}
-              className="absolute inset-y-0 left-0 w-1 cursor-ew-resize z-10"
-            />
-            <div
-              data-testid="ai-panel-v2-focus-right-edge"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label="Exit Focus mode"
-              onPointerDown={startRightEdgeResize}
-              className="absolute inset-y-0 right-0 w-1 cursor-ew-resize z-10"
-            />
-          </>
-        )}
         <div
           data-testid="ai-panel-v2-ai-zone"
-          className="flex flex-col flex-1 min-h-0 bg-panel overflow-hidden rounded-2xl"
+          className="flex flex-col flex-1 min-h-0 bg-panel overflow-hidden"
+          style={{ minHeight: `calc(100% - ${AI_HEADER_STRIP_HEIGHT}px)` }}
         >
-          <AIZone conversation={conversation} activeMode={activeMode} />
+          <ConversationSurface
+            ref={surfaceRef}
+            conversation={conversation}
+            draftText={draftText}
+            onDraftChange={setDraftText}
+            scrollListRef={threadScrollRef}
+            onAttach={handleAttach}
+            onPrefill={text => setDraftText(text)}
+            onSend={handleSend}
+          />
         </div>
       </aside>
-
-      {/* 1440–1599 tab-strip overlay (only in Focus at narrow viewports). */}
-      <AnalysisTabStripOverlay
-        active={tabStripMode}
-        onActiveTabChange={setOpenAnalysisOverlayTab}
-      />
     </>
   )
 }
