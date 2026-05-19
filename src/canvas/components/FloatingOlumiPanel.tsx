@@ -292,11 +292,30 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   useEffect(() => {
     if (!isOpen) return
     const handle = () => {
-      const el = containerRef.current
-      if (!el) return
+      const fp = useFloatingPanelState.getState()
+      if (!fp.isOpen) return
       const vw = window.innerWidth
       const vh = window.innerHeight
       const dockInset = measureDockInset()
+
+      // Minimised path: the full panel isn't rendered (containerRef is
+      // null) but the restore pill is. Window / dock changes still need
+      // to keep the pill visible and clear of the dock — without this
+      // the pill can drift off-screen on viewport shrink or under the
+      // dock on expand. Direct store write bypasses setPosition's
+      // `userRepositioned` flip so an automatic clamp doesn't look like
+      // a user drag (would otherwise defeat auto-dock invariants).
+      if (fp.isMinimised) {
+        if (!fp.position) return
+        const next = clampPillPositionToViewport(fp.position, vw, vh, dockInset)
+        if (next.x !== fp.position.x || next.y !== fp.position.y) {
+          useFloatingPanelState.setState({ position: next })
+        }
+        return
+      }
+
+      const el = containerRef.current
+      if (!el) return
       // Same MIN_WIDTH-or-minimise rule as the layout effect: if the
       // viewport-or-dock resize leaves no room for a MIN_WIDTH panel,
       // auto-minimise to the pill.

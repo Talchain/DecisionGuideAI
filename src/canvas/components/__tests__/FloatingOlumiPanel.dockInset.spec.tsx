@@ -348,6 +348,62 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
   // and exercising it here would only verify React's event delegation
   // (already covered by RTL's own tests).
 
+  it('reclamps the minimised pill on viewport resize (no drift off-screen)', () => {
+    // Start with the pill committed at x=1300 on a 1440px viewport
+    // (where 1300 + 84-px pill + 16-px margin = 1400, still visible).
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: true,
+      isMinimised: true,
+      position: { x: 1300, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(useFloatingPanelState.getState().position).toEqual({ x: 1300, y: 100 })
+
+    // Shrink the viewport: 800px. The pill at x=1300 would now sit off-
+    // screen. The resize handler must reclamp it back into view.
+    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
+    act(() => { window.dispatchEvent(new Event('resize')) })
+
+    const after = useFloatingPanelState.getState().position
+    // max pill x at 800 viewport = 800 - 84 - 16 = 700.
+    expect(after).toBeTruthy()
+    expect(after!.x).toBeLessThanOrEqual(700)
+    Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
+  })
+
+  it('reclamps the minimised pill when the dock expands (no drift under dock)', () => {
+    // Start with rail-width dock + pill at x=1300 on a 1440px viewport.
+    const dock = mountStubDock({ width: 40, right: 12 })
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: true,
+      isMinimised: true,
+      position: { x: 1300, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    // At rail width the dock left = 1388; pill at x=1300 (right edge 1384) fits.
+    expect(useFloatingPanelState.getState().position!.x).toBe(1300)
+
+    // Dock expands to 388 + 12 → dock.left = 1040. Pill at x=1300 now
+    // overlaps the dock. The dock-opened event fires (the dock dispatches
+    // it on tab activation; we trigger directly here).
+    act(() => {
+      dock.setWidth(388)
+      window.dispatchEvent(new Event('outputs-dock-opened'))
+    })
+
+    const after = useFloatingPanelState.getState().position
+    // Pill width 84 + margin 16; dock at left=1040 → max pill x = 1040 - 84 - 16 = 940.
+    expect(after).toBeTruthy()
+    expect(after!.x).toBeLessThanOrEqual(940)
+    dock.unmount()
+  })
+
   it('treats an absent dock (FF-off, dock unmounted) as zero inset', () => {
     // No stub mounted. measureDockInset returns 0 → panel can extend to
     // the viewport's right margin minus default margin.
