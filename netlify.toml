@@ -35,6 +35,21 @@
   VITE_ENABLE_ORCHESTRATOR_V2 = "true"
 
 # =============================================================================
+# Staging-only env overrides
+# Netlify's deploy-context syntax scopes env vars to a specific branch's
+# builds. `[context.staging.environment]` applies only to builds for the
+# `staging` branch (which Netlify deploys to `staging--olumi.netlify.app`).
+# The production context (main) inherits ONLY from `[build.environment]`
+# above, so flags listed here stay off in production until explicitly
+# promoted.
+# =============================================================================
+[context.staging.environment]
+  # aiPanelV2 — floating-first Olumi UX (PR #148 + PR #149).
+  # Enabled on staging for manual testing. Promote to production by
+  # adding to `[build.environment]` ONLY after sign-off.
+  VITE_FEATURE_AI_PANEL_V2 = "true"
+
+# =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
 # =============================================================================
 
