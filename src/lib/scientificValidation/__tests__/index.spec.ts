@@ -529,6 +529,47 @@ describe('runScientificValidation — overall_status', () => {
     expect(out.overall_status).toBe('complete')
   })
 
+  it('stabilisation regression: partial when ≥3 derived AND at least one validator returns status=partial (NOT complete) — brief says complete requires no partial/fail results', () => {
+    // Construct a state where multiple validators reach derived/observed
+    // evidence and none `fail` outright, but `response_shape_validation`
+    // returns `partial` because the capture_pipeline_status flags the
+    // source as `hydrated_only` (claim_strength=inferred, status=partial).
+    const out = runScientificValidation(
+      inputs({
+        capturePipelineStatus: 'hydrated_only',
+        plotResponse: {
+          option_comparison: [],
+          factor_sensitivity: [
+            {
+              factor_id: 'f1',
+              confidence: 0.42,
+              evpi_percentage_points: 3,
+              confidence_provenance: {
+                computation_source: 'plot_unified_from_isl_bootstrap',
+                formula_version: 'plot_unified_v3',
+              },
+            },
+          ],
+          m1_coaching: { evidence_gaps: [{ factor_id: 'f1' }] },
+          flip_thresholds: [],
+          flip_thresholds_status: 'all_no_effect',
+          robustness: {},
+          auto_noise_applied: true,
+          auto_noise_provenance: { applied: true },
+        },
+        resultsReport: { summary: 'hydrated' },
+        ceeAnalysisReady: { options: [{ interventions: {} }] },
+      }),
+    )
+    // response_shape_validation will return status=partial (hydrated path)
+    // — overall_status must NOT report 'complete' just because no
+    // validator outright failed.
+    expect(
+      out.validators.response_shape_validation.status,
+    ).toBe('partial')
+    expect(out.overall_status).toBe('partial')
+  })
+
   it('partial when ≥3 derived BUT at least one validator fails', () => {
     const out = runScientificValidation(
       inputs({

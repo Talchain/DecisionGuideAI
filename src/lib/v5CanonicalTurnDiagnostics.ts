@@ -325,7 +325,23 @@ export function assembleV5CanonicalTurnDiagnostics(
 
   // Capture tier comes from the upstream resolver — single canonical
   // source of truth shared with the V5CeeCapture assembly.
-  const latestV5TurnSource: LatestV5TurnSource = inputs.captureTier
+  //
+  // Stabilisation coherence guard: when `capture === null` (legacy
+  // synthesised fallback path, e.g. classifier threw), the assembler
+  // cannot honestly report fields from V5CeeCapture. Claiming
+  // `source: 'payload_trace'` while every capture field is null would
+  // be a provenance contradiction. Downgrade to `'store'` (if a fact
+  // is present) or `'none'` so latest_v5_turn.source and the rest of
+  // the section stay coherent. The `diagnostic_source_strength`
+  // mapping below already maps these downgraded values to 'fallback'
+  // / 'unavailable' respectively — reviewers still see that capture
+  // was absent on this export.
+  const latestV5TurnSource: LatestV5TurnSource =
+    capture === null
+      ? inputs.captureTier === 'store'
+        ? 'store'
+        : 'none'
+      : inputs.captureTier
 
   // request_id source attribution. Trace-tier entries carry the real
   // payload-trace id; lower tiers fall back to the session-level

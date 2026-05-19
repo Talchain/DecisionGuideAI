@@ -185,6 +185,40 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
     expect(out.latest_v5_turn.request_id_source).toBe('none')
   })
 
+  it('stabilisation regression: latest_v5_turn.source is DOWNGRADED to "none" when captureTier=payload_trace but capture is null (rare synthesised-fallback path) — prevents claiming live_trace without capture', () => {
+    // Models the edge case where bundle.v5_canonical_analysis was
+    // assigned the synthesised fallback (legacyDiagnostic with
+    // v5_cee_capture=null) but the snapshot's tier resolver still
+    // sees trace evidence. Claiming source='payload_trace' here
+    // would be a provenance contradiction (every capture field is
+    // null), so the assembler must downgrade.
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({ v5_cee_capture: null }),
+      captureTier: 'payload_trace',
+      responseBodyPresent: true,
+    })
+    expect(out.latest_v5_turn.source).toBe('none')
+    // Source-strength must also reflect the downgrade (was previously
+    // 'live_trace' from the unfiltered captureTier mapping).
+    expect(out.diagnostic_source_strength.latest_v5_turn).toBe('unavailable')
+    // request_id_source must also stay coherent (capture null → 'none').
+    expect(out.latest_v5_turn.request_id_source).toBe('none')
+  })
+
+  it('stabilisation regression: latest_v5_turn.source stays "store" when captureTier=store and capture is null (the honest no-capture-but-fact path)', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: null,
+        analysis_fact_status: 'present',
+      }),
+      captureTier: 'store',
+    })
+    expect(out.latest_v5_turn.source).toBe('store')
+    expect(out.diagnostic_source_strength.latest_v5_turn).toBe('fallback')
+  })
+
   it('latest_v5_turn.source = "none" when captureTier is none', () => {
     const out = assembleV5CanonicalTurnDiagnostics({
       ...defaults(),

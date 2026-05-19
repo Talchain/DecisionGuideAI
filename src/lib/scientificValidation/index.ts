@@ -85,8 +85,17 @@ function classifyOverall(
     (v) => v.claim_strength === 'observed' || v.claim_strength === 'derived',
   ).length
   const failCount = Object.values(validators).filter((v) => v.status === 'fail').length
+  // Stabilisation fix: per the brief, `complete` requires "no
+  // `partial`/`fail` results". The previous code only checked
+  // `fail`, letting a `partial` validator (e.g. a hydrated
+  // response_shape_validation that downgrades pass→partial via
+  // assertHonestyRules) still surface as `overall_status: complete`.
+  // Both states now disqualify `complete`.
+  const partialCount = Object.values(validators).filter(
+    (v) => v.status === 'partial',
+  ).length
   if (derivedCount < 3) return 'insufficient_raw_evidence'
-  if (failCount > 0) return 'partial'
+  if (failCount > 0 || partialCount > 0) return 'partial'
   return 'complete'
 }
 
