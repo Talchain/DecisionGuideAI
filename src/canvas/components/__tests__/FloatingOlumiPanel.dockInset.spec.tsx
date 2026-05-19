@@ -107,14 +107,16 @@ function mountStubDock(opts: { width: number; right: number }): {
   document.body.appendChild(el)
   const state = { ...opts }
   el.getBoundingClientRect = function () {
-    const left = VIEWPORT_W - state.width - state.right
+    const viewportW = window.innerWidth || VIEWPORT_W
+    const viewportH = window.innerHeight || VIEWPORT_H
+    const left = viewportW - state.width - state.right
     return {
       left,
       top: 60,
-      right: VIEWPORT_W - state.right,
-      bottom: VIEWPORT_H - 12,
+      right: viewportW - state.right,
+      bottom: viewportH - 12,
       width: state.width,
-      height: VIEWPORT_H - 72,
+      height: viewportH - 72,
       x: left,
       y: 60,
       toJSON: () => ({}),
@@ -404,29 +406,30 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
 
-  it('restore after narrow-viewport resize shrinks width so the panel clears the dock', () => {
+  it('1440 → 800 while minimised, then restore: shrinks width so the panel clears the dock', () => {
     // Reviewer-flagged smoke defect: at 800px with dock open, restoring
     // the panel rendered at width 400 starting at x=16 → right edge 416,
     // overlapping the dock at left=372. Fix: layout effect now caps
     // width at the available canvas (vw - 2*margin - dockInset), with
     // MIN_WIDTH as the floor. `fitsAtMinSize` guarantees the cap is
     // ≥ MIN_WIDTH (otherwise auto-minimise fires).
-    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
     const dock = mountStubDock({ width: 416, right: 12 })
-    dock.el.getBoundingClientRect = function () {
-      const left = 800 - 416 - 12 // 372
-      return { left, top: 60, right: 788, bottom: 888, width: 416, height: 828, x: left, y: 60, toJSON: () => ({}) } as DOMRect
-    }
-    // User had a 400px-wide panel from before the resize and now restores.
+    // User had a 400px-wide panel from before the resize, minimised it,
+    // then the viewport shrank from 1440 → 800 while the pill was shown.
     useFloatingPanelState.setState({
       isOpen: true,
       source: 'user',
       userRepositioned: true,
-      isMinimised: false,
-      position: { x: 16, y: 100 },
+      isMinimised: true,
+      position: { x: 900, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+
+    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
+    act(() => { window.dispatchEvent(new Event('resize')) })
+    act(() => { useFloatingPanelState.getState().restore() })
+
     // Available canvas: 800 - 32 - 412 = 356 (>= MIN_WIDTH 320). The
     // restored width must shrink to 356, not stay at 400.
     const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
