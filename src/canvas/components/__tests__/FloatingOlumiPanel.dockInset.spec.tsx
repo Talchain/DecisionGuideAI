@@ -404,6 +404,45 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
 
+  it('restore after narrow-viewport resize shrinks width so the panel clears the dock', () => {
+    // Reviewer-flagged smoke defect: at 800px with dock open, restoring
+    // the panel rendered at width 400 starting at x=16 → right edge 416,
+    // overlapping the dock at left=372. Fix: layout effect now caps
+    // width at the available canvas (vw - 2*margin - dockInset), with
+    // MIN_WIDTH as the floor. `fitsAtMinSize` guarantees the cap is
+    // ≥ MIN_WIDTH (otherwise auto-minimise fires).
+    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
+    const dock = mountStubDock({ width: 416, right: 12 })
+    dock.el.getBoundingClientRect = function () {
+      const left = 800 - 416 - 12 // 372
+      return { left, top: 60, right: 788, bottom: 888, width: 416, height: 828, x: left, y: 60, toJSON: () => ({}) } as DOMRect
+    }
+    // User had a 400px-wide panel from before the resize and now restores.
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: true,
+      isMinimised: false,
+      position: { x: 16, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    // Available canvas: 800 - 32 - 412 = 356 (>= MIN_WIDTH 320). The
+    // restored width must shrink to 356, not stay at 400.
+    const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
+    expect(panel).toBeTruthy()
+    const left = parseFloat(panel.style.left)
+    const width = parseFloat(panel.style.width)
+    expect(width).toBeLessThanOrEqual(356)
+    expect(width).toBeGreaterThanOrEqual(320) // MIN_WIDTH preserved
+    // Right edge must not overlap the dock.
+    expect(left + width).toBeLessThanOrEqual(372)
+    // userRepositioned preserved (geometry correction is not a user drag).
+    expect(useFloatingPanelState.getState().userRepositioned).toBe(true)
+    dock.unmount()
+    Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
+  })
+
   it('reclamps the minimised pill when the dock expands (no drift under dock)', () => {
     // Start with rail-width dock + pill at x=1300 on a 1440px viewport.
     const dock = mountStubDock({ width: 40, right: 12 })

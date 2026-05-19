@@ -238,8 +238,15 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       return
     }
     const max = computeMaxSize(vw, vh)
-    const w = clamp(size.width, MIN_WIDTH, max.width)
-    const h = clamp(size.height, MIN_HEIGHT, max.height)
+    // Cap width/height at the available canvas (viewport − margins − dock
+    // inset) so a stored size that exceeds the current canvas shrinks to
+    // fit instead of overlapping the dock. `fitsAtMinSize` above
+    // guarantees the cap is ≥ MIN_WIDTH × MIN_HEIGHT (so the clamp floor
+    // is always reachable).
+    const availableW = vw - 2 * DEFAULT_MARGIN - dockInset
+    const availableH = vh - 2 * DEFAULT_MARGIN
+    const w = clamp(size.width, MIN_WIDTH, Math.min(max.width, availableW))
+    const h = clamp(size.height, MIN_HEIGHT, Math.min(max.height, availableH))
     // Restored / stored positions can land outside the visible canvas when
     // the window has shrunk OR when the OutputsDock is open. Clamp so the
     // header is always visible, grabbable, and not under the dock. Mirrors
@@ -324,8 +331,14 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         return
       }
       const max = computeMaxSize(vw, vh)
-      const w = clamp(parseFloat(el.style.width || '0') || size.width, MIN_WIDTH, max.width)
-      const h = clamp(parseFloat(el.style.height || '0') || size.height, MIN_HEIGHT, max.height)
+      // Mirror the layout effect's cap: when the available canvas
+      // shrinks (viewport resize or dock expand), width/height must
+      // shrink to fit. `fitsAtMinSize` above guarantees the cap is
+      // ≥ MIN_WIDTH × MIN_HEIGHT.
+      const availableW = vw - 2 * DEFAULT_MARGIN - dockInset
+      const availableH = vh - 2 * DEFAULT_MARGIN
+      const w = clamp(parseFloat(el.style.width || '0') || size.width, MIN_WIDTH, Math.min(max.width, availableW))
+      const h = clamp(parseFloat(el.style.height || '0') || size.height, MIN_HEIGHT, Math.min(max.height, availableH))
       const x = clamp(parseFloat(el.style.left || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN - dockInset))
       const y = clamp(parseFloat(el.style.top || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
       el.style.width = `${w}px`
