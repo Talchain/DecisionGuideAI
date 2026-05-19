@@ -565,8 +565,27 @@ describe('uploaded-bundle fixture — every contradiction the brief lists is mac
     // proxy_or_network_failure. The disagreement is captured as an
     // explicit coherence issue.
     expect(bundle.capture_pipeline_status).not.toBe('proxy_or_network_failure')
-    expect(bundle.v5_canonical_turn_diagnostics!.coherence.issues).toContain(
+
+    // FINAL ACCEPTANCE check C — one bundle must contain ALL the
+    // example issue codes from the brief so a reviewer can read a
+    // single export and understand every dimension of the original
+    // failure: analysis-state contradiction, missing capture despite a
+    // fact, results rendered from store, and the legacy mislabel.
+    const issues = bundle.v5_canonical_turn_diagnostics!.coherence.issues
+    expect(issues).toContain(
+      'analysis_state_cee_v5_but_effective_cee_response_none',
+    )
+    expect(issues).toContain(
+      'analysis_fact_present_but_cee_capture_missing',
+    )
+    expect(issues).toContain(
+      'results_rendered_from_store_without_capture',
+    )
+    expect(issues).toContain(
       'legacy_pipeline_status_misleading_proxy_or_network_failure',
+    )
+    expect(bundle.v5_canonical_turn_diagnostics!.coherence.state).toBe(
+      'contradictory',
     )
   })
 

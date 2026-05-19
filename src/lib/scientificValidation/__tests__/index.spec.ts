@@ -499,9 +499,23 @@ describe('runScientificValidation — overall_status', () => {
     expect(out.overall_status).toBe('insufficient_raw_evidence')
   })
 
-  it('complete when ≥3 validators derived/observed AND none fail', () => {
+  it('complete when ALL 7 validators reach pass — including user_std_propagation via captured ISL request', () => {
+    // For `complete` the bundle MUST have ISL request evidence so
+    // user_std_propagation can confirm std propagation. Without it,
+    // the validator reports `unavailable` which now correctly
+    // disqualifies `complete` (per final-acceptance B1).
     const out = runScientificValidation(
       inputs({
+        plotRequest: {
+          graph: {
+            nodes: [
+              { id: 'f1', data: { observed_state: { std: 0.05 } } },
+            ],
+          },
+        },
+        islRequest: {
+          parameter_uncertainties: { f1: { mean: 0.4, std: 0.05 } },
+        },
         plotResponse: {
           option_comparison: [],
           factor_sensitivity: [
@@ -527,6 +541,49 @@ describe('runScientificValidation — overall_status', () => {
     )
     expect(out.source).toBe('live_raw_payloads')
     expect(out.overall_status).toBe('complete')
+    // Sanity: every validator must be at pass status. Otherwise the
+    // strict rule would have downgraded to partial.
+    for (const [name, v] of Object.entries(out.validators)) {
+      expect([name, v.status]).toEqual([name, 'pass'])
+    }
+  })
+
+  it('final-acceptance regression: partial (NOT complete) when ≥3 derived BUT some validators are unavailable — disqualifies complete per the strict honesty rule', () => {
+    // Same fixture as the `complete` test BUT without ISL request.
+    // user_std_propagation now reports unavailable. Per the
+    // final-acceptance B1 rule, ANY unavailable validator disqualifies
+    // 'complete'. The bundle must surface this as `partial` so
+    // reviewers see the missing ISL evidence rather than reading
+    // 'complete' and assuming everything was proven.
+    const out = runScientificValidation(
+      inputs({
+        plotResponse: {
+          option_comparison: [],
+          factor_sensitivity: [
+            {
+              factor_id: 'f1',
+              confidence: 0.42,
+              evpi_percentage_points: 3,
+              confidence_provenance: {
+                computation_source: 'plot_unified_from_isl_bootstrap',
+                formula_version: 'plot_unified_v3',
+              },
+            },
+          ],
+          m1_coaching: { evidence_gaps: [{ factor_id: 'f1' }] },
+          flip_thresholds: [],
+          flip_thresholds_status: 'all_no_effect',
+          robustness: {},
+          auto_noise_applied: true,
+          auto_noise_provenance: { applied: true },
+        },
+        ceeAnalysisReady: { options: [{ interventions: {} }] },
+      }),
+    )
+    // user_std_propagation is unavailable (no ISL request) — must
+    // disqualify complete.
+    expect(out.validators.user_std_propagation.status).toBe('unavailable')
+    expect(out.overall_status).toBe('partial')
   })
 
   it('stabilisation regression: partial when ≥3 derived AND at least one validator returns status=partial (NOT complete) — brief says complete requires no partial/fail results', () => {
