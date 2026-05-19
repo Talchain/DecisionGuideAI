@@ -55,19 +55,14 @@ function defaultCentredPosition(size: FloatingPanelSize, viewportW: number, view
 }
 
 /**
- * Clamp a candidate position into the visible viewport so the panel never
- * sits partially (or fully) off-screen. Used for restored stored positions
- * (a smaller viewport since last session can leave the stored x/y outside
- * the visible region), the minimise pill's anchor, and any defensive
- * recompute. Mirrors the drag-time clamp at handlePointerMove so the same
- * rules apply whether the user dragged or the panel was placed by us.
- */
-/**
- * Clamp a position into the visible canvas area. `rightInset` reserves
- * pixels at the right edge for the OutputsDock so the floating panel does
- * not land under it — the dock sits at z-index 900 and would obscure the
- * floating panel (z-300) without this. Callers pass the dock's measured
- * width (0 when the dock is collapsed or absent).
+ * Clamp a candidate position into the visible canvas area so the panel
+ * never sits partially (or fully) off-screen AND never lands under the
+ * OutputsDock (z-900, would obscure the floating panel at z-300).
+ *
+ * `rightInset` reserves space from the viewport's right edge inward —
+ * callers pass the dock's measured offset (see `measureDockInset`). It
+ * captures both the dock's width and any right-edge gap so the floating
+ * panel cannot land in the strip between the dock and the viewport edge.
  */
 export function clampPositionToViewport(
   pos: FloatingPanelPosition,
@@ -98,16 +93,28 @@ export function clampPillPositionToViewport(
   }
 }
 
-/** Measure the OutputsDock's rendered width (returns 0 when not present). */
+/**
+ * Compute the reserved area at the right edge for the OutputsDock —
+ * `vw - dock.left` captures the dock's width AND any right-edge gap
+ * (e.g. `right: 12px`). Previous implementation only counted the dock
+ * when its right edge was within 2px of the viewport edge, which
+ * silently returned 0 because the dock styles itself with `right: 12px`.
+ *
+ * Returns 0 when the dock element is absent (FF-off path), is not
+ * positioned on the right side, or sits entirely above the viewport's
+ * right axis (defensive).
+ */
 function measureDockInset(): number {
-  if (typeof document === 'undefined') return 0
+  if (typeof document === 'undefined' || typeof window === 'undefined') return 0
   const dock = document.querySelector('aside[aria-label="Outputs dock"]') as HTMLElement | null
   if (!dock) return 0
   const rect = dock.getBoundingClientRect()
-  // Only count the dock as an inset if it's actually pinned to the right
-  // edge. (Defensive — in test envs the layout may not run.)
-  if (rect.right < (typeof window !== 'undefined' ? window.innerWidth : 0) - 2) return 0
-  return rect.width
+  if (rect.width === 0 || rect.height === 0) return 0
+  // Sanity: dock must be on the right half of the viewport. Anything else
+  // (e.g. mocked left-side layout in a test) is treated as no inset.
+  if (rect.left < window.innerWidth / 2) return 0
+  const inset = window.innerWidth - rect.left
+  return inset > 0 ? inset : 0
 }
 
 /**
@@ -214,7 +221,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     })
   }, [isOpen, yieldToFirstUse])
 
-  // Clamp on viewport resize so the panel never leaves the visible area.
+  // Clamp on viewport resize AND on dock resize/open/close so the panel
+  // never leaves the visible area and never lands under the dock. The
+  // ResizeObserver watches the dock element: it fires when the dock
+  // mounts, unmounts (via the cleanup re-evaluation pass), expands, or
+  // collapses to its rail width. Without this, a panel placed when the
+  // dock was closed would be stranded under the dock when the user opens
+  // it, since the layout effect's deps don't include dock state.
   useEffect(() => {
     if (!isOpen) return
     const handle = () => {
@@ -234,7 +247,36 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       el.style.top = `${y}px`
     }
     window.addEventListener('resize', handle)
-    return () => window.removeEventListener('resize', handle)
+    // Track the dock element across mounts/unmounts so we re-clamp when
+    // it appears, expands (rail → full), or collapses (full → rail).
+    let dockObs: ResizeObserver | null = null
+    let dockEl: Element | null = null
+    const watchDock = () => {
+      const next = typeof document !== 'undefined'
+        ? document.querySelector('aside[aria-label="Outputs dock"]')
+        : null
+      if (next === dockEl) return
+      if (dockObs && dockEl) dockObs.unobserve(dockEl)
+      dockEl = next
+      if (next && dockObs) dockObs.observe(next)
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+      dockObs = new ResizeObserver(handle)
+      watchDock()
+    }
+    // Re-evaluate the watched element shortly after mount in case the
+    // dock renders asynchronously (CSR boot, conditional rendering).
+    const mountCheckId = typeof window !== 'undefined' ? window.setTimeout(watchDock, 100) : 0
+    // The dock dispatches this event on tab clicks; piggy-back to also
+    // recheck whether the watched element has changed.
+    const onDockOpened = () => { watchDock(); handle() }
+    window.addEventListener('outputs-dock-opened', onDockOpened)
+    return () => {
+      window.removeEventListener('resize', handle)
+      window.removeEventListener('outputs-dock-opened', onDockOpened)
+      if (mountCheckId) window.clearTimeout(mountCheckId)
+      if (dockObs) dockObs.disconnect()
+    }
   }, [isOpen, size])
 
   // Pointer-driven drag from the header bar.

@@ -61,12 +61,15 @@ function isRunAnalysisAffordance(chip: ActionChip): boolean {
   const norm = (s: string | undefined) => (s ?? '').trim().toLowerCase()
   const label = norm(chip.label)
   const msg = norm(chip.message)
+  // `prompt` mirrors `message` for V2 chip payloads (see validateResponse
+  // mapping in conversation/types.ts:484). Both are user-facing dispatch
+  // strings — match either so a prompt-only V2 chip is caught as well.
+  const prompt = norm(chip.prompt)
+  const CANONICAL = new Set(['run analysis', 'rerun analysis', 'rerun'])
   return (
-    label === 'run analysis' ||
-    label === 'rerun analysis' ||
-    label === 'rerun' ||
-    msg === 'run analysis' ||
-    msg === 'rerun analysis'
+    CANONICAL.has(label) ||
+    CANONICAL.has(msg) ||
+    CANONICAL.has(prompt)
   )
 }
 

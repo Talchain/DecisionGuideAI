@@ -1,0 +1,240 @@
+/**
+ * DOM-level dock-inset regression: the floating panel's layout effect must
+ * read the real OutputsDock width (including any right-edge offset like
+ * `right: 12px`) and clamp accordingly. Verifies both the initial layout
+ * and re-clamping when the dock's width changes after the panel is open.
+ *
+ * jsdom does not run CSS layout, so we mount a stub <aside> and override
+ * its getBoundingClientRect to simulate the real dock's placement.
+ */
+
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { act, render } from '@testing-library/react'
+import type { ReactNode } from 'react'
+
+vi.mock('../../../lib/supabase', () => ({
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
+  isSupabaseAvailable: () => false,
+}))
+vi.mock('dompurify', () => ({ default: { sanitize: (s: string) => s } }))
+vi.mock('../../utils/markdown', () => ({
+  renderMarkdown: (s: string) => s,
+  sanitiseMarkdown: (s: string) => s,
+}))
+
+const canvasMockState = {
+  nodes: [{ id: 'n1' }],
+  edges: [] as Array<unknown>,
+  results: { status: 'idle' as const },
+  _internal: {} as Record<string, unknown>,
+  selection: null as null | { id: string; label: string; kind: string },
+  ceeAnalysisReady: null as any,
+  graphHealth: null as any,
+  runMeta: {} as any,
+}
+vi.mock('../../store', () => {
+  const useCanvasStore: any = (selector: (s: any) => any) => selector(canvasMockState)
+  useCanvasStore.getState = () => canvasMockState
+  useCanvasStore.setState = (patch: any) => Object.assign(canvasMockState, patch)
+  useCanvasStore.subscribe = () => () => {}
+  return {
+    useCanvasStore,
+    selectResultsStatus: (s: any) => s.results?.status,
+    selectReport: (s: any) => s.results?.report,
+    selectError: (s: any) => s.results?.error,
+    selectResultsSource: (s: any) => s.results?.source,
+  }
+})
+
+// Stub ConversationPanel — its deep render is irrelevant for layout
+// invariants and adds tens of transitive deps. We only need the outer
+// FloatingOlumiPanel container to mount with its layout effect.
+vi.mock('../../conversation/ConversationPanel', () => ({
+  ConversationPanel: () => null,
+}))
+vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
+  useStageAwarePlaceholder: () => 'Ask',
+}))
+vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
+  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
+}))
+
+vi.mock('../../conversation/useConversation', async () => {
+  const { useState } = await import('react')
+  return {
+    useConversation: () => {
+      const [sendMessage] = useState(() => vi.fn())
+      return {
+        // Empty messages: avoids pulling in ConversationPanel's bubble
+        // rendering path (which transitively requires more exports).
+        messages: [],
+        isThinking: false,
+        longRunningHint: null,
+        lastFailedInput: null,
+        sendMessage,
+        sendSystemEvent: vi.fn(),
+        sendChip: vi.fn(),
+        retryLast: vi.fn(),
+        patchBlockStates: new Map(),
+        setPatchBlockState: vi.fn(),
+        patchRejections: new Map(),
+        setPatchRejection: vi.fn(),
+      }
+    },
+    isNonConversationalContent: () => false,
+  }
+})
+
+import { ConversationProvider } from '../../conversation/ConversationContext'
+import { FloatingOlumiPanel } from '../FloatingOlumiPanel'
+import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
+
+function Wrapper({ children }: { children: ReactNode }) {
+  return <ConversationProvider>{children}</ConversationProvider>
+}
+
+const VIEWPORT_W = 1440
+const VIEWPORT_H = 900
+
+/** Mount a stub OutputsDock <aside> with a mocked bounding rect. */
+function mountStubDock(opts: { width: number; right: number }): {
+  el: HTMLElement
+  setWidth: (w: number) => void
+  unmount: () => void
+} {
+  const el = document.createElement('aside')
+  el.setAttribute('aria-label', 'Outputs dock')
+  document.body.appendChild(el)
+  const state = { ...opts }
+  el.getBoundingClientRect = function () {
+    const left = VIEWPORT_W - state.width - state.right
+    return {
+      left,
+      top: 60,
+      right: VIEWPORT_W - state.right,
+      bottom: VIEWPORT_H - 12,
+      width: state.width,
+      height: VIEWPORT_H - 72,
+      x: left,
+      y: 60,
+      toJSON: () => ({}),
+    } as DOMRect
+  }
+  return {
+    el,
+    setWidth: (w: number) => { state.width = w },
+    unmount: () => el.remove(),
+  }
+}
+
+beforeEach(() => {
+  // Pin viewport so the test is deterministic.
+  Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
+  Object.defineProperty(window, 'innerHeight', { value: VIEWPORT_H, configurable: true })
+  useFloatingPanelState.getState().reset()
+})
+
+afterEach(() => {
+  document.body.querySelectorAll('aside[aria-label="Outputs dock"]').forEach((el) => el.remove())
+})
+
+describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
+  it('respects the dock width AND its right-edge gap when laying out for the first time', () => {
+    // Dock: 388px wide, 12px right offset → reserved area = 400.
+    // Default panel is 400px wide. Without dock-aware clamp the centred
+    // x would be (1440-400)/2 = 520; with inset=400 the max x becomes
+    // 1440 - 400 - 16 - 400 = 624 (no constraint here) but the centred
+    // default uses `vw - dockInset` so the panel centres in the visible
+    // canvas instead — left = (1440-400-400)/2 = 320.
+    const dock = mountStubDock({ width: 388, right: 12 })
+    useFloatingPanelState.getState().open('user')
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
+    expect(panel).toBeTruthy()
+    const left = parseFloat(panel.style.left)
+    const width = parseFloat(panel.style.width)
+    // The right edge of the panel must clear the dock's left edge.
+    const panelRight = left + width
+    const dockLeft = VIEWPORT_W - 388 - 12
+    expect(panelRight).toBeLessThanOrEqual(dockLeft)
+    dock.unmount()
+  })
+
+  it('clamps a stored position that would land under the dock back into the visible canvas', () => {
+    // Pre-place the panel at x=1200 (would overlap the dock).
+    const dock = mountStubDock({ width: 388, right: 12 })
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: true,
+      isMinimised: false,
+      position: { x: 1200, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
+    const left = parseFloat(panel.style.left)
+    const width = parseFloat(panel.style.width)
+    const panelRight = left + width
+    const dockLeft = VIEWPORT_W - 388 - 12
+    expect(panelRight).toBeLessThanOrEqual(dockLeft)
+    dock.unmount()
+  })
+
+  it('re-clamps when the dock width changes AFTER the panel is open (ResizeObserver path)', () => {
+    // Start with the dock collapsed (rail = 40px + 12 right).
+    const dock = mountStubDock({ width: 40, right: 12 })
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: true,
+      isMinimised: false,
+      // Park the panel at x=1000 — visible while dock is collapsed
+      // (rail at left=1388), would overlap when dock expands.
+      position: { x: 1000, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
+    // Initial layout with rail-width dock: panel right (1400) <= rail
+    // left (1388)? Actually 1400 > 1388 — clamp moves panel left to
+    // dockLeft - width − margin. Let's just assert the invariant.
+    let left = parseFloat(panel.style.left)
+    let width = parseFloat(panel.style.width)
+    expect(left + width).toBeLessThanOrEqual(VIEWPORT_W - 40 - 12)
+
+    // Now the dock expands (e.g. user clicked a tab → full 388px width).
+    // Dispatch the dock-opened event the dock already emits; the
+    // observer hook also re-runs on this. Even without ResizeObserver
+    // support in jsdom, the event-driven recompute kicks in.
+    act(() => {
+      dock.setWidth(388)
+      window.dispatchEvent(new Event('outputs-dock-opened'))
+    })
+
+    left = parseFloat(panel.style.left)
+    width = parseFloat(panel.style.width)
+    const dockLeftAfter = VIEWPORT_W - 388 - 12
+    expect(left + width).toBeLessThanOrEqual(dockLeftAfter)
+    dock.unmount()
+  })
+
+  it('treats an absent dock (FF-off, dock unmounted) as zero inset', () => {
+    // No stub mounted. measureDockInset returns 0 → panel can extend to
+    // the viewport's right margin minus default margin.
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: true,
+      isMinimised: false,
+      position: { x: 1000, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
+    const left = parseFloat(panel.style.left)
+    const width = parseFloat(panel.style.width)
+    // Max right edge = viewport - margin (16). Just assert no off-screen.
+    expect(left + width).toBeLessThanOrEqual(VIEWPORT_W - 16)
+  })
+})

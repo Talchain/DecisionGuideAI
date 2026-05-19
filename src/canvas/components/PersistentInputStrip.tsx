@@ -70,7 +70,7 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
         aria-label="Focus floating Olumi panel"
       >
         <span className={typo('panelMeta', 'text-text-body text-left')}>Olumi is open</span>
-        <span className={typo('panelMeta', 'text-info font-medium flex-shrink-0')}>Focus →</span>
+        <span className={typo('panelMeta', 'text-info flex-shrink-0')}>Focus →</span>
       </button>
     )
   }
