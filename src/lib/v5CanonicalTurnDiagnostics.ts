@@ -1,0 +1,209 @@
+/**
+ * V5 canonical turn diagnostics — richer assembler for the debug bundle.
+ *
+ * Composes (not replaces) the existing
+ * `classifyV5CanonicalAnalysisDiagnostic`. Adds:
+ *   - canonical flag source (env / localStorage / default / unknown)
+ *   - latest V5 turn capture summary
+ *   - parse outcome details
+ *   - analysis-fact details (incl. read-through graph_hash_at_generation)
+ *   - results metrics (option count, factor sensitivity count)
+ *   - scenario-ID reconciliation (re-exported into the snapshot)
+ *   - capture-pipeline status + coherence issues
+ *
+ * The new field is `bundle.v5_canonical_turn_diagnostics`. The legacy
+ * block `bundle.v5_canonical_analysis` stays untouched and continues to
+ * be emitted alongside.
+ *
+ * Pure module. No React, no zustand subscriptions.
+ */
+
+import type { AnalysisStateSource } from '../canvas/hooks/useAnalysisStateSource'
+import type { ParseFailureKind } from '../v5/responseParser'
+import type { ScenarioIdReconciliation } from './scenarioIdReconciliation'
+import type {
+  V5CanonicalAnalysisDiagnostic,
+  V5CeeCapture,
+} from './v5CanonicalAnalysisDiagnostics'
+import type {
+  CapturePipelineStatus,
+  CoherenceIssue,
+  CoherenceState,
+} from './v5CapturePipelineStatus'
+
+export type CanonicalFlagSource = 'env' | 'localStorage' | 'default' | 'unknown'
+
+export interface V5CanonicalTurnDiagnostics {
+  canonical_flag_on: boolean
+  canonical_flag_source: CanonicalFlagSource
+  latest_v5_turn: {
+    request_present: boolean
+    response_present: boolean
+    status: number | null
+  }
+  parse: {
+    parse_ok: boolean | null
+    parse_error: string | null
+    parse_failure_kind: ParseFailureKind | null
+    raw_response_present: boolean
+    response_top_level_keys: string[] | null
+  }
+  analysis_fact: {
+    present: boolean
+    has_run_analysis_fact: boolean | null
+    freshness: 'fresh' | 'stale' | 'unknown' | 'none' | null
+    scenario_id: string | null
+    /** Read-through from canvas v5AnalysisFact slice. Null when the slice
+     *  does not carry the field on this code path. */
+    graph_hash_at_generation: string | null
+    phase3_raw_block_count: number
+    phase3_raw_block_types: string[]
+  }
+  results: {
+    present: boolean
+    source: AnalysisStateSource
+    option_count: number
+    factor_sensitivity_count: number
+  }
+  capture_pipeline_status: CapturePipelineStatus
+  coherence: {
+    state: CoherenceState
+    issues: CoherenceIssue[]
+  }
+  scenario_id_reconciliation: ScenarioIdReconciliation
+}
+
+export interface AssembleV5CanonicalTurnDiagnosticsInputs {
+  /** Output of the legacy classifier (already on the bundle). */
+  legacyDiagnostic: V5CanonicalAnalysisDiagnostic
+  /** Result of diagnoseFlagState for the canonical flag. Pass null when
+   *  the source cannot be resolved (e.g. tests without localStorage). */
+  flagDiagnostic: {
+    resolved: boolean
+    source: 'env' | 'localStorage' | 'default'
+  } | null
+  /** From the existing AnalysisStateSource classifier. */
+  analysisStateSource: AnalysisStateSource
+  hasResultsReport: boolean
+  /** Read-through. Slice may not carry this on every code path; emit null. */
+  graphHashAtGeneration: string | null
+  /** Results metrics from bundle payloads / canvas store. */
+  optionCount: number
+  factorSensitivityCount: number
+  /** Output of classifyV5CapturePipelineStatus. */
+  capturePipeline: {
+    capture_pipeline_status: CapturePipelineStatus
+    coherence: { state: CoherenceState; issues: CoherenceIssue[] }
+  }
+  /** Output of reconcileScenarioId. */
+  scenarioIdReconciliation: ScenarioIdReconciliation
+}
+
+export function assembleV5CanonicalTurnDiagnostics(
+  inputs: AssembleV5CanonicalTurnDiagnosticsInputs,
+): V5CanonicalTurnDiagnostics {
+  const capture: V5CeeCapture | null = inputs.legacyDiagnostic.v5_cee_capture
+
+  const canonical_flag_source: CanonicalFlagSource = inputs.flagDiagnostic
+    ? inputs.flagDiagnostic.source
+    : 'unknown'
+
+  const latest_v5_turn = {
+    request_present: capture?.request_present ?? false,
+    response_present: capture?.response_present ?? false,
+    status: capture?.status ?? null,
+  }
+
+  const parse = {
+    parse_ok: capture ? capture.parse_ok : null,
+    parse_error: capture?.parse_error ?? null,
+    parse_failure_kind: capture?.parse_failure_kind ?? null,
+    raw_response_present: capture?.raw_response_present ?? false,
+    response_top_level_keys: capture?.response_top_level_keys ?? null,
+  }
+
+  // analysis_fact.* — scenario_id comes from the V5 capture (which already
+  // reads from canvas store currentScenarioId in exportBundle assembly);
+  // present + has_run_analysis_fact + freshness come from the legacy
+  // diagnostic; graph_hash_at_generation is a read-through.
+  const analysis_fact = {
+    present: inputs.legacyDiagnostic.analysis_fact_status === 'present',
+    has_run_analysis_fact: null as boolean | null,
+    freshness: null as 'fresh' | 'stale' | 'unknown' | 'none' | null,
+    scenario_id: capture?.scenario_id ?? null,
+    graph_hash_at_generation: inputs.graphHashAtGeneration,
+    phase3_raw_block_count: capture?.phase3_blocks_tolerated_count ?? 0,
+    phase3_raw_block_types: capture?.phase3_block_types ?? [],
+  }
+
+  const results = {
+    present: inputs.hasResultsReport,
+    source: inputs.analysisStateSource,
+    option_count: inputs.optionCount,
+    factor_sensitivity_count: inputs.factorSensitivityCount,
+  }
+
+  return {
+    canonical_flag_on: inputs.legacyDiagnostic.canonical_flag_on,
+    canonical_flag_source,
+    latest_v5_turn,
+    parse,
+    analysis_fact,
+    results,
+    capture_pipeline_status: inputs.capturePipeline.capture_pipeline_status,
+    coherence: inputs.capturePipeline.coherence,
+    scenario_id_reconciliation: inputs.scenarioIdReconciliation,
+  }
+}
+
+/**
+ * Pure helper for the assembler to fill `analysis_fact.has_run_analysis_fact`
+ * and `analysis_fact.freshness` when the canvas store's v5AnalysisFact
+ * slice is available to the caller. Kept separate so the main assembler
+ * stays free of store coupling.
+ */
+export function attachAnalysisFactDetails(
+  diagnostics: V5CanonicalTurnDiagnostics,
+  fact: {
+    hasRunAnalysisFact: boolean | null
+    freshness: 'fresh' | 'stale' | 'unknown' | 'none' | null
+  } | null,
+): V5CanonicalTurnDiagnostics {
+  if (!fact) return diagnostics
+  return {
+    ...diagnostics,
+    analysis_fact: {
+      ...diagnostics.analysis_fact,
+      has_run_analysis_fact: fact.hasRunAnalysisFact,
+      freshness: fact.freshness,
+    },
+  }
+}
+
+/**
+ * Extract option count from a PLoT V2 response (already in the bundle
+ * payloads). Returns 0 when the response is absent or doesn't carry
+ * `option_comparison`. Treats anything except an array as 0.
+ */
+export function extractOptionCountFromPlotResponse(
+  plotResponse: unknown,
+): number {
+  if (!plotResponse || typeof plotResponse !== 'object' || Array.isArray(plotResponse)) {
+    return 0
+  }
+  const oc = (plotResponse as Record<string, unknown>).option_comparison
+  return Array.isArray(oc) ? oc.length : 0
+}
+
+/**
+ * Extract factor_sensitivity entry count from a PLoT V2 response.
+ */
+export function extractFactorSensitivityCountFromPlotResponse(
+  plotResponse: unknown,
+): number {
+  if (!plotResponse || typeof plotResponse !== 'object' || Array.isArray(plotResponse)) {
+    return 0
+  }
+  const fs = (plotResponse as Record<string, unknown>).factor_sensitivity
+  return Array.isArray(fs) ? fs.length : 0
+}
