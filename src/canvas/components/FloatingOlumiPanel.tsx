@@ -86,11 +86,10 @@ const PILL_H = 28
  * panel's x/y do not move during resize, so the right edge of the panel
  * cannot extend past `vw - dockInset - DEFAULT_MARGIN`.
  *
- * No `MIN_WIDTH`/`MIN_HEIGHT` floor here — when the dock leaves less
- * space than the min, the panel MUST shrink below the min to stay clear
- * (the user can close the dock to grow back). Negative budgets are
- * floored at 0; the caller composes this with MIN_WIDTH via
- * `min(widthBudget, max(MIN_WIDTH, requested))`.
+ * Returns raw geometry only (floored at 0). Callers compose this with
+ * `MIN_WIDTH` / `MIN_HEIGHT`. See `fitsAtMinSize` — when the available
+ * space is smaller than MIN, the safe UX is to auto-minimise to the
+ * restore pill rather than render a too-narrow panel.
  */
 export function computeResizeBudget(
   x: number,
@@ -103,6 +102,22 @@ export function computeResizeBudget(
     widthBudget: Math.max(0, viewportW - x - DEFAULT_MARGIN - rightInset),
     heightBudget: Math.max(0, viewportH - y - DEFAULT_MARGIN),
   }
+}
+
+/**
+ * Returns true when the available canvas (viewport minus dock inset and
+ * margins on both sides) can fit a panel at MIN_WIDTH × MIN_HEIGHT.
+ * When false, the panel should auto-minimise to the pill — rendering at
+ * a sub-MIN_WIDTH size would be unusable.
+ */
+export function fitsAtMinSize(
+  viewportW: number,
+  viewportH: number,
+  rightInset: number = 0,
+): boolean {
+  const availableW = viewportW - 2 * DEFAULT_MARGIN - rightInset
+  const availableH = viewportH - 2 * DEFAULT_MARGIN
+  return availableW >= MIN_WIDTH && availableH >= MIN_HEIGHT
 }
 
 export function clampPillPositionToViewport(
@@ -199,6 +214,14 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
     const dockInset = measureDockInset()
+    // If the dock + margins leave less room than MIN_WIDTH × MIN_HEIGHT,
+    // auto-minimise to the pill instead of rendering an unusably narrow
+    // panel. User can close the dock to restore. This preserves the
+    // brief's "MIN_WIDTH whenever possible, otherwise minimise" rule.
+    if (!fitsAtMinSize(vw, vh, dockInset)) {
+      minimise()
+      return
+    }
     const max = computeMaxSize(vw, vh)
     const w = clamp(size.width, MIN_WIDTH, max.width)
     const h = clamp(size.height, MIN_HEIGHT, max.height)
@@ -220,7 +243,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     if (position === null) {
       setInitialPosition(pos)
     }
-  }, [isOpen, isMinimised, position, size, setInitialPosition])
+  }, [isOpen, isMinimised, position, size, setInitialPosition, minimise])
 
   // Register a focus channel so the persistent status strip and Olumi-tab
   // click (when floating is open) can imperatively focus the input.
@@ -259,6 +282,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       const vw = window.innerWidth
       const vh = window.innerHeight
       const dockInset = measureDockInset()
+      // Same MIN_WIDTH-or-minimise rule as the layout effect: if the
+      // viewport-or-dock resize leaves no room for a MIN_WIDTH panel,
+      // auto-minimise to the pill.
+      if (!fitsAtMinSize(vw, vh, dockInset)) {
+        useFloatingPanelState.getState().minimise()
+        return
+      }
       const max = computeMaxSize(vw, vh)
       const w = clamp(parseFloat(el.style.width || '0') || size.width, MIN_WIDTH, max.width)
       const h = clamp(parseFloat(el.style.height || '0') || size.height, MIN_HEIGHT, max.height)
@@ -346,24 +376,29 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         el.style.left = `${x}px`
         el.style.top = `${y}px`
       } else if (resize) {
+        // If the dock leaves no room for a MIN_WIDTH × MIN_HEIGHT panel,
+        // auto-minimise instead of rendering a too-narrow surface. Cancel
+        // the in-flight resize so pointerup doesn't commit a bad size.
+        if (!fitsAtMinSize(vw, vh, dockInset)) {
+          resizeStateRef.current = null
+          useFloatingPanelState.getState().minimise()
+          return
+        }
         const dw = e.clientX - resize.startX
         const dh = e.clientY - resize.startY
         // Resize comes from the bottom-right handle, so x/y stay fixed
         // and we grow width/height. Cap the maximum width by the
         // remaining space from the panel's current x to the dock's left
-        // edge (or viewport right - margin when no dock). Without this
-        // the right edge can slide under the dock as the user resizes.
+        // edge (or viewport right - margin when no dock). MIN_WIDTH is
+        // preserved — the auto-minimise branch above handles the case
+        // where the dock leaves less room than MIN_WIDTH.
         const x = parseFloat(el.style.left || '0')
         const y = parseFloat(el.style.top || '0')
         const { widthBudget, heightBudget } = computeResizeBudget(x, y, vw, vh, dockInset)
-        // Compose: requested width floors at MIN_WIDTH, then caps at the
-        // dock-aware budget. When the budget is below MIN_WIDTH (narrow
-        // viewport + open dock), the budget wins — the panel shrinks
-        // below MIN_WIDTH to stay clear of the dock.
         const requestedW = Math.max(MIN_WIDTH, resize.startW + dw)
         const requestedH = Math.max(MIN_HEIGHT, resize.startH + dh)
-        const w = Math.min(max.width, widthBudget, requestedW)
-        const h = Math.min(max.height, heightBudget, requestedH)
+        const w = Math.max(MIN_WIDTH, Math.min(max.width, widthBudget, requestedW))
+        const h = Math.max(MIN_HEIGHT, Math.min(max.height, heightBudget, requestedH))
         el.style.width = `${w}px`
         el.style.height = `${h}px`
       }

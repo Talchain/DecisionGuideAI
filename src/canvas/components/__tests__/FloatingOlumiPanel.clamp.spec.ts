@@ -25,6 +25,7 @@ import {
   clampPositionToViewport,
   clampPillPositionToViewport,
   computeResizeBudget,
+  fitsAtMinSize,
 } from '../FloatingOlumiPanel'
 
 const VIEWPORT = { w: 1200, h: 800 }
@@ -147,19 +148,53 @@ describe('computeResizeBudget — bottom-right resize bounds', () => {
     expect(out.heightBudget).toBe(VIEWPORT.h - 500 - MARGIN)
   })
 
-  it('caps a resize attempt that would exceed the dock-aware budget', () => {
-    // Simulate: panel at x=600, current size 400x500. User drags resize
-    // handle far right (dw=1000). Without budget the width would grow
-    // to 1400; with the dock-aware cap it must stop at widthBudget.
+  it('caps a resize attempt that would exceed the dock-aware budget (MIN_WIDTH preserved)', () => {
+    // Panel at x=600, current size 400x500. User drags resize handle far
+    // right (dw=1000). Without budget the width would grow to 1400;
+    // with the dock-aware cap AND the MIN_WIDTH floor, it caps at
+    // `max(MIN_WIDTH=320, min(max.width, widthBudget, requested))`.
+    // Here widthBudget = 1200 - 600 - 16 - 372 = 212, but MIN_WIDTH=320
+    // wins → wCapped = 320. (At narrower budgets the layout effect would
+    // have auto-minimised; here the test viewport leaves room for that
+    // path NOT to fire.)
     const { widthBudget } = computeResizeBudget(600, 100, VIEWPORT.w, VIEWPORT.h, 372)
     const startW = 400
     const dw = 1000
-    const wPreCapped = Math.max(startW, startW + dw)
-    expect(wPreCapped).toBe(1400) // sanity: pre-cap value would overflow
-    const wCapped = Math.min(wPreCapped, widthBudget)
-    expect(wCapped).toBe(widthBudget)
-    // And the right edge stays clear of the dock left.
-    const dockLeft = VIEWPORT.w - 372 // dock.left = vw - inset
-    expect(600 + wCapped).toBeLessThanOrEqual(dockLeft)
+    const max = { width: Math.floor(VIEWPORT.w * 0.6), height: 720 }
+    const requestedW = Math.max(320, startW + dw)
+    const wCapped = Math.max(320, Math.min(max.width, widthBudget, requestedW))
+    expect(wCapped).toBe(320)
+  })
+})
+
+describe('fitsAtMinSize — auto-minimise gate', () => {
+  // P1 follow-up: when the dock + margins leave less room than
+  // MIN_WIDTH × MIN_HEIGHT (320 × 300), the panel must auto-minimise
+  // to the pill rather than render at a sub-MIN size.
+
+  it('returns true on a wide viewport with no dock', () => {
+    expect(fitsAtMinSize(VIEWPORT.w, VIEWPORT.h, 0)).toBe(true)
+  })
+
+  it('returns true with an open dock when room remains for a MIN_WIDTH panel', () => {
+    // 1200 - 32 (margins) - 400 (dock) = 768 — plenty of room for MIN_WIDTH (320).
+    expect(fitsAtMinSize(VIEWPORT.w, VIEWPORT.h, 400)).toBe(true)
+  })
+
+  it('returns false when dock + margins leave less than MIN_WIDTH', () => {
+    // 1200 - 32 (margins) - 900 (dock) = 268 — below MIN_WIDTH (320).
+    expect(fitsAtMinSize(VIEWPORT.w, VIEWPORT.h, 900)).toBe(false)
+  })
+
+  it('returns false on a viewport too short for MIN_HEIGHT', () => {
+    expect(fitsAtMinSize(VIEWPORT.w, 200, 0)).toBe(false)
+  })
+
+  it('boundary: exactly MIN_WIDTH room → fits (≥ comparison)', () => {
+    // 800 - 32 = 768 - dockInset. Set inset so available width === 320.
+    const inset = 800 - 2 * MARGIN - 320
+    expect(fitsAtMinSize(800, 600, inset)).toBe(true)
+    // One pixel less and it must NOT fit.
+    expect(fitsAtMinSize(800, 600, inset + 1)).toBe(false)
   })
 })

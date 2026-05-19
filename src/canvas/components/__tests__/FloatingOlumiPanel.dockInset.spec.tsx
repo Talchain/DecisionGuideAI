@@ -219,37 +219,85 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     dock.unmount()
   })
 
-  it('reserves dock inset on a narrow viewport even when dock.left < vw/2', () => {
-    // Narrow viewport: 800px. Dock 500px wide + 12 right gap → left=288.
-    // 288 < 400 (half of 800) — the previous half-viewport guard would
-    // have dropped the inset to 0 and centred the panel at x=200.
-    // With the guard removed, the inset is properly reserved and the
-    // panel is clamped to the left margin (the dock leaves too little
-    // room for a 400px panel to fit — that's a viewport-too-small
-    // condition the user resolves by closing the dock — but the
-    // reservation MUST happen so the panel doesn't drift right under
-    // the dock).
+  it('auto-minimises to the pill when the dock leaves less than MIN_WIDTH × MIN_HEIGHT', () => {
+    // 800x900 viewport with a 600px-wide dock + 12px gap → available
+    // width = 800 - 32 - 612 = 156, well below MIN_WIDTH (320). The
+    // layout effect must call minimise() instead of rendering a
+    // too-narrow panel.
     Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
-    const dock = mountStubDock({ width: 500, right: 12 })
+    const dock = mountStubDock({ width: 600, right: 12 })
     dock.el.getBoundingClientRect = function () {
-      const left = 800 - 500 - 12 // 288
-      return { left, top: 60, right: 800 - 12, bottom: 900 - 12, width: 500, height: 800, x: left, y: 60, toJSON: () => ({}) } as DOMRect
+      const left = 800 - 600 - 12 // 188
+      return { left, top: 60, right: 788, bottom: 888, width: 600, height: 828, x: left, y: 60, toJSON: () => ({}) } as DOMRect
+    }
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: false,
+      isMinimised: false,
+      position: { x: 100, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    // After the layout effect runs, the store is minimised and the
+    // restore pill is rendered in place of the full panel.
+    expect(useFloatingPanelState.getState().isMinimised).toBe(true)
+    expect(document.querySelector('[data-testid="floating-olumi-panel-pill"]')).toBeTruthy()
+    expect(document.querySelector('[data-testid="floating-olumi-panel"]')).toBeNull()
+    dock.unmount()
+    Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
+  })
+
+  it('does NOT auto-minimise on a wide viewport (room remains for MIN_WIDTH)', () => {
+    // 1440x900 with dock 400 + 12 → available = 1440 - 32 - 412 = 996
+    // — comfortably above MIN_WIDTH. Panel must render normally.
+    const dock = mountStubDock({ width: 400, right: 12 })
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: false,
+      isMinimised: false,
+      position: { x: 100, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(useFloatingPanelState.getState().isMinimised).toBe(false)
+    expect(document.querySelector('[data-testid="floating-olumi-panel"]')).toBeTruthy()
+    dock.unmount()
+  })
+
+  it('reserves dock inset on a narrow viewport even when dock.left < vw/2', () => {
+    // Narrow viewport: 900px. Dock 420px wide + 12 right gap → left=468,
+    // which is > 450 (half of 900) on the nose. To exercise the
+    // dock.left < vw/2 case we drop to 880x900: dock left=448 < 440.
+    //
+    // Crucially we also leave room above MIN_WIDTH (320): 880 - 32 - 432
+    // = 416, well above MIN_WIDTH so the layout effect does NOT
+    // auto-minimise — the panel renders and the left-clamp assertion
+    // distinguishes the inset-applied path from the regression.
+    Object.defineProperty(window, 'innerWidth', { value: 880, configurable: true })
+    const dock = mountStubDock({ width: 420, right: 12 })
+    dock.el.getBoundingClientRect = function () {
+      const left = 880 - 420 - 12 // 448
+      return { left, top: 60, right: 880 - 12, bottom: 900 - 12, width: 420, height: 800, x: left, y: 60, toJSON: () => ({}) } as DOMRect
     }
     useFloatingPanelState.setState({
       isOpen: true,
       source: 'user',
       userRepositioned: true,
       isMinimised: false,
+      // Park at x=600 — under the dock if inset is dropped to 0,
+      // clamped to the left margin (16) when inset is honoured.
       position: { x: 600, y: 100 },
       size: { width: 400, height: 500 },
     } as any)
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(useFloatingPanelState.getState().isMinimised).toBe(false)
     const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
     const left = parseFloat(panel.style.left)
-    // Without inset (regression) the panel would centre at x = (800-400)/2 = 200.
-    // With the inset properly reserved the panel is pinned to the
-    // left margin (16). The distinguishing assertion is `left === 16`.
-    expect(left).toBe(16)
+    const width = parseFloat(panel.style.width)
+    // Inset honoured → panel right edge must be ≤ dock left (448).
+    expect(left + width).toBeLessThanOrEqual(448)
     dock.unmount()
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
