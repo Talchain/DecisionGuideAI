@@ -56,20 +56,25 @@ const READINESS_GATED_ACTIONS = new Set<string>(['run_analysis'])
  * would risk false-positives on conversational chips that happen to mention
  * "analysis" (e.g. "Explain the analysis").
  */
+// Canonical run-analysis affordance strings. Module-scoped so it isn't
+// re-allocated per chip render. The two-tier (action_type OR canonical
+// label/message/prompt) check matches both V2 chips and legacy
+// prompt-style chips. CEE serialises dispatch text as `prompt`; the UI
+// normalises it to `message` in validateResponse.ts:88, but the raw
+// `prompt` field is preserved on the chip — both shapes can therefore
+// arrive at this filter, so we match either.
+const RUN_ANALYSIS_CANONICAL = new Set(['run analysis', 'rerun analysis', 'rerun'])
+
+function normForMatch(s: string | undefined): string {
+  return (s ?? '').trim().toLowerCase()
+}
+
 function isRunAnalysisAffordance(chip: ActionChip): boolean {
   if (chip.action_type === 'run_analysis') return true
-  const norm = (s: string | undefined) => (s ?? '').trim().toLowerCase()
-  const label = norm(chip.label)
-  const msg = norm(chip.message)
-  // `prompt` mirrors `message` for V2 chip payloads (see validateResponse
-  // mapping in conversation/types.ts:484). Both are user-facing dispatch
-  // strings — match either so a prompt-only V2 chip is caught as well.
-  const prompt = norm(chip.prompt)
-  const CANONICAL = new Set(['run analysis', 'rerun analysis', 'rerun'])
   return (
-    CANONICAL.has(label) ||
-    CANONICAL.has(msg) ||
-    CANONICAL.has(prompt)
+    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.label)) ||
+    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.message)) ||
+    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.prompt))
   )
 }
 

@@ -219,6 +219,48 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     dock.unmount()
   })
 
+  it('reserves dock inset on a narrow viewport even when dock.left < vw/2', () => {
+    // Narrow viewport: 800px. Dock 500px wide + 12 right gap → left=288.
+    // 288 < 400 (half of 800) — the previous half-viewport guard would
+    // have dropped the inset to 0 and centred the panel at x=200.
+    // With the guard removed, the inset is properly reserved and the
+    // panel is clamped to the left margin (the dock leaves too little
+    // room for a 400px panel to fit — that's a viewport-too-small
+    // condition the user resolves by closing the dock — but the
+    // reservation MUST happen so the panel doesn't drift right under
+    // the dock).
+    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
+    const dock = mountStubDock({ width: 500, right: 12 })
+    dock.el.getBoundingClientRect = function () {
+      const left = 800 - 500 - 12 // 288
+      return { left, top: 60, right: 800 - 12, bottom: 900 - 12, width: 500, height: 800, x: left, y: 60, toJSON: () => ({}) } as DOMRect
+    }
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: true,
+      isMinimised: false,
+      position: { x: 600, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
+    const left = parseFloat(panel.style.left)
+    // Without inset (regression) the panel would centre at x = (800-400)/2 = 200.
+    // With the inset properly reserved the panel is pinned to the
+    // left margin (16). The distinguishing assertion is `left === 16`.
+    expect(left).toBe(16)
+    dock.unmount()
+    Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
+  })
+
+  // Note: the resize math is regression-tested as a pure function via
+  // `computeResizeBudget` in FloatingOlumiPanel.clamp.spec — that's the
+  // load-bearing assertion. The DOM-level drag plumbing isn't readily
+  // testable in jsdom (no PointerEvent class, no layout-driven rect),
+  // and exercising it here would only verify React's event delegation
+  // (already covered by RTL's own tests).
+
   it('treats an absent dock (FF-off, dock unmounted) as zero inset', () => {
     // No stub mounted. measureDockInset returns 0 → panel can extend to
     // the viewport's right margin minus default margin.

@@ -80,6 +80,31 @@ export function clampPositionToViewport(
 
 const PILL_W = 84
 const PILL_H = 28
+/**
+ * Compute the maximum size a panel may grow to during a bottom-right
+ * resize drag, given the current top-left position and dock inset. The
+ * panel's x/y do not move during resize, so the right edge of the panel
+ * cannot extend past `vw - dockInset - DEFAULT_MARGIN`.
+ *
+ * No `MIN_WIDTH`/`MIN_HEIGHT` floor here — when the dock leaves less
+ * space than the min, the panel MUST shrink below the min to stay clear
+ * (the user can close the dock to grow back). Negative budgets are
+ * floored at 0; the caller composes this with MIN_WIDTH via
+ * `min(widthBudget, max(MIN_WIDTH, requested))`.
+ */
+export function computeResizeBudget(
+  x: number,
+  y: number,
+  viewportW: number,
+  viewportH: number,
+  rightInset: number = 0,
+): { widthBudget: number; heightBudget: number } {
+  return {
+    widthBudget: Math.max(0, viewportW - x - DEFAULT_MARGIN - rightInset),
+    heightBudget: Math.max(0, viewportH - y - DEFAULT_MARGIN),
+  }
+}
+
 export function clampPillPositionToViewport(
   pos: FloatingPanelPosition,
   viewportW: number,
@@ -96,13 +121,14 @@ export function clampPillPositionToViewport(
 /**
  * Compute the reserved area at the right edge for the OutputsDock —
  * `vw - dock.left` captures the dock's width AND any right-edge gap
- * (e.g. `right: 12px`). Previous implementation only counted the dock
- * when its right edge was within 2px of the viewport edge, which
- * silently returned 0 because the dock styles itself with `right: 12px`.
+ * (e.g. `right: 12px`). The OutputsDock is the only element in the app
+ * with this aria-label, so the selector is unambiguous.
  *
- * Returns 0 when the dock element is absent (FF-off path), is not
- * positioned on the right side, or sits entirely above the viewport's
- * right axis (defensive).
+ * Returns 0 when the dock element is absent (FF-off path) or has zero
+ * size (defensive — e.g. hidden via CSS). No half-viewport guard:
+ * narrow viewports legitimately place a right-anchored dock with
+ * `dock.left < vw/2`, and the inset must still be reserved so the
+ * floating panel doesn't drift under it.
  */
 function measureDockInset(): number {
   if (typeof document === 'undefined' || typeof window === 'undefined') return 0
@@ -110,9 +136,6 @@ function measureDockInset(): number {
   if (!dock) return 0
   const rect = dock.getBoundingClientRect()
   if (rect.width === 0 || rect.height === 0) return 0
-  // Sanity: dock must be on the right half of the viewport. Anything else
-  // (e.g. mocked left-side layout in a test) is treated as no inset.
-  if (rect.left < window.innerWidth / 2) return 0
   const inset = window.innerWidth - rect.left
   return inset > 0 ? inset : 0
 }
@@ -325,8 +348,22 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       } else if (resize) {
         const dw = e.clientX - resize.startX
         const dh = e.clientY - resize.startY
-        const w = clamp(resize.startW + dw, MIN_WIDTH, max.width)
-        const h = clamp(resize.startH + dh, MIN_HEIGHT, max.height)
+        // Resize comes from the bottom-right handle, so x/y stay fixed
+        // and we grow width/height. Cap the maximum width by the
+        // remaining space from the panel's current x to the dock's left
+        // edge (or viewport right - margin when no dock). Without this
+        // the right edge can slide under the dock as the user resizes.
+        const x = parseFloat(el.style.left || '0')
+        const y = parseFloat(el.style.top || '0')
+        const { widthBudget, heightBudget } = computeResizeBudget(x, y, vw, vh, dockInset)
+        // Compose: requested width floors at MIN_WIDTH, then caps at the
+        // dock-aware budget. When the budget is below MIN_WIDTH (narrow
+        // viewport + open dock), the budget wins — the panel shrinks
+        // below MIN_WIDTH to stay clear of the dock.
+        const requestedW = Math.max(MIN_WIDTH, resize.startW + dw)
+        const requestedH = Math.max(MIN_HEIGHT, resize.startH + dh)
+        const w = Math.min(max.width, widthBudget, requestedW)
+        const h = Math.min(max.height, heightBudget, requestedH)
         el.style.width = `${w}px`
         el.style.height = `${h}px`
       }

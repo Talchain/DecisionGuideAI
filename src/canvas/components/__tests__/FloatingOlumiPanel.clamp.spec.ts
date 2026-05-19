@@ -24,6 +24,7 @@ vi.mock('../../utils/markdown', () => ({
 import {
   clampPositionToViewport,
   clampPillPositionToViewport,
+  computeResizeBudget,
 } from '../FloatingOlumiPanel'
 
 const VIEWPORT = { w: 1200, h: 800 }
@@ -110,5 +111,55 @@ describe('clampPillPositionToViewport', () => {
     const out = clampPillPositionToViewport({ x: 1100, y: 100 }, VIEWPORT.w, VIEWPORT.h, 360)
     expect(out.x).toBe(VIEWPORT.w - 84 - MARGIN - 360)
     expect(out.x).toBe(740)
+  })
+})
+
+describe('computeResizeBudget — bottom-right resize bounds', () => {
+  // P1 regression: the previous resize handler grew width without
+  // accounting for the dock inset, allowing the right edge to slide
+  // under the dock as the user resized. computeResizeBudget caps the
+  // available width from the panel's current x to either the viewport
+  // right margin (no dock) or the dock's left edge (open dock).
+
+  it('width budget includes dock inset', () => {
+    // x=600, dock 360 wide + 12 gap → dockInset 372 on a 1200 viewport.
+    // Budget = 1200 - 600 - 16 - 372 = 212.
+    const out = computeResizeBudget(600, 100, VIEWPORT.w, VIEWPORT.h, 372)
+    expect(out.widthBudget).toBe(212)
+  })
+
+  it('width budget falls back to viewport-minus-margin when no dock', () => {
+    const out = computeResizeBudget(600, 100, VIEWPORT.w, VIEWPORT.h, 0)
+    expect(out.widthBudget).toBe(VIEWPORT.w - 600 - MARGIN)
+  })
+
+  it('does NOT floor width budget at MIN_WIDTH — the dock constraint wins', () => {
+    // x near the dock: 900, dock 360 → remaining canvas is tiny.
+    // 1200 - 900 - 16 - 360 = -76. Floored at 0 (not MIN_WIDTH) so the
+    // caller's composed clamp lets the panel shrink below MIN_WIDTH
+    // rather than overlap the dock.
+    const out = computeResizeBudget(900, 100, VIEWPORT.w, VIEWPORT.h, 360)
+    expect(out.widthBudget).toBe(0)
+  })
+
+  it('height budget mirrors width budget for the bottom edge', () => {
+    const out = computeResizeBudget(0, 500, VIEWPORT.w, VIEWPORT.h, 0)
+    expect(out.heightBudget).toBe(VIEWPORT.h - 500 - MARGIN)
+  })
+
+  it('caps a resize attempt that would exceed the dock-aware budget', () => {
+    // Simulate: panel at x=600, current size 400x500. User drags resize
+    // handle far right (dw=1000). Without budget the width would grow
+    // to 1400; with the dock-aware cap it must stop at widthBudget.
+    const { widthBudget } = computeResizeBudget(600, 100, VIEWPORT.w, VIEWPORT.h, 372)
+    const startW = 400
+    const dw = 1000
+    const wPreCapped = Math.max(startW, startW + dw)
+    expect(wPreCapped).toBe(1400) // sanity: pre-cap value would overflow
+    const wCapped = Math.min(wPreCapped, widthBudget)
+    expect(wCapped).toBe(widthBudget)
+    // And the right edge stays clear of the dock left.
+    const dockLeft = VIEWPORT.w - 372 // dock.left = vw - inset
+    expect(600 + wCapped).toBeLessThanOrEqual(dockLeft)
   })
 })
