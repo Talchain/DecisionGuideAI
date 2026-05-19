@@ -51,6 +51,7 @@ import {
 import {
   classifyV5CapturePipelineStatus,
   detectFailedHttpRecord,
+  findLatestV5TurnEntry,
   type CapturePipelineStatus,
 } from '../../../lib/v5CapturePipelineStatus'
 import {
@@ -2862,15 +2863,28 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       return false
     })()
 
+    // Look up the actual V5 turn entry in the payload-trace store so
+    // capture-level fields (request_id, endpoint, duration_ms) reflect
+    // the real call rather than coarse session-level values.
+    const v5TraceStore = await import('../../../lib/payload-trace-store')
+    const v5TraceState = v5TraceStore.usePayloadTraceStore.getState()
+    const latestV5Trace = findLatestV5TurnEntry(v5TraceState.payloads)
+
     const v5Capture: V5CeeCapture | null =
       requestPresent || responsePresent || ceeService
         ? {
-            request_id: data.overall.request_id,
+            // Prefer the actual trace entry id when available; fall back
+            // to the session-level request_id (the legacy behaviour).
+            request_id: latestV5Trace?.id ?? data.overall.request_id,
             scenario_id: storeState.currentScenarioId,
             turn_id: fact?.analysisHash ?? null,
-            endpoint: null,
-            status: ceeService?.status ?? null,
-            duration_ms: ceeService?.duration_ms ?? null,
+            // Real endpoint from the trace entry > service-metadata
+            // endpoint > null. Required for log correlation.
+            endpoint:
+              latestV5Trace?.endpoint ?? ceeService?.endpoint ?? null,
+            status: latestV5Trace?.status ?? ceeService?.status ?? null,
+            duration_ms:
+              latestV5Trace?.duration ?? ceeService?.duration_ms ?? null,
             request_present: requestPresent,
             response_present: responsePresent,
             parse_ok: parseOk,
@@ -2882,6 +2896,11 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
             has_additive_extensions: hasAdditiveExtensions,
             phase3_blocks_tolerated_count: phase3Source.length,
             phase3_block_types: phase3BlockTypes,
+            // Legacy `source: 'proxy_v5_turn'` literal kept for
+            // backward-compat with existing consumers. The richer
+            // provenance enum lives on the new
+            // `v5_canonical_turn_diagnostics.latest_v5_turn.source`
+            // field per the brief.
             source: 'proxy_v5_turn',
           }
         : null
@@ -2957,6 +2976,25 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
 
     const failedHttp = detectFailedHttpRecord(traceState.payloads)
     const rawV2Present = storeState.results?.rawV2Response != null
+
+    // Service-metadata-only failure: V5 endpoint reports failure in
+    // data.services.cee but the payload-trace has no entry for it.
+    // Reviewers need to distinguish this from `hydrated_only`.
+    const ceeService = data.services.cee ?? null
+    const ceeServiceEndpoint =
+      typeof ceeService?.endpoint === 'string' ? ceeService.endpoint : ''
+    const ceeServiceIsV5 = ceeServiceEndpoint.includes('/orchestrate/v2/turn')
+    const ceeServiceFailed =
+      ceeService !== null &&
+      (ceeService.success === false ||
+        (typeof ceeService.status === 'number' &&
+          (ceeService.status >= 500 || ceeService.status === 0)))
+    const serviceMetadataV5Failure =
+      ceeServiceIsV5 && ceeServiceFailed && !failedHttp.present
+
+    const latestV5Trace = findLatestV5TurnEntry(traceState.payloads)
+    const v5TraceEntryPresent = latestV5Trace !== null
+
     const capturePipeline = classifyV5CapturePipelineStatus({
       v5Capture: legacy.v5_cee_capture
         ? {
@@ -2969,6 +3007,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       hasResultsReport: sourceResult.hasResultsReport,
       rawV2ResponsePresent: rawV2Present,
       failedHttpRecord: failedHttp,
+      serviceMetadataV5Failure,
       analysisStateSource: legacy.analysis_state_source,
       effectiveCeeResponseSource: bundle.effective_cee_response_source ?? null,
       analysisFactPresent: legacy.analysis_fact_status === 'present',
@@ -3000,6 +3039,21 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       bundle.payloads.plot_response,
     )
 
+    // Rendered counts from bundle.display_state when present. Counts
+    // are honest (length of the rendered arrays) and `null` when the
+    // display state itself is absent — never fabricated.
+    const displayState = bundle.display_state as
+      | { rendered_options?: unknown; rendered_factors?: unknown }
+      | null
+    const renderedOptionCount =
+      displayState && Array.isArray(displayState.rendered_options)
+        ? displayState.rendered_options.length
+        : null
+    const renderedFactorCount =
+      displayState && Array.isArray(displayState.rendered_factors)
+        ? displayState.rendered_factors.length
+        : null
+
     const base = assembleV5CanonicalTurnDiagnostics({
       legacyDiagnostic: legacy,
       legacyDiagnosticFromClassifier: legacyFromClassifier,
@@ -3010,6 +3064,10 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       graphHashAtGeneration: graphHash,
       optionCount,
       factorSensitivityCount,
+      v5TraceEntryPresent,
+      ceeServiceV5EndpointPresent: ceeServiceIsV5,
+      renderedOptionCount,
+      renderedFactorCount,
       capturePipeline,
       scenarioIdReconciliation: reconciliation,
     })

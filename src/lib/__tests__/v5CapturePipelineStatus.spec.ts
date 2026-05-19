@@ -29,6 +29,7 @@ function defaults(): V5CapturePipelineStatusInputs {
     hasResultsReport: false,
     rawV2ResponsePresent: false,
     failedHttpRecord: { present: false, source: null },
+    serviceMetadataV5Failure: false,
     analysisStateSource: 'none',
     effectiveCeeResponseSource: 'none',
     analysisFactPresent: false,
@@ -68,6 +69,28 @@ describe('classifyV5CapturePipelineStatus — capture_pipeline_status enum', () 
       failedHttpRecord: { present: true, source: 'cee' },
     })
     expect(out.capture_pipeline_status).toBe('request_failed')
+  })
+
+  it('V5-endpoint service-metadata failure WITHOUT trace evidence → request_failed_from_service_metadata (not hydrated_only)', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      serviceMetadataV5Failure: true,
+      // Even with results present + no rawV2 — service-metadata
+      // failure must take precedence so reviewers don't read
+      // hydrated_only and miss the actual failure signal.
+      hasResultsReport: true,
+      rawV2ResponsePresent: false,
+    })
+    expect(out.capture_pipeline_status).toBe('request_failed_from_service_metadata')
+  })
+
+  it('trace-recorded failure takes precedence over service-metadata flag', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      failedHttpRecord: { present: true, source: 'preflight_or_network' },
+      serviceMetadataV5Failure: true,
+    })
+    expect(out.capture_pipeline_status).toBe('proxy_or_network_failure')
   })
 
   it('results present, no capture, no failed record, rawV2Response present → results_rendered_from_store_without_capture', () => {
@@ -274,6 +297,36 @@ describe('classifyV5CapturePipelineStatus — coherence issues', () => {
     })
     expect(out.capture_pipeline_status).toBe('proxy_or_network_failure')
     expect(out.coherence.issues).not.toContain(
+      'legacy_pipeline_status_misleading_proxy_or_network_failure',
+    )
+  })
+
+  it('legacy says proxy_or_network_failure but new says request_failed → mislabel issue STILL fires (different evidence strength)', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      v5Capture: {
+        request_present: true,
+        response_present: false,
+        parse_ok: false,
+        raw_response_present: false,
+      },
+      failedHttpRecord: { present: true, source: 'cee' },
+      legacyPipelineStatus: 'proxy_or_network_failure',
+    })
+    expect(out.capture_pipeline_status).toBe('request_failed')
+    expect(out.coherence.issues).toContain(
+      'legacy_pipeline_status_misleading_proxy_or_network_failure',
+    )
+  })
+
+  it('legacy says proxy_or_network_failure but new says request_failed_from_service_metadata → mislabel issue fires', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      serviceMetadataV5Failure: true,
+      legacyPipelineStatus: 'proxy_or_network_failure',
+    })
+    expect(out.capture_pipeline_status).toBe('request_failed_from_service_metadata')
+    expect(out.coherence.issues).toContain(
       'legacy_pipeline_status_misleading_proxy_or_network_failure',
     )
   })

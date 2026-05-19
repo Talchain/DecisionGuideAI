@@ -17,6 +17,13 @@ export type CapturePipelineStatus =
   | 'complete'
   | 'parse_failed'
   | 'request_failed'
+  /**
+   * V5-endpoint failure detected via `data.services.cee` 5xx/error
+   * when the payload-trace has NO corresponding record. Distinguishes
+   * "service-metadata says it failed" from "trace recorded a failed
+   * proxy call" so reviewers know the evidence is metadata-level.
+   */
+  | 'request_failed_from_service_metadata'
   | 'proxy_or_network_failure'
   | 'results_rendered_from_store_without_capture'
   | 'hydrated_only'
@@ -55,6 +62,14 @@ export interface V5CapturePipelineStatusInputs {
   rawV2ResponsePresent: boolean
   /** Failed-HTTP-record signal from the payload-trace store. */
   failedHttpRecord: FailedHttpRecord
+  /**
+   * Service-metadata-only V5 endpoint failure signal: true when
+   * `data.services.cee.endpoint` matches the V5 turn endpoint AND its
+   * status indicates failure (>= 500 or success === false), but the
+   * payload-trace has no corresponding entry. Distinct from
+   * `failedHttpRecord` which requires trace-store evidence.
+   */
+  serviceMetadataV5Failure: boolean
   /** From the existing AnalysisStateSource classifier. */
   analysisStateSource: AnalysisStateSource
   /** Existing bundle field. */
@@ -115,6 +130,12 @@ export function classifyV5CapturePipelineStatus(
         src !== null && PROXY_NETWORK_SOURCES.has(src)
           ? 'proxy_or_network_failure'
           : 'request_failed'
+    } else if (inputs.serviceMetadataV5Failure) {
+      // Service-metadata 5xx without a trace entry — the failure
+      // happened but the trace store doesn't carry corroborating
+      // evidence. Distinct from `request_failed` (trace-confirmed)
+      // and `proxy_or_network_failure` (network/proxy source).
+      status = 'request_failed_from_service_metadata'
     } else if (inputs.hasResultsReport) {
       status = inputs.rawV2ResponsePresent
         ? 'results_rendered_from_store_without_capture'
@@ -184,10 +205,15 @@ export function classifyV5CapturePipelineStatus(
     issues.push('parse_failed_with_raw_preserved')
   }
 
+  // Legacy says `proxy_or_network_failure` (a specific network/proxy
+  // cause), but the new scoped classifier disagrees about the cause.
+  // Fire the mislabel issue whenever the new status is anything OTHER
+  // than `proxy_or_network_failure` — including `request_failed`, which
+  // is still a different evidence-strength claim (the failure happened
+  // but it's not proxy/network-confirmed).
   if (
     inputs.legacyPipelineStatus === 'proxy_or_network_failure' &&
-    status !== 'proxy_or_network_failure' &&
-    status !== 'request_failed'
+    status !== 'proxy_or_network_failure'
   ) {
     issues.push('legacy_pipeline_status_misleading_proxy_or_network_failure')
   }
@@ -207,6 +233,25 @@ export function classifyV5CapturePipelineStatus(
     capture_pipeline_status: status,
     coherence: { state, issues },
   }
+}
+
+/**
+ * Locate the most-recent V5 CEE turn entry in the payload-trace
+ * snapshot. The store keeps entries most-recent-first, so we simply
+ * return the first matching record. Used by the bundle assembler to
+ * populate `latest_v5_turn.{request_id, endpoint, duration_ms}` from
+ * the actual capture rather than from coarse session-level data.
+ */
+export function findLatestV5TurnEntry<
+  T extends { service?: string; endpoint?: string },
+>(payloads: ReadonlyArray<T>): T | null {
+  for (const p of payloads) {
+    const endpoint = typeof p.endpoint === 'string' ? p.endpoint : ''
+    if (p.service === 'CEE' && endpoint.includes('/orchestrate/v2/turn')) {
+      return p
+    }
+  }
+  return null
 }
 
 /**

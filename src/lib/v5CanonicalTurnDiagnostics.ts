@@ -34,6 +34,34 @@ import type {
 export type CanonicalFlagSource = 'env' | 'localStorage' | 'default' | 'unknown'
 
 /**
+ * Provenance enum for the latest V5 turn snapshot — describes WHERE the
+ * capture data came from rather than the legacy `'proxy_v5_turn'`
+ * literal on V5CeeCapture.source.
+ */
+export type LatestV5TurnSource =
+  | 'payload_trace'
+  | 'bundle_payloads'
+  | 'service_metadata'
+  | 'store'
+  | 'none'
+
+/**
+ * Diagnostic-source strength per major bundle block. Reviewers use this
+ * to know which fields were sourced from live trace data vs. synthesised
+ * fallback vs. store-only assembly.
+ */
+export interface DiagnosticSourceStrength {
+  latest_v5_turn:
+    | 'live_trace'
+    | 'service_metadata'
+    | 'bundle_payloads'
+    | 'fallback'
+    | 'unavailable'
+  parse: 'live_response' | 'fallback' | 'unavailable'
+  results: 'plot_response' | 'store_report' | 'unavailable'
+}
+
+/**
  * Literal env var name the canonical-analysis flag is bound to. Kept as
  * a constant so the bundle carries the grep-able `VITE_V5_CANONICAL_ANALYSIS`
  * string verbatim (brief D — feature flag visibility).
@@ -80,8 +108,17 @@ export interface V5CanonicalTurnDiagnostics {
     status: number | null
     /** Wall-clock duration of the call in ms. */
     duration_ms: number | null
-    /** Source discriminator for capture provenance. */
-    source: 'proxy_v5_turn' | null
+    /**
+     * Where the capture data came from. Distinct from the legacy
+     * `V5CeeCapture.source: 'proxy_v5_turn'` literal; this is the
+     * brief's richer provenance enum:
+     *   - payload_trace   — assembled from a payload-trace-store entry
+     *   - bundle_payloads — assembled from `bundle.payloads.cee_*`
+     *   - service_metadata — only `data.services.cee` was present
+     *   - store           — derived from canvas store fact, no capture
+     *   - none            — no capture at all
+     */
+    source: LatestV5TurnSource
   }
   parse: {
     parse_ok: boolean | null
@@ -133,6 +170,14 @@ export interface V5CanonicalTurnDiagnostics {
     issues: CoherenceIssue[]
   }
   scenario_id_reconciliation: ScenarioIdReconciliation
+  /**
+   * Per-major-block source strength — tells reviewers which fields came
+   * from live trace, service metadata, plot response, store state, or
+   * fallback. Aggregates explicit `analysis_fact.source` /
+   * `scenario_id_reconciliation.selected_source` for the rest of the
+   * snapshot.
+   */
+  diagnostic_source_strength: DiagnosticSourceStrength
 }
 
 export interface AssembleV5CanonicalTurnDiagnosticsInputs {
@@ -157,6 +202,24 @@ export interface AssembleV5CanonicalTurnDiagnosticsInputs {
   /** Results metrics from bundle payloads / canvas store. */
   optionCount: number
   factorSensitivityCount: number
+  /**
+   * True when a V5 turn entry was found in the payload-trace store at
+   * assembly time. Drives `latest_v5_turn.source` and
+   * `diagnostic_source_strength.latest_v5_turn`.
+   */
+  v5TraceEntryPresent: boolean
+  /**
+   * True when `data.services.cee.endpoint` matched the V5 turn
+   * endpoint (`/orchestrate/v2/turn`). Used as the next-best evidence
+   * tier when no trace entry is recorded.
+   */
+  ceeServiceV5EndpointPresent: boolean
+  /**
+   * Rendered counts pulled from `bundle.display_state` when present;
+   * `null` when display_state is absent.
+   */
+  renderedOptionCount: number | null
+  renderedFactorCount: number | null
   /** Output of classifyV5CapturePipelineStatus. */
   capturePipeline: {
     capture_pipeline_status: CapturePipelineStatus
@@ -175,6 +238,23 @@ export function assembleV5CanonicalTurnDiagnostics(
     ? inputs.flagDiagnostic.source
     : 'unknown'
 
+  // Map the legacy `V5CeeCapture.source` literal + trace/service
+  // evidence to the brief's richer provenance enum.
+  const latestV5TurnSource: LatestV5TurnSource = (() => {
+    if (capture === null) {
+      // No capture object at all — derived from store fact or nothing.
+      return inputs.legacyDiagnostic.analysis_fact_status === 'present'
+        ? 'store'
+        : 'none'
+    }
+    if (inputs.v5TraceEntryPresent) return 'payload_trace'
+    if (capture.request_present || capture.response_present) {
+      return 'bundle_payloads'
+    }
+    if (inputs.ceeServiceV5EndpointPresent) return 'service_metadata'
+    return 'none'
+  })()
+
   const latest_v5_turn = {
     request_present: capture?.request_present ?? false,
     response_present: capture?.response_present ?? false,
@@ -184,7 +264,7 @@ export function assembleV5CanonicalTurnDiagnostics(
     endpoint: capture?.endpoint ?? null,
     status: capture?.status ?? null,
     duration_ms: capture?.duration_ms ?? null,
-    source: capture?.source ?? null,
+    source: latestV5TurnSource,
   }
 
   const parse = {
@@ -223,7 +303,36 @@ export function assembleV5CanonicalTurnDiagnostics(
     source: inputs.analysisStateSource,
     option_count: inputs.optionCount,
     factor_sensitivity_count: inputs.factorSensitivityCount,
+    /** Count from bundle.display_state.rendered_options when present. */
+    rendered_option_count: inputs.renderedOptionCount,
+    /** Count from bundle.display_state.rendered_factors when present. */
+    rendered_factor_count: inputs.renderedFactorCount,
     rendered_counts_documented_in: 'bundle.display_state' as const,
+  }
+
+  const diagnostic_source_strength: DiagnosticSourceStrength = {
+    latest_v5_turn:
+      latestV5TurnSource === 'payload_trace'
+        ? 'live_trace'
+        : latestV5TurnSource === 'bundle_payloads'
+          ? 'bundle_payloads'
+          : latestV5TurnSource === 'service_metadata'
+            ? 'service_metadata'
+            : latestV5TurnSource === 'store'
+              ? 'fallback'
+              : 'unavailable',
+    parse:
+      capture?.parse_ok === true || capture?.parse_ok === false
+        ? 'live_response'
+        : capture === null
+          ? 'unavailable'
+          : 'fallback',
+    results:
+      inputs.optionCount > 0 || inputs.factorSensitivityCount > 0
+        ? 'plot_response'
+        : inputs.hasResultsReport
+          ? 'store_report'
+          : 'unavailable',
   }
 
   const feature_flag_diagnostic = {
@@ -246,6 +355,7 @@ export function assembleV5CanonicalTurnDiagnostics(
     capture_pipeline_status: inputs.capturePipeline.capture_pipeline_status,
     coherence: inputs.capturePipeline.coherence,
     scenario_id_reconciliation: inputs.scenarioIdReconciliation,
+    diagnostic_source_strength,
   }
 }
 

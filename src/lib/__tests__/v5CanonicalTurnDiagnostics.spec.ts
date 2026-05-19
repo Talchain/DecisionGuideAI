@@ -79,6 +79,10 @@ function defaults(): AssembleV5CanonicalTurnDiagnosticsInputs {
     graphHashAtGeneration: null,
     optionCount: 0,
     factorSensitivityCount: 0,
+    v5TraceEntryPresent: false,
+    ceeServiceV5EndpointPresent: false,
+    renderedOptionCount: null,
+    renderedFactorCount: null,
     capturePipeline: {
       capture_pipeline_status: 'complete',
       coherence: { state: 'complete', issues: [] },
@@ -131,7 +135,97 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
       endpoint: '/bff/orchestrate/v2/turn',
       status: 200,
       duration_ms: 123,
-      source: 'proxy_v5_turn',
+      // Brief's provenance enum: bundle.payloads.cee_* carried the data
+      // (v5TraceEntryPresent: false in defaults).
+      source: 'bundle_payloads',
+    })
+  })
+
+  it('latest_v5_turn.source = "payload_trace" when v5TraceEntryPresent is true', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      v5TraceEntryPresent: true,
+    })
+    expect(out.latest_v5_turn.source).toBe('payload_trace')
+  })
+
+  it('latest_v5_turn.source = "service_metadata" when only services.cee endpoint matches V5', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: makeCapture({ request_present: false, response_present: false }),
+      }),
+      v5TraceEntryPresent: false,
+      ceeServiceV5EndpointPresent: true,
+    })
+    expect(out.latest_v5_turn.source).toBe('service_metadata')
+  })
+
+  it('latest_v5_turn.source = "store" when no capture but fact is present', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: null,
+        analysis_fact_status: 'present',
+      }),
+    })
+    expect(out.latest_v5_turn.source).toBe('store')
+  })
+
+  it('latest_v5_turn.source = "none" when no capture and no fact', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: null,
+        analysis_fact_status: 'missing',
+      }),
+    })
+    expect(out.latest_v5_turn.source).toBe('none')
+  })
+
+  it('results.rendered_option_count / rendered_factor_count surface from display_state when provided', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      renderedOptionCount: 3,
+      renderedFactorCount: 7,
+    })
+    expect(out.results.rendered_option_count).toBe(3)
+    expect(out.results.rendered_factor_count).toBe(7)
+  })
+
+  it('results rendered counts are null (not fabricated) when display_state is absent', () => {
+    const out = assembleV5CanonicalTurnDiagnostics(defaults())
+    expect(out.results.rendered_option_count).toBeNull()
+    expect(out.results.rendered_factor_count).toBeNull()
+  })
+
+  it('diagnostic_source_strength tracks each block independently', () => {
+    const live = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      v5TraceEntryPresent: true,
+      optionCount: 2,
+      factorSensitivityCount: 5,
+    })
+    expect(live.diagnostic_source_strength).toEqual({
+      latest_v5_turn: 'live_trace',
+      parse: 'live_response',
+      results: 'plot_response',
+    })
+
+    const fallback = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: null,
+        analysis_fact_status: 'present',
+      }),
+      hasResultsReport: true,
+      optionCount: 0,
+      factorSensitivityCount: 0,
+    })
+    expect(fallback.diagnostic_source_strength).toEqual({
+      latest_v5_turn: 'fallback',
+      parse: 'unavailable',
+      results: 'store_report',
     })
   })
 

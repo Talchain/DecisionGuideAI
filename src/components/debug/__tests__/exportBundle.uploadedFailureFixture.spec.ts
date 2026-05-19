@@ -80,9 +80,20 @@ vi.mock('../../../canvas/hooks/useAnalysisStateSource', () => ({
   }),
 }))
 
-// Payload trace store: empty — no V5 CEE call captured in this turn.
+// Payload trace store — controllable per test. Default empty for the
+// uploaded-failure scenarios; populated in the trace-present test below.
+const traceState: {
+  payloads: Array<{
+    id?: string
+    service?: string
+    endpoint?: string
+    status?: number
+    duration?: number
+  }>
+} = { payloads: [] }
+
 vi.mock('../../../lib/payload-trace-store', () => ({
-  usePayloadTraceStore: { getState: () => ({ payloads: [] }) },
+  usePayloadTraceStore: { getState: () => traceState },
 }))
 
 import { buildDebugBundleAsync } from '../utils/exportBundle'
@@ -276,6 +287,42 @@ describe('uploaded-bundle fixture — every contradiction the brief lists is mac
     // Legacy enum still emitted — consumers depending on it do not break.
     expect(bundle.v5_canonical_analysis).toBeDefined()
     expect(bundle.pipeline.v5_pipeline_status).toBeDefined()
+  })
+
+  it('when a V5 payload-trace entry exists, latest_v5_turn populates endpoint + request_id from the trace, source = payload_trace, diagnostic_source_strength.latest_v5_turn = live_trace', async () => {
+    traceState.payloads = [
+      {
+        id: 'req-trace-abc',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        duration: 142,
+      },
+    ]
+    try {
+      // Inject CEE payloads so v5_cee_capture is assembled; the test
+      // confirms endpoint + request_id come from the trace entry
+      // (not the session-level request_id).
+      const data: DebugData = {
+        ...makeFixtureDebugData(),
+        payloads: {
+          ...makeFixtureDebugData().payloads,
+          cee_request: { kind: 'request' },
+          cee_response: { blocks: [] },
+        },
+      }
+      const bundle = await buildDebugBundleAsync(data)
+      const turn = bundle.v5_canonical_turn_diagnostics!.latest_v5_turn
+      expect(turn.endpoint).toBe('/bff/orchestrate/v2/turn')
+      expect(turn.request_id).toBe('req-trace-abc')
+      expect(turn.duration_ms).toBe(142)
+      expect(turn.source).toBe('payload_trace')
+      expect(
+        bundle.v5_canonical_turn_diagnostics!.diagnostic_source_strength.latest_v5_turn,
+      ).toBe('live_trace')
+    } finally {
+      traceState.payloads = []
+    }
   })
 
   it('reproduces the misleading legacy proxy_or_network_failure label: legacy classifies as proxy/network because services.cee returned 5xx, but no V5 CEE payload-trace failure exists — new classifier disagrees and emits legacy_pipeline_status_misleading_proxy_or_network_failure', async () => {

@@ -13,7 +13,7 @@
  * unchanged.
  */
 
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import type { DebugData, RequestIdChain } from '../hooks/useDebugData'
 
 vi.mock('../../../lib/version-cache', () => ({
@@ -336,5 +336,80 @@ describe('additive diagnostics — buildDebugBundleAsync', () => {
     for (const literal of requiredLiterals) {
       expect(json).toContain(literal)
     }
+  })
+})
+
+// ----------------------------------------------------------------------------
+// Forced-absence regression: mocks the legacy classifier to throw so
+// bundle.v5_canonical_analysis is genuinely absent. Asserts the
+// synthesised fallback derives fact-presence, emits contradiction issues,
+// and stamps diagnostic_source_strength.latest_v5_turn = 'fallback'.
+// ----------------------------------------------------------------------------
+
+describe('forced legacy-classifier absence — synthesised fallback covers the gap', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = 'sid-forced'
+    canvasState.v5AnalysisFact = {
+      scenarioId: 'sid-forced',
+      analysisHash: 'v5:abc',
+      hasRunAnalysisFact: true,
+      freshness: 'fresh',
+    }
+    canvasState.results = {
+      report: { summary: 'forced' },
+      hash: 'v5:abc',
+      rawV2Response: null,
+    }
+    analysisStateSourceResult.source = 'cee_v5_run_analysis'
+    analysisStateSourceResult.hasResultsReport = true
+    analysisStateSourceResult.factPresentForScenario = true
+  })
+
+  afterEach(() => {
+    analysisStateSourceResult.source = 'none'
+    analysisStateSourceResult.hasResultsReport = false
+    analysisStateSourceResult.factPresentForScenario = false
+    vi.doUnmock('../../../lib/v5CanonicalAnalysisDiagnostics')
+    vi.resetModules()
+  })
+
+  it('throws-on-classify → bundle.v5_canonical_analysis is undefined, but capture_pipeline_status + v5_canonical_turn_diagnostics still emit with fact-presence preserved', async () => {
+    // Force the legacy classifier to throw so the inner try/catch around
+    // `classifyV5CanonicalAnalysisDiagnostic` leaves
+    // `bundle.v5_canonical_analysis` undefined. Re-import the bundle
+    // assembler with the mock active so the new module graph picks it up.
+    vi.doMock('../../../lib/v5CanonicalAnalysisDiagnostics', () => ({
+      classifyV5CanonicalAnalysisDiagnostic: () => {
+        throw new Error('forced classifier failure for test')
+      },
+    }))
+    vi.resetModules()
+    const { buildDebugBundleAsync: build } = await import('../utils/exportBundle')
+
+    const bundle = await build(makeDebugData())
+
+    // Legacy block was forced absent.
+    expect(bundle.v5_canonical_analysis).toBeUndefined()
+
+    // The new fields must STILL emit, with fact-presence preserved by
+    // the synthesised fallback derivation from sourceResult.
+    expect(bundle.v5_canonical_turn_diagnostics).toBeDefined()
+    expect(bundle.v5_canonical_turn_diagnostics!.analysis_fact.present).toBe(true)
+    expect(bundle.v5_canonical_turn_diagnostics!.analysis_fact.source).toBe(
+      'source_classifier',
+    )
+
+    // Headline contradictions must still fire (additive issues).
+    expect(bundle.v5_canonical_turn_diagnostics!.coherence.issues).toContain(
+      'analysis_fact_present_but_cee_capture_missing',
+    )
+    expect(bundle.v5_canonical_turn_diagnostics!.coherence.issues).toContain(
+      'results_rendered_from_store_without_capture',
+    )
+
+    // diagnostic_source_strength must reflect the fallback path.
+    expect(
+      bundle.v5_canonical_turn_diagnostics!.diagnostic_source_strength.latest_v5_turn,
+    ).toBe('fallback')
   })
 })
