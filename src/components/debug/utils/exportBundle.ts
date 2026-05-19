@@ -2524,10 +2524,27 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         environment: getEnvironment(),
       },
       feature_flags: (featureFlagsAtRequest as Record<string, unknown> | null) ?? null,
-      // Sync path cannot resolve store/payload sources; async export
-      // overwrites these two fields via reconcileScenarioId.
-      scenario_id: null,
-      scenario_id_source: 'none' as ScenarioIdSource,
+      // Sync path cannot reach the canvas store / payload trace store,
+      // but URL and full_graph candidates are available synchronously.
+      // Async export overwrites these via the full reconcileScenarioId
+      // run. This partial reconciliation prevents the legacy hardcoded
+      // null when a user is on /scenarios/<id> and exports synchronously.
+      ...(() => {
+        const partial = reconcileScenarioId({
+          storeScenarioId: null,
+          v5FactScenarioId: null,
+          payloadScenarioId: null,
+          urlScenarioId:
+            typeof window !== 'undefined' && window.location
+              ? extractScenarioIdFromUrl(window.location.href)
+              : null,
+          fullGraphScenarioId: extractScenarioIdFromFullGraph(fullGraph),
+        })
+        return {
+          scenario_id: partial.selected_scenario_id,
+          scenario_id_source: partial.selected_source,
+        }
+      })(),
       current_route: null,
       session_id: null,
       session_started_at: null,
@@ -2911,80 +2928,86 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     bundle.session.scenario_id_source = reconciliation.selected_source
     bundle.scenario_id_reconciliation = reconciliation
 
-    // --- Capture pipeline status (P0.2) ---
-    // Only emit when the legacy v5_canonical_analysis block was assembled —
-    // it carries the canonical v5_cee_capture summary we need. Without it,
-    // we cannot honestly classify capture state.
-    const legacy = bundle.v5_canonical_analysis
-    if (legacy) {
-      const failedHttp = detectFailedHttpRecord(traceState.payloads)
-      const rawV2Present = storeState.results?.rawV2Response != null
-      const capturePipeline = classifyV5CapturePipelineStatus({
-        v5Capture: legacy.v5_cee_capture
-          ? {
-              request_present: legacy.v5_cee_capture.request_present,
-              response_present: legacy.v5_cee_capture.response_present,
-              parse_ok: legacy.v5_cee_capture.parse_ok,
-              raw_response_present: legacy.v5_cee_capture.raw_response_present,
-            }
-          : null,
-        hasResultsReport: sourceResult.hasResultsReport,
-        rawV2ResponsePresent: rawV2Present,
-        failedHttpRecord: failedHttp,
-        analysisStateSource: legacy.analysis_state_source,
-        effectiveCeeResponseSource: bundle.effective_cee_response_source ?? null,
-        analysisFactPresent: legacy.analysis_fact_status === 'present',
-        scenarioIdConflictCount: reconciliation.conflicts.length,
-        legacyPipelineStatus: bundle.pipeline.v5_pipeline_status ?? null,
-      })
-      bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
+    // --- Capture pipeline status (P0.2) + Turn diagnostics (P0.3) ---
+    // ALWAYS emit, even when the legacy v5_canonical_analysis block was not
+    // assembled (e.g. classifier bailed). When legacy is absent we fall back
+    // to a synthesised "no-legacy-data" diagnostic with honest enum values
+    // so consumers can rely on these fields being present on every export.
+    const legacy: V5CanonicalAnalysisDiagnostic =
+      bundle.v5_canonical_analysis ?? {
+        v5_cee_capture: null,
+        analysis_state_source: sourceResult.source,
+        analysis_fact_status: 'unknown_not_checked',
+        debug_capture_status: 'cee_capture_missing',
+        canonical_flag_on: isV5CanonicalAnalysisEnabled(),
+      }
 
-      // --- V5 canonical turn diagnostics (P0.3) ---
-      // graph_hash_at_generation: read-through. The v5AnalysisFact slice
-      // may not carry this field on every code path; emit null when
-      // absent rather than fabricating from elsewhere.
-      const graphHash =
-        fact && typeof (fact as Record<string, unknown>).graphHashAtGeneration === 'string'
-          ? ((fact as Record<string, unknown>).graphHashAtGeneration as string)
-          : null
+    const failedHttp = detectFailedHttpRecord(traceState.payloads)
+    const rawV2Present = storeState.results?.rawV2Response != null
+    const capturePipeline = classifyV5CapturePipelineStatus({
+      v5Capture: legacy.v5_cee_capture
+        ? {
+            request_present: legacy.v5_cee_capture.request_present,
+            response_present: legacy.v5_cee_capture.response_present,
+            parse_ok: legacy.v5_cee_capture.parse_ok,
+            raw_response_present: legacy.v5_cee_capture.raw_response_present,
+          }
+        : null,
+      hasResultsReport: sourceResult.hasResultsReport,
+      rawV2ResponsePresent: rawV2Present,
+      failedHttpRecord: failedHttp,
+      analysisStateSource: legacy.analysis_state_source,
+      effectiveCeeResponseSource: bundle.effective_cee_response_source ?? null,
+      analysisFactPresent: legacy.analysis_fact_status === 'present',
+      scenarioIdConflictCount: reconciliation.conflicts.length,
+      legacyPipelineStatus: bundle.pipeline.v5_pipeline_status ?? null,
+    })
+    bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
 
-      // Flag diagnostic — guard against environments without
-      // localStorage (e.g. SSR / jsdom edge cases).
-      const flagDiagnostic = (() => {
-        try {
-          return diagnoseV5CanonicalAnalysis()
-        } catch {
-          return null
-        }
-      })()
+    // graph_hash_at_generation: read-through. The v5AnalysisFact slice
+    // may not carry this field on every code path; emit null when
+    // absent rather than fabricating from elsewhere.
+    const graphHash =
+      fact && typeof (fact as Record<string, unknown>).graphHashAtGeneration === 'string'
+        ? ((fact as Record<string, unknown>).graphHashAtGeneration as string)
+        : null
 
-      const optionCount = extractOptionCountFromPlotResponse(bundle.payloads.plot_response)
-      const factorSensitivityCount = extractFactorSensitivityCountFromPlotResponse(
-        bundle.payloads.plot_response,
-      )
+    // Flag diagnostic — guard against environments without
+    // localStorage (e.g. SSR / jsdom edge cases).
+    const flagDiagnostic = (() => {
+      try {
+        return diagnoseV5CanonicalAnalysis()
+      } catch {
+        return null
+      }
+    })()
 
-      const base = assembleV5CanonicalTurnDiagnostics({
-        legacyDiagnostic: legacy,
-        flagDiagnostic,
-        analysisStateSource: legacy.analysis_state_source,
-        hasResultsReport: sourceResult.hasResultsReport,
-        graphHashAtGeneration: graphHash,
-        optionCount,
-        factorSensitivityCount,
-        capturePipeline,
-        scenarioIdReconciliation: reconciliation,
-      })
+    const optionCount = extractOptionCountFromPlotResponse(bundle.payloads.plot_response)
+    const factorSensitivityCount = extractFactorSensitivityCountFromPlotResponse(
+      bundle.payloads.plot_response,
+    )
 
-      bundle.v5_canonical_turn_diagnostics = attachAnalysisFactDetails(
-        base,
-        fact
-          ? {
-              hasRunAnalysisFact: fact.hasRunAnalysisFact,
-              freshness: fact.freshness,
-            }
-          : null,
-      )
-    }
+    const base = assembleV5CanonicalTurnDiagnostics({
+      legacyDiagnostic: legacy,
+      flagDiagnostic,
+      analysisStateSource: legacy.analysis_state_source,
+      hasResultsReport: sourceResult.hasResultsReport,
+      graphHashAtGeneration: graphHash,
+      optionCount,
+      factorSensitivityCount,
+      capturePipeline,
+      scenarioIdReconciliation: reconciliation,
+    })
+
+    bundle.v5_canonical_turn_diagnostics = attachAnalysisFactDetails(
+      base,
+      fact
+        ? {
+            hasRunAnalysisFact: fact.hasRunAnalysisFact,
+            freshness: fact.freshness,
+          }
+        : null,
+    )
 
     // --- Scientific validation (P1) ---
     // Always runs (even when capture_pipeline_status is missing) — the

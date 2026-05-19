@@ -86,6 +86,11 @@ function defaults(): AssembleV5CanonicalTurnDiagnosticsInputs {
 }
 
 describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classifier', () => {
+  it('emits canonical_flag_env_key as the verbatim VITE_V5_CANONICAL_ANALYSIS string', () => {
+    const out = assembleV5CanonicalTurnDiagnostics(defaults())
+    expect(out.canonical_flag_env_key).toBe('VITE_V5_CANONICAL_ANALYSIS')
+  })
+
   it('emits canonical_flag_on, canonical_flag_source from inputs', () => {
     const out = assembleV5CanonicalTurnDiagnostics(defaults())
     expect(out.canonical_flag_on).toBe(true)

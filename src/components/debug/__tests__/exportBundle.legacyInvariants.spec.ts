@@ -193,6 +193,22 @@ describe('additive diagnostics — buildDebugBundleAsync', () => {
     expect(bundle.debug_redaction_manifest?.preserved_analytical_paths).toBeInstanceOf(Array)
   })
 
+  it('capture_pipeline_status is ALWAYS emitted on async export, even when legacy classifier produced nothing useful', async () => {
+    const bundle = await buildDebugBundleAsync(makeDebugData())
+    expect(bundle.capture_pipeline_status).toBeDefined()
+    expect(typeof bundle.capture_pipeline_status).toBe('string')
+  })
+
+  it('v5_canonical_turn_diagnostics is ALWAYS emitted on async export, with the verbatim VITE_V5_CANONICAL_ANALYSIS env-key', async () => {
+    const bundle = await buildDebugBundleAsync(makeDebugData())
+    expect(bundle.v5_canonical_turn_diagnostics).toBeDefined()
+    expect(bundle.v5_canonical_turn_diagnostics?.canonical_flag_env_key).toBe(
+      'VITE_V5_CANONICAL_ANALYSIS',
+    )
+    expect(bundle.v5_canonical_turn_diagnostics?.coherence).toBeDefined()
+    expect(bundle.v5_canonical_turn_diagnostics?.scenario_id_reconciliation).toBeDefined()
+  })
+
   it('scenario_id reconciliation lifts session.scenario_id from store', async () => {
     canvasState.currentScenarioId = 'sid-from-store'
     const bundle = await buildDebugBundleAsync(makeDebugData())

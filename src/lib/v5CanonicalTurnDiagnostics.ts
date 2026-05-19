@@ -33,7 +33,16 @@ import type {
 
 export type CanonicalFlagSource = 'env' | 'localStorage' | 'default' | 'unknown'
 
+/**
+ * Literal env var name the canonical-analysis flag is bound to. Kept as
+ * a constant so the bundle carries the grep-able `VITE_V5_CANONICAL_ANALYSIS`
+ * string verbatim (brief D — feature flag visibility).
+ */
+export const CANONICAL_FLAG_ENV_KEY = 'VITE_V5_CANONICAL_ANALYSIS' as const
+
 export interface V5CanonicalTurnDiagnostics {
+  /** Verbatim env-key string for grep-ability across exported bundles. */
+  canonical_flag_env_key: typeof CANONICAL_FLAG_ENV_KEY
   canonical_flag_on: boolean
   canonical_flag_source: CanonicalFlagSource
   latest_v5_turn: {
@@ -144,6 +153,7 @@ export function assembleV5CanonicalTurnDiagnostics(
   }
 
   return {
+    canonical_flag_env_key: CANONICAL_FLAG_ENV_KEY,
     canonical_flag_on: inputs.legacyDiagnostic.canonical_flag_on,
     canonical_flag_source,
     latest_v5_turn,
