@@ -236,22 +236,47 @@ export function classifyV5CapturePipelineStatus(
 }
 
 /**
- * Locate the most-recent V5 CEE turn entry in the payload-trace
- * snapshot. The store keeps entries most-recent-first, so we simply
- * return the first matching record. Used by the bundle assembler to
- * populate `latest_v5_turn.{request_id, endpoint, duration_ms}` from
- * the actual capture rather than from coarse session-level data.
+ * Locate the most-relevant V5 CEE turn entry in the payload-trace
+ * snapshot. Used by the bundle assembler to populate
+ * `latest_v5_turn.{request_id, endpoint, duration_ms,
+ * request_present, response_present}` from the actual capture
+ * rather than from coarse session-level data.
+ *
+ * Preference order (the trace store keeps entries most-recent-first):
+ *   1. completed response (status set OR completed === true)
+ *   2. request-only (request body present but no response yet)
+ *   3. any matching V5 entry (metadata-only stub fallback)
+ *
+ * Returns null when no V5 turn entry is recorded.
  */
 export function findLatestV5TurnEntry<
-  T extends { service?: string; endpoint?: string },
+  T extends {
+    service?: string
+    endpoint?: string
+    completed?: boolean
+    status?: number
+    request?: { body?: unknown }
+    response?: { body?: unknown }
+  },
 >(payloads: ReadonlyArray<T>): T | null {
-  for (const p of payloads) {
+  const v5 = payloads.filter((p) => {
     const endpoint = typeof p.endpoint === 'string' ? p.endpoint : ''
-    if (p.service === 'CEE' && endpoint.includes('/orchestrate/v2/turn')) {
-      return p
-    }
-  }
-  return null
+    return p.service === 'CEE' && endpoint.includes('/orchestrate/v2/turn')
+  })
+  if (v5.length === 0) return null
+
+  // Tier 1: completed response (most authoritative).
+  const completed = v5.find(
+    (p) => p.response !== undefined || p.completed === true || typeof p.status === 'number',
+  )
+  if (completed) return completed
+
+  // Tier 2: request-only (request fired, response pending).
+  const requestOnly = v5.find((p) => p.request !== undefined)
+  if (requestOnly) return requestOnly
+
+  // Tier 3: metadata-only stub fallback.
+  return v5[0]
 }
 
 /**

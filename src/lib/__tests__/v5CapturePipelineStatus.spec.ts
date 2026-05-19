@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyV5CapturePipelineStatus,
   detectFailedHttpRecord,
+  findLatestV5TurnEntry,
   type V5CapturePipelineStatusInputs,
 } from '../v5CapturePipelineStatus'
 
@@ -444,5 +445,54 @@ describe('detectFailedHttpRecord — scoped to V5 CEE turns', () => {
         v5({ completed: false, source: 'preflight_or_network' }),
       ]),
     ).toEqual({ present: true, source: 'preflight_or_network' })
+  })
+})
+
+describe('findLatestV5TurnEntry — preference order', () => {
+  const v5 = (overrides: Record<string, unknown> = {}) => ({
+    service: 'CEE',
+    endpoint: '/bff/orchestrate/v2/turn',
+    ...overrides,
+  })
+
+  it('returns null when no V5 entries exist', () => {
+    expect(findLatestV5TurnEntry([])).toBeNull()
+    expect(
+      findLatestV5TurnEntry([
+        { service: 'PLoT', endpoint: '/plot/v2/run' },
+        { service: 'CEE', endpoint: '/bff/orchestrate/v1/turn' },
+      ]),
+    ).toBeNull()
+  })
+
+  it('prefers an entry with a completed response over a request-only entry', () => {
+    const completed = v5({
+      id: 'c1',
+      response: { body: { ok: true } },
+      status: 200,
+      completed: true,
+    })
+    const requestOnly = v5({ id: 'r1', request: { body: { kind: 'analysis' } } })
+    // request-only first, completed-response second — picker must still
+    // pick the completed-response entry.
+    const out = findLatestV5TurnEntry([requestOnly, completed])
+    expect(out).toBe(completed)
+  })
+
+  it('prefers a request-only entry over a metadata-only stub', () => {
+    const requestOnly = v5({ id: 'r1', request: { body: {} } })
+    const metadataOnly = v5({ id: 'm1' })
+    const out = findLatestV5TurnEntry([metadataOnly, requestOnly])
+    expect(out).toBe(requestOnly)
+  })
+
+  it('falls back to metadata-only stub when nothing else exists', () => {
+    const stub = v5({ id: 'meta' })
+    expect(findLatestV5TurnEntry([stub])).toBe(stub)
+  })
+
+  it('accepts status-only as completed-response evidence (HTTP completed even without response body)', () => {
+    const statusOnly = v5({ id: 'h1', status: 500, completed: true })
+    expect(findLatestV5TurnEntry([statusOnly])).toBe(statusOnly)
   })
 })

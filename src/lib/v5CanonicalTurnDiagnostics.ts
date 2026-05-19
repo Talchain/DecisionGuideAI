@@ -37,6 +37,16 @@ export type CanonicalFlagSource = 'env' | 'localStorage' | 'default' | 'unknown'
  * Provenance enum for the latest V5 turn snapshot — describes WHERE the
  * capture data came from rather than the legacy `'proxy_v5_turn'`
  * literal on V5CeeCapture.source.
+ *
+ * **Intentional brief extension**: the brief lists four values
+ * (`payload_trace | bundle_payloads | store | none`). DGAI's bundle
+ * also carries `data.services.cee` records which are evidence-strength
+ * distinct from both `bundle.payloads` and trace-store data. We add
+ * `service_metadata` as a fifth value so reviewers see honest
+ * provenance attribution; tests and JSDoc document this addition. If
+ * the brief enum is to be kept stable for cross-team consumers,
+ * service-metadata exclusivity is also recorded in
+ * `diagnostic_source_strength.latest_v5_turn`.
  */
 export type LatestV5TurnSource =
   | 'payload_trace'
@@ -44,6 +54,37 @@ export type LatestV5TurnSource =
   | 'service_metadata'
   | 'store'
   | 'none'
+
+/**
+ * Single canonical capture-tier resolver. Used by both the legacy
+ * `V5CeeCapture` assembly site and the new snapshot assembler so the
+ * two views never disagree about where the capture data came from.
+ *
+ * Tier order (highest evidence first):
+ *   1. payload_trace — V5 turn entry exists in the trace store
+ *   2. bundle_payloads — bundle.payloads.cee_request/response set
+ *   3. service_metadata — only data.services.cee for V5 endpoint
+ *   4. store — no capture but a v5AnalysisFact exists for the scenario
+ *   5. none — no evidence at all
+ */
+export function determineCaptureTier(inputs: {
+  traceEntryPresent: boolean
+  bundlePayloadsCeeRequestPresent: boolean
+  bundlePayloadsCeeResponsePresent: boolean
+  serviceMetadataV5EndpointPresent: boolean
+  factPresentForScenario: boolean
+}): LatestV5TurnSource {
+  if (inputs.traceEntryPresent) return 'payload_trace'
+  if (
+    inputs.bundlePayloadsCeeRequestPresent ||
+    inputs.bundlePayloadsCeeResponsePresent
+  ) {
+    return 'bundle_payloads'
+  }
+  if (inputs.serviceMetadataV5EndpointPresent) return 'service_metadata'
+  if (inputs.factPresentForScenario) return 'store'
+  return 'none'
+}
 
 /**
  * Diagnostic-source strength per major bundle block. Reviewers use this
@@ -98,6 +139,13 @@ export interface V5CanonicalTurnDiagnostics {
     response_present: boolean
     /** HTTP request_id from the captured CEE call. */
     request_id: string | null
+    /**
+     * Where `request_id` came from:
+     *   - `payload_trace` — the actual id of the V5 trace entry
+     *   - `session`       — fallback to `data.overall.request_id`
+     *   - `none`          — no capture and no session id
+     */
+    request_id_source: 'payload_trace' | 'session' | 'none'
     /** Scenario the call was issued against. */
     scenario_id: string | null
     /** Per-turn client identifier (typically the analysis hash). */
@@ -114,7 +162,9 @@ export interface V5CanonicalTurnDiagnostics {
      * brief's richer provenance enum:
      *   - payload_trace   — assembled from a payload-trace-store entry
      *   - bundle_payloads — assembled from `bundle.payloads.cee_*`
-     *   - service_metadata — only `data.services.cee` was present
+     *   - service_metadata — only `data.services.cee` was present (DGAI
+     *                        intentional extension to the brief enum;
+     *                        see LatestV5TurnSource JSDoc)
      *   - store           — derived from canvas store fact, no capture
      *   - none            — no capture at all
      */
@@ -155,13 +205,18 @@ export interface V5CanonicalTurnDiagnostics {
     option_count: number
     factor_sensitivity_count: number
     /**
-     * Brief lists `rendered_option_count` / `rendered_factor_count` /
-     * `influence_unmatched_count`. These require display-state
-     * inspection that this snapshot does not perform; the bundle's
-     * existing `display_state` block carries those signals when
-     * captured. Documented here for traceability; values are not
-     * synthesised to avoid overclaiming.
+     * Count of options actually rendered by the UI, sourced from
+     * `bundle.display_state.rendered_options.length`. Null when
+     * display_state is absent (no fabrication).
      */
+    rendered_option_count: number | null
+    /**
+     * Count of factors actually rendered by the UI, sourced from
+     * `bundle.display_state.rendered_factors.length`. Null when
+     * display_state is absent.
+     */
+    rendered_factor_count: number | null
+    /** Stable pointer to where rendered counts live in the wider bundle. */
     rendered_counts_documented_in: 'bundle.display_state'
   }
   capture_pipeline_status: CapturePipelineStatus
@@ -203,17 +258,13 @@ export interface AssembleV5CanonicalTurnDiagnosticsInputs {
   optionCount: number
   factorSensitivityCount: number
   /**
-   * True when a V5 turn entry was found in the payload-trace store at
-   * assembly time. Drives `latest_v5_turn.source` and
-   * `diagnostic_source_strength.latest_v5_turn`.
+   * Canonical capture tier resolved once at the call site (via
+   * `determineCaptureTier`). Drives `latest_v5_turn.source` directly
+   * and feeds `diagnostic_source_strength.latest_v5_turn`. Replaces
+   * the previous ad-hoc boolean inputs to ensure the assembler can't
+   * disagree with the upstream V5CeeCapture assembly about provenance.
    */
-  v5TraceEntryPresent: boolean
-  /**
-   * True when `data.services.cee.endpoint` matched the V5 turn
-   * endpoint (`/orchestrate/v2/turn`). Used as the next-best evidence
-   * tier when no trace entry is recorded.
-   */
-  ceeServiceV5EndpointPresent: boolean
+  captureTier: LatestV5TurnSource
   /**
    * Rendered counts pulled from `bundle.display_state` when present;
    * `null` when display_state is absent.
@@ -238,27 +289,26 @@ export function assembleV5CanonicalTurnDiagnostics(
     ? inputs.flagDiagnostic.source
     : 'unknown'
 
-  // Map the legacy `V5CeeCapture.source` literal + trace/service
-  // evidence to the brief's richer provenance enum.
-  const latestV5TurnSource: LatestV5TurnSource = (() => {
-    if (capture === null) {
-      // No capture object at all — derived from store fact or nothing.
-      return inputs.legacyDiagnostic.analysis_fact_status === 'present'
-        ? 'store'
-        : 'none'
-    }
-    if (inputs.v5TraceEntryPresent) return 'payload_trace'
-    if (capture.request_present || capture.response_present) {
-      return 'bundle_payloads'
-    }
-    if (inputs.ceeServiceV5EndpointPresent) return 'service_metadata'
-    return 'none'
-  })()
+  // Capture tier comes from the upstream resolver — single canonical
+  // source of truth shared with the V5CeeCapture assembly.
+  const latestV5TurnSource: LatestV5TurnSource = inputs.captureTier
+
+  // request_id source attribution. Trace-tier entries carry the real
+  // payload-trace id; lower tiers fall back to the session-level
+  // request_id. Explicit field so reviewers don't mistake the
+  // fallback for the actual trace id.
+  const requestIdSource: 'payload_trace' | 'session' | 'none' =
+    capture === null
+      ? 'none'
+      : latestV5TurnSource === 'payload_trace'
+        ? 'payload_trace'
+        : 'session'
 
   const latest_v5_turn = {
     request_present: capture?.request_present ?? false,
     response_present: capture?.response_present ?? false,
     request_id: capture?.request_id ?? null,
+    request_id_source: requestIdSource,
     scenario_id: capture?.scenario_id ?? null,
     turn_id: capture?.turn_id ?? null,
     endpoint: capture?.endpoint ?? null,
@@ -267,8 +317,19 @@ export function assembleV5CanonicalTurnDiagnostics(
     source: latestV5TurnSource,
   }
 
+  // parse_ok is only meaningful when a response was actually received.
+  // Without a response body there's nothing to parse — emit `null` so
+  // reviewers don't mistake "no response" for "parsed and failed".
+  // (The legacy V5CeeCapture.parse_ok stays boolean for backward-compat;
+  // this snapshot overlays null based on response_present.)
+  const parseOkResolved: boolean | null =
+    capture === null
+      ? null
+      : capture.response_present
+        ? capture.parse_ok
+        : null
   const parse = {
-    parse_ok: capture ? capture.parse_ok : null,
+    parse_ok: parseOkResolved,
     parse_error: capture?.parse_error ?? null,
     parse_failure_kind: capture?.parse_failure_kind ?? null,
     raw_response_present: capture?.raw_response_present ?? false,
@@ -321,12 +382,16 @@ export function assembleV5CanonicalTurnDiagnostics(
             : latestV5TurnSource === 'store'
               ? 'fallback'
               : 'unavailable',
+    // Parse strength is honest about evidence: 'live_response' only
+    // when a response body was actually received and parsed (success
+    // OR parse-error envelope with raw preserved). When the response
+    // is absent (capture null OR service-metadata-only), parse
+    // strength is 'unavailable' — never `live_response` based on a
+    // synthesised `parse_ok = false`.
     parse:
-      capture?.parse_ok === true || capture?.parse_ok === false
-        ? 'live_response'
-        : capture === null
-          ? 'unavailable'
-          : 'fallback',
+      capture === null || !capture.response_present
+        ? 'unavailable'
+        : 'live_response',
     results:
       inputs.optionCount > 0 || inputs.factorSensitivityCount > 0
         ? 'plot_response'

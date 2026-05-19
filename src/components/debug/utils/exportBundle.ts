@@ -57,8 +57,10 @@ import {
 import {
   assembleV5CanonicalTurnDiagnostics,
   attachAnalysisFactDetails,
+  determineCaptureTier,
   extractFactorSensitivityCountFromPlotResponse,
   extractOptionCountFromPlotResponse,
+  type LatestV5TurnSource,
   type V5CanonicalTurnDiagnostics,
 } from '../../../lib/v5CanonicalTurnDiagnostics'
 import {
@@ -2775,7 +2777,8 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const ceeService = data.services.cee ?? null
     const requestPresent = ceeRequest !== null && ceeRequest !== undefined
     const responsePresent = ceeResponse !== null && ceeResponse !== undefined
-    const parseOk = responsePresent && !ceeIsParseErrorEnvelope
+    // (parseOk is now derived from the canonical-source tier below
+    // — see `parseOkLegacy` near the V5CeeCapture assembly.)
 
     const parseError = ceeIsParseErrorEnvelope
       ? (() => {
@@ -2864,30 +2867,89 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     })()
 
     // Look up the actual V5 turn entry in the payload-trace store so
-    // capture-level fields (request_id, endpoint, duration_ms) reflect
-    // the real call rather than coarse session-level values.
+    // capture-level fields (request_id, endpoint, duration_ms,
+    // request_present, response_present) reflect the real call rather
+    // than coarse session-level values.
     const v5TraceStore = await import('../../../lib/payload-trace-store')
     const v5TraceState = v5TraceStore.usePayloadTraceStore.getState()
     const latestV5Trace = findLatestV5TurnEntry(v5TraceState.payloads)
+    const latestV5TraceTyped = latestV5Trace as
+      | {
+          id?: string
+          endpoint?: string
+          status?: number
+          duration?: number
+          completed?: boolean
+          request?: { body?: unknown } | undefined
+          response?: { body?: unknown } | undefined
+        }
+      | null
+
+    // Single canonical source for capture assembly. Once a tier is
+    // selected, ALL related fields derive from that same source to
+    // avoid mixed-provenance bundles. The helper is shared with the
+    // second try block (turn diagnostics) so the two views never
+    // disagree about where the capture data came from.
+    const captureTier: LatestV5TurnSource = determineCaptureTier({
+      traceEntryPresent: latestV5TraceTyped !== null,
+      bundlePayloadsCeeRequestPresent: requestPresent,
+      bundlePayloadsCeeResponsePresent: responsePresent,
+      serviceMetadataV5EndpointPresent:
+        ceeService !== null &&
+        typeof ceeService.endpoint === 'string' &&
+        ceeService.endpoint.includes('/orchestrate/v2/turn'),
+      // First try block doesn't read `factPresentForScenario` here.
+      // 'store' tier is meaningless for V5CeeCapture assembly (the
+      // capture object requires evidence); only the snapshot uses
+      // 'store' when capture is absent but a fact exists.
+      factPresentForScenario: false,
+    })
+
+    // Derive request_present / response_present from the SAME tier as
+    // the rest of the capture metadata. Trace-tier reads from the
+    // trace entry; bundle-payloads tier reads from bundle.payloads;
+    // service-metadata + none tiers have no body evidence.
+    const tierRequestPresent =
+      captureTier === 'payload_trace'
+        ? latestV5TraceTyped?.request !== undefined
+        : captureTier === 'bundle_payloads'
+          ? requestPresent
+          : false
+    const tierResponsePresent =
+      captureTier === 'payload_trace'
+        ? latestV5TraceTyped?.response !== undefined ||
+          latestV5TraceTyped?.completed === true ||
+          typeof latestV5TraceTyped?.status === 'number'
+        : captureTier === 'bundle_payloads'
+          ? responsePresent
+          : false
+
+    // parse_ok semantics: only meaningful when a response body was
+    // actually parsed. Without a response there's nothing to parse —
+    // emit `false` here in the legacy V5CeeCapture (existing contract)
+    // but the new snapshot will overlay `null` when response_present
+    // is false to be honest about evidence absence.
+    const parseOkLegacy = tierResponsePresent && !ceeIsParseErrorEnvelope
 
     const v5Capture: V5CeeCapture | null =
-      requestPresent || responsePresent || ceeService
-        ? {
+      captureTier === 'none'
+        ? null
+        : {
             // Prefer the actual trace entry id when available; fall back
             // to the session-level request_id (the legacy behaviour).
-            request_id: latestV5Trace?.id ?? data.overall.request_id,
+            request_id: latestV5TraceTyped?.id ?? data.overall.request_id,
             scenario_id: storeState.currentScenarioId,
             turn_id: fact?.analysisHash ?? null,
             // Real endpoint from the trace entry > service-metadata
             // endpoint > null. Required for log correlation.
             endpoint:
-              latestV5Trace?.endpoint ?? ceeService?.endpoint ?? null,
-            status: latestV5Trace?.status ?? ceeService?.status ?? null,
+              latestV5TraceTyped?.endpoint ?? ceeService?.endpoint ?? null,
+            status: latestV5TraceTyped?.status ?? ceeService?.status ?? null,
             duration_ms:
-              latestV5Trace?.duration ?? ceeService?.duration_ms ?? null,
-            request_present: requestPresent,
-            response_present: responsePresent,
-            parse_ok: parseOk,
+              latestV5TraceTyped?.duration ?? ceeService?.duration_ms ?? null,
+            request_present: tierRequestPresent,
+            response_present: tierResponsePresent,
+            parse_ok: parseOkLegacy,
             parse_error: parseError,
             response_top_level_keys: responseTopLevelKeys,
             raw_response_present: rawResponsePresent,
@@ -2903,7 +2965,6 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
             // field per the brief.
             source: 'proxy_v5_turn',
           }
-        : null
 
     const plotRequestCaptured = bundle.payloads.plot_request !== null
 
@@ -2995,6 +3056,20 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const latestV5Trace = findLatestV5TurnEntry(traceState.payloads)
     const v5TraceEntryPresent = latestV5Trace !== null
 
+    // Re-compute the canonical capture tier in this try block too —
+    // the first try block (legacy assembly) might have bailed, but
+    // this block must still pick a tier consistent with the rest of
+    // the bundle. Inputs are deterministic from traceState + bundle
+    // payloads + data.services + canvas store; the helper guarantees
+    // we never disagree.
+    const snapshotCaptureTier = determineCaptureTier({
+      traceEntryPresent: v5TraceEntryPresent,
+      bundlePayloadsCeeRequestPresent: bundle.payloads.cee_request !== null,
+      bundlePayloadsCeeResponsePresent: bundle.payloads.cee_response !== null,
+      serviceMetadataV5EndpointPresent: ceeServiceIsV5,
+      factPresentForScenario: sourceResult.factPresentForScenario,
+    })
+
     const capturePipeline = classifyV5CapturePipelineStatus({
       v5Capture: legacy.v5_cee_capture
         ? {
@@ -3064,8 +3139,7 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       graphHashAtGeneration: graphHash,
       optionCount,
       factorSensitivityCount,
-      v5TraceEntryPresent,
-      ceeServiceV5EndpointPresent: ceeServiceIsV5,
+      captureTier: snapshotCaptureTier,
       renderedOptionCount,
       renderedFactorCount,
       capturePipeline,

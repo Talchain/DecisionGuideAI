@@ -317,12 +317,80 @@ describe('uploaded-bundle fixture — every contradiction the brief lists is mac
       expect(turn.request_id).toBe('req-trace-abc')
       expect(turn.duration_ms).toBe(142)
       expect(turn.source).toBe('payload_trace')
+      // P1.3: request_id_source is explicit so reviewers don't mistake
+      // the session-level fallback for the actual trace id.
+      expect(turn.request_id_source).toBe('payload_trace')
       expect(
         bundle.v5_canonical_turn_diagnostics!.diagnostic_source_strength.latest_v5_turn,
       ).toBe('live_trace')
     } finally {
       traceState.payloads = []
     }
+  })
+
+  it('regression: V5 trace entry alone (request+response) is sufficient to populate v5_cee_capture and latest_v5_turn when bundle.payloads.cee_* are null', async () => {
+    // The trace store carries a full V5 turn record but bundle.payloads
+    // are empty (e.g. capture path didn't propagate them). Per P0.1 the
+    // capture should still be assembled from the trace.
+    traceState.payloads = [
+      {
+        id: 'trace-only-req',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        duration: 99,
+        completed: true,
+        request: { body: { kind: 'analysis', scenario_id: 'sid-uploaded-bundle' } },
+        response: { body: { blocks: [] } },
+      },
+    ]
+    try {
+      // bundle.payloads.cee_request/response stay null (the default
+      // makeFixtureDebugData shape) so this is genuinely a trace-only path.
+      const bundle = await buildDebugBundleAsync(makeFixtureDebugData())
+      const turn = bundle.v5_canonical_turn_diagnostics!.latest_v5_turn
+      // Capture WAS assembled despite empty bundle.payloads.
+      expect(bundle.v5_canonical_analysis?.v5_cee_capture).not.toBeNull()
+      // request/response presence reflect the trace entry, not bundle.payloads.
+      expect(turn.request_present).toBe(true)
+      expect(turn.response_present).toBe(true)
+      // Provenance fields all come from the trace.
+      expect(turn.request_id).toBe('trace-only-req')
+      expect(turn.endpoint).toBe('/bff/orchestrate/v2/turn')
+      expect(turn.duration_ms).toBe(99)
+      expect(turn.source).toBe('payload_trace')
+      expect(turn.request_id_source).toBe('payload_trace')
+    } finally {
+      traceState.payloads = []
+    }
+  })
+
+  it('regression: service-metadata-only 5xx → parse.parse_ok is null (NOT false) and diagnostic_source_strength.parse is unavailable', async () => {
+    // services.cee reports a V5-endpoint 5xx but neither the trace nor
+    // the bundle.payloads carry a response body. Per P0.2 the parse
+    // surface must report unavailable, not "parsed and failed".
+    const data: DebugData = {
+      ...makeFixtureDebugData(),
+      services: {
+        cee: {
+          name: 'CEE',
+          status: 502,
+          success: false,
+          duration_ms: 75,
+          endpoint: '/bff/orchestrate/v2/turn',
+        },
+        plot: null,
+        isl: null,
+      },
+    }
+    const bundle = await buildDebugBundleAsync(data)
+    const td = bundle.v5_canonical_turn_diagnostics!
+    // Parse evidence is genuinely absent — surface it honestly.
+    expect(td.parse.parse_ok).toBeNull()
+    expect(td.diagnostic_source_strength.parse).toBe('unavailable')
+    // latest_v5_turn.source reflects the service-metadata tier.
+    expect(td.latest_v5_turn.source).toBe('service_metadata')
+    expect(td.diagnostic_source_strength.latest_v5_turn).toBe('service_metadata')
   })
 
   it('reproduces the misleading legacy proxy_or_network_failure label: legacy classifies as proxy/network because services.cee returned 5xx, but no V5 CEE payload-trace failure exists — new classifier disagrees and emits legacy_pipeline_status_misleading_proxy_or_network_failure', async () => {

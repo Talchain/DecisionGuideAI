@@ -9,6 +9,7 @@ import { describe, expect, it } from 'vitest'
 import {
   assembleV5CanonicalTurnDiagnostics,
   attachAnalysisFactDetails,
+  determineCaptureTier,
   extractFactorSensitivityCountFromPlotResponse,
   extractOptionCountFromPlotResponse,
   type AssembleV5CanonicalTurnDiagnosticsInputs,
@@ -79,8 +80,7 @@ function defaults(): AssembleV5CanonicalTurnDiagnosticsInputs {
     graphHashAtGeneration: null,
     optionCount: 0,
     factorSensitivityCount: 0,
-    v5TraceEntryPresent: false,
-    ceeServiceV5EndpointPresent: false,
+    captureTier: 'bundle_payloads',
     renderedOptionCount: null,
     renderedFactorCount: null,
     capturePipeline: {
@@ -130,57 +130,99 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
       request_present: true,
       response_present: true,
       request_id: 'req-1',
+      // Default captureTier is bundle_payloads → session-level
+      // request_id provenance.
+      request_id_source: 'session',
       scenario_id: 'sid-1',
       turn_id: 'turn-1',
       endpoint: '/bff/orchestrate/v2/turn',
       status: 200,
       duration_ms: 123,
       // Brief's provenance enum: bundle.payloads.cee_* carried the data
-      // (v5TraceEntryPresent: false in defaults).
+      // (default captureTier is 'bundle_payloads').
       source: 'bundle_payloads',
     })
   })
 
-  it('latest_v5_turn.source = "payload_trace" when v5TraceEntryPresent is true', () => {
+  it('latest_v5_turn.source = "payload_trace" when captureTier is payload_trace', () => {
     const out = assembleV5CanonicalTurnDiagnostics({
       ...defaults(),
-      v5TraceEntryPresent: true,
+      captureTier: 'payload_trace',
     })
     expect(out.latest_v5_turn.source).toBe('payload_trace')
+    // request_id_source must also flip to payload_trace.
+    expect(out.latest_v5_turn.request_id_source).toBe('payload_trace')
   })
 
-  it('latest_v5_turn.source = "service_metadata" when only services.cee endpoint matches V5', () => {
+  it('latest_v5_turn.source = "service_metadata" when captureTier is service_metadata', () => {
     const out = assembleV5CanonicalTurnDiagnostics({
       ...defaults(),
       legacyDiagnostic: makeLegacy({
         v5_cee_capture: makeCapture({ request_present: false, response_present: false }),
       }),
-      v5TraceEntryPresent: false,
-      ceeServiceV5EndpointPresent: true,
+      captureTier: 'service_metadata',
     })
     expect(out.latest_v5_turn.source).toBe('service_metadata')
+    expect(out.latest_v5_turn.request_id_source).toBe('session')
   })
 
-  it('latest_v5_turn.source = "store" when no capture but fact is present', () => {
+  it('latest_v5_turn.source = "store" when captureTier is store (no capture, fact present)', () => {
     const out = assembleV5CanonicalTurnDiagnostics({
       ...defaults(),
       legacyDiagnostic: makeLegacy({
         v5_cee_capture: null,
         analysis_fact_status: 'present',
       }),
+      captureTier: 'store',
     })
     expect(out.latest_v5_turn.source).toBe('store')
+    expect(out.latest_v5_turn.request_id_source).toBe('none')
   })
 
-  it('latest_v5_turn.source = "none" when no capture and no fact', () => {
+  it('latest_v5_turn.source = "none" when captureTier is none', () => {
     const out = assembleV5CanonicalTurnDiagnostics({
       ...defaults(),
       legacyDiagnostic: makeLegacy({
         v5_cee_capture: null,
         analysis_fact_status: 'missing',
       }),
+      captureTier: 'none',
     })
     expect(out.latest_v5_turn.source).toBe('none')
+    expect(out.latest_v5_turn.request_id_source).toBe('none')
+  })
+
+  it('parse_ok is null when response_present is false (does NOT conflate "no response" with "parsed and failed")', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: makeCapture({
+          request_present: true,
+          response_present: false,
+          parse_ok: false, // legacy capture would report false, but
+          // the snapshot must overlay null per P0.2
+        }),
+      }),
+    })
+    expect(out.parse.parse_ok).toBeNull()
+    expect(out.diagnostic_source_strength.parse).toBe('unavailable')
+  })
+
+  it('diagnostic_source_strength.parse is "unavailable" for service-metadata-only failures', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      captureTier: 'service_metadata',
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: makeCapture({
+          request_present: false,
+          response_present: false,
+          parse_ok: false,
+        }),
+      }),
+    })
+    expect(out.parse.parse_ok).toBeNull()
+    expect(out.diagnostic_source_strength.parse).toBe('unavailable')
+    expect(out.diagnostic_source_strength.latest_v5_turn).toBe('service_metadata')
   })
 
   it('results.rendered_option_count / rendered_factor_count surface from display_state when provided', () => {
@@ -202,7 +244,7 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
   it('diagnostic_source_strength tracks each block independently', () => {
     const live = assembleV5CanonicalTurnDiagnostics({
       ...defaults(),
-      v5TraceEntryPresent: true,
+      captureTier: 'payload_trace',
       optionCount: 2,
       factorSensitivityCount: 5,
     })
@@ -218,6 +260,7 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
         v5_cee_capture: null,
         analysis_fact_status: 'present',
       }),
+      captureTier: 'store',
       hasResultsReport: true,
       optionCount: 0,
       factorSensitivityCount: 0,
@@ -478,5 +521,76 @@ describe('coherence contradiction surfacing (composition)', () => {
     expect(out.coherence.issues).toContain(
       'analysis_fact_present_but_cee_capture_missing',
     )
+  })
+})
+
+describe('determineCaptureTier — single canonical resolver', () => {
+  it('returns payload_trace when a trace entry exists (highest tier)', () => {
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: true,
+        bundlePayloadsCeeRequestPresent: true,
+        bundlePayloadsCeeResponsePresent: true,
+        serviceMetadataV5EndpointPresent: true,
+        factPresentForScenario: true,
+      }),
+    ).toBe('payload_trace')
+  })
+
+  it('returns bundle_payloads when no trace entry but cee_request OR cee_response is set', () => {
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: true,
+        bundlePayloadsCeeResponsePresent: false,
+        serviceMetadataV5EndpointPresent: false,
+        factPresentForScenario: false,
+      }),
+    ).toBe('bundle_payloads')
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: false,
+        bundlePayloadsCeeResponsePresent: true,
+        serviceMetadataV5EndpointPresent: false,
+        factPresentForScenario: false,
+      }),
+    ).toBe('bundle_payloads')
+  })
+
+  it('returns service_metadata when only data.services.cee V5 endpoint is present', () => {
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: false,
+        bundlePayloadsCeeResponsePresent: false,
+        serviceMetadataV5EndpointPresent: true,
+        factPresentForScenario: false,
+      }),
+    ).toBe('service_metadata')
+  })
+
+  it('returns store when no capture evidence but a fact is present', () => {
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: false,
+        bundlePayloadsCeeResponsePresent: false,
+        serviceMetadataV5EndpointPresent: false,
+        factPresentForScenario: true,
+      }),
+    ).toBe('store')
+  })
+
+  it('returns none when there is no evidence at all', () => {
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: false,
+        bundlePayloadsCeeResponsePresent: false,
+        serviceMetadataV5EndpointPresent: false,
+        factPresentForScenario: false,
+      }),
+    ).toBe('none')
   })
 })
