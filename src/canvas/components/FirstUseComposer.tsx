@@ -16,7 +16,9 @@ interface FirstUseComposerProps {
 }
 
 const PANEL_WIDTH = 480
-const PANEL_HEIGHT = 200
+// Height tightened in the UX polish pass: guidance text + input bar with
+// minimal gap — no large dead space below the textarea.
+const PANEL_HEIGHT = 152
 
 /**
  * FirstUseComposer — centred composer that auto-opens when the canvas is
@@ -143,12 +145,11 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         top: `calc(50% - ${PANEL_HEIGHT / 2}px)`,
       }}
     >
-      <div className="flex flex-col items-center justify-center px-6 pt-5 pb-3 gap-2">
+      <div className="flex flex-col items-center px-6 pt-4 pb-2">
         <p className={typo('panelBody', 'text-text-light text-center')}>
           Describe your decision, the options you're weighing, and what a good outcome looks like.
         </p>
       </div>
-      <div className="flex-1" />
       <AIInputBar
         ref={inputBarRef}
         variant="first-use"

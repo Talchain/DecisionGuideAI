@@ -147,7 +147,17 @@ export const AIInputBar = memo(
       }
     })()
 
-    const canSend = draft.trim().length > 0 && !disabled && !isThinking
+    // Empty canvas + isThinking === a model-generation turn is in flight.
+    // The brief: composer must not invite a new decision while generating.
+    // We disable typing + replace the placeholder. Chat-mode thinking
+    // (nodeCount > 0) keeps the existing behaviour (Enter blocked via
+    // handleSend; typing still allowed so the user can compose follow-up).
+    const isGenerating = isThinking && nodeCount === 0
+    const inputDisabled = disabled || isGenerating
+    const effectivePlaceholder = isGenerating
+      ? 'Generating your decision model…'
+      : placeholder ?? stagePlaceholder
+    const canSend = draft.trim().length > 0 && !inputDisabled && !isThinking
 
     return (
       <div className={containerClasses} data-testid={testId ?? `ai-input-bar-${variant}`}>
@@ -158,9 +168,9 @@ export const AIInputBar = memo(
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder={placeholder ?? stagePlaceholder}
+            placeholder={effectivePlaceholder}
             rows={1}
-            disabled={disabled}
+            disabled={inputDisabled}
             aria-label={ariaLabel ?? 'Chat message'}
             data-testid={`${testId ?? `ai-input-bar-${variant}`}-textarea`}
             className={typo(

@@ -1,9 +1,7 @@
-import { memo, useCallback, useMemo } from 'react'
+import { memo, useCallback } from 'react'
 import { ChevronUp } from 'lucide-react'
 import { typo } from '../../styles/typography'
-import { useConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
-import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
 import { AIInputBar } from './AIInputBar'
 
@@ -22,36 +20,6 @@ interface PersistentInputStripProps {
   onFocusFloating?: () => void
   /** Click handler for the cog icon (Attach / Voice / Depth menu). */
   onCogClick: (anchorEl: HTMLElement) => void
-}
-
-/**
- * Status-strip text: the literal first 50 characters of the last assistant
- * message. Overridden to "Thinking…" while a turn is in flight and to
- * "Analysis stale · Rerun" when the graph diverged from the last analysis.
- *
- * NEVER an LLM-generated summary — this is a passthrough.
- */
-function useStatusText(): string {
-  const { messages, isThinking } = useConversationContext()
-  const { isStale } = useStaleGuard()
-
-  return useMemo(() => {
-    if (isThinking) return 'Thinking…'
-    if (isStale) return 'Analysis stale · Rerun'
-    let lastAssistant: typeof messages[number] | undefined
-    for (let i = messages.length - 1; i >= 0; i--) {
-      const m = messages[i]
-      if (m.role === 'assistant' && !m.synthetic) {
-        lastAssistant = m
-        break
-      }
-    }
-    if (!lastAssistant) return 'Ready'
-    const raw = (lastAssistant.content ?? '').trim()
-    if (!raw) return 'Ready'
-    if (raw.length <= 50) return raw
-    return raw.slice(0, 50).trimEnd() + '…'
-  }, [messages, isThinking, isStale])
 }
 
 /**
@@ -75,7 +43,6 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   onCogClick,
 }: PersistentInputStripProps) {
   const floatingIsOpen = useFloatingPanelState((s) => s.isOpen)
-  const statusText = useStatusText()
   const placeholder = useStageAwarePlaceholder()
 
   const handleFocus = useCallback(() => {
@@ -83,8 +50,11 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   }, [onFocusFloating])
 
   // Status mode — floating panel is open. No textarea is rendered so the
-  // "no duplicate composer" invariant holds. Clicking anywhere on the strip
-  // focuses the floating panel's textarea via the registered focus channel.
+  // "no duplicate composer" invariant holds. Fixed copy ("Olumi is open ·
+  // Focus") replaces the previous truncated last-message preview: that
+  // preview was noisy, broke at 50 chars mid-sentence, and read as
+  // disabled chrome rather than a clickable affordance. Clicking anywhere
+  // focuses the floating panel via the registered focus channel.
   if (floatingIsOpen) {
     return (
       <button
@@ -94,8 +64,8 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
         data-testid="persistent-strip-status"
         aria-label="Focus floating Olumi panel"
       >
-        <span className={typo('panelMeta', 'text-text-light truncate text-left')}>{statusText}</span>
-        <span className={typo('panelMeta', 'text-text-light flex-shrink-0')}>Focus →</span>
+        <span className={typo('panelMeta', 'text-text-body text-left')}>Olumi is open</span>
+        <span className={typo('panelMeta', 'text-info font-medium flex-shrink-0')}>Focus →</span>
       </button>
     )
   }

@@ -1192,13 +1192,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
 
   const handleTabClick = (tab: OutputsDockTab) => {
-    // Brief: when the floating Olumi panel is open, clicking the Olumi tab
-    // focuses the floating panel rather than activating the docked surface —
-    // avoids rendering the same conversation in two surfaces simultaneously.
-    if (tab === 'olumi' && useFloatingPanelState.getState().isOpen) {
-      focusFloating()
-      return
-    }
+    // Polish (Item 1): the docked Olumi tab is reachable even when floating
+    // is open — OlumiTabBody renders the floating-state placeholder (with
+    // Focus floating / Dock here actions) instead of duplicating the
+    // conversation. The placeholder owns the focus affordance; the tab click
+    // just activates the tab.
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
     // E1: Sync tab state to Zustand store for cross-component navigation
     useUIStore.getState().setActiveOutputTab(tab as OutputTab)
@@ -1348,7 +1346,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     state.activeTab === tab.id
                       ? 'text-info border-b-2 border-info'
                       : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
-                  } ${tab.id === 'olumi' && floatingPanelIsOpen ? 'opacity-60' : ''}`}
+                  }`}
                   style={
                     state.activeTab === tab.id
                       ? { backgroundColor: 'rgba(82,163,200,0.15)' }
@@ -1358,6 +1356,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   <span className={`inline-flex items-center gap-1${tab.id === 'results' && showResultsTabStaleWarning ? ' text-warning' : ''}`}>
                     {tab.id === 'olumi' && <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />}
                     {tab.label}
+                    {tab.id === 'olumi' && floatingPanelIsOpen && (
+                      <span
+                        className="inline-flex items-center text-info border border-info/30 rounded-full px-1.5 leading-none text-[10px] font-medium"
+                        data-testid="olumi-tab-floating-badge"
+                        aria-label="Olumi is open in the floating panel"
+                      >
+                        Open
+                      </span>
+                    )}
                     {tab.id === 'results' && showResultsTabStaleWarning && (
                       <AlertTriangle
                         className="w-3 h-3 text-warning"

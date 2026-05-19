@@ -55,6 +55,39 @@ function defaultCentredPosition(size: FloatingPanelSize, viewportW: number, view
 }
 
 /**
+ * Clamp a candidate position into the visible viewport so the panel never
+ * sits partially (or fully) off-screen. Used for restored stored positions
+ * (a smaller viewport since last session can leave the stored x/y outside
+ * the visible region), the minimise pill's anchor, and any defensive
+ * recompute. Mirrors the drag-time clamp at handlePointerMove so the same
+ * rules apply whether the user dragged or the panel was placed by us.
+ */
+export function clampPositionToViewport(
+  pos: FloatingPanelPosition,
+  size: FloatingPanelSize,
+  viewportW: number,
+  viewportH: number,
+): FloatingPanelPosition {
+  return {
+    x: clamp(pos.x, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportW - size.width - DEFAULT_MARGIN)),
+    y: clamp(pos.y, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportH - size.height - DEFAULT_MARGIN)),
+  }
+}
+
+const PILL_W = 84
+const PILL_H = 28
+export function clampPillPositionToViewport(
+  pos: FloatingPanelPosition,
+  viewportW: number,
+  viewportH: number,
+): FloatingPanelPosition {
+  return {
+    x: clamp(pos.x, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportW - PILL_W - DEFAULT_MARGIN)),
+    y: clamp(pos.y, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportH - PILL_H - DEFAULT_MARGIN)),
+  }
+}
+
+/**
  * FloatingOlumiPanel — portaled draggable/resizable Olumi conversation window.
  *
  * Performance: pointer-move handlers update the panel's CSS via direct style
@@ -115,14 +148,20 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     const max = computeMaxSize(vw, vh)
     const w = clamp(size.width, MIN_WIDTH, max.width)
     const h = clamp(size.height, MIN_HEIGHT, max.height)
-    const pos = position ?? defaultCentredPosition({ width: w, height: h }, vw, vh)
+    // Restored / stored positions can land outside the viewport when the
+    // window has shrunk since the panel was last placed. Clamp so the
+    // header is always visible and grabbable. Mirrors handlePointerMove's
+    // drag-time clamp so the same bounds apply across entry points.
+    const rawPos = position ?? defaultCentredPosition({ width: w, height: h }, vw, vh)
+    const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh)
     el.style.width = `${w}px`
     el.style.height = `${h}px`
     el.style.left = `${pos.x}px`
     el.style.top = `${pos.y}px`
-    // Commit the computed centred default into the store the first time the
-    // panel opens. Without this, the minimise pill would fall back to its
-    // 50%/50% CSS placeholder because store.position is still null.
+    // Commit the centred default the FIRST time the panel opens so the
+    // minimise pill anchor isn't null. Stored-position clamping is reapplied
+    // on every render via this same effect, so we don't need to write back —
+    // the DOM is always correct.
     if (position === null) {
       setInitialPosition(pos)
     }
@@ -306,7 +345,12 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // never fall back to 50%/50% in normal flow. Defensive fallback kept for
   // edge cases (SSR rehydrate, etc.).
   if (isMinimised) {
-    const pos = position
+    // Clamp the pill anchor too — a stored position from when the panel
+    // was full-sized may sit too close to the right/bottom edge for the
+    // small pill to remain fully visible after the viewport changes.
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const pillPos = position ? clampPillPositionToViewport(position, vw, vh) : null
     return createPortal(
       <button
         type="button"
@@ -314,8 +358,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         className="fixed inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border border-panel-border shadow-2 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         style={{
           zIndex: 300,
-          left: pos ? pos.x : '50%',
-          top: pos ? pos.y : '50%',
+          left: pillPos ? pillPos.x : '50%',
+          top: pillPos ? pillPos.y : '50%',
         }}
         data-testid="floating-olumi-panel-pill"
         aria-label="Restore Olumi"

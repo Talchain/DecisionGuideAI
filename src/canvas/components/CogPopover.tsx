@@ -33,7 +33,7 @@ interface MenuItem {
   onSelect?: () => void
 }
 
-const POPOVER_W = 220
+const POPOVER_W = 240
 const POPOVER_MARGIN = 4
 
 /**
@@ -128,7 +128,10 @@ export const CogPopover = memo(function CogPopover({
   const items: MenuItem[] = []
   items.push({
     id: 'attach',
-    label: 'Attach evidence',
+    // Shortened to "Attach" so the row never wraps inside the popover —
+    // "Attach evidence" + the "Coming soon" badge competed for width and
+    // broke onto two lines on narrow viewports.
+    label: 'Attach',
     icon: Paperclip,
     testId: 'cog-popover-attach',
     // When a host wires `onAttachEvidence` AND the backend supports
@@ -175,7 +178,7 @@ export const CogPopover = memo(function CogPopover({
     <div
       ref={popoverRef}
       role="menu"
-      aria-label="Olumi settings"
+      aria-label="Assistant options"
       data-testid="cog-popover"
       className="fixed bg-panel border border-panel-border rounded-lg shadow-2 py-1"
       // z-index 950 layers ABOVE the OutputsDock (zIndex: 900 in OutputsDock.tsx)
@@ -185,6 +188,15 @@ export const CogPopover = memo(function CogPopover({
       // open from elements inside the panel, so they layer naturally above it.
       style={{ zIndex: 950, left: position.left, top: position.top, width: POPOVER_W }}
     >
+      <div
+        className={typo(
+          'panelMeta',
+          'px-3 pt-2 pb-1 text-text-light uppercase tracking-wide',
+        )}
+        data-testid="cog-popover-heading"
+      >
+        Assistant options
+      </div>
       {items.map((item) => {
         const Icon = item.icon
         const isDisabled = item.status === 'coming-soon'

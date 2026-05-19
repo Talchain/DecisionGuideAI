@@ -17,7 +17,9 @@ import { useState, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
 import { isV5Eligible } from '../../../v5/eligibility'
 import { logV5StateEvent } from '../../../v5/debugLog'
+import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
+import { useStaleGuard } from '../../ui/inspector-v2/useStaleGuard'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -75,6 +77,14 @@ export function SuggestedChips({
   // fly; hoisting the two subscribers keeps React's dispatcher aligned.
   const [chipError, setChipError] = useState<string | null>(null)
   const analysisStatus = useAnalysisStatus()
+  // aiPanelV2 polish: once an analysis has been RUN (results exist), the
+  // canonical place for re-running it is the Analysis/readiness panel.
+  // Suppress the "Run analysis" chip from the conversation when current,
+  // relabel to "Rerun" when stale. analysisState === 'none' keeps the
+  // original chip unchanged. Gated by the FF so legacy chip behaviour is
+  // identical when aiPanelV2 is off.
+  const { analysisState } = useStaleGuard()
+  const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
     const timer = setTimeout(() => setChipError(null), 5_000)
@@ -132,8 +142,20 @@ export function SuggestedChips({
     }
   }
 
+  // aiPanelV2: suppress / relabel the Run analysis chip based on the
+  // current analysis state. See header note above analysisState read.
+  const polished = aiPanelV2On
+    ? supported
+        .filter((c) => !(c.action_type === 'run_analysis' && analysisState === 'current'))
+        .map((c) =>
+          c.action_type === 'run_analysis' && analysisState === 'stale'
+            ? { ...c, label: 'Rerun' }
+            : c,
+        )
+    : supported
+
   // DS v5 §21.4: max 2 suggested action chips
-  const visible = supported.filter(c => !!(c.message || c.prompt)).slice(0, 2)
+  const visible = polished.filter(c => !!(c.message || c.prompt)).slice(0, 2)
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical
