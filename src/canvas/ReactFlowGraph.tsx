@@ -49,8 +49,8 @@ import { useCanvasKeyboardShortcuts } from './hooks/useCanvasKeyboardShortcuts'
 import type { Blueprint } from '../templates/blueprints/types'
 import { blueprintToGraph } from '../templates/mapper/blueprintToGraph'
 import { InfluenceExplainer, useInfluenceExplainer } from '../components/assistants/InfluenceExplainer'
-// DraftChat is mounted inside RightPanelMount along with OutputsDock and
-// (when FF_AI_PANEL_V2 is on) AIPanelV2Layout.
+// DraftChat is mounted directly below (FF off path); the aiPanelV2
+// floating-first host is mounted as a sibling when the flag is on.
 import { useResultsRun } from './hooks/useResultsRun'
 import { HighlightLayer } from './highlight/HighlightLayer'
 import { registerFocusHelpers, unregisterFocusHelpers } from './utils/focusHelpers'
@@ -75,8 +75,15 @@ import { FocusModeChip } from './components/FocusModeChip'
 // EdgeLabelToggle moved to CanvasToolbar for cleaner UI
 import { LimitsPanel } from './components/LimitsPanel'
 import { BottomSheet } from './components/BottomSheet'
-// OutputsDock is mounted inside RightPanelMount.
-import { RightPanelMount } from './ai-panel-v2/RightPanelMount'
+import { OutputsDock } from './components/OutputsDock'
+import { DraftChat } from './components/DraftChat'
+import { isAiPanelV2Enabled } from '../flags'
+import { ConversationProvider } from './conversation/ConversationContext'
+import { FloatingOlumiPanel } from './components/FloatingOlumiPanel'
+import { FirstUseComposer } from './components/FirstUseComposer'
+import { CogPopover } from './components/CogPopover'
+import { useFloatingPanelState } from './hooks/useFloatingPanelState'
+import { useUIStore } from '../stores/uiStore'
 import { PanelErrorBoundary } from './components/PanelErrorBoundary'
 import { LensInfoPanel } from './components/LensInfoPanel'
 import { ComparisonCanvasLayout } from './components/ComparisonCanvasLayout'
@@ -1901,6 +1908,7 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
   }
 
   return (
+    <MaybeConversationProvider>
     <div
       style={{
         width: '100%',
@@ -2174,12 +2182,20 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
         />
       )}
 
-      {/* Right-edge mounts (Results dock + optional AI panel v2 + legacy
-          DraftChat). The FF gate lives inside RightPanelMount so tests can
-          render the real branching logic instead of mirroring it. See
-          src/canvas/ai-panel-v2/RightPanelMount.tsx for the step-1 contract
-          and the temporary DraftChat coexistence note. */}
-      <RightPanelMount />
+      {/* Right-edge mounts.
+          - OutputsDock is always rendered (FF on AND off); its internal first-use
+            rail logic handles the empty-canvas case for aiPanelV2.
+          - DraftChat (the legacy floating chat overlay) renders only when
+            aiPanelV2 is OFF. Under FF on, the floating-first Olumi surfaces
+            replace it.
+          - FloatingOlumiPanelHost mounts FloatingOlumiPanel + FirstUseComposer
+            + CogPopover (with shared cog state); only renders when FF is on.
+          - The whole tree is wrapped in MaybeConversationProvider so the
+            single useConversation() singleton lives at the canvas root when
+            FF is on. */}
+      <OutputsDock />
+      {!isAiPanelV2Enabled() && <DraftChat />}
+      {isAiPanelV2Enabled() && <FloatingOlumiPanelHost />}
 
       {/* Expanded lenses: contextual info panel overlay */}
       <LensInfoPanel />
@@ -2231,8 +2247,51 @@ const ReactFlowGraphInner = memo(function ReactFlowGraphInner({ blueprintEventBu
       {/* Debug Panel - activated via ?diag=1 in staging/dev (lazy-loaded) */}
       <Suspense fallback={null}><LazyDebugPanel /></Suspense>
     </div>
+    </MaybeConversationProvider>
   )
 })
+
+/**
+ * Conditionally wraps children in <ConversationProvider> when aiPanelV2 is ON.
+ * Mounts a single useConversation() instance shared by the docked Olumi tab
+ * (via OutputsDock) and the floating Olumi panel. When OFF, renders children
+ * directly so OutputsDock + DraftChat continue to own their own
+ * useConversation() instances as today.
+ *
+ * Critical: exactly ONE useConversation() instance must be mounted at runtime
+ * (see useConversation.ts scenario-hydration race + telemetry duplication).
+ */
+function MaybeConversationProvider({ children }: { children: import('react').ReactNode }) {
+  if (isAiPanelV2Enabled()) {
+    return <ConversationProvider>{children}</ConversationProvider>
+  }
+  return <>{children}</>
+}
+
+/**
+ * Mounts FloatingOlumiPanel + FirstUseComposer + a shared CogPopover.
+ * The Dock-back action uses forceActivateOutputTab so the dock activates
+ * the Olumi tab even when the global activeOutputTab is already 'olumi'.
+ */
+function FloatingOlumiPanelHost() {
+  const close = useFloatingPanelState((s) => s.close)
+  const [cogAnchor, setCogAnchor] = useState<HTMLElement | null>(null)
+  const handleDock = useCallback(() => {
+    useUIStore.getState().forceActivateOutputTab('olumi')
+    close()
+  }, [close])
+  const handleCogClick = useCallback((anchorEl: HTMLElement) => {
+    setCogAnchor((prev) => (prev === anchorEl ? null : anchorEl))
+  }, [])
+  const handleCogClose = useCallback(() => setCogAnchor(null), [])
+  return (
+    <>
+      <FloatingOlumiPanel onDock={handleDock} onCogClick={handleCogClick} />
+      <FirstUseComposer onCogClick={handleCogClick} />
+      <CogPopover isOpen={cogAnchor !== null} anchorEl={cogAnchor} onClose={handleCogClose} />
+    </>
+  )
+}
 
 /**
  * Debug label component for minimal modes
