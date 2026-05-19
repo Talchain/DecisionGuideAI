@@ -43,7 +43,7 @@ import { PersistentInputStrip } from './PersistentInputStrip'
 import { SelectionPill } from './SelectionPill'
 import { StaleAnalysisBadge } from './StaleAnalysisBadge'
 import { CogPopover } from './CogPopover'
-import { useOptionalConversationContext } from '../conversation/ConversationContext'
+import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
@@ -161,13 +161,49 @@ export function getOutputTabsForParity(): { id: OutputsDockTab; label: string }[
 }
 
 /**
- * Public OutputsDock entry point. Owns a single `useConversation()` call
- * (the standalone host of the conversation under FF off). When the
- * floating-first aiPanelV2 surfaces are mounted, the canvas-root
- * `<ConversationProvider>` becomes the singleton instead — see
- * `ReactFlowGraph.tsx` for the mount site swap.
+ * Public OutputsDock entry point.
+ *
+ * **Critical singleton invariant:** exactly one `useConversation()` instance
+ * must be mounted at runtime. Two instances cause the scenario-hydration
+ * race at `useConversation.ts:797` plus duplicated telemetry, and split
+ * message state between the dock's Analysis/Model CTAs and the Olumi
+ * floating surfaces (each surface would send via a different conversation).
+ *
+ * Under aiPanelV2 ON: the canvas-root `<ConversationProvider>` in
+ * `ReactFlowGraph` owns the singleton; this host MUST consume that context
+ * (never call `useConversation()` directly).
+ *
+ * Under aiPanelV2 OFF: there is no provider, so this host owns the
+ * conversation directly via `useConversation()` (legacy behaviour).
+ *
+ * The flag check happens HERE so each branch is a distinct component
+ * (Rules-of-Hooks compliant: each branch calls hooks unconditionally; only
+ * the entry-point branches on the flag).
  */
 export function OutputsDock() {
+  if (isAiPanelV2Enabled()) {
+    return <OutputsDockProviderHost />
+  }
+  return <OutputsDockLegacyHost />
+}
+
+/**
+ * FF-on host: consumes the singleton conversation from the
+ * `<ConversationProvider>` mounted at the canvas root. Never calls
+ * `useConversation()`. Throws if the provider is missing (which would
+ * indicate a wiring bug — the provider must always wrap the dock under
+ * FF-on).
+ */
+function OutputsDockProviderHost() {
+  const { sendMessage } = useConversationContext()
+  return <OutputsDockBody sendMessage={sendMessage} />
+}
+
+/**
+ * FF-off host: owns its own `useConversation()` instance (legacy path —
+ * matches origin/staging behaviour before the floating-first port).
+ */
+function OutputsDockLegacyHost() {
   const { sendMessage } = useConversation()
   return <OutputsDockBody sendMessage={sendMessage} />
 }

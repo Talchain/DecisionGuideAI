@@ -1,0 +1,150 @@
+/**
+ * Regression guard: under aiPanelV2 ON, `useConversation()` must be called
+ * exactly ONCE across the canvas-root <ConversationProvider> and the
+ * <OutputsDock /> subtree. Two instances trigger the scenario-hydration
+ * race at `useConversation.ts:797`, double-emit telemetry, and split the
+ * message stream between the dock's Analysis/Model CTAs and the Olumi
+ * floating surfaces.
+ *
+ * Under aiPanelV2 OFF: the provider is not mounted; OutputsDock's legacy
+ * host owns the only useConversation() call. This file also pins that
+ * legacy invariant (exactly one call, mounted by the dock).
+ *
+ * Mirrors the heavyweight mock layout from aiPanelV2.interactions.spec —
+ * supabase/dompurify/markdown stubs are required because OutputsDock's
+ * transitive imports otherwise pull them in.
+ */
+
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { render } from '@testing-library/react'
+import type { ReactNode } from 'react'
+
+// Heavy-import stubs — must precede any OutputsDock evaluation.
+vi.mock('../../../lib/supabase', () => ({
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
+  isSupabaseAvailable: () => false,
+}))
+vi.mock('dompurify', () => ({ default: { sanitize: (s: string) => s } }))
+vi.mock('../../utils/markdown', () => ({
+  renderMarkdown: (s: string) => s,
+  sanitiseMarkdown: (s: string) => s,
+}))
+
+// react-router (useScenario calls useNavigate).
+vi.mock('react-router-dom', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('react-router-dom')>()
+  return { ...actual, useNavigate: vi.fn(() => vi.fn()) }
+})
+
+// V2 run hook + dependent telemetry — keep stable across renders.
+vi.mock('../../hooks/useV2Run', () => ({
+  useV2Run: () => ({ runV2Analysis: vi.fn(), cancelRun: vi.fn() }),
+}))
+
+// Flag toggle: per-test mutation via `flagState.aiPanelV2`. All other flags
+// default false to keep the dock surface minimal.
+const flagState = { aiPanelV2: false }
+vi.mock('../../../flags', () => ({
+  isTelemetryEnabled: () => false,
+  isCompareEnabled: () => false,
+  isOrchestratorV2Enabled: () => false,
+  isLegacyDirectRunEnabled: () => true,
+  isJourneyTabEnabled: () => false,
+  isCompareTabEnabled: () => false,
+  isAiPanelV2Enabled: () => flagState.aiPanelV2,
+  isV5CanonicalAnalysisEnabled: () => false,
+}))
+
+// THE counter: every time the real useConversation hook executes, we
+// increment. The mock returns a stable shape (matches UseConversationReturn
+// loosely — fields used by the dock/provider only).
+const useConversationCallCount = { n: 0 }
+const stableConversation = {
+  messages: [] as any[],
+  isThinking: false,
+  longRunningHint: null as any,
+  lastFailedInput: null as any,
+  sendMessage: vi.fn(),
+  sendSystemEvent: vi.fn(),
+  sendChip: vi.fn(),
+  retryLast: vi.fn(),
+  patchBlockStates: new Map(),
+  setPatchBlockState: vi.fn(),
+  patchRejections: new Map(),
+  setPatchRejection: vi.fn(),
+}
+vi.mock('../../conversation/useConversation', () => ({
+  useConversation: () => {
+    useConversationCallCount.n += 1
+    return stableConversation
+  },
+}))
+
+// Stale guard + stage placeholder — unused outputs, but the dock body
+// transitively touches them via the strip / Olumi tab body.
+vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
+  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
+}))
+vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
+  useStageAwarePlaceholder: () => 'Describe your decision…',
+}))
+
+// Imported lazily inside tests so the mocks above are honoured at module
+// evaluation time.
+import { ConversationProvider } from '../../conversation/ConversationContext'
+
+function Wrapper({ children }: { children: ReactNode }) {
+  return <ConversationProvider>{children}</ConversationProvider>
+}
+
+function ensureMatchMedia() {
+  if (typeof window.matchMedia !== 'function') {
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: (query: string) => ({
+        matches: query === '(prefers-reduced-motion: reduce)',
+        media: query,
+        onchange: null,
+        addListener: () => {},
+        removeListener: () => {},
+        addEventListener: () => {},
+        removeEventListener: () => {},
+        dispatchEvent: () => true,
+      }),
+    })
+  }
+}
+
+describe('useConversation singleton invariant', () => {
+  beforeEach(() => {
+    ensureMatchMedia()
+    useConversationCallCount.n = 0
+    flagState.aiPanelV2 = false
+    try { sessionStorage.clear() } catch {}
+    try { localStorage.clear() } catch {}
+  })
+
+  it('FF-on: ConversationProvider + OutputsDock mount one and only one useConversation() instance', async () => {
+    flagState.aiPanelV2 = true
+    const { OutputsDock } = await import('../OutputsDock')
+    render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    // The Provider owns the singleton. OutputsDockProviderHost consumes
+    // context — it MUST NOT call useConversation() itself. If the regression
+    // returns (e.g. OutputsDockBody resumes its own hook call, or a new
+    // surface mounted under the dock subtree adds another call), this
+    // count climbs to 2+ and the test fails.
+    expect(useConversationCallCount.n).toBe(1)
+  })
+
+  it('FF-off: OutputsDock alone mounts exactly one useConversation() instance (legacy host)', async () => {
+    flagState.aiPanelV2 = false
+    const { OutputsDock } = await import('../OutputsDock')
+    // No provider — OutputsDockLegacyHost owns the call directly.
+    render(<OutputsDock />)
+    expect(useConversationCallCount.n).toBe(1)
+  })
+})

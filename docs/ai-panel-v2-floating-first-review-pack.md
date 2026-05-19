@@ -259,10 +259,9 @@ bash scripts/pre-push-validate.sh
 
 ## 10 · Explicit confirmation
 
-- ❌ **No remote push has been made.** `git log @{u}..HEAD` lists 4 unpushed commits.
-- ❌ **No PR has been opened.** Manual verification: `gh pr list --head claude/ai-panel-v2-floating-first` would return empty.
-- ✅ All work is local on the `claude/ai-panel-v2-floating-first` branch.
+- ✅ **Remote branch pushed:** `claude/ai-panel-v2-floating-first` is published to `origin` and tracks upstream.
+- ✅ **Draft PR open against `staging`:** [PR #148](https://github.com/Talchain/DecisionGuideAI/pull/148). Subsequent review feedback (singleton bug + first-use hydration misfire) is being addressed on top of this branch.
 - ✅ The source-of-truth Batch 2 branch (`claude/youthful-wiles-2e3a81`) is preserved unchanged.
 - ✅ The plan file is at `/Users/paulslee/.claude/plans/ai-panel-v2-floating-first-integration.md` with the six mandatory checks recorded.
 
-**Awaiting your direction before any remote action.**
+**Status:** PR #148 is in active review. Push to `staging` is gated on reviewer sign-off.

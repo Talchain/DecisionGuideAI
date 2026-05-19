@@ -41,6 +41,12 @@ export interface AIInputBarProps {
   testId?: string
   /** Optional aria-label for the textarea. */
   ariaLabel?: string
+  /** Fires after a non-empty submit has been dispatched (sendMessage called,
+   *  draft cleared). Used by FirstUseComposer to record an explicit
+   *  "user submitted via this composer" signal — preferred over inferring
+   *  from message-count effects, which can mis-fire under thread hydration
+   *  if historic non-synthetic messages are restored before graph nodes. */
+  onAfterSend?: (text: string) => void
 }
 
 const MAX_LINES = 2
@@ -69,6 +75,7 @@ export const AIInputBar = memo(
       textareaId,
       testId,
       ariaLabel,
+      onAfterSend,
     },
     ref,
   ) {
@@ -114,7 +121,8 @@ export const AIInputBar = memo(
         sendMessage(text)
       }
       clearDraft()
-    }, [draft, disabled, isThinking, nodeCount, sendMessage, clearDraft])
+      onAfterSend?.(text)
+    }, [draft, disabled, isThinking, nodeCount, sendMessage, clearDraft, onAfterSend])
 
     const handleKeyDown = useCallback(
       (e: KeyboardEvent<HTMLTextAreaElement>) => {

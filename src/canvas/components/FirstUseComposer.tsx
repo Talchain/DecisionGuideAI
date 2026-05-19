@@ -1,4 +1,4 @@
-import { memo, useEffect, useRef } from 'react'
+import { memo, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
@@ -58,15 +58,32 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
     }
   }, [nodeCount, realMessageCount, isOpen, openFloating])
 
+  // Auto-dock requires positive evidence that the user actually submitted
+  // via THIS composer — otherwise any 0→N+ node transition (scenario
+  // hydration, import, session-resume, restored snapshot, programmatic
+  // graph load) would mis-fire the auto-dock.
+  //
+  // The signal is explicit: AIInputBar fires `onAfterSend` only when a
+  // submit is dispatched from this composer instance. No inference from
+  // message counts — hydration cannot fake the callback, so historic
+  // real (non-synthetic) messages restored before graph nodes do NOT
+  // unlock auto-dock.
+  const userSentFromFirstUseRef = useRef(false)
+  const handleAfterSend = useCallback(() => {
+    userSentFromFirstUseRef.current = true
+  }, [])
+
   // Auto-dock: when the graph FIRST gains nodes, dock the panel if
-  // (a) it's still open and (b) it was opened by the system and (c) the
-  // user has not pointer-dragged or resized it.
+  // (a) it's still open, (b) it was opened by the system, (c) the user
+  // has not pointer-dragged or resized it, AND (d) the user has actually
+  // submitted via this composer (so hydration/import paths can't trigger).
   useEffect(() => {
     const prev = prevNodeCountRef.current
     prevNodeCountRef.current = nodeCount
     if (prev !== 0 || nodeCount === 0) return // only fires on the 0 → N+ transition
     if (!isOpen) return
     if (!canAutoDock({ source, userRepositioned })) return
+    if (!userSentFromFirstUseRef.current) return // hydration/import guard
 
     const performDock = () => {
       // Brief: after auto-dock, the right panel expands and Analysis (not
@@ -140,6 +157,7 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         placeholder="Describe your decision…"
         ariaLabel="Describe your decision"
         testId="first-use-input-bar"
+        onAfterSend={handleAfterSend}
       />
     </div>,
     document.body,
