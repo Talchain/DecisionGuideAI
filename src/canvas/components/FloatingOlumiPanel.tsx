@@ -382,10 +382,10 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         <ConversationPanel
           conversation={conversation}
           onCollapse={close}
-          /* hideTopBar means ChatTopBar's onAttach is never called — pass no-op. */
+          /* Staging's ConversationPanel has no ChatTopBar render, so
+             onAttach is never invoked at runtime here — pass no-op. */
           onAttach={noop}
           hideComposer
-          hideTopBar
         />
       </div>
 

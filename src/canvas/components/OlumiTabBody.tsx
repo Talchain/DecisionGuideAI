@@ -82,7 +82,6 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
           onCollapse={handleCollapse}
           onAttach={handleAttach}
           hideComposer
-          hideTopBar
         />
       </div>
     </div>

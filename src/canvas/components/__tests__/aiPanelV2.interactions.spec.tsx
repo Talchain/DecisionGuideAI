@@ -11,7 +11,7 @@
  *      minimised state before focusing the textarea.
  */
 
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, afterEach, vi } from 'vitest'
 import { act, fireEvent, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
@@ -291,16 +291,25 @@ describe('AIInputBar send routing (empty canvas → explicit_generate)', () => {
 })
 
 describe('deriveNextDockIsOpen (toggleOpen first-use rail invariant)', () => {
-  it('opens when user is on the first-use rail (regardless of stored value)', async () => {
-    const { deriveNextDockIsOpen } = await import('../OutputsDock')
+  // Hoist the dynamic import out of the test body. The OutputsDock module has
+  // ~150 transitive imports (pre-analysis panels, results sections, V5 chip
+  // dispatch, etc.); evaluating it inside a `it(...)` body can exceed the
+  // 5s default test timeout when module cache pressure is high after earlier
+  // specs in the run. One-shot import in beforeAll keeps each test fast.
+  let deriveNextDockIsOpen: (a: boolean, b: boolean) => boolean
+  beforeAll(async () => {
+    const mod = await import('../OutputsDock')
+    deriveNextDockIsOpen = mod.deriveNextDockIsOpen
+  }, 30_000)
+
+  it('opens when user is on the first-use rail (regardless of stored value)', () => {
     // First-use rail is showing — visual state is collapsed. Clicking the
     // expand chevron MUST open the dock, not collapse it.
     expect(deriveNextDockIsOpen(true, true)).toBe(true)
     expect(deriveNextDockIsOpen(true, false)).toBe(true)
   })
 
-  it('toggles normally outside first-use', async () => {
-    const { deriveNextDockIsOpen } = await import('../OutputsDock')
+  it('toggles normally outside first-use', () => {
     expect(deriveNextDockIsOpen(false, true)).toBe(false)
     expect(deriveNextDockIsOpen(false, false)).toBe(true)
   })

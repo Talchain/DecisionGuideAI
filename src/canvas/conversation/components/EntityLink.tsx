@@ -3,15 +3,15 @@ import { focusByTarget } from '../../utils/focusHelpers'
 
 // EntityLink renders a clickable entity label that pans/highlights the
 // referenced node or edge on the canvas (brief §9.2 click-to-highlight,
-// brief §9 step 9 implementation). Used by AI panel v2 block renderers
+// brief §9 step 9 implementation). Used by conversation block renderers
 // when isAiPanelV2Enabled() — the FF gating lives at the call site so
 // FF-off rendering is byte-identical.
 //
 // Location: co-located with block renderers under
-// src/canvas/conversation/components/ rather than under
-// src/canvas/ai-panel-v2/ to avoid an awkward conversation/ → ai-panel-v2/
-// dependency direction (per the brief's "minimal alternative" guidance
-// when wrapping creates such circularity at the folder graph level).
+// src/canvas/conversation/components/ to avoid an awkward conversation/ →
+// canvas/components/ dependency direction (per the brief's "minimal
+// alternative" guidance when wrapping creates such circularity at the
+// folder graph level).
 
 interface EntityLinkProps {
   id: string
