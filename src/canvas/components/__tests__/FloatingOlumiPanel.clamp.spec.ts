@@ -115,12 +115,15 @@ describe('clampPillPositionToViewport', () => {
   })
 })
 
-describe('computeResizeBudget — bottom-right resize bounds', () => {
-  // P1 regression: the previous resize handler grew width without
-  // accounting for the dock inset, allowing the right edge to slide
-  // under the dock as the user resized. computeResizeBudget caps the
-  // available width from the panel's current x to either the viewport
-  // right margin (no dock) or the dock's left edge (open dock).
+describe('computeResizeBudget — raw geometry helper', () => {
+  // Contract: computeResizeBudget is a pure geometry helper that returns
+  // the raw space available from (x, y) to the dock-aware bottom-right
+  // corner. It does NOT enforce MIN_WIDTH / MIN_HEIGHT — those are the
+  // caller's responsibility. The composition rule the resize handler
+  // uses is `max(MIN_WIDTH, min(max.width, widthBudget, requested))`.
+  // When the geometry is so tight that no MIN-sized panel fits, the
+  // resize handler (and the layout effect) consult `fitsAtMinSize` and
+  // auto-minimise to the pill instead — see the dockInset spec.
 
   it('width budget includes dock inset', () => {
     // x=600, dock 360 wide + 12 gap → dockInset 372 on a 1200 viewport.
@@ -134,11 +137,11 @@ describe('computeResizeBudget — bottom-right resize bounds', () => {
     expect(out.widthBudget).toBe(VIEWPORT.w - 600 - MARGIN)
   })
 
-  it('does NOT floor width budget at MIN_WIDTH — the dock constraint wins', () => {
-    // x near the dock: 900, dock 360 → remaining canvas is tiny.
-    // 1200 - 900 - 16 - 360 = -76. Floored at 0 (not MIN_WIDTH) so the
-    // caller's composed clamp lets the panel shrink below MIN_WIDTH
-    // rather than overlap the dock.
+  it('returns raw geometry, floored at 0 (no MIN_WIDTH floor here)', () => {
+    // x near the dock: 900, dock 360 → 1200 - 900 - 16 - 360 = -76.
+    // Helper floors at 0 (negative budgets would break consumer math).
+    // The caller's MIN_WIDTH floor + `fitsAtMinSize` gate handle the
+    // "no room at all" case by auto-minimising.
     const out = computeResizeBudget(900, 100, VIEWPORT.w, VIEWPORT.h, 360)
     expect(out.widthBudget).toBe(0)
   })
@@ -148,15 +151,16 @@ describe('computeResizeBudget — bottom-right resize bounds', () => {
     expect(out.heightBudget).toBe(VIEWPORT.h - 500 - MARGIN)
   })
 
-  it('caps a resize attempt that would exceed the dock-aware budget (MIN_WIDTH preserved)', () => {
-    // Panel at x=600, current size 400x500. User drags resize handle far
-    // right (dw=1000). Without budget the width would grow to 1400;
-    // with the dock-aware cap AND the MIN_WIDTH floor, it caps at
-    // `max(MIN_WIDTH=320, min(max.width, widthBudget, requested))`.
-    // Here widthBudget = 1200 - 600 - 16 - 372 = 212, but MIN_WIDTH=320
-    // wins → wCapped = 320. (At narrower budgets the layout effect would
-    // have auto-minimised; here the test viewport leaves room for that
-    // path NOT to fire.)
+  it('composes correctly: preserve MIN_WIDTH and clamp to budget', () => {
+    // Panel at x=600, current size 400x500. User drags resize handle
+    // far right (dw=1000) → requested = 1400. The resize handler
+    // composes `max(MIN_WIDTH, min(max.width, widthBudget, requested))`.
+    //
+    // Here `widthBudget = 1200 - 600 - 16 - 372 = 212`, below MIN_WIDTH.
+    // Result: composed width = max(320, min(720, 212, 1400)) = 320.
+    // MIN_WIDTH is preserved; the panel does not shrink below it. The
+    // layout effect's `fitsAtMinSize` gate decides whether the panel
+    // is rendered at all at this viewport — see the dockInset spec.
     const { widthBudget } = computeResizeBudget(600, 100, VIEWPORT.w, VIEWPORT.h, 372)
     const startW = 400
     const dw = 1000

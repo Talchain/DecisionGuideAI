@@ -219,6 +219,21 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     // panel. User can close the dock to restore. This preserves the
     // brief's "MIN_WIDTH whenever possible, otherwise minimise" rule.
     if (!fitsAtMinSize(vw, vh, dockInset)) {
+      // First-open path: store.position is still null, so the pill's
+      // `position ? pos.x : '50%'` fallback in the JSX below would
+      // render the pill at the centre of the viewport — which can sit
+      // under the dock on narrow viewports. Commit a safe top-left
+      // anchor (clamped against the dock for defence-in-depth) before
+      // minimising so the pill is always visible and grabbable.
+      if (position === null) {
+        const safePillPos = clampPillPositionToViewport(
+          { x: DEFAULT_MARGIN, y: DEFAULT_MARGIN },
+          vw,
+          vh,
+          dockInset,
+        )
+        setInitialPosition(safePillPos)
+      }
       minimise()
       return
     }

@@ -248,6 +248,45 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
 
+  it('first-open auto-minimise commits a safe pill anchor (no 50%/50% fallback under the dock)', () => {
+    // Same narrow-viewport scenario as above, but with position=null
+    // (first-open state). The bug: the pill's `position ? pos.x : '50%'`
+    // fallback would render the pill at the centre, which lands under
+    // the dock on narrow viewports. Fix: commit a top-left safe anchor
+    // BEFORE calling minimise.
+    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
+    const dock = mountStubDock({ width: 600, right: 12 })
+    dock.el.getBoundingClientRect = function () {
+      const left = 800 - 600 - 12 // 188
+      return { left, top: 60, right: 788, bottom: 888, width: 600, height: 828, x: left, y: 60, toJSON: () => ({}) } as DOMRect
+    }
+    // First-open: position is null in store.
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'user',
+      userRepositioned: false,
+      isMinimised: false,
+      position: null,
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(useFloatingPanelState.getState().isMinimised).toBe(true)
+    const committed = useFloatingPanelState.getState().position
+    // A safe anchor MUST have been committed — not null.
+    expect(committed).not.toBeNull()
+    // And it must be a real pixel position (not the 50% fallback). The
+    // top-left margin (16, 16) is the canonical safe anchor.
+    expect(committed!.x).toBe(16)
+    expect(committed!.y).toBe(16)
+    // Verify the pill's rendered style uses a numeric left/top, not 50%.
+    const pill = document.querySelector('[data-testid="floating-olumi-panel-pill"]') as HTMLElement
+    expect(pill).toBeTruthy()
+    expect(pill.style.left).toBe('16px')
+    expect(pill.style.top).toBe('16px')
+    dock.unmount()
+    Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
+  })
+
   it('does NOT auto-minimise on a wide viewport (room remains for MIN_WIDTH)', () => {
     // 1440x900 with dock 400 + 12 → available = 1440 - 32 - 412 = 996
     // — comfortably above MIN_WIDTH. Panel must render normally.
