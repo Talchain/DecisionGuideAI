@@ -64,6 +64,14 @@ interface ConversationPanelProps {
    * smart-scroll runs unchanged.
    */
   scrollListRef?: React.MutableRefObject<HTMLDivElement | null>
+  /**
+   * When true, ChatTopBar (Zone 1) is not rendered. Used by the floating-first
+   * Olumi surfaces (Olumi tab body, floating Olumi panel) — both are reached
+   * via their own chrome (tab bar / header), so the conversation top bar
+   * would be a redundant second navigation strip. Default false to preserve
+   * the legacy DraftChat / V1 surface, which depends on the top bar.
+   */
+  hideTopBar?: boolean
 }
 
 function createPanelInteractionSnapshot(messagesCount: number): InteractionStateSnapshot {
@@ -103,6 +111,7 @@ export const ConversationPanel = memo(function ConversationPanel({
   prefillChat: prefillChatOverride,
   compact = false,
   scrollListRef,
+  hideTopBar = false,
 }: ConversationPanelProps) {
   const {
     messages, isThinking, longRunningHint,
