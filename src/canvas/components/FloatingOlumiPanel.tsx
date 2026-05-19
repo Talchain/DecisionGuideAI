@@ -55,6 +55,107 @@ function defaultCentredPosition(size: FloatingPanelSize, viewportW: number, view
 }
 
 /**
+ * Clamp a candidate position into the visible canvas area so the panel
+ * never sits partially (or fully) off-screen AND never lands under the
+ * OutputsDock (z-900, would obscure the floating panel at z-300).
+ *
+ * `rightInset` reserves space from the viewport's right edge inward —
+ * callers pass the dock's measured offset (see `measureDockInset`). It
+ * captures both the dock's width and any right-edge gap so the floating
+ * panel cannot land in the strip between the dock and the viewport edge.
+ */
+export function clampPositionToViewport(
+  pos: FloatingPanelPosition,
+  size: FloatingPanelSize,
+  viewportW: number,
+  viewportH: number,
+  rightInset: number = 0,
+): FloatingPanelPosition {
+  const maxX = Math.max(DEFAULT_MARGIN, viewportW - size.width - DEFAULT_MARGIN - rightInset)
+  return {
+    x: clamp(pos.x, DEFAULT_MARGIN, maxX),
+    y: clamp(pos.y, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportH - size.height - DEFAULT_MARGIN)),
+  }
+}
+
+const PILL_W = 84
+const PILL_H = 28
+/**
+ * Compute the maximum size a panel may grow to during a bottom-right
+ * resize drag, given the current top-left position and dock inset. The
+ * panel's x/y do not move during resize, so the right edge of the panel
+ * cannot extend past `vw - dockInset - DEFAULT_MARGIN`.
+ *
+ * Returns raw geometry only (floored at 0). Callers compose this with
+ * `MIN_WIDTH` / `MIN_HEIGHT`. See `fitsAtMinSize` — when the available
+ * space is smaller than MIN, the safe UX is to auto-minimise to the
+ * restore pill rather than render a too-narrow panel.
+ */
+export function computeResizeBudget(
+  x: number,
+  y: number,
+  viewportW: number,
+  viewportH: number,
+  rightInset: number = 0,
+): { widthBudget: number; heightBudget: number } {
+  return {
+    widthBudget: Math.max(0, viewportW - x - DEFAULT_MARGIN - rightInset),
+    heightBudget: Math.max(0, viewportH - y - DEFAULT_MARGIN),
+  }
+}
+
+/**
+ * Returns true when the available canvas (viewport minus dock inset and
+ * margins on both sides) can fit a panel at MIN_WIDTH × MIN_HEIGHT.
+ * When false, the panel should auto-minimise to the pill — rendering at
+ * a sub-MIN_WIDTH size would be unusable.
+ */
+export function fitsAtMinSize(
+  viewportW: number,
+  viewportH: number,
+  rightInset: number = 0,
+): boolean {
+  const availableW = viewportW - 2 * DEFAULT_MARGIN - rightInset
+  const availableH = viewportH - 2 * DEFAULT_MARGIN
+  return availableW >= MIN_WIDTH && availableH >= MIN_HEIGHT
+}
+
+export function clampPillPositionToViewport(
+  pos: FloatingPanelPosition,
+  viewportW: number,
+  viewportH: number,
+  rightInset: number = 0,
+): FloatingPanelPosition {
+  const maxX = Math.max(DEFAULT_MARGIN, viewportW - PILL_W - DEFAULT_MARGIN - rightInset)
+  return {
+    x: clamp(pos.x, DEFAULT_MARGIN, maxX),
+    y: clamp(pos.y, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportH - PILL_H - DEFAULT_MARGIN)),
+  }
+}
+
+/**
+ * Compute the reserved area at the right edge for the OutputsDock —
+ * `vw - dock.left` captures the dock's width AND any right-edge gap
+ * (e.g. `right: 12px`). The OutputsDock is the only element in the app
+ * with this aria-label, so the selector is unambiguous.
+ *
+ * Returns 0 when the dock element is absent (FF-off path) or has zero
+ * size (defensive — e.g. hidden via CSS). No half-viewport guard:
+ * narrow viewports legitimately place a right-anchored dock with
+ * `dock.left < vw/2`, and the inset must still be reserved so the
+ * floating panel doesn't drift under it.
+ */
+function measureDockInset(): number {
+  if (typeof document === 'undefined' || typeof window === 'undefined') return 0
+  const dock = document.querySelector('aside[aria-label="Outputs dock"]') as HTMLElement | null
+  if (!dock) return 0
+  const rect = dock.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return 0
+  const inset = window.innerWidth - rect.left
+  return inset > 0 ? inset : 0
+}
+
+/**
  * FloatingOlumiPanel — portaled draggable/resizable Olumi conversation window.
  *
  * Performance: pointer-move handlers update the panel's CSS via direct style
@@ -112,21 +213,59 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     if (!el || !isOpen || isMinimised) return
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const dockInset = measureDockInset()
+    // If the dock + margins leave less room than MIN_WIDTH × MIN_HEIGHT,
+    // auto-minimise to the pill instead of rendering an unusably narrow
+    // panel. User can close the dock to restore. This preserves the
+    // brief's "MIN_WIDTH whenever possible, otherwise minimise" rule.
+    if (!fitsAtMinSize(vw, vh, dockInset)) {
+      // First-open path: store.position is still null, so the pill's
+      // `position ? pos.x : '50%'` fallback in the JSX below would
+      // render the pill at the centre of the viewport — which can sit
+      // under the dock on narrow viewports. Commit a safe top-left
+      // anchor (clamped against the dock for defence-in-depth) before
+      // minimising so the pill is always visible and grabbable.
+      if (position === null) {
+        const safePillPos = clampPillPositionToViewport(
+          { x: DEFAULT_MARGIN, y: DEFAULT_MARGIN },
+          vw,
+          vh,
+          dockInset,
+        )
+        setInitialPosition(safePillPos)
+      }
+      minimise()
+      return
+    }
     const max = computeMaxSize(vw, vh)
-    const w = clamp(size.width, MIN_WIDTH, max.width)
-    const h = clamp(size.height, MIN_HEIGHT, max.height)
-    const pos = position ?? defaultCentredPosition({ width: w, height: h }, vw, vh)
+    // Cap width/height at the available canvas (viewport − margins − dock
+    // inset) so a stored size that exceeds the current canvas shrinks to
+    // fit instead of overlapping the dock. `fitsAtMinSize` above
+    // guarantees the cap is ≥ MIN_WIDTH × MIN_HEIGHT (so the clamp floor
+    // is always reachable).
+    const availableW = vw - 2 * DEFAULT_MARGIN - dockInset
+    const availableH = vh - 2 * DEFAULT_MARGIN
+    const w = clamp(size.width, MIN_WIDTH, Math.min(max.width, availableW))
+    const h = clamp(size.height, MIN_HEIGHT, Math.min(max.height, availableH))
+    // Restored / stored positions can land outside the visible canvas when
+    // the window has shrunk OR when the OutputsDock is open. Clamp so the
+    // header is always visible, grabbable, and not under the dock. Mirrors
+    // handlePointerMove's drag-time clamp so the same bounds apply across
+    // entry points.
+    const rawPos = position ?? defaultCentredPosition({ width: w, height: h }, vw - dockInset, vh)
+    const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh, dockInset)
     el.style.width = `${w}px`
     el.style.height = `${h}px`
     el.style.left = `${pos.x}px`
     el.style.top = `${pos.y}px`
-    // Commit the computed centred default into the store the first time the
-    // panel opens. Without this, the minimise pill would fall back to its
-    // 50%/50% CSS placeholder because store.position is still null.
+    // Commit the centred default the FIRST time the panel opens so the
+    // minimise pill anchor isn't null. Stored-position clamping is reapplied
+    // on every render via this same effect, so we don't need to write back —
+    // the DOM is always correct.
     if (position === null) {
       setInitialPosition(pos)
     }
-  }, [isOpen, isMinimised, position, size, setInitialPosition])
+  }, [isOpen, isMinimised, position, size, setInitialPosition, minimise])
 
   // Register a focus channel so the persistent status strip and Olumi-tab
   // click (when floating is open) can imperatively focus the input.
@@ -150,18 +289,57 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     })
   }, [isOpen, yieldToFirstUse])
 
-  // Clamp on viewport resize so the panel never leaves the visible area.
+  // Clamp on viewport resize AND on dock resize/open/close so the panel
+  // never leaves the visible area and never lands under the dock. The
+  // ResizeObserver watches the dock element: it fires when the dock
+  // mounts, unmounts (via the cleanup re-evaluation pass), expands, or
+  // collapses to its rail width. Without this, a panel placed when the
+  // dock was closed would be stranded under the dock when the user opens
+  // it, since the layout effect's deps don't include dock state.
   useEffect(() => {
     if (!isOpen) return
     const handle = () => {
-      const el = containerRef.current
-      if (!el) return
+      const fp = useFloatingPanelState.getState()
+      if (!fp.isOpen) return
       const vw = window.innerWidth
       const vh = window.innerHeight
+      const dockInset = measureDockInset()
+
+      // Minimised path: the full panel isn't rendered (containerRef is
+      // null) but the restore pill is. Window / dock changes still need
+      // to keep the pill visible and clear of the dock — without this
+      // the pill can drift off-screen on viewport shrink or under the
+      // dock on expand. Direct store write bypasses setPosition's
+      // `userRepositioned` flip so an automatic clamp doesn't look like
+      // a user drag (would otherwise defeat auto-dock invariants).
+      if (fp.isMinimised) {
+        if (!fp.position) return
+        const next = clampPillPositionToViewport(fp.position, vw, vh, dockInset)
+        if (next.x !== fp.position.x || next.y !== fp.position.y) {
+          useFloatingPanelState.setState({ position: next })
+        }
+        return
+      }
+
+      const el = containerRef.current
+      if (!el) return
+      // Same MIN_WIDTH-or-minimise rule as the layout effect: if the
+      // viewport-or-dock resize leaves no room for a MIN_WIDTH panel,
+      // auto-minimise to the pill.
+      if (!fitsAtMinSize(vw, vh, dockInset)) {
+        useFloatingPanelState.getState().minimise()
+        return
+      }
       const max = computeMaxSize(vw, vh)
-      const w = clamp(parseFloat(el.style.width || '0') || size.width, MIN_WIDTH, max.width)
-      const h = clamp(parseFloat(el.style.height || '0') || size.height, MIN_HEIGHT, max.height)
-      const x = clamp(parseFloat(el.style.left || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN))
+      // Mirror the layout effect's cap: when the available canvas
+      // shrinks (viewport resize or dock expand), width/height must
+      // shrink to fit. `fitsAtMinSize` above guarantees the cap is
+      // ≥ MIN_WIDTH × MIN_HEIGHT.
+      const availableW = vw - 2 * DEFAULT_MARGIN - dockInset
+      const availableH = vh - 2 * DEFAULT_MARGIN
+      const w = clamp(parseFloat(el.style.width || '0') || size.width, MIN_WIDTH, Math.min(max.width, availableW))
+      const h = clamp(parseFloat(el.style.height || '0') || size.height, MIN_HEIGHT, Math.min(max.height, availableH))
+      const x = clamp(parseFloat(el.style.left || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN - dockInset))
       const y = clamp(parseFloat(el.style.top || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
       el.style.width = `${w}px`
       el.style.height = `${h}px`
@@ -169,7 +347,36 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       el.style.top = `${y}px`
     }
     window.addEventListener('resize', handle)
-    return () => window.removeEventListener('resize', handle)
+    // Track the dock element across mounts/unmounts so we re-clamp when
+    // it appears, expands (rail → full), or collapses (full → rail).
+    let dockObs: ResizeObserver | null = null
+    let dockEl: Element | null = null
+    const watchDock = () => {
+      const next = typeof document !== 'undefined'
+        ? document.querySelector('aside[aria-label="Outputs dock"]')
+        : null
+      if (next === dockEl) return
+      if (dockObs && dockEl) dockObs.unobserve(dockEl)
+      dockEl = next
+      if (next && dockObs) dockObs.observe(next)
+    }
+    if (typeof ResizeObserver !== 'undefined') {
+      dockObs = new ResizeObserver(handle)
+      watchDock()
+    }
+    // Re-evaluate the watched element shortly after mount in case the
+    // dock renders asynchronously (CSR boot, conditional rendering).
+    const mountCheckId = typeof window !== 'undefined' ? window.setTimeout(watchDock, 100) : 0
+    // The dock dispatches this event on tab clicks; piggy-back to also
+    // recheck whether the watched element has changed.
+    const onDockOpened = () => { watchDock(); handle() }
+    window.addEventListener('outputs-dock-opened', onDockOpened)
+    return () => {
+      window.removeEventListener('resize', handle)
+      window.removeEventListener('outputs-dock-opened', onDockOpened)
+      if (mountCheckId) window.clearTimeout(mountCheckId)
+      if (dockObs) dockObs.disconnect()
+    }
   }, [isOpen, size])
 
   // Pointer-driven drag from the header bar.
@@ -205,20 +412,40 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       rafRef.current = null
       const vw = window.innerWidth
       const vh = window.innerHeight
+      const dockInset = measureDockInset()
       const max = computeMaxSize(vw, vh)
 
       if (drag) {
         const w = parseFloat(el.style.width || '400')
         const h = parseFloat(el.style.height || '500')
-        const x = clamp(e.clientX - drag.offsetX, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN))
+        const x = clamp(e.clientX - drag.offsetX, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN - dockInset))
         const y = clamp(e.clientY - drag.offsetY, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
         el.style.left = `${x}px`
         el.style.top = `${y}px`
       } else if (resize) {
+        // If the dock leaves no room for a MIN_WIDTH × MIN_HEIGHT panel,
+        // auto-minimise instead of rendering a too-narrow surface. Cancel
+        // the in-flight resize so pointerup doesn't commit a bad size.
+        if (!fitsAtMinSize(vw, vh, dockInset)) {
+          resizeStateRef.current = null
+          useFloatingPanelState.getState().minimise()
+          return
+        }
         const dw = e.clientX - resize.startX
         const dh = e.clientY - resize.startY
-        const w = clamp(resize.startW + dw, MIN_WIDTH, max.width)
-        const h = clamp(resize.startH + dh, MIN_HEIGHT, max.height)
+        // Resize comes from the bottom-right handle, so x/y stay fixed
+        // and we grow width/height. Cap the maximum width by the
+        // remaining space from the panel's current x to the dock's left
+        // edge (or viewport right - margin when no dock). MIN_WIDTH is
+        // preserved — the auto-minimise branch above handles the case
+        // where the dock leaves less room than MIN_WIDTH.
+        const x = parseFloat(el.style.left || '0')
+        const y = parseFloat(el.style.top || '0')
+        const { widthBudget, heightBudget } = computeResizeBudget(x, y, vw, vh, dockInset)
+        const requestedW = Math.max(MIN_WIDTH, resize.startW + dw)
+        const requestedH = Math.max(MIN_HEIGHT, resize.startH + dh)
+        const w = Math.max(MIN_WIDTH, Math.min(max.width, widthBudget, requestedW))
+        const h = Math.max(MIN_HEIGHT, Math.min(max.height, heightBudget, requestedH))
         el.style.width = `${w}px`
         el.style.height = `${h}px`
       }
@@ -306,7 +533,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   // never fall back to 50%/50% in normal flow. Defensive fallback kept for
   // edge cases (SSR rehydrate, etc.).
   if (isMinimised) {
-    const pos = position
+    // Clamp the pill anchor too — a stored position from when the panel
+    // was full-sized may sit too close to the right/bottom edge for the
+    // small pill to remain fully visible after the viewport changes.
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+    const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const dockInset = measureDockInset()
+    const pillPos = position ? clampPillPositionToViewport(position, vw, vh, dockInset) : null
     return createPortal(
       <button
         type="button"
@@ -314,8 +547,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         className="fixed inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-panel border border-panel-border shadow-2 hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
         style={{
           zIndex: 300,
-          left: pos ? pos.x : '50%',
-          top: pos ? pos.y : '50%',
+          left: pillPos ? pillPos.x : '50%',
+          top: pillPos ? pillPos.y : '50%',
         }}
         data-testid="floating-olumi-panel-pill"
         aria-label="Restore Olumi"

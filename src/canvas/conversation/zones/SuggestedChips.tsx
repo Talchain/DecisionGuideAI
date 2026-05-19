@@ -17,7 +17,9 @@ import { useState, useEffect } from 'react'
 import { typography } from '../../../styles/typography'
 import { isV5Eligible } from '../../../v5/eligibility'
 import { logV5StateEvent } from '../../../v5/debugLog'
+import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
+import { useStaleGuard } from '../../ui/inspector-v2/useStaleGuard'
 import type { ActionChip } from '../types'
 
 // Actions that V5 CEE handles end-to-end. Chips whose action_type is set and
@@ -44,6 +46,37 @@ const V5_ENABLED_ACTIONS = new Set<string>([
 // useConversation.ts:1687 demotes to conversation — visible to the user as
 // a chip that promises action and delivers chat.
 const READINESS_GATED_ACTIONS = new Set<string>(['run_analysis'])
+
+/**
+ * Detects a "Run analysis" affordance regardless of whether the chip
+ * carries `action_type: 'run_analysis'` or just a canonical label/message.
+ * Used by the aiPanelV2 polish to suppress / relabel once analysis exists.
+ *
+ * Conservative match list — anything beyond these literal canonical strings
+ * would risk false-positives on conversational chips that happen to mention
+ * "analysis" (e.g. "Explain the analysis").
+ */
+// Canonical run-analysis affordance strings. Module-scoped so it isn't
+// re-allocated per chip render. The two-tier (action_type OR canonical
+// label/message/prompt) check matches both V2 chips and legacy
+// prompt-style chips. CEE serialises dispatch text as `prompt`; the UI
+// normalises it to `message` in validateResponse.ts:88, but the raw
+// `prompt` field is preserved on the chip — both shapes can therefore
+// arrive at this filter, so we match either.
+const RUN_ANALYSIS_CANONICAL = new Set(['run analysis', 'rerun analysis', 'rerun'])
+
+function normForMatch(s: string | undefined): string {
+  return (s ?? '').trim().toLowerCase()
+}
+
+function isRunAnalysisAffordance(chip: ActionChip): boolean {
+  if (chip.action_type === 'run_analysis') return true
+  return (
+    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.label)) ||
+    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.message)) ||
+    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.prompt))
+  )
+}
 
 interface SuggestedChipsProps {
   chips: ActionChip[]
@@ -75,6 +108,14 @@ export function SuggestedChips({
   // fly; hoisting the two subscribers keeps React's dispatcher aligned.
   const [chipError, setChipError] = useState<string | null>(null)
   const analysisStatus = useAnalysisStatus()
+  // aiPanelV2 polish: once an analysis has been RUN (results exist), the
+  // canonical place for re-running it is the Analysis/readiness panel.
+  // Suppress the "Run analysis" chip from the conversation when current,
+  // relabel to "Rerun" when stale. analysisState === 'none' keeps the
+  // original chip unchanged. Gated by the FF so legacy chip behaviour is
+  // identical when aiPanelV2 is off.
+  const { analysisState } = useStaleGuard()
+  const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
     const timer = setTimeout(() => setChipError(null), 5_000)
@@ -132,8 +173,24 @@ export function SuggestedChips({
     }
   }
 
+  // aiPanelV2: suppress / relabel any "Run analysis" affordance based on
+  // the current analysis state. Detection is intentionally broad — CEE
+  // may emit chips with action_type === 'run_analysis' OR legacy
+  // prompt-style chips with no action_type but a canonical label/message.
+  // Both shapes are user-facing duplicates of the Analysis-panel rerun
+  // affordance once analysis exists, so the polish applies to both.
+  const polished = aiPanelV2On
+    ? supported
+        .filter((c) => !(isRunAnalysisAffordance(c) && analysisState === 'current'))
+        .map((c) =>
+          isRunAnalysisAffordance(c) && analysisState === 'stale'
+            ? { ...c, label: 'Rerun' }
+            : c,
+        )
+    : supported
+
   // DS v5 §21.4: max 2 suggested action chips
-  const visible = supported.filter(c => !!(c.message || c.prompt)).slice(0, 2)
+  const visible = polished.filter(c => !!(c.message || c.prompt)).slice(0, 2)
   if (visible.length === 0) return null
 
   const disabled = isThinking || isHistorical

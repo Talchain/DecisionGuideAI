@@ -47,6 +47,14 @@ describe('CogPopover', () => {
     expect(badges.length).toBe(3)
   })
 
+  it('renders an "Assistant options" heading and uses "Attach" (not "Attach evidence") as the menu label', () => {
+    setup()
+    expect(screen.getByTestId('cog-popover-heading')).toHaveTextContent(/Assistant options/i)
+    const attachBtn = screen.getByTestId('cog-popover-attach')
+    expect(attachBtn).toHaveTextContent(/^\s*Attach\s*Coming soon\s*$/i)
+    expect(attachBtn).not.toHaveTextContent(/evidence/i)
+  })
+
   it('Attach evidence becomes functional ONLY when onAttachEvidence is supplied', () => {
     const onAttachEvidence = vi.fn()
     const { onClose } = setup({ onAttachEvidence })

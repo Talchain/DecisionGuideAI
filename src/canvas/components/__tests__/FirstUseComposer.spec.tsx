@@ -225,6 +225,23 @@ describe('FirstUseComposer — reduced motion (gap #3)', () => {
   })
 })
 
+describe('FirstUseComposer — responsive width (P1.2)', () => {
+  it('uses a CSS clamp so the composer never overflows narrow viewports', () => {
+    // Render and inspect the inline style. We assert the responsive shape
+    // (min(...) for width, max(...) for left/top) rather than computed
+    // pixels because jsdom does not evaluate CSS clamp() at runtime.
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const dialog = screen.getByTestId('first-use-composer') as HTMLElement
+    const style = dialog.getAttribute('style') ?? ''
+    expect(style).toMatch(/width:\s*min\(/i)
+    expect(style).toMatch(/calc\(100vw\s*-\s*32px\)/i)
+    expect(style).toMatch(/left:\s*max\(/i)
+    expect(style).toMatch(/top:\s*max\(/i)
+    // Defensive: no raw px-only width that would have overflowed.
+    expect(style).not.toMatch(/width:\s*480px/i)
+  })
+})
+
 describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (review #2)', () => {
   // The reviewer flagged: auto-dock should only fire for a graph produced by
   // the user submitting via the first-use composer — NOT for any 0→N+ node
