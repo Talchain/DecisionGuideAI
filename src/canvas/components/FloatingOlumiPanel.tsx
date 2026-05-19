@@ -62,14 +62,23 @@ function defaultCentredPosition(size: FloatingPanelSize, viewportW: number, view
  * recompute. Mirrors the drag-time clamp at handlePointerMove so the same
  * rules apply whether the user dragged or the panel was placed by us.
  */
+/**
+ * Clamp a position into the visible canvas area. `rightInset` reserves
+ * pixels at the right edge for the OutputsDock so the floating panel does
+ * not land under it — the dock sits at z-index 900 and would obscure the
+ * floating panel (z-300) without this. Callers pass the dock's measured
+ * width (0 when the dock is collapsed or absent).
+ */
 export function clampPositionToViewport(
   pos: FloatingPanelPosition,
   size: FloatingPanelSize,
   viewportW: number,
   viewportH: number,
+  rightInset: number = 0,
 ): FloatingPanelPosition {
+  const maxX = Math.max(DEFAULT_MARGIN, viewportW - size.width - DEFAULT_MARGIN - rightInset)
   return {
-    x: clamp(pos.x, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportW - size.width - DEFAULT_MARGIN)),
+    x: clamp(pos.x, DEFAULT_MARGIN, maxX),
     y: clamp(pos.y, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportH - size.height - DEFAULT_MARGIN)),
   }
 }
@@ -80,11 +89,25 @@ export function clampPillPositionToViewport(
   pos: FloatingPanelPosition,
   viewportW: number,
   viewportH: number,
+  rightInset: number = 0,
 ): FloatingPanelPosition {
+  const maxX = Math.max(DEFAULT_MARGIN, viewportW - PILL_W - DEFAULT_MARGIN - rightInset)
   return {
-    x: clamp(pos.x, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportW - PILL_W - DEFAULT_MARGIN)),
+    x: clamp(pos.x, DEFAULT_MARGIN, maxX),
     y: clamp(pos.y, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportH - PILL_H - DEFAULT_MARGIN)),
   }
+}
+
+/** Measure the OutputsDock's rendered width (returns 0 when not present). */
+function measureDockInset(): number {
+  if (typeof document === 'undefined') return 0
+  const dock = document.querySelector('aside[aria-label="Outputs dock"]') as HTMLElement | null
+  if (!dock) return 0
+  const rect = dock.getBoundingClientRect()
+  // Only count the dock as an inset if it's actually pinned to the right
+  // edge. (Defensive — in test envs the layout may not run.)
+  if (rect.right < (typeof window !== 'undefined' ? window.innerWidth : 0) - 2) return 0
+  return rect.width
 }
 
 /**
@@ -145,15 +168,17 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     if (!el || !isOpen || isMinimised) return
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
+    const dockInset = measureDockInset()
     const max = computeMaxSize(vw, vh)
     const w = clamp(size.width, MIN_WIDTH, max.width)
     const h = clamp(size.height, MIN_HEIGHT, max.height)
-    // Restored / stored positions can land outside the viewport when the
-    // window has shrunk since the panel was last placed. Clamp so the
-    // header is always visible and grabbable. Mirrors handlePointerMove's
-    // drag-time clamp so the same bounds apply across entry points.
-    const rawPos = position ?? defaultCentredPosition({ width: w, height: h }, vw, vh)
-    const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh)
+    // Restored / stored positions can land outside the visible canvas when
+    // the window has shrunk OR when the OutputsDock is open. Clamp so the
+    // header is always visible, grabbable, and not under the dock. Mirrors
+    // handlePointerMove's drag-time clamp so the same bounds apply across
+    // entry points.
+    const rawPos = position ?? defaultCentredPosition({ width: w, height: h }, vw - dockInset, vh)
+    const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh, dockInset)
     el.style.width = `${w}px`
     el.style.height = `${h}px`
     el.style.left = `${pos.x}px`
@@ -197,10 +222,11 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       if (!el) return
       const vw = window.innerWidth
       const vh = window.innerHeight
+      const dockInset = measureDockInset()
       const max = computeMaxSize(vw, vh)
       const w = clamp(parseFloat(el.style.width || '0') || size.width, MIN_WIDTH, max.width)
       const h = clamp(parseFloat(el.style.height || '0') || size.height, MIN_HEIGHT, max.height)
-      const x = clamp(parseFloat(el.style.left || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN))
+      const x = clamp(parseFloat(el.style.left || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN - dockInset))
       const y = clamp(parseFloat(el.style.top || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
       el.style.width = `${w}px`
       el.style.height = `${h}px`
@@ -244,12 +270,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       rafRef.current = null
       const vw = window.innerWidth
       const vh = window.innerHeight
+      const dockInset = measureDockInset()
       const max = computeMaxSize(vw, vh)
 
       if (drag) {
         const w = parseFloat(el.style.width || '400')
         const h = parseFloat(el.style.height || '500')
-        const x = clamp(e.clientX - drag.offsetX, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN))
+        const x = clamp(e.clientX - drag.offsetX, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN - dockInset))
         const y = clamp(e.clientY - drag.offsetY, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
         el.style.left = `${x}px`
         el.style.top = `${y}px`
@@ -350,7 +377,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     // small pill to remain fully visible after the viewport changes.
     const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
     const vh = typeof window !== 'undefined' ? window.innerHeight : 800
-    const pillPos = position ? clampPillPositionToViewport(position, vw, vh) : null
+    const dockInset = measureDockInset()
+    const pillPos = position ? clampPillPositionToViewport(position, vw, vh, dockInset) : null
     return createPortal(
       <button
         type="button"

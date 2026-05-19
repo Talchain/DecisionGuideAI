@@ -30,7 +30,7 @@ import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
 import { usePrefersReducedMotion } from '../hooks/usePrefersReducedMotion'
 import { useCanvasStore, selectResultsStatus, selectReport, selectError, selectResultsSource } from '../store'
-import { typography } from '../../styles/typography'
+import { typography, typo } from '../../styles/typography'
 import {
   trackCompareOpened,
   trackAutoFixClicked,
@@ -47,7 +47,6 @@ import { useConversationContext, useOptionalConversationContext } from '../conve
 import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
 import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { focusFloating } from '../hooks/useFloatingFocus'
-import { typo } from '../../styles/typography'
 import { isV5Eligible } from '../../v5/eligibility'
 import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { countFactorsToVerify } from './model-tab/utils'
@@ -1358,7 +1357,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     {tab.label}
                     {tab.id === 'olumi' && floatingPanelIsOpen && (
                       <span
-                        className="inline-flex items-center text-info border border-info/30 rounded-full px-1.5 leading-none text-[10px] font-medium"
+                        className={typo(
+                          'panelMeta',
+                          'inline-flex items-center text-info border border-info/30 rounded-full px-1.5 leading-none',
+                        )}
                         data-testid="olumi-tab-floating-badge"
                         aria-label="Olumi is open in the floating panel"
                       >

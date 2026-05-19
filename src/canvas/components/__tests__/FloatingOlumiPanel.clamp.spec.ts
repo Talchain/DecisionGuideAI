@@ -36,6 +36,31 @@ describe('clampPositionToViewport', () => {
     expect(out).toEqual({ x: 200, y: 100 })
   })
 
+  it('rightInset (open OutputsDock) shrinks the usable area on the right edge', () => {
+    // OutputsDock open at 360px on the right. The floating panel's right
+    // edge must stay clear of the dock. Without rightInset the panel
+    // (400px wide) could land at x=784 (viewport_w − panel_w − margin),
+    // which sits UNDER the dock. With rightInset=360, max x must drop to
+    // 1200 − 400 − 16 − 360 = 424.
+    const out = clampPositionToViewport({ x: 1000, y: 100 }, SIZE, VIEWPORT.w, VIEWPORT.h, 360)
+    expect(out.x).toBe(VIEWPORT.w - SIZE.width - MARGIN - 360)
+    expect(out.x).toBe(424)
+  })
+
+  it('rightInset of 0 (dock closed/collapsed) preserves the original right edge', () => {
+    const without = clampPositionToViewport({ x: 1000, y: 100 }, SIZE, VIEWPORT.w, VIEWPORT.h)
+    const withZero = clampPositionToViewport({ x: 1000, y: 100 }, SIZE, VIEWPORT.w, VIEWPORT.h, 0)
+    expect(withZero).toEqual(without)
+  })
+
+  it('rightInset larger than usable width still keeps the panel at the margin (no negative x)', () => {
+    // Dock 1100px on a 1200px viewport: only 100px of usable area remains
+    // — less than the 400px panel. Top-left must still be at the margin,
+    // not a negative coordinate.
+    const out = clampPositionToViewport({ x: 800, y: 100 }, SIZE, VIEWPORT.w, VIEWPORT.h, 1100)
+    expect(out.x).toBe(MARGIN)
+  })
+
   it('clamps an x that would push the right edge off-screen', () => {
     // Right edge would be at 1000 + 400 = 1400, viewport is 1200 → x must
     // become 1200 - 400 - 16 = 784.
@@ -77,5 +102,13 @@ describe('clampPillPositionToViewport', () => {
     // Pill height 28 + margin 16: max y is 800 - 28 - 16 = 756.
     const out = clampPillPositionToViewport({ x: 200, y: 790 }, VIEWPORT.w, VIEWPORT.h)
     expect(out.y).toBe(VIEWPORT.h - 28 - MARGIN)
+  })
+
+  it('rightInset shrinks the right edge so the pill never lands under the dock', () => {
+    // Pill width 84 + margin 16 + dock 360 = 460. Max x on a 1200 viewport
+    // becomes 1200 − 460 = 740.
+    const out = clampPillPositionToViewport({ x: 1100, y: 100 }, VIEWPORT.w, VIEWPORT.h, 360)
+    expect(out.x).toBe(VIEWPORT.w - 84 - MARGIN - 360)
+    expect(out.x).toBe(740)
   })
 })

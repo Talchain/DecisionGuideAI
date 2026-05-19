@@ -47,6 +47,29 @@ const V5_ENABLED_ACTIONS = new Set<string>([
 // a chip that promises action and delivers chat.
 const READINESS_GATED_ACTIONS = new Set<string>(['run_analysis'])
 
+/**
+ * Detects a "Run analysis" affordance regardless of whether the chip
+ * carries `action_type: 'run_analysis'` or just a canonical label/message.
+ * Used by the aiPanelV2 polish to suppress / relabel once analysis exists.
+ *
+ * Conservative match list — anything beyond these literal canonical strings
+ * would risk false-positives on conversational chips that happen to mention
+ * "analysis" (e.g. "Explain the analysis").
+ */
+function isRunAnalysisAffordance(chip: ActionChip): boolean {
+  if (chip.action_type === 'run_analysis') return true
+  const norm = (s: string | undefined) => (s ?? '').trim().toLowerCase()
+  const label = norm(chip.label)
+  const msg = norm(chip.message)
+  return (
+    label === 'run analysis' ||
+    label === 'rerun analysis' ||
+    label === 'rerun' ||
+    msg === 'run analysis' ||
+    msg === 'rerun analysis'
+  )
+}
+
 interface SuggestedChipsProps {
   chips: ActionChip[]
   onChipClick: (chip: ActionChip) => Promise<void>
@@ -142,13 +165,17 @@ export function SuggestedChips({
     }
   }
 
-  // aiPanelV2: suppress / relabel the Run analysis chip based on the
-  // current analysis state. See header note above analysisState read.
+  // aiPanelV2: suppress / relabel any "Run analysis" affordance based on
+  // the current analysis state. Detection is intentionally broad — CEE
+  // may emit chips with action_type === 'run_analysis' OR legacy
+  // prompt-style chips with no action_type but a canonical label/message.
+  // Both shapes are user-facing duplicates of the Analysis-panel rerun
+  // affordance once analysis exists, so the polish applies to both.
   const polished = aiPanelV2On
     ? supported
-        .filter((c) => !(c.action_type === 'run_analysis' && analysisState === 'current'))
+        .filter((c) => !(isRunAnalysisAffordance(c) && analysisState === 'current'))
         .map((c) =>
-          c.action_type === 'run_analysis' && analysisState === 'stale'
+          isRunAnalysisAffordance(c) && analysisState === 'stale'
             ? { ...c, label: 'Rerun' }
             : c,
         )

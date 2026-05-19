@@ -114,6 +114,63 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     )
     expect(screen.getByTestId('suggested-chip-x')).toBeInTheDocument()
   })
+
+  // Defensive: legacy/prompt-style chips arrive without action_type. The
+  // polish must catch them by canonical label/message too.
+  it('suppresses a label-only "Run analysis" chip (no action_type) when current', () => {
+    setAnalysisState('current')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'legacy-1',
+            action_type: undefined,
+            label: 'Run analysis',
+            message: 'Run analysis',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-chip-legacy-1')).toBeNull()
+  })
+
+  it('relabels a label-only "Run analysis" chip to "Rerun" when stale', () => {
+    setAnalysisState('stale')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'legacy-2',
+            action_type: undefined,
+            label: 'Run analysis',
+            message: 'Run analysis',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-legacy-2')
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
+  })
+
+  it('does NOT false-positive on conversational chips that mention analysis', () => {
+    setAnalysisState('current')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'conv-1',
+            action_type: undefined,
+            label: 'Explain the analysis',
+            message: 'Explain the analysis in plain terms',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    expect(screen.getByTestId('suggested-chip-conv-1')).toBeInTheDocument()
+  })
 })
 
 describe('SuggestedChips — FF-off legacy parity (no polish)', () => {

@@ -27,11 +27,16 @@ interface PersistentInputStripProps {
  * Outside the tab content area; always visible (sibling of the dock body).
  *
  * Modes:
- *  - composer (floating closed, Olumi tab active):   AIInputBar (sends to docked conversation)
- *  - composer (floating closed, other tab active):   AIInputBar — but clicks open floating
- *                                                    rather than sending (chevron is the
- *                                                    explicit float-out affordance).
- *  - status (floating open):                         status line + focus button
+ *  - composer (floating closed, Olumi tab active):   AIInputBar (sends to docked conversation).
+ *  - redirect (floating closed, other tab active):   a button-shaped placeholder
+ *                                                    (NOT AIInputBar) — clicking anywhere
+ *                                                    opens the floating panel. Any visual
+ *                                                    submit/cog affordances would mislead
+ *                                                    on this surface, so the placeholder
+ *                                                    only shows the stage-aware prompt copy
+ *                                                    and a chevron hint.
+ *  - status (floating open):                         fixed "Olumi is open · Focus →" line —
+ *                                                    clicking focuses the floating textarea.
  *
  * Invariant: when floating is open, the strip MUST NOT render a textarea —
  * preserves the "no duplicate composer" rule.
