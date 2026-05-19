@@ -943,6 +943,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         return { ...prev, isOpen: true, activeTab: initialTab }
       })
     } catch {}
+    // One-time mount init: read `?tab=` from the URL once and apply.
+    // OUTPUT_TABS is now a per-render useMemo (post-floating-first port,
+    // the tab list is flag-time-derived), so including it in the deps
+    // would re-run the URL parse on every render — wrong shape for an
+    // init guard. Matches the `[]`-with-explanation pattern used by the
+    // journey/compare/olumi persisted-tab guard above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setState])
 
   // MERGED EFFECT: Handles both resultsStatus and showResultsPanel dock opening
