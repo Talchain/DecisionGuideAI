@@ -462,6 +462,8 @@ export const isAnalysisHeroV17Enabled = flags.analysisHeroV17
 export const isAnalysisHeroCompareEnabled = flags.analysisHeroCompare
 export const isAiPanelV2Enabled = flags.aiPanelV2
 export const isV5CanonicalAnalysisEnabled = flags.v5CanonicalAnalysis
+export const diagnoseV5CanonicalAnalysis = () =>
+  diagnoseFlagState(FLAGS_CONFIG.v5CanonicalAnalysis)
 
 
 // ============================================================================

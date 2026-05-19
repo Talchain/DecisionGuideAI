@@ -40,7 +40,46 @@ import {
   type V5CanonicalAnalysisDiagnostic,
   type V5CeeCapture,
 } from '../../../lib/v5CanonicalAnalysisDiagnostics'
-import { isV5CanonicalAnalysisEnabled } from '../../../flags'
+import {
+  extractScenarioIdFromFullGraph,
+  extractScenarioIdFromLatestV5Payload,
+  extractScenarioIdFromUrl,
+  reconcileScenarioId,
+  type ScenarioIdReconciliation,
+  type ScenarioIdSource,
+} from '../../../lib/scenarioIdReconciliation'
+import {
+  classifyV5CapturePipelineStatus,
+  detectFailedHttpRecord,
+  findLatestV5TurnEntry,
+  hasResponseBody,
+  type CapturePipelineStatus,
+} from '../../../lib/v5CapturePipelineStatus'
+import {
+  assembleV5CanonicalTurnDiagnostics,
+  attachAnalysisFactDetails,
+  determineCaptureTier,
+  extractFactorSensitivityCountFromPlotResponse,
+  extractOptionCountFromPlotResponse,
+  type LatestV5TurnSource,
+  type V5CanonicalTurnDiagnostics,
+} from '../../../lib/v5CanonicalTurnDiagnostics'
+import {
+  diagnoseV5CanonicalAnalysis,
+  isV5CanonicalAnalysisEnabled,
+} from '../../../flags'
+import {
+  buildDebugBundleEventFields,
+  emitDebugBundleEvent,
+} from '../../../lib/debugBundleLogger'
+import {
+  buildDebugRedactionManifest,
+  type DebugRedactionManifest,
+} from '../../../lib/debugRedactionManifest'
+import {
+  runScientificValidation,
+  type ScientificValidation,
+} from '../../../lib/scientificValidation'
 import {
   ADDITIVE_EXTENSIONS_KEY,
   ORIGINAL_TOP_LEVEL_KEYS_KEY,
@@ -1049,6 +1088,57 @@ interface DebugBundle {
    */
   v5_canonical_analysis?: V5CanonicalAnalysisDiagnostic
 
+  /**
+   * Scenario-ID reconciliation snapshot. Populated by
+   * buildDebugBundleAsync. Mirrors `session.scenario_id` /
+   * `session.scenario_id_source` but additionally records the full
+   * candidate map and any disagreement between sources. Absent on the
+   * sync export path.
+   */
+  scenario_id_reconciliation?: ScenarioIdReconciliation
+
+  /**
+   * Honest capture-pipeline status. Sits ALONGSIDE the legacy
+   * `pipeline.v5_pipeline_status` (untouched) and replaces the
+   * overused `proxy_or_network_failure` label with a coherent reading
+   * that distinguishes missing capture / hydrated-only results /
+   * actual network failure. Populated by buildDebugBundleAsync.
+   */
+  capture_pipeline_status?: CapturePipelineStatus
+
+  /**
+   * Richer V5 canonical turn diagnostics. Composes (does not replace)
+   * the legacy `v5_canonical_analysis` block. Surfaces analysis-fact
+   * detail, parse outcome, results metrics, scenario-ID reconciliation,
+   * and coherence issues — all in one place so reviewers can answer
+   * the brief's eleven goal questions from a single section.
+   * Populated by buildDebugBundleAsync.
+   */
+  v5_canonical_turn_diagnostics?: V5CanonicalTurnDiagnostics
+
+  /**
+   * Redaction manifest — surfaces every path under `payloads.*` that
+   * was redacted (sensitive_key / max_depth / array_capped / size_limit
+   * / circular_reference) and lists the declarative
+   * `preserved_analytical_paths` policy. Always emitted by
+   * buildDebugBundleAsync.
+   */
+  debug_redaction_manifest?: DebugRedactionManifest
+
+  /**
+   * Scientific validation section — seven validators covering PR
+   * #166–#170 surfaces (evidence-gap intervention exclusion, confidence
+   * provenance, user-std propagation, EVPI honesty, flip_thresholds_status,
+   * auto_noise agreement, response shape).
+   *
+   * Every validator emits `status` + `claim_strength`
+   * (observed/derived/inferred/unavailable). `inferred` never pairs
+   * with `pass`. Overall_status is `insufficient_raw_evidence` when
+   * fewer than three validators reach derived/observed evidence —
+   * intentional honesty, NOT a bug.
+   */
+  scientific_validation?: ScientificValidation
+
   // Enhancement sections (Debug Panel V2.1)
 
   /** Orchestrator status from CEE pipeline */
@@ -1089,7 +1179,16 @@ interface DebugBundle {
       environment: string
     }
     feature_flags: Record<string, unknown> | null
-    scenario_id: null
+    /**
+     * Reconciled scenario ID. Populated by buildDebugBundleAsync via
+     * `reconcileScenarioId` (preference: store > v5_fact > payload > url
+     * > full_graph). Sync export path keeps this null — only the async
+     * export resolves the canvas store and payload trace.
+     */
+    scenario_id: string | null
+    /** Which source the reconciled scenario_id came from. 'none' when no
+     *  candidate had a value (also the sync-path default). */
+    scenario_id_source: ScenarioIdSource
     current_route: null
     session_id: null
     session_started_at: null
@@ -2429,7 +2528,31 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         environment: getEnvironment(),
       },
       feature_flags: (featureFlagsAtRequest as Record<string, unknown> | null) ?? null,
-      scenario_id: null,
+      // Sync path cannot reach the canvas store / payload trace store.
+      // URL is available synchronously; full_graph is reachable but the
+      // current `transformGraphDataEnriched` does NOT propagate
+      // scenarioId into `_meta` (documented in
+      // `extractScenarioIdFromFullGraph`), so that candidate is
+      // effectively always null today. Async export overwrites these
+      // via the full reconcileScenarioId run. This partial
+      // reconciliation prevents the legacy hardcoded null when a user
+      // is on /scenarios/<id> and exports synchronously.
+      ...(() => {
+        const partial = reconcileScenarioId({
+          storeScenarioId: null,
+          v5FactScenarioId: null,
+          payloadScenarioId: null,
+          urlScenarioId:
+            typeof window !== 'undefined' && window.location
+              ? extractScenarioIdFromUrl(window.location.href)
+              : null,
+          fullGraphScenarioId: extractScenarioIdFromFullGraph(fullGraph),
+        })
+        return {
+          scenario_id: partial.selected_scenario_id,
+          scenario_id_source: partial.selected_source,
+        }
+      })(),
       current_route: null,
       session_id: null,
       session_started_at: null,
@@ -2569,12 +2692,35 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const storeState = useCanvasStore.getState()
     const fact = storeState.v5AnalysisFact
 
+    // Hoist trace lookup BEFORE parse-field derivation so the parse
+    // diagnostics can fall back to trace.response.body when
+    // bundle.payloads.cee_response is null (round-5 P0.1).
+    const v5TraceStorePre = await import('../../../lib/payload-trace-store')
+    const v5TraceStatePre = v5TraceStorePre.usePayloadTraceStore.getState()
+    const latestV5TracePre = findLatestV5TurnEntry(v5TraceStatePre.payloads)
+    const traceResponseBody =
+      latestV5TracePre?.response?.body !== undefined
+        ? latestV5TracePre.response.body
+        : null
+
     const ceeRequest = bundle.payloads.cee_request
     const ceeResponse = bundle.payloads.cee_response
+    // EFFECTIVE response body for parse-field derivation. Prefer the
+    // bundle-payloads object (already-redacted and normalised); fall
+    // back to the trace-store body when the bundle path didn't
+    // propagate the response. Either source feeds `ceeResponseObject`
+    // and every downstream parse signal (parse_ok, parse_error,
+    // response_top_level_keys, Phase 3 counts, unknown_block_types).
+    const effectiveResponseBody = ceeResponse ?? traceResponseBody
     const ceeResponseObject =
-      ceeResponse && typeof ceeResponse === 'object' && !Array.isArray(ceeResponse)
-        ? (ceeResponse as Record<string, unknown>)
+      effectiveResponseBody &&
+      typeof effectiveResponseBody === 'object' &&
+      !Array.isArray(effectiveResponseBody)
+        ? (effectiveResponseBody as Record<string, unknown>)
         : null
+    // Distinct from `responsePresent` (HTTP completion): true only when
+    // an actual parseable body object was captured.
+    const responseBodyPresent = ceeResponseObject !== null
 
     // The captured body may be either:
     //   (a) a successful OlumiResponse (object), or
@@ -2655,7 +2801,8 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const ceeService = data.services.cee ?? null
     const requestPresent = ceeRequest !== null && ceeRequest !== undefined
     const responsePresent = ceeResponse !== null && ceeResponse !== undefined
-    const parseOk = responsePresent && !ceeIsParseErrorEnvelope
+    // (parseOk is now derived from the canonical-source tier below
+    // — see `parseOkLegacy` near the V5CeeCapture assembly.)
 
     const parseError = ceeIsParseErrorEnvelope
       ? (() => {
@@ -2743,18 +2890,100 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       return false
     })()
 
+    // Re-use the trace lookup from above (hoisted before parse
+    // derivation). `latestV5TraceTyped` carries the typed view used by
+    // the capture assembly.
+    const latestV5TraceTyped = latestV5TracePre as
+      | {
+          id?: string
+          endpoint?: string
+          status?: number
+          duration?: number
+          completed?: boolean
+          request?: { body?: unknown } | undefined
+          response?: { body?: unknown } | undefined
+        }
+      | null
+
+    // V5-endpoint failure signal for the narrowed service_metadata
+    // tier (round-5 P1.4): only failure evidence activates the tier;
+    // successful service records with no payloads fall through to
+    // `store` or `none` so missingness is visible.
+    const serviceMetadataV5FailurePresent =
+      ceeService !== null &&
+      typeof ceeService.endpoint === 'string' &&
+      ceeService.endpoint.includes('/orchestrate/v2/turn') &&
+      (ceeService.success === false ||
+        (typeof ceeService.status === 'number' &&
+          (ceeService.status >= 500 || ceeService.status === 0)))
+
+    // Single canonical source for capture assembly. Once a tier is
+    // selected, ALL related fields derive from that same source to
+    // avoid mixed-provenance bundles. The helper is shared with the
+    // second try block (turn diagnostics) so the two views never
+    // disagree about where the capture data came from.
+    const captureTier: LatestV5TurnSource = determineCaptureTier({
+      traceEntryPresent: latestV5TraceTyped !== null,
+      bundlePayloadsCeeRequestPresent: requestPresent,
+      bundlePayloadsCeeResponsePresent: responsePresent,
+      serviceMetadataV5FailurePresent,
+      // First try block doesn't read `factPresentForScenario` here.
+      // 'store' tier is meaningless for V5CeeCapture assembly (the
+      // capture object requires evidence); only the snapshot uses
+      // 'store' when capture is absent but a fact exists.
+      factPresentForScenario: false,
+    })
+
+    // Derive request_present / response_present from the SAME tier as
+    // the rest of the capture metadata. Trace-tier reads from the
+    // trace entry; bundle-payloads tier reads from bundle.payloads;
+    // service-metadata + none tiers have no body evidence.
+    const tierRequestPresent =
+      captureTier === 'payload_trace'
+        ? latestV5TraceTyped?.request !== undefined
+        : captureTier === 'bundle_payloads'
+          ? requestPresent
+          : false
+    const tierResponsePresent =
+      captureTier === 'payload_trace'
+        ? latestV5TraceTyped?.response !== undefined ||
+          latestV5TraceTyped?.completed === true ||
+          typeof latestV5TraceTyped?.status === 'number'
+        : captureTier === 'bundle_payloads'
+          ? responsePresent
+          : false
+
+    // parse_ok semantics: only meaningful when a parseable response
+    // BODY was captured. Round-5 P0.3 lesson: a 500 status with no
+    // body previously inherited `parseOkLegacy = true` because
+    // `tierResponsePresent` was true (status set) and
+    // `ceeIsParseErrorEnvelope` was false (no body to misclassify).
+    // Gate the legacy boolean on `responseBodyPresent` so status-only
+    // / failure-without-body trace entries report `false` honestly.
+    // The new snapshot still overlays `null` in this case (it never
+    // claims "parsed and failed" without evidence) but the legacy
+    // field must also be honest for backward-compat consumers.
+    const parseOkLegacy = responseBodyPresent && !ceeIsParseErrorEnvelope
+
     const v5Capture: V5CeeCapture | null =
-      requestPresent || responsePresent || ceeService
-        ? {
-            request_id: data.overall.request_id,
+      captureTier === 'none'
+        ? null
+        : {
+            // Prefer the actual trace entry id when available; fall back
+            // to the session-level request_id (the legacy behaviour).
+            request_id: latestV5TraceTyped?.id ?? data.overall.request_id,
             scenario_id: storeState.currentScenarioId,
             turn_id: fact?.analysisHash ?? null,
-            endpoint: null,
-            status: ceeService?.status ?? null,
-            duration_ms: ceeService?.duration_ms ?? null,
-            request_present: requestPresent,
-            response_present: responsePresent,
-            parse_ok: parseOk,
+            // Real endpoint from the trace entry > service-metadata
+            // endpoint > null. Required for log correlation.
+            endpoint:
+              latestV5TraceTyped?.endpoint ?? ceeService?.endpoint ?? null,
+            status: latestV5TraceTyped?.status ?? ceeService?.status ?? null,
+            duration_ms:
+              latestV5TraceTyped?.duration ?? ceeService?.duration_ms ?? null,
+            request_present: tierRequestPresent,
+            response_present: tierResponsePresent,
+            parse_ok: parseOkLegacy,
             parse_error: parseError,
             response_top_level_keys: responseTopLevelKeys,
             raw_response_present: rawResponsePresent,
@@ -2763,9 +2992,13 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
             has_additive_extensions: hasAdditiveExtensions,
             phase3_blocks_tolerated_count: phase3Source.length,
             phase3_block_types: phase3BlockTypes,
+            // Legacy `source: 'proxy_v5_turn'` literal kept for
+            // backward-compat with existing consumers. The richer
+            // provenance enum lives on the new
+            // `v5_canonical_turn_diagnostics.latest_v5_turn.source`
+            // field per the brief.
             source: 'proxy_v5_turn',
           }
-        : null
 
     const plotRequestCaptured = bundle.payloads.plot_request !== null
 
@@ -2783,22 +3016,357 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // errors. The absence of v5_canonical_analysis itself is a signal.
   }
 
+  // Scenario-ID reconciliation + capture pipeline status + canonical
+  // turn diagnostics. All three live in one try block because they
+  // share inputs (canvas store + payload-trace). Each section is
+  // additive — failure to assemble one does not block the rest.
+  try {
+    const { useCanvasStore } = await import('../../../canvas/store')
+    const { usePayloadTraceStore } = await import('../../../lib/payload-trace-store')
+    const { readAnalysisStateSourceFromStore } = await import(
+      '../../../canvas/hooks/useAnalysisStateSource'
+    )
+    const storeState = useCanvasStore.getState()
+    const traceState = usePayloadTraceStore.getState()
+    const fact = storeState.v5AnalysisFact
+    const sourceResult = readAnalysisStateSourceFromStore()
+
+    // --- Scenario ID reconciliation (P0.1) ---
+    const reconciliation = reconcileScenarioId({
+      storeScenarioId: storeState.currentScenarioId ?? null,
+      v5FactScenarioId: fact?.scenarioId ?? null,
+      payloadScenarioId: extractScenarioIdFromLatestV5Payload(traceState.payloads),
+      urlScenarioId:
+        typeof window !== 'undefined' && window.location
+          ? extractScenarioIdFromUrl(window.location.href)
+          : null,
+      fullGraphScenarioId: extractScenarioIdFromFullGraph(bundle.full_graph),
+    })
+    bundle.session.scenario_id = reconciliation.selected_scenario_id
+    bundle.session.scenario_id_source = reconciliation.selected_source
+    bundle.scenario_id_reconciliation = reconciliation
+
+    // --- Capture pipeline status (P0.2) + Turn diagnostics (P0.3) ---
+    // ALWAYS emit, even when the legacy v5_canonical_analysis block was not
+    // assembled (e.g. classifier bailed). When legacy is absent we fall back
+    // to a SYNTHESISED diagnostic that DERIVES real signals from the canvas
+    // store rather than defaulting everything to "unknown". This keeps the
+    // `analysis_fact_present_but_cee_capture_missing` contradiction fire-able
+    // even when the legacy classifier itself failed mid-export.
+    const legacyFromClassifier = bundle.v5_canonical_analysis !== undefined
+    const legacy: V5CanonicalAnalysisDiagnostic =
+      bundle.v5_canonical_analysis ?? {
+        v5_cee_capture: null,
+        analysis_state_source: sourceResult.source,
+        // Derive from real store signals, not 'unknown_not_checked'.
+        // The canvas store already tells us whether a fact attaches to
+        // the current scenario; that fact-presence drives the headline
+        // contradiction issue and must not be lost.
+        analysis_fact_status: sourceResult.factPresentForScenario
+          ? 'present'
+          : 'missing',
+        debug_capture_status: 'cee_capture_missing',
+        canonical_flag_on: isV5CanonicalAnalysisEnabled(),
+      }
+
+    const failedHttp = detectFailedHttpRecord(traceState.payloads)
+    const rawV2Present = storeState.results?.rawV2Response != null
+
+    // Service-metadata-only failure: V5 endpoint reports failure in
+    // data.services.cee but the payload-trace has no entry for it.
+    // Reviewers need to distinguish this from `hydrated_only`.
+    const ceeService = data.services.cee ?? null
+    const ceeServiceEndpoint =
+      typeof ceeService?.endpoint === 'string' ? ceeService.endpoint : ''
+    const ceeServiceIsV5 = ceeServiceEndpoint.includes('/orchestrate/v2/turn')
+    const ceeServiceFailed =
+      ceeService !== null &&
+      (ceeService.success === false ||
+        (typeof ceeService.status === 'number' &&
+          (ceeService.status >= 500 || ceeService.status === 0)))
+    const serviceMetadataV5Failure =
+      ceeServiceIsV5 && ceeServiceFailed && !failedHttp.present
+
+    const latestV5Trace = findLatestV5TurnEntry(traceState.payloads)
+    const v5TraceEntryPresent = latestV5Trace !== null
+
+    // Mirror the body-presence detection from the first try block —
+    // either bundle.payloads.cee_response is an object OR the trace
+    // entry carries a response body. Drives parse provenance in the
+    // snapshot.
+    const snapshotResponseBodyPresent =
+      (bundle.payloads.cee_response !== null &&
+        typeof bundle.payloads.cee_response === 'object' &&
+        !Array.isArray(bundle.payloads.cee_response)) ||
+      (latestV5Trace !== null && hasResponseBody(latestV5Trace))
+
+    // Re-compute the canonical capture tier in this try block too —
+    // the first try block (legacy assembly) might have bailed, but
+    // this block must still pick a tier consistent with the rest of
+    // the bundle. Inputs are deterministic from traceState + bundle
+    // payloads + data.services + canvas store; the helper guarantees
+    // we never disagree.
+    const snapshotCaptureTier = determineCaptureTier({
+      traceEntryPresent: v5TraceEntryPresent,
+      bundlePayloadsCeeRequestPresent: bundle.payloads.cee_request !== null,
+      bundlePayloadsCeeResponsePresent: bundle.payloads.cee_response !== null,
+      // Round-5 P1.4: service_metadata tier only fires on V5 failure
+      // evidence — successful service records fall through.
+      serviceMetadataV5FailurePresent: serviceMetadataV5Failure,
+      factPresentForScenario: sourceResult.factPresentForScenario,
+    })
+
+    const capturePipeline = classifyV5CapturePipelineStatus({
+      v5Capture: legacy.v5_cee_capture
+        ? {
+            request_present: legacy.v5_cee_capture.request_present,
+            response_present: legacy.v5_cee_capture.response_present,
+            parse_ok: legacy.v5_cee_capture.parse_ok,
+            raw_response_present: legacy.v5_cee_capture.raw_response_present,
+          }
+        : null,
+      hasResultsReport: sourceResult.hasResultsReport,
+      rawV2ResponsePresent: rawV2Present,
+      failedHttpRecord: failedHttp,
+      serviceMetadataV5Failure,
+      analysisStateSource: legacy.analysis_state_source,
+      effectiveCeeResponseSource: bundle.effective_cee_response_source ?? null,
+      analysisFactPresent: legacy.analysis_fact_status === 'present',
+      scenarioIdConflictCount: reconciliation.conflicts.length,
+      legacyPipelineStatus: bundle.pipeline.v5_pipeline_status ?? null,
+    })
+    bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
+
+    // graph_hash_at_generation: read-through. The v5AnalysisFact slice
+    // may not carry this field on every code path; emit null when
+    // absent rather than fabricating from elsewhere.
+    const graphHash =
+      fact && typeof (fact as Record<string, unknown>).graphHashAtGeneration === 'string'
+        ? ((fact as Record<string, unknown>).graphHashAtGeneration as string)
+        : null
+
+    // Flag diagnostic — guard against environments without
+    // localStorage (e.g. SSR / jsdom edge cases).
+    const flagDiagnostic = (() => {
+      try {
+        return diagnoseV5CanonicalAnalysis()
+      } catch {
+        return null
+      }
+    })()
+
+    const optionCount = extractOptionCountFromPlotResponse(bundle.payloads.plot_response)
+    const factorSensitivityCount = extractFactorSensitivityCountFromPlotResponse(
+      bundle.payloads.plot_response,
+    )
+
+    // Rendered counts from bundle.display_state when present. Counts
+    // are honest (length of the rendered arrays) and `null` when the
+    // display state itself is absent — never fabricated.
+    const displayState = bundle.display_state as
+      | { rendered_options?: unknown; rendered_factors?: unknown }
+      | null
+    const renderedOptionCount =
+      displayState && Array.isArray(displayState.rendered_options)
+        ? displayState.rendered_options.length
+        : null
+    const renderedFactorCount =
+      displayState && Array.isArray(displayState.rendered_factors)
+        ? displayState.rendered_factors.length
+        : null
+
+    const base = assembleV5CanonicalTurnDiagnostics({
+      legacyDiagnostic: legacy,
+      legacyDiagnosticFromClassifier: legacyFromClassifier,
+      flagDiagnostic,
+      analysisStateSource: legacy.analysis_state_source,
+      hasResultsReport: sourceResult.hasResultsReport,
+      effectiveCeeResponseSource: bundle.effective_cee_response_source ?? null,
+      graphHashAtGeneration: graphHash,
+      optionCount,
+      factorSensitivityCount,
+      captureTier: snapshotCaptureTier,
+      responseBodyPresent: snapshotResponseBodyPresent,
+      renderedOptionCount,
+      renderedFactorCount,
+      capturePipeline,
+      scenarioIdReconciliation: reconciliation,
+    })
+
+    bundle.v5_canonical_turn_diagnostics = attachAnalysisFactDetails(
+      base,
+      fact
+        ? {
+            hasRunAnalysisFact: fact.hasRunAnalysisFact,
+            freshness: fact.freshness,
+          }
+        : null,
+    )
+
+    // --- Scientific validation (P1) ---
+    // Always runs (even when capture_pipeline_status is missing) — the
+    // orchestrator falls back to `source: unavailable` honestly.
+    bundle.scientific_validation = runScientificValidation({
+      plotRequest: bundle.payloads.plot_request,
+      plotResponse: bundle.payloads.plot_response,
+      ceeRequest: bundle.payloads.cee_request,
+      ceeResponse: bundle.payloads.cee_response,
+      islRequest: bundle.payloads.isl_request,
+      islResponse: bundle.payloads.isl_response,
+      resultsReport: storeState.results?.report ?? null,
+      ceeAnalysisReady: storeState.ceeAnalysisReady ?? null,
+      capturePipelineStatus: bundle.capture_pipeline_status ?? null,
+    })
+  } catch {
+    // All four sections are additive — keep partial state on failure.
+    // Absence of the top-level fields IS the signal.
+  }
+
+  // --- Redaction manifest (P0.5) ---
+  // Always emit, even when prior sections bailed — the manifest is the
+  // safety surface for "what did we suppress and why" and must remain
+  // available regardless of upstream assembly outcomes.
+  try {
+    bundle.debug_redaction_manifest = buildDebugRedactionManifest(bundle, [
+      {
+        path: 'v5_canonical_analysis',
+        present: bundle.v5_canonical_analysis !== undefined,
+        reason_if_omitted: 'legacy_classifier_bailed_or_disabled',
+      },
+      {
+        path: 'capture_pipeline_status',
+        present: bundle.capture_pipeline_status !== undefined,
+        reason_if_omitted: 'capture_pipeline_classifier_bailed_or_legacy_missing',
+      },
+      {
+        path: 'v5_canonical_turn_diagnostics',
+        present: bundle.v5_canonical_turn_diagnostics !== undefined,
+        reason_if_omitted: 'turn_diagnostics_assembler_bailed_or_legacy_missing',
+      },
+      {
+        path: 'scenario_id_reconciliation',
+        present: bundle.scenario_id_reconciliation !== undefined,
+        reason_if_omitted: 'reconciliation_bailed',
+      },
+      {
+        path: 'scientific_validation',
+        present: bundle.scientific_validation !== undefined,
+        reason_if_omitted: 'validators_bailed',
+      },
+    ])
+  } catch {
+    // Manifest is purely descriptive — never block export on its
+    // absence. Reviewers should treat a missing manifest as a signal
+    // that the manifest assembler itself errored.
+  }
+
   return bundle
+}
+
+/**
+ * Generate an opaque export identifier for render-log correlation.
+ * Distinct from request_id so support can grep for "this export" in the
+ * absence of a per-turn request id (e.g. on hydrated bundles).
+ */
+function makeExportId(): string {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      return `exp-${crypto.randomUUID()}`
+    }
+  } catch {
+    // fall through
+  }
+  return `exp-${Date.now().toString(16)}-${Math.floor(Math.random() * 1e9).toString(16)}`
 }
 
 /**
  * Export all debug data as a single JSON bundle file (async).
  * Captures display_state, panel_state, and orchestrator context from stores.
  *
+ * Emits four structured render-log events for diagnostic observability
+ * (see debugBundleLogger.ts):
+ *   1. dgai.debug_bundle.export_started — at entry
+ *   2. dgai.debug_bundle.capture_status — after capture-pipeline assembly
+ *   3. dgai.debug_bundle.scientific_validation_summary — after validators
+ *   4. dgai.debug_bundle.export_completed — just before download
+ *
  * Filename format: olumi-debug-{short_request_id}-{date}.json
  */
 export async function exportDebugBundleAsync(data: DebugData, options: ExportOptions = {}): Promise<void> {
-  const bundle = await buildDebugBundleAsync(data, options)
-  const json = JSON.stringify(bundle, null, 2)
+  const exportId = makeExportId()
+  emitDebugBundleEvent(
+    'dgai.debug_bundle.export_started',
+    buildDebugBundleEventFields({ export_id: exportId }),
+  )
 
+  const bundle = await buildDebugBundleAsync(data, options)
+
+  // Structural fields drawn from the assembled bundle — no raw payloads.
+  const turn = bundle.v5_canonical_turn_diagnostics
+  emitDebugBundleEvent(
+    'dgai.debug_bundle.capture_status',
+    buildDebugBundleEventFields({
+      export_id: exportId,
+      scenario_id_source: bundle.session.scenario_id_source ?? null,
+      capture_pipeline_status: bundle.capture_pipeline_status ?? null,
+      coherence_state: turn?.coherence.state ?? null,
+      coherence_issue_count: turn ? turn.coherence.issues.length : null,
+      canonical_flag_on: turn?.canonical_flag_on ?? null,
+      has_v5_capture: turn ? turn.latest_v5_turn.request_present : null,
+      parse_ok: turn?.parse.parse_ok ?? null,
+      has_results: turn?.results.present ?? null,
+    }),
+  )
+
+  // Scientific validation summary — counts derived from the validator map.
+  const sv = bundle.scientific_validation ?? null
+  const validatorEntries = sv ? Object.values(sv.validators) : []
+  const availableCount = validatorEntries.filter(
+    (v) => v.claim_strength === 'observed' || v.claim_strength === 'derived',
+  ).length
+  const unavailableCount = validatorEntries.filter(
+    (v) => v.claim_strength === 'unavailable',
+  ).length
+  emitDebugBundleEvent(
+    'dgai.debug_bundle.scientific_validation_summary',
+    buildDebugBundleEventFields({
+      export_id: exportId,
+      scientific_validation_available_count: sv ? availableCount : null,
+      scientific_validation_unavailable_count: sv ? unavailableCount : null,
+    }),
+  )
+
+  const json = JSON.stringify(bundle, null, 2)
   const shortId = data.overall.request_id?.slice(0, 8) ?? 'unknown'
   const date = formatShortTimestamp().slice(0, 8) // YYYYMMDD
   const filename = `olumi-debug-${shortId}-${date}.json`
+
+  // Count omitted sections — these are top-level keys that ended up
+  // `undefined` or unassembled on this export (e.g. v5_canonical_turn_diagnostics
+  // bailed). Treat null as present; undefined as omitted.
+  const omittedCount = (() => {
+    const optionalKeys: Array<keyof typeof bundle> = [
+      'v5_canonical_analysis',
+      'capture_pipeline_status',
+      'v5_canonical_turn_diagnostics',
+      'scenario_id_reconciliation',
+      'scientific_validation',
+      'debug_redaction_manifest',
+    ]
+    return optionalKeys.reduce(
+      (n, k) => (bundle[k] === undefined ? n + 1 : n),
+      0,
+    )
+  })()
+
+  emitDebugBundleEvent(
+    'dgai.debug_bundle.export_completed',
+    buildDebugBundleEventFields({
+      export_id: exportId,
+      bundle_size_bytes: json.length,
+      omitted_sections_count: omittedCount,
+    }),
+  )
 
   downloadFile(json, filename)
 }
