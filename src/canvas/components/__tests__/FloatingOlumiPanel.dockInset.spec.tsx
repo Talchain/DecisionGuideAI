@@ -371,6 +371,36 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     // max pill x at 800 viewport = 800 - 84 - 16 = 700.
     expect(after).toBeTruthy()
     expect(after!.x).toBeLessThanOrEqual(700)
+    // The automatic clamp is a geometry correction — it must NOT flip
+    // userRepositioned. That flag is reserved for genuine user drags
+    // (it gates auto-dock). If a future refactor swaps the direct
+    // setState for `setPosition`, this assertion catches it.
+    expect(useFloatingPanelState.getState().userRepositioned).toBe(true)
+    Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
+  })
+
+  it('automatic minimised-pill clamp does NOT flip userRepositioned from false → true', () => {
+    // System-opened panel (e.g. first-use), no user drag yet. The
+    // automatic clamp on viewport resize must preserve userRepositioned
+    // === false — otherwise the next 0→N node transition would skip
+    // auto-dock (`canAutoDock` requires !userRepositioned).
+    useFloatingPanelState.setState({
+      isOpen: true,
+      source: 'system-first-use',
+      userRepositioned: false,
+      isMinimised: true,
+      position: { x: 1300, y: 100 },
+      size: { width: 400, height: 500 },
+    } as any)
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+
+    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
+    act(() => { window.dispatchEvent(new Event('resize')) })
+
+    const after = useFloatingPanelState.getState()
+    // Position changed (clamped), but userRepositioned MUST stay false.
+    expect(after.position!.x).toBeLessThanOrEqual(700)
+    expect(after.userRepositioned).toBe(false)
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
 
