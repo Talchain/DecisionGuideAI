@@ -147,6 +147,77 @@ describe('classifyV5CapturePipelineStatus — capture_pipeline_status enum', () 
   })
 })
 
+describe('classifyV5CapturePipelineStatus — negative tests for unrelated failed payloads', () => {
+  it('an unrelated failed PLoT record does NOT trigger proxy_or_network_failure', () => {
+    // detectFailedHttpRecord already scopes to V5 turns. This integration
+    // check confirms the upstream classifier respects the scoping.
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      hasResultsReport: true,
+      rawV2ResponsePresent: false,
+      // Caller passes failedHttpRecord = {present: false} when the
+      // scoped detection found nothing (even if unrelated services
+      // failed elsewhere). Status must be hydrated_only, not
+      // proxy_or_network_failure.
+      failedHttpRecord: { present: false, source: null },
+    })
+    expect(out.capture_pipeline_status).not.toBe('proxy_or_network_failure')
+    expect(out.capture_pipeline_status).toBe('hydrated_only')
+  })
+
+  it('issue legacy_pipeline_status_misleading_proxy_or_network_failure fires even when results are hydrated_only', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      hasResultsReport: true,
+      rawV2ResponsePresent: false,
+      legacyPipelineStatus: 'proxy_or_network_failure',
+    })
+    expect(out.capture_pipeline_status).toBe('hydrated_only')
+    expect(out.coherence.issues).toContain(
+      'legacy_pipeline_status_misleading_proxy_or_network_failure',
+    )
+  })
+})
+
+describe('classifyV5CapturePipelineStatus — additive coherence issues', () => {
+  it('results_rendered_from_store_without_capture fires regardless of whether final status is hydrated_only or results_rendered_from_store_without_capture', () => {
+    const hydrated = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      hasResultsReport: true,
+      rawV2ResponsePresent: false,
+    })
+    expect(hydrated.capture_pipeline_status).toBe('hydrated_only')
+    expect(hydrated.coherence.issues).toContain(
+      'results_rendered_from_store_without_capture',
+    )
+
+    const rawPresent = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      hasResultsReport: true,
+      rawV2ResponsePresent: true,
+    })
+    expect(rawPresent.capture_pipeline_status).toBe(
+      'results_rendered_from_store_without_capture',
+    )
+    expect(rawPresent.coherence.issues).toContain(
+      'results_rendered_from_store_without_capture',
+    )
+  })
+
+  it('parse_failed_with_raw_preserved fires whenever parse_ok=false and raw_response_present=true, regardless of status enum', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      v5Capture: {
+        request_present: true,
+        response_present: true,
+        parse_ok: false,
+        raw_response_present: true,
+      },
+    })
+    expect(out.coherence.issues).toContain('parse_failed_with_raw_preserved')
+  })
+})
+
 describe('classifyV5CapturePipelineStatus — coherence issues', () => {
   it('analysis_state_source=cee_v5_run_analysis + effective_cee_response_source=none emits the explicit issue', () => {
     const out = classifyV5CapturePipelineStatus({
@@ -221,41 +292,47 @@ describe('classifyV5CapturePipelineStatus — coherence issues', () => {
   })
 })
 
-describe('detectFailedHttpRecord', () => {
+describe('detectFailedHttpRecord — scoped to V5 CEE turns', () => {
+  const v5 = (overrides: Record<string, unknown> = {}) => ({
+    service: 'CEE',
+    endpoint: '/bff/orchestrate/v2/turn',
+    ...overrides,
+  })
+
   it('returns absent when no payload qualifies', () => {
     expect(detectFailedHttpRecord([])).toEqual({ present: false, source: null })
     expect(
       detectFailedHttpRecord([
-        { completed: true, status: 200 },
-        { completed: true, status: 201 },
+        v5({ completed: true, status: 200 }),
+        v5({ completed: true, status: 201 }),
       ]),
     ).toEqual({ present: false, source: null })
   })
 
-  it('returns present + source when a record has completed=false', () => {
+  it('returns present + source when a V5 record has completed=false', () => {
     expect(
-      detectFailedHttpRecord([{ completed: false, source: 'preflight_or_network' }]),
+      detectFailedHttpRecord([v5({ completed: false, source: 'preflight_or_network' })]),
     ).toEqual({ present: true, source: 'preflight_or_network' })
   })
 
-  it('returns present when status >= 500', () => {
-    const out = detectFailedHttpRecord([{ completed: true, status: 502, source: 'proxy' }])
+  it('returns present when V5 status >= 500', () => {
+    const out = detectFailedHttpRecord([v5({ completed: true, status: 502, source: 'proxy' })])
     expect(out.present).toBe(true)
     expect(out.source).toBe('proxy')
   })
 
-  it('returns present when error/errorName fields are set', () => {
+  it('returns present when V5 error/errorName fields are set', () => {
     expect(
-      detectFailedHttpRecord([{ completed: true, error: 'fetch failed' }]).present,
+      detectFailedHttpRecord([v5({ completed: true, error: 'fetch failed' })]).present,
     ).toBe(true)
     expect(
-      detectFailedHttpRecord([{ completed: true, errorName: 'TypeError' }]).present,
+      detectFailedHttpRecord([v5({ completed: true, errorName: 'TypeError' })]).present,
     ).toBe(true)
   })
 
-  it('returns present when source is a network/proxy classification', () => {
+  it('returns present when V5 source is a network/proxy classification', () => {
     for (const source of ['proxy', 'netlify', 'preflight_or_network', 'browser_timeout']) {
-      const out = detectFailedHttpRecord([{ completed: true, status: 200, source }])
+      const out = detectFailedHttpRecord([v5({ completed: true, status: 200, source })])
       expect(out.present).toBe(true)
       expect(out.source).toBe(source)
     }
@@ -263,7 +340,56 @@ describe('detectFailedHttpRecord', () => {
 
   it('source "cee" alone is not enough — must pair with a failure signal', () => {
     expect(
-      detectFailedHttpRecord([{ completed: true, status: 200, source: 'cee' }]).present,
+      detectFailedHttpRecord([v5({ completed: true, status: 200, source: 'cee' })]).present,
     ).toBe(false)
+  })
+
+  // --- Scoping (the reviewer-flagged correctness fix) ---
+
+  it('IGNORES a failed PLoT record — only V5 CEE turns influence capture status', () => {
+    expect(
+      detectFailedHttpRecord([
+        {
+          service: 'PLoT',
+          endpoint: '/plot/v2/run',
+          completed: false,
+          source: 'proxy',
+          status: 502,
+        },
+      ]),
+    ).toEqual({ present: false, source: null })
+  })
+
+  it('IGNORES a failed CEE record on a non-V5 endpoint (legacy /turn, draft-graph, etc)', () => {
+    expect(
+      detectFailedHttpRecord([
+        {
+          service: 'CEE',
+          endpoint: '/bff/orchestrate/v1/turn',
+          completed: false,
+          source: 'preflight_or_network',
+        },
+        {
+          service: 'CEE',
+          endpoint: '/cee/draft-graph',
+          completed: false,
+          source: 'proxy',
+        },
+      ]),
+    ).toEqual({ present: false, source: null })
+  })
+
+  it('returns the V5 failure even when an unrelated record appears first', () => {
+    expect(
+      detectFailedHttpRecord([
+        {
+          service: 'PLoT',
+          endpoint: '/plot/v2/run',
+          completed: false,
+          source: 'proxy',
+        },
+        v5({ completed: false, source: 'preflight_or_network' }),
+      ]),
+    ).toEqual({ present: true, source: 'preflight_or_network' })
   })
 })

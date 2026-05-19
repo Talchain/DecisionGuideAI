@@ -152,9 +152,15 @@ export function extractScenarioIdFromUrl(href: string | null): string | null {
 }
 
 /**
- * Read scenario-ID from `full_graph` metadata. Today's
- * `transformGraphDataEnriched` output uses `_meta` for non-graph fields;
- * scenarioId may live there or at the root depending on export path.
+ * Read scenario-ID from `full_graph` metadata.
+ *
+ * NOTE — as of this PR, `transformGraphDataEnriched` in exportBundle.ts
+ * writes only `node_type_field` and `enriched: true` into `_meta`. It
+ * does NOT propagate scenarioId. The helper is kept defensive (covering
+ * future expansion of `_meta`) but reviewers should treat
+ * `candidates.full_graph` as effectively dead today. The reconciler
+ * still emits it for completeness but the candidate will almost always
+ * be null until `transformGraphDataEnriched` is updated upstream.
  */
 export function extractScenarioIdFromFullGraph(
   fullGraph: unknown,

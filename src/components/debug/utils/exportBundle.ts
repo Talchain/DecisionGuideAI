@@ -2524,11 +2524,15 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
         environment: getEnvironment(),
       },
       feature_flags: (featureFlagsAtRequest as Record<string, unknown> | null) ?? null,
-      // Sync path cannot reach the canvas store / payload trace store,
-      // but URL and full_graph candidates are available synchronously.
-      // Async export overwrites these via the full reconcileScenarioId
-      // run. This partial reconciliation prevents the legacy hardcoded
-      // null when a user is on /scenarios/<id> and exports synchronously.
+      // Sync path cannot reach the canvas store / payload trace store.
+      // URL is available synchronously; full_graph is reachable but the
+      // current `transformGraphDataEnriched` does NOT propagate
+      // scenarioId into `_meta` (documented in
+      // `extractScenarioIdFromFullGraph`), so that candidate is
+      // effectively always null today. Async export overwrites these
+      // via the full reconcileScenarioId run. This partial
+      // reconciliation prevents the legacy hardcoded null when a user
+      // is on /scenarios/<id> and exports synchronously.
       ...(() => {
         const partial = reconcileScenarioId({
           storeScenarioId: null,
@@ -2931,13 +2935,22 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // --- Capture pipeline status (P0.2) + Turn diagnostics (P0.3) ---
     // ALWAYS emit, even when the legacy v5_canonical_analysis block was not
     // assembled (e.g. classifier bailed). When legacy is absent we fall back
-    // to a synthesised "no-legacy-data" diagnostic with honest enum values
-    // so consumers can rely on these fields being present on every export.
+    // to a SYNTHESISED diagnostic that DERIVES real signals from the canvas
+    // store rather than defaulting everything to "unknown". This keeps the
+    // `analysis_fact_present_but_cee_capture_missing` contradiction fire-able
+    // even when the legacy classifier itself failed mid-export.
+    const legacyFromClassifier = bundle.v5_canonical_analysis !== undefined
     const legacy: V5CanonicalAnalysisDiagnostic =
       bundle.v5_canonical_analysis ?? {
         v5_cee_capture: null,
         analysis_state_source: sourceResult.source,
-        analysis_fact_status: 'unknown_not_checked',
+        // Derive from real store signals, not 'unknown_not_checked'.
+        // The canvas store already tells us whether a fact attaches to
+        // the current scenario; that fact-presence drives the headline
+        // contradiction issue and must not be lost.
+        analysis_fact_status: sourceResult.factPresentForScenario
+          ? 'present'
+          : 'missing',
         debug_capture_status: 'cee_capture_missing',
         canonical_flag_on: isV5CanonicalAnalysisEnabled(),
       }
@@ -2989,9 +3002,11 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
 
     const base = assembleV5CanonicalTurnDiagnostics({
       legacyDiagnostic: legacy,
+      legacyDiagnosticFromClassifier: legacyFromClassifier,
       flagDiagnostic,
       analysisStateSource: legacy.analysis_state_source,
       hasResultsReport: sourceResult.hasResultsReport,
+      effectiveCeeResponseSource: bundle.effective_cee_response_source ?? null,
       graphHashAtGeneration: graphHash,
       optionCount,
       factorSensitivityCount,

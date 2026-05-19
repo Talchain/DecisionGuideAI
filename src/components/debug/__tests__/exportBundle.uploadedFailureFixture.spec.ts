@@ -278,6 +278,41 @@ describe('uploaded-bundle fixture — every contradiction the brief lists is mac
     expect(bundle.pipeline.v5_pipeline_status).toBeDefined()
   })
 
+  it('reproduces the misleading legacy proxy_or_network_failure label: legacy classifies as proxy/network because services.cee returned 5xx, but no V5 CEE payload-trace failure exists — new classifier disagrees and emits legacy_pipeline_status_misleading_proxy_or_network_failure', async () => {
+    // Inject a 5xx services.cee record so derivePipelineStatus emits
+    // proxy_or_network_failure (the misleading legacy label the brief
+    // calls out). Crucially, the payload-trace store still has NO V5
+    // turn record (mocked empty above), so our new classifier sees
+    // failedHttpRecord: { present: false } and lands on hydrated_only.
+    // The disagreement must surface as an explicit coherence issue.
+    const dataWith5xx: DebugData = {
+      ...makeFixtureDebugData(),
+      services: {
+        cee: {
+          name: 'CEE',
+          status: 502,
+          success: false,
+          duration_ms: 80,
+          endpoint: '/bff/orchestrate/v2/turn',
+        },
+        plot: null,
+        isl: null,
+      },
+    }
+    const bundle = await buildDebugBundleAsync(dataWith5xx)
+
+    // Legacy reports the misleading classification.
+    expect(bundle.pipeline.v5_pipeline_status).toBe('proxy_or_network_failure')
+
+    // New classifier sees no V5 payload-trace failure → does NOT echo
+    // proxy_or_network_failure. The disagreement is captured as an
+    // explicit coherence issue.
+    expect(bundle.capture_pipeline_status).not.toBe('proxy_or_network_failure')
+    expect(bundle.v5_canonical_turn_diagnostics!.coherence.issues).toContain(
+      'legacy_pipeline_status_misleading_proxy_or_network_failure',
+    )
+  })
+
   it('redaction manifest documents the analytical preservation policy verbatim', async () => {
     const bundle = await buildDebugBundleAsync(makeFixtureDebugData())
     const manifest = bundle.debug_redaction_manifest!

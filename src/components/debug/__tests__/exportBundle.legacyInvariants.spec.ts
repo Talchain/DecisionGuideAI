@@ -47,13 +47,23 @@ vi.mock('../../../canvas/store', () => ({
   useCanvasStore: { getState: () => canvasState },
 }))
 
+// Mutable analysis-state-source result so individual tests can simulate
+// the post-run state (fact present, results present, source =
+// cee_v5_run_analysis) without rewiring the mock factory.
+const analysisStateSourceResult: {
+  source: string
+  showOrphanBanner: boolean
+  hasResultsReport: boolean
+  factPresentForScenario: boolean
+} = {
+  source: 'none',
+  showOrphanBanner: false,
+  hasResultsReport: false,
+  factPresentForScenario: false,
+}
+
 vi.mock('../../../canvas/hooks/useAnalysisStateSource', () => ({
-  readAnalysisStateSourceFromStore: () => ({
-    source: 'none',
-    showOrphanBanner: false,
-    hasResultsReport: false,
-    factPresentForScenario: false,
-  }),
+  readAnalysisStateSourceFromStore: () => ({ ...analysisStateSourceResult }),
 }))
 
 vi.mock('../../../lib/payload-trace-store', () => ({
@@ -209,6 +219,52 @@ describe('additive diagnostics — buildDebugBundleAsync', () => {
     expect(bundle.v5_canonical_turn_diagnostics?.scenario_id_reconciliation).toBeDefined()
   })
 
+  // ------------------------------------------------------------------
+  // Legacy-classifier-failure regression: when the synthesised fallback
+  // engages, fact presence must be DERIVED from the analysis-state
+  // source classifier (not defaulted to 'unknown_not_checked'). Without
+  // this, the headline contradiction issue can never fire.
+  // ------------------------------------------------------------------
+
+  it('synthesised fallback derives analysis_fact.present from sourceResult.factPresentForScenario, NOT unknown_not_checked', async () => {
+    // Simulate the post-run state: source classifier reports fact + results
+    // present even though the legacy `v5_canonical_analysis` block itself
+    // may emit weak signals. The fallback must lift fact-presence into
+    // the synthesised diagnostic so the contradiction issue surfaces.
+    canvasState.currentScenarioId = 'sid-x'
+    canvasState.v5AnalysisFact = {
+      scenarioId: 'sid-x',
+      analysisHash: 'v5:abc',
+      hasRunAnalysisFact: true,
+      freshness: 'fresh',
+    }
+    canvasState.results = { report: { summary: 'x' }, hash: 'v5:abc', rawV2Response: null }
+    analysisStateSourceResult.source = 'cee_v5_run_analysis'
+    analysisStateSourceResult.hasResultsReport = true
+    analysisStateSourceResult.factPresentForScenario = true
+
+    try {
+      const bundle = await buildDebugBundleAsync(makeDebugData())
+      const td = bundle.v5_canonical_turn_diagnostics
+      expect(td).toBeDefined()
+      // The fallback path must NOT lose fact-presence to 'unknown_not_checked'.
+      expect(td!.analysis_fact.present).toBe(true)
+      // The headline contradiction issues must fire (additive, independent
+      // of which final status the classifier picked).
+      expect(td!.coherence.issues).toContain(
+        'analysis_fact_present_but_cee_capture_missing',
+      )
+      expect(td!.coherence.issues).toContain(
+        'results_rendered_from_store_without_capture',
+      )
+    } finally {
+      // Reset the shared mock state so subsequent tests start clean.
+      analysisStateSourceResult.source = 'none'
+      analysisStateSourceResult.hasResultsReport = false
+      analysisStateSourceResult.factPresentForScenario = false
+    }
+  })
+
   it('scenario_id reconciliation lifts session.scenario_id from store', async () => {
     canvasState.currentScenarioId = 'sid-from-store'
     const bundle = await buildDebugBundleAsync(makeDebugData())
@@ -243,6 +299,42 @@ describe('additive diagnostics — buildDebugBundleAsync', () => {
     for (const entry of omitted) {
       expect(typeof entry.path).toBe('string')
       expect(typeof entry.reason).toBe('string')
+    }
+  })
+
+  it('top-level JSON snapshot — every brief-required field name is present in the serialised bundle (grep target)', async () => {
+    const bundle = await buildDebugBundleAsync(makeDebugData())
+    const json = JSON.stringify(bundle)
+    // Reviewers grep these literal strings to locate the diagnostic
+    // surfaces. Asserting on the serialised JSON guards against future
+    // changes that rename or hide them.
+    const requiredLiterals = [
+      '"scenario_id_reconciliation"',
+      '"capture_pipeline_status"',
+      '"v5_canonical_turn_diagnostics"',
+      '"scientific_validation"',
+      '"debug_redaction_manifest"',
+      // Within v5_canonical_turn_diagnostics
+      '"canonical_flag_env_key"',
+      '"feature_flag_diagnostic"',
+      '"VITE_V5_CANONICAL_ANALYSIS"',
+      '"effective_cee_response_source"',
+      '"latest_v5_turn"',
+      '"coherence"',
+      // Within scientific_validation
+      '"overall_status"',
+      '"user_std_propagation"',
+      '"confidence_validation"',
+      '"evidence_gap_validation"',
+      '"evpi_validation"',
+      '"flip_threshold_validation"',
+      '"auto_noise_validation"',
+      '"response_shape_validation"',
+      // Within debug_redaction_manifest
+      '"preserved_analytical_paths"',
+    ]
+    for (const literal of requiredLiterals) {
+      expect(json).toContain(literal)
     }
   })
 })

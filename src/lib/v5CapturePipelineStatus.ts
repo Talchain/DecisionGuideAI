@@ -152,7 +152,19 @@ export function classifyV5CapturePipelineStatus(
     issues.push('analysis_fact_present_but_cee_capture_missing')
   }
 
-  if (status === 'results_rendered_from_store_without_capture') {
+  // ADDITIVE — fires whenever results exist without a live V5 capture
+  // AND no failed HTTP record explains the absence. The chosen `status`
+  // may be `hydrated_only` or `results_rendered_from_store_without_capture`
+  // depending on rawV2Response evidence, but the contradiction itself is
+  // present in both cases. Decoupling means reviewers see ALL applicable
+  // issues regardless of which status enum was selected.
+  const resultsWithoutLiveCapture =
+    inputs.hasResultsReport &&
+    (inputs.v5Capture === null ||
+      !inputs.v5Capture.request_present ||
+      !inputs.v5Capture.response_present) &&
+    !inputs.failedHttpRecord.present
+  if (resultsWithoutLiveCapture) {
     issues.push('results_rendered_from_store_without_capture')
   }
 
@@ -160,7 +172,15 @@ export function classifyV5CapturePipelineStatus(
     issues.push('scenario_id_conflict')
   }
 
-  if (status === 'parse_failed' && inputs.v5Capture?.raw_response_present) {
+  // Independent of chosen status: fires whenever a parse-error envelope
+  // preserved the raw response. parse_ok=false + raw_response_present=true
+  // is the canonical PR #147 invariant signature; emit it as a visible
+  // issue so reviewers don't have to cross-reference status enums.
+  if (
+    inputs.v5Capture !== null &&
+    !inputs.v5Capture.parse_ok &&
+    inputs.v5Capture.raw_response_present
+  ) {
     issues.push('parse_failed_with_raw_preserved')
   }
 
@@ -190,18 +210,25 @@ export function classifyV5CapturePipelineStatus(
 }
 
 /**
- * Scan a payload-trace snapshot for the first failed HTTP record. A
- * record qualifies when:
- *   - `completed === false`, OR
- *   - `status >= 500`, OR
- *   - `error` / `errorName` strings are set, OR
- *   - `source` is one of the explicit network/proxy classifications.
+ * Scan a payload-trace snapshot for the first failed HTTP record that
+ * belongs to the V5 CEE turn (the `/orchestrate/v2/turn` endpoint).
+ * Unrelated failed records (PLoT, legacy CEE endpoints, ISL probes,
+ * etc.) MUST NOT influence the V5 capture classification.
  *
- * Returns the source classification of the first failure found, or
- * { present: false, source: null } when no failure is recorded.
+ * A record qualifies when ALL of:
+ *   - service is CEE
+ *   - endpoint contains `/orchestrate/v2/turn`
+ *   - one of: `completed === false`, `status >= 500`, `error` /
+ *     `errorName` set, or `source ∈ {proxy,netlify,preflight_or_network,
+ *     browser_timeout}`.
+ *
+ * Returns the source classification of the first qualifying failure, or
+ * { present: false, source: null } when no V5-turn failure is recorded.
  */
 export function detectFailedHttpRecord(
   payloads: ReadonlyArray<{
+    service?: string
+    endpoint?: string
     completed?: boolean
     status?: number
     error?: string
@@ -210,6 +237,12 @@ export function detectFailedHttpRecord(
   }>,
 ): FailedHttpRecord {
   for (const p of payloads) {
+    // Scope filter: only V5 CEE turn records influence V5 capture status.
+    const endpoint = typeof p.endpoint === 'string' ? p.endpoint : ''
+    const isV5CeeTurn =
+      p.service === 'CEE' && endpoint.includes('/orchestrate/v2/turn')
+    if (!isV5CeeTurn) continue
+
     const sourceFlag =
       typeof p.source === 'string' && PROXY_NETWORK_SOURCES.has(p.source)
     const isFailed =

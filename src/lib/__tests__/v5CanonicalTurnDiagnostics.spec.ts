@@ -71,9 +71,11 @@ function makeReconciliation(): ScenarioIdReconciliation {
 function defaults(): AssembleV5CanonicalTurnDiagnosticsInputs {
   return {
     legacyDiagnostic: makeLegacy(),
+    legacyDiagnosticFromClassifier: true,
     flagDiagnostic: { resolved: true, source: 'env' },
     analysisStateSource: 'cee_v5_run_analysis',
     hasResultsReport: true,
+    effectiveCeeResponseSource: 'direct',
     graphHashAtGeneration: null,
     optionCount: 0,
     factorSensitivityCount: 0,
@@ -105,13 +107,90 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
     expect(out.canonical_flag_source).toBe('unknown')
   })
 
-  it('latest_v5_turn mirrors the legacy capture fields', () => {
-    const out = assembleV5CanonicalTurnDiagnostics(defaults())
+  it('latest_v5_turn mirrors the legacy capture fields (including brief-required request_id, scenario_id, turn_id, endpoint, duration_ms, source)', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: makeCapture({
+          request_id: 'req-1',
+          scenario_id: 'sid-1',
+          turn_id: 'turn-1',
+          endpoint: '/bff/orchestrate/v2/turn',
+          status: 200,
+          duration_ms: 123,
+          source: 'proxy_v5_turn',
+        }),
+      }),
+    })
     expect(out.latest_v5_turn).toEqual({
       request_present: true,
       response_present: true,
+      request_id: 'req-1',
+      scenario_id: 'sid-1',
+      turn_id: 'turn-1',
+      endpoint: '/bff/orchestrate/v2/turn',
       status: 200,
+      duration_ms: 123,
+      source: 'proxy_v5_turn',
     })
+  })
+
+  it('effective_cee_response_source is exposed at top level (mirror of bundle field)', () => {
+    expect(assembleV5CanonicalTurnDiagnostics(defaults()).effective_cee_response_source).toBe('direct')
+    expect(
+      assembleV5CanonicalTurnDiagnostics({
+        ...defaults(),
+        effectiveCeeResponseSource: 'none',
+      }).effective_cee_response_source,
+    ).toBe('none')
+  })
+
+  it('parse.unknown_block_types surfaces from the legacy capture', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: makeCapture({
+          parse_ok: false,
+          parse_failure_kind: 'unknown_block_types',
+          unknown_block_types: ['mystery_block', 'experimental'],
+        }),
+      }),
+    })
+    expect(out.parse.unknown_block_types).toEqual(['mystery_block', 'experimental'])
+  })
+
+  it('analysis_fact.source distinguishes legacy classifier from synthesised fallback', () => {
+    const fromClassifier = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnosticFromClassifier: true,
+      legacyDiagnostic: makeLegacy({ analysis_fact_status: 'present' }),
+    })
+    expect(fromClassifier.analysis_fact.source).toBe('v5_canonical_analysis')
+
+    const fromFallback = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnosticFromClassifier: false,
+      legacyDiagnostic: makeLegacy({ analysis_fact_status: 'present' }),
+    })
+    expect(fromFallback.analysis_fact.source).toBe('source_classifier')
+
+    const noFact = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({ analysis_fact_status: 'missing' }),
+    })
+    expect(noFact.analysis_fact.source).toBe('none')
+  })
+
+  it('feature_flag_diagnostic emits the compact { VITE_V5_CANONICAL_ANALYSIS: { value, source } } shape', () => {
+    const out = assembleV5CanonicalTurnDiagnostics(defaults())
+    expect(out.feature_flag_diagnostic).toEqual({
+      VITE_V5_CANONICAL_ANALYSIS: { value: true, source: 'env' },
+    })
+  })
+
+  it('results.rendered_counts_documented_in points to bundle.display_state (no fabrication)', () => {
+    const out = assembleV5CanonicalTurnDiagnostics(defaults())
+    expect(out.results.rendered_counts_documented_in).toBe('bundle.display_state')
   })
 
   it('emits null fields when legacy capture is null', () => {

@@ -40,15 +40,48 @@ export type CanonicalFlagSource = 'env' | 'localStorage' | 'default' | 'unknown'
  */
 export const CANONICAL_FLAG_ENV_KEY = 'VITE_V5_CANONICAL_ANALYSIS' as const
 
+/**
+ * Compact feature-flag diagnostic — grep-ability surface for support
+ * tooling. Currently scoped to the canonical-analysis flag; structure
+ * leaves room for future flags without breaking consumers.
+ */
+export interface FeatureFlagDiagnostic {
+  VITE_V5_CANONICAL_ANALYSIS: {
+    value: boolean
+    source: CanonicalFlagSource
+  }
+}
+
 export interface V5CanonicalTurnDiagnostics {
   /** Verbatim env-key string for grep-ability across exported bundles. */
   canonical_flag_env_key: typeof CANONICAL_FLAG_ENV_KEY
   canonical_flag_on: boolean
   canonical_flag_source: CanonicalFlagSource
+  /** Compact keyed feature-flag object for support tooling. */
+  feature_flag_diagnostic: FeatureFlagDiagnostic
+  /**
+   * Top-level mirror of the bundle's `effective_cee_response_source`
+   * (direct/downstream/none) so a single section answers "which CEE
+   * extraction path produced the captured response".
+   */
+  effective_cee_response_source: 'direct' | 'downstream' | 'none' | null
   latest_v5_turn: {
     request_present: boolean
     response_present: boolean
+    /** HTTP request_id from the captured CEE call. */
+    request_id: string | null
+    /** Scenario the call was issued against. */
+    scenario_id: string | null
+    /** Per-turn client identifier (typically the analysis hash). */
+    turn_id: string | null
+    /** CEE endpoint hit. Null when the trace didn't record it. */
+    endpoint: string | null
+    /** HTTP status code. */
     status: number | null
+    /** Wall-clock duration of the call in ms. */
+    duration_ms: number | null
+    /** Source discriminator for capture provenance. */
+    source: 'proxy_v5_turn' | null
   }
   parse: {
     parse_ok: boolean | null
@@ -56,6 +89,9 @@ export interface V5CanonicalTurnDiagnostics {
     parse_failure_kind: ParseFailureKind | null
     raw_response_present: boolean
     response_top_level_keys: string[] | null
+    /** Offending block `type` values when parse_failure_kind is
+     *  `unknown_block_types`; null otherwise. */
+    unknown_block_types: string[] | null
   }
   analysis_fact: {
     present: boolean
@@ -67,12 +103,29 @@ export interface V5CanonicalTurnDiagnostics {
     graph_hash_at_generation: string | null
     phase3_raw_block_count: number
     phase3_raw_block_types: string[]
+    /**
+     * Where the fact-presence signal came from:
+     *   - 'v5_canonical_analysis' — legacy classifier output
+     *   - 'source_classifier'     — synthesised fallback derived from
+     *                               `sourceResult.factPresentForScenario`
+     *   - 'none'                  — no fact present
+     */
+    source: 'v5_canonical_analysis' | 'source_classifier' | 'none'
   }
   results: {
     present: boolean
     source: AnalysisStateSource
     option_count: number
     factor_sensitivity_count: number
+    /**
+     * Brief lists `rendered_option_count` / `rendered_factor_count` /
+     * `influence_unmatched_count`. These require display-state
+     * inspection that this snapshot does not perform; the bundle's
+     * existing `display_state` block carries those signals when
+     * captured. Documented here for traceability; values are not
+     * synthesised to avoid overclaiming.
+     */
+    rendered_counts_documented_in: 'bundle.display_state'
   }
   capture_pipeline_status: CapturePipelineStatus
   coherence: {
@@ -85,6 +138,9 @@ export interface V5CanonicalTurnDiagnostics {
 export interface AssembleV5CanonicalTurnDiagnosticsInputs {
   /** Output of the legacy classifier (already on the bundle). */
   legacyDiagnostic: V5CanonicalAnalysisDiagnostic
+  /** Whether `legacyDiagnostic` came from a real classifier run vs.
+   *  the synthesised fallback. Drives `analysis_fact.source`. */
+  legacyDiagnosticFromClassifier: boolean
   /** Result of diagnoseFlagState for the canonical flag. Pass null when
    *  the source cannot be resolved (e.g. tests without localStorage). */
   flagDiagnostic: {
@@ -94,6 +150,8 @@ export interface AssembleV5CanonicalTurnDiagnosticsInputs {
   /** From the existing AnalysisStateSource classifier. */
   analysisStateSource: AnalysisStateSource
   hasResultsReport: boolean
+  /** Mirror of bundle.effective_cee_response_source. */
+  effectiveCeeResponseSource: 'direct' | 'downstream' | 'none' | null
   /** Read-through. Slice may not carry this on every code path; emit null. */
   graphHashAtGeneration: string | null
   /** Results metrics from bundle payloads / canvas store. */
@@ -120,7 +178,13 @@ export function assembleV5CanonicalTurnDiagnostics(
   const latest_v5_turn = {
     request_present: capture?.request_present ?? false,
     response_present: capture?.response_present ?? false,
+    request_id: capture?.request_id ?? null,
+    scenario_id: capture?.scenario_id ?? null,
+    turn_id: capture?.turn_id ?? null,
+    endpoint: capture?.endpoint ?? null,
     status: capture?.status ?? null,
+    duration_ms: capture?.duration_ms ?? null,
+    source: capture?.source ?? null,
   }
 
   const parse = {
@@ -129,20 +193,29 @@ export function assembleV5CanonicalTurnDiagnostics(
     parse_failure_kind: capture?.parse_failure_kind ?? null,
     raw_response_present: capture?.raw_response_present ?? false,
     response_top_level_keys: capture?.response_top_level_keys ?? null,
+    unknown_block_types: capture?.unknown_block_types ?? null,
   }
 
   // analysis_fact.* — scenario_id comes from the V5 capture (which already
   // reads from canvas store currentScenarioId in exportBundle assembly);
   // present + has_run_analysis_fact + freshness come from the legacy
   // diagnostic; graph_hash_at_generation is a read-through.
+  const factPresent = inputs.legacyDiagnostic.analysis_fact_status === 'present'
+  const factSource: 'v5_canonical_analysis' | 'source_classifier' | 'none' =
+    !factPresent
+      ? 'none'
+      : inputs.legacyDiagnosticFromClassifier
+        ? 'v5_canonical_analysis'
+        : 'source_classifier'
   const analysis_fact = {
-    present: inputs.legacyDiagnostic.analysis_fact_status === 'present',
+    present: factPresent,
     has_run_analysis_fact: null as boolean | null,
     freshness: null as 'fresh' | 'stale' | 'unknown' | 'none' | null,
     scenario_id: capture?.scenario_id ?? null,
     graph_hash_at_generation: inputs.graphHashAtGeneration,
     phase3_raw_block_count: capture?.phase3_blocks_tolerated_count ?? 0,
     phase3_raw_block_types: capture?.phase3_block_types ?? [],
+    source: factSource,
   }
 
   const results = {
@@ -150,12 +223,22 @@ export function assembleV5CanonicalTurnDiagnostics(
     source: inputs.analysisStateSource,
     option_count: inputs.optionCount,
     factor_sensitivity_count: inputs.factorSensitivityCount,
+    rendered_counts_documented_in: 'bundle.display_state' as const,
   }
+
+  const feature_flag_diagnostic = {
+    [CANONICAL_FLAG_ENV_KEY]: {
+      value: inputs.legacyDiagnostic.canonical_flag_on,
+      source: canonical_flag_source,
+    },
+  } as FeatureFlagDiagnostic
 
   return {
     canonical_flag_env_key: CANONICAL_FLAG_ENV_KEY,
     canonical_flag_on: inputs.legacyDiagnostic.canonical_flag_on,
     canonical_flag_source,
+    feature_flag_diagnostic,
+    effective_cee_response_source: inputs.effectiveCeeResponseSource,
     latest_v5_turn,
     parse,
     analysis_fact,
