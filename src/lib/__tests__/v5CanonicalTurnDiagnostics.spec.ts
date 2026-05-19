@@ -81,6 +81,9 @@ function defaults(): AssembleV5CanonicalTurnDiagnosticsInputs {
     optionCount: 0,
     factorSensitivityCount: 0,
     captureTier: 'bundle_payloads',
+    // Default: body was captured (matches default makeCapture()
+    // which has request_present=true, response_present=true).
+    responseBodyPresent: true,
     renderedOptionCount: null,
     renderedFactorCount: null,
     capturePipeline: {
@@ -129,6 +132,9 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
     expect(out.latest_v5_turn).toEqual({
       request_present: true,
       response_present: true,
+      // Default responseBodyPresent=true in defaults() → distinct from
+      // response_present (HTTP completion) — body was actually captured.
+      response_body_present: true,
       request_id: 'req-1',
       // Default captureTier is bundle_payloads → session-level
       // request_id provenance.
@@ -192,20 +198,59 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
     expect(out.latest_v5_turn.request_id_source).toBe('none')
   })
 
-  it('parse_ok is null when response_present is false (does NOT conflate "no response" with "parsed and failed")', () => {
+  it('parse_ok is null when response_body_present is false (round-5 P0.2 — does NOT conflate HTTP completion with parseable body)', () => {
     const out = assembleV5CanonicalTurnDiagnostics({
       ...defaults(),
       legacyDiagnostic: makeLegacy({
         v5_cee_capture: makeCapture({
           request_present: true,
-          response_present: false,
-          parse_ok: false, // legacy capture would report false, but
-          // the snapshot must overlay null per P0.2
+          response_present: true, // HTTP completed
+          parse_ok: false,
         }),
       }),
+      // Critically: HTTP completed but NO body. Most common case is
+      // a 500/empty response that nonetheless sets `completed=true`.
+      responseBodyPresent: false,
     })
     expect(out.parse.parse_ok).toBeNull()
     expect(out.diagnostic_source_strength.parse).toBe('unavailable')
+    expect(out.latest_v5_turn.response_present).toBe(true)
+    expect(out.latest_v5_turn.response_body_present).toBe(false)
+  })
+
+  it('parse_ok = true when body present AND not a parse-error envelope', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: makeCapture({
+          request_present: true,
+          response_present: true,
+          parse_ok: true,
+        }),
+      }),
+      responseBodyPresent: true,
+    })
+    expect(out.parse.parse_ok).toBe(true)
+    expect(out.diagnostic_source_strength.parse).toBe('live_response')
+    expect(out.latest_v5_turn.response_body_present).toBe(true)
+  })
+
+  it('parse_ok = false (NOT true) when body is a parse-error envelope', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: makeCapture({
+          request_present: true,
+          response_present: true,
+          parse_ok: false,
+          parse_failure_kind: 'schema_mismatch',
+          raw_response_present: true,
+        }),
+      }),
+      responseBodyPresent: true,
+    })
+    expect(out.parse.parse_ok).toBe(false)
+    expect(out.diagnostic_source_strength.parse).toBe('live_response')
   })
 
   it('diagnostic_source_strength.parse is "unavailable" for service-metadata-only failures', () => {
@@ -219,10 +264,22 @@ describe('assembleV5CanonicalTurnDiagnostics — composition with legacy classif
           parse_ok: false,
         }),
       }),
+      responseBodyPresent: false,
     })
     expect(out.parse.parse_ok).toBeNull()
     expect(out.diagnostic_source_strength.parse).toBe('unavailable')
     expect(out.diagnostic_source_strength.latest_v5_turn).toBe('service_metadata')
+  })
+
+  it('request_id_source = "none" when the actual request_id is null (round-5 P1.1)', () => {
+    const out = assembleV5CanonicalTurnDiagnostics({
+      ...defaults(),
+      legacyDiagnostic: makeLegacy({
+        v5_cee_capture: makeCapture({ request_id: null }),
+      }),
+    })
+    expect(out.latest_v5_turn.request_id).toBeNull()
+    expect(out.latest_v5_turn.request_id_source).toBe('none')
   })
 
   it('results.rendered_option_count / rendered_factor_count surface from display_state when provided', () => {
@@ -531,7 +588,7 @@ describe('determineCaptureTier — single canonical resolver', () => {
         traceEntryPresent: true,
         bundlePayloadsCeeRequestPresent: true,
         bundlePayloadsCeeResponsePresent: true,
-        serviceMetadataV5EndpointPresent: true,
+        serviceMetadataV5FailurePresent: true,
         factPresentForScenario: true,
       }),
     ).toBe('payload_trace')
@@ -543,7 +600,7 @@ describe('determineCaptureTier — single canonical resolver', () => {
         traceEntryPresent: false,
         bundlePayloadsCeeRequestPresent: true,
         bundlePayloadsCeeResponsePresent: false,
-        serviceMetadataV5EndpointPresent: false,
+        serviceMetadataV5FailurePresent: false,
         factPresentForScenario: false,
       }),
     ).toBe('bundle_payloads')
@@ -552,22 +609,47 @@ describe('determineCaptureTier — single canonical resolver', () => {
         traceEntryPresent: false,
         bundlePayloadsCeeRequestPresent: false,
         bundlePayloadsCeeResponsePresent: true,
-        serviceMetadataV5EndpointPresent: false,
+        serviceMetadataV5FailurePresent: false,
         factPresentForScenario: false,
       }),
     ).toBe('bundle_payloads')
   })
 
-  it('returns service_metadata when only data.services.cee V5 endpoint is present', () => {
+  it('returns service_metadata only when V5 endpoint reports FAILURE evidence', () => {
     expect(
       determineCaptureTier({
         traceEntryPresent: false,
         bundlePayloadsCeeRequestPresent: false,
         bundlePayloadsCeeResponsePresent: false,
-        serviceMetadataV5EndpointPresent: true,
+        serviceMetadataV5FailurePresent: true,
         factPresentForScenario: false,
       }),
     ).toBe('service_metadata')
+  })
+
+  it('round-5 P1.4: successful V5 service-metadata record does NOT activate service_metadata tier — falls through to store/none so missing payloads are visible', () => {
+    // Successful service record + fact present → tier should be 'store',
+    // NOT 'service_metadata'. The fall-through is the diagnostic
+    // signal that payloads are missing despite a successful call.
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: false,
+        bundlePayloadsCeeResponsePresent: false,
+        serviceMetadataV5FailurePresent: false,
+        factPresentForScenario: true,
+      }),
+    ).toBe('store')
+    // Successful service record + no fact → 'none'.
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: false,
+        bundlePayloadsCeeResponsePresent: false,
+        serviceMetadataV5FailurePresent: false,
+        factPresentForScenario: false,
+      }),
+    ).toBe('none')
   })
 
   it('returns store when no capture evidence but a fact is present', () => {
@@ -576,7 +658,7 @@ describe('determineCaptureTier — single canonical resolver', () => {
         traceEntryPresent: false,
         bundlePayloadsCeeRequestPresent: false,
         bundlePayloadsCeeResponsePresent: false,
-        serviceMetadataV5EndpointPresent: false,
+        serviceMetadataV5FailurePresent: false,
         factPresentForScenario: true,
       }),
     ).toBe('store')
@@ -588,7 +670,7 @@ describe('determineCaptureTier — single canonical resolver', () => {
         traceEntryPresent: false,
         bundlePayloadsCeeRequestPresent: false,
         bundlePayloadsCeeResponsePresent: false,
-        serviceMetadataV5EndpointPresent: false,
+        serviceMetadataV5FailurePresent: false,
         factPresentForScenario: false,
       }),
     ).toBe('none')

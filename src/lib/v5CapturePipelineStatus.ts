@@ -235,17 +235,46 @@ export function classifyV5CapturePipelineStatus(
   }
 }
 
+/** Whether a trace-store entry carries a parseable response body. */
+function traceEntryHasResponseBody(p: {
+  response?: { body?: unknown }
+}): boolean {
+  return (
+    p.response !== undefined &&
+    p.response !== null &&
+    p.response.body !== undefined &&
+    p.response.body !== null
+  )
+}
+
+/** Whether a trace-store entry carries a request body. */
+function traceEntryHasRequestBody(p: {
+  request?: { body?: unknown }
+}): boolean {
+  return (
+    p.request !== undefined &&
+    p.request !== null &&
+    p.request.body !== undefined &&
+    p.request.body !== null
+  )
+}
+
 /**
  * Locate the most-relevant V5 CEE turn entry in the payload-trace
  * snapshot. Used by the bundle assembler to populate
  * `latest_v5_turn.{request_id, endpoint, duration_ms,
- * request_present, response_present}` from the actual capture
- * rather than from coarse session-level data.
+ * request_present, response_present, response_body_present}` from the
+ * actual capture rather than from coarse session-level data.
  *
  * Preference order (the trace store keeps entries most-recent-first):
- *   1. completed response (status set OR completed === true)
- *   2. request-only (request body present but no response yet)
- *   3. any matching V5 entry (metadata-only stub fallback)
+ *   1. response BODY present (a parseable response was captured)
+ *   2. response metadata only (completed === true OR status set, no body)
+ *   3. request-only (request body present but no response yet)
+ *   4. any matching V5 entry (metadata-only stub fallback)
+ *
+ * The body-first preference prevents a status-only metadata stub from
+ * masking a richer body-bearing entry — directly addresses the
+ * round-5 P1.2 concern.
  *
  * Returns null when no V5 turn entry is recorded.
  */
@@ -265,18 +294,31 @@ export function findLatestV5TurnEntry<
   })
   if (v5.length === 0) return null
 
-  // Tier 1: completed response (most authoritative).
-  const completed = v5.find(
-    (p) => p.response !== undefined || p.completed === true || typeof p.status === 'number',
-  )
-  if (completed) return completed
+  // Tier 1: a parseable response body is present (most authoritative).
+  const withBody = v5.find(traceEntryHasResponseBody)
+  if (withBody) return withBody
 
-  // Tier 2: request-only (request fired, response pending).
-  const requestOnly = v5.find((p) => p.request !== undefined)
+  // Tier 2: HTTP completed but no body (status set or completed flag).
+  const completedNoBody = v5.find(
+    (p) => p.completed === true || typeof p.status === 'number',
+  )
+  if (completedNoBody) return completedNoBody
+
+  // Tier 3: request fired, response pending.
+  const requestOnly = v5.find(traceEntryHasRequestBody)
   if (requestOnly) return requestOnly
 
-  // Tier 3: metadata-only stub fallback.
+  // Tier 4: metadata-only stub fallback.
   return v5[0]
+}
+
+/**
+ * Body-presence helper exposed for callers that need to disambiguate
+ * "HTTP completed" from "parseable body available". This is the
+ * structural signal behind `latest_v5_turn.response_body_present`.
+ */
+export function hasResponseBody(p: { response?: { body?: unknown } }): boolean {
+  return traceEntryHasResponseBody(p)
 }
 
 /**

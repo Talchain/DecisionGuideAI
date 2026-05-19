@@ -21,6 +21,7 @@ import {
   classifyV5CapturePipelineStatus,
   detectFailedHttpRecord,
   findLatestV5TurnEntry,
+  hasResponseBody,
   type V5CapturePipelineStatusInputs,
 } from '../v5CapturePipelineStatus'
 
@@ -465,25 +466,30 @@ describe('findLatestV5TurnEntry — preference order', () => {
     ).toBeNull()
   })
 
-  it('prefers an entry with a completed response over a request-only entry', () => {
-    const completed = v5({
-      id: 'c1',
+  it('prefers an entry WITH response body over a status-only entry (round-5 P1.2)', () => {
+    const withBody = v5({
+      id: 'b1',
       response: { body: { ok: true } },
       status: 200,
       completed: true,
     })
+    const statusOnly = v5({ id: 'h1', status: 500, completed: true })
+    // status-only first in the list — picker must still pick the
+    // body-bearing entry. Prevents a metadata stub from masking a
+    // parseable response.
+    expect(findLatestV5TurnEntry([statusOnly, withBody])).toBe(withBody)
+  })
+
+  it('prefers a status-only entry over a request-only entry when no body exists', () => {
+    const statusOnly = v5({ id: 'h1', status: 500, completed: true })
     const requestOnly = v5({ id: 'r1', request: { body: { kind: 'analysis' } } })
-    // request-only first, completed-response second — picker must still
-    // pick the completed-response entry.
-    const out = findLatestV5TurnEntry([requestOnly, completed])
-    expect(out).toBe(completed)
+    expect(findLatestV5TurnEntry([requestOnly, statusOnly])).toBe(statusOnly)
   })
 
   it('prefers a request-only entry over a metadata-only stub', () => {
     const requestOnly = v5({ id: 'r1', request: { body: {} } })
     const metadataOnly = v5({ id: 'm1' })
-    const out = findLatestV5TurnEntry([metadataOnly, requestOnly])
-    expect(out).toBe(requestOnly)
+    expect(findLatestV5TurnEntry([metadataOnly, requestOnly])).toBe(requestOnly)
   })
 
   it('falls back to metadata-only stub when nothing else exists', () => {
@@ -491,8 +497,21 @@ describe('findLatestV5TurnEntry — preference order', () => {
     expect(findLatestV5TurnEntry([stub])).toBe(stub)
   })
 
-  it('accepts status-only as completed-response evidence (HTTP completed even without response body)', () => {
+  it('accepts status-only as response evidence when no body-bearing entry exists', () => {
     const statusOnly = v5({ id: 'h1', status: 500, completed: true })
     expect(findLatestV5TurnEntry([statusOnly])).toBe(statusOnly)
+  })
+})
+
+describe('hasResponseBody — body-presence helper', () => {
+  it('returns true only when response.body is non-null', () => {
+    expect(hasResponseBody({ response: { body: { ok: true } } })).toBe(true)
+    expect(hasResponseBody({ response: { body: [] } })).toBe(true)
+  })
+
+  it('returns false for status-only / metadata-only entries', () => {
+    expect(hasResponseBody({ response: { body: null } })).toBe(false)
+    expect(hasResponseBody({ response: {} })).toBe(false)
+    expect(hasResponseBody({})).toBe(false)
   })
 })

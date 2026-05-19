@@ -63,7 +63,13 @@ export type LatestV5TurnSource =
  * Tier order (highest evidence first):
  *   1. payload_trace — V5 turn entry exists in the trace store
  *   2. bundle_payloads — bundle.payloads.cee_request/response set
- *   3. service_metadata — only data.services.cee for V5 endpoint
+ *   3. service_metadata — V5 endpoint reports FAILURE in
+ *                         `data.services.cee` with no payload/trace
+ *                         evidence. Narrowed to failure evidence
+ *                         only (round-5 P1.4): a successful service
+ *                         record without payloads is suspicious and
+ *                         should drop to `store` or `none` so the
+ *                         missingness is visible.
  *   4. store — no capture but a v5AnalysisFact exists for the scenario
  *   5. none — no evidence at all
  */
@@ -71,7 +77,14 @@ export function determineCaptureTier(inputs: {
   traceEntryPresent: boolean
   bundlePayloadsCeeRequestPresent: boolean
   bundlePayloadsCeeResponsePresent: boolean
-  serviceMetadataV5EndpointPresent: boolean
+  /**
+   * True when `data.services.cee.endpoint` matches the V5 turn
+   * endpoint AND the record indicates a failure (success === false,
+   * status >= 500, status === 0, or `error` set). Successful
+   * service-metadata records do NOT activate this tier — they fall
+   * through so reviewers see the missing-payload anomaly.
+   */
+  serviceMetadataV5FailurePresent: boolean
   factPresentForScenario: boolean
 }): LatestV5TurnSource {
   if (inputs.traceEntryPresent) return 'payload_trace'
@@ -81,7 +94,7 @@ export function determineCaptureTier(inputs: {
   ) {
     return 'bundle_payloads'
   }
-  if (inputs.serviceMetadataV5EndpointPresent) return 'service_metadata'
+  if (inputs.serviceMetadataV5FailurePresent) return 'service_metadata'
   if (inputs.factPresentForScenario) return 'store'
   return 'none'
 }
@@ -136,7 +149,21 @@ export interface V5CanonicalTurnDiagnostics {
   effective_cee_response_source: 'direct' | 'downstream' | 'none' | null
   latest_v5_turn: {
     request_present: boolean
+    /**
+     * True when HTTP-level completion is observed (status set,
+     * `completed === true`, or a `response` object is present). This
+     * does NOT imply a parseable body is available — see
+     * `response_body_present` for that distinction.
+     */
     response_present: boolean
+    /**
+     * True only when a parseable response body was actually captured.
+     * Distinguishes HTTP completion from body availability — a 500
+     * with no body sets `response_present: true` but
+     * `response_body_present: false`, preventing reviewers from
+     * mistaking metadata for parse evidence.
+     */
+    response_body_present: boolean
     /** HTTP request_id from the captured CEE call. */
     request_id: string | null
     /**
@@ -266,6 +293,13 @@ export interface AssembleV5CanonicalTurnDiagnosticsInputs {
    */
   captureTier: LatestV5TurnSource
   /**
+   * True when a parseable response body was captured (round-5 P0.2):
+   * trace.response.body OR bundle.payloads.cee_response is an object.
+   * Critical: a status-only trace entry sets response_present=true
+   * but body_present=false, so parse_ok must be null.
+   */
+  responseBodyPresent: boolean
+  /**
    * Rendered counts pulled from `bundle.display_state` when present;
    * `null` when display_state is absent.
    */
@@ -295,10 +329,12 @@ export function assembleV5CanonicalTurnDiagnostics(
 
   // request_id source attribution. Trace-tier entries carry the real
   // payload-trace id; lower tiers fall back to the session-level
-  // request_id. Explicit field so reviewers don't mistake the
-  // fallback for the actual trace id.
+  // request_id. Round-5 P1.1: when no actual id value exists (capture
+  // absent OR capture.request_id null), source MUST be `'none'` —
+  // emitting `'session'` with a null id would mislead reviewers into
+  // thinking the session-level fallback was attempted but came up empty.
   const requestIdSource: 'payload_trace' | 'session' | 'none' =
-    capture === null
+    capture === null || capture.request_id === null
       ? 'none'
       : latestV5TurnSource === 'payload_trace'
         ? 'payload_trace'
@@ -307,6 +343,7 @@ export function assembleV5CanonicalTurnDiagnostics(
   const latest_v5_turn = {
     request_present: capture?.request_present ?? false,
     response_present: capture?.response_present ?? false,
+    response_body_present: capture !== null && inputs.responseBodyPresent,
     request_id: capture?.request_id ?? null,
     request_id_source: requestIdSource,
     scenario_id: capture?.scenario_id ?? null,
@@ -317,17 +354,14 @@ export function assembleV5CanonicalTurnDiagnostics(
     source: latestV5TurnSource,
   }
 
-  // parse_ok is only meaningful when a response was actually received.
-  // Without a response body there's nothing to parse — emit `null` so
-  // reviewers don't mistake "no response" for "parsed and failed".
-  // (The legacy V5CeeCapture.parse_ok stays boolean for backward-compat;
-  // this snapshot overlays null based on response_present.)
+  // parse_ok is only meaningful when a response BODY was actually
+  // captured and parsed. Round-5 P0.2/P0.3 lesson: status-only or
+  // failure-without-body trace entries previously inherited
+  // `parse_ok: true` from the synthesised legacy value. Gate on the
+  // explicit `responseBodyPresent` signal now — without a body, there
+  // is nothing to parse.
   const parseOkResolved: boolean | null =
-    capture === null
-      ? null
-      : capture.response_present
-        ? capture.parse_ok
-        : null
+    capture === null || !inputs.responseBodyPresent ? null : capture.parse_ok
   const parse = {
     parse_ok: parseOkResolved,
     parse_error: capture?.parse_error ?? null,
@@ -382,14 +416,12 @@ export function assembleV5CanonicalTurnDiagnostics(
             : latestV5TurnSource === 'store'
               ? 'fallback'
               : 'unavailable',
-    // Parse strength is honest about evidence: 'live_response' only
-    // when a response body was actually received and parsed (success
-    // OR parse-error envelope with raw preserved). When the response
-    // is absent (capture null OR service-metadata-only), parse
-    // strength is 'unavailable' — never `live_response` based on a
-    // synthesised `parse_ok = false`.
+    // Parse strength is honest about evidence: 'live_response' ONLY
+    // when a parseable response body was actually captured. Round-5
+    // P0.2: status-only or failure-without-body responses must NOT
+    // surface as 'live_response' just because response_present=true.
     parse:
-      capture === null || !capture.response_present
+      capture === null || !inputs.responseBodyPresent
         ? 'unavailable'
         : 'live_response',
     results:

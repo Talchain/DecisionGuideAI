@@ -365,6 +365,148 @@ describe('uploaded-bundle fixture — every contradiction the brief lists is mac
     }
   })
 
+  it('round-5 P0.1 + P1.3: trace response BODY drives parse diagnostics when bundle.payloads.cee_response is null', async () => {
+    // Trace entry carries a successful response body; bundle.payloads
+    // are empty. The snapshot's parse fields must derive from the
+    // trace body — not appear empty.
+    traceState.payloads = [
+      {
+        id: 'trace-body-1',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        completed: true,
+        request: { body: { kind: 'analysis' } },
+        response: {
+          body: {
+            blocks: [{ type: 'analysis_result', enrichment: {} }],
+            output_text: 'ok',
+          },
+        },
+      },
+    ]
+    try {
+      const bundle = await buildDebugBundleAsync(makeFixtureDebugData())
+      const td = bundle.v5_canonical_turn_diagnostics!
+      expect(td.latest_v5_turn.source).toBe('payload_trace')
+      expect(td.latest_v5_turn.response_present).toBe(true)
+      expect(td.latest_v5_turn.response_body_present).toBe(true)
+      // parse_ok is derived from the trace body (not bundle.payloads,
+      // which is null in this fixture).
+      expect(td.parse.parse_ok).toBe(true)
+      expect(td.diagnostic_source_strength.parse).toBe('live_response')
+      // response_top_level_keys must reflect the trace body's keys.
+      expect(td.parse.response_top_level_keys).toEqual(
+        expect.arrayContaining(['blocks', 'output_text']),
+      )
+    } finally {
+      traceState.payloads = []
+    }
+  })
+
+  it('round-5 P1.3: trace parse-error envelope drives parse_failure_kind + raw_response_present', async () => {
+    traceState.payloads = [
+      {
+        id: 'trace-parse-err',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        completed: true,
+        response: {
+          body: {
+            kind: 'parse_error',
+            reason: 'schema validation failed',
+            parse_failure_kind: 'schema_mismatch',
+            raw: { unknown_top_level_key: 'something' },
+          },
+        },
+      },
+    ]
+    try {
+      const bundle = await buildDebugBundleAsync(makeFixtureDebugData())
+      const td = bundle.v5_canonical_turn_diagnostics!
+      expect(td.latest_v5_turn.response_body_present).toBe(true)
+      expect(td.parse.parse_ok).toBe(false)
+      expect(td.parse.parse_failure_kind).toBe('schema_mismatch')
+      expect(td.parse.raw_response_present).toBe(true)
+      // Issue must fire whenever parse_ok=false AND raw_response_present.
+      expect(td.coherence.issues).toContain('parse_failed_with_raw_preserved')
+    } finally {
+      traceState.payloads = []
+    }
+  })
+
+  it('round-5 P0.2/P0.3: trace status-only failure (no body) → parse_ok null, response_body_present false, source_strength.parse unavailable', async () => {
+    traceState.payloads = [
+      {
+        id: 'trace-500-no-body',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 500,
+        completed: true,
+        // No request.body, no response.body — pure metadata stub
+        // with HTTP-level completion.
+      },
+    ]
+    try {
+      const bundle = await buildDebugBundleAsync(makeFixtureDebugData())
+      const td = bundle.v5_canonical_turn_diagnostics!
+      // Capture is assembled (trace tier active).
+      expect(td.latest_v5_turn.source).toBe('payload_trace')
+      // HTTP completion observed but body absent — these must
+      // disagree.
+      expect(td.latest_v5_turn.response_present).toBe(true)
+      expect(td.latest_v5_turn.response_body_present).toBe(false)
+      // Parse provenance must be honestly unavailable, NOT
+      // 'live_response' with parse_ok: true.
+      expect(td.parse.parse_ok).toBeNull()
+      expect(td.diagnostic_source_strength.parse).toBe('unavailable')
+    } finally {
+      traceState.payloads = []
+    }
+  })
+
+  it('round-5 Imp3: trace entry AND bundle.payloads BOTH present → trace tier wins, request_id sourced from trace', async () => {
+    // Both sources exist with different request_ids. The canonical
+    // resolver must pick `payload_trace` (highest tier) and the
+    // request_id must come from the trace, not the bundle/session.
+    traceState.payloads = [
+      {
+        id: 'trace-wins',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        status: 200,
+        completed: true,
+        request: { body: {} },
+        response: { body: { blocks: [] } },
+      },
+    ]
+    try {
+      const data: DebugData = {
+        ...makeFixtureDebugData(),
+        overall: {
+          status: 'success',
+          total_duration_ms: 100,
+          request_id: 'session-loses',
+        },
+        payloads: {
+          ...makeFixtureDebugData().payloads,
+          cee_request: { kind: 'from-bundle' },
+          cee_response: { blocks: [] },
+        },
+      }
+      const bundle = await buildDebugBundleAsync(data)
+      const td = bundle.v5_canonical_turn_diagnostics!
+      expect(td.latest_v5_turn.source).toBe('payload_trace')
+      expect(td.latest_v5_turn.request_id).toBe('trace-wins')
+      expect(td.latest_v5_turn.request_id_source).toBe('payload_trace')
+      // The diagnostic_source_strength reports live_trace, not bundle.
+      expect(td.diagnostic_source_strength.latest_v5_turn).toBe('live_trace')
+    } finally {
+      traceState.payloads = []
+    }
+  })
+
   it('regression: service-metadata-only 5xx → parse.parse_ok is null (NOT false) and diagnostic_source_strength.parse is unavailable', async () => {
     // services.cee reports a V5-endpoint 5xx but neither the trace nor
     // the bundle.payloads carry a response body. Per P0.2 the parse
