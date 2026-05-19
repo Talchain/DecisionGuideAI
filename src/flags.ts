@@ -307,11 +307,18 @@ const FLAGS_CONFIG = {
     envKey: 'VITE_FEATURE_ANALYSIS_HERO_COMPARE',
     storageKey: 'feature.analysisHeroCompare',
   },
-  // AI panel v2 — phased rollout for the right-panel AI conversation. Step 1
-  // mounts the split-layout scaffold behind the flag while leaving the
-  // existing DraftChat surface live; later steps move the input/thread into
-  // the panel and add Compact / Conversation / Focus modes. Default OFF.
-  // See src/canvas/ai-panel-v2/ for the new components.
+  // AI panel v2 — floating-first Olumi UX.
+  // When OFF: existing DraftChat (legacy floating canvas overlay) + standalone
+  // OutputsDock render unchanged.
+  // When ON: DraftChat is unmounted; OutputsDock gains an Olumi tab + a
+  // persistent input strip + selection / stale indicators in a footer stack;
+  // a draggable/resizable floating Olumi panel mounts via portal; on an empty
+  // canvas, the right dock collapses to a 40px rail and a centred first-use
+  // composer drives the user's first decision input.
+  // Default OFF. See src/canvas/components/{FirstUseComposer,FloatingOlumiPanel,
+  // OlumiTabBody,PersistentInputStrip,CogPopover,...}.tsx for surfaces and
+  // src/canvas/conversation/ConversationContext.tsx for the singleton hook
+  // host. Integration plan: .claude/plans/ai-panel-v2-floating-first-integration.md.
   aiPanelV2: {
     envKey: 'VITE_FEATURE_AI_PANEL_V2',
     storageKey: 'feature.aiPanelV2',

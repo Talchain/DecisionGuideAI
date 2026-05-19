@@ -12,7 +12,7 @@
 import { create } from 'zustand'
 
 /** Must match OutputsDockTab in OutputsDock.tsx exactly */
-export type OutputTab = 'results' | 'compare' | 'diagnostics' | 'journey'
+export type OutputTab = 'results' | 'compare' | 'diagnostics' | 'journey' | 'olumi'
 
 /**
  * Right-panel modes. Only one right-side panel can be open at a time.
@@ -26,6 +26,11 @@ export type RightPanelMode = 'results' | 'provenance' | 'clarifier' | null
 export interface UIStoreState {
   /** Current active tab in the OutputsDock (synced bidirectionally) */
   activeOutputTab: OutputTab
+  /** Monotonic version counter for forceActivateOutputTab. Bumped on every
+   *  force-activate call so OutputsDock's sync effect fires even when the
+   *  tab value didn't change (e.g. global already 'results' but dock had
+   *  another tab persisted in localStorage). */
+  activeOutputTabVersion: number
   /** D2: Element ID currently hovered in a panel (for canvas highlight) */
   hoveredElementId: string | null
   /** Task C: Which right-side panel is currently open (mutual exclusion) */
@@ -40,6 +45,11 @@ export interface UIStoreState {
 
 export interface UIStoreActions {
   setActiveOutputTab: (tab: OutputTab) => void
+  /** Force OutputsDock to open AND activate the given tab on the next render,
+   *  regardless of whether `activeOutputTab` actually changes value. Used by
+   *  auto-dock and Dock-back when we cannot rely on a value-diff to trigger
+   *  the sync. */
+  forceActivateOutputTab: (tab: OutputTab) => void
   setHoveredElementId: (id: string | null) => void
   /** Open a right panel (closes any other). Pass null to close all. */
   openRightPanel: (mode: RightPanelMode) => void
@@ -51,11 +61,14 @@ export interface UIStoreActions {
 
 export const useUIStore = create<UIStoreState & UIStoreActions>((set) => ({
   activeOutputTab: 'results',
+  activeOutputTabVersion: 0,
   hoveredElementId: null,
   activeRightPanel: null,
   pendingModelTabSection: null,
 
   setActiveOutputTab: (tab) => set({ activeOutputTab: tab }),
+  forceActivateOutputTab: (tab) =>
+    set((s) => ({ activeOutputTab: tab, activeOutputTabVersion: s.activeOutputTabVersion + 1 })),
   setHoveredElementId: (id) => set({ hoveredElementId: id }),
   openRightPanel: (mode) => set({ activeRightPanel: mode }),
   closeRightPanel: () => set({ activeRightPanel: null }),

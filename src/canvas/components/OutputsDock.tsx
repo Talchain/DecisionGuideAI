@@ -24,7 +24,7 @@
  */
 
 import { useEffect, useState, useRef, useMemo, useCallback } from 'react'
-import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, CheckCircle } from 'lucide-react'
+import { BarChart3, Shuffle, Activity, Clock, AlertTriangle, XCircle, MessageCircle, MessageSquare, CheckCircle } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useUIStore, type OutputTab } from '../../stores/uiStore'
 import { useDockState } from '../hooks/useDockState'
@@ -38,6 +38,16 @@ import {
   trackAutoFixFailed,
 } from '../utils/sandboxTelemetry'
 import { isJourneyTabEnabled, isCompareTabEnabled, isAiPanelV2Enabled, isV5CanonicalAnalysisEnabled } from '../../flags'
+import { OlumiTabBody } from './OlumiTabBody'
+import { PersistentInputStrip } from './PersistentInputStrip'
+import { SelectionPill } from './SelectionPill'
+import { StaleAnalysisBadge } from './StaleAnalysisBadge'
+import { CogPopover } from './CogPopover'
+import { useConversationContext, useOptionalConversationContext } from '../conversation/ConversationContext'
+import { useFloatingPanelState } from '../hooks/useFloatingPanelState'
+import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
+import { focusFloating } from '../hooks/useFloatingFocus'
+import { typo } from '../../styles/typography'
 import { isV5Eligible } from '../../v5/eligibility'
 import { useStaleGuard } from '../ui/inspector-v2/useStaleGuard'
 import { countFactorsToVerify } from './model-tab/utils'
@@ -109,7 +119,7 @@ function mapCritiqueToValidation(critique: CritiqueItemV1[] | undefined): Critiq
   }))
 }
 
-type OutputsDockTab = 'results' | 'compare' | 'diagnostics' | 'journey'
+type OutputsDockTab = 'results' | 'compare' | 'diagnostics' | 'journey' | 'olumi'
 
 interface OutputsDockState {
   isOpen: boolean
@@ -118,87 +128,101 @@ interface OutputsDockState {
 
 const STORAGE_KEY = 'canvas.outputsDock.v1'
 
-const OUTPUT_TABS: { id: OutputsDockTab; label: string }[] = [
-  { id: 'results', label: 'Analysis' },
-  ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
-  { id: 'diagnostics', label: 'Model' },
-  ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
-]
+/**
+ * Pure helper for the toggle-open click handler.
+ *
+ * Returns the next persisted `state.isOpen` value based on the user's CURRENT
+ * VISUAL STATE (effectiveIsOpen) rather than the stored preference. This
+ * matters during the aiPanelV2 first-use rail: state.isOpen is true (default)
+ * but visually the dock is collapsed because `isFirstUse` overrides
+ * effectiveIsOpen. Without this helper, clicking the rail's chevron would
+ * set state.isOpen=false → effectiveIsOpen stays false → no visible change.
+ *
+ * Tested in isolation via aiPanelV2.interactions.spec.tsx.
+ */
+export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean): boolean {
+  const wasVisuallyOpen = isFirstUse ? false : storedIsOpen
+  return !wasVisuallyOpen
+}
+
+/** Dynamic accessor: re-evaluates feature flags on every call. Exported so
+ *  parity tests can verify tab gating without remounting OutputsDock. The
+ *  component computes its own OUTPUT_TABS via useMemo at render time, so a
+ *  localStorage flag flip plus a re-render is enough — no module reload
+ *  required for the gating to reflect the new flag state. */
+export function getOutputTabsForParity(): { id: OutputsDockTab; label: string }[] {
+  return [
+    { id: 'results', label: 'Analysis' },
+    ...(isCompareTabEnabled() ? [{ id: 'compare' as const, label: 'Compare' }] : []),
+    { id: 'diagnostics', label: 'Model' },
+    ...(isJourneyTabEnabled() ? [{ id: 'journey' as const, label: 'Journey' }] : []),
+    ...(isAiPanelV2Enabled() ? [{ id: 'olumi' as const, label: 'Olumi' }] : []),
+  ]
+}
 
 /**
- * Layout-integration seam (not a deeper ownership change).
+ * Public OutputsDock entry point.
  *
- * The `embedded` + `embeddedSendMessage` props exist purely so the AI
- * panel v2 layout (`src/canvas/ai-panel-v2/AIPanelV2Layout.tsx`) can
- * host the dock as one of two stacked zones inside the right column
- * while the conversation singleton lives one level up. This is a
- * scoped layout adapter — the dock's data model, tabs, and internal
- * state are unchanged. The standalone (non-embedded) path is the only
- * one used under FF off.
+ * **Critical singleton invariant:** exactly one `useConversation()` instance
+ * must be mounted at runtime. Two instances cause the scenario-hydration
+ * race at `useConversation.ts:797` plus duplicated telemetry, and split
+ * message state between the dock's Analysis/Model CTAs and the Olumi
+ * floating surfaces (each surface would send via a different conversation).
  *
- * **Post-PoC review trigger:** if more AI-specific props start to land
- * here (e.g. selection context, panel-mode awareness, focus-coordination
- * callbacks), the coupling has outgrown an adapter and the integration
- * should be lifted into either (a) a shared context the dock subscribes
- * to, or (b) an explicit `<OutputsDockHost>` wrapper that owns AI-side
- * concerns and keeps `OutputsDock.tsx` agnostic. Track that decision
- * before adding the next AI-shaped prop.
+ * Under aiPanelV2 ON: the canvas-root `<ConversationProvider>` in
+ * `ReactFlowGraph` owns the singleton; this host MUST consume that context
+ * (never call `useConversation()` directly).
  *
- * Discriminated union below makes `embeddedSendMessage` REQUIRED when
- * `embedded={true}`. The previous shape allowed `<OutputsDock embedded />`
- * to compile without a send handler, which silently no-op'd the dock's
- * pre-analysis chip-fires — a real footgun. With this shape:
+ * Under aiPanelV2 OFF: there is no provider, so this host owns the
+ * conversation directly via `useConversation()` (legacy behaviour).
  *
- *   <OutputsDock />                                          ✅
- *   <OutputsDock embedded={false} />                         ✅
- *   <OutputsDock embedded embeddedSendMessage={fn} />        ✅
- *   <OutputsDock embedded />                                 ❌ compile error
+ * The flag check happens HERE so each branch is a distinct component
+ * (Rules-of-Hooks compliant: each branch calls hooks unconditionally; only
+ * the entry-point branches on the flag).
  */
-type OutputsDockProps =
-  | { embedded?: false; embeddedSendMessage?: never }
-  | { embedded: true; embeddedSendMessage: (text: string) => Promise<void> | void }
-
-/**
- * Public OutputsDock entry point. Branches on `embedded` to ensure the
- * embedded variant never calls useConversation() — the AI panel v2
- * AIPanelV2Layout is the singleton source of the conversation. The standalone
- * variant keeps its own useConversation() call as before (FF off).
- */
-export function OutputsDock(props: OutputsDockProps = {}) {
-  if (props.embedded) {
-    return <OutputsDockEmbeddedHost embeddedSendMessage={props.embeddedSendMessage} />
+export function OutputsDock() {
+  if (isAiPanelV2Enabled()) {
+    return <OutputsDockProviderHost />
   }
-  return <OutputsDockStandaloneHost />
+  return <OutputsDockLegacyHost />
 }
 
-function OutputsDockStandaloneHost() {
+/**
+ * FF-on host: consumes the singleton conversation from the
+ * `<ConversationProvider>` mounted at the canvas root. Never calls
+ * `useConversation()`. Throws if the provider is missing (which would
+ * indicate a wiring bug — the provider must always wrap the dock under
+ * FF-on).
+ */
+function OutputsDockProviderHost() {
+  const { sendMessage } = useConversationContext()
+  return <OutputsDockBody sendMessage={sendMessage} />
+}
+
+/**
+ * FF-off host: owns its own `useConversation()` instance (legacy path —
+ * matches origin/staging behaviour before the floating-first port).
+ */
+function OutputsDockLegacyHost() {
   const { sendMessage } = useConversation()
-  return <OutputsDockBody embedded={false} sendMessage={sendMessage} />
-}
-
-function OutputsDockEmbeddedHost({ embeddedSendMessage }: { embeddedSendMessage: (text: string) => Promise<void> | void }) {
-  // No fallback — the discriminated OutputsDockProps requires
-  // embeddedSendMessage at compile time, and we'd rather a runtime crash
-  // surface a wiring bug than have chip-fires silently no-op in
-  // production. Callers bypassing the types with `as unknown` will
-  // hit a TypeError in the dock body — exactly what we want.
-  return <OutputsDockBody embedded sendMessage={embeddedSendMessage} />
+  return <OutputsDockBody sendMessage={sendMessage} />
 }
 
 interface OutputsDockBodyProps {
-  embedded: boolean
   sendMessage: (text: string) => Promise<void> | void
 }
 
-function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
+function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const prefersReducedMotion = usePrefersReducedMotion()
   const [state, setState] = useDockState<OutputsDockState>(STORAGE_KEY, {
     isOpen: true,
     activeTab: 'results',
   })
-  // sendMessage comes from props (useConversation lives in the host
-  // wrapper) so the embedded variant doesn't create a second
-  // conversation instance — see OutputsDockEmbeddedHost above.
+  // sendMessage comes from props so the OutputsDock function above is
+  // the single useConversation() host; OutputsDockBody never calls it
+  // directly. Under the aiPanelV2 floating-first UX, the canvas-root
+  // ConversationProvider becomes the singleton instead — see
+  // ReactFlowGraph.tsx.
 
   // Tab guards: if persisted tab references a disabled flag, reset to 'results'
   useEffect(() => {
@@ -208,25 +232,37 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
     if (state.activeTab === 'compare' && !isCompareTabEnabled()) {
       setState(prev => ({ ...prev, activeTab: 'results' }))
     }
+    if (state.activeTab === 'olumi' && !isAiPanelV2Enabled()) {
+      setState(prev => ({ ...prev, activeTab: 'results' }))
+    }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
-  // E1: Sync external tab changes from Zustand store (programmatic navigation)
+  // E1: Sync external tab changes from Zustand store (programmatic navigation).
+  // Also watches activeOutputTabVersion so `forceActivateOutputTab` triggers
+  // the sync even when the tab value itself didn't change — e.g. auto-dock
+  // wants 'results' and global is already 'results' but the dock has a
+  // different tab persisted to localStorage.
   const externalTab = useUIStore(s => s.activeOutputTab)
+  const externalTabVersion = useUIStore(s => s.activeOutputTabVersion)
   const prevExternalTabRef = useRef(externalTab)
+  const prevExternalVersionRef = useRef(externalTabVersion)
   useEffect(() => {
-    if (externalTab !== prevExternalTabRef.current) {
-      prevExternalTabRef.current = externalTab
-      // Validate the requested tab is enabled before navigating
-      const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
-        || (externalTab === 'journey' && !isJourneyTabEnabled())
-        ? 'results'
-        : externalTab
-      setState(prev => {
-        if (prev.activeTab === resolvedTab && prev.isOpen) return prev
-        return { ...prev, isOpen: true, activeTab: resolvedTab as OutputsDockTab }
-      })
-    }
-  }, [externalTab, setState])
+    const tabChanged = externalTab !== prevExternalTabRef.current
+    const versionChanged = externalTabVersion !== prevExternalVersionRef.current
+    if (!tabChanged && !versionChanged) return
+    prevExternalTabRef.current = externalTab
+    prevExternalVersionRef.current = externalTabVersion
+    // Validate the requested tab is enabled before navigating
+    const resolvedTab = (externalTab === 'compare' && !isCompareTabEnabled())
+      || (externalTab === 'journey' && !isJourneyTabEnabled())
+      || (externalTab === 'olumi' && !isAiPanelV2Enabled())
+      ? 'results'
+      : externalTab
+    setState(prev => {
+      if (prev.activeTab === resolvedTab && prev.isOpen) return prev
+      return { ...prev, isOpen: true, activeTab: resolvedTab as OutputsDockTab }
+    })
+  }, [externalTab, externalTabVersion, setState])
 
 
   // Phase 1A.5: Debug controls visibility (Shift+D shortcut)
@@ -319,8 +355,38 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
   )
 
   const isPreRun = !hasCompletedFirstRun
-  // Empty state: hide panel when canvas has no nodes
+  // Empty state: hide panel when canvas has no nodes (FF off).
   const hasGraphContent = nodes.length > 0
+
+  // aiPanelV2 first-use derivation. When the floating-first UX is ON and
+  // there's no graph + no real (non-synthetic) messages, the dock collapses
+  // to its 40px rail and the floating composer becomes the entry point.
+  // The collapse is NOT persisted — derived per render so returning users
+  // with an empty canvas only see the rail until they explicitly engage.
+  const aiPanelV2On = isAiPanelV2Enabled()
+  const conversationCtxForFirstUse = useOptionalConversationContext()
+  const realMessageCount = conversationCtxForFirstUse
+    ? conversationCtxForFirstUse.messages.filter((m) => !m.synthetic).length
+    : 0
+  // First-use ends only when graph content exists OR the user explicitly
+  // expands the dock (via the rail's chevron). We do NOT use realMessageCount
+  // here — the brief is explicit that the empty Analysis tab should not flash
+  // after a user message but before the graph builds.
+  const userExplicitlyOpenedRailRef = useRef(false)
+  const isFirstUse = aiPanelV2On && !hasGraphContent && !userExplicitlyOpenedRailRef.current
+  // realMessageCount kept for downstream consumers (Olumi tab empty-state
+  // logic); intentionally does NOT participate in isFirstUse.
+  void realMessageCount
+  // Floating panel state — needed for tab gating + footer-stack mode.
+  const floatingPanelIsOpen = useFloatingPanelState((s) => s.isOpen)
+  const openFloatingByUser = useFloatingPanelState((s) => s.open)
+  const transitionReceipt = useTransitionReceipt((s) => s.receipt)
+  // Cog popover anchor — strip footer-stack only.
+  const [cogAnchor, setCogAnchor] = useState<HTMLElement | null>(null)
+  const handleCogClick = useCallback((anchorEl: HTMLElement) => {
+    setCogAnchor((prev) => (prev === anchorEl ? null : anchorEl))
+  }, [])
+  const handleCogClose = useCallback(() => setCogAnchor(null), [])
 
   // Factors needing user verification (for Model tab badge)
   const factorsToVerify = useMemo(
@@ -913,6 +979,13 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
         return { ...prev, isOpen: true, activeTab: initialTab }
       })
     } catch {}
+    // One-time mount init: read `?tab=` from the URL once and apply.
+    // OUTPUT_TABS is now a per-render useMemo (post-floating-first port,
+    // the tab list is flag-time-derived), so including it in the deps
+    // would re-run the URL parse on every render — wrong shape for an
+    // init guard. Matches the `[]`-with-explanation pattern used by the
+    // journey/compare/olumi persisted-tab guard above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [setState])
 
   // MERGED EFFECT: Handles both resultsStatus and showResultsPanel dock opening
@@ -1051,18 +1124,16 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
 
   useEffect(() => {
     if (typeof document === 'undefined') return
-    // When embedded inside AIPanelV2Layout, the parent owns layout —
-    // skip writing --dock-right-offset so we don't fight the parent's
-    // own positioning logic.
-    if (embedded) return
     const root = document.documentElement
-    const value = state.isOpen ? 'var(--dock-right-expanded)' : 'var(--dock-right-collapsed)'
+    // Reflect VISUAL state (post-first-use override), not persisted preference.
+    const visuallyOpen = isFirstUse ? false : state.isOpen
+    const value = visuallyOpen ? 'var(--dock-right-expanded)' : 'var(--dock-right-collapsed)'
     root.style.setProperty('--dock-right-offset', value)
 
     return () => {
       root.style.setProperty('--dock-right-offset', '0rem')
     }
-  }, [state.isOpen, embedded])
+  }, [state.isOpen, isFirstUse])
   useEffect(() => {
     if (typeof document === 'undefined' || typeof window === 'undefined') return
     try {
@@ -1081,9 +1152,27 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
   }, [])
   const transitionClass = prefersReducedMotion ? '' : 'transition-[width,opacity] duration-200 ease-in-out'
 
+  // OUTPUT_TABS computed per render so a localStorage flag flip is picked
+  // up on the next re-render without requiring a module reload.
+  const OUTPUT_TABS = useMemo<{ id: OutputsDockTab; label: string }[]>(
+    () => getOutputTabsForParity(),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- flag accessors are stable; we re-run by value
+    [aiPanelV2On, isJourneyTabEnabled(), isCompareTabEnabled()],
+  )
+
   const toggleOpen = () => {
+    // Derive nextIsOpen from what the user SEES right now (visual state),
+    // not from state.isOpen. During first-use the rail is visible despite
+    // state.isOpen=true; flipping state would leave effectiveIsOpen=false
+    // and the user would perceive "nothing happened". See deriveNextDockIsOpen.
+    const nextVisible = deriveNextDockIsOpen(isFirstUse, state.isOpen)
+    // User explicitly chose to expand/collapse the dock — disable the
+    // first-use rail override for the rest of the session (without writing
+    // anything to localStorage, so returning users still get the rail on
+    // a fresh empty canvas).
+    userExplicitlyOpenedRailRef.current = true
     setState(prev => {
-      const nextIsOpen = !prev.isOpen
+      const nextIsOpen = nextVisible
       // Keep showResultsPanel in sync primarily for highlighting & telemetry when
       // the dock is explicitly opened or closed. Schedule the store update on a
       // microtask to avoid cascading updates during the same render cycle.
@@ -1103,6 +1192,13 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
   }
 
   const handleTabClick = (tab: OutputsDockTab) => {
+    // Brief: when the floating Olumi panel is open, clicking the Olumi tab
+    // focuses the floating panel rather than activating the docked surface —
+    // avoids rendering the same conversation in two surfaces simultaneously.
+    if (tab === 'olumi' && useFloatingPanelState.getState().isOpen) {
+      focusFloating()
+      return
+    }
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
     // E1: Sync tab state to Zustand store for cross-component navigation
     useUIStore.getState().setActiveOutputTab(tab as OutputTab)
@@ -1173,67 +1269,46 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
   const activeRightPanel = useUIStore(s => s.activeRightPanel)
   const isOverlayPanelActive = activeRightPanel === 'provenance' || activeRightPanel === 'clarifier'
 
-  // Empty state: unmount when canvas has no nodes (FF off). Under FF v2 we
-  // keep the dock mounted in embedded mode so the analysis tab strip is
-  // always present in the right-panel top zone — even before any nodes
-  // exist. The embedded tab body handles the empty state per tab.
-  if (!hasGraphContent && !embedded) {
+  // Empty state: under FF off, unmount when canvas has no nodes. Under
+  // aiPanelV2 we keep the dock mounted so the 40px rail can show even
+  // before any graph exists (the first-use floating composer is the
+  // entry point in that state).
+  if (!hasGraphContent && !aiPanelV2On) {
     return null
   }
   // When an overlay panel is active, keep mounted (preserve scroll position,
   // tab state, effect continuity) but hide visually via CSS.
 
-  // Style branch: embedded mode fills the parent (the AI panel v2 column-
-  // flex container provides the bounding box, border, and shadow). The
-  // legacy fixed-position chrome only applies when not embedded.
-  const asideStyle: React.CSSProperties = embedded
-    ? {
-        position: 'relative',
-        width: '100%',
-        height: '100%',
-        background: 'transparent',
-        overflow: 'hidden',
-      }
-    : {
-        position: 'fixed',
-        // --olumi-ai-panel-dock-width is a flag-specific override written by
-        // AIPanelV2Layout (FF_AI_PANEL_V2 on). When unset (FF off, or expanded
-        // collapsed state) the existing chain wins: user-resized
-        // --dock-right-expanded → 24rem stylesheet default. This preserves
-        // the dock's runtime resize feature instead of clobbering it.
-        width: state.isOpen
-          ? 'var(--olumi-ai-panel-dock-width, var(--dock-right-expanded, 24rem))'
-          : 'var(--dock-right-collapsed, 2.5rem)',
-        right: 12,
-        top: 12,
-        // --olumi-ai-panel-bottom: written by AIPanelV2Layout when
-        // FF_AI_PANEL_V2 is on, to reserve vertical space below the dock for
-        // the AI conversation zone. Unset (FF off) the var fallback resolves
-        // to 0px, so the computed bottom value equals the legacy
-        // `calc(var(--bottombar-h) + 1rem)`.
-        bottom: 'calc(var(--bottombar-h) + 1rem + var(--olumi-ai-panel-bottom, 0px))',
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(8px)',
-        border: '1px solid var(--border-default)',
-        borderRadius: 16,
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
-        zIndex: 900,
-        overflow: 'hidden',
-      }
+  // Effective open state: when aiPanelV2 first-use, force collapsed rail
+  // without writing to the persisted state.isOpen — otherwise a returning
+  // user with an empty canvas would see the rail forever.
+  const effectiveIsOpen = isFirstUse ? false : state.isOpen
+
+  const asideStyle: React.CSSProperties = {
+    position: 'fixed',
+    width: effectiveIsOpen
+      ? 'var(--dock-right-expanded, 24rem)'
+      : 'var(--dock-right-collapsed, 2.5rem)',
+    right: 12,
+    top: 12,
+    bottom: 'calc(var(--bottombar-h) + 1rem)',
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(8px)',
+    border: '1px solid var(--border-default)',
+    borderRadius: 16,
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.04)',
+    zIndex: 900,
+    overflow: 'hidden',
+  }
 
   return (
     <aside
       className={`${transitionClass} flex flex-col transition-shadow pointer-events-auto${isOverlayPanelActive ? ' hidden' : ''}`}
       style={asideStyle}
-      // When embedded, the parent aside in AIPanelV2Layout carries the
-      // user-facing "Analysis" label; this inner aside drops its own
-      // aria-label so screen readers don't announce nested duplicates.
-      // The data-testid is preserved either way for selector stability.
-      aria-label={embedded ? undefined : 'Outputs dock'}
+      aria-label="Outputs dock"
       data-testid="outputs-dock"
-      data-embedded={embedded ? 'true' : 'false'}
     >
-      {state.isOpen && !embedded && (
+      {effectiveIsOpen && (
         <div
           aria-hidden="true"
           onMouseDown={handleResizeStart}
@@ -1241,26 +1316,23 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
         />
       )}
       <div
-        className={[
-          'sticky top-0 z-10 border-b rounded-t-2xl',
-          embedded ? 'bg-panel border-default' : 'border-panel-border',
-        ].join(' ')}
-        style={embedded ? undefined : { background: 'rgba(255, 255, 255, 0.95)' }}
+        className="sticky top-0 z-10 border-b rounded-t-2xl border-panel-border"
+        style={{ background: 'rgba(255, 255, 255, 0.95)' }}
       >
-        {!state.isOpen && (
+        {!effectiveIsOpen && (
           <div className="flex items-center justify-end px-2 py-2">
             <button
               type="button"
               onClick={toggleOpen}
               className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
-              aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
+              aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
             >
-              {state.isOpen ? '>' : '<'}
+              {effectiveIsOpen ? '>' : '<'}
             </button>
           </div>
         )}
 
-        {state.isOpen && (
+        {effectiveIsOpen && (
           <div className="flex items-center gap-2 px-2 py-2" aria-label="Outputs sections">
             <span className="sr-only" aria-live="polite">
               {OUTPUT_TABS.find(tab => tab.id === state.activeTab)?.label ?? ''}
@@ -1271,23 +1343,20 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
                   key={tab.id}
                   type="button"
                   onClick={() => handleTabClick(tab.id)}
-                  data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : undefined}
-                  className={`flex-1 px-2 py-1 rounded ${embedded ? typography.panelMeta : typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
+                  data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : tab.id === 'olumi' ? 'outputs-dock-tab-olumi' : undefined}
+                  className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     state.activeTab === tab.id
-                      ? embedded
-                        ? 'text-info bg-info/10 border-b-2 border-info'
-                        : 'text-info border-b-2 border-info'
-                      : embedded
-                        ? 'text-text-light hover:bg-panel-hover hover:text-text-body border-b-2 border-transparent'
-                        : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
-                  }`}
+                      ? 'text-info border-b-2 border-info'
+                      : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
+                  } ${tab.id === 'olumi' && floatingPanelIsOpen ? 'opacity-60' : ''}`}
                   style={
-                    state.activeTab === tab.id && !embedded
+                    state.activeTab === tab.id
                       ? { backgroundColor: 'rgba(82,163,200,0.15)' }
                       : undefined
                   }
                 >
                   <span className={`inline-flex items-center gap-1${tab.id === 'results' && showResultsTabStaleWarning ? ' text-warning' : ''}`}>
+                    {tab.id === 'olumi' && <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />}
                     {tab.label}
                     {tab.id === 'results' && showResultsTabStaleWarning && (
                       <AlertTriangle
@@ -1298,15 +1367,8 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
                     )}
                     {tab.id === 'diagnostics' && factorsToVerify > 0 && (
                       <span
-                        className={[
-                          'inline-flex items-center justify-center rounded-full bg-warning text-text-on-color font-semibold',
-                          embedded ? typography.panelMeta : '',
-                        ].join(' ')}
-                        style={
-                          embedded
-                            ? { minWidth: 16, height: 16, padding: '0 4px' }
-                            : { fontSize: 11, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }
-                        }
+                        className="inline-flex items-center justify-center rounded-full bg-warning text-text-on-color font-semibold"
+                        style={{ fontSize: 11, fontWeight: 600, minWidth: 16, height: 16, padding: '0 4px' }}
                         title={`${factorsToVerify} factor${factorsToVerify !== 1 ? 's' : ''} to verify`}
                         data-testid="model-tab-verify-badge"
                       >
@@ -1331,21 +1393,19 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
             >
               {'</>'}
             </button>
-            {!embedded && (
-              <button
-                type="button"
-                onClick={toggleOpen}
-                className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
-                aria-label={state.isOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
-              >
-                {state.isOpen ? '>' : '<'}
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={toggleOpen}
+              className={`inline-flex items-center justify-center w-6 h-6 rounded border border-panel-border ${typography.caption} text-text-header/70 hover:bg-panel`}
+              aria-label={effectiveIsOpen ? 'Collapse outputs dock' : 'Expand outputs dock'}
+            >
+              {effectiveIsOpen ? '>' : '<'}
+            </button>
           </div>
         )}
       </div>
 
-      {!state.isOpen && (
+      {!effectiveIsOpen && (
         <nav
           className="flex flex-col items-center gap-2 py-3"
           aria-label="Outputs sections"
@@ -1358,6 +1418,8 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
                 ? Shuffle
                 : tab.id === 'journey'
                 ? Clock
+                : tab.id === 'olumi'
+                ? MessageSquare
                 : Activity
             return (
               <button
@@ -1380,10 +1442,20 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
         </nav>
       )}
 
-      {state.isOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header/70 ${state.activeTab === 'results' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+      {effectiveIsOpen && (
+        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header/70 ${state.activeTab === 'results' || state.activeTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
             {state.activeTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
+                {aiPanelV2On && transitionReceipt === 'model-drafted' ? (
+                  <div
+                    className="px-3 py-2 border-b border-panel-border"
+                    role="status"
+                    aria-live="polite"
+                    data-testid="ai-panel-transition-receipt"
+                  >
+                    <span className={typo('panelMeta', 'text-info')}>Model drafted. Review readiness.</span>
+                  </div>
+                ) : null}
                 <div className={`flex-1 min-h-0 ${isPreRun && nodes.length > 0 ? 'flex flex-col' : 'olumi-scrollbar overflow-y-auto px-3 py-3 space-y-6'}`}>
                 {/* P0.6: User-friendly error display */}
                 {isError && error && (() => {
@@ -1877,8 +1949,43 @@ function OutputsDockBody({ embedded, sendMessage }: OutputsDockBodyProps) {
             {state.activeTab === 'journey' && (
               <JourneyTabBody />
             )}
+            {/* Olumi: keep mounted across tab switches so ChatThread's scroll
+                position and useSmartScroll state survive. Visibility toggled
+                with CSS so the underlying ChatThread never unmounts when the
+                user switches to Compare/Model/etc. */}
+            {aiPanelV2On && (
+              <div
+                className={`flex flex-1 min-h-0 flex-col ${state.activeTab === 'olumi' ? '' : 'hidden'}`}
+                data-testid="olumi-tab-wrapper"
+                aria-hidden={state.activeTab !== 'olumi'}
+              >
+                <OlumiTabBody onFloatOut={() => openFloatingByUser('user')} />
+              </div>
+            )}
           </div>
         )}
+
+        {/* aiPanelV2 footer stack: selection pill + stale badge + persistent
+            input strip + cog popover. Always visible at panel base when
+            flag is on and the dock is expanded. flex-shrink-0 prevents the
+            body's overflow from clipping these. */}
+        {aiPanelV2On && effectiveIsOpen ? (
+          <div className="flex-shrink-0" data-testid="ai-panel-footer-stack">
+            <SelectionPill />
+            <StaleAnalysisBadge />
+            <PersistentInputStrip
+              isOlumiTabActive={state.activeTab === 'olumi'}
+              onOpenFloating={() => openFloatingByUser('user')}
+              onFocusFloating={focusFloating}
+              onCogClick={handleCogClick}
+            />
+            <CogPopover
+              isOpen={cogAnchor !== null}
+              anchorEl={cogAnchor}
+              onClose={handleCogClose}
+            />
+          </div>
+        ) : null}
 
         {/* M6: Scenario Comparison - Modal removed, now rendered as ComparisonCanvasLayout in ReactFlowGraph */}
 

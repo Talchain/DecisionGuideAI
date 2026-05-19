@@ -37,7 +37,7 @@ interface ConversationPanelProps {
   /**
    * When true, ChatComposer is not rendered. AI panel v2 (FF_AI_PANEL_V2)
    * uses this to swap in the compact AIInputBar from
-   * `src/canvas/ai-panel-v2/AIInputBar.tsx` while keeping the rest of
+   * `src/canvas/components/AIInputBar.tsx` while keeping the rest of
    * ConversationPanel (ChatThread + the patch/chip/feedback handler
    * matrix + guidanceStore registration) intact. Default false.
    */

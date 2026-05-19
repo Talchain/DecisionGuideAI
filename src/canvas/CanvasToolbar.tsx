@@ -303,9 +303,9 @@ export function CanvasToolbar() {
         </button>
 
         {/* AI: opens the DraftChat overlay. Hidden when FF_AI_PANEL_V2 is on
-            because the AI conversation lives persistently in the right
-            panel (AIPanelV2Layout owns the surface directly), so there's
-            no overlay to open. */}
+            because the AI conversation lives in the floating-first Olumi
+            surfaces (FloatingOlumiPanel + Olumi tab + first-use composer);
+            DraftChat is unmounted in that mode. */}
         {!isAiPanelV2Enabled() && (
           <button
             onClick={() => setShowDraftChat(!showDraftChat)}
