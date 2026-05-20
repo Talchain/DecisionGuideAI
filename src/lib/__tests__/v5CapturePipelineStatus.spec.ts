@@ -37,6 +37,9 @@ function defaults(): V5CapturePipelineStatusInputs {
     analysisFactPresent: false,
     scenarioIdConflictCount: 0,
     legacyPipelineStatus: null,
+    // PR #152 — closed by default. Hash-mismatch issue fires only when
+    // the export-bundle pipeline observes both hashes AND they disagree.
+    ceeCaptureResponseHashMismatch: false,
   }
 }
 
@@ -344,6 +347,50 @@ describe('classifyV5CapturePipelineStatus — coherence issues', () => {
         rawV2ResponsePresent: false,
       }).coherence.state,
     ).not.toBe('missing')
+  })
+
+  // PR #152 — capture_response_hash_mismatch_with_results
+  // -----------------------------------------------------
+  it('capture_response_hash_mismatch_with_results fires when ceeCaptureResponseHashMismatch=true', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      ceeCaptureResponseHashMismatch: true,
+    })
+    expect(out.coherence.issues).toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+  })
+
+  it('does NOT fire when ceeCaptureResponseHashMismatch=false (no false positive)', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      ceeCaptureResponseHashMismatch: false,
+    })
+    expect(out.coherence.issues).not.toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+  })
+
+  it('hash-mismatch issue is additive — coherence flips to "contradictory" alongside the existing classification', () => {
+    // Successful complete capture + hash mismatch → state must reflect
+    // the contradiction so reviewers see the issue even when the
+    // bundle's status enum is "complete".
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      v5Capture: {
+        request_present: true,
+        response_present: true,
+        parse_ok: true,
+        raw_response_present: true,
+      },
+      hasResultsReport: true,
+      analysisFactPresent: true,
+      ceeCaptureResponseHashMismatch: true,
+    })
+    expect(out.coherence.issues).toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+    expect(out.coherence.state).toBe('contradictory')
   })
 })
 

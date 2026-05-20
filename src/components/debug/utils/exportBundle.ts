@@ -1273,6 +1273,33 @@ interface DebugBundle {
    * direct from downstream extraction at a glance.
    */
   effective_cee_response_source?: 'direct' | 'downstream' | 'none'
+
+  /**
+   * PR #152 — Live payload-capture diagnostic.
+   *
+   * Surfaces the resolved state of the `payload-trace-store` env gate
+   * so reviewers see at a glance WHY `payloads.cee_request` /
+   * `cee_response` are populated or null on any given bundle. Previously
+   * a missing/empty `VITE_APP_ENV` silently disabled capture in
+   * production-like builds with no in-bundle explanation.
+   *
+   * The gate is closed-by-default — capture is enabled ONLY when one of:
+   *   - Vite dev mode (`import.meta.env.DEV === true`)
+   *   - `VITE_APP_ENV === 'development'`
+   *   - `VITE_APP_ENV === 'staging'`
+   *   - `VITE_ENABLE_PAYLOAD_INSPECTION === 'true'` (explicit override)
+   * Otherwise capture is disabled and `reason` carries one of the
+   * documented `missing_app_env_capture_disabled` / `empty_*` /
+   * `production_*` / `unknown_*` codes.
+   *
+   * Always emitted (no behaviour change when the gate is on — the
+   * field merely makes the resolution visible).
+   */
+  payload_inspection_status?: {
+    enabled: boolean
+    resolved_app_env: string
+    reason: string
+  }
 }
 
 // =============================================================================
@@ -2648,6 +2675,26 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
 
   const bundle = buildDebugBundle(data, options)
 
+  // PR #152 — Surface the resolved payload-trace-store env-gate state.
+  // Closed-by-default; the bundle now self-explains why
+  // `payloads.cee_request` / `cee_response` are present or null. The
+  // import is dynamic so unit tests that mock the trace-store module
+  // pick up the same state without static-import order pitfalls.
+  try {
+    const { getPayloadInspectionStatus } = await import(
+      '../../../lib/payload-trace-store'
+    )
+    const status = getPayloadInspectionStatus()
+    bundle.payload_inspection_status = {
+      enabled: status.enabled,
+      resolved_app_env: status.resolvedAppEnv,
+      reason: status.reason,
+    }
+  } catch {
+    // Defensive: if the trace store can't be loaded (jsdom edge cases
+    // / circular import in tests), omit the field rather than throw.
+  }
+
   // Populate async sections: panel_state, orchestrator context
   try {
     const panelState = await buildPanelState()
@@ -3134,6 +3181,12 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       analysisFactPresent: legacy.analysis_fact_status === 'present',
       scenarioIdConflictCount: reconciliation.conflicts.length,
       legacyPipelineStatus: bundle.pipeline.v5_pipeline_status ?? null,
+      // PR #152 — surface live-capture hash disagreement so the bundle
+      // emits `capture_response_hash_mismatch_with_results` when the
+      // selected analysis-producing turn's response_hash disagrees
+      // with canvas store.results.hash. Falsy when not observed.
+      ceeCaptureResponseHashMismatch:
+        data.cee_capture_response_hash_mismatch === true,
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
 

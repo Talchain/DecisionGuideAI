@@ -36,6 +36,15 @@ export type CoherenceIssue =
   | 'scenario_id_conflict'
   | 'parse_failed_with_raw_preserved'
   | 'legacy_pipeline_status_misleading_proxy_or_network_failure'
+  /**
+   * Live-capture: fires when the analysis-producing CEE selector
+   * picked a capture whose `response_hash` disagreed with the canvas
+   * store's `results.hash`. BOTH hashes were present and they did
+   * not match. Surfaces the contradiction rather than silently
+   * picking a stale turn. Missing hash on either side never fires
+   * this issue (hash matching is a soft preference).
+   */
+  | 'capture_response_hash_mismatch_with_results'
 
 export type CoherenceState = 'complete' | 'partial' | 'contradictory' | 'missing'
 
@@ -80,6 +89,15 @@ export interface V5CapturePipelineStatusInputs {
   scenarioIdConflictCount: number
   /** Legacy `pipeline.v5_pipeline_status` value, for disagreement detection. */
   legacyPipelineStatus: string | null
+  /**
+   * True when the analysis-producing CEE selector reported that the
+   * captured response hash and the canvas store's `results.hash`
+   * BOTH existed AND disagreed. Fires
+   * `capture_response_hash_mismatch_with_results`. Soft preference:
+   * a missing hash on either side leaves this `false` (no evidence
+   * is not a mismatch).
+   */
+  ceeCaptureResponseHashMismatch: boolean
 }
 
 export interface V5CapturePipelineStatusResult {
@@ -191,6 +209,16 @@ export function classifyV5CapturePipelineStatus(
 
   if (inputs.scenarioIdConflictCount > 0) {
     issues.push('scenario_id_conflict')
+  }
+
+  // ADDITIVE — fires whenever the analysis-producing CEE selector saw
+  // both a captured response_hash and a canvas results.hash AND they
+  // disagreed. Soft preference: the caller passes `false` when either
+  // hash was missing (no evidence is not a mismatch). Independent of
+  // chosen status so a reviewer sees the contradiction even when the
+  // status enum is `complete`.
+  if (inputs.ceeCaptureResponseHashMismatch) {
+    issues.push('capture_response_hash_mismatch_with_results')
   }
 
   // Independent of chosen status: fires whenever a parse-error envelope

@@ -182,50 +182,149 @@ export interface PayloadTraceStore {
 const MAX_PAYLOADS = 20
 
 /**
- * The exact `VITE_APP_ENV` value at module-load time. Captured into the
- * module so the diagnostic bundle and the disable-warning have a stable
- * record without re-reading import.meta.env on every call.
+ * Closed-by-default payload-inspection gate.
+ *
+ * Security stance: a build with NO indication that it is a development
+ * or staging environment MUST NOT capture payloads. Previous behaviour
+ * defaulted to `'development'` when `VITE_APP_ENV` was unset, which
+ * meant a production build that forgot to set the var would fall open.
+ * Now the gate is closed unless one of these is explicitly true:
+ *
+ *   1. `import.meta.env.DEV === true` (Vite dev server)
+ *   2. `VITE_APP_ENV === "development"`
+ *   3. `VITE_APP_ENV === "staging"`
+ *   4. `VITE_ENABLE_PAYLOAD_INSPECTION === "true"` (explicit opt-in)
+ *
+ * Every other state (missing / empty / `"production"` / unknown) keeps
+ * capture disabled and emits a specific reason code so the debug
+ * bundle can explain itself.
  */
-const RESOLVED_APP_ENV =
-  (import.meta.env.VITE_APP_ENV as string | undefined) ?? 'development'
+export type PayloadInspectionReason =
+  | 'vite_dev_mode_enabled'
+  | 'app_env_development_enabled'
+  | 'app_env_staging_enabled'
+  | 'explicit_debug_flag_enabled'
+  | 'missing_app_env_capture_disabled'
+  | 'empty_app_env_capture_disabled'
+  | 'production_env_capture_disabled'
+  | 'unknown_app_env_capture_disabled'
+
+interface InspectionEvaluation {
+  enabled: boolean
+  resolvedAppEnv: string
+  reason: PayloadInspectionReason
+}
 
 /**
- * Whether payload inspection is active for this build. Module-level
- * constant so the diagnostic bundle can record it verbatim.
+ * Pure evaluator — kept as a module-level constant for stability
+ * across the bundle (the resolved values are captured at module load),
+ * but factored out so tests can re-trigger module load with stubbed
+ * env vars and see the priority rules without any extra wiring.
+ *
+ * Priority order (first match wins):
+ *   - Vite DEV mode → enabled (`vite_dev_mode_enabled`)
+ *   - Explicit debug flag → enabled (`explicit_debug_flag_enabled`)
+ *   - VITE_APP_ENV === 'development' → enabled
+ *   - VITE_APP_ENV === 'staging' → enabled
+ *   - VITE_APP_ENV undefined → disabled (`missing_app_env_capture_disabled`)
+ *   - VITE_APP_ENV === '' → disabled (`empty_app_env_capture_disabled`)
+ *   - VITE_APP_ENV === 'production' → disabled (`production_env_capture_disabled`)
+ *   - Any other value → disabled (`unknown_app_env_capture_disabled`)
  */
-const PAYLOAD_INSPECTION_ENABLED =
-  RESOLVED_APP_ENV === 'development' || RESOLVED_APP_ENV === 'staging'
+function evaluatePayloadInspection(): InspectionEvaluation {
+  const rawAppEnv = import.meta.env.VITE_APP_ENV as string | undefined
+  const debugFlag = import.meta.env.VITE_ENABLE_PAYLOAD_INSPECTION as
+    | string
+    | undefined
+  const isDev = Boolean(import.meta.env.DEV)
+  // `resolvedAppEnv` reports what was actually observed so reviewers
+  // can debug the bundle without rebuilding. Use empty string when
+  // missing entirely (distinct from the empty-string-set case via
+  // the `reason` field).
+  const resolvedAppEnv = typeof rawAppEnv === 'string' ? rawAppEnv : ''
+
+  if (isDev) {
+    return { enabled: true, resolvedAppEnv, reason: 'vite_dev_mode_enabled' }
+  }
+  if (debugFlag === 'true') {
+    return {
+      enabled: true,
+      resolvedAppEnv,
+      reason: 'explicit_debug_flag_enabled',
+    }
+  }
+  if (rawAppEnv === 'development') {
+    return {
+      enabled: true,
+      resolvedAppEnv,
+      reason: 'app_env_development_enabled',
+    }
+  }
+  if (rawAppEnv === 'staging') {
+    return {
+      enabled: true,
+      resolvedAppEnv,
+      reason: 'app_env_staging_enabled',
+    }
+  }
+  if (rawAppEnv === undefined) {
+    return {
+      enabled: false,
+      resolvedAppEnv,
+      reason: 'missing_app_env_capture_disabled',
+    }
+  }
+  if (rawAppEnv === '') {
+    return {
+      enabled: false,
+      resolvedAppEnv,
+      reason: 'empty_app_env_capture_disabled',
+    }
+  }
+  if (rawAppEnv === 'production') {
+    return {
+      enabled: false,
+      resolvedAppEnv,
+      reason: 'production_env_capture_disabled',
+    }
+  }
+  return {
+    enabled: false,
+    resolvedAppEnv,
+    reason: 'unknown_app_env_capture_disabled',
+  }
+}
+
+const INSPECTION_EVAL = evaluatePayloadInspection()
+const RESOLVED_APP_ENV = INSPECTION_EVAL.resolvedAppEnv
+const PAYLOAD_INSPECTION_ENABLED = INSPECTION_EVAL.enabled
 
 /**
  * Diagnostic surface — exposes the module-load environment + enabled
- * state so the merged debug bundle can show WHY traces are absent.
- * Tests may reset the warning flag; production code should not mutate
- * the snapshot.
+ * state + the specific reason code so the merged debug bundle can
+ * show WHY traces are absent. The `reason` field is always populated
+ * (one of `PayloadInspectionReason`) rather than null — reviewers
+ * always see a stable code, including for the enabled branches.
  */
 export interface PayloadInspectionStatus {
   readonly enabled: boolean
   readonly resolvedAppEnv: string
-  readonly reason: string | null
+  readonly reason: PayloadInspectionReason
 }
+
 export function getPayloadInspectionStatus(): PayloadInspectionStatus {
-  if (PAYLOAD_INSPECTION_ENABLED) {
-    return { enabled: true, resolvedAppEnv: RESOLVED_APP_ENV, reason: null }
-  }
   return {
-    enabled: false,
-    resolvedAppEnv: RESOLVED_APP_ENV,
-    reason:
-      RESOLVED_APP_ENV === ''
-        ? 'VITE_APP_ENV is empty in this build'
-        : `VITE_APP_ENV="${RESOLVED_APP_ENV}" — payload capture is enabled only for "development" and "staging"`,
+    enabled: INSPECTION_EVAL.enabled,
+    resolvedAppEnv: INSPECTION_EVAL.resolvedAppEnv,
+    reason: INSPECTION_EVAL.reason,
   }
 }
 
 // One-time non-noisy info message at module load when capture is off.
 //
-// P1 fix (2026-05): gate behind `import.meta.env.DEV` so production
-// users never see console noise. The disable-reason is also surfaced
-// via `getPayloadInspectionStatus()` and persisted in the merged
+// Gated behind `import.meta.env.DEV` so production users never see
+// console noise. The disable-reason is also surfaced via
+// `getPayloadInspectionStatus()` and persisted in the merged
 // diagnostic bundle, so reviewers running a deployed staging build
 // still have non-console paths to discover the cause.
 if (
@@ -235,8 +334,10 @@ if (
 ) {
   // eslint-disable-next-line no-console
   console.info(
-    `[diagnostic] payload inspection disabled (VITE_APP_ENV="${RESOLVED_APP_ENV}"). ` +
-      'Set VITE_APP_ENV=staging on the deploy context to capture debug bundles.',
+    `[diagnostic] payload inspection disabled (reason=${INSPECTION_EVAL.reason}, ` +
+      `VITE_APP_ENV="${RESOLVED_APP_ENV}"). ` +
+      'Set VITE_APP_ENV=staging on the deploy context (or ' +
+      'VITE_ENABLE_PAYLOAD_INSPECTION=true) to capture debug bundles.',
   )
 }
 

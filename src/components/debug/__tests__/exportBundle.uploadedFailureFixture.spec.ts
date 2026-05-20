@@ -94,6 +94,14 @@ const traceState: {
 
 vi.mock('../../../lib/payload-trace-store', () => ({
   usePayloadTraceStore: { getState: () => traceState },
+  // PR #152 — closed-by-default gate. The uploaded-failure fixture
+  // models a live staging bundle; the dashboard env var was set, so
+  // we model an enabled-staging inspection status here.
+  getPayloadInspectionStatus: () => ({
+    enabled: true,
+    resolvedAppEnv: 'staging',
+    reason: 'app_env_staging_enabled',
+  }),
 }))
 
 import { buildDebugBundleAsync } from '../utils/exportBundle'
@@ -241,6 +249,23 @@ describe('uploaded-bundle fixture — every contradiction the brief lists is mac
     expect(issues).toContain('analysis_state_cee_v5_but_effective_cee_response_none')
     expect(issues).toContain('analysis_fact_present_but_cee_capture_missing')
     expect(bundle.v5_canonical_turn_diagnostics!.coherence.state).toBe('contradictory')
+  })
+
+  it('PR #152: payload_inspection_status emitted alongside the existing contradictions', async () => {
+    const bundle = await buildDebugBundleAsync(makeFixtureDebugData())
+    // The new closed-by-default env-gate status is always emitted.
+    // Reviewers facing a hydrated-only bundle now see at a glance
+    // whether capture was actually OFF (and why) vs ON but with no
+    // analysis-producing turn yet.
+    expect(bundle.payload_inspection_status).toBeDefined()
+    expect(bundle.payload_inspection_status?.enabled).toBe(true)
+    expect(bundle.payload_inspection_status?.resolved_app_env).toBe('staging')
+    expect(bundle.payload_inspection_status?.reason).toBe(
+      'app_env_staging_enabled',
+    )
+    // Sanity: the new field coexists with — does not replace — the
+    // existing capture_pipeline_status / coherence surfaces.
+    expect(bundle.capture_pipeline_status).toBe('hydrated_only')
   })
 
   it('Q6: which scientific validators have evidence? → hydrated_report labelled honestly, overall_status = insufficient_raw_evidence', async () => {

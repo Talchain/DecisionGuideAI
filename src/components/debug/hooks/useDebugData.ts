@@ -51,6 +51,7 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { usePayloadTraceStore, type TracedPayload } from '../../../lib/payload-trace-store'
+import { findLatestAnalysisProducingCeeTurn } from '../../../lib/analysisProducingCeeTurn'
 import { useGateStore, type GateName, type GateStatus } from '../../../lib/gate-state'
 import { getClientBuild } from '../../../lib/version-cache'
 
@@ -878,6 +879,17 @@ export interface DebugData {
 
   /** Raw payloads for inspection */
   payloads: PayloadBundle
+
+  /**
+   * True only when the analysis-producing CEE selector picked a turn
+   * whose captured `response_hash` disagreed with the canvas store's
+   * `results.hash`, and BOTH hashes were present. Missing hash on
+   * either side → false (no evidence to compare). Threaded into the
+   * bundle's capture-pipeline classifier as
+   * `ceeCaptureResponseHashMismatch` to emit the
+   * `capture_response_hash_mismatch_with_results` coherence issue.
+   */
+  cee_capture_response_hash_mismatch?: boolean
 
   /** Gate statuses */
   gates: GateData[]
@@ -3502,6 +3514,12 @@ export function useDebugData(): DebugData {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const runMeta = useCanvasStore((s) => s.runMeta)
+  // Read scenario id + results hash for the analysis-producing CEE
+  // selector. Both are optional / nullable — the selector treats
+  // missing values as "no evidence" (soft preference), so undefined
+  // store fields don't break selection.
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId ?? null)
+  const resultsHash = useCanvasStore((s) => s.results?.hash ?? null)
 
   // Payload trace store data
   const tracedPayloads = usePayloadTraceStore((s) => s.payloads)
@@ -3510,8 +3528,18 @@ export function useDebugData(): DebugData {
   const gatesMap = useGateStore((s) => s.gates)
 
   return useMemo(() => {
-    // Find service payloads (prefer completed over in-flight)
-    const ceePayload = findBestPayload(tracedPayloads, 'CEE')
+    // Prefer the analysis-producing CEE turn (matches scenario id,
+    // turn type, hash, recency). Falls through to `findBestPayload`
+    // when no analysis-producing turn was captured so non-analysis V5
+    // / V1 turns still surface honestly.
+    const analysisProducing = findLatestAnalysisProducingCeeTurn(
+      tracedPayloads,
+      currentScenarioId,
+      resultsHash,
+    )
+    const ceePayload =
+      (analysisProducing.selected as TracedPayload | undefined) ??
+      findBestPayload(tracedPayloads, 'CEE')
     const plotPayload = findBestPayload(tracedPayloads, 'PLoT')
     const islPayload = findBestPayload(tracedPayloads, 'ISL')
     const m2Payload = findBestPayload(tracedPayloads, 'M2')
@@ -3777,6 +3805,7 @@ export function useDebugData(): DebugData {
         },
       },
       payloads: payloadBundle,
+      cee_capture_response_hash_mismatch: analysisProducing.hash_mismatch_observed,
       gates,
       validation,
       winningOption,
@@ -3803,7 +3832,7 @@ export function useDebugData(): DebugData {
       // CEE diagnostic trace (passthrough)
       diagnostic_trace,
     }
-  }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap])
+  }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap, currentScenarioId, resultsHash])
 }
 
 export default useDebugData

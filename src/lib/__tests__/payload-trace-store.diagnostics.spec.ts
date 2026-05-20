@@ -26,19 +26,24 @@ describe('payload-trace-store diagnostic surface', () => {
       expect(status).toHaveProperty('reason');
       expect(typeof status.enabled).toBe('boolean');
       expect(typeof status.resolvedAppEnv).toBe('string');
-      // reason is null when enabled, non-null string when disabled
-      if (status.enabled) {
-        expect(status.reason).toBeNull();
-      } else {
-        expect(typeof status.reason).toBe('string');
-        expect((status.reason ?? '').length).toBeGreaterThan(0);
-      }
+      // PR #152: `reason` is now always a stable `PayloadInspectionReason`
+      // code, including when enabled. Closed-by-default gate emits one
+      // of eight documented codes (4 enabling, 4 disabling).
+      expect(typeof status.reason).toBe('string');
+      expect((status.reason ?? '').length).toBeGreaterThan(0);
+      expect(status.reason).toMatch(
+        /^(vite_dev_mode_enabled|app_env_development_enabled|app_env_staging_enabled|explicit_debug_flag_enabled|missing_app_env_capture_disabled|empty_app_env_capture_disabled|production_env_capture_disabled|unknown_app_env_capture_disabled)$/,
+      );
     });
 
-    it('reason mentions VITE_APP_ENV when disabled', () => {
+    it('reason code agrees with enabled flag (PR #152)', () => {
       const status = getPayloadInspectionStatus();
-      if (!status.enabled) {
-        expect(status.reason).toMatch(/VITE_APP_ENV/);
+      // The four `_enabled` reasons MUST come with enabled=true; the
+      // four `_capture_disabled` reasons MUST come with enabled=false.
+      if (status.enabled) {
+        expect(status.reason).toMatch(/_enabled$/);
+      } else {
+        expect(status.reason).toMatch(/_capture_disabled$/);
       }
     });
   });
