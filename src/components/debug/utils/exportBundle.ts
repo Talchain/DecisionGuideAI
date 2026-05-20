@@ -34,7 +34,15 @@ import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
 // service-metadata classification too, so the bundle can't
 // reintroduce substring false positives (e.g. `/turning` or
 // query-string `?next=/orchestrate/v2/turn`).
-import { isV5TurnEndpoint } from '../../../lib/v5TraceMatching'
+// PR #156 round-2 (reviewer IMP #3): same pathname-only matchers
+// for the PLoT V1/V2 endpoints so the bundle's evidence-source
+// classifier can't be fooled by `/v1/running` etc.
+import {
+  isV5TurnEndpoint,
+  isV1PlotEngineEndpoint,
+  isV1PlotStreamEndpoint,
+  isV2PlotEndpoint,
+} from '../../../lib/v5TraceMatching'
 // Round-6 review (maintainability): import shared selection-diagnostic
 // union types so the DebugBundle interface mirrors DebugData without
 // re-declaring the same enum in two places.
@@ -1452,20 +1460,30 @@ interface DebugBundle {
    * Tells reviewers in one field what kind of live evidence backs this
    * bundle:
    *
-   *   - `live_v5_cee_turn`         — V5 CEE turn captured (chat / chip)
-   *   - `live_plot_v1_engine_turn` — Run-analysis fired PLoT v1 engine;
-   *                                  no CEE turn (legitimate Run-analysis flow)
-   *   - `live_plot_v2_capture`     — V4 V2 PLoT path captured
-   *   - `hydrated_report`          — reload / saved state, no live trace
-   *   - `none`                     — no analysis evidence at all
+   *   - `live_v5_cee_turn`          — V5 CEE turn captured (chat / chip)
+   *   - `live_plot_v1_engine_turn`  — Run-analysis fired PLoT v1 sync;
+   *                                   no CEE turn (legitimate flow)
+   *   - `live_plot_v1_stream_turn`  — Run-analysis fired PLoT v1 SSE
+   *                                   streaming; body is the COMPLETE
+   *                                   event payload when present
+   *   - `live_plot_v2_capture`      — V4 V2 PLoT path captured
+   *   - `hydrated_report`           — reload / saved state, no live trace
+   *   - `none`                      — no analysis evidence at all
    *
-   * Honesty contract: when this is `live_plot_v1_engine_turn`, the
-   * absence of `cee_request`/`cee_response` is EXPECTED (Run-analysis
-   * bypasses CEE) and the bundle does NOT label it as failure.
+   * PR #156 round-2 (reviewer IMP #1): derived from the SELECTED
+   * trace's endpoint via shared pathname-only helpers — NOT from
+   * aggregate candidate counts. This avoids "stale V1 candidate
+   * exists but selector picked V2" mislabelling.
+   *
+   * Honesty contract: when this is one of the `live_plot_v1_*`
+   * codes, the absence of `cee_request`/`cee_response` is EXPECTED
+   * (Run-analysis bypasses CEE) and the bundle does NOT label it
+   * as failure.
    */
   analysis_evidence_source:
     | 'live_v5_cee_turn'
     | 'live_plot_v1_engine_turn'
+    | 'live_plot_v1_stream_turn'
     | 'live_plot_v2_capture'
     | 'hydrated_report'
     | 'none'
@@ -3554,6 +3572,20 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       bundlePayloadsAreV5Confirmed,
     })
 
+    // PR #156 round-2 (reviewer IMP #1 + IMP #4): classify the
+    // SELECTED PLoT trace's endpoint ONCE here so both the
+    // `classifyV5CapturePipelineStatus` call below and the
+    // `analysis_evidence_source` rollup further down read the same
+    // value. Pre-fix the rollup classified `selectedIsV1Run` AFTER
+    // the classifier needed it.
+    const selectedPlotProbe = {
+      service: 'PLoT',
+      endpoint: data.selected_plot_trace_endpoint ?? undefined,
+    }
+    const selectedIsV1Run = isV1PlotEngineEndpoint(selectedPlotProbe)
+    const selectedIsV1Stream = isV1PlotStreamEndpoint(selectedPlotProbe)
+    const selectedIsV2 = isV2PlotEndpoint(selectedPlotProbe)
+
     const capturePipeline = classifyV5CapturePipelineStatus({
       v5Capture: legacy.v5_cee_capture
         ? {
@@ -3582,11 +3614,19 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // validation (non-V5 entry or no matching id). Emit
       // `invalid_selected_trace_id` so reviewers see the discrepancy.
       invalidSelectedTraceId,
-      // Round-8 (follow-up to PR #153): explanatory diagnostic for
-      // the Run-analysis flow. True when at least one PLoT v1 entry
-      // is in the trace store but no CEE turn fired this session.
+      // Round-8 (follow-up to PR #153) + PR #156 round-2 (reviewer
+      // IMP #4): explanatory diagnostic for the Run-analysis flow.
+      // Pre-fix this fired from candidate count alone, which was too
+      // loose — a request-only or 4xx/5xx PLoT v1 entry would
+      // trigger the explanatory issue even though Run-analysis
+      // didn't actually succeed. Refined: fires when the SELECTED
+      // PLoT trace is a V1 path AND it completed with 2xx AND no
+      // CEE turn fired. Request-only / failed PLoT V1 entries land
+      // in `coherence` via the existing failure-detection paths
+      // (request_failed / proxy_or_network_failure) instead.
       plotV1CapturePresentWithoutCee:
-        (data.plot_candidate_count_v1_engine ?? 0) > 0 &&
+        (selectedIsV1Run || selectedIsV1Stream) &&
+        (data.selected_plot_trace_completed_2xx === true) &&
         legacy.v5_cee_capture === null,
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
@@ -3700,30 +3740,37 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // `analysis_evidence_source` rollup. Priority:
     //   1. live V5 CEE turn (chat / chip) — `cee_capture_provenance`
     //      points at a V5 turn AND the bundle has a CEE response body.
-    //   2. live PLoT V1 engine turn — Run-analysis flow (no CEE,
-    //      but `/bff/engine/v1/*` recorded).
-    //   3. live PLoT V2 capture — V4 path.
-    //   4. hydrated_report — no live trace, but canvas store has results.
-    //   5. none — nothing.
+    //   2. live PLoT V1 engine turn — Run-analysis sync flow.
+    //   3. live PLoT V1 stream turn — Run-analysis streaming flow.
+    //   4. live PLoT V2 capture — V4 direct V2 path.
+    //   5. hydrated_report — no live trace, canvas store has results.
+    //   6. none — nothing.
+    //
+    // PR #156 round-2 (reviewer IMP #1): derive the PLoT branches
+    // from the SELECTED trace's endpoint + completed-2xx flag — NOT
+    // from aggregate counts. Pre-fix the bundle could label as V1
+    // when a stale V1 trace existed but the selector actually picked
+    // a V2 entry (the body's source disagreed with the label).
     const ceeBodyPresent =
       bundle.payloads.cee_response !== null &&
       typeof bundle.payloads.cee_response === 'object'
     const ceeProvenanceIsV5 =
       data.cee_capture_provenance === 'analysis_producing_v5_turn' ||
       data.cee_capture_provenance === 'fallback_v5_turn'
-    const plotBodyPresent =
-      bundle.payloads.plot_response !== null &&
-      typeof bundle.payloads.plot_response === 'object'
-    const plotV1Present = (data.plot_candidate_count_v1_engine ?? 0) > 0
-    const plotV2Present = (data.plot_candidate_count_v2 ?? 0) > 0
     const hydratedResultsPresent =
       sourceResult.hasResultsReport || storeState.results != null
 
+    // `selectedIsV1Run` / `selectedIsV1Stream` / `selectedIsV2` are
+    // already classified above (hoisted before the classifier call
+    // so both consumers share the same value).
+
     if (ceeBodyPresent && ceeProvenanceIsV5) {
       bundle.analysis_evidence_source = 'live_v5_cee_turn'
-    } else if (plotV1Present && plotBodyPresent) {
+    } else if (selectedIsV1Run) {
       bundle.analysis_evidence_source = 'live_plot_v1_engine_turn'
-    } else if (plotV2Present && plotBodyPresent) {
+    } else if (selectedIsV1Stream) {
+      bundle.analysis_evidence_source = 'live_plot_v1_stream_turn'
+    } else if (selectedIsV2) {
       bundle.analysis_evidence_source = 'live_plot_v2_capture'
     } else if (hydratedResultsPresent) {
       bundle.analysis_evidence_source = 'hydrated_report'

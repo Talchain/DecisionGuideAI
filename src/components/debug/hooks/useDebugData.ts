@@ -59,6 +59,8 @@ import {
 import {
   isV5TurnEndpoint,
   matchServiceCaseInsensitive,
+  isV1PlotEndpoint,
+  isV2PlotEndpoint,
 } from '../../../lib/v5TraceMatching'
 import { useGateStore, type GateName, type GateStatus } from '../../../lib/gate-state'
 import { getClientBuild } from '../../../lib/version-cache'
@@ -957,6 +959,16 @@ export interface DebugData {
   plot_candidate_count_v1_engine?: number
   plot_candidate_count_v2?: number
   selected_plot_trace_id?: string | null
+  /**
+   * PR #156 round-2 (reviewer IMP #1): the SELECTED PLoT trace's
+   * endpoint string and completion status. Bundle assembler uses
+   * these to derive `analysis_evidence_source` from the SELECTED
+   * trace's provenance — not from aggregate counts (which could
+   * disagree, e.g. a stale V1 entry exists but the selector picked
+   * a V2 entry).
+   */
+  selected_plot_trace_endpoint?: string | null
+  selected_plot_trace_completed_2xx?: boolean
   /** Aggregate trace-store snapshot at the time `useDebugData` ran. */
   payload_trace_store_summary?: {
     total_entries: number
@@ -3692,22 +3704,29 @@ export function useDebugData(): DebugData {
     // already returns one `plotPayload`; here we also count candidates
     // and surface the chosen id so the bundle's `plot_capture_selection`
     // mirrors `cee_capture_selection`.
-    const plotEntries = tracedPayloads.filter(
-      (p) =>
-        typeof p.service === 'string' &&
-        p.service.toUpperCase() === 'PLOT',
-    )
-    const plotCandidateCountV1Engine = plotEntries.filter(
-      (p) =>
-        typeof p.endpoint === 'string' &&
-        (p.endpoint.includes('/v1/run') || p.endpoint.includes('/v1/stream')),
+    //
+    // PR #156 round-2 (reviewer IMP #3): use the shared
+    // path-boundary helpers from `v5TraceMatching.ts` instead of
+    // substring `includes` so look-alike paths like `/v1/running`
+    // and query-string-only references can't bump the counts.
+    const plotCandidateCountV1Engine = tracedPayloads.filter(
+      isV1PlotEndpoint,
     ).length
-    const plotCandidateCountV2 = plotEntries.filter(
-      (p) =>
-        typeof p.endpoint === 'string' && p.endpoint.includes('/v2/run'),
-    ).length
+    const plotCandidateCountV2 = tracedPayloads.filter(isV2PlotEndpoint).length
     const selectedPlotTraceId =
       typeof plotPayload?.id === 'string' ? plotPayload.id : null
+
+    // PR #156 round-2 (reviewer IMP #1): thread the SELECTED PLoT
+    // trace's endpoint + 2xx-completed flag through to the bundle so
+    // `analysis_evidence_source` is derived from the SELECTED trace's
+    // provenance — not from aggregate counts.
+    const selectedPlotTraceEndpoint =
+      typeof plotPayload?.endpoint === 'string' ? plotPayload.endpoint : null
+    const selectedPlotTraceCompleted2xx =
+      plotPayload?.completed === true &&
+      typeof plotPayload?.status === 'number' &&
+      plotPayload.status >= 200 &&
+      plotPayload.status < 300
 
     // Round-8: aggregate trace-store summary (counts only, no bodies).
     // Helps reviewers distinguish "store empty" vs "store had entries
@@ -4031,6 +4050,10 @@ export function useDebugData(): DebugData {
       plot_candidate_count_v1_engine: plotCandidateCountV1Engine,
       plot_candidate_count_v2: plotCandidateCountV2,
       selected_plot_trace_id: selectedPlotTraceId,
+      // PR #156 round-2 (reviewer IMP #1): SELECTED trace's endpoint
+      // + completed-2xx flag for bundle source classification.
+      selected_plot_trace_endpoint: selectedPlotTraceEndpoint,
+      selected_plot_trace_completed_2xx: selectedPlotTraceCompleted2xx,
       payload_trace_store_summary: payloadTraceStoreSummary,
       gates,
       validation,

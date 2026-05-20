@@ -358,6 +358,11 @@ async function runSyncOnce(
   const requestId = options?.requestId || crypto.randomUUID()
   const endpoint = `${base}/v1/run`
   let startTime = Date.now() // Will be updated by withObservabilityHeaders
+  // PR #156 follow-up (reviewer P0): track whether the response side
+  // of the trace-store entry has already been recorded so the catch
+  // block doesn't OVER-record with status:0 when a non-OK HTTP
+  // response was already captured with its real status.
+  let responseRecorded = false
 
   try {
     const idempotencyKey = request.idempotencyKey || request.clientHash
@@ -448,6 +453,54 @@ async function runSyncOnce(
     recordBffResponse(requestId, endpoint, response, startTime)
 
     if (!response.ok) {
+      // PR #156 follow-up (reviewer P0): a non-OK HTTP response is a
+      // SERVER-side failure (4xx/5xx), NOT a network failure. Record
+      // the trace-store entry with the REAL status, headers, and
+      // (best-effort) error body BEFORE the throw lands in the catch
+      // block. Without this, the catch block recorded `status: 0,
+      // source: 'preflight_or_network'` for every non-OK response —
+      // which made server failures look like network failures.
+      //
+      // Body parse is defensive: a 4xx/5xx may still carry JSON
+      // (PLoT error envelope) OR plain text OR nothing. We try JSON
+      // first, fall back to text, finally null. Redaction runs at
+      // EXPORT time via `redactPayload(DEBUG_BUNDLE_REDACTION_OPTIONS)`
+      // so error bodies containing auth-like fields are masked the
+      // same way successful payloads are.
+      let errorBody: unknown = null
+      const errorBodyHeaders: Record<string, string> = {}
+      try {
+        if (response.headers && typeof response.headers.forEach === 'function') {
+          response.headers.forEach((v, k) => {
+            errorBodyHeaders[k] = v
+          })
+        }
+      } catch {
+        // jsdom Response mocks sometimes lack a real Headers shape.
+      }
+      try {
+        // Try JSON first — PLoT error envelopes are JSON.
+        errorBody = await response.clone().json()
+      } catch {
+        try {
+          const text = await response.clone().text()
+          errorBody = text.length > 0 ? text : null
+        } catch {
+          errorBody = null
+        }
+      }
+      recordResponsePayload({
+        id: requestId,
+        status: response.status,
+        headers: errorBodyHeaders,
+        body: errorBody,
+        duration: Date.now() - startTime,
+        // Indicate the PLoT origin (the gate uses this to distinguish
+        // network/proxy failures from service failures).
+        source: 'plot',
+      })
+      responseRecorded = true
+
       throw await mapHttpError(response)
     }
 
@@ -459,6 +512,7 @@ async function runSyncOnce(
 
     // Record response payload for debug panel inspection
     recordBffResponsePayload(requestId, response, result, startTime)
+    responseRecorded = true
 
     // Parse debug headers if available (may not exist in test mocks)
     if (response.headers) {
@@ -477,24 +531,36 @@ async function runSyncOnce(
     // Record error for observability
     recordBffError(requestId, endpoint, startTime, err)
 
-    // PR follow-up to #153: also complete the trace-store entry on the
+    // PR follow-up to #153: complete the trace-store entry on the
     // error path so the bundle shows an honest "request fired, response
-    // failed" record rather than a half-populated entry. Status 0
-    // denotes "no HTTP response" (network failure or abort).
-    const errAny = err as { name?: string; message?: string; code?: string }
-    const isAbort = err instanceof Error && err.name === 'AbortError'
-    recordResponsePayload({
-      id: requestId,
-      status: 0,
-      headers: {},
-      body: null,
-      duration: Date.now() - startTime,
-      error:
-        typeof errAny.message === 'string' ? errAny.message : undefined,
-      errorName:
-        typeof errAny.name === 'string' ? errAny.name : undefined,
-      source: isAbort ? 'browser_timeout' : 'preflight_or_network',
-    })
+    // failed" record rather than a half-populated entry.
+    //
+    // PR #156 follow-up (reviewer P0): if the non-OK HTTP branch
+    // ALREADY recorded the response side (real status + body), don't
+    // over-record here. Without this guard the catch block would
+    // re-write the entry as `status: 0`, hiding the real server
+    // failure.
+    //
+    // Status 0 + `preflight_or_network` is reserved for genuine
+    // fetch-level network failures (TypeError, DNS, CORS preflight)
+    // and `browser_timeout` for AbortError. Server failures keep
+    // their real HTTP status from the non-OK branch above.
+    if (!responseRecorded) {
+      const errAny = err as { name?: string; message?: string; code?: string }
+      const isAbort = err instanceof Error && err.name === 'AbortError'
+      recordResponsePayload({
+        id: requestId,
+        status: 0,
+        headers: {},
+        body: null,
+        duration: Date.now() - startTime,
+        error:
+          typeof errAny.message === 'string' ? errAny.message : undefined,
+        errorName:
+          typeof errAny.name === 'string' ? errAny.name : undefined,
+        source: isAbort ? 'browser_timeout' : 'preflight_or_network',
+      })
+    }
 
     if (err instanceof Error && err.name === 'AbortError') {
       throw {

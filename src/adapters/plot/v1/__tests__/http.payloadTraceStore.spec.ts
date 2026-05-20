@@ -12,9 +12,16 @@
  * `recordRequestPayload` is now called BEFORE the fetch, so the entry
  * lands with `service: 'PLoT'` and `endpoint: '/bff/engine/v1/run'` —
  * making it visible to the debug-bundle export.
+ *
+ * PR #156 round-2 (reviewer "missing tests" #6): the previous version
+ * silently returned early when the inspection gate was disabled. In
+ * the vitest environment `import.meta.env.DEV === true` makes the
+ * gate `vite_dev_mode_enabled`, so the early-return was always a
+ * no-op. Removed it — tests now assert the recording happened
+ * regardless of how the gate is reached.
  */
 
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest'
 import { runSync, clearCapabilitiesCache } from '../http'
 import { usePayloadTraceStore, getPayloadInspectionStatus } from '../../../../lib/payload-trace-store'
 import type { V1RunRequest, V1SyncRunResponse } from '../types'
@@ -77,15 +84,15 @@ describe('v1/http — payload-trace-store recording (round-8 fix)', () => {
     vi.unstubAllGlobals()
   })
 
-  // Skip the test body when the inspection gate isn't enabled (e.g. the
-  // CI environment didn't stub `VITE_APP_ENV`). The gate's behaviour
-  // itself is tested in `payload-trace-store.envGate.spec.ts`.
-  function gateEnabled(): boolean {
-    return getPayloadInspectionStatus().enabled
-  }
+  // PR #156 round-2: the inspection gate is enabled in vitest via
+  // `import.meta.env.DEV === true`. We assert that to make the
+  // gate-on assumption explicit at the start of the suite — if the
+  // gate is ever disabled in CI, the test fails loudly.
+  beforeAll(() => {
+    expect(getPayloadInspectionStatus().enabled).toBe(true)
+  })
 
   it('records the request side into the trace store BEFORE the fetch fires (so the entry lands with service=PLoT + endpoint=/bff/engine/v1/run)', async () => {
-    if (!gateEnabled()) return
     fetchMock
       .mockResolvedValueOnce(mockCapabilitiesResponse()) // /version
       .mockResolvedValueOnce({
@@ -115,7 +122,6 @@ describe('v1/http — payload-trace-store recording (round-8 fix)', () => {
   })
 
   it('records the entry honestly on the error path (NETWORK_ERROR / TypeError)', async () => {
-    if (!gateEnabled()) return
     // First call: capabilities. Subsequent calls: always TypeError
     // (withRetry will retry; persistent rejection guarantees the same
     // error path completes the trace entry on every retry).
@@ -144,7 +150,6 @@ describe('v1/http — payload-trace-store recording (round-8 fix)', () => {
   })
 
   it('records timeout/abort as `browser_timeout`', async () => {
-    if (!gateEnabled()) return
     fetchMock.mockImplementation((url: string) => {
       if (typeof url === 'string' && url.includes('/version')) {
         return Promise.resolve(mockCapabilitiesResponse())
@@ -163,5 +168,116 @@ describe('v1/http — payload-trace-store recording (round-8 fix)', () => {
       .payloads.find((p) => p.id === 'tp-req-timeout')
     expect(entry).toBeDefined()
     expect(entry?.source).toBe('browser_timeout')
+  })
+
+  // PR #156 round-2 (reviewer P0 BLOCKING #1): non-OK HTTP responses
+  // (4xx/5xx) must record the REAL status, not the catch-block
+  // `status: 0` network-failure fallback.
+  it('non-OK 500 response records the real status + body — NOT status:0', async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/version')) {
+        return Promise.resolve(mockCapabilitiesResponse())
+      }
+      const errorBody = {
+        error: 'INTERNAL_SERVER_ERROR',
+        message: 'PLoT failed to compute',
+      }
+      // Build a Response-like object that satisfies the .clone().json()
+      // + .clone().text() reads the helper uses.
+      const makeResponse = () => ({
+        ok: false,
+        status: 500,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        clone: function() { return makeResponse() },
+        json: async () => errorBody,
+        text: async () => JSON.stringify(errorBody),
+      })
+      return Promise.resolve(makeResponse())
+    })
+
+    await expect(
+      runSync(VALID_REQUEST, { requestId: 'tp-req-500' }),
+    ).rejects.toBeDefined()
+
+    const entry = usePayloadTraceStore
+      .getState()
+      .payloads.find((p) => p.id === 'tp-req-500')
+    expect(entry).toBeDefined()
+    // CRITICAL: real HTTP status, NOT catch-block `0`.
+    expect(entry?.status).toBe(500)
+    // Real error body, NOT null.
+    expect(entry?.response?.body).toMatchObject({
+      error: 'INTERNAL_SERVER_ERROR',
+    })
+    // Source is the PLoT origin (server failure), NOT
+    // `preflight_or_network` (which would falsely suggest a network
+    // failure).
+    expect(entry?.source).toBe('plot')
+  })
+
+  it('non-OK 429 response also records real status', async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/version')) {
+        return Promise.resolve(mockCapabilitiesResponse())
+      }
+      const errorBody = { error: 'RATE_LIMITED' }
+      const makeResponse = () => ({
+        ok: false,
+        status: 429,
+        headers: new Headers(),
+        clone: function() { return makeResponse() },
+        json: async () => errorBody,
+        text: async () => JSON.stringify(errorBody),
+      })
+      return Promise.resolve(makeResponse())
+    })
+
+    await expect(
+      runSync(VALID_REQUEST, { requestId: 'tp-req-429' }),
+    ).rejects.toBeDefined()
+
+    const entry = usePayloadTraceStore
+      .getState()
+      .payloads.find((p) => p.id === 'tp-req-429')
+    expect(entry).toBeDefined()
+    expect(entry?.status).toBe(429)
+  })
+
+  // PR #156 round-2 (reviewer "missing tests" #5): a retry must not
+  // duplicate or corrupt the trace entry. `withRetry` calls
+  // `runSyncOnce` with the SAME `requestId`; the trace store should
+  // overwrite-in-place rather than create a second entry.
+  it('retry with the same requestId does NOT duplicate trace entries', async () => {
+    // 4 fetch calls expected: /version, /version (after retry), /v1/run, /v1/run.
+    // First /v1/run fails with NETWORK_ERROR; retry succeeds with 200.
+    let runCount = 0
+    fetchMock.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/version')) {
+        return Promise.resolve(mockCapabilitiesResponse())
+      }
+      runCount += 1
+      if (runCount === 1) {
+        return Promise.reject(new TypeError('Failed to fetch'))
+      }
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: async () => SAMPLE_RESPONSE,
+      })
+    })
+
+    await runSync(VALID_REQUEST, { requestId: 'tp-retry' })
+
+    // Only ONE entry with this id should exist after retry-and-success.
+    const entries = usePayloadTraceStore
+      .getState()
+      .payloads.filter((p) => p.id === 'tp-retry')
+    expect(entries.length).toBe(1)
+    // The entry reflects the SUCCESSFUL retry (status 200, response
+    // body present) — the failed first attempt's status:0 was
+    // overwritten by the successful retry's recordBffResponsePayload.
+    expect(entries[0].status).toBe(200)
+    expect(entries[0].response?.body).toBeDefined()
   })
 })

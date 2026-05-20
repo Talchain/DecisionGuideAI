@@ -386,10 +386,25 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
     }
 
     set((state) => {
-      const newPayloads = [payload, ...state.payloads]
-      // Limit to MAX_PAYLOADS
-      if (newPayloads.length > MAX_PAYLOADS) {
-        newPayloads.pop()
+      // PR #156 round-2 (reviewer "missing tests" #5): upsert by id
+      // so a retry with the same `requestId` updates the existing
+      // entry rather than creating a duplicate. Pre-fix repeated
+      // calls (e.g. `withRetry` in `v1/http.ts`) accumulated multiple
+      // entries that all looked like separate requests. The
+      // response-side `recordResponsePayload` already updates by id;
+      // this aligns the request-side behaviour.
+      const existingIdx = state.payloads.findIndex((p) => p.id === payload.id)
+      let newPayloads: TracedPayload[]
+      if (existingIdx >= 0) {
+        // Replace in place, preserving array position so recency
+        // ordering doesn't shift.
+        newPayloads = [...state.payloads]
+        newPayloads[existingIdx] = payload
+      } else {
+        newPayloads = [payload, ...state.payloads]
+        if (newPayloads.length > MAX_PAYLOADS) {
+          newPayloads.pop()
+        }
       }
       return { payloads: newPayloads }
     })
