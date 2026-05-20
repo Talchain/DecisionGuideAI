@@ -459,6 +459,24 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
           return asString.length > 200 ? asString.slice(0, 200) : asString;
         })();
 
+        // PR #156 round-4 (reviewer P1 #3): scrub secret-shaped
+        // substrings from a plain-text response body before storing.
+        // `redactPayload` operates on object KEYS — plain strings
+        // (e.g. raw text captured from non-OK HTML responses or
+        // parse-error fall-back text) bypass the structural pass and
+        // would otherwise carry through `Bearer ...` / JWT / api_key
+        // values verbatim. Mirror the `errorCause` scrub path so
+        // both surfaces redact consistently.
+        const redactedResponseBody = (() => {
+          if (typeof params.body === 'string') {
+            const scrubbed = scrubSecretsInString(params.body)
+            // Then pass through the structural redactor (no-op for
+            // plain strings beyond the existing truncate cap).
+            return redactPayload(scrubbed, PAYLOAD_REDACTION_OPTIONS)
+          }
+          return redactPayload(params.body, PAYLOAD_REDACTION_OPTIONS)
+        })()
+
         return {
           ...p,
           status: params.status,
@@ -469,7 +487,7 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
           ...(params.source ? { source: params.source } : {}),
           response: {
             headers: redactPayload(params.headers, PAYLOAD_REDACTION_OPTIONS) as Record<string, string>,
-            body: redactPayload(params.body, PAYLOAD_REDACTION_OPTIONS),
+            body: redactedResponseBody,
           },
           contractValidation,
           completed: true,

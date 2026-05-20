@@ -1862,3 +1862,122 @@ describe('buildDebugBundleAsync — PR #156 round-3 IMP #2: extended plot_captur
     expect(sel.selected_plot_trace_is_usable_live_evidence).toBe(false)
   })
 })
+
+// =====================================================================
+// PR #156 round-4 — scientific_validation.source gated on usability
+// =====================================================================
+
+describe('buildDebugBundleAsync — PR #156 round-4 P0: scientific_validation source honesty', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('failed PLoT body with `factor_sensitivity` does NOT mark scientific_validation.source as live_raw_payloads', async () => {
+    // Adversarial fixture: the response body LOOKS like an analysis
+    // result (has `factor_sensitivity`) but the selected trace is
+    // a 500 — so the body is from an error envelope, not a real run.
+    // Pre-fix `classifySource` returned `live_raw_payloads` purely
+    // from the indicative-key presence. Round-4 P0 fix: gated on
+    // the selector's usability flag.
+    canvasState.results = { report: {}, hash: 'h', rawV2Response: null }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 500,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: false,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        // CRITICAL: selector flags this trace as NOT usable live
+        // evidence (failed status). The validator source must
+        // honour that flag instead of independently re-classifying
+        // from body shape.
+        selected_plot_trace_is_usable_live_evidence: false,
+        plot_candidate_count_v1_engine: 1,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn' },
+          // Body has the indicative key — pre-fix this alone
+          // upgraded `source` to `live_raw_payloads`.
+          plot_response: {
+            factor_sensitivity: [{ factor_id: 'f1', impact: 0.3 }],
+            error: 'INTERNAL_SERVER_ERROR',
+          },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // Headline label honestly says not live.
+    expect(bundle.analysis_evidence_source).not.toBe('live_plot_v1_engine_turn')
+    expect(bundle.analysis_evidence_source).toBe('hydrated_report')
+    // P0 fix: validator source ALSO honest now.
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+  })
+
+  it('positive control: completed-2xx + usable body → scientific_validation.source IS live_raw_payloads', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 200,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: true,
+        plot_candidate_count_v1_engine: 1,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn' },
+          plot_response: {
+            factor_sensitivity: [{ factor_id: 'f1', impact: 0.3 }],
+          },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.analysis_evidence_source).toBe('live_plot_v1_engine_turn')
+    expect(bundle.scientific_validation?.source).toBe('live_raw_payloads')
+  })
+})
+
+describe('buildDebugBundleAsync — PR #156 round-4 IMP: selected_plot_trace_completed_2xx exposed', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('field appears on plot_capture_selection', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 200,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: true,
+      }),
+    )
+    expect(bundle.plot_capture_selection.selected_plot_trace_completed_2xx).toBe(true)
+  })
+
+  it('sync default emits selected_plot_trace_completed_2xx=false', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    expect(bundle.plot_capture_selection.selected_plot_trace_completed_2xx).toBe(false)
+  })
+})

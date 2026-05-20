@@ -93,76 +93,110 @@ function tierOf(p: PlotSelectorTracedPayload): PlotTraceTier {
 }
 
 /**
+ * PR #156 round-4 (reviewer P1 #1): read the response_hash from a
+ * PLoT response body. PLoT v1 typically carries it at the root;
+ * defensive reads cover meta + lineage as fall-backs (same pattern
+ * as the CEE response-hash reader).
+ */
+function readPlotResponseHash(p: PlotSelectorTracedPayload): string | null {
+  const body = p.response?.body
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return null
+  const root = body as Record<string, unknown>
+  // Root-level (most common for V1 engine).
+  if (typeof root.response_hash === 'string' && root.response_hash.length > 0) {
+    return root.response_hash
+  }
+  // Meta-level.
+  const meta = root.meta
+  if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+    const mh = (meta as Record<string, unknown>).response_hash
+    if (typeof mh === 'string' && mh.length > 0) return mh
+  }
+  // Lineage-level (forward compat with V5 shape).
+  const lineage = root.lineage
+  if (lineage && typeof lineage === 'object' && !Array.isArray(lineage)) {
+    const lh = (lineage as Record<string, unknown>).response_hash
+    if (typeof lh === 'string' && lh.length > 0) return lh
+  }
+  return null
+}
+
+const TIER_RANK: Record<PlotTraceTier, number> = {
+  v1_engine: 3,
+  v1_stream: 2,
+  v2_run: 1,
+  other: 0,
+}
+
+/**
  * Pick the analysis-producing PLoT trace from a snapshot.
  *
- * Selection order (most-recent-first within each tier):
- *   Tier 1 — V1 sync engine, 2xx completed, with body
- *   Tier 2 — V1 SSE stream,  2xx completed, with body
- *   Tier 3 — V2 PLoT run,    2xx completed, with body
- *   Tier 4 (fallback) — most-recent V1 engine OR stream OR V2 run
- *     entry regardless of body / completion (so reviewers still
- *     see the attempt; the bundle labels it as non-live).
- *   None — no PLoT entry in any tier.
+ * PR #156 round-4 (reviewer P1 #1): ranking is now
+ *
+ *   1. Hash match — when the caller supplies `resultsHash`, a
+ *      candidate whose `response_hash` equals it wins. This stops
+ *      a stale V1 entry in the 20-entry ring buffer from
+ *      displacing the V2 trace that actually produced the
+ *      currently-rendered results.
+ *   2. Usable + recency + tier — among candidates with body
+ *      evidence (2xx completed + non-empty object body), prefer
+ *      the most-recent (index 0 in the most-recent-first array);
+ *      ties broken by tier (V1 engine > V1 stream > V2).
+ *   3. Tier fallback — when NO candidate has body evidence, pick
+ *      the most-recent in-tier entry (V1 engine > V1 stream > V2)
+ *      so reviewers see the attempt; flagged non-usable so the
+ *      bundle labels honestly.
+ *   4. None — no analysis-class entry in any tier.
  *
  * The `payloads` array is assumed most-recent-first (matches the
  * trace store's `payloads: [newest, ...]` convention).
+ *
+ * The `resultsHash` argument is optional — when null/undefined,
+ * the selector skips step 1 (preserves pre-round-4 behaviour for
+ * tests/callers that don't have a results hash to anchor on).
  */
 export function findAnalysisProducingPlotTurn<T extends PlotSelectorTracedPayload>(
   payloads: ReadonlyArray<T>,
+  resultsHash: string | null = null,
 ): PlotSelectionResult<T> {
-  // Bucket by tier.
-  const v1Engine: T[] = []
-  const v1Stream: T[] = []
-  const v2Run: T[] = []
-  for (const p of payloads) {
-    switch (tierOf(p)) {
-      case 'v1_engine':
-        v1Engine.push(p)
-        break
-      case 'v1_stream':
-        v1Stream.push(p)
-        break
-      case 'v2_run':
-        v2Run.push(p)
-        break
-      default:
-        // Skip non-analysis PLoT entries.
-        break
-    }
+  // Filter to analysis-class candidates only. Tag with their index
+  // so the recency tiebreaker is deterministic.
+  type Candidate = { p: T; idx: number; tier: PlotTraceTier }
+  const candidates: Candidate[] = []
+  payloads.forEach((p, idx) => {
+    const tier = tierOf(p)
+    if (tier !== 'other') candidates.push({ p, idx, tier })
+  })
+  if (candidates.length === 0) {
+    return { selected: null, tier: null, selected_is_usable_live_evidence: false }
   }
 
-  // Tier 1 — V1 engine with body.
-  for (const p of v1Engine) {
-    if (is2xxCompleted(p) && hasUsableResponseBody(p)) {
-      return { selected: p, tier: 'v1_engine', selected_is_usable_live_evidence: true }
+  // Score every candidate. Highest score wins.
+  //   +1000 when both hashes present and EQUAL (top signal)
+  //   +50   when 2xx completed AND body usable
+  //   +tier (3/2/1 for engine/stream/v2)
+  //   +max(0, 9 - idx)  recency tiebreaker
+  const usableNorm = (c: Candidate): boolean =>
+    is2xxCompleted(c.p) && hasUsableResponseBody(c.p)
+  const score = (c: Candidate): number => {
+    let s = 0
+    if (resultsHash !== null && resultsHash.length > 0) {
+      const ch = readPlotResponseHash(c.p)
+      if (ch !== null && ch === resultsHash) s += 1000
     }
-  }
-  // Tier 2 — V1 stream with body.
-  for (const p of v1Stream) {
-    if (is2xxCompleted(p) && hasUsableResponseBody(p)) {
-      return { selected: p, tier: 'v1_stream', selected_is_usable_live_evidence: true }
-    }
-  }
-  // Tier 3 — V2 with body.
-  for (const p of v2Run) {
-    if (is2xxCompleted(p) && hasUsableResponseBody(p)) {
-      return { selected: p, tier: 'v2_run', selected_is_usable_live_evidence: true }
-    }
+    if (usableNorm(c)) s += 50
+    s += TIER_RANK[c.tier]
+    s += Math.max(0, 9 - c.idx)
+    return s
   }
 
-  // Tier 4 (fallback) — any analysis-class entry, regardless of body.
-  // Same priority: V1 engine > V1 stream > V2 > nothing. Reviewers
-  // see the attempt; the bundle labels it as non-live (request-only,
-  // failed, or empty-stream).
-  for (const p of v1Engine) {
-    return { selected: p, tier: 'v1_engine', selected_is_usable_live_evidence: false }
+  const ranked = candidates
+    .map((c) => ({ c, s: score(c) }))
+    .sort((a, b) => b.s - a.s)
+  const winner = ranked[0].c
+  return {
+    selected: winner.p,
+    tier: winner.tier,
+    selected_is_usable_live_evidence: usableNorm(winner),
   }
-  for (const p of v1Stream) {
-    return { selected: p, tier: 'v1_stream', selected_is_usable_live_evidence: false }
-  }
-  for (const p of v2Run) {
-    return { selected: p, tier: 'v2_run', selected_is_usable_live_evidence: false }
-  }
-
-  return { selected: null, tier: null, selected_is_usable_live_evidence: false }
 }

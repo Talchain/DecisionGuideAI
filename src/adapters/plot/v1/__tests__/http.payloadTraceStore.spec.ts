@@ -429,4 +429,110 @@ describe('v1/http — payload-trace-store recording (round-8 fix)', () => {
     // key) so reviewers see the failure class.
     expect(serialised).toContain('AUTH_FAILED')
   })
+
+  // PR #156 round-4 P1 #3 — secret scrubbing on plain-text bodies.
+  // Round-3 captured the response BODY but `redactPayload` only
+  // handles structured objects. Plain-text bodies (parse-error
+  // fall-back text, HTML error pages, etc.) would carry bearer
+  // tokens / JWTs through verbatim. Round-4 wires the existing
+  // `scrubSecretsInString` into the response-body redaction path
+  // when `body` is a string.
+  it('plain-text error body containing Bearer/JWT/api_key is scrubbed by the trace store', async () => {
+    fetchMock.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/version')) {
+        return Promise.resolve(mockCapabilitiesResponse())
+      }
+      // Non-OK response returns plain-text body (not JSON).
+      const secretText =
+        'Internal Server Error\n' +
+        'Origin: bearer abc123secrettoken\n' +
+        'JWT: eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.sigPart-secret\n' +
+        'api_key=ZAQWSXcdervfb'
+      const makeResponse = () => ({
+        ok: false,
+        status: 500,
+        headers: new Headers({ 'content-type': 'text/plain' }),
+        clone: function() { return makeResponse() },
+        json: async () => {
+          throw new SyntaxError('Unexpected token')
+        },
+        text: async () => secretText,
+      })
+      return Promise.resolve(makeResponse())
+    })
+
+    await expect(
+      runSync(VALID_REQUEST, { requestId: 'tp-text-secrets' }),
+    ).rejects.toBeDefined()
+
+    const entry = usePayloadTraceStore
+      .getState()
+      .payloads.find((p) => p.id === 'tp-text-secrets')
+    expect(entry).toBeDefined()
+    const stored = entry?.response?.body
+    expect(typeof stored).toBe('string')
+    const text = stored as string
+    // The error message is preserved.
+    expect(text).toContain('Internal Server Error')
+    // Bearer token is scrubbed.
+    expect(text).not.toContain('abc123secrettoken')
+    expect(text).toContain('bearer [REDACTED]')
+    // JWT is scrubbed.
+    expect(text).not.toContain(
+      'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ4In0.sigPart-secret',
+    )
+    expect(text).toContain('[REDACTED:JWT]')
+    // api_key=value pair is scrubbed.
+    expect(text).not.toContain('ZAQWSXcdervfb')
+  })
+
+  // PR #156 round-4 P1 #2 positive control — clone-before-json
+  // actually preserves raw text. Pre-fix `.clone()` was called
+  // after `.json()` consumed the body; the round-3 test happened
+  // to pass against jsdom mocks where `clone()` returns a fresh
+  // Response object on every call, masking the bug. Now we verify
+  // the trace store has the actual raw text.
+  it('clone-before-json preserves raw text on parse failure (positive control)', async () => {
+    const rawText = 'this is not valid JSON {{{ but should still be captured'
+    fetchMock.mockImplementation((url: string) => {
+      if (typeof url === 'string' && url.includes('/version')) {
+        return Promise.resolve(mockCapabilitiesResponse())
+      }
+      // Track whether json() has been called — second clone() must
+      // still be able to read text() even after json() failed on
+      // the first.
+      let jsonCalls = 0
+      const makeResponse = () => {
+        const r: any = {
+          ok: true,
+          status: 200,
+          headers: new Headers({ 'content-type': 'application/json' }),
+        }
+        // Each clone() returns a new object with its own consume state.
+        r.clone = function () { return makeResponse() }
+        r.json = async function () {
+          jsonCalls++
+          throw new SyntaxError('Unexpected token')
+        }
+        r.text = async function () { return rawText }
+        return r
+      }
+      return Promise.resolve(makeResponse())
+    })
+
+    await expect(
+      runSync(VALID_REQUEST, { requestId: 'tp-clone-positive' }),
+    ).rejects.toMatchObject({ code: 'PARSE_ERROR' })
+
+    const entry = usePayloadTraceStore
+      .getState()
+      .payloads.find((p) => p.id === 'tp-clone-positive')
+    expect(entry).toBeDefined()
+    expect(entry?.status).toBe(200)
+    // CRITICAL: the raw text actually made it into the trace store.
+    // Pre-fix this assertion accidentally passed because the mock
+    // didn't model the consume-once contract.
+    expect(entry?.response?.body).toBe(rawText)
+    expect(entry?.errorName).toBe('ParseError')
+  })
 })

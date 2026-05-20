@@ -49,14 +49,19 @@ describe('findAnalysisProducingPlotTurn — happy path', () => {
     expect(out.tier).toBe('v1_engine')
   })
 
-  it('V1 stream beats V2 when V1 engine is absent', () => {
+  it('V1 stream beats V2 when V1 engine is absent (equal recency → tier breaks tie)', () => {
+    // Round-4 ranking: recency > tier. When V1 stream is MORE
+    // recent than V2 (lower index), V1 stream wins both on recency
+    // AND tier. Putting V1 stream at the front of the array
+    // demonstrates the new design: a fresh V1 stream beats a
+    // stale V2.
     const out = findAnalysisProducingPlotTurn([
-      plotEntry({ id: 'tp-v2', endpoint: '/v2/run' }),
       plotEntry({
         id: 'tp-v1-stream',
         endpoint: '/bff/engine/v1/stream',
         response: { headers: {}, body: { run_id: 'r', factor_sensitivity: [] } },
       }),
+      plotEntry({ id: 'tp-v2', endpoint: '/v2/run' }),
     ])
     expect(out.selected?.id).toBe('tp-v1-stream')
     expect(out.tier).toBe('v1_stream')
@@ -204,5 +209,135 @@ describe('findAnalysisProducingPlotTurn — tier-fallback when no usable entry e
     expect(out.selected?.id).toBe('tp-stream-ok')
     expect(out.tier).toBe('v1_stream')
     expect(out.selected_is_usable_live_evidence).toBe(true)
+  })
+})
+
+// =====================================================================
+// PR #156 round-4 P1 #1 — hash > recency > tier ranking
+// =====================================================================
+
+describe('findAnalysisProducingPlotTurn — round-4 P1 #1: hash match overrides tier', () => {
+  it('fresh V2 trace with matching results.hash beats stale V1 engine entry', () => {
+    // Trace store (most-recent-first):
+    //   - tp-v2-fresh: V2 run, completed-2xx, response_hash matches
+    //   - tp-v1-stale: V1 engine, completed-2xx, response_hash DOES NOT match
+    // Pre-fix tier ranking gave V1 the win regardless. Round-4
+    // ranking: hash match (+1000) > tier (+3 for V1).
+    const out = findAnalysisProducingPlotTurn(
+      [
+        {
+          id: 'tp-v2-fresh',
+          service: 'PLoT',
+          endpoint: '/v2/run',
+          status: 200,
+          completed: true,
+          response: {
+            headers: {},
+            body: { response_hash: 'results-hash', factor_sensitivity: [] },
+          },
+        },
+        {
+          id: 'tp-v1-stale',
+          service: 'PLoT',
+          endpoint: '/bff/engine/v1/run',
+          status: 200,
+          completed: true,
+          response: {
+            headers: {},
+            body: { response_hash: 'stale-v1-hash', factor_sensitivity: [] },
+          },
+        },
+      ],
+      'results-hash',
+    )
+    expect(out.selected?.id).toBe('tp-v2-fresh')
+    expect(out.tier).toBe('v2_run')
+    expect(out.selected_is_usable_live_evidence).toBe(true)
+  })
+
+  it('no hash match → falls back to tier ranking', () => {
+    const out = findAnalysisProducingPlotTurn(
+      [
+        {
+          id: 'tp-v2',
+          service: 'PLoT',
+          endpoint: '/v2/run',
+          status: 200,
+          completed: true,
+          response: {
+            headers: {},
+            body: { response_hash: 'h1', factor_sensitivity: [] },
+          },
+        },
+        {
+          id: 'tp-v1',
+          service: 'PLoT',
+          endpoint: '/bff/engine/v1/run',
+          status: 200,
+          completed: true,
+          response: {
+            headers: {},
+            body: { response_hash: 'h2', factor_sensitivity: [] },
+          },
+        },
+      ],
+      'no-match-hash',
+    )
+    expect(out.selected?.id).toBe('tp-v1')
+    expect(out.tier).toBe('v1_engine')
+  })
+
+  it('reads response_hash from meta-level when root absent', () => {
+    const out = findAnalysisProducingPlotTurn(
+      [
+        {
+          id: 'tp-meta-hash',
+          service: 'PLoT',
+          endpoint: '/v2/run',
+          status: 200,
+          completed: true,
+          response: {
+            headers: {},
+            body: {
+              meta: { response_hash: 'meta-h' },
+              factor_sensitivity: [],
+            },
+          },
+        },
+        {
+          id: 'tp-v1-no-hash',
+          service: 'PLoT',
+          endpoint: '/bff/engine/v1/run',
+          status: 200,
+          completed: true,
+          response: { headers: {}, body: { factor_sensitivity: [] } },
+        },
+      ],
+      'meta-h',
+    )
+    expect(out.selected?.id).toBe('tp-meta-hash')
+  })
+
+  it('no resultsHash supplied → behaves like pre-round-4 (tier wins)', () => {
+    const out = findAnalysisProducingPlotTurn([
+      {
+        id: 'tp-v2',
+        service: 'PLoT',
+        endpoint: '/v2/run',
+        status: 200,
+        completed: true,
+        response: { headers: {}, body: { factor_sensitivity: [] } },
+      },
+      {
+        id: 'tp-v1',
+        service: 'PLoT',
+        endpoint: '/bff/engine/v1/run',
+        status: 200,
+        completed: true,
+        response: { headers: {}, body: { factor_sensitivity: [] } },
+      },
+    ])
+    // No hash anchor — V1 engine still wins on tier.
+    expect(out.selected?.id).toBe('tp-v1')
   })
 })

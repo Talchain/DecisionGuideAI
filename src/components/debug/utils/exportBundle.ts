@@ -1530,6 +1530,13 @@ interface DebugBundle {
     /** True when the selected trace's `completed` flag is true. */
     selected_plot_trace_completed: boolean
     /**
+     * PR #156 round-4 (reviewer IMP): true when the selected trace
+     * completed AND status is 2xx. The hook computes this; the
+     * bundle exposes it so reviewers can grep one field instead of
+     * inferring from `_status` + `_completed`.
+     */
+    selected_plot_trace_completed_2xx: boolean
+    /**
      * True when `response.body` is a non-empty object. False for
      * request-only entries, body:null streams, and empty bodies.
      */
@@ -3018,6 +3025,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       selected_plot_trace_endpoint: null,
       selected_plot_trace_status: null,
       selected_plot_trace_completed: false,
+      selected_plot_trace_completed_2xx: false,
       selected_plot_trace_response_body_present: false,
       selected_plot_trace_tier: 'none',
       selected_plot_trace_is_usable_live_evidence: false,
@@ -3785,6 +3793,8 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       selected_plot_trace_status: data.selected_plot_trace_status ?? null,
       selected_plot_trace_completed:
         data.selected_plot_trace_completed ?? false,
+      selected_plot_trace_completed_2xx:
+        data.selected_plot_trace_completed_2xx ?? false,
       selected_plot_trace_response_body_present:
         data.selected_plot_trace_response_body_present ?? false,
       selected_plot_trace_tier:
@@ -3933,6 +3943,12 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       resultsReport: storeState.results?.report ?? null,
       ceeAnalysisReady: storeState.ceeAnalysisReady ?? null,
       capturePipelineStatus: bundle.capture_pipeline_status ?? null,
+      // PR #156 round-4 (reviewer P0): thread the usability flag so
+      // `classifySource` can't overclaim `live_raw_payloads` from a
+      // failed/non-usable selected PLoT trace whose error body
+      // happens to carry an indicative key.
+      selectedPlotTraceIsUsableLiveEvidence:
+        data.selected_plot_trace_is_usable_live_evidence === true,
     })
   } catch {
     // All four sections are additive — keep partial state on failure.

@@ -3708,14 +3708,17 @@ export function useDebugData(): DebugData {
     } else {
       ceeCaptureProvenance = 'none'
     }
-    // PR #156 round-3 (reviewer BLOCKING #2): use the analysis-
-    // producing PLoT selector. Pre-fix `findBestPayload(_, 'PLoT')`
-    // would pick the most recent completed PLoT entry of ANY kind
-    // — a late validate / probe / limits call could displace the
-    // actual `/v1/run` analysis response. The new selector ranks
-    // V1 engine > V1 stream > V2 run, requiring completed-2xx with
-    // body for live-evidence classification.
-    const plotSelection = findAnalysisProducingPlotTurn(tracedPayloads)
+    // PR #156 round-3 (reviewer BLOCKING #2) + round-4 (reviewer
+    // P1 #1): use the analysis-producing PLoT selector. Pre-round-3
+    // `findBestPayload(_, 'PLoT')` picked any completed PLoT entry
+    // and could be displaced by a late validate/probe entry.
+    // Round-4 adds `resultsHash` ranking so a stale V1 trace in
+    // the 20-entry ring buffer can't displace a fresh V2 trace
+    // whose `response_hash` actually matches the rendered results.
+    const plotSelection = findAnalysisProducingPlotTurn(
+      tracedPayloads,
+      resultsHash,
+    )
     const plotPayload =
       plotSelection.selected as TracedPayload | null ?? undefined
     const islPayload = findBestPayload(tracedPayloads, 'ISL')

@@ -478,14 +478,40 @@ async function runSyncOnce(
       } catch {
         // jsdom Response mocks sometimes lack a real Headers shape.
       }
+      // PR #156 round-4 (reviewer P1 #2): clone TWO copies of the
+      // response — one for the JSON attempt, one for the text
+      // fall-back. Pre-fix the second `response.clone()` was called
+      // AFTER the first clone's `.json()` consumed the original;
+      // the spec leaves clone-after-consume undefined and runtimes
+      // behave inconsistently. Two distinct clones eliminate the
+      // dependency on consume-order.
+      let jsonClone: Response | null = null
+      let textClone: Response | null = null
       try {
-        // Try JSON first — PLoT error envelopes are JSON.
-        errorBody = await response.clone().json()
+        jsonClone = response.clone()
       } catch {
-        try {
-          const text = await response.clone().text()
-          errorBody = text.length > 0 ? text : null
-        } catch {
+        // clone unsupported in this runtime
+      }
+      try {
+        textClone = response.clone()
+      } catch {
+        // clone unsupported
+      }
+      try {
+        if (jsonClone !== null) {
+          errorBody = await jsonClone.json()
+        } else {
+          throw new Error('clone unavailable')
+        }
+      } catch {
+        if (textClone !== null) {
+          try {
+            const text = await textClone.text()
+            errorBody = text.length > 0 ? text : null
+          } catch {
+            errorBody = null
+          }
+        } else {
           errorBody = null
         }
       }
@@ -514,16 +540,31 @@ async function runSyncOnce(
     // raw text body + ParseError diagnostic BEFORE throwing, and
     // mark `responseRecorded` so the catch doesn't over-record.
     let result: V1SyncRunResponse
+    // PR #156 round-4 (reviewer P1 #2): clone the response BEFORE
+    // attempting json() so the clone's body stream is still intact
+    // if json() fails. Pre-fix `.clone()` was called AFTER
+    // `.json()` consumed the body — the clone would either throw on
+    // `.text()` or return an empty string, defeating the round-3
+    // "preserve raw text" claim.
+    let parseClone: Response | null = null
+    try {
+      parseClone = response.clone()
+    } catch {
+      // jsdom or test mocks may not implement clone — fall through
+      // and accept that raw text capture may not be possible.
+      parseClone = null
+    }
     try {
       result = await response.json()
     } catch (jsonErr) {
       const errAny = jsonErr as { name?: string; message?: string }
       let rawText: string | null = null
-      try {
-        rawText = await response.clone().text()
-      } catch {
-        // Body already consumed by `.json()` (depending on the
-        // runtime). Fall back to null.
+      if (parseClone !== null) {
+        try {
+          rawText = await parseClone.text()
+        } catch {
+          // Clone exists but .text() failed (unusual). Keep null.
+        }
       }
       const parseErrorHeaders: Record<string, string> = {}
       try {

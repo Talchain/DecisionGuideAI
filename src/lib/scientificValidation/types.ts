@@ -71,6 +71,25 @@ export interface ValidatorInputs {
   ceeAnalysisReady: unknown
   /** capture_pipeline_status — drives response_shape_validation source. */
   capturePipelineStatus: string | null
+  /**
+   * PR #156 round-4 (reviewer P0): the analysis-producing PLoT
+   * selector's usability signal. `true` only when the SELECTED PLoT
+   * trace matched an analysis-class tier, completed with 2xx, AND
+   * has a non-empty response body.
+   *
+   * `classifySource` reads `plotResponse` directly for live-evidence
+   * indicative keys — pre-fix a FAILED PLoT response carrying
+   * `factor_sensitivity` in its error body would mislabel as
+   * `live_raw_payloads`. This boolean gates the `live_raw_payloads`
+   * return so the validator source honestly reflects the selected
+   * trace's usability, not just the body shape.
+   *
+   * Defaults to `false` for legacy / sync-path callers — preserves
+   * prior PR #150 behaviour when the new signal isn't threaded
+   * through. Round-4: the bundle assembler always sets the real
+   * value.
+   */
+  selectedPlotTraceIsUsableLiveEvidence?: boolean
 }
 
 /**
