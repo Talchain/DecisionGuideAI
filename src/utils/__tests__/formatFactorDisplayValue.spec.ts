@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatFactorDisplayValue } from '../formatFactorDisplayValue'
+import { formatFactorDisplayValue, factorDisplayText } from '../formatFactorDisplayValue'
 
 describe('formatFactorDisplayValue', () => {
   it('formats raw_value with currency unit: £40,000', () => {
@@ -72,7 +72,7 @@ describe('formatFactorDisplayValue', () => {
     })).toBeNull()
   })
 
-  it('returns CEE display_value verbatim when present (overrides all heuristics)', () => {
+  it('returns CEE display_value verbatim when raw_value is absent (fallback override for value-only heuristic)', () => {
     expect(formatFactorDisplayValue({
       label: 'Technical Leadership Presence',
       value: 0,
@@ -89,6 +89,111 @@ describe('formatFactorDisplayValue', () => {
       display_value: '',
       factor_type: 'binary',
     })).toBe('No technical leadership in place')
+  })
+
+  // V5 stale-value protection: fresh observed_state.raw_value + meaningful unit
+  // wins over a (potentially stale) CEE-authored display_value. Before this
+  // change display_value had absolute priority, so a user editing raw_value
+  // would see the stale display_value text on the canvas node, in inspector
+  // panels, AND in the debug bundle — a divergence we explicitly do not want.
+  describe('stale display_value protection (V5 fresh-wins)', () => {
+    it('fresh raw_value + unit wins over stale display_value: £20,000 → £26,000', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Advertising Budget Allocated',
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+        display_value: '£20,000',
+      })).toBe('£26,000')
+    })
+
+    it('fresh raw_value + unit wins over stale CEE contextual display_value', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Marketing Spend',
+        value: 0.5,
+        raw_value: 50000,
+        unit: '$',
+        display_value: 'Strategic budget',
+      })).toBe('$50,000')
+    })
+
+    it('fresh percent ratio raw_value wins over stale display_value', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Owner Time Commitment',
+        value: 0.25,
+        raw_value: 0.25,
+        unit: '%',
+        display_value: '50%',
+      })).toBe('25%')
+    })
+
+    it('display_value still wins when raw_value is null (legitimate contextual fallback)', () => {
+      // Preservation test — confirms the canonical CEE override path still
+      // works for non-numeric cases. raw_value=null skips Pattern 1, so
+      // display_value falls through and outranks the value-only heuristic.
+      expect(formatFactorDisplayValue({
+        label: 'Technical Leadership Presence',
+        value: 0,
+        raw_value: null,
+        display_value: 'No dedicated tech lead',
+      })).toBe('No dedicated tech lead')
+    })
+
+    it('display_value still wins when raw_value is present but unit is placeholder', () => {
+      // Pattern 1 explicitly skips placeholder units (scale, index, …) so
+      // display_value fallback applies here too.
+      expect(formatFactorDisplayValue({
+        label: 'Quality Index',
+        value: 0.7,
+        raw_value: 0.7,
+        unit: 'scale',
+        display_value: 'High quality',
+      })).toBe('High quality')
+    })
+
+    // Golden-fixture regression (golden-path-staging-2026-04-05.json,
+    // `fac_acquisition`): raw_value=0 + no unit + display_value="No acquisition
+    // pursued". The contextual display_value must beat the unitless-raw numeric
+    // fallback — otherwise the user sees "0" instead of the meaningful encoded
+    // state. Caught by render-matrix.spec.tsx after round-2 mis-ordered the
+    // priority.
+    it('display_value wins over unitless raw_value=0 (golden-fixture fac_acquisition)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Competitor Acquisition',
+        value: 0,
+        raw_value: 0,
+        unit: null,
+        display_value: 'No acquisition pursued',
+        category: 'controllable',
+        factor_type: 'other',
+      })).toBe('No acquisition pursued')
+    })
+
+    it('display_value wins over unitless raw_value=1', () => {
+      // Mirror case — unitless raw with a non-zero value still defers to
+      // display_value when present.
+      expect(formatFactorDisplayValue({
+        label: 'Competitor Acquisition',
+        value: 1,
+        raw_value: 1,
+        unit: null,
+        display_value: 'Acquisition pursued',
+        category: 'controllable',
+      })).toBe('Acquisition pursued')
+    })
+
+    it('unitless-raw fallback still fires when no display_value is present (round-1 plain number case)', () => {
+      // Paired-with-above sanity check: when display_value is absent, the
+      // unitless-raw branch still produces the formatted number. Confirms the
+      // priority swap didn't accidentally drop the plain-number formatter.
+      expect(formatFactorDisplayValue({
+        label: 'Headcount',
+        value: 0.26,
+        raw_value: 26000,
+        unit: null,
+      })).toBe('26,000')
+    })
   })
 
   // Polish 4 Task 1: suppress meaningless fractional placeholder values.
@@ -316,6 +421,46 @@ describe('formatFactorDisplayValue', () => {
       })).toBe('5%')
     })
 
+    // V5 value-display fix: 0–1 ratio handling for percent units.
+    // Pre-fix the formatter rounded raw_value before scaling, so 0.25 → "0%".
+    // The deterministic rule: 0 < raw < 1 ⇒ scale by 100; raw === 0 ⇒ "0%";
+    // raw >= 1 ⇒ already in percentage points.
+    it('scales 0–1 ratio raw_value to percentage points: 0.25 → 25%', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Owner Time Commitment',
+        value: 0.25,
+        raw_value: 0.25,
+        unit: '%',
+      })).toBe('25%')
+    })
+
+    it('keeps raw_value === 0 as 0% (no scaling)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Owner Time Commitment',
+        value: 0,
+        raw_value: 0,
+        unit: '%',
+      })).toBe('0%')
+    })
+
+    it('treats raw_value >= 1 as already in percentage points: 25 → 25%', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Owner Time Commitment',
+        value: 0.25,
+        raw_value: 25,
+        unit: '%',
+      })).toBe('25%')
+    })
+
+    it('treats raw_value === 1 as already in percentage points: 1 → 1%', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Defect Rate',
+        value: 0.01,
+        raw_value: 1,
+        unit: '%',
+      })).toBe('1%')
+    })
+
     it('still formats "other" units as trailing suffix', () => {
       expect(formatFactorDisplayValue({
         label: 'Headcount',
@@ -324,5 +469,100 @@ describe('formatFactorDisplayValue', () => {
         unit: 'months',
       })).toBe('9 months')
     })
+  })
+})
+
+/**
+ * factorDisplayText is the shared entry point used by FactorNode (canvas),
+ * all three inspector-v2 factor panels (External/Controllable/Observable),
+ * and the debug bundle's renderFactorDisplayState. It takes the raw node.data
+ * shape (with display_value possibly at top level AND inside observedState)
+ * and delegates to formatFactorDisplayValue.
+ *
+ * These regression tests pin the V5 fresh-wins rule at the node.data shape —
+ * i.e. on the exact input FactorNode and the inspectors hand in — so a future
+ * change cannot reintroduce the stale-display-value bug for the live UI while
+ * the debug bundle stays correct (or vice versa).
+ */
+describe('factorDisplayText (shared entry point — FactorNode / inspectors / debug bundle)', () => {
+  it('fresh raw_value=26000 + unit=£ wins over stale top-level display_value="£20,000"', () => {
+    expect(factorDisplayText({
+      label: 'Advertising Budget Allocated',
+      display_value: '£20,000',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+      },
+    })).toBe('£26,000')
+  })
+
+  it('fresh raw_value=26000 + unit=£ wins over stale observedState.display_value="£20,000"', () => {
+    expect(factorDisplayText({
+      label: 'Advertising Budget Allocated',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+        display_value: '£20,000',
+      },
+    })).toBe('£26,000')
+  })
+
+  it('fresh raw_value wins when stale display_value sits at both levels', () => {
+    expect(factorDisplayText({
+      label: 'Advertising Budget Allocated',
+      display_value: '£20,000',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+        display_value: '£15,000',
+      },
+    })).toBe('£26,000')
+  })
+
+  it('preserves CEE contextual display_value when raw_value is absent', () => {
+    expect(factorDisplayText({
+      label: 'Technical Leadership Presence',
+      display_value: 'No dedicated tech lead',
+      observedState: {
+        value: 0,
+        raw_value: null,
+        unit: null,
+      },
+    })).toBe('No dedicated tech lead')
+  })
+
+  // Golden-fixture regression (golden-path-staging-2026-04-05.json,
+  // `fac_acquisition`) at the node.data shape — same scenario as the
+  // formatter-layer test above, but exercising the FactorNode/inspector
+  // call path. render-matrix.spec.tsx asserts `screen.getByText(display_value)`
+  // and was the canary that caught the round-2 priority mis-ordering.
+  it('display_value wins over unitless raw_value=0 on node.data shape (golden-fixture)', () => {
+    expect(factorDisplayText({
+      label: 'Competitor Acquisition',
+      category: 'controllable',
+      display_value: 'No acquisition pursued',
+      observedState: {
+        value: 0,
+        raw_value: 0,
+        cap: 0,
+        factor_type: 'other',
+      },
+    })).toBe('No acquisition pursued')
+  })
+
+  it('unitless-raw fallback still fires when no display_value is present (paired sanity check)', () => {
+    expect(factorDisplayText({
+      label: 'Headcount',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+      },
+    })).toBe('26,000')
   })
 })

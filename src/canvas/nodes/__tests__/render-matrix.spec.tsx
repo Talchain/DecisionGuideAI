@@ -948,7 +948,15 @@ describe('FactorNode — display_value rendering', () => {
     expect(screen.queryByText('0', { exact: true })).toBeNull()
   })
 
-  it('Standard pre: currency display_value takes priority over raw/value formatting', () => {
+  it('Standard pre: currency raw_value + unit takes priority over stale display_value', () => {
+    // V5 stale-value-protection: with a stale display_value="£20,000" still on
+    // the node, the formatter must still render the fresh raw_value (£49,000)
+    // because Pattern 1 (raw_value + meaningful unit) outranks display_value.
+    // Before May 2026 the formatter granted display_value absolute priority,
+    // which would have rendered "£20,000" here — the discriminatory raw vs
+    // stale display values pin the rule properly. The pre-discriminatory
+    // version of this test set both fields to "£49,000" and passed regardless
+    // of priority (which proved nothing).
     const data = {
       label: 'Salary offer',
       category: 'controllable',
@@ -956,12 +964,42 @@ describe('FactorNode — display_value rendering', () => {
         value: 0.49,
         raw_value: 49000,
         unit: '£',
-        display_value: '£49,000',
+        display_value: '£20,000',
       },
     }
     applyStore(singleFactorTopology('standard', 'pre', data))
     renderFactor(data)
     expect(screen.getByText('£49,000')).toBeDefined()
+    expect(screen.queryByText('£20,000')).toBeNull()
+  })
+
+  // V5 stale-value-protection — live React component path. Mirrors the
+  // formatter (formatFactorDisplayValue.spec), shared-entry-point
+  // (factorDisplayText), and debug bundle (exportBundle.displayState.spec)
+  // tests on the live FactorNode. Pinning the regression at the actual
+  // rendered DOM ensures no FactorNode prop wiring change can silently
+  // reintroduce stale-display drift even if the formatter test stays green.
+  it('Standard pre: V5 stale-currency — raw_value=26000 + unit=£ + stale display_value="£20,000" renders "£26,000" exactly', () => {
+    const data = {
+      label: 'Advertising Budget Allocated',
+      category: 'controllable',
+      display_value: '£20,000',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+        display_value: '£20,000',
+      },
+    }
+    applyStore(singleFactorTopology('standard', 'pre', data))
+    renderFactor(data)
+    expect(screen.getByText('£26,000')).toBeDefined()
+    expect(screen.queryByText('£20,000')).toBeNull()
+    // Negative assertions mirror the bundle test — none of the round-1
+    // broken shapes can silently re-emerge from a future FactorNode change.
+    expect(screen.queryByText('0.26 £')).toBeNull()
+    expect(screen.queryByText('£26000')).toBeNull()
   })
 
   it('Standard pre: display_value=null falls back to heuristic (value suppressed for scale with no raw)', () => {

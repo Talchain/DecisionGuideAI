@@ -70,9 +70,12 @@ export const FactorControllablePanel = memo(function FactorControllablePanel({
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
-  // Shared display text with FactorNode — routes through formatFactorDisplayValue.
-  // When CEE provides `display_value`, this returns it verbatim; otherwise falls
-  // back to the identical heuristic used by the graph node.
+  // Shared display text with FactorNode and the debug bundle — routes through
+  // formatFactorDisplayValue. See the priority order on
+  // FactorDisplayInput.display_value: fresh raw_value + meaningful unit
+  // (£26,000) outranks display_value; otherwise display_value wins over the
+  // unitless-raw and value-only fallbacks (e.g. unitless raw_value=0 with
+  // display_value="No acquisition pursued" renders the contextual text, not "0").
   const canonicalDisplayText = factorDisplayText(node?.data as Record<string, unknown> | undefined)
 
   // Canonical typing via FactorNodeData / ObservedState (canvas/domain/nodes).

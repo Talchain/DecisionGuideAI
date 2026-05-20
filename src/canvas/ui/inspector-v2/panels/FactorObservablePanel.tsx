@@ -55,7 +55,10 @@ export const FactorObservablePanel = memo(function FactorObservablePanel({
   const { confirm: confirmEdit, lastConfirmed, isStaleAfterEdit } = useEditConfirmation()
   const displayMetadata = useNodeDisplayMetadata(nodeId ?? '', 'factor')
 
-  // Shared display text with FactorNode — `display_value` takes priority.
+  // Shared display text with FactorNode and the debug bundle — see the
+  // priority order on FactorDisplayInput.display_value: fresh raw_value +
+  // meaningful unit (£26,000) outranks display_value; otherwise display_value
+  // wins over the unitless-raw and value-only fallbacks.
   const canonicalDisplayText = factorDisplayText(node?.data as Record<string, unknown> | undefined)
 
   const factorData = node?.data as FactorNodeData | undefined

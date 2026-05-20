@@ -72,8 +72,13 @@ export const DecisionNodeDataSchema = NodeDataSchema.extend({
  * Canvas uses `observedState` (camelCase) on node.data; CEE/PLoT wire format
  * uses `observed_state` (snake_case). Fields inside are consistent across both.
  *
- * `display_value` is CEE-provided text that UI renders verbatim when present
- * (see formatFactorDisplayValue in src/utils/formatFactorDisplayValue.ts).
+ * `display_value` is CEE-provided contextual text. As of the V5 stale-value-
+ * protection fix (May 2026), a fresh `raw_value` + meaningful unit (e.g.
+ * `26000` + `'£'`) outranks `display_value`, so a stale display string cannot
+ * mask a user edit to observed_state. `display_value` still wins over the
+ * unitless-raw numeric fallback and the value-only binary heuristic — see the
+ * full priority order on `FactorDisplayInput.display_value` in
+ * src/utils/formatFactorDisplayValue.ts.
  *
  * All fields are optional because factor observed state is progressively filled
  * in as the user confirms brief content. Validation is warning-only at the

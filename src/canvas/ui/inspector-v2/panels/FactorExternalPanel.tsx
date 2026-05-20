@@ -63,7 +63,10 @@ export const FactorExternalPanel = memo(function FactorExternalPanel({
   const [description, setDescription] = useState(String(node?.data?.description ?? ''))
   const [isEditingDescription, setIsEditingDescription] = useState(false)
 
-  // Shared display text with FactorNode — `display_value` takes priority.
+  // Shared display text with FactorNode and the debug bundle — see the
+  // priority order on FactorDisplayInput.display_value: fresh raw_value +
+  // meaningful unit (£26,000) outranks display_value; otherwise display_value
+  // wins over the unitless-raw and value-only fallbacks.
   const canonicalDisplayText = factorDisplayText(node?.data as Record<string, unknown> | undefined)
 
   // Source for extraction label (from observedState if present)

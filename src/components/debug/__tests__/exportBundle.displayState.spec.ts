@@ -294,7 +294,11 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
       ceeAnalysisReady: { status: 'ready' },
       graphEditedSinceLastRun: false,
       nodes: [
-        { id: 'fac_eng_capacity', data: { label: 'Engineering Capacity', kind: 'factor', type: 'factor', observedState: { value: 80, unit: '%' } } },
+        // V5 value-display fix: real-data shape uses raw_value alongside the
+        // normalized value. Pre-fix the bundle naïvely concatenated `${value} ${unit}`
+        // and asserted '80 %' (with space). The canonical formatter now produces
+        // the correct '80%' without space (currency symbols / % have no separator).
+        { id: 'fac_eng_capacity', data: { label: 'Engineering Capacity', kind: 'factor', type: 'factor', observedState: { value: 0.8, raw_value: 80, unit: '%' } } },
       ],
       edges: [],
       results: {
@@ -313,7 +317,7 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     expect(row.id).toBe('fac_eng_capacity')
     expect(row.factor_id).toBe('fac_eng_capacity')
     expect(row.label_displayed).toBe('Engineering Capacity')
-    expect(row.value_displayed).toBe('80 %')
+    expect(row.value_displayed).toBe('80%')
     // Honest-miss under PR #141's design — no rawV2Response means no wire
     // factor_sensitivity to read, and report.factor_sensitivity is
     // deliberately NOT a fallback because the V5 mapper narrows the shape.
@@ -374,5 +378,166 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
     const facRow = result.rendered_factors![0]
     expect(facRow.sensitivity_displayed).toBeNull()
     expect(facRow.sensitivity_source).toBe('unmatched')
+  })
+})
+
+/**
+ * V5 value-display fix (rendered_factors.value_displayed)
+ *
+ * Pre-fix renderFactorDisplayState() concatenated `${obs.value} ${obs.unit}`,
+ * producing strings like '0.26 £' for a £26,000 budget (value = raw_value / cap).
+ * The fix routes the bundle through factorDisplayText — the same shared entry
+ * point used by FactorNode (canvas) and the inspector-v2 factor panels — so
+ * all three user-facing display paths produce identical text. The canonical
+ * formatFactorDisplayValue now gives Pattern 1 (fresh raw_value + meaningful
+ * unit) priority over CEE-authored display_value, which means a stale display
+ * string cannot mask a fresh observed_state in ANY of the three paths.
+ *
+ * These tests assert the strict, exact, user-facing output for the bundle and
+ * pin the regression negatively (no '0.26 £', no '£26000', no '26,000 £').
+ */
+describe('captureDisplayState — rendered_factors.value_displayed (V5 fix)', () => {
+  beforeEach(() => {
+    vi.resetModules()
+  })
+
+  async function captureRow(node: { id: string; data: Record<string, unknown> }) {
+    mockState = makeState({
+      ceeAnalysisReady: { status: 'ready' },
+      nodes: [node],
+      results: { status: 'complete', report: { option_comparison: [] } },
+    })
+    const captureDisplayState = await importCapture()
+    const result = await captureDisplayState()
+    expect(result.rendered_factors).toHaveLength(1)
+    return result.rendered_factors![0]
+  }
+
+  it('money: raw_value=26000, unit=£, cap=100000 → exactly "£26,000"', async () => {
+    const row = await captureRow({
+      id: 'fac_budget',
+      data: {
+        label: 'Advertising Budget Allocated',
+        kind: 'factor',
+        observedState: { value: 0.26, raw_value: 26000, unit: '£', cap: 100000 },
+      },
+    })
+    expect(row.value_displayed).toBe('£26,000')
+    // Negative assertions pin the regression — none of the broken historical
+    // shapes can silently re-emerge.
+    expect(row.value_displayed).not.toBe('0.26 £')
+    expect(row.value_displayed).not.toBe('26,000 £')
+    expect(row.value_displayed).not.toBe('£26000')
+  })
+
+  it('stale display_value protection: fresh raw_value=26000 wins over stale display_value="£20,000"', async () => {
+    // Even when a stale CEE-authored display_value is present on the node, the
+    // canonical formatter prefers Pattern 1 (fresh raw_value + meaningful unit)
+    // — see formatFactorDisplayValue.ts. The bundle calls factorDisplayText
+    // (shared entry point with FactorNode and inspector panels) so all three
+    // paths agree on '£26,000' here.
+    const row = await captureRow({
+      id: 'fac_budget',
+      data: {
+        label: 'Advertising Budget Allocated',
+        kind: 'factor',
+        display_value: '£20,000',
+        observedState: {
+          value: 0.26,
+          raw_value: 26000,
+          unit: '£',
+          cap: 100000,
+          display_value: '£20,000',
+        },
+      },
+    })
+    expect(row.value_displayed).toBe('£26,000')
+    expect(row.value_displayed).not.toBe('£20,000')
+  })
+
+  it('percent ratio: raw_value=0.25, unit=% → exactly "25%"', async () => {
+    const row = await captureRow({
+      id: 'fac_owner_time',
+      data: {
+        label: 'Owner Time Commitment',
+        kind: 'factor',
+        observedState: { value: 0.25, raw_value: 0.25, unit: '%' },
+      },
+    })
+    expect(row.value_displayed).toBe('25%')
+    expect(row.value_displayed).not.toBe('0.25 %')
+    expect(row.value_displayed).not.toBe('0%')
+  })
+
+  it('percent already in pp: raw_value=25, unit=% → exactly "25%"', async () => {
+    const row = await captureRow({
+      id: 'fac_owner_time',
+      data: {
+        label: 'Owner Time Commitment',
+        kind: 'factor',
+        observedState: { value: 0.25, raw_value: 25, unit: '%' },
+      },
+    })
+    expect(row.value_displayed).toBe('25%')
+  })
+
+  it('plain number: raw_value=26000, no unit → exactly "26,000"', async () => {
+    const row = await captureRow({
+      id: 'fac_headcount',
+      data: {
+        label: 'Headcount',
+        kind: 'factor',
+        observedState: { value: 0.26, raw_value: 26000 },
+      },
+    })
+    expect(row.value_displayed).toBe('26,000')
+  })
+
+  it('golden-fixture: unitless raw_value=0 + display_value="No acquisition pursued" → "No acquisition pursued"', async () => {
+    // Pinning the bundle layer of the golden-fixture regression
+    // (golden-path-staging-2026-04-05.json, fac_acquisition). With round-2's
+    // mis-ordered priority the bundle would have rendered "0" — the contextual
+    // text wins because the raw_value has no unit.
+    const row = await captureRow({
+      id: 'fac_acquisition',
+      data: {
+        label: 'Competitor Acquisition',
+        kind: 'factor',
+        category: 'controllable',
+        display_value: 'No acquisition pursued',
+        observedState: { value: 0, raw_value: 0, cap: 0, factor_type: 'other' },
+      },
+    })
+    expect(row.value_displayed).toBe('No acquisition pursued')
+    expect(row.value_displayed).not.toBe('0')
+  })
+
+  it('no mutation: input node, observedState, and store are unchanged after capture', async () => {
+    const observedState = { value: 0.26, raw_value: 26000, unit: '£', cap: 100000 } as const
+    const data = {
+      label: 'Advertising Budget Allocated',
+      kind: 'factor',
+      observedState,
+    }
+    const node = { id: 'fac_budget', data } as const
+    const beforeNode = JSON.stringify(node)
+    const beforeData = JSON.stringify(data)
+    const beforeObserved = JSON.stringify(observedState)
+
+    mockState = makeState({
+      ceeAnalysisReady: { status: 'ready' },
+      nodes: [node],
+      results: { status: 'complete', report: { option_comparison: [] } },
+    })
+    const beforeState = JSON.stringify(mockState.nodes)
+
+    const captureDisplayState = await importCapture()
+    const result = await captureDisplayState()
+    expect(result.rendered_factors![0].value_displayed).toBe('£26,000')
+
+    expect(JSON.stringify(node)).toBe(beforeNode)
+    expect(JSON.stringify(data)).toBe(beforeData)
+    expect(JSON.stringify(observedState)).toBe(beforeObserved)
+    expect(JSON.stringify(mockState.nodes)).toBe(beforeState)
   })
 })

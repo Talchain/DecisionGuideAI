@@ -103,6 +103,7 @@ import {
   V5_PARSE_ERROR_KIND,
   type ParseFailureKind,
 } from '../../../v5/responseParser'
+import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 
 // =============================================================================
 // Feature Flag
@@ -2098,12 +2099,16 @@ function extractRenderedFactors(
 
   return factorNodes.map((n) => {
     const d = n.data as Record<string, unknown>
-    const obs = d?.observedState as Record<string, unknown> | undefined
-    const value = obs?.value
-    const unit = obs?.unit as string | undefined
-    const valueStr = typeof value === 'number'
-      ? (unit ? `${value} ${unit}` : String(value))
-      : null
+    // Display-only formatting: route through the canonical shared entry point
+    // (factorDisplayText) so the bundle's value_displayed string matches what
+    // FactorNode and the inspector panels render. After the V5 fix, the
+    // canonical formatFactorDisplayValue gives fresh observed_state.raw_value
+    // priority over a (potentially stale) CEE display_value — see comment in
+    // formatFactorDisplayValue.ts. This eliminates the pre-fix '0.26 £' bug
+    // (naive `${value} ${unit}` concat) and the stale-display divergence
+    // between debug bundle and live UI. Pure: no graph / report / payload /
+    // store mutation.
+    const valueStr = factorDisplayText(d)
     const match = matchFactor(n.id, d?.label)
     // Finite-number guard mirrors the resolveOption check for consistency
     // (Codex round-3 follow-up). JSON cannot carry NaN/Infinity from the
