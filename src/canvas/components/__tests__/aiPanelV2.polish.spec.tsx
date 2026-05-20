@@ -97,28 +97,26 @@ beforeEach(() => {
   conversationMockState.isThinking = false
 })
 
-describe('Item 1 — Olumi tab placeholder when floating is open', () => {
-  it('renders the floating-state placeholder (not the conversation) when isOpen', () => {
+describe('Item 1 — Olumi tab when floating is open', () => {
+  // UX correction: the previous "full-page placeholder when floating open"
+  // branch was removed. OlumiTabBody no longer renders a placeholder; the
+  // OutputsDock.handleTabClick intercept calls focusFloating() instead,
+  // keeping the current Analysis/Compare/Model tab active. So when the
+  // floating panel IS open AND someone still mounts OlumiTabBody directly
+  // (e.g. a test or a manual programmatic activeTab='olumi' state), the
+  // tab body falls through to its empty / conversation render — the right
+  // panel is never wasted on a "Olumi is open" placeholder.
+
+  it('does NOT render a floating-state placeholder when the floating panel is open', () => {
     useFloatingPanelState.getState().open('user')
     render(<OlumiTabBody onFloatOut={() => {}} />, { wrapper: Wrapper })
-    expect(screen.getByTestId('olumi-tab-floating-placeholder')).toBeInTheDocument()
-    expect(screen.getByText(/Olumi is open in the floating panel\./i)).toBeInTheDocument()
-    expect(screen.getByTestId('olumi-tab-focus-floating')).toBeInTheDocument()
-    expect(screen.getByTestId('olumi-tab-dock-here')).toBeInTheDocument()
-    // The empty-state body must NOT also render — one readable surface only.
-    expect(screen.queryByTestId('olumi-tab-empty')).toBeNull()
-    expect(screen.queryByTestId('olumi-tab-body')).toBeNull()
+    expect(screen.queryByTestId('olumi-tab-floating-placeholder')).toBeNull()
+    expect(screen.queryByTestId('olumi-tab-focus-floating')).toBeNull()
+    expect(screen.queryByTestId('olumi-tab-dock-here')).toBeNull()
+    expect(screen.queryByText(/Olumi is open in the floating panel/i)).toBeNull()
   })
 
-  it('Dock here closes the floating panel', () => {
-    useFloatingPanelState.getState().open('user')
-    expect(useFloatingPanelState.getState().isOpen).toBe(true)
-    render(<OlumiTabBody onFloatOut={() => {}} />, { wrapper: Wrapper })
-    fireEvent.click(screen.getByTestId('olumi-tab-dock-here'))
-    expect(useFloatingPanelState.getState().isOpen).toBe(false)
-  })
-
-  it('falls back to the existing empty-state body when floating is closed and no messages', () => {
+  it('still falls back to the existing empty-state body when floating is closed and no messages', () => {
     render(<OlumiTabBody onFloatOut={() => {}} />, { wrapper: Wrapper })
     expect(screen.getByTestId('olumi-tab-empty')).toBeInTheDocument()
     expect(screen.queryByTestId('olumi-tab-floating-placeholder')).toBeNull()
@@ -132,10 +130,35 @@ describe('Item 4 — AIInputBar generating state (isThinking + empty canvas)', (
 
   it('shows "Generating your decision model…" placeholder and disables typing during a generate turn', () => {
     conversationMockState.isThinking = true
-    render(<AIInputBar variant="first-use" hideChevron testId="gen" />, { wrapper: Wrapper })
+    render(<AIInputBar variant="first-use" hideChevron testId="gen" onCogClick={() => {}} />, { wrapper: Wrapper })
     const textarea = screen.getByTestId('gen-textarea') as HTMLTextAreaElement
     expect(textarea.placeholder).toBe('Generating your decision model…')
     expect(textarea).toBeDisabled()
+    expect(textarea).toHaveAttribute('aria-disabled', 'true')
+    // Cog + send must also lock during generation so the user can't open
+    // a settings popover or fire a duplicate send mid-turn.
+    const cog = screen.getByTestId('gen-cog')
+    expect(cog).toBeDisabled()
+    expect(cog).toHaveAttribute('aria-disabled', 'true')
+    const send = screen.getByTestId('gen-send')
+    expect(send).toBeDisabled()
+    expect(send).toHaveAttribute('aria-disabled', 'true')
+  })
+
+  it('locks the chevron on the strip variant during a generate turn', () => {
+    conversationMockState.isThinking = true
+    render(
+      <AIInputBar
+        variant="strip"
+        testId="strip-gen"
+        onCogClick={() => {}}
+        onChevronClick={() => {}}
+      />,
+      { wrapper: Wrapper },
+    )
+    const chevron = screen.getByTestId('strip-gen-chevron')
+    expect(chevron).toBeDisabled()
+    expect(chevron).toHaveAttribute('aria-disabled', 'true')
   })
 
   it('does NOT disable typing when isThinking but nodes already exist (chat-mode thinking)', () => {

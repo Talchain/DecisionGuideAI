@@ -1838,3 +1838,44 @@
 :global(.response-chip-group) > [data-testid^="chat-message-"] {
   margin-bottom: 0;
 }
+
+/* ---------------------------------------------------------------------------
+ * § floating-density — compact overrides for the floating Olumi panel
+ *
+ * Scope guarantee: every selector below is descended from
+ * `:global(.floating-density)`, so the docked Olumi tab and DraftChat
+ * (which never mount inside a `.floating-density` ancestor) keep their
+ * normal density. The floating panel adds the class in
+ * FloatingOlumiPanel.tsx around its ConversationPanel render.
+ * ---------------------------------------------------------------------------*/
+
+:global(.floating-density) .messageList {
+  gap: 12px;
+  padding: 12px 12px 6px;
+}
+
+:global(.floating-density) .messageBubble {
+  padding: 12px;
+}
+
+:global(.floating-density) .messageBubbleAssistant {
+  padding: 12px;
+}
+
+/* Inner block stack — tighter gap between coaching/evidence/patch blocks
+ * within a single assistant turn. */
+:global(.floating-density) .inlineBlock,
+:global(.floating-density) .blockStack {
+  gap: 6px;
+}
+
+/* Suggested-chip row: tighter top margin + compact button padding while
+ * preserving sufficient hit target via min-height. */
+:global(.floating-density) [data-testid="suggested-chips"] {
+  margin-top: 12px;
+}
+
+:global(.floating-density) [data-testid="suggested-chips"] button {
+  padding: 6px 12px;
+  min-height: 32px;
+}

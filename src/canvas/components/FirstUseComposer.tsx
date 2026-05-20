@@ -17,9 +17,11 @@ interface FirstUseComposerProps {
 
 const PANEL_WIDTH = 480
 const PANEL_MARGIN = 16
-// Height tightened in the UX polish pass: guidance text + input bar with
-// minimal gap — no large dead space below the textarea.
-const PANEL_HEIGHT = 152
+// Content-fit height: panel sizes to its guidance + input + padding,
+// with a min-height floor so the layout doesn't collapse on edge cases
+// (empty stage placeholder, missing fonts). Fixed-height was brittle —
+// any copy or padding tweak would either clip or leave dead space.
+const PANEL_MIN_HEIGHT = 108
 
 /**
  * FirstUseComposer — centred composer that auto-opens when the canvas is
@@ -143,18 +145,20 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         // Responsive width: cap at PANEL_WIDTH on wide viewports, shrink to
         // viewport - 2*margin on narrow ones so the composer never overflows.
         width: `min(${PANEL_WIDTH}px, calc(100vw - ${PANEL_MARGIN * 2}px))`,
-        height: PANEL_HEIGHT,
-        // Position: centred when there's room, otherwise pinned to the
-        // left margin. The max(margin, …) clamp prevents negative left at
-        // narrow widths; the min(…) cap stops it pushing past the centre
-        // when the responsive width kicks in.
+        // Content-fit height with a min-height floor (defensive only —
+        // expect the actual height to be guidance + input + ~24px padding).
+        minHeight: PANEL_MIN_HEIGHT,
+        // Vertical: pin near the upper third of the canvas so the focused
+        // start card sits where the eye lands first, with a hard 16px
+        // floor at narrow viewports. Horizontal: centre when there's
+        // room, otherwise pinned to the left margin.
         left: `max(${PANEL_MARGIN}px, calc(50% - ${PANEL_WIDTH / 2}px))`,
-        top: `max(${PANEL_MARGIN}px, calc(50% - ${PANEL_HEIGHT / 2}px))`,
+        top: `max(${PANEL_MARGIN}px, calc(30% - ${PANEL_MIN_HEIGHT / 2}px))`,
       }}
     >
-      <div className="flex flex-col items-center px-6 pt-4 pb-2">
+      <div className="flex flex-col items-center px-5 pt-3 pb-1.5">
         <p className={typo('panelBody', 'text-text-light text-center')}>
-          Describe your decision, the options you're weighing, and what a good outcome looks like.
+          Describe the decision, options, goal and constraints.
         </p>
       </div>
       <AIInputBar
