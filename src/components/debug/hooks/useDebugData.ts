@@ -52,6 +52,10 @@ import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { usePayloadTraceStore, type TracedPayload } from '../../../lib/payload-trace-store'
 import { findLatestAnalysisProducingCeeTurn } from '../../../lib/analysisProducingCeeTurn'
+import {
+  isV5TurnEndpoint,
+  matchServiceCaseInsensitive,
+} from '../../../lib/v5TraceMatching'
 import { useGateStore, type GateName, type GateStatus } from '../../../lib/gate-state'
 import { getClientBuild } from '../../../lib/version-cache'
 
@@ -1503,8 +1507,12 @@ function countNodesByKind(nodes: Array<{ data?: { kind?: string } }>): {
  * make the debug bundle useless for diagnosing draft quality.
  */
 function findBestPayload(payloads: TracedPayload[], service: string): TracedPayload | undefined {
+  // Round-4 review (P1): case-insensitive service matching. Pre-fix
+  // `p.service === service` missed `cee`-cased entries that the
+  // (case-insensitive) analysis-producing selector would have picked,
+  // creating drift between the primary and fallback paths.
   const isUsable = (p: TracedPayload) =>
-    p.service === service && p.turnType !== 'system_event'
+    matchServiceCaseInsensitive(p, service) && p.turnType !== 'system_event'
 
   // First try: most recent completed non-system-event payload for this service
   const completed = payloads.find((p) => isUsable(p) && p.completed)
@@ -3612,11 +3620,11 @@ export function useDebugData(): DebugData {
       // result is verified V5.
       ceeCaptureProvenance = 'analysis_producing_v5_turn'
     } else if (fallbackCeePayload !== undefined) {
-      const ep =
-        typeof fallbackCeePayload.endpoint === 'string'
-          ? fallbackCeePayload.endpoint
-          : ''
-      ceeCaptureProvenance = ep.includes('/orchestrate/v2/turn')
+      // Round-4 review (P1): use the shared `isV5TurnEndpoint` helper
+      // instead of a raw substring check. Pre-fix the substring match
+      // would treat `/orchestrate/v2/turning` (a future-or-typo path)
+      // as a V5 turn AND wouldn't normalise service casing.
+      ceeCaptureProvenance = isV5TurnEndpoint(fallbackCeePayload)
         ? 'fallback_v5_turn'
         : 'fallback_legacy_cee'
     } else {

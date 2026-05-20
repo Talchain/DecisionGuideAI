@@ -28,6 +28,7 @@ import {
   V5_TURN_ENDPOINT_PATTERN,
   type SelectorTracedPayload,
 } from '../analysisProducingCeeTurn'
+import { matchServiceCaseInsensitive } from '../v5TraceMatching'
 
 // Builders -------------------------------------------------------------
 
@@ -860,6 +861,53 @@ describe('round-3 P1: shared V5 CEE helpers (isCeeService, isV5TurnEndpoint)', (
         isV5TurnEndpoint({ service: 'CEE', endpoint: '' }),
       ).toBe(false)
     })
+
+  })
+
+  describe('matchServiceCaseInsensitive (round-4 P1)', () => {
+    // Powers `findBestPayload`'s fallback CEE matching so case
+    // sensitivity matches the analysis-producing selector.
+    it.each([
+      { p: { service: 'CEE' }, service: 'CEE', expected: true },
+      { p: { service: 'cee' }, service: 'CEE', expected: true },
+      { p: { service: 'CEE' }, service: 'cee', expected: true },
+      { p: { service: 'Cee' }, service: 'CEE', expected: true },
+      { p: { service: 'PLoT' }, service: 'CEE', expected: false },
+      { p: { service: 'plot' }, service: 'PLoT', expected: true },
+      { p: { service: 'PLoT' }, service: 'PLOT', expected: true },
+      { p: { service: undefined }, service: 'CEE', expected: false },
+      { p: {}, service: 'CEE', expected: false },
+    ])(
+      'matchServiceCaseInsensitive($p, $service) → $expected',
+      ({ p, service, expected }) => {
+        expect(matchServiceCaseInsensitive(p, service)).toBe(expected)
+      },
+    )
+  })
+
+  describe('isV5TurnEndpoint — round-4 P1 path-boundary', () => {
+
+    // ROUND-4 P1 — path-boundary regression tests.
+    it.each([
+      // Look-alike paths that should NOT match (round-4 P1):
+      { ep: '/orchestrate/v2/turning', expected: false }, // word-boundary
+      { ep: '/orchestrate/v2/turn-suffix', expected: false }, // hyphen-suffix
+      { ep: '/orchestrate/v2/turn_extra', expected: false }, // underscore-suffix
+      // Canonical V5 paths that should match:
+      { ep: '/orchestrate/v2/turn', expected: true },
+      { ep: '/bff/orchestrate/v2/turn', expected: true },
+      { ep: 'https://cee.test/orchestrate/v2/turn', expected: true },
+      { ep: '/orchestrate/v2/turn?nonce=abc', expected: true },
+      { ep: '/orchestrate/v2/turn#fragment', expected: true },
+      { ep: '/orchestrate/v2/turn/legacy-sub-path', expected: true },
+    ])(
+      'round-4 P1: path-boundary — endpoint $ep → $expected',
+      ({ ep, expected }) => {
+        expect(
+          isV5TurnEndpoint({ service: 'CEE', endpoint: ep }),
+        ).toBe(expected)
+      },
+    )
   })
 })
 

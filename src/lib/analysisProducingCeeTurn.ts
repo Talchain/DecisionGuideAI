@@ -77,17 +77,10 @@ export const ANALYSIS_PRODUCING_ACTION_TYPES: ReadonlySet<string> = new Set([
   'explain',
 ])
 
-/**
- * V5 turn endpoint pattern. Matches both the Netlify proxy
- * (`/bff/orchestrate/v2/turn`) and the direct endpoint
- * (`${VITE_ORCHESTRATOR_BASE}/orchestrate/v2/turn`). Aligned with the
- * existing scoping in `v5CapturePipelineStatus.ts:isV5CeeRecord`.
- *
- * Endpoint scoping is essential to prevent a legacy CEE trace
- * (e.g. `/bff/cee/draft-graph`) with analysis-shaped action metadata
- * from outranking a real V5 analysis turn.
- */
-export const V5_TURN_ENDPOINT_PATTERN = '/orchestrate/v2/turn'
+// Round-4 review (IMP): `V5_TURN_ENDPOINT_PATTERN` moved to the
+// dedicated `v5TraceMatching` module. Re-exported here for back-compat
+// with round-2/round-3 callers.
+export { V5_TURN_ENDPOINT_PATTERN } from './v5TraceMatching'
 
 /**
  * Where `readResponseHash` found the hash. Used by the bundle to
@@ -179,42 +172,17 @@ export interface AnalysisProducingSelectionResult {
   selection_diagnostics: SelectionDiagnostics
 }
 
-/**
- * Case-insensitive CEE service filter. Trace recorders should set
- * `service: 'CEE'` but historical entries / future renaming may use
- * `'cee'` or mixed case — match defensively.
- *
- * EXPORTED as the single source of truth (round-3 review P1):
- * `findLatestV5TurnEntry` and `detectFailedHttpRecord` in
- * `v5CapturePipelineStatus.ts` used a strict `=== 'CEE'` check which
- * disagreed with the selector. Re-use this helper from every V5 trace
- * detection point so the matching cannot drift again.
- */
-export function isCeeService(p: {
-  service?: string
-}): boolean {
-  return (
-    typeof p.service === 'string' && p.service.toUpperCase() === 'CEE'
-  )
-}
-
-/**
- * V5 turn endpoint scope. CEE service + endpoint contains
- * `/orchestrate/v2/turn` (matches both the `/bff/orchestrate/v2/turn`
- * proxy and the direct `https://.../orchestrate/v2/turn` endpoints).
- * Treats missing endpoint as NON-V5 — defensive, prefers honesty to
- * optimism.
- *
- * EXPORTED as the single source of truth (round-3 review P1).
- */
-export function isV5TurnEndpoint(p: {
-  service?: string
-  endpoint?: string
-}): boolean {
-  if (!isCeeService(p)) return false
-  return typeof p.endpoint === 'string' &&
-    p.endpoint.includes(V5_TURN_ENDPOINT_PATTERN)
-}
+// Round-4 review (IMP): service + endpoint matching now lives in the
+// dedicated `v5TraceMatching` module so the selector, fallback
+// payload lookup, latest-turn lookup, failed-record detection, and
+// provenance classification all consume the same predicate. Old
+// re-exports retained for back-compat (round-3 callers used these
+// from this module).
+export {
+  isCeeService,
+  isV5TurnEndpoint,
+} from './v5TraceMatching'
+import { isCeeService, isV5TurnEndpoint } from './v5TraceMatching'
 
 /**
  * Defensive turn / action type read. Looks at every documented

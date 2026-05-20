@@ -12,10 +12,11 @@
  */
 
 import type { AnalysisStateSource } from '../canvas/hooks/useAnalysisStateSource'
-// Round-3 review (P1): shared V5 CEE detection helpers. Re-using
-// these here prevents the case-sensitivity drift between selector
-// and failed-record detection that the round-3 reviewer flagged.
-import { isV5TurnEndpoint } from './analysisProducingCeeTurn'
+// Round-3 + Round-4 review (P1 + IMP): shared V5 CEE detection
+// helpers now live in `v5TraceMatching` so selector / fallback /
+// failed-record detection / latest-turn lookup / provenance
+// classification cannot drift on case or endpoint semantics.
+import { isV5TurnEndpoint } from './v5TraceMatching'
 
 export type CapturePipelineStatus =
   | 'complete'
@@ -362,6 +363,42 @@ export function findLatestV5TurnEntry<
  */
 export function hasResponseBody(p: { response?: { body?: unknown } }): boolean {
   return traceEntryHasResponseBody(p)
+}
+
+/**
+ * Round-4 review (P0): canonical V5 trace pin.
+ *
+ * Pre-fix the bundle assembler used `findLatestV5TurnEntry` to source
+ * `v5_cee_capture` metadata (request_id, endpoint, status, parse_ok)
+ * while `bundle.payloads.cee_response` was sourced from the
+ * analysis-producing selector. When a newer non-analysis V5 turn
+ * existed (e.g. `graph_edit` after `run_analysis`), the two views
+ * described different turns — metadata vs body could disagree on
+ * request_id, endpoint, and status.
+ *
+ * This helper pins both views to the SAME trace: when the selector
+ * supplies a `selectedTraceId`, the matching entry is returned;
+ * otherwise the bundle falls back to `findLatestV5TurnEntry` (no
+ * regression for cases where the selector didn't run).
+ *
+ * Returns the pinned entry, or null when neither path locates one.
+ */
+export function findCanonicalV5TraceForBundle<
+  T extends {
+    id?: string
+    service?: string
+    endpoint?: string
+    completed?: boolean
+    status?: number
+    request?: { body?: unknown }
+    response?: { body?: unknown }
+  },
+>(payloads: ReadonlyArray<T>, selectedTraceId: string | null): T | null {
+  if (selectedTraceId !== null && selectedTraceId.length > 0) {
+    const pinned = payloads.find((p) => p.id === selectedTraceId)
+    if (pinned) return pinned
+  }
+  return findLatestV5TurnEntry(payloads)
 }
 
 /**

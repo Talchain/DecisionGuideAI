@@ -612,3 +612,145 @@ describe('buildDebugBundleAsync — round-3 P1: cee_capture_selection always-emi
     expect(typeof bundle.cee_capture_selection.selected_reason).toBe('string')
   })
 })
+
+// =====================================================================
+// Round-4 review additions
+// =====================================================================
+
+describe('buildDebugBundleAsync — round-4 P0: canonical CEE trace pin', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('selected_cee_trace_id is always emitted (null on sync path)', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    // Field is present (never silently missing) and defaults to null
+    // on the sync export path.
+    expect(bundle).toHaveProperty('selected_cee_trace_id')
+    expect(bundle.selected_cee_trace_id).toBeNull()
+  })
+
+  it('async path overwrites selected_cee_trace_id from DebugData', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_selected_trace_id: 'tp-analysis-1',
+      }),
+    )
+    expect(bundle.selected_cee_trace_id).toBe('tp-analysis-1')
+    // Mirrored on the selection block — single source for grep-ability.
+    expect(bundle.cee_capture_selection.selected_trace_id).toBe('tp-analysis-1')
+  })
+
+  it('regression: newer non-analysis V5 turn + older analysis-producing — metadata + body refer to the SAME trace', async () => {
+    // The trace store contains TWO V5 turns:
+    //   - tp-graph-edit-newer (newer, /bff/orchestrate/v2/turn, NOT
+    //     analysis-producing)
+    //   - tp-run-analysis-older (older, /bff/orchestrate/v2/turn,
+    //     run_analysis)
+    // Pre-fix: `findLatestV5TurnEntry` returned the newer entry for
+    // `v5_cee_capture` metadata while the selector picked the older
+    // entry for `payloads.cee_response`. Round-4 P0: pinning to
+    // `selected_cee_trace_id` aligns both views.
+    traceState.payloads = [
+      {
+        id: 'tp-graph-edit-newer',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1', chip: { action_type: 'graph_edit' } } },
+        response: { body: { newer: true, lineage: { response_hash: 'hash-newer' } } },
+      },
+      {
+        id: 'tp-run-analysis-older',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1', chip: { action_type: 'run_analysis' } } },
+        response: { body: { older: true, lineage: { response_hash: 'hash-analysis' } } },
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        // Mirror what useDebugData would emit: selector pinned the
+        // analysis-producing (older) trace.
+        cee_capture_selected_trace_id: 'tp-run-analysis-older',
+        cee_capture_selection_diagnostics: {
+          cee_candidate_count: 2,
+          v5_endpoint_candidate_count: 2,
+          analysis_producing_candidate_count: 1,
+          selected_via_primary_path: true,
+          selected_reason: 'analysis_producing_recency',
+          hash_match_status: 'both_absent',
+        },
+      }),
+    )
+    // selected_cee_trace_id points at the older analysis-producing trace.
+    expect(bundle.selected_cee_trace_id).toBe('tp-run-analysis-older')
+    // latest_v5_turn diagnostics describe the SAME trace (not the
+    // newer graph_edit).
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_id,
+    ).toBe('tp-run-analysis-older')
+  })
+
+  it('regression: when selector did NOT pin a trace, fall back to findLatestV5TurnEntry (no behaviour change)', async () => {
+    traceState.payloads = [
+      {
+        id: 'tp-only-trace',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: { ok: true } },
+      },
+    ]
+    // No selected_cee_trace_id supplied.
+    const bundle = await buildDebugBundleAsync(makeDebugData())
+    // Bundle still emits a sensible v5 latest_v5_turn from the
+    // fallback (the only entry in the trace store).
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_id,
+    ).toBe('tp-only-trace')
+  })
+})
+
+describe('buildDebugBundleAsync — round-4 P1: tightened union types', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('hash_match_status + selected_reason match the documented union codes', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_selection_diagnostics: {
+          cee_candidate_count: 1,
+          v5_endpoint_candidate_count: 1,
+          analysis_producing_candidate_count: 1,
+          selected_via_primary_path: true,
+          selected_reason: 'hash_matched',
+          hash_match_status: 'matched',
+        },
+      }),
+    )
+    // These ARE valid union members — typed bundle would reject any
+    // future free-text codes at compile.
+    expect(bundle.cee_capture_selection.hash_match_status).toBe('matched')
+    expect(bundle.cee_capture_selection.selected_reason).toBe('hash_matched')
+  })
+})
