@@ -12,6 +12,11 @@
  */
 
 import type { AnalysisStateSource } from '../canvas/hooks/useAnalysisStateSource'
+// Round-3 + Round-4 review (P1 + IMP): shared V5 CEE detection
+// helpers now live in `v5TraceMatching` so selector / fallback /
+// failed-record detection / latest-turn lookup / provenance
+// classification cannot drift on case or endpoint semantics.
+import { isV5TurnEndpoint } from './v5TraceMatching'
 
 export type CapturePipelineStatus =
   | 'complete'
@@ -36,6 +41,24 @@ export type CoherenceIssue =
   | 'scenario_id_conflict'
   | 'parse_failed_with_raw_preserved'
   | 'legacy_pipeline_status_misleading_proxy_or_network_failure'
+  /**
+   * Live-capture: fires when the analysis-producing CEE selector
+   * picked a capture whose `response_hash` disagreed with the canvas
+   * store's `results.hash`. BOTH hashes were present and they did
+   * not match. Surfaces the contradiction rather than silently
+   * picking a stale turn. Missing hash on either side never fires
+   * this issue (hash matching is a soft preference).
+   */
+  | 'capture_response_hash_mismatch_with_results'
+  /**
+   * Round-5 review (P1): a `selected_cee_trace_id` was supplied to
+   * the bundle assembler, but the matched trace entry failed V5
+   * validation (wrong service, wrong endpoint, or look-alike path).
+   * The bundle fell back to `findLatestV5TurnEntry` so capture
+   * metadata stays honest; this issue records the pin attempt was
+   * invalid so reviewers can debug the discrepancy.
+   */
+  | 'invalid_selected_trace_id'
 
 export type CoherenceState = 'complete' | 'partial' | 'contradictory' | 'missing'
 
@@ -80,6 +103,25 @@ export interface V5CapturePipelineStatusInputs {
   scenarioIdConflictCount: number
   /** Legacy `pipeline.v5_pipeline_status` value, for disagreement detection. */
   legacyPipelineStatus: string | null
+  /**
+   * True when the analysis-producing CEE selector reported that the
+   * captured response hash and the canvas store's `results.hash`
+   * BOTH existed AND disagreed. Fires
+   * `capture_response_hash_mismatch_with_results`. Soft preference:
+   * a missing hash on either side leaves this `false` (no evidence
+   * is not a mismatch).
+   */
+  ceeCaptureResponseHashMismatch: boolean
+  /**
+   * Round-5 review (P1): true when the bundle assembler tried to pin
+   * a canonical V5 trace by `selected_cee_trace_id` BUT either the
+   * id didn't match any entry OR the matched entry failed V5
+   * validation (wrong service/endpoint). Fires
+   * `invalid_selected_trace_id`. The bundle falls back to
+   * `findLatestV5TurnEntry` so metadata stays honest; this flag is
+   * the diagnostic surface so reviewers see the pin attempt failed.
+   */
+  invalidSelectedTraceId: boolean
 }
 
 export interface V5CapturePipelineStatusResult {
@@ -193,6 +235,24 @@ export function classifyV5CapturePipelineStatus(
     issues.push('scenario_id_conflict')
   }
 
+  // ADDITIVE — fires whenever the analysis-producing CEE selector saw
+  // both a captured response_hash and a canvas results.hash AND they
+  // disagreed. Soft preference: the caller passes `false` when either
+  // hash was missing (no evidence is not a mismatch). Independent of
+  // chosen status so a reviewer sees the contradiction even when the
+  // status enum is `complete`.
+  if (inputs.ceeCaptureResponseHashMismatch) {
+    issues.push('capture_response_hash_mismatch_with_results')
+  }
+
+  // Round-5 review (P1): pin-attempt failed → diagnostic. Additive,
+  // doesn't change capture_pipeline_status (the bundle already fell
+  // back to findLatestV5TurnEntry; status reflects the fallback's
+  // tier classification).
+  if (inputs.invalidSelectedTraceId) {
+    issues.push('invalid_selected_trace_id')
+  }
+
   // Independent of chosen status: fires whenever a parse-error envelope
   // preserved the raw response. parse_ok=false + raw_response_present=true
   // is the canonical PR #147 invariant signature; emit it as a visible
@@ -218,11 +278,22 @@ export function classifyV5CapturePipelineStatus(
     issues.push('legacy_pipeline_status_misleading_proxy_or_network_failure')
   }
 
+  // Round-2 review (P1): any non-empty issues list flips `state` to
+  // `'contradictory'` BEFORE the missing/complete/partial fallbacks.
+  // Pre-fix, `state` stayed `'missing'` whenever
+  // `capture_pipeline_status === 'capture_missing'` even if a real
+  // contradiction (e.g. `capture_response_hash_mismatch_with_results`)
+  // was in the issues array — hiding the disagreement behind a more
+  // neutral "missing" label. The correct precedence is:
+  //   any contradiction issue → 'contradictory'
+  //   else status capture_missing → 'missing'
+  //   else status complete → 'complete'
+  //   else → 'partial'
   let state: CoherenceState
-  if (status === 'capture_missing') {
-    state = 'missing'
-  } else if (issues.length > 0) {
+  if (issues.length > 0) {
     state = 'contradictory'
+  } else if (status === 'capture_missing') {
+    state = 'missing'
   } else if (status === 'complete') {
     state = 'complete'
   } else {
@@ -288,10 +359,10 @@ export function findLatestV5TurnEntry<
     response?: { body?: unknown }
   },
 >(payloads: ReadonlyArray<T>): T | null {
-  const v5 = payloads.filter((p) => {
-    const endpoint = typeof p.endpoint === 'string' ? p.endpoint : ''
-    return p.service === 'CEE' && endpoint.includes('/orchestrate/v2/turn')
-  })
+  // Round-3 review (P1): use the SHARED helper (case-insensitive CEE +
+  // V5 endpoint scoping) so the selector, failed-record detection,
+  // latest-turn lookup, and bundle-tier resolution cannot drift.
+  const v5 = payloads.filter(isV5TurnEndpoint)
   if (v5.length === 0) return null
 
   // Tier 1: a parseable response body is present (most authoritative).
@@ -322,6 +393,132 @@ export function hasResponseBody(p: { response?: { body?: unknown } }): boolean {
 }
 
 /**
+ * Round-5 review (P1): outcome codes for `findCanonicalV5TraceForBundle`
+ * so the bundle assembler can emit explicit diagnostics — instead of
+ * silently falling back when a pin is invalid.
+ */
+export type CanonicalV5TraceSource =
+  | 'pinned' // selectedTraceId resolved to a valid V5 CEE entry
+  | 'fallback_latest' // no selectedTraceId, fell back to findLatestV5TurnEntry
+  | 'invalid_pin_fell_back' // selectedTraceId matched an entry, but it failed
+                            // V5 validation; fell back to findLatestV5TurnEntry
+  | 'pin_not_found_fell_back' // selectedTraceId did not match any entry
+  | 'none' // no V5 entry anywhere
+
+export interface CanonicalV5TraceResult<T> {
+  trace: T | null
+  source: CanonicalV5TraceSource
+}
+
+/**
+ * Round-4 review (P0) + Round-5 review (P1): canonical V5 trace pin.
+ *
+ * Pre-fix the bundle assembler used `findLatestV5TurnEntry` to source
+ * `v5_cee_capture` metadata (request_id, endpoint, status, parse_ok)
+ * while `bundle.payloads.cee_response` was sourced from the
+ * analysis-producing selector. When a newer non-analysis V5 turn
+ * existed (e.g. `graph_edit` after `run_analysis`), the two views
+ * described different turns — metadata vs body could disagree on
+ * request_id, endpoint, and status.
+ *
+ * This helper pins both views to the SAME trace: when the selector
+ * supplies a `selectedTraceId`, the matching entry is returned —
+ * BUT only after re-validating with `isV5TurnEndpoint`. Round-5
+ * review (P1): pre-fix the function accepted any id match, so a
+ * non-V5 trace id could surface as the canonical V5 trace. Now an
+ * id-matched-but-non-V5 entry triggers `invalid_pin_fell_back`,
+ * and the bundle emits the `invalid_selected_trace_id` coherence
+ * issue downstream.
+ *
+ * When no `selectedTraceId` (or the pin is invalid / not found),
+ * falls back to `findLatestV5TurnEntry` (no regression for cases
+ * where the selector didn't run).
+ */
+export function findCanonicalV5TraceForBundle<
+  T extends {
+    id?: string
+    service?: string
+    endpoint?: string
+    completed?: boolean
+    status?: number
+    request?: { body?: unknown }
+    response?: { body?: unknown }
+  },
+>(
+  payloads: ReadonlyArray<T>,
+  selectedTraceId: string | null,
+): CanonicalV5TraceResult<T> {
+  // No id pin → straight to findLatestV5TurnEntry.
+  if (selectedTraceId === null || selectedTraceId.length === 0) {
+    const fallback = findLatestV5TurnEntry(payloads)
+    return {
+      trace: fallback,
+      source: fallback === null ? 'none' : 'fallback_latest',
+    }
+  }
+
+  // Id pin supplied — try to match.
+  const pinnedById = payloads.find((p) => p.id === selectedTraceId)
+  if (pinnedById === undefined) {
+    // Round-7 review: the pin id didn't match any entry. Could
+    // happen if the trace store was evicted between selector and
+    // bundle assembly. Record the pin-attempt outcome
+    // (`pin_not_found_fell_back`) REGARDLESS of whether the
+    // fallback finds anything — the round-6 blocking rule rejects
+    // any non-pin trace, so reviewers need the pin-failure recorded
+    // even when no V5 fallback is available.
+    return {
+      trace: findLatestV5TurnEntry(payloads),
+      source: 'pin_not_found_fell_back',
+    }
+  }
+
+  // Round-5 P1: validate the pinned entry is actually a V5 CEE turn.
+  // Without this, a caller passing a legacy / non-CEE trace id could
+  // promote a non-V5 entry into v5_cee_capture metadata.
+  if (!isV5TurnEndpoint(pinnedById)) {
+    // Round-7 review: same logic as the pin-not-found path — record
+    // the pin-attempt outcome (`invalid_pin_fell_back`) regardless
+    // of whether the fallback finds a different V5 trace.
+    return {
+      trace: findLatestV5TurnEntry(payloads),
+      source: 'invalid_pin_fell_back',
+    }
+  }
+
+  return { trace: pinnedById, source: 'pinned' }
+}
+
+/**
+ * Round-6 BLOCKING-fix rule, expressed as a pure helper.
+ *
+ * When `findCanonicalV5TraceForBundle` falls back because the pin
+ * failed validation (`invalid_pin_fell_back`) or the id didn't
+ * match any entry (`pin_not_found_fell_back`), the bundle MUST NOT
+ * silently use the fallback trace as live metadata for the selected
+ * body. Pre-fix the legacy classifier path and the snapshot
+ * assembler each implemented this inline; extracting it here keeps
+ * the two views in sync and gives tests a single function to pin.
+ *
+ * Returns:
+ *   - `trace`: `null` when the pin failed, otherwise the canonical
+ *     trace (or the latest-V5 fallback when no pin was supplied).
+ *   - `invalidSelectedTraceId`: `true` exactly when the bundle
+ *     should emit the `invalid_selected_trace_id` coherence issue.
+ */
+export function enforceCanonicalPinRule<T>(
+  canonical: CanonicalV5TraceResult<T>,
+): { trace: T | null; invalidSelectedTraceId: boolean } {
+  const invalidSelectedTraceId =
+    canonical.source === 'invalid_pin_fell_back' ||
+    canonical.source === 'pin_not_found_fell_back'
+  return {
+    trace: invalidSelectedTraceId ? null : canonical.trace,
+    invalidSelectedTraceId,
+  }
+}
+
+/**
  * Scan a payload-trace snapshot for the first failed HTTP record that
  * belongs to the V5 CEE turn (the `/orchestrate/v2/turn` endpoint).
  * Unrelated failed records (PLoT, legacy CEE endpoints, ISL probes,
@@ -349,11 +546,11 @@ export function detectFailedHttpRecord(
   }>,
 ): FailedHttpRecord {
   for (const p of payloads) {
-    // Scope filter: only V5 CEE turn records influence V5 capture status.
-    const endpoint = typeof p.endpoint === 'string' ? p.endpoint : ''
-    const isV5CeeTurn =
-      p.service === 'CEE' && endpoint.includes('/orchestrate/v2/turn')
-    if (!isV5CeeTurn) continue
+    // Scope filter: only V5 CEE turn records influence V5 capture
+    // status. Round-3 review (P1): use the SHARED case-insensitive
+    // helper so a `cee`-cased entry is treated identically by the
+    // selector and the failure detector.
+    if (!isV5TurnEndpoint(p)) continue
 
     const sourceFlag =
       typeof p.source === 'string' && PROXY_NETWORK_SOURCES.has(p.source)

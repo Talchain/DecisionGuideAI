@@ -1761,4 +1761,67 @@ describe('useDebugData', () => {
       expect(result.current.diagnostics.intercept_populated).toBe(false)
     })
   })
+
+  // ===================================================================
+  // Round-6 review — end-to-end hook test for the fallback V5 path
+  // ===================================================================
+  describe('round-6: end-to-end fallback V5 trace id threading', () => {
+    it('when fallback returns a V5 turn, cee_capture_selected_trace_id matches that payload id', () => {
+      // The selector returns undefined (no analysis-producing chip),
+      // but the trace store has a V5 turn. The fallback path picks
+      // that turn AND useDebugData threads its id through to
+      // cee_capture_selected_trace_id so the bundle assembler pins
+      // canonical metadata to the SAME body.
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({
+          payloads: [
+            {
+              id: 'tp-fallback-v5',
+              service: 'CEE',
+              endpoint: '/bff/orchestrate/v2/turn',
+              status: 200,
+              completed: true,
+              // No analysis-producing chip/action metadata — selector
+              // returns undefined for analysis-producing candidate.
+              request: { body: { scenario_id: 'scn-1' } },
+              response: { body: { ok: true } },
+            },
+          ],
+        }),
+      )
+      const { result } = renderHook(() => useDebugData())
+      // Provenance is V5-confirmed fallback.
+      expect(result.current.cee_capture_provenance).toBe(
+        'fallback_v5_turn',
+      )
+      // Trace id is threaded through.
+      expect(result.current.cee_capture_selected_trace_id).toBe(
+        'tp-fallback-v5',
+      )
+    })
+
+    it('legacy CEE fallback does NOT thread a trace id (must not pin into V5 metadata)', () => {
+      vi.mocked(usePayloadTraceStore).mockImplementation((selector) =>
+        selector({
+          payloads: [
+            {
+              id: 'tp-legacy',
+              service: 'CEE',
+              endpoint: '/bff/cee/turn', // LEGACY
+              status: 200,
+              completed: true,
+              request: { body: { scenario_id: 'scn-1' } },
+              response: { body: { legacy: true } },
+            },
+          ],
+        }),
+      )
+      const { result } = renderHook(() => useDebugData())
+      expect(result.current.cee_capture_provenance).toBe(
+        'fallback_legacy_cee',
+      )
+      // Legacy entries are deliberately NOT pinned into V5 metadata.
+      expect(result.current.cee_capture_selected_trace_id).toBeNull()
+    })
+  })
 })

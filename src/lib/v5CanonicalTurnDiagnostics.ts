@@ -86,12 +86,30 @@ export function determineCaptureTier(inputs: {
    */
   serviceMetadataV5FailurePresent: boolean
   factPresentForScenario: boolean
+  /**
+   * Round-3 review (P0): provenance of `bundle.payloads.cee_*`.
+   * Pre-fix the bundle_payloads tier could be triggered by a legacy
+   * CEE entry that `findBestPayload` picked when the selector
+   * returned undefined — falsely claiming V5 capture. This input
+   * gates `bundle_payloads` tier on a V5-verified provenance
+   * (analysis-producing turn or fallback V5 turn). Legacy CEE
+   * payloads fall through to lower tiers honestly. Defaults to true
+   * (preserving prior behaviour) when callers don't yet thread
+   * provenance — but the bundle assembler in `exportBundle.ts`
+   * always passes the real value computed from `data.cee_capture_provenance`.
+   */
+  bundlePayloadsAreV5Confirmed?: boolean
 }): LatestV5TurnSource {
   if (inputs.traceEntryPresent) return 'payload_trace'
-  if (
+  const bundlePayloadsPresent =
     inputs.bundlePayloadsCeeRequestPresent ||
     inputs.bundlePayloadsCeeResponsePresent
-  ) {
+  // Round-3 P0: only promote to bundle_payloads when provenance is
+  // V5-confirmed. Legacy CEE entries from the findBestPayload
+  // fallback path arrive here with bundlePayloadsAreV5Confirmed=false
+  // and must NOT impersonate V5 capture.
+  const v5Confirmed = inputs.bundlePayloadsAreV5Confirmed ?? true
+  if (bundlePayloadsPresent && v5Confirmed) {
     return 'bundle_payloads'
   }
   if (inputs.serviceMetadataV5FailurePresent) return 'service_metadata'

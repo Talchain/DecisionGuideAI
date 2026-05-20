@@ -20,6 +20,7 @@ import { describe, expect, it } from 'vitest'
 import {
   classifyV5CapturePipelineStatus,
   detectFailedHttpRecord,
+  findCanonicalV5TraceForBundle,
   findLatestV5TurnEntry,
   hasResponseBody,
   type V5CapturePipelineStatusInputs,
@@ -37,6 +38,13 @@ function defaults(): V5CapturePipelineStatusInputs {
     analysisFactPresent: false,
     scenarioIdConflictCount: 0,
     legacyPipelineStatus: null,
+    // PR #152 — closed by default. Hash-mismatch issue fires only when
+    // the export-bundle pipeline observes both hashes AND they disagree.
+    ceeCaptureResponseHashMismatch: false,
+    // Round-5 review (P1) — closed by default. invalid_selected_trace_id
+    // only fires when the bundle assembler attempted to pin a canonical
+    // V5 trace and the pin failed validation.
+    invalidSelectedTraceId: false,
   }
 }
 
@@ -345,6 +353,66 @@ describe('classifyV5CapturePipelineStatus — coherence issues', () => {
       }).coherence.state,
     ).not.toBe('missing')
   })
+
+  // PR #152 — capture_response_hash_mismatch_with_results
+  // -----------------------------------------------------
+  it('capture_response_hash_mismatch_with_results fires when ceeCaptureResponseHashMismatch=true', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      ceeCaptureResponseHashMismatch: true,
+    })
+    expect(out.coherence.issues).toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+  })
+
+  it('does NOT fire when ceeCaptureResponseHashMismatch=false (no false positive)', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      ceeCaptureResponseHashMismatch: false,
+    })
+    expect(out.coherence.issues).not.toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+  })
+
+  it('precedence (round-2 P1): contradiction issue + capture_missing → state contradictory (NOT missing)', () => {
+    // Pre-fix the missing branch trumped issues — hiding the
+    // contradiction behind a more neutral label. After the flip, any
+    // non-empty issues list moves state to `contradictory` regardless
+    // of whether the underlying status is `capture_missing`.
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      ceeCaptureResponseHashMismatch: true,
+    })
+    expect(out.capture_pipeline_status).toBe('capture_missing')
+    expect(out.coherence.issues).toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+    expect(out.coherence.state).toBe('contradictory')
+  })
+
+  it('hash-mismatch issue is additive — coherence flips to "contradictory" alongside the existing classification', () => {
+    // Successful complete capture + hash mismatch → state must reflect
+    // the contradiction so reviewers see the issue even when the
+    // bundle's status enum is "complete".
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      v5Capture: {
+        request_present: true,
+        response_present: true,
+        parse_ok: true,
+        raw_response_present: true,
+      },
+      hasResultsReport: true,
+      analysisFactPresent: true,
+      ceeCaptureResponseHashMismatch: true,
+    })
+    expect(out.coherence.issues).toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+    expect(out.coherence.state).toBe('contradictory')
+  })
 })
 
 describe('detectFailedHttpRecord — scoped to V5 CEE turns', () => {
@@ -513,5 +581,201 @@ describe('hasResponseBody — body-presence helper', () => {
     expect(hasResponseBody({ response: { body: null } })).toBe(false)
     expect(hasResponseBody({ response: {} })).toBe(false)
     expect(hasResponseBody({})).toBe(false)
+  })
+})
+
+// =====================================================================
+// Round-3 review — shared-helper case-insensitive parity
+// =====================================================================
+
+describe('round-3 P1: V5 trace detection is case-insensitive everywhere', () => {
+  it('findLatestV5TurnEntry matches `cee` (lowercase) service', () => {
+    const out = findLatestV5TurnEntry([
+      {
+        service: 'cee',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        response: { body: { ok: true } },
+      },
+    ])
+    expect(out).not.toBeNull()
+  })
+
+  it('findLatestV5TurnEntry matches `Cee` (mixed case) service', () => {
+    const out = findLatestV5TurnEntry([
+      {
+        service: 'Cee',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        response: { body: { ok: true } },
+      },
+    ])
+    expect(out).not.toBeNull()
+  })
+
+  it('findLatestV5TurnEntry rejects mismatched-case PLoT (not CEE)', () => {
+    expect(
+      findLatestV5TurnEntry([
+        {
+          service: 'plot',
+          endpoint: '/bff/orchestrate/v2/turn',
+          completed: true,
+          status: 200,
+        },
+      ]),
+    ).toBeNull()
+  })
+
+  it('detectFailedHttpRecord matches `cee`-cased failures', () => {
+    const out = detectFailedHttpRecord([
+      {
+        service: 'cee',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: false,
+        source: 'preflight_or_network',
+      },
+    ])
+    expect(out.present).toBe(true)
+    expect(out.source).toBe('preflight_or_network')
+  })
+
+  it('detectFailedHttpRecord rejects case-correct CEE on legacy endpoint', () => {
+    // Pre-fix parity check: the failure detector and the selector
+    // must AGREE on what counts as a V5 turn. Legacy endpoint MUST
+    // NOT trigger V5 failure classification regardless of service
+    // case.
+    expect(
+      detectFailedHttpRecord([
+        {
+          service: 'CEE',
+          endpoint: '/bff/cee/turn',
+          completed: false,
+          source: 'preflight_or_network',
+        },
+      ]).present,
+    ).toBe(false)
+  })
+})
+
+// =====================================================================
+// Round-5 review — findCanonicalV5TraceForBundle (P1 validation)
+// =====================================================================
+
+describe('findCanonicalV5TraceForBundle — round-5 P1 validation', () => {
+  const v5A = {
+    id: 'tp-v5-A',
+    service: 'CEE',
+    endpoint: '/bff/orchestrate/v2/turn',
+    completed: true,
+    status: 200,
+    response: { body: { ok: true } },
+  }
+  const v5B = {
+    id: 'tp-v5-B',
+    service: 'CEE',
+    endpoint: '/bff/orchestrate/v2/turn',
+    completed: true,
+    status: 200,
+    response: { body: { other: true } },
+  }
+  const legacyCee = {
+    id: 'tp-legacy',
+    service: 'CEE',
+    endpoint: '/bff/cee/turn',
+    completed: true,
+    status: 200,
+  }
+  const plot = {
+    id: 'tp-plot',
+    service: 'PLoT',
+    endpoint: '/bff/orchestrate/v2/turn',
+    completed: true,
+    status: 200,
+  }
+
+  it('source=pinned when selectedTraceId matches a valid V5 entry', () => {
+    const out = findCanonicalV5TraceForBundle([v5A, v5B], 'tp-v5-A')
+    expect(out.source).toBe('pinned')
+    expect(out.trace?.id).toBe('tp-v5-A')
+  })
+
+  it('source=fallback_latest when no selectedTraceId supplied', () => {
+    const out = findCanonicalV5TraceForBundle([v5A, v5B], null)
+    expect(out.source).toBe('fallback_latest')
+    expect(out.trace?.id).toBe('tp-v5-A')
+  })
+
+  it('source=pin_not_found_fell_back when id does not match', () => {
+    const out = findCanonicalV5TraceForBundle([v5A, v5B], 'tp-missing')
+    expect(out.source).toBe('pin_not_found_fell_back')
+    // Falls back to the latest V5 entry.
+    expect(out.trace?.id).toBe('tp-v5-A')
+  })
+
+  it('source=invalid_pin_fell_back when id matches a LEGACY CEE entry', () => {
+    // Pre-fix the helper returned `legacyCee` because the id matched.
+    // Round-5 P1: the entry must pass `isV5TurnEndpoint`. Legacy CEE
+    // → invalid pin → fall back to the latest V5 entry.
+    const out = findCanonicalV5TraceForBundle(
+      [v5A, legacyCee],
+      'tp-legacy',
+    )
+    expect(out.source).toBe('invalid_pin_fell_back')
+    expect(out.trace?.id).toBe('tp-v5-A')
+  })
+
+  it('source=invalid_pin_fell_back when id matches a PLoT entry', () => {
+    // PLoT on the V5 endpoint shouldn't be selectable as a CEE turn.
+    const out = findCanonicalV5TraceForBundle([v5A, plot], 'tp-plot')
+    expect(out.source).toBe('invalid_pin_fell_back')
+    expect(out.trace?.id).toBe('tp-v5-A')
+  })
+
+  it('source=none when nothing in the trace store AND no pin supplied', () => {
+    const out = findCanonicalV5TraceForBundle([], null)
+    expect(out.source).toBe('none')
+    expect(out.trace).toBeNull()
+  })
+
+  it('round-7: pin attempt recorded even when fallback is empty (source preserves pin-attempt fact)', () => {
+    // Pre-round-7 the helper coalesced `pin_not_found_fell_back +
+    // null fallback` down to `source: 'none'`, hiding the pin-attempt
+    // fact. Round-7 keeps the pin-attempt outcome regardless so
+    // reviewers see invalid_selected_trace_id in the bundle.
+    const out = findCanonicalV5TraceForBundle([], 'tp-evicted')
+    expect(out.source).toBe('pin_not_found_fell_back')
+    expect(out.trace).toBeNull()
+  })
+
+  it('round-7: invalid_pin_fell_back recorded when ONLY non-V5 entries exist', () => {
+    // Only legacy CEE in store; pinned id matches the legacy entry.
+    // No V5 fallback target. Round-7 still records the pin-attempt
+    // outcome.
+    const out = findCanonicalV5TraceForBundle(
+      [legacyCee],
+      'tp-legacy',
+    )
+    expect(out.source).toBe('invalid_pin_fell_back')
+    expect(out.trace).toBeNull()
+  })
+})
+
+// Round-5 review (P1): invalid_selected_trace_id coherence issue.
+describe('classifyV5CapturePipelineStatus — invalid_selected_trace_id (round-5 P1)', () => {
+  it('emits invalid_selected_trace_id when input flag is set', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      invalidSelectedTraceId: true,
+    })
+    expect(out.coherence.issues).toContain('invalid_selected_trace_id')
+    // Additive — issues force `contradictory` via round-2 precedence.
+    expect(out.coherence.state).toBe('contradictory')
+  })
+
+  it('does NOT emit when flag is false (default)', () => {
+    const out = classifyV5CapturePipelineStatus(defaults())
+    expect(out.coherence.issues).not.toContain('invalid_selected_trace_id')
   })
 })

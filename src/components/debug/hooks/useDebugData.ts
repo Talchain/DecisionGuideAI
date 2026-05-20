@@ -51,6 +51,15 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { usePayloadTraceStore, type TracedPayload } from '../../../lib/payload-trace-store'
+import {
+  findLatestAnalysisProducingCeeTurn,
+  type SelectionReason,
+  type HashMatchStatus,
+} from '../../../lib/analysisProducingCeeTurn'
+import {
+  isV5TurnEndpoint,
+  matchServiceCaseInsensitive,
+} from '../../../lib/v5TraceMatching'
 import { useGateStore, type GateName, type GateStatus } from '../../../lib/gate-state'
 import { getClientBuild } from '../../../lib/version-cache'
 
@@ -879,6 +888,65 @@ export interface DebugData {
   /** Raw payloads for inspection */
   payloads: PayloadBundle
 
+  /**
+   * True only when the analysis-producing CEE selector picked a turn
+   * whose captured `response_hash` disagreed with the canvas store's
+   * `results.hash`, and BOTH hashes were present. Missing hash on
+   * either side → false (no evidence to compare). Threaded into the
+   * bundle's capture-pipeline classifier as
+   * `ceeCaptureResponseHashMismatch` to emit the
+   * `capture_response_hash_mismatch_with_results` coherence issue.
+   */
+  cee_capture_response_hash_mismatch?: boolean
+
+  /**
+   * Round-2 review (P1): hash-mismatch detail surface. When the
+   * selector observes a disagreement, these fields record WHAT
+   * disagreed — boolean-only reporting hid the evidence. Always
+   * populated when the selector ran (may be null when nothing was
+   * read).
+   */
+  cee_capture_selected_response_hash?: string | null
+  cee_capture_selected_response_hash_source?: string | null
+  cee_capture_selected_trace_id?: string | null
+
+  /**
+   * Round-2 review (IMP): selection diagnostics — answers "why this
+   * turn?" without exporting raw payload content. Carries candidate
+   * counts (CEE / V5-endpoint / analysis-producing), the dominant
+   * ranking signal, the hash-match status code, and whether the
+   * primary selector path succeeded or fell back.
+   *
+   * Round-5 review (P1): `selected_reason` and `hash_match_status`
+   * typed as explicit unions at the DebugData boundary so invalid
+   * diagnostic codes fail at compile and the bundle assembler does
+   * NOT need to cast.
+   *
+   * Round-6 review (maintainability): types imported from
+   * `analysisProducingCeeTurn.ts` so this surface and the bundle's
+   * `cee_capture_selection` share a single source of truth.
+   */
+  cee_capture_selection_diagnostics?: {
+    cee_candidate_count: number
+    v5_endpoint_candidate_count: number
+    analysis_producing_candidate_count: number
+    selected_via_primary_path: boolean
+    selected_reason: SelectionReason
+    hash_match_status: HashMatchStatus
+  }
+
+  /**
+   * Round-3 review (P1): provenance of `bundle.payloads.cee_request`/
+   * `cee_response` so downstream diagnostics never confuse legacy
+   * CEE entries with canonical V5 capture. Drives
+   * `determineCaptureTier`'s gate on `bundle_payloads` promotion.
+   */
+  cee_capture_provenance?:
+    | 'analysis_producing_v5_turn'
+    | 'fallback_v5_turn'
+    | 'fallback_legacy_cee'
+    | 'none'
+
   /** Gate statuses */
   gates: GateData[]
 
@@ -1452,8 +1520,12 @@ function countNodesByKind(nodes: Array<{ data?: { kind?: string } }>): {
  * make the debug bundle useless for diagnosing draft quality.
  */
 function findBestPayload(payloads: TracedPayload[], service: string): TracedPayload | undefined {
+  // Round-4 review (P1): case-insensitive service matching. Pre-fix
+  // `p.service === service` missed `cee`-cased entries that the
+  // (case-insensitive) analysis-producing selector would have picked,
+  // creating drift between the primary and fallback paths.
   const isUsable = (p: TracedPayload) =>
-    p.service === service && p.turnType !== 'system_event'
+    matchServiceCaseInsensitive(p, service) && p.turnType !== 'system_event'
 
   // First try: most recent completed non-system-event payload for this service
   const completed = payloads.find((p) => isUsable(p) && p.completed)
@@ -3502,6 +3574,12 @@ export function useDebugData(): DebugData {
   const nodes = useCanvasStore((s) => s.nodes)
   const edges = useCanvasStore((s) => s.edges)
   const runMeta = useCanvasStore((s) => s.runMeta)
+  // Read scenario id + results hash for the analysis-producing CEE
+  // selector. Both are optional / nullable — the selector treats
+  // missing values as "no evidence" (soft preference), so undefined
+  // store fields don't break selection.
+  const currentScenarioId = useCanvasStore((s) => s.currentScenarioId ?? null)
+  const resultsHash = useCanvasStore((s) => s.results?.hash ?? null)
 
   // Payload trace store data
   const tracedPayloads = usePayloadTraceStore((s) => s.payloads)
@@ -3510,8 +3588,83 @@ export function useDebugData(): DebugData {
   const gatesMap = useGateStore((s) => s.gates)
 
   return useMemo(() => {
-    // Find service payloads (prefer completed over in-flight)
-    const ceePayload = findBestPayload(tracedPayloads, 'CEE')
+    // Prefer the analysis-producing CEE turn (matches scenario id,
+    // turn type, hash, recency). Falls through to `findBestPayload`
+    // when no analysis-producing turn was captured so non-analysis V5
+    // / V1 turns still surface honestly.
+    const analysisProducing = findLatestAnalysisProducingCeeTurn(
+      tracedPayloads,
+      currentScenarioId,
+      resultsHash,
+    )
+    // Fallback path: when the analysis-producing V5 selector returns
+    // undefined, fall through to `findBestPayload` so V1 / non-analysis
+    // V5 turns still surface honestly.
+    const fallbackCeePayload =
+      analysisProducing.selected === undefined
+        ? findBestPayload(tracedPayloads, 'CEE')
+        : undefined
+    const ceePayload =
+      (analysisProducing.selected as TracedPayload | undefined) ??
+      fallbackCeePayload
+
+    // Round-3 review (P1): cee_capture_provenance — records WHICH
+    // selector path produced `bundle.payloads.cee_*`. Downstream
+    // diagnostics (specifically `determineCaptureTier`) use this to
+    // avoid mistakenly promoting legacy CEE payloads into the
+    // `bundle_payloads` tier (which implies V5 capture).
+    //
+    //   - `analysis_producing_v5_turn`: selector primary path, V5
+    //     endpoint, analysis-producing turn. Strongest provenance.
+    //   - `fallback_v5_turn`: fallback found a V5 endpoint turn but
+    //     it wasn't analysis-producing. Still V5, but the selector
+    //     primary path didn't claim it.
+    //   - `fallback_legacy_cee`: fallback returned a non-V5 CEE
+    //     entry (legacy `/bff/cee/turn`, draft-graph, prompt-warm).
+    //     MUST NOT be promoted into V5 capture downstream.
+    //   - `none`: no CEE payload at all.
+    let ceeCaptureProvenance:
+      | 'analysis_producing_v5_turn'
+      | 'fallback_v5_turn'
+      | 'fallback_legacy_cee'
+      | 'none'
+
+    // Round-5 review (P0): compute the trace id pin alongside
+    // provenance so the bundle assembler's
+    // `findCanonicalV5TraceForBundle` pins to the SAME entry whose
+    // body is in `bundle.payloads.cee_*`. Pre-fix the fallback V5
+    // path didn't thread an id and metadata could drift to a newer
+    // V5 trace via `findLatestV5TurnEntry`.
+    let selectedCeeTraceId: string | null = null
+
+    if (analysisProducing.selected !== undefined) {
+      // Selector applies V5 endpoint scoping, so any non-undefined
+      // result is verified V5.
+      ceeCaptureProvenance = 'analysis_producing_v5_turn'
+      selectedCeeTraceId = analysisProducing.selected_trace_id
+    } else if (fallbackCeePayload !== undefined) {
+      // Round-4 review (P1): use the shared `isV5TurnEndpoint` helper
+      // instead of a raw substring check. Pre-fix the substring match
+      // would treat `/orchestrate/v2/turning` (a future-or-typo path)
+      // as a V5 turn AND wouldn't normalise service casing.
+      if (isV5TurnEndpoint(fallbackCeePayload)) {
+        ceeCaptureProvenance = 'fallback_v5_turn'
+        // Round-5 P0: thread the fallback id so the canonical-trace
+        // pin matches the body. Legacy fallbacks (next branch) do
+        // NOT set this — they aren't V5 traces and shouldn't be
+        // pinned as such.
+        selectedCeeTraceId =
+          typeof fallbackCeePayload.id === 'string'
+            ? fallbackCeePayload.id
+            : null
+      } else {
+        ceeCaptureProvenance = 'fallback_legacy_cee'
+        // selectedCeeTraceId stays null — legacy CEE traces must not
+        // pin into `v5_cee_capture` metadata.
+      }
+    } else {
+      ceeCaptureProvenance = 'none'
+    }
     const plotPayload = findBestPayload(tracedPayloads, 'PLoT')
     const islPayload = findBestPayload(tracedPayloads, 'ISL')
     const m2Payload = findBestPayload(tracedPayloads, 'M2')
@@ -3777,6 +3930,36 @@ export function useDebugData(): DebugData {
         },
       },
       payloads: payloadBundle,
+      cee_capture_response_hash_mismatch: analysisProducing.hash_mismatch_observed,
+      // Round-2 review (P1 + IMP): hash-mismatch detail + selection
+      // diagnostics so the bundle records WHAT disagreed and WHY the
+      // selected candidate won — instead of boolean-only mismatch.
+      cee_capture_selected_response_hash:
+        analysisProducing.selected_response_hash,
+      cee_capture_selected_response_hash_source:
+        analysisProducing.selected_response_hash_source,
+      // Round-5 review (P0): use the computed `selectedCeeTraceId`
+      // (set from the selector OR the fallback V5 payload's id) so
+      // the bundle pins canonical metadata to the same turn whose
+      // body is surfaced in `bundle.payloads.cee_*`.
+      cee_capture_selected_trace_id: selectedCeeTraceId,
+      cee_capture_selection_diagnostics: {
+        cee_candidate_count:
+          analysisProducing.selection_diagnostics.cee_candidate_count,
+        v5_endpoint_candidate_count:
+          analysisProducing.selection_diagnostics.v5_endpoint_candidate_count,
+        analysis_producing_candidate_count:
+          analysisProducing.selection_diagnostics
+            .analysis_producing_candidate_count,
+        selected_via_primary_path:
+          analysisProducing.selection_diagnostics.selected_via_primary_path,
+        selected_reason:
+          analysisProducing.selection_diagnostics.selected_reason,
+        hash_match_status:
+          analysisProducing.selection_diagnostics.hash_match_status,
+      },
+      // Round-3 review (P1): provenance of bundle.payloads.cee_*.
+      cee_capture_provenance: ceeCaptureProvenance,
       gates,
       validation,
       winningOption,
@@ -3803,7 +3986,7 @@ export function useDebugData(): DebugData {
       // CEE diagnostic trace (passthrough)
       diagnostic_trace,
     }
-  }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap])
+  }, [ceePipelineTrace, nodes, edges, runMeta, tracedPayloads, gatesMap, currentScenarioId, resultsHash])
 }
 
 export default useDebugData

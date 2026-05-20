@@ -709,4 +709,66 @@ describe('determineCaptureTier — single canonical resolver', () => {
       }),
     ).toBe('none')
   })
+
+  // ---------------------------------------------------------------
+  // Round-3 review (P0) — bundle_payloads tier gated on V5 provenance.
+  // ---------------------------------------------------------------
+
+  it('round-3 P0: bundle_payloads tier does NOT promote when payloads came from legacy CEE fallback', () => {
+    // bundle.payloads.cee_request was populated by findBestPayload
+    // hitting a legacy CEE entry. Provenance is NOT V5-confirmed →
+    // tier MUST fall through to `none` (no V5 trace, no V5 service
+    // metadata failure, no fact).
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: true,
+        bundlePayloadsCeeResponsePresent: true,
+        serviceMetadataV5FailurePresent: false,
+        factPresentForScenario: false,
+        bundlePayloadsAreV5Confirmed: false,
+      }),
+    ).toBe('none')
+  })
+
+  it('round-3 P0: bundle_payloads tier DOES promote when payloads have V5-confirmed provenance', () => {
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: true,
+        bundlePayloadsCeeResponsePresent: true,
+        serviceMetadataV5FailurePresent: false,
+        factPresentForScenario: false,
+        bundlePayloadsAreV5Confirmed: true,
+      }),
+    ).toBe('bundle_payloads')
+  })
+
+  it('round-3 P0: legacy fallback + fact present → tier falls through to "store" (still honest)', () => {
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: true,
+        bundlePayloadsCeeResponsePresent: true,
+        serviceMetadataV5FailurePresent: false,
+        factPresentForScenario: true,
+        bundlePayloadsAreV5Confirmed: false,
+      }),
+    ).toBe('store')
+  })
+
+  it('round-3 P0: default (no provenance input) preserves prior behaviour for legacy callers', () => {
+    // Backward-compat: callers that haven't been migrated to pass
+    // `bundlePayloadsAreV5Confirmed` continue to see the old
+    // promote-on-presence behaviour.
+    expect(
+      determineCaptureTier({
+        traceEntryPresent: false,
+        bundlePayloadsCeeRequestPresent: true,
+        bundlePayloadsCeeResponsePresent: false,
+        serviceMetadataV5FailurePresent: false,
+        factPresentForScenario: false,
+      }),
+    ).toBe('bundle_payloads')
+  })
 })

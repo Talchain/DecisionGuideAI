@@ -29,6 +29,19 @@ import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
+import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
+// Round-5 review (P1): use the shared V5 endpoint helper for the
+// service-metadata classification too, so the bundle can't
+// reintroduce substring false positives (e.g. `/turning` or
+// query-string `?next=/orchestrate/v2/turn`).
+import { isV5TurnEndpoint } from '../../../lib/v5TraceMatching'
+// Round-6 review (maintainability): import shared selection-diagnostic
+// union types so the DebugBundle interface mirrors DebugData without
+// re-declaring the same enum in two places.
+import type {
+  SelectionReason,
+  HashMatchStatus,
+} from '../../../lib/analysisProducingCeeTurn'
 import {
   derivePipelineStatus,
   type PipelineStatus,
@@ -51,6 +64,8 @@ import {
 import {
   classifyV5CapturePipelineStatus,
   detectFailedHttpRecord,
+  enforceCanonicalPinRule,
+  findCanonicalV5TraceForBundle,
   findLatestV5TurnEntry,
   hasResponseBody,
   type CapturePipelineStatus,
@@ -1273,6 +1288,163 @@ interface DebugBundle {
    * direct from downstream extraction at a glance.
    */
   effective_cee_response_source?: 'direct' | 'downstream' | 'none'
+
+  /**
+   * PR #152 — Live payload-capture diagnostic.
+   *
+   * Surfaces the resolved state of the `payload-trace-store` env gate
+   * so reviewers see at a glance WHY `payloads.cee_request` /
+   * `cee_response` are populated or null on any given bundle. Previously
+   * a missing/empty `VITE_APP_ENV` silently disabled capture in
+   * production-like builds with no in-bundle explanation.
+   *
+   * The gate is closed-by-default — capture is enabled ONLY when one of:
+   *   - Vite dev mode (`import.meta.env.DEV === true`)
+   *   - `VITE_APP_ENV === 'development'`
+   *   - `VITE_APP_ENV === 'staging'`
+   *   - `VITE_ENABLE_PAYLOAD_INSPECTION === 'true'` (explicit override)
+   * Otherwise capture is disabled and `reason` carries one of the
+   * documented `missing_app_env_capture_disabled` / `empty_*` /
+   * `production_*` / `unknown_*` codes.
+   *
+   * Round-2 review hardening: now ALWAYS emitted. When the bundle
+   * assembler can't even reach the trace-store module (dynamic-import
+   * failure, missing test mock, SSR), the field still appears with
+   * `enabled: false` and `reason: 'inspection_status_unavailable'`
+   * so reviewers never face a silently-missing diagnostic.
+   *
+   * Reason field is typed as the exported `PayloadInspectionReason`
+   * enum so unsupported codes fail at compile time.
+   */
+  payload_inspection_status: {
+    enabled: boolean
+    resolved_app_env: string
+    reason: PayloadInspectionReason
+  }
+
+  /**
+   * Round-2 review (P1 + IMP): live CEE capture selector detail.
+   *
+   * Records WHAT disagreed when `capture_response_hash_mismatch_with_results`
+   * fires (selected_response_hash + results_hash_at_selection) and
+   * WHY this turn was selected (selection_diagnostics) — surfacing
+   * the ranking decision without exporting raw payload content.
+   *
+   * Round-3 review (P1): NON-OPTIONAL. The sync export path emits a
+   * `sync_not_evaluated` block (all counts = 0, selected_reason =
+   * 'sync_not_evaluated') so consumers never need absence-based logic.
+   * The async path overwrites with real selector output. Same
+   * always-emit semantics as `payload_inspection_status`.
+   */
+  cee_capture_selection: {
+    /** Captured response_hash for the selected entry, or null. */
+    selected_response_hash: string | null
+    /**
+     * Where in the response body the hash was read from. One of
+     * `ResponseHashSource` from `analysisProducingCeeTurn.ts`.
+     */
+    selected_response_hash_source: string | null
+    /** Trace-store id of the selected entry. */
+    selected_trace_id: string | null
+    /** Canvas store's results.hash at the time the selector ran. */
+    results_hash_at_selection: string | null
+    /**
+     * Hash-evidence summary. Drives the
+     * `capture_response_hash_mismatch_with_results` coherence issue
+     * (fires only on `'mismatched'`). Round-6 review: re-uses the
+     * shared `HashMatchStatus` type from `analysisProducingCeeTurn.ts`
+     * plus the sync-path `'sync_not_evaluated'` extension.
+     */
+    hash_match_status: HashMatchStatus | 'sync_not_evaluated'
+    /**
+     * Dominant ranking signal for the chosen candidate. Round-6
+     * review: re-uses the shared `SelectionReason` type plus the
+     * sync-path `'sync_not_evaluated'` extension.
+     */
+    selected_reason: SelectionReason | 'sync_not_evaluated'
+    /** CEE entries across any endpoint (visible scope). */
+    cee_candidate_count: number
+    /** CEE entries on the `/orchestrate/v2/turn` V5 endpoint. */
+    v5_endpoint_candidate_count: number
+    /** V5-endpoint entries that were analysis-producing. */
+    analysis_producing_candidate_count: number
+    /** Whether the primary selector path returned a candidate. */
+    selected_via_primary_path: boolean
+    /**
+     * Round-3 review (P1): provenance of `bundle.payloads.cee_*`.
+     * Surfaces here AND on the cee_capture_selection diagnostic so
+     * reviewers see in one place WHICH selector path produced the
+     * payload — and downstream `determineCaptureTier` reads the same
+     * value to gate `bundle_payloads` tier promotion.
+     */
+    provenance:
+      | 'analysis_producing_v5_turn'
+      | 'fallback_v5_turn'
+      | 'fallback_legacy_cee'
+      | 'none'
+      | 'sync_not_evaluated'
+
+    /**
+     * Records what happened with the canonical trace pin:
+     *
+     *   - `pinned` — selector's id matched a valid V5 trace; the
+     *     trace's metadata IS used for `v5_cee_capture`.
+     *   - `fallback_latest` — no pin supplied, `findLatestV5TurnEntry`
+     *     surfaced a trace; its metadata IS used.
+     *   - `invalid_pin_rejected` — pin matched a non-V5 entry; the
+     *     bundle REJECTS the fallback so the selected body is NOT
+     *     paired with unrelated metadata. (Round-6 blocking rule.)
+     *   - `pin_not_found_rejected` — pin id didn't match any entry
+     *     (e.g. ring-buffer eviction); the bundle REJECTS the
+     *     fallback for the same honesty reason.
+     *   - `none` — no canonical trace anywhere.
+     *   - `sync_not_evaluated` — sync export path; selector didn't run.
+     *
+     * Round-7 review: pre-fix these used the `*_fell_back` suffix,
+     * which implied the fallback metadata WAS used. The round-6
+     * blocking rule REJECTS the fallback in those cases, so the
+     * labels now use `*_rejected` to match the enforced behaviour.
+     * The boolean `canonical_trace_used` (below) makes the rejection
+     * unambiguous at a glance.
+     */
+    canonical_trace_source:
+      | 'pinned'
+      | 'fallback_latest'
+      | 'invalid_pin_rejected'
+      | 'pin_not_found_rejected'
+      | 'none'
+      | 'sync_not_evaluated'
+
+    /**
+     * Round-7 review (IMP): explicit boolean for grep-ability.
+     * `true` when `v5_cee_capture` metadata WAS sourced from a real
+     * V5 trace entry; `false` when the bundle either had no trace
+     * OR rejected the fallback per the round-6 blocking rule.
+     * Always equivalent to
+     * `canonical_trace_source ∈ {'pinned', 'fallback_latest'}`.
+     */
+    canonical_trace_used: boolean
+  }
+
+  /**
+   * Round-4 review (IMP): canonical CEE trace id used by BOTH the
+   * payload body (`bundle.payloads.cee_response`) AND the legacy
+   * `v5_cee_capture` metadata. Pre-fix the two views could describe
+   * different turns when a newer non-analysis V5 turn existed.
+   *
+   * - Set to the analysis-producing selector's chosen trace id when
+   *   the selector pinned a turn.
+   * - Set to the fallback trace id when `findBestPayload` produced
+   *   one and the selector returned undefined.
+   * - Null when no trace was selected (sync export, no captures,
+   *   or hydrated-only).
+   *
+   * Whenever non-null, `v5_canonical_turn_diagnostics.latest_v5_turn.request_id`
+   * MUST match the request_id of the trace entry whose id equals this
+   * field — the regression test in `exportBundle.liveCeeCapture.spec.ts`
+   * asserts this invariant directly.
+   */
+  selected_cee_trace_id: string | null
 }
 
 // =============================================================================
@@ -2313,6 +2485,51 @@ function wirePipelineLlmMetadata(
 // =============================================================================
 
 /**
+ * Round-7 review (IMP): map the helper's internal source code (which
+ * describes what `findCanonicalV5TraceForBundle` DID — including
+ * falling back to `findLatestV5TurnEntry` when the pin was invalid)
+ * to the bundle's user-facing label (which describes what the bundle
+ * DID with the result — REJECTING the fallback under the round-6
+ * blocking rule).
+ *
+ * Helper says `invalid_pin_fell_back` (the function fell back).
+ * Bundle says `invalid_pin_rejected` (the bundle rejected that
+ * fallback). The two labels describe the same event from different
+ * vantage points; the bundle's label is what reviewers see.
+ *
+ * Also returns the `used` boolean for explicit grep-ability.
+ */
+function mapCanonicalSourceToBundle(
+  source:
+    | 'pinned'
+    | 'fallback_latest'
+    | 'invalid_pin_fell_back'
+    | 'pin_not_found_fell_back'
+    | 'none',
+): {
+  source:
+    | 'pinned'
+    | 'fallback_latest'
+    | 'invalid_pin_rejected'
+    | 'pin_not_found_rejected'
+    | 'none'
+  used: boolean
+} {
+  switch (source) {
+    case 'invalid_pin_fell_back':
+      return { source: 'invalid_pin_rejected', used: false }
+    case 'pin_not_found_fell_back':
+      return { source: 'pin_not_found_rejected', used: false }
+    case 'pinned':
+      return { source: 'pinned', used: true }
+    case 'fallback_latest':
+      return { source: 'fallback_latest', used: true }
+    case 'none':
+      return { source: 'none', used: false }
+  }
+}
+
+/**
  * Build a complete debug bundle from DebugData.
  * Produces v1.5 or v2.0 bundles depending on VITE_DEBUG_BUNDLE_V2 flag.
  */
@@ -2628,6 +2845,48 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     goal_constraints: envelopeGoalConstraints,
     analysis_ready: envelopeAnalysisReady,
     effective_cee_response_source: effective.source,
+
+    // PR #152 — Live capture diagnostic, ALWAYS emitted.
+    // Sync path defaults to `inspection_status_unavailable` so the
+    // field is present and typed even though the sync path cannot
+    // dynamic-import the trace store. The async path (`buildDebugBundleAsync`)
+    // overrides this with the real evaluated status. Reviewers running
+    // a sync export still see the diagnostic shape; only the value
+    // changes between the two code paths.
+    payload_inspection_status: {
+      enabled: false,
+      resolved_app_env: '',
+      reason: 'inspection_status_unavailable',
+    },
+
+    // Round-3 review (P1) — `cee_capture_selection` is NON-OPTIONAL.
+    // Sync path emits a `sync_not_evaluated` block (the selector
+    // consumes canvas-store state and the trace store, which the
+    // sync path cannot reach). Async path overwrites with real
+    // selector output. Reviewers never need absence-based logic.
+    cee_capture_selection: {
+      selected_response_hash: null,
+      selected_response_hash_source: null,
+      selected_trace_id: null,
+      results_hash_at_selection: null,
+      hash_match_status: 'sync_not_evaluated',
+      selected_reason: 'sync_not_evaluated',
+      cee_candidate_count: 0,
+      v5_endpoint_candidate_count: 0,
+      analysis_producing_candidate_count: 0,
+      selected_via_primary_path: false,
+      provenance: 'sync_not_evaluated',
+      canonical_trace_source: 'sync_not_evaluated',
+      // Round-7 review (IMP): boolean defaults to false on the sync
+      // path. Async path overwrites when canonical pin or fallback
+      // surfaced a real trace.
+      canonical_trace_used: false,
+    },
+
+    // Round-4 review (IMP): selected_cee_trace_id — null on the sync
+    // path (no selector run). Async path overwrites when the
+    // selector returned a trace id.
+    selected_cee_trace_id: null,
   }
 }
 
@@ -2647,6 +2906,57 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
   }
 
   const bundle = buildDebugBundle(data, options)
+
+  // Round-4 review (P0): centralized provenance decision. Compute the
+  // `bundlePayloadsAreV5Confirmed` boolean ONCE at the bundle entry
+  // point and reuse it at every `determineCaptureTier` call site
+  // below. Pre-fix the legacy `v5_cee_capture` path and the snapshot
+  // assembler each computed their own default — undefined provenance
+  // could promote bundle_payloads at one site and not at the other,
+  // producing internally-inconsistent bundles. Single computation =
+  // no drift.
+  //
+  // Defaults to V5-confirmed when `cee_capture_provenance` is
+  // undefined so non-migrated callers (test fixtures pre-dating PR
+  // #152) preserve prior behaviour. The block only TIGHTENS when
+  // `useDebugData` explicitly emits `fallback_legacy_cee` or `none`.
+  const bundlePayloadsAreV5Confirmed =
+    data.cee_capture_provenance === undefined ||
+    data.cee_capture_provenance === 'analysis_producing_v5_turn' ||
+    data.cee_capture_provenance === 'fallback_v5_turn'
+
+  // PR #152 — Surface the resolved payload-trace-store env-gate state.
+  // Closed-by-default; the bundle now self-explains why
+  // `payloads.cee_request` / `cee_response` are present or null. The
+  // import is dynamic so unit tests that mock the trace-store module
+  // pick up the same state without static-import order pitfalls.
+  //
+  // Round-2 review hardening: the sync `buildDebugBundle` path already
+  // seeded `payload_inspection_status` with
+  // `reason: 'inspection_status_unavailable'`. If the dynamic import
+  // succeeds we OVERWRITE that with the real state; if it fails we
+  // KEEP the unavailable default so the field is never silently
+  // absent. The field exists specifically to explain missing capture
+  // — it must never itself go missing.
+  try {
+    const traceModule = await import('../../../lib/payload-trace-store')
+    if (typeof traceModule.getPayloadInspectionStatus === 'function') {
+      const status = traceModule.getPayloadInspectionStatus()
+      bundle.payload_inspection_status = {
+        enabled: status.enabled,
+        resolved_app_env: status.resolvedAppEnv,
+        reason: status.reason,
+      }
+    }
+    // If the export is missing (e.g. partial test mock that stubs only
+    // usePayloadTraceStore), retain the sync-path default of
+    // `inspection_status_unavailable` instead of silently faking
+    // success.
+  } catch {
+    // Dynamic import failed entirely (jsdom edge case, broken bundle).
+    // Retain the sync-path default — reviewers see
+    // `inspection_status_unavailable` instead of a missing field.
+  }
 
   // Populate async sections: panel_state, orchestrator context
   try {
@@ -2695,9 +3005,23 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // Hoist trace lookup BEFORE parse-field derivation so the parse
     // diagnostics can fall back to trace.response.body when
     // bundle.payloads.cee_response is null (round-5 P0.1).
+    //
+    // Round-4 review (P0): PIN the canonical trace to the selector's
+    // chosen `selected_cee_trace_id` so v5_cee_capture metadata
+    // (request_id/endpoint/status/parse_ok) and bundle.payloads.cee_*
+    // describe the SAME turn. Pre-fix `findLatestV5TurnEntry` could
+    // return a newer non-analysis turn while the selector body was
+    // an older run_analysis turn — metadata vs body disagreed.
     const v5TraceStorePre = await import('../../../lib/payload-trace-store')
     const v5TraceStatePre = v5TraceStorePre.usePayloadTraceStore.getState()
-    const latestV5TracePre = findLatestV5TurnEntry(v5TraceStatePre.payloads)
+    const canonicalPre = findCanonicalV5TraceForBundle(
+      v5TraceStatePre.payloads,
+      data.cee_capture_selected_trace_id ?? null,
+    )
+    // Round-6 BLOCKING-fix rule: enforced via the shared pure helper
+    // so this view and the snapshot view below cannot disagree on
+    // when to surface a fallback trace as live metadata.
+    const { trace: latestV5TracePre } = enforceCanonicalPinRule(canonicalPre)
     const traceResponseBody =
       latestV5TracePre?.response?.body !== undefined
         ? latestV5TracePre.response.body
@@ -2909,10 +3233,21 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // tier (round-5 P1.4): only failure evidence activates the tier;
     // successful service records with no payloads fall through to
     // `store` or `none` so missingness is visible.
+    //
+    // Round-5 review (P1): use the shared `isV5TurnEndpoint` helper
+    // here too, so service-metadata classification can't reintroduce
+    // `/turning` / query-string false positives. The helper requires
+    // service='CEE' (case-insensitive), so we construct a probe
+    // object from the service-metadata fields.
     const serviceMetadataV5FailurePresent =
       ceeService !== null &&
-      typeof ceeService.endpoint === 'string' &&
-      ceeService.endpoint.includes('/orchestrate/v2/turn') &&
+      isV5TurnEndpoint({
+        service: 'CEE',
+        endpoint:
+          typeof ceeService.endpoint === 'string'
+            ? ceeService.endpoint
+            : undefined,
+      }) &&
       (ceeService.success === false ||
         (typeof ceeService.status === 'number' &&
           (ceeService.status >= 500 || ceeService.status === 0)))
@@ -2932,6 +3267,11 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // capture object requires evidence); only the snapshot uses
       // 'store' when capture is absent but a fact exists.
       factPresentForScenario: false,
+      // Round-4 review (P0): centralized provenance — uses the
+      // single `bundlePayloadsAreV5Confirmed` computed at the top
+      // of `buildDebugBundleAsync` so this call site and the
+      // snapshot call site below CANNOT disagree.
+      bundlePayloadsAreV5Confirmed,
     })
 
     // Derive request_present / response_present from the SAME tier as
@@ -3075,10 +3415,17 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // Service-metadata-only failure: V5 endpoint reports failure in
     // data.services.cee but the payload-trace has no entry for it.
     // Reviewers need to distinguish this from `hydrated_only`.
+    //
+    // Round-5 review (P1): use shared `isV5TurnEndpoint` here so the
+    // service-metadata classification can't reintroduce `/turning` /
+    // query-string false positives.
     const ceeService = data.services.cee ?? null
     const ceeServiceEndpoint =
       typeof ceeService?.endpoint === 'string' ? ceeService.endpoint : ''
-    const ceeServiceIsV5 = ceeServiceEndpoint.includes('/orchestrate/v2/turn')
+    const ceeServiceIsV5 = isV5TurnEndpoint({
+      service: 'CEE',
+      endpoint: ceeServiceEndpoint,
+    })
     const ceeServiceFailed =
       ceeService !== null &&
       (ceeService.success === false ||
@@ -3087,7 +3434,23 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const serviceMetadataV5Failure =
       ceeServiceIsV5 && ceeServiceFailed && !failedHttp.present
 
-    const latestV5Trace = findLatestV5TurnEntry(traceState.payloads)
+    // Round-4 review (P0) + Round-5 review (P1) + Round-6 BLOCKING:
+    // PIN the snapshot trace to the selector-chosen id so
+    // `latest_v5_turn.*` describes the SAME turn whose body sits in
+    // `bundle.payloads.cee_response`. Round-5 P1: validate the pin.
+    // Round-6 BLOCKING: when the pin fails validation OR isn't
+    // found, FORCE the trace to null instead of falling back to a
+    // different turn. That kept the body-vs-metadata divergence
+    // alive on the silent-fallback path.
+    const canonical = findCanonicalV5TraceForBundle(
+      traceState.payloads,
+      data.cee_capture_selected_trace_id ?? null,
+    )
+    // Round-6 BLOCKING-fix rule: enforced via the shared pure helper
+    // so the legacy classifier (first try block) and the snapshot
+    // (this try block) cannot disagree.
+    const { trace: latestV5Trace, invalidSelectedTraceId } =
+      enforceCanonicalPinRule(canonical)
     const v5TraceEntryPresent = latestV5Trace !== null
 
     // Mirror the body-presence detection from the first try block —
@@ -3114,6 +3477,11 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // evidence — successful service records fall through.
       serviceMetadataV5FailurePresent: serviceMetadataV5Failure,
       factPresentForScenario: sourceResult.factPresentForScenario,
+      // Round-4 review (P0): centralized provenance — both call sites
+      // now share the SAME `bundlePayloadsAreV5Confirmed` computed at
+      // the top of `buildDebugBundleAsync`, so the legacy v5_cee_capture
+      // path and the snapshot's `latest_v5_turn.source` cannot disagree.
+      bundlePayloadsAreV5Confirmed,
     })
 
     const capturePipeline = classifyV5CapturePipelineStatus({
@@ -3134,8 +3502,110 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       analysisFactPresent: legacy.analysis_fact_status === 'present',
       scenarioIdConflictCount: reconciliation.conflicts.length,
       legacyPipelineStatus: bundle.pipeline.v5_pipeline_status ?? null,
+      // PR #152 — surface live-capture hash disagreement so the bundle
+      // emits `capture_response_hash_mismatch_with_results` when the
+      // selected analysis-producing turn's response_hash disagrees
+      // with canvas store.results.hash. Falsy when not observed.
+      ceeCaptureResponseHashMismatch:
+        data.cee_capture_response_hash_mismatch === true,
+      // Round-5 review (P1): the canonical V5 trace pin failed
+      // validation (non-V5 entry or no matching id). Emit
+      // `invalid_selected_trace_id` so reviewers see the discrepancy.
+      invalidSelectedTraceId,
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
+
+    // Round-7 review (IMP): map the helper's internal source code
+    // (which describes what `findCanonicalV5TraceForBundle` DID) to
+    // the bundle's user-facing label (which describes what the
+    // bundle DID after the round-6 blocking-rule enforcement). The
+    // `used` boolean carries the same signal explicitly.
+    const canonicalForBundle = mapCanonicalSourceToBundle(canonical.source)
+
+    // Round-2 review (P1 + IMP) + Round-3 (P1) + Round-4 (IMP):
+    // surface hash-mismatch detail + selection diagnostics +
+    // provenance on the bundle. The sync-path default carries
+    // `sync_not_evaluated` codes; we overwrite them progressively
+    // as data fields are available, so consumers never face a
+    // missing block.
+    if (data.cee_capture_selection_diagnostics !== undefined) {
+      bundle.cee_capture_selection = {
+        selected_response_hash:
+          data.cee_capture_selected_response_hash ?? null,
+        selected_response_hash_source:
+          data.cee_capture_selected_response_hash_source ?? null,
+        selected_trace_id: data.cee_capture_selected_trace_id ?? null,
+        results_hash_at_selection: storeState.results?.hash ?? null,
+        // Round-5 review (P1): no cast — the DebugData boundary now
+        // types these fields as explicit unions, so any drift fails
+        // at compile time. The bundle's union is a strict superset
+        // (it also includes `sync_not_evaluated` for the sync-path
+        // default) so the assignment is type-safe.
+        hash_match_status:
+          data.cee_capture_selection_diagnostics.hash_match_status,
+        selected_reason:
+          data.cee_capture_selection_diagnostics.selected_reason,
+        cee_candidate_count:
+          data.cee_capture_selection_diagnostics.cee_candidate_count,
+        v5_endpoint_candidate_count:
+          data.cee_capture_selection_diagnostics.v5_endpoint_candidate_count,
+        analysis_producing_candidate_count:
+          data.cee_capture_selection_diagnostics
+            .analysis_producing_candidate_count,
+        selected_via_primary_path:
+          data.cee_capture_selection_diagnostics.selected_via_primary_path,
+        // Round-3 review (P1): provenance lives on the selection
+        // block so reviewers see in one place WHICH path produced
+        // the cee payload (analysis-producing V5, fallback V5, legacy
+        // CEE, or none).
+        provenance: data.cee_capture_provenance ?? 'none',
+        // Round-6 (IMP) + Round-7 (IMP): record the canonical-trace-pin
+        // outcome — with the round-7 user-facing label so reviewers
+        // don't read `*_fell_back` and think the fallback metadata
+        // was used.
+        canonical_trace_source: canonicalForBundle.source,
+        canonical_trace_used: canonicalForBundle.used,
+      }
+    } else if (
+      data.cee_capture_provenance !== undefined ||
+      data.cee_capture_selected_trace_id !== undefined
+    ) {
+      // Round-4 review (IMP): partial update — when the caller has
+      // provenance OR a selected trace id but NOT full selector
+      // diagnostics, mirror what's known into the selection block.
+      // Remaining fields keep the `sync_not_evaluated` markers so
+      // consumers see the partial nature honestly.
+      bundle.cee_capture_selection = {
+        ...bundle.cee_capture_selection,
+        ...(data.cee_capture_selected_trace_id !== undefined
+          ? { selected_trace_id: data.cee_capture_selected_trace_id }
+          : {}),
+        ...(data.cee_capture_provenance !== undefined
+          ? { provenance: data.cee_capture_provenance }
+          : {}),
+        // Round-7 (IMP): canonical_trace_source mapped to the bundle's
+        // user-facing label; `canonical_trace_used` mirrors it.
+        canonical_trace_source: canonicalForBundle.source,
+        canonical_trace_used: canonicalForBundle.used,
+      }
+    } else {
+      // No selection data supplied at all — but the canonical pin
+      // logic still ran, so reflect its source on the
+      // already-defaulted block. (Round-6 IMP.)
+      bundle.cee_capture_selection = {
+        ...bundle.cee_capture_selection,
+        canonical_trace_source: canonicalForBundle.source,
+        canonical_trace_used: canonicalForBundle.used,
+      }
+    }
+
+    // Round-6 review (IMP cleanup): the top-level `selected_cee_trace_id`
+    // and `cee_capture_selection.selected_trace_id` were being written
+    // in two separate places — the reviewer flagged this as "assigned
+    // twice". Derive the top-level field from the selection block now
+    // it's fully populated, so the two views can never diverge.
+    bundle.selected_cee_trace_id =
+      bundle.cee_capture_selection.selected_trace_id
 
     // graph_hash_at_generation: read-through. The v5AnalysisFact slice
     // may not carry this field on every code path; emit null when
