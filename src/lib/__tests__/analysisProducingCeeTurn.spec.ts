@@ -28,7 +28,10 @@ import {
   V5_TURN_ENDPOINT_PATTERN,
   type SelectorTracedPayload,
 } from '../analysisProducingCeeTurn'
-import { matchServiceCaseInsensitive } from '../v5TraceMatching'
+import {
+  matchServiceCaseInsensitive,
+  extractPathname,
+} from '../v5TraceMatching'
 
 // Builders -------------------------------------------------------------
 
@@ -945,6 +948,64 @@ describe('round-3 P1: shared V5 CEE helpers (isCeeService, isV5TurnEndpoint)', (
         ).toBe(expected)
       },
     )
+  })
+})
+
+// =====================================================================
+// Round-6 review additions — extractPathname (malformed URL handling)
+// =====================================================================
+
+describe('extractPathname — round-6 review (malformed URLs / protocol-relative)', () => {
+  it.each([
+    // Absolute URLs:
+    {
+      input: 'https://cee.test/orchestrate/v2/turn',
+      expected: '/orchestrate/v2/turn',
+    },
+    {
+      input: 'https://cee.test/orchestrate/v2/turn?nonce=abc',
+      expected: '/orchestrate/v2/turn',
+    },
+    {
+      input: 'https://cee.test:8443/path?q=1',
+      expected: '/path',
+    },
+    // Protocol-relative URL (rare but in the wild):
+    {
+      input: '//cee.test/orchestrate/v2/turn',
+      expected: '/orchestrate/v2/turn',
+    },
+    // Path-only with query and fragment:
+    { input: '/path?q=1', expected: '/path' },
+    { input: '/path#frag', expected: '/path' },
+    { input: '/path?q=1#frag', expected: '/path' },
+    // Plain paths:
+    { input: '/path', expected: '/path' },
+    { input: '/', expected: '/' },
+    // Empty:
+    { input: '', expected: null },
+    // Malformed absolute URLs — should NOT throw; return null:
+    { input: 'https://', expected: null },
+    {
+      input: 'http://[malformed-host',
+      expected: null,
+    },
+    // String that contains `://` but doesn't start with http/s — NOT
+    // parsed as absolute; kept as-is (the leading slash check fails).
+    {
+      input: 'not-a-url://orchestrate/v2/turn',
+      expected: 'not-a-url://orchestrate/v2/turn',
+    },
+  ])(
+    'extractPathname($input) → $expected',
+    ({ input, expected }) => {
+      expect(extractPathname(input)).toBe(expected)
+    },
+  )
+
+  it('malformed absolute URL does NOT throw — returns null instead', () => {
+    expect(() => extractPathname('http://[broken')).not.toThrow()
+    expect(extractPathname('http://[broken')).toBeNull()
   })
 })
 

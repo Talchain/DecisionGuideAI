@@ -35,6 +35,13 @@ import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
 // reintroduce substring false positives (e.g. `/turning` or
 // query-string `?next=/orchestrate/v2/turn`).
 import { isV5TurnEndpoint } from '../../../lib/v5TraceMatching'
+// Round-6 review (maintainability): import shared selection-diagnostic
+// union types so the DebugBundle interface mirrors DebugData without
+// re-declaring the same enum in two places.
+import type {
+  SelectionReason,
+  HashMatchStatus,
+} from '../../../lib/analysisProducingCeeTurn'
 import {
   derivePipelineStatus,
   type PipelineStatus,
@@ -57,6 +64,7 @@ import {
 import {
   classifyV5CapturePipelineStatus,
   detectFailedHttpRecord,
+  enforceCanonicalPinRule,
   findCanonicalV5TraceForBundle,
   findLatestV5TurnEntry,
   hasResponseBody,
@@ -1343,32 +1351,17 @@ interface DebugBundle {
     /**
      * Hash-evidence summary. Drives the
      * `capture_response_hash_mismatch_with_results` coherence issue
-     * (fires only on `'mismatched'`). Round-4 review (P1): typed as
-     * an explicit union so unsupported codes fail at compile time.
+     * (fires only on `'mismatched'`). Round-6 review: re-uses the
+     * shared `HashMatchStatus` type from `analysisProducingCeeTurn.ts`
+     * plus the sync-path `'sync_not_evaluated'` extension.
      */
-    hash_match_status:
-      | 'matched'
-      | 'mismatched'
-      | 'only_results_hash_present'
-      | 'only_capture_hash_present'
-      | 'both_absent'
-      | 'no_candidate'
-      | 'sync_not_evaluated'
+    hash_match_status: HashMatchStatus | 'sync_not_evaluated'
     /**
-     * Dominant ranking signal for the chosen candidate. Round-4
-     * review (P1): typed as an explicit union — must match
-     * `SelectionDiagnostics.selected_reason` from
-     * `analysisProducingCeeTurn.ts` plus the `sync_not_evaluated`
-     * sync-path code.
+     * Dominant ranking signal for the chosen candidate. Round-6
+     * review: re-uses the shared `SelectionReason` type plus the
+     * sync-path `'sync_not_evaluated'` extension.
      */
-    selected_reason:
-      | 'hash_matched'
-      | 'scenario_matched_recency'
-      | 'analysis_producing_recency'
-      | 'no_v5_endpoint_candidate'
-      | 'no_analysis_producing_candidate'
-      | 'no_cee_candidate'
-      | 'sync_not_evaluated'
+    selected_reason: SelectionReason | 'sync_not_evaluated'
     /** CEE entries across any endpoint (visible scope). */
     cee_candidate_count: number
     /** CEE entries on the `/orchestrate/v2/turn` V5 endpoint. */
@@ -1388,6 +1381,30 @@ interface DebugBundle {
       | 'analysis_producing_v5_turn'
       | 'fallback_v5_turn'
       | 'fallback_legacy_cee'
+      | 'none'
+      | 'sync_not_evaluated'
+
+    /**
+     * Round-6 review (IMP): label whether the canonical trace used
+     * for `v5_cee_capture` metadata was the selector's pinned id, a
+     * fallback to `findLatestV5TurnEntry`, or rejected entirely
+     * because the pin was invalid. Lets reviewers see in one place
+     * whether `latest_v5_turn.*` describes the same turn the selector
+     * picked or a fallback. Mirrors `CanonicalV5TraceSource` codes
+     * from `v5CapturePipelineStatus.ts` plus the sync-path code.
+     *
+     * Round-6 blocking fix: when this is
+     * `'invalid_pin_fell_back'` or `'pin_not_found_fell_back'`, the
+     * bundle assembler FORCES the fallback trace to null so
+     * `v5_cee_capture` metadata is NOT sourced from a different
+     * turn than the body. Tier downgrades to `bundle_payloads`
+     * (body present) or `capture_missing` honestly.
+     */
+    canonical_trace_source:
+      | 'pinned'
+      | 'fallback_latest'
+      | 'invalid_pin_fell_back'
+      | 'pin_not_found_fell_back'
       | 'none'
       | 'sync_not_evaluated'
   }
@@ -2797,6 +2814,7 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       analysis_producing_candidate_count: 0,
       selected_via_primary_path: false,
       provenance: 'sync_not_evaluated',
+      canonical_trace_source: 'sync_not_evaluated',
     },
 
     // Round-4 review (IMP): selected_cee_trace_id — null on the sync
@@ -2934,7 +2952,10 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       v5TraceStatePre.payloads,
       data.cee_capture_selected_trace_id ?? null,
     )
-    const latestV5TracePre = canonicalPre.trace
+    // Round-6 BLOCKING-fix rule: enforced via the shared pure helper
+    // so this view and the snapshot view below cannot disagree on
+    // when to surface a fallback trace as live metadata.
+    const { trace: latestV5TracePre } = enforceCanonicalPinRule(canonicalPre)
     const traceResponseBody =
       latestV5TracePre?.response?.body !== undefined
         ? latestV5TracePre.response.body
@@ -3347,25 +3368,24 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const serviceMetadataV5Failure =
       ceeServiceIsV5 && ceeServiceFailed && !failedHttp.present
 
-    // Round-4 review (P0) + Round-5 review (P1): PIN the snapshot trace
-    // to the selector-chosen id so the canonical-turn diagnostic's
-    // `latest_v5_turn.*` fields describe the SAME turn whose body
-    // sits in `bundle.payloads.cee_response`. Round-5 P1: the helper
-    // now validates the pinned entry; an invalid pin falls back
-    // honestly AND is exposed via `canonical.source` so the bundle
-    // can fire the `invalid_selected_trace_id` coherence issue.
+    // Round-4 review (P0) + Round-5 review (P1) + Round-6 BLOCKING:
+    // PIN the snapshot trace to the selector-chosen id so
+    // `latest_v5_turn.*` describes the SAME turn whose body sits in
+    // `bundle.payloads.cee_response`. Round-5 P1: validate the pin.
+    // Round-6 BLOCKING: when the pin fails validation OR isn't
+    // found, FORCE the trace to null instead of falling back to a
+    // different turn. That kept the body-vs-metadata divergence
+    // alive on the silent-fallback path.
     const canonical = findCanonicalV5TraceForBundle(
       traceState.payloads,
       data.cee_capture_selected_trace_id ?? null,
     )
-    const latestV5Trace = canonical.trace
+    // Round-6 BLOCKING-fix rule: enforced via the shared pure helper
+    // so the legacy classifier (first try block) and the snapshot
+    // (this try block) cannot disagree.
+    const { trace: latestV5Trace, invalidSelectedTraceId } =
+      enforceCanonicalPinRule(canonical)
     const v5TraceEntryPresent = latestV5Trace !== null
-    // Round-5 P1: invalid_selected_trace_id fires when the caller
-    // supplied a pin AND it failed validation (matched a non-V5
-    // entry) OR didn't match any entry at all.
-    const invalidSelectedTraceId =
-      canonical.source === 'invalid_pin_fell_back' ||
-      canonical.source === 'pin_not_found_fell_back'
 
     // Mirror the body-presence detection from the first try block —
     // either bundle.payloads.cee_response is an object OR the trace
@@ -3466,6 +3486,10 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         // the cee payload (analysis-producing V5, fallback V5, legacy
         // CEE, or none).
         provenance: data.cee_capture_provenance ?? 'none',
+        // Round-6 review (IMP): record the canonical-trace-pin outcome
+        // so reviewers can tell whether `latest_v5_turn.*` describes
+        // the selector's pin or a fallback to the latest V5 trace.
+        canonical_trace_source: canonical.source,
       }
     } else if (
       data.cee_capture_provenance !== undefined ||
@@ -3484,16 +3508,28 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         ...(data.cee_capture_provenance !== undefined
           ? { provenance: data.cee_capture_provenance }
           : {}),
+        // Round-6 review (IMP): canonical_trace_source updated even
+        // in the partial-data branch so reviewers always see the pin
+        // outcome.
+        canonical_trace_source: canonical.source,
+      }
+    } else {
+      // No selection data supplied at all — but the canonical pin
+      // logic still ran, so reflect its source on the
+      // already-defaulted block. (Round-6 IMP.)
+      bundle.cee_capture_selection = {
+        ...bundle.cee_capture_selection,
+        canonical_trace_source: canonical.source,
       }
     }
 
-    // Round-4 review (IMP): top-level selected_cee_trace_id always
-    // matches the selection block's trace id so consumers can grep
-    // for a single field. Sync default is null; async path overwrites
-    // when the selector produced an id.
-    if (data.cee_capture_selected_trace_id !== undefined) {
-      bundle.selected_cee_trace_id = data.cee_capture_selected_trace_id
-    }
+    // Round-6 review (IMP cleanup): the top-level `selected_cee_trace_id`
+    // and `cee_capture_selection.selected_trace_id` were being written
+    // in two separate places — the reviewer flagged this as "assigned
+    // twice". Derive the top-level field from the selection block now
+    // it's fully populated, so the two views can never diverge.
+    bundle.selected_cee_trace_id =
+      bundle.cee_capture_selection.selected_trace_id
 
     // graph_hash_at_generation: read-through. The v5AnalysisFact slice
     // may not carry this field on every code path; emit null when

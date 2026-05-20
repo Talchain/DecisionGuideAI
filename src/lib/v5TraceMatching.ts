@@ -9,8 +9,15 @@
  * check rather than a substring search. Pre-fix `endpoint.includes(
  * '/orchestrate/v2/turn')` would match `/orchestrate/v2/turning` —
  * a forward-compat path that doesn't yet exist but reads as a real
- * V5 turn under substring rules. Now only the exact segment
- * `/orchestrate/v2/turn` followed by `?` / `#` / `/` / EOS is matched.
+ * V5 turn under substring rules.
+ *
+ * Round-5 review (P1): the regex now runs against the URL's
+ * PATHNAME ONLY — query string and fragment are stripped first via
+ * `extractPathname` so paths like `/legacy?next=/orchestrate/v2/turn`
+ * cannot impersonate the V5 endpoint. The only accepted boundary
+ * is `/` (sub-path) or end-of-string. `?` and `#` cannot appear in
+ * the pathname (they're already stripped) — the comment on the
+ * regex constant has been tightened accordingly.
  */
 
 /**
@@ -53,7 +60,7 @@ const V5_TURN_ENDPOINT_PATHNAME_RE = /\/orchestrate\/v2\/turn(?:\/|$)/
  * Returns `null` when nothing can be extracted (defensive — caller
  * treats null as a non-match).
  */
-function extractPathname(endpoint: string): string | null {
+export function extractPathname(endpoint: string): string | null {
   if (endpoint.length === 0) return null
   // Absolute URL — let URL handle parsing (handles `://`, ports,
   // credentials, etc.).

@@ -447,6 +447,11 @@ describe('buildDebugBundleAsync — round-2 selection diagnostics on bundle', ()
       // Round-3 review (P1): provenance defaults to 'none' when not
       // supplied (DebugData omits the field in this fixture).
       provenance: 'none',
+      // Round-6 review (IMP): canonical_trace_source records the pin
+      // outcome. With no trace in the store (empty `traceState.payloads`)
+      // and no pin supplied, the canonical lookup returns
+      // `{source: 'none'}`.
+      canonical_trace_source: 'none',
     })
   })
 
@@ -847,9 +852,12 @@ describe('buildDebugBundleAsync — round-5 P1: invalid_selected_trace_id diagno
     inspectionState.reason = 'app_env_staging_enabled'
   })
 
-  it('emits invalid_selected_trace_id when the pinned id matches a LEGACY CEE entry', async () => {
+  it('emits invalid_selected_trace_id when the pinned id matches a LEGACY CEE entry (round-6 blocking: no metadata fallback)', async () => {
     traceState.payloads = [
-      // Valid V5 turn — fallback target.
+      // Another valid V5 turn — pre-round-6 the bundle silently
+      // pinned this trace's metadata next to the legacy body.
+      // Round-6 BLOCKING: the helper now refuses to pair the
+      // selected body with a different trace's metadata.
       {
         id: 'tp-v5',
         service: 'CEE',
@@ -859,8 +867,8 @@ describe('buildDebugBundleAsync — round-5 P1: invalid_selected_trace_id diagno
         response: { body: { ok: true } },
       },
       // Legacy CEE — the pinned id matches this one. Round-5 P1:
-      // the canonical-pin helper REJECTS it and falls back to the
-      // valid V5 entry.
+      // pin validation rejects it. Round-6 BLOCKING: bundle does
+      // NOT silently use a different V5 trace's metadata.
       {
         id: 'tp-legacy-pinned',
         service: 'CEE',
@@ -877,14 +885,22 @@ describe('buildDebugBundleAsync — round-5 P1: invalid_selected_trace_id diagno
     const issues =
       bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
     expect(issues).toContain('invalid_selected_trace_id')
-    // The bundle fell back to the valid V5 trace, not the legacy
-    // entry — metadata stays honest.
+    // Round-6 BLOCKING: when the pin failed validation, the bundle
+    // MUST NOT silently surface a fallback trace's metadata. The
+    // `latest_v5_turn` reflects this honestly.
     expect(
-      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_id,
-    ).toBe('tp-v5')
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_present,
+    ).toBe(false)
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.response_present,
+    ).toBe(false)
+    // The pin attempt is still recorded.
+    expect(bundle.cee_capture_selection.canonical_trace_source).toBe(
+      'invalid_pin_fell_back',
+    )
   })
 
-  it('emits invalid_selected_trace_id when the pinned id does NOT match any entry', async () => {
+  it('emits invalid_selected_trace_id when the pinned id does NOT match any entry (round-6 blocking: no fallback metadata)', async () => {
     traceState.payloads = [
       {
         id: 'tp-v5',
@@ -903,10 +919,16 @@ describe('buildDebugBundleAsync — round-5 P1: invalid_selected_trace_id diagno
     const issues =
       bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
     expect(issues).toContain('invalid_selected_trace_id')
-    // Falls back to the latest V5 entry honestly.
+    // Round-6 BLOCKING: pre-fix the bundle silently filled
+    // `latest_v5_turn` with `tp-v5`'s metadata while the selected
+    // (now-evicted) body was still in `bundle.payloads.cee_*`.
+    // Now the bundle honestly reports no live trace metadata.
     expect(
-      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_id,
-    ).toBe('tp-v5')
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_present,
+    ).toBe(false)
+    expect(bundle.cee_capture_selection.canonical_trace_source).toBe(
+      'pin_not_found_fell_back',
+    )
   })
 
   it('does NOT emit invalid_selected_trace_id when the pin is valid', async () => {
@@ -928,5 +950,204 @@ describe('buildDebugBundleAsync — round-5 P1: invalid_selected_trace_id diagno
     const issues =
       bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
     expect(issues).not.toContain('invalid_selected_trace_id')
+  })
+})
+
+// =====================================================================
+// Round-6 review additions
+// =====================================================================
+
+describe('buildDebugBundleAsync — round-6 BLOCKING: selected body + evicted trace must not pair with fallback trace metadata', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('BLOCKING fixture: cee_response from selected turn present + selected trace evicted + ANOTHER V5 trace exists — body+metadata do NOT mix', async () => {
+    // The exact scenario the reviewer described:
+    //   - The selector pinned trace `tp-selected-evicted`.
+    //   - `bundle.payloads.cee_response` carries that turn's body
+    //     (passed via DebugData.payloads).
+    //   - The trace-store no longer has `tp-selected-evicted` (ring
+    //     buffer ejected it).
+    //   - Another V5 trace `tp-newer-unrelated` IS in the store.
+    //
+    // Pre-fix the bundle would silently pair the selected body with
+    // `tp-newer-unrelated`'s metadata (request_id, endpoint, status,
+    // duration) → metadata vs body describe different turns.
+    //
+    // Round-6 blocking: refuse to pair. Metadata fields go null; the
+    // body stays. Tier downgrades to `bundle_payloads`.
+    // `invalid_selected_trace_id` coherence issue fires.
+    traceState.payloads = [
+      {
+        id: 'tp-newer-unrelated',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: { unrelated: true } },
+      },
+      // NOTE: `tp-selected-evicted` is NOT in the store.
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        // The body of the selected (now evicted) turn IS in
+        // bundle.payloads via DebugData. Pre-fix this pinned to
+        // `tp-newer-unrelated`'s metadata.
+        payloads: {
+          cee_request: {
+            scenario_id: 'scn-1',
+            chip: { action_type: 'run_analysis' },
+          },
+          cee_response: { selectedBodyMarker: 'from-evicted-turn' },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_trace_id: 'tp-selected-evicted',
+        cee_capture_selection_diagnostics: {
+          cee_candidate_count: 1,
+          v5_endpoint_candidate_count: 1,
+          analysis_producing_candidate_count: 1,
+          selected_via_primary_path: true,
+          selected_reason: 'analysis_producing_recency',
+          hash_match_status: 'both_absent',
+        },
+      }),
+    )
+    // The body is preserved (selector picked it; the bundle carries it).
+    expect(bundle.payloads.cee_response).toEqual({
+      selectedBodyMarker: 'from-evicted-turn',
+    })
+    // CRITICAL — `latest_v5_turn.request_id` MUST NOT be the
+    // unrelated `tp-newer-unrelated`. Pre-fix it WAS; round-6
+    // blocking refuses the silent fallback.
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_id,
+    ).not.toBe('tp-newer-unrelated')
+    // The pin attempt is recorded on the selection block.
+    expect(bundle.cee_capture_selection.selected_trace_id).toBe(
+      'tp-selected-evicted',
+    )
+    expect(bundle.cee_capture_selection.canonical_trace_source).toBe(
+      'pin_not_found_fell_back',
+    )
+    // `invalid_selected_trace_id` coherence issue fires so reviewers
+    // see the discrepancy explicitly.
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues,
+    ).toContain('invalid_selected_trace_id')
+  })
+})
+
+describe('buildDebugBundleAsync — round-6 missing test: hash-match wins over recency with scenario_id conflict', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = 'scn-current'
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('hash match wins (older turn) but its scenario_id conflicts with the canvas store — conflict stays visible in diagnostics', async () => {
+    // The selector picks the older turn because the hash matches.
+    // BUT that turn's scenario_id differs from the canvas store's
+    // currentScenarioId. The bundle's
+    // `scenario_id_reconciliation.conflicts` must record the
+    // disagreement.
+    canvasState.results = {
+      report: { kind: 'fake' },
+      hash: 'results-h',
+      rawV2Response: null,
+    }
+    canvasState.v5AnalysisFact = {
+      scenarioId: 'scn-A',
+      analysisHash: null,
+      hasRunAnalysisFact: true,
+      freshness: 'fresh',
+    }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_response_hash: 'results-h',
+        cee_capture_selected_response_hash_source:
+          'body_lineage_response_hash',
+        cee_capture_selected_trace_id: 'tp-hash-match',
+        cee_capture_selection_diagnostics: {
+          cee_candidate_count: 2,
+          v5_endpoint_candidate_count: 2,
+          analysis_producing_candidate_count: 2,
+          selected_via_primary_path: true,
+          selected_reason: 'hash_matched',
+          hash_match_status: 'matched',
+        },
+      }),
+    )
+    // Conflict between currentScenarioId ('scn-current') and the
+    // v5AnalysisFact ('scn-A') stays visible.
+    const conflicts =
+      bundle.scenario_id_reconciliation?.conflicts ?? []
+    expect(conflicts.length).toBeGreaterThan(0)
+    // hash_match_status reflects the matched hash.
+    expect(bundle.cee_capture_selection.hash_match_status).toBe('matched')
+    expect(bundle.cee_capture_selection.selected_reason).toBe('hash_matched')
+  })
+})
+
+describe('buildDebugBundleAsync — round-6 missing test: scientific validators stay unavailable when CEE present but PLoT/ISL absent', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('CEE live payloads present, PLoT/ISL raw payloads absent → validators report unavailable / insufficient_raw_evidence', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        payloads: {
+          cee_request: { scenario_id: 'scn-1' },
+          cee_response: { kind: 'envelope' },
+          // PLoT and ISL deliberately null — even with CEE present,
+          // validators that need raw PLoT/ISL evidence must NOT
+          // claim derived/observed strength.
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+      }),
+    )
+    expect(bundle.scientific_validation).toBeDefined()
+    // Validators that depend on PLoT/ISL raw evidence must remain
+    // `unavailable` (or `insufficient_raw_evidence` overall) — PR
+    // #150's honesty invariant.
+    for (const v of Object.values(
+      bundle.scientific_validation!.validators,
+    )) {
+      // Whatever they report, claim_strength must be one of the
+      // honest codes; `inferred` must NEVER pair with `pass`.
+      expect(['observed', 'derived', 'inferred', 'unavailable']).toContain(
+        v.claim_strength,
+      )
+      if (v.claim_strength === 'inferred') {
+        expect(v.status).not.toBe('pass')
+      }
+    }
   })
 })

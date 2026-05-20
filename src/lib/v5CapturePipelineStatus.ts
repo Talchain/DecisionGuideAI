@@ -486,6 +486,35 @@ export function findCanonicalV5TraceForBundle<
 }
 
 /**
+ * Round-6 BLOCKING-fix rule, expressed as a pure helper.
+ *
+ * When `findCanonicalV5TraceForBundle` falls back because the pin
+ * failed validation (`invalid_pin_fell_back`) or the id didn't
+ * match any entry (`pin_not_found_fell_back`), the bundle MUST NOT
+ * silently use the fallback trace as live metadata for the selected
+ * body. Pre-fix the legacy classifier path and the snapshot
+ * assembler each implemented this inline; extracting it here keeps
+ * the two views in sync and gives tests a single function to pin.
+ *
+ * Returns:
+ *   - `trace`: `null` when the pin failed, otherwise the canonical
+ *     trace (or the latest-V5 fallback when no pin was supplied).
+ *   - `invalidSelectedTraceId`: `true` exactly when the bundle
+ *     should emit the `invalid_selected_trace_id` coherence issue.
+ */
+export function enforceCanonicalPinRule<T>(
+  canonical: CanonicalV5TraceResult<T>,
+): { trace: T | null; invalidSelectedTraceId: boolean } {
+  const invalidSelectedTraceId =
+    canonical.source === 'invalid_pin_fell_back' ||
+    canonical.source === 'pin_not_found_fell_back'
+  return {
+    trace: invalidSelectedTraceId ? null : canonical.trace,
+    invalidSelectedTraceId,
+  }
+}
+
+/**
  * Scan a payload-trace snapshot for the first failed HTTP record that
  * belongs to the V5 CEE turn (the `/orchestrate/v2/turn` endpoint).
  * Unrelated failed records (PLoT, legacy CEE endpoints, ISL probes,

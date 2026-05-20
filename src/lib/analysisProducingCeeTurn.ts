@@ -126,26 +126,33 @@ export interface SelectionDiagnostics {
   readonly analysis_producing_candidate_count: number
   /** Whether the selector's primary path returned a candidate. */
   readonly selected_via_primary_path: boolean
-  /**
-   * Human-readable code recording the dominant ranking signal for the
-   * selected candidate, or the reason no candidate was selected.
-   */
-  readonly selected_reason:
-    | 'hash_matched'
-    | 'scenario_matched_recency'
-    | 'analysis_producing_recency'
-    | 'no_v5_endpoint_candidate'
-    | 'no_analysis_producing_candidate'
-    | 'no_cee_candidate'
+  /** Dominant ranking signal — see `SelectionReason`. */
+  readonly selected_reason: SelectionReason
   /** Hash-evidence summary for the selected candidate (or null path). */
-  readonly hash_match_status:
-    | 'matched'
-    | 'mismatched'
-    | 'only_results_hash_present'
-    | 'only_capture_hash_present'
-    | 'both_absent'
-    | 'no_candidate'
+  readonly hash_match_status: HashMatchStatus
 }
+
+/**
+ * Round-6 review (maintainability): exported as named type aliases
+ * so `DebugData` and `DebugBundle` can reference these instead of
+ * duplicating the unions. Previously the same enum lived in three
+ * places — easy to drift.
+ */
+export type SelectionReason =
+  | 'hash_matched'
+  | 'scenario_matched_recency'
+  | 'analysis_producing_recency'
+  | 'no_v5_endpoint_candidate'
+  | 'no_analysis_producing_candidate'
+  | 'no_cee_candidate'
+
+export type HashMatchStatus =
+  | 'matched'
+  | 'mismatched'
+  | 'only_results_hash_present'
+  | 'only_capture_hash_present'
+  | 'both_absent'
+  | 'no_candidate'
 
 export interface AnalysisProducingSelectionResult {
   /** Selected trace entry, or undefined when nothing matched. */

@@ -51,7 +51,11 @@
 import { useMemo } from 'react'
 import { useCanvasStore } from '../../../canvas/store'
 import { usePayloadTraceStore, type TracedPayload } from '../../../lib/payload-trace-store'
-import { findLatestAnalysisProducingCeeTurn } from '../../../lib/analysisProducingCeeTurn'
+import {
+  findLatestAnalysisProducingCeeTurn,
+  type SelectionReason,
+  type HashMatchStatus,
+} from '../../../lib/analysisProducingCeeTurn'
 import {
   isV5TurnEndpoint,
   matchServiceCaseInsensitive,
@@ -917,26 +921,18 @@ export interface DebugData {
    * typed as explicit unions at the DebugData boundary so invalid
    * diagnostic codes fail at compile and the bundle assembler does
    * NOT need to cast.
+   *
+   * Round-6 review (maintainability): types imported from
+   * `analysisProducingCeeTurn.ts` so this surface and the bundle's
+   * `cee_capture_selection` share a single source of truth.
    */
   cee_capture_selection_diagnostics?: {
     cee_candidate_count: number
     v5_endpoint_candidate_count: number
     analysis_producing_candidate_count: number
     selected_via_primary_path: boolean
-    selected_reason:
-      | 'hash_matched'
-      | 'scenario_matched_recency'
-      | 'analysis_producing_recency'
-      | 'no_v5_endpoint_candidate'
-      | 'no_analysis_producing_candidate'
-      | 'no_cee_candidate'
-    hash_match_status:
-      | 'matched'
-      | 'mismatched'
-      | 'only_results_hash_present'
-      | 'only_capture_hash_present'
-      | 'both_absent'
-      | 'no_candidate'
+    selected_reason: SelectionReason
+    hash_match_status: HashMatchStatus
   }
 
   /**
