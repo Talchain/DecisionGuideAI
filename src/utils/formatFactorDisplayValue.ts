@@ -95,15 +95,19 @@ export function factorDisplayText(
 export function formatFactorDisplayValue(input: FactorDisplayInput): string | null {
   const { label, value, raw_value, unit, factor_type, category, display_value } = input
 
-  // CEE-provided display_value takes absolute priority — render verbatim
-  if (display_value != null && display_value !== '') {
-    return display_value
-  }
-
   // External factors with no data: no body text (dashed border is the signal)
   if (category === 'external' && (value == null && raw_value == null)) {
     return null
   }
+
+  // Priority note: Pattern 1 (raw_value + meaningful unit) intentionally runs
+  // BEFORE the CEE-provided display_value short-circuit. A CEE-authored
+  // display_value can lag behind a user edit to observed_state (V5 value-
+  // display fix, May 2026: e.g. user changes raw_value to 26000 but the old
+  // display_value "£20,000" is still on the node). When a fresh real-world
+  // raw_value + unit pair is present, that wins. display_value is preserved
+  // as a fallback below for the legitimate "no raw_value, CEE contextual
+  // text" case (e.g. raw_value=null, display_value="No dedicated tech lead").
 
   // Pattern 1: raw_value + unit → formatted display
   // Graph v2 fix: when unit is a generic placeholder (scale, index, score, …),
@@ -153,6 +157,16 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
       return formatNumber(numericRaw)
     }
     return String(raw_value)
+  }
+
+  // CEE-provided display_value fallback: applies when no fresh raw_value
+  // (or only a placeholder unit) is available. Returned verbatim so CEE-
+  // authored contextual text (e.g. "No dedicated tech lead") still surfaces
+  // for non-numeric cases. Previously this lived at the top of the function
+  // and outranked Pattern 1 — moved here as part of the V5 stale-value-
+  // protection fix so a stale display_value cannot mask a fresh raw_value.
+  if (display_value != null && display_value !== '') {
+    return display_value
   }
 
   // Pattern 2: value only (no raw_value) → binary heuristic.

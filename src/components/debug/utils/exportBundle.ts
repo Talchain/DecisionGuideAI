@@ -103,11 +103,7 @@ import {
   V5_PARSE_ERROR_KIND,
   type ParseFailureKind,
 } from '../../../v5/responseParser'
-import {
-  formatFactorDisplayValue,
-  type FactorDisplayInput,
-} from '../../../utils/formatFactorDisplayValue'
-import { unwrapInterventionValue } from '../../../canvas/utils/labelUtils'
+import { factorDisplayText } from '../../../utils/formatFactorDisplayValue'
 
 // =============================================================================
 // Feature Flag
@@ -2103,30 +2099,16 @@ function extractRenderedFactors(
 
   return factorNodes.map((n) => {
     const d = n.data as Record<string, unknown>
-    const obs = d?.observedState as Record<string, unknown> | undefined
-    // Display-only formatting: route through the canonical formatter so the
-    // bundle's value_displayed string matches what FactorNode and the inspector
-    // panels render (e.g. raw_value=26000 + unit='£' → '£26,000', not the
-    // pre-fix '0.26 £' from naive `${value} ${unit}` concat). display_value is
-    // intentionally disabled (null) so a stale CEE-provided display string on
-    // the node cannot mask the fresh observed_state — the latest raw_value /
-    // value wins. Pure: no graph / report / payload / store mutation.
-    const unwrappedValue = unwrapInterventionValue(obs?.value).value
-    const unwrappedRaw = unwrapInterventionValue(obs?.raw_value).value
-    const rawForFormatter: number | string | null =
-      unwrappedRaw ??
-      (typeof obs?.raw_value === 'string' ? (obs.raw_value as string) : null)
-    const formatterInput: FactorDisplayInput = {
-      label: (d?.label as string | undefined) ?? '',
-      value: unwrappedValue,
-      raw_value: rawForFormatter,
-      unit: (obs?.unit as string | null | undefined) ?? null,
-      factor_type: (obs?.factor_type as string | null | undefined) ?? null,
-      cap: unwrapInterventionValue(obs?.cap).value,
-      category: (d?.category as string | null | undefined) ?? null,
-      display_value: null,
-    }
-    const valueStr = formatFactorDisplayValue(formatterInput)
+    // Display-only formatting: route through the canonical shared entry point
+    // (factorDisplayText) so the bundle's value_displayed string matches what
+    // FactorNode and the inspector panels render. After the V5 fix, the
+    // canonical formatFactorDisplayValue gives fresh observed_state.raw_value
+    // priority over a (potentially stale) CEE display_value — see comment in
+    // formatFactorDisplayValue.ts. This eliminates the pre-fix '0.26 £' bug
+    // (naive `${value} ${unit}` concat) and the stale-display divergence
+    // between debug bundle and live UI. Pure: no graph / report / payload /
+    // store mutation.
+    const valueStr = factorDisplayText(d)
     const match = matchFactor(n.id, d?.label)
     // Finite-number guard mirrors the resolveOption check for consistency
     // (Codex round-3 follow-up). JSON cannot carry NaN/Infinity from the

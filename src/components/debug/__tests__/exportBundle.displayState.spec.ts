@@ -386,9 +386,12 @@ describe('captureDisplayState — V5-aware sources (Phase 1 of V5 completion pla
  *
  * Pre-fix renderFactorDisplayState() concatenated `${obs.value} ${obs.unit}`,
  * producing strings like '0.26 £' for a £26,000 budget (value = raw_value / cap).
- * The fix routes the bundle through the canonical formatFactorDisplayValue()
- * with display_value: null so the freshest observed_state wins and stale CEE
- * display strings cannot mask the real-world value.
+ * The fix routes the bundle through factorDisplayText — the same shared entry
+ * point used by FactorNode (canvas) and the inspector-v2 factor panels — so
+ * all three user-facing display paths produce identical text. The canonical
+ * formatFactorDisplayValue now gives Pattern 1 (fresh raw_value + meaningful
+ * unit) priority over CEE-authored display_value, which means a stale display
+ * string cannot mask a fresh observed_state in ANY of the three paths.
  *
  * These tests assert the strict, exact, user-facing output for the bundle and
  * pin the regression negatively (no '0.26 £', no '£26000', no '26,000 £').
@@ -428,9 +431,11 @@ describe('captureDisplayState — rendered_factors.value_displayed (V5 fix)', ()
   })
 
   it('stale display_value protection: fresh raw_value=26000 wins over stale display_value="£20,000"', async () => {
-    // Even if a stale CEE-authored display_value is present on the node, the
-    // bundle path passes display_value: null so the freshest observed_state
-    // determines what the user sees.
+    // Even when a stale CEE-authored display_value is present on the node, the
+    // canonical formatter prefers Pattern 1 (fresh raw_value + meaningful unit)
+    // — see formatFactorDisplayValue.ts. The bundle calls factorDisplayText
+    // (shared entry point with FactorNode and inspector panels) so all three
+    // paths agree on '£26,000' here.
     const row = await captureRow({
       id: 'fac_budget',
       data: {

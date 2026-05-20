@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { formatFactorDisplayValue } from '../formatFactorDisplayValue'
+import { formatFactorDisplayValue, factorDisplayText } from '../formatFactorDisplayValue'
 
 describe('formatFactorDisplayValue', () => {
   it('formats raw_value with currency unit: £40,000', () => {
@@ -72,7 +72,7 @@ describe('formatFactorDisplayValue', () => {
     })).toBeNull()
   })
 
-  it('returns CEE display_value verbatim when present (overrides all heuristics)', () => {
+  it('returns CEE display_value verbatim when raw_value is absent (fallback override for value-only heuristic)', () => {
     expect(formatFactorDisplayValue({
       label: 'Technical Leadership Presence',
       value: 0,
@@ -89,6 +89,68 @@ describe('formatFactorDisplayValue', () => {
       display_value: '',
       factor_type: 'binary',
     })).toBe('No technical leadership in place')
+  })
+
+  // V5 stale-value protection: fresh observed_state.raw_value + meaningful unit
+  // wins over a (potentially stale) CEE-authored display_value. Before this
+  // change display_value had absolute priority, so a user editing raw_value
+  // would see the stale display_value text on the canvas node, in inspector
+  // panels, AND in the debug bundle — a divergence we explicitly do not want.
+  describe('stale display_value protection (V5 fresh-wins)', () => {
+    it('fresh raw_value + unit wins over stale display_value: £20,000 → £26,000', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Advertising Budget Allocated',
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+        display_value: '£20,000',
+      })).toBe('£26,000')
+    })
+
+    it('fresh raw_value + unit wins over stale CEE contextual display_value', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Marketing Spend',
+        value: 0.5,
+        raw_value: 50000,
+        unit: '$',
+        display_value: 'Strategic budget',
+      })).toBe('$50,000')
+    })
+
+    it('fresh percent ratio raw_value wins over stale display_value', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Owner Time Commitment',
+        value: 0.25,
+        raw_value: 0.25,
+        unit: '%',
+        display_value: '50%',
+      })).toBe('25%')
+    })
+
+    it('display_value still wins when raw_value is null (legitimate contextual fallback)', () => {
+      // Preservation test — confirms the canonical CEE override path still
+      // works for non-numeric cases. raw_value=null skips Pattern 1, so
+      // display_value falls through and outranks the value-only heuristic.
+      expect(formatFactorDisplayValue({
+        label: 'Technical Leadership Presence',
+        value: 0,
+        raw_value: null,
+        display_value: 'No dedicated tech lead',
+      })).toBe('No dedicated tech lead')
+    })
+
+    it('display_value still wins when raw_value is present but unit is placeholder', () => {
+      // Pattern 1 explicitly skips placeholder units (scale, index, …) so
+      // display_value fallback applies here too.
+      expect(formatFactorDisplayValue({
+        label: 'Quality Index',
+        value: 0.7,
+        raw_value: 0.7,
+        unit: 'scale',
+        display_value: 'High quality',
+      })).toBe('High quality')
+    })
   })
 
   // Polish 4 Task 1: suppress meaningless fractional placeholder values.
@@ -364,5 +426,71 @@ describe('formatFactorDisplayValue', () => {
         unit: 'months',
       })).toBe('9 months')
     })
+  })
+})
+
+/**
+ * factorDisplayText is the shared entry point used by FactorNode (canvas),
+ * all three inspector-v2 factor panels (External/Controllable/Observable),
+ * and the debug bundle's renderFactorDisplayState. It takes the raw node.data
+ * shape (with display_value possibly at top level AND inside observedState)
+ * and delegates to formatFactorDisplayValue.
+ *
+ * These regression tests pin the V5 fresh-wins rule at the node.data shape —
+ * i.e. on the exact input FactorNode and the inspectors hand in — so a future
+ * change cannot reintroduce the stale-display-value bug for the live UI while
+ * the debug bundle stays correct (or vice versa).
+ */
+describe('factorDisplayText (shared entry point — FactorNode / inspectors / debug bundle)', () => {
+  it('fresh raw_value=26000 + unit=£ wins over stale top-level display_value="£20,000"', () => {
+    expect(factorDisplayText({
+      label: 'Advertising Budget Allocated',
+      display_value: '£20,000',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+      },
+    })).toBe('£26,000')
+  })
+
+  it('fresh raw_value=26000 + unit=£ wins over stale observedState.display_value="£20,000"', () => {
+    expect(factorDisplayText({
+      label: 'Advertising Budget Allocated',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+        display_value: '£20,000',
+      },
+    })).toBe('£26,000')
+  })
+
+  it('fresh raw_value wins when stale display_value sits at both levels', () => {
+    expect(factorDisplayText({
+      label: 'Advertising Budget Allocated',
+      display_value: '£20,000',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+        unit: '£',
+        cap: 100000,
+        display_value: '£15,000',
+      },
+    })).toBe('£26,000')
+  })
+
+  it('preserves CEE contextual display_value when raw_value is absent', () => {
+    expect(factorDisplayText({
+      label: 'Technical Leadership Presence',
+      display_value: 'No dedicated tech lead',
+      observedState: {
+        value: 0,
+        raw_value: null,
+        unit: null,
+      },
+    })).toBe('No dedicated tech lead')
   })
 })
