@@ -447,11 +447,13 @@ describe('buildDebugBundleAsync — round-2 selection diagnostics on bundle', ()
       // Round-3 review (P1): provenance defaults to 'none' when not
       // supplied (DebugData omits the field in this fixture).
       provenance: 'none',
-      // Round-6 review (IMP): canonical_trace_source records the pin
-      // outcome. With no trace in the store (empty `traceState.payloads`)
-      // and no pin supplied, the canonical lookup returns
-      // `{source: 'none'}`.
-      canonical_trace_source: 'none',
+      // Round-7 review (IMP): canonical_trace_source records the
+      // pin outcome with the user-facing label. The test passes
+      // `cee_capture_selected_trace_id: 'trace-abc'` but doesn't add
+      // that id to `traceState.payloads`, so the helper reports
+      // `pin_not_found_rejected` (pin attempted, no match found).
+      canonical_trace_source: 'pin_not_found_rejected',
+      canonical_trace_used: false,
     })
   })
 
@@ -894,10 +896,13 @@ describe('buildDebugBundleAsync — round-5 P1: invalid_selected_trace_id diagno
     expect(
       bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.response_present,
     ).toBe(false)
-    // The pin attempt is still recorded.
+    // The pin attempt is recorded with the round-7 user-facing label
+    // (`*_rejected`) so reviewers don't misread `*_fell_back` as
+    // "metadata was used".
     expect(bundle.cee_capture_selection.canonical_trace_source).toBe(
-      'invalid_pin_fell_back',
+      'invalid_pin_rejected',
     )
+    expect(bundle.cee_capture_selection.canonical_trace_used).toBe(false)
   })
 
   it('emits invalid_selected_trace_id when the pinned id does NOT match any entry (round-6 blocking: no fallback metadata)', async () => {
@@ -927,8 +932,9 @@ describe('buildDebugBundleAsync — round-5 P1: invalid_selected_trace_id diagno
       bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_present,
     ).toBe(false)
     expect(bundle.cee_capture_selection.canonical_trace_source).toBe(
-      'pin_not_found_fell_back',
+      'pin_not_found_rejected',
     )
+    expect(bundle.cee_capture_selection.canonical_trace_used).toBe(false)
   })
 
   it('does NOT emit invalid_selected_trace_id when the pin is valid', async () => {
@@ -1039,8 +1045,9 @@ describe('buildDebugBundleAsync — round-6 BLOCKING: selected body + evicted tr
       'tp-selected-evicted',
     )
     expect(bundle.cee_capture_selection.canonical_trace_source).toBe(
-      'pin_not_found_fell_back',
+      'pin_not_found_rejected',
     )
+    expect(bundle.cee_capture_selection.canonical_trace_used).toBe(false)
     // `invalid_selected_trace_id` coherence issue fires so reviewers
     // see the discrepancy explicitly.
     expect(
@@ -1149,5 +1156,224 @@ describe('buildDebugBundleAsync — round-6 missing test: scientific validators 
         expect(v.status).not.toBe('pass')
       }
     }
+  })
+})
+
+// =====================================================================
+// Round-7 review additions
+// =====================================================================
+
+describe('buildDebugBundleAsync — round-7 IMP: rejection-label semantics', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('rejection label: bundle emits `*_rejected` (not `*_fell_back`) — reviewers do NOT misread fallback metadata as used', async () => {
+    // Set up an invalid pin: pinned id matches a legacy CEE entry.
+    // Round-6 blocking nulls the trace. Round-7 ensures the bundle's
+    // user-facing label reads `invalid_pin_rejected`, not the
+    // helper's internal `invalid_pin_fell_back`.
+    traceState.payloads = [
+      {
+        id: 'tp-legacy',
+        service: 'CEE',
+        endpoint: '/bff/cee/turn',
+        completed: true,
+        status: 200,
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_selected_trace_id: 'tp-legacy',
+      }),
+    )
+    // The user-facing label is the rejection variant — NOT the
+    // helper-internal `*_fell_back` variant.
+    expect(bundle.cee_capture_selection.canonical_trace_source).toBe(
+      'invalid_pin_rejected',
+    )
+    // Bundle MUST NOT emit the helper-internal name. This is the
+    // explicit "label-rename" regression.
+    expect(bundle.cee_capture_selection.canonical_trace_source).not.toBe(
+      'invalid_pin_fell_back' as never,
+    )
+    // The boolean makes the rejection unambiguous.
+    expect(bundle.cee_capture_selection.canonical_trace_used).toBe(false)
+  })
+
+  it('happy path: pinned valid V5 → label=`pinned`, canonical_trace_used=true, latest_v5_turn.source=`payload_trace`', async () => {
+    traceState.payloads = [
+      {
+        id: 'tp-pinned-v5',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: { ok: true } },
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_selected_trace_id: 'tp-pinned-v5',
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+      }),
+    )
+    expect(bundle.cee_capture_selection.canonical_trace_source).toBe('pinned')
+    expect(bundle.cee_capture_selection.canonical_trace_used).toBe(true)
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.source,
+    ).toBe('payload_trace')
+  })
+
+  it('rejection variant → latest_v5_turn.source is NOT `payload_trace` (the body-vs-metadata invariant)', async () => {
+    // Pin id matches no entry (evicted). Round-6 blocking nulls the
+    // trace; round-7 label is `pin_not_found_rejected`.
+    // latest_v5_turn.source MUST reflect this — it cannot claim
+    // `payload_trace` because no trace metadata is being used.
+    traceState.payloads = [
+      // Some unrelated V5 trace exists. Pre-blocking, the bundle
+      // would have used this trace's metadata and `latest_v5_turn.source`
+      // would have been `payload_trace`. Round-6 blocking + round-7
+      // labelling refuses both.
+      {
+        id: 'tp-unrelated',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        response: { body: { unrelated: true } },
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        payloads: {
+          // The selected (now-evicted) body sits here.
+          cee_request: { scenario_id: 'scn-1' },
+          cee_response: { selected: true },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+        cee_capture_selected_trace_id: 'tp-evicted',
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+      }),
+    )
+    expect(bundle.cee_capture_selection.canonical_trace_source).toBe(
+      'pin_not_found_rejected',
+    )
+    expect(bundle.cee_capture_selection.canonical_trace_used).toBe(false)
+    // CRITICAL: latest_v5_turn.source MUST NOT be `payload_trace` —
+    // the body-vs-metadata invariant.
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.source,
+    ).not.toBe('payload_trace')
+  })
+})
+
+describe('buildDebugBundleAsync — round-7 IMP: manual-style happy-path fixture', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('manual happy-path: inspection enabled, live CEE req+resp, PLoT raw missing → validators stay limited', async () => {
+    // Mirrors what a manual staging tester should see after a single
+    // run_analysis: capture enabled, CEE round-trip present, PLoT
+    // raw payloads absent (since PLoT doesn't expose them to DGAI),
+    // scientific validators report unavailable / insufficient
+    // evidence — exactly what PR #150's honesty contract requires.
+    traceState.payloads = [
+      {
+        id: 'tp-live-analysis',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        request: {
+          body: {
+            scenario_id: 'scn-happy',
+            chip: { action_type: 'run_analysis' },
+          },
+        },
+        response: {
+          body: {
+            lineage: { response_hash: 'live-hash' },
+            assistant_text: 'analysis-result',
+          },
+        },
+      },
+    ]
+    canvasState.results = {
+      report: { recommendation: 'A' },
+      hash: 'live-hash',
+      rawV2Response: null, // PLoT raw not exposed.
+    }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        payloads: {
+          cee_request: { scenario_id: 'scn-happy' },
+          cee_response: { live: true, lineage: { response_hash: 'live-hash' } },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_trace_id: 'tp-live-analysis',
+        cee_capture_selected_response_hash: 'live-hash',
+        cee_capture_selected_response_hash_source: 'body_lineage_response_hash',
+        cee_capture_selection_diagnostics: {
+          cee_candidate_count: 1,
+          v5_endpoint_candidate_count: 1,
+          analysis_producing_candidate_count: 1,
+          selected_via_primary_path: true,
+          selected_reason: 'hash_matched',
+          hash_match_status: 'matched',
+        },
+      }),
+    )
+    // 1. Inspection is enabled with the documented staging reason.
+    expect(bundle.payload_inspection_status?.enabled).toBe(true)
+    expect(bundle.payload_inspection_status?.reason).toBe(
+      'app_env_staging_enabled',
+    )
+    // 2. Live CEE payloads are surfaced.
+    expect(bundle.payloads.cee_request).not.toBeNull()
+    expect(bundle.payloads.cee_response).not.toBeNull()
+    // 3. PLoT/ISL raw payloads stay null (honesty).
+    expect(bundle.payloads.plot_request).toBeNull()
+    expect(bundle.payloads.isl_request).toBeNull()
+    // 4. Canonical pin succeeded.
+    expect(bundle.cee_capture_selection.canonical_trace_source).toBe('pinned')
+    expect(bundle.cee_capture_selection.canonical_trace_used).toBe(true)
+    // 5. Scientific validators stay honest — no inferred-pass.
+    expect(bundle.scientific_validation).toBeDefined()
+    for (const v of Object.values(
+      bundle.scientific_validation!.validators,
+    )) {
+      if (v.claim_strength === 'inferred') {
+        expect(v.status).not.toBe('pass')
+      }
+    }
+    // 6. Hash matched — no mismatch issue.
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).not.toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+    expect(issues).not.toContain('invalid_selected_trace_id')
   })
 })

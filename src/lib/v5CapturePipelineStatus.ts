@@ -460,13 +460,16 @@ export function findCanonicalV5TraceForBundle<
   // Id pin supplied — try to match.
   const pinnedById = payloads.find((p) => p.id === selectedTraceId)
   if (pinnedById === undefined) {
-    // The pin id didn't match any entry. Could happen if the trace
-    // store was evicted between selector and bundle assembly.
-    const fallback = findLatestV5TurnEntry(payloads)
+    // Round-7 review: the pin id didn't match any entry. Could
+    // happen if the trace store was evicted between selector and
+    // bundle assembly. Record the pin-attempt outcome
+    // (`pin_not_found_fell_back`) REGARDLESS of whether the
+    // fallback finds anything — the round-6 blocking rule rejects
+    // any non-pin trace, so reviewers need the pin-failure recorded
+    // even when no V5 fallback is available.
     return {
-      trace: fallback,
-      source:
-        fallback === null ? 'none' : 'pin_not_found_fell_back',
+      trace: findLatestV5TurnEntry(payloads),
+      source: 'pin_not_found_fell_back',
     }
   }
 
@@ -474,11 +477,12 @@ export function findCanonicalV5TraceForBundle<
   // Without this, a caller passing a legacy / non-CEE trace id could
   // promote a non-V5 entry into v5_cee_capture metadata.
   if (!isV5TurnEndpoint(pinnedById)) {
-    const fallback = findLatestV5TurnEntry(payloads)
+    // Round-7 review: same logic as the pin-not-found path — record
+    // the pin-attempt outcome (`invalid_pin_fell_back`) regardless
+    // of whether the fallback finds a different V5 trace.
     return {
-      trace: fallback,
-      source:
-        fallback === null ? 'none' : 'invalid_pin_fell_back',
+      trace: findLatestV5TurnEntry(payloads),
+      source: 'invalid_pin_fell_back',
     }
   }
 

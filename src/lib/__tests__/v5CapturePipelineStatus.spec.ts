@@ -733,9 +733,31 @@ describe('findCanonicalV5TraceForBundle — round-5 P1 validation', () => {
     expect(out.trace?.id).toBe('tp-v5-A')
   })
 
-  it('source=none when nothing in the trace store', () => {
-    const out = findCanonicalV5TraceForBundle([], 'tp-anything')
+  it('source=none when nothing in the trace store AND no pin supplied', () => {
+    const out = findCanonicalV5TraceForBundle([], null)
     expect(out.source).toBe('none')
+    expect(out.trace).toBeNull()
+  })
+
+  it('round-7: pin attempt recorded even when fallback is empty (source preserves pin-attempt fact)', () => {
+    // Pre-round-7 the helper coalesced `pin_not_found_fell_back +
+    // null fallback` down to `source: 'none'`, hiding the pin-attempt
+    // fact. Round-7 keeps the pin-attempt outcome regardless so
+    // reviewers see invalid_selected_trace_id in the bundle.
+    const out = findCanonicalV5TraceForBundle([], 'tp-evicted')
+    expect(out.source).toBe('pin_not_found_fell_back')
+    expect(out.trace).toBeNull()
+  })
+
+  it('round-7: invalid_pin_fell_back recorded when ONLY non-V5 entries exist', () => {
+    // Only legacy CEE in store; pinned id matches the legacy entry.
+    // No V5 fallback target. Round-7 still records the pin-attempt
+    // outcome.
+    const out = findCanonicalV5TraceForBundle(
+      [legacyCee],
+      'tp-legacy',
+    )
+    expect(out.source).toBe('invalid_pin_fell_back')
     expect(out.trace).toBeNull()
   })
 })

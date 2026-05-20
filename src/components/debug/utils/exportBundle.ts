@@ -1385,28 +1385,45 @@ interface DebugBundle {
       | 'sync_not_evaluated'
 
     /**
-     * Round-6 review (IMP): label whether the canonical trace used
-     * for `v5_cee_capture` metadata was the selector's pinned id, a
-     * fallback to `findLatestV5TurnEntry`, or rejected entirely
-     * because the pin was invalid. Lets reviewers see in one place
-     * whether `latest_v5_turn.*` describes the same turn the selector
-     * picked or a fallback. Mirrors `CanonicalV5TraceSource` codes
-     * from `v5CapturePipelineStatus.ts` plus the sync-path code.
+     * Records what happened with the canonical trace pin:
      *
-     * Round-6 blocking fix: when this is
-     * `'invalid_pin_fell_back'` or `'pin_not_found_fell_back'`, the
-     * bundle assembler FORCES the fallback trace to null so
-     * `v5_cee_capture` metadata is NOT sourced from a different
-     * turn than the body. Tier downgrades to `bundle_payloads`
-     * (body present) or `capture_missing` honestly.
+     *   - `pinned` — selector's id matched a valid V5 trace; the
+     *     trace's metadata IS used for `v5_cee_capture`.
+     *   - `fallback_latest` — no pin supplied, `findLatestV5TurnEntry`
+     *     surfaced a trace; its metadata IS used.
+     *   - `invalid_pin_rejected` — pin matched a non-V5 entry; the
+     *     bundle REJECTS the fallback so the selected body is NOT
+     *     paired with unrelated metadata. (Round-6 blocking rule.)
+     *   - `pin_not_found_rejected` — pin id didn't match any entry
+     *     (e.g. ring-buffer eviction); the bundle REJECTS the
+     *     fallback for the same honesty reason.
+     *   - `none` — no canonical trace anywhere.
+     *   - `sync_not_evaluated` — sync export path; selector didn't run.
+     *
+     * Round-7 review: pre-fix these used the `*_fell_back` suffix,
+     * which implied the fallback metadata WAS used. The round-6
+     * blocking rule REJECTS the fallback in those cases, so the
+     * labels now use `*_rejected` to match the enforced behaviour.
+     * The boolean `canonical_trace_used` (below) makes the rejection
+     * unambiguous at a glance.
      */
     canonical_trace_source:
       | 'pinned'
       | 'fallback_latest'
-      | 'invalid_pin_fell_back'
-      | 'pin_not_found_fell_back'
+      | 'invalid_pin_rejected'
+      | 'pin_not_found_rejected'
       | 'none'
       | 'sync_not_evaluated'
+
+    /**
+     * Round-7 review (IMP): explicit boolean for grep-ability.
+     * `true` when `v5_cee_capture` metadata WAS sourced from a real
+     * V5 trace entry; `false` when the bundle either had no trace
+     * OR rejected the fallback per the round-6 blocking rule.
+     * Always equivalent to
+     * `canonical_trace_source ∈ {'pinned', 'fallback_latest'}`.
+     */
+    canonical_trace_used: boolean
   }
 
   /**
@@ -2468,6 +2485,51 @@ function wirePipelineLlmMetadata(
 // =============================================================================
 
 /**
+ * Round-7 review (IMP): map the helper's internal source code (which
+ * describes what `findCanonicalV5TraceForBundle` DID — including
+ * falling back to `findLatestV5TurnEntry` when the pin was invalid)
+ * to the bundle's user-facing label (which describes what the bundle
+ * DID with the result — REJECTING the fallback under the round-6
+ * blocking rule).
+ *
+ * Helper says `invalid_pin_fell_back` (the function fell back).
+ * Bundle says `invalid_pin_rejected` (the bundle rejected that
+ * fallback). The two labels describe the same event from different
+ * vantage points; the bundle's label is what reviewers see.
+ *
+ * Also returns the `used` boolean for explicit grep-ability.
+ */
+function mapCanonicalSourceToBundle(
+  source:
+    | 'pinned'
+    | 'fallback_latest'
+    | 'invalid_pin_fell_back'
+    | 'pin_not_found_fell_back'
+    | 'none',
+): {
+  source:
+    | 'pinned'
+    | 'fallback_latest'
+    | 'invalid_pin_rejected'
+    | 'pin_not_found_rejected'
+    | 'none'
+  used: boolean
+} {
+  switch (source) {
+    case 'invalid_pin_fell_back':
+      return { source: 'invalid_pin_rejected', used: false }
+    case 'pin_not_found_fell_back':
+      return { source: 'pin_not_found_rejected', used: false }
+    case 'pinned':
+      return { source: 'pinned', used: true }
+    case 'fallback_latest':
+      return { source: 'fallback_latest', used: true }
+    case 'none':
+      return { source: 'none', used: false }
+  }
+}
+
+/**
  * Build a complete debug bundle from DebugData.
  * Produces v1.5 or v2.0 bundles depending on VITE_DEBUG_BUNDLE_V2 flag.
  */
@@ -2815,6 +2877,10 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       selected_via_primary_path: false,
       provenance: 'sync_not_evaluated',
       canonical_trace_source: 'sync_not_evaluated',
+      // Round-7 review (IMP): boolean defaults to false on the sync
+      // path. Async path overwrites when canonical pin or fallback
+      // surfaced a real trace.
+      canonical_trace_used: false,
     },
 
     // Round-4 review (IMP): selected_cee_trace_id — null on the sync
@@ -3449,6 +3515,13 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
 
+    // Round-7 review (IMP): map the helper's internal source code
+    // (which describes what `findCanonicalV5TraceForBundle` DID) to
+    // the bundle's user-facing label (which describes what the
+    // bundle DID after the round-6 blocking-rule enforcement). The
+    // `used` boolean carries the same signal explicitly.
+    const canonicalForBundle = mapCanonicalSourceToBundle(canonical.source)
+
     // Round-2 review (P1 + IMP) + Round-3 (P1) + Round-4 (IMP):
     // surface hash-mismatch detail + selection diagnostics +
     // provenance on the bundle. The sync-path default carries
@@ -3486,10 +3559,12 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         // the cee payload (analysis-producing V5, fallback V5, legacy
         // CEE, or none).
         provenance: data.cee_capture_provenance ?? 'none',
-        // Round-6 review (IMP): record the canonical-trace-pin outcome
-        // so reviewers can tell whether `latest_v5_turn.*` describes
-        // the selector's pin or a fallback to the latest V5 trace.
-        canonical_trace_source: canonical.source,
+        // Round-6 (IMP) + Round-7 (IMP): record the canonical-trace-pin
+        // outcome — with the round-7 user-facing label so reviewers
+        // don't read `*_fell_back` and think the fallback metadata
+        // was used.
+        canonical_trace_source: canonicalForBundle.source,
+        canonical_trace_used: canonicalForBundle.used,
       }
     } else if (
       data.cee_capture_provenance !== undefined ||
@@ -3508,10 +3583,10 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         ...(data.cee_capture_provenance !== undefined
           ? { provenance: data.cee_capture_provenance }
           : {}),
-        // Round-6 review (IMP): canonical_trace_source updated even
-        // in the partial-data branch so reviewers always see the pin
-        // outcome.
-        canonical_trace_source: canonical.source,
+        // Round-7 (IMP): canonical_trace_source mapped to the bundle's
+        // user-facing label; `canonical_trace_used` mirrors it.
+        canonical_trace_source: canonicalForBundle.source,
+        canonical_trace_used: canonicalForBundle.used,
       }
     } else {
       // No selection data supplied at all — but the canonical pin
@@ -3519,7 +3594,8 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // already-defaulted block. (Round-6 IMP.)
       bundle.cee_capture_selection = {
         ...bundle.cee_capture_selection,
-        canonical_trace_source: canonical.source,
+        canonical_trace_source: canonicalForBundle.source,
+        canonical_trace_used: canonicalForBundle.used,
       }
     }
 
