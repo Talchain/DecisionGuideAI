@@ -151,6 +151,49 @@ describe('formatFactorDisplayValue', () => {
         display_value: 'High quality',
       })).toBe('High quality')
     })
+
+    // Golden-fixture regression (golden-path-staging-2026-04-05.json,
+    // `fac_acquisition`): raw_value=0 + no unit + display_value="No acquisition
+    // pursued". The contextual display_value must beat the unitless-raw numeric
+    // fallback — otherwise the user sees "0" instead of the meaningful encoded
+    // state. Caught by render-matrix.spec.tsx after round-2 mis-ordered the
+    // priority.
+    it('display_value wins over unitless raw_value=0 (golden-fixture fac_acquisition)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Competitor Acquisition',
+        value: 0,
+        raw_value: 0,
+        unit: null,
+        display_value: 'No acquisition pursued',
+        category: 'controllable',
+        factor_type: 'other',
+      })).toBe('No acquisition pursued')
+    })
+
+    it('display_value wins over unitless raw_value=1', () => {
+      // Mirror case — unitless raw with a non-zero value still defers to
+      // display_value when present.
+      expect(formatFactorDisplayValue({
+        label: 'Competitor Acquisition',
+        value: 1,
+        raw_value: 1,
+        unit: null,
+        display_value: 'Acquisition pursued',
+        category: 'controllable',
+      })).toBe('Acquisition pursued')
+    })
+
+    it('unitless-raw fallback still fires when no display_value is present (round-1 plain number case)', () => {
+      // Paired-with-above sanity check: when display_value is absent, the
+      // unitless-raw branch still produces the formatted number. Confirms the
+      // priority swap didn't accidentally drop the plain-number formatter.
+      expect(formatFactorDisplayValue({
+        label: 'Headcount',
+        value: 0.26,
+        raw_value: 26000,
+        unit: null,
+      })).toBe('26,000')
+    })
   })
 
   // Polish 4 Task 1: suppress meaningless fractional placeholder values.
@@ -492,5 +535,34 @@ describe('factorDisplayText (shared entry point — FactorNode / inspectors / de
         unit: null,
       },
     })).toBe('No dedicated tech lead')
+  })
+
+  // Golden-fixture regression (golden-path-staging-2026-04-05.json,
+  // `fac_acquisition`) at the node.data shape — same scenario as the
+  // formatter-layer test above, but exercising the FactorNode/inspector
+  // call path. render-matrix.spec.tsx asserts `screen.getByText(display_value)`
+  // and was the canary that caught the round-2 priority mis-ordering.
+  it('display_value wins over unitless raw_value=0 on node.data shape (golden-fixture)', () => {
+    expect(factorDisplayText({
+      label: 'Competitor Acquisition',
+      category: 'controllable',
+      display_value: 'No acquisition pursued',
+      observedState: {
+        value: 0,
+        raw_value: 0,
+        cap: 0,
+        factor_type: 'other',
+      },
+    })).toBe('No acquisition pursued')
+  })
+
+  it('unitless-raw fallback still fires when no display_value is present (paired sanity check)', () => {
+    expect(factorDisplayText({
+      label: 'Headcount',
+      observedState: {
+        value: 0.26,
+        raw_value: 26000,
+      },
+    })).toBe('26,000')
   })
 })

@@ -11,12 +11,22 @@
  * fits and call it directly. Do NOT add a fifth shadow.
  *
  * 1. formatFactorDisplayValue   (src/utils/formatFactorDisplayValue.ts)
- *    - Surface: factor node body text (FactorNode.tsx, OptionNode formatChipValue contextual path)
+ *    - Surface: factor node body text (FactorNode.tsx, OptionNode formatChipValue contextual path),
+ *      inspector-v2 factor panels, and the debug bundle's renderFactorDisplayState
+ *      (via the shared factorDisplayText entry point — same priority for all)
  *    - Input:   { label, value, raw_value, unit, factor_type, cap, category, display_value }
  *    - Output:  null | "£40,000" | "75%" | "No tech lead in place" | display_value verbatim
  *    - Fallback: returns null when no meaningful text can be produced.
- *    - Notes: CEE display_value takes priority. Binary contextual text only fires
- *      when factor_type === 'binary'. Suppresses fractional 0<v<1 with meaningless unit.
+ *    - Priority (V5 stale-value-protection fix, May 2026):
+ *        1. Pattern 1 (raw_value + meaningful unit) — outranks display_value
+ *        2. display_value                          — outranks raw/heuristic
+ *        3. raw_value without unit (numeric fallback)
+ *        4. value-only binary heuristic
+ *      A fresh raw_value + meaningful unit (£26,000) beats a stale display_value
+ *      ('£20,000'), but display_value still beats unitless raw and the binary heuristic
+ *      so CEE-authored contextual text ('No acquisition pursued') survives.
+ *    - Notes: Binary contextual text only fires when factor_type === 'binary'.
+ *      Suppresses fractional 0<v<1 with meaningless unit.
  *
  * 2. formatInterventionValue    (this file, line ~430)
  *    - Surface: factor node hover overlay, OptionNode pill/popover/Detailed list (via formatChipValue),

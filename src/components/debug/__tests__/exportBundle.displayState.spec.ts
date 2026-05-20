@@ -493,6 +493,25 @@ describe('captureDisplayState — rendered_factors.value_displayed (V5 fix)', ()
     expect(row.value_displayed).toBe('26,000')
   })
 
+  it('golden-fixture: unitless raw_value=0 + display_value="No acquisition pursued" → "No acquisition pursued"', async () => {
+    // Pinning the bundle layer of the golden-fixture regression
+    // (golden-path-staging-2026-04-05.json, fac_acquisition). With round-2's
+    // mis-ordered priority the bundle would have rendered "0" — the contextual
+    // text wins because the raw_value has no unit.
+    const row = await captureRow({
+      id: 'fac_acquisition',
+      data: {
+        label: 'Competitor Acquisition',
+        kind: 'factor',
+        category: 'controllable',
+        display_value: 'No acquisition pursued',
+        observedState: { value: 0, raw_value: 0, cap: 0, factor_type: 'other' },
+      },
+    })
+    expect(row.value_displayed).toBe('No acquisition pursued')
+    expect(row.value_displayed).not.toBe('0')
+  })
+
   it('no mutation: input node, observedState, and store are unchanged after capture', async () => {
     const observedState = { value: 0.26, raw_value: 26000, unit: '£', cap: 100000 } as const
     const data = {
