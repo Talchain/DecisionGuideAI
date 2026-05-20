@@ -49,20 +49,13 @@ const V5_ENABLED_ACTIONS = new Set<string>([
 const READINESS_GATED_ACTIONS = new Set<string>(['run_analysis'])
 
 /**
- * Detects a "Run analysis" affordance regardless of whether the chip
- * carries `action_type: 'run_analysis'` or just a canonical label/message.
- * Used by the aiPanelV2 polish to suppress / relabel once analysis exists.
- *
- * Conservative match list — anything beyond these literal canonical strings
- * would risk false-positives on conversational chips that happen to mention
- * "analysis" (e.g. "Explain the analysis").
+ * Run-analysis affordance detection. `action_type` is the primary key;
+ * the fallback regex catches V4-legacy or prompt-only chips where the
+ * `action_type` field is absent. Tolerant of "Run analysis", "Rerun
+ * analysis", "Run the analysis", "Rerun the analysis", with or without a
+ * trailing period. Conservative enough to NOT match conversational chips
+ * like "Explain the analysis" or "What was the analysis?".
  */
-// Run-analysis affordance detection. action_type is the primary key; the
-// fallback regex catches V4-legacy or prompt-only chips where the
-// `action_type` field is absent. Tolerant of "Run analysis", "Rerun
-// analysis", "Run the analysis", "Rerun the analysis", with or without
-// a trailing period. Conservative enough to NOT match conversational
-// chips like "Explain the analysis" or "What was the analysis?".
 const RUN_ANALYSIS_RE = /^(?:run|rerun)\s+(?:the\s+)?analysis\.?$/i
 
 function normForMatch(s: string | undefined): string {
@@ -153,8 +146,21 @@ export function SuggestedChips({
   // but the check is cheap and correctness matters more here.
   const v5Active = isV5Eligible({ flag: import.meta.env.VITE_ENABLE_V5_ORCHESTRATOR }).eligible
 
+  // Compute the run-analysis product state ONCE, then both the V5
+  // readiness gate (below) AND the polish-map step downstream branch on
+  // the same value. Keeping a single source of truth prevents a future
+  // change to either branch from re-introducing "filtered before
+  // relabel" behaviour.
+  const runAnalysisPolish: RunAnalysisPolish = aiPanelV2On
+    ? decideRunAnalysisPolish(resultsComplete, isStale)
+    : 'keep'
+
   // Filter rule (V5 active):
-  //   action_type === 'run_analysis' → gated by analysisStatus === 'ready'
+  //   action_type === 'run_analysis' → gated by analysisStatus === 'ready',
+  //                                    EXCEPT when aiPanelV2 will relabel to
+  //                                    "Rerun" (stale), in which case the chip
+  //                                    must survive the gate so the polish can
+  //                                    apply.
   //   action_type absent              → pass through (conversational)
   //   action_type in V5_ENABLED_ACTIONS but NOT readiness-gated → pass through
   //   action_type present but unknown → hide (treat as potentially executable
@@ -166,7 +172,14 @@ export function SuggestedChips({
         const isV5Known = V5_ENABLED_ACTIONS.has(c.action_type)
         if (!isV5Known) return false
         const needsReadiness = READINESS_GATED_ACTIONS.has(c.action_type)
-        if (needsReadiness && analysisStatus !== 'ready') return false
+        if (needsReadiness && analysisStatus !== 'ready') {
+          // Single bypass: run_analysis survives when the polish will
+          // relabel it. The decision is upstream (`runAnalysisPolish`).
+          if (c.action_type === 'run_analysis' && runAnalysisPolish === 'relabel-rerun') {
+            return true
+          }
+          return false
+        }
         return true
       })
     : chips
@@ -179,7 +192,10 @@ export function SuggestedChips({
         c.action_type &&
         V5_ENABLED_ACTIONS.has(c.action_type) &&
         READINESS_GATED_ACTIONS.has(c.action_type) &&
-        analysisStatus !== 'ready',
+        analysisStatus !== 'ready' &&
+        // Mirror the bypass — a chip that survived shouldn't show up as
+        // "removed" in the dev log.
+        !(c.action_type === 'run_analysis' && runAnalysisPolish === 'relabel-rerun'),
     )
     if (removedUnsupported.length > 0) {
       logV5StateEvent('chip_filter_unsupported', {
@@ -197,17 +213,15 @@ export function SuggestedChips({
   }
 
   // aiPanelV2: apply the product rule to run-analysis affordances.
-  // See `decideRunAnalysisPolish` for the contract. Detection covers both
-  // V2 chips (action_type === 'run_analysis') and legacy prompt-style
-  // chips matched by the canonical regex.
-  const polish = aiPanelV2On
-    ? decideRunAnalysisPolish(resultsComplete, isStale)
-    : 'keep'
+  // `runAnalysisPolish` was computed once upstream — the V5 filter and
+  // this map step both consume the same value so they cannot diverge.
+  // Detection covers both V2 chips (action_type === 'run_analysis') and
+  // legacy prompt-style chips matched by the canonical regex.
   const polished = aiPanelV2On
     ? supported
-        .filter((c) => !(isRunAnalysisAffordance(c) && polish === 'suppress'))
+        .filter((c) => !(isRunAnalysisAffordance(c) && runAnalysisPolish === 'suppress'))
         .map((c) =>
-          isRunAnalysisAffordance(c) && polish === 'relabel-rerun'
+          isRunAnalysisAffordance(c) && runAnalysisPolish === 'relabel-rerun'
             ? { ...c, label: 'Rerun' }
             : c,
         )

@@ -52,8 +52,16 @@ vi.mock('../../store', () => {
   }
 })
 
+// Stub ConversationPanel so we can observe the `compact` prop value
+// — which the FloatingOlumiPanel is expected to pass through so the
+// MessageBubble swaps from typography.body (16px) to panelBody (12px).
 vi.mock('../../conversation/ConversationPanel', () => ({
-  ConversationPanel: () => <div data-testid="mocked-conversation-panel" />,
+  ConversationPanel: (props: { compact?: boolean }) => (
+    <div
+      data-testid="mocked-conversation-panel"
+      data-compact={String(props.compact ?? false)}
+    />
+  ),
 }))
 vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
   useStageAwarePlaceholder: () => 'Ask',
@@ -122,6 +130,19 @@ describe('floating-density scope', () => {
     expect(found).toBe(true)
   })
 
+  it('floating panel passes compact=true to ConversationPanel (typography lever)', () => {
+    // The CSS scope wrapper tightens GAPS but font-size lives in
+    // MessageBubble's typography choice (panelBody vs body). The
+    // `compact` prop is the React-level lever; this spec pins that
+    // FloatingOlumiPanel passes it. Without this, message body text
+    // stays at 16px even when surrounded by tighter chrome.
+    useFloatingPanelState.getState().open('user')
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    const cp = document.querySelector('[data-testid="mocked-conversation-panel"]') as HTMLElement
+    expect(cp).toBeTruthy()
+    expect(cp.getAttribute('data-compact')).toBe('true')
+  })
+
   it('docked OlumiTabBody does NOT wrap ConversationPanel in .floating-density', () => {
     render(<OlumiTabBody onFloatOut={() => {}} />, { wrapper: Wrapper })
     const cp = document.querySelector('[data-testid="mocked-conversation-panel"]') as HTMLElement
@@ -133,5 +154,14 @@ describe('floating-density scope', () => {
       expect(ancestor.classList.contains('floating-density')).toBe(false)
       ancestor = ancestor.parentElement
     }
+  })
+
+  it('docked OlumiTabBody does NOT pass compact=true to ConversationPanel', () => {
+    // Density differential at the React-prop level: docked tab keeps
+    // normal density (compact=false), floating uses compact=true.
+    render(<OlumiTabBody onFloatOut={() => {}} />, { wrapper: Wrapper })
+    const cp = document.querySelector('[data-testid="mocked-conversation-panel"]') as HTMLElement
+    expect(cp).toBeTruthy()
+    expect(cp.getAttribute('data-compact')).toBe('false')
   })
 })

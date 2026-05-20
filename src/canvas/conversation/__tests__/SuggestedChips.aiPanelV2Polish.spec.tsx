@@ -255,6 +255,68 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
     expect(screen.queryByTestId('suggested-chip-msg-period')).toBeNull()
   })
 
+  // V5 readiness gate previously filtered run_analysis when status !==
+  // 'ready'. Stale analysis (graph drifted since last run) maps to
+  // status !== 'ready', so the chip was dropped upstream and the polish
+  // never saw it. The aiPanelV2 bypass keeps it alive to be relabelled.
+  it('V5-on stale: run_analysis survives readiness gate and is relabelled to "Rerun"', () => {
+    // Enable V5 so the readiness filter is active.
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    // Stale analysis: complete + hash mismatch.
+    setAnalysisState('stale')
+    // ceeAnalysisReady is null / not 'ready' — this is the V5 path that
+    // would normally filter out the run_analysis chip BEFORE the polish.
+    useCanvasStore.setState({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ceeAnalysisReady: null as any,
+    })
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'v5-stale',
+            action_type: 'run_analysis',
+            label: 'Rerun analysis',
+            message: 'Rerun the analysis.',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-v5-stale')
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
+  })
+
+  // Mirror: with V5 active AND CURRENT analysis (status=ready), the
+  // run_analysis chip survives the V5 gate normally, then the polish
+  // suppresses it (current state).
+  it('V5-on current: run_analysis is suppressed after passing readiness gate', () => {
+    vi.stubEnv('VITE_ENABLE_V5_ORCHESTRATOR', 'true')
+    setAnalysisState('current')
+    useCanvasStore.setState({
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ceeAnalysisReady: {
+        goal_node_id: 'g',
+        status: 'ready',
+        options: [{ id: 'o', label: 'A', status: 'ready', interventions: {} }],
+      } as any,
+    })
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'v5-current',
+            action_type: 'run_analysis',
+            label: 'Rerun analysis',
+            message: 'Rerun the analysis.',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-chip-v5-current')).toBeNull()
+  })
+
   // Reviewer amendment: regression should pin the exact product-rule
   // matrix, regardless of internal predicate names.
   it('product rule: none → keep, current → suppress, stale → Rerun', () => {

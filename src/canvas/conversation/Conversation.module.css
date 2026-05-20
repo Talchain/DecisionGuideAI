@@ -1869,8 +1869,15 @@
   gap: 6px;
 }
 
-/* Suggested-chip row: tighter top margin + compact button padding while
- * preserving sufficient hit target via min-height. */
+/* Suggested-chip row: tighter top margin + compact button padding.
+ *
+ * Hit-target rationale: 32px min-height sits between WCAG SC 2.5.5 (AAA,
+ * 44×44) and WCAG SC 2.5.8 (AA, 24×24). The floating panel is a dense
+ * secondary surface — a 44px chip would dominate the bubble it sits
+ * under and break the "compact assistant" intent. 32px keeps the AA
+ * minimum with margin to spare. Docked chips (outside .floating-density)
+ * keep the default 44px target.
+ */
 :global(.floating-density) [data-testid="suggested-chips"] {
   margin-top: 12px;
 }
