@@ -144,6 +144,37 @@ export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean)
   return !wasVisuallyOpen
 }
 
+/**
+ * Pure helper: derive the visible (effective) tab the dock should show.
+ *
+ * The persisted `state.activeTab` is the source of truth for what the
+ * user chose, but it cannot be displayed directly under one condition:
+ * `aiPanelV2On && state.activeTab === 'olumi' && floatingPanelIsOpen`.
+ * In that case the floating panel is the single readable conversation
+ * surface, and the docked tab must show whatever non-Olumi tab the
+ * user was last on (Compare / Model / Analysis), to avoid wasting the
+ * right panel and to avoid the duplicate-readable-surface invariant
+ * breaking.
+ *
+ * Render-time helper (no React state), so the very first paint already
+ * shows the fallback. An accompanying effect commits the fallback back
+ * to persisted state + the global useUIStore so external consumers
+ * (history, telemetry) stay aligned.
+ *
+ * Tested in isolation via aiPanelV2.interactions.spec.tsx.
+ */
+export function selectEffectiveActiveTab(
+  storedActiveTab: OutputsDockTab,
+  aiPanelV2On: boolean,
+  floatingPanelIsOpen: boolean,
+  lastNonOlumiTab: OutputsDockTab,
+): OutputsDockTab {
+  if (!aiPanelV2On) return storedActiveTab
+  if (storedActiveTab !== 'olumi') return storedActiveTab
+  if (!floatingPanelIsOpen) return storedActiveTab
+  return lastNonOlumiTab
+}
+
 /** Dynamic accessor: re-evaluates feature flags on every call. Exported so
  *  parity tests can verify tab gating without remounting OutputsDock. The
  *  component computes its own OUTPUT_TABS via useMemo at render time, so a
@@ -402,10 +433,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   useEffect(() => {
     if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab
   }, [state.activeTab])
-  const olumiRedirectActive = aiPanelV2On && state.activeTab === 'olumi' && floatingPanelIsOpen
-  const effectiveActiveTab: OutputsDockTab = olumiRedirectActive
-    ? lastNonOlumiTabRef.current
-    : state.activeTab
+  const effectiveActiveTab = selectEffectiveActiveTab(
+    state.activeTab,
+    aiPanelV2On,
+    floatingPanelIsOpen,
+    lastNonOlumiTabRef.current,
+  )
+  const olumiRedirectActive = effectiveActiveTab !== state.activeTab
   useEffect(() => {
     if (!olumiRedirectActive) return
     const fallback = lastNonOlumiTabRef.current
