@@ -23,6 +23,9 @@ import {
   readTurnOrActionType,
   readResponseHash,
   readScenarioId,
+  isCeeService,
+  isV5TurnEndpoint,
+  V5_TURN_ENDPOINT_PATTERN,
   type SelectorTracedPayload,
 } from '../analysisProducingCeeTurn'
 
@@ -77,6 +80,18 @@ describe('readTurnOrActionType', () => {
     expect(
       readTurnOrActionType({
         request: { body: { action_type: 'run_analysis' } },
+      }),
+    ).toBe('run_analysis')
+  })
+
+  it('round-3 P1: falls back to request.body._turn_type (pre-strip discriminator)', () => {
+    // `OrchestratorTurnRequest._turn_type` is the request-builder
+    // internal discriminator — stripped before network send but
+    // present when the trace recorder captures pre-strip. Pre-fix
+    // the selector silently missed such entries.
+    expect(
+      readTurnOrActionType({
+        request: { body: { _turn_type: 'run_analysis' } },
       }),
     ).toBe('run_analysis')
   })
@@ -393,18 +408,36 @@ describe('readResponseHashWithSource — canonical CEE shapes (round-2 P0)', () 
     ).toBe('lineage-resp-hash')
   })
 
-  it('reads body.lineage.context_hash when response_hash absent', () => {
-    // Matches the canonical CEE fixture
-    // `cee-orchestrator-response.json`: lineage.context_hash is the
-    // current identity hash; lineage.response_hash is the round-2
-    // forward-compat key.
+  it('round-3 P0: context_hash is NOT a response hash — returns null', () => {
+    // The canonical CEE fixture carries `lineage.context_hash`. Pre-
+    // round-3 the selector returned it as a response hash and
+    // compared it against `results.hash`, producing spurious
+    // matches/mismatches. context_hash is the input-context
+    // fingerprint and operates on different inputs than the response
+    // hash. Round-3 P0: skip it entirely; hash evidence is null when
+    // no real response_hash is present.
     expect(
       readResponseHash({
         response: {
           body: { lineage: { context_hash: 'ctx-hash-fixture' } },
         },
       }),
-    ).toBe('ctx-hash-fixture')
+    ).toBeNull()
+  })
+
+  it('round-3 P0: lineage.response_hash STILL wins when both lineage hashes are present', () => {
+    expect(
+      readResponseHash({
+        response: {
+          body: {
+            lineage: {
+              response_hash: 'rh',
+              context_hash: 'ch',
+            },
+          },
+        },
+      }),
+    ).toBe('rh')
   })
 
   it('reads body.analysis_state.meta.response_hash on V5 turns', () => {
@@ -419,7 +452,7 @@ describe('readResponseHashWithSource — canonical CEE shapes (round-2 P0)', () 
     ).toBe('as-meta-hash')
   })
 
-  it('priority: lineage.response_hash > lineage.context_hash > analysis_state.meta > meta > root > blocks > header', () => {
+  it('priority (round-3): lineage.response_hash > analysis_state.meta > meta > root > blocks > header (context_hash NOT read)', () => {
     // lineage.response_hash WINS over everything below.
     expect(
       readResponseHash({
@@ -428,7 +461,7 @@ describe('readResponseHashWithSource — canonical CEE shapes (round-2 P0)', () 
           body: {
             lineage: {
               response_hash: 'L1',
-              context_hash: 'L2',
+              context_hash: 'L2-context-not-used',
             },
             analysis_state: { meta: { response_hash: 'AS' } },
             meta: { response_hash: 'M' },
@@ -443,34 +476,36 @@ describe('readResponseHashWithSource — canonical CEE shapes (round-2 P0)', () 
   })
 })
 
-describe('findLatestAnalysisProducingCeeTurn — round-2 P0: hash match against canonical CEE shape', () => {
-  // Canonical envelope shape — drawn from
+describe('findLatestAnalysisProducingCeeTurn — round-2 P0 + round-3 P0: hash match against canonical CEE shape', () => {
+  // Canonical envelope shape inspired by
   // `src/canvas/conversation/__tests__/fixtures/cee-orchestrator-response.json`.
-  // The selector MUST find the hash on the canonical envelope without
-  // any normalisation.
-  function canonicalCeeBody(hash: string): unknown {
+  // Round-3 P0: real comparison MUST be against `lineage.response_hash`
+  // (the response identity). `lineage.context_hash` is the input
+  // fingerprint and is NOT comparable to `results.hash`.
+  function canonicalCeeBody(responseHash: string, contextHash?: string): unknown {
     return {
       turn_id: '946e4876-0007-4a85-9370-c84621107b29',
       assistant_text: null,
       blocks: [],
       lineage: {
-        context_hash: hash,
+        response_hash: responseHash,
+        ...(contextHash !== undefined ? { context_hash: contextHash } : {}),
         dsk_version_hash: null,
       },
       stage_indicator: { stage: 'ideate' },
     }
   }
 
-  it('hash MATCH against canonical CEE lineage.context_hash drives selection (P0)', () => {
+  it('hash MATCH against canonical CEE lineage.response_hash drives selection (P0)', () => {
     const payloads: SelectorTracedPayload[] = [
       // Newer non-matching candidate.
       ceeTurn({
         id: 'tp-newer',
         response: {
-          body: { lineage: { context_hash: 'different-hash' } },
+          body: { lineage: { response_hash: 'different-hash' } },
         },
       }),
-      // Older but MATCHES the canonical lineage hash.
+      // Older but MATCHES the canonical lineage response_hash.
       ceeTurn({
         id: 'tp-canonical-match',
         response: { body: canonicalCeeBody('canonical-hash') },
@@ -485,13 +520,13 @@ describe('findLatestAnalysisProducingCeeTurn — round-2 P0: hash match against 
     expect(result.hash_mismatch_observed).toBe(false)
     expect(result.selected_response_hash).toBe('canonical-hash')
     expect(result.selected_response_hash_source).toBe(
-      'body_lineage_context_hash',
+      'body_lineage_response_hash',
     )
     expect(result.selection_diagnostics.selected_reason).toBe('hash_matched')
     expect(result.selection_diagnostics.hash_match_status).toBe('matched')
   })
 
-  it('hash MISMATCH against canonical CEE lineage hash is reported with detail (P0)', () => {
+  it('hash MISMATCH against canonical CEE lineage.response_hash is reported with detail (P0)', () => {
     const payloads: SelectorTracedPayload[] = [
       ceeTurn({
         id: 'tp-canonical-mismatch',
@@ -507,10 +542,71 @@ describe('findLatestAnalysisProducingCeeTurn — round-2 P0: hash match against 
     expect(result.hash_mismatch_observed).toBe(true)
     expect(result.selected_response_hash).toBe('observed-hash')
     expect(result.selected_response_hash_source).toBe(
-      'body_lineage_context_hash',
+      'body_lineage_response_hash',
     )
     expect(result.selected_trace_id).toBe('tp-canonical-mismatch')
     expect(result.selection_diagnostics.hash_match_status).toBe('mismatched')
+  })
+
+  // ROUND-3 P0 — the critical regression: context_hash != response_hash.
+  it('round-3 P0: only lineage.response_hash drives matching — context_hash that differs MUST NOT match', () => {
+    // Fixture: response_hash agrees with results.hash but context_hash
+    // disagrees. Pre-fix the selector compared `context_hash` against
+    // `results.hash` (false negative) AND/OR returned `context_hash`
+    // as the hash (false positive). Round-3 P0: only `response_hash`
+    // drives matching.
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({
+        id: 'tp-matching-response-mismatch-context',
+        response: {
+          body: canonicalCeeBody(
+            'response-matches-results',
+            'context-differs-completely',
+          ),
+        },
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(
+      payloads,
+      'scn-1',
+      'response-matches-results',
+    )
+    expect(result.selected_response_hash).toBe('response-matches-results')
+    expect(result.selected_response_hash_source).toBe(
+      'body_lineage_response_hash',
+    )
+    // Critical: the context_hash difference DOES NOT show up as a
+    // mismatch. The bundle correctly reports match because the
+    // response_hash agrees.
+    expect(result.hash_mismatch_observed).toBe(false)
+    expect(result.selection_diagnostics.hash_match_status).toBe('matched')
+  })
+
+  it('round-3 P0: when ONLY context_hash is present, hash evidence is unavailable (NOT a spurious match/mismatch)', () => {
+    // Pre-fix this scenario would return `context_hash` as the
+    // response hash and compare it against `results.hash`, producing
+    // either a false positive or false negative. Round-3 P0: no
+    // response_hash → hash evidence absent → no match/mismatch claim.
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({
+        id: 'tp-only-context-hash',
+        response: {
+          body: { lineage: { context_hash: 'irrelevant-fingerprint' } },
+        },
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(
+      payloads,
+      'scn-1',
+      'results-hash',
+    )
+    expect(result.selected?.id).toBe('tp-only-context-hash')
+    expect(result.selected_response_hash).toBeNull()
+    expect(result.selected_response_hash_source).toBeNull()
+    expect(result.hash_mismatch_observed).toBe(false)
+    expect(result.selection_diagnostics.hash_match_status).toBe(
+      'only_results_hash_present',
+    )
   })
 })
 
@@ -671,4 +767,100 @@ describe('findLatestAnalysisProducingCeeTurn — round-2 IMP: selection diagnost
     ).toBe(0)
   })
 })
+
+// =====================================================================
+// Round-3 review additions — shared helpers
+// =====================================================================
+
+describe('round-3 P1: shared V5 CEE helpers (isCeeService, isV5TurnEndpoint)', () => {
+  it('exports the V5 turn endpoint pattern as a constant', () => {
+    expect(V5_TURN_ENDPOINT_PATTERN).toBe('/orchestrate/v2/turn')
+  })
+
+  describe('isCeeService — case-insensitive', () => {
+    it.each([
+      { service: 'CEE', expected: true },
+      { service: 'cee', expected: true },
+      { service: 'Cee', expected: true },
+      { service: 'CeE', expected: true },
+      { service: 'PLoT', expected: false },
+      { service: 'ISL', expected: false },
+      { service: '', expected: false },
+      { service: undefined, expected: false },
+    ])(
+      'isCeeService({ service: $service }) → $expected',
+      ({ service, expected }) => {
+        expect(isCeeService({ service })).toBe(expected)
+      },
+    )
+  })
+
+  describe('isV5TurnEndpoint', () => {
+    it('matches `/bff/orchestrate/v2/turn` (proxy)', () => {
+      expect(
+        isV5TurnEndpoint({
+          service: 'CEE',
+          endpoint: '/bff/orchestrate/v2/turn',
+        }),
+      ).toBe(true)
+    })
+
+    it('matches direct `https://*/orchestrate/v2/turn`', () => {
+      expect(
+        isV5TurnEndpoint({
+          service: 'CEE',
+          endpoint: 'https://cee.staging.test/orchestrate/v2/turn',
+        }),
+      ).toBe(true)
+    })
+
+    it('matches with case-insensitive service ("cee", "Cee")', () => {
+      expect(
+        isV5TurnEndpoint({
+          service: 'cee',
+          endpoint: '/bff/orchestrate/v2/turn',
+        }),
+      ).toBe(true)
+      expect(
+        isV5TurnEndpoint({
+          service: 'Cee',
+          endpoint: '/bff/orchestrate/v2/turn',
+        }),
+      ).toBe(true)
+    })
+
+    it('REJECTS legacy CEE endpoints', () => {
+      for (const ep of [
+        '/bff/cee/turn',
+        '/bff/cee/draft-graph',
+        '/bff/cee/prompt-warm',
+        '/v5/turn', // wrong path
+        '/orchestrate/v1/turn', // wrong version
+      ]) {
+        expect(
+          isV5TurnEndpoint({ service: 'CEE', endpoint: ep }),
+        ).toBe(false)
+      }
+    })
+
+    it('REJECTS non-CEE services even on the V5 path', () => {
+      // Defensive — a service-misclassified entry on the V5 endpoint
+      // must NOT be promoted.
+      expect(
+        isV5TurnEndpoint({
+          service: 'PLoT',
+          endpoint: '/bff/orchestrate/v2/turn',
+        }),
+      ).toBe(false)
+    })
+
+    it('REJECTS missing / undefined endpoint', () => {
+      expect(isV5TurnEndpoint({ service: 'CEE' })).toBe(false)
+      expect(
+        isV5TurnEndpoint({ service: 'CEE', endpoint: '' }),
+      ).toBe(false)
+    })
+  })
+})
+
 

@@ -578,3 +578,78 @@ describe('hasResponseBody — body-presence helper', () => {
     expect(hasResponseBody({})).toBe(false)
   })
 })
+
+// =====================================================================
+// Round-3 review — shared-helper case-insensitive parity
+// =====================================================================
+
+describe('round-3 P1: V5 trace detection is case-insensitive everywhere', () => {
+  it('findLatestV5TurnEntry matches `cee` (lowercase) service', () => {
+    const out = findLatestV5TurnEntry([
+      {
+        service: 'cee',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        response: { body: { ok: true } },
+      },
+    ])
+    expect(out).not.toBeNull()
+  })
+
+  it('findLatestV5TurnEntry matches `Cee` (mixed case) service', () => {
+    const out = findLatestV5TurnEntry([
+      {
+        service: 'Cee',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        response: { body: { ok: true } },
+      },
+    ])
+    expect(out).not.toBeNull()
+  })
+
+  it('findLatestV5TurnEntry rejects mismatched-case PLoT (not CEE)', () => {
+    expect(
+      findLatestV5TurnEntry([
+        {
+          service: 'plot',
+          endpoint: '/bff/orchestrate/v2/turn',
+          completed: true,
+          status: 200,
+        },
+      ]),
+    ).toBeNull()
+  })
+
+  it('detectFailedHttpRecord matches `cee`-cased failures', () => {
+    const out = detectFailedHttpRecord([
+      {
+        service: 'cee',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: false,
+        source: 'preflight_or_network',
+      },
+    ])
+    expect(out.present).toBe(true)
+    expect(out.source).toBe('preflight_or_network')
+  })
+
+  it('detectFailedHttpRecord rejects case-correct CEE on legacy endpoint', () => {
+    // Pre-fix parity check: the failure detector and the selector
+    // must AGREE on what counts as a V5 turn. Legacy endpoint MUST
+    // NOT trigger V5 failure classification regardless of service
+    // case.
+    expect(
+      detectFailedHttpRecord([
+        {
+          service: 'CEE',
+          endpoint: '/bff/cee/turn',
+          completed: false,
+          source: 'preflight_or_network',
+        },
+      ]).present,
+    ).toBe(false)
+  })
+})

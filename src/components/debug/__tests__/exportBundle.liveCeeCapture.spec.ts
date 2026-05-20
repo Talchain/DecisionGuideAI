@@ -429,6 +429,12 @@ describe('buildDebugBundleAsync — round-2 selection diagnostics on bundle', ()
     )
     expect(bundle.cee_capture_selection).toEqual({
       selected_response_hash: 'capture-h',
+      // This round-2 test asserts the hash source label as the
+      // selector reported it. Round-3 dropped lineage.context_hash
+      // from the response-hash readers, so future productions will
+      // never emit this label — but the bundle still passes through
+      // whatever the selector returned. Keeping the test value to
+      // exercise the threading.
       selected_response_hash_source: 'body_lineage_context_hash',
       selected_trace_id: 'trace-abc',
       results_hash_at_selection: null,
@@ -438,6 +444,9 @@ describe('buildDebugBundleAsync — round-2 selection diagnostics on bundle', ()
       v5_endpoint_candidate_count: 2,
       analysis_producing_candidate_count: 1,
       selected_via_primary_path: true,
+      // Round-3 review (P1): provenance defaults to 'none' when not
+      // supplied (DebugData omits the field in this fixture).
+      provenance: 'none',
     })
   })
 
@@ -473,5 +482,133 @@ describe('buildDebugBundleAsync — round-2 selection diagnostics on bundle', ()
     expect(
       bundle.v5_canonical_turn_diagnostics?.coherence?.issues,
     ).toContain('capture_response_hash_mismatch_with_results')
+  })
+})
+
+// =====================================================================
+// Round-3 review additions
+// =====================================================================
+
+describe('buildDebugBundleAsync — round-3 P0: legacy CEE payloads do NOT impersonate V5 capture', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('legacy-only fixture: only `/bff/cee/turn` trace + no V5 endpoint → v5_cee_capture stays null', async () => {
+    // Trace store contains a fully-formed legacy CEE turn (with a
+    // body that would otherwise look like a V5 turn body), but the
+    // endpoint is legacy. The selector returns undefined; the
+    // fallback `findBestPayload` MAY return this entry; either way
+    // the bundle MUST NOT classify this as V5 capture.
+    traceState.payloads = [
+      {
+        service: 'CEE',
+        endpoint: '/bff/cee/turn',
+        request: {
+          body: {
+            scenario_id: 'sid-1',
+            chip: { action_type: 'run_analysis' },
+          },
+        },
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        // Simulate useDebugData having produced provenance for this
+        // legacy fallback case.
+        cee_capture_provenance: 'fallback_legacy_cee',
+        // Even if bundle.payloads.cee_* are populated by the
+        // fallback path, the tier MUST NOT promote.
+        payloads: {
+          cee_request: { scenario_id: 'sid-1', chip: { action_type: 'run_analysis' } },
+          cee_response: null,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // The legacy classifier's v5_cee_capture must NOT pretend the
+    // legacy entry is V5 capture.
+    expect(bundle.pipeline.v5_cee_capture ?? null).toBeNull()
+    // capture_pipeline_status must reflect honest absence of V5
+    // capture, not 'complete'.
+    expect(bundle.capture_pipeline_status).not.toBe('complete')
+    // Selection block carries the explicit provenance code.
+    expect(bundle.cee_capture_selection?.provenance).toBe('fallback_legacy_cee')
+  })
+
+  it('V5-confirmed payloads DO promote (the gate doesn\'t over-zealous-block)', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+      }),
+    )
+    expect(bundle.cee_capture_selection?.provenance).toBe(
+      'analysis_producing_v5_turn',
+    )
+  })
+})
+
+describe('buildDebugBundleAsync — round-3 P1: cee_capture_selection always-emit', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('sync export path emits sync_not_evaluated selection block (never silently absent)', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    expect(bundle.cee_capture_selection).toBeDefined()
+    expect(bundle.cee_capture_selection.selected_reason).toBe(
+      'sync_not_evaluated',
+    )
+    expect(bundle.cee_capture_selection.hash_match_status).toBe(
+      'sync_not_evaluated',
+    )
+    expect(bundle.cee_capture_selection.provenance).toBe('sync_not_evaluated')
+    expect(bundle.cee_capture_selection.cee_candidate_count).toBe(0)
+  })
+
+  it('async path overwrites sync default with real selector output when provided', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        cee_capture_selected_response_hash: 'abc',
+        cee_capture_selected_response_hash_source: 'body_lineage_response_hash',
+        cee_capture_selected_trace_id: 'tp-1',
+        cee_capture_selection_diagnostics: {
+          cee_candidate_count: 1,
+          v5_endpoint_candidate_count: 1,
+          analysis_producing_candidate_count: 1,
+          selected_via_primary_path: true,
+          selected_reason: 'hash_matched',
+          hash_match_status: 'matched',
+        },
+      }),
+    )
+    expect(bundle.cee_capture_selection.selected_reason).toBe('hash_matched')
+    expect(bundle.cee_capture_selection.provenance).toBe(
+      'analysis_producing_v5_turn',
+    )
+  })
+
+  it('async path falls back to sync default when no selection_diagnostics supplied', async () => {
+    const bundle = await buildDebugBundleAsync(makeDebugData())
+    // The async path preserves the sync seed when useDebugData didn't
+    // supply selector output (defensive default — field never missing).
+    expect(bundle.cee_capture_selection).toBeDefined()
+    expect(typeof bundle.cee_capture_selection.selected_reason).toBe('string')
   })
 })

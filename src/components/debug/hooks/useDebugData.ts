@@ -918,6 +918,18 @@ export interface DebugData {
     hash_match_status: string
   }
 
+  /**
+   * Round-3 review (P1): provenance of `bundle.payloads.cee_request`/
+   * `cee_response` so downstream diagnostics never confuse legacy
+   * CEE entries with canonical V5 capture. Drives
+   * `determineCaptureTier`'s gate on `bundle_payloads` promotion.
+   */
+  cee_capture_provenance?:
+    | 'analysis_producing_v5_turn'
+    | 'fallback_v5_turn'
+    | 'fallback_legacy_cee'
+    | 'none'
+
   /** Gate statuses */
   gates: GateData[]
 
@@ -3564,9 +3576,52 @@ export function useDebugData(): DebugData {
       currentScenarioId,
       resultsHash,
     )
+    // Fallback path: when the analysis-producing V5 selector returns
+    // undefined, fall through to `findBestPayload` so V1 / non-analysis
+    // V5 turns still surface honestly.
+    const fallbackCeePayload =
+      analysisProducing.selected === undefined
+        ? findBestPayload(tracedPayloads, 'CEE')
+        : undefined
     const ceePayload =
       (analysisProducing.selected as TracedPayload | undefined) ??
-      findBestPayload(tracedPayloads, 'CEE')
+      fallbackCeePayload
+
+    // Round-3 review (P1): cee_capture_provenance — records WHICH
+    // selector path produced `bundle.payloads.cee_*`. Downstream
+    // diagnostics (specifically `determineCaptureTier`) use this to
+    // avoid mistakenly promoting legacy CEE payloads into the
+    // `bundle_payloads` tier (which implies V5 capture).
+    //
+    //   - `analysis_producing_v5_turn`: selector primary path, V5
+    //     endpoint, analysis-producing turn. Strongest provenance.
+    //   - `fallback_v5_turn`: fallback found a V5 endpoint turn but
+    //     it wasn't analysis-producing. Still V5, but the selector
+    //     primary path didn't claim it.
+    //   - `fallback_legacy_cee`: fallback returned a non-V5 CEE
+    //     entry (legacy `/bff/cee/turn`, draft-graph, prompt-warm).
+    //     MUST NOT be promoted into V5 capture downstream.
+    //   - `none`: no CEE payload at all.
+    let ceeCaptureProvenance:
+      | 'analysis_producing_v5_turn'
+      | 'fallback_v5_turn'
+      | 'fallback_legacy_cee'
+      | 'none'
+    if (analysisProducing.selected !== undefined) {
+      // Selector applies V5 endpoint scoping, so any non-undefined
+      // result is verified V5.
+      ceeCaptureProvenance = 'analysis_producing_v5_turn'
+    } else if (fallbackCeePayload !== undefined) {
+      const ep =
+        typeof fallbackCeePayload.endpoint === 'string'
+          ? fallbackCeePayload.endpoint
+          : ''
+      ceeCaptureProvenance = ep.includes('/orchestrate/v2/turn')
+        ? 'fallback_v5_turn'
+        : 'fallback_legacy_cee'
+    } else {
+      ceeCaptureProvenance = 'none'
+    }
     const plotPayload = findBestPayload(tracedPayloads, 'PLoT')
     const islPayload = findBestPayload(tracedPayloads, 'ISL')
     const m2Payload = findBestPayload(tracedPayloads, 'M2')
@@ -3856,6 +3911,8 @@ export function useDebugData(): DebugData {
         hash_match_status:
           analysisProducing.selection_diagnostics.hash_match_status,
       },
+      // Round-3 review (P1): provenance of bundle.payloads.cee_*.
+      cee_capture_provenance: ceeCaptureProvenance,
       gates,
       validation,
       winningOption,

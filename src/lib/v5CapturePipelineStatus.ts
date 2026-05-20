@@ -12,6 +12,10 @@
  */
 
 import type { AnalysisStateSource } from '../canvas/hooks/useAnalysisStateSource'
+// Round-3 review (P1): shared V5 CEE detection helpers. Re-using
+// these here prevents the case-sensitivity drift between selector
+// and failed-record detection that the round-3 reviewer flagged.
+import { isV5TurnEndpoint } from './analysisProducingCeeTurn'
 
 export type CapturePipelineStatus =
   | 'complete'
@@ -327,10 +331,10 @@ export function findLatestV5TurnEntry<
     response?: { body?: unknown }
   },
 >(payloads: ReadonlyArray<T>): T | null {
-  const v5 = payloads.filter((p) => {
-    const endpoint = typeof p.endpoint === 'string' ? p.endpoint : ''
-    return p.service === 'CEE' && endpoint.includes('/orchestrate/v2/turn')
-  })
+  // Round-3 review (P1): use the SHARED helper (case-insensitive CEE +
+  // V5 endpoint scoping) so the selector, failed-record detection,
+  // latest-turn lookup, and bundle-tier resolution cannot drift.
+  const v5 = payloads.filter(isV5TurnEndpoint)
   if (v5.length === 0) return null
 
   // Tier 1: a parseable response body is present (most authoritative).
@@ -388,11 +392,11 @@ export function detectFailedHttpRecord(
   }>,
 ): FailedHttpRecord {
   for (const p of payloads) {
-    // Scope filter: only V5 CEE turn records influence V5 capture status.
-    const endpoint = typeof p.endpoint === 'string' ? p.endpoint : ''
-    const isV5CeeTurn =
-      p.service === 'CEE' && endpoint.includes('/orchestrate/v2/turn')
-    if (!isV5CeeTurn) continue
+    // Scope filter: only V5 CEE turn records influence V5 capture
+    // status. Round-3 review (P1): use the SHARED case-insensitive
+    // helper so a `cee`-cased entry is treated identically by the
+    // selector and the failure detector.
+    if (!isV5TurnEndpoint(p)) continue
 
     const sourceFlag =
       typeof p.source === 'string' && PROXY_NETWORK_SOURCES.has(p.source)

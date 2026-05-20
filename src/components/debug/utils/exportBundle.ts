@@ -1316,13 +1316,13 @@ interface DebugBundle {
    * WHY this turn was selected (selection_diagnostics) — surfacing
    * the ranking decision without exporting raw payload content.
    *
-   * Sibling of `payload_inspection_status` rather than a nested field
-   * inside `v5_canonical_turn_diagnostics` so the assembler interface
-   * stays additive. Always emitted on the async path; absent on the
-   * sync path (`buildDebugBundle`) since the selector consumes
-   * canvas-store state.
+   * Round-3 review (P1): NON-OPTIONAL. The sync export path emits a
+   * `sync_not_evaluated` block (all counts = 0, selected_reason =
+   * 'sync_not_evaluated') so consumers never need absence-based logic.
+   * The async path overwrites with real selector output. Same
+   * always-emit semantics as `payload_inspection_status`.
    */
-  cee_capture_selection?: {
+  cee_capture_selection: {
     /** Captured response_hash for the selected entry, or null. */
     selected_response_hash: string | null
     /**
@@ -1350,6 +1350,19 @@ interface DebugBundle {
     analysis_producing_candidate_count: number
     /** Whether the primary selector path returned a candidate. */
     selected_via_primary_path: boolean
+    /**
+     * Round-3 review (P1): provenance of `bundle.payloads.cee_*`.
+     * Surfaces here AND on the cee_capture_selection diagnostic so
+     * reviewers see in one place WHICH selector path produced the
+     * payload — and downstream `determineCaptureTier` reads the same
+     * value to gate `bundle_payloads` tier promotion.
+     */
+    provenance:
+      | 'analysis_producing_v5_turn'
+      | 'fallback_v5_turn'
+      | 'fallback_legacy_cee'
+      | 'none'
+      | 'sync_not_evaluated'
   }
 }
 
@@ -2719,6 +2732,25 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
       resolved_app_env: '',
       reason: 'inspection_status_unavailable',
     },
+
+    // Round-3 review (P1) — `cee_capture_selection` is NON-OPTIONAL.
+    // Sync path emits a `sync_not_evaluated` block (the selector
+    // consumes canvas-store state and the trace store, which the
+    // sync path cannot reach). Async path overwrites with real
+    // selector output. Reviewers never need absence-based logic.
+    cee_capture_selection: {
+      selected_response_hash: null,
+      selected_response_hash_source: null,
+      selected_trace_id: null,
+      results_hash_at_selection: null,
+      hash_match_status: 'sync_not_evaluated',
+      selected_reason: 'sync_not_evaluated',
+      cee_candidate_count: 0,
+      v5_endpoint_candidate_count: 0,
+      analysis_producing_candidate_count: 0,
+      selected_via_primary_path: false,
+      provenance: 'sync_not_evaluated',
+    },
   }
 }
 
@@ -3056,6 +3088,21 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // capture object requires evidence); only the snapshot uses
       // 'store' when capture is absent but a fact exists.
       factPresentForScenario: false,
+      // Round-3 review (P0): bundle.payloads.cee_* are only V5-confirmed
+      // when the source was the analysis-producing selector (primary)
+      // or the fallback found a V5-endpoint turn. Legacy CEE entries
+      // surfaced via the findBestPayload fallback path arrive with
+      // provenance='fallback_legacy_cee' and MUST NOT impersonate V5
+      // capture by being promoted to the `bundle_payloads` tier.
+      // Defaults to V5-confirmed when provenance is undefined
+      // (non-migrated callers, including fixture-driven tests pre-
+      // dating this PR) so prior behaviour is preserved. The block
+      // only TIGHTENS when provenance is explicitly set to
+      // `fallback_legacy_cee` or `none`.
+      bundlePayloadsAreV5Confirmed:
+        data.cee_capture_provenance === undefined ||
+        data.cee_capture_provenance === 'analysis_producing_v5_turn' ||
+        data.cee_capture_provenance === 'fallback_v5_turn',
     })
 
     // Derive request_present / response_present from the SAME tier as
@@ -3238,6 +3285,13 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // evidence — successful service records fall through.
       serviceMetadataV5FailurePresent: serviceMetadataV5Failure,
       factPresentForScenario: sourceResult.factPresentForScenario,
+      // Round-3 review (P0): same provenance gate as the first try
+      // block — bundle.payloads.cee_* must be V5-confirmed before
+      // promoting to the `bundle_payloads` tier. Legacy CEE entries
+      // fall through to `store` / `none` honestly.
+      bundlePayloadsAreV5Confirmed:
+        data.cee_capture_provenance === 'analysis_producing_v5_turn' ||
+        data.cee_capture_provenance === 'fallback_v5_turn',
     })
 
     const capturePipeline = classifyV5CapturePipelineStatus({
@@ -3267,10 +3321,11 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
 
-    // Round-2 review (P1 + IMP): surface hash-mismatch detail +
-    // selection diagnostics on the bundle. Always emit when the
-    // selector ran; the field's absence is the signal that the
-    // selector didn't run (sync export path).
+    // Round-2 review (P1 + IMP) + Round-3 (P1): surface hash-mismatch
+    // detail + selection diagnostics + provenance on the bundle.
+    // The sync-path default carries `sync_not_evaluated` codes; we
+    // overwrite them progressively as data fields are available, so
+    // consumers never face a missing block.
     if (data.cee_capture_selection_diagnostics !== undefined) {
       bundle.cee_capture_selection = {
         selected_response_hash:
@@ -3292,6 +3347,21 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
             .analysis_producing_candidate_count,
         selected_via_primary_path:
           data.cee_capture_selection_diagnostics.selected_via_primary_path,
+        // Round-3 review (P1): provenance lives on the selection
+        // block so reviewers see in one place WHICH path produced
+        // the cee payload (analysis-producing V5, fallback V5, legacy
+        // CEE, or none).
+        provenance: data.cee_capture_provenance ?? 'none',
+      }
+    } else if (data.cee_capture_provenance !== undefined) {
+      // Provenance was supplied without full selector diagnostics
+      // (test fixture path, or a future caller that only knows the
+      // provenance). Update only the provenance field; the rest of
+      // the sync default carries `sync_not_evaluated` markers so
+      // consumers see the partial nature honestly.
+      bundle.cee_capture_selection = {
+        ...bundle.cee_capture_selection,
+        provenance: data.cee_capture_provenance,
       }
     }
 

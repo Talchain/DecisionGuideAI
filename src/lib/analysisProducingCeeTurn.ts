@@ -93,13 +93,23 @@ export const V5_TURN_ENDPOINT_PATTERN = '/orchestrate/v2/turn'
  * Where `readResponseHash` found the hash. Used by the bundle to
  * emit a `hash_source` diagnostic alongside the mismatch, so
  * reviewers can identify which canonical CEE shape was observed.
+ *
+ * Round-3 review (P0): `body_lineage_context_hash` was REMOVED from
+ * this enum. `lineage.context_hash` is the canonical INPUT context
+ * fingerprint, not the response hash — it changes whenever the input
+ * graph changes regardless of response identity. Comparing it
+ * against `results.hash` (which is the response-side identity from
+ * `mapV5AnalysisToReport`) produces false positives AND false
+ * negatives. Only true response-hash fields are surfaced. When no
+ * real response_hash is present, hash evidence is reported as
+ * unavailable rather than spuriously matched/mismatched on
+ * context_hash.
  */
 export type ResponseHashSource =
   | 'body_root_response_hash'
   | 'body_meta_response_hash'
   | 'body_analysis_state_meta_response_hash'
   | 'body_lineage_response_hash'
-  | 'body_lineage_context_hash'
   | 'body_blocks_analysis_result_response_hash'
   | 'header_x_olumi_response_hash'
 
@@ -173,20 +183,34 @@ export interface AnalysisProducingSelectionResult {
  * Case-insensitive CEE service filter. Trace recorders should set
  * `service: 'CEE'` but historical entries / future renaming may use
  * `'cee'` or mixed case — match defensively.
+ *
+ * EXPORTED as the single source of truth (round-3 review P1):
+ * `findLatestV5TurnEntry` and `detectFailedHttpRecord` in
+ * `v5CapturePipelineStatus.ts` used a strict `=== 'CEE'` check which
+ * disagreed with the selector. Re-use this helper from every V5 trace
+ * detection point so the matching cannot drift again.
  */
-function isCeeService(p: SelectorTracedPayload): boolean {
+export function isCeeService(p: {
+  service?: string
+}): boolean {
   return (
     typeof p.service === 'string' && p.service.toUpperCase() === 'CEE'
   )
 }
 
 /**
- * V5 turn endpoint scope. Same predicate as
- * `v5CapturePipelineStatus.ts:isV5CeeRecord` (CEE service + endpoint
- * contains `/orchestrate/v2/turn`). Treats missing endpoint as
- * NON-V5 — defensive, prefers honesty to optimism.
+ * V5 turn endpoint scope. CEE service + endpoint contains
+ * `/orchestrate/v2/turn` (matches both the `/bff/orchestrate/v2/turn`
+ * proxy and the direct `https://.../orchestrate/v2/turn` endpoints).
+ * Treats missing endpoint as NON-V5 — defensive, prefers honesty to
+ * optimism.
+ *
+ * EXPORTED as the single source of truth (round-3 review P1).
  */
-function isV5TurnEndpoint(p: SelectorTracedPayload): boolean {
+export function isV5TurnEndpoint(p: {
+  service?: string
+  endpoint?: string
+}): boolean {
   if (!isCeeService(p)) return false
   return typeof p.endpoint === 'string' &&
     p.endpoint.includes(V5_TURN_ENDPOINT_PATTERN)
@@ -198,6 +222,12 @@ function isV5TurnEndpoint(p: SelectorTracedPayload): boolean {
  *   - `p.turnType` (recorder-set field)
  *   - `request.body.turnType`
  *   - `request.body.turn_type` (snake_case)
+ *   - `request.body._turn_type` — request-builder internal
+ *     discriminator (`OrchestratorTurnRequest._turn_type`). Stripped
+ *     before network send but trace recorders that capture pre-strip
+ *     will only have this signal. Round-3 review (P1) — silently
+ *     missed analysis-producing turns when the body had been
+ *     captured before stripping.
  *   - `request.body.action_type`
  *   - `request.body.chip.action_type` (V5 chip-initiated turns)
  * Returns the first non-empty string found, or null.
@@ -214,6 +244,10 @@ export function readTurnOrActionType(
   const candidates: Array<unknown> = [
     rec.turnType,
     rec.turn_type,
+    // _turn_type — request-builder internal discriminator stripped
+    // before send; trace stores that capture pre-strip will surface
+    // it here. Round-3 review (P1).
+    rec._turn_type,
     rec.action_type,
   ]
   for (const candidate of candidates) {
@@ -233,31 +267,31 @@ export function readTurnOrActionType(
 
 /**
  * Defensive response-hash read. Returns the FIRST non-empty hash
- * found AND the source code identifying WHERE it was read from. The
- * priority order is most-specific-first so reviewers can rely on the
- * source label to disambiguate fixtures:
+ * found AND the source code identifying WHERE it was read from.
  *
- *   1. `response.body.lineage.response_hash` — explicit canonical
- *      response hash on the lineage block (reviewer P0 ask).
- *   2. `response.body.lineage.context_hash` — current canonical CEE
- *      identity hash (observed in fixture
- *      `cee-orchestrator-response.json`). Defensible alias for
- *      `response_hash` until CEE migrates.
- *   3. `response.body.analysis_state.meta.response_hash` —
+ * Round-3 review (P0): `lineage.context_hash` is DELIBERATELY NOT
+ * read here. `context_hash` is the input-context fingerprint
+ * (changes when the input graph changes); `results.hash` is the
+ * response-side identity from `mapV5AnalysisToReport.response_hash`.
+ * The two operate on different inputs and CAN agree by accident or
+ * disagree without indicating a real mismatch. Reading context_hash
+ * as a "response hash" produces false positives + false negatives;
+ * the bundle now reports hash evidence as unavailable when no real
+ * response_hash is present.
+ *
+ * Priority (most-specific first):
+ *   1. `response.body.lineage.response_hash` — canonical response
+ *      hash on the lineage block (forward-compat key).
+ *   2. `response.body.analysis_state.meta.response_hash` —
  *      analysis-state-scoped hash on V5 analysis turns.
- *   4. `response.body.meta.response_hash` — root meta.
- *   5. `response.body.response_hash` — root.
- *   6. `response.body.blocks[].response_hash` on an `analysis_result`
+ *   3. `response.body.meta.response_hash` — root meta.
+ *   4. `response.body.response_hash` — root.
+ *   5. `response.body.blocks[].response_hash` on an `analysis_result`
  *      block (PR #147 sidecar shape).
- *   7. `response.headers['x-olumi-response-hash']` — header echo,
+ *   6. `response.headers['x-olumi-response-hash']` — header echo,
  *      case-insensitive.
  *
- * Returns null when no hash anywhere.
- *
- * Note on order: lineage-level keys are checked BEFORE root/meta
- * because the canonical CEE response carries identity at the lineage
- * block on the orchestrator boundary; a stale root-level hash on a
- * non-analysis turn must not outrank a lineage-fresh hash.
+ * Returns null when no real response_hash anywhere.
  */
 export function readResponseHashWithSource(
   p: SelectorTracedPayload,
@@ -266,7 +300,9 @@ export function readResponseHashWithSource(
   if (body && typeof body === 'object' && !Array.isArray(body)) {
     const root = body as Record<string, unknown>
 
-    // (1) + (2): lineage block.
+    // (1): lineage.response_hash. `lineage.context_hash` is DELIBERATELY
+    // NOT read here — it's the input fingerprint, not the response
+    // identity. See JSDoc above (round-3 P0).
     const lineage = root.lineage
     if (lineage && typeof lineage === 'object' && !Array.isArray(lineage)) {
       const lin = lineage as Record<string, unknown>
@@ -274,13 +310,9 @@ export function readResponseHashWithSource(
       if (typeof respHash === 'string' && respHash.length > 0) {
         return { hash: respHash, source: 'body_lineage_response_hash' }
       }
-      const ctxHash = lin.context_hash
-      if (typeof ctxHash === 'string' && ctxHash.length > 0) {
-        return { hash: ctxHash, source: 'body_lineage_context_hash' }
-      }
     }
 
-    // (3): analysis_state.meta.response_hash.
+    // (2): analysis_state.meta.response_hash.
     const analysisState = root.analysis_state
     if (
       analysisState &&
@@ -299,7 +331,7 @@ export function readResponseHashWithSource(
       }
     }
 
-    // (4): meta.response_hash.
+    // (3): meta.response_hash.
     const meta = root.meta
     if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
       const metaHash = (meta as Record<string, unknown>).response_hash
@@ -308,7 +340,7 @@ export function readResponseHashWithSource(
       }
     }
 
-    // (5): root.response_hash.
+    // (4): root.response_hash.
     if (
       typeof root.response_hash === 'string' &&
       root.response_hash.length > 0
@@ -316,7 +348,7 @@ export function readResponseHashWithSource(
       return { hash: root.response_hash, source: 'body_root_response_hash' }
     }
 
-    // (6): blocks[].response_hash on analysis_result.
+    // (5): blocks[].response_hash on analysis_result.
     const blocks = root.blocks
     if (Array.isArray(blocks)) {
       for (const b of blocks) {
@@ -335,7 +367,7 @@ export function readResponseHashWithSource(
     }
   }
 
-  // (7): header fallback (case-insensitive).
+  // (6): header fallback (case-insensitive).
   const headers = p.response?.headers
   if (headers && typeof headers === 'object') {
     for (const [key, value] of Object.entries(headers)) {
