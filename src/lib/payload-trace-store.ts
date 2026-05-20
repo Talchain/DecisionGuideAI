@@ -393,13 +393,24 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
       // entries that all looked like separate requests. The
       // response-side `recordResponsePayload` already updates by id;
       // this aligns the request-side behaviour.
+      //
+      // PR #156 round-3 (reviewer IMP #3): when upserting, move the
+      // entry to the FRONT of the array AND refresh `timestamp`.
+      // Pre-fix the in-place replace preserved position, which made
+      // position-based recency selectors (e.g. `findLatestV5TurnEntry`)
+      // show the stale array position even though the entry was
+      // freshly retried. Now position and timestamp both reflect the
+      // most-recent attempt — the upserted entry IS the canonical
+      // most-recent record.
       const existingIdx = state.payloads.findIndex((p) => p.id === payload.id)
       let newPayloads: TracedPayload[]
       if (existingIdx >= 0) {
-        // Replace in place, preserving array position so recency
-        // ordering doesn't shift.
-        newPayloads = [...state.payloads]
-        newPayloads[existingIdx] = payload
+        // Drop the old entry; the new payload (already timestamped
+        // at line 379 via Date.now()) goes to the front.
+        const withoutExisting = state.payloads.filter(
+          (_, i) => i !== existingIdx,
+        )
+        newPayloads = [payload, ...withoutExisting]
       } else {
         newPayloads = [payload, ...state.payloads]
         if (newPayloads.length > MAX_PAYLOADS) {

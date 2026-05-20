@@ -505,7 +505,62 @@ async function runSyncOnce(
     }
 
     // Phase 1 Section 4.1: Parse CEE debug headers (dev-only)
-    const result: V1SyncRunResponse = await response.json()
+    //
+    // PR #156 round-3 (reviewer IMP #1): a successful HTTP response
+    // (2xx) with invalid JSON used to fall through to the catch
+    // block, which recorded `status: 0, source: 'preflight_or_network'`
+    // — making a parse failure look like a network failure. Now we
+    // catch JSON parse errors here, record the real HTTP status +
+    // raw text body + ParseError diagnostic BEFORE throwing, and
+    // mark `responseRecorded` so the catch doesn't over-record.
+    let result: V1SyncRunResponse
+    try {
+      result = await response.json()
+    } catch (jsonErr) {
+      const errAny = jsonErr as { name?: string; message?: string }
+      let rawText: string | null = null
+      try {
+        rawText = await response.clone().text()
+      } catch {
+        // Body already consumed by `.json()` (depending on the
+        // runtime). Fall back to null.
+      }
+      const parseErrorHeaders: Record<string, string> = {}
+      try {
+        if (response.headers && typeof response.headers.forEach === 'function') {
+          response.headers.forEach((v, k) => {
+            parseErrorHeaders[k] = v
+          })
+        }
+      } catch {
+        // jsdom safety.
+      }
+      recordResponsePayload({
+        id: requestId,
+        // CRITICAL: real HTTP status, NOT 0 — the response WAS
+        // received successfully; only the body was unparseable.
+        status: response.status,
+        headers: parseErrorHeaders,
+        body: rawText,
+        duration: Date.now() - startTime,
+        error:
+          typeof errAny.message === 'string' ? errAny.message : undefined,
+        errorName: 'ParseError',
+        source: 'plot',
+      })
+      responseRecorded = true
+      // Re-throw as a V1 error so callers see a NETWORK_ERROR-like
+      // shape (existing contract) — but the trace store now carries
+      // the honest "200 + parse error" record.
+      throw {
+        code: 'PARSE_ERROR',
+        message:
+          typeof errAny.message === 'string'
+            ? errAny.message
+            : 'Failed to parse JSON response',
+        requestId,
+      } as V1Error
+    }
 
     // Warn if response shape is unexpected (logs warning, continues execution)
     warnOnInvalidApiResponse(V1SyncRunResponseSchema, result, 'PLoT v1/run')

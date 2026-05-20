@@ -56,6 +56,15 @@ import {
   type SelectionReason,
   type HashMatchStatus,
 } from '../../../lib/analysisProducingCeeTurn'
+// PR #156 round-3 (reviewer BLOCKING #2): analysis-producing PLoT
+// selector. Replaces generic `findBestPayload(tracedPayloads, 'PLoT')`
+// so a later non-analysis PLoT entry can't displace the actual run
+// response. Prefers V1 engine > V1 stream > V2 run, completed-2xx
+// with body.
+import {
+  findAnalysisProducingPlotTurn,
+  type PlotTraceTier,
+} from '../../../lib/analysisProducingPlotTurn'
 import {
   isV5TurnEndpoint,
   matchServiceCaseInsensitive,
@@ -960,15 +969,20 @@ export interface DebugData {
   plot_candidate_count_v2?: number
   selected_plot_trace_id?: string | null
   /**
-   * PR #156 round-2 (reviewer IMP #1): the SELECTED PLoT trace's
-   * endpoint string and completion status. Bundle assembler uses
-   * these to derive `analysis_evidence_source` from the SELECTED
-   * trace's provenance — not from aggregate counts (which could
-   * disagree, e.g. a stale V1 entry exists but the selector picked
-   * a V2 entry).
+   * PR #156 round-2 (reviewer IMP #1) + round-3 (reviewer BLOCKING #1
+   * + IMP #2): the SELECTED PLoT trace's endpoint, status, completion
+   * flag, body-present flag, tier, and usable-live-evidence flag.
+   * Bundle assembler uses these to derive `analysis_evidence_source`
+   * from the SELECTED trace's PROVENANCE + COMPLETION + BODY — not
+   * from aggregate counts and not from endpoint shape alone.
    */
   selected_plot_trace_endpoint?: string | null
+  selected_plot_trace_status?: number | null
+  selected_plot_trace_completed?: boolean
   selected_plot_trace_completed_2xx?: boolean
+  selected_plot_trace_response_body_present?: boolean
+  selected_plot_trace_tier?: PlotTraceTier | null
+  selected_plot_trace_is_usable_live_evidence?: boolean
   /** Aggregate trace-store snapshot at the time `useDebugData` ran. */
   payload_trace_store_summary?: {
     total_entries: number
@@ -3694,7 +3708,16 @@ export function useDebugData(): DebugData {
     } else {
       ceeCaptureProvenance = 'none'
     }
-    const plotPayload = findBestPayload(tracedPayloads, 'PLoT')
+    // PR #156 round-3 (reviewer BLOCKING #2): use the analysis-
+    // producing PLoT selector. Pre-fix `findBestPayload(_, 'PLoT')`
+    // would pick the most recent completed PLoT entry of ANY kind
+    // — a late validate / probe / limits call could displace the
+    // actual `/v1/run` analysis response. The new selector ranks
+    // V1 engine > V1 stream > V2 run, requiring completed-2xx with
+    // body for live-evidence classification.
+    const plotSelection = findAnalysisProducingPlotTurn(tracedPayloads)
+    const plotPayload =
+      plotSelection.selected as TracedPayload | null ?? undefined
     const islPayload = findBestPayload(tracedPayloads, 'ISL')
     const m2Payload = findBestPayload(tracedPayloads, 'M2')
 
@@ -3716,17 +3739,39 @@ export function useDebugData(): DebugData {
     const selectedPlotTraceId =
       typeof plotPayload?.id === 'string' ? plotPayload.id : null
 
-    // PR #156 round-2 (reviewer IMP #1): thread the SELECTED PLoT
-    // trace's endpoint + 2xx-completed flag through to the bundle so
-    // `analysis_evidence_source` is derived from the SELECTED trace's
-    // provenance — not from aggregate counts.
+    // PR #156 round-2 (reviewer IMP #1) + round-3 (reviewer BLOCKING #1):
+    // thread the SELECTED PLoT trace's endpoint + completed-2xx flag
+    // + body-presence flag + tier + usable-live-evidence flag through
+    // to the bundle. The bundle uses these to gate
+    // `analysis_evidence_source` on REAL completion + body, not just
+    // endpoint shape.
     const selectedPlotTraceEndpoint =
       typeof plotPayload?.endpoint === 'string' ? plotPayload.endpoint : null
+    const selectedPlotTraceStatus =
+      typeof plotPayload?.status === 'number' ? plotPayload.status : null
+    const selectedPlotTraceCompleted = plotPayload?.completed === true
     const selectedPlotTraceCompleted2xx =
-      plotPayload?.completed === true &&
-      typeof plotPayload?.status === 'number' &&
-      plotPayload.status >= 200 &&
-      plotPayload.status < 300
+      selectedPlotTraceCompleted &&
+      selectedPlotTraceStatus !== null &&
+      selectedPlotTraceStatus >= 200 &&
+      selectedPlotTraceStatus < 300
+    // Body-presence signal: non-null, object, non-empty. Used by the
+    // bundle assembler to gate the live-evidence label so a streaming
+    // capture that ended without a COMPLETE event (body still null)
+    // is NOT mislabeled as live.
+    const plotResponseBody = plotPayload?.response?.body
+    const selectedPlotTraceResponseBodyPresent =
+      plotResponseBody !== null &&
+      plotResponseBody !== undefined &&
+      typeof plotResponseBody === 'object' &&
+      !Array.isArray(plotResponseBody) &&
+      Object.keys(plotResponseBody as Record<string, unknown>).length > 0
+    // From the analysis-producing selector: usable-live-evidence
+    // means tier matched AND completed-2xx AND has body. Single
+    // source of truth for the bundle's source-rollup gate.
+    const selectedPlotTraceIsUsableLiveEvidence: boolean =
+      plotSelection.selected_is_usable_live_evidence
+    const selectedPlotTraceTier: PlotTraceTier | null = plotSelection.tier
 
     // Round-8: aggregate trace-store summary (counts only, no bodies).
     // Helps reviewers distinguish "store empty" vs "store had entries
@@ -4050,10 +4095,18 @@ export function useDebugData(): DebugData {
       plot_candidate_count_v1_engine: plotCandidateCountV1Engine,
       plot_candidate_count_v2: plotCandidateCountV2,
       selected_plot_trace_id: selectedPlotTraceId,
-      // PR #156 round-2 (reviewer IMP #1): SELECTED trace's endpoint
-      // + completed-2xx flag for bundle source classification.
+      // PR #156 round-2 (reviewer IMP #1) + round-3 (reviewer
+      // BLOCKING #1 + IMP #2): SELECTED trace's full provenance for
+      // the bundle's source classification + diagnostic surface.
       selected_plot_trace_endpoint: selectedPlotTraceEndpoint,
+      selected_plot_trace_status: selectedPlotTraceStatus,
+      selected_plot_trace_completed: selectedPlotTraceCompleted,
       selected_plot_trace_completed_2xx: selectedPlotTraceCompleted2xx,
+      selected_plot_trace_response_body_present:
+        selectedPlotTraceResponseBodyPresent,
+      selected_plot_trace_tier: selectedPlotTraceTier,
+      selected_plot_trace_is_usable_live_evidence:
+        selectedPlotTraceIsUsableLiveEvidence,
       payload_trace_store_summary: payloadTraceStoreSummary,
       gates,
       validation,
