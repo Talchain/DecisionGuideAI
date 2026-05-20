@@ -1377,3 +1377,163 @@ describe('buildDebugBundleAsync — round-7 IMP: manual-style happy-path fixture
     expect(issues).not.toContain('invalid_selected_trace_id')
   })
 })
+
+// =====================================================================
+// Round-8 (follow-up to PR #153) — V1 PLoT engine capture
+// =====================================================================
+
+describe('buildDebugBundleAsync — round-8: PLoT v1 engine capture surfaces in the bundle (Run-analysis flow)', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('Run-analysis-only fixture: V1 PLoT trace + no CEE → bundle populates plot_*, labels analysis_evidence_source=live_plot_v1_engine_turn, scientific_validation upgrades off insufficient_raw_evidence', async () => {
+    // Trace store contains a SINGLE successful V1 PLoT engine entry.
+    // No CEE turn fired (typical Run-analysis flow).
+    const plotV1ResponseBody = {
+      run_id: 'run-v1-1',
+      // RAW_PAYLOAD_INDICATIVE_KEYS — any of these flips
+      // `scientific_validation.source` to `'live_raw_payloads'`.
+      factor_sensitivity: [{ factor_id: 'f1', impact: 0.4 }],
+      // PLoT science fields the user wants discoverable from raw
+      // payloads (the bundle just passes the body through;
+      // validators read it from `plotResponse`).
+      flip_thresholds: [
+        { option: 'A', margin: 0.05, margin_sensitivity: 0.12 },
+      ],
+      flip_thresholds_status: 'computed',
+      flip_thresholds_margin_status: 'observed',
+      flip_thresholds_margin_coverage: 'full',
+      auto_noise_applied: true,
+      auto_noise_provenance: 'engine',
+      response_hash: 'plot-v1-hash',
+    }
+    traceState.payloads = [
+      {
+        id: 'tp-v1-plot',
+        service: 'PLoT',
+        endpoint: '/bff/engine/v1/run',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: plotV1ResponseBody },
+      },
+    ]
+    canvasState.results = {
+      report: { recommendation: 'A' },
+      hash: 'plot-v1-hash',
+      rawV2Response: null, // V1 path; no V2 raw response
+    }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        // useDebugData fills these from the trace store. Simulate the
+        // shape it would produce.
+        plot_candidate_count_v1_engine: 1,
+        plot_candidate_count_v2: 0,
+        selected_plot_trace_id: 'tp-v1-plot',
+        payload_trace_store_summary: {
+          total_entries: 1,
+          entries_by_service: { PLOT: 1 },
+          oldest_entry_age_ms: 50,
+        },
+        payloads: {
+          // useDebugData wires plot_request/plot_response from
+          // findBestPayload(tracedPayloads, 'PLoT').
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn-1' },
+          plot_response: plotV1ResponseBody,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    // PLoT payloads are populated.
+    expect(bundle.payloads.plot_request).not.toBeNull()
+    expect(bundle.payloads.plot_response).not.toBeNull()
+    // CEE absent (correct — Run-analysis flow doesn't fire CEE).
+    expect(bundle.payloads.cee_request).toBeNull()
+    expect(bundle.payloads.cee_response).toBeNull()
+
+    // analysis_evidence_source labels the flow honestly.
+    expect(bundle.analysis_evidence_source).toBe('live_plot_v1_engine_turn')
+
+    // Scientific validation upgrades. With `factor_sensitivity`
+    // present on the PLoT response, classifySource returns
+    // `'live_raw_payloads'` (existing PR #150 contract). Whether each
+    // validator reaches `observed`/`derived` from this minimal fixture
+    // depends on validator-specific field shapes; the BUNDLE-level
+    // assertion is just that the source flipped away from
+    // `'hydrated_report'`. Field-shape coverage is the validators'
+    // own test responsibility.
+    expect(bundle.scientific_validation?.source).toBe('live_raw_payloads')
+    expect(bundle.scientific_validation?.source).not.toBe('hydrated_report')
+
+    // CEE absence is EXPLAINED, not flagged as contradiction by
+    // itself. The new `cee_turn_absent_for_plot_v1_capture` issue is
+    // in the explanatory set (round-8 carve-out). Whether OTHER
+    // contradictions fire is unrelated — covered by the unit-level
+    // tests in `v5CapturePipelineStatus.spec.ts`. Here we just verify
+    // the new explanatory issue is emitted.
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).toContain('cee_turn_absent_for_plot_v1_capture')
+
+    // PLoT-side selection block reports counts and the selected id.
+    expect(bundle.plot_capture_selection.plot_candidate_count_v1_engine).toBe(1)
+    expect(bundle.plot_capture_selection.plot_candidate_count_v2).toBe(0)
+    expect(bundle.plot_capture_selection.selected_plot_trace_id).toBe('tp-v1-plot')
+
+    // Trace-store summary records what was in the store.
+    expect(bundle.payload_trace_store_summary.total_entries).toBe(1)
+    expect(bundle.payload_trace_store_summary.entries_by_service.PLOT).toBe(1)
+  })
+
+  it('Hydrated regression: empty trace + canvas results → analysis_evidence_source=hydrated_report, capture_pipeline_status stays hydrated_only', async () => {
+    canvasState.results = {
+      report: { recommendation: 'A' },
+      hash: 'reload-hash',
+      rawV2Response: null,
+    }
+    const bundle = await buildDebugBundleAsync(makeDebugData())
+
+    // Empty trace + hydrated results — PR #150 honest behaviour.
+    expect(bundle.payloads.plot_request).toBeNull()
+    expect(bundle.payloads.plot_response).toBeNull()
+    expect(bundle.payloads.cee_request).toBeNull()
+    expect(bundle.payloads.cee_response).toBeNull()
+    // Round-8 honest label: no live trace, canvas store has results
+    // → hydrated_report.
+    expect(bundle.analysis_evidence_source).toBe('hydrated_report')
+    // The CEE-centric capture_pipeline_status keeps PR #150 semantics
+    // — one of the honest non-complete codes (`hydrated_only` or
+    // `capture_missing` depending on the source-classifier's report
+    // detection). What matters here is it's NOT `complete`.
+    expect(['hydrated_only', 'capture_missing']).toContain(
+      bundle.capture_pipeline_status,
+    )
+    // No `cee_turn_absent_for_plot_v1_capture` issue when no PLoT
+    // V1 capture exists.
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).not.toContain('cee_turn_absent_for_plot_v1_capture')
+  })
+
+  it('payload_trace_store_summary always emitted (sync default = empty)', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    expect(bundle.payload_trace_store_summary).toBeDefined()
+    expect(bundle.payload_trace_store_summary.total_entries).toBe(0)
+    expect(bundle.payload_trace_store_summary.entries_by_service).toEqual({})
+    expect(bundle.payload_trace_store_summary.oldest_entry_age_ms).toBeNull()
+    expect(bundle.plot_capture_selection).toBeDefined()
+    expect(bundle.plot_capture_selection.plot_candidate_count_v1_engine).toBe(0)
+    expect(bundle.analysis_evidence_source).toBe('none')
+  })
+})

@@ -947,6 +947,23 @@ export interface DebugData {
     | 'fallback_legacy_cee'
     | 'none'
 
+  /**
+   * Round-8 (follow-up to PR #153): PLoT-side trace-store diagnostics.
+   * Computed from the same `tracedPayloads` snapshot the bundle reads
+   * from. The bundle assembler reads these to populate
+   * `analysis_evidence_source`, `payload_trace_store_summary`, and
+   * `plot_capture_selection`.
+   */
+  plot_candidate_count_v1_engine?: number
+  plot_candidate_count_v2?: number
+  selected_plot_trace_id?: string | null
+  /** Aggregate trace-store snapshot at the time `useDebugData` ran. */
+  payload_trace_store_summary?: {
+    total_entries: number
+    entries_by_service: Record<string, number>
+    oldest_entry_age_ms: number | null
+  }
+
   /** Gate statuses */
   gates: GateData[]
 
@@ -3669,6 +3686,54 @@ export function useDebugData(): DebugData {
     const islPayload = findBestPayload(tracedPayloads, 'ISL')
     const m2Payload = findBestPayload(tracedPayloads, 'M2')
 
+    // Round-8 (follow-up to PR #153): PLoT-side trace-store diagnostics
+    // — split PLoT entries by V1-engine vs V2 endpoint so the bundle
+    // can label `analysis_evidence_source` accurately. The selector
+    // already returns one `plotPayload`; here we also count candidates
+    // and surface the chosen id so the bundle's `plot_capture_selection`
+    // mirrors `cee_capture_selection`.
+    const plotEntries = tracedPayloads.filter(
+      (p) =>
+        typeof p.service === 'string' &&
+        p.service.toUpperCase() === 'PLOT',
+    )
+    const plotCandidateCountV1Engine = plotEntries.filter(
+      (p) =>
+        typeof p.endpoint === 'string' &&
+        (p.endpoint.includes('/v1/run') || p.endpoint.includes('/v1/stream')),
+    ).length
+    const plotCandidateCountV2 = plotEntries.filter(
+      (p) =>
+        typeof p.endpoint === 'string' && p.endpoint.includes('/v2/run'),
+    ).length
+    const selectedPlotTraceId =
+      typeof plotPayload?.id === 'string' ? plotPayload.id : null
+
+    // Round-8: aggregate trace-store summary (counts only, no bodies).
+    // Helps reviewers distinguish "store empty" vs "store had entries
+    // but service classification mismatched" — same disambiguation the
+    // round-7 P1 work added for the canonical-trace pin path.
+    const entriesByService: Record<string, number> = {}
+    let oldestTimestamp: number | null = null
+    for (const p of tracedPayloads) {
+      const svc =
+        typeof p.service === 'string' && p.service.length > 0
+          ? p.service.toUpperCase()
+          : 'unknown'
+      entriesByService[svc] = (entriesByService[svc] ?? 0) + 1
+      if (typeof p.timestamp === 'number') {
+        if (oldestTimestamp === null || p.timestamp < oldestTimestamp) {
+          oldestTimestamp = p.timestamp
+        }
+      }
+    }
+    const payloadTraceStoreSummary = {
+      total_entries: tracedPayloads.length,
+      entries_by_service: entriesByService,
+      oldest_entry_age_ms:
+        oldestTimestamp === null ? null : Date.now() - oldestTimestamp,
+    }
+
     // Extract ISL from PLoT downstream_calls if not found directly
     const islFromPlot = plotPayload?.response?.body
       ? extractIslFromPlotResponse(plotPayload.response)
@@ -3960,6 +4025,13 @@ export function useDebugData(): DebugData {
       },
       // Round-3 review (P1): provenance of bundle.payloads.cee_*.
       cee_capture_provenance: ceeCaptureProvenance,
+      // Round-8 (follow-up to PR #153): PLoT-side diagnostics. Computed
+      // above from the same `tracedPayloads` snapshot — same source of
+      // truth for the bundle assembler.
+      plot_candidate_count_v1_engine: plotCandidateCountV1Engine,
+      plot_candidate_count_v2: plotCandidateCountV2,
+      selected_plot_trace_id: selectedPlotTraceId,
+      payload_trace_store_summary: payloadTraceStoreSummary,
       gates,
       validation,
       winningOption,

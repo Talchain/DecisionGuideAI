@@ -13,6 +13,11 @@ import type {
   V1Error,
 } from './types'
 import { TIMEOUTS } from './constants'
+// PR follow-up to #153: record the streaming SSE request + completion
+// into the payload-trace-store so the debug bundle's PLoT selector can
+// find this entry. Gate-checked inside the helpers; closed gate makes
+// these calls no-ops.
+import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -77,9 +82,17 @@ export function runStream(
 
   const url = `${base}/v1/stream`
 
+  // PR follow-up to #153: generate a request id and propagate it via
+  // `X-Request-Id` so the bundle can correlate request and response
+  // sides of the trace-store entry. The sync path generates its id at
+  // `http.ts:352`; the streaming path previously had no id at all.
+  const requestId = crypto.randomUUID()
+  const startTime = Date.now()
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'text/event-stream',
+    'X-Request-Id': requestId,
   }
 
   // Extract idempotency key for header-only usage; do not send it in JSON body
@@ -89,6 +102,18 @@ export function runStream(
   if (idempotencyKey) {
     headers['Idempotency-Key'] = idempotencyKey
   }
+
+  // PR follow-up to #153: record the streaming request into the
+  // payload-trace store so the bundle's PLoT selector can find this
+  // turn. `detectService(endpoint)` inside `recordRequestPayload`
+  // classifies as `service: 'PLoT'` from the `/v1/stream` path.
+  recordRequestPayload({
+    id: requestId,
+    endpoint: url,
+    method: 'POST',
+    headers,
+    body: requestForBody,
+  })
 
   fetch(url, {
     method: 'POST',
@@ -166,9 +191,35 @@ export function runStream(
 
       // Clean up heartbeat timer
       if (heartbeatTimeout) clearTimeout(heartbeatTimeout)
+
+      // PR follow-up to #153: complete the trace-store entry on
+      // stream end. Streaming has no single response body, so we
+      // record metadata only (status + duration) with `body: null`.
+      recordResponsePayload({
+        id: requestId,
+        status: response.status,
+        headers: {},
+        body: null,
+        duration: Date.now() - startTime,
+        source: 'plot',
+      })
     })
     .catch((err) => {
       if (heartbeatTimeout) clearTimeout(heartbeatTimeout)
+      // PR follow-up to #153: complete the trace-store entry on the
+      // error path so the bundle reflects "stream attempted, failed"
+      // honestly. AbortError on cancel is silent on the user-facing
+      // handler but the trace still records the cancellation.
+      recordResponsePayload({
+        id: requestId,
+        status: 0,
+        headers: {},
+        body: null,
+        duration: Date.now() - startTime,
+        error: typeof err?.message === 'string' ? err.message : undefined,
+        errorName: typeof err?.name === 'string' ? err.name : undefined,
+        source: err?.name === 'AbortError' ? 'browser_timeout' : 'preflight_or_network',
+      })
       if (!isClosed) {
         if (err.name === 'AbortError') {
           // Cancelled - don't call onError

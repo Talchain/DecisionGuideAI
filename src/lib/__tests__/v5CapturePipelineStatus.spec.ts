@@ -45,6 +45,10 @@ function defaults(): V5CapturePipelineStatusInputs {
     // only fires when the bundle assembler attempted to pin a canonical
     // V5 trace and the pin failed validation.
     invalidSelectedTraceId: false,
+    // Round-8 (follow-up to PR #153) — closed by default. EXPLANATORY
+    // issue: fires when PLoT v1 capture present + no CEE turn. Does
+    // NOT force `coherence.state = 'contradictory'`.
+    plotV1CapturePresentWithoutCee: false,
   }
 }
 
@@ -777,5 +781,60 @@ describe('classifyV5CapturePipelineStatus — invalid_selected_trace_id (round-5
   it('does NOT emit when flag is false (default)', () => {
     const out = classifyV5CapturePipelineStatus(defaults())
     expect(out.coherence.issues).not.toContain('invalid_selected_trace_id')
+  })
+})
+
+// Round-8 (follow-up to PR #153): explanatory diagnostic for the
+// Run-analysis flow. PLoT v1 captured without a CEE turn.
+describe('classifyV5CapturePipelineStatus — cee_turn_absent_for_plot_v1_capture (round-8)', () => {
+  it('emits the explanatory issue when plotV1CapturePresentWithoutCee=true', () => {
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      plotV1CapturePresentWithoutCee: true,
+    })
+    expect(out.coherence.issues).toContain('cee_turn_absent_for_plot_v1_capture')
+  })
+
+  it('does NOT flip coherence.state to contradictory (explanatory, not contradiction)', () => {
+    // PR #150 + round-7 invariant: contradictions force `contradictory`.
+    // Round-8 carves out explanatory issues — they appear in
+    // `coherence.issues` but the state reflects the underlying status.
+    //
+    // We don't set `hasResultsReport: true` here because that would
+    // trigger the existing `results_rendered_from_store_without_capture`
+    // contradiction (which fires for any "results without live CEE
+    // capture" combination — unrelated to round-8). Isolating the
+    // new explanatory issue: defaults() + only the new flag.
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      plotV1CapturePresentWithoutCee: true,
+    })
+    expect(out.coherence.issues).toContain('cee_turn_absent_for_plot_v1_capture')
+    // The ONLY issue is the explanatory one → state is NOT contradictory.
+    expect(out.coherence.state).not.toBe('contradictory')
+  })
+
+  it('DOES flip to contradictory when explanatory issue coexists with a real contradiction', () => {
+    // Combination: PLoT V1 + no CEE (explanatory) AND a real
+    // contradiction (e.g. hash mismatch). The contradiction still
+    // forces `contradictory`; the explanatory issue remains in the
+    // list as additional context.
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      plotV1CapturePresentWithoutCee: true,
+      ceeCaptureResponseHashMismatch: true,
+    })
+    expect(out.coherence.issues).toContain('cee_turn_absent_for_plot_v1_capture')
+    expect(out.coherence.issues).toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+    expect(out.coherence.state).toBe('contradictory')
+  })
+
+  it('default (flag false) emits no explanatory issue', () => {
+    const out = classifyV5CapturePipelineStatus(defaults())
+    expect(out.coherence.issues).not.toContain(
+      'cee_turn_absent_for_plot_v1_capture',
+    )
   })
 })

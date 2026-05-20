@@ -29,6 +29,12 @@ import { parseCeeDebugHeaders } from '../../../canvas/utils/ceeDebugHeaders' // 
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../../lib/observability-headers'
 import { useGateStore } from '../../../lib/gate-state'
 import { V1SyncRunResponseSchema, warnOnInvalidApiResponse } from '../../../lib/api-schemas'
+// PR follow-up to #153: record the request side into the payload-trace
+// store so the debug bundle's PLoT selector can find this entry by
+// service + endpoint. Pre-fix only `recordBffResponsePayload` (line
+// 438) wrote to the store, which left the entry without `service` /
+// `endpoint` and the bundle silently rejected it.
+import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -414,6 +420,23 @@ async function runSyncOnce(
     )
     startTime = obsStartTime // Update outer scope for catch block
 
+    // PR follow-up to #153: record the request side into the payload-trace
+    // store BEFORE the fetch fires. Without this, the existing
+    // `recordBffResponsePayload` (below) created a store entry without
+    // `service` / `endpoint`, and the debug bundle's selector rejected
+    // the entry. With this call, `detectService(endpoint)` inside
+    // `recordRequestPayload` classifies the entry as `service: 'PLoT'`
+    // and the bundle's `findBestPayload(..., 'PLoT')` can find it.
+    // The gate (`payload_inspection_status.enabled`) is checked inside
+    // `recordRequestPayload`; a closed gate makes this a no-op.
+    recordRequestPayload({
+      id: requestId,
+      endpoint,
+      method: 'POST',
+      headers,
+      body: requestForBody,
+    })
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers,
@@ -453,6 +476,25 @@ async function runSyncOnce(
     // P2.3: Use requestId/endpoint/startTime from outer scope for correlation
     // Record error for observability
     recordBffError(requestId, endpoint, startTime, err)
+
+    // PR follow-up to #153: also complete the trace-store entry on the
+    // error path so the bundle shows an honest "request fired, response
+    // failed" record rather than a half-populated entry. Status 0
+    // denotes "no HTTP response" (network failure or abort).
+    const errAny = err as { name?: string; message?: string; code?: string }
+    const isAbort = err instanceof Error && err.name === 'AbortError'
+    recordResponsePayload({
+      id: requestId,
+      status: 0,
+      headers: {},
+      body: null,
+      duration: Date.now() - startTime,
+      error:
+        typeof errAny.message === 'string' ? errAny.message : undefined,
+      errorName:
+        typeof errAny.name === 'string' ? errAny.name : undefined,
+      source: isAbort ? 'browser_timeout' : 'preflight_or_network',
+    })
 
     if (err instanceof Error && err.name === 'AbortError') {
       throw {

@@ -1445,6 +1445,62 @@ interface DebugBundle {
    * asserts this invariant directly.
    */
   selected_cee_trace_id: string | null
+
+  /**
+   * Round-8 (follow-up to PR #153): top-level evidence-source signal
+   * distinct from `capture_pipeline_status` (which is CEE-centric).
+   * Tells reviewers in one field what kind of live evidence backs this
+   * bundle:
+   *
+   *   - `live_v5_cee_turn`         — V5 CEE turn captured (chat / chip)
+   *   - `live_plot_v1_engine_turn` — Run-analysis fired PLoT v1 engine;
+   *                                  no CEE turn (legitimate Run-analysis flow)
+   *   - `live_plot_v2_capture`     — V4 V2 PLoT path captured
+   *   - `hydrated_report`          — reload / saved state, no live trace
+   *   - `none`                     — no analysis evidence at all
+   *
+   * Honesty contract: when this is `live_plot_v1_engine_turn`, the
+   * absence of `cee_request`/`cee_response` is EXPECTED (Run-analysis
+   * bypasses CEE) and the bundle does NOT label it as failure.
+   */
+  analysis_evidence_source:
+    | 'live_v5_cee_turn'
+    | 'live_plot_v1_engine_turn'
+    | 'live_plot_v2_capture'
+    | 'hydrated_report'
+    | 'none'
+
+  /**
+   * Round-8 diagnostic: trace-store summary at export time. Helps
+   * reviewers distinguish "store was empty" from "store had entries
+   * but none qualified as the selected service". No raw payload
+   * bodies — counts only.
+   */
+  payload_trace_store_summary: {
+    /** Total entries in the trace-store snapshot. */
+    total_entries: number
+    /**
+     * Entries grouped by `service` field (case-insensitive). Includes
+     * a `'unknown'` bucket for entries whose `service` wasn't set
+     * (e.g. legacy paths that recorded response-only without endpoint).
+     */
+    entries_by_service: Record<string, number>
+    /** Age in milliseconds of the OLDEST entry, or null if empty. */
+    oldest_entry_age_ms: number | null
+  }
+
+  /**
+   * Round-8 diagnostic: PLoT-side selection detail. Mirrors
+   * `cee_capture_selection` for the PLoT v1 engine and V2 paths.
+   */
+  plot_capture_selection: {
+    /** PLoT entries on `/bff/engine/v1/run` or `/v1/stream`. */
+    plot_candidate_count_v1_engine: number
+    /** PLoT entries on `/v2/run` (V4 path). */
+    plot_candidate_count_v2: number
+    /** Trace-store id of the entry whose body sits in `payloads.plot_response`. */
+    selected_plot_trace_id: string | null
+  }
 }
 
 // =============================================================================
@@ -2887,6 +2943,20 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     // path (no selector run). Async path overwrites when the
     // selector returned a trace id.
     selected_cee_trace_id: null,
+
+    // Round-8 (follow-up to PR #153): sync-path defaults. Async path
+    // overwrites with real values from useDebugData + trace store.
+    analysis_evidence_source: 'none',
+    payload_trace_store_summary: {
+      total_entries: 0,
+      entries_by_service: {},
+      oldest_entry_age_ms: null,
+    },
+    plot_capture_selection: {
+      plot_candidate_count_v1_engine: 0,
+      plot_candidate_count_v2: 0,
+      selected_plot_trace_id: null,
+    },
   }
 }
 
@@ -3512,6 +3582,12 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // validation (non-V5 entry or no matching id). Emit
       // `invalid_selected_trace_id` so reviewers see the discrepancy.
       invalidSelectedTraceId,
+      // Round-8 (follow-up to PR #153): explanatory diagnostic for
+      // the Run-analysis flow. True when at least one PLoT v1 entry
+      // is in the trace store but no CEE turn fired this session.
+      plotV1CapturePresentWithoutCee:
+        (data.plot_candidate_count_v1_engine ?? 0) > 0 &&
+        legacy.v5_cee_capture === null,
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
 
@@ -3606,6 +3682,54 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // it's fully populated, so the two views can never diverge.
     bundle.selected_cee_trace_id =
       bundle.cee_capture_selection.selected_trace_id
+
+    // Round-8 (follow-up to PR #153): PLoT-side selection block,
+    // payload-trace-store summary, and the aggregate
+    // `analysis_evidence_source`. Pull values from DebugData (computed
+    // in useDebugData from the same `tracedPayloads` snapshot).
+    bundle.plot_capture_selection = {
+      plot_candidate_count_v1_engine:
+        data.plot_candidate_count_v1_engine ?? 0,
+      plot_candidate_count_v2: data.plot_candidate_count_v2 ?? 0,
+      selected_plot_trace_id: data.selected_plot_trace_id ?? null,
+    }
+    if (data.payload_trace_store_summary !== undefined) {
+      bundle.payload_trace_store_summary = data.payload_trace_store_summary
+    }
+
+    // `analysis_evidence_source` rollup. Priority:
+    //   1. live V5 CEE turn (chat / chip) — `cee_capture_provenance`
+    //      points at a V5 turn AND the bundle has a CEE response body.
+    //   2. live PLoT V1 engine turn — Run-analysis flow (no CEE,
+    //      but `/bff/engine/v1/*` recorded).
+    //   3. live PLoT V2 capture — V4 path.
+    //   4. hydrated_report — no live trace, but canvas store has results.
+    //   5. none — nothing.
+    const ceeBodyPresent =
+      bundle.payloads.cee_response !== null &&
+      typeof bundle.payloads.cee_response === 'object'
+    const ceeProvenanceIsV5 =
+      data.cee_capture_provenance === 'analysis_producing_v5_turn' ||
+      data.cee_capture_provenance === 'fallback_v5_turn'
+    const plotBodyPresent =
+      bundle.payloads.plot_response !== null &&
+      typeof bundle.payloads.plot_response === 'object'
+    const plotV1Present = (data.plot_candidate_count_v1_engine ?? 0) > 0
+    const plotV2Present = (data.plot_candidate_count_v2 ?? 0) > 0
+    const hydratedResultsPresent =
+      sourceResult.hasResultsReport || storeState.results != null
+
+    if (ceeBodyPresent && ceeProvenanceIsV5) {
+      bundle.analysis_evidence_source = 'live_v5_cee_turn'
+    } else if (plotV1Present && plotBodyPresent) {
+      bundle.analysis_evidence_source = 'live_plot_v1_engine_turn'
+    } else if (plotV2Present && plotBodyPresent) {
+      bundle.analysis_evidence_source = 'live_plot_v2_capture'
+    } else if (hydratedResultsPresent) {
+      bundle.analysis_evidence_source = 'hydrated_report'
+    } else {
+      bundle.analysis_evidence_source = 'none'
+    }
 
     // graph_hash_at_generation: read-through. The v5AnalysisFact slice
     // may not carry this field on every code path; emit null when

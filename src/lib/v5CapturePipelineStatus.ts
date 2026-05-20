@@ -59,6 +59,15 @@ export type CoherenceIssue =
    * invalid so reviewers can debug the discrepancy.
    */
   | 'invalid_selected_trace_id'
+  /**
+   * Round-8 (follow-up to PR #153): the Run-analysis button fires
+   * PLoT v1 directly (no CEE turn). When a PLoT v1 capture lands in
+   * the bundle but no CEE turn was captured, this issue EXPLAINS
+   * the CEE absence so reviewers don't read it as failure. NOT
+   * contradictory — Run-analysis bypassing CEE is the legitimate
+   * design contract.
+   */
+  | 'cee_turn_absent_for_plot_v1_capture'
 
 export type CoherenceState = 'complete' | 'partial' | 'contradictory' | 'missing'
 
@@ -122,6 +131,16 @@ export interface V5CapturePipelineStatusInputs {
    * the diagnostic surface so reviewers see the pin attempt failed.
    */
   invalidSelectedTraceId: boolean
+  /**
+   * Round-8 (follow-up to PR #153): the bundle observes at least one
+   * PLoT v1 engine entry in the trace store but NO CEE turn capture.
+   * This is the expected shape for the Run-analysis button flow on
+   * staging (PLoT direct, CEE not invoked). When true, the bundle
+   * emits the `cee_turn_absent_for_plot_v1_capture` coherence issue
+   * to EXPLAIN the absence — not as a contradiction. Defaults to
+   * `false` for non-migrated callers (test fixtures).
+   */
+  plotV1CapturePresentWithoutCee?: boolean
 }
 
 export interface V5CapturePipelineStatusResult {
@@ -253,6 +272,14 @@ export function classifyV5CapturePipelineStatus(
     issues.push('invalid_selected_trace_id')
   }
 
+  // Round-8 (follow-up to PR #153): explanatory diagnostic — emitted
+  // when the Run-analysis flow recorded a PLoT v1 capture but no CEE
+  // turn fired. Tracked in `EXPLANATORY_COHERENCE_ISSUES` below so it
+  // does NOT force `coherence.state = 'contradictory'`.
+  if (inputs.plotV1CapturePresentWithoutCee === true) {
+    issues.push('cee_turn_absent_for_plot_v1_capture')
+  }
+
   // Independent of chosen status: fires whenever a parse-error envelope
   // preserved the raw response. parse_ok=false + raw_response_present=true
   // is the canonical PR #147 invariant signature; emit it as a visible
@@ -289,8 +316,18 @@ export function classifyV5CapturePipelineStatus(
   //   else status capture_missing → 'missing'
   //   else status complete → 'complete'
   //   else → 'partial'
+  //
+  // Round-8 (follow-up to PR #153): explanatory issues (currently
+  // just `cee_turn_absent_for_plot_v1_capture`) do NOT force
+  // `contradictory`. They are emitted to EXPLAIN expected absences
+  // (Run-analysis legitimately skips CEE). Reviewers see the issue
+  // string for context but the state stays whatever the underlying
+  // status implies.
+  const contradictionIssues = issues.filter(
+    (i) => !EXPLANATORY_COHERENCE_ISSUES.has(i),
+  )
   let state: CoherenceState
-  if (issues.length > 0) {
+  if (contradictionIssues.length > 0) {
     state = 'contradictory'
   } else if (status === 'capture_missing') {
     state = 'missing'
@@ -305,6 +342,16 @@ export function classifyV5CapturePipelineStatus(
     coherence: { state, issues },
   }
 }
+
+/**
+ * Round-8 (follow-up to PR #153): coherence-issue codes that EXPLAIN
+ * an expected absence rather than report a contradiction. Emitted in
+ * `coherence.issues` so reviewers see them, but excluded from the
+ * "any issue → contradictory" rule above.
+ */
+const EXPLANATORY_COHERENCE_ISSUES: ReadonlySet<CoherenceIssue> = new Set([
+  'cee_turn_absent_for_plot_v1_capture',
+])
 
 /** Whether a trace-store entry carries a parseable response body. */
 function traceEntryHasResponseBody(p: {
