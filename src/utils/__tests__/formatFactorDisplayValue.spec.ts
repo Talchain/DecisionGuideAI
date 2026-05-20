@@ -316,6 +316,46 @@ describe('formatFactorDisplayValue', () => {
       })).toBe('5%')
     })
 
+    // V5 value-display fix: 0–1 ratio handling for percent units.
+    // Pre-fix the formatter rounded raw_value before scaling, so 0.25 → "0%".
+    // The deterministic rule: 0 < raw < 1 ⇒ scale by 100; raw === 0 ⇒ "0%";
+    // raw >= 1 ⇒ already in percentage points.
+    it('scales 0–1 ratio raw_value to percentage points: 0.25 → 25%', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Owner Time Commitment',
+        value: 0.25,
+        raw_value: 0.25,
+        unit: '%',
+      })).toBe('25%')
+    })
+
+    it('keeps raw_value === 0 as 0% (no scaling)', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Owner Time Commitment',
+        value: 0,
+        raw_value: 0,
+        unit: '%',
+      })).toBe('0%')
+    })
+
+    it('treats raw_value >= 1 as already in percentage points: 25 → 25%', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Owner Time Commitment',
+        value: 0.25,
+        raw_value: 25,
+        unit: '%',
+      })).toBe('25%')
+    })
+
+    it('treats raw_value === 1 as already in percentage points: 1 → 1%', () => {
+      expect(formatFactorDisplayValue({
+        label: 'Defect Rate',
+        value: 0.01,
+        raw_value: 1,
+        unit: '%',
+      })).toBe('1%')
+    })
+
     it('still formats "other" units as trailing suffix', () => {
       expect(formatFactorDisplayValue({
         label: 'Headcount',

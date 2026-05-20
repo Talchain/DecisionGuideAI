@@ -130,7 +130,14 @@ export function formatFactorDisplayValue(input: FactorDisplayInput): string | nu
         return `${unitCanonical} ${formatNumber(numericRaw)}`
       }
       if (unitKind === 'percent') {
-        return `${Math.round(numericRaw)}%`
+        // 0–1 ratio handling: when raw_value is strictly between 0 and 1 we
+        // treat it as a probability/ratio and scale by 100 (0.25 → "25%").
+        // raw_value === 0 stays "0%". raw_value >= 1 is treated as already in
+        // percentage points (25 → "25%"). Deterministic by design — do NOT
+        // revert to a bare Math.round, which produces "0%" for 0.25 and was
+        // the source of the V5 value-display bug.
+        const scaled = numericRaw > 0 && numericRaw < 1 ? numericRaw * 100 : numericRaw
+        return `${Math.round(scaled)}%`
       }
       // 'other' | 'none' (unreachable here — unit is truthy)
       return `${formatNumber(numericRaw)} ${unitCanonical || unit}`
