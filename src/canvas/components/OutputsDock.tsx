@@ -384,17 +384,40 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   const floatingPanelIsOpen = useFloatingPanelState((s) => s.isOpen)
 
   // UX correction (P0): when floating Olumi is open AND the dock would
-  // otherwise activate the Olumi tab, redirect to 'results' so the docked
-  // surface never duplicates the floating conversation. Covers all the
-  // activation paths the click intercept (`handleTabClick`) misses —
-  // persisted-state restoration, useUIStore.setActiveOutputTab('olumi'),
-  // and any future programmatic setState. Render-level guard.
+  // otherwise activate the Olumi tab, redirect away so the docked
+  // surface never duplicates the floating conversation. Two-part guard:
+  //
+  // 1) `effectiveActiveTab` is computed AT RENDER TIME (see below),
+  //    so the docked Olumi body never paints — not even a one-frame
+  //    flash on initial mount when persisted state already had
+  //    activeTab='olumi'.
+  // 2) An effect commits the redirect back into the persisted dock
+  //    state + global useUIStore so subsequent renders + external
+  //    consumers (history, programmatic navigation) are consistent.
+  //
+  // Fallback policy: prefer the LAST non-Olumi tab the user was on
+  // (Compare / Model / Diagnostics) rather than blindly forcing
+  // 'results'. The ref is updated whenever a non-Olumi tab activates.
+  const lastNonOlumiTabRef = useRef<OutputsDockTab>(state.activeTab !== 'olumi' ? state.activeTab : 'results')
   useEffect(() => {
-    if (!aiPanelV2On) return
-    if (state.activeTab !== 'olumi') return
-    if (!floatingPanelIsOpen) return
-    setState((prev) => (prev.activeTab === 'olumi' ? { ...prev, activeTab: 'results' } : prev))
-  }, [aiPanelV2On, state.activeTab, floatingPanelIsOpen, setState])
+    if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab
+  }, [state.activeTab])
+  const olumiRedirectActive = aiPanelV2On && state.activeTab === 'olumi' && floatingPanelIsOpen
+  const effectiveActiveTab: OutputsDockTab = olumiRedirectActive
+    ? lastNonOlumiTabRef.current
+    : state.activeTab
+  useEffect(() => {
+    if (!olumiRedirectActive) return
+    const fallback = lastNonOlumiTabRef.current
+    setState((prev) => (prev.activeTab === 'olumi' ? { ...prev, activeTab: fallback } : prev))
+    // Keep the global store in sync — without this, useUIStore reports
+    // 'olumi' as the active tab even though the dock visually shows the
+    // fallback. Downstream consumers (history, deep links, telemetry)
+    // would otherwise diverge from what the user sees.
+    if (useUIStore.getState().activeOutputTab === 'olumi') {
+      useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
+    }
+  }, [olumiRedirectActive, setState])
   const openFloatingByUser = useFloatingPanelState((s) => s.open)
   const transitionReceipt = useTransitionReceipt((s) => s.receipt)
   // Cog popover anchor — strip footer-stack only.
@@ -1354,7 +1377,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
         {effectiveIsOpen && (
           <div className="flex items-center gap-2 px-2 py-2" aria-label="Outputs sections">
             <span className="sr-only" aria-live="polite">
-              {OUTPUT_TABS.find(tab => tab.id === state.activeTab)?.label ?? ''}
+              {OUTPUT_TABS.find(tab => tab.id === effectiveActiveTab)?.label ?? ''}
             </span>
             <nav className="flex flex-1 min-w-0 gap-1" aria-label="Outputs sections">
               {OUTPUT_TABS.map(tab => {
@@ -1373,12 +1396,12 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   aria-label={olumiOpenLabel ? 'Olumi is open. Focus floating panel' : undefined}
                   title={olumiOpenLabel ? 'Olumi is open. Focus floating panel' : undefined}
                   className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
-                    state.activeTab === tab.id
+                    effectiveActiveTab === tab.id
                       ? 'text-info border-b-2 border-info'
                       : 'text-text-header/70 hover:bg-panel hover:text-text-header border-b-2 border-transparent'
                   }`}
                   style={
-                    state.activeTab === tab.id
+                    effectiveActiveTab === tab.id
                       ? { backgroundColor: 'rgba(82,163,200,0.15)' }
                       : undefined
                   }
@@ -1465,11 +1488,11 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 type="button"
                 onClick={() => handleTabClick(tab.id)}
                 className={`flex items-center justify-center w-7 h-7 rounded-full border ${typography.caption} focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
-                  state.activeTab === tab.id
+                  effectiveActiveTab === tab.id
                     ? 'text-info border-info'
                     : 'text-text-header/70 bg-panel border-panel-border hover:bg-panel hover:text-text-header'
                 }`}
-                style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
+                style={effectiveActiveTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
                 aria-label={tab.id === 'olumi' && floatingPanelIsOpen ? 'Olumi is open. Focus floating panel' : tab.label}
                 title={tab.id === 'olumi' && floatingPanelIsOpen ? 'Olumi is open. Focus floating panel' : tab.label}
               >
@@ -1481,8 +1504,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
       )}
 
       {effectiveIsOpen && (
-        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header/70 ${state.activeTab === 'results' || state.activeTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
-            {state.activeTab === 'results' && (
+        <div className={`flex-1 min-h-0 ${typography.caption} text-text-header/70 ${effectiveActiveTab === 'results' || effectiveActiveTab === 'olumi' ? 'flex flex-col overflow-hidden' : 'olumi-scrollbar px-3 py-3 space-y-4 overflow-y-auto'}`} data-testid="outputs-dock-body">
+            {effectiveActiveTab === 'results' && (
               <div className="flex-1 min-h-0 flex flex-col">
                 {aiPanelV2On && transitionReceipt === 'model-drafted' ? (
                   <div
@@ -1962,10 +1985,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 )}
               </div>
             )}
-            {state.activeTab === 'compare' && (
+            {effectiveActiveTab === 'compare' && (
               <CompareTabBodyV2 onRunAnalysis={handleRunAnalysis} />
             )}
-            {state.activeTab === 'diagnostics' && (
+            {effectiveActiveTab === 'diagnostics' && (
               <ModelTabBody
                 showDebug={showDebug}
                 hasDiagnostics={hasDiagnostics}
@@ -1984,18 +2007,21 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 onSendMessage={sendMessage}
               />
             )}
-            {state.activeTab === 'journey' && (
+            {effectiveActiveTab === 'journey' && (
               <JourneyTabBody />
             )}
             {/* Olumi: keep mounted across tab switches so ChatThread's scroll
                 position and useSmartScroll state survive. Visibility toggled
                 with CSS so the underlying ChatThread never unmounts when the
-                user switches to Compare/Model/etc. */}
+                user switches to Compare/Model/etc.
+                Uses `effectiveActiveTab` so the wrapper stays `hidden` on
+                the very first paint when persisted state had activeTab='olumi'
+                + floating already open. */}
             {aiPanelV2On && (
               <div
-                className={`flex flex-1 min-h-0 flex-col ${state.activeTab === 'olumi' ? '' : 'hidden'}`}
+                className={`flex flex-1 min-h-0 flex-col ${effectiveActiveTab === 'olumi' ? '' : 'hidden'}`}
                 data-testid="olumi-tab-wrapper"
-                aria-hidden={state.activeTab !== 'olumi'}
+                aria-hidden={effectiveActiveTab !== 'olumi'}
               >
                 <OlumiTabBody onFloatOut={() => openFloatingByUser('user')} />
               </div>
@@ -2012,7 +2038,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             <SelectionPill />
             <StaleAnalysisBadge />
             <PersistentInputStrip
-              isOlumiTabActive={state.activeTab === 'olumi'}
+              isOlumiTabActive={effectiveActiveTab === 'olumi'}
               onOpenFloating={() => openFloatingByUser('user')}
               onFocusFloating={focusFloating}
               onCogClick={handleCogClick}

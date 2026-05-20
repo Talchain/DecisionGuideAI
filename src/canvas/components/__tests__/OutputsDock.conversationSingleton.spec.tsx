@@ -16,7 +16,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render } from '@testing-library/react'
+import { act, render, screen } from '@testing-library/react'
 import type { ReactNode } from 'react'
 
 // Heavy-import stubs — must precede any OutputsDock evaluation.
@@ -213,6 +213,42 @@ describe('Olumi tab click while floating is open', () => {
     unregister()
   })
 
+  it('initial paint: docked Olumi conversation body is NOT rendered when persisted activeTab=olumi + floating already open', async () => {
+    // Pre-paint regression. The previous implementation used a
+    // useEffect to redirect from 'olumi' to a fallback, which left a
+    // one-frame window where the docked conversation could paint. The
+    // fix derives `effectiveActiveTab` at render time so the very
+    // first paint already shows the fallback tab.
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { OutputsDock } = await import('../OutputsDock')
+
+    try {
+      sessionStorage.setItem(
+        'canvas.outputsDock.v1',
+        JSON.stringify({ isOpen: true, activeTab: 'olumi' }),
+      )
+    } catch {}
+    useFloatingPanelState.getState().reset()
+    useFloatingPanelState.getState().open('user')
+
+    const { container } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+
+    // SYNCHRONOUS post-render assertions — no waitFor, no setTimeout.
+    // If a one-frame flash existed the wrapper's `hidden` class would
+    // not be set yet (the effect hasn't run).
+    const wrapper = container.querySelector('[data-testid="olumi-tab-wrapper"]')
+    if (wrapper) {
+      expect(wrapper.classList.contains('hidden')).toBe(true)
+      expect(wrapper.getAttribute('aria-hidden')).toBe('true')
+    }
+    // Defensive: no docked Olumi body / empty-state surface visible.
+    expect(container.querySelector('[data-testid="olumi-tab-body"]:not([aria-hidden="true"])')).toBeNull()
+  })
+
   it('programmatic activeTab=olumi while floating open is auto-redirected to results (render-level intercept)', async () => {
     const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
     const { useUIStore } = await import('../../../stores/uiStore')
@@ -272,6 +308,54 @@ describe('Olumi tab click while floating is open', () => {
     const olumiBtn = (await findByLabelText('Olumi is open. Focus floating panel')) as HTMLElement
     expect(olumiBtn.tagName).toBe('BUTTON')
     expect(olumiBtn.getAttribute('title')).toBe('Olumi is open. Focus floating panel')
+  })
+
+  it('redirect preserves the LAST non-Olumi tab + syncs useUIStore', async () => {
+    // Reviewer P0.2: the fallback should preserve the user's last
+    // non-Olumi tab (Compare/Model/Diagnostics) rather than blindly
+    // jumping to Analysis. And useUIStore must reflect the final state
+    // so downstream consumers (history, telemetry) don't diverge.
+    //
+    // Test flow: user is on Diagnostics (Model tab — that's enabled in
+    // the test mock; Compare is gated off). Floating opens. Something
+    // programmatically calls setActiveOutputTab('olumi'). The redirect
+    // should bring them back to Diagnostics, not to Analysis.
+    const { fireEvent } = await import('@testing-library/react')
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { useUIStore } = await import('../../../stores/uiStore')
+    const { OutputsDock } = await import('../OutputsDock')
+
+    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+    useFloatingPanelState.getState().reset()
+
+    render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+
+    // Activate Model (which maps to the 'diagnostics' tab id under FF-on
+    // — the dock's labels say "Model" but internally it's 'diagnostics').
+    // Floating is closed here so the click intercept doesn't trigger.
+    const modelBtn = (await screen.findByLabelText('Model')) as HTMLElement
+    fireEvent.click(modelBtn)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(useUIStore.getState().activeOutputTab).toBe('diagnostics')
+
+    // Now open floating, then programmatically request 'olumi'.
+    act(() => {
+      useFloatingPanelState.getState().open('user')
+    })
+    act(() => {
+      useUIStore.getState().setActiveOutputTab('olumi')
+    })
+    await new Promise((r) => setTimeout(r, 50))
+
+    // useUIStore must reflect the redirected tab, not 'olumi'.
+    expect(useUIStore.getState().activeOutputTab).not.toBe('olumi')
+    // And the fallback must be 'diagnostics' (the user's last non-Olumi
+    // tab), NOT the default 'results'.
+    expect(useUIStore.getState().activeOutputTab).toBe('diagnostics')
   })
 
   it('falls through to normal tab activation when floating is CLOSED', async () => {
