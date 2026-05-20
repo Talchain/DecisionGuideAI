@@ -171,6 +171,7 @@ export const AIInputBar = memo(
             placeholder={effectivePlaceholder}
             rows={1}
             disabled={inputDisabled}
+            aria-disabled={inputDisabled}
             aria-label={ariaLabel ?? 'Chat message'}
             data-testid={`${testId ?? `ai-input-bar-${variant}`}-textarea`}
             className={typo(
@@ -184,7 +185,8 @@ export const AIInputBar = memo(
               <button
                 type="button"
                 onClick={(e) => onCogClick(e.currentTarget)}
-                disabled={disabled}
+                disabled={inputDisabled}
+                aria-disabled={inputDisabled}
                 className="inline-flex items-center justify-center w-6 h-6 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
                 aria-label="Settings"
                 data-testid={`${testId ?? `ai-input-bar-${variant}`}-cog`}
@@ -196,6 +198,7 @@ export const AIInputBar = memo(
               type="button"
               onClick={handleSend}
               disabled={!canSend}
+              aria-disabled={!canSend}
               className="inline-flex items-center justify-center w-6 h-6 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40 disabled:hover:bg-transparent"
               aria-label="Send"
               data-testid={`${testId ?? `ai-input-bar-${variant}`}-send`}
@@ -208,8 +211,9 @@ export const AIInputBar = memo(
           <button
             type="button"
             onClick={onChevronClick}
-            disabled={disabled}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+            disabled={inputDisabled}
+            aria-disabled={inputDisabled}
+            className="inline-flex items-center justify-center w-7 h-7 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
             aria-label="Open Olumi in floating panel"
             data-testid={`${testId ?? `ai-input-bar-${variant}`}-chevron`}
             title="Open in floating window"

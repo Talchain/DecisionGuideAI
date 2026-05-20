@@ -148,3 +148,97 @@ describe('useConversation singleton invariant', () => {
     expect(useConversationCallCount.n).toBe(1)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Olumi tab click intercept (UX correction P0.1)
+// ---------------------------------------------------------------------------
+
+describe('Olumi tab click while floating is open', () => {
+  beforeEach(() => {
+    ensureMatchMedia()
+    useConversationCallCount.n = 0
+    flagState.aiPanelV2 = true
+    try { sessionStorage.clear() } catch {}
+    try { localStorage.clear() } catch {}
+    // Pin the dock to expanded so the tab-row renders (the collapsed
+    // icon rail uses different testids / labels and would skip the
+    // intercept under test).
+    try {
+      // useDockState uses sessionStorage (not localStorage).
+      sessionStorage.setItem(
+        'canvas.outputsDock.v1',
+        JSON.stringify({ isOpen: true, activeTab: 'results' }),
+      )
+    } catch {}
+  })
+
+  it('focuses the floating panel and does NOT switch the active tab', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { registerFloatingFocus, focusFloating } = await import('../../hooks/useFloatingFocus')
+    const { useUIStore } = await import('../../../stores/uiStore')
+    const { OutputsDock } = await import('../OutputsDock')
+
+    // Pre-state: Analysis tab is active in the global store, and the
+    // floating panel is open.
+    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+    useFloatingPanelState.getState().reset()
+    useFloatingPanelState.getState().open('user')
+
+    // Register a focus channel so we can prove focusFloating fired.
+    const focusSpy = vi.fn()
+    const unregister = registerFloatingFocus(focusSpy)
+
+    const { findByLabelText } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+
+    // Find the Olumi tab by its visible text (the testid is conditional
+    // on the tab being in OUTPUT_TABS at render time; visible-text lookup
+    // is the resilient path).
+    // Find by aria-label — works for both the expanded tab row AND the
+    // collapsed icon rail; both rails wire `handleTabClick` so the
+    // intercept fires from either path.
+    const olumiTab = (await findByLabelText('Olumi')) as HTMLElement
+    expect(olumiTab).toBeTruthy()
+    fireEvent.click(olumiTab)
+
+    // Intercept fired: the focusFloating channel was invoked.
+    expect(focusSpy).toHaveBeenCalledTimes(1)
+    // And the global active tab was NOT switched to 'olumi'.
+    expect(useUIStore.getState().activeOutputTab).toBe('results')
+
+    // Sanity: calling focusFloating directly hits the spy too.
+    focusFloating()
+    expect(focusSpy).toHaveBeenCalledTimes(2)
+    unregister()
+  })
+
+  it('falls through to normal tab activation when floating is CLOSED', async () => {
+    const { fireEvent } = await import('@testing-library/react')
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { useUIStore } = await import('../../../stores/uiStore')
+    const { OutputsDock } = await import('../OutputsDock')
+
+    useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
+    useFloatingPanelState.getState().reset()
+    expect(useFloatingPanelState.getState().isOpen).toBe(false)
+
+    const { findByLabelText } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+
+    // Find by aria-label — works for both the expanded tab row AND the
+    // collapsed icon rail; both rails wire `handleTabClick` so the
+    // intercept fires from either path.
+    const olumiTab = (await findByLabelText('Olumi')) as HTMLElement
+    expect(olumiTab).toBeTruthy()
+    fireEvent.click(olumiTab)
+    // With floating closed, the click activates the Olumi tab normally.
+    expect(useUIStore.getState().activeOutputTab).toBe('olumi')
+  })
+})

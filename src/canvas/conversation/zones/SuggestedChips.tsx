@@ -19,6 +19,7 @@ import { isV5Eligible } from '../../../v5/eligibility'
 import { logV5StateEvent } from '../../../v5/debugLog'
 import { isAiPanelV2Enabled } from '../../../flags'
 import { useAnalysisStatus } from '../../hooks/useAnalysisReady'
+import { useCanvasStore } from '../../store'
 import { useStaleGuard } from '../../ui/inspector-v2/useStaleGuard'
 import type { ActionChip } from '../types'
 
@@ -56,26 +57,47 @@ const READINESS_GATED_ACTIONS = new Set<string>(['run_analysis'])
  * would risk false-positives on conversational chips that happen to mention
  * "analysis" (e.g. "Explain the analysis").
  */
-// Canonical run-analysis affordance strings. Module-scoped so it isn't
-// re-allocated per chip render. The two-tier (action_type OR canonical
-// label/message/prompt) check matches both V2 chips and legacy
-// prompt-style chips. CEE serialises dispatch text as `prompt`; the UI
-// normalises it to `message` in validateResponse.ts:88, but the raw
-// `prompt` field is preserved on the chip — both shapes can therefore
-// arrive at this filter, so we match either.
-const RUN_ANALYSIS_CANONICAL = new Set(['run analysis', 'rerun analysis', 'rerun'])
+// Run-analysis affordance detection. action_type is the primary key; the
+// fallback regex catches V4-legacy or prompt-only chips where the
+// `action_type` field is absent. Tolerant of "Run analysis", "Rerun
+// analysis", "Run the analysis", "Rerun the analysis", with or without
+// a trailing period. Conservative enough to NOT match conversational
+// chips like "Explain the analysis" or "What was the analysis?".
+const RUN_ANALYSIS_RE = /^(?:run|rerun)\s+(?:the\s+)?analysis\.?$/i
 
 function normForMatch(s: string | undefined): string {
-  return (s ?? '').trim().toLowerCase()
+  return (s ?? '').trim()
 }
 
 function isRunAnalysisAffordance(chip: ActionChip): boolean {
   if (chip.action_type === 'run_analysis') return true
   return (
-    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.label)) ||
-    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.message)) ||
-    RUN_ANALYSIS_CANONICAL.has(normForMatch(chip.prompt))
+    RUN_ANALYSIS_RE.test(normForMatch(chip.label)) ||
+    RUN_ANALYSIS_RE.test(normForMatch(chip.message)) ||
+    RUN_ANALYSIS_RE.test(normForMatch(chip.prompt))
   )
+}
+
+/**
+ * Product rule for the run-analysis affordance under aiPanelV2:
+ *   - no analysis exists       → keep chip as-is ("Run analysis")
+ *   - current analysis exists  → suppress chip entirely
+ *   - stale analysis exists    → relabel chip to "Rerun"
+ *
+ * The decision keys off `results.status === 'complete'` (analysis has
+ * produced results at least once) plus `isStale` from the stale guard.
+ * This avoids the fragile `analysisState === 'current'` path which can
+ * race on staging when the hash compare lags by one tick.
+ */
+type RunAnalysisPolish = 'suppress' | 'relabel-rerun' | 'keep'
+
+function decideRunAnalysisPolish(
+  resultsComplete: boolean,
+  isStale: boolean,
+): RunAnalysisPolish {
+  if (!resultsComplete) return 'keep'   // no analysis yet
+  if (isStale) return 'relabel-rerun'   // graph drifted since last analysis
+  return 'suppress'                     // current analysis owns the action
 }
 
 interface SuggestedChipsProps {
@@ -110,11 +132,12 @@ export function SuggestedChips({
   const analysisStatus = useAnalysisStatus()
   // aiPanelV2 polish: once an analysis has been RUN (results exist), the
   // canonical place for re-running it is the Analysis/readiness panel.
-  // Suppress the "Run analysis" chip from the conversation when current,
-  // relabel to "Rerun" when stale. analysisState === 'none' keeps the
-  // original chip unchanged. Gated by the FF so legacy chip behaviour is
-  // identical when aiPanelV2 is off.
-  const { analysisState } = useStaleGuard()
+  // Decision is via `decideRunAnalysisPolish` (product rule, see helper
+  // above): no analysis → keep; current → suppress; stale → "Rerun".
+  // Keys off results.status === 'complete' rather than the fragile
+  // analysisState === 'current' path (which can race on staging).
+  const { isStale } = useStaleGuard()
+  const resultsComplete = useCanvasStore((s) => s.results?.status === 'complete')
   const aiPanelV2On = isAiPanelV2Enabled()
   useEffect(() => {
     if (!chipError) return
@@ -173,17 +196,18 @@ export function SuggestedChips({
     }
   }
 
-  // aiPanelV2: suppress / relabel any "Run analysis" affordance based on
-  // the current analysis state. Detection is intentionally broad — CEE
-  // may emit chips with action_type === 'run_analysis' OR legacy
-  // prompt-style chips with no action_type but a canonical label/message.
-  // Both shapes are user-facing duplicates of the Analysis-panel rerun
-  // affordance once analysis exists, so the polish applies to both.
+  // aiPanelV2: apply the product rule to run-analysis affordances.
+  // See `decideRunAnalysisPolish` for the contract. Detection covers both
+  // V2 chips (action_type === 'run_analysis') and legacy prompt-style
+  // chips matched by the canonical regex.
+  const polish = aiPanelV2On
+    ? decideRunAnalysisPolish(resultsComplete, isStale)
+    : 'keep'
   const polished = aiPanelV2On
     ? supported
-        .filter((c) => !(isRunAnalysisAffordance(c) && analysisState === 'current'))
+        .filter((c) => !(isRunAnalysisAffordance(c) && polish === 'suppress'))
         .map((c) =>
-          isRunAnalysisAffordance(c) && analysisState === 'stale'
+          isRunAnalysisAffordance(c) && polish === 'relabel-rerun'
             ? { ...c, label: 'Rerun' }
             : c,
         )

@@ -242,6 +242,45 @@ describe('FirstUseComposer — responsive width (P1.2)', () => {
   })
 })
 
+describe('FirstUseComposer — focused start card (UX correction P0.4)', () => {
+  it('uses the concise guidance copy and content-fit height', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    const dialog = screen.getByTestId('first-use-composer') as HTMLElement
+
+    // Concise copy — reviewer-approved string verbatim.
+    expect(
+      screen.getByText(/Describe the decision, options, goal and constraints\./i),
+    ).toBeInTheDocument()
+    // Previous verbose copy must NOT leak through.
+    expect(
+      screen.queryByText(/Describe your decision, the options you're weighing/i),
+    ).toBeNull()
+
+    // Content-fit: the dialog has `min-height` (not a fixed `height`).
+    // jsdom can't evaluate the layout but the inline style proves the
+    // chosen sizing strategy.
+    const style = dialog.getAttribute('style') ?? ''
+    expect(style).toMatch(/min-height:\s*108px/i)
+    expect(style).not.toMatch(/(^|[^-])height:\s*\d+px/i)
+  })
+
+  it('does NOT render prompt-suggestion chips (explicitly excluded)', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(screen.queryByTestId('suggested-chips')).toBeNull()
+    // Defensive: no buttons claiming to seed a prompt suggestion.
+    const dialog = screen.getByTestId('first-use-composer')
+    const buttons = dialog.querySelectorAll('button')
+    // Only the AIInputBar's cog + send buttons may be present.
+    const labels = Array.from(buttons).map((b) => b.getAttribute('aria-label') ?? '')
+    expect(labels.every((l) => /^(Settings|Send)$/.test(l))).toBe(true)
+  })
+
+  it('keeps the cog button inside the input field (welcome-cog invariant)', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(screen.getByTestId('first-use-input-bar-cog')).toBeInTheDocument()
+  })
+})
+
 describe('FirstUseComposer — auto-dock does NOT misfire on hydration/import (review #2)', () => {
   // The reviewer flagged: auto-dock should only fire for a graph produced by
   // the user submitting via the first-use composer — NOT for any 0→N+ node

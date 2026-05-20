@@ -611,7 +611,12 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         </div>
       </div>
 
-      <div className="flex flex-1 min-h-0 flex-col">
+      {/* `floating-density` activates the scoped compact CSS overrides
+         defined in Conversation.module.css (tighter message gap, bubble
+         padding, chip sizing). The class is a CSS hook only; React /
+         ConversationPanel props are unchanged so the docked Olumi tab
+         keeps its normal density. */}
+      <div className="floating-density flex flex-1 min-h-0 flex-col">
         <ConversationPanel
           conversation={conversation}
           onCollapse={close}

@@ -1191,11 +1191,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
 
   const handleTabClick = (tab: OutputsDockTab) => {
-    // Polish (Item 1): the docked Olumi tab is reachable even when floating
-    // is open — OlumiTabBody renders the floating-state placeholder (with
-    // Focus floating / Dock here actions) instead of duplicating the
-    // conversation. The placeholder owns the focus affordance; the tab click
-    // just activates the tab.
+    // UX correction (P0.1): when the floating Olumi panel is open, clicking
+    // the Olumi tab focuses the floating panel instead of switching the
+    // right panel to a blank placeholder. The user's current Analysis /
+    // Compare / Model tab stays visible. Dock-back is exclusively via the
+    // floating header's PanelRight button. Replaces the brief PR #149
+    // "placeholder" branch that wasted the right panel.
+    if (tab === 'olumi' && useFloatingPanelState.getState().isOpen) {
+      focusFloating()
+      return
+    }
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
     // E1: Sync tab state to Zustand store for cross-component navigation
     useUIStore.getState().setActiveOutputTab(tab as OutputTab)
@@ -1356,16 +1361,15 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     {tab.id === 'olumi' && <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />}
                     {tab.label}
                     {tab.id === 'olumi' && floatingPanelIsOpen && (
+                      // P1.6 subtler indicator — small filled dot in the
+                      // tab label instead of the previous outlined "Open"
+                      // pill, which competed with the active-tab underline.
                       <span
-                        className={typo(
-                          'panelMeta',
-                          'inline-flex items-center text-info border border-info/30 rounded-full px-1.5 leading-none',
-                        )}
+                        className="inline-flex w-1.5 h-1.5 rounded-full bg-info"
                         data-testid="olumi-tab-floating-badge"
-                        aria-label="Olumi is open in the floating panel"
-                      >
-                        Open
-                      </span>
+                        aria-label="Olumi is open. Focus floating panel"
+                        title="Olumi is open. Focus floating panel"
+                      />
                     )}
                     {tab.id === 'results' && showResultsTabStaleWarning && (
                       <AlertTriangle

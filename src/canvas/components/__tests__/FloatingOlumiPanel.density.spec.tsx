@@ -1,0 +1,137 @@
+/**
+ * Floating-density scope guard (UX correction P0.3).
+ *
+ * The CSS module `Conversation.module.css` adds scoped compact rules
+ * under `:global(.floating-density)`. This spec proves:
+ *
+ *   1. The floating panel mounts ConversationPanel inside a
+ *      `floating-density` wrapper, so the compact CSS rules apply.
+ *   2. The docked OlumiTabBody does NOT wrap ConversationPanel in
+ *      `floating-density`, so the docked surface keeps normal density.
+ *
+ * Combined with the existing aiPanelV2.parity.spec.tsx (FF-off renders no
+ * floating panel at all), this confirms there is no density leak into
+ * either the docked Olumi tab or DraftChat.
+ */
+
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render } from '@testing-library/react'
+import type { ReactNode } from 'react'
+
+vi.mock('../../../lib/supabase', () => ({
+  supabase: { from: () => ({ select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }) }) }) }) },
+  isSupabaseAvailable: () => false,
+}))
+vi.mock('dompurify', () => ({ default: { sanitize: (s: string) => s } }))
+vi.mock('../../utils/markdown', () => ({
+  renderMarkdown: (s: string) => s,
+  sanitiseMarkdown: (s: string) => s,
+}))
+
+const canvasMockState = {
+  nodes: [{ id: 'n1' }] as Array<{ id: string }>,
+  edges: [] as Array<unknown>,
+  results: { status: 'idle' as const },
+  _internal: {} as Record<string, unknown>,
+  selection: null,
+  ceeAnalysisReady: null as any,
+  graphHealth: null as any,
+  runMeta: {} as any,
+}
+vi.mock('../../store', () => {
+  const useCanvasStore: any = (selector: (s: any) => any) => selector(canvasMockState)
+  useCanvasStore.getState = () => canvasMockState
+  useCanvasStore.setState = (patch: any) => Object.assign(canvasMockState, patch)
+  useCanvasStore.subscribe = () => () => {}
+  return {
+    useCanvasStore,
+    selectResultsStatus: (s: any) => s.results?.status,
+    selectReport: (s: any) => s.results?.report,
+    selectError: (s: any) => s.results?.error,
+    selectResultsSource: (s: any) => s.results?.source,
+  }
+})
+
+vi.mock('../../conversation/ConversationPanel', () => ({
+  ConversationPanel: () => <div data-testid="mocked-conversation-panel" />,
+}))
+vi.mock('../../hooks/useStageAwarePlaceholder', () => ({
+  useStageAwarePlaceholder: () => 'Ask',
+}))
+vi.mock('../../ui/inspector-v2/useStaleGuard', () => ({
+  useStaleGuard: () => ({ analysisState: 'none', isStale: false }),
+}))
+
+vi.mock('../../conversation/useConversation', async () => {
+  const { useState } = await import('react')
+  return {
+    useConversation: () => {
+      const [sendMessage] = useState(() => vi.fn())
+      return {
+        messages: [
+          // Non-empty so OlumiTabBody renders the conversation branch
+          // (not the empty-state branch).
+          { id: 'a-0', role: 'assistant', content: 'hi', synthetic: false },
+        ],
+        isThinking: false,
+        longRunningHint: null,
+        lastFailedInput: null,
+        sendMessage,
+        sendSystemEvent: vi.fn(),
+        sendChip: vi.fn(),
+        retryLast: vi.fn(),
+        patchBlockStates: new Map(),
+        setPatchBlockState: vi.fn(),
+        patchRejections: new Map(),
+        setPatchRejection: vi.fn(),
+      }
+    },
+    isNonConversationalContent: () => false,
+  }
+})
+
+import { ConversationProvider } from '../../conversation/ConversationContext'
+import { FloatingOlumiPanel } from '../FloatingOlumiPanel'
+import { OlumiTabBody } from '../OlumiTabBody'
+import { useFloatingPanelState } from '../../hooks/useFloatingPanelState'
+
+function Wrapper({ children }: { children: ReactNode }) {
+  return <ConversationProvider>{children}</ConversationProvider>
+}
+
+beforeEach(() => {
+  useFloatingPanelState.getState().reset()
+})
+
+describe('floating-density scope', () => {
+  it('floating panel wraps ConversationPanel in a .floating-density container', () => {
+    useFloatingPanelState.getState().open('user')
+    render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
+    const cp = document.querySelector('[data-testid="mocked-conversation-panel"]') as HTMLElement
+    expect(cp).toBeTruthy()
+    // Walk up — at least one ancestor must carry the `floating-density` class.
+    let ancestor: HTMLElement | null = cp.parentElement
+    let found = false
+    while (ancestor) {
+      if (ancestor.classList.contains('floating-density')) {
+        found = true
+        break
+      }
+      ancestor = ancestor.parentElement
+    }
+    expect(found).toBe(true)
+  })
+
+  it('docked OlumiTabBody does NOT wrap ConversationPanel in .floating-density', () => {
+    render(<OlumiTabBody onFloatOut={() => {}} />, { wrapper: Wrapper })
+    const cp = document.querySelector('[data-testid="mocked-conversation-panel"]') as HTMLElement
+    expect(cp).toBeTruthy()
+    // No ancestor must carry `floating-density` — otherwise the compact
+    // CSS rules would leak into the docked tab.
+    let ancestor: HTMLElement | null = cp.parentElement
+    while (ancestor) {
+      expect(ancestor.classList.contains('floating-density')).toBe(false)
+      ancestor = ancestor.parentElement
+    }
+  })
+})

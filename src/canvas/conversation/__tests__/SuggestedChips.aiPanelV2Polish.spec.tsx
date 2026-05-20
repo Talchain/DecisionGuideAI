@@ -1,15 +1,21 @@
 /**
  * aiPanelV2 UX polish — Run analysis chip suppression/relabel.
  *
- * Contract (only when aiPanelV2 is ON):
- *   - analysisState === 'current'  → run_analysis chip is SUPPRESSED entirely.
- *     Analysis/readiness is the canonical place for re-running.
- *   - analysisState === 'stale'    → run_analysis chip is RELABELLED to 'Rerun'.
- *     The action stays available but the label tells the user nothing fresh.
- *   - analysisState === 'none'     → unchanged (the user has never run).
+ * Product rule (only when aiPanelV2 is ON):
+ *   - no analysis exists       → keep chip as-is ("Run analysis")
+ *   - current analysis exists  → SUPPRESS chip entirely
+ *                                (Analysis/readiness panel owns rerun)
+ *   - stale analysis exists    → RELABEL to "Rerun"
  *
- * When aiPanelV2 is OFF, the chip is rendered unchanged (legacy parity).
+ * Decision keys off `results.status === 'complete'` + `isStale` from the
+ * stale guard. This is the loosened path — the old `analysisState ===
+ * 'current'` predicate raced on staging when the hash compare lagged.
  *
+ * Detection covers both V2 chips (`action_type === 'run_analysis'`) and
+ * legacy / prompt-style chips matched by the tolerant regex
+ * `/^(?:run|rerun)\s+(?:the\s+)?analysis\.?$/i`.
+ *
+ * When aiPanelV2 is OFF, chips render unchanged (legacy parity).
  * Independent of the V5 readiness gate — this filter runs after the V5
  * filter, on whatever survives.
  */
@@ -170,6 +176,118 @@ describe('SuggestedChips — aiPanelV2 Run analysis polish', () => {
       />,
     )
     expect(screen.getByTestId('suggested-chip-conv-1')).toBeInTheDocument()
+  })
+
+  // Pin against the actual CEE fixture shape (tests/fixtures/cee-responses/
+  // v5-turn.explain-stale.json) — what live staging emits after analysis.
+  it('suppresses the real CEE-fixture-shape chip when current', () => {
+    setAnalysisState('current')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'cee-fixture',
+            label: 'Rerun analysis',
+            message: 'Rerun the analysis.',
+            action_type: 'run_analysis',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-chip-cee-fixture')).toBeNull()
+  })
+
+  it('relabels the real CEE-fixture-shape chip to "Rerun" when stale', () => {
+    setAnalysisState('stale')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'cee-stale',
+            label: 'Rerun analysis',
+            message: 'Rerun the analysis.',
+            action_type: 'run_analysis',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    const chip = screen.getByTestId('suggested-chip-cee-stale')
+    expect(chip).toHaveTextContent(/^\s*Rerun\s*$/i)
+  })
+
+  // Regex fallback — V4-legacy chips drop action_type but carry the
+  // canonical copy in the message field.
+  it('suppresses a chip with "Run the analysis" message and no action_type when current', () => {
+    setAnalysisState('current')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'msg-only',
+            action_type: undefined,
+            label: 'Run',
+            message: 'Run the analysis',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-chip-msg-only')).toBeNull()
+  })
+
+  it('suppresses a chip with trailing-period "Rerun the analysis." message when current', () => {
+    setAnalysisState('current')
+    render(
+      <SuggestedChips
+        chips={[
+          makeChip({
+            id: 'msg-period',
+            action_type: undefined,
+            label: 'Rerun',
+            message: 'Rerun the analysis.',
+          }),
+        ]}
+        onChipClick={vi.fn().mockResolvedValue(undefined)}
+      />,
+    )
+    expect(screen.queryByTestId('suggested-chip-msg-period')).toBeNull()
+  })
+
+  // Reviewer amendment: regression should pin the exact product-rule
+  // matrix, regardless of internal predicate names.
+  it('product rule: none → keep, current → suppress, stale → Rerun', () => {
+    const fixture = () =>
+      makeChip({
+        id: 'matrix',
+        label: 'Rerun analysis',
+        message: 'Rerun the analysis.',
+        action_type: 'run_analysis',
+      })
+
+    // none
+    setAnalysisState('none')
+    const { unmount: u1 } = render(
+      <SuggestedChips chips={[fixture()]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
+    )
+    expect(screen.getByTestId('suggested-chip-matrix')).toHaveTextContent(/Rerun analysis/i)
+    u1()
+
+    // current
+    setAnalysisState('current')
+    const { unmount: u2 } = render(
+      <SuggestedChips chips={[fixture()]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
+    )
+    expect(screen.queryByTestId('suggested-chip-matrix')).toBeNull()
+    u2()
+
+    // stale
+    setAnalysisState('stale')
+    render(
+      <SuggestedChips chips={[fixture()]} onChipClick={vi.fn().mockResolvedValue(undefined)} />,
+    )
+    expect(screen.getByTestId('suggested-chip-matrix')).toHaveTextContent(/^\s*Rerun\s*$/i)
   })
 })
 
