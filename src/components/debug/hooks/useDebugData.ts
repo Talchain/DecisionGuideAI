@@ -891,6 +891,33 @@ export interface DebugData {
    */
   cee_capture_response_hash_mismatch?: boolean
 
+  /**
+   * Round-2 review (P1): hash-mismatch detail surface. When the
+   * selector observes a disagreement, these fields record WHAT
+   * disagreed — boolean-only reporting hid the evidence. Always
+   * populated when the selector ran (may be null when nothing was
+   * read).
+   */
+  cee_capture_selected_response_hash?: string | null
+  cee_capture_selected_response_hash_source?: string | null
+  cee_capture_selected_trace_id?: string | null
+
+  /**
+   * Round-2 review (IMP): selection diagnostics — answers "why this
+   * turn?" without exporting raw payload content. Carries candidate
+   * counts (CEE / V5-endpoint / analysis-producing), the dominant
+   * ranking signal, the hash-match status code, and whether the
+   * primary selector path succeeded or fell back.
+   */
+  cee_capture_selection_diagnostics?: {
+    cee_candidate_count: number
+    v5_endpoint_candidate_count: number
+    analysis_producing_candidate_count: number
+    selected_via_primary_path: boolean
+    selected_reason: string
+    hash_match_status: string
+  }
+
   /** Gate statuses */
   gates: GateData[]
 
@@ -3806,6 +3833,29 @@ export function useDebugData(): DebugData {
       },
       payloads: payloadBundle,
       cee_capture_response_hash_mismatch: analysisProducing.hash_mismatch_observed,
+      // Round-2 review (P1 + IMP): hash-mismatch detail + selection
+      // diagnostics so the bundle records WHAT disagreed and WHY the
+      // selected candidate won — instead of boolean-only mismatch.
+      cee_capture_selected_response_hash:
+        analysisProducing.selected_response_hash,
+      cee_capture_selected_response_hash_source:
+        analysisProducing.selected_response_hash_source,
+      cee_capture_selected_trace_id: analysisProducing.selected_trace_id,
+      cee_capture_selection_diagnostics: {
+        cee_candidate_count:
+          analysisProducing.selection_diagnostics.cee_candidate_count,
+        v5_endpoint_candidate_count:
+          analysisProducing.selection_diagnostics.v5_endpoint_candidate_count,
+        analysis_producing_candidate_count:
+          analysisProducing.selection_diagnostics
+            .analysis_producing_candidate_count,
+        selected_via_primary_path:
+          analysisProducing.selection_diagnostics.selected_via_primary_path,
+        selected_reason:
+          analysisProducing.selection_diagnostics.selected_reason,
+        hash_match_status:
+          analysisProducing.selection_diagnostics.hash_match_status,
+      },
       gates,
       validation,
       winningOption,

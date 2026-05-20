@@ -29,6 +29,7 @@ import { getVersionInfo, getClientBuild } from '../../../lib/version-cache'
 import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer'
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
+import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
 import {
   derivePipelineStatus,
   type PipelineStatus,
@@ -1292,13 +1293,63 @@ interface DebugBundle {
    * documented `missing_app_env_capture_disabled` / `empty_*` /
    * `production_*` / `unknown_*` codes.
    *
-   * Always emitted (no behaviour change when the gate is on — the
-   * field merely makes the resolution visible).
+   * Round-2 review hardening: now ALWAYS emitted. When the bundle
+   * assembler can't even reach the trace-store module (dynamic-import
+   * failure, missing test mock, SSR), the field still appears with
+   * `enabled: false` and `reason: 'inspection_status_unavailable'`
+   * so reviewers never face a silently-missing diagnostic.
+   *
+   * Reason field is typed as the exported `PayloadInspectionReason`
+   * enum so unsupported codes fail at compile time.
    */
-  payload_inspection_status?: {
+  payload_inspection_status: {
     enabled: boolean
     resolved_app_env: string
-    reason: string
+    reason: PayloadInspectionReason
+  }
+
+  /**
+   * Round-2 review (P1 + IMP): live CEE capture selector detail.
+   *
+   * Records WHAT disagreed when `capture_response_hash_mismatch_with_results`
+   * fires (selected_response_hash + results_hash_at_selection) and
+   * WHY this turn was selected (selection_diagnostics) — surfacing
+   * the ranking decision without exporting raw payload content.
+   *
+   * Sibling of `payload_inspection_status` rather than a nested field
+   * inside `v5_canonical_turn_diagnostics` so the assembler interface
+   * stays additive. Always emitted on the async path; absent on the
+   * sync path (`buildDebugBundle`) since the selector consumes
+   * canvas-store state.
+   */
+  cee_capture_selection?: {
+    /** Captured response_hash for the selected entry, or null. */
+    selected_response_hash: string | null
+    /**
+     * Where in the response body the hash was read from. One of
+     * `ResponseHashSource` from `analysisProducingCeeTurn.ts`.
+     */
+    selected_response_hash_source: string | null
+    /** Trace-store id of the selected entry. */
+    selected_trace_id: string | null
+    /** Canvas store's results.hash at the time the selector ran. */
+    results_hash_at_selection: string | null
+    /**
+     * Hash-evidence summary — matched / mismatched / one_sided / both_absent.
+     * Drives the `capture_response_hash_mismatch_with_results`
+     * coherence issue (which fires only on `mismatched`).
+     */
+    hash_match_status: string
+    /** Dominant ranking signal for the chosen candidate. */
+    selected_reason: string
+    /** CEE entries across any endpoint (visible scope). */
+    cee_candidate_count: number
+    /** CEE entries on the `/orchestrate/v2/turn` V5 endpoint. */
+    v5_endpoint_candidate_count: number
+    /** V5-endpoint entries that were analysis-producing. */
+    analysis_producing_candidate_count: number
+    /** Whether the primary selector path returned a candidate. */
+    selected_via_primary_path: boolean
   }
 }
 
@@ -2655,6 +2706,19 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     goal_constraints: envelopeGoalConstraints,
     analysis_ready: envelopeAnalysisReady,
     effective_cee_response_source: effective.source,
+
+    // PR #152 — Live capture diagnostic, ALWAYS emitted.
+    // Sync path defaults to `inspection_status_unavailable` so the
+    // field is present and typed even though the sync path cannot
+    // dynamic-import the trace store. The async path (`buildDebugBundleAsync`)
+    // overrides this with the real evaluated status. Reviewers running
+    // a sync export still see the diagnostic shape; only the value
+    // changes between the two code paths.
+    payload_inspection_status: {
+      enabled: false,
+      resolved_app_env: '',
+      reason: 'inspection_status_unavailable',
+    },
   }
 }
 
@@ -2680,19 +2744,32 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
   // `payloads.cee_request` / `cee_response` are present or null. The
   // import is dynamic so unit tests that mock the trace-store module
   // pick up the same state without static-import order pitfalls.
+  //
+  // Round-2 review hardening: the sync `buildDebugBundle` path already
+  // seeded `payload_inspection_status` with
+  // `reason: 'inspection_status_unavailable'`. If the dynamic import
+  // succeeds we OVERWRITE that with the real state; if it fails we
+  // KEEP the unavailable default so the field is never silently
+  // absent. The field exists specifically to explain missing capture
+  // — it must never itself go missing.
   try {
-    const { getPayloadInspectionStatus } = await import(
-      '../../../lib/payload-trace-store'
-    )
-    const status = getPayloadInspectionStatus()
-    bundle.payload_inspection_status = {
-      enabled: status.enabled,
-      resolved_app_env: status.resolvedAppEnv,
-      reason: status.reason,
+    const traceModule = await import('../../../lib/payload-trace-store')
+    if (typeof traceModule.getPayloadInspectionStatus === 'function') {
+      const status = traceModule.getPayloadInspectionStatus()
+      bundle.payload_inspection_status = {
+        enabled: status.enabled,
+        resolved_app_env: status.resolvedAppEnv,
+        reason: status.reason,
+      }
     }
+    // If the export is missing (e.g. partial test mock that stubs only
+    // usePayloadTraceStore), retain the sync-path default of
+    // `inspection_status_unavailable` instead of silently faking
+    // success.
   } catch {
-    // Defensive: if the trace store can't be loaded (jsdom edge cases
-    // / circular import in tests), omit the field rather than throw.
+    // Dynamic import failed entirely (jsdom edge case, broken bundle).
+    // Retain the sync-path default — reviewers see
+    // `inspection_status_unavailable` instead of a missing field.
   }
 
   // Populate async sections: panel_state, orchestrator context
@@ -3189,6 +3266,34 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
         data.cee_capture_response_hash_mismatch === true,
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
+
+    // Round-2 review (P1 + IMP): surface hash-mismatch detail +
+    // selection diagnostics on the bundle. Always emit when the
+    // selector ran; the field's absence is the signal that the
+    // selector didn't run (sync export path).
+    if (data.cee_capture_selection_diagnostics !== undefined) {
+      bundle.cee_capture_selection = {
+        selected_response_hash:
+          data.cee_capture_selected_response_hash ?? null,
+        selected_response_hash_source:
+          data.cee_capture_selected_response_hash_source ?? null,
+        selected_trace_id: data.cee_capture_selected_trace_id ?? null,
+        results_hash_at_selection: storeState.results?.hash ?? null,
+        hash_match_status:
+          data.cee_capture_selection_diagnostics.hash_match_status,
+        selected_reason:
+          data.cee_capture_selection_diagnostics.selected_reason,
+        cee_candidate_count:
+          data.cee_capture_selection_diagnostics.cee_candidate_count,
+        v5_endpoint_candidate_count:
+          data.cee_capture_selection_diagnostics.v5_endpoint_candidate_count,
+        analysis_producing_candidate_count:
+          data.cee_capture_selection_diagnostics
+            .analysis_producing_candidate_count,
+        selected_via_primary_path:
+          data.cee_capture_selection_diagnostics.selected_via_primary_path,
+      }
+    }
 
     // graph_hash_at_generation: read-through. The v5AnalysisFact slice
     // may not carry this field on every code path; emit null when

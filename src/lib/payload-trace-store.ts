@@ -208,6 +208,15 @@ export type PayloadInspectionReason =
   | 'empty_app_env_capture_disabled'
   | 'production_env_capture_disabled'
   | 'unknown_app_env_capture_disabled'
+  /**
+   * Round-2 review (P1): the bundle assembler couldn't reach the
+   * trace-store module to query the gate (dynamic import failed,
+   * test mock missing, SSR edge case). Emitted by the consumer
+   * (`exportBundle.ts`) — NEVER returned by `getPayloadInspectionStatus`
+   * itself, which runs at module-load time and cannot fail. Reviewers
+   * see "diagnostic lookup itself failed" rather than a missing field.
+   */
+  | 'inspection_status_unavailable'
 
 interface InspectionEvaluation {
   enabled: boolean

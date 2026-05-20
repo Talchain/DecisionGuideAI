@@ -11,11 +11,16 @@
  *
  * This module is a pure utility — no React, no Zustand. Callers pass
  * a `TracedPayload`-shaped array plus the canvas store's current
- * scenario id and `results.hash`, and receive both the selected entry
- * and a `hash_mismatch_observed` boolean that drives a coherence
- * issue in the bundle assembler.
+ * scenario id and `results.hash`, and receive the selected entry,
+ * a `hash_mismatch_observed` boolean, and a `selection_diagnostics`
+ * block that records why this candidate was chosen.
  *
  * Selection contract:
+ *   - Only V5 turn-endpoint candidates (matching `/orchestrate/v2/turn`)
+ *     are considered analysis-producing — non-V5 CEE endpoints
+ *     (legacy `/bff/cee/turn`, `/bff/cee/draft-graph`, prompt-warm)
+ *     cannot outrank a real V5 analysis turn even if they carry an
+ *     analysis-shaped action_type.
  *   - Only analysis-producing CEE turns are candidates (the caller
  *     falls back to `findBestPayload` when this returns `undefined`,
  *     so non-analysis V5 / V1 turns still surface honestly).
@@ -23,9 +28,13 @@
  *     preference but a missing hash on either side NEVER disqualifies
  *     a candidate.
  *   - Mismatch reporting: when both hashes are present and disagree,
- *     `hash_mismatch_observed: true` is returned so the bundle can
- *     fire the `capture_response_hash_mismatch_with_results`
- *     coherence issue.
+ *     `hash_mismatch_observed: true` is returned AND the offending
+ *     hashes (selected + results) and the trace id are emitted so
+ *     reviewers can see WHICH hash disagreed — instead of "boolean
+ *     mismatch with no evidence."
+ *   - When no V5-endpoint candidate exists, the result records that
+ *     fact in `selection_diagnostics.fallback_reason` so reviewers
+ *     can spot a legacy-only trace.
  */
 
 /**
@@ -68,6 +77,73 @@ export const ANALYSIS_PRODUCING_ACTION_TYPES: ReadonlySet<string> = new Set([
   'explain',
 ])
 
+/**
+ * V5 turn endpoint pattern. Matches both the Netlify proxy
+ * (`/bff/orchestrate/v2/turn`) and the direct endpoint
+ * (`${VITE_ORCHESTRATOR_BASE}/orchestrate/v2/turn`). Aligned with the
+ * existing scoping in `v5CapturePipelineStatus.ts:isV5CeeRecord`.
+ *
+ * Endpoint scoping is essential to prevent a legacy CEE trace
+ * (e.g. `/bff/cee/draft-graph`) with analysis-shaped action metadata
+ * from outranking a real V5 analysis turn.
+ */
+export const V5_TURN_ENDPOINT_PATTERN = '/orchestrate/v2/turn'
+
+/**
+ * Where `readResponseHash` found the hash. Used by the bundle to
+ * emit a `hash_source` diagnostic alongside the mismatch, so
+ * reviewers can identify which canonical CEE shape was observed.
+ */
+export type ResponseHashSource =
+  | 'body_root_response_hash'
+  | 'body_meta_response_hash'
+  | 'body_analysis_state_meta_response_hash'
+  | 'body_lineage_response_hash'
+  | 'body_lineage_context_hash'
+  | 'body_blocks_analysis_result_response_hash'
+  | 'header_x_olumi_response_hash'
+
+export interface ResponseHashReading {
+  readonly hash: string
+  readonly source: ResponseHashSource
+}
+
+/**
+ * Diagnostic surface emitted alongside the selected candidate.
+ * Records ranking inputs and fallback path WITHOUT exposing raw
+ * payload content. Reviewers can answer "why this turn?" from the
+ * bundle without re-running the selector.
+ */
+export interface SelectionDiagnostics {
+  /** Total CEE-service entries seen (any endpoint). */
+  readonly cee_candidate_count: number
+  /** CEE entries with V5 turn-endpoint scoping applied. */
+  readonly v5_endpoint_candidate_count: number
+  /** Of the V5-endpoint candidates, how many were analysis-producing. */
+  readonly analysis_producing_candidate_count: number
+  /** Whether the selector's primary path returned a candidate. */
+  readonly selected_via_primary_path: boolean
+  /**
+   * Human-readable code recording the dominant ranking signal for the
+   * selected candidate, or the reason no candidate was selected.
+   */
+  readonly selected_reason:
+    | 'hash_matched'
+    | 'scenario_matched_recency'
+    | 'analysis_producing_recency'
+    | 'no_v5_endpoint_candidate'
+    | 'no_analysis_producing_candidate'
+    | 'no_cee_candidate'
+  /** Hash-evidence summary for the selected candidate (or null path). */
+  readonly hash_match_status:
+    | 'matched'
+    | 'mismatched'
+    | 'only_results_hash_present'
+    | 'only_capture_hash_present'
+    | 'both_absent'
+    | 'no_candidate'
+}
+
 export interface AnalysisProducingSelectionResult {
   /** Selected trace entry, or undefined when nothing matched. */
   selected: SelectorTracedPayload | undefined
@@ -79,6 +155,18 @@ export interface AnalysisProducingSelectionResult {
    * issue downstream.
    */
   hash_mismatch_observed: boolean
+  /**
+   * The captured response_hash for the selected entry (when readable).
+   * Surfaced so the bundle records WHICH hash disagreed with
+   * results.hash — boolean-only reporting hides the actual evidence.
+   */
+  selected_response_hash: string | null
+  /** Where in the response body the hash was read from (when readable). */
+  selected_response_hash_source: ResponseHashSource | null
+  /** Selected trace entry's `id` (trace-store identifier), when present. */
+  selected_trace_id: string | null
+  /** Ranking + fallback diagnostics — see `SelectionDiagnostics`. */
+  selection_diagnostics: SelectionDiagnostics
 }
 
 /**
@@ -90,6 +178,18 @@ function isCeeService(p: SelectorTracedPayload): boolean {
   return (
     typeof p.service === 'string' && p.service.toUpperCase() === 'CEE'
   )
+}
+
+/**
+ * V5 turn endpoint scope. Same predicate as
+ * `v5CapturePipelineStatus.ts:isV5CeeRecord` (CEE service + endpoint
+ * contains `/orchestrate/v2/turn`). Treats missing endpoint as
+ * NON-V5 — defensive, prefers honesty to optimism.
+ */
+function isV5TurnEndpoint(p: SelectorTracedPayload): boolean {
+  if (!isCeeService(p)) return false
+  return typeof p.endpoint === 'string' &&
+    p.endpoint.includes(V5_TURN_ENDPOINT_PATTERN)
 }
 
 /**
@@ -132,28 +232,91 @@ export function readTurnOrActionType(
 }
 
 /**
- * Defensive response_hash read. The hash may be carried at:
- *   - `response.body.response_hash` (root)
- *   - `response.body.meta.response_hash`
- *   - `response.body.blocks[].response_hash` on an `analysis_result` block
- *   - `response.headers['x-olumi-response-hash']` (header echo)
- *   - `response.headers['X-Olumi-Response-Hash']` (case-insensitive)
- * Returns the first non-empty string found, or null.
+ * Defensive response-hash read. Returns the FIRST non-empty hash
+ * found AND the source code identifying WHERE it was read from. The
+ * priority order is most-specific-first so reviewers can rely on the
+ * source label to disambiguate fixtures:
+ *
+ *   1. `response.body.lineage.response_hash` — explicit canonical
+ *      response hash on the lineage block (reviewer P0 ask).
+ *   2. `response.body.lineage.context_hash` — current canonical CEE
+ *      identity hash (observed in fixture
+ *      `cee-orchestrator-response.json`). Defensible alias for
+ *      `response_hash` until CEE migrates.
+ *   3. `response.body.analysis_state.meta.response_hash` —
+ *      analysis-state-scoped hash on V5 analysis turns.
+ *   4. `response.body.meta.response_hash` — root meta.
+ *   5. `response.body.response_hash` — root.
+ *   6. `response.body.blocks[].response_hash` on an `analysis_result`
+ *      block (PR #147 sidecar shape).
+ *   7. `response.headers['x-olumi-response-hash']` — header echo,
+ *      case-insensitive.
+ *
+ * Returns null when no hash anywhere.
+ *
+ * Note on order: lineage-level keys are checked BEFORE root/meta
+ * because the canonical CEE response carries identity at the lineage
+ * block on the orchestrator boundary; a stale root-level hash on a
+ * non-analysis turn must not outrank a lineage-fresh hash.
  */
-export function readResponseHash(p: SelectorTracedPayload): string | null {
+export function readResponseHashWithSource(
+  p: SelectorTracedPayload,
+): ResponseHashReading | null {
   const body = p.response?.body
   if (body && typeof body === 'object' && !Array.isArray(body)) {
     const root = body as Record<string, unknown>
-    if (typeof root.response_hash === 'string' && root.response_hash.length > 0) {
-      return root.response_hash
+
+    // (1) + (2): lineage block.
+    const lineage = root.lineage
+    if (lineage && typeof lineage === 'object' && !Array.isArray(lineage)) {
+      const lin = lineage as Record<string, unknown>
+      const respHash = lin.response_hash
+      if (typeof respHash === 'string' && respHash.length > 0) {
+        return { hash: respHash, source: 'body_lineage_response_hash' }
+      }
+      const ctxHash = lin.context_hash
+      if (typeof ctxHash === 'string' && ctxHash.length > 0) {
+        return { hash: ctxHash, source: 'body_lineage_context_hash' }
+      }
     }
+
+    // (3): analysis_state.meta.response_hash.
+    const analysisState = root.analysis_state
+    if (
+      analysisState &&
+      typeof analysisState === 'object' &&
+      !Array.isArray(analysisState)
+    ) {
+      const meta = (analysisState as Record<string, unknown>).meta
+      if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
+        const asMetaHash = (meta as Record<string, unknown>).response_hash
+        if (typeof asMetaHash === 'string' && asMetaHash.length > 0) {
+          return {
+            hash: asMetaHash,
+            source: 'body_analysis_state_meta_response_hash',
+          }
+        }
+      }
+    }
+
+    // (4): meta.response_hash.
     const meta = root.meta
     if (meta && typeof meta === 'object' && !Array.isArray(meta)) {
       const metaHash = (meta as Record<string, unknown>).response_hash
       if (typeof metaHash === 'string' && metaHash.length > 0) {
-        return metaHash
+        return { hash: metaHash, source: 'body_meta_response_hash' }
       }
     }
+
+    // (5): root.response_hash.
+    if (
+      typeof root.response_hash === 'string' &&
+      root.response_hash.length > 0
+    ) {
+      return { hash: root.response_hash, source: 'body_root_response_hash' }
+    }
+
+    // (6): blocks[].response_hash on analysis_result.
     const blocks = root.blocks
     if (Array.isArray(blocks)) {
       for (const b of blocks) {
@@ -162,22 +325,38 @@ export function readResponseHash(p: SelectorTracedPayload): string | null {
         if (bb.type === 'analysis_result') {
           const blockHash = bb.response_hash
           if (typeof blockHash === 'string' && blockHash.length > 0) {
-            return blockHash
+            return {
+              hash: blockHash,
+              source: 'body_blocks_analysis_result_response_hash',
+            }
           }
         }
       }
     }
   }
-  // Header fallback — iterate so we can match case-insensitively.
+
+  // (7): header fallback (case-insensitive).
   const headers = p.response?.headers
   if (headers && typeof headers === 'object') {
     for (const [key, value] of Object.entries(headers)) {
-      if (key.toLowerCase() === 'x-olumi-response-hash') {
-        if (typeof value === 'string' && value.length > 0) return value
+      if (
+        key.toLowerCase() === 'x-olumi-response-hash' &&
+        typeof value === 'string' &&
+        value.length > 0
+      ) {
+        return { hash: value, source: 'header_x_olumi_response_hash' }
       }
     }
   }
   return null
+}
+
+/**
+ * Back-compat wrapper for callers that only need the hash string.
+ * Prefer `readResponseHashWithSource` when the source is useful.
+ */
+export function readResponseHash(p: SelectorTracedPayload): string | null {
+  return readResponseHashWithSource(p)?.hash ?? null
 }
 
 /**
@@ -206,6 +385,28 @@ function isCompletedTwoXx(p: SelectorTracedPayload): boolean {
   )
 }
 
+function emptyResult(
+  reason: SelectionDiagnostics['selected_reason'],
+  diagnostics: Partial<SelectionDiagnostics> = {},
+): AnalysisProducingSelectionResult {
+  return {
+    selected: undefined,
+    hash_mismatch_observed: false,
+    selected_response_hash: null,
+    selected_response_hash_source: null,
+    selected_trace_id: null,
+    selection_diagnostics: {
+      cee_candidate_count: diagnostics.cee_candidate_count ?? 0,
+      v5_endpoint_candidate_count: diagnostics.v5_endpoint_candidate_count ?? 0,
+      analysis_producing_candidate_count:
+        diagnostics.analysis_producing_candidate_count ?? 0,
+      selected_via_primary_path: false,
+      selected_reason: reason,
+      hash_match_status: 'no_candidate',
+    },
+  }
+}
+
 /**
  * Select the latest analysis-producing CEE turn from a trace-store
  * snapshot, ranked by:
@@ -224,34 +425,67 @@ function isCompletedTwoXx(p: SelectorTracedPayload): boolean {
  * NEVER discards a candidate. Only the (b)→(e) signals decide
  * selection when hash evidence isn't available on both sides.
  *
- * Returns `{ selected: undefined, hash_mismatch_observed: false }`
- * when no candidate is analysis-producing — the caller (useDebugData)
- * should then fall back to `findBestPayload` so non-analysis V5 / V1
- * turns still surface honestly.
+ * Endpoint scoping: only CEE traces whose endpoint matches
+ * `V5_TURN_ENDPOINT_PATTERN` are eligible. Legacy `/bff/cee/turn` /
+ * `/bff/cee/draft-graph` / prompt-warm entries are excluded even if
+ * their request body carries `chip.action_type: 'run_analysis'` —
+ * those are by-definition non-V5 turns and must not impersonate one.
+ *
+ * Returns `{ selected: undefined, ... }` with a documented
+ * `selected_reason` in `selection_diagnostics` when no V5-endpoint
+ * analysis-producing candidate exists — the caller (useDebugData)
+ * then falls back to `findBestPayload` so non-analysis V5 / V1 turns
+ * still surface honestly.
  */
 export function findLatestAnalysisProducingCeeTurn(
   payloads: ReadonlyArray<SelectorTracedPayload>,
   currentScenarioId: string | null,
   resultsHash: string | null,
 ): AnalysisProducingSelectionResult {
-  // Only CEE turns are eligible.
+  // (1) CEE-service entries (any endpoint).
   const ceeTurns = payloads.filter(isCeeService)
   if (ceeTurns.length === 0) {
-    return { selected: undefined, hash_mismatch_observed: false }
+    return emptyResult('no_cee_candidate')
   }
 
-  // Filter to analysis-producing only. If none qualify, fall through
-  // to the caller's fallback.
-  const candidates = ceeTurns
+  // (2) Endpoint-scoped V5 turn entries. Anything else is by
+  //     definition NOT a V5 analysis turn and must not be selected.
+  const v5Turns = ceeTurns.filter(isV5TurnEndpoint)
+  if (v5Turns.length === 0) {
+    return emptyResult('no_v5_endpoint_candidate', {
+      cee_candidate_count: ceeTurns.length,
+      v5_endpoint_candidate_count: 0,
+      analysis_producing_candidate_count: 0,
+    })
+  }
+
+  // (3) Analysis-producing filter. If none qualify, fall through to
+  //     the caller's fallback.
+  const candidates = v5Turns
     .map((p, idx) => ({ p, idx }))
     .filter(({ p }) => isAnalysisProducing(p))
   if (candidates.length === 0) {
-    return { selected: undefined, hash_mismatch_observed: false }
+    return emptyResult('no_analysis_producing_candidate', {
+      cee_candidate_count: ceeTurns.length,
+      v5_endpoint_candidate_count: v5Turns.length,
+      analysis_producing_candidate_count: 0,
+    })
   }
 
+  // Pre-compute hash readings — used both by scoring and the result
+  // diagnostic. Single read per candidate keeps the scoring
+  // deterministic.
+  const candidateHashes = new Map<SelectorTracedPayload, ResponseHashReading | null>()
+  for (const c of candidates) {
+    candidateHashes.set(c.p, readResponseHashWithSource(c.p))
+  }
+
+  // Score and dominant-signal labelling.
+  let dominantSignal: 'hash_matched' | 'scenario_matched_recency' | 'analysis_producing_recency'
   const score = (p: SelectorTracedPayload, idx: number): number => {
     let s = 0
-    if (resultsHash !== null && readResponseHash(p) === resultsHash) {
+    const reading = candidateHashes.get(p) ?? null
+    if (resultsHash !== null && reading && reading.hash === resultsHash) {
       s += 1000
     }
     if (
@@ -260,28 +494,61 @@ export function findLatestAnalysisProducingCeeTurn(
     ) {
       s += 100
     }
-    // Analysis-producing already verified by the filter above; +50 is
-    // a constant offset that makes this signal visible to scoring
-    // overrides should we ever extend the filter to non-strict matches.
-    s += 50
+    s += 50 // analysis-producing offset, constant for the filtered set
     if (isCompletedTwoXx(p)) s += 10
-    // Recency tiebreaker (index in the most-recent-first array). 0 →
-    // +9, …, 9+ → 0. Avoids strict equality being decided by
-    // arbitrary array order.
     s += Math.max(0, 9 - idx)
     return s
   }
 
-  candidates.sort(
-    (a, b) => score(b.p, b.idx) - score(a.p, a.idx),
-  )
+  candidates.sort((a, b) => score(b.p, b.idx) - score(a.p, a.idx))
   const selected = candidates[0].p
+  const selectedReading = candidateHashes.get(selected) ?? null
 
-  const selectedHash = readResponseHash(selected)
-  const hash_mismatch_observed =
+  // Establish dominant signal for the selected candidate.
+  if (
     resultsHash !== null &&
-    selectedHash !== null &&
-    resultsHash !== selectedHash
+    selectedReading &&
+    selectedReading.hash === resultsHash
+  ) {
+    dominantSignal = 'hash_matched'
+  } else if (
+    currentScenarioId !== null &&
+    readScenarioId(selected) === currentScenarioId
+  ) {
+    dominantSignal = 'scenario_matched_recency'
+  } else {
+    dominantSignal = 'analysis_producing_recency'
+  }
 
-  return { selected, hash_mismatch_observed }
+  // Hash-match status — exposed as a separate field so the bundle
+  // doesn't have to re-derive it from the boolean.
+  let hash_match_status: SelectionDiagnostics['hash_match_status']
+  if (resultsHash !== null && selectedReading !== null) {
+    hash_match_status =
+      selectedReading.hash === resultsHash ? 'matched' : 'mismatched'
+  } else if (resultsHash !== null) {
+    hash_match_status = 'only_results_hash_present'
+  } else if (selectedReading !== null) {
+    hash_match_status = 'only_capture_hash_present'
+  } else {
+    hash_match_status = 'both_absent'
+  }
+
+  const hash_mismatch_observed = hash_match_status === 'mismatched'
+
+  return {
+    selected,
+    hash_mismatch_observed,
+    selected_response_hash: selectedReading?.hash ?? null,
+    selected_response_hash_source: selectedReading?.source ?? null,
+    selected_trace_id: typeof selected.id === 'string' ? selected.id : null,
+    selection_diagnostics: {
+      cee_candidate_count: ceeTurns.length,
+      v5_endpoint_candidate_count: v5Turns.length,
+      analysis_producing_candidate_count: candidates.length,
+      selected_via_primary_path: true,
+      selected_reason: dominantSignal,
+      hash_match_status,
+    },
+  }
 }

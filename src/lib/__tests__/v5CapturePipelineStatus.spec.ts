@@ -371,6 +371,22 @@ describe('classifyV5CapturePipelineStatus — coherence issues', () => {
     )
   })
 
+  it('precedence (round-2 P1): contradiction issue + capture_missing → state contradictory (NOT missing)', () => {
+    // Pre-fix the missing branch trumped issues — hiding the
+    // contradiction behind a more neutral label. After the flip, any
+    // non-empty issues list moves state to `contradictory` regardless
+    // of whether the underlying status is `capture_missing`.
+    const out = classifyV5CapturePipelineStatus({
+      ...defaults(),
+      ceeCaptureResponseHashMismatch: true,
+    })
+    expect(out.capture_pipeline_status).toBe('capture_missing')
+    expect(out.coherence.issues).toContain(
+      'capture_response_hash_mismatch_with_results',
+    )
+    expect(out.coherence.state).toBe('contradictory')
+  })
+
   it('hash-mismatch issue is additive — coherence flips to "contradictory" alongside the existing classification', () => {
     // Successful complete capture + hash mismatch → state must reflect
     // the contradiction so reviewers see the issue even when the

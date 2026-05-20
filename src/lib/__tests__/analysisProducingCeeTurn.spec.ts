@@ -34,7 +34,11 @@ function ceeTurn(
   return {
     id: overrides.id ?? 'tp-1',
     service: 'CEE',
-    endpoint: '/v5/turn',
+    // Round-2 review (P1): endpoint must match V5_TURN_ENDPOINT_PATTERN
+    // (`/orchestrate/v2/turn`) for the candidate to be eligible. Most
+    // tests want a valid V5 endpoint by default; legacy/non-turn
+    // endpoint tests override this explicitly.
+    endpoint: '/bff/orchestrate/v2/turn',
     status: 200,
     completed: true,
     turnType: 'run_analysis',
@@ -368,3 +372,303 @@ describe('findLatestAnalysisProducingCeeTurn — completion filter', () => {
     expect(result.selected?.id).toBe('tp-ok')
   })
 })
+
+// =====================================================================
+// Round-2 review additions
+// =====================================================================
+
+describe('readResponseHashWithSource — canonical CEE shapes (round-2 P0)', () => {
+  it('reads body.lineage.response_hash (highest priority)', () => {
+    expect(
+      readResponseHash({
+        response: {
+          body: {
+            lineage: { response_hash: 'lineage-resp-hash' },
+            // Stale root hash MUST NOT outrank lineage.
+            response_hash: 'stale-root',
+            meta: { response_hash: 'stale-meta' },
+          },
+        },
+      }),
+    ).toBe('lineage-resp-hash')
+  })
+
+  it('reads body.lineage.context_hash when response_hash absent', () => {
+    // Matches the canonical CEE fixture
+    // `cee-orchestrator-response.json`: lineage.context_hash is the
+    // current identity hash; lineage.response_hash is the round-2
+    // forward-compat key.
+    expect(
+      readResponseHash({
+        response: {
+          body: { lineage: { context_hash: 'ctx-hash-fixture' } },
+        },
+      }),
+    ).toBe('ctx-hash-fixture')
+  })
+
+  it('reads body.analysis_state.meta.response_hash on V5 turns', () => {
+    expect(
+      readResponseHash({
+        response: {
+          body: {
+            analysis_state: { meta: { response_hash: 'as-meta-hash' } },
+          },
+        },
+      }),
+    ).toBe('as-meta-hash')
+  })
+
+  it('priority: lineage.response_hash > lineage.context_hash > analysis_state.meta > meta > root > blocks > header', () => {
+    // lineage.response_hash WINS over everything below.
+    expect(
+      readResponseHash({
+        response: {
+          headers: { 'x-olumi-response-hash': 'hdr' },
+          body: {
+            lineage: {
+              response_hash: 'L1',
+              context_hash: 'L2',
+            },
+            analysis_state: { meta: { response_hash: 'AS' } },
+            meta: { response_hash: 'M' },
+            response_hash: 'R',
+            blocks: [
+              { type: 'analysis_result', response_hash: 'B' },
+            ],
+          },
+        },
+      }),
+    ).toBe('L1')
+  })
+})
+
+describe('findLatestAnalysisProducingCeeTurn — round-2 P0: hash match against canonical CEE shape', () => {
+  // Canonical envelope shape — drawn from
+  // `src/canvas/conversation/__tests__/fixtures/cee-orchestrator-response.json`.
+  // The selector MUST find the hash on the canonical envelope without
+  // any normalisation.
+  function canonicalCeeBody(hash: string): unknown {
+    return {
+      turn_id: '946e4876-0007-4a85-9370-c84621107b29',
+      assistant_text: null,
+      blocks: [],
+      lineage: {
+        context_hash: hash,
+        dsk_version_hash: null,
+      },
+      stage_indicator: { stage: 'ideate' },
+    }
+  }
+
+  it('hash MATCH against canonical CEE lineage.context_hash drives selection (P0)', () => {
+    const payloads: SelectorTracedPayload[] = [
+      // Newer non-matching candidate.
+      ceeTurn({
+        id: 'tp-newer',
+        response: {
+          body: { lineage: { context_hash: 'different-hash' } },
+        },
+      }),
+      // Older but MATCHES the canonical lineage hash.
+      ceeTurn({
+        id: 'tp-canonical-match',
+        response: { body: canonicalCeeBody('canonical-hash') },
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(
+      payloads,
+      'scn-1',
+      'canonical-hash',
+    )
+    expect(result.selected?.id).toBe('tp-canonical-match')
+    expect(result.hash_mismatch_observed).toBe(false)
+    expect(result.selected_response_hash).toBe('canonical-hash')
+    expect(result.selected_response_hash_source).toBe(
+      'body_lineage_context_hash',
+    )
+    expect(result.selection_diagnostics.selected_reason).toBe('hash_matched')
+    expect(result.selection_diagnostics.hash_match_status).toBe('matched')
+  })
+
+  it('hash MISMATCH against canonical CEE lineage hash is reported with detail (P0)', () => {
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({
+        id: 'tp-canonical-mismatch',
+        response: { body: canonicalCeeBody('observed-hash') },
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(
+      payloads,
+      'scn-1',
+      'expected-hash',
+    )
+    expect(result.selected?.id).toBe('tp-canonical-mismatch')
+    expect(result.hash_mismatch_observed).toBe(true)
+    expect(result.selected_response_hash).toBe('observed-hash')
+    expect(result.selected_response_hash_source).toBe(
+      'body_lineage_context_hash',
+    )
+    expect(result.selected_trace_id).toBe('tp-canonical-mismatch')
+    expect(result.selection_diagnostics.hash_match_status).toBe('mismatched')
+  })
+})
+
+describe('findLatestAnalysisProducingCeeTurn — round-2 P1: V5 endpoint scope', () => {
+  it('NEGATIVE: a legacy /bff/cee/draft-graph trace cannot be selected', () => {
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({
+        id: 'tp-draft-graph',
+        endpoint: '/bff/cee/draft-graph',
+        // Note: legacy endpoint carries analysis-shaped action metadata.
+        turnType: 'run_analysis',
+        request: {
+          body: {
+            scenario_id: 'scn-1',
+            chip: { action_type: 'run_analysis' },
+          },
+        },
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selected).toBeUndefined()
+    expect(result.selection_diagnostics.cee_candidate_count).toBe(1)
+    expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(0)
+    expect(result.selection_diagnostics.selected_reason).toBe(
+      'no_v5_endpoint_candidate',
+    )
+  })
+
+  it('NEGATIVE: a legacy /bff/cee/turn trace cannot outrank a V5 turn', () => {
+    const payloads: SelectorTracedPayload[] = [
+      // Newer legacy CEE turn — should NOT be selected even though it
+      // is more recent and has the same scenario.
+      ceeTurn({
+        id: 'tp-legacy-newer',
+        endpoint: '/bff/cee/turn',
+        turnType: 'run_analysis',
+      }),
+      // Older V5 turn — SHOULD be selected because it's on the V5
+      // endpoint.
+      ceeTurn({
+        id: 'tp-v5-older',
+        endpoint: '/bff/orchestrate/v2/turn',
+        turnType: 'run_analysis',
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selected?.id).toBe('tp-v5-older')
+    expect(result.selection_diagnostics.cee_candidate_count).toBe(2)
+    expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(1)
+  })
+
+  it('NEGATIVE: a CEE entry with no endpoint at all is excluded from V5 candidates', () => {
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({
+        id: 'tp-no-endpoint',
+        endpoint: undefined,
+        turnType: 'run_analysis',
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selected).toBeUndefined()
+    expect(result.selection_diagnostics.selected_reason).toBe(
+      'no_v5_endpoint_candidate',
+    )
+  })
+
+  it('NEGATIVE: matches direct V5 endpoint (no /bff prefix)', () => {
+    // The V5 adapter can target either `/bff/orchestrate/v2/turn` or
+    // `${VITE_ORCHESTRATOR_BASE}/orchestrate/v2/turn`. Both must be
+    // accepted.
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({
+        id: 'tp-direct',
+        endpoint: 'https://cee.test/orchestrate/v2/turn',
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selected?.id).toBe('tp-direct')
+    expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(1)
+  })
+})
+
+describe('findLatestAnalysisProducingCeeTurn — round-2 IMP: selection diagnostics', () => {
+  it('emits a complete selection_diagnostics block on the primary path', () => {
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({ id: 'tp-1', turnType: 'run_analysis' }),
+      ceeTurn({ id: 'tp-2', turnType: 'prompt_warm' }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selection_diagnostics).toEqual({
+      cee_candidate_count: 2,
+      v5_endpoint_candidate_count: 2,
+      analysis_producing_candidate_count: 1,
+      selected_via_primary_path: true,
+      selected_reason: 'scenario_matched_recency',
+      hash_match_status: 'both_absent',
+    })
+  })
+
+  it('records "both_absent" when neither hash is provided', () => {
+    const result = findLatestAnalysisProducingCeeTurn(
+      [ceeTurn({ turnType: 'run_analysis' })],
+      'scn-1',
+      null,
+    )
+    expect(result.selection_diagnostics.hash_match_status).toBe('both_absent')
+  })
+
+  it('records "only_results_hash_present" when capture hash is missing', () => {
+    const result = findLatestAnalysisProducingCeeTurn(
+      [ceeTurn({ turnType: 'run_analysis' })],
+      'scn-1',
+      'results-only-hash',
+    )
+    expect(result.selection_diagnostics.hash_match_status).toBe(
+      'only_results_hash_present',
+    )
+  })
+
+  it('records "only_capture_hash_present" when results hash is missing', () => {
+    const result = findLatestAnalysisProducingCeeTurn(
+      [
+        ceeTurn({
+          turnType: 'run_analysis',
+          response: { body: { response_hash: 'capture-only-hash' } },
+        }),
+      ],
+      'scn-1',
+      null,
+    )
+    expect(result.selection_diagnostics.hash_match_status).toBe(
+      'only_capture_hash_present',
+    )
+  })
+
+  it('records selected_via_primary_path=false when no CEE candidate', () => {
+    const result = findLatestAnalysisProducingCeeTurn([], 'scn-1', null)
+    expect(result.selection_diagnostics.selected_via_primary_path).toBe(false)
+    expect(result.selection_diagnostics.selected_reason).toBe(
+      'no_cee_candidate',
+    )
+  })
+
+  it('records fallback reason when no analysis-producing turn exists', () => {
+    const result = findLatestAnalysisProducingCeeTurn(
+      [ceeTurn({ turnType: 'prompt_warm' })],
+      'scn-1',
+      null,
+    )
+    expect(result.selection_diagnostics.selected_reason).toBe(
+      'no_analysis_producing_candidate',
+    )
+    // The endpoint-filter pass still found a V5 candidate, just not
+    // analysis-producing — surfaces in the counts.
+    expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(1)
+    expect(
+      result.selection_diagnostics.analysis_producing_candidate_count,
+    ).toBe(0)
+  })
+})
+

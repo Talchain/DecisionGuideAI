@@ -246,11 +246,22 @@ export function classifyV5CapturePipelineStatus(
     issues.push('legacy_pipeline_status_misleading_proxy_or_network_failure')
   }
 
+  // Round-2 review (P1): any non-empty issues list flips `state` to
+  // `'contradictory'` BEFORE the missing/complete/partial fallbacks.
+  // Pre-fix, `state` stayed `'missing'` whenever
+  // `capture_pipeline_status === 'capture_missing'` even if a real
+  // contradiction (e.g. `capture_response_hash_mismatch_with_results`)
+  // was in the issues array — hiding the disagreement behind a more
+  // neutral "missing" label. The correct precedence is:
+  //   any contradiction issue → 'contradictory'
+  //   else status capture_missing → 'missing'
+  //   else status complete → 'complete'
+  //   else → 'partial'
   let state: CoherenceState
-  if (status === 'capture_missing') {
-    state = 'missing'
-  } else if (issues.length > 0) {
+  if (issues.length > 0) {
     state = 'contradictory'
+  } else if (status === 'capture_missing') {
+    state = 'missing'
   } else if (status === 'complete') {
     state = 'complete'
   } else {
