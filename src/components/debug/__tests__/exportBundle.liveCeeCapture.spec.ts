@@ -754,3 +754,179 @@ describe('buildDebugBundleAsync — round-4 P1: tightened union types', () => {
     expect(bundle.cee_capture_selection.selected_reason).toBe('hash_matched')
   })
 })
+
+// =====================================================================
+// Round-5 review additions
+// =====================================================================
+
+describe('buildDebugBundleAsync — round-5 P0: fallback V5 trace id pins canonical metadata', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('fallback V5: trace store has newer non-analysis V5 + middle V5 + older legacy, no analysis-producing — bundle pins fallback V5 trace', async () => {
+    // Pre-fix: the analysis-producing selector returns undefined
+    // (none of the entries are analysis-producing). The fallback
+    // `findBestPayload` picks the most-recent completed V5 entry —
+    // but `useDebugData` didn't propagate THAT entry's id to
+    // `cee_capture_selected_trace_id`. The bundle assembler's
+    // `findCanonicalV5TraceForBundle` fell through to
+    // `findLatestV5TurnEntry`, which COULD pick a different turn
+    // (e.g. a more recent metadata-only stub) — making metadata and
+    // body refer to different traces.
+    //
+    // Post-fix: useDebugData threads the fallback id; the bundle
+    // pins both views to it.
+    //
+    // NOTE: this test simulates what `useDebugData` SHOULD emit
+    // when the fallback V5 path fires. We pass:
+    //   - cee_capture_provenance: 'fallback_v5_turn'
+    //   - cee_capture_selected_trace_id: 'tp-fallback-middle'
+    // and assert the bundle's v5_canonical_turn_diagnostics.latest_v5_turn
+    // describes the SAME trace.
+    traceState.payloads = [
+      // Newest — non-analysis V5 (no chip/action discriminator).
+      {
+        id: 'tp-newer-no-discriminator',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: { other: true } },
+      },
+      // Middle — the fallback V5 target.
+      {
+        id: 'tp-fallback-middle',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: { fallback: true } },
+      },
+      // Older — legacy CEE.
+      {
+        id: 'tp-older-legacy',
+        service: 'CEE',
+        endpoint: '/bff/cee/turn',
+        completed: true,
+        status: 200,
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'fallback_v5_turn',
+        cee_capture_selected_trace_id: 'tp-fallback-middle',
+      }),
+    )
+    // selected_cee_trace_id matches the fallback target.
+    expect(bundle.selected_cee_trace_id).toBe('tp-fallback-middle')
+    // latest_v5_turn diagnostic refers to the SAME trace (not the
+    // newer no-discriminator entry).
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_id,
+    ).toBe('tp-fallback-middle')
+  })
+})
+
+describe('buildDebugBundleAsync — round-5 P1: invalid_selected_trace_id diagnostic', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('emits invalid_selected_trace_id when the pinned id matches a LEGACY CEE entry', async () => {
+    traceState.payloads = [
+      // Valid V5 turn — fallback target.
+      {
+        id: 'tp-v5',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        response: { body: { ok: true } },
+      },
+      // Legacy CEE — the pinned id matches this one. Round-5 P1:
+      // the canonical-pin helper REJECTS it and falls back to the
+      // valid V5 entry.
+      {
+        id: 'tp-legacy-pinned',
+        service: 'CEE',
+        endpoint: '/bff/cee/turn',
+        completed: true,
+        status: 200,
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_selected_trace_id: 'tp-legacy-pinned',
+      }),
+    )
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).toContain('invalid_selected_trace_id')
+    // The bundle fell back to the valid V5 trace, not the legacy
+    // entry — metadata stays honest.
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_id,
+    ).toBe('tp-v5')
+  })
+
+  it('emits invalid_selected_trace_id when the pinned id does NOT match any entry', async () => {
+    traceState.payloads = [
+      {
+        id: 'tp-v5',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        response: { body: { ok: true } },
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_selected_trace_id: 'tp-evicted-from-ring-buffer',
+      }),
+    )
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).toContain('invalid_selected_trace_id')
+    // Falls back to the latest V5 entry honestly.
+    expect(
+      bundle.v5_canonical_turn_diagnostics?.latest_v5_turn.request_id,
+    ).toBe('tp-v5')
+  })
+
+  it('does NOT emit invalid_selected_trace_id when the pin is valid', async () => {
+    traceState.payloads = [
+      {
+        id: 'tp-v5',
+        service: 'CEE',
+        endpoint: '/bff/orchestrate/v2/turn',
+        completed: true,
+        status: 200,
+        response: { body: { ok: true } },
+      },
+    ]
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_selected_trace_id: 'tp-v5',
+      }),
+    )
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).not.toContain('invalid_selected_trace_id')
+  })
+})

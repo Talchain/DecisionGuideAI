@@ -908,6 +908,43 @@ describe('round-3 P1: shared V5 CEE helpers (isCeeService, isV5TurnEndpoint)', (
         ).toBe(expected)
       },
     )
+
+    // ROUND-5 P1 — pathname-only matching. Pre-fix the regex ran
+    // against the WHOLE endpoint string, so query/fragment content
+    // containing `/orchestrate/v2/turn` produced false matches.
+    it.each([
+      // Query-string false positives (round-5 P1):
+      {
+        ep: '/legacy/foo?next=/orchestrate/v2/turn',
+        expected: false,
+      },
+      {
+        ep: 'https://cee.test/legacy?next=/orchestrate/v2/turn',
+        expected: false,
+      },
+      {
+        ep: '/some/other/path?redirect=%2Forchestrate%2Fv2%2Fturn',
+        expected: false,
+      },
+      // Fragment false positives (round-5 P1):
+      {
+        ep: '/legacy#/orchestrate/v2/turn',
+        expected: false,
+      },
+      // Path that genuinely IS V5, with query containing V5 path
+      // (still a true match — the real pathname is V5):
+      {
+        ep: '/orchestrate/v2/turn?next=/orchestrate/v2/turn',
+        expected: true,
+      },
+    ])(
+      'round-5 P1: pathname-only matching — endpoint $ep → $expected',
+      ({ ep, expected }) => {
+        expect(
+          isV5TurnEndpoint({ service: 'CEE', endpoint: ep }),
+        ).toBe(expected)
+      },
+    )
   })
 })
 

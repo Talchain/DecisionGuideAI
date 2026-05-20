@@ -30,6 +30,11 @@ import { getBufferedLogs, type BufferedLog } from '../../../utils/debugLogBuffer
 import { DEBUG_LLM_RAW_MAX_CHARS } from '../../../utils/payloadRedaction'
 import { getUserActions } from '../../../lib/debug-state'
 import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
+// Round-5 review (P1): use the shared V5 endpoint helper for the
+// service-metadata classification too, so the bundle can't
+// reintroduce substring false positives (e.g. `/turning` or
+// query-string `?next=/orchestrate/v2/turn`).
+import { isV5TurnEndpoint } from '../../../lib/v5TraceMatching'
 import {
   derivePipelineStatus,
   type PipelineStatus,
@@ -2925,10 +2930,11 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // an older run_analysis turn — metadata vs body disagreed.
     const v5TraceStorePre = await import('../../../lib/payload-trace-store')
     const v5TraceStatePre = v5TraceStorePre.usePayloadTraceStore.getState()
-    const latestV5TracePre = findCanonicalV5TraceForBundle(
+    const canonicalPre = findCanonicalV5TraceForBundle(
       v5TraceStatePre.payloads,
       data.cee_capture_selected_trace_id ?? null,
     )
+    const latestV5TracePre = canonicalPre.trace
     const traceResponseBody =
       latestV5TracePre?.response?.body !== undefined
         ? latestV5TracePre.response.body
@@ -3140,10 +3146,21 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // tier (round-5 P1.4): only failure evidence activates the tier;
     // successful service records with no payloads fall through to
     // `store` or `none` so missingness is visible.
+    //
+    // Round-5 review (P1): use the shared `isV5TurnEndpoint` helper
+    // here too, so service-metadata classification can't reintroduce
+    // `/turning` / query-string false positives. The helper requires
+    // service='CEE' (case-insensitive), so we construct a probe
+    // object from the service-metadata fields.
     const serviceMetadataV5FailurePresent =
       ceeService !== null &&
-      typeof ceeService.endpoint === 'string' &&
-      ceeService.endpoint.includes('/orchestrate/v2/turn') &&
+      isV5TurnEndpoint({
+        service: 'CEE',
+        endpoint:
+          typeof ceeService.endpoint === 'string'
+            ? ceeService.endpoint
+            : undefined,
+      }) &&
       (ceeService.success === false ||
         (typeof ceeService.status === 'number' &&
           (ceeService.status >= 500 || ceeService.status === 0)))
@@ -3311,10 +3328,17 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // Service-metadata-only failure: V5 endpoint reports failure in
     // data.services.cee but the payload-trace has no entry for it.
     // Reviewers need to distinguish this from `hydrated_only`.
+    //
+    // Round-5 review (P1): use shared `isV5TurnEndpoint` here so the
+    // service-metadata classification can't reintroduce `/turning` /
+    // query-string false positives.
     const ceeService = data.services.cee ?? null
     const ceeServiceEndpoint =
       typeof ceeService?.endpoint === 'string' ? ceeService.endpoint : ''
-    const ceeServiceIsV5 = ceeServiceEndpoint.includes('/orchestrate/v2/turn')
+    const ceeServiceIsV5 = isV5TurnEndpoint({
+      service: 'CEE',
+      endpoint: ceeServiceEndpoint,
+    })
     const ceeServiceFailed =
       ceeService !== null &&
       (ceeService.success === false ||
@@ -3323,15 +3347,25 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     const serviceMetadataV5Failure =
       ceeServiceIsV5 && ceeServiceFailed && !failedHttp.present
 
-    // Round-4 review (P0): PIN the snapshot trace to the same
-    // selector-chosen id so the canonical-turn diagnostic's
+    // Round-4 review (P0) + Round-5 review (P1): PIN the snapshot trace
+    // to the selector-chosen id so the canonical-turn diagnostic's
     // `latest_v5_turn.*` fields describe the SAME turn whose body
-    // sits in `bundle.payloads.cee_response`.
-    const latestV5Trace = findCanonicalV5TraceForBundle(
+    // sits in `bundle.payloads.cee_response`. Round-5 P1: the helper
+    // now validates the pinned entry; an invalid pin falls back
+    // honestly AND is exposed via `canonical.source` so the bundle
+    // can fire the `invalid_selected_trace_id` coherence issue.
+    const canonical = findCanonicalV5TraceForBundle(
       traceState.payloads,
       data.cee_capture_selected_trace_id ?? null,
     )
+    const latestV5Trace = canonical.trace
     const v5TraceEntryPresent = latestV5Trace !== null
+    // Round-5 P1: invalid_selected_trace_id fires when the caller
+    // supplied a pin AND it failed validation (matched a non-V5
+    // entry) OR didn't match any entry at all.
+    const invalidSelectedTraceId =
+      canonical.source === 'invalid_pin_fell_back' ||
+      canonical.source === 'pin_not_found_fell_back'
 
     // Mirror the body-presence detection from the first try block —
     // either bundle.payloads.cee_response is an object OR the trace
@@ -3388,6 +3422,10 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // with canvas store.results.hash. Falsy when not observed.
       ceeCaptureResponseHashMismatch:
         data.cee_capture_response_hash_mismatch === true,
+      // Round-5 review (P1): the canonical V5 trace pin failed
+      // validation (non-V5 entry or no matching id). Emit
+      // `invalid_selected_trace_id` so reviewers see the discrepancy.
+      invalidSelectedTraceId,
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
 
@@ -3405,29 +3443,15 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
           data.cee_capture_selected_response_hash_source ?? null,
         selected_trace_id: data.cee_capture_selected_trace_id ?? null,
         results_hash_at_selection: storeState.results?.hash ?? null,
-        // Hash match status MUST be a known union member.
-        // `useDebugData` produces these codes directly from
-        // `SelectionDiagnostics.hash_match_status`; we cast through
-        // the union type because the source field is typed as
-        // `string` on the DebugData boundary.
-        hash_match_status: data.cee_capture_selection_diagnostics
-          .hash_match_status as
-          | 'matched'
-          | 'mismatched'
-          | 'only_results_hash_present'
-          | 'only_capture_hash_present'
-          | 'both_absent'
-          | 'no_candidate'
-          | 'sync_not_evaluated',
-        selected_reason: data.cee_capture_selection_diagnostics
-          .selected_reason as
-          | 'hash_matched'
-          | 'scenario_matched_recency'
-          | 'analysis_producing_recency'
-          | 'no_v5_endpoint_candidate'
-          | 'no_analysis_producing_candidate'
-          | 'no_cee_candidate'
-          | 'sync_not_evaluated',
+        // Round-5 review (P1): no cast — the DebugData boundary now
+        // types these fields as explicit unions, so any drift fails
+        // at compile time. The bundle's union is a strict superset
+        // (it also includes `sync_not_evaluated` for the sync-path
+        // default) so the assignment is type-safe.
+        hash_match_status:
+          data.cee_capture_selection_diagnostics.hash_match_status,
+        selected_reason:
+          data.cee_capture_selection_diagnostics.selected_reason,
         cee_candidate_count:
           data.cee_capture_selection_diagnostics.cee_candidate_count,
         v5_endpoint_candidate_count:

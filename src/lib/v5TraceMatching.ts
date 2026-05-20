@@ -21,15 +21,69 @@
 export const V5_TURN_ENDPOINT_PATTERN = '/orchestrate/v2/turn'
 
 /**
- * Path-boundary regex for the V5 turn endpoint. The endpoint segment
- * must be FOLLOWED BY one of: `?` (query string), `#` (fragment),
- * `/` (sub-path), or end-of-string. Rejects look-alike paths such as
- * `/orchestrate/v2/turning` that would slip past a naive `includes`.
+ * Path-boundary regex for the V5 turn endpoint pathname. Applied to
+ * the URL's PATH ONLY — the query string and fragment are stripped
+ * by `extractPathname` before this regex runs. The segment must be
+ * followed by `/` (sub-path) or end-of-string. Rejects look-alikes
+ * such as `/orchestrate/v2/turning` that would slip past a naive
+ * `includes`.
  *
- * The leading boundary (start-of-string or `/`) is implicit in the
- * constant — `/orchestrate/v2/turn` always starts with `/`.
+ * Round-5 review (P1): the regex previously also accepted `?` and
+ * `#` as boundaries, but with pathname-only matching those
+ * characters can no longer appear here — the URL parser already
+ * stripped them. Keeping the regex narrow tightens the contract.
  */
-const V5_TURN_ENDPOINT_RE = /\/orchestrate\/v2\/turn(?:[?#/]|$)/
+const V5_TURN_ENDPOINT_PATHNAME_RE = /\/orchestrate\/v2\/turn(?:\/|$)/
+
+/**
+ * Extract the pathname from an endpoint string. Handles three shapes:
+ *
+ *   - Absolute URL: `https://cee/orchestrate/v2/turn?nonce=abc` →
+ *     parses with `URL` and returns `pathname`.
+ *   - Path-only with query/fragment: `/orchestrate/v2/turn?abc` →
+ *     splits on the first `?` or `#`.
+ *   - Plain path: `/orchestrate/v2/turn` → returns verbatim.
+ *
+ * Round-5 review (P1): pre-fix the V5 regex matched the whole
+ * endpoint string, so a query value containing
+ * `?next=/orchestrate/v2/turn` would have produced a false match
+ * even when the actual path was `/legacy/turn`. By stripping
+ * query+fragment FIRST, the regex only sees the real path.
+ *
+ * Returns `null` when nothing can be extracted (defensive — caller
+ * treats null as a non-match).
+ */
+function extractPathname(endpoint: string): string | null {
+  if (endpoint.length === 0) return null
+  // Absolute URL — let URL handle parsing (handles `://`, ports,
+  // credentials, etc.).
+  if (
+    endpoint.startsWith('http://') ||
+    endpoint.startsWith('https://') ||
+    endpoint.startsWith('//')
+  ) {
+    try {
+      const u = new URL(
+        endpoint.startsWith('//') ? `https:${endpoint}` : endpoint,
+      )
+      return u.pathname
+    } catch {
+      return null
+    }
+  }
+  // Path-only — strip query string and fragment.
+  const queryIdx = endpoint.indexOf('?')
+  const fragmentIdx = endpoint.indexOf('#')
+  const cut =
+    queryIdx === -1
+      ? fragmentIdx === -1
+        ? endpoint.length
+        : fragmentIdx
+      : fragmentIdx === -1
+        ? queryIdx
+        : Math.min(queryIdx, fragmentIdx)
+  return endpoint.slice(0, cut)
+}
 
 /**
  * Case-insensitive CEE service filter. Trace recorders should set
@@ -66,14 +120,18 @@ export function matchServiceCaseInsensitive(
 /**
  * V5 turn endpoint scope. Requires:
  *   - CEE service (case-insensitive — see `isCeeService`)
- *   - endpoint path contains `/orchestrate/v2/turn` AT a path
- *     boundary (next char is `?`, `#`, `/`, or end-of-string)
+ *   - URL's PATHNAME (with query/fragment stripped) matches
+ *     `/orchestrate/v2/turn` at a path boundary
  *
  * Rejects:
  *   - Missing/empty endpoint (defensive default — prefers honesty
  *     to optimism)
  *   - Non-CEE services even on the V5 path (defensive)
  *   - Look-alike paths like `/orchestrate/v2/turning` (round-4 P1)
+ *   - Query-string content matching the V5 path, e.g.
+ *     `/legacy?next=/orchestrate/v2/turn` (round-5 P1) — the regex
+ *     now runs against the pathname only, so query values cannot
+ *     impersonate the path.
  *
  * Returns true for canonical V5 paths:
  *   - `/bff/orchestrate/v2/turn`            — Netlify proxy
@@ -92,5 +150,7 @@ export function isV5TurnEndpoint(p: {
   if (typeof p.endpoint !== 'string' || p.endpoint.length === 0) {
     return false
   }
-  return V5_TURN_ENDPOINT_RE.test(p.endpoint)
+  const pathname = extractPathname(p.endpoint)
+  if (pathname === null) return false
+  return V5_TURN_ENDPOINT_PATHNAME_RE.test(pathname)
 }

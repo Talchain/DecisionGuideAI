@@ -912,14 +912,31 @@ export interface DebugData {
    * counts (CEE / V5-endpoint / analysis-producing), the dominant
    * ranking signal, the hash-match status code, and whether the
    * primary selector path succeeded or fell back.
+   *
+   * Round-5 review (P1): `selected_reason` and `hash_match_status`
+   * typed as explicit unions at the DebugData boundary so invalid
+   * diagnostic codes fail at compile and the bundle assembler does
+   * NOT need to cast.
    */
   cee_capture_selection_diagnostics?: {
     cee_candidate_count: number
     v5_endpoint_candidate_count: number
     analysis_producing_candidate_count: number
     selected_via_primary_path: boolean
-    selected_reason: string
-    hash_match_status: string
+    selected_reason:
+      | 'hash_matched'
+      | 'scenario_matched_recency'
+      | 'analysis_producing_recency'
+      | 'no_v5_endpoint_candidate'
+      | 'no_analysis_producing_candidate'
+      | 'no_cee_candidate'
+    hash_match_status:
+      | 'matched'
+      | 'mismatched'
+      | 'only_results_hash_present'
+      | 'only_capture_hash_present'
+      | 'both_absent'
+      | 'no_candidate'
   }
 
   /**
@@ -3615,18 +3632,40 @@ export function useDebugData(): DebugData {
       | 'fallback_v5_turn'
       | 'fallback_legacy_cee'
       | 'none'
+
+    // Round-5 review (P0): compute the trace id pin alongside
+    // provenance so the bundle assembler's
+    // `findCanonicalV5TraceForBundle` pins to the SAME entry whose
+    // body is in `bundle.payloads.cee_*`. Pre-fix the fallback V5
+    // path didn't thread an id and metadata could drift to a newer
+    // V5 trace via `findLatestV5TurnEntry`.
+    let selectedCeeTraceId: string | null = null
+
     if (analysisProducing.selected !== undefined) {
       // Selector applies V5 endpoint scoping, so any non-undefined
       // result is verified V5.
       ceeCaptureProvenance = 'analysis_producing_v5_turn'
+      selectedCeeTraceId = analysisProducing.selected_trace_id
     } else if (fallbackCeePayload !== undefined) {
       // Round-4 review (P1): use the shared `isV5TurnEndpoint` helper
       // instead of a raw substring check. Pre-fix the substring match
       // would treat `/orchestrate/v2/turning` (a future-or-typo path)
       // as a V5 turn AND wouldn't normalise service casing.
-      ceeCaptureProvenance = isV5TurnEndpoint(fallbackCeePayload)
-        ? 'fallback_v5_turn'
-        : 'fallback_legacy_cee'
+      if (isV5TurnEndpoint(fallbackCeePayload)) {
+        ceeCaptureProvenance = 'fallback_v5_turn'
+        // Round-5 P0: thread the fallback id so the canonical-trace
+        // pin matches the body. Legacy fallbacks (next branch) do
+        // NOT set this — they aren't V5 traces and shouldn't be
+        // pinned as such.
+        selectedCeeTraceId =
+          typeof fallbackCeePayload.id === 'string'
+            ? fallbackCeePayload.id
+            : null
+      } else {
+        ceeCaptureProvenance = 'fallback_legacy_cee'
+        // selectedCeeTraceId stays null — legacy CEE traces must not
+        // pin into `v5_cee_capture` metadata.
+      }
     } else {
       ceeCaptureProvenance = 'none'
     }
@@ -3903,7 +3942,11 @@ export function useDebugData(): DebugData {
         analysisProducing.selected_response_hash,
       cee_capture_selected_response_hash_source:
         analysisProducing.selected_response_hash_source,
-      cee_capture_selected_trace_id: analysisProducing.selected_trace_id,
+      // Round-5 review (P0): use the computed `selectedCeeTraceId`
+      // (set from the selector OR the fallback V5 payload's id) so
+      // the bundle pins canonical metadata to the same turn whose
+      // body is surfaced in `bundle.payloads.cee_*`.
+      cee_capture_selected_trace_id: selectedCeeTraceId,
       cee_capture_selection_diagnostics: {
         cee_candidate_count:
           analysisProducing.selection_diagnostics.cee_candidate_count,
