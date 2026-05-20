@@ -236,6 +236,10 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps -- one-time init guard
 
+  // (UX correction P0 redirect effect is mounted later, after the
+  // floatingPanelIsOpen subscriber is declared — keeps Rules of Hooks
+  // happy with the deps array.)
+
   // E1: Sync external tab changes from Zustand store (programmatic navigation).
   // Also watches activeOutputTabVersion so `forceActivateOutputTab` triggers
   // the sync even when the tab value itself didn't change — e.g. auto-dock
@@ -378,6 +382,19 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   void realMessageCount
   // Floating panel state — needed for tab gating + footer-stack mode.
   const floatingPanelIsOpen = useFloatingPanelState((s) => s.isOpen)
+
+  // UX correction (P0): when floating Olumi is open AND the dock would
+  // otherwise activate the Olumi tab, redirect to 'results' so the docked
+  // surface never duplicates the floating conversation. Covers all the
+  // activation paths the click intercept (`handleTabClick`) misses —
+  // persisted-state restoration, useUIStore.setActiveOutputTab('olumi'),
+  // and any future programmatic setState. Render-level guard.
+  useEffect(() => {
+    if (!aiPanelV2On) return
+    if (state.activeTab !== 'olumi') return
+    if (!floatingPanelIsOpen) return
+    setState((prev) => (prev.activeTab === 'olumi' ? { ...prev, activeTab: 'results' } : prev))
+  }, [aiPanelV2On, state.activeTab, floatingPanelIsOpen, setState])
   const openFloatingByUser = useFloatingPanelState((s) => s.open)
   const transitionReceipt = useTransitionReceipt((s) => s.receipt)
   // Cog popover anchor — strip footer-stack only.
@@ -1340,12 +1357,21 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
               {OUTPUT_TABS.find(tab => tab.id === state.activeTab)?.label ?? ''}
             </span>
             <nav className="flex flex-1 min-w-0 gap-1" aria-label="Outputs sections">
-              {OUTPUT_TABS.map(tab => (
+              {OUTPUT_TABS.map(tab => {
+                // When floating Olumi is open, the Olumi tab is the
+                // interactive control that focuses the floating panel.
+                // Make that intent visible to AT users on the BUTTON
+                // (not just the dot indicator) so screen readers reading
+                // the tab announce the state.
+                const olumiOpenLabel = tab.id === 'olumi' && floatingPanelIsOpen
+                return (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => handleTabClick(tab.id)}
                   data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : tab.id === 'olumi' ? 'outputs-dock-tab-olumi' : undefined}
+                  aria-label={olumiOpenLabel ? 'Olumi is open. Focus floating panel' : undefined}
+                  title={olumiOpenLabel ? 'Olumi is open. Focus floating panel' : undefined}
                   className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     state.activeTab === tab.id
                       ? 'text-info border-b-2 border-info'
@@ -1361,14 +1387,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     {tab.id === 'olumi' && <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />}
                     {tab.label}
                     {tab.id === 'olumi' && floatingPanelIsOpen && (
-                      // P1.6 subtler indicator — small filled dot in the
-                      // tab label instead of the previous outlined "Open"
-                      // pill, which competed with the active-tab underline.
+                      // Subtle visual indicator — small filled dot in the
+                      // tab label. aria-label lives on the BUTTON above so
+                      // screen readers announce the open state.
                       <span
                         className="inline-flex w-1.5 h-1.5 rounded-full bg-info"
                         data-testid="olumi-tab-floating-badge"
-                        aria-label="Olumi is open. Focus floating panel"
-                        title="Olumi is open. Focus floating panel"
+                        aria-hidden="true"
                       />
                     )}
                     {tab.id === 'results' && showResultsTabStaleWarning && (
@@ -1390,7 +1415,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     )}
                   </span>
                 </button>
-              ))}
+              )})}
             </nav>
             <button
               type="button"
@@ -1445,8 +1470,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     : 'text-text-header/70 bg-panel border-panel-border hover:bg-panel hover:text-text-header'
                 }`}
                 style={state.activeTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
-                aria-label={tab.label}
-                title={tab.label}
+                aria-label={tab.id === 'olumi' && floatingPanelIsOpen ? 'Olumi is open. Focus floating panel' : tab.label}
+                title={tab.id === 'olumi' && floatingPanelIsOpen ? 'Olumi is open. Focus floating panel' : tab.label}
               >
                 <Icon className="w-3.5 h-3.5" aria-hidden="true" />
               </button>

@@ -195,13 +195,10 @@ describe('Olumi tab click while floating is open', () => {
       </Wrapper>,
     )
 
-    // Find the Olumi tab by its visible text (the testid is conditional
-    // on the tab being in OUTPUT_TABS at render time; visible-text lookup
-    // is the resilient path).
-    // Find by aria-label — works for both the expanded tab row AND the
-    // collapsed icon rail; both rails wire `handleTabClick` so the
-    // intercept fires from either path.
-    const olumiTab = (await findByLabelText('Olumi')) as HTMLElement
+    // Find by aria-label — when floating is open the button's aria-label
+    // becomes "Olumi is open. Focus floating panel" (accessible state
+    // moved off the dot indicator onto the interactive control).
+    const olumiTab = (await findByLabelText('Olumi is open. Focus floating panel')) as HTMLElement
     expect(olumiTab).toBeTruthy()
     fireEvent.click(olumiTab)
 
@@ -214,6 +211,67 @@ describe('Olumi tab click while floating is open', () => {
     focusFloating()
     expect(focusSpy).toHaveBeenCalledTimes(2)
     unregister()
+  })
+
+  it('programmatic activeTab=olumi while floating open is auto-redirected to results (render-level intercept)', async () => {
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { useUIStore } = await import('../../../stores/uiStore')
+    const { OutputsDock } = await import('../OutputsDock')
+
+    // Pre-seed: dock state persisted with activeTab='olumi'. This is the
+    // path the click intercept does NOT cover — restoration from
+    // sessionStorage / external programmatic state.
+    try {
+      sessionStorage.setItem(
+        'canvas.outputsDock.v1',
+        JSON.stringify({ isOpen: true, activeTab: 'olumi' }),
+      )
+    } catch {}
+    useFloatingPanelState.getState().reset()
+    useFloatingPanelState.getState().open('user')
+
+    render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+
+    // The render-level effect must redirect away from 'olumi' so the
+    // docked surface never renders the conversation while floating is open.
+    await new Promise((r) => setTimeout(r, 50))
+    // The dock's persisted activeTab should now be NOT 'olumi'. We can't
+    // peek into the local useState directly, but the global useUIStore
+    // sync (E1) reflects what the dock visibly shows; alternatively, the
+    // docked Olumi body wrapper would carry an unhidden state if 'olumi'
+    // were still active.
+    const olumiWrapper = document.querySelector('[data-testid="olumi-tab-wrapper"]') as HTMLElement | null
+    if (olumiWrapper) {
+      // Wrapper exists but must be hidden (active tab is no longer 'olumi').
+      expect(olumiWrapper.classList.contains('hidden')).toBe(true)
+    }
+    // Defensive: no docked-Olumi conversation surface should be visible.
+    const visibleConversation = document.querySelector(
+      '[data-testid="olumi-tab-body"]:not([aria-hidden="true"])',
+    )
+    expect(visibleConversation).toBeNull()
+  })
+
+  it('Olumi tab button carries an accessible "Focus floating panel" label when floating is open', async () => {
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { OutputsDock } = await import('../OutputsDock')
+    useFloatingPanelState.getState().reset()
+    useFloatingPanelState.getState().open('user')
+    const { findByLabelText } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+    // The BUTTON itself (interactive element) carries the accessible
+    // state, not just a non-interactive dot indicator. AT users hear
+    // the state when they reach the button.
+    const olumiBtn = (await findByLabelText('Olumi is open. Focus floating panel')) as HTMLElement
+    expect(olumiBtn.tagName).toBe('BUTTON')
+    expect(olumiBtn.getAttribute('title')).toBe('Olumi is open. Focus floating panel')
   })
 
   it('falls through to normal tab activation when floating is CLOSED', async () => {

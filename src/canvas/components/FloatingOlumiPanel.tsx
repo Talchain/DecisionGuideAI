@@ -613,9 +613,11 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
 
       {/* `floating-density` activates the scoped compact CSS overrides
          defined in Conversation.module.css (tighter message gap, bubble
-         padding, chip sizing). The class is a CSS hook only; React /
-         ConversationPanel props are unchanged so the docked Olumi tab
-         keeps its normal density. */}
+         padding, chip sizing). `compact={true}` makes MessageBubble swap
+         from typography.body (16px) to typography.panelBody (12px) and
+         apply markdownContentCompact line-height — keeping the floating
+         surface a compact assistant, not a second full dashboard. The
+         docked Olumi tab and DraftChat remain at default density. */}
       <div className="floating-density flex flex-1 min-h-0 flex-col">
         <ConversationPanel
           conversation={conversation}
@@ -624,6 +626,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
              onAttach is never invoked at runtime here — pass no-op. */
           onAttach={noop}
           hideComposer
+          compact
         />
       </div>
 
