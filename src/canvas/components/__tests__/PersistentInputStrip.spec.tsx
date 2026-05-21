@@ -111,6 +111,50 @@ describe('PersistentInputStrip', () => {
       fireEvent.click(screen.getByTestId('persistent-strip-status'))
       expect(onFocusFloating).toHaveBeenCalledTimes(1)
     })
+
+    it('falls back to composer mode when floating is minimised (round-15 regression)', () => {
+      // Round-15 P0: when the user collapses the floating panel to a
+      // pill, `isOpen` stays true but `isMinimised` flips to true. The
+      // pill has no textarea, so the strip must take over composing.
+      // Previously the gate was `if (floatingIsOpen)` alone, which kept
+      // the strip in "Olumi is open · Focus" status mode and left the
+      // user with no place to type.
+      act(() => {
+        useFloatingPanelState.getState().open('user')
+        useFloatingPanelState.getState().minimise()
+      })
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />, {
+        wrapper: Wrapper,
+      })
+      // Status mode must NOT render — the strip must give the user a
+      // textarea since the minimised pill has none.
+      expect(screen.queryByTestId('persistent-strip-status')).toBeNull()
+      // Composer mode renders with the real textarea.
+      expect(screen.getByTestId('persistent-strip-composer')).toBeInTheDocument()
+      expect(screen.getByRole('textbox')).toBeInTheDocument()
+    })
+
+    it('returns to status mode when the panel is restored from the minimised pill', () => {
+      // Symmetry check: minimising the panel re-shows the strip
+      // composer; restoring from the pill must put the strip BACK into
+      // status mode so the floating composer is the sole place to type
+      // (the "no duplicate composer" invariant).
+      act(() => {
+        useFloatingPanelState.getState().open('user')
+        useFloatingPanelState.getState().minimise()
+      })
+      const { rerender } = render(
+        <PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />,
+        { wrapper: Wrapper },
+      )
+      expect(screen.getByTestId('persistent-strip-composer')).toBeInTheDocument()
+      act(() => {
+        useFloatingPanelState.getState().restore()
+      })
+      rerender(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />)
+      expect(screen.getByTestId('persistent-strip-status')).toBeInTheDocument()
+      expect(screen.queryByRole('textbox')).toBeNull()
+    })
   })
 
   describe('draft preservation across floating open/close', () => {
