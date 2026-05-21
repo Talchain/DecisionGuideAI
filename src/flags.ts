@@ -322,6 +322,14 @@ const FLAGS_CONFIG = {
   aiPanelV2: {
     envKey: 'VITE_FEATURE_AI_PANEL_V2',
     storageKey: 'feature.aiPanelV2',
+    // Default ON. The floating-first AI Panel v2 is now the primary
+    // composer surface. The legacy DraftChat path remains reachable via
+    // `localStorage.setItem('feature.aiPanelV2', 'false')` and/or
+    // `VITE_FEATURE_AI_PANEL_V2=false` for emergency rollback; the FF-off
+    // branches in OutputsDock / ReactFlowGraph / CanvasToolbar / etc. are
+    // intentionally preserved as a fallback rather than archived in this
+    // PR (separate clean-up PR will move the orphaned legacy files).
+    defaultValue: true,
   },
   // V5 canonical analysis path — when ON, all user-visible analysis triggers
   // (OutputsDock "Run", Compare-tab rerun, goal-threshold rerun) route through
