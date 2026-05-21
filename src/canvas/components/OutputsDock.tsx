@@ -448,6 +448,37 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
     }
   }, [state.activeTab])
   const openFloatingByUser = useFloatingPanelState((s) => s.open)
+
+  // Round-14: coordinates a user-initiated float-out from ANY trigger
+  // (the OlumiTabBody float-out icon, the persistent strip's chevron, the
+  // strip's redirect-mode button click). When the active dock tab is
+  // 'olumi', we must swap it to a non-Olumi fallback BEFORE opening the
+  // floating panel — otherwise FloatingOlumiPanel's render-time
+  // yieldToDockedOlumi guard suppresses the panel mount and the user
+  // sees nothing. The sessionStorage write is synchronous so the
+  // floating panel's persisted-state fallback read agrees with the
+  // React state on the very first render (useDockState's effect-based
+  // write would land too late). When activeTab is not 'olumi', the
+  // swap is skipped — just opens the panel.
+  const floatOutToWindow = () => {
+    if (state.activeTab === 'olumi') {
+      const fallback = lastNonOlumiTabRef.current
+      try {
+        const cur = JSON.parse(sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY) || '{}')
+        sessionStorage.setItem(
+          OUTPUTS_DOCK_STORAGE_KEY,
+          JSON.stringify({ ...cur, activeTab: fallback }),
+        )
+      } catch {
+        // sessionStorage blocked (private mode, quota). The React
+        // setState below still runs; useDockState's effect catches up.
+      }
+      setState((prev) => ({ ...prev, activeTab: fallback }))
+      useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
+    }
+    openFloatingByUser('user')
+  }
+
   const transitionReceipt = useTransitionReceipt((s) => s.receipt)
   // Cog popover anchor — strip footer-stack only.
   const [cogAnchor, setCogAnchor] = useState<HTMLElement | null>(null)
@@ -2035,38 +2066,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 data-testid="olumi-tab-wrapper"
                 aria-hidden={effectiveActiveTab !== 'olumi'}
               >
-                <OlumiTabBody onFloatOut={() => {
-                  // The user wants to leave the docked surface for the
-                  // floating window. We must switch the active tab away
-                  // from 'olumi' first — otherwise FloatingOlumiPanel's
-                  // yieldToDockedOlumi render-time guard + OutputsDockBody's
-                  // close-floating guard effect would together suppress
-                  // the panel the moment it opened.
-                  //
-                  // Prefer the user's last non-Olumi tab so they return to
-                  // their previous Analysis/Compare/Model/Journey context
-                  // rather than always landing on Analysis.
-                  const fallback = lastNonOlumiTabRef.current
-                  // CRITICAL (round-8 fix): write sessionStorage SYNCHRONOUSLY
-                  // before opening the floating panel. useDockState writes via
-                  // a post-commit useEffect, so without this write the floating
-                  // panel's render-time yield gate (which reads sessionStorage
-                  // as a fallback) would still see the stale 'olumi' value and
-                  // suppress the panel mount. Pre-empting the write here keeps
-                  // both sources of truth (sessionStorage + useUIStore) in
-                  // sync at the exact moment the floating panel re-renders.
-                  try {
-                    const cur = JSON.parse(sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY) || '{}')
-                    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ ...cur, activeTab: fallback }))
-                  } catch {
-                    // sessionStorage may be blocked (private mode, quota).
-                    // Fallback: the React setState below still runs; the
-                    // useDockState effect will catch up post-commit.
-                  }
-                  setState((prev) => ({ ...prev, activeTab: fallback }))
-                  useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
-                  openFloatingByUser('user')
-                }} />
+                <OlumiTabBody onFloatOut={floatOutToWindow} />
               </div>
             )}
           </div>
@@ -2082,7 +2082,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             <StaleAnalysisBadge />
             <PersistentInputStrip
               isOlumiTabActive={effectiveActiveTab === 'olumi'}
-              onOpenFloating={() => openFloatingByUser('user')}
+              onOpenFloating={floatOutToWindow}
               onFocusFloating={focusFloating}
               onCogClick={handleCogClick}
             />

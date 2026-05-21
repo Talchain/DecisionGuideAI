@@ -489,6 +489,71 @@ describe('Olumi tab click while floating is open', () => {
     useCanvasStore.setState({ nodes: [] } as any)
   })
 
+  it('persistent strip chevron from Olumi tab opens floating panel (round-14 regression)', async () => {
+    // Round-14 P0: when the user is on the docked Olumi tab and the
+    // floating panel is closed, the persistent strip renders the
+    // AIInputBar variant='strip' with a chevron-up button. Clicking the
+    // chevron must open the floating panel — and to do so, the active
+    // tab must be swapped away from 'olumi' BEFORE the open() call.
+    // Without the swap, FloatingOlumiPanel's render-time
+    // yieldToDockedOlumi guard suppresses the panel mount and the user
+    // sees nothing happen.
+    //
+    // Bug history: round-3 fixed the OlumiTabBody float-out icon path.
+    // Round-8 added the synchronous sessionStorage write. Round-14
+    // extracts both into a single `floatOutToWindow` helper and applies
+    // it to BOTH the float-out icon AND the persistent strip's
+    // onOpenFloating handler — previously the strip's chevron called
+    // openFloatingByUser('user') without the tab swap, regressing the
+    // round-3 fix for users who routed through the strip instead of the
+    // OlumiTabBody icon.
+    const { fireEvent } = await import('@testing-library/react')
+    const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
+    const { useUIStore } = await import('../../../stores/uiStore')
+    const { useCanvasStore } = await import('../../store')
+    const { OutputsDock } = await import('../OutputsDock')
+
+    // Pre-state: graph exists (dock expanded), activeTab='olumi',
+    // floating closed.
+    useCanvasStore.setState({
+      nodes: [{ id: 'n1', type: 'decision', position: { x: 0, y: 0 }, data: { label: 'd', kind: 'decision' } }],
+    } as any)
+    useUIStore.setState({ activeOutputTab: 'olumi', activeOutputTabVersion: 0 })
+    useFloatingPanelState.getState().reset()
+    try {
+      sessionStorage.setItem(
+        'canvas.outputsDock.v1',
+        JSON.stringify({ isOpen: true, activeTab: 'olumi' }),
+      )
+    } catch {}
+
+    const { findByTestId } = render(
+      <Wrapper>
+        <OutputsDock />
+      </Wrapper>,
+    )
+
+    // Persistent strip renders the AIInputBar variant='strip' with a
+    // chevron when isOlumiTabActive=true && floating closed. The chevron
+    // testid is wired by AIInputBar as `${testId ?? 'ai-input-bar-${variant}'}-chevron`.
+    const chevron = (await findByTestId('ai-input-bar-strip-chevron')) as HTMLElement
+    fireEvent.click(chevron)
+    await new Promise((r) => setTimeout(r, 50))
+
+    // After the click, the floating panel must be OPEN and the active
+    // tab must have swapped away from 'olumi' so the yield gate clears.
+    expect(useFloatingPanelState.getState().isOpen).toBe(true)
+    expect(useUIStore.getState().activeOutputTab).not.toBe('olumi')
+    // Synchronous sessionStorage write keeps the render-time fallback
+    // read in agreement.
+    const persisted = JSON.parse(sessionStorage.getItem('canvas.outputsDock.v1') || '{}').activeTab
+    expect(persisted).not.toBe('olumi')
+
+    // Cleanup.
+    try { sessionStorage.removeItem('canvas.outputsDock.v1') } catch {}
+    useCanvasStore.setState({ nodes: [] } as any)
+  })
+
   it('falls through to normal tab activation when floating is CLOSED', async () => {
     const { fireEvent } = await import('@testing-library/react')
     const { useFloatingPanelState } = await import('../../hooks/useFloatingPanelState')
