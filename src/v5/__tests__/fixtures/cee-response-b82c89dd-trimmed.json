@@ -1,0 +1,220 @@
+{
+  "response_version": 2,
+  "assistant_text": "Ran analysis on your current scenario.",
+  "stage_indicator": "analyse",
+  "suggested_actions": [
+    {
+      "id": "chip_action_explain_results",
+      "label": "Explain the result",
+      "message": "Please explain the analysis result in plain language.",
+      "action_type": "explain_results"
+    },
+    {
+      "id": "chip_action_what_would_flip",
+      "label": "What could change the outcome?",
+      "message": "What could change the outcome of this analysis?",
+      "action_type": "what_would_flip"
+    }
+  ],
+  "insights": [],
+  "analysis_ready": {
+    "options": [
+      {
+        "option_id": "opt_one_dev",
+        "label": "Hire One Senior Developer",
+        "status": "ready",
+        "interventions": {
+          "fac_dev_capacity": 0.5,
+          "fac_leadership_capacity": 0
+        },
+        "is_baseline": false
+      },
+      {
+        "option_id": "opt_status_quo",
+        "label": "No New Hire (Status Quo)",
+        "status": "ready",
+        "interventions": {
+          "fac_dev_capacity": 0.2,
+          "fac_leadership_capacity": 0
+        },
+        "is_baseline": true
+      },
+      {
+        "option_id": "opt_tech_lead",
+        "label": "Hire One Tech Lead",
+        "status": "ready",
+        "interventions": {
+          "fac_dev_capacity": 0.33,
+          "fac_leadership_capacity": 1
+        },
+        "is_baseline": false
+      },
+      {
+        "option_id": "opt_two_devs",
+        "label": "Hire Two Developers",
+        "status": "ready",
+        "interventions": {
+          "fac_dev_capacity": 0.67,
+          "fac_leadership_capacity": 0
+        },
+        "is_baseline": false
+      }
+    ],
+    "goal_node_id": "goal_productivity",
+    "status": "ready",
+    "computed_at": "2026-05-21T20:51:29.855Z",
+    "freshness": "fresh",
+    "freshness_reason": "graph_hash_match",
+    "graph_hash_at_run": "fa100d7ecb94ddda",
+    "current_graph_hash": "fa100d7ecb94ddda"
+  },
+  "blocks": [
+    {
+      "type": "analysis_result",
+      "summary": "Ran analysis on your current scenario.",
+      "leading_option_id": "opt_tech_lead",
+      "win_probabilities": {
+        "Hire One Senior Developer": 0.00025,
+        "No New Hire (Status Quo)": 0.00625,
+        "Hire One Tech Lead": 0.94325,
+        "Hire Two Developers": 0.05025
+      },
+      "enrichment": {
+        "request_schema_version": "v3",
+        "analysis_status": "computed"
+      }
+    },
+    {
+      "type": "review_card",
+      "block_id": "e2f8988e-ccf0-5d10-ad58-99c45ec5230c",
+      "signal_id": "review:assumption:1:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "card_kind": "assumption",
+      "title": "A load-bearing assumption",
+      "summary": null,
+      "target_refs": []
+    },
+    {
+      "type": "review_card",
+      "block_id": "3daf2a5c-7dc8-5d0d-a4f2-459b676e226e",
+      "signal_id": "review:assumption:2:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "card_kind": "assumption",
+      "title": "A load-bearing assumption",
+      "summary": null,
+      "target_refs": []
+    },
+    {
+      "type": "review_card",
+      "block_id": "73836820-6a95-5745-a6a8-2efa2454a16e",
+      "signal_id": "review:assumption:3:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "card_kind": "assumption",
+      "title": "A load-bearing assumption",
+      "summary": null,
+      "target_refs": []
+    },
+    {
+      "type": "review_card",
+      "block_id": "d693457b-47da-5818-be74-34aba9d989a5",
+      "signal_id": "review:assumption:4:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "card_kind": "assumption",
+      "title": "A load-bearing assumption",
+      "summary": null,
+      "target_refs": []
+    },
+    {
+      "type": "coaching",
+      "block_id": "7e0855c7-d79d-5d16-9fee-19e68ece297d",
+      "signal_id": "coach:assumption:1:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "coaching_kind": "assumption_check",
+      "title": "An assumption to check",
+      "summary": null,
+      "action_intent": "confirm_factor",
+      "priority_rank": 101,
+      "target_refs": []
+    },
+    {
+      "type": "coaching",
+      "block_id": "706dcc66-4c99-530d-bd7d-0e5c1601e85a",
+      "signal_id": "coach:assumption:2:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "coaching_kind": "assumption_check",
+      "title": "An assumption to check",
+      "summary": null,
+      "action_intent": "confirm_factor",
+      "priority_rank": 102,
+      "target_refs": []
+    },
+    {
+      "type": "coaching",
+      "block_id": "c28f04b3-50d5-5dd3-b726-899944bc5629",
+      "signal_id": "coach:assumption:3:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "coaching_kind": "assumption_check",
+      "title": "An assumption to check",
+      "summary": null,
+      "action_intent": "confirm_factor",
+      "priority_rank": 103,
+      "target_refs": []
+    },
+    {
+      "type": "coaching",
+      "block_id": "c65f07d4-991f-59c6-89eb-6893653cc350",
+      "signal_id": "coach:assumption:4:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "coaching_kind": "assumption_check",
+      "title": "An assumption to check",
+      "summary": null,
+      "action_intent": "confirm_factor",
+      "priority_rank": 104,
+      "target_refs": []
+    },
+    {
+      "type": "coaching",
+      "block_id": "0be97826-fdc5-575a-a971-72dbf051086b",
+      "signal_id": "coach:calibration:1:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "coaching_kind": "calibration_prompt",
+      "title": "Disconfirmation prompt",
+      "summary": null,
+      "action_intent": "start_guided_chat",
+      "priority_rank": 201,
+      "target_refs": []
+    },
+    {
+      "type": "coaching",
+      "block_id": "3fd1f615-aefa-54a2-8d59-a5d8a5a5c07d",
+      "signal_id": "coach:calibration:2:fa100d7ecb94ddda",
+      "source_handler": "decision_review_enricher",
+      "graph_hash_at_generation": "fa100d7ecb94ddda",
+      "freshness": "fresh",
+      "coaching_kind": "calibration_prompt",
+      "title": "Pre-mortem prompt",
+      "summary": null,
+      "action_intent": "start_guided_chat",
+      "priority_rank": 202,
+      "target_refs": []
+    }
+  ]
+}
