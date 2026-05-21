@@ -376,6 +376,16 @@ describe('Olumi tab click while floating is open', () => {
     expect(useUIStore.getState().activeOutputTab).not.toBe('olumi')
     expect(useFloatingPanelState.getState().source).toBe('user')
 
+    // Round-8 fix: sessionStorage MUST be updated synchronously inside
+    // onFloatOut (before openFloatingByUser fires the next render), so
+    // FloatingOlumiPanel's render-time persisted-dock-tab read picks up
+    // the new value and yieldToDockedOlumi returns false. Without this,
+    // useDockState's post-commit effect would still hold 'olumi', and
+    // the panel would suppress itself on the very render that should
+    // mount it.
+    const persisted = JSON.parse(sessionStorage.getItem('canvas.outputsDock.v1') || '{}').activeTab
+    expect(persisted).not.toBe('olumi')
+
     // Cleanup: leave the canvas store empty for the next test.
     useCanvasStore.setState({ nodes: [] } as any)
   })

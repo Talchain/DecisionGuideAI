@@ -78,6 +78,11 @@ function defaultCentredPosition(size: FloatingPanelSize, viewportW: number, view
  * callers pass the dock's measured offset (see `measureDockInset`). It
  * captures both the dock's width and any right-edge gap so the floating
  * panel cannot land in the strip between the dock and the viewport edge.
+ *
+ * Round-10: the floating panel renders a side tab OUTSIDE its left edge
+ * (positioned at `left: -SIDE_TAB_WIDTH`). The minimum x is therefore
+ * `DEFAULT_MARGIN + SIDE_TAB_WIDTH` rather than just `DEFAULT_MARGIN`,
+ * so the side tab stays fully on-screen regardless of drag position.
  */
 export function clampPositionToViewport(
   pos: FloatingPanelPosition,
@@ -86,9 +91,10 @@ export function clampPositionToViewport(
   viewportH: number,
   rightInset: number = 0,
 ): FloatingPanelPosition {
-  const maxX = Math.max(DEFAULT_MARGIN, viewportW - size.width - DEFAULT_MARGIN - rightInset)
+  const xMin = DEFAULT_MARGIN + SIDE_TAB_WIDTH
+  const maxX = Math.max(xMin, viewportW - size.width - DEFAULT_MARGIN - rightInset)
   return {
-    x: clamp(pos.x, DEFAULT_MARGIN, maxX),
+    x: clamp(pos.x, xMin, maxX),
     y: clamp(pos.y, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, viewportH - size.height - DEFAULT_MARGIN)),
   }
 }
@@ -130,7 +136,9 @@ export function fitsAtMinSize(
   viewportH: number,
   rightInset: number = 0,
 ): boolean {
-  const availableW = viewportW - 2 * DEFAULT_MARGIN - rightInset
+  // Round-10: the side tab lives OUTSIDE the panel's left edge, so the
+  // panel needs SIDE_TAB_WIDTH extra horizontal room beyond MIN_WIDTH.
+  const availableW = viewportW - 2 * DEFAULT_MARGIN - SIDE_TAB_WIDTH - rightInset
   const availableH = viewportH - 2 * DEFAULT_MARGIN
   return availableW >= MIN_WIDTH && availableH >= MIN_HEIGHT
 }
@@ -168,7 +176,10 @@ export function computeCornerResize(
   // When the RIGHT edge stays put (BL/TL drags), the left edge can shrink
   // to the viewport margin.
   const wRoomFromLeftFixed = Math.max(0, viewportW - startLeft - DEFAULT_MARGIN - rightInset)
-  const wRoomFromRightFixed = Math.max(0, fixedRight - DEFAULT_MARGIN)
+  // Round-10: the side tab lives OUTSIDE the panel's left edge. When the
+  // RIGHT edge is fixed (BL/TL resize) and the panel is growing leftward,
+  // the maximum width is bounded by viewport margin + side-tab width.
+  const wRoomFromRightFixed = Math.max(0, fixedRight - DEFAULT_MARGIN - SIDE_TAB_WIDTH)
   const maxW = (corner === 'br' || corner === 'tr') ? wRoomFromLeftFixed : wRoomFromRightFixed
 
   const hRoomFromTopFixed = Math.max(0, viewportH - startTop - DEFAULT_MARGIN)
@@ -349,11 +360,11 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     }
     const max = computeMaxSize(vw, vh)
     // Cap width/height at the available canvas (viewport − margins − dock
-    // inset) so a stored size that exceeds the current canvas shrinks to
-    // fit instead of overlapping the dock. `fitsAtMinSize` above
-    // guarantees the cap is ≥ MIN_WIDTH × MIN_HEIGHT (so the clamp floor
-    // is always reachable).
-    const availableW = vw - 2 * DEFAULT_MARGIN - dockInset
+    // inset − side-tab width) so a stored size that exceeds the current
+    // canvas shrinks to fit instead of overlapping the dock or pushing
+    // the side tab off-screen. `fitsAtMinSize` above guarantees the cap
+    // is ≥ MIN_WIDTH × MIN_HEIGHT (so the clamp floor is always reachable).
+    const availableW = vw - 2 * DEFAULT_MARGIN - SIDE_TAB_WIDTH - dockInset
     const availableH = vh - 2 * DEFAULT_MARGIN
     const w = clamp(size.width, MIN_WIDTH, Math.min(max.width, availableW))
     const h = clamp(size.height, MIN_HEIGHT, Math.min(max.height, availableH))
@@ -452,11 +463,14 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       // shrinks (viewport resize or dock expand), width/height must
       // shrink to fit. `fitsAtMinSize` above guarantees the cap is
       // ≥ MIN_WIDTH × MIN_HEIGHT.
-      const availableW = vw - 2 * DEFAULT_MARGIN - dockInset
+      const availableW = vw - 2 * DEFAULT_MARGIN - SIDE_TAB_WIDTH - dockInset
       const availableH = vh - 2 * DEFAULT_MARGIN
       const w = clamp(parseFloat(el.style.width || '0') || size.width, MIN_WIDTH, Math.min(max.width, availableW))
       const h = clamp(parseFloat(el.style.height || '0') || size.height, MIN_HEIGHT, Math.min(max.height, availableH))
-      const x = clamp(parseFloat(el.style.left || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN - dockInset))
+      // Round-10: xMin includes SIDE_TAB_WIDTH so the side tab (positioned
+      // at left:-SIDE_TAB_WIDTH relative to the panel) stays on-screen.
+      const xMin = DEFAULT_MARGIN + SIDE_TAB_WIDTH
+      const x = clamp(parseFloat(el.style.left || '0'), xMin, Math.max(xMin, vw - w - DEFAULT_MARGIN - dockInset))
       const y = clamp(parseFloat(el.style.top || '0'), DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
       el.style.width = `${w}px`
       el.style.height = `${h}px`
@@ -535,7 +549,8 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       if (drag) {
         const w = parseFloat(el.style.width || '400')
         const h = parseFloat(el.style.height || '550')
-        const x = clamp(e.clientX - drag.offsetX, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN - dockInset))
+        const xMin = DEFAULT_MARGIN + SIDE_TAB_WIDTH
+        const x = clamp(e.clientX - drag.offsetX, xMin, Math.max(xMin, vw - w - DEFAULT_MARGIN - dockInset))
         const y = clamp(e.clientY - drag.offsetY, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
         el.style.left = `${x}px`
         el.style.top = `${y}px`
@@ -720,7 +735,10 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         height: 550,
         left: 0,
         top: 0,
-        overflow: 'hidden',
+        // Round-10: overflow is `visible` (not hidden) so the side tab can
+        // extend OUTSIDE the panel's left edge. Inner regions
+        // (conversation list, composer) have their own overflow handling.
+        overflow: 'visible',
       }}
     >
       {/* Thin top drag handle. Replaces the previous bulky h-8 header — saves
@@ -743,14 +761,19 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         />
       </div>
 
-      {/* Side tab (left edge): hosts the minimise + dock controls in a
-         36px column. Visible identity affordance via a small Olumi mark
-         up top — the panel title is otherwise implicit. Buttons are 32×32
-         hit areas matching the welcome-variant cog/send pattern used
-         elsewhere in the panel. */}
+      {/* Side tab (OUTSIDE the panel, anchored to its top-left): hosts the
+         minimise + dock controls in a 36px column that hugs its three
+         icons (Olumi mark + minimise + dock).
+         Round-10: positioned with `left: -SIDE_TAB_WIDTH` so the tab
+         sticks out of the panel's left edge instead of overlaying the
+         conversation. The panel root uses `overflow: visible` so the tab
+         is not clipped. The position-clamp logic in clampPositionToViewport
+         reserves SIDE_TAB_WIDTH on the left so the tab never lands off-
+         screen. The tab visually butts against the panel's left border
+         (border-r aligns with the panel's left border seam). */}
       <div
-        className="absolute top-0 bottom-0 left-0 bg-panel border-r border-panel-border flex flex-col items-center pt-2 pb-2 gap-1 select-none"
-        style={{ width: SIDE_TAB_WIDTH, paddingTop: DRAG_HANDLE_HEIGHT + 4, zIndex: 1 }}
+        className="absolute top-0 bg-panel border border-panel-border border-r-0 rounded-l-lg flex flex-col items-center pt-2 pb-2 gap-1 select-none"
+        style={{ width: SIDE_TAB_WIDTH, left: -SIDE_TAB_WIDTH, paddingTop: 8, zIndex: 1 }}
         data-testid="floating-olumi-panel-side-tab"
       >
         <MessageSquare
@@ -789,7 +812,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
          floating surface a compact assistant, not a second full dashboard. */}
       <div
         className="floating-density flex flex-1 min-h-0 flex-col"
-        style={{ marginLeft: SIDE_TAB_WIDTH, marginTop: DRAG_HANDLE_HEIGHT }}
+        style={{ marginTop: DRAG_HANDLE_HEIGHT }}
       >
         <ConversationPanel
           conversation={conversation}

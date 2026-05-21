@@ -406,16 +406,17 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     Object.defineProperty(window, 'innerWidth', { value: VIEWPORT_W, configurable: true })
   })
 
-  it('1440 → 800 while minimised, then restore: shrinks width so the panel clears the dock', () => {
-    // Reviewer-flagged smoke defect: at 800px with dock open, restoring
-    // the panel rendered at width 400 starting at x=16 → right edge 416,
-    // overlapping the dock at left=372. Fix: layout effect now caps
-    // width at the available canvas (vw - 2*margin - dockInset), with
-    // MIN_WIDTH as the floor. `fitsAtMinSize` guarantees the cap is
-    // ≥ MIN_WIDTH (otherwise auto-minimise fires).
+  it('1440 → 836 while minimised, then restore: shrinks width so the panel clears the dock', () => {
+    // Reviewer-flagged smoke defect: at narrow viewport with dock open,
+    // restoring the panel rendered at width 400 overlapping the dock.
+    // Fix: layout effect now caps width at the available canvas
+    // (vw - 2*margin - SIDE_TAB_WIDTH - dockInset), with MIN_WIDTH as
+    // the floor. `fitsAtMinSize` guarantees the cap is ≥ MIN_WIDTH
+    // (otherwise auto-minimise fires).
+    //
+    // Round-10 viewport bumped 800 → 836 (= 800 + SIDE_TAB_WIDTH) so the
+    // same relative behaviour still has room for the side-tab inset.
     const dock = mountStubDock({ width: 416, right: 12 })
-    // User had a 400px-wide panel from before the resize, minimised it,
-    // then the viewport shrank from 1440 → 800 while the pill was shown.
     useFloatingPanelState.setState({
       isOpen: true,
       source: 'user',
@@ -426,20 +427,20 @@ describe('FloatingOlumiPanel — dock-inset clamp (real DOM)', () => {
     } as any)
     render(<FloatingOlumiPanel onDock={() => {}} onCogClick={() => {}} />, { wrapper: Wrapper })
 
-    Object.defineProperty(window, 'innerWidth', { value: 800, configurable: true })
+    Object.defineProperty(window, 'innerWidth', { value: 836, configurable: true })
     act(() => { window.dispatchEvent(new Event('resize')) })
     act(() => { useFloatingPanelState.getState().restore() })
 
-    // Available canvas: 800 - 32 - 412 = 356 (>= MIN_WIDTH 320). The
-    // restored width must shrink to 356, not stay at 400.
+    // Available canvas: 836 - 32 - 36 (side tab) - 412 (dock from left edge)
+    // = 356 (≥ MIN_WIDTH 320). The restored width must shrink to ≤ 356.
     const panel = document.querySelector('[data-testid="floating-olumi-panel"]') as HTMLElement
     expect(panel).toBeTruthy()
     const left = parseFloat(panel.style.left)
     const width = parseFloat(panel.style.width)
     expect(width).toBeLessThanOrEqual(356)
     expect(width).toBeGreaterThanOrEqual(320) // MIN_WIDTH preserved
-    // Right edge must not overlap the dock.
-    expect(left + width).toBeLessThanOrEqual(372)
+    // Right edge must not overlap the dock (dock starts at 836 - 416 - 12 = 408).
+    expect(left + width).toBeLessThanOrEqual(408)
     // userRepositioned preserved (geometry correction is not a user drag).
     expect(useFloatingPanelState.getState().userRepositioned).toBe(true)
     dock.unmount()

@@ -67,6 +67,10 @@ vi.mock('../../hooks/useSelectionContext', () => ({
 const messagesMockState: { messages: Array<{ id: string; role: string; synthetic?: boolean }> } = {
   messages: [],
 }
+// Mutable thinking flag — round-12 isGenerating render gates on
+// (isThinking && nodeCount === 0) to show the ThinkingIndicator in the
+// hero's post-submit / pre-graph window.
+const thinkingMockState: { isThinking: boolean } = { isThinking: false }
 // Pin sendMessage etc. with stable identities — same pattern as the
 // interactions spec's vi.mock of useConversation.
 vi.mock('../../conversation/useConversation', async () => {
@@ -81,7 +85,7 @@ vi.mock('../../conversation/useConversation', async () => {
       const [setPatchRejection] = useState(() => vi.fn())
       return {
         messages: messagesMockState.messages,
-        isThinking: false,
+        isThinking: thinkingMockState.isThinking,
         longRunningHint: null,
         lastFailedInput: null,
         sendMessage,
@@ -119,6 +123,7 @@ beforeEach(() => {
   useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   canvasMockState.nodes = []
   messagesMockState.messages = []
+  thinkingMockState.isThinking = false
   reducedMotionState.value = false
   vi.useRealTimers()
 })
@@ -271,78 +276,104 @@ describe('FirstUseComposer — reduced motion (gap #3)', () => {
 describe('FirstUseComposer — responsive width (P1.2)', () => {
   it('uses a CSS clamp so the composer never overflows narrow viewports', () => {
     // Render and inspect the inline style. We assert the responsive shape
-    // (min(...) for width, max(...) for left/top) rather than computed
-    // pixels because jsdom does not evaluate CSS clamp() at runtime.
+    // (min(...) for width, max(...) for left, transform-based vertical
+    // centring) rather than computed pixels because jsdom does not
+    // evaluate CSS clamp() at runtime.
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
     const style = dialog.getAttribute('style') ?? ''
     expect(style).toMatch(/width:\s*min\(/i)
     expect(style).toMatch(/calc\(100vw\s*-\s*32px\)/i)
     expect(style).toMatch(/left:\s*max\(/i)
-    expect(style).toMatch(/top:\s*max\(/i)
+    // Round-11: vertical centring switched from `top: max(16px, calc(50vh
+    // - height/2))` (required a known content height) to `top: 50%` +
+    // `transform: translateY(-50%)` because the composer now grows on
+    // type and the container has no fixed min-height.
+    expect(style).toMatch(/top:\s*50%/i)
+    expect(style).toMatch(/translateY\(-50%\)/i)
     // Defensive: no raw px-only width that would have overflowed.
     expect(style).not.toMatch(/width:\s*480px/i)
   })
 })
 
-describe('FirstUseComposer — welcome hero (round-3 UX correction)', () => {
-  it('uses the concise guidance copy and hero min-height', () => {
+describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
+  it('uses the concise guidance copy as the textarea placeholder and is content-fit (no min-height floor)', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
 
-    // Concise copy — reviewer-approved string verbatim.
+    // The guidance copy lives in the textarea's placeholder (round-8) —
+    // the textarea is the visual home of the guidance prompt.
     expect(
-      screen.getByText(/Describe the decision, options, goal and constraints\./i),
+      screen.getByPlaceholderText(/Describe the decision, options, goal and constraints\./i),
     ).toBeInTheDocument()
-    // Previous verbose copy must NOT leak through.
+    // No legacy standalone guidance <p>.
+    expect(screen.queryByTestId('first-use-guidance')).toBeNull()
+    // The previous verbose copy must NOT leak through.
     expect(
       screen.queryByText(/Describe your decision, the options you're weighing/i),
     ).toBeNull()
 
-    // Hero min-height: 460px floor so the welcome surface reads as a
-    // prominent invitation rather than a small utility panel. The cap is
-    // 70vh (max-height) so it never dominates tall screens.
+    // Round-11 hero geometry: CHROMELESS. The container is a positioning
+    // context with NO min-height floor and NO max-height cap — the
+    // composer grows on type and the container hugs its content (logo +
+    // composer) instead of imposing a fixed panel size.
     const style = dialog.getAttribute('style') ?? ''
-    expect(style).toMatch(/min-height:\s*460px/i)
-    expect(style).toMatch(/max-height:\s*70vh/i)
+    expect(style).not.toMatch(/min-height:/i)
+    expect(style).not.toMatch(/max-height:/i)
     expect(style).not.toMatch(/(^|[^-])height:\s*\d+px/i)
   })
 
-  it('renders the welcome heading "What are you deciding?"', () => {
+  it('is chromeless — no panel background, border, shadow, or ambient drift', () => {
+    // Round-11: the user's feedback was that Claude's first screen looks
+    // better because it has no panel chrome — just a logo and a textbox
+    // floating on the canvas. The dialog wrapper must therefore NOT carry
+    // the bg-panel/border/shadow utilities, and the ambient drift shapes
+    // are gone.
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
-    const heading = screen.getByTestId('first-use-heading')
-    expect(heading).toBeInTheDocument()
-    expect(heading.textContent).toBe('What are you deciding?')
-    expect(heading.tagName).toBe('H2')
+    const dialog = screen.getByTestId('first-use-composer') as HTMLElement
+    const cls = dialog.className
+    expect(cls).not.toMatch(/\bbg-panel\b/)
+    expect(cls).not.toMatch(/\bborder-panel-border\b/)
+    expect(cls).not.toMatch(/\bshadow-2\b/)
+    // No ambient drift shapes container (the function and its testid are gone).
+    expect(screen.queryByTestId('first-use-ambient-shapes')).toBeNull()
   })
 
-  it('renders the six ambient drift shapes behind the hero content', () => {
+  it('does NOT render the legacy "What are you deciding?" heading (round-11 strips chrome)', () => {
+    // Round-11: heading removed so the hero is just logo + composer.
+    // The dialog's aria-label still describes the surface for screen readers.
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
-    const shapeContainer = screen.getByTestId('first-use-ambient-shapes')
-    expect(shapeContainer).toBeInTheDocument()
-    expect(shapeContainer.getAttribute('aria-hidden')).toBe('true')
-    // Six shapes — goal, decision, option, factor, risk, outcome.
-    const kinds = Array.from(shapeContainer.querySelectorAll('[data-shape]'))
-      .map((el) => el.getAttribute('data-shape'))
-    expect(kinds.sort()).toEqual(
-      ['decision', 'factor', 'goal', 'option', 'outcome', 'risk'],
-    )
+    expect(screen.queryByTestId('first-use-heading')).toBeNull()
+    // Defensive: the heading text must not leak through some other element.
+    expect(screen.queryByText('What are you deciding?')).toBeNull()
+    // The dialog still names itself for accessibility.
+    const dialog = screen.getByTestId('first-use-composer')
+    expect(dialog.getAttribute('aria-label')).toBe('Describe your decision')
   })
 
-  it('renders the Olumi logo as decorative imagery above the heading', () => {
+  it('renders the Olumi logo above the composer', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer')
     const img = dialog.querySelector('img[src*="olumi-logo"]') as HTMLImageElement | null
     expect(img).not.toBeNull()
-    // Logo is decorative — heading carries the semantic label.
+    // Logo is decorative — the dialog's aria-label carries the semantic role.
     expect(img?.getAttribute('aria-hidden')).toBe('true')
+    // The wordmark has a ~3:1 natural aspect; we size by width and let
+    // height: auto preserve the aspect.
+    expect(img?.getAttribute('width')).toBe('280')
+    expect(img?.style.height).toBe('auto')
   })
 
-  it('uses the welcome variant of AIInputBar (three visible lines at rest)', () => {
+  it('uses the welcome variant of AIInputBar with a three-line rest height so the icon stack fits', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
-    // Welcome variant sets minHeight: 18 * 3 + 16 = 70px.
+    // Round-12: welcome variant minHeight: LINE_HEIGHT_PX (18) * WELCOME_MIN_LINES (3) + 16 = 70px.
+    // The absolutely-positioned cog + send icon stack is 68px tall
+    // (32 + 4 + 32) and must fit inside the textarea border. A 1-line
+    // rest (34px) caused the stack to overflow visually.
     expect(textarea.style.minHeight).toBe('70px')
+    // Auto-grow ceiling: WELCOME_MAX_LINES (12) * 18 + 16 = 232px.
+    expect(textarea.style.maxHeight).toBe('232px')
   })
 
   it('does NOT render prompt-suggestion chips (explicitly excluded)', () => {
@@ -359,6 +390,51 @@ describe('FirstUseComposer — welcome hero (round-3 UX correction)', () => {
   it('keeps the cog button inside the input field (welcome-cog invariant)', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     expect(screen.getByTestId('first-use-input-bar-cog')).toBeInTheDocument()
+  })
+})
+
+describe('FirstUseComposer — generating animation (round-12)', () => {
+  // The hero's post-submit / pre-graph window (user pressed send, no
+  // graph yet) is the moment the chromeless surface goes from inviting
+  // to working. Round-12 wires the existing ThinkingIndicator (six node
+  // shapes pulsing in a horizontal wave) into the hero so the user has
+  // visual evidence that Olumi is drafting their model.
+
+  it('does NOT render the indicator at rest (no submit, isThinking=false)', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(screen.queryByTestId('first-use-thinking')).toBeNull()
+    expect(screen.queryByTestId('thinking-indicator')).toBeNull()
+  })
+
+  it('renders the indicator while isThinking is true and the canvas is still empty', () => {
+    thinkingMockState.isThinking = true
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    // The wrapper carries an aria-live region so AT users hear the
+    // status; the inner indicator (from src/canvas/conversation/zones/
+    // ThinkingIndicator.tsx) carries the 6 pulsing shapes.
+    const wrapper = screen.getByTestId('first-use-thinking')
+    expect(wrapper).toBeInTheDocument()
+    expect(wrapper.getAttribute('aria-live')).toBe('polite')
+    expect(screen.getByTestId('thinking-indicator')).toBeInTheDocument()
+  })
+
+  it('hides the indicator once the first graph appears (nodeCount > 0 → hero unmounts entirely)', () => {
+    thinkingMockState.isThinking = true
+    canvasMockState.nodes = [{ id: 'n1' }]
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    // Hero itself unmounts when nodeCount > 0 — the shouldRender gate
+    // returns false. So neither the wrapper nor the indicator render.
+    expect(screen.queryByTestId('first-use-composer')).toBeNull()
+    expect(screen.queryByTestId('first-use-thinking')).toBeNull()
+  })
+
+  it('hides the indicator when isThinking flips back to false on the same render', () => {
+    thinkingMockState.isThinking = true
+    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(screen.getByTestId('first-use-thinking')).toBeInTheDocument()
+    thinkingMockState.isThinking = false
+    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    expect(screen.queryByTestId('first-use-thinking')).toBeNull()
   })
 })
 

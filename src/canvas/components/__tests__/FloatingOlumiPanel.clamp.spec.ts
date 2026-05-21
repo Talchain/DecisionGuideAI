@@ -31,6 +31,11 @@ import {
 const VIEWPORT = { w: 1200, h: 800 }
 const SIZE = { width: 400, height: 500 }
 const MARGIN = 16
+// Round-10: the floating panel renders a side tab OUTSIDE its left edge
+// at `left: -SIDE_TAB_WIDTH`. The minimum x is therefore `MARGIN +
+// SIDE_TAB_WIDTH` so the tab stays on-screen.
+const SIDE_TAB_WIDTH = 36
+const X_MIN = MARGIN + SIDE_TAB_WIDTH
 
 describe('clampPositionToViewport', () => {
   it('passes through a fully visible position unchanged', () => {
@@ -55,12 +60,13 @@ describe('clampPositionToViewport', () => {
     expect(withZero).toEqual(without)
   })
 
-  it('rightInset larger than usable width still keeps the panel at the margin (no negative x)', () => {
+  it('rightInset larger than usable width still keeps the panel at xMin (no negative x)', () => {
     // Dock 1100px on a 1200px viewport: only 100px of usable area remains
-    // — less than the 400px panel. Top-left must still be at the margin,
-    // not a negative coordinate.
+    // — less than the 400px panel. Top-left must still be at xMin
+    // (MARGIN + SIDE_TAB_WIDTH so the side tab stays on-screen), not
+    // a negative coordinate.
     const out = clampPositionToViewport({ x: 800, y: 100 }, SIZE, VIEWPORT.w, VIEWPORT.h, 1100)
-    expect(out.x).toBe(MARGIN)
+    expect(out.x).toBe(X_MIN)
   })
 
   it('clamps an x that would push the right edge off-screen', () => {
@@ -77,14 +83,14 @@ describe('clampPositionToViewport', () => {
     expect(out.y).toBe(VIEWPORT.h - SIZE.height - MARGIN)
   })
 
-  it('clamps negative coordinates to the margin', () => {
+  it('clamps negative coordinates to the margin (xMin reserves the side tab)', () => {
     const out = clampPositionToViewport({ x: -50, y: -200 }, SIZE, VIEWPORT.w, VIEWPORT.h)
-    expect(out).toEqual({ x: MARGIN, y: MARGIN })
+    expect(out).toEqual({ x: X_MIN, y: MARGIN })
   })
 
-  it('degenerate viewport (smaller than panel) still produces a sane top-left at the margin', () => {
+  it('degenerate viewport (smaller than panel) still produces a sane top-left at xMin/MARGIN', () => {
     const out = clampPositionToViewport({ x: 500, y: 500 }, SIZE, 200, 200)
-    expect(out).toEqual({ x: MARGIN, y: MARGIN })
+    expect(out).toEqual({ x: X_MIN, y: MARGIN })
   })
 })
 
@@ -185,8 +191,8 @@ describe('fitsAtMinSize — auto-minimise gate', () => {
     expect(fitsAtMinSize(VIEWPORT.w, VIEWPORT.h, 400)).toBe(true)
   })
 
-  it('returns false when dock + margins leave less than MIN_WIDTH', () => {
-    // 1200 - 32 (margins) - 900 (dock) = 268 — below MIN_WIDTH (320).
+  it('returns false when dock + margins + side-tab leave less than MIN_WIDTH', () => {
+    // 1200 - 32 (margins) - 36 (side tab) - 900 (dock) = 232 — below MIN_WIDTH (320).
     expect(fitsAtMinSize(VIEWPORT.w, VIEWPORT.h, 900)).toBe(false)
   })
 
@@ -194,11 +200,12 @@ describe('fitsAtMinSize — auto-minimise gate', () => {
     expect(fitsAtMinSize(VIEWPORT.w, 200, 0)).toBe(false)
   })
 
-  it('boundary: exactly MIN_WIDTH room → fits (≥ comparison)', () => {
-    // 800 - 32 = 768 - dockInset. Set inset so available width === 320.
-    const inset = 800 - 2 * MARGIN - 320
+  it('boundary: exactly MIN_WIDTH room (after side tab) → fits (≥ comparison)', () => {
+    // Round-10: availableW = vw - 2*MARGIN - SIDE_TAB_WIDTH - dockInset.
+    // Set inset so the resulting available width === MIN_WIDTH (320).
+    const inset = 800 - 2 * MARGIN - SIDE_TAB_WIDTH - 320
     expect(fitsAtMinSize(800, 600, inset)).toBe(true)
-    // One pixel less and it must NOT fit.
+    // One pixel less of dock inset and it must NOT fit.
     expect(fitsAtMinSize(800, 600, inset + 1)).toBe(false)
   })
 })
