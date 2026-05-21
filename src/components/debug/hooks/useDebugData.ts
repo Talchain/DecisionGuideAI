@@ -983,6 +983,20 @@ export interface DebugData {
   selected_plot_trace_response_body_present?: boolean
   selected_plot_trace_tier?: PlotTraceTier | null
   selected_plot_trace_is_usable_live_evidence?: boolean
+  /**
+   * Selected CEE trace endpoint (string form) — threaded so the
+   * bundle assembler can distinguish the two V5 turn variants:
+   *   - canonical `/orchestrate/v2/turn` → `analysis_evidence_source = 'live_v5_cee_turn'`
+   *   - staging proxy `/proxy/v5/turn`   → `analysis_evidence_source = 'live_v5_cee_proxy_turn'`
+   *
+   * Honesty note: this field is INFORMATIONAL only. It does NOT
+   * upgrade `scientific_validation.source` — that label is gated by
+   * `selectedCeeTraceIsUsableLiveEvidence` + the indicative-keys
+   * check inside `scientificValidation/classifySource`. If the CEE
+   * response body omits `factor_sensitivity` / `flip_thresholds` /
+   * etc., validators stay `unavailable` regardless of this label.
+   */
+  selected_cee_trace_endpoint?: string | null
   /** Aggregate trace-store snapshot at the time `useDebugData` ran. */
   payload_trace_store_summary?: {
     total_entries: number
@@ -3679,12 +3693,21 @@ export function useDebugData(): DebugData {
     // path didn't thread an id and metadata could drift to a newer
     // V5 trace via `findLatestV5TurnEntry`.
     let selectedCeeTraceId: string | null = null
+    // PR #156 follow-up (V5 proxy classification): also thread the
+    // selected CEE trace's endpoint string so the bundle assembler
+    // can choose between `live_v5_cee_turn` (canonical) and
+    // `live_v5_cee_proxy_turn` (staging `/proxy/v5/turn`). Label
+    // ONLY — does not upgrade `scientific_validation.source`.
+    let selectedCeeTraceEndpoint: string | null = null
 
     if (analysisProducing.selected !== undefined) {
       // Selector applies V5 endpoint scoping, so any non-undefined
       // result is verified V5.
       ceeCaptureProvenance = 'analysis_producing_v5_turn'
       selectedCeeTraceId = analysisProducing.selected_trace_id
+      const sel = analysisProducing.selected as { endpoint?: string }
+      selectedCeeTraceEndpoint =
+        typeof sel.endpoint === 'string' ? sel.endpoint : null
     } else if (fallbackCeePayload !== undefined) {
       // Round-4 review (P1): use the shared `isV5TurnEndpoint` helper
       // instead of a raw substring check. Pre-fix the substring match
@@ -3700,10 +3723,16 @@ export function useDebugData(): DebugData {
           typeof fallbackCeePayload.id === 'string'
             ? fallbackCeePayload.id
             : null
+        selectedCeeTraceEndpoint =
+          typeof fallbackCeePayload.endpoint === 'string'
+            ? fallbackCeePayload.endpoint
+            : null
       } else {
         ceeCaptureProvenance = 'fallback_legacy_cee'
         // selectedCeeTraceId stays null — legacy CEE traces must not
         // pin into `v5_cee_capture` metadata.
+        // selectedCeeTraceEndpoint stays null — only V5 turns get an
+        // endpoint label routed into `analysis_evidence_source`.
       }
     } else {
       ceeCaptureProvenance = 'none'
@@ -4092,6 +4121,13 @@ export function useDebugData(): DebugData {
       },
       // Round-3 review (P1): provenance of bundle.payloads.cee_*.
       cee_capture_provenance: ceeCaptureProvenance,
+      // V5 proxy classification (follow-up to PR #156 / PR #159):
+      // selected CEE trace endpoint string — used by the bundle
+      // assembler to choose between `live_v5_cee_turn` (canonical
+      // `/orchestrate/v2/turn`) and `live_v5_cee_proxy_turn` (staging
+      // `/proxy/v5/turn`). Label-only; does not upgrade
+      // `scientific_validation.source`.
+      selected_cee_trace_endpoint: selectedCeeTraceEndpoint,
       // Round-8 (follow-up to PR #153): PLoT-side diagnostics. Computed
       // above from the same `tracedPayloads` snapshot — same source of
       // truth for the bundle assembler.

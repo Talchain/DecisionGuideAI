@@ -43,6 +43,34 @@ export const V5_TURN_ENDPOINT_PATTERN = '/orchestrate/v2/turn'
 const V5_TURN_ENDPOINT_PATHNAME_RE = /\/orchestrate\/v2\/turn(?:\/|$)/
 
 /**
+ * Path-boundary regex for the V5 CEE proxy turn endpoint pathname
+ * (`/proxy/v5/turn`). Applied to the URL's PATH ONLY (post
+ * `extractPathname` stripping). Same path-boundary contract as
+ * `V5_TURN_ENDPOINT_PATHNAME_RE` — followed by `/` or end-of-string,
+ * so look-alikes like `/proxy/v5/turning` cannot impersonate the
+ * endpoint.
+ *
+ * The staging Netlify dashboard inlines
+ * `VITE_V5_ENDPOINT="https://cee-staging.onrender.com/proxy/v5/turn"`,
+ * so `callV5Turn` (`src/v5/v5Adapter.ts`) records traces with that
+ * pathname. This regex lets `isV5TurnEndpoint` recognise those
+ * traces alongside the canonical `/orchestrate/v2/turn` variant.
+ *
+ * Mirrors `PROXY_V5_TURN_RE` in `src/lib/contract-validators.ts`
+ * (the classifier-side boundary check) so the two layers cannot
+ * drift on what counts as a V5 turn.
+ */
+const V5_TURN_PROXY_PATHNAME_RE = /\/proxy\/v5\/turn(?:\/|$)/
+
+/**
+ * Canonical V5 CEE proxy turn endpoint path segment (string form).
+ * Mirrors `V5_TURN_ENDPOINT_PATTERN`'s role for the canonical path
+ * — provided as a sibling constant for any consumer that wants the
+ * literal pathname rather than the regex.
+ */
+export const V5_TURN_PROXY_ENDPOINT_PATTERN = '/proxy/v5/turn'
+
+/**
  * Extract the pathname from an endpoint string. Handles three shapes:
  *
  *   - Absolute URL: `https://cee/orchestrate/v2/turn?nonce=abc` →
@@ -127,17 +155,24 @@ export function matchServiceCaseInsensitive(
 /**
  * V5 turn endpoint scope. Requires:
  *   - CEE service (case-insensitive — see `isCeeService`)
- *   - URL's PATHNAME (with query/fragment stripped) matches
- *     `/orchestrate/v2/turn` at a path boundary
+ *   - URL's PATHNAME (with query/fragment stripped) matches EITHER:
+ *     - `/orchestrate/v2/turn` — canonical V5 turn endpoint
+ *     - `/proxy/v5/turn`       — staging proxy variant (set via
+ *                                 `VITE_V5_ENDPOINT` in the Netlify
+ *                                 dashboard); see `PROXY_V5_TURN_RE`
+ *                                 in `contract-validators.ts` for the
+ *                                 mirrored classifier-side gate.
+ *   - Match is at a path boundary (`/` sub-path or end-of-string)
  *
  * Rejects:
  *   - Missing/empty endpoint (defensive default — prefers honesty
  *     to optimism)
  *   - Non-CEE services even on the V5 path (defensive)
- *   - Look-alike paths like `/orchestrate/v2/turning` (round-4 P1)
+ *   - Look-alike paths like `/orchestrate/v2/turning`,
+ *     `/proxy/v5/turning` (round-4 P1 — path boundary)
  *   - Query-string content matching the V5 path, e.g.
  *     `/legacy?next=/orchestrate/v2/turn` (round-5 P1) — the regex
- *     now runs against the pathname only, so query values cannot
+ *     runs against the pathname only, so query values cannot
  *     impersonate the path.
  *
  * Returns true for canonical V5 paths:
@@ -148,6 +183,13 @@ export function matchServiceCaseInsensitive(
  *   - `/orchestrate/v2/turn/legacy-sub`     — sub-path (defensive,
  *      accepted on the grounds that any sub-path under the turn
  *      endpoint is still operating in the V5 turn namespace).
+ *
+ * And for the V5 proxy variant:
+ *   - `https://cee-staging.onrender.com/proxy/v5/turn` — staging
+ *   - `/proxy/v5/turn?nonce=abc`            — with query string
+ *   - `/proxy/v5/turn#fragment`             — with fragment
+ *   - `/proxy/v5/turn/legacy-sub`           — sub-path (same
+ *      defensive rationale as canonical sub-paths above)
  */
 export function isV5TurnEndpoint(p: {
   service?: string
@@ -159,7 +201,45 @@ export function isV5TurnEndpoint(p: {
   }
   const pathname = extractPathname(p.endpoint)
   if (pathname === null) return false
-  return V5_TURN_ENDPOINT_PATHNAME_RE.test(pathname)
+  return (
+    V5_TURN_ENDPOINT_PATHNAME_RE.test(pathname) ||
+    V5_TURN_PROXY_PATHNAME_RE.test(pathname)
+  )
+}
+
+/**
+ * Discriminator: is this V5 trace specifically on the staging
+ * proxy variant (`/proxy/v5/turn`) rather than the canonical
+ * `/orchestrate/v2/turn`?
+ *
+ * Returns true ONLY when the trace passes `isV5TurnEndpoint`'s
+ * CEE-service + pathname-only check AND the pathname matches
+ * the proxy regex. Used by the bundle assembler to choose between
+ * `analysis_evidence_source = 'live_v5_cee_proxy_turn'` (proxy) and
+ * `'live_v5_cee_turn'` (canonical) — labels are informational only;
+ * the honesty contract for `scientific_validation.source` is
+ * governed separately by the indicative-keys gate in
+ * `src/lib/scientificValidation/index.ts` (PR #156 round-4 P0).
+ *
+ * Rejects:
+ *   - Non-CEE service (defensive)
+ *   - Missing/empty endpoint (defensive)
+ *   - Canonical `/orchestrate/v2/turn` path (use `isV5TurnEndpoint`
+ *     to detect either variant; this helper is the proxy-specific
+ *     discriminator)
+ *   - Look-alike `/proxy/v5/turning` (path-boundary regex)
+ */
+export function isV5TurnProxyEndpoint(p: {
+  service?: string
+  endpoint?: string
+}): boolean {
+  if (!isCeeService(p)) return false
+  if (typeof p.endpoint !== 'string' || p.endpoint.length === 0) {
+    return false
+  }
+  const pathname = extractPathname(p.endpoint)
+  if (pathname === null) return false
+  return V5_TURN_PROXY_PATHNAME_RE.test(pathname)
 }
 
 // =============================================================================

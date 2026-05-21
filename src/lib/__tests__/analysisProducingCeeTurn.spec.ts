@@ -696,6 +696,68 @@ describe('findLatestAnalysisProducingCeeTurn — round-2 P1: V5 endpoint scope',
     expect(result.selected?.id).toBe('tp-direct')
     expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(1)
   })
+
+  // =====================================================================
+  // V5 proxy variant (PR #156 / PR #159 follow-up). Staging Netlify
+  // dashboard inlines VITE_V5_ENDPOINT="https://cee-staging.onrender.com/proxy/v5/turn".
+  // `callV5Turn` records traces with that endpoint string. The selector
+  // must accept it as a V5 candidate alongside the canonical pathname.
+  // =====================================================================
+
+  it('PROXY: bare /proxy/v5/turn is a V5 candidate', () => {
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({ id: 'tp-proxy', endpoint: '/proxy/v5/turn' }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selected?.id).toBe('tp-proxy')
+    expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(1)
+  })
+
+  it('PROXY: absolute staging URL https://cee-staging.onrender.com/proxy/v5/turn is a V5 candidate', () => {
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({
+        id: 'tp-proxy-abs',
+        endpoint: 'https://cee-staging.onrender.com/proxy/v5/turn',
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selected?.id).toBe('tp-proxy-abs')
+    expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(1)
+  })
+
+  it('PROXY: look-alike /proxy/v5/turning is NOT a V5 candidate (path-boundary)', () => {
+    const payloads: SelectorTracedPayload[] = [
+      ceeTurn({ id: 'tp-turning', endpoint: '/proxy/v5/turning' }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selected).toBeUndefined()
+    expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(0)
+    expect(result.selection_diagnostics.selected_reason).toBe(
+      'no_v5_endpoint_candidate',
+    )
+  })
+
+  it('PROXY: canonical and proxy traces coexist; recency picks most recent', () => {
+    const payloads: SelectorTracedPayload[] = [
+      // Most-recent-first order. The proxy entry is newer; per
+      // round-5 strict-lex precedence (analysisProducing selectors
+      // use the same recency-then-tier ranking), the most-recent
+      // should win.
+      ceeTurn({
+        id: 'tp-proxy-newer',
+        endpoint: '/proxy/v5/turn',
+        turnType: 'run_analysis',
+      }),
+      ceeTurn({
+        id: 'tp-canonical-older',
+        endpoint: '/bff/orchestrate/v2/turn',
+        turnType: 'run_analysis',
+      }),
+    ]
+    const result = findLatestAnalysisProducingCeeTurn(payloads, 'scn-1', null)
+    expect(result.selected?.id).toBe('tp-proxy-newer')
+    expect(result.selection_diagnostics.v5_endpoint_candidate_count).toBe(2)
+  })
 })
 
 describe('findLatestAnalysisProducingCeeTurn — round-2 IMP: selection diagnostics', () => {

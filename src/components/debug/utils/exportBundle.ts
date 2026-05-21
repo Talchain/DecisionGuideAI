@@ -39,6 +39,7 @@ import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
 // classifier can't be fooled by `/v1/running` etc.
 import {
   isV5TurnEndpoint,
+  isV5TurnProxyEndpoint,
   isV1PlotEngineEndpoint,
   isV1PlotStreamEndpoint,
   isV2PlotEndpoint,
@@ -1462,6 +1463,16 @@ interface DebugBundle {
    * bundle:
    *
    *   - `live_v5_cee_turn`          — V5 CEE turn captured (chat / chip)
+   *                                   via the canonical `/orchestrate/v2/turn`
+   *                                   endpoint
+   *   - `live_v5_cee_proxy_turn`    — V5 CEE turn captured via the
+   *                                   staging proxy variant
+   *                                   (`/proxy/v5/turn`) set by
+   *                                   `VITE_V5_ENDPOINT` in the
+   *                                   Netlify dashboard. Same V5 turn
+   *                                   contract as canonical; the
+   *                                   label discriminates which
+   *                                   pathname produced the trace.
    *   - `live_plot_v1_engine_turn`  — Run-analysis fired PLoT v1 sync;
    *                                   no CEE turn (legitimate flow)
    *   - `live_plot_v1_stream_turn`  — Run-analysis fired PLoT v1 SSE
@@ -1480,9 +1491,21 @@ interface DebugBundle {
    * codes, the absence of `cee_request`/`cee_response` is EXPECTED
    * (Run-analysis bypasses CEE) and the bundle does NOT label it
    * as failure.
+   *
+   * Honesty contract (V5 proxy follow-up): `live_v5_cee_proxy_turn`
+   * is INFORMATIONAL — it says "the V5 turn fetched the proxy
+   * variant", NOT "the response body carries PLoT science fields".
+   * `scientific_validation.source` is governed independently by the
+   * indicative-keys gate in
+   * `src/lib/scientificValidation/classifySource` (PR #156 round-4
+   * P0). If CEE V5 turns return blocks-only without
+   * `factor_sensitivity` / `flip_thresholds` / `evpi`, validators
+   * stay `unavailable` with `required_upstream_support` listing what
+   * CEE/PLoT needs to expose — no fabrication.
    */
   analysis_evidence_source:
     | 'live_v5_cee_turn'
+    | 'live_v5_cee_proxy_turn'
     | 'live_plot_v1_engine_turn'
     | 'live_plot_v1_stream_turn'
     | 'live_plot_v2_capture'
@@ -3856,7 +3879,24 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       data.selected_plot_trace_is_usable_live_evidence === true
 
     if (ceeBodyPresent && ceeProvenanceIsV5) {
-      bundle.analysis_evidence_source = 'live_v5_cee_turn'
+      // V5 turn captured. Discriminate canonical vs staging-proxy
+      // variant from the SELECTED CEE trace's endpoint. Label only —
+      // does NOT upgrade `scientific_validation.source`, which is
+      // gated by the indicative-keys check in
+      // `scientificValidation/classifySource` (PR #156 round-4 P0).
+      const selectedCeeEndpoint =
+        typeof data.selected_cee_trace_endpoint === 'string'
+          ? data.selected_cee_trace_endpoint
+          : null
+      const isProxyVariant =
+        selectedCeeEndpoint !== null &&
+        isV5TurnProxyEndpoint({
+          service: 'CEE',
+          endpoint: selectedCeeEndpoint,
+        })
+      bundle.analysis_evidence_source = isProxyVariant
+        ? 'live_v5_cee_proxy_turn'
+        : 'live_v5_cee_turn'
     } else if (selectedIsV1Run && plotEvidenceIsUsable) {
       bundle.analysis_evidence_source = 'live_plot_v1_engine_turn'
     } else if (selectedIsV1Stream && plotEvidenceIsUsable) {
