@@ -247,8 +247,7 @@ export const AnalysisHeroV17 = memo(function AnalysisHeroV17({
 
         <HeroResultContext
           resultLine={heroVm.resultLine}
-          reasonLine={heroVm.reasonLine}
-          metaPills={heroVm.metaPills}
+          dependencyLine={heroVm.dependencyLine}
         />
 
         {heroVm.keyQuestion && (

@@ -48,8 +48,29 @@ describe('AnalysisOrphanBanner', () => {
   it('renders when canonical flag is on AND no V5 fact attached', () => {
     render(<AnalysisOrphanBanner />)
     expect(screen.getByTestId('analysis-orphan-banner')).toBeInTheDocument()
-    expect(screen.getByText('Analysis needs refresh')).toBeInTheDocument()
+    // Single-row strip: action-led title + dot-separator + secondary copy.
+    expect(screen.getByText('Refresh analysis')).toBeInTheDocument()
+    expect(screen.getByText(/Coaching may be out of date/)).toBeInTheDocument()
+    const banner = screen.getByTestId('analysis-orphan-banner')
+    expect(banner.textContent ?? '').toMatch(/Refresh analysis\s*·\s*Coaching may be out of date/)
     expect(screen.getByTestId('analysis-orphan-banner-run')).toBeInTheDocument()
+    // Slimmed copy — the legacy second sentence is gone.
+    expect(banner.textContent ?? '').not.toMatch(/Re-run analysis to attach/)
+  })
+
+  it('container has no vertical padding — row height is driven by the 44px button (WCAG floor)', () => {
+    render(<AnalysisOrphanBanner />)
+    const banner = screen.getByTestId('analysis-orphan-banner')
+    // No py-* / pt-* / pb-* / p-* on the container — only px-* allowed.
+    // This is the structural assertion behind the slim-row visual goal:
+    // without container vertical padding, the visible row floors at the
+    // button's min-h-[44px] touch target rather than stacking padding
+    // around it.
+    expect(banner.className).not.toMatch(/(^|\s)(p-|py-|pt-|pb-)\d/)
+    expect(banner.className).toMatch(/(^|\s)px-3(\s|$)/)
+    // Button must still meet the 44px WCAG touch target.
+    const button = screen.getByTestId('analysis-orphan-banner-run')
+    expect(button.className).toMatch(/min-h-\[44px\]/)
   })
 
   it('does NOT render when canonical flag is off (direct_plot_legacy, not orphan)', () => {

@@ -331,17 +331,33 @@ describe('AnalysisHeroV17 — P1.5: factor filter widens with data.kind', () => 
     })
   })
 
-  // Fix 1 dropped the separate `hero-v17-contribution` element; assertions
-  // moved to the strip's `checkedCount` text (rendered inside hero-v17-strip).
-  function strippedVerifiedText(): string {
-    const strip = screen.queryByTestId('hero-v17-strip')
-    // The checkedCount is the second visible text in the strip header
-    // (after "Strengthen this decision"). Match the inputs-verified
-    // pattern directly.
-    const text = strip?.textContent ?? ''
-    const m = text.match(/(\d+ input(s)? verified|No inputs verified)/)
+  // Verified count moved (2026-05-21) from visible header text to the
+  // Verified strip-segment's tooltip + aria-label. The visible header
+  // never carries the count any more; we read it off the segment's
+  // composite title attribute "Verified: NN% (No inputs verified)".
+  // See docs/investigations/analysis-hero-v17-top-section.md task 2.
+  function verifiedTooltipCount(): string {
+    const seg = screen.queryByTestId('strip-verified')
+    const title = seg?.getAttribute('title') ?? ''
+    const m = title.match(/(\d+ input(s)? verified|No inputs verified)/)
     return m ? m[0] : ''
   }
+
+  it('verified-segment tooltip always carries the count alongside the percentage', () => {
+    useCanvasStore.setState({
+      nodes: [
+        { id: 'n_factor', type: 'factor', position: { x: 0, y: 0 }, data: { kind: 'factor' } } as never,
+        { id: 'n_goal', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal' } } as never,
+      ],
+      confirmedNodeIds: new Set(['n_factor']),
+    })
+    render(<AnalysisHeroV17 data={makeData()} vm={makeVm()} fragileEdgeCount={0} />)
+    const seg = screen.getByTestId('strip-verified')
+    const title = seg.getAttribute('title') ?? ''
+    expect(title).toMatch(/^Verified: \d+%/)
+    expect(title).toContain('1 input verified')
+    expect(seg.getAttribute('aria-label')).toBe(title)
+  })
 
   it('counts a node whose React Flow type is undefined but data.kind === "factor"', () => {
     useCanvasStore.setState({
@@ -352,7 +368,7 @@ describe('AnalysisHeroV17 — P1.5: factor filter widens with data.kind', () => 
       confirmedNodeIds: new Set(['n_factor_by_kind']),
     })
     render(<AnalysisHeroV17 data={makeData()} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(strippedVerifiedText()).toBe('1 input verified')
+    expect(verifiedTooltipCount()).toBe('1 input verified')
   })
 
   it('counts nodes whose React Flow type IS "factor" (legacy path still works)', () => {
@@ -363,18 +379,20 @@ describe('AnalysisHeroV17 — P1.5: factor filter widens with data.kind', () => 
       confirmedNodeIds: new Set(['n_legacy']),
     })
     render(<AnalysisHeroV17 data={makeData()} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(strippedVerifiedText()).toBe('1 input verified')
+    expect(verifiedTooltipCount()).toBe('1 input verified')
   })
 
-  it('zero factors → checkedCount hidden, no NaN, no "of 0" leak', () => {
+  it('zero factors → tooltip carries no count, no NaN, no "of 0" leak', () => {
     useCanvasStore.setState({
       nodes: [{ id: 'n_g', type: 'goal', position: { x: 0, y: 0 }, data: { kind: 'goal' } } as never],
       confirmedNodeIds: new Set<string>(),
     })
     render(<AnalysisHeroV17 data={makeData()} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(strippedVerifiedText()).toBe('')
-    // Anti-drift: the legacy "0 of 4 verified" form is gone.
+    expect(verifiedTooltipCount()).toBe('')
+    // Strip header never carries the count text any more (moved to tooltip).
     const strip = screen.queryByTestId('hero-v17-strip')
+    expect(strip?.textContent ?? '').not.toMatch(/inputs? verified/)
+    // Anti-drift: the legacy "0 of 4 verified" form is gone.
     expect(strip?.textContent ?? '').not.toMatch(/\d+ of \d+ verified/)
   })
 })

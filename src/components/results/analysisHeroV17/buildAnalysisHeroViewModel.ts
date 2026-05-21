@@ -1,29 +1,40 @@
 /**
  * AnalysisHeroV17 view-model builder — orchestrator.
  *
- * Source of truth: docs/investigations/analysis-hero-v17.md §9–§11.
+ * Source of truth: docs/investigations/analysis-hero-v17.md §9–§11
+ * (initial) + docs/investigations/analysis-hero-v17-top-section.md
+ * (2026-05-21 top-section optimisation pass).
  *
  * This function is pure and deterministic. The component must consume the
  * VM and render — no further computation in JSX. State selection lives in
  * `stateSelection.ts`; row ranking + category lives in `rowRanking.ts`;
  * this module wires them together and resolves the key question, dimensions,
- * meta pills, footer checks, and CTA.
+ * dependency line, footer checks, and CTA.
  *
  * v1 fallbacks (per Paul's approved direction):
  *   - The fourth strip segment is labelled "Verified" (not "User input")
  *     and sourced from confirmedFactorCount / totalFactorCount.
- *   - The verified count surfaces ONCE — via `checkedCount` rendered to the
- *     right of the dimension strip ("No inputs verified" / "1 input verified"
- *     / "N inputs verified"). The earlier separate `contribution` line below
- *     the strip was removed in Fix 1 of the Round-4 polish pass because it
- *     duplicated the strip's count. `contribution.text` is always `null` and
- *     the field is retained only for backward compatibility (deprecated;
- *     scheduled for removal in the next major VM bump).
+ *   - The verified count surfaces ONLY via the Verified strip-segment's
+ *     tooltip + aria-label — no visible header text. The VM exposes
+ *     `checkedCount` ("No inputs verified" / "1 input verified" / "N inputs
+ *     verified") which the renderer threads into that composite tooltip.
+ *   - The `contribution` field is dead-deprecated: text is always `null`
+ *     and the field is retained only for backward compatibility (scheduled
+ *     for removal in the next major VM bump).
  *   - Per-factor provenance ("You checked X · Olumi inferred Y") remains
  *     unimplemented because the data is not available upstream.
- *   - `decision_quality_prompts` is consumed when present; otherwise a
- *     category-driven template is used; if no safe grounded question can
- *     be produced, the Key-question card is hidden.
+ *   - Result line uses probabilistic framing: "{label} comes out ahead
+ *     most often." A dependency line "The result depends most on {factor}."
+ *     renders below only when `recommendation.dominantFactor*` is populated
+ *     AND a matching driver has `normalisedInfluence >= 0.5` (corroboration
+ *     against the same threshold PLoT B1 uses internally — suppresses
+ *     low-confidence M1 emissions and tie cases).
+ *   - Stability/evidence meta pills were removed entirely; those signals
+ *     surface in `footerChecks` instead.
+ *   - Key-question card renders only when a real `m2DecisionQualityPrompts[0]`
+ *     is present, `reviewStatus === 'complete'`, and the prompt passes the
+ *     glossary gate. No category-driven template fallback — generic
+ *     templated questions on M1 burned space without adding signal.
  */
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -41,13 +52,13 @@ import {
   type StructureSignals,
   type CoverageSignals,
 } from './canvasSignals'
+import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import type {
   AnalysisHeroVM,
   DimensionSegment,
   HeroRow,
   HeroState,
   KeyQuestion,
-  MetaPill,
   FooterCheck,
   FooterCta,
   AlsoLink,
@@ -129,9 +140,9 @@ function clamp01(v: number | undefined | null): number {
 
 function buildResultLine(data: ResultsSectionDataReturn): string {
   const winner = data?.recommendation?.recommendedOption
-  if (!winner) return 'No option currently leads clearly.'
+  if (!winner) return 'No option currently comes out ahead clearly.'
   const label = safeLabel(winner.label, 'The leading option')
-  return `${label} currently leads.`
+  return `${label} comes out ahead most often.`
 }
 
 function buildReasonLine(data: ResultsSectionDataReturn): string | null {
@@ -145,69 +156,111 @@ function buildReasonLine(data: ResultsSectionDataReturn): string | null {
   return null
 }
 
-function buildMetaPills(
-  data: ResultsSectionDataReturn,
-  vm: ResultsVM,
-  state: HeroState,
-  hasFragileFactor: boolean,
-): MetaPill[] {
-  const pills: MetaPill[] = []
-  const stability = data?.recommendation?.recommendationStability
-  // Result-state pill bound to stability bands (glossary §3). Copy
-  // normalised so all four bands have the same shape (Fix 2): noun-led
-  // or noun-trailing was inconsistent across "Result fragile" vs
-  // "Stable result" vs "Highly stable". The new shape keeps the glossary
-  // band label (Fragile / Moderate / Stable / Highly stable) front and
-  // centre with consistent context.
-  //
-  // 0.7–0.85 + fragile factor present: soften "Stable result" to
-  // "Mostly stable" so it reads consistently with the grounded
-  // "Sensitive assumption" footer check. When no fragile factor exists,
-  // keep "Stable result" — there is no contradiction with the footer.
-  if (typeof stability === 'number' && Number.isFinite(stability)) {
-    if (stability < 0.5) {
-      pills.push({ label: 'Fragile result', tone: 'danger' })
-    } else if (stability < 0.7) {
-      pills.push({ label: 'Moderate stability', tone: 'warn' })
-    } else if (stability < 0.85) {
-      pills.push({
-        label: hasFragileFactor ? 'Mostly stable' : 'Stable result',
-        tone: 'neutral',
-      })
+/**
+ * Dependency line: "The result depends most on {factor}."
+ *
+ * Source + corroboration gates (rewritten 2026-05-21 after review):
+ *
+ *   1. `data.recommendation.dominantFactorId` + `dominantFactorLabel` must
+ *      both be populated. That `recommendation` path
+ *      (`useResultsSectionData.ts:1465–1476`) collapses two safe sources —
+ *      PLoT B1 (`report.dominant_factor`) and M1
+ *      (`m1Coaching.key_drivers.dominant_factor`) — and never emits the
+ *      legacy heuristic (which only contaminates
+ *      `data.drivers.dominantFactor*`, deliberately not read here).
+ *
+ *   2. Rank-1 consistency: the named factor MUST be the top-ranked driver
+ *      in `data.drivers.drivers[]`. If `dominantFactorId` doesn't match
+ *      the rank-1 driver, the recommendation and the underlying driver
+ *      array disagree — render nothing rather than over-claim.
+ *
+ *   3. Dominance gate. `normalisedInfluence` is relative — the top driver
+ *      is ALWAYS 1.0 when any real elasticity exists
+ *      (`computeNormalisedInfluences` at `useResultsSectionData.ts:420–446`),
+ *      so it can't distinguish dominance from a near-tie on its own.
+ *      Two checks:
+ *        (a) prefer `influenceScore` when present — that's the ISL
+ *            structural causal influence on an absolute 0–1 scale;
+ *            require `>= 0.5` (genuine dominance, not just "more than
+ *            half of the max");
+ *        (b) otherwise fall back to the top1/top2 normalisedInfluence
+ *            ratio `>= 2.0` — the same 2:1 threshold the legacy
+ *            heuristic uses, applied here as a guard (NOT a selector,
+ *            so it doesn't taint anything).
+ *      Either guard satisfies dominance; both failing omits the line.
+ *
+ *   4. Cleaned factor label passes the glossary banned-term gate.
+ *
+ * Returns `null` whenever any gate fails — the result-context block then
+ * renders the result line alone.
+ */
+function buildDependencyLine(data: ResultsSectionDataReturn): string | null {
+  const rec = data?.recommendation
+  const id = rec?.dominantFactorId
+  const rawLabel = rec?.dominantFactorLabel
+  if (!id || !rawLabel) return null
+
+  const drivers = data?.drivers?.drivers
+  if (!drivers || drivers.length === 0) return null
+
+  // Rank-1 consistency. Sort defensively rather than trusting source order.
+  const sorted = [...drivers].sort((a, b) => a.rank - b.rank)
+  const top1 = sorted[0]
+  if (!top1 || top1.factorKey !== id) return null
+
+  // Dominance gate.
+  let isDominant = false
+  if (typeof top1.influenceScore === 'number' && Number.isFinite(top1.influenceScore)) {
+    // Absolute scale (ISL structural causal influence): 0.5 floor.
+    isDominant = top1.influenceScore >= 0.5
+  } else {
+    // Relative-only data: require a clear gap between top-1 and top-2.
+    const ni1 = top1.normalisedInfluence
+    if (!Number.isFinite(ni1) || ni1 <= 0) return null
+    const top2 = sorted[1]
+    const ni2 = top2?.normalisedInfluence ?? 0
+    if (ni2 > 0) {
+      isDominant = (ni1 / ni2) >= 2.0
     } else {
-      pills.push({ label: 'Highly stable', tone: 'neutral' })
+      // Only one driver with non-zero influence — genuinely dominant.
+      isDominant = true
     }
   }
-  // Evidence pill driven by evidenceLevel from the VM. Defensive `?.`
-  // because `vm` may be missing in a degraded bundle. Labels reflowed
-  // (Fix 2): "Evidence thin" → "Evidence limited" (the awkward word goes);
-  // "Evidence limited" (fair) → "Evidence moderate" (mid-tier rename so
-  // there's no collision); good stays "Evidence adequate".
-  if (vm?.evidenceLevel === 'needs_work') {
-    pills.push({ label: 'Evidence limited', tone: 'danger' })
-  } else if (vm?.evidenceLevel === 'fair') {
-    pills.push({ label: 'Evidence moderate', tone: 'warn' })
-  } else {
-    pills.push({ label: 'Evidence adequate', tone: 'neutral' })
-  }
-  // Reflective pill — only when state === 'reflect'.
-  if (state === 'reflect') {
-    pills.push({ label: 'Reflective check', tone: 'reflect' })
-  }
-  return pills
+  if (!isDominant) return null
+
+  const cleaned = stripEncodingNotation(rawLabel)
+  if (!cleaned) return null
+  if (containsBannedTerm(cleaned)) return null
+  return `The result depends most on ${cleaned}.`
 }
 
 // ── Key question ────────────────────────────────────────────────────────────
 
 function selectKeyQuestion(
   data: ResultsSectionDataReturn,
-  topRow: HeroRow | undefined,
   state: HeroState,
 ): KeyQuestion | null {
   // Strong-state CTA already invites the brief — no key question needed.
   if (state === 'strong') return null
 
-  // 1. Decision-review prompt verbatim (if clean).
+  // Decision-review prompt verbatim (if clean). When V5 Phase 3 wires
+  // `decision_review`, real DQPs populate automatically.
+  //
+  // Three gates (post review-feedback 2026-05-21):
+  //   1. reviewStatus === 'complete' — mirrors the gate `m2NarrativeSummary`
+  //      uses (see useResultsSectionData.ts:1461). The upstream selector
+  //      exposes `m2DecisionQualityPrompts` even when the review is still
+  //      in progress / stale; without this gate the card could render
+  //      partial or out-of-date prompts.
+  //   2. Question text passes `containsBannedTerm` (glossary safety).
+  //   3. State is not 'strong' (handled above).
+  //
+  // The category-driven template fallback was removed (2026-05-21): on M1
+  // it produced generic, repetitive questions across every decision and
+  // burned vertical space without adding signal. When no real DQP is
+  // present (or the gates fail), the card is hidden — coaching intent
+  // moves into the input row's AI action prompt instead.
+  if (data?.confidence?.reviewStatus !== 'complete') return null
   const dqps = data?.confidence?.m2DecisionQualityPrompts ?? []
   const dqp = dqps[0]?.question
   if (dqp && !containsBannedTerm(dqp)) {
@@ -218,45 +271,7 @@ function selectKeyQuestion(
     }
   }
 
-  // 2. Template from the top row's category. All current row categories
-  // (evidence / causal / risk) target factors or estimates, so they share
-  // a single factor-targeted template. The factor label is intentionally
-  // not interpolated — the row title above the key-question card already
-  // names it, and the generic phrasing reads cleanly for any factor type
-  // (capacities, costs, risks, budgets, etc).
-  //
-  // TODO: when hero rows can target options directly (e.g. an
-  // option-comparison row), use the option-targeted template
-  // `"What would make this option underperform?"`. Not wired yet because
-  // no current row category resolves to an option target.
-  if (topRow && topRow.title) {
-    let candidate: string | null = null
-    switch (topRow.category) {
-      case 'evidence':
-      case 'causal':
-      case 'risk':
-        candidate = 'How confident are you this estimate is realistic?'
-        break
-      case 'coverage':
-        candidate = 'Are the alternatives genuinely different?'
-        break
-      case 'reflect':
-        candidate = 'Could early preference for one route be influencing the framing?'
-        break
-      case 'ready':
-        candidate = null
-        break
-    }
-    if (candidate && !containsBannedTerm(candidate)) {
-      return {
-        text: candidate,
-        extras: [],
-        chips: ['High', 'Some', 'Not sure', 'Add note'],
-      }
-    }
-  }
-
-  // 3. No safe grounded question — hide the card.
+  // No safe gated DQP — hide the card.
   return null
 }
 
@@ -427,8 +442,8 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
   const dimensions = buildDimensions(data, confirmedFactorCount, totalFactorCount, structureSignals, coverageSignals)
   const resultLine = buildResultLine(data)
   const reasonLine = buildReasonLine(data)
-  const metaPills = buildMetaPills(data, vm, state, hasFragileFactor)
-  const keyQuestion = selectKeyQuestion(data, topRow, state)
+  const dependencyLine = buildDependencyLine(data)
+  const keyQuestion = selectKeyQuestion(data, state)
   const footerChecks = buildFooterChecks(data, vm, state, hasFragileFactor)
   const footerCta = buildFooterCta(state, topRow)
   const footerHint = buildFooterHint(state)
@@ -466,7 +481,7 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
     dimensions,
     resultLine,
     reasonLine,
-    metaPills,
+    dependencyLine,
     keyQuestion,
     inputRows,
     hiddenRows,

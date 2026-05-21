@@ -12,6 +12,7 @@ import type { ResultsVM } from '../../types'
 import type {
   ConfidenceSectionData,
   DecisionResultData,
+  DriverItem,
   EvidenceGapItem,
   OptionResult,
   FragileEdgeItem,
@@ -30,6 +31,14 @@ function makeData(overrides: {
   dimensions?: { evidence: number; robustness: number; clarity: number }
   bias?: Array<{ type: string; description: string }>
   dqp?: string[]
+  /**
+   * Review status surfaced on `data.confidence.reviewStatus`. The Key
+   * question card requires `'complete'` to render — defaulted to that
+   * value here so existing DQP-present tests behave unchanged.
+   */
+  reviewStatus?: string
+  /** Drivers list for dependency-line corroboration. */
+  drivers?: DriverItem[]
 } = {}): ResultsSectionDataReturn {
   const winner = overrides.winnerLabel === null
     ? null
@@ -61,6 +70,10 @@ function makeData(overrides: {
     nextActions: [],
     topNextActions: [],
     topFragileEdge: overrides.fragile,
+    // Honour an explicit `undefined` in overrides (distinct from "key
+    // absent"). 'in' check lets callers test the "missing reviewStatus"
+    // case alongside other values like 'in_progress'.
+    reviewStatus: 'reviewStatus' in overrides ? overrides.reviewStatus : 'complete',
     m2BiasFindings: overrides.bias?.map(b => ({
       type: b.type,
       source: 'test',
@@ -75,15 +88,55 @@ function makeData(overrides: {
     })),
   } as ConfidenceSectionData
 
+  const drivers = overrides.drivers ?? []
+
   return {
     recommendation,
-    drivers: { drivers: [], topDrivers: [], driversStatus: 'computed', totalCount: 0, hasMagnitudeData: false },
+    drivers: {
+      drivers,
+      topDrivers: drivers.slice(0, 3),
+      driversStatus: 'computed',
+      totalCount: drivers.length,
+      hasMagnitudeData: drivers.length > 0,
+    },
     confidence,
     improvements: { improvements: [], count: 0, hasHighPriority: false },
     isLoading: false,
     isError: false,
     goalLabel: 'Goal',
   } as ResultsSectionDataReturn
+}
+
+/**
+ * Build a DriverItem stub with the influence corroboration fields populated.
+ *
+ * In real data (`useResultsSectionData.computeNormalisedInfluences`) the
+ * top driver always has `normalisedInfluence === 1.0` when any real
+ * elasticity exists. Tests should respect that invariant — pass realistic
+ * ratios (top1=1.0, top2 < 1.0 reflecting the actual rank-1 vs rank-2
+ * elasticity gap) rather than arbitrary values that real normalisation
+ * could not produce.
+ *
+ * `influenceScore` (optional in DriverItem) is the absolute ISL structural
+ * causal influence on a 0–1 scale; the dependency-line gate prefers it
+ * when present.
+ */
+function makeDriver(
+  factorKey: string,
+  factorLabel: string,
+  normalisedInfluence: number,
+  options: { rank?: number; influenceScore?: number } = {},
+): DriverItem {
+  return {
+    factorKey,
+    factorLabel,
+    rawElasticity: normalisedInfluence,
+    normalisedInfluence,
+    influenceScore: options.influenceScore,
+    rank: options.rank ?? 1,
+    semanticLabel: 'biggest',
+    canFocus: true,
+  } as DriverItem
 }
 
 function makeVm(overrides: Partial<ResultsVM> = {}): ResultsVM {
@@ -139,7 +192,7 @@ describe('buildAnalysisHeroViewModel', () => {
         vm: makeVm({ decisionState: 'indeterminate' }),
       })
       expect(vm.state).toBe('weak')
-      expect(vm.resultLine).toBe('No option currently leads clearly.')
+      expect(vm.resultLine).toBe('No option currently comes out ahead clearly.')
     })
 
     it('moderate: default mid-range state', () => {
@@ -151,14 +204,16 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.state).toBe('moderate')
     })
 
-    it('reflect: robust + bias findings → reflect state with reflective pill', () => {
+    it('reflect: robust + bias findings → reflect state with reflective footer check', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7, bias: [{ type: 'Anchoring', description: 'd' }] }),
         vm: makeVm({ decisionState: 'robust' }),
       })
       expect(vm.state).toBe('reflect')
-      expect(vm.metaPills.some(p => p.tone === 'reflect')).toBe(true)
+      // The reflect signal now surfaces via the 4th footer check
+      // (pills removed 2026-05-21 — see analysis-hero-v17-top-section.md task 4).
+      expect(vm.footerChecks.some(c => c.tone === 'reflect')).toBe(true)
     })
 
     it('strong: high stability + no gaps + no fragile → strong, ready row, brief CTA', () => {
@@ -189,7 +244,7 @@ describe('buildAnalysisHeroViewModel', () => {
         vm: undefined as unknown as ResultsVM,
       })
       expect(vm.state).toBe('weak')
-      expect(vm.resultLine).toBe('No option currently leads clearly.')
+      expect(vm.resultLine).toBe('No option currently comes out ahead clearly.')
       expect(vm.reasonLine).toBeNull()
     })
 
@@ -360,6 +415,12 @@ describe('buildAnalysisHeroViewModel', () => {
   })
 
   describe('key question selection', () => {
+    // 2026-05-21: card renders ONLY when a real V5 Phase-3 DQP is present
+    // and passes the glossary gate. The category-driven template fallback
+    // was removed — generic templated questions on M1 burned space without
+    // adding signal. See docs/investigations/analysis-hero-v17-top-section.md
+    // task 5.
+
     it('uses decision_quality_prompts[0] verbatim when present and clean', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
@@ -372,7 +433,26 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion?.text).toBe('What evidence would change your view?')
     })
 
-    it('rejects DQP that contains a banned term and falls back to template', () => {
+    it('hides the card when reviewStatus !== "complete" even if a clean DQP is present (in-progress / stale guard)', () => {
+      // Upstream selector exposes m2DecisionQualityPrompts even during a
+      // partial review. Without the reviewStatus gate the card would
+      // surface stale or in-progress prompts.
+      const cases: Array<string | undefined> = [undefined, 'in_progress', 'pending', 'failed']
+      for (const status of cases) {
+        const vm = buildAnalysisHeroViewModel({
+          ...STD_ARGS,
+          data: makeData({
+            stability: 0.7,
+            dqp: ['What evidence would change your view?'],
+            reviewStatus: status,
+          }),
+          vm: makeVm({ decisionState: 'sensitive' }),
+        })
+        expect(vm.keyQuestion, `reviewStatus=${status ?? 'undefined'}`).toBeNull()
+      }
+    })
+
+    it('rejects DQP that contains a banned term and hides the card (no template fallback)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
@@ -382,23 +462,16 @@ describe('buildAnalysisHeroViewModel', () => {
         }),
         vm: makeVm({ decisionState: 'sensitive' }),
       })
-      // Falls through to category-keyed template for the top evidence row.
-      // The factor label is intentionally not interpolated — the row title
-      // above the question already names it.
-      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
+      expect(vm.keyQuestion).toBeNull()
     })
 
-    it('templates from top row for evidence category — generic phrasing, no label interpolation', () => {
+    it('hides Key-question card on M1 templated-fallback (no DQP, has top row)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7, gaps: [gap('Marketing spend', 'nm', 0.6)] }),
         vm: makeVm(),
       })
-      // Polish-pass: the factor label is NOT interpolated into the question.
-      // The row title carries the label visually; the question stays generic
-      // so it reads cleanly for any factor type.
-      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
-      expect(vm.keyQuestion?.text).not.toContain('Marketing spend')
+      expect(vm.keyQuestion).toBeNull()
     })
 
     it('hides Key-question card when no DQP and no rows', () => {
@@ -410,28 +483,20 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion).toBeNull()
     })
 
-    it('risk-category top row → same factor/estimate template, no "underperform"', () => {
-      // Polish-pass refinement 3: a factor-targeted risk row (the fragile
-      // edge) must not say "underperform" — that verb fits options, not
-      // factors/estimates/risks/costs/capacities.
-      const fragile = {
-        fromId: 'n_f', fromLabel: 'Technical Leadership Capacity',
-        toId: 'n_x', toLabel: 'Outcome',
-        switchProbability: 0.42,
-        alternativeWinnerLabel: 'Option B',
-      } as FragileEdgeItem
+    it('strong state always hides the key-question card', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ stability: 0.7, fragile }),
-        vm: makeVm({ decisionState: 'sensitive' }),
+        data: makeData({
+          stability: 0.9,
+          dqp: ['What evidence would change your view?'],
+        }),
+        vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
       })
-      expect(vm.inputRows[0].category).toBe('risk')
-      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
-      expect(vm.keyQuestion?.text.toLowerCase()).not.toContain('underperform')
-      expect(vm.keyQuestion?.text).not.toContain('Technical Leadership Capacity')
+      expect(vm.state).toBe('strong')
+      expect(vm.keyQuestion).toBeNull()
     })
 
-    it('user-supplied factor label containing banned term → row title preserves user data, question stays generic', () => {
+    it('user-supplied factor label containing banned term → row title preserves user data; key question hidden on fallback', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
@@ -442,24 +507,23 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       // Row title preserves the user's label (we never rewrite user data).
       expect(vm.inputRows[0].title).toBe('the winning team')
-      // Polish-pass: the question template no longer interpolates the
-      // factor label, so banned-term smuggling via labels is moot here.
-      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
-      expect(vm.keyQuestion?.text.toLowerCase()).not.toContain('winning')
+      // No DQP → card hidden. The banned-term-in-label never reaches the
+      // question text path because that path no longer exists.
+      expect(vm.keyQuestion).toBeNull()
     })
   })
 
-  describe('result + reason line', () => {
-    it('result line uses winner label', () => {
+  describe('result + reason + dependency lines', () => {
+    it('result line uses winner label with "comes out ahead most often" framing', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ winnerLabel: 'Tech Lead' }),
         vm: makeVm(),
       })
-      expect(vm.resultLine).toBe('Tech Lead currently leads.')
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
     })
 
-    it('reason line derived from topFragileEdge when present', () => {
+    it('reason line derived from topFragileEdge stays on the VM (rendered in Row 1, not result context)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
@@ -485,79 +549,311 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       expect(vm.reasonLine).toBeNull()
     })
-  })
 
-  describe('meta pills (Fix 2 label normalisation)', () => {
-    it('binds "Fragile result" label to stability < 0.5 only', () => {
-      const fragile = buildAnalysisHeroViewModel({
-        ...STD_ARGS,
-        data: makeData({ stability: 0.4 }),
-        vm: makeVm(),
+    // ── Dependency line: "The result depends most on {factor}." ──────────
+    // Sourced ONLY from `data.recommendation.dominantFactorId/Label`. That
+    // path in useResultsSectionData.ts collapses two safe sources (PLoT B1
+    // and M1 key_drivers); the legacy heuristic only contaminates
+    // `data.drivers.dominantFactor*`, which the hero deliberately does not
+    // read.
+    //
+    // Gates (rewritten 2026-05-21 after review-feedback round 2):
+    //  1. dominantFactorId + dominantFactorLabel both populated
+    //  2. named factor is the RANK-1 driver in data.drivers.drivers[]
+    //  3. Dominance check:
+    //       - influenceScore >= 0.5 (absolute) when present, OR
+    //       - top1/top2 normalisedInfluence ratio >= 2.0 (relative gap)
+    //  4. cleaned label passes the glossary banned-term gate
+    //
+    // **Important invariant**: in real data
+    // (`useResultsSectionData.computeNormalisedInfluences`) the top driver
+    // ALWAYS has `normalisedInfluence === 1.0` when any real elasticity
+    // exists. Tests below honour that invariant — top1=1.0, top2 in (0..1]
+    // expresses the actual rank-1-vs-rank-2 gap.
+
+    it('renders dependency line when influenceScore >= 0.5 (absolute-scale dominance)', () => {
+      const data = makeData({
+        winnerLabel: 'Tech Lead',
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_lead', 'Technical Leadership Capacity', 1.0, { rank: 1, influenceScore: 0.7 }),
+          makeDriver('n_other', 'Other', 0.4, { rank: 2, influenceScore: 0.2 }),
+        ],
       })
-      expect(fragile.metaPills.some(p => p.label === 'Fragile result')).toBe(true)
-      // Anti-drift: legacy label gone.
-      expect(fragile.metaPills.some(p => p.label === 'Result fragile')).toBe(false)
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Technical Leadership Capacity'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Technical Leadership Capacity.')
+    })
 
-      const stable = buildAnalysisHeroViewModel({
+    it('renders dependency line when influenceScore is absent and top1/top2 normalisedInfluence ratio >= 2.0', () => {
+      // No influenceScore → falls back to ratio gate. top1=1.0, top2=0.4 → ratio 2.5.
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1 }),
+          makeDriver('n_other', 'Other', 0.4, { rank: 2 }),
+        ],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
+    })
+
+    it('renders when there is only ONE driver with non-zero influence (no top-2 to compare against)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1 })],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
+    })
+
+    it('omits the dependency line when no dominantFactor is supplied (no fabrication)', () => {
+      const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7 }),
         vm: makeVm(),
       })
-      expect(stable.metaPills.some(p => p.label === 'Fragile result')).toBe(false)
+      expect(vm.dependencyLine).toBeNull()
     })
 
-    it('stability bands → labels: 0.4 Fragile result; 0.6 Moderate stability; 0.75 Stable result; 0.9 Highly stable', () => {
-      const cases: Array<[number, string]> = [
-        [0.4, 'Fragile result'],
-        [0.6, 'Moderate stability'],
-        [0.75, 'Stable result'],
-        [0.9, 'Highly stable'],
-      ]
-      for (const [stability, expectedLabel] of cases) {
-        const vm = buildAnalysisHeroViewModel({
-          ...STD_ARGS,
-          data: makeData({ stability }),
-          vm: makeVm(),
-        })
-        expect(vm.metaPills.some(p => p.label === expectedLabel), `stability ${stability}`).toBe(true)
-      }
+    it('omits when dominantFactorId is present but label is missing', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1, influenceScore: 0.7 })],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
     })
 
-    it('evidenceLevel → pill: needs_work=Evidence limited; fair=Evidence moderate; good=Evidence adequate', () => {
-      const cases: Array<['needs_work' | 'fair' | 'good', string]> = [
-        ['needs_work', 'Evidence limited'],
-        ['fair', 'Evidence moderate'],
-        ['good', 'Evidence adequate'],
-      ]
-      for (const [level, expectedLabel] of cases) {
-        const vm = buildAnalysisHeroViewModel({
-          ...STD_ARGS,
-          data: makeData({ stability: 0.7 }),
-          vm: makeVm({ evidenceLevel: level }),
-        })
-        expect(vm.metaPills.some(p => p.label === expectedLabel), `level ${level}`).toBe(true)
-      }
+    it('omits when the factor label contains a banned glossary term', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_w', 'the winning capacity', 1.0, { rank: 1, influenceScore: 0.7 })],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_w'
+      ;(data.recommendation as any).dominantFactorLabel = 'the winning capacity'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
     })
 
-    it('the legacy "Evidence thin" pill never appears (Fix 2 anti-drift)', () => {
-      for (const level of ['needs_work', 'fair', 'good'] as const) {
-        const vm = buildAnalysisHeroViewModel({
-          ...STD_ARGS,
-          data: makeData({ stability: 0.7 }),
-          vm: makeVm({ evidenceLevel: level }),
-        })
-        expect(vm.metaPills.some(p => p.label === 'Evidence thin')).toBe(false)
-      }
+    it('strips encoding notation from the factor label before rendering', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead Capacity', 1.0, { rank: 1, influenceScore: 0.7 })],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead Capacity (0/1)'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead Capacity.')
     })
 
-    it('no stability pill at all when stability is null', () => {
+    it('omits when the rank-1 driver has influenceScore < 0.5 (M1 emission without genuine dominance)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1, influenceScore: 0.3 }),
+          makeDriver('n_other', 'Other', 0.95, { rank: 2, influenceScore: 0.28 }),
+        ],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('omits in a tie: top1=1.0 and top2=0.95 → ratio 1.05 (< 2.0), no influenceScore', () => {
+      // Realistic near-tie shape: normaliser always sets top1=1.0, so the
+      // tie signal lives in how close top2 is to top1.
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_a', 'Factor A', 1.0, { rank: 1 }),
+          makeDriver('n_b', 'Factor B', 0.95, { rank: 2 }),
+        ],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('omits when dominantFactorId does not match the rank-1 driver (inconsistent state)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_other', 'Other Factor', 1.0, { rank: 1, influenceScore: 0.9 }),
+          makeDriver('n_lead', 'Tech Lead', 0.3, { rank: 2, influenceScore: 0.2 }),
+        ],
+      })
+      // Recommendation claims n_lead is dominant but the rank-1 driver is n_other.
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('renders at the influenceScore 0.5 boundary (>= 0.5 is enough)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1, influenceScore: 0.5 })],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
+    })
+
+    it('renders at the ratio 2.0 boundary (top1=1.0, top2=0.5) when influenceScore is absent', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1 }),
+          makeDriver('n_other', 'Other', 0.5, { rank: 2 }),
+        ],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
+    })
+
+    it('omits just below the ratio 2.0 boundary (top1=1.0, top2=0.51 → ratio ~1.96)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_lead', 'Tech Lead', 1.0, { rank: 1 }),
+          makeDriver('n_other', 'Other', 0.51, { rank: 2 }),
+        ],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    // ── Integration-style: drivers built via real normalisation ─────────
+    //
+    // The unit tests above set normalisedInfluence values by hand. The
+    // helpers below match the production formula
+    // (`useResultsSectionData.computeNormalisedInfluences`) exactly, so
+    // these scenarios prove the gate behaves correctly against the
+    // realistic data shape (top1 always 1.0) — not just against arbitrary
+    // numbers a test author might invent.
+
+    /**
+     * Mirror of `computeNormalisedInfluences` at
+     * `useResultsSectionData.ts:420–446`. If any of these constants drift,
+     * update both here and the test that asserts the invariants below.
+     */
+    function buildDriversFromRawElasticities(
+      raws: Array<{ id: string; label: string; elasticity: number; influenceScore?: number }>,
+    ): DriverItem[] {
+      const abs = raws.map(r => Math.abs(r.elasticity))
+      const actualMax = Math.max(...abs)
+      const sorted = [...raws].sort((a, b) => Math.abs(b.elasticity) - Math.abs(a.elasticity))
+      return sorted.map((r, i) => {
+        const ni = actualMax < 0.001 ? 0 : Math.min(1, Math.abs(r.elasticity) / actualMax)
+        return {
+          factorKey: r.id,
+          factorLabel: r.label,
+          rawElasticity: r.elasticity,
+          normalisedInfluence: ni,
+          influenceScore: r.influenceScore,
+          rank: i + 1,
+          semanticLabel: i === 0 ? 'biggest' : ni >= 0.5 ? 'strong' : ni >= 0.2 ? 'moderate' : 'minor',
+          canFocus: true,
+        } as DriverItem
+      })
+    }
+
+    it('integration: real normalisation invariants — top driver always 1.0 when elasticity is non-zero', () => {
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'A', elasticity: 0.8 },
+        { id: 'n_b', label: 'B', elasticity: 0.3 },
+        { id: 'n_c', label: 'C', elasticity: 0.1 },
+      ])
+      // Sanity guard for the test itself: the production normaliser
+      // pegs the top driver at 1.0, no matter the absolute elasticity.
+      expect(drivers[0].normalisedInfluence).toBe(1)
+      expect(drivers[1].normalisedInfluence).toBeCloseTo(0.375, 3)
+      expect(drivers[2].normalisedInfluence).toBeCloseTo(0.125, 3)
+    })
+
+    it('integration: clear dominance from real elasticities (0.8 vs 0.3 → ratio 2.67) renders', () => {
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'Factor A', elasticity: 0.8 },
+        { id: 'n_b', label: 'Factor B', elasticity: 0.3 },
+      ])
+      const data = makeData({ stability: 0.7, drivers })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Factor A.')
+    })
+
+    it('integration: near-tie from real elasticities (0.80 vs 0.78 → ratio 1.025) omits', () => {
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'Factor A', elasticity: 0.80 },
+        { id: 'n_b', label: 'Factor B', elasticity: 0.78 },
+      ])
+      // Real ratio is 1.025 even though top driver's normalisedInfluence
+      // is the maximum value 1.0. The gate must catch this.
+      expect(drivers[0].normalisedInfluence).toBe(1)
+      expect(drivers[1].normalisedInfluence).toBeCloseTo(0.975, 3)
+      const data = makeData({ stability: 0.7, drivers })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('integration: dominant by influenceScore but not by ratio — influenceScore wins', () => {
+      // Real ratio is only 1.5 (below 2.0 gate), but influenceScore for
+      // top1 is 0.7 (≥ 0.5 absolute floor), so the line should render.
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'Factor A', elasticity: 0.6, influenceScore: 0.7 },
+        { id: 'n_b', label: 'Factor B', elasticity: 0.4, influenceScore: 0.25 },
+      ])
+      const data = makeData({ stability: 0.7, drivers })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Factor A.')
+    })
+
+    it('integration: tiny absolute elasticities (all below 0.001) → normaliser returns 0 → omit', () => {
+      const drivers = buildDriversFromRawElasticities([
+        { id: 'n_a', label: 'A', elasticity: 0.0005 },
+        { id: 'n_b', label: 'B', elasticity: 0.0002 },
+      ])
+      // The normaliser early-returns all zeros when actualMax < 0.001.
+      expect(drivers.every(d => d.normalisedInfluence === 0)).toBe(true)
+      const data = makeData({ stability: 0.7, drivers })
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+  })
+
+  describe('meta pills removal (2026-05-21)', () => {
+    // Pills were removed from the result-context block. Stability and
+    // evidence signals continue to surface in the HeroFooter checks below.
+    // See docs/investigations/analysis-hero-v17-top-section.md task 4.
+
+    it('the VM does not expose a metaPills field', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ stability: undefined }),
+        data: makeData({ stability: 0.7 }),
         vm: makeVm(),
       })
-      const stabilityLabels = ['Fragile result', 'Moderate stability', 'Stable result', 'Highly stable']
-      expect(vm.metaPills.filter(p => stabilityLabels.includes(p.label))).toHaveLength(0)
+      expect((vm as Record<string, unknown>).metaPills).toBeUndefined()
     })
   })
 
@@ -683,7 +979,7 @@ describe('buildAnalysisHeroViewModel', () => {
   // grounded rule below ties both labels to whether a fragile/sensitive
   // factor is actually present in the data.
 
-  describe('grounded stability + sensitivity wording', () => {
+  describe('grounded stability + sensitivity wording (footer-check only post-pill-removal)', () => {
     const fragileEdge = {
       fromId: 'n_f',
       fromLabel: 'Hiring rate',
@@ -693,58 +989,43 @@ describe('buildAnalysisHeroViewModel', () => {
       alternativeWinnerLabel: 'Option B',
     } as FragileEdgeItem
 
-    it('0.75 stability with NO fragile factor → "Stable result" pill + "Stability limited" check', () => {
+    it('0.75 stability with NO fragile factor → "Stability limited" check (not "Sensitive assumption")', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.75 }),
         vm: makeVm(),
       })
-      expect(vm.metaPills.map(p => p.label)).toContain('Stable result')
-      expect(vm.metaPills.map(p => p.label)).not.toContain('Mostly stable')
       const stabilityCheck = vm.footerChecks[1]
       expect(stabilityCheck.label).toBe('Stability limited')
-      // Anti-drift: the bare "Sensitive" must not appear, and we must
-      // not over-claim a specific assumption when none is grounded.
       expect(stabilityCheck.label).not.toBe('Sensitive')
       expect(stabilityCheck.label).not.toBe('Sensitive assumption')
     })
 
-    it('0.75 stability WITH fragile factor → "Mostly stable" pill + "Sensitive assumption" check', () => {
+    it('0.75 stability WITH fragile factor → "Sensitive assumption" check', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.75, fragile: fragileEdge }),
         vm: makeVm(),
       })
-      expect(vm.metaPills.map(p => p.label)).toContain('Mostly stable')
-      expect(vm.metaPills.map(p => p.label)).not.toContain('Stable result')
-      const stabilityCheck = vm.footerChecks[1]
-      expect(stabilityCheck.label).toBe('Sensitive assumption')
+      expect(vm.footerChecks[1].label).toBe('Sensitive assumption')
     })
 
-    it('low stability WITH fragile factor → fragile/moderate pill + "Sensitive assumption" check', () => {
+    it('low stability WITH fragile factor → "Sensitive assumption" check', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.6, fragile: fragileEdge }),
         vm: makeVm(),
       })
-      // Pill stays "Moderate stability" — the soften only applies to the
-      // 0.7–0.85 band; below that the pessimistic pill is already accurate.
-      expect(vm.metaPills.map(p => p.label)).toContain('Moderate stability')
       expect(vm.footerChecks[1].label).toBe('Sensitive assumption')
     })
 
-    it('low stability WITHOUT fragile factor → "Stability limited" check (not "Sensitive assumption")', () => {
+    it('low stability WITHOUT fragile factor → "Stability limited" check (no over-claim)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.4 }),
         vm: makeVm(),
       })
-      const stabilityCheck = vm.footerChecks[1]
-      expect(stabilityCheck.label).toBe('Stability limited')
-      // The fragile-result pill is still surfaced at the system level —
-      // this only governs the footer check, where over-claiming a single
-      // named assumption when none is grounded would be wrong.
-      expect(vm.metaPills.map(p => p.label)).toContain('Fragile result')
+      expect(vm.footerChecks[1].label).toBe('Stability limited')
     })
 
     it('≥0.85 stability → "Stable" check regardless of fragile-factor presence', () => {

@@ -158,8 +158,13 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
     })
   })
 
-  describe('key-question chips', () => {
-    it('chips strip is HIDDEN when chat is closed (key-question text still renders)', () => {
+  describe('key-question card (2026-05-21 tighter render rule)', () => {
+    // The whole card now hides when chat is closed — not just the chip
+    // strip. Previously the question text dangled while the chips were
+    // hidden, creating an "advertised but unclickable" failure mode.
+    // See docs/investigations/analysis-hero-v17-top-section.md task 5.
+
+    it('entire card is HIDDEN when chat is closed (text + chips both gone)', () => {
       render(
         <AnalysisHeroV17
           data={makeData({ gaps: [gap('Cost', 'n_c', 0.5)] })}
@@ -167,10 +172,22 @@ describe('AnalysisHeroV17 — chat-closed render mode', () => {
           fragileEdgeCount={0}
         />,
       )
-      // Key-question text still renders so the user can still read it.
-      expect(screen.queryByTestId('hero-v17-key-question-text')).toBeTruthy()
-      // Chips strip hidden.
+      expect(screen.queryByTestId('hero-v17-key-question')).toBeNull()
+      expect(screen.queryByTestId('hero-v17-key-question-text')).toBeNull()
       expect(screen.queryByTestId('hero-v17-key-question-chips')).toBeNull()
+    })
+
+    it('M1 fallback (no DQP) + chat open → card still hidden (no template fallback)', () => {
+      useGuidanceStore.setState({ _prefillChat: () => {}, _sendMessage: () => {} })
+      render(
+        <AnalysisHeroV17
+          data={makeData({ gaps: [gap('Cost', 'n_c', 0.5)] })}
+          vm={makeVm()}
+          fragileEdgeCount={0}
+        />,
+      )
+      // No m2DecisionQualityPrompts in fixture → keyQuestion === null.
+      expect(screen.queryByTestId('hero-v17-key-question')).toBeNull()
     })
   })
 

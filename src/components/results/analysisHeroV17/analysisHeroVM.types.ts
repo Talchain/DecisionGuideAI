@@ -42,11 +42,6 @@ export interface DimensionSegment {
   tooltip: string
 }
 
-export interface MetaPill {
-  label: string
-  tone: 'neutral' | 'warn' | 'danger' | 'reflect'
-}
-
 export interface HeroRow {
   /** Stable key for React reconciliation. */
   key: string
@@ -126,8 +121,18 @@ export interface AnalysisHeroVM {
   dimensions: DimensionSegment[]
   /** Top hero result card. */
   resultLine: string
+  /**
+   * Flip-risk narrative — kept on the VM as a future slot for V5 Phase 3
+   * substitution but no longer rendered in the result-context block. The
+   * fragile-edge signal already surfaces in Row 1 of the input rows below.
+   */
   reasonLine: string | null
-  metaPills: MetaPill[]
+  /**
+   * "The result depends most on {factor}." Renders below the result line
+   * when a safe dominant-factor source (PLoT B1 / M1 key_drivers) is
+   * available and the label passes the glossary gate. `null` hides the line.
+   */
+  dependencyLine: string | null
   /** Key question card — null hides the card entirely. */
   keyQuestion: KeyQuestion | null
   /** Top 3 visible rows. */

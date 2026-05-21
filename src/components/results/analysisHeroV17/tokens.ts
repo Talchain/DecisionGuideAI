@@ -13,7 +13,7 @@ import {
 import type { ElementType } from 'react'
 import type { IconBtn } from '@/canvas/components/pre-analysis/primitives/IconBtn'
 import type {
-  DimensionSegment, HeroRow, MetaPill, FooterCheck, RowAction,
+  DimensionSegment, HeroRow, FooterCheck, RowAction,
 } from './analysisHeroVM.types'
 
 export const STRIP_FILL_CLASS: Record<DimensionSegment['token'], string> = {
@@ -42,13 +42,6 @@ export const CATEGORY_DOT_CLASS: Record<HeroRow['category'], string> = {
 }
 
 export const PRIORITY_FILL_CLASS: Record<HeroRow['category'], string> = CATEGORY_DOT_CLASS
-
-export const META_PILL_CLASS: Record<MetaPill['tone'], string> = {
-  neutral: 'border-panel-border text-text-light',
-  warn: 'border-warning/45 text-warning',
-  danger: 'border-danger/45 text-danger',
-  reflect: 'border-option/55 text-option',
-}
 
 export const FOOTER_CHECK_CLASS: Record<FooterCheck['tone'], string> = {
   ok: 'text-success',

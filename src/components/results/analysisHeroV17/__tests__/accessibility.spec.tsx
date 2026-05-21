@@ -1,17 +1,15 @@
 /**
- * AnalysisHeroV17 — accessibility + "Fragile" label binding.
+ * AnalysisHeroV17 — accessibility + post-pill-removal anti-drift.
  *
  * Per docs/brief-analysis-hero-v17-implementation.md §3 step 8 + §13.2:
  *   - Every IconBtn has an accessible name and a tooltip
  *   - +3 toggles carry correct aria-expanded
  *   - Actions menu has role=menu / role=menuitem
- *   - "Result fragile" pill is bound to stability < 0.5 only
  *
- * Per docs/investigations/analysis-hero-v17.md §12.3:
- *   - The string "Result fragile" must only render when stability is
- *     numeric AND < 0.5. Above that, the appropriate band label renders
- *     (Result moderate / Stable result / Highly stable).
- *   - When stability is null/NaN, no stability-band pill renders at all.
+ * Per docs/investigations/analysis-hero-v17-top-section.md task 4:
+ *   - Stability/evidence meta pills were removed from the result-context
+ *     block. This file's "Meta-pill removal anti-drift" describe block
+ *     guards against any pill copy returning to that section.
  */
 
 import { describe, it, expect, beforeEach } from 'vitest'
@@ -179,77 +177,64 @@ describe('AnalysisHeroV17 — accessibility', () => {
   })
 })
 
-// ── "Fragile" label binding (investigation §12.3) ──────────────────────────
+// ── Meta-pill removal anti-drift (2026-05-21) ─────────────────────────────
+//
+// The stability and evidence pills used to render inside the result-context
+// block. They were removed because they were non-actionable, frequently
+// felt contradictory ("Highly stable" + "Evidence limited"), and the same
+// signals already surface in the Footer checks below. See
+// docs/investigations/analysis-hero-v17-top-section.md task 4.
+//
+// This describe block now guards against the pill copy ever returning to
+// the result context.
 
-describe('AnalysisHeroV17 — "Fragile" label binding to stability', () => {
-  function findPill(label: string): HTMLElement | null {
-    // Pills render inside hero-v17-result-context. Search there for the
-    // exact text.
+describe('AnalysisHeroV17 — result-context pill copy never returns (post-removal anti-drift)', () => {
+  function resultContextText(): string {
     const ctx = screen.queryByTestId('hero-v17-result-context')
-    if (!ctx) return null
-    const candidates = ctx.querySelectorAll('span')
-    for (const c of Array.from(candidates)) {
-      if (c.textContent === label) return c as HTMLElement
-    }
-    return null
+    return ctx?.textContent ?? ''
   }
 
-  // Pill labels normalised in Fix 2:
-  //   "Result fragile"  → "Fragile result"
-  //   "Result moderate" → "Moderate stability"
-  //   "Stable result"   unchanged
-  //   "Highly stable"   unchanged
+  const PILL_LABELS = [
+    'Fragile result',
+    'Moderate stability',
+    'Stable result',
+    'Mostly stable',
+    'Highly stable',
+    'Evidence limited',
+    'Evidence moderate',
+    'Evidence adequate',
+    'Reflective check',
+    // Legacy labels that were removed in earlier passes — still guarded.
+    'Result fragile',
+    'Evidence thin',
+  ]
 
-  it('stability 0.4 → "Fragile result" pill renders with danger tone', () => {
+  it.each([0.0, 0.25, 0.4, 0.5, 0.6, 0.7, 0.75, 0.85, 0.9, 1])(
+    'stability %s → no pill copy in result context',
+    (stability) => {
+      const { unmount } = render(
+        <AnalysisHeroV17 data={makeData({ stability })} vm={makeVm()} fragileEdgeCount={0} />,
+      )
+      const text = resultContextText()
+      for (const label of PILL_LABELS) {
+        expect(text).not.toContain(label)
+      }
+      unmount()
+    },
+  )
+
+  it('result context only contains the result line (no pills, no flip-risk reason)', () => {
     render(<AnalysisHeroV17 data={makeData({ stability: 0.4 })} vm={makeVm()} fragileEdgeCount={0} />)
-    const pill = findPill('Fragile result')
-    expect(pill).toBeTruthy()
-    expect(pill!.className).toContain('text-danger')
-  })
-
-  it('stability 0.5 exactly → NOT fragile (boundary)', () => {
-    render(<AnalysisHeroV17 data={makeData({ stability: 0.5 })} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(findPill('Fragile result')).toBeNull()
-    expect(findPill('Moderate stability')).toBeTruthy()
-  })
-
-  it('stability 0.7 → "Stable result"', () => {
-    render(<AnalysisHeroV17 data={makeData({ stability: 0.7 })} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(findPill('Fragile result')).toBeNull()
-    expect(findPill('Stable result')).toBeTruthy()
-  })
-
-  it('stability 0.9 → "Highly stable"', () => {
-    render(<AnalysisHeroV17 data={makeData({ stability: 0.9 })} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(findPill('Fragile result')).toBeNull()
-    expect(findPill('Highly stable')).toBeTruthy()
-  })
-
-  it('stability missing → no stability-band pill renders at all', () => {
-    render(<AnalysisHeroV17 data={makeData({ stability: undefined })} vm={makeVm()} fragileEdgeCount={0} />)
-    expect(findPill('Fragile result')).toBeNull()
-    expect(findPill('Moderate stability')).toBeNull()
-    expect(findPill('Stable result')).toBeNull()
-    expect(findPill('Highly stable')).toBeNull()
-  })
-
-  it('"Fragile result" copy NEVER renders when stability >= 0.5 (anti-drift)', () => {
-    for (const stability of [0.5, 0.6, 0.7, 0.85, 0.9, 1]) {
-      const { container, unmount } = render(
-        <AnalysisHeroV17 data={makeData({ stability })} vm={makeVm()} fragileEdgeCount={0} />,
-      )
-      expect(container.textContent ?? '').not.toContain('Fragile result')
-      unmount()
-    }
-  })
-
-  it('Fix-2 anti-drift: the legacy "Result fragile" copy never appears at any stability', () => {
-    for (const stability of [0.0, 0.25, 0.49, 0.5, 0.7, 0.9, 1]) {
-      const { container, unmount } = render(
-        <AnalysisHeroV17 data={makeData({ stability })} vm={makeVm()} fragileEdgeCount={0} />,
-      )
-      expect(container.textContent ?? '').not.toContain('Result fragile')
-      unmount()
+    const ctx = screen.getByTestId('hero-v17-result-context')
+    // The result-line text is present.
+    expect(ctx.textContent ?? '').toMatch(/comes out ahead/)
+    // No pill elements — the previous markup nested span pills inside the section.
+    const spans = ctx.querySelectorAll('span')
+    for (const s of Array.from(spans)) {
+      const t = s.textContent ?? ''
+      for (const label of PILL_LABELS) {
+        expect(t).not.toBe(label)
+      }
     }
   })
 })
