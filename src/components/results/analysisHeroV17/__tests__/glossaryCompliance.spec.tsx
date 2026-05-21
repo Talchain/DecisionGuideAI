@@ -135,7 +135,7 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
     if (vm.contribution.text) acc.push(vm.contribution.text)
     acc.push(vm.resultLine)
     if (vm.reasonLine) acc.push(vm.reasonLine)
-    vm.metaPills.forEach(p => acc.push(p.label))
+    if (vm.dependencyLine) acc.push(vm.dependencyLine)
     if (vm.keyQuestion) {
       acc.push(vm.keyQuestion.text)
       acc.push(...vm.keyQuestion.extras)
@@ -162,7 +162,7 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
     }
   })
 
-  it('user-supplied label contains banned term → key question swaps in generic fallback, never amplifies banned label', () => {
+  it('user-supplied label contains banned term → key question hides on M1 fallback, never amplifies banned label', () => {
     const vm = buildAnalysisHeroViewModel({
       data: makeData({ gapLabels: ['the winning team'] }),
       vm: makeVm(),
@@ -170,9 +170,10 @@ describe('AnalysisHeroV17 — glossary compliance (VM output)', () => {
     })
     // Row title preserves the user's label — we do not rewrite user data.
     expect(vm.inputRows[0].title).toBe('the winning team')
-    // But the templated KEY QUESTION must NOT contain the banned term.
-    expect(vm.keyQuestion).toBeTruthy()
-    expect(findBannedTerm(vm.keyQuestion!.text)).toBeNull()
+    // No DQP is present in this fixture, so the card is hidden — the
+    // templated fallback was removed (2026-05-21). The banned-term-in-label
+    // never reaches the key-question text because that path no longer exists.
+    expect(vm.keyQuestion).toBeNull()
   })
 
   it('fragile fromLabel contains banned term → reason line falls back, no leak', () => {
@@ -429,7 +430,7 @@ describe('AnalysisHeroV17 — comprehensive banned-term sweep through user label
     if (vm.contribution.text) acc.push(vm.contribution.text)
     acc.push(vm.resultLine)
     if (vm.reasonLine) acc.push(vm.reasonLine)
-    vm.metaPills.forEach(p => acc.push(p.label))
+    if (vm.dependencyLine) acc.push(vm.dependencyLine)
     if (vm.keyQuestion) {
       acc.push(vm.keyQuestion.text)
       acc.push(...vm.keyQuestion.extras)

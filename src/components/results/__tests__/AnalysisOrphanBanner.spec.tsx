@@ -48,8 +48,14 @@ describe('AnalysisOrphanBanner', () => {
   it('renders when canonical flag is on AND no V5 fact attached', () => {
     render(<AnalysisOrphanBanner />)
     expect(screen.getByTestId('analysis-orphan-banner')).toBeInTheDocument()
-    expect(screen.getByText('Analysis needs refresh')).toBeInTheDocument()
+    // Single-row strip: action-led title + dot-separator + secondary copy.
+    expect(screen.getByText('Refresh analysis')).toBeInTheDocument()
+    expect(screen.getByText(/Coaching may be out of date/)).toBeInTheDocument()
+    const banner = screen.getByTestId('analysis-orphan-banner')
+    expect(banner.textContent ?? '').toMatch(/Refresh analysis\s*·\s*Coaching may be out of date/)
     expect(screen.getByTestId('analysis-orphan-banner-run')).toBeInTheDocument()
+    // Slimmed copy — the legacy second sentence is gone.
+    expect(banner.textContent ?? '').not.toMatch(/Re-run analysis to attach/)
   })
 
   it('does NOT render when canonical flag is off (direct_plot_legacy, not orphan)', () => {

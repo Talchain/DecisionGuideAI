@@ -41,13 +41,13 @@ import {
   type StructureSignals,
   type CoverageSignals,
 } from './canvasSignals'
+import { stripEncodingNotation } from '../utils/cleanFactorLabel'
 import type {
   AnalysisHeroVM,
   DimensionSegment,
   HeroRow,
   HeroState,
   KeyQuestion,
-  MetaPill,
   FooterCheck,
   FooterCta,
   AlsoLink,
@@ -129,9 +129,9 @@ function clamp01(v: number | undefined | null): number {
 
 function buildResultLine(data: ResultsSectionDataReturn): string {
   const winner = data?.recommendation?.recommendedOption
-  if (!winner) return 'No option currently leads clearly.'
+  if (!winner) return 'No option currently comes out ahead clearly.'
   const label = safeLabel(winner.label, 'The leading option')
-  return `${label} currently leads.`
+  return `${label} comes out ahead most often.`
 }
 
 function buildReasonLine(data: ResultsSectionDataReturn): string | null {
@@ -145,69 +145,48 @@ function buildReasonLine(data: ResultsSectionDataReturn): string | null {
   return null
 }
 
-function buildMetaPills(
-  data: ResultsSectionDataReturn,
-  vm: ResultsVM,
-  state: HeroState,
-  hasFragileFactor: boolean,
-): MetaPill[] {
-  const pills: MetaPill[] = []
-  const stability = data?.recommendation?.recommendationStability
-  // Result-state pill bound to stability bands (glossary §3). Copy
-  // normalised so all four bands have the same shape (Fix 2): noun-led
-  // or noun-trailing was inconsistent across "Result fragile" vs
-  // "Stable result" vs "Highly stable". The new shape keeps the glossary
-  // band label (Fragile / Moderate / Stable / Highly stable) front and
-  // centre with consistent context.
-  //
-  // 0.7–0.85 + fragile factor present: soften "Stable result" to
-  // "Mostly stable" so it reads consistently with the grounded
-  // "Sensitive assumption" footer check. When no fragile factor exists,
-  // keep "Stable result" — there is no contradiction with the footer.
-  if (typeof stability === 'number' && Number.isFinite(stability)) {
-    if (stability < 0.5) {
-      pills.push({ label: 'Fragile result', tone: 'danger' })
-    } else if (stability < 0.7) {
-      pills.push({ label: 'Moderate stability', tone: 'warn' })
-    } else if (stability < 0.85) {
-      pills.push({
-        label: hasFragileFactor ? 'Mostly stable' : 'Stable result',
-        tone: 'neutral',
-      })
-    } else {
-      pills.push({ label: 'Highly stable', tone: 'neutral' })
-    }
-  }
-  // Evidence pill driven by evidenceLevel from the VM. Defensive `?.`
-  // because `vm` may be missing in a degraded bundle. Labels reflowed
-  // (Fix 2): "Evidence thin" → "Evidence limited" (the awkward word goes);
-  // "Evidence limited" (fair) → "Evidence moderate" (mid-tier rename so
-  // there's no collision); good stays "Evidence adequate".
-  if (vm?.evidenceLevel === 'needs_work') {
-    pills.push({ label: 'Evidence limited', tone: 'danger' })
-  } else if (vm?.evidenceLevel === 'fair') {
-    pills.push({ label: 'Evidence moderate', tone: 'warn' })
-  } else {
-    pills.push({ label: 'Evidence adequate', tone: 'neutral' })
-  }
-  // Reflective pill — only when state === 'reflect'.
-  if (state === 'reflect') {
-    pills.push({ label: 'Reflective check', tone: 'reflect' })
-  }
-  return pills
+/**
+ * Dependency line: "The result depends most on {factor}."
+ *
+ * Only emits when the dominant factor comes from a safe source:
+ * `data.recommendation.dominantFactorId` / `dominantFactorLabel` are populated
+ * exclusively from PLoT B1 (`report.dominant_factor`) or M1
+ * (`m1Coaching.key_drivers.dominant_factor`) — see
+ * `useResultsSectionData.ts:1465–1476`. The legacy heuristic
+ * (`detectDominantFactorLegacy`) only contaminates `data.drivers.dominantFactor*`,
+ * which this function deliberately does NOT read.
+ *
+ * Returns `null` when no dominant factor is available or the label fails the
+ * glossary gate — the result-context block then renders the result line alone.
+ */
+function buildDependencyLine(data: ResultsSectionDataReturn): string | null {
+  const rec = data?.recommendation
+  const id = rec?.dominantFactorId
+  const rawLabel = rec?.dominantFactorLabel
+  if (!id || !rawLabel) return null
+  const cleaned = stripEncodingNotation(rawLabel)
+  if (!cleaned) return null
+  if (containsBannedTerm(cleaned)) return null
+  return `The result depends most on ${cleaned}.`
 }
 
 // ── Key question ────────────────────────────────────────────────────────────
 
 function selectKeyQuestion(
   data: ResultsSectionDataReturn,
-  topRow: HeroRow | undefined,
   state: HeroState,
 ): KeyQuestion | null {
   // Strong-state CTA already invites the brief — no key question needed.
   if (state === 'strong') return null
 
-  // 1. Decision-review prompt verbatim (if clean).
+  // Decision-review prompt verbatim (if clean). When V5 Phase 3 wires
+  // `decision_review`, real DQPs populate automatically.
+  //
+  // The category-driven template fallback was removed (2026-05-21): on M1
+  // it produced generic, repetitive questions across every decision and
+  // burned vertical space without adding signal. When no real DQP is
+  // present, the card is hidden — coaching intent moves into the input
+  // row's AI action prompt instead.
   const dqps = data?.confidence?.m2DecisionQualityPrompts ?? []
   const dqp = dqps[0]?.question
   if (dqp && !containsBannedTerm(dqp)) {
@@ -218,45 +197,7 @@ function selectKeyQuestion(
     }
   }
 
-  // 2. Template from the top row's category. All current row categories
-  // (evidence / causal / risk) target factors or estimates, so they share
-  // a single factor-targeted template. The factor label is intentionally
-  // not interpolated — the row title above the key-question card already
-  // names it, and the generic phrasing reads cleanly for any factor type
-  // (capacities, costs, risks, budgets, etc).
-  //
-  // TODO: when hero rows can target options directly (e.g. an
-  // option-comparison row), use the option-targeted template
-  // `"What would make this option underperform?"`. Not wired yet because
-  // no current row category resolves to an option target.
-  if (topRow && topRow.title) {
-    let candidate: string | null = null
-    switch (topRow.category) {
-      case 'evidence':
-      case 'causal':
-      case 'risk':
-        candidate = 'How confident are you this estimate is realistic?'
-        break
-      case 'coverage':
-        candidate = 'Are the alternatives genuinely different?'
-        break
-      case 'reflect':
-        candidate = 'Could early preference for one route be influencing the framing?'
-        break
-      case 'ready':
-        candidate = null
-        break
-    }
-    if (candidate && !containsBannedTerm(candidate)) {
-      return {
-        text: candidate,
-        extras: [],
-        chips: ['High', 'Some', 'Not sure', 'Add note'],
-      }
-    }
-  }
-
-  // 3. No safe grounded question — hide the card.
+  // No real DQP — hide the card.
   return null
 }
 
@@ -427,8 +368,8 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
   const dimensions = buildDimensions(data, confirmedFactorCount, totalFactorCount, structureSignals, coverageSignals)
   const resultLine = buildResultLine(data)
   const reasonLine = buildReasonLine(data)
-  const metaPills = buildMetaPills(data, vm, state, hasFragileFactor)
-  const keyQuestion = selectKeyQuestion(data, topRow, state)
+  const dependencyLine = buildDependencyLine(data)
+  const keyQuestion = selectKeyQuestion(data, state)
   const footerChecks = buildFooterChecks(data, vm, state, hasFragileFactor)
   const footerCta = buildFooterCta(state, topRow)
   const footerHint = buildFooterHint(state)
@@ -466,7 +407,7 @@ export function buildAnalysisHeroViewModel(args: AnalysisHeroBuilderArgs): Analy
     dimensions,
     resultLine,
     reasonLine,
-    metaPills,
+    dependencyLine,
     keyQuestion,
     inputRows,
     hiddenRows,

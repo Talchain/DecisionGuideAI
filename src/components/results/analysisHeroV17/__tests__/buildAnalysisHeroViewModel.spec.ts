@@ -139,7 +139,7 @@ describe('buildAnalysisHeroViewModel', () => {
         vm: makeVm({ decisionState: 'indeterminate' }),
       })
       expect(vm.state).toBe('weak')
-      expect(vm.resultLine).toBe('No option currently leads clearly.')
+      expect(vm.resultLine).toBe('No option currently comes out ahead clearly.')
     })
 
     it('moderate: default mid-range state', () => {
@@ -151,14 +151,16 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.state).toBe('moderate')
     })
 
-    it('reflect: robust + bias findings → reflect state with reflective pill', () => {
+    it('reflect: robust + bias findings → reflect state with reflective footer check', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7, bias: [{ type: 'Anchoring', description: 'd' }] }),
         vm: makeVm({ decisionState: 'robust' }),
       })
       expect(vm.state).toBe('reflect')
-      expect(vm.metaPills.some(p => p.tone === 'reflect')).toBe(true)
+      // The reflect signal now surfaces via the 4th footer check
+      // (pills removed 2026-05-21 — see analysis-hero-v17-top-section.md task 4).
+      expect(vm.footerChecks.some(c => c.tone === 'reflect')).toBe(true)
     })
 
     it('strong: high stability + no gaps + no fragile → strong, ready row, brief CTA', () => {
@@ -189,7 +191,7 @@ describe('buildAnalysisHeroViewModel', () => {
         vm: undefined as unknown as ResultsVM,
       })
       expect(vm.state).toBe('weak')
-      expect(vm.resultLine).toBe('No option currently leads clearly.')
+      expect(vm.resultLine).toBe('No option currently comes out ahead clearly.')
       expect(vm.reasonLine).toBeNull()
     })
 
@@ -360,6 +362,12 @@ describe('buildAnalysisHeroViewModel', () => {
   })
 
   describe('key question selection', () => {
+    // 2026-05-21: card renders ONLY when a real V5 Phase-3 DQP is present
+    // and passes the glossary gate. The category-driven template fallback
+    // was removed — generic templated questions on M1 burned space without
+    // adding signal. See docs/investigations/analysis-hero-v17-top-section.md
+    // task 5.
+
     it('uses decision_quality_prompts[0] verbatim when present and clean', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
@@ -372,7 +380,7 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion?.text).toBe('What evidence would change your view?')
     })
 
-    it('rejects DQP that contains a banned term and falls back to template', () => {
+    it('rejects DQP that contains a banned term and hides the card (no template fallback)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
@@ -382,23 +390,16 @@ describe('buildAnalysisHeroViewModel', () => {
         }),
         vm: makeVm({ decisionState: 'sensitive' }),
       })
-      // Falls through to category-keyed template for the top evidence row.
-      // The factor label is intentionally not interpolated — the row title
-      // above the question already names it.
-      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
+      expect(vm.keyQuestion).toBeNull()
     })
 
-    it('templates from top row for evidence category — generic phrasing, no label interpolation', () => {
+    it('hides Key-question card on M1 templated-fallback (no DQP, has top row)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7, gaps: [gap('Marketing spend', 'nm', 0.6)] }),
         vm: makeVm(),
       })
-      // Polish-pass: the factor label is NOT interpolated into the question.
-      // The row title carries the label visually; the question stays generic
-      // so it reads cleanly for any factor type.
-      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
-      expect(vm.keyQuestion?.text).not.toContain('Marketing spend')
+      expect(vm.keyQuestion).toBeNull()
     })
 
     it('hides Key-question card when no DQP and no rows', () => {
@@ -410,28 +411,20 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion).toBeNull()
     })
 
-    it('risk-category top row → same factor/estimate template, no "underperform"', () => {
-      // Polish-pass refinement 3: a factor-targeted risk row (the fragile
-      // edge) must not say "underperform" — that verb fits options, not
-      // factors/estimates/risks/costs/capacities.
-      const fragile = {
-        fromId: 'n_f', fromLabel: 'Technical Leadership Capacity',
-        toId: 'n_x', toLabel: 'Outcome',
-        switchProbability: 0.42,
-        alternativeWinnerLabel: 'Option B',
-      } as FragileEdgeItem
+    it('strong state always hides the key-question card', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ stability: 0.7, fragile }),
-        vm: makeVm({ decisionState: 'sensitive' }),
+        data: makeData({
+          stability: 0.9,
+          dqp: ['What evidence would change your view?'],
+        }),
+        vm: makeVm({ decisionState: 'robust', evidenceLevel: 'good' }),
       })
-      expect(vm.inputRows[0].category).toBe('risk')
-      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
-      expect(vm.keyQuestion?.text.toLowerCase()).not.toContain('underperform')
-      expect(vm.keyQuestion?.text).not.toContain('Technical Leadership Capacity')
+      expect(vm.state).toBe('strong')
+      expect(vm.keyQuestion).toBeNull()
     })
 
-    it('user-supplied factor label containing banned term → row title preserves user data, question stays generic', () => {
+    it('user-supplied factor label containing banned term → row title preserves user data; key question hidden on fallback', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
@@ -442,24 +435,23 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       // Row title preserves the user's label (we never rewrite user data).
       expect(vm.inputRows[0].title).toBe('the winning team')
-      // Polish-pass: the question template no longer interpolates the
-      // factor label, so banned-term smuggling via labels is moot here.
-      expect(vm.keyQuestion?.text).toBe('How confident are you this estimate is realistic?')
-      expect(vm.keyQuestion?.text.toLowerCase()).not.toContain('winning')
+      // No DQP → card hidden. The banned-term-in-label never reaches the
+      // question text path because that path no longer exists.
+      expect(vm.keyQuestion).toBeNull()
     })
   })
 
-  describe('result + reason line', () => {
-    it('result line uses winner label', () => {
+  describe('result + reason + dependency lines', () => {
+    it('result line uses winner label with "comes out ahead most often" framing', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ winnerLabel: 'Tech Lead' }),
         vm: makeVm(),
       })
-      expect(vm.resultLine).toBe('Tech Lead currently leads.')
+      expect(vm.resultLine).toBe('Tech Lead comes out ahead most often.')
     })
 
-    it('reason line derived from topFragileEdge when present', () => {
+    it('reason line derived from topFragileEdge stays on the VM (rendered in Row 1, not result context)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({
@@ -485,79 +477,67 @@ describe('buildAnalysisHeroViewModel', () => {
       })
       expect(vm.reasonLine).toBeNull()
     })
-  })
 
-  describe('meta pills (Fix 2 label normalisation)', () => {
-    it('binds "Fragile result" label to stability < 0.5 only', () => {
-      const fragile = buildAnalysisHeroViewModel({
-        ...STD_ARGS,
-        data: makeData({ stability: 0.4 }),
-        vm: makeVm(),
-      })
-      expect(fragile.metaPills.some(p => p.label === 'Fragile result')).toBe(true)
-      // Anti-drift: legacy label gone.
-      expect(fragile.metaPills.some(p => p.label === 'Result fragile')).toBe(false)
+    // ── Dependency line: "The result depends most on {factor}." ──────────
+    // Sourced ONLY from `data.recommendation.dominantFactorId/Label`. That
+    // path in useResultsSectionData.ts collapses two safe sources (PLoT B1
+    // and M1 key_drivers); the legacy heuristic only contaminates
+    // `data.drivers.dominantFactor*`, which the hero deliberately does not
+    // read.
 
-      const stable = buildAnalysisHeroViewModel({
+    it('renders "The result depends most on {factor}." when recommendation.dominantFactorLabel is populated', () => {
+      const data = makeData({ winnerLabel: 'Tech Lead', stability: 0.7 })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Technical Leadership Capacity'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Technical Leadership Capacity.')
+    })
+
+    it('omits the dependency line when no dominantFactor is supplied (no fabrication)', () => {
+      const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.7 }),
         vm: makeVm(),
       })
-      expect(stable.metaPills.some(p => p.label === 'Fragile result')).toBe(false)
+      expect(vm.dependencyLine).toBeNull()
     })
 
-    it('stability bands → labels: 0.4 Fragile result; 0.6 Moderate stability; 0.75 Stable result; 0.9 Highly stable', () => {
-      const cases: Array<[number, string]> = [
-        [0.4, 'Fragile result'],
-        [0.6, 'Moderate stability'],
-        [0.75, 'Stable result'],
-        [0.9, 'Highly stable'],
-      ]
-      for (const [stability, expectedLabel] of cases) {
-        const vm = buildAnalysisHeroViewModel({
-          ...STD_ARGS,
-          data: makeData({ stability }),
-          vm: makeVm(),
-        })
-        expect(vm.metaPills.some(p => p.label === expectedLabel), `stability ${stability}`).toBe(true)
-      }
+    it('omits the dependency line when dominantFactorId is present but label is missing', () => {
+      const data = makeData({ stability: 0.7 })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
     })
 
-    it('evidenceLevel → pill: needs_work=Evidence limited; fair=Evidence moderate; good=Evidence adequate', () => {
-      const cases: Array<['needs_work' | 'fair' | 'good', string]> = [
-        ['needs_work', 'Evidence limited'],
-        ['fair', 'Evidence moderate'],
-        ['good', 'Evidence adequate'],
-      ]
-      for (const [level, expectedLabel] of cases) {
-        const vm = buildAnalysisHeroViewModel({
-          ...STD_ARGS,
-          data: makeData({ stability: 0.7 }),
-          vm: makeVm({ evidenceLevel: level }),
-        })
-        expect(vm.metaPills.some(p => p.label === expectedLabel), `level ${level}`).toBe(true)
-      }
+    it('omits the dependency line when the factor label contains a banned glossary term', () => {
+      const data = makeData({ stability: 0.7 })
+      ;(data.recommendation as any).dominantFactorId = 'n_w'
+      ;(data.recommendation as any).dominantFactorLabel = 'the winning capacity'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
     })
 
-    it('the legacy "Evidence thin" pill never appears (Fix 2 anti-drift)', () => {
-      for (const level of ['needs_work', 'fair', 'good'] as const) {
-        const vm = buildAnalysisHeroViewModel({
-          ...STD_ARGS,
-          data: makeData({ stability: 0.7 }),
-          vm: makeVm({ evidenceLevel: level }),
-        })
-        expect(vm.metaPills.some(p => p.label === 'Evidence thin')).toBe(false)
-      }
+    it('strips encoding notation from the factor label before rendering', () => {
+      const data = makeData({ stability: 0.7 })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead Capacity (0/1)'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead Capacity.')
     })
+  })
 
-    it('no stability pill at all when stability is null', () => {
+  describe('meta pills removal (2026-05-21)', () => {
+    // Pills were removed from the result-context block. Stability and
+    // evidence signals continue to surface in the HeroFooter checks below.
+    // See docs/investigations/analysis-hero-v17-top-section.md task 4.
+
+    it('the VM does not expose a metaPills field', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
-        data: makeData({ stability: undefined }),
+        data: makeData({ stability: 0.7 }),
         vm: makeVm(),
       })
-      const stabilityLabels = ['Fragile result', 'Moderate stability', 'Stable result', 'Highly stable']
-      expect(vm.metaPills.filter(p => stabilityLabels.includes(p.label))).toHaveLength(0)
+      expect((vm as Record<string, unknown>).metaPills).toBeUndefined()
     })
   })
 
@@ -683,7 +663,7 @@ describe('buildAnalysisHeroViewModel', () => {
   // grounded rule below ties both labels to whether a fragile/sensitive
   // factor is actually present in the data.
 
-  describe('grounded stability + sensitivity wording', () => {
+  describe('grounded stability + sensitivity wording (footer-check only post-pill-removal)', () => {
     const fragileEdge = {
       fromId: 'n_f',
       fromLabel: 'Hiring rate',
@@ -693,58 +673,43 @@ describe('buildAnalysisHeroViewModel', () => {
       alternativeWinnerLabel: 'Option B',
     } as FragileEdgeItem
 
-    it('0.75 stability with NO fragile factor → "Stable result" pill + "Stability limited" check', () => {
+    it('0.75 stability with NO fragile factor → "Stability limited" check (not "Sensitive assumption")', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.75 }),
         vm: makeVm(),
       })
-      expect(vm.metaPills.map(p => p.label)).toContain('Stable result')
-      expect(vm.metaPills.map(p => p.label)).not.toContain('Mostly stable')
       const stabilityCheck = vm.footerChecks[1]
       expect(stabilityCheck.label).toBe('Stability limited')
-      // Anti-drift: the bare "Sensitive" must not appear, and we must
-      // not over-claim a specific assumption when none is grounded.
       expect(stabilityCheck.label).not.toBe('Sensitive')
       expect(stabilityCheck.label).not.toBe('Sensitive assumption')
     })
 
-    it('0.75 stability WITH fragile factor → "Mostly stable" pill + "Sensitive assumption" check', () => {
+    it('0.75 stability WITH fragile factor → "Sensitive assumption" check', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.75, fragile: fragileEdge }),
         vm: makeVm(),
       })
-      expect(vm.metaPills.map(p => p.label)).toContain('Mostly stable')
-      expect(vm.metaPills.map(p => p.label)).not.toContain('Stable result')
-      const stabilityCheck = vm.footerChecks[1]
-      expect(stabilityCheck.label).toBe('Sensitive assumption')
+      expect(vm.footerChecks[1].label).toBe('Sensitive assumption')
     })
 
-    it('low stability WITH fragile factor → fragile/moderate pill + "Sensitive assumption" check', () => {
+    it('low stability WITH fragile factor → "Sensitive assumption" check', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.6, fragile: fragileEdge }),
         vm: makeVm(),
       })
-      // Pill stays "Moderate stability" — the soften only applies to the
-      // 0.7–0.85 band; below that the pessimistic pill is already accurate.
-      expect(vm.metaPills.map(p => p.label)).toContain('Moderate stability')
       expect(vm.footerChecks[1].label).toBe('Sensitive assumption')
     })
 
-    it('low stability WITHOUT fragile factor → "Stability limited" check (not "Sensitive assumption")', () => {
+    it('low stability WITHOUT fragile factor → "Stability limited" check (no over-claim)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
         data: makeData({ stability: 0.4 }),
         vm: makeVm(),
       })
-      const stabilityCheck = vm.footerChecks[1]
-      expect(stabilityCheck.label).toBe('Stability limited')
-      // The fragile-result pill is still surfaced at the system level —
-      // this only governs the footer check, where over-claiming a single
-      // named assumption when none is grounded would be wrong.
-      expect(vm.metaPills.map(p => p.label)).toContain('Fragile result')
+      expect(vm.footerChecks[1].label).toBe('Stability limited')
     })
 
     it('≥0.85 stability → "Stable" check regardless of fragile-factor presence', () => {

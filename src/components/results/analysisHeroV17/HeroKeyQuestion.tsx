@@ -3,8 +3,15 @@
  *
  * The question text is glossary-scanned upstream in
  * `buildAnalysisHeroViewModel.selectKeyQuestion`. If no safe grounded
- * question is available, this component does not render — the orchestrator
- * passes `null` and the caller hides the card entirely.
+ * question is available, the orchestrator passes `null` and the caller
+ * hides the card entirely.
+ *
+ * Render rule (2026-05-21): the card shows only when a real DQP is
+ * available AND chat is open (chatPrefillAvailable === true). When chat
+ * is closed, the chips can't meaningfully complete their action, so the
+ * whole card hides — not just the chip strip. This removes the
+ * "advertised but unclickable" failure mode the dangling question text
+ * previously created.
  */
 
 import { useState } from 'react'
@@ -14,12 +21,13 @@ import type { KeyQuestion } from './analysisHeroVM.types'
 interface Props {
   keyQuestion: KeyQuestion
   onPrefillChat: (text: string) => void
-  /** When false, the answer chips render as disabled. */
+  /** When false, the entire card is hidden. */
   chatPrefillAvailable: boolean
 }
 
 export function HeroKeyQuestion({ keyQuestion, onPrefillChat, chatPrefillAvailable }: Props) {
   const [expanded, setExpanded] = useState(false)
+  if (!chatPrefillAvailable) return null
   return (
     <section
       className="rounded-md border border-panel-border p-2.5 flex flex-col gap-1.5"
@@ -48,10 +56,10 @@ export function HeroKeyQuestion({ keyQuestion, onPrefillChat, chatPrefillAvailab
       >
         {keyQuestion.text}
       </p>
-      {/* (Fix 6) Chips are prefill-only. When chat is unavailable, hide
-          the entire chip strip rather than render dead buttons. The
-          key-question text still renders so the user can read it. */}
-      {chatPrefillAvailable && keyQuestion.chips.length > 0 && (
+      {/* Chips are prefill-only. The whole card is hidden upstream when
+          chat is unavailable (see the early return above), so chips are
+          always meaningfully clickable when this block renders. */}
+      {keyQuestion.chips.length > 0 && (
         <div className="flex items-center gap-1 flex-wrap" data-testid="hero-v17-key-question-chips">
           {keyQuestion.chips.map(chip => (
             <button

@@ -41,16 +41,13 @@ export function AnalysisOrphanBanner() {
     <div
       role="status"
       data-testid="analysis-orphan-banner"
-      className="flex items-start gap-3 rounded-lg border border-panel-border bg-panel p-3"
+      className="flex items-center gap-3 rounded-lg border border-panel-border bg-panel px-3 py-2"
     >
-      <div className="flex-1">
-        <p className={`${typography.body} text-text-body`}>
-          Analysis needs refresh
-        </p>
-        <p className={`${typography.bodySmall} text-text-light mt-1`}>
-          Re-run analysis to attach AI explanations to these results.
-        </p>
-      </div>
+      <p className={`${typography.panelMeta} text-text-light flex-1 min-w-0`}>
+        <span className="text-text-body">Refresh analysis</span>
+        {' · '}
+        Coaching may be out of date
+      </p>
       <button
         type="button"
         onClick={handleRunAnalysis}
