@@ -52,16 +52,27 @@ export interface AIInputBarProps {
 const MAX_LINES = 2
 const LINE_HEIGHT_PX = 18
 /**
- * Welcome hero variant: round-12 UX correction. The rest-state textarea
- * is THREE lines tall (≈70px = 18*3 + 16) so the absolutely-positioned
- * cog + send icon stack (32px + 4px gap + 32px = 68px) fits comfortably
- * INSIDE the textarea border without overflowing into the surrounding
- * canvas. Three lines reads as an invitation (you can type a sentence
- * or two) rather than a form (14-line monolith from round-8). It still
- * grows organically as the user types, capped at 12 lines.
+ * Welcome hero variant: the rest-state textarea is THREE lines tall
+ * (≈70px = 18*3 + 16) so the absolutely-positioned cog + send icon
+ * stack (32px + 4px gap + 32px = 68px) fits comfortably INSIDE the
+ * textarea border. Grows on type up to 12 lines.
  */
 const WELCOME_MIN_LINES = 3
 const WELCOME_MAX_LINES = 12
+
+/**
+ * Floating Olumi panel variant: round-13 UX. The floating panel's footer
+ * composer (variant='floating') previously inherited the default 1-line
+ * min and 2-line max, so the cog + send icon stack (28px + 2px gap + 28px
+ * = 58px) overflowed the textarea and the composer felt cramped during
+ * follow-up questions. Bump the rest state to 3 lines (≈70px) so the
+ * icon stack fits with breathing room, and allow growth up to 8 lines
+ * (≈160px) before internal scroll engages — generous enough for a
+ * multi-sentence follow-up without crowding the conversation history
+ * above.
+ */
+const FLOATING_MIN_LINES = 3
+const FLOATING_MAX_LINES = 8
 
 /**
  * AIInputBar — single shared composer used by the persistent strip, the docked
@@ -107,6 +118,7 @@ export const AIInputBar = memo(
     // and emits auto-apply graph patches.
     const nodeCount = useCanvasStore((s) => s.nodes.length)
     const isWelcome = variant === 'welcome'
+    const isFloating = variant === 'floating'
 
     useImperativeHandle(
       ref,
@@ -118,10 +130,22 @@ export const AIInputBar = memo(
     )
 
     // Auto-grow up to the variant's max line count, then scroll inside.
-    // Welcome hero starts at 1 line and grows organically as the user
-    // types (Claude-style), capped at 12 lines before internal scroll.
-    const minLines = isWelcome ? WELCOME_MIN_LINES : 1
-    const maxLines = isWelcome ? WELCOME_MAX_LINES : MAX_LINES
+    // - welcome: 3-line rest, grows to 12 lines (hero composer).
+    // - floating: 3-line rest, grows to 8 lines (panel footer composer).
+    //   Round-13: needs ≥ 3 lines so cog + send icons fit inside without
+    //   overflowing the textarea border; grows on type for follow-ups.
+    // - strip / docked-tab / first-use: 1-line rest, grows to 2 lines
+    //   (compact surfaces).
+    const minLines = isWelcome
+      ? WELCOME_MIN_LINES
+      : isFloating
+        ? FLOATING_MIN_LINES
+        : 1
+    const maxLines = isWelcome
+      ? WELCOME_MAX_LINES
+      : isFloating
+        ? FLOATING_MAX_LINES
+        : MAX_LINES
     const minHeightPx = LINE_HEIGHT_PX * minLines + 16
     const maxHeightPx = LINE_HEIGHT_PX * maxLines + 16
     useLayoutEffect(() => {

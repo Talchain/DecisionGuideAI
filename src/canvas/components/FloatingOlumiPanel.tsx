@@ -728,7 +728,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       role="dialog"
       aria-label="Olumi conversation"
       data-testid="floating-olumi-panel"
-      className="fixed bg-panel border border-panel-border rounded-lg shadow-2 flex flex-col"
+      className="fixed bg-panel border border-panel-border rounded-r-lg shadow-2 flex flex-col"
       style={{
         zIndex: 300,
         width: 400,
