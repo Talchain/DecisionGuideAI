@@ -2565,4 +2565,184 @@ describe('buildDebugBundleAsync — evidence resolver (post-PR #162)', () => {
       'live_v5_cee_embedded',
     )
   })
+
+  // ===================================================================
+  // PR #169 — parse-error wrapper integration regression.
+  //
+  // Manual staging validation of PR #168 (commit `5e9847db`,
+  // 2026-05-21) found that the deployed bundle's
+  // `payloads.cee_response` carried a parse-error wrapper instead of
+  // the unwrapped V5 turn body. The wrapper shape (from
+  // `src/v5/responseParser.ts`):
+  //
+  //     { kind: 'parse_error', reason: '...', raw: <original CEE body> }
+  //
+  // Pre-fix the resolver only probed `cee_response.blocks[*]`, so
+  // `evidence_resolution.plot_response.source` resolved to
+  // `'unavailable'` and `scientific_validation.source` was
+  // `'unavailable'` — even though the full analysis enrichment lived
+  // under `cee_response.raw.blocks[0].enrichment`.
+  //
+  // This integration test pins the staging fixture shape end-to-end:
+  // a CEE response wrapped in parse_error, with provenance =
+  // analysis_producing_v5_turn (so the live-evidence gate accepts),
+  // resolves to cee_embedded and flips scientific_validation to
+  // live_v5_cee_embedded.
+  // ===================================================================
+
+  it('PR #169: parse-error-wrapped CEE response with `analysis_producing_v5_turn` provenance → live_v5_cee_embedded', async () => {
+    // Same shape as observed on staging: cee_response.kind === 'parse_error',
+    // cee_response.raw.blocks[0].type === 'analysis_result', enrichment
+    // carries indicative scientific keys.
+    const wrappedEnrichment = {
+      option_comparison: [{ id: 'opt_a', win_probability: 0.7 }],
+      factor_sensitivity: [
+        { factor_id: 'f1', sensitivity_score: 0.5, importance_rank: 1 },
+      ],
+      robustness: { fragile_edges: [], level: 'moderate' },
+    }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        selected_cee_trace_endpoint:
+          'https://cee-staging.onrender.com/proxy/v5/turn',
+        payloads: {
+          cee_request: { turn_id: 't-parse-err', message: 'Run analysis' },
+          cee_response: {
+            kind: 'parse_error',
+            reason: 'body did not match OlumiResponse schema',
+            raw: {
+              blocks: [
+                {
+                  type: 'analysis_result',
+                  summary: 'Ran analysis on your current scenario.',
+                  enrichment: wrappedEnrichment,
+                },
+              ],
+            },
+          },
+          // V5 canonical: top-level PLoT/ISL inherently null (server-side).
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    // Raw-payload honesty: bundle.payloads.* untouched.
+    expect(bundle.payloads.plot_response).toBeNull()
+    expect(bundle.payloads.isl_request).toBeNull()
+    expect(bundle.payloads.isl_response).toBeNull()
+    // cee_response still carries the parse-error wrapper verbatim.
+    expect(
+      (bundle.payloads.cee_response as { kind?: string } | null)?.kind,
+    ).toBe('parse_error')
+
+    // Resolver lifted the wrapped enrichment.
+    expect(bundle.evidence_resolution?.plot_response.source).toBe(
+      'cee_embedded',
+    )
+    expect(bundle.evidence_resolution?.plot_response.path).toBe(
+      'payloads.cee_response.raw.blocks[0].enrichment',
+    )
+    expect(bundle.evidence_resolution?.plot_response.available).toBe(true)
+    expect(
+      bundle.evidence_resolution?.plot_response.required_upstream_support,
+    ).toBeNull()
+
+    // Scientific validation flipped from `'unavailable'` (pre-fix) to
+    // `'live_v5_cee_embedded'` (gated by the R-2 Blocker 2 provenance
+    // check, which is satisfied by analysis_producing_v5_turn). The
+    // overall_status itself depends on how many validators reach
+    // observed/derived — with only 3 indicative keys it may still be
+    // `insufficient_raw_evidence`, but the SOURCE label is the key
+    // assertion (live evidence ran, not unavailable evidence).
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+    expect(bundle.scientific_validation?.overall_status).not.toBe('unavailable')
+    // response_shape_validation reads the indicative keys directly;
+    // with 3 of 5 present in the wrapped enrichment it must NOT be
+    // `unavailable` (proves the resolver fed the body through).
+    expect(
+      bundle.scientific_validation?.validators.response_shape_validation
+        ?.status,
+    ).not.toBe('unavailable')
+  })
+
+  it('PR #169: parse-error wrapper + `fallback_v5_turn` provenance → live_v5_cee_embedded (fallback-V5 still IS selected V5)', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'fallback_v5_turn',
+        payloads: {
+          cee_request: { turn_id: 't-fallback-wrap' },
+          cee_response: {
+            kind: 'parse_error',
+            reason: 'whatever',
+            raw: {
+              blocks: [
+                {
+                  type: 'analysis_result',
+                  enrichment: {
+                    factor_sensitivity: [{ factor_id: 'f1' }],
+                    robustness: { level: 'high' },
+                  },
+                },
+              ],
+            },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.evidence_resolution?.plot_response.source).toBe(
+      'cee_embedded',
+    )
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+  })
+
+  it('PR #169: parse-error wrapper + `fallback_legacy_cee` provenance → cee_embedded but source NOT live (honesty gate preserved)', async () => {
+    // R-2 Blocker 2 gate still applies to wrapped enrichment. A
+    // wrapped legacy CEE turn must NOT mislabel as live V5 evidence.
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'fallback_legacy_cee',
+        payloads: {
+          cee_request: { turn_id: 't-legacy-wrap' },
+          cee_response: {
+            kind: 'parse_error',
+            reason: 'whatever',
+            raw: {
+              blocks: [
+                {
+                  type: 'analysis_result',
+                  enrichment: {
+                    factor_sensitivity: [{ factor_id: 'f1' }],
+                  },
+                },
+              ],
+            },
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // Resolver STILL surfaces the embedded path (informational).
+    expect(bundle.evidence_resolution?.plot_response.source).toBe(
+      'cee_embedded',
+    )
+    expect(bundle.evidence_resolution?.plot_response.path).toBe(
+      'payloads.cee_response.raw.blocks[0].enrichment',
+    )
+    // But scientific_validation honesty gate refuses live label.
+    expect(bundle.scientific_validation?.source).not.toBe(
+      'live_v5_cee_embedded',
+    )
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+  })
 })

@@ -467,3 +467,280 @@ describe('resolveScientificEvidence — malformed-input safety', () => {
     expect(r.resolution.plot_response.source).toBe('unavailable')
   })
 })
+
+/**
+ * PR #169 — parse-error wrapper coverage.
+ *
+ * `src/v5/responseParser.ts` wraps the original CEE body when the
+ * OlumiResponse schema fails:
+ *
+ *     { kind: 'parse_error', reason: '...', raw: <original CEE body> }
+ *
+ * Manual staging validation of PR #168 (commit `5e9847db`,
+ * 2026-05-21) showed this in the wild — the bundle had
+ * `payloads.cee_response.kind === 'parse_error'` with full
+ * enrichment under `payloads.cee_response.raw.blocks[0].enrichment`.
+ * Pre-fix the resolver only probed `cee_response.blocks[*]` and
+ * therefore marked `plot_response.source === 'unavailable'`. These
+ * tests pin the fallback probe.
+ */
+describe('resolveScientificEvidence — parse-error wrapper (PR #169)', () => {
+  const wrappedEnrichment = {
+    factor_sensitivity: [
+      { factor_id: 'wrapped-f1', sensitivity_score: 0.42 },
+    ],
+    option_comparison: [
+      { id: 'wrapped-o1', win_probability: 0.61 },
+    ],
+    robustness: { is_robust: true, level: 'high' },
+  }
+
+  const parseErrorBody = {
+    kind: 'parse_error',
+    reason: 'body did not match OlumiResponse schema',
+    raw: {
+      blocks: [
+        {
+          type: 'analysis_result',
+          summary: 'wrapped',
+          enrichment: wrappedEnrichment,
+        },
+      ],
+    },
+  }
+
+  it('lifts bare enrichment from `cee_response.raw.blocks[*].enrichment`', () => {
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, parseErrorBody)
+    expect(r.resolution.plot_response.source).toBe('cee_embedded')
+    expect(r.resolution.plot_response.path).toBe(
+      'payloads.cee_response.raw.blocks[0].enrichment',
+    )
+    expect(r.resolution.plot_response.available).toBe(true)
+    expect(r.resolution.plot_response.required_upstream_support).toBeNull()
+    expect(r.bodies.plot_response).toEqual(wrappedEnrichment)
+  })
+
+  it('lifts `_meta.payloads.plot_response` sidecar from inside the wrapper', () => {
+    const sidecarPlot = {
+      factor_sensitivity: [{ factor_id: 'sidecar-f1' }],
+      confidence_provenance: { foo: 'bar' },
+    }
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      kind: 'parse_error',
+      reason: 'whatever',
+      raw: {
+        blocks: [
+          {
+            type: 'analysis_result',
+            enrichment: {
+              ...wrappedEnrichment,
+              _meta: { payloads: { plot_response: sidecarPlot } },
+            },
+          },
+        ],
+      },
+    })
+    expect(r.resolution.plot_response.source).toBe('cee_embedded')
+    expect(r.resolution.plot_response.path).toBe(
+      'payloads.cee_response.raw.blocks[0].enrichment._meta.payloads.plot_response',
+    )
+    expect(r.bodies.plot_response).toEqual(sidecarPlot)
+  })
+
+  it('lifts `downstream_calls.isl.response` from inside the wrapper', () => {
+    const downstreamIslResp = {
+      factor_sensitivity: [{ factor_id: 'isl-f1', elasticity: 0.3 }],
+    }
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      kind: 'parse_error',
+      reason: 'whatever',
+      raw: {
+        blocks: [
+          {
+            type: 'analysis_result',
+            enrichment: {
+              ...wrappedEnrichment,
+              downstream_calls: { isl: { response: downstreamIslResp } },
+            },
+          },
+        ],
+      },
+    })
+    expect(r.resolution.isl_response.source).toBe('cee_embedded')
+    expect(r.resolution.isl_response.path).toBe(
+      'payloads.cee_response.raw.blocks[0].enrichment.downstream_calls.isl.response',
+    )
+    expect(r.bodies.isl_response).toEqual(downstreamIslResp)
+  })
+
+  it('lifts ISL request from `_meta.payloads.isl_request` inside the wrapper', () => {
+    const sidecarIslReq = {
+      parameter_uncertainties: [{ name: 'p1', std: 0.1 }],
+    }
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      kind: 'parse_error',
+      reason: 'x',
+      raw: {
+        blocks: [
+          {
+            type: 'analysis_result',
+            enrichment: {
+              ...wrappedEnrichment,
+              _meta: { payloads: { isl_request: sidecarIslReq } },
+            },
+          },
+        ],
+      },
+    })
+    expect(r.resolution.isl_request.source).toBe('cee_embedded')
+    expect(r.resolution.isl_request.path).toBe(
+      'payloads.cee_response.raw.blocks[0].enrichment._meta.payloads.isl_request',
+    )
+    expect(r.bodies.isl_request).toEqual(sidecarIslReq)
+  })
+
+  it('top-level path WINS over wrapper — unwrapped blocks beat raw.blocks', () => {
+    // Defensive: if both an unwrapped `.blocks` AND a `.raw.blocks` are
+    // present, prefer the unwrapped form (it implies the body parsed
+    // successfully, not the wrapper variant). Pre-fix this was the
+    // only path the resolver knew about, so this test pins the
+    // ordering rather than reversing it.
+    const unwrappedEnrichment = { factor_sensitivity: [{ factor_id: 'unwrapped-f1' }] }
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      blocks: [
+        { type: 'analysis_result', enrichment: unwrappedEnrichment },
+      ],
+      // Defensive `raw.blocks` shouldn't be reached when top-level is good.
+      raw: {
+        blocks: [
+          { type: 'analysis_result', enrichment: wrappedEnrichment },
+        ],
+      },
+    })
+    expect(r.resolution.plot_response.path).toBe(
+      'payloads.cee_response.blocks[0].enrichment',
+    )
+    expect(r.bodies.plot_response).toEqual(unwrappedEnrichment)
+  })
+
+  it('top-level `payloads.plot_response` still beats the wrapper', () => {
+    const topPlot = { factor_sensitivity: [{ factor_id: 'top' }] }
+    const r = resolveScientificEvidence(
+      { ...EMPTY_TOP_LEVEL, plot_response: topPlot },
+      parseErrorBody,
+    )
+    expect(r.resolution.plot_response.source).toBe('top_level')
+    expect(r.resolution.plot_response.path).toBe('payloads.plot_response')
+    expect(r.bodies.plot_response).toEqual(topPlot)
+  })
+
+  it('parse-error wrapper without `raw` field → unavailable (no throw)', () => {
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      kind: 'parse_error',
+      reason: 'no raw',
+    })
+    expect(r.resolution.plot_response.source).toBe('unavailable')
+    expect(r.resolution.plot_response.required_upstream_support).not.toBeNull()
+  })
+
+  it('parse-error wrapper with `raw` but no analysis_result block → unavailable', () => {
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      kind: 'parse_error',
+      reason: 'x',
+      raw: {
+        blocks: [
+          { type: 'commentary', text: 'no analysis here' },
+        ],
+      },
+    })
+    expect(r.resolution.plot_response.source).toBe('unavailable')
+  })
+
+  it('parse-error wrapper with `raw.blocks` not an array → unavailable, no throw', () => {
+    expect(() =>
+      resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+        kind: 'parse_error',
+        reason: 'x',
+        raw: { blocks: 'not-an-array' },
+      }),
+    ).not.toThrow()
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      kind: 'parse_error',
+      reason: 'x',
+      raw: { blocks: 'not-an-array' },
+    })
+    expect(r.resolution.plot_response.source).toBe('unavailable')
+  })
+
+  it('wrapper enrichment WITHOUT indicative keys is NOT promoted (honesty gate preserved)', () => {
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      kind: 'parse_error',
+      reason: 'x',
+      raw: {
+        blocks: [
+          {
+            type: 'analysis_result',
+            // No factor_sensitivity / option_comparison / etc.
+            enrichment: { summary: 'no science here' },
+          },
+        ],
+      },
+    })
+    expect(r.resolution.plot_response.source).toBe('unavailable')
+  })
+
+  it('picks FIRST analysis_result inside wrapper when multiple exist', () => {
+    const first = { factor_sensitivity: [{ factor_id: 'first' }] }
+    const second = { factor_sensitivity: [{ factor_id: 'second' }] }
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      kind: 'parse_error',
+      reason: 'x',
+      raw: {
+        blocks: [
+          { type: 'commentary', text: 'noise' },
+          { type: 'analysis_result', enrichment: first },
+          { type: 'analysis_result', enrichment: second },
+        ],
+      },
+    })
+    expect(r.resolution.plot_response.path).toBe(
+      'payloads.cee_response.raw.blocks[1].enrichment',
+    )
+    expect(r.bodies.plot_response).toEqual(first)
+  })
+
+  // PR #169 reviewer round-1 follow-up #1 — pin the intentionally
+  // structural test in `findAnalysisResultBlock`. The fallback does
+  // NOT require `kind === 'parse_error'`; it walks `ceeResponse.raw.blocks[*]`
+  // whenever the unwrapped `.blocks` is absent. This is forward-compat
+  // with potential CEE wrapper-shape evolution. The live-evidence
+  // honesty contract is still owned by the downstream provenance gate
+  // (R-2 Blocker 2) in `scientificValidation/index.ts`, so accepting a
+  // non-parse_error wrapper here cannot mislabel as live by itself.
+  it('resolves raw wrapper structurally even when kind !== parse_error (forward-compat)', () => {
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      // Anything other than 'parse_error' — including completely
+      // unknown wrapper shapes — must still resolve via raw.blocks.
+      kind: 'something_else_unknown',
+      raw: {
+        blocks: [
+          {
+            type: 'analysis_result',
+            enrichment: {
+              factor_sensitivity: [{ factor_id: 'fwd-f1' }],
+              robustness: { level: 'low' },
+            },
+          },
+        ],
+      },
+    })
+    expect(r.resolution.plot_response.source).toBe('cee_embedded')
+    expect(r.resolution.plot_response.path).toBe(
+      'payloads.cee_response.raw.blocks[0].enrichment',
+    )
+    expect(r.bodies.plot_response).toEqual({
+      factor_sensitivity: [{ factor_id: 'fwd-f1' }],
+      robustness: { level: 'low' },
+    })
+  })
+})

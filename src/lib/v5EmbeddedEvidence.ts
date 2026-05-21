@@ -23,6 +23,21 @@
  *      (e.g. `confidence_provenance`, `evpi_percentage_points`,
  *      `flip_thresholds_status`, ISL `parameter_uncertainties`).
  *
+ *   3. `response.raw.blocks[type==='analysis_result'].enrichment`
+ *      — the SAME shape as #1, but reached via the parse-error
+ *      wrapper emitted by `src/v5/responseParser.ts` when the CEE
+ *      body fails the OlumiResponse schema. The wrapper shape is
+ *      `{ kind: 'parse_error', reason: '...', raw: <original> }`.
+ *      Manual staging validation of PR #168 (commit `5e9847db`,
+ *      2026-05-21) observed this in the wild — full enrichment
+ *      lived under `payloads.cee_response.raw.blocks[0].enrichment`
+ *      while top-level `cee_response.blocks` was absent. PR #169
+ *      added the fallback probe so embedded evidence resolves even
+ *      when the captured body wraps the original CEE response.
+ *      `_meta.payloads` and `downstream_calls.isl.response` are
+ *      probed under the wrapper too (same enrichment shape, just
+ *      reached via the `.raw.` prefix).
+ *
  * Scientific validators are hard-wired to read from `inputs.plotResponse`
  * / `inputs.islRequest` / `inputs.islResponse`. This resolver lifts
  * embedded bodies into the validator inputs WITHOUT mutating
@@ -181,20 +196,78 @@ function isNonEmptyObject(v: unknown): v is Record<string, unknown> {
 }
 
 /**
- * Find the FIRST analysis_result block in `ceeResponse.blocks[]`.
- * Returns null if response is malformed, blocks is missing, or no
- * such block exists.
+ * Walk `blocks[]` looking for the first `analysis_result` entry.
+ * Helper for `findAnalysisResultBlock` — accepts an `unknown` so the
+ * caller can pass either `ceeResponse.blocks` or
+ * `ceeResponse.raw.blocks` without re-asserting Array-ness.
  */
-function findAnalysisResultBlock(
-  ceeResponse: unknown,
+function findInBlocks(
+  blocks: unknown,
 ): { block: Record<string, unknown>; index: number } | null {
-  if (!isPlainObject(ceeResponse)) return null
-  const blocks = ceeResponse.blocks
   if (!Array.isArray(blocks)) return null
   for (let i = 0; i < blocks.length; i++) {
     const b = blocks[i]
     if (!isPlainObject(b)) continue
     if (b.type === 'analysis_result') return { block: b, index: i }
+  }
+  return null
+}
+
+/**
+ * Find the FIRST analysis_result block reachable from `ceeResponse`.
+ *
+ * PR #169: extended to handle the parse-error wrapper shape emitted
+ * by `src/v5/responseParser.ts` when the CEE turn body fails the
+ * OlumiResponse schema. In that case the captured body has shape:
+ *
+ *     { kind: 'parse_error', reason: '...', raw: <original CEE body> }
+ *
+ * so `ceeResponse.blocks` is absent but `ceeResponse.raw.blocks[*]`
+ * carries the same `analysis_result` enrichment we would otherwise
+ * inspect. The wrapper is observed on staging exports (build
+ * `5e9847db`+) — manual validation showed `payloads.cee_response.kind
+ * = parse_error` with full enrichment under `.raw.blocks[0].enrichment`.
+ *
+ * Probe order:
+ *   1. `ceeResponse.blocks[*]`              → unwrapped (clean body).
+ *   2. `ceeResponse.raw.blocks[*]`          → parse-error wrapper.
+ *
+ * The returned `pathPrefix` is the canonical bundle-relative path to
+ * the matched block (with or without the `.raw.` segment). Callers
+ * compose evidence paths as `${pathPrefix}.enrichment[...]`.
+ *
+ * Returns null if neither location carries an `analysis_result` block,
+ * or if `ceeResponse` is not a plain object.
+ */
+function findAnalysisResultBlock(
+  ceeResponse: unknown,
+): {
+  block: Record<string, unknown>
+  index: number
+  pathPrefix: string
+} | null {
+  if (!isPlainObject(ceeResponse)) return null
+  // 1. Try the top-level (unwrapped) shape first.
+  const top = findInBlocks(ceeResponse.blocks)
+  if (top !== null) {
+    return {
+      ...top,
+      pathPrefix: `payloads.cee_response.blocks[${top.index}]`,
+    }
+  }
+  // 2. Fall back to the parse-error wrapper. We don't require
+  //    `kind === 'parse_error'` explicitly — the structural test
+  //    (`.raw.blocks[*]` carries an analysis_result) is sufficient
+  //    and forward-compatible if the wrapper shape evolves.
+  const raw = ceeResponse.raw
+  if (isPlainObject(raw)) {
+    const wrapped = findInBlocks(raw.blocks)
+    if (wrapped !== null) {
+      return {
+        ...wrapped,
+        pathPrefix: `payloads.cee_response.raw.blocks[${wrapped.index}]`,
+      }
+    }
   }
   return null
 }
@@ -232,7 +305,7 @@ function entry(
  */
 function probeMetaPayloadsKind(
   enrichment: Record<string, unknown>,
-  blockIndex: number,
+  pathPrefix: string,
   kind: 'plot_request' | 'plot_response' | 'isl_request' | 'isl_response',
 ): { body: Record<string, unknown>; path: string } | null {
   const meta = enrichment._meta
@@ -244,7 +317,7 @@ function probeMetaPayloadsKind(
   if (kind === 'plot_response' && !hasIndicativeKey(body)) return null
   return {
     body,
-    path: `payloads.cee_response.blocks[${blockIndex}].enrichment._meta.payloads.${kind}`,
+    path: `${pathPrefix}.enrichment._meta.payloads.${kind}`,
   }
 }
 
@@ -289,7 +362,7 @@ export function resolveScientificEvidence(
       REQ_PLOT_REQUEST,
     )
   } else if (enrichment !== null && found !== null) {
-    const probe = probeMetaPayloadsKind(enrichment, found.index, 'plot_request')
+    const probe = probeMetaPayloadsKind(enrichment, found.pathPrefix, 'plot_request')
     if (probe !== null) {
       plot_request = probe.body
       plot_request_entry = entry(
@@ -328,7 +401,7 @@ export function resolveScientificEvidence(
     )
   } else if (enrichment !== null && found !== null) {
     // 1. Try the `_meta.payloads` sidecar first (closer to upstream shape).
-    const meta = probeMetaPayloadsKind(enrichment, found.index, 'plot_response')
+    const meta = probeMetaPayloadsKind(enrichment, found.pathPrefix, 'plot_response')
     if (meta !== null) {
       plot_response = meta.body
       plot_response_entry = entry(
@@ -342,7 +415,7 @@ export function resolveScientificEvidence(
       plot_response = enrichment
       plot_response_entry = entry(
         'cee_embedded',
-        `payloads.cee_response.blocks[${found.index}].enrichment`,
+        `${found.pathPrefix}.enrichment`,
         'Lifted from CEE V5 turn `analysis_result` block enrichment. Top-level `payloads.plot_response` was null; enrichment carries at least one indicative key.',
         REQ_PLOT_RESPONSE,
       )
@@ -375,7 +448,7 @@ export function resolveScientificEvidence(
       REQ_ISL_REQUEST,
     )
   } else if (enrichment !== null && found !== null) {
-    const probe = probeMetaPayloadsKind(enrichment, found.index, 'isl_request')
+    const probe = probeMetaPayloadsKind(enrichment, found.pathPrefix, 'isl_request')
     if (probe !== null) {
       isl_request = probe.body
       isl_request_entry = entry(
@@ -414,7 +487,7 @@ export function resolveScientificEvidence(
     )
   } else if (enrichment !== null && found !== null) {
     // 1. `_meta.payloads.isl_response` first.
-    const meta = probeMetaPayloadsKind(enrichment, found.index, 'isl_response')
+    const meta = probeMetaPayloadsKind(enrichment, found.pathPrefix, 'isl_response')
     if (meta !== null) {
       isl_response = meta.body
       isl_response_entry = entry(
@@ -434,7 +507,7 @@ export function resolveScientificEvidence(
             isl_response = response
             isl_response_entry = entry(
               'cee_embedded',
-              `payloads.cee_response.blocks[${found.index}].enrichment.downstream_calls.isl.response`,
+              `${found.pathPrefix}.enrichment.downstream_calls.isl.response`,
               'Lifted from CEE V5 turn enrichment `downstream_calls.isl.response`.',
               REQ_ISL_RESPONSE,
             )
