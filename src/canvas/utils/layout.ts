@@ -120,30 +120,20 @@ export async function layoutGraph(
 
   if (isDownLayout && maxTierCount > 1) {
     const unclampedElkBoxW = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
-    // Visible right edge of the rightmost node after centreRowsOnSpine +
-    // applyGlobalTranslation. The widest tier's leftmost lands at
-    // CANVAS_MARGIN, the rightmost is (N−1) strides further, and the
-    // rightmost node's visible right edge is NODE_CARD_MAX_W beyond its left.
-    //
-    // Derived directly from placement geometry — does NOT rely on the
-    // incidental equality CANVAS_MARGIN === LAYOUT_PADDING_X (= 24 today).
-    // A future tweak to either constant keeps this formula correct because
-    // it mirrors what the layout actually produces.
-    const maxSingleVisibleRowEnd =
-      CANVAS_MARGIN
-      + (maxTierCount - 1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + effectiveNodeSpacing)
-      + NODE_CARD_MAX_W
 
-    // Max-single fires only if BOTH:
-    //   1. Per-box min-width threshold passes (existing — keeps ELK from
-    //      receiving degenerate sub-min per-box widths).
-    //   2. The rendered row's visible right edge fits within the visible
-    //      canvas (new — stops the row spanning behind the OutputsDock at
-    //      typical laptop viewports). Compared against `visibleCanvasWidth`
-    //      (raw, no 0.85 factor) because we're asking whether the row
-    //      actually fits visibly, not whether ELK can place the boxes with
-    //      margin.
-    if (unclampedElkBoxW >= MIN_BOX_W && maxSingleVisibleRowEnd <= visibleCanvasWidth) {
+    // Max-single fires when per-box min width fits the (panel-aware)
+    // availableWidth. The dock-aware visibleCanvasWidth above tightens
+    // availableWidth when the dock is open, so the per-box check still
+    // forces min-width at narrow viewports where the row genuinely can't
+    // fit. At wider viewports the row may visibly overflow the canvas /
+    // dock — that overflow is accepted as the trade-off for keeping
+    // cards at NODE_CARD_MAX_W. (Prior to restoring NODE_CARD_MAX_W to
+    // 320, a second gate `maxSingleVisibleRowEnd <= visibleCanvasWidth`
+    // also forced min-width when the rendered row wouldn't fit visibly;
+    // that gate is removed because at NODE_CARD_MAX_W=320 it would fail
+    // at most viewports and the resulting 140px cards were judged too
+    // compressed.)
+    if (unclampedElkBoxW >= MIN_BOX_W) {
       elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
       gap = effectiveNodeSpacing
     } else {

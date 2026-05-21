@@ -17,7 +17,7 @@
 export const NODE_LAYOUT_MIN_W = 140
 
 /** Maximum rendered card width. Used by BaseNode and as the ELK pinned width. */
-export const NODE_CARD_MAX_W = 256
+export const NODE_CARD_MAX_W = 320
 
 /** Horizontal padding added around the rendered card to form the ELK box. */
 export const LAYOUT_PADDING_X = 24

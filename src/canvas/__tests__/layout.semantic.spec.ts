@@ -528,8 +528,8 @@ describe('constants contract', () => {
     expect(LAYOUT_BOX_MIN_W).toBe(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X)
   })
 
-  it('NODE_CARD_MAX_W is 256, NODE_LAYOUT_MIN_W is 140', () => {
-    expect(NODE_CARD_MAX_W).toBe(256)
+  it('NODE_CARD_MAX_W is 320, NODE_LAYOUT_MIN_W is 140', () => {
+    expect(NODE_CARD_MAX_W).toBe(320)
     expect(NODE_LAYOUT_MIN_W).toBe(140)
   })
 
