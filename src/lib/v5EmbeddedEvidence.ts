@@ -51,48 +51,80 @@
 export type EvidenceSource = 'top_level' | 'cee_embedded' | 'unavailable'
 
 /**
- * Output shape of `resolveScientificEvidence`. Always returns the
- * FULL shape — callers can read `*_source` and `*_source_path`
- * without optional chaining. Each evidence kind is resolved
- * independently (top-level PLoT + embedded ISL is a valid mix).
+ * Per-evidence-kind resolution metadata. Same shape regardless of
+ * which kind it describes. Matches the workstream spec's metadata
+ * suggestion (`source`, `path`, `available`, `required_upstream_support`,
+ * `notes`) so reviewers can read each evidence kind's provenance in
+ * a uniform way.
+ */
+export interface EvidenceResolutionEntry {
+  /** Source the evidence came from. */
+  source: EvidenceSource
+  /**
+   * Concrete pathname pointing at WHERE the resolved evidence body
+   * lives in the bundle, for reviewer transparency. Examples:
+   *   - `'payloads.plot_response'`                                  (top-level)
+   *   - `'payloads.cee_response.blocks[3].enrichment'`              (embedded)
+   *   - `null`                                                      (unavailable)
+   */
+  path: string | null
+  /** Convenience: `source !== 'unavailable'`. */
+  available: boolean
+  /**
+   * When `available === false`, a concise description of what
+   * upstream support (CEE / PLoT / ISL emission, or a top-level
+   * capture path) would make this evidence kind available. `null`
+   * when the evidence IS available — no upstream gap to document.
+   */
+  required_upstream_support: string | null
+  /** Short diagnostic note explaining the resolution decision. */
+  notes: string
+}
+
+/**
+ * Output shape of `resolveScientificEvidence`. Each evidence kind
+ * has:
+ *   - the resolved body (or `null`)
+ *   - a `resolution` block carrying source / path / availability /
+ *     upstream-support / notes metadata.
+ *
+ * Always returns the FULL shape — callers can read metadata without
+ * optional chaining. Each evidence kind is resolved independently
+ * (top-level PLoT + embedded ISL is a valid mix).
  */
 export interface ResolvedEvidence {
   /**
-   * Resolved PLoT response object. `null` only when neither
+   * Resolved PLoT response body. `null` only when neither
    * the top-level capture nor the embedded enrichment is usable.
    */
   plot_response: Record<string, unknown> | null
-  plot_response_source: EvidenceSource
-  /**
-   * Concrete pathname pointing at WHERE the resolved evidence
-   * was sourced (for reviewer transparency). Example values:
-   *   - `'payloads.plot_response'` (top-level)
-   *   - `'payloads.cee_response.blocks[3].enrichment'` (embedded)
-   *   - `null` (source is `'unavailable'`)
-   */
-  plot_response_source_path: string | null
+  plot_response_resolution: EvidenceResolutionEntry
 
   /**
-   * ISL request — resolved identically. V5 canonical does NOT
-   * carry an ISL request body in the enrichment block today, so
-   * this field commonly resolves to `'unavailable'`. The resolver
-   * threads it for symmetry + future-proofing if/when CEE exposes
-   * an ISL request side.
+   * ISL request body. V5 canonical does NOT carry an ISL request
+   * in the enrichment block today, so this field commonly resolves
+   * to `'unavailable'`. Threaded for symmetry + future-proofing.
    */
   isl_request: Record<string, unknown> | null
-  isl_request_source: EvidenceSource
-  isl_request_source_path: string | null
+  isl_request_resolution: EvidenceResolutionEntry
 
   /**
-   * ISL response — resolved identically. When the enrichment has
-   * `downstream_calls.isl.response` (path used by the V2
-   * responseMapper), the resolver lifts that body. Otherwise
+   * ISL response body. When the enrichment exposes
+   * `downstream_calls.isl.response` (same path the V2
+   * responseMapper uses), the resolver lifts that body. Otherwise
    * `'unavailable'`.
    */
   isl_response: Record<string, unknown> | null
-  isl_response_source: EvidenceSource
-  isl_response_source_path: string | null
+  isl_response_resolution: EvidenceResolutionEntry
 }
+
+/** Required-upstream-support strings (shared, single source of truth). */
+const REQUIRED_UPSTREAM_PLOT_RESPONSE =
+  'Top-level capture from `payloads.plot_response` OR CEE V5 response carrying an `analysis_result` block whose `enrichment` includes at least one of: option_comparison, factor_sensitivity, m1_coaching, flip_thresholds, robustness.'
+const REQUIRED_UPSTREAM_ISL_REQUEST =
+  'Top-level capture from `payloads.isl_request`. The V5 CEE enrichment does NOT currently embed an ISL request body; CEE would need to expose one (e.g. via `enrichment.downstream_calls.isl.request`) for resolution from `cee_embedded`.'
+const REQUIRED_UPSTREAM_ISL_RESPONSE =
+  'Top-level capture from `payloads.isl_response` OR CEE V5 response carrying `enrichment.downstream_calls.isl.response`.'
 
 /**
  * Indicative keys that mark a CEE V5 enrichment block as actually
@@ -173,6 +205,23 @@ function enrichmentHasIndicativeKey(
  * Pure function. Defensive on malformed inputs (returns
  * `'unavailable'` rather than throwing).
  */
+/** Build the metadata block for a given evidence kind. */
+function buildResolution(
+  source: EvidenceSource,
+  path: string | null,
+  notes: string,
+  requiredUpstreamSupport: string,
+): EvidenceResolutionEntry {
+  const available = source !== 'unavailable'
+  return {
+    source,
+    path,
+    available,
+    required_upstream_support: available ? null : requiredUpstreamSupport,
+    notes,
+  }
+}
+
 export function resolveScientificEvidence(
   topLevel: {
     plot_response: unknown
@@ -183,13 +232,16 @@ export function resolveScientificEvidence(
 ): ResolvedEvidence {
   // -------------------- plot_response ---------------------------
   let plot_response: Record<string, unknown> | null = null
-  let plot_response_source: EvidenceSource = 'unavailable'
-  let plot_response_source_path: string | null = null
+  let plot_response_resolution: EvidenceResolutionEntry
 
   if (isPlainObject(topLevel.plot_response)) {
     plot_response = topLevel.plot_response
-    plot_response_source = 'top_level'
-    plot_response_source_path = 'payloads.plot_response'
+    plot_response_resolution = buildResolution(
+      'top_level',
+      'payloads.plot_response',
+      'Top-level capture from `payloads.plot_response` (dev/local or direct-PLoT path).',
+      REQUIRED_UPSTREAM_PLOT_RESPONSE,
+    )
   } else {
     // Embedded fallback — only when the analysis_result block
     // carries indicative keys.
@@ -198,46 +250,73 @@ export function resolveScientificEvidence(
       const enrichment = found.block.enrichment
       if (isPlainObject(enrichment) && enrichmentHasIndicativeKey(enrichment)) {
         plot_response = enrichment
-        plot_response_source = 'cee_embedded'
-        plot_response_source_path = `payloads.cee_response.blocks[${found.index}].enrichment`
+        plot_response_resolution = buildResolution(
+          'cee_embedded',
+          `payloads.cee_response.blocks[${found.index}].enrichment`,
+          'Lifted from CEE V5 turn `analysis_result` block enrichment. Top-level `payloads.plot_response` was null (V5 canonical mode); enrichment carries at least one indicative key.',
+          REQUIRED_UPSTREAM_PLOT_RESPONSE,
+        )
+      } else {
+        plot_response_resolution = buildResolution(
+          'unavailable',
+          null,
+          'Found an `analysis_result` block but its `enrichment` is missing or lacks any indicative key (option_comparison, factor_sensitivity, m1_coaching, flip_thresholds, robustness). Not promoted — empty/placeholder bodies are not treated as live evidence.',
+          REQUIRED_UPSTREAM_PLOT_RESPONSE,
+        )
       }
+    } else {
+      plot_response_resolution = buildResolution(
+        'unavailable',
+        null,
+        'Neither top-level `payloads.plot_response` nor a CEE V5 `analysis_result` block was found.',
+        REQUIRED_UPSTREAM_PLOT_RESPONSE,
+      )
     }
   }
 
   // -------------------- isl_request -----------------------------
   // V5 canonical enrichment does NOT carry an ISL request body in
-  // the staging-real fixture. We thread the field for symmetry +
-  // honesty. Top-level only.
+  // the staging-real fixture. Top-level only for now; the unavailable
+  // branch documents the CEE side that would be needed.
   let isl_request: Record<string, unknown> | null = null
-  let isl_request_source: EvidenceSource = 'unavailable'
-  let isl_request_source_path: string | null = null
+  let isl_request_resolution: EvidenceResolutionEntry
 
   if (isPlainObject(topLevel.isl_request)) {
     isl_request = topLevel.isl_request
-    isl_request_source = 'top_level'
-    isl_request_source_path = 'payloads.isl_request'
+    isl_request_resolution = buildResolution(
+      'top_level',
+      'payloads.isl_request',
+      'Top-level capture from `payloads.isl_request`.',
+      REQUIRED_UPSTREAM_ISL_REQUEST,
+    )
+  } else {
+    isl_request_resolution = buildResolution(
+      'unavailable',
+      null,
+      'No top-level `payloads.isl_request`. The V5 CEE turn enrichment does not currently embed an ISL request body; if/when CEE exposes one (e.g. via `enrichment.downstream_calls.isl.request`), this resolver will need a `cee_embedded` branch to pick it up.',
+      REQUIRED_UPSTREAM_ISL_REQUEST,
+    )
   }
-  // No `cee_embedded` branch for isl_request — the V5 enrichment
-  // does not embed an ISL request body. If CEE later exposes one
-  // (e.g. under `enrichment.downstream_calls.isl.request`), add
-  // that branch here.
 
   // -------------------- isl_response ----------------------------
   let isl_response: Record<string, unknown> | null = null
-  let isl_response_source: EvidenceSource = 'unavailable'
-  let isl_response_source_path: string | null = null
+  let isl_response_resolution: EvidenceResolutionEntry
 
   if (isPlainObject(topLevel.isl_response)) {
     isl_response = topLevel.isl_response
-    isl_response_source = 'top_level'
-    isl_response_source_path = 'payloads.isl_response'
+    isl_response_resolution = buildResolution(
+      'top_level',
+      'payloads.isl_response',
+      'Top-level capture from `payloads.isl_response`.',
+      REQUIRED_UPSTREAM_ISL_RESPONSE,
+    )
   } else {
     // Embedded fallback — probe
     // `analysis_result_block.enrichment.downstream_calls.isl.response`.
-    // Same path the V2 responseMapper uses, kept here for
-    // reviewer-transparency (the path string surfaces in
-    // `isl_response_source_path`).
+    // Same path the V2 responseMapper uses.
     const found = findAnalysisResultBlock(ceeResponse)
+    let embeddedResponse: Record<string, unknown> | null = null
+    let embeddedPath: string | null = null
     if (found !== null) {
       const enrichment = found.block.enrichment
       if (isPlainObject(enrichment)) {
@@ -247,25 +326,37 @@ export function resolveScientificEvidence(
           if (isPlainObject(isl)) {
             const response = isl.response
             if (isPlainObject(response)) {
-              isl_response = response
-              isl_response_source = 'cee_embedded'
-              isl_response_source_path = `payloads.cee_response.blocks[${found.index}].enrichment.downstream_calls.isl.response`
+              embeddedResponse = response
+              embeddedPath = `payloads.cee_response.blocks[${found.index}].enrichment.downstream_calls.isl.response`
             }
           }
         }
       }
     }
+    if (embeddedResponse !== null && embeddedPath !== null) {
+      isl_response = embeddedResponse
+      isl_response_resolution = buildResolution(
+        'cee_embedded',
+        embeddedPath,
+        'Lifted from CEE V5 turn enrichment `downstream_calls.isl.response`.',
+        REQUIRED_UPSTREAM_ISL_RESPONSE,
+      )
+    } else {
+      isl_response_resolution = buildResolution(
+        'unavailable',
+        null,
+        'Neither top-level `payloads.isl_response` nor an embedded `enrichment.downstream_calls.isl.response` was found.',
+        REQUIRED_UPSTREAM_ISL_RESPONSE,
+      )
+    }
   }
 
   return {
     plot_response,
-    plot_response_source,
-    plot_response_source_path,
+    plot_response_resolution,
     isl_request,
-    isl_request_source,
-    isl_request_source_path,
+    isl_request_resolution,
     isl_response,
-    isl_response_source,
-    isl_response_source_path,
+    isl_response_resolution,
   }
 }

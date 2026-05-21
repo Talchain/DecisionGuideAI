@@ -1170,23 +1170,38 @@ interface DebugBundle {
 
   /**
    * Evidence-resolver output (post-PR #162 follow-up). Maps each
-   * scientific-validation evidence kind to its actual source:
+   * scientific-validation evidence kind to its resolution metadata:
    *
+   *   evidence_resolution: {
+   *     plot_response: Record | null,
+   *     plot_response_resolution: {
+   *       source: 'top_level' | 'cee_embedded' | 'unavailable',
+   *       path: string | null,
+   *       available: boolean,
+   *       required_upstream_support: string | null,
+   *       notes: string,
+   *     },
+   *     isl_request: ...,
+   *     isl_request_resolution: ...,
+   *     isl_response: ...,
+   *     isl_response_resolution: ...,
+   *   }
+   *
+   * Source meanings:
    *   - `'top_level'`    — taken from `bundle.payloads.{plot,isl}_*`
    *     (dev/local + direct-capture path).
    *   - `'cee_embedded'` — extracted from `bundle.payloads.cee_response`
    *     `.blocks[type==='analysis_result'].enrichment` (V5 canonical
-   *     path; this field is the reviewer-facing signal that validators
-   *     used embedded enrichment rather than top-level capture).
+   *     path; the reviewer-facing signal that validators used
+   *     embedded enrichment rather than top-level capture).
    *   - `'unavailable'`  — neither source carried usable evidence.
    *
-   * Each `*_source_path` field gives the concrete pathname inside
-   * the bundle so reviewers can locate the actual evidence body.
-   *
-   * Honesty boundary: this field does NOT mutate
-   * `bundle.payloads.*`. The top-level payloads always reflect raw
-   * browser capture; the resolver result is a separate, additive
-   * diagnostic that records what the validators ACTUALLY saw.
+   * Honesty boundary: this field does NOT mutate `bundle.payloads.*`.
+   * The top-level payloads always reflect raw browser capture; the
+   * resolver result is a separate, additive diagnostic that records
+   * what the validators ACTUALLY saw and why. When `available` is
+   * `false`, `required_upstream_support` documents what would
+   * unlock this evidence kind — never inferred or fabricated.
    */
   evidence_resolution?: ResolvedEvidence
 
@@ -4052,14 +4067,14 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // the CEE source.
       selectedPlotTraceIsUsableLiveEvidence:
         data.selected_plot_trace_is_usable_live_evidence === true ||
-        resolvedEvidence.plot_response_source === 'cee_embedded',
+        resolvedEvidence.plot_response_resolution.source === 'cee_embedded',
       // Evidence-resolver: tell classifySource that the resolved
       // PLoT response came from CEE-embedded enrichment so it
       // can emit the distinct `'live_v5_cee_embedded'` source label.
       // Informational discriminator only — does NOT change the
       // live-evidence semantics (both 'live_raw_payloads' and
       // 'live_v5_cee_embedded' are live raw evidence).
-      plotResponseSource: resolvedEvidence.plot_response_source,
+      plotResponseSource: resolvedEvidence.plot_response_resolution.source,
     })
   } catch {
     // All four sections are additive — keep partial state on failure.

@@ -2197,7 +2197,7 @@ describe('buildDebugBundleAsync — evidence resolver (post-PR #162)', () => {
     inspectionState.reason = 'app_env_staging_enabled'
   })
 
-  it('Dev/local: top-level plot_response present → evidence_resolution.plot_response_source = top_level; source = live_raw_payloads (regression)', async () => {
+  it('Dev/local: top-level plot_response present → evidence_resolution.plot_response_resolution.source = top_level; source = live_raw_payloads (regression)', async () => {
     const bundle = await buildDebugBundleAsync(
       makeDebugData({
         selected_plot_trace_is_usable_live_evidence: true,
@@ -2215,15 +2215,15 @@ describe('buildDebugBundleAsync — evidence resolver (post-PR #162)', () => {
       }),
     )
     expect(bundle.evidence_resolution).toBeDefined()
-    expect(bundle.evidence_resolution?.plot_response_source).toBe('top_level')
-    expect(bundle.evidence_resolution?.plot_response_source_path).toBe(
+    expect(bundle.evidence_resolution?.plot_response_resolution.source).toBe('top_level')
+    expect(bundle.evidence_resolution?.plot_response_resolution.path).toBe(
       'payloads.plot_response',
     )
     // PR #156 round-4 regression preserved.
     expect(bundle.scientific_validation?.source).toBe('live_raw_payloads')
   })
 
-  it('Staging V5 canonical: top-level null + CEE embedded enrichment → evidence_resolution.plot_response_source = cee_embedded; source = live_v5_cee_embedded', async () => {
+  it('Staging V5 canonical: top-level null + CEE embedded enrichment → evidence_resolution.plot_response_resolution.source = cee_embedded; source = live_v5_cee_embedded', async () => {
     // Use a minimal real-shape enrichment (option_comparison +
     // factor_sensitivity + robustness — 3 of 5 indicative keys).
     // Same shape as `v5-analysis-result.staging-real-shape.json`.
@@ -2262,10 +2262,10 @@ describe('buildDebugBundleAsync — evidence resolver (post-PR #162)', () => {
     expect(bundle.payloads.plot_response).toBeNull()
     expect(bundle.payloads.cee_response).not.toBeNull()
     // Resolver surfaced embedded enrichment.
-    expect(bundle.evidence_resolution?.plot_response_source).toBe(
+    expect(bundle.evidence_resolution?.plot_response_resolution.source).toBe(
       'cee_embedded',
     )
-    expect(bundle.evidence_resolution?.plot_response_source_path).toMatch(
+    expect(bundle.evidence_resolution?.plot_response_resolution.path).toMatch(
       /^payloads\.cee_response\.blocks\[1\]\.enrichment$/,
     )
     // scientific_validation.source flips to the new label.
@@ -2343,9 +2343,9 @@ describe('buildDebugBundleAsync — evidence resolver (post-PR #162)', () => {
         },
       }),
     )
-    expect(bundle.evidence_resolution?.plot_response_source).toBe('unavailable')
-    expect(bundle.evidence_resolution?.isl_request_source).toBe('unavailable')
-    expect(bundle.evidence_resolution?.isl_response_source).toBe('unavailable')
+    expect(bundle.evidence_resolution?.plot_response_resolution.source).toBe('unavailable')
+    expect(bundle.evidence_resolution?.isl_request_resolution.source).toBe('unavailable')
+    expect(bundle.evidence_resolution?.isl_response_resolution.source).toBe('unavailable')
     // Source is one of the non-live labels — never live evidence.
     expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
     expect(bundle.scientific_validation?.source).not.toBe(
@@ -2388,25 +2388,43 @@ describe('buildDebugBundleAsync — evidence resolver (post-PR #162)', () => {
       }),
     )
     // Top-level wins for PLoT.
-    expect(bundle.evidence_resolution?.plot_response_source).toBe('top_level')
+    expect(bundle.evidence_resolution?.plot_response_resolution.source).toBe('top_level')
     // Embedded path used for ISL.
-    expect(bundle.evidence_resolution?.isl_response_source).toBe('cee_embedded')
-    expect(bundle.evidence_resolution?.isl_response_source_path).toMatch(
+    expect(bundle.evidence_resolution?.isl_response_resolution.source).toBe('cee_embedded')
+    expect(bundle.evidence_resolution?.isl_response_resolution.path).toMatch(
       /enrichment\.downstream_calls\.isl\.response$/,
     )
     // Top-level PLoT body wins → source is live_raw_payloads.
     expect(bundle.scientific_validation?.source).toBe('live_raw_payloads')
   })
 
-  it('Stable shape: evidence_resolution is always present with all 9 fields', async () => {
+  it('Stable shape: evidence_resolution emits all 5 spec fields per evidence kind', async () => {
     const bundle = await buildDebugBundleAsync(makeDebugData())
     expect(bundle.evidence_resolution).toBeDefined()
     const er = bundle.evidence_resolution!
-    expect(er.plot_response_source).toBeDefined()
-    expect(er.plot_response_source_path !== undefined).toBe(true) // null is OK
-    expect(er.isl_request_source).toBeDefined()
-    expect(er.isl_request_source_path !== undefined).toBe(true)
-    expect(er.isl_response_source).toBeDefined()
-    expect(er.isl_response_source_path !== undefined).toBe(true)
+    // Each kind exposes a resolution block carrying the spec fields:
+    //   source · path · available · required_upstream_support · notes
+    for (const res of [
+      er.plot_response_resolution,
+      er.isl_request_resolution,
+      er.isl_response_resolution,
+    ]) {
+      expect(['top_level', 'cee_embedded', 'unavailable']).toContain(res.source)
+      // path is `string | null` — non-null when source !== 'unavailable'.
+      expect(res.path === null || typeof res.path === 'string').toBe(true)
+      expect(typeof res.available).toBe('boolean')
+      expect(res.available).toBe(res.source !== 'unavailable')
+      // required_upstream_support is null when available, string when not.
+      expect(
+        res.required_upstream_support === null ||
+          typeof res.required_upstream_support === 'string',
+      ).toBe(true)
+      expect((res.required_upstream_support === null) === res.available).toBe(
+        true,
+      )
+      // notes is always a non-empty diagnostic string.
+      expect(typeof res.notes).toBe('string')
+      expect(res.notes.length).toBeGreaterThan(0)
+    }
   })
 })

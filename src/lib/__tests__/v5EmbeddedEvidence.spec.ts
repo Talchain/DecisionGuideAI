@@ -37,8 +37,8 @@ describe('resolveScientificEvidence — top-level precedence', () => {
     }
     const r = resolveScientificEvidence(topLevel, realCeeShape)
     expect(r.plot_response).toEqual(topLevel.plot_response)
-    expect(r.plot_response_source).toBe('top_level')
-    expect(r.plot_response_source_path).toBe('payloads.plot_response')
+    expect(r.plot_response_resolution.source).toBe('top_level')
+    expect(r.plot_response_resolution.path).toBe('payloads.plot_response')
   })
 
   it('returns top-level isl_request when present', () => {
@@ -49,8 +49,8 @@ describe('resolveScientificEvidence — top-level precedence', () => {
     }
     const r = resolveScientificEvidence(topLevel, null)
     expect(r.isl_request).toEqual(topLevel.isl_request)
-    expect(r.isl_request_source).toBe('top_level')
-    expect(r.isl_request_source_path).toBe('payloads.isl_request')
+    expect(r.isl_request_resolution.source).toBe('top_level')
+    expect(r.isl_request_resolution.path).toBe('payloads.isl_request')
   })
 
   it('returns top-level isl_response when present', () => {
@@ -61,8 +61,8 @@ describe('resolveScientificEvidence — top-level precedence', () => {
     }
     const r = resolveScientificEvidence(topLevel, null)
     expect(r.isl_response).toEqual(topLevel.isl_response)
-    expect(r.isl_response_source).toBe('top_level')
-    expect(r.isl_response_source_path).toBe('payloads.isl_response')
+    expect(r.isl_response_resolution.source).toBe('top_level')
+    expect(r.isl_response_resolution.path).toBe('payloads.isl_response')
   })
 })
 
@@ -70,8 +70,8 @@ describe('resolveScientificEvidence — CEE-embedded fallback', () => {
   it('lifts enrichment as plot_response when top-level is null (real staging fixture)', () => {
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, realCeeShape)
     expect(r.plot_response).not.toBeNull()
-    expect(r.plot_response_source).toBe('cee_embedded')
-    expect(r.plot_response_source_path).toMatch(
+    expect(r.plot_response_resolution.source).toBe('cee_embedded')
+    expect(r.plot_response_resolution.path).toMatch(
       /^payloads\.cee_response\.blocks\[\d+\]\.enrichment$/,
     )
     // Sanity check that the resolver lifted the actual enrichment
@@ -91,11 +91,11 @@ describe('resolveScientificEvidence — CEE-embedded fallback', () => {
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, realCeeShape)
     // ISL fields stay unavailable — the fixture has no downstream_calls.isl.
     expect(r.isl_request).toBeNull()
-    expect(r.isl_request_source).toBe('unavailable')
-    expect(r.isl_request_source_path).toBeNull()
+    expect(r.isl_request_resolution.source).toBe('unavailable')
+    expect(r.isl_request_resolution.path).toBeNull()
     expect(r.isl_response).toBeNull()
-    expect(r.isl_response_source).toBe('unavailable')
-    expect(r.isl_response_source_path).toBeNull()
+    expect(r.isl_response_resolution.source).toBe('unavailable')
+    expect(r.isl_response_resolution.path).toBeNull()
   })
 
   it('lifts isl_response from enrichment.downstream_calls.isl.response when present', () => {
@@ -123,8 +123,8 @@ describe('resolveScientificEvidence — CEE-embedded fallback', () => {
     }
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, ceeWithDownstreamIsl)
     expect(r.isl_response).not.toBeNull()
-    expect(r.isl_response_source).toBe('cee_embedded')
-    expect(r.isl_response_source_path).toMatch(
+    expect(r.isl_response_resolution.source).toBe('cee_embedded')
+    expect(r.isl_response_resolution.path).toMatch(
       /^payloads\.cee_response\.blocks\[0\]\.enrichment\.downstream_calls\.isl\.response$/,
     )
   })
@@ -147,7 +147,7 @@ describe('resolveScientificEvidence — CEE-embedded fallback', () => {
     expect(
       (r.plot_response as Record<string, unknown>)?.factor_sensitivity,
     ).toEqual([{ factor_id: 'first' }])
-    expect(r.plot_response_source_path).toBe(
+    expect(r.plot_response_resolution.path).toBe(
       'payloads.cee_response.blocks[1].enrichment',
     )
   })
@@ -167,8 +167,8 @@ describe('resolveScientificEvidence — indicative-keys gate (no synthesis)', ()
     }
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, ceeWithEmptyEnrichment)
     expect(r.plot_response).toBeNull()
-    expect(r.plot_response_source).toBe('unavailable')
-    expect(r.plot_response_source_path).toBeNull()
+    expect(r.plot_response_resolution.source).toBe('unavailable')
+    expect(r.plot_response_resolution.path).toBeNull()
   })
 
   it('does NOT promote enrichment={} (empty object)', () => {
@@ -177,7 +177,7 @@ describe('resolveScientificEvidence — indicative-keys gate (no synthesis)', ()
     }
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, ceeWithEmptyObj)
     expect(r.plot_response).toBeNull()
-    expect(r.plot_response_source).toBe('unavailable')
+    expect(r.plot_response_resolution.source).toBe('unavailable')
   })
 
   it('promotes enrichment when ONLY robustness is present (single indicative key suffices)', () => {
@@ -190,7 +190,7 @@ describe('resolveScientificEvidence — indicative-keys gate (no synthesis)', ()
       ],
     }
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, ceeWithRobustnessOnly)
-    expect(r.plot_response_source).toBe('cee_embedded')
+    expect(r.plot_response_resolution.source).toBe('cee_embedded')
     expect(r.plot_response).not.toBeNull()
   })
 })
@@ -198,18 +198,30 @@ describe('resolveScientificEvidence — indicative-keys gate (no synthesis)', ()
 describe('resolveScientificEvidence — unavailable when both missing', () => {
   it('returns all unavailable when both top-level and CEE are null', () => {
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, null)
-    const expected: ResolvedEvidence = {
-      plot_response: null,
-      plot_response_source: 'unavailable',
-      plot_response_source_path: null,
-      isl_request: null,
-      isl_request_source: 'unavailable',
-      isl_request_source_path: null,
-      isl_response: null,
-      isl_response_source: 'unavailable',
-      isl_response_source_path: null,
+    // Bodies are null.
+    expect(r.plot_response).toBeNull()
+    expect(r.isl_request).toBeNull()
+    expect(r.isl_response).toBeNull()
+    // Each resolution block reports unavailable + null path +
+    // available=false + non-null required_upstream_support + a
+    // non-empty diagnostic note.
+    for (const res of [
+      r.plot_response_resolution,
+      r.isl_request_resolution,
+      r.isl_response_resolution,
+    ]) {
+      expect(res.source).toBe('unavailable')
+      expect(res.path).toBeNull()
+      expect(res.available).toBe(false)
+      expect(typeof res.required_upstream_support).toBe('string')
+      expect((res.required_upstream_support as string).length).toBeGreaterThan(0)
+      expect(typeof res.notes).toBe('string')
+      expect(res.notes.length).toBeGreaterThan(0)
     }
-    expect(r).toEqual(expected)
+    // Type-anchor: ResolvedEvidence import is exercised through the
+    // resolver's return value shape.
+    const _typed: ResolvedEvidence = r
+    expect(_typed).toBe(r)
   })
 
   it('returns unavailable when CEE response has no analysis_result block', () => {
@@ -220,8 +232,8 @@ describe('resolveScientificEvidence — unavailable when both missing', () => {
       ],
     }
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, ceeNoAnalysisBlock)
-    expect(r.plot_response_source).toBe('unavailable')
-    expect(r.isl_response_source).toBe('unavailable')
+    expect(r.plot_response_resolution.source).toBe('unavailable')
+    expect(r.isl_response_resolution.source).toBe('unavailable')
   })
 })
 
@@ -249,12 +261,12 @@ describe('resolveScientificEvidence — mixed sources (top-level + embedded)', (
     }
     const r = resolveScientificEvidence(topLevel, ceeWithIsl)
     // PLoT comes from top-level (top-level wins).
-    expect(r.plot_response_source).toBe('top_level')
+    expect(r.plot_response_resolution.source).toBe('top_level')
     expect(
       (r.plot_response as Record<string, unknown>)?.factor_sensitivity,
     ).toEqual([{ factor_id: 'top' }])
     // ISL response comes from embedded (top-level was null).
-    expect(r.isl_response_source).toBe('cee_embedded')
+    expect(r.isl_response_resolution.source).toBe('cee_embedded')
     expect(
       (r.isl_response as Record<string, unknown>)?.factor_sensitivity,
     ).toEqual([{ factor_id: 'isl' }])
@@ -270,21 +282,21 @@ describe('resolveScientificEvidence — malformed-input safety (no throws)', () 
 
   it('handles ceeResponse.blocks not being an array', () => {
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, { blocks: 'not-array' })
-    expect(r.plot_response_source).toBe('unavailable')
+    expect(r.plot_response_resolution.source).toBe('unavailable')
   })
 
   it('handles block missing type field', () => {
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
       blocks: [{ enrichment: { factor_sensitivity: [] } }],
     })
-    expect(r.plot_response_source).toBe('unavailable')
+    expect(r.plot_response_resolution.source).toBe('unavailable')
   })
 
   it('handles block.enrichment not being an object', () => {
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
       blocks: [{ type: 'analysis_result', enrichment: 'string-not-object' }],
     })
-    expect(r.plot_response_source).toBe('unavailable')
+    expect(r.plot_response_resolution.source).toBe('unavailable')
   })
 
   it('handles top-level plot_response being an array (not object)', () => {
@@ -293,13 +305,13 @@ describe('resolveScientificEvidence — malformed-input safety (no throws)', () 
       null,
     )
     // Array is NOT a plain object — defensive guard rejects it.
-    expect(r.plot_response_source).toBe('unavailable')
+    expect(r.plot_response_resolution.source).toBe('unavailable')
   })
 
   it('handles null/undefined block.enrichment', () => {
     const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
       blocks: [{ type: 'analysis_result', enrichment: null }],
     })
-    expect(r.plot_response_source).toBe('unavailable')
+    expect(r.plot_response_resolution.source).toBe('unavailable')
   })
 })
