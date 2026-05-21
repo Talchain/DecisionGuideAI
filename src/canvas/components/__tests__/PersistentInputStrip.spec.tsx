@@ -80,6 +80,40 @@ describe('PersistentInputStrip', () => {
       expect(screen.getByTestId('persistent-strip-composer')).toBeInTheDocument()
       expect(screen.getByRole('textbox')).toBeInTheDocument()
     })
+
+    it('round-16: strip variant has 3-line min (70px) and 8-line max (160px) so cog+send fit and composer grows', () => {
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />, {
+        wrapper: Wrapper,
+      })
+      const textarea = screen.getByRole('textbox') as HTMLTextAreaElement
+      // LINE_HEIGHT_PX (18) * STRIP_MIN_LINES (3) + 16 = 70.
+      // The cog + send icon stack (28 + 2 + 28 = 58px) now fits inside
+      // the textarea border without overflowing.
+      expect(textarea.style.minHeight).toBe('70px')
+      // LINE_HEIGHT_PX (18) * STRIP_MAX_LINES (8) + 16 = 160.
+      // Composer grows as user types; internal scroll engages beyond this.
+      expect(textarea.style.maxHeight).toBe('160px')
+    })
+
+    it('round-16: strip variant uses larger right inset on icon stack so the scrollbar is not covered when textarea scrolls', () => {
+      // When the textarea hits its 160px ceiling and the browser draws
+      // an internal vertical scrollbar (≈12px wide), the absolutely-
+      // positioned cog + send icon stack would overlap the scrollbar at
+      // the default `right-1.5` (6px) inset. Round-16 bumps the strip
+      // variant's stackInset to `right-4` (16px) so the icons sit clear
+      // of the scrollbar.
+      render(<PersistentInputStrip isOlumiTabActive onOpenFloating={() => {}} onCogClick={() => {}} />, {
+        wrapper: Wrapper,
+      })
+      const cog = screen.getByTestId('ai-input-bar-strip-cog')
+      const send = screen.getByTestId('ai-input-bar-strip-send')
+      // The icon stack is the absolutely-positioned div wrapping both
+      // buttons. Both icons share the same parent stack container.
+      const stack = cog.parentElement as HTMLElement
+      expect(stack).toBe(send.parentElement)
+      // Tailwind class assertion — `right-4` corresponds to a 16px inset.
+      expect(stack.className).toMatch(/\bright-4\b/)
+    })
   })
 
   describe('status mode — floating open (invariant: no textarea)', () => {

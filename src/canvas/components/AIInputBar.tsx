@@ -75,6 +75,18 @@ const FLOATING_MIN_LINES = 3
 const FLOATING_MAX_LINES = 8
 
 /**
+ * Strip variant (docked Olumi tab composer): round-16 UX. Same fix as the
+ * floating variant — 3-line rest so the cog + send stack (58px) fits
+ * inside the textarea border, and grows on type up to 8 lines before
+ * internal scroll engages. The icon-stack inset is also bumped from
+ * `right-1.5` to `right-4` for THIS variant so that when the textarea
+ * hits its 8-line ceiling and the browser draws an internal scrollbar,
+ * the buttons leave room for the scrollbar instead of overlapping it.
+ */
+const STRIP_MIN_LINES = 3
+const STRIP_MAX_LINES = 8
+
+/**
  * AIInputBar — single shared composer used by the persistent strip, the docked
  * Olumi tab (currently unused — strip handles), the floating Olumi panel, the
  * first-use centred composer, and the AI Panel v2 welcome hero. Owns no message
@@ -119,6 +131,7 @@ export const AIInputBar = memo(
     const nodeCount = useCanvasStore((s) => s.nodes.length)
     const isWelcome = variant === 'welcome'
     const isFloating = variant === 'floating'
+    const isStrip = variant === 'strip'
 
     useImperativeHandle(
       ref,
@@ -134,18 +147,24 @@ export const AIInputBar = memo(
     // - floating: 3-line rest, grows to 8 lines (panel footer composer).
     //   Round-13: needs ≥ 3 lines so cog + send icons fit inside without
     //   overflowing the textarea border; grows on type for follow-ups.
-    // - strip / docked-tab / first-use: 1-line rest, grows to 2 lines
-    //   (compact surfaces).
+    // - strip: 3-line rest, grows to 8 lines (docked Olumi tab composer).
+    //   Round-16: same fix as round-13 for the floating variant.
+    // - docked-tab / first-use: 1-line rest, grows to 2 lines (compact
+    //   surfaces — not currently exercised by AI Panel v2 callers).
     const minLines = isWelcome
       ? WELCOME_MIN_LINES
       : isFloating
         ? FLOATING_MIN_LINES
-        : 1
+        : isStrip
+          ? STRIP_MIN_LINES
+          : 1
     const maxLines = isWelcome
       ? WELCOME_MAX_LINES
       : isFloating
         ? FLOATING_MAX_LINES
-        : MAX_LINES
+        : isStrip
+          ? STRIP_MAX_LINES
+          : MAX_LINES
     const minHeightPx = LINE_HEIGHT_PX * minLines + 16
     const maxHeightPx = LINE_HEIGHT_PX * maxLines + 16
     useLayoutEffect(() => {
@@ -216,11 +235,23 @@ export const AIInputBar = memo(
     const cogBtnSize = isWelcome ? 'w-8 h-8' : 'w-7 h-7'
     const cogIconSize = isWelcome ? 'w-4 h-4' : 'w-4 h-4'
     // Stack inset: the cog/send cluster sits inside the right edge of the
-    // textarea. Welcome variant gives more breathing room.
-    const stackInset = isWelcome ? 'right-2 bottom-2' : 'right-1.5 bottom-1'
+    // textarea. Welcome variant gives more breathing room. Strip variant
+    // (round-16) bumps the right inset from 6px to 16px so that when the
+    // textarea hits its 8-line ceiling and a vertical scrollbar appears,
+    // the icon stack leaves room for the scrollbar instead of overlapping
+    // it. Other variants keep their original 6px inset (the floating
+    // variant's auto-grow ceiling rarely engages internal scroll in
+    // practice; if it ever does, we can extend this).
+    const stackInset = isWelcome
+      ? 'right-2 bottom-2'
+      : isStrip
+        ? 'right-4 bottom-2'
+        : 'right-1.5 bottom-1'
     const stackGap = isWelcome ? 'gap-1' : 'gap-0.5'
     // Right padding on textarea reserves room for the cog+send cluster.
-    const textareaRightPad = isWelcome ? 'pr-24' : 'pr-16'
+    // Strip variant reserves a touch more so typed text doesn't drift
+    // under the icons when the stack is pushed inward by 10px.
+    const textareaRightPad = isWelcome ? 'pr-24' : isStrip ? 'pr-20' : 'pr-16'
 
     return (
       <div className={containerClasses} data-testid={testId ?? `ai-input-bar-${variant}`}>
