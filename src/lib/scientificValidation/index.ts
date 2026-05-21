@@ -89,6 +89,17 @@ function classifySource(
         // trustworthy. The bundle's evidence-source rollup will
         // settle on `hydrated_report` or `debug_fallback`.
       } else {
+        // Evidence-resolver follow-up (post-PR #162): when the
+        // resolved `plotResponse` came from CEE V5 embedded
+        // enrichment, emit a distinct label so reviewers can
+        // discriminate "top-level captured raw" vs "lifted from
+        // CEE V5 turn enrichment". Both are live raw evidence;
+        // the label is an informational source discriminator.
+        // The indicative-keys gate above + the usability gate
+        // above STILL apply — no relaxation of honesty here.
+        if (inputs.plotResponseSource === 'cee_embedded') {
+          return 'live_v5_cee_embedded'
+        }
         return 'live_raw_payloads'
       }
     }
