@@ -52,14 +52,15 @@ export interface AIInputBarProps {
 const MAX_LINES = 2
 const LINE_HEIGHT_PX = 18
 /**
- * Welcome hero variant: round-11 UX correction returns to a Claude-style
- * single-line composer that grows organically as the user types. The
- * rest state is one line (inviting), and the textarea expands up to 12
- * lines before its own scroll engages. This replaces the previous 14-line
- * minimum, which read as a form/textbox rather than as a conversation
- * starter.
+ * Welcome hero variant: round-12 UX correction. The rest-state textarea
+ * is THREE lines tall (≈70px = 18*3 + 16) so the absolutely-positioned
+ * cog + send icon stack (32px + 4px gap + 32px = 68px) fits comfortably
+ * INSIDE the textarea border without overflowing into the surrounding
+ * canvas. Three lines reads as an invitation (you can type a sentence
+ * or two) rather than a form (14-line monolith from round-8). It still
+ * grows organically as the user types, capped at 12 lines.
  */
-const WELCOME_MIN_LINES = 1
+const WELCOME_MIN_LINES = 3
 const WELCOME_MAX_LINES = 12
 
 /**

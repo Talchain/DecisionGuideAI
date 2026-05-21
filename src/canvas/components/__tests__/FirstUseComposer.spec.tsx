@@ -364,13 +364,14 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
     expect(img?.style.height).toBe('auto')
   })
 
-  it('uses the welcome variant of AIInputBar with a single-line rest height that grows on type', () => {
+  it('uses the welcome variant of AIInputBar with a three-line rest height so the icon stack fits', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
-    // Round-11: welcome variant minHeight: LINE_HEIGHT_PX (18) * WELCOME_MIN_LINES (1) + 16 = 34px.
-    // The composer starts at one line (inviting, Claude-style) and grows
-    // as the user types. The previous 268px floor read as a form/textbox.
-    expect(textarea.style.minHeight).toBe('34px')
+    // Round-12: welcome variant minHeight: LINE_HEIGHT_PX (18) * WELCOME_MIN_LINES (3) + 16 = 70px.
+    // The absolutely-positioned cog + send icon stack is 68px tall
+    // (32 + 4 + 32) and must fit inside the textarea border. A 1-line
+    // rest (34px) caused the stack to overflow visually.
+    expect(textarea.style.minHeight).toBe('70px')
     // Auto-grow ceiling: WELCOME_MAX_LINES (12) * 18 + 16 = 232px.
     expect(textarea.style.maxHeight).toBe('232px')
   })
