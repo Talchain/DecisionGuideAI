@@ -31,6 +31,11 @@ import {
 import {
   matchServiceCaseInsensitive,
   extractPathname,
+  isPlotService,
+  isV1PlotEngineEndpoint,
+  isV1PlotStreamEndpoint,
+  isV1PlotEndpoint,
+  isV2PlotEndpoint,
 } from '../v5TraceMatching'
 
 // Builders -------------------------------------------------------------
@@ -1006,6 +1011,90 @@ describe('extractPathname — round-6 review (malformed URLs / protocol-relative
   it('malformed absolute URL does NOT throw — returns null instead', () => {
     expect(() => extractPathname('http://[broken')).not.toThrow()
     expect(extractPathname('http://[broken')).toBeNull()
+  })
+})
+
+// =====================================================================
+// PR #156 round-2 — PLoT V1/V2 path-boundary matchers
+// =====================================================================
+
+describe('PR #156 round-2: PLoT endpoint matchers (path-boundary)', () => {
+  it('isPlotService case-insensitive', () => {
+    expect(isPlotService({ service: 'PLoT' })).toBe(true)
+    expect(isPlotService({ service: 'plot' })).toBe(true)
+    expect(isPlotService({ service: 'PLOT' })).toBe(true)
+    expect(isPlotService({ service: 'CEE' })).toBe(false)
+    expect(isPlotService({})).toBe(false)
+  })
+
+  describe('isV1PlotEngineEndpoint — false-positive rejection', () => {
+    it.each([
+      // Canonical V1 sync paths — ACCEPT
+      { ep: '/bff/engine/v1/run', expected: true },
+      { ep: '/v1/run', expected: true },
+      { ep: 'https://engine.test/v1/run', expected: true },
+      { ep: '/v1/run?nonce=abc', expected: true },
+      { ep: '/v1/run#frag', expected: true },
+      { ep: '/v1/run/sub', expected: true },
+      // Round-2 reviewer IMP #3 — REJECT word-boundary false positives
+      { ep: '/v1/running', expected: false },
+      { ep: '/v1/run-old', expected: false },
+      { ep: '/v1/run_legacy', expected: false },
+      // Query-string false positives (round-5 pathname-only rule)
+      { ep: '/legacy?next=/v1/run', expected: false },
+      { ep: 'https://other.test/foo?redirect=/v1/run', expected: false },
+      // Fragment false positives
+      { ep: '/legacy#/v1/run', expected: false },
+      // Non-PLoT services on V1 path
+      { ep: '/v1/run', service: 'CEE', expected: false },
+      // Missing endpoint
+      { ep: '', expected: false },
+    ])(
+      'endpoint=$ep service=${service ?? PLoT} → $expected',
+      ({ ep, expected, service }) => {
+        expect(
+          isV1PlotEngineEndpoint({ service: service ?? 'PLoT', endpoint: ep }),
+        ).toBe(expected)
+      },
+    )
+  })
+
+  describe('isV1PlotStreamEndpoint', () => {
+    it.each([
+      { ep: '/bff/engine/v1/stream', expected: true },
+      { ep: '/v1/stream', expected: true },
+      { ep: '/v1/stream?id=1', expected: true },
+      // Reject look-alikes
+      { ep: '/v1/streaming', expected: false },
+      { ep: '/v1/stream-debug', expected: false },
+      { ep: '/legacy?next=/v1/stream', expected: false },
+    ])('endpoint=$ep → $expected', ({ ep, expected }) => {
+      expect(
+        isV1PlotStreamEndpoint({ service: 'PLoT', endpoint: ep }),
+      ).toBe(expected)
+    })
+  })
+
+  describe('isV1PlotEndpoint convenience', () => {
+    it('matches either sync OR stream V1', () => {
+      expect(isV1PlotEndpoint({ service: 'PLoT', endpoint: '/v1/run' })).toBe(true)
+      expect(isV1PlotEndpoint({ service: 'PLoT', endpoint: '/v1/stream' })).toBe(true)
+      expect(isV1PlotEndpoint({ service: 'PLoT', endpoint: '/v2/run' })).toBe(false)
+      expect(isV1PlotEndpoint({ service: 'CEE', endpoint: '/v1/run' })).toBe(false)
+    })
+  })
+
+  describe('isV2PlotEndpoint', () => {
+    it.each([
+      { ep: '/v2/run', expected: true },
+      { ep: 'https://engine.test/v2/run?q=1', expected: true },
+      // Reject look-alikes
+      { ep: '/v2/running', expected: false },
+      { ep: '/v2/run-old', expected: false },
+      { ep: '/legacy?next=/v2/run', expected: false },
+    ])('endpoint=$ep → $expected', ({ ep, expected }) => {
+      expect(isV2PlotEndpoint({ service: 'PLoT', endpoint: ep })).toBe(expected)
+    })
   })
 })
 

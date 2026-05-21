@@ -13,6 +13,11 @@ import type {
   V1Error,
 } from './types'
 import { TIMEOUTS } from './constants'
+// PR follow-up to #153: record the streaming SSE request + completion
+// into the payload-trace-store so the debug bundle's PLoT selector can
+// find this entry. Gate-checked inside the helpers; closed gate makes
+// these calls no-ops.
+import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -77,9 +82,17 @@ export function runStream(
 
   const url = `${base}/v1/stream`
 
+  // PR follow-up to #153: generate a request id and propagate it via
+  // `X-Request-Id` so the bundle can correlate request and response
+  // sides of the trace-store entry. The sync path generates its id at
+  // `http.ts:352`; the streaming path previously had no id at all.
+  const requestId = crypto.randomUUID()
+  const startTime = Date.now()
+
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Accept': 'text/event-stream',
+    'X-Request-Id': requestId,
   }
 
   // Extract idempotency key for header-only usage; do not send it in JSON body
@@ -90,6 +103,36 @@ export function runStream(
     headers['Idempotency-Key'] = idempotencyKey
   }
 
+  // PR follow-up to #153: record the streaming request into the
+  // payload-trace store so the bundle's PLoT selector can find this
+  // turn. `detectService(endpoint)` inside `recordRequestPayload`
+  // classifies as `service: 'PLoT'` from the `/v1/stream` path.
+  recordRequestPayload({
+    id: requestId,
+    endpoint: url,
+    method: 'POST',
+    headers,
+    body: requestForBody,
+  })
+
+  // PR #156 follow-up (reviewer P0): track whether the response side
+  // has been recorded so the `.catch` doesn't over-record on the
+  // non-OK path. PR #156 (reviewer IMP #2): capture the final
+  // COMPLETE event body so streaming success can reach
+  // `live_raw_payloads` evidence (instead of body:null forcing
+  // `hydrated_report`).
+  let responseRecorded = false
+  let completeEventBody: unknown = null
+  // Wrap the user's onComplete to capture the analysis payload for
+  // the trace store. The user's handler still runs unchanged.
+  const wrappedHandlers: V1StreamHandlers = {
+    ...handlers,
+    onComplete: (data: V1CompleteData) => {
+      completeEventBody = data
+      handlers.onComplete(data)
+    },
+  }
+
   fetch(url, {
     method: 'POST',
     headers,
@@ -98,6 +141,44 @@ export function runStream(
   })
     .then(async (response) => {
       if (!response.ok) {
+        // PR #156 follow-up (reviewer P0): non-OK SSE responses
+        // previously hit `handlers.onError(...); return` and left
+        // the trace entry without a response side — exporters
+        // couldn't distinguish "stream succeeded silently" from
+        // "stream failed at HTTP level". Now we record the real
+        // status + error body BEFORE returning. Marks
+        // `responseRecorded` so the `.catch` doesn't over-record.
+        let errorBody: unknown = null
+        const errorBodyHeaders: Record<string, string> = {}
+        try {
+          if (response.headers && typeof response.headers.forEach === 'function') {
+            response.headers.forEach((v, k) => {
+              errorBodyHeaders[k] = v
+            })
+          }
+        } catch {
+          // jsdom Response mocks may lack a real Headers shape.
+        }
+        try {
+          errorBody = await response.clone().json()
+        } catch {
+          try {
+            const text = await response.clone().text()
+            errorBody = text.length > 0 ? text : null
+          } catch {
+            errorBody = null
+          }
+        }
+        recordResponsePayload({
+          id: requestId,
+          status: response.status,
+          headers: errorBodyHeaders,
+          body: errorBody,
+          duration: Date.now() - startTime,
+          source: 'plot',
+        })
+        responseRecorded = true
+
         const error = await mapStreamError(response)
         handlers.onError(error)
         return
@@ -150,7 +231,7 @@ export function runStream(
               handleEvent(
                 eventType,
                 data,
-                handlers,
+                wrappedHandlers,
                 throttledProgress,
                 resetHeartbeat,
                 correlationIdHeader,
@@ -166,9 +247,54 @@ export function runStream(
 
       // Clean up heartbeat timer
       if (heartbeatTimeout) clearTimeout(heartbeatTimeout)
+
+      // PR follow-up to #153 + PR #156 reviewer IMP #2: complete the
+      // trace-store entry on stream end. PRE-fix this recorded
+      // `body: null` always, which made `live_plot_v1_engine_turn`
+      // unable to reach `live_raw_payloads` evidence (validators
+      // need a body shaped like the V1 sync run result). Now we
+      // capture the COMPLETE event's payload from the wrapped
+      // onComplete handler — when present, the trace mirrors what a
+      // sync `/v1/run` call would have produced; when absent (stream
+      // ended without a COMPLETE event, e.g. cancellation mid-stream)
+      // the body stays null and reviewers see the partial outcome
+      // honestly.
+      if (!responseRecorded) {
+        recordResponsePayload({
+          id: requestId,
+          status: response.status,
+          headers: {},
+          body: completeEventBody,
+          duration: Date.now() - startTime,
+          source: 'plot',
+        })
+        responseRecorded = true
+      }
     })
     .catch((err) => {
       if (heartbeatTimeout) clearTimeout(heartbeatTimeout)
+      // PR follow-up to #153: complete the trace-store entry on the
+      // error path so the bundle reflects "stream attempted, failed"
+      // honestly. AbortError on cancel is silent on the user-facing
+      // handler but the trace still records the cancellation.
+      //
+      // PR #156 follow-up (reviewer P0): only record when the
+      // response side hasn't been set already. The non-OK HTTP
+      // branch records the real status + body BEFORE returning;
+      // re-recording here would overwrite that with status:0.
+      if (!responseRecorded) {
+        recordResponsePayload({
+          id: requestId,
+          status: 0,
+          headers: {},
+          body: null,
+          duration: Date.now() - startTime,
+          error: typeof err?.message === 'string' ? err.message : undefined,
+          errorName: typeof err?.name === 'string' ? err.name : undefined,
+          source: err?.name === 'AbortError' ? 'browser_timeout' : 'preflight_or_network',
+        })
+        responseRecorded = true
+      }
       if (!isClosed) {
         if (err.name === 'AbortError') {
           // Cancelled - don't call onError

@@ -1377,3 +1377,607 @@ describe('buildDebugBundleAsync — round-7 IMP: manual-style happy-path fixture
     expect(issues).not.toContain('invalid_selected_trace_id')
   })
 })
+
+// =====================================================================
+// Round-8 (follow-up to PR #153) — V1 PLoT engine capture
+// =====================================================================
+
+describe('buildDebugBundleAsync — round-8: PLoT v1 engine capture surfaces in the bundle (Run-analysis flow)', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('Run-analysis-only fixture: V1 PLoT trace + no CEE → bundle populates plot_*, labels analysis_evidence_source=live_plot_v1_engine_turn, scientific_validation upgrades off insufficient_raw_evidence', async () => {
+    // Trace store contains a SINGLE successful V1 PLoT engine entry.
+    // No CEE turn fired (typical Run-analysis flow).
+    const plotV1ResponseBody = {
+      run_id: 'run-v1-1',
+      // RAW_PAYLOAD_INDICATIVE_KEYS — any of these flips
+      // `scientific_validation.source` to `'live_raw_payloads'`.
+      factor_sensitivity: [{ factor_id: 'f1', impact: 0.4 }],
+      // PLoT science fields the user wants discoverable from raw
+      // payloads (the bundle just passes the body through;
+      // validators read it from `plotResponse`).
+      flip_thresholds: [
+        { option: 'A', margin: 0.05, margin_sensitivity: 0.12 },
+      ],
+      flip_thresholds_status: 'computed',
+      flip_thresholds_margin_status: 'observed',
+      flip_thresholds_margin_coverage: 'full',
+      auto_noise_applied: true,
+      auto_noise_provenance: 'engine',
+      response_hash: 'plot-v1-hash',
+    }
+    traceState.payloads = [
+      {
+        id: 'tp-v1-plot',
+        service: 'PLoT',
+        endpoint: '/bff/engine/v1/run',
+        completed: true,
+        status: 200,
+        request: { body: { scenario_id: 'scn-1' } },
+        response: { body: plotV1ResponseBody },
+      },
+    ]
+    canvasState.results = {
+      report: { recommendation: 'A' },
+      hash: 'plot-v1-hash',
+      rawV2Response: null, // V1 path; no V2 raw response
+    }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        // useDebugData fills these from the trace store. Simulate the
+        // shape it would produce.
+        plot_candidate_count_v1_engine: 1,
+        plot_candidate_count_v2: 0,
+        selected_plot_trace_id: 'tp-v1-plot',
+        // PR #156 round-2 + round-3: selected trace endpoint +
+        // completion + body presence drive analysis_evidence_source.
+        // The new `selected_plot_trace_is_usable_live_evidence`
+        // boolean is the single source of truth for the live-label gate.
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 200,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: true,
+        payload_trace_store_summary: {
+          total_entries: 1,
+          entries_by_service: { PLOT: 1 },
+          oldest_entry_age_ms: 50,
+        },
+        payloads: {
+          // useDebugData wires plot_request/plot_response from
+          // findBestPayload(tracedPayloads, 'PLoT').
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn-1' },
+          plot_response: plotV1ResponseBody,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+
+    // PLoT payloads are populated.
+    expect(bundle.payloads.plot_request).not.toBeNull()
+    expect(bundle.payloads.plot_response).not.toBeNull()
+    // CEE absent (correct — Run-analysis flow doesn't fire CEE).
+    expect(bundle.payloads.cee_request).toBeNull()
+    expect(bundle.payloads.cee_response).toBeNull()
+
+    // analysis_evidence_source labels the flow honestly.
+    expect(bundle.analysis_evidence_source).toBe('live_plot_v1_engine_turn')
+
+    // Scientific validation upgrades. With `factor_sensitivity`
+    // present on the PLoT response, classifySource returns
+    // `'live_raw_payloads'` (existing PR #150 contract). Whether each
+    // validator reaches `observed`/`derived` from this minimal fixture
+    // depends on validator-specific field shapes; the BUNDLE-level
+    // assertion is just that the source flipped away from
+    // `'hydrated_report'`. Field-shape coverage is the validators'
+    // own test responsibility.
+    expect(bundle.scientific_validation?.source).toBe('live_raw_payloads')
+    expect(bundle.scientific_validation?.source).not.toBe('hydrated_report')
+
+    // CEE absence is EXPLAINED, not flagged as contradiction by
+    // itself. The new `cee_turn_absent_for_plot_v1_capture` issue is
+    // in the explanatory set (round-8 carve-out). Whether OTHER
+    // contradictions fire is unrelated — covered by the unit-level
+    // tests in `v5CapturePipelineStatus.spec.ts`. Here we just verify
+    // the new explanatory issue is emitted.
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).toContain('cee_turn_absent_for_plot_v1_capture')
+
+    // PLoT-side selection block reports counts and the selected id.
+    expect(bundle.plot_capture_selection.plot_candidate_count_v1_engine).toBe(1)
+    expect(bundle.plot_capture_selection.plot_candidate_count_v2).toBe(0)
+    expect(bundle.plot_capture_selection.selected_plot_trace_id).toBe('tp-v1-plot')
+
+    // Trace-store summary records what was in the store.
+    expect(bundle.payload_trace_store_summary.total_entries).toBe(1)
+    expect(bundle.payload_trace_store_summary.entries_by_service.PLOT).toBe(1)
+  })
+
+  it('Hydrated regression: empty trace + canvas results → analysis_evidence_source=hydrated_report, capture_pipeline_status stays hydrated_only', async () => {
+    canvasState.results = {
+      report: { recommendation: 'A' },
+      hash: 'reload-hash',
+      rawV2Response: null,
+    }
+    const bundle = await buildDebugBundleAsync(makeDebugData())
+
+    // Empty trace + hydrated results — PR #150 honest behaviour.
+    expect(bundle.payloads.plot_request).toBeNull()
+    expect(bundle.payloads.plot_response).toBeNull()
+    expect(bundle.payloads.cee_request).toBeNull()
+    expect(bundle.payloads.cee_response).toBeNull()
+    // Round-8 honest label: no live trace, canvas store has results
+    // → hydrated_report.
+    expect(bundle.analysis_evidence_source).toBe('hydrated_report')
+    // The CEE-centric capture_pipeline_status keeps PR #150 semantics
+    // — one of the honest non-complete codes (`hydrated_only` or
+    // `capture_missing` depending on the source-classifier's report
+    // detection). What matters here is it's NOT `complete`.
+    expect(['hydrated_only', 'capture_missing']).toContain(
+      bundle.capture_pipeline_status,
+    )
+    // No `cee_turn_absent_for_plot_v1_capture` issue when no PLoT
+    // V1 capture exists.
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).not.toContain('cee_turn_absent_for_plot_v1_capture')
+  })
+
+  it('payload_trace_store_summary always emitted (sync default = empty)', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    expect(bundle.payload_trace_store_summary).toBeDefined()
+    expect(bundle.payload_trace_store_summary.total_entries).toBe(0)
+    expect(bundle.payload_trace_store_summary.entries_by_service).toEqual({})
+    expect(bundle.payload_trace_store_summary.oldest_entry_age_ms).toBeNull()
+    expect(bundle.plot_capture_selection).toBeDefined()
+    expect(bundle.plot_capture_selection.plot_candidate_count_v1_engine).toBe(0)
+    expect(bundle.analysis_evidence_source).toBe('none')
+  })
+})
+
+// =====================================================================
+// PR #156 round-2 — selected trace's endpoint controls analysis_evidence_source
+// =====================================================================
+
+describe('buildDebugBundleAsync — PR #156 round-2 IMP #1: analysis_evidence_source from selected trace', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('selected trace endpoint = /v1/run → analysis_evidence_source = live_plot_v1_engine_turn', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_completed_2xx: true,
+        // PR #156 round-3: live label requires usable-live-evidence.
+        selected_plot_trace_is_usable_live_evidence: true,
+        plot_candidate_count_v1_engine: 1,
+        plot_candidate_count_v2: 0,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn' },
+          plot_response: { factor_sensitivity: [] },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.analysis_evidence_source).toBe('live_plot_v1_engine_turn')
+  })
+
+  it('selected trace endpoint = /v1/stream → analysis_evidence_source = live_plot_v1_stream_turn', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/stream',
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_is_usable_live_evidence: true,
+        plot_candidate_count_v1_engine: 1, // streaming counts in V1 bucket
+        plot_candidate_count_v2: 0,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn' },
+          plot_response: { factor_sensitivity: [] },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.analysis_evidence_source).toBe('live_plot_v1_stream_turn')
+  })
+
+  it('selected trace endpoint = /v2/run → analysis_evidence_source = live_plot_v2_capture (even when stale V1 entries exist)', async () => {
+    // Pre-fix the bundle could label V1 just because plot_candidate_count_v1_engine > 0.
+    // Round-2: only the SELECTED trace's endpoint matters.
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/v2/run',
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_is_usable_live_evidence: true,
+        // Stale V1 entries in the store, but the selector picked V2.
+        plot_candidate_count_v1_engine: 2,
+        plot_candidate_count_v2: 1,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn' },
+          plot_response: { factor_sensitivity: [] },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.analysis_evidence_source).toBe('live_plot_v2_capture')
+  })
+
+  it('selected endpoint is /v1/running (look-alike) → falls through to hydrated_report (not v1)', async () => {
+    canvasState.results = { report: {}, hash: 'h', rawV2Response: null }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/v1/running',
+        // Even with a body in payloads, the look-alike endpoint must
+        // not be classified as V1.
+        plot_candidate_count_v1_engine: 0, // proper helper count
+        plot_candidate_count_v2: 0,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.analysis_evidence_source).not.toBe('live_plot_v1_engine_turn')
+    expect(bundle.analysis_evidence_source).toBe('hydrated_report')
+  })
+})
+
+describe('buildDebugBundleAsync — PR #156 round-2 IMP #4: cee_turn_absent_for_plot_v1_capture requires completed-2xx', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('request-only PLoT V1 entry (no successful response yet) does NOT fire the explanatory issue', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        // V1 endpoint pinned but NOT completed-2xx (e.g. still in flight).
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_completed_2xx: false,
+        plot_candidate_count_v1_engine: 1,
+        plot_candidate_count_v2: 0,
+      }),
+    )
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).not.toContain('cee_turn_absent_for_plot_v1_capture')
+  })
+
+  it('completed-2xx + body PLoT V1 entry DOES fire the explanatory issue', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_completed_2xx: true,
+        // PR #156 round-3: explanatory issue now requires
+        // usable-live-evidence too (not just completed-2xx).
+        selected_plot_trace_is_usable_live_evidence: true,
+        plot_candidate_count_v1_engine: 1,
+        plot_candidate_count_v2: 0,
+      }),
+    )
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).toContain('cee_turn_absent_for_plot_v1_capture')
+  })
+})
+
+// =====================================================================
+// PR #156 round-3 — usable-live-evidence gate on analysis_evidence_source
+// =====================================================================
+
+describe('buildDebugBundleAsync — PR #156 round-3 BLOCKING #1: live label requires completed-2xx + body', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('reviewer "missing tests" #1: request-only selected PLoT trace → NOT live, falls through to hydrated_report', async () => {
+    // Endpoint is V1 engine but completed=false (request fired, no
+    // response yet). selected_plot_trace_is_usable_live_evidence
+    // = false → live label withheld.
+    canvasState.results = { report: {}, hash: 'h', rawV2Response: null }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: null,
+        selected_plot_trace_completed: false,
+        selected_plot_trace_completed_2xx: false,
+        selected_plot_trace_response_body_present: false,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: false,
+        plot_candidate_count_v1_engine: 1,
+      }),
+    )
+    expect(bundle.analysis_evidence_source).not.toBe('live_plot_v1_engine_turn')
+    expect(bundle.analysis_evidence_source).toBe('hydrated_report')
+    // The explanatory issue ALSO requires usable live evidence.
+    const issues =
+      bundle.v5_canonical_turn_diagnostics?.coherence?.issues ?? []
+    expect(issues).not.toContain('cee_turn_absent_for_plot_v1_capture')
+  })
+
+  it('reviewer "missing tests" #2: failed 500 selected PLoT trace → NOT live', async () => {
+    canvasState.results = { report: {}, hash: 'h', rawV2Response: null }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 500,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: false,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: false,
+        plot_candidate_count_v1_engine: 1,
+      }),
+    )
+    expect(bundle.analysis_evidence_source).not.toBe('live_plot_v1_engine_turn')
+    expect(bundle.analysis_evidence_source).toBe('hydrated_report')
+  })
+
+  it('reviewer "missing tests" #2 (4xx variant): failed 400 selected PLoT trace → NOT live', async () => {
+    canvasState.results = { report: {}, hash: 'h', rawV2Response: null }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 400,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: false,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: false,
+        plot_candidate_count_v1_engine: 1,
+      }),
+    )
+    expect(bundle.analysis_evidence_source).not.toBe('live_plot_v1_engine_turn')
+  })
+
+  it('reviewer "missing tests" #3: empty SSE stream (body:null) → NOT live raw, NOT live_plot_v1_stream_turn', async () => {
+    canvasState.results = { report: {}, hash: 'h', rawV2Response: null }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/stream',
+        selected_plot_trace_status: 200,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: true,
+        // CRITICAL: stream ended without a COMPLETE event → body is
+        // null even though HTTP was successful.
+        selected_plot_trace_response_body_present: false,
+        selected_plot_trace_tier: 'v1_stream',
+        selected_plot_trace_is_usable_live_evidence: false,
+        plot_candidate_count_v1_engine: 1,
+      }),
+    )
+    expect(bundle.analysis_evidence_source).not.toBe('live_plot_v1_stream_turn')
+    expect(bundle.analysis_evidence_source).toBe('hydrated_report')
+  })
+
+  it('completed-2xx with body → DOES emit live_plot_v1_engine_turn (positive control)', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 200,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: true,
+        plot_candidate_count_v1_engine: 1,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn' },
+          plot_response: { factor_sensitivity: [] },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.analysis_evidence_source).toBe('live_plot_v1_engine_turn')
+  })
+})
+
+describe('buildDebugBundleAsync — PR #156 round-3 IMP #2: extended plot_capture_selection diagnostics', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('exposes endpoint, status, completed, body-present, tier, usable-live-evidence on the bundle', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 200,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: true,
+      }),
+    )
+    const sel = bundle.plot_capture_selection
+    expect(sel.selected_plot_trace_endpoint).toBe('/bff/engine/v1/run')
+    expect(sel.selected_plot_trace_status).toBe(200)
+    expect(sel.selected_plot_trace_completed).toBe(true)
+    expect(sel.selected_plot_trace_response_body_present).toBe(true)
+    expect(sel.selected_plot_trace_tier).toBe('v1_engine')
+    expect(sel.selected_plot_trace_is_usable_live_evidence).toBe(true)
+  })
+
+  it('sync default carries `none` tier + all-null/false', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    const sel = bundle.plot_capture_selection
+    expect(sel.selected_plot_trace_endpoint).toBeNull()
+    expect(sel.selected_plot_trace_status).toBeNull()
+    expect(sel.selected_plot_trace_completed).toBe(false)
+    expect(sel.selected_plot_trace_response_body_present).toBe(false)
+    expect(sel.selected_plot_trace_tier).toBe('none')
+    expect(sel.selected_plot_trace_is_usable_live_evidence).toBe(false)
+  })
+})
+
+// =====================================================================
+// PR #156 round-4 — scientific_validation.source gated on usability
+// =====================================================================
+
+describe('buildDebugBundleAsync — PR #156 round-4 P0: scientific_validation source honesty', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('failed PLoT body with `factor_sensitivity` does NOT mark scientific_validation.source as live_raw_payloads', async () => {
+    // Adversarial fixture: the response body LOOKS like an analysis
+    // result (has `factor_sensitivity`) but the selected trace is
+    // a 500 — so the body is from an error envelope, not a real run.
+    // Pre-fix `classifySource` returned `live_raw_payloads` purely
+    // from the indicative-key presence. Round-4 P0 fix: gated on
+    // the selector's usability flag.
+    canvasState.results = { report: {}, hash: 'h', rawV2Response: null }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 500,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: false,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        // CRITICAL: selector flags this trace as NOT usable live
+        // evidence (failed status). The validator source must
+        // honour that flag instead of independently re-classifying
+        // from body shape.
+        selected_plot_trace_is_usable_live_evidence: false,
+        plot_candidate_count_v1_engine: 1,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn' },
+          // Body has the indicative key — pre-fix this alone
+          // upgraded `source` to `live_raw_payloads`.
+          plot_response: {
+            factor_sensitivity: [{ factor_id: 'f1', impact: 0.3 }],
+            error: 'INTERNAL_SERVER_ERROR',
+          },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // Headline label honestly says not live.
+    expect(bundle.analysis_evidence_source).not.toBe('live_plot_v1_engine_turn')
+    expect(bundle.analysis_evidence_source).toBe('hydrated_report')
+    // P0 fix: validator source ALSO honest now.
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+  })
+
+  it('positive control: completed-2xx + usable body → scientific_validation.source IS live_raw_payloads', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 200,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: true,
+        plot_candidate_count_v1_engine: 1,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 'scn' },
+          plot_response: {
+            factor_sensitivity: [{ factor_id: 'f1', impact: 0.3 }],
+          },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.analysis_evidence_source).toBe('live_plot_v1_engine_turn')
+    expect(bundle.scientific_validation?.source).toBe('live_raw_payloads')
+  })
+})
+
+describe('buildDebugBundleAsync — PR #156 round-4 IMP: selected_plot_trace_completed_2xx exposed', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('field appears on plot_capture_selection', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_endpoint: '/bff/engine/v1/run',
+        selected_plot_trace_status: 200,
+        selected_plot_trace_completed: true,
+        selected_plot_trace_completed_2xx: true,
+        selected_plot_trace_response_body_present: true,
+        selected_plot_trace_tier: 'v1_engine',
+        selected_plot_trace_is_usable_live_evidence: true,
+      }),
+    )
+    expect(bundle.plot_capture_selection.selected_plot_trace_completed_2xx).toBe(true)
+  })
+
+  it('sync default emits selected_plot_trace_completed_2xx=false', () => {
+    const bundle = buildDebugBundle(makeDebugData())
+    expect(bundle.plot_capture_selection.selected_plot_trace_completed_2xx).toBe(false)
+  })
+})

@@ -34,7 +34,15 @@ import type { PayloadInspectionReason } from '../../../lib/payload-trace-store'
 // service-metadata classification too, so the bundle can't
 // reintroduce substring false positives (e.g. `/turning` or
 // query-string `?next=/orchestrate/v2/turn`).
-import { isV5TurnEndpoint } from '../../../lib/v5TraceMatching'
+// PR #156 round-2 (reviewer IMP #3): same pathname-only matchers
+// for the PLoT V1/V2 endpoints so the bundle's evidence-source
+// classifier can't be fooled by `/v1/running` etc.
+import {
+  isV5TurnEndpoint,
+  isV1PlotEngineEndpoint,
+  isV1PlotStreamEndpoint,
+  isV2PlotEndpoint,
+} from '../../../lib/v5TraceMatching'
 // Round-6 review (maintainability): import shared selection-diagnostic
 // union types so the DebugBundle interface mirrors DebugData without
 // re-declaring the same enum in two places.
@@ -1446,6 +1454,118 @@ interface DebugBundle {
    * asserts this invariant directly.
    */
   selected_cee_trace_id: string | null
+
+  /**
+   * Round-8 (follow-up to PR #153): top-level evidence-source signal
+   * distinct from `capture_pipeline_status` (which is CEE-centric).
+   * Tells reviewers in one field what kind of live evidence backs this
+   * bundle:
+   *
+   *   - `live_v5_cee_turn`          — V5 CEE turn captured (chat / chip)
+   *   - `live_plot_v1_engine_turn`  — Run-analysis fired PLoT v1 sync;
+   *                                   no CEE turn (legitimate flow)
+   *   - `live_plot_v1_stream_turn`  — Run-analysis fired PLoT v1 SSE
+   *                                   streaming; body is the COMPLETE
+   *                                   event payload when present
+   *   - `live_plot_v2_capture`      — V4 V2 PLoT path captured
+   *   - `hydrated_report`           — reload / saved state, no live trace
+   *   - `none`                      — no analysis evidence at all
+   *
+   * PR #156 round-2 (reviewer IMP #1): derived from the SELECTED
+   * trace's endpoint via shared pathname-only helpers — NOT from
+   * aggregate candidate counts. This avoids "stale V1 candidate
+   * exists but selector picked V2" mislabelling.
+   *
+   * Honesty contract: when this is one of the `live_plot_v1_*`
+   * codes, the absence of `cee_request`/`cee_response` is EXPECTED
+   * (Run-analysis bypasses CEE) and the bundle does NOT label it
+   * as failure.
+   */
+  analysis_evidence_source:
+    | 'live_v5_cee_turn'
+    | 'live_plot_v1_engine_turn'
+    | 'live_plot_v1_stream_turn'
+    | 'live_plot_v2_capture'
+    | 'hydrated_report'
+    | 'none'
+
+  /**
+   * Round-8 diagnostic: trace-store summary at export time. Helps
+   * reviewers distinguish "store was empty" from "store had entries
+   * but none qualified as the selected service". No raw payload
+   * bodies — counts only.
+   */
+  payload_trace_store_summary: {
+    /** Total entries in the trace-store snapshot. */
+    total_entries: number
+    /**
+     * Entries grouped by `service` field (case-insensitive). Includes
+     * a `'unknown'` bucket for entries whose `service` wasn't set
+     * (e.g. legacy paths that recorded response-only without endpoint).
+     */
+    entries_by_service: Record<string, number>
+    /** Age in milliseconds of the OLDEST entry, or null if empty. */
+    oldest_entry_age_ms: number | null
+  }
+
+  /**
+   * Round-8 diagnostic: PLoT-side selection detail. Mirrors
+   * `cee_capture_selection` for the PLoT v1 engine and V2 paths.
+   *
+   * PR #156 round-3 (reviewer IMP #2): extended with selected
+   * endpoint / status / completed / body-present / tier / source
+   * so reviewers don't have to cross-reference raw trace entries
+   * to understand WHY a particular evidence label was chosen.
+   */
+  plot_capture_selection: {
+    /** PLoT entries on `/bff/engine/v1/run` or `/v1/stream`. */
+    plot_candidate_count_v1_engine: number
+    /** PLoT entries on `/v2/run` (V4 path). */
+    plot_candidate_count_v2: number
+    /** Trace-store id of the entry whose body sits in `payloads.plot_response`. */
+    selected_plot_trace_id: string | null
+    /** Endpoint of the selected trace, or null when no selection. */
+    selected_plot_trace_endpoint: string | null
+    /** HTTP status of the selected trace, or null. */
+    selected_plot_trace_status: number | null
+    /** True when the selected trace's `completed` flag is true. */
+    selected_plot_trace_completed: boolean
+    /**
+     * PR #156 round-4 (reviewer IMP): true when the selected trace
+     * completed AND status is 2xx. The hook computes this; the
+     * bundle exposes it so reviewers can grep one field instead of
+     * inferring from `_status` + `_completed`.
+     */
+    selected_plot_trace_completed_2xx: boolean
+    /**
+     * True when `response.body` is a non-empty object. False for
+     * request-only entries, body:null streams, and empty bodies.
+     */
+    selected_plot_trace_response_body_present: boolean
+    /**
+     * Which selector tier picked the trace:
+     *   - `v1_engine` — `/bff/engine/v1/run`
+     *   - `v1_stream` — `/bff/engine/v1/stream` (SSE)
+     *   - `v2_run`    — `/v2/run`
+     *   - `other`     — fallback path, no analysis-class match
+     *   - `none`      — no PLoT trace in the store
+     */
+    selected_plot_trace_tier:
+      | 'v1_engine'
+      | 'v1_stream'
+      | 'v2_run'
+      | 'other'
+      | 'none'
+    /**
+     * True when the selected trace is `live evidence` — i.e. it
+     * matched an analysis-class tier, completed with 2xx, and has
+     * a usable response body. Drives the gate on
+     * `analysis_evidence_source = live_*`. False means the bundle
+     * falls through to `hydrated_report` / `none` even though a
+     * PLoT entry exists.
+     */
+    selected_plot_trace_is_usable_live_evidence: boolean
+  }
 }
 
 // =============================================================================
@@ -2892,6 +3012,29 @@ export function buildDebugBundle(data: DebugData, options: ExportOptions = {}): 
     // path (no selector run). Async path overwrites when the
     // selector returned a trace id.
     selected_cee_trace_id: null,
+
+    // Round-8 (follow-up to PR #153): sync-path defaults. Async path
+    // overwrites with real values from useDebugData + trace store.
+    analysis_evidence_source: 'none',
+    payload_trace_store_summary: {
+      total_entries: 0,
+      entries_by_service: {},
+      oldest_entry_age_ms: null,
+    },
+    plot_capture_selection: {
+      plot_candidate_count_v1_engine: 0,
+      plot_candidate_count_v2: 0,
+      selected_plot_trace_id: null,
+      // PR #156 round-3 (reviewer IMP #2): sync-path defaults for
+      // the extended diagnostic fields. Async path overwrites.
+      selected_plot_trace_endpoint: null,
+      selected_plot_trace_status: null,
+      selected_plot_trace_completed: false,
+      selected_plot_trace_completed_2xx: false,
+      selected_plot_trace_response_body_present: false,
+      selected_plot_trace_tier: 'none',
+      selected_plot_trace_is_usable_live_evidence: false,
+    },
   }
 }
 
@@ -3489,6 +3632,20 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       bundlePayloadsAreV5Confirmed,
     })
 
+    // PR #156 round-2 (reviewer IMP #1 + IMP #4): classify the
+    // SELECTED PLoT trace's endpoint ONCE here so both the
+    // `classifyV5CapturePipelineStatus` call below and the
+    // `analysis_evidence_source` rollup further down read the same
+    // value. Pre-fix the rollup classified `selectedIsV1Run` AFTER
+    // the classifier needed it.
+    const selectedPlotProbe = {
+      service: 'PLoT',
+      endpoint: data.selected_plot_trace_endpoint ?? undefined,
+    }
+    const selectedIsV1Run = isV1PlotEngineEndpoint(selectedPlotProbe)
+    const selectedIsV1Stream = isV1PlotStreamEndpoint(selectedPlotProbe)
+    const selectedIsV2 = isV2PlotEndpoint(selectedPlotProbe)
+
     const capturePipeline = classifyV5CapturePipelineStatus({
       v5Capture: legacy.v5_cee_capture
         ? {
@@ -3517,6 +3674,18 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       // validation (non-V5 entry or no matching id). Emit
       // `invalid_selected_trace_id` so reviewers see the discrepancy.
       invalidSelectedTraceId,
+      // Round-8 (follow-up to PR #153) + PR #156 round-2 (reviewer
+      // IMP #4) + round-3 (reviewer BLOCKING #1): explanatory
+      // diagnostic for the Run-analysis flow. The explanatory issue
+      // fires only when the selected PLoT V1 trace constitutes
+      // USABLE LIVE EVIDENCE (selector tier matched, completed-2xx,
+      // body present) AND no CEE turn fired. Request-only / failed /
+      // empty-stream traces don't fire it; those surface via the
+      // existing failure-detection paths instead.
+      plotV1CapturePresentWithoutCee:
+        (selectedIsV1Run || selectedIsV1Stream) &&
+        data.selected_plot_trace_is_usable_live_evidence === true &&
+        legacy.v5_cee_capture === null,
     })
     bundle.capture_pipeline_status = capturePipeline.capture_pipeline_status
 
@@ -3612,6 +3781,94 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     bundle.selected_cee_trace_id =
       bundle.cee_capture_selection.selected_trace_id
 
+    // Round-8 (follow-up to PR #153): PLoT-side selection block,
+    // payload-trace-store summary, and the aggregate
+    // `analysis_evidence_source`. Pull values from DebugData (computed
+    // in useDebugData from the same `tracedPayloads` snapshot).
+    bundle.plot_capture_selection = {
+      plot_candidate_count_v1_engine:
+        data.plot_candidate_count_v1_engine ?? 0,
+      plot_candidate_count_v2: data.plot_candidate_count_v2 ?? 0,
+      selected_plot_trace_id: data.selected_plot_trace_id ?? null,
+      // PR #156 round-3 (reviewer IMP #2): extended diagnostic
+      // fields so reviewers see the selection's full provenance
+      // without cross-referencing raw entries.
+      selected_plot_trace_endpoint:
+        data.selected_plot_trace_endpoint ?? null,
+      selected_plot_trace_status: data.selected_plot_trace_status ?? null,
+      selected_plot_trace_completed:
+        data.selected_plot_trace_completed ?? false,
+      selected_plot_trace_completed_2xx:
+        data.selected_plot_trace_completed_2xx ?? false,
+      selected_plot_trace_response_body_present:
+        data.selected_plot_trace_response_body_present ?? false,
+      selected_plot_trace_tier:
+        (data.selected_plot_trace_tier as
+          | 'v1_engine'
+          | 'v1_stream'
+          | 'v2_run'
+          | 'other'
+          | null) ?? 'none',
+      selected_plot_trace_is_usable_live_evidence:
+        data.selected_plot_trace_is_usable_live_evidence ?? false,
+    }
+    if (data.payload_trace_store_summary !== undefined) {
+      bundle.payload_trace_store_summary = data.payload_trace_store_summary
+    }
+
+    // `analysis_evidence_source` rollup. Priority:
+    //   1. live V5 CEE turn (chat / chip) — `cee_capture_provenance`
+    //      points at a V5 turn AND the bundle has a CEE response body.
+    //   2. live PLoT V1 engine turn — Run-analysis sync flow.
+    //   3. live PLoT V1 stream turn — Run-analysis streaming flow.
+    //   4. live PLoT V2 capture — V4 direct V2 path.
+    //   5. hydrated_report — no live trace, canvas store has results.
+    //   6. none — nothing.
+    //
+    // PR #156 round-2 (reviewer IMP #1): derive the PLoT branches
+    // from the SELECTED trace's endpoint — NOT aggregate counts.
+    //
+    // PR #156 round-3 (reviewer BLOCKING #1): the SELECTED PLoT
+    // trace must ALSO be completed with 2xx AND have a usable
+    // response body before the bundle reports `live_plot_*`. A
+    // request-only / failed / empty-stream trace falls through to
+    // `hydrated_report` (or `none`). `selected_plot_trace_is_usable_live_evidence`
+    // captures all three conditions in one boolean from
+    // `findAnalysisProducingPlotTurn`.
+    const ceeBodyPresent =
+      bundle.payloads.cee_response !== null &&
+      typeof bundle.payloads.cee_response === 'object'
+    const ceeProvenanceIsV5 =
+      data.cee_capture_provenance === 'analysis_producing_v5_turn' ||
+      data.cee_capture_provenance === 'fallback_v5_turn'
+    const hydratedResultsPresent =
+      sourceResult.hasResultsReport || storeState.results != null
+
+    // `selectedIsV1Run` / `selectedIsV1Stream` / `selectedIsV2` are
+    // already classified above (hoisted before the classifier call
+    // so both consumers share the same value).
+    //
+    // The PLoT branches now ALSO require the selector's
+    // `selected_plot_trace_is_usable_live_evidence` boolean to be
+    // true. Endpoint shape alone is insufficient (round-3 BLOCKING
+    // #1).
+    const plotEvidenceIsUsable =
+      data.selected_plot_trace_is_usable_live_evidence === true
+
+    if (ceeBodyPresent && ceeProvenanceIsV5) {
+      bundle.analysis_evidence_source = 'live_v5_cee_turn'
+    } else if (selectedIsV1Run && plotEvidenceIsUsable) {
+      bundle.analysis_evidence_source = 'live_plot_v1_engine_turn'
+    } else if (selectedIsV1Stream && plotEvidenceIsUsable) {
+      bundle.analysis_evidence_source = 'live_plot_v1_stream_turn'
+    } else if (selectedIsV2 && plotEvidenceIsUsable) {
+      bundle.analysis_evidence_source = 'live_plot_v2_capture'
+    } else if (hydratedResultsPresent) {
+      bundle.analysis_evidence_source = 'hydrated_report'
+    } else {
+      bundle.analysis_evidence_source = 'none'
+    }
+
     // graph_hash_at_generation: read-through. The v5AnalysisFact slice
     // may not carry this field on every code path; emit null when
     // absent rather than fabricating from elsewhere.
@@ -3691,6 +3948,12 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
       resultsReport: storeState.results?.report ?? null,
       ceeAnalysisReady: storeState.ceeAnalysisReady ?? null,
       capturePipelineStatus: bundle.capture_pipeline_status ?? null,
+      // PR #156 round-4 (reviewer P0): thread the usability flag so
+      // `classifySource` can't overclaim `live_raw_payloads` from a
+      // failed/non-usable selected PLoT trace whose error body
+      // happens to carry an indicative key.
+      selectedPlotTraceIsUsableLiveEvidence:
+        data.selected_plot_trace_is_usable_live_evidence === true,
     })
   } catch {
     // All four sections are additive — keep partial state on failure.

@@ -386,10 +386,36 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
     }
 
     set((state) => {
-      const newPayloads = [payload, ...state.payloads]
-      // Limit to MAX_PAYLOADS
-      if (newPayloads.length > MAX_PAYLOADS) {
-        newPayloads.pop()
+      // PR #156 round-2 (reviewer "missing tests" #5): upsert by id
+      // so a retry with the same `requestId` updates the existing
+      // entry rather than creating a duplicate. Pre-fix repeated
+      // calls (e.g. `withRetry` in `v1/http.ts`) accumulated multiple
+      // entries that all looked like separate requests. The
+      // response-side `recordResponsePayload` already updates by id;
+      // this aligns the request-side behaviour.
+      //
+      // PR #156 round-3 (reviewer IMP #3): when upserting, move the
+      // entry to the FRONT of the array AND refresh `timestamp`.
+      // Pre-fix the in-place replace preserved position, which made
+      // position-based recency selectors (e.g. `findLatestV5TurnEntry`)
+      // show the stale array position even though the entry was
+      // freshly retried. Now position and timestamp both reflect the
+      // most-recent attempt — the upserted entry IS the canonical
+      // most-recent record.
+      const existingIdx = state.payloads.findIndex((p) => p.id === payload.id)
+      let newPayloads: TracedPayload[]
+      if (existingIdx >= 0) {
+        // Drop the old entry; the new payload (already timestamped
+        // at line 379 via Date.now()) goes to the front.
+        const withoutExisting = state.payloads.filter(
+          (_, i) => i !== existingIdx,
+        )
+        newPayloads = [payload, ...withoutExisting]
+      } else {
+        newPayloads = [payload, ...state.payloads]
+        if (newPayloads.length > MAX_PAYLOADS) {
+          newPayloads.pop()
+        }
       }
       return { payloads: newPayloads }
     })
@@ -433,6 +459,24 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
           return asString.length > 200 ? asString.slice(0, 200) : asString;
         })();
 
+        // PR #156 round-4 (reviewer P1 #3): scrub secret-shaped
+        // substrings from a plain-text response body before storing.
+        // `redactPayload` operates on object KEYS — plain strings
+        // (e.g. raw text captured from non-OK HTML responses or
+        // parse-error fall-back text) bypass the structural pass and
+        // would otherwise carry through `Bearer ...` / JWT / api_key
+        // values verbatim. Mirror the `errorCause` scrub path so
+        // both surfaces redact consistently.
+        const redactedResponseBody = (() => {
+          if (typeof params.body === 'string') {
+            const scrubbed = scrubSecretsInString(params.body)
+            // Then pass through the structural redactor (no-op for
+            // plain strings beyond the existing truncate cap).
+            return redactPayload(scrubbed, PAYLOAD_REDACTION_OPTIONS)
+          }
+          return redactPayload(params.body, PAYLOAD_REDACTION_OPTIONS)
+        })()
+
         return {
           ...p,
           status: params.status,
@@ -443,7 +487,7 @@ export const usePayloadTraceStore = create<PayloadTraceStore>((set, get) => ({
           ...(params.source ? { source: params.source } : {}),
           response: {
             headers: redactPayload(params.headers, PAYLOAD_REDACTION_OPTIONS) as Record<string, string>,
-            body: redactPayload(params.body, PAYLOAD_REDACTION_OPTIONS),
+            body: redactedResponseBody,
           },
           contractValidation,
           completed: true,

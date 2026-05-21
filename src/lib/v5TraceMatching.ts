@@ -161,3 +161,97 @@ export function isV5TurnEndpoint(p: {
   if (pathname === null) return false
   return V5_TURN_ENDPOINT_PATHNAME_RE.test(pathname)
 }
+
+// =============================================================================
+// PR #156 follow-up — PLoT V1 engine endpoint matching
+// =============================================================================
+//
+// Reviewer flagged that `useDebugData` was using substring `includes`
+// checks (`endpoint.includes('/v1/run')`) for PLoT V1 endpoint
+// classification. Same false-positive class the V5 path-boundary fix
+// (PR #153 round-4) closed. These helpers extend the pathname-only
+// approach to the PLoT V1 endpoints.
+
+/** Canonical V1 PLoT sync run pathname. Matches `/bff/engine/v1/run`. */
+const V1_PLOT_RUN_PATHNAME_RE = /\/v1\/run(?:\/|$)/
+
+/** Canonical V1 PLoT streaming pathname. Matches `/bff/engine/v1/stream`. */
+const V1_PLOT_STREAM_PATHNAME_RE = /\/v1\/stream(?:\/|$)/
+
+/**
+ * Case-insensitive PLoT service filter — mirrors `isCeeService`.
+ */
+export function isPlotService(p: { service?: string }): boolean {
+  return (
+    typeof p.service === 'string' && p.service.toUpperCase() === 'PLOT'
+  )
+}
+
+/**
+ * V1 PLoT sync run endpoint matcher. Requires PLoT service + pathname
+ * `/v1/run` at a path boundary (next char is `/` or end-of-string).
+ * Rejects:
+ *   - `/v1/running`     — word-boundary false positive
+ *   - `/v1/run-old`     — hyphen-suffix false positive
+ *   - `/legacy?next=/v1/run` — query-string false positive (pathname-only)
+ */
+export function isV1PlotEngineEndpoint(p: {
+  service?: string
+  endpoint?: string
+}): boolean {
+  if (!isPlotService(p)) return false
+  if (typeof p.endpoint !== 'string' || p.endpoint.length === 0) {
+    return false
+  }
+  const pathname = extractPathname(p.endpoint)
+  if (pathname === null) return false
+  return V1_PLOT_RUN_PATHNAME_RE.test(pathname)
+}
+
+/**
+ * V1 PLoT streaming endpoint matcher. Same boundary semantics as
+ * `isV1PlotEngineEndpoint` but for `/v1/stream`.
+ */
+export function isV1PlotStreamEndpoint(p: {
+  service?: string
+  endpoint?: string
+}): boolean {
+  if (!isPlotService(p)) return false
+  if (typeof p.endpoint !== 'string' || p.endpoint.length === 0) {
+    return false
+  }
+  const pathname = extractPathname(p.endpoint)
+  if (pathname === null) return false
+  return V1_PLOT_STREAM_PATHNAME_RE.test(pathname)
+}
+
+/**
+ * Either V1 sync or V1 streaming endpoint. Convenience for the
+ * `useDebugData` counter and the bundle's evidence-source classifier.
+ */
+export function isV1PlotEndpoint(p: {
+  service?: string
+  endpoint?: string
+}): boolean {
+  return isV1PlotEngineEndpoint(p) || isV1PlotStreamEndpoint(p)
+}
+
+/**
+ * V2 PLoT endpoint matcher. PLoT service + pathname `/v2/run` at a
+ * path boundary. Existing V4 path (`executeV2RunWithAnalysisReady`)
+ * — already records via the trace store.
+ */
+const V2_PLOT_RUN_PATHNAME_RE = /\/v2\/run(?:\/|$)/
+
+export function isV2PlotEndpoint(p: {
+  service?: string
+  endpoint?: string
+}): boolean {
+  if (!isPlotService(p)) return false
+  if (typeof p.endpoint !== 'string' || p.endpoint.length === 0) {
+    return false
+  }
+  const pathname = extractPathname(p.endpoint)
+  if (pathname === null) return false
+  return V2_PLOT_RUN_PATHNAME_RE.test(pathname)
+}

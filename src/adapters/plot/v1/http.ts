@@ -29,6 +29,12 @@ import { parseCeeDebugHeaders } from '../../../canvas/utils/ceeDebugHeaders' // 
 import { withObservabilityHeaders, recordBffResponse, recordBffError, recordBffResponsePayload } from '../../../lib/observability-headers'
 import { useGateStore } from '../../../lib/gate-state'
 import { V1SyncRunResponseSchema, warnOnInvalidApiResponse } from '../../../lib/api-schemas'
+// PR follow-up to #153: record the request side into the payload-trace
+// store so the debug bundle's PLoT selector can find this entry by
+// service + endpoint. Pre-fix only `recordBffResponsePayload` (line
+// 438) wrote to the store, which left the entry without `service` /
+// `endpoint` and the bundle silently rejected it.
+import { recordRequestPayload, recordResponsePayload } from '../../../lib/payload-trace-store'
 
 const getProxyBase = (): string => {
   return import.meta.env.VITE_PLOT_PROXY_BASE || '/bff/engine'
@@ -352,6 +358,11 @@ async function runSyncOnce(
   const requestId = options?.requestId || crypto.randomUUID()
   const endpoint = `${base}/v1/run`
   let startTime = Date.now() // Will be updated by withObservabilityHeaders
+  // PR #156 follow-up (reviewer P0): track whether the response side
+  // of the trace-store entry has already been recorded so the catch
+  // block doesn't OVER-record with status:0 when a non-OK HTTP
+  // response was already captured with its real status.
+  let responseRecorded = false
 
   try {
     const idempotencyKey = request.idempotencyKey || request.clientHash
@@ -414,6 +425,23 @@ async function runSyncOnce(
     )
     startTime = obsStartTime // Update outer scope for catch block
 
+    // PR follow-up to #153: record the request side into the payload-trace
+    // store BEFORE the fetch fires. Without this, the existing
+    // `recordBffResponsePayload` (below) created a store entry without
+    // `service` / `endpoint`, and the debug bundle's selector rejected
+    // the entry. With this call, `detectService(endpoint)` inside
+    // `recordRequestPayload` classifies the entry as `service: 'PLoT'`
+    // and the bundle's `findBestPayload(..., 'PLoT')` can find it.
+    // The gate (`payload_inspection_status.enabled`) is checked inside
+    // `recordRequestPayload`; a closed gate makes this a no-op.
+    recordRequestPayload({
+      id: requestId,
+      endpoint,
+      method: 'POST',
+      headers,
+      body: requestForBody,
+    })
+
     const response = await fetch(endpoint, {
       method: 'POST',
       headers,
@@ -425,17 +453,162 @@ async function runSyncOnce(
     recordBffResponse(requestId, endpoint, response, startTime)
 
     if (!response.ok) {
+      // PR #156 follow-up (reviewer P0): a non-OK HTTP response is a
+      // SERVER-side failure (4xx/5xx), NOT a network failure. Record
+      // the trace-store entry with the REAL status, headers, and
+      // (best-effort) error body BEFORE the throw lands in the catch
+      // block. Without this, the catch block recorded `status: 0,
+      // source: 'preflight_or_network'` for every non-OK response —
+      // which made server failures look like network failures.
+      //
+      // Body parse is defensive: a 4xx/5xx may still carry JSON
+      // (PLoT error envelope) OR plain text OR nothing. We try JSON
+      // first, fall back to text, finally null. Redaction runs at
+      // EXPORT time via `redactPayload(DEBUG_BUNDLE_REDACTION_OPTIONS)`
+      // so error bodies containing auth-like fields are masked the
+      // same way successful payloads are.
+      let errorBody: unknown = null
+      const errorBodyHeaders: Record<string, string> = {}
+      try {
+        if (response.headers && typeof response.headers.forEach === 'function') {
+          response.headers.forEach((v, k) => {
+            errorBodyHeaders[k] = v
+          })
+        }
+      } catch {
+        // jsdom Response mocks sometimes lack a real Headers shape.
+      }
+      // PR #156 round-4 (reviewer P1 #2): clone TWO copies of the
+      // response — one for the JSON attempt, one for the text
+      // fall-back. Pre-fix the second `response.clone()` was called
+      // AFTER the first clone's `.json()` consumed the original;
+      // the spec leaves clone-after-consume undefined and runtimes
+      // behave inconsistently. Two distinct clones eliminate the
+      // dependency on consume-order.
+      let jsonClone: Response | null = null
+      let textClone: Response | null = null
+      try {
+        jsonClone = response.clone()
+      } catch {
+        // clone unsupported in this runtime
+      }
+      try {
+        textClone = response.clone()
+      } catch {
+        // clone unsupported
+      }
+      try {
+        if (jsonClone !== null) {
+          errorBody = await jsonClone.json()
+        } else {
+          throw new Error('clone unavailable')
+        }
+      } catch {
+        if (textClone !== null) {
+          try {
+            const text = await textClone.text()
+            errorBody = text.length > 0 ? text : null
+          } catch {
+            errorBody = null
+          }
+        } else {
+          errorBody = null
+        }
+      }
+      recordResponsePayload({
+        id: requestId,
+        status: response.status,
+        headers: errorBodyHeaders,
+        body: errorBody,
+        duration: Date.now() - startTime,
+        // Indicate the PLoT origin (the gate uses this to distinguish
+        // network/proxy failures from service failures).
+        source: 'plot',
+      })
+      responseRecorded = true
+
       throw await mapHttpError(response)
     }
 
     // Phase 1 Section 4.1: Parse CEE debug headers (dev-only)
-    const result: V1SyncRunResponse = await response.json()
+    //
+    // PR #156 round-3 (reviewer IMP #1): a successful HTTP response
+    // (2xx) with invalid JSON used to fall through to the catch
+    // block, which recorded `status: 0, source: 'preflight_or_network'`
+    // — making a parse failure look like a network failure. Now we
+    // catch JSON parse errors here, record the real HTTP status +
+    // raw text body + ParseError diagnostic BEFORE throwing, and
+    // mark `responseRecorded` so the catch doesn't over-record.
+    let result: V1SyncRunResponse
+    // PR #156 round-4 (reviewer P1 #2): clone the response BEFORE
+    // attempting json() so the clone's body stream is still intact
+    // if json() fails. Pre-fix `.clone()` was called AFTER
+    // `.json()` consumed the body — the clone would either throw on
+    // `.text()` or return an empty string, defeating the round-3
+    // "preserve raw text" claim.
+    let parseClone: Response | null = null
+    try {
+      parseClone = response.clone()
+    } catch {
+      // jsdom or test mocks may not implement clone — fall through
+      // and accept that raw text capture may not be possible.
+      parseClone = null
+    }
+    try {
+      result = await response.json()
+    } catch (jsonErr) {
+      const errAny = jsonErr as { name?: string; message?: string }
+      let rawText: string | null = null
+      if (parseClone !== null) {
+        try {
+          rawText = await parseClone.text()
+        } catch {
+          // Clone exists but .text() failed (unusual). Keep null.
+        }
+      }
+      const parseErrorHeaders: Record<string, string> = {}
+      try {
+        if (response.headers && typeof response.headers.forEach === 'function') {
+          response.headers.forEach((v, k) => {
+            parseErrorHeaders[k] = v
+          })
+        }
+      } catch {
+        // jsdom safety.
+      }
+      recordResponsePayload({
+        id: requestId,
+        // CRITICAL: real HTTP status, NOT 0 — the response WAS
+        // received successfully; only the body was unparseable.
+        status: response.status,
+        headers: parseErrorHeaders,
+        body: rawText,
+        duration: Date.now() - startTime,
+        error:
+          typeof errAny.message === 'string' ? errAny.message : undefined,
+        errorName: 'ParseError',
+        source: 'plot',
+      })
+      responseRecorded = true
+      // Re-throw as a V1 error so callers see a NETWORK_ERROR-like
+      // shape (existing contract) — but the trace store now carries
+      // the honest "200 + parse error" record.
+      throw {
+        code: 'PARSE_ERROR',
+        message:
+          typeof errAny.message === 'string'
+            ? errAny.message
+            : 'Failed to parse JSON response',
+        requestId,
+      } as V1Error
+    }
 
     // Warn if response shape is unexpected (logs warning, continues execution)
     warnOnInvalidApiResponse(V1SyncRunResponseSchema, result, 'PLoT v1/run')
 
     // Record response payload for debug panel inspection
     recordBffResponsePayload(requestId, response, result, startTime)
+    responseRecorded = true
 
     // Parse debug headers if available (may not exist in test mocks)
     if (response.headers) {
@@ -453,6 +626,37 @@ async function runSyncOnce(
     // P2.3: Use requestId/endpoint/startTime from outer scope for correlation
     // Record error for observability
     recordBffError(requestId, endpoint, startTime, err)
+
+    // PR follow-up to #153: complete the trace-store entry on the
+    // error path so the bundle shows an honest "request fired, response
+    // failed" record rather than a half-populated entry.
+    //
+    // PR #156 follow-up (reviewer P0): if the non-OK HTTP branch
+    // ALREADY recorded the response side (real status + body), don't
+    // over-record here. Without this guard the catch block would
+    // re-write the entry as `status: 0`, hiding the real server
+    // failure.
+    //
+    // Status 0 + `preflight_or_network` is reserved for genuine
+    // fetch-level network failures (TypeError, DNS, CORS preflight)
+    // and `browser_timeout` for AbortError. Server failures keep
+    // their real HTTP status from the non-OK branch above.
+    if (!responseRecorded) {
+      const errAny = err as { name?: string; message?: string; code?: string }
+      const isAbort = err instanceof Error && err.name === 'AbortError'
+      recordResponsePayload({
+        id: requestId,
+        status: 0,
+        headers: {},
+        body: null,
+        duration: Date.now() - startTime,
+        error:
+          typeof errAny.message === 'string' ? errAny.message : undefined,
+        errorName:
+          typeof errAny.name === 'string' ? errAny.name : undefined,
+        source: isAbort ? 'browser_timeout' : 'preflight_or_network',
+      })
+    }
 
     if (err instanceof Error && err.name === 'AbortError') {
       throw {

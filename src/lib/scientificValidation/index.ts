@@ -53,16 +53,44 @@ const RAW_PAYLOAD_INDICATIVE_KEYS = [
 function classifySource(
   inputs: ValidatorInputs,
 ): ScientificValidation['source'] {
-  // live_raw_payloads — any of the indicative keys exists on the captured
-  // PLoT response.
+  // live_raw_payloads — any of the indicative keys exists on the
+  // captured PLoT response.
+  //
+  // PR #156 round-4 (reviewer P0): ALSO require the selected PLoT
+  // trace to be usable live evidence (completed-2xx with body). The
+  // top-level `analysis_evidence_source` already enforces this; the
+  // validator source classifier now mirrors that contract so a
+  // FAILED PLoT response carrying `factor_sensitivity` in its error
+  // body can't mislabel here as live_raw_payloads while the bundle
+  // headline label says `hydrated_report`.
+  //
+  // The flag defaults to `false` for legacy / sync-path callers; on
+  // that branch the classifier behaves as it did pre-round-4 (still
+  // gated by `plotResponse` having a real indicative key). Real
+  // runtime via `buildDebugBundleAsync` always passes the live
+  // value.
   if (
     inputs.plotResponse &&
     typeof inputs.plotResponse === 'object' &&
     !Array.isArray(inputs.plotResponse)
   ) {
     const obj = inputs.plotResponse as Record<string, unknown>
-    if (RAW_PAYLOAD_INDICATIVE_KEYS.some((k) => obj[k] !== undefined && obj[k] !== null)) {
-      return 'live_raw_payloads'
+    const hasIndicativeKey = RAW_PAYLOAD_INDICATIVE_KEYS.some(
+      (k) => obj[k] !== undefined && obj[k] !== null,
+    )
+    if (hasIndicativeKey) {
+      // PR #156 round-4 gate. When the caller did not thread the
+      // usability flag (undefined), preserve PR #150 behaviour and
+      // return `live_raw_payloads`. When the caller threaded `false`
+      // explicitly, we know the selected trace is NOT usable —
+      // refuse to label as live evidence regardless of body shape.
+      if (inputs.selectedPlotTraceIsUsableLiveEvidence === false) {
+        // Fall through — body has the shape but the source isn't
+        // trustworthy. The bundle's evidence-source rollup will
+        // settle on `hydrated_report` or `debug_fallback`.
+      } else {
+        return 'live_raw_payloads'
+      }
     }
   }
   // hydrated_report — capture-pipeline says hydrated_only AND we still
