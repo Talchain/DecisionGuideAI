@@ -48,19 +48,28 @@ export const PersistentInputStrip = memo(function PersistentInputStrip({
   onCogClick,
 }: PersistentInputStripProps) {
   const floatingIsOpen = useFloatingPanelState((s) => s.isOpen)
+  // Round-15: when the floating panel is collapsed to a pill, isOpen
+  // stays true but isMinimised flips to true. The pill has no textarea,
+  // so the strip must take over composing — falling through to the
+  // normal composer/redirect modes below. Without this guard the strip
+  // stays in "Olumi is open · Focus" status mode even though there's
+  // nowhere else to type.
+  const floatingIsMinimised = useFloatingPanelState((s) => s.isMinimised)
   const placeholder = useStageAwarePlaceholder()
 
   const handleFocus = useCallback(() => {
     onFocusFloating?.()
   }, [onFocusFloating])
 
-  // Status mode — floating panel is open. No textarea is rendered so the
-  // "no duplicate composer" invariant holds. Fixed copy ("Olumi is open ·
-  // Focus") replaces the previous truncated last-message preview: that
-  // preview was noisy, broke at 50 chars mid-sentence, and read as
-  // disabled chrome rather than a clickable affordance. Clicking anywhere
-  // focuses the floating panel via the registered focus channel.
-  if (floatingIsOpen) {
+  // Status mode — floating panel is open AND NOT minimised (i.e. the
+  // full panel is visible with its own composer). No textarea is rendered
+  // here so the "no duplicate composer" invariant holds. Fixed copy
+  // ("Olumi is open · Focus") replaces the previous truncated
+  // last-message preview: that preview was noisy, broke at 50 chars
+  // mid-sentence, and read as disabled chrome rather than a clickable
+  // affordance. Clicking focuses the floating panel via the registered
+  // focus channel.
+  if (floatingIsOpen && !floatingIsMinimised) {
     return (
       <button
         type="button"
