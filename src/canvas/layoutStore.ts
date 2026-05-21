@@ -24,14 +24,19 @@ interface LayoutOptions {
   setLayoutNodeWidth: (width: number) => void
 }
 
+// v4: nodeSpacing reduced 60 → 30 — horizontal gap tightened so 4-node tiers
+// fit a tighter footprint at typical laptop viewports. Layer (vertical)
+// spacing left at 48 from v3; the horizontal change addresses the observed
+// 4-node row width issue (1556 → 1466 at NODE_CARD_MAX_W=320) without
+// further vertical compression.
 // v3: layerSpacing reduced 90 → 48 (cumulative −47 % across two passes:
 // 90 → 68 (−25 %), then 68 → 48 (−30 %)) so tiers sit closer vertically.
 // Earlier bump: v1 → v2 changed 80/120 → 60/90.
 // Bumping the key migrates returning users who never customised spacing.
-const KEY = 'canvas-layout-options-v3'
+const KEY = 'canvas-layout-options-v4'
 
 function loadPersistedOptions(): Pick<LayoutOptions, 'direction' | 'nodeSpacing' | 'layerSpacing' | 'respectLocked'> {
-  const defaults = { direction: 'DOWN' as Direction, nodeSpacing: 60, layerSpacing: 48, respectLocked: true }
+  const defaults = { direction: 'DOWN' as Direction, nodeSpacing: 30, layerSpacing: 48, respectLocked: true }
   try {
     const saved = localStorage.getItem(KEY)
     if (!saved) return defaults

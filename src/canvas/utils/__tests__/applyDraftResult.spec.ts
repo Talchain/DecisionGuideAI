@@ -790,7 +790,7 @@ describe('applyDraftResult — measurement-aware layout deferral (D2)', () => {
     storeEdges = []
   })
 
-  it('flips setPendingLayout(true, { isFirstLoad: true }) instead of calling applyLayout directly', () => {
+  it('flips setPendingLayout(true) instead of calling applyLayout directly', () => {
     const draftData = {
       nodes: [{ id: 'g1', kind: 'goal', label: 'Revenue' }],
       edges: [],
@@ -798,11 +798,7 @@ describe('applyDraftResult — measurement-aware layout deferral (D2)', () => {
 
     applyDraftResult(draftData)
 
-    // applyDraftResult is one of the two first-load entry points (the other
-    // being useInitialLayoutGuard). It passes { isFirstLoad: true } so
-    // layoutGraph subtracts the analysis panel width on the first
-    // auto-arrange. All other layout triggers omit the option.
-    expect(mockSetPendingLayout).toHaveBeenCalledWith(true, { isFirstLoad: true })
+    expect(mockSetPendingLayout).toHaveBeenCalledWith(true)
     // The auto-trigger path defers layout; ELK runs in ReactFlowGraph's
     // measurement effect once nodes are measured. Failure surfacing for
     // auto-triggered layouts lives at the ReactFlowGraph layer (the

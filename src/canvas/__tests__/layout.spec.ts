@@ -261,29 +261,23 @@ describe('ELK Layout', () => {
   })
 
   it('4-factor tier on 1300px canvas: max-single fires; row overflows canvas (regression-lock for NODE_CARD_MAX_W=320)', async () => {
-    // After restoring NODE_CARD_MAX_W from 256 → 320 and removing the
-    // smarter "max-row-fits visible canvas" gate (introduced in PR #163),
-    // a 4-node tier on a 1300px canvas falls into the max-single branch
-    // and the rendered row visibly overflows the canvas. Math:
+    // After restoring NODE_CARD_MAX_W to 320 and tightening the default
+    // spacing to 30 (was 60), a 4-node tier on a 1300px canvas falls into
+    // the max-single branch and the rendered row visibly overflows the
+    // canvas. Math:
     //
     //   rightEdge = CANVAS_MARGIN
     //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + spacing)
     //             + NODE_CARD_MAX_W
-    //             = 24 + 3 * (320 + 24 + 60) + 320
-    //             = 24 + 3 * 404 + 320
-    //             = 1556
+    //             = 24 + 3 * (320 + 24 + 30) + 320
+    //             = 24 + 3 * 374 + 320
+    //             = 1466
     //
-    // 1556 > 1300 → 256px overflow past the canvas right edge. The
-    // accompanying panel-aware visibleCanvasWidth computation in
-    // layoutGraph still narrows availableWidth when the dock is open and
-    // can force the min-width branch via the per-box check, but the
-    // gate that previously forced min-width purely because the rendered
-    // row wouldn't fit visibly is no longer present.
-    //
-    // This test locks both the placement formula and the accepted
-    // overflow so that any future tweak of any contributing constant
-    // (NODE_CARD_MAX_W, LAYOUT_PADDING_X, default spacing, CANVAS_MARGIN)
-    // surfaces immediately rather than as a silent layout drift.
+    // 1466 > 1300 → 166px overflow past the canvas right edge (was 256px
+    // overflow with spacing=60). The test exercises the production-default
+    // spacing path by passing spacing: SPACING where SPACING matches the
+    // layoutGraph default. Any future tweak of NODE_CARD_MAX_W,
+    // LAYOUT_PADDING_X, default spacing, or CANVAS_MARGIN surfaces here.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -295,7 +289,7 @@ describe('ELK Layout', () => {
       makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
       makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
     ]
-    const SPACING = 60
+    const SPACING = 30
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(
       nodes,
       edges,
@@ -415,10 +409,10 @@ describe('ELK Layout', () => {
     expect(Math.abs(optionCentre - factorCentre)).toBeLessThanOrEqual(1)
   })
 
-  it('nodeW is clamped to NODE_LAYOUT_MIN_W (200) when tier is too wide for canvas', async () => {
+  it('nodeW is clamped to NODE_LAYOUT_MIN_W (140) when tier is too wide for canvas', async () => {
     // 14-node graph: 7 factors in tier 2. On a 936px narrow canvas,
-    // 7 * 200 + 6 * 30 = 1580px > 936 * 0.85 = 795px, so multi-row fires.
-    // layoutNodeWidth must equal 200.
+    // 7 * 140 + 6 * 30 = 1160px > 936 * 0.85 = 795px, so multi-row fires.
+    // layoutNodeWidth must equal 140.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'), makeNode('o2', 'option'), makeNode('o3', 'option'),
@@ -493,151 +487,6 @@ describe('ELK Layout', () => {
     expect(dY).toBeLessThan(o1Y)
     expect(o1Y).toBeLessThan(f1Y)
     expect(f1Y).toBeLessThan(gY)
-  })
-
-  // ---------------------------------------------------------------------------
-  // First-load panel subtraction (isFirstLoad option)
-  //
-  // layoutGraph accepts an optional `isFirstLoad: true` flag that subtracts
-  // ANALYSIS_PANEL_WIDTH (416) from canvasSize.width before computing
-  // availableWidth. The flag is opt-in: callers that omit it (or pass false)
-  // get the panel-agnostic behaviour used for all manual auto-arranges.
-  //
-  // Asserting BOTH `layoutNodeWidth` (which branch fired) AND `factorRowCount`
-  // (actual row splitting) to lock the distinction: the min-width branch
-  // lowers per-box elkBoxW AND sets a nodesPerRow ceiling; actual tier-row
-  // splitting only happens when tierSize > nodesPerRow. At 1440 + isFirstLoad
-  // for a 4-node tier this means a true 2+2 split, not a single overflowing
-  // row.
-  // ---------------------------------------------------------------------------
-
-  function factorRowCount(nodes: Node[]): number {
-    return new Set(
-      nodes.filter(n => n.type === 'factor').map(n => Math.round(n.position.y)),
-    ).size
-  }
-
-  /**
-   * Distribution of factor nodes per Y-row, sorted by Y ascending. Locks the
-   * balanced-split contract from applyTierRowSplitting — e.g. 4 nodes at
-   * nodesPerRow=3 should produce [2, 2] (balanced), not [3, 1] (greedy).
-   */
-  function factorRowDistribution(nodes: Node[]): number[] {
-    const buckets = new Map<number, number>()
-    for (const n of nodes) {
-      if (n.type !== 'factor') continue
-      const y = Math.round(n.position.y)
-      buckets.set(y, (buckets.get(y) ?? 0) + 1)
-    }
-    return Array.from(buckets.entries())
-      .sort((a, b) => a[0] - b[0])
-      .map(([, count]) => count)
-  }
-
-  it('first-load: 4-factor tier @ 1440px with isFirstLoad=true → min-width branch + splits into 2 rows', async () => {
-    // effectiveCanvasWidth = max(224, 1440 - 416) = 1024
-    // availableWidth      = 1024 * 0.85 = 870
-    // unclamped per-box   = floor((870 - 3*30) / 4) = 195 < 224 (= MIN_W + PAD_X)
-    //   → min-width branch fires (elkBoxW = 224)
-    // nodesPerRow         = floor((870 + 60) / (224 + 60)) = 3
-    //   → tier size 4 > 3 → applyTierRowSplitting splits 2+2
-    const nodes: Node[] = [
-      makeNode('d', 'decision'),
-      makeNode('o1', 'option'),
-      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
-      makeNode('f3', 'factor'), makeNode('f4', 'factor'),
-    ]
-    const edges: Edge[] = [
-      makeEdge('e1', 'd', 'o1'),
-      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
-      makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
-    ]
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
-      nodes,
-      edges,
-      { isFirstLoad: true },
-      { width: 1440, height: 900 },
-    )
-    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
-    expect(factorRowCount(laid)).toBe(2)
-    // Balanced 2+2 split: 4 nodes at nodesPerRow=3
-    //   → rowCount = ceil(4/3) = 2, base = floor(4/2) = 2, remainder = 0
-    //   → rows = [2, 2]
-    expect(factorRowDistribution(laid)).toEqual([2, 2])
-  })
-
-  it('first-load: 4-factor tier @ 1440px with isFirstLoad=false → full canvas, max-width branch, single row', async () => {
-    // availableWidth    = 1440 * 0.85 = 1224
-    // unclamped per-box = floor((1224 - 90) / 4) = 283 ≥ 224
-    //   → max-width branch fires (elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X)
-    // 4 nodes single row at NODE_CARD_MAX_W, no splitting.
-    const nodes: Node[] = [
-      makeNode('d', 'decision'),
-      makeNode('o1', 'option'),
-      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
-      makeNode('f3', 'factor'), makeNode('f4', 'factor'),
-    ]
-    const edges: Edge[] = [
-      makeEdge('e1', 'd', 'o1'),
-      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
-      makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
-    ]
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
-      nodes,
-      edges,
-      { isFirstLoad: false },
-      { width: 1440, height: 900 },
-    )
-    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
-    expect(factorRowCount(laid)).toBe(1)
-  })
-
-  it('global-threshold-shift: 5-factor tier @ 1300px, no isFirstLoad → now min-width branch + splits (was max-width pre NODE_LAYOUT_MIN_W=200)', async () => {
-    // Locks the GLOBAL behaviour change introduced by raising NODE_LAYOUT_MIN_W
-    // from 140 to 200. The threshold check is `unclamped ≥ NODE_LAYOUT_MIN_W +
-    // LAYOUT_PADDING_X`, which jumped from 164 to 224.
-    //
-    // 5-factor tier @ 1300px canvas (no first-load):
-    //   availableWidth      = 1300 * 0.85 = 1105
-    //   unclamped per-box   = floor((1105 - 4*30) / 5) = floor(985/5) = 197
-    //   Pre-200: 197 ≥ 164 → max-width branch, single row at NODE_CARD_MAX_W
-    //   Post-200: 197 < 224 → min-width branch fires
-    //   nodesPerRow = floor((1105 + 60) / (224 + 60)) = floor(1165/284) = 4
-    //   tier size 5 > 4 → applyTierRowSplitting splits 3+2
-    //
-    // This test exists to make the global threshold shift explicit. A
-    // non-first-load 5-factor tier at typical viewport now produces 200px
-    // multi-row instead of 320px single-row. Intended outcome of the brief
-    // (compressed cards stay readable at 200 instead of 140) — but it
-    // affects every layout path, not just first-load. The brief's risk-tier
-    // A "two constants + first-load gate" framing under-stated this; this
-    // test makes future agents see it.
-    const nodes: Node[] = [
-      makeNode('d', 'decision'),
-      makeNode('o1', 'option'),
-      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
-      makeNode('f3', 'factor'), makeNode('f4', 'factor'), makeNode('f5', 'factor'),
-    ]
-    const edges: Edge[] = [
-      makeEdge('e1', 'd', 'o1'),
-      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
-      makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
-      makeEdge('e6', 'o1', 'f5'),
-    ]
-    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
-      nodes,
-      edges,
-      {},
-      TEST_CANVAS,
-    )
-    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W) // 200, was 320 pre-change
-    expect(factorRowCount(laid)).toBe(2)            // 2 distinct Y-rows
-    // Exact balanced distribution: 5 nodes / 2 rows = base 2 + remainder 1
-    //   → rowCount = ceil(5/4) = 2, base = floor(5/2) = 2, remainder = 5%2 = 1
-    //   → rows = [base+1, base] = [3, 2]
-    // Locks the balanced-split contract in applyTierRowSplitting — a future
-    // change to greedy (5,0) or unbalanced (4,1) would surface here.
-    expect(factorRowDistribution(laid)).toEqual([3, 2])
   })
 })
 

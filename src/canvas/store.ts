@@ -479,17 +479,10 @@ interface CanvasState {
   //                      waiting, and applyLayout silently no-ops if the
   //                      stored id has moved on (stale-request guard).
   pendingLayout: boolean
-  // First-load companion flag for pendingLayout. Set to true ONLY by call
-  // sites where the analysis panel is reliably open and the user hasn't yet
-  // had a chance to move it — applyDraftResult (fresh CEE draft) and
-  // useInitialLayoutGuard (stacked persisted graph). Read inside applyLayout
-  // and passed to layoutGraph as `{ isFirstLoad }`. Always cleared together
-  // with `pendingLayout: false` so a subsequent pending layout starts clean.
-  pendingLayoutIsFirstLoad: boolean
   layoutInProgress: boolean
   layoutVersion: number
   layoutRequestId: number
-  setPendingLayout: (value: boolean, opts?: { isFirstLoad?: boolean }) => void
+  setPendingLayout: (value: boolean) => void
   // Track 3: Hydrated thread entries from scenario row (consumed once by useConversation, then cleared)
   _hydratedThread: unknown[] | null
   // Track 3: Hydrated scenario events from scenario row (consumed by Journey tab)
@@ -1311,7 +1304,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   })(),
   // Layout lifecycle (D2 of layout-stabilisation brief)
   pendingLayout: false,
-  pendingLayoutIsFirstLoad: false,
   layoutInProgress: false,
   layoutVersion: 0,
   layoutRequestId: 0,
@@ -2116,11 +2108,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       const layoutOptions = useLayoutStore.getState()
 
       const canvasSize = layoutOptions.canvasSize ?? undefined
-      // Read isFirstLoad from store state — applyDraftResult /
-      // useInitialLayoutGuard set it via setPendingLayout(true, { isFirstLoad:
-      // true }). All other call sites leave it false. Snapshot it here at the
-      // moment of dispatch; it is cleared together with pendingLayout below.
-      const isFirstLoad = get().pendingLayoutIsFirstLoad
       const { nodes: layoutedNodes, layoutNodeWidth } = await layoutGraph(
         nodes,
         edges,
@@ -2129,7 +2116,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
           spacing: layoutOptions.nodeSpacing,
           layerSpacing: layoutOptions.layerSpacing,
           preserveLocked: layoutOptions.respectLocked,
-          isFirstLoad,
         },
         canvasSize
       )
@@ -2153,7 +2139,6 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
         nodes: layoutedNodes,
         layoutVersion: get().layoutVersion + 1,
         pendingLayout: false,
-        pendingLayoutIsFirstLoad: false,
       })
     } catch (err) {
       console.error('[CANVAS] Layout failed:', err)
@@ -2163,7 +2148,7 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
       // newer request superseded us, leave pendingLayout=true so the
       // newer request runs.
       if (isCurrentGen()) {
-        set({ pendingLayout: false, pendingLayoutIsFirstLoad: false })
+        set({ pendingLayout: false })
       }
       // Rethrow so callers can provide user-facing error feedback
       throw err
@@ -3803,18 +3788,11 @@ export const useCanvasStore = create<CanvasState>((originalSet, get) => {
   // true also bumps layoutRequestId so the measurement hook in
   // ReactFlowGraph can detect a second draft arriving before the first has
   // settled and supersede it (stale-request guard).
-  setPendingLayout: (value: boolean, opts?: { isFirstLoad?: boolean }) => {
+  setPendingLayout: (value: boolean) => {
     if (value) {
-      // opts.isFirstLoad is opt-in. Only the first-load entry points
-      // (applyDraftResult, useInitialLayoutGuard) pass `{ isFirstLoad: true }`;
-      // every other caller omits opts and the flag stays false.
-      set({
-        pendingLayout: true,
-        pendingLayoutIsFirstLoad: opts?.isFirstLoad === true,
-        layoutRequestId: get().layoutRequestId + 1,
-      })
+      set({ pendingLayout: true, layoutRequestId: get().layoutRequestId + 1 })
     } else {
-      set({ pendingLayout: false, pendingLayoutIsFirstLoad: false })
+      set({ pendingLayout: false })
     }
   },
 

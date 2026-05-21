@@ -4,17 +4,9 @@
  * The class of bug this guards against (2026-05-13 P0):
  *   1. V5 response carries an inline draft_graph with N nodes.
  *   2. `applyDraftResult` writes every node at position `{0,0}` and calls
- *      `setPendingLayout(true, { isFirstLoad: true })`. The second arg
- *      signals layoutGraph to subtract ANALYSIS_PANEL_WIDTH from the
- *      canvas on this first auto-arrange so the freshly laid-out graph
- *      fits the visible area with the dock open. Keep this assertion in
- *      sync with applyDraftResult's layout signal — both the source call
- *      shape in `src/canvas/utils/applyDraftResult.ts` and the direct
- *      assertion in `src/canvas/utils/__tests__/applyDraftResult.spec.ts`
- *      must be updated together if the call shape changes again.
+ *      `setPendingLayout(true)`.
  *   3. The measure-then-layout pipeline (or its 500 ms fallback) calls
- *      `applyLayout()`, which reads `pendingLayoutIsFirstLoad` from the
- *      store and threads it through to layoutGraph as `{ isFirstLoad }`.
+ *      `applyLayout()`.
  *   4. Expected: positions become non-zero; no "Layout failed" banner.
  *
  * Two parallel suites:
