@@ -2167,3 +2167,402 @@ describe('buildDebugBundleAsync — V5 proxy classification (PR #156 / PR #159 f
     expect(bundle.analysis_evidence_source).toBe('live_v5_cee_turn')
   })
 })
+
+// =====================================================================
+// Evidence resolver (post-PR #162 follow-up).
+//
+// Under V5 canonical mode (`VITE_V5_CANONICAL_ANALYSIS=true`,
+// `VITE_ENABLE_LEGACY_DIRECT_RUN=false`), the browser never fetches
+// PLoT/ISL directly, so `bundle.payloads.plot_response/isl_*` are
+// honestly null. The CEE V5 turn response embeds analysis evidence
+// in `blocks[type==='analysis_result'].enrichment`. The resolver
+// surfaces that embedded evidence to validators WITHOUT mutating
+// `bundle.payloads.*` (raw-capture truth preserved).
+//
+// Honesty: `scientific_validation.source` becomes
+// `'live_v5_cee_embedded'` ONLY when the embedded enrichment
+// actually carries indicative keys. Missing fields stay missing;
+// validators that need fields not in the enrichment stay
+// `'unavailable'` with their `required_upstream_support` intact.
+// =====================================================================
+
+describe('buildDebugBundleAsync — evidence resolver (post-PR #162)', () => {
+  beforeEach(() => {
+    canvasState.currentScenarioId = null
+    canvasState.v5AnalysisFact = null
+    canvasState.results = null
+    traceState.payloads = []
+    inspectionState.enabled = true
+    inspectionState.resolvedAppEnv = 'staging'
+    inspectionState.reason = 'app_env_staging_enabled'
+  })
+
+  it('Dev/local: top-level plot_response present → evidence_resolution.plot_response.source = top_level; source = live_raw_payloads (regression)', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_is_usable_live_evidence: true,
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: { scenario_id: 's-1' },
+          plot_response: {
+            factor_sensitivity: [{ factor_id: 'f1', impact: 0.3 }],
+            option_comparison: [{ id: 'opt_a', win_probability: 0.7 }],
+          },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.evidence_resolution).toBeDefined()
+    expect(bundle.evidence_resolution?.plot_response.source).toBe('top_level')
+    expect(bundle.evidence_resolution?.plot_response.path).toBe(
+      'payloads.plot_response',
+    )
+    // PR #156 round-4 regression preserved.
+    expect(bundle.scientific_validation?.source).toBe('live_raw_payloads')
+  })
+
+  it('Staging V5 canonical: top-level null + CEE embedded enrichment → evidence_resolution.plot_response.source = cee_embedded; source = live_v5_cee_embedded', async () => {
+    // Use a minimal real-shape enrichment (option_comparison +
+    // factor_sensitivity + robustness — 3 of 5 indicative keys).
+    // Same shape as `v5-analysis-result.staging-real-shape.json`.
+    const ceeResponse = {
+      blocks: [
+        { type: 'text', text: 'Ran analysis.' },
+        {
+          type: 'analysis_result',
+          summary: 'Ran analysis on your current scenario.',
+          enrichment: {
+            option_comparison: [{ id: 'opt_a', win_probability: 0.72 }],
+            factor_sensitivity: [
+              { factor_id: 'f1', sensitivity_score: 0.4, importance_rank: 1 },
+            ],
+            robustness: { fragile_edges: [], level: 'high' },
+          },
+        },
+      ],
+    }
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        selected_cee_trace_endpoint:
+          'https://cee-staging.onrender.com/proxy/v5/turn',
+        payloads: {
+          cee_request: { turn_id: 't-1', message: 'Run analysis' },
+          cee_response: ceeResponse,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // bundle.payloads.* stays as raw capture (NOT mutated).
+    expect(bundle.payloads.plot_response).toBeNull()
+    expect(bundle.payloads.cee_response).not.toBeNull()
+    // Resolver surfaced embedded enrichment.
+    expect(bundle.evidence_resolution?.plot_response.source).toBe(
+      'cee_embedded',
+    )
+    expect(bundle.evidence_resolution?.plot_response.path).toMatch(
+      /^payloads\.cee_response\.blocks\[1\]\.enrichment$/,
+    )
+    // scientific_validation.source flips to the new label.
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+    // overall_status is NOT 'unavailable' (validators ran).
+    expect(bundle.scientific_validation?.overall_status).not.toBe(
+      'unavailable',
+    )
+  })
+
+  it('HONESTY: validators that need fields NOT in embedded enrichment stay unavailable with required_upstream_support', async () => {
+    // Enrichment has option_comparison + factor_sensitivity (basic
+    // shape) but NOT m1_coaching, flip_thresholds_status,
+    // auto_noise_applied, or factor_sensitivity[*].confidence_provenance.
+    // Those validators MUST stay unavailable — no fabrication.
+    // Provenance set to analysis_producing_v5_turn so the R-2 Blocker 2
+    // gate accepts the embedded path as live; this test isolates the
+    // VALIDATOR-level honesty (missing fields → unavailable), not the
+    // capture-provenance gate (covered separately below).
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'analysis_producing_v5_turn',
+        payloads: {
+          cee_request: { turn_id: 't-2' },
+          cee_response: {
+            blocks: [
+              {
+                type: 'analysis_result',
+                enrichment: {
+                  option_comparison: [{ id: 'opt_a', win_probability: 0.6 }],
+                  factor_sensitivity: [
+                    {
+                      factor_id: 'f1',
+                      sensitivity_score: 0.4,
+                      importance_rank: 1,
+                    },
+                  ],
+                  // No confidence_provenance, no evpi_percentage_points,
+                  // no flip_thresholds_status, no auto_noise_applied,
+                  // no m1_coaching.
+                },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+    // Validators that need fields NOT in enrichment stay unavailable.
+    const validators = bundle.scientific_validation?.validators
+    expect(validators?.confidence_validation?.status).toBe('unavailable')
+    expect(validators?.evpi_validation?.status).toBe('unavailable')
+    expect(validators?.flip_threshold_validation?.status).toBe('unavailable')
+    expect(validators?.evidence_gap_validation?.status).toBe('unavailable')
+    // Required upstream support is preserved (validators MUST
+    // document what they need from CEE/PLoT — honesty contract).
+    expect(
+      validators?.confidence_validation?.required_upstream_support,
+    ).toBeDefined()
+    expect(
+      (validators?.confidence_validation?.required_upstream_support as string[])
+        ?.length,
+    ).toBeGreaterThan(0)
+  })
+
+  it('Missing evidence: both top-level and CEE-embedded missing → all sources unavailable; source falls through to hydrated_report or unavailable', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        payloads: {
+          cee_request: null,
+          cee_response: null,
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.evidence_resolution?.plot_response.source).toBe('unavailable')
+    expect(bundle.evidence_resolution?.isl_request.source).toBe('unavailable')
+    expect(bundle.evidence_resolution?.isl_response.source).toBe('unavailable')
+    // Source is one of the non-live labels — never live evidence.
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+    expect(bundle.scientific_validation?.source).not.toBe(
+      'live_v5_cee_embedded',
+    )
+  })
+
+  it('Mixed: top-level PLoT present + CEE-embedded ISL only → resolver picks each independently', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        selected_plot_trace_is_usable_live_evidence: true,
+        payloads: {
+          cee_request: { turn_id: 't-mixed' },
+          cee_response: {
+            blocks: [
+              {
+                type: 'analysis_result',
+                enrichment: {
+                  factor_sensitivity: [{ factor_id: 'f-emb' }],
+                  downstream_calls: {
+                    isl: {
+                      response: {
+                        factor_sensitivity: [
+                          { factor_id: 'f-isl', evpi_percentage_points: 5 },
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            ],
+          },
+          plot_request: { scenario_id: 's-3' },
+          plot_response: {
+            factor_sensitivity: [{ factor_id: 'f-top', impact: 0.3 }],
+          },
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // Top-level wins for PLoT.
+    expect(bundle.evidence_resolution?.plot_response.source).toBe('top_level')
+    // Embedded path used for ISL.
+    expect(bundle.evidence_resolution?.isl_response.source).toBe('cee_embedded')
+    expect(bundle.evidence_resolution?.isl_response.path).toMatch(
+      /enrichment\.downstream_calls\.isl\.response$/,
+    )
+    // Top-level PLoT body wins → source is live_raw_payloads.
+    expect(bundle.scientific_validation?.source).toBe('live_raw_payloads')
+  })
+
+  it('Stable shape: evidence_resolution emits all 5 spec fields per evidence kind', async () => {
+    const bundle = await buildDebugBundleAsync(makeDebugData())
+    expect(bundle.evidence_resolution).toBeDefined()
+    const er = bundle.evidence_resolution!
+    // Each kind exposes a resolution block carrying the spec fields:
+    //   source · path · available · required_upstream_support · notes
+    for (const res of [
+      er.plot_response,
+      er.isl_request,
+      er.isl_response,
+    ]) {
+      expect(['top_level', 'cee_embedded', 'unavailable']).toContain(res.source)
+      // path is `string | null` — non-null when source !== 'unavailable'.
+      expect(res.path === null || typeof res.path === 'string').toBe(true)
+      expect(typeof res.available).toBe('boolean')
+      expect(res.available).toBe(res.source !== 'unavailable')
+      // required_upstream_support is null when available, string when not.
+      expect(
+        res.required_upstream_support === null ||
+          typeof res.required_upstream_support === 'string',
+      ).toBe(true)
+      expect((res.required_upstream_support === null) === res.available).toBe(
+        true,
+      )
+      // notes is always a non-empty diagnostic string.
+      expect(typeof res.notes).toBe('string')
+      expect(res.notes.length).toBeGreaterThan(0)
+    }
+  })
+
+  // ===================================================================
+  // R-2 Blocker 2 regressions — `'live_v5_cee_embedded'` MUST be
+  // gated on selected analysis-producing V5 CEE provenance. A
+  // legacy / stale / non-selected CEE response that happens to
+  // carry `analysis_result.enrichment` must NOT mislabel.
+  // ===================================================================
+
+  it("R-2 Blocker 2: cee_capture_provenance === 'fallback_legacy_cee' + enrichment → source NOT 'live_v5_cee_embedded'", async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        // Legacy CEE turn (e.g. /bff/cee/turn) — NOT a selected V5
+        // turn. Body happens to carry analysis_result.enrichment
+        // with indicative keys.
+        cee_capture_provenance: 'fallback_legacy_cee',
+        payloads: {
+          cee_request: { turn_id: 't-legacy' },
+          cee_response: {
+            blocks: [
+              {
+                type: 'analysis_result',
+                enrichment: {
+                  factor_sensitivity: [{ factor_id: 'f1' }],
+                  option_comparison: [{ id: 'opt' }],
+                  robustness: { fragile_edges: [] },
+                },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    // Resolver still lifts the body (it's there), but the
+    // classifier MUST refuse to emit `'live_v5_cee_embedded'`
+    // because the provenance gate failed.
+    expect(bundle.evidence_resolution?.plot_response.source).toBe(
+      'cee_embedded',
+    )
+    expect(bundle.scientific_validation?.source).not.toBe(
+      'live_v5_cee_embedded',
+    )
+    expect(bundle.scientific_validation?.source).not.toBe('live_raw_payloads')
+  })
+
+  it("R-2 Blocker 2: cee_capture_provenance === 'none' + enrichment → source NOT 'live_v5_cee_embedded'", async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'none',
+        payloads: {
+          cee_request: null,
+          // No selected CEE candidate — but somehow a CEE-shaped
+          // body is in payloads (defensive: also reject).
+          cee_response: {
+            blocks: [
+              {
+                type: 'analysis_result',
+                enrichment: { factor_sensitivity: [{ factor_id: 'f1' }] },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.scientific_validation?.source).not.toBe(
+      'live_v5_cee_embedded',
+    )
+  })
+
+  it("R-2 Blocker 2: cee_capture_provenance === 'fallback_v5_turn' + enrichment → source IS 'live_v5_cee_embedded' (fallback-V5 IS selected V5)", async () => {
+    // fallback_v5_turn DOES count as a selected V5 turn — the
+    // selector's primary path missed but the fallback resolved
+    // to a genuine V5 endpoint. The classifier accepts this.
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        cee_capture_provenance: 'fallback_v5_turn',
+        payloads: {
+          cee_request: { turn_id: 't-fb-v5' },
+          cee_response: {
+            blocks: [
+              {
+                type: 'analysis_result',
+                enrichment: {
+                  factor_sensitivity: [{ factor_id: 'f1' }],
+                  option_comparison: [{ id: 'opt' }],
+                  robustness: { fragile_edges: [] },
+                },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.scientific_validation?.source).toBe('live_v5_cee_embedded')
+  })
+
+  it('R-2 Blocker 2: undefined cee_capture_provenance + enrichment → source NOT live (defensive default)', async () => {
+    const bundle = await buildDebugBundleAsync(
+      makeDebugData({
+        // cee_capture_provenance NOT set on data — classifier should
+        // default to rejecting cee_embedded as live.
+        payloads: {
+          cee_request: { turn_id: 't-undef' },
+          cee_response: {
+            blocks: [
+              {
+                type: 'analysis_result',
+                enrichment: { factor_sensitivity: [{ factor_id: 'f1' }] },
+              },
+            ],
+          },
+          plot_request: null,
+          plot_response: null,
+          isl_request: null,
+          isl_response: null,
+        },
+      }),
+    )
+    expect(bundle.scientific_validation?.source).not.toBe(
+      'live_v5_cee_embedded',
+    )
+  })
+})

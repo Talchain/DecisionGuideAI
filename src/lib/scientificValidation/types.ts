@@ -47,8 +47,32 @@ export type ScientificValidationOverallStatus =
 
 export interface ScientificValidation {
   overall_status: ScientificValidationOverallStatus
-  /** Whether any raw PLoT payload was found in the bundle. */
-  source: 'live_raw_payloads' | 'hydrated_report' | 'debug_fallback' | 'unavailable'
+  /**
+   * Source of the evidence the validators actually consumed.
+   *
+   *   - `'live_raw_payloads'`     — top-level `bundle.payloads.plot_response`
+   *     was non-null AND carried at least one indicative key. The
+   *     classical "dev/local PLoT captured directly" path.
+   *   - `'live_v5_cee_embedded'`  — evidence resolver lifted the
+   *     analysis enrichment out of the CEE V5 turn response
+   *     (`bundle.payloads.cee_response.blocks[type==='analysis_result'].enrichment`)
+   *     because the top-level PLoT payload was null. Same indicative-keys
+   *     gate applies — empty or placeholder enrichment does NOT promote
+   *     to this label. Informational discriminator vs `'live_raw_payloads'`;
+   *     both are live raw evidence.
+   *   - `'hydrated_report'`       — no live capture or embedded
+   *     enrichment; canvas-store results.report carried derived
+   *     evidence.
+   *   - `'debug_fallback'`        — capture pipeline reported
+   *     `results_rendered_from_store_without_capture`.
+   *   - `'unavailable'`           — none of the above; honest fallback.
+   */
+  source:
+    | 'live_raw_payloads'
+    | 'live_v5_cee_embedded'
+    | 'hydrated_report'
+    | 'debug_fallback'
+    | 'unavailable'
   /** Validators keyed by name for easy lookup. */
   validators: Record<ValidatorName, ValidatorResult>
 }
@@ -90,6 +114,50 @@ export interface ValidatorInputs {
    * value.
    */
   selectedPlotTraceIsUsableLiveEvidence?: boolean
+  /**
+   * Evidence-resolver follow-up (post-PR #162): tells `classifySource`
+   * WHERE the resolved `plotResponse` came from so it can emit the
+   * appropriate `source` label:
+   *
+   *   - `'top_level'`    → `'live_raw_payloads'` (existing behaviour)
+   *   - `'cee_embedded'` → `'live_v5_cee_embedded'` (new label —
+   *     informational discriminator; same indicative-keys gate
+   *     applies, so an empty/placeholder embedded body cannot
+   *     promote to this label)
+   *   - `'unavailable'`  → falls through to `'hydrated_report'` /
+   *     `'debug_fallback'` / `'unavailable'` as before
+   *
+   * Optional — when undefined (legacy / sync-path callers), the
+   * classifier behaves exactly as it did before this field
+   * existed: top-level body shape alone determines the live label.
+   *
+   * Honesty boundary: this field is a label discriminator. It does
+   * NOT relax the indicative-keys gate or the
+   * `selectedPlotTraceIsUsableLiveEvidence` gate.
+   */
+  plotResponseSource?: 'top_level' | 'cee_embedded' | 'unavailable'
+  /**
+   * Reviewer R-2 Blocker 2 gate: when the resolver's
+   * `plotResponseSource` is `'cee_embedded'`, the classifier must
+   * ALSO verify that `bundle.payloads.cee_response` was the
+   * SELECTED analysis-producing V5 turn — NOT a legacy / stale /
+   * fallback-legacy capture that happens to carry an
+   * `analysis_result` block.
+   *
+   * The bundle assembler computes this from
+   * `data.cee_capture_provenance` (`'analysis_producing_v5_turn'`
+   * OR `'fallback_v5_turn'` → true; anything else → false).
+   *
+   * `true`  → `classifySource` may emit `'live_v5_cee_embedded'`.
+   * `false` → classifier falls through to non-live source labels
+   *           (`'hydrated_report'` / `'unavailable'`) regardless
+   *           of body shape, preserving live-evidence honesty.
+   *
+   * Optional — defaults to `false` for legacy / sync-path callers
+   * (those callers don't supply embedded evidence either, so the
+   * default doesn't change behaviour for them).
+   */
+  ceeCaptureIsSelectedV5Turn?: boolean
 }
 
 /**
