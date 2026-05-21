@@ -260,22 +260,30 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('4-factor tier on 1300px canvas: locks exact-fit boundary (regression-lock for NODE_CARD_MAX_W=256)', async () => {
-    // The 320 → 256 change was sized to make a 4-node tier exactly fit a
-    // 1300px canvas after CANVAS_MARGIN translation. Math:
+  it('4-factor tier on 1300px canvas: max-single fires; row overflows canvas (regression-lock for NODE_CARD_MAX_W=320)', async () => {
+    // After restoring NODE_CARD_MAX_W from 256 → 320 and removing the
+    // smarter "max-row-fits visible canvas" gate (introduced in PR #163),
+    // a 4-node tier on a 1300px canvas falls into the max-single branch
+    // and the rendered row visibly overflows the canvas. Math:
     //
     //   rightEdge = CANVAS_MARGIN
     //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + spacing)
     //             + NODE_CARD_MAX_W
-    //             = 24 + 3 * (256 + 24 + 60) + 256
-    //             = 24 + 3 * 340 + 256
-    //             = 1300
+    //             = 24 + 3 * (320 + 24 + 60) + 320
+    //             = 24 + 3 * 404 + 320
+    //             = 1556
     //
-    // i.e. 4*256 + 4*24 + 3*60 = 1300 exactly. This test locks the placement
-    // formula and the exact-fit outcome so that any future tweak of any
-    // contributing constant (NODE_CARD_MAX_W, LAYOUT_PADDING_X, default
-    // spacing, CANVAS_MARGIN) surfaces immediately rather than as a silent
-    // layout drift.
+    // 1556 > 1300 → 256px overflow past the canvas right edge. The
+    // accompanying panel-aware visibleCanvasWidth computation in
+    // layoutGraph still narrows availableWidth when the dock is open and
+    // can force the min-width branch via the per-box check, but the
+    // gate that previously forced min-width purely because the rendered
+    // row wouldn't fit visibly is no longer present.
+    //
+    // This test locks both the placement formula and the accepted
+    // overflow so that any future tweak of any contributing constant
+    // (NODE_CARD_MAX_W, LAYOUT_PADDING_X, default spacing, CANVAS_MARGIN)
+    // surfaces immediately rather than as a silent layout drift.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
       makeNode('o1', 'option'),
@@ -309,10 +317,11 @@ describe('ELK Layout', () => {
       CANVAS_MARGIN + 3 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + SPACING) + NODE_CARD_MAX_W,
     )
 
-    // Outcome: exact fit. If NODE_CARD_MAX_W is later changed in either
-    // direction (or any other contributing constant), this assertion flips
-    // and forces a deliberate review of the new layout intent.
-    expect(lastVisibleRightEdge).toBe(TEST_CANVAS.width)
+    // Outcome: row overflows the canvas. If any contributing constant
+    // changes such that the rendered row now fits the canvas (or worse,
+    // gets clipped to min-width via a re-introduced smarter threshold),
+    // this assertion flips and forces a deliberate review.
+    expect(lastVisibleRightEdge).toBeGreaterThan(TEST_CANVAS.width)
   })
 
   it('nodeW stays at NODE_CARD_MAX_W when widest tier overflows the viewport', async () => {
@@ -393,7 +402,7 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
 
-    // ELK box width is uniform at NODE_CARD_MAX_W + LAYOUT_PADDING_X (= 280 with NODE_CARD_MAX_W=256) in this case
+    // ELK box width is uniform at NODE_CARD_MAX_W + LAYOUT_PADDING_X in this case
     const elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
     const tierMean = (ids: string[]): number => {
       const xs = ids.map(id => laid.find(n => n.id === id)!.position.x)
@@ -498,25 +507,26 @@ describe('ELK Layout', () => {
   // least one → fallback to canvasSize.width → behaviour identical to the
   // pre-change pipeline.
   //
-  // Max-width branch fires only when BOTH:
-  //   (a) unclampedElkBoxW ≥ NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X  (existing)
-  //   (b) maxSingleVisibleRowEnd ≤ visibleCanvasWidth              (new)
+  // The visibleCanvasWidth feeds `availableWidth = visibleCanvasWidth * 0.85`,
+  // which gates the existing per-box min check:
   //
-  // Where, for the widest tier of size N:
-  //   maxSingleVisibleRowEnd
-  //     = CANVAS_MARGIN
-  //       + (N − 1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + spacing)
-  //       + NODE_CARD_MAX_W
-  // (derived from actual placement geometry — not coupled to the incidental
-  // equality CANVAS_MARGIN === LAYOUT_PADDING_X).
+  //   Max-width branch fires iff unclampedElkBoxW ≥ MIN_BOX_W
   //
-  // With current constants (NODE_CARD_MAX_W=256, LAYOUT_PADDING_X=24,
+  // (The PR #163 second gate `maxSingleVisibleRowEnd <= visibleCanvasWidth`
+  // was removed when NODE_CARD_MAX_W was restored from 256 → 320: at 320 it
+  // would force the min-width branch at most viewports and the resulting
+  // 140px cards were judged too compressed. The threshold now allows the
+  // rendered row to visibly overflow the canvas / dock; the panel-aware
+  // availableWidth still tightens the per-box check, which can still trigger
+  // min-width at very narrow viewports with the dock open.)
+  //
+  // With current constants (NODE_CARD_MAX_W=320, LAYOUT_PADDING_X=24,
   // spacing=60, CANVAS_MARGIN=24):
-  //   4-node maxSingleVisibleRowEnd = 24 + 3*340 + 256 = 1300
-  //   5-node maxSingleVisibleRowEnd = 24 + 4*340 + 256 = 1640
+  //   4-node max-single row span (visible) = 24 + 3*404 + 320 = 1556
+  //   5-node max-single row span (visible) = 24 + 4*404 + 320 = 1960
   //
   // IMPORTANT — "min-width branch fires" ≠ "tier splits into multiple rows".
-  // The min-width branch lowers per-box elkBoxW from 280 to 164 and sets a
+  // The min-width branch lowers per-box elkBoxW from 344 to 164 and sets a
   // nodesPerRow ceiling. Actual row splitting only happens downstream in
   // `applyTierRowSplitting`, gated by `tierSize > nodesPerRow`. For 4-node
   // tiers, nodesPerRow ≥ 4 keeps them single-row even when the min-width
@@ -569,12 +579,17 @@ describe('ELK Layout', () => {
 
   it('panel-aware: 4-factor tier @ 1300px with 480px dock → min-width branch + splits into 2 rows', async () => {
     // dockLeft = 1300 − 12 − 480 = 808 → visibleCanvasWidth = 808.
-    // maxSingleVisibleRowEnd = 1300 > 808 → condition (b) fails → min-width
-    // branch. nodesPerRow = floor((max(164, 808*0.85) + 60) / (164 + 60))
-    //   = floor((686 + 60) / 224) = 3. Tier size 4 > 3 → applyTierRowSplitting
-    // genuinely splits the tier into 2 rows of 2.
-    // Locks the brief's Task 6 outcome: a dock-occupied 1300px canvas no
-    // longer renders a 1300px row.
+    // availableWidth = max(164, 808 * 0.85) = 686.
+    // unclamped = floor((686 − 3*30) / 4) = floor(149) = 149 < 164
+    //   → per-box min check fails → min-width branch.
+    // nodesPerRow = floor((686 + 60) / (164 + 60)) = 3. Tier size 4 > 3 →
+    // applyTierRowSplitting genuinely splits the tier into 2 rows of 2.
+    //
+    // This case demonstrates that panel-aware visibleCanvasWidth still does
+    // useful work after the smarter threshold was removed: at narrow
+    // viewports with a wide dock the tightened availableWidth pushes the
+    // per-box check below the min threshold, which forces min-width branch
+    // and (here) genuine multi-row splitting.
     mockDockAndCanvas({ canvasWidth: 1300, dockWidth: 480 })
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -592,19 +607,22 @@ describe('ELK Layout', () => {
     expect(factorRowCount(laid)).toBe(2)
   })
 
-  it('panel-aware: 4-factor tier @ 1440px with 416px dock → min-width branch fires; tier stays single row (typical laptop)', async () => {
+  it('panel-aware: 4-factor tier @ 1440px with 416px dock → max-width branch fires; row overflows visible canvas (typical laptop)', async () => {
     // dockLeft = 1440 − 12 − 416 = 1012 → visibleCanvasWidth = 1012.
-    // maxSingleVisibleRowEnd = 1300 > 1012 → min-width branch. nodesPerRow
-    // = floor((max(164, 1012*0.85) + 60) / (164 + 60)) = floor((860 + 60) /
-    // 224) = 4. Tier size 4 ≤ 4 → NO actual row split (applyTierRowSplitting
-    // skips). Outcome: 4 nodes on one row at NODE_LAYOUT_MIN_W (140) — all
-    // visible (row span = 4 * 164 + 3 * 60 = 836 fits in 1012), but each
-    // card is narrower than the dock-closed max (256).
+    // availableWidth = 1012 * 0.85 = 860.
+    // unclamped = floor((860 − 90) / 4) = 192 ≥ 164 → max-width branch.
+    // Row = 4 * 344 + 3 * 60 = 1556, leftmost lands at CANVAS_MARGIN = 24,
+    // last node visible right edge at 24 + 3*404 + 320 = 1556.
+    // 1556 > visibleCanvasWidth (1012) by 544 → most of the rightmost card
+    // sits behind the dock.
     //
-    // This case demonstrates the smarter threshold: the brief's panel-aware
-    // availableWidth change alone would NOT trigger min-width fallback here
-    // (per-box min check still passes: avail = 860; per-box = floor((860-90)
-    // /4) = 192 ≥ 164). Only the new max-row-fits check forces fallback.
+    // This case demonstrates the deliberate trade-off accepted when
+    // restoring NODE_CARD_MAX_W to 320: at typical laptop viewports with the
+    // dock open, the panel-aware availableWidth subtraction is not enough to
+    // fail the per-box min check (192 ≥ 164), so max-width fires and the
+    // row overflows. Pre-PR #163 this was the default behaviour; PR #163's
+    // smarter threshold would have caught this and forced min-width (140px
+    // cards) but was judged too compressed. Locking the new outcome here.
     mockDockAndCanvas({ canvasWidth: 1440, dockWidth: 416 })
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -623,16 +641,22 @@ describe('ELK Layout', () => {
       {},
       { width: 1440, height: 900 },
     )
-    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
     expect(factorRowCount(laid)).toBe(1)
   })
 
-  it('panel-aware: 4-factor tier @ 1920px with 416px dock → max-width branch fires; tier stays single row', async () => {
+  it('panel-aware: 4-factor tier @ 1920px with 416px dock → max-width branch fires; row slightly overflows', async () => {
     // dockLeft = 1920 − 12 − 416 = 1492 → visibleCanvasWidth = 1492.
-    // maxSingleVisibleRowEnd = 1300 ≤ 1492 → max-width branch fires (no
-    // min-width fallback). Locks the high-end behaviour so we do not
-    // accidentally over-trigger the min-width fallback at wide viewports
-    // where the row genuinely fits the visible canvas.
+    // availableWidth = 1492 * 0.85 = 1268.
+    // unclamped = floor((1268 − 90) / 4) = 294 ≥ 164 → max-width branch.
+    // Row = 1556 visible right edge. 1556 > 1492 → 64px of the last card's
+    // right edge clips into the dock; the bulk of the card is still visible.
+    //
+    // Locks the high-end behaviour: at wide viewports the per-box check
+    // passes comfortably and max-width is the right choice; the small
+    // overflow into the dock is the trade-off accepted for restoring
+    // NODE_CARD_MAX_W to 320. With NODE_CARD_MAX_W=256 (pre-restore) the
+    // row would have been 1300 and fit visibleCanvasWidth=1492 with margin.
     mockDockAndCanvas({ canvasWidth: 1920, dockWidth: 416 })
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -655,23 +679,22 @@ describe('ELK Layout', () => {
     expect(factorRowCount(laid)).toBe(1)
   })
 
-  it('panel-aware: 4-factor tier @ 1300px with 40px collapsed-rail dock → min-width branch fires; tier stays single row', async () => {
+  it('panel-aware: 4-factor tier @ 1300px with 40px collapsed-rail dock → max-width branch fires; row overflows canvas + rail', async () => {
     // The OutputsDock is always mounted: when closed it collapses to a 40px
-    // rail (CSS var --dock-right-collapsed). With NODE_CARD_MAX_W=256 the
-    // 4-node row is sized to exactly fit a 1300px canvas — so even a thin
-    // 40px rail at the right makes the rendered row overflow into the rail.
+    // rail (CSS var --dock-right-collapsed).
     //
     // dockLeft = 1300 − 12 − 40 = 1248 → visibleCanvasWidth = 1248.
-    // maxSingleVisibleRowEnd = 1300 > 1248 → min-width branch fires.
-    // nodesPerRow = floor((max(164, 1248*0.85) + 60) / (164 + 60))
-    //   = floor((1060 + 60) / 224) = 5. Tier size 4 ≤ 5 → NO row split.
-    // Outcome: 4 nodes on one row at NODE_LAYOUT_MIN_W; row span = 4 * 164 +
-    // 3 * 60 = 836 fits within visibleCanvasWidth (1248).
+    // availableWidth = max(164, 1248 * 0.85) = 1060.
+    // unclamped = floor((1060 − 90) / 4) = 242 ≥ 164 → max-width branch.
+    // Row visible right edge = 1556 > visibleCanvasWidth (1248) and >
+    // canvas right edge (1300). The rightmost card extends past both the
+    // canvas and into the rail.
     //
-    // Locks this behaviour explicitly. The trade-off (lose ~116px of card
-    // width to avoid 52px of overlap with the thin rail) is the cost of the
-    // exact-fit NODE_CARD_MAX_W from PR #157; if a future change wants to
-    // tolerate small rail overlap, this test will surface the inversion.
+    // With NODE_CARD_MAX_W=256 (pre-restore) + PR #163's smarter
+    // threshold, this case was locked at min-width single row (140px
+    // cards, all visible). Restoring NODE_CARD_MAX_W to 320 and dropping
+    // the smarter threshold means the row at 1556 overflows; the
+    // collapsed-rail case no longer compresses to min-width.
     mockDockAndCanvas({ canvasWidth: 1300, dockWidth: 40 })
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -685,7 +708,7 @@ describe('ELK Layout', () => {
       makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
-    expect(layoutNodeWidth).toBe(NODE_LAYOUT_MIN_W)
+    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
     expect(factorRowCount(laid)).toBe(1)
   })
 })
