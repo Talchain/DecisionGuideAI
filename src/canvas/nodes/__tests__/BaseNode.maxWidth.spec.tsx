@@ -9,6 +9,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render } from '@testing-library/react'
 import { Target } from 'lucide-react'
 import { BaseNode } from '../BaseNode'
+import { NODE_CARD_MAX_W } from '../../utils/nodeLayoutConstants'
 
 vi.mock('@xyflow/react', async () => {
   const actual = await vi.importActual('@xyflow/react')
@@ -77,15 +78,17 @@ describe('BaseNode — maxWidth (H1)', () => {
     expect(nodeEl.style.maxWidth).toBe('200px')
   })
 
-  it('uses NODE_CARD_MAX_W (320px) fallback when no maxWidth prop and no layoutNodeWidth', () => {
+  it('uses NODE_CARD_MAX_W fallback when no maxWidth prop and no layoutNodeWidth', () => {
     // BaseNode's pre-layout fallback is sourced from the ELK NODE_CARD_MAX_W
     // constant (imported from ../utils/nodeLayoutConstants) so the rendered
-    // width matches ELK's assumed box size once a layout has run.
+    // width matches ELK's assumed box size once a layout has run. We assert
+    // against the imported constant rather than a hardcoded literal so that
+    // future tweaks to NODE_CARD_MAX_W only need to change one place.
     const { container } = render(
       <BaseNode {...baseProps} nodeType="factor" icon={Target} />
     )
     const nodeEl = container.firstChild as HTMLElement
-    expect(nodeEl.style.maxWidth).toBe('320px')
+    expect(nodeEl.style.maxWidth).toBe(`${NODE_CARD_MAX_W}px`)
   })
 
   it('label element has break-words class to prevent overflow', () => {

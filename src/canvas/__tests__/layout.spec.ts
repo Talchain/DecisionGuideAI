@@ -7,6 +7,7 @@ import {
   LAYOUT_PADDING_X,
   LAYOUT_PADDING_Y,
   DEFAULT_NODE_HEIGHT,
+  CANVAS_MARGIN,
 } from '../utils/nodeLayoutConstants'
 import type { Node, Edge } from '@xyflow/react'
 
@@ -91,8 +92,8 @@ describe('ELK Layout', () => {
 
   it('returns layoutNodeWidth', async () => {
     const { layoutNodeWidth } = await layoutGraph(mockNodes, mockEdges, {}, TEST_CANVAS)
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(NODE_CARD_MAX_W)
   })
 
   it('preserves locked node positions', async () => {
@@ -234,7 +235,7 @@ describe('ELK Layout', () => {
   // Viewport-constrained sizing
   // ---------------------------------------------------------------------------
 
-  it('nodeW stays within [140, 320] for small graphs on a wide canvas', async () => {
+  it('nodeW stays within [NODE_LAYOUT_MIN_W, NODE_CARD_MAX_W] for small graphs on a wide canvas', async () => {
     // 8-node graph: widest tier = 3 options. Should produce generous nodeW near MAX.
     const nodes: Node[] = [
       makeNode('d', 'decision'),
@@ -250,8 +251,8 @@ describe('ELK Layout', () => {
       makeEdge('e8', 'out', 'g'),
     ]
     const { nodes: laid, layoutNodeWidth } = await layoutGraph(nodes, edges, {}, TEST_CANVAS)
-    expect(layoutNodeWidth).toBeGreaterThanOrEqual(140)
-    expect(layoutNodeWidth).toBeLessThanOrEqual(320)
+    expect(layoutNodeWidth).toBeGreaterThanOrEqual(NODE_LAYOUT_MIN_W)
+    expect(layoutNodeWidth).toBeLessThanOrEqual(NODE_CARD_MAX_W)
     // All positions must be finite
     laid.forEach(n => {
       expect(Number.isFinite(n.position.x)).toBe(true)
@@ -259,7 +260,62 @@ describe('ELK Layout', () => {
     })
   })
 
-  it('nodeW stays at NODE_CARD_MAX_W (320) when widest tier overflows the viewport', async () => {
+  it('4-factor tier on 1300px canvas: locks exact-fit boundary (regression-lock for NODE_CARD_MAX_W=256)', async () => {
+    // The 320 → 256 change was sized to make a 4-node tier exactly fit a
+    // 1300px canvas after CANVAS_MARGIN translation. Math:
+    //
+    //   rightEdge = CANVAS_MARGIN
+    //             + (N-1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + spacing)
+    //             + NODE_CARD_MAX_W
+    //             = 24 + 3 * (256 + 24 + 60) + 256
+    //             = 24 + 3 * 340 + 256
+    //             = 1300
+    //
+    // i.e. 4*256 + 4*24 + 3*60 = 1300 exactly. This test locks the placement
+    // formula and the exact-fit outcome so that any future tweak of any
+    // contributing constant (NODE_CARD_MAX_W, LAYOUT_PADDING_X, default
+    // spacing, CANVAS_MARGIN) surfaces immediately rather than as a silent
+    // layout drift.
+    const nodes: Node[] = [
+      makeNode('d', 'decision'),
+      makeNode('o1', 'option'),
+      makeNode('f1', 'factor'), makeNode('f2', 'factor'),
+      makeNode('f3', 'factor'), makeNode('f4', 'factor'),
+    ]
+    const edges: Edge[] = [
+      makeEdge('e1', 'd', 'o1'),
+      makeEdge('e2', 'o1', 'f1'), makeEdge('e3', 'o1', 'f2'),
+      makeEdge('e4', 'o1', 'f3'), makeEdge('e5', 'o1', 'f4'),
+    ]
+    const SPACING = 60
+    const { nodes: laid, layoutNodeWidth } = await layoutGraph(
+      nodes,
+      edges,
+      { spacing: SPACING },
+      TEST_CANVAS,
+    )
+
+    // max-single fires: unclamped = floor((1300*0.85 - 90)/4) = 253 ≥ 164.
+    expect(layoutNodeWidth).toBe(NODE_CARD_MAX_W)
+
+    const factors = laid
+      .filter(n => n.type === 'factor')
+      .sort((a, b) => a.position.x - b.position.x)
+    expect(factors).toHaveLength(4)
+
+    // Symbolic placement formula — resilient to future constant tweaks.
+    const lastVisibleRightEdge = factors[3].position.x + NODE_CARD_MAX_W
+    expect(lastVisibleRightEdge).toBe(
+      CANVAS_MARGIN + 3 * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + SPACING) + NODE_CARD_MAX_W,
+    )
+
+    // Outcome: exact fit. If NODE_CARD_MAX_W is later changed in either
+    // direction (or any other contributing constant), this assertion flips
+    // and forces a deliberate review of the new layout intent.
+    expect(lastVisibleRightEdge).toBe(TEST_CANVAS.width)
+  })
+
+  it('nodeW stays at NODE_CARD_MAX_W when widest tier overflows the viewport', async () => {
     // 5 factors on a 1700px canvas previously compressed every node to ~241px.
     // New policy: pin every node to NODE_CARD_MAX_W and overflow horizontally.
     const nodes: Node[] = [
@@ -337,7 +393,7 @@ describe('ELK Layout', () => {
     ]
     const { nodes: laid } = await layoutGraph(nodes, edges, {}, WIDE_CANVAS)
 
-    // ELK box width is uniform at NODE_CARD_MAX_W + LAYOUT_PADDING_X = 344 in this case
+    // ELK box width is uniform at NODE_CARD_MAX_W + LAYOUT_PADDING_X (= 280 with NODE_CARD_MAX_W=256) in this case
     const elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
     const tierMean = (ids: string[]): number => {
       const xs = ids.map(id => laid.find(n => n.id === id)!.position.x)
