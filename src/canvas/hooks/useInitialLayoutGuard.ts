@@ -38,8 +38,13 @@ import { getGraphIdentityKey, graphNeedsInitialLayout } from '../utils/graphNeed
  *   - Identity key includes a structural hash of node + edge ids, so a
  *     scenario whose graph structure changes is re-evaluated even if its
  *     scenario id is unchanged.
- *   - Never calls `applyLayout` directly — only `setPendingLayout(true)`.
- *     The existing measurement pipeline owns the actual layout run.
+ *   - Never calls `applyLayout` directly — only
+ *     `setPendingLayout(true, { isFirstLoad: true })`. The existing
+ *     measurement pipeline owns the actual layout run. The
+ *     `isFirstLoad: true` flag is one of the two first-load entry points
+ *     (the other being `applyDraftResult`) that signal layoutGraph to
+ *     subtract ANALYSIS_PANEL_WIDTH from the canvas on this first
+ *     auto-arrange. See LayoutOptions in `src/canvas/utils/layout.ts`.
  */
 export function useInitialLayoutGuard(): void {
   const pendingLayout = useCanvasStore((s) => s.pendingLayout)
@@ -105,7 +110,13 @@ export function useInitialLayoutGuard(): void {
     if (graphNeedsInitialLayout(nodes)) {
       inFlightKeyRef.current = key
       lastObservedLayoutVersionRef.current = layoutVersion
-      setPendingLayout(true)
+      // `isFirstLoad: true` — this guard fires when a persisted/stacked
+      // graph hydrates without going through the normal measurement
+      // pipeline. The analysis panel is open by default and the user
+      // hasn't interacted yet, so layoutGraph subtracts
+      // ANALYSIS_PANEL_WIDTH from the available canvas for this first
+      // auto-arrange.
+      setPendingLayout(true, { isFirstLoad: true })
     }
   }, [
     pendingLayout,

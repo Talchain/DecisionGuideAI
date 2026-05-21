@@ -60,10 +60,13 @@ describe('useInitialLayoutGuard', () => {
     seed({ nodes: stackedNodes(['a', 'b', 'c']), currentScenarioId: 'scA' })
     const { rerender } = renderHook(() => useInitialLayoutGuard())
     expect(setPendingLayoutSpy).toHaveBeenCalledTimes(1)
-    expect(setPendingLayoutSpy).toHaveBeenCalledWith(true)
+    // useInitialLayoutGuard now signals first-load so layoutGraph can subtract
+    // the analysis panel width before computing availableWidth.
+    expect(setPendingLayoutSpy).toHaveBeenCalledWith(true, { isFirstLoad: true })
     // Spy calls through to the real store action — verify the resulting
     // transition actually occurred.
     expect(useCanvasStore.getState().pendingLayout).toBe(true)
+    expect(useCanvasStore.getState().pendingLayoutIsFirstLoad).toBe(true)
     expect(useCanvasStore.getState().layoutRequestId).toBe(requestIdBefore + 1)
     // Re-render without state change — must not re-fire.
     rerender()

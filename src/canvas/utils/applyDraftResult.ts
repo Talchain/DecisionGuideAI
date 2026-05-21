@@ -149,7 +149,12 @@ export function applyDraftResult(
   // layout-stabilisation brief). The measurement hook in ReactFlowGraph
   // runs applyLayout once every unlocked node has measured.width/height,
   // or after a 500 ms safety fallback.
-  store.setPendingLayout(true)
+  //
+  // `isFirstLoad: true` — this is a fresh graph from a CEE draft. The
+  // analysis panel (OutputsDock) is reliably open and the user has not
+  // had a chance to move it. layoutGraph subtracts ANALYSIS_PANEL_WIDTH
+  // from the available canvas so the first auto-arrange fits visibly.
+  store.setPendingLayout(true, { isFirstLoad: true })
 
   // Immediate autosave for crash resilience
   try {

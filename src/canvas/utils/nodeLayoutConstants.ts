@@ -14,10 +14,55 @@
  * will have heavy text wrapping. Only reached when the widest tier cannot fit
  * in one row at any wider width and multi-row splitting is preferred.
  */
-export const NODE_LAYOUT_MIN_W = 140
+export const NODE_LAYOUT_MIN_W = 200
 
 /** Maximum rendered card width. Used by BaseNode and as the ELK pinned width. */
 export const NODE_CARD_MAX_W = 320
+
+/**
+ * First-load heuristic for the analysis panel (OutputsDock) width when
+ * expanded. Matches the CSS variable `--dock-right-expanded: 26rem` in
+ * `src/index.css` (26 × 16 = 416px at the default 16px base font).
+ *
+ * Used by `layoutGraph`'s first-load branch only (when called with
+ * `{ isFirstLoad: true }`): subsequent auto-arranges deliberately ignore all
+ * panels because the user may have moved or hidden them.
+ *
+ * --- KNOWN LIMITATIONS (deliberate trade-off, not bugs) ---
+ *
+ * This constant is a SINGLE FIXED VALUE — a heuristic, not a measurement.
+ * It does NOT reflect:
+ *
+ *   1. The dock's persisted closed state. When the user has previously
+ *      closed the dock, OutputsDock renders a 40px rail instead of the
+ *      416px expanded panel. The first-load subtraction over-corrects in
+ *      that case, compressing cards more than necessary.
+ *
+ *   2. User-resized dock width. OutputsDock has a left-edge
+ *      `cursor-col-resize` handle and persists the chosen width to
+ *      `localStorage.panel.results.width` (see OutputsDock.tsx). This
+ *      constant ignores any persisted resize — a user who has dragged
+ *      the dock wider or narrower still gets the 416px subtraction.
+ *
+ *   3. The dock's 12px right offset (`right: 12` in its asideStyle).
+ *      The actual horizontal space the dock occupies in the viewport is
+ *      `12 + 416 = 428px`, but we subtract only 416. Slight under-correction
+ *      for the open-dock case.
+ *
+ * Resolving any of these requires either DOM querying (rejected in PR #172
+ * because the floating-first v2 Olumi panel has a different selector and a
+ * draggable position) OR reading the persisted dock state from the canvas
+ * store (a larger architectural change — would need a separate brief).
+ *
+ * For now, this heuristic is acceptable because:
+ *   - On a fresh CEE draft (applyDraftResult), the dock is typically open
+ *     by default for first-time users.
+ *   - The over-correction (closed dock) is graceful: cards compress to
+ *     200px instead of 320px, but remain visible (no overflow).
+ *   - The under-correction (12px offset) means the rightmost card may
+ *     visually touch the dock's left edge by 12px — minor.
+ */
+export const ANALYSIS_PANEL_WIDTH = 416
 
 /** Horizontal padding added around the rendered card to form the ELK box. */
 export const LAYOUT_PADDING_X = 24
