@@ -2047,6 +2047,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   // their previous Analysis/Compare/Model/Journey context
                   // rather than always landing on Analysis.
                   const fallback = lastNonOlumiTabRef.current
+                  // CRITICAL (round-8 fix): write sessionStorage SYNCHRONOUSLY
+                  // before opening the floating panel. useDockState writes via
+                  // a post-commit useEffect, so without this write the floating
+                  // panel's render-time yield gate (which reads sessionStorage
+                  // as a fallback) would still see the stale 'olumi' value and
+                  // suppress the panel mount. Pre-empting the write here keeps
+                  // both sources of truth (sessionStorage + useUIStore) in
+                  // sync at the exact moment the floating panel re-renders.
+                  try {
+                    const cur = JSON.parse(sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY) || '{}')
+                    sessionStorage.setItem(OUTPUTS_DOCK_STORAGE_KEY, JSON.stringify({ ...cur, activeTab: fallback }))
+                  } catch {
+                    // sessionStorage may be blocked (private mode, quota).
+                    // Fallback: the React setState below still runs; the
+                    // useDockState effect will catch up post-commit.
+                  }
                   setState((prev) => ({ ...prev, activeTab: fallback }))
                   useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
                   openFloatingByUser('user')
