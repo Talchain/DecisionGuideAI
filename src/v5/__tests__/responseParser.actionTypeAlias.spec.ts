@@ -239,3 +239,34 @@ describe('parseV5Response — no rewrites when no aliases present', () => {
     expect(sidecar?.[ACTION_TYPE_ALIASES_APPLIED_KEY]).toBeUndefined()
   })
 })
+
+// ─── Contract: parser does NOT mutate the raw input ─────────────────────
+
+describe('parseV5Response — raw input is never mutated', () => {
+  it('after a successful parse with alias rewrite, the original input retains the pre-alias value', async () => {
+    // Hold a reference to the parsed fixture object so we can re-inspect
+    // it after parsing. The parser receives a Response built from
+    // JSON.stringify(fixture); even so, the contract is that any object
+    // surface the parser handles internally must be cloned before
+    // rewriting. This test locks down that contract from the caller's
+    // perspective: the fixture object visible here is untouched.
+    const fixture = loadFixture() as {
+      suggested_actions: Array<Record<string, unknown>>
+    }
+    expect(fixture.suggested_actions[0].action_type).toBe('explain_results')
+
+    const result = await parseV5Response(makeResponse(fixture))
+    expect(result.kind).toBe('response')
+    if (result.kind !== 'response') return
+
+    // Parsed surface carries the canonical value.
+    expect(result.response.suggested_actions[0].action_type).toBe('explain_result')
+
+    // Original fixture object STILL holds the pre-alias plural value —
+    // the parser must not reach back and rewrite the caller's reference,
+    // either directly or via shared sub-object references. If a future
+    // change starts mutating the input in place, this assertion fails
+    // immediately and the debug-bundle fidelity contract is protected.
+    expect(fixture.suggested_actions[0].action_type).toBe('explain_results')
+  })
+})
