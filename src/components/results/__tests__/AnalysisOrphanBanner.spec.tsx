@@ -58,6 +58,21 @@ describe('AnalysisOrphanBanner', () => {
     expect(banner.textContent ?? '').not.toMatch(/Re-run analysis to attach/)
   })
 
+  it('container has no vertical padding — row height is driven by the 44px button (WCAG floor)', () => {
+    render(<AnalysisOrphanBanner />)
+    const banner = screen.getByTestId('analysis-orphan-banner')
+    // No py-* / pt-* / pb-* / p-* on the container — only px-* allowed.
+    // This is the structural assertion behind the slim-row visual goal:
+    // without container vertical padding, the visible row floors at the
+    // button's min-h-[44px] touch target rather than stacking padding
+    // around it.
+    expect(banner.className).not.toMatch(/(^|\s)(p-|py-|pt-|pb-)\d/)
+    expect(banner.className).toMatch(/(^|\s)px-3(\s|$)/)
+    // Button must still meet the 44px WCAG touch target.
+    const button = screen.getByTestId('analysis-orphan-banner-run')
+    expect(button.className).toMatch(/min-h-\[44px\]/)
+  })
+
   it('does NOT render when canonical flag is off (direct_plot_legacy, not orphan)', () => {
     mockIsV5CanonicalAnalysisEnabled.mockReturnValue(false)
     render(<AnalysisOrphanBanner />)

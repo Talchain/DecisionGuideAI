@@ -12,6 +12,7 @@ import type { ResultsVM } from '../../types'
 import type {
   ConfidenceSectionData,
   DecisionResultData,
+  DriverItem,
   EvidenceGapItem,
   OptionResult,
   FragileEdgeItem,
@@ -30,6 +31,14 @@ function makeData(overrides: {
   dimensions?: { evidence: number; robustness: number; clarity: number }
   bias?: Array<{ type: string; description: string }>
   dqp?: string[]
+  /**
+   * Review status surfaced on `data.confidence.reviewStatus`. The Key
+   * question card requires `'complete'` to render — defaulted to that
+   * value here so existing DQP-present tests behave unchanged.
+   */
+  reviewStatus?: string
+  /** Drivers list for dependency-line corroboration. */
+  drivers?: DriverItem[]
 } = {}): ResultsSectionDataReturn {
   const winner = overrides.winnerLabel === null
     ? null
@@ -61,6 +70,10 @@ function makeData(overrides: {
     nextActions: [],
     topNextActions: [],
     topFragileEdge: overrides.fragile,
+    // Honour an explicit `undefined` in overrides (distinct from "key
+    // absent"). 'in' check lets callers test the "missing reviewStatus"
+    // case alongside other values like 'in_progress'.
+    reviewStatus: 'reviewStatus' in overrides ? overrides.reviewStatus : 'complete',
     m2BiasFindings: overrides.bias?.map(b => ({
       type: b.type,
       source: 'test',
@@ -75,15 +88,36 @@ function makeData(overrides: {
     })),
   } as ConfidenceSectionData
 
+  const drivers = overrides.drivers ?? []
+
   return {
     recommendation,
-    drivers: { drivers: [], topDrivers: [], driversStatus: 'computed', totalCount: 0, hasMagnitudeData: false },
+    drivers: {
+      drivers,
+      topDrivers: drivers.slice(0, 3),
+      driversStatus: 'computed',
+      totalCount: drivers.length,
+      hasMagnitudeData: drivers.length > 0,
+    },
     confidence,
     improvements: { improvements: [], count: 0, hasHighPriority: false },
     isLoading: false,
     isError: false,
     goalLabel: 'Goal',
   } as ResultsSectionDataReturn
+}
+
+/** Build a DriverItem stub with the influence corroboration field populated. */
+function makeDriver(factorKey: string, factorLabel: string, normalisedInfluence: number): DriverItem {
+  return {
+    factorKey,
+    factorLabel,
+    rawElasticity: normalisedInfluence,
+    normalisedInfluence,
+    rank: 1,
+    semanticLabel: 'biggest',
+    canFocus: true,
+  } as DriverItem
 }
 
 function makeVm(overrides: Partial<ResultsVM> = {}): ResultsVM {
@@ -380,6 +414,25 @@ describe('buildAnalysisHeroViewModel', () => {
       expect(vm.keyQuestion?.text).toBe('What evidence would change your view?')
     })
 
+    it('hides the card when reviewStatus !== "complete" even if a clean DQP is present (in-progress / stale guard)', () => {
+      // Upstream selector exposes m2DecisionQualityPrompts even during a
+      // partial review. Without the reviewStatus gate the card would
+      // surface stale or in-progress prompts.
+      const cases: Array<string | undefined> = [undefined, 'in_progress', 'pending', 'failed']
+      for (const status of cases) {
+        const vm = buildAnalysisHeroViewModel({
+          ...STD_ARGS,
+          data: makeData({
+            stability: 0.7,
+            dqp: ['What evidence would change your view?'],
+            reviewStatus: status,
+          }),
+          vm: makeVm({ decisionState: 'sensitive' }),
+        })
+        expect(vm.keyQuestion, `reviewStatus=${status ?? 'undefined'}`).toBeNull()
+      }
+    })
+
     it('rejects DQP that contains a banned term and hides the card (no template fallback)', () => {
       const vm = buildAnalysisHeroViewModel({
         ...STD_ARGS,
@@ -484,9 +537,19 @@ describe('buildAnalysisHeroViewModel', () => {
     // and M1 key_drivers); the legacy heuristic only contaminates
     // `data.drivers.dominantFactor*`, which the hero deliberately does not
     // read.
+    //
+    // Three additional gates (2026-05-21 review):
+    //  1. dominantFactorId + dominantFactorLabel both populated
+    //  2. matching driver in data.drivers.drivers[] has normalisedInfluence >= 0.5
+    //     (corroborates against M1 emissions without confidence + tie cases)
+    //  3. cleaned label passes the glossary banned-term gate
 
-    it('renders "The result depends most on {factor}." when recommendation.dominantFactorLabel is populated', () => {
-      const data = makeData({ winnerLabel: 'Tech Lead', stability: 0.7 })
+    it('renders "The result depends most on {factor}." when dominantFactor matches a driver with influence >= 0.5', () => {
+      const data = makeData({
+        winnerLabel: 'Tech Lead',
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Technical Leadership Capacity', 0.62)],
+      })
       ;(data.recommendation as any).dominantFactorId = 'n_lead'
       ;(data.recommendation as any).dominantFactorLabel = 'Technical Leadership Capacity'
       const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
@@ -503,14 +566,20 @@ describe('buildAnalysisHeroViewModel', () => {
     })
 
     it('omits the dependency line when dominantFactorId is present but label is missing', () => {
-      const data = makeData({ stability: 0.7 })
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead', 0.7)],
+      })
       ;(data.recommendation as any).dominantFactorId = 'n_lead'
       const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
       expect(vm.dependencyLine).toBeNull()
     })
 
     it('omits the dependency line when the factor label contains a banned glossary term', () => {
-      const data = makeData({ stability: 0.7 })
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_w', 'the winning capacity', 0.7)],
+      })
       ;(data.recommendation as any).dominantFactorId = 'n_w'
       ;(data.recommendation as any).dominantFactorLabel = 'the winning capacity'
       const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
@@ -518,11 +587,63 @@ describe('buildAnalysisHeroViewModel', () => {
     })
 
     it('strips encoding notation from the factor label before rendering', () => {
-      const data = makeData({ stability: 0.7 })
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead Capacity', 0.7)],
+      })
       ;(data.recommendation as any).dominantFactorId = 'n_lead'
       ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead Capacity (0/1)'
       const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
       expect(vm.dependencyLine).toBe('The result depends most on Tech Lead Capacity.')
+    })
+
+    it('omits the dependency line when the matching driver has low influence (<0.5) — suppresses M1 emissions without confidence', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead', 0.45)],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('omits the dependency line when no driver matches the dominantFactorId (stale or inconsistent state)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_other', 'Other Factor', 0.9)],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('omits the dependency line in a tie (neither top driver crosses 0.5)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [
+          makeDriver('n_a', 'Factor A', 0.48),
+          makeDriver('n_b', 'Factor B', 0.46),
+        ],
+      })
+      // Even if recommendation names one of them as dominant, the
+      // 0.5 corroboration floor isn't met → omit.
+      ;(data.recommendation as any).dominantFactorId = 'n_a'
+      ;(data.recommendation as any).dominantFactorLabel = 'Factor A'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBeNull()
+    })
+
+    it('renders at the exact 0.5 boundary (>= 0.5 is enough)', () => {
+      const data = makeData({
+        stability: 0.7,
+        drivers: [makeDriver('n_lead', 'Tech Lead', 0.5)],
+      })
+      ;(data.recommendation as any).dominantFactorId = 'n_lead'
+      ;(data.recommendation as any).dominantFactorLabel = 'Tech Lead'
+      const vm = buildAnalysisHeroViewModel({ ...STD_ARGS, data, vm: makeVm() })
+      expect(vm.dependencyLine).toBe('The result depends most on Tech Lead.')
     })
   })
 

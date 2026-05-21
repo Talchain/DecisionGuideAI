@@ -37,11 +37,16 @@ export function AnalysisOrphanBanner() {
 
   if (!showOrphanBanner) return null
 
+  // Banner height note: the WCAG 2.1 AA touch-target rule (44×44px) sets
+  // the floor — `min-h-[44px]` on the button drives the row height. The
+  // container drops vertical padding to let that 44px be the visible
+  // total, instead of stacking extra padding around it. Horizontal
+  // padding (`px-3`) remains so text and button don't crowd the edges.
   return (
     <div
       role="status"
       data-testid="analysis-orphan-banner"
-      className="flex items-center gap-3 rounded-lg border border-panel-border bg-panel px-3 py-2"
+      className="flex items-center gap-3 rounded-lg border border-panel-border bg-panel px-3"
     >
       <p className={`${typography.panelMeta} text-text-light flex-1 min-w-0`}>
         <span className="text-text-body">Refresh analysis</span>
@@ -54,7 +59,7 @@ export function AnalysisOrphanBanner() {
         disabled={!dispatchAction}
         data-testid="analysis-orphan-banner-run"
         className={[
-          'shrink-0 rounded-full px-4 py-2 min-h-[44px]',
+          'shrink-0 rounded-full px-4 py-1.5 min-h-[44px]',
           'bg-primary text-text-on-color',
           'hover:opacity-90 active:opacity-80',
           'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-2',

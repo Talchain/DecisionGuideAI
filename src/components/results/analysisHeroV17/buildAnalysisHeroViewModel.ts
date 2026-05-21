@@ -1,29 +1,40 @@
 /**
  * AnalysisHeroV17 view-model builder — orchestrator.
  *
- * Source of truth: docs/investigations/analysis-hero-v17.md §9–§11.
+ * Source of truth: docs/investigations/analysis-hero-v17.md §9–§11
+ * (initial) + docs/investigations/analysis-hero-v17-top-section.md
+ * (2026-05-21 top-section optimisation pass).
  *
  * This function is pure and deterministic. The component must consume the
  * VM and render — no further computation in JSX. State selection lives in
  * `stateSelection.ts`; row ranking + category lives in `rowRanking.ts`;
  * this module wires them together and resolves the key question, dimensions,
- * meta pills, footer checks, and CTA.
+ * dependency line, footer checks, and CTA.
  *
  * v1 fallbacks (per Paul's approved direction):
  *   - The fourth strip segment is labelled "Verified" (not "User input")
  *     and sourced from confirmedFactorCount / totalFactorCount.
- *   - The verified count surfaces ONCE — via `checkedCount` rendered to the
- *     right of the dimension strip ("No inputs verified" / "1 input verified"
- *     / "N inputs verified"). The earlier separate `contribution` line below
- *     the strip was removed in Fix 1 of the Round-4 polish pass because it
- *     duplicated the strip's count. `contribution.text` is always `null` and
- *     the field is retained only for backward compatibility (deprecated;
- *     scheduled for removal in the next major VM bump).
+ *   - The verified count surfaces ONLY via the Verified strip-segment's
+ *     tooltip + aria-label — no visible header text. The VM exposes
+ *     `checkedCount` ("No inputs verified" / "1 input verified" / "N inputs
+ *     verified") which the renderer threads into that composite tooltip.
+ *   - The `contribution` field is dead-deprecated: text is always `null`
+ *     and the field is retained only for backward compatibility (scheduled
+ *     for removal in the next major VM bump).
  *   - Per-factor provenance ("You checked X · Olumi inferred Y") remains
  *     unimplemented because the data is not available upstream.
- *   - `decision_quality_prompts` is consumed when present; otherwise a
- *     category-driven template is used; if no safe grounded question can
- *     be produced, the Key-question card is hidden.
+ *   - Result line uses probabilistic framing: "{label} comes out ahead
+ *     most often." A dependency line "The result depends most on {factor}."
+ *     renders below only when `recommendation.dominantFactor*` is populated
+ *     AND a matching driver has `normalisedInfluence >= 0.5` (corroboration
+ *     against the same threshold PLoT B1 uses internally — suppresses
+ *     low-confidence M1 emissions and tie cases).
+ *   - Stability/evidence meta pills were removed entirely; those signals
+ *     surface in `footerChecks` instead.
+ *   - Key-question card renders only when a real `m2DecisionQualityPrompts[0]`
+ *     is present, `reviewStatus === 'complete'`, and the prompt passes the
+ *     glossary gate. No category-driven template fallback — generic
+ *     templated questions on M1 burned space without adding signal.
  */
 
 import type { ResultsSectionDataReturn } from '../useResultsSectionData'
@@ -148,22 +159,50 @@ function buildReasonLine(data: ResultsSectionDataReturn): string | null {
 /**
  * Dependency line: "The result depends most on {factor}."
  *
- * Only emits when the dominant factor comes from a safe source:
- * `data.recommendation.dominantFactorId` / `dominantFactorLabel` are populated
- * exclusively from PLoT B1 (`report.dominant_factor`) or M1
- * (`m1Coaching.key_drivers.dominant_factor`) — see
- * `useResultsSectionData.ts:1465–1476`. The legacy heuristic
- * (`detectDominantFactorLegacy`) only contaminates `data.drivers.dominantFactor*`,
- * which this function deliberately does NOT read.
+ * Source gates (post review-feedback 2026-05-21):
  *
- * Returns `null` when no dominant factor is available or the label fails the
- * glossary gate — the result-context block then renders the result line alone.
+ *   1. `data.recommendation.dominantFactorId` / `dominantFactorLabel`
+ *      must both be populated. That `recommendation` path in
+ *      `useResultsSectionData.ts:1465–1476` collapses two safe sources —
+ *      PLoT B1 (`report.dominant_factor`) and M1
+ *      (`m1Coaching.key_drivers.dominant_factor`) — and never emits the
+ *      legacy heuristic (which only contaminates
+ *      `data.drivers.dominantFactor*`, which this function deliberately
+ *      does NOT read).
+ *
+ *   2. Corroboration check: the matching driver in `data.drivers.drivers[]`
+ *      must have `normalisedInfluence >= 0.5`. This is the same threshold
+ *      PLoT B1 uses internally to classify dominance. The check guards
+ *      against three failure modes:
+ *        - M1 emits `key_drivers.dominant_factor` without verifying actual
+ *          dominance (no confidence gate upstream)
+ *        - Tie cases (top-2 factors near-equal → neither >= 0.5 in
+ *          normalised influence)
+ *        - Stale or inconsistent state where `recommendation` claims a
+ *          dominant factor but the underlying drivers don't support it
+ *      The influence-score field is NOT tainted by the legacy heuristic;
+ *      the heuristic only affects `data.drivers.dominantFactorId` selection,
+ *      not the per-driver `normalisedInfluence` values.
+ *
+ *   3. Cleaned factor label passes the glossary banned-term gate.
+ *
+ * Returns `null` when any gate fails — the result-context block then
+ * renders the result line alone.
  */
 function buildDependencyLine(data: ResultsSectionDataReturn): string | null {
   const rec = data?.recommendation
   const id = rec?.dominantFactorId
   const rawLabel = rec?.dominantFactorLabel
   if (!id || !rawLabel) return null
+  // Corroboration: the named factor must actually be dominant in the
+  // underlying drivers array. Match by factorKey (the driver's canonical
+  // id resolved from node_id / factor_id / id / normalised(label) per
+  // DriverItem definition).
+  const driver = data?.drivers?.drivers?.find(d => d.factorKey === id)
+  const influence = driver?.normalisedInfluence
+  if (typeof influence !== 'number' || !Number.isFinite(influence) || influence < 0.5) {
+    return null
+  }
   const cleaned = stripEncodingNotation(rawLabel)
   if (!cleaned) return null
   if (containsBannedTerm(cleaned)) return null
@@ -182,11 +221,21 @@ function selectKeyQuestion(
   // Decision-review prompt verbatim (if clean). When V5 Phase 3 wires
   // `decision_review`, real DQPs populate automatically.
   //
+  // Three gates (post review-feedback 2026-05-21):
+  //   1. reviewStatus === 'complete' — mirrors the gate `m2NarrativeSummary`
+  //      uses (see useResultsSectionData.ts:1461). The upstream selector
+  //      exposes `m2DecisionQualityPrompts` even when the review is still
+  //      in progress / stale; without this gate the card could render
+  //      partial or out-of-date prompts.
+  //   2. Question text passes `containsBannedTerm` (glossary safety).
+  //   3. State is not 'strong' (handled above).
+  //
   // The category-driven template fallback was removed (2026-05-21): on M1
   // it produced generic, repetitive questions across every decision and
   // burned vertical space without adding signal. When no real DQP is
-  // present, the card is hidden — coaching intent moves into the input
-  // row's AI action prompt instead.
+  // present (or the gates fail), the card is hidden — coaching intent
+  // moves into the input row's AI action prompt instead.
+  if (data?.confidence?.reviewStatus !== 'complete') return null
   const dqps = data?.confidence?.m2DecisionQualityPrompts ?? []
   const dqp = dqps[0]?.question
   if (dqp && !containsBannedTerm(dqp)) {
@@ -197,7 +246,7 @@ function selectKeyQuestion(
     }
   }
 
-  // No real DQP — hide the card.
+  // No safe gated DQP — hide the card.
   return null
 }
 
