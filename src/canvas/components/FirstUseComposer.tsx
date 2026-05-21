@@ -9,6 +9,7 @@ import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
+import { ThinkingIndicator } from '../conversation/zones/ThinkingIndicator'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
@@ -55,8 +56,17 @@ const REPOSITION_EDGE_MARGIN = 16
  */
 export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
-  const { messages } = useConversationContext()
+  const { messages, isThinking } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
+  // Round-12: during the first-use generating window (user submitted a
+  // brief, no graph yet) the composer freezes, its placeholder swaps to
+  // "Generating your decision model…", and the chromeless hero would
+  // otherwise sit silent. Render the existing ThinkingIndicator (six
+  // node shapes pulsing in a horizontal wave — main → light → main, 3s
+  // loop, 0.5s stagger) below the composer so the user has visual
+  // evidence Olumi is working on it. The indicator unmounts as soon as
+  // the first graph appears (nodeCount > 0 → hero unmounts entirely).
+  const isGenerating = isThinking && nodeCount === 0
 
   const isOpen = useFloatingPanelState((s) => s.isOpen)
   const source = useFloatingPanelState((s) => s.source)
@@ -234,6 +244,14 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
           onAfterSend={handleAfterSend}
         />
       </div>
+      {isGenerating ? (
+        <div
+          aria-live="polite"
+          data-testid="first-use-thinking"
+        >
+          <ThinkingIndicator />
+        </div>
+      ) : null}
     </div>,
     document.body,
   )

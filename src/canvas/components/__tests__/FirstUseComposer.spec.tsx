@@ -67,6 +67,10 @@ vi.mock('../../hooks/useSelectionContext', () => ({
 const messagesMockState: { messages: Array<{ id: string; role: string; synthetic?: boolean }> } = {
   messages: [],
 }
+// Mutable thinking flag — round-12 isGenerating render gates on
+// (isThinking && nodeCount === 0) to show the ThinkingIndicator in the
+// hero's post-submit / pre-graph window.
+const thinkingMockState: { isThinking: boolean } = { isThinking: false }
 // Pin sendMessage etc. with stable identities — same pattern as the
 // interactions spec's vi.mock of useConversation.
 vi.mock('../../conversation/useConversation', async () => {
@@ -81,7 +85,7 @@ vi.mock('../../conversation/useConversation', async () => {
       const [setPatchRejection] = useState(() => vi.fn())
       return {
         messages: messagesMockState.messages,
-        isThinking: false,
+        isThinking: thinkingMockState.isThinking,
         longRunningHint: null,
         lastFailedInput: null,
         sendMessage,
@@ -119,6 +123,7 @@ beforeEach(() => {
   useUIStore.setState({ activeOutputTab: 'results', activeOutputTabVersion: 0 })
   canvasMockState.nodes = []
   messagesMockState.messages = []
+  thinkingMockState.isThinking = false
   reducedMotionState.value = false
   vi.useRealTimers()
 })
@@ -384,6 +389,51 @@ describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
   it('keeps the cog button inside the input field (welcome-cog invariant)', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     expect(screen.getByTestId('first-use-input-bar-cog')).toBeInTheDocument()
+  })
+})
+
+describe('FirstUseComposer — generating animation (round-12)', () => {
+  // The hero's post-submit / pre-graph window (user pressed send, no
+  // graph yet) is the moment the chromeless surface goes from inviting
+  // to working. Round-12 wires the existing ThinkingIndicator (six node
+  // shapes pulsing in a horizontal wave) into the hero so the user has
+  // visual evidence that Olumi is drafting their model.
+
+  it('does NOT render the indicator at rest (no submit, isThinking=false)', () => {
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(screen.queryByTestId('first-use-thinking')).toBeNull()
+    expect(screen.queryByTestId('thinking-indicator')).toBeNull()
+  })
+
+  it('renders the indicator while isThinking is true and the canvas is still empty', () => {
+    thinkingMockState.isThinking = true
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    // The wrapper carries an aria-live region so AT users hear the
+    // status; the inner indicator (from src/canvas/conversation/zones/
+    // ThinkingIndicator.tsx) carries the 6 pulsing shapes.
+    const wrapper = screen.getByTestId('first-use-thinking')
+    expect(wrapper).toBeInTheDocument()
+    expect(wrapper.getAttribute('aria-live')).toBe('polite')
+    expect(screen.getByTestId('thinking-indicator')).toBeInTheDocument()
+  })
+
+  it('hides the indicator once the first graph appears (nodeCount > 0 → hero unmounts entirely)', () => {
+    thinkingMockState.isThinking = true
+    canvasMockState.nodes = [{ id: 'n1' }]
+    render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    // Hero itself unmounts when nodeCount > 0 — the shouldRender gate
+    // returns false. So neither the wrapper nor the indicator render.
+    expect(screen.queryByTestId('first-use-composer')).toBeNull()
+    expect(screen.queryByTestId('first-use-thinking')).toBeNull()
+  })
+
+  it('hides the indicator when isThinking flips back to false on the same render', () => {
+    thinkingMockState.isThinking = true
+    const { rerender } = render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
+    expect(screen.getByTestId('first-use-thinking')).toBeInTheDocument()
+    thinkingMockState.isThinking = false
+    rerender(<FirstUseComposer onCogClick={() => {}} />)
+    expect(screen.queryByTestId('first-use-thinking')).toBeNull()
   })
 })
 
