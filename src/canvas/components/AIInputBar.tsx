@@ -13,7 +13,7 @@ import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { useStageAwarePlaceholder } from '../hooks/useStageAwarePlaceholder'
 
-export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use'
+export type AIInputBarVariant = 'strip' | 'docked-tab' | 'floating' | 'first-use' | 'welcome'
 
 export interface AIInputBarHandle {
   focus(): void
@@ -22,7 +22,7 @@ export interface AIInputBarHandle {
 }
 
 export interface AIInputBarProps {
-  /** Layout variant — affects padding and chrome (cog, chevron). */
+  /** Layout variant — affects padding, sizing, and chrome (cog, chevron, send shape). */
   variant: AIInputBarVariant
   /** Override the stage-aware placeholder. Optional. */
   placeholder?: string
@@ -33,7 +33,7 @@ export interface AIInputBarProps {
   onCogClick?: (anchorEl: HTMLElement) => void
   /** Click handler for the chevron icon (strip only). Opens floating panel. */
   onChevronClick?: () => void
-  /** Hides the chevron icon (used by floating + first-use + docked-tab variants). */
+  /** Hides the chevron icon (used by floating + first-use + welcome + docked-tab variants). */
   hideChevron?: boolean
   /** Optional id for the textarea (for label/test wiring). */
   textareaId?: string
@@ -51,17 +51,27 @@ export interface AIInputBarProps {
 
 const MAX_LINES = 2
 const LINE_HEIGHT_PX = 18
+/** Welcome hero variant: three visible lines at rest, room to expand to six. */
+const WELCOME_MIN_LINES = 3
+const WELCOME_MAX_LINES = 6
 
 /**
  * AIInputBar — single shared composer used by the persistent strip, the docked
- * Olumi tab (currently unused — strip handles), the floating Olumi panel, and
- * the first-use centred composer. Owns no message state; reads draft from
- * ConversationContext so the draft survives surface switches (e.g. typing in
- * the strip → opening floating → docking → strip still has the text).
+ * Olumi tab (currently unused — strip handles), the floating Olumi panel, the
+ * first-use centred composer, and the AI Panel v2 welcome hero. Owns no message
+ * state; reads draft from ConversationContext so the draft survives surface
+ * switches (e.g. typing in the strip → opening floating → docking → strip still
+ * has the text).
  *
- * The variant only affects chrome (padding, which icons are visible). The
- * input logic — auto-grow up to 2 lines, Enter-to-send, Shift+Enter newline —
- * is identical across variants.
+ * The variant affects chrome (padding, which icons are visible, send-button
+ * shape, textarea minimum height). The input logic — auto-grow, Enter-to-send,
+ * Shift+Enter newline — is identical across variants.
+ *
+ * Composer styling rules (DS v5):
+ * - No blue focus ring; subtle border colour change on focus.
+ * - Send button is a filled circle (bg-info) in every variant.
+ * - Cog icon stays inside the input border, vertically aligned with send.
+ * - During generation, the textarea, cog, send and chevron are all disabled.
  */
 export const AIInputBar = memo(
   forwardRef<AIInputBarHandle, AIInputBarProps>(function AIInputBar(
@@ -88,6 +98,7 @@ export const AIInputBar = memo(
     // orchestrator routes the brief through the model-generation path
     // and emits auto-apply graph patches.
     const nodeCount = useCanvasStore((s) => s.nodes.length)
+    const isWelcome = variant === 'welcome'
 
     useImperativeHandle(
       ref,
@@ -98,14 +109,19 @@ export const AIInputBar = memo(
       [draft],
     )
 
-    // Auto-grow up to MAX_LINES, then scroll inside.
+    // Auto-grow up to the variant's max line count, then scroll inside.
+    // Welcome hero gives generous room (3 lines floor, 6 ceiling) so the
+    // composer reads as the primary action surface, not a tiny strip.
+    const minLines = isWelcome ? WELCOME_MIN_LINES : 1
+    const maxLines = isWelcome ? WELCOME_MAX_LINES : MAX_LINES
+    const minHeightPx = LINE_HEIGHT_PX * minLines + 16
+    const maxHeightPx = LINE_HEIGHT_PX * maxLines + 16
     useLayoutEffect(() => {
       const el = textareaRef.current
       if (!el) return
       el.style.height = 'auto'
-      const max = LINE_HEIGHT_PX * MAX_LINES + 8
-      el.style.height = `${Math.min(el.scrollHeight, max)}px`
-    }, [draft])
+      el.style.height = `${Math.min(Math.max(el.scrollHeight, minHeightPx), maxHeightPx)}px`
+    }, [draft, minHeightPx, maxHeightPx])
 
     const handleSend = useCallback(() => {
       const text = draft.trim()
@@ -144,14 +160,16 @@ export const AIInputBar = memo(
           return 'flex items-end gap-1 px-3 pb-3 pt-2 border-t border-panel-border'
         case 'first-use':
           return 'flex items-end gap-1 px-3 pb-3 pt-2'
+        case 'welcome':
+          return 'flex items-end gap-2 px-2 pb-2 pt-2'
       }
     })()
 
     // Empty canvas + isThinking === a model-generation turn is in flight.
     // The brief: composer must not invite a new decision while generating.
-    // We disable typing + replace the placeholder. Chat-mode thinking
-    // (nodeCount > 0) keeps the existing behaviour (Enter blocked via
-    // handleSend; typing still allowed so the user can compose follow-up).
+    // Disable typing, cog, chevron, send, and replace the placeholder. Chat-mode
+    // thinking (nodeCount > 0) keeps the existing behaviour — Enter blocked
+    // via handleSend, typing allowed so follow-ups can be composed.
     const isGenerating = isThinking && nodeCount === 0
     const inputDisabled = disabled || isGenerating
     const effectivePlaceholder = isGenerating
@@ -159,9 +177,22 @@ export const AIInputBar = memo(
       : placeholder ?? stagePlaceholder
     const canSend = draft.trim().length > 0 && !inputDisabled && !isThinking
 
+    // Send button geometry. Welcome variant gets a larger filled disc so the
+    // hero composer feels generous; other variants stay compact.
+    const sendBtnSize = isWelcome ? 'w-8 h-8' : 'w-7 h-7'
+    const sendIconSize = isWelcome ? 'w-4 h-4' : 'w-3.5 h-3.5'
+    const cogBtnSize = isWelcome ? 'w-8 h-8' : 'w-7 h-7'
+    const cogIconSize = isWelcome ? 'w-4 h-4' : 'w-4 h-4'
+    // Stack inset: the cog/send cluster sits inside the right edge of the
+    // textarea. Welcome variant gives more breathing room.
+    const stackInset = isWelcome ? 'right-2 bottom-2' : 'right-1.5 bottom-1'
+    const stackGap = isWelcome ? 'gap-1' : 'gap-0.5'
+    // Right padding on textarea reserves room for the cog+send cluster.
+    const textareaRightPad = isWelcome ? 'pr-24' : 'pr-16'
+
     return (
       <div className={containerClasses} data-testid={testId ?? `ai-input-bar-${variant}`}>
-        <div className="relative flex-1 bg-panel border border-panel-border rounded-lg focus-within:ring-2 focus-within:ring-info">
+        <div className="relative flex-1 bg-panel border border-panel-border rounded-lg transition-colors focus-within:border-info">
           <textarea
             ref={textareaRef}
             id={textareaId}
@@ -169,29 +200,29 @@ export const AIInputBar = memo(
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={effectivePlaceholder}
-            rows={1}
+            rows={minLines}
             disabled={inputDisabled}
             aria-disabled={inputDisabled}
             aria-label={ariaLabel ?? 'Chat message'}
             data-testid={`${testId ?? `ai-input-bar-${variant}`}-textarea`}
             className={typo(
               'panelBody',
-              'w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light py-2 pl-3 pr-16',
+              `w-full resize-none bg-transparent outline-none text-text-body placeholder:text-text-light py-2 pl-3 ${textareaRightPad}`,
             )}
-            style={{ minHeight: 36, maxHeight: LINE_HEIGHT_PX * MAX_LINES + 16 }}
+            style={{ minHeight: minHeightPx, maxHeight: maxHeightPx }}
           />
-          <div className="absolute right-1.5 bottom-1 flex flex-col items-center gap-0.5">
+          <div className={`absolute ${stackInset} flex flex-col items-center ${stackGap}`}>
             {onCogClick ? (
               <button
                 type="button"
                 onClick={(e) => onCogClick(e.currentTarget)}
                 disabled={inputDisabled}
                 aria-disabled={inputDisabled}
-                className="inline-flex items-center justify-center w-6 h-6 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50"
+                className={`inline-flex items-center justify-center ${cogBtnSize} rounded-full text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
                 aria-label="Settings"
                 data-testid={`${testId ?? `ai-input-bar-${variant}`}-cog`}
               >
-                <Settings className="w-4 h-4" aria-hidden="true" />
+                <Settings className={cogIconSize} aria-hidden="true" />
               </button>
             ) : null}
             <button
@@ -199,11 +230,11 @@ export const AIInputBar = memo(
               onClick={handleSend}
               disabled={!canSend}
               aria-disabled={!canSend}
-              className="inline-flex items-center justify-center w-6 h-6 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-40 disabled:hover:bg-transparent"
+              className={`inline-flex items-center justify-center ${sendBtnSize} rounded-full bg-info text-text-on-color hover:opacity-90 focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-30 disabled:hover:opacity-30`}
               aria-label="Send"
               data-testid={`${testId ?? `ai-input-bar-${variant}`}-send`}
             >
-              <ArrowUp className="w-4 h-4" aria-hidden="true" />
+              <ArrowUp className={sendIconSize} aria-hidden="true" />
             </button>
           </div>
         </div>

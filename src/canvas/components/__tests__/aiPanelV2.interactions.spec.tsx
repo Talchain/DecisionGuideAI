@@ -315,53 +315,11 @@ describe('deriveNextDockIsOpen (toggleOpen first-use rail invariant)', () => {
   })
 })
 
-describe('selectEffectiveActiveTab — Olumi-tab redirect policy', () => {
-  // Imported via the same beforeAll dynamic-import dance as
-  // deriveNextDockIsOpen to keep test startup fast.
-  let selectEffectiveActiveTab: (
-    storedActiveTab: 'results' | 'compare' | 'diagnostics' | 'journey' | 'olumi',
-    aiPanelV2On: boolean,
-    floatingPanelIsOpen: boolean,
-    lastNonOlumiTab: 'results' | 'compare' | 'diagnostics' | 'journey' | 'olumi',
-  ) => 'results' | 'compare' | 'diagnostics' | 'journey' | 'olumi'
-  beforeAll(async () => {
-    const mod = await import('../OutputsDock')
-    selectEffectiveActiveTab = mod.selectEffectiveActiveTab
-  }, 30_000)
-
-  it('passes through the stored tab when FF-off (no redirect ever)', () => {
-    expect(selectEffectiveActiveTab('olumi', false, true, 'results')).toBe('olumi')
-    expect(selectEffectiveActiveTab('compare', false, true, 'results')).toBe('compare')
-  })
-
-  it('passes through the stored tab when FF-on but stored tab is not olumi', () => {
-    expect(selectEffectiveActiveTab('results', true, true, 'compare')).toBe('results')
-    expect(selectEffectiveActiveTab('compare', true, true, 'results')).toBe('compare')
-    expect(selectEffectiveActiveTab('diagnostics', true, true, 'results')).toBe('diagnostics')
-  })
-
-  it('passes through stored olumi when floating is closed (no need to redirect)', () => {
-    expect(selectEffectiveActiveTab('olumi', true, false, 'results')).toBe('olumi')
-    expect(selectEffectiveActiveTab('olumi', true, false, 'compare')).toBe('olumi')
-  })
-
-  it('redirects to lastNonOlumiTab when FF-on AND stored=olumi AND floating open', () => {
-    expect(selectEffectiveActiveTab('olumi', true, true, 'compare')).toBe('compare')
-    expect(selectEffectiveActiveTab('olumi', true, true, 'diagnostics')).toBe('diagnostics')
-    expect(selectEffectiveActiveTab('olumi', true, true, 'results')).toBe('results')
-  })
-
-  it('never returns olumi when the redirect condition is satisfied', () => {
-    // Even if lastNonOlumiTab is somehow 'olumi' (defensive callers
-    // shouldn't pass this, but a future bug shouldn't make the
-    // duplicate-surface invariant break silently).
-    const result = selectEffectiveActiveTab('olumi', true, true, 'olumi')
-    // The helper returns whatever was passed; callers are responsible
-    // for not seeding `lastNonOlumiTabRef.current = 'olumi'`. Document
-    // the contract via assertion.
-    expect(result).toBe('olumi')
-  })
-})
+// Round-2 had a `selectEffectiveActiveTab` redirect helper. Round-3 made it
+// dead identity, and round-5 removed it entirely (see OutputsDock.tsx — the
+// duplicate-surface invariant is now enforced by handleTabClick + the
+// close-floating-on-olumi-active guard effect). The corresponding test
+// block was removed in round-5 to avoid keeping stale-meaning coverage.
 
 // Attach evidence: intentionally not tested as a functional feature here —
 // it is shipped as "Coming soon" until the orchestrator turn API supports a

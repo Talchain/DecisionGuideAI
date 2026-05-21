@@ -125,7 +125,38 @@ interface OutputsDockState {
   activeTab: OutputsDockTab
 }
 
-const STORAGE_KEY = 'canvas.outputsDock.v1'
+export const OUTPUTS_DOCK_STORAGE_KEY = 'canvas.outputsDock.v1'
+const STORAGE_KEY = OUTPUTS_DOCK_STORAGE_KEY
+
+/**
+ * Render-time read of the persisted dock-tab from sessionStorage. Used by
+ * FloatingOlumiPanel to align its render-time duplicate-surface yield gate
+ * with the SAME effective tab that OutputsDock paints on first render —
+ * before the E1 sync effect copies the persisted state into useUIStore.
+ *
+ * Without this, OutputsDock can restore `state.activeTab='olumi'` from
+ * sessionStorage while `useUIStore.activeOutputTab` is still the default
+ * 'results', and both surfaces would paint for one frame before the post-
+ * paint effect reconciles them.
+ *
+ * Returns `null` when sessionStorage is unavailable or the persisted
+ * payload is missing/invalid (consumer falls back to useUIStore).
+ */
+export function readPersistedActiveDockTab(): OutputsDockTab | null {
+  if (typeof sessionStorage === 'undefined') return null
+  try {
+    const raw = sessionStorage.getItem(OUTPUTS_DOCK_STORAGE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as Partial<OutputsDockState>
+    const tab = parsed?.activeTab
+    if (tab === 'results' || tab === 'compare' || tab === 'diagnostics' || tab === 'journey' || tab === 'olumi') {
+      return tab
+    }
+    return null
+  } catch {
+    return null
+  }
+}
 
 /**
  * Pure helper for the toggle-open click handler.
@@ -144,36 +175,14 @@ export function deriveNextDockIsOpen(isFirstUse: boolean, storedIsOpen: boolean)
   return !wasVisuallyOpen
 }
 
-/**
- * Pure helper: derive the visible (effective) tab the dock should show.
- *
- * The persisted `state.activeTab` is the source of truth for what the
- * user chose, but it cannot be displayed directly under one condition:
- * `aiPanelV2On && state.activeTab === 'olumi' && floatingPanelIsOpen`.
- * In that case the floating panel is the single readable conversation
- * surface, and the docked tab must show whatever non-Olumi tab the
- * user was last on (Compare / Model / Analysis), to avoid wasting the
- * right panel and to avoid the duplicate-readable-surface invariant
- * breaking.
- *
- * Render-time helper (no React state), so the very first paint already
- * shows the fallback. An accompanying effect commits the fallback back
- * to persisted state + the global useUIStore so external consumers
- * (history, telemetry) stay aligned.
- *
- * Tested in isolation via aiPanelV2.interactions.spec.tsx.
- */
-export function selectEffectiveActiveTab(
-  storedActiveTab: OutputsDockTab,
-  aiPanelV2On: boolean,
-  floatingPanelIsOpen: boolean,
-  lastNonOlumiTab: OutputsDockTab,
-): OutputsDockTab {
-  if (!aiPanelV2On) return storedActiveTab
-  if (storedActiveTab !== 'olumi') return storedActiveTab
-  if (!floatingPanelIsOpen) return storedActiveTab
-  return lastNonOlumiTab
-}
+// Round-2 had `selectEffectiveActiveTab` — a render-time redirect from
+// 'olumi' to a fallback when the floating panel was open. Round-3 made
+// the click handler close the floating panel on Olumi-tab click, and
+// round-5 added a guard effect for non-click paths, so the helper became
+// dead identity. Removed in round-5 to avoid future reviewers assuming it
+// still enforces the duplicate-surface invariant — the invariant is now
+// enforced by `handleTabClick` + the close-floating-on-olumi-active
+// effect (see OutputsDockBody below).
 
 /** Dynamic accessor: re-evaluates feature flags on every call. Exported so
  *  parity tests can verify tab gating without remounting OutputsDock. The
@@ -411,47 +420,33 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   // realMessageCount kept for downstream consumers (Olumi tab empty-state
   // logic); intentionally does NOT participate in isFirstUse.
   void realMessageCount
-  // Floating panel state — needed for tab gating + footer-stack mode.
-  const floatingPanelIsOpen = useFloatingPanelState((s) => s.isOpen)
 
-  // UX correction (P0): when floating Olumi is open AND the dock would
-  // otherwise activate the Olumi tab, redirect away so the docked
-  // surface never duplicates the floating conversation. Two-part guard:
-  //
-  // 1) `effectiveActiveTab` is computed AT RENDER TIME (see below),
-  //    so the docked Olumi body never paints — not even a one-frame
-  //    flash on initial mount when persisted state already had
-  //    activeTab='olumi'.
-  // 2) An effect commits the redirect back into the persisted dock
-  //    state + global useUIStore so subsequent renders + external
-  //    consumers (history, programmatic navigation) are consistent.
-  //
-  // Fallback policy: prefer the LAST non-Olumi tab the user was on
-  // (Compare / Model / Diagnostics) rather than blindly forcing
-  // 'results'. The ref is updated whenever a non-Olumi tab activates.
-  const lastNonOlumiTabRef = useRef<OutputsDockTab>(state.activeTab !== 'olumi' ? state.activeTab : 'results')
+  // Round 3 UX correction: clicking the Olumi tab CLOSES the floating panel
+  // and shows the docked Olumi conversation (see handleTabClick). For the
+  // non-click paths (programmatic setActiveOutputTab, persisted state on
+  // page load) we add a guard effect below so the duplicate-readable-
+  // surface invariant ("never both at once") still holds.
+  const effectiveActiveTab = state.activeTab
+
+  // Track the last non-Olumi tab the user was on so the docked-Olumi
+  // float-out path can return them to that context (Analysis / Compare /
+  // Model / Journey) rather than always defaulting to Analysis.
+  const lastNonOlumiTabRef = useRef<OutputsDockTab>(
+    state.activeTab !== 'olumi' ? state.activeTab : 'results',
+  )
   useEffect(() => {
     if (state.activeTab !== 'olumi') lastNonOlumiTabRef.current = state.activeTab
   }, [state.activeTab])
-  const effectiveActiveTab = selectEffectiveActiveTab(
-    state.activeTab,
-    aiPanelV2On,
-    floatingPanelIsOpen,
-    lastNonOlumiTabRef.current,
-  )
-  const olumiRedirectActive = effectiveActiveTab !== state.activeTab
+  // Close the floating panel whenever the docked Olumi tab becomes active
+  // (covers programmatic + restored-state paths that bypass handleTabClick).
+  // The singleton ConversationContext preserves draft + message state, so
+  // closing here is purely a surface switch with no data loss.
   useEffect(() => {
-    if (!olumiRedirectActive) return
-    const fallback = lastNonOlumiTabRef.current
-    setState((prev) => (prev.activeTab === 'olumi' ? { ...prev, activeTab: fallback } : prev))
-    // Keep the global store in sync — without this, useUIStore reports
-    // 'olumi' as the active tab even though the dock visually shows the
-    // fallback. Downstream consumers (history, deep links, telemetry)
-    // would otherwise diverge from what the user sees.
-    if (useUIStore.getState().activeOutputTab === 'olumi') {
-      useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
+    if (state.activeTab !== 'olumi') return
+    if (useFloatingPanelState.getState().isOpen) {
+      useFloatingPanelState.getState().close()
     }
-  }, [olumiRedirectActive, setState])
+  }, [state.activeTab])
   const openFloatingByUser = useFloatingPanelState((s) => s.open)
   const transitionReceipt = useTransitionReceipt((s) => s.receipt)
   // Cog popover anchor — strip footer-stack only.
@@ -1265,15 +1260,13 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
   }
 
   const handleTabClick = (tab: OutputsDockTab) => {
-    // UX correction (P0.1): when the floating Olumi panel is open, clicking
-    // the Olumi tab focuses the floating panel instead of switching the
-    // right panel to a blank placeholder. The user's current Analysis /
-    // Compare / Model tab stays visible. Dock-back is exclusively via the
-    // floating header's PanelRight button. Replaces the brief PR #149
-    // "placeholder" branch that wasted the right panel.
+    // UX correction (round 3): clicking the Olumi tab ALWAYS docks the
+    // conversation into the right panel. If the floating panel is open,
+    // close it first so the conversation surface is unambiguous. The
+    // singleton ConversationContext preserves the draft text and message
+    // state across the floating-to-docked transition (no data loss).
     if (tab === 'olumi' && useFloatingPanelState.getState().isOpen) {
-      focusFloating()
-      return
+      useFloatingPanelState.getState().close()
     }
     setState(prev => ({ ...prev, isOpen: true, activeTab: tab }))
     // E1: Sync tab state to Zustand store for cross-component navigation
@@ -1415,20 +1408,16 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
             </span>
             <nav className="flex flex-1 min-w-0 gap-1" aria-label="Outputs sections">
               {OUTPUT_TABS.map(tab => {
-                // When floating Olumi is open, the Olumi tab is the
-                // interactive control that focuses the floating panel.
-                // Make that intent visible to AT users on the BUTTON
-                // (not just the dot indicator) so screen readers reading
-                // the tab announce the state.
-                const olumiOpenLabel = tab.id === 'olumi' && floatingPanelIsOpen
+                // Round-3 UX correction: clicking Olumi always docks (closes
+                // floating), so the tab no longer needs the "Olumi is open"
+                // signage that round 2 added. Text-only label keeps Olumi
+                // visually consistent with Analysis / Compare / Model.
                 return (
                 <button
                   key={tab.id}
                   type="button"
                   onClick={() => handleTabClick(tab.id)}
                   data-testid={tab.id === 'diagnostics' ? 'outputs-dock-tab-diagnostics' : tab.id === 'olumi' ? 'outputs-dock-tab-olumi' : undefined}
-                  aria-label={olumiOpenLabel ? 'Olumi is open. Focus floating panel' : undefined}
-                  title={olumiOpenLabel ? 'Olumi is open. Focus floating panel' : undefined}
                   className={`flex-1 px-2 py-1 rounded ${typography.caption} font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-info focus-visible:ring-offset-1 ${
                     effectiveActiveTab === tab.id
                       ? 'text-info border-b-2 border-info'
@@ -1441,18 +1430,7 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                   }
                 >
                   <span className={`inline-flex items-center gap-1${tab.id === 'results' && showResultsTabStaleWarning ? ' text-warning' : ''}`}>
-                    {tab.id === 'olumi' && <MessageSquare className="w-3.5 h-3.5" aria-hidden="true" />}
                     {tab.label}
-                    {tab.id === 'olumi' && floatingPanelIsOpen && (
-                      // Subtle visual indicator — small filled dot in the
-                      // tab label. aria-label lives on the BUTTON above so
-                      // screen readers announce the open state.
-                      <span
-                        className="inline-flex w-1.5 h-1.5 rounded-full bg-info"
-                        data-testid="olumi-tab-floating-badge"
-                        aria-hidden="true"
-                      />
-                    )}
                     {tab.id === 'results' && showResultsTabStaleWarning && (
                       <AlertTriangle
                         className="w-3 h-3 text-warning"
@@ -1527,8 +1505,8 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                     : 'text-text-header/70 bg-panel border-panel-border hover:bg-panel hover:text-text-header'
                 }`}
                 style={effectiveActiveTab === tab.id ? { backgroundColor: 'rgba(82,163,200,0.15)' } : undefined}
-                aria-label={tab.id === 'olumi' && floatingPanelIsOpen ? 'Olumi is open. Focus floating panel' : tab.label}
-                title={tab.id === 'olumi' && floatingPanelIsOpen ? 'Olumi is open. Focus floating panel' : tab.label}
+                aria-label={tab.label}
+                title={tab.label}
               >
                 <Icon className="w-3.5 h-3.5" aria-hidden="true" />
               </button>
@@ -2057,7 +2035,22 @@ function OutputsDockBody({ sendMessage }: OutputsDockBodyProps) {
                 data-testid="olumi-tab-wrapper"
                 aria-hidden={effectiveActiveTab !== 'olumi'}
               >
-                <OlumiTabBody onFloatOut={() => openFloatingByUser('user')} />
+                <OlumiTabBody onFloatOut={() => {
+                  // The user wants to leave the docked surface for the
+                  // floating window. We must switch the active tab away
+                  // from 'olumi' first — otherwise FloatingOlumiPanel's
+                  // yieldToDockedOlumi render-time guard + OutputsDockBody's
+                  // close-floating guard effect would together suppress
+                  // the panel the moment it opened.
+                  //
+                  // Prefer the user's last non-Olumi tab so they return to
+                  // their previous Analysis/Compare/Model/Journey context
+                  // rather than always landing on Analysis.
+                  const fallback = lastNonOlumiTabRef.current
+                  setState((prev) => ({ ...prev, activeTab: fallback }))
+                  useUIStore.getState().setActiveOutputTab(fallback as OutputTab)
+                  openFloatingByUser('user')
+                }} />
               </div>
             )}
           </div>

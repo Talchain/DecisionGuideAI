@@ -19,6 +19,9 @@ import {
 } from '../hooks/useFloatingPanelState'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
+import { useUIStore } from '../../stores/uiStore'
+import { isAiPanelV2Enabled } from '../../flags'
+import { readPersistedActiveDockTab } from './OutputsDock'
 
 interface FloatingOlumiPanelProps {
   /** Called when the user clicks the Dock button. The host should switch the
@@ -31,6 +34,18 @@ interface FloatingOlumiPanelProps {
 const MIN_WIDTH = 320
 const MIN_HEIGHT = 300
 const DEFAULT_MARGIN = 16
+/** Side tab and drag handle dimensions. The side tab hosts minimise/dock
+ *  controls at 32×32 hit areas to match the welcome-variant send/cog
+ *  buttons elsewhere in the panel. The 36px column gives 2px breathing
+ *  room around each button. Full 44×44 (WCAG strict touch target) would
+ *  dominate the panel on smaller viewports; 32×32 is the established
+ *  in-panel icon-button scale.
+ *  The drag handle is a thin (6px) horizontal strip across the top. */
+const SIDE_TAB_WIDTH = 36
+const DRAG_HANDLE_HEIGHT = 6
+
+/** Which of the four corners is being dragged for resize. */
+type ResizeCorner = 'tl' | 'tr' | 'bl' | 'br'
 
 const noop = () => {}
 
@@ -120,6 +135,61 @@ export function fitsAtMinSize(
   return availableW >= MIN_WIDTH && availableH >= MIN_HEIGHT
 }
 
+/**
+ * Per-corner resize geometry. Given the drag start state (pre-pointerdown
+ * panel rect), the pointer delta, the viewport and dock inset, returns the
+ * panel's new x/y/w/h with all clamps applied (MIN_WIDTH/MIN_HEIGHT floor,
+ * computeMaxSize cap, dock-aware right-edge cap, margin floor on every
+ * edge). Pure function — easy to unit test and reuses the same constants
+ * the BR resize path has used since rounds 1-2.
+ *
+ * The corner being dragged is the FREE corner; the opposite corner stays
+ * fixed. For TL/TR/BL the panel's x and/or y shift so that the opposite
+ * corner remains at its starting screen coordinate while w/h grow or shrink.
+ */
+export function computeCornerResize(
+  corner: ResizeCorner,
+  startLeft: number,
+  startTop: number,
+  startW: number,
+  startH: number,
+  dx: number,
+  dy: number,
+  viewportW: number,
+  viewportH: number,
+  rightInset: number = 0,
+): { x: number; y: number; w: number; h: number } {
+  const max = computeMaxSize(viewportW, viewportH)
+  const fixedRight = startLeft + startW
+  const fixedBottom = startTop + startH
+
+  // Width cap depends on which side is fixed. When the LEFT edge stays put
+  // (BR/TR drags), the right edge can grow to the dock-aware boundary.
+  // When the RIGHT edge stays put (BL/TL drags), the left edge can shrink
+  // to the viewport margin.
+  const wRoomFromLeftFixed = Math.max(0, viewportW - startLeft - DEFAULT_MARGIN - rightInset)
+  const wRoomFromRightFixed = Math.max(0, fixedRight - DEFAULT_MARGIN)
+  const maxW = (corner === 'br' || corner === 'tr') ? wRoomFromLeftFixed : wRoomFromRightFixed
+
+  const hRoomFromTopFixed = Math.max(0, viewportH - startTop - DEFAULT_MARGIN)
+  const hRoomFromBottomFixed = Math.max(0, fixedBottom - DEFAULT_MARGIN)
+  const maxH = (corner === 'br' || corner === 'bl') ? hRoomFromTopFixed : hRoomFromBottomFixed
+
+  // Target dimensions from the pointer delta. Sign flips when the dragged
+  // corner is on the opposite side from the fixed corner.
+  const wTarget = (corner === 'br' || corner === 'tr') ? startW + dx : startW - dx
+  const hTarget = (corner === 'br' || corner === 'bl') ? startH + dy : startH - dy
+
+  const w = Math.max(MIN_WIDTH, Math.min(max.width, maxW, wTarget))
+  const h = Math.max(MIN_HEIGHT, Math.min(max.height, maxH, hTarget))
+
+  // Place the panel so the FIXED corner stays put. Derive x/y from the
+  // fixed corner's coordinates and the new width/height.
+  const x = (corner === 'br' || corner === 'tr') ? startLeft : fixedRight - w
+  const y = (corner === 'br' || corner === 'bl') ? startTop : fixedBottom - h
+  return { x, y, w, h }
+}
+
 export function clampPillPositionToViewport(
   pos: FloatingPanelPosition,
   viewportW: number,
@@ -145,7 +215,7 @@ export function clampPillPositionToViewport(
  * `dock.left < vw/2`, and the inset must still be reserved so the
  * floating panel doesn't drift under it.
  */
-function measureDockInset(): number {
+export function measureDockInset(): number {
   if (typeof document === 'undefined' || typeof window === 'undefined') return 0
   const dock = document.querySelector('aside[aria-label="Outputs dock"]') as HTMLElement | null
   if (!dock) return 0
@@ -186,18 +256,58 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   const close = useFloatingPanelState((s) => s.close)
   const minimise = useFloatingPanelState((s) => s.minimise)
   const restore = useFloatingPanelState((s) => s.restore)
-  // First-use composer takes over rendering when the system opened the panel
-  // on an empty canvas with no real messages — yield to that surface so
-  // exactly one composer is mounted at a time.
+  // First-use composer takes over rendering whenever the canvas is empty AND
+  // the panel was opened by the system (initial first-use OR re-opened on a
+  // canvas reset). This includes the post-submit / pre-graph window so the
+  // hero doesn't blink out and the user doesn't see the panel jump to the
+  // top-left while generation is in flight.
   const nodeCount = useCanvasStore((s) => s.nodes.length)
-  const realMessageCount = conversation.messages.filter((m) => !m.synthetic).length
-  const yieldToFirstUse = source === 'system-first-use' && nodeCount === 0 && realMessageCount === 0
+  const yieldToFirstUse = source === 'system-first-use' && nodeCount === 0
+
+  // Render-time duplicate-surface guard. If AI Panel v2 is on AND the docked
+  // Olumi tab is the active right-panel surface, the floating panel must
+  // NOT paint — even for a single frame. OutputsDockBody's useEffect closes
+  // the floating panel in this state (steady-state convergence), but the
+  // effect runs after first paint.
+  //
+  // OutputsDock and useUIStore can disagree on the first paint: OutputsDock
+  // restores `state.activeTab` from sessionStorage synchronously while
+  // useUIStore.activeOutputTab is still the default 'results' until the
+  // E1 sync effect runs (post-paint). Reading the persisted dock state
+  // synchronously here aligns the yield gate with whatever OutputsDock is
+  // about to paint. Falls back to useUIStore when no persisted state.
+  const activeOutputTab = useUIStore((s) => s.activeOutputTab)
+  const persistedDockTab = readPersistedActiveDockTab()
+  const effectiveDockTab = persistedDockTab ?? activeOutputTab
+  const yieldToDockedOlumi = isAiPanelV2Enabled() && effectiveDockTab === 'olumi'
+
+  // Post-graph auto-reposition: when FirstUseComposer commits the bottom-right
+  // anchor, it flags `isAutoRepositioning` so the panel applies a scoped CSS
+  // slide on left/top. The clearing timeout lives in the OWNER
+  // (FirstUseComposer.performReposition) rather than here — if it lived in
+  // a mounted effect on this panel, a yield/unmount during the transition
+  // window would strand the flag at `true` and the next mount would
+  // erroneously animate its initial position write.
+  const isAutoRepositioning = useFloatingPanelState((s) => s.isAutoRepositioning)
 
   const containerRef = useRef<HTMLDivElement | null>(null)
   const inputBarRef = useRef<AIInputBarHandle | null>(null)
   const rafRef = useRef<number | null>(null)
   const dragStateRef = useRef<{ pointerId: number; offsetX: number; offsetY: number } | null>(null)
-  const resizeStateRef = useRef<{ pointerId: number; startX: number; startY: number; startW: number; startH: number } | null>(null)
+  // Resize state tracks which corner is being dragged plus the panel's
+  // starting position/size. Pre-rounds-3 BR-only resize stored just
+  // startX/startY/startW/startH; with all-corner resize we also need the
+  // start left/top so the fixed (opposite) corner can stay put.
+  const resizeStateRef = useRef<{
+    pointerId: number
+    corner: ResizeCorner
+    startX: number
+    startY: number
+    startLeft: number
+    startTop: number
+    startW: number
+    startH: number
+  } | null>(null)
 
   // Apply position/size to DOM whenever isOpen flips to true OR the store
   // commits a new value (drag/resize end). During drag/resize this is bypassed
@@ -254,6 +364,13 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     // entry points.
     const rawPos = position ?? defaultCentredPosition({ width: w, height: h }, vw - dockInset, vh)
     const pos = clampPositionToViewport(rawPos, { width: w, height: h }, vw, vh, dockInset)
+    // Apply the slide transition INLINE (not via React style prop) so the
+    // browser sees: old el.style.left value → transition declaration → new
+    // el.style.left value, animating between them. Setting it on the React
+    // style prop would race with the layout effect's direct el.style writes.
+    // Only active during the post-graph auto-reposition window — drag/resize
+    // never trip this branch because they don't flip `isAutoRepositioning`.
+    el.style.transition = isAutoRepositioning ? 'left 300ms ease, top 300ms ease' : 'none'
     el.style.width = `${w}px`
     el.style.height = `${h}px`
     el.style.left = `${pos.x}px`
@@ -265,7 +382,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     if (position === null) {
       setInitialPosition(pos)
     }
-  }, [isOpen, isMinimised, position, size, setInitialPosition, minimise])
+  }, [isOpen, isMinimised, position, size, isAutoRepositioning, setInitialPosition, minimise])
 
   // Register a focus channel so the persistent status strip and Olumi-tab
   // click (when floating is open) can imperatively focus the input.
@@ -277,7 +394,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
   //   schedule the focus on the next frame so React can remount before we
   //   call .focus() on the ref.
   useEffect(() => {
-    if (!isOpen || yieldToFirstUse) return
+    if (!isOpen || yieldToFirstUse || yieldToDockedOlumi) return
     return registerFloatingFocus(() => {
       const state = useFloatingPanelState.getState()
       if (state.isMinimised) {
@@ -287,7 +404,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         inputBarRef.current?.focus()
       }
     })
-  }, [isOpen, yieldToFirstUse])
+  }, [isOpen, yieldToFirstUse, yieldToDockedOlumi])
 
   // Clamp on viewport resize AND on dock resize/open/close so the panel
   // never leaves the visible area and never lands under the dock. The
@@ -417,7 +534,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
 
       if (drag) {
         const w = parseFloat(el.style.width || '400')
-        const h = parseFloat(el.style.height || '500')
+        const h = parseFloat(el.style.height || '550')
         const x = clamp(e.clientX - drag.offsetX, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vw - w - DEFAULT_MARGIN - dockInset))
         const y = clamp(e.clientY - drag.offsetY, DEFAULT_MARGIN, Math.max(DEFAULT_MARGIN, vh - h - DEFAULT_MARGIN))
         el.style.left = `${x}px`
@@ -431,23 +548,33 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
           useFloatingPanelState.getState().minimise()
           return
         }
-        const dw = e.clientX - resize.startX
-        const dh = e.clientY - resize.startY
-        // Resize comes from the bottom-right handle, so x/y stay fixed
-        // and we grow width/height. Cap the maximum width by the
-        // remaining space from the panel's current x to the dock's left
-        // edge (or viewport right - margin when no dock). MIN_WIDTH is
-        // preserved — the auto-minimise branch above handles the case
-        // where the dock leaves less room than MIN_WIDTH.
-        const x = parseFloat(el.style.left || '0')
-        const y = parseFloat(el.style.top || '0')
-        const { widthBudget, heightBudget } = computeResizeBudget(x, y, vw, vh, dockInset)
-        const requestedW = Math.max(MIN_WIDTH, resize.startW + dw)
-        const requestedH = Math.max(MIN_HEIGHT, resize.startH + dh)
-        const w = Math.max(MIN_WIDTH, Math.min(max.width, widthBudget, requestedW))
-        const h = Math.max(MIN_HEIGHT, Math.min(max.height, heightBudget, requestedH))
-        el.style.width = `${w}px`
-        el.style.height = `${h}px`
+        const dx = e.clientX - resize.startX
+        const dy = e.clientY - resize.startY
+        // Per-corner resize: the opposite corner stays fixed at its
+        // starting screen coordinate; the dragged corner's pointer delta
+        // drives the new width/height. computeCornerResize composes all
+        // clamps (MIN floor, computeMaxSize cap, dock-aware right-edge
+        // cap, margin floor) the same way the BR-only path did.
+        // `max` is read inside computeCornerResize (it shadows our local
+        // `max` here, which is fine — both call computeMaxSize on the
+        // same inputs).
+        void max
+        const next = computeCornerResize(
+          resize.corner,
+          resize.startLeft,
+          resize.startTop,
+          resize.startW,
+          resize.startH,
+          dx,
+          dy,
+          vw,
+          vh,
+          dockInset,
+        )
+        el.style.width = `${next.w}px`
+        el.style.height = `${next.h}px`
+        el.style.left = `${next.x}px`
+        el.style.top = `${next.y}px`
       }
     })
   }, [])
@@ -477,10 +604,22 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         rafRef.current = null
       }
       if (el) {
+        // For TL/TR/BL corners the panel's x or y shifts during resize.
+        // Commit the position too so the store stays in sync with the DOM —
+        // otherwise the next layout-effect re-render would snap the panel
+        // back to its pre-resize position. Both setSize and setPosition
+        // flip userRepositioned, which is the correct semantics for a
+        // user-initiated resize (canAutoDock returns false after).
         setSize({
           width: parseFloat(el.style.width || '0'),
           height: parseFloat(el.style.height || '0'),
         })
+        if (resize.corner !== 'br') {
+          setPosition({
+            x: parseFloat(el.style.left || '0'),
+            y: parseFloat(el.style.top || '0'),
+          })
+        }
       }
     }
   }, [setPosition, setSize])
@@ -501,23 +640,30 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     }
   }, [isOpen, handlePointerMove, handlePointerUp])
 
-  // Resize handle pointer-down.
-  const handleResizePointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
-    const el = containerRef.current
-    if (!el) return
-    e.preventDefault()
-    const rect = el.getBoundingClientRect()
-    resizeStateRef.current = {
-      pointerId: e.pointerId,
-      startX: e.clientX,
-      startY: e.clientY,
-      startW: rect.width,
-      startH: rect.height,
-    }
-    try {
-      ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
-    } catch {
-      // pointer capture optional
+  // Resize handle pointer-down. Captures the panel's current rect AND the
+  // identity of the dragged corner so pointermove can compute the new
+  // geometry with the opposite corner held fixed.
+  const handleResizePointerDown = useCallback((corner: ResizeCorner) => {
+    return (e: ReactPointerEvent<HTMLDivElement>) => {
+      const el = containerRef.current
+      if (!el) return
+      e.preventDefault()
+      const rect = el.getBoundingClientRect()
+      resizeStateRef.current = {
+        pointerId: e.pointerId,
+        corner,
+        startX: e.clientX,
+        startY: e.clientY,
+        startLeft: rect.left,
+        startTop: rect.top,
+        startW: rect.width,
+        startH: rect.height,
+      }
+      try {
+        ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+      } catch {
+        // pointer capture optional
+      }
     }
   }, [])
 
@@ -525,7 +671,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
     minimise()
   }, [minimise])
 
-  if (!isOpen || yieldToFirstUse) return null
+  if (!isOpen || yieldToFirstUse || yieldToDockedOlumi) return null
   if (typeof document === 'undefined') return null
 
   // Minimised: render a small restore pill at the panel's last position.
@@ -571,54 +717,80 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
       style={{
         zIndex: 300,
         width: 400,
-        height: 500,
+        height: 550,
         left: 0,
         top: 0,
         overflow: 'hidden',
       }}
     >
+      {/* Thin top drag handle. Replaces the previous bulky h-8 header — saves
+         conversation height while keeping a clear, pointer-driven drag
+         affordance. Decorative for assistive tech: not focusable, not
+         operable from the keyboard. Keyboard users reach Minimise + Dock
+         via the side-tab buttons below. The strip carries
+         `data-testid="floating-olumi-panel-header"` so existing drag tests
+         continue to pass. */}
       <div
         onPointerDown={handleHeaderPointerDown}
-        className="flex items-center justify-between px-3 h-8 bg-panel border-b border-panel-border select-none"
-        style={{ cursor: 'grab' }}
+        className="absolute top-0 left-0 right-0 select-none transition-colors hover:bg-panel-hover"
+        style={{ height: DRAG_HANDLE_HEIGHT, cursor: 'grab', zIndex: 2 }}
         data-testid="floating-olumi-panel-header"
+        aria-hidden="true"
       >
-        <div className="flex items-center gap-1.5 flex-1 min-w-0">
-          <MessageSquare className="w-4 h-4 text-text-light flex-shrink-0" aria-hidden="true" />
-          <span className={typo('panelHeader', 'text-text-body truncate')}>Olumi</span>
-        </div>
-        <div className="flex items-center gap-0.5 flex-shrink-0">
-          <button
-            type="button"
-            onClick={handleMinimise}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-            aria-label="Minimise"
-            data-testid="floating-olumi-panel-minimise"
-            title="Minimise"
-          >
-            <Minus className="w-4 h-4" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onDock}
-            className="inline-flex items-center justify-center w-7 h-7 rounded-sm text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
-            aria-label="Dock to panel"
-            data-testid="floating-olumi-panel-dock"
-            title="Dock to panel"
-          >
-            <PanelRight className="w-4 h-4" aria-hidden="true" />
-          </button>
-        </div>
+        <span
+          aria-hidden="true"
+          className="block absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 w-10 h-px bg-panel-border"
+        />
       </div>
 
-      {/* `floating-density` activates the scoped compact CSS overrides
-         defined in Conversation.module.css (tighter message gap, bubble
-         padding, chip sizing). `compact={true}` makes MessageBubble swap
-         from typography.body (16px) to typography.panelBody (12px) and
-         apply markdownContentCompact line-height — keeping the floating
-         surface a compact assistant, not a second full dashboard. The
-         docked Olumi tab and DraftChat remain at default density. */}
-      <div className="floating-density flex flex-1 min-h-0 flex-col">
+      {/* Side tab (left edge): hosts the minimise + dock controls in a
+         36px column. Visible identity affordance via a small Olumi mark
+         up top — the panel title is otherwise implicit. Buttons are 32×32
+         hit areas matching the welcome-variant cog/send pattern used
+         elsewhere in the panel. */}
+      <div
+        className="absolute top-0 bottom-0 left-0 bg-panel border-r border-panel-border flex flex-col items-center pt-2 pb-2 gap-1 select-none"
+        style={{ width: SIDE_TAB_WIDTH, paddingTop: DRAG_HANDLE_HEIGHT + 4, zIndex: 1 }}
+        data-testid="floating-olumi-panel-side-tab"
+      >
+        <MessageSquare
+          className="w-4 h-4 text-text-light flex-shrink-0"
+          aria-hidden="true"
+          data-testid="floating-olumi-panel-side-mark"
+        />
+        <button
+          type="button"
+          onClick={handleMinimise}
+          className="inline-flex items-center justify-center w-8 h-8 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info mt-1"
+          aria-label="Minimise"
+          data-testid="floating-olumi-panel-minimise"
+          title="Minimise"
+        >
+          <Minus className="w-4 h-4" aria-hidden="true" />
+        </button>
+        <button
+          type="button"
+          onClick={onDock}
+          className="inline-flex items-center justify-center w-8 h-8 rounded text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info"
+          aria-label="Dock to panel"
+          data-testid="floating-olumi-panel-dock"
+          title="Dock to panel"
+        >
+          <PanelRight className="w-4 h-4" aria-hidden="true" />
+        </button>
+      </div>
+
+      {/* Main content column. Sits to the right of the side tab and below
+         the thin drag handle. `floating-density` activates the scoped
+         compact CSS overrides defined in Conversation.module.css (tighter
+         message gap, bubble padding, chip sizing). `compact={true}` makes
+         MessageBubble swap from typography.body (16px) to typography.panelBody
+         (12px) and apply markdownContentCompact line-height — keeping the
+         floating surface a compact assistant, not a second full dashboard. */}
+      <div
+        className="floating-density flex flex-1 min-h-0 flex-col"
+        style={{ marginLeft: SIDE_TAB_WIDTH, marginTop: DRAG_HANDLE_HEIGHT }}
+      >
         <ConversationPanel
           conversation={conversation}
           onCollapse={close}
@@ -628,13 +800,37 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
           hideComposer
           compact
         />
+        <AIInputBar ref={inputBarRef} variant="floating" onCogClick={onCogClick} hideChevron />
       </div>
 
-      <AIInputBar ref={inputBarRef} variant="floating" onCogClick={onCogClick} hideChevron />
-
+      {/* Four corner resize handles. Each is a 12×12 hit area at the panel
+         edge with the appropriate diagonal cursor. The BR handle keeps its
+         legacy testid; TL/TR/BL are new for the all-corner pass. */}
       <div
-        onPointerDown={handleResizePointerDown}
+        onPointerDown={handleResizePointerDown('tl')}
+        className="absolute left-0 top-0 w-3 h-3 cursor-nwse-resize"
+        style={{ zIndex: 3 }}
+        data-testid="floating-olumi-panel-resize-handle-tl"
+        aria-hidden="true"
+      />
+      <div
+        onPointerDown={handleResizePointerDown('tr')}
+        className="absolute right-0 top-0 w-3 h-3 cursor-nesw-resize"
+        style={{ zIndex: 3 }}
+        data-testid="floating-olumi-panel-resize-handle-tr"
+        aria-hidden="true"
+      />
+      <div
+        onPointerDown={handleResizePointerDown('bl')}
+        className="absolute left-0 bottom-0 w-3 h-3 cursor-nesw-resize"
+        style={{ zIndex: 3 }}
+        data-testid="floating-olumi-panel-resize-handle-bl"
+        aria-hidden="true"
+      />
+      <div
+        onPointerDown={handleResizePointerDown('br')}
         className="absolute right-0 bottom-0 w-3 h-3 cursor-nwse-resize"
+        style={{ zIndex: 3 }}
         data-testid="floating-olumi-panel-resize-handle"
         aria-hidden="true"
       >
