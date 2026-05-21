@@ -1312,12 +1312,22 @@ export function PreAnalysisPanel({
 
   // Don't show panel if canvas is empty AND not loading
   // When loading, show the "Generating..." placeholder via ModelHealthCard
-  if (!data.isLoading &&
-      data.nodesByKind.goal.length === 0 &&
-      data.nodesByKind.option.length === 0 &&
-      data.nodesByKind.factor.length === 0) {
-    return null
-  }
+  //
+  // The early-return for this empty state has moved to *after* the
+  // remaining hooks below so the panel's hook order stays stable across
+  // renders (Rules of Hooks). Previously, returning null here while later
+  // renders fell through to ~17 additional hooks caused React to throw
+  // "Rendered more hooks than during the previous render" on the
+  // empty → non-empty canvas transition. We instead set a boolean here
+  // and consult it just before the JSX return. The hooks below are pure
+  // useMemo / useCallback / one debug useEffect — running them on the
+  // empty path is cheap (most inputs are empty arrays) and has no side
+  // effect on the empty-state user experience.
+  const isEmptyState =
+    !data.isLoading &&
+    data.nodesByKind.goal.length === 0 &&
+    data.nodesByKind.option.length === 0 &&
+    data.nodesByKind.factor.length === 0
 
   // === READINESS SCORE (for adaptive footer CTA) ===
   // D11: Decision shape — smooth 0–1 score from graph state (replaces completeness heuristic).
@@ -2032,6 +2042,12 @@ export function PreAnalysisPanel({
     : { kind: 'derived', mustFixCount, reviewNextCount }
 
   const isFailed = bannerState.kind === 'failed'
+
+  // Deferred empty-state gate (see `isEmptyState` above). All hooks have now
+  // executed in the same order they will on a populated render, so this
+  // late return cannot trigger the "Rendered more hooks than during the
+  // previous render" error.
+  if (isEmptyState) return null
 
   return (
     <div className="flex flex-col flex-1 min-h-0 overflow-hidden" data-testid="pre-analysis-panel">
