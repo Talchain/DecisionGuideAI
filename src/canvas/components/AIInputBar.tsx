@@ -224,7 +224,11 @@ export const AIInputBar = memo(
                 onClick={(e) => onCogClick(e.currentTarget)}
                 disabled={inputDisabled}
                 aria-disabled={inputDisabled}
-                className={`inline-flex items-center justify-center ${cogBtnSize} rounded-full text-text-light hover:text-text-body hover:bg-panel-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
+                // Round-9: visible filled circle to match the send button's
+                // affordance. Distinct fill (panel-hover, a subtle neutral)
+                // so the cog reads as a SECONDARY action vs. the send
+                // button's accent fill (bg-info).
+                className={`inline-flex items-center justify-center ${cogBtnSize} rounded-full bg-panel-hover text-text-light hover:text-text-body hover:bg-panel-border focus:outline-none focus-visible:ring-2 focus-visible:ring-info disabled:opacity-50`}
                 aria-label="Settings"
                 data-testid={`${testId ?? `ai-input-bar-${variant}`}-cog`}
               >

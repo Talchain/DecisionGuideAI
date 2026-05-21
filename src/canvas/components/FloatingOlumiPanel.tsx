@@ -743,13 +743,15 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
         />
       </div>
 
-      {/* Side tab (left edge): hosts the minimise + dock controls in a
-         36px column. Visible identity affordance via a small Olumi mark
-         up top — the panel title is otherwise implicit. Buttons are 32×32
-         hit areas matching the welcome-variant cog/send pattern used
-         elsewhere in the panel. */}
+      {/* Side tab (top-left edge): hosts the minimise + dock controls in a
+         36px column that hugs its three icons (Olumi mark + minimise +
+         dock). Round-9: previously spanned the full panel height (visible
+         rail down the entire left edge); now sits only at the top-left
+         corner so the panel's left edge is otherwise clear of chrome.
+         Buttons are 32×32 hit areas matching the welcome-variant cog/send
+         pattern used elsewhere in the panel. */}
       <div
-        className="absolute top-0 bottom-0 left-0 bg-panel border-r border-panel-border flex flex-col items-center pt-2 pb-2 gap-1 select-none"
+        className="absolute top-0 left-0 bg-panel border-r border-b border-panel-border rounded-br-md flex flex-col items-center pt-2 pb-2 gap-1 select-none"
         style={{ width: SIDE_TAB_WIDTH, paddingTop: DRAG_HANDLE_HEIGHT + 4, zIndex: 1 }}
         data-testid="floating-olumi-panel-side-tab"
       >
@@ -789,7 +791,7 @@ export const FloatingOlumiPanel = memo(function FloatingOlumiPanel({ onDock, onC
          floating surface a compact assistant, not a second full dashboard. */}
       <div
         className="floating-density flex flex-1 min-h-0 flex-col"
-        style={{ marginLeft: SIDE_TAB_WIDTH, marginTop: DRAG_HANDLE_HEIGHT }}
+        style={{ marginTop: DRAG_HANDLE_HEIGHT }}
       >
         <ConversationPanel
           conversation={conversation}
