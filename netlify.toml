@@ -49,6 +49,21 @@
   # adding to `[build.environment]` ONLY after sign-off.
   VITE_FEATURE_AI_PANEL_V2 = "true"
 
+  # Debug panel + payload-trace-store env gate (PR #156 follow-up).
+  # `VITE_APP_ENV=staging` makes:
+  #   1. `<DebugPanel />` (mounted in AppPoC) eligible when the user
+  #      adds `?diag` / `?diag=1` to the URL OR sets
+  #      `window.__OLUMI_DEBUG = true` in the console. `<DebugPanel />`
+  #      refuses to render unless `VITE_APP_ENV ∈ {staging, development}`
+  #      — see `src/components/DebugPanel.tsx :: shouldShowDebugPanel`.
+  #   2. The payload-trace-store env gate (PR #152, PR #156) report
+  #      `payload_inspection_status.enabled === true` with reason
+  #      `app_env_staging_enabled` — see
+  #      `src/lib/payload-trace-store.ts :: determinePayloadInspectionStatus`.
+  # Production (main) does NOT inherit this; the trace-store gate stays
+  # closed by default and the debug panel refuses to render.
+  VITE_APP_ENV = "staging"
+
 # =============================================================================
 # Security Headers (P0 - Enterprise Compliance)
 # =============================================================================

@@ -22,6 +22,23 @@ const PlotWorkspace = lazy(() => import('../routes/PlotWorkspace'))
 const PlcLab = lazy(() => import('../routes/PlcLab'))
 const DecisionTemplates = lazy(() => import('../routes/templates/DecisionTemplates').then(m => ({ default: m.DecisionTemplates })))
 
+// PR #156 follow-up — staging-only debug-export UI.
+// `<DebugPanel />` is the visibility / sizing shell that delegates the
+// actual debug content to `<DebugPanelV2 />`. It is the entry point for
+// the manual debug-bundle export validation surfaced by PR #156.
+//
+// Safety: `<DebugPanel />` has its own multi-gate visibility check in
+// `shouldShowDebugPanel()` (`src/components/DebugPanel.tsx:35`):
+//   1. `VITE_APP_ENV` MUST be `staging` or `development`. In production
+//      builds (`VITE_APP_ENV=production` or any non-allowed value) the
+//      component refuses to render.
+//   2. AND the user must opt in via `?diag` / `?diag=1` (supports both
+//      regular and HashRouter URLs — e.g. `/#/canvas?diag=1`) OR set
+//      `window.__OLUMI_DEBUG = true` in the browser console.
+// Lazy-loaded so the debug code path stays out of the entry chunk
+// production users download.
+const DebugPanel = lazy(() => import('../components/DebugPanel'))
+
 // C.1a: Scenario persistence routes
 const ScenarioListPage = lazy(() => import('../pages/ScenarioListPage'))
 const SharedBriefPage = lazy(() => import('../pages/SharedBriefPage'))
@@ -878,6 +895,15 @@ export default function AppPoC() {
       <QueryClientProvider client={queryClient}>
         <HashRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <AuthProvider>
+            {/* PR #156 follow-up — debug-export UI mount.
+                Lazy-loaded so the production entry chunk stays untouched.
+                Self-gated by `shouldShowDebugPanel()` (staging-only +
+                `?diag` URL param OR `window.__OLUMI_DEBUG = true`).
+                Renders `null` outside the activation window so it has
+                zero visible cost for normal users. */}
+            <Suspense fallback={null}>
+              <DebugPanel />
+            </Suspense>
             <Suspense fallback={<RouteLoadingFallback />}>
               <CanvasErrorBoundary>
                 <Routes>
