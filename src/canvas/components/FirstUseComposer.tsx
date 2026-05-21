@@ -20,10 +20,13 @@ interface FirstUseComposerProps {
 
 /** Hero panel sizing. Width caps so very wide viewports don't dilute the focal
  *  point; height has a generous floor so the hero reads as the primary surface
- *  even at small viewports, and a 70vh cap so it never dominates tall screens. */
-const PANEL_WIDTH = 640
+ *  even at small viewports, and an 80vh cap so it never dominates tall screens.
+ *  Round-8 UX correction: panel grown ~50% (640→960 wide, 460→690 tall) so the
+ *  textarea — the most important element at first load — gets significantly
+ *  more room for the user's brief. */
+const PANEL_WIDTH = 960
 const PANEL_MARGIN = 16
-const PANEL_MIN_HEIGHT = 460
+const PANEL_MIN_HEIGHT = 690
 
 /** Reposition margin when post-graph auto-anchoring the floating panel. */
 const REPOSITION_EDGE_MARGIN = 16
@@ -226,10 +229,12 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         // viewport - 2*margin on narrow ones so the hero never overflows.
         width: `min(${PANEL_WIDTH}px, calc(100vw - ${PANEL_MARGIN * 2}px))`,
         // Min-height floor so the hero always reads as a prominent surface.
-        // Cap at 70vh so it doesn't dominate tall screens; content-fit
-        // between floor and cap keeps the layout responsive.
+        // Cap at 80vh so it doesn't dominate tall screens; content-fit
+        // between floor and cap keeps the layout responsive. Round-8: cap
+        // raised from 70vh → 80vh to keep the larger textarea fully visible
+        // on standard laptop viewports.
         minHeight: PANEL_MIN_HEIGHT,
-        maxHeight: '70vh',
+        maxHeight: '80vh',
         // Horizontal centre when there's room; left margin on narrow viewports.
         left: `max(${PANEL_MARGIN}px, calc(50% - ${PANEL_WIDTH / 2}px))`,
         // Vertical centre. max() floor prevents overflow at very short viewports.
@@ -237,14 +242,19 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
       }}
     >
       <AmbientDriftShapes settled={hasDraft} reducedMotion={prefersReducedMotion} />
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-8 py-10 gap-4">
+      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-10 py-12 gap-4">
+        {/* Olumi logo is the dominant brand element — visibly the largest
+            thing on the panel. Round-8: the logo asset is the wordmark
+            (icon + "Olumi" text) with a ~3:1 natural aspect ratio, so we
+            size by width and let the browser preserve the aspect. 280px
+            wide is wide enough to dominate the 24px heading visually. */}
         <img
           src="/olumi-logo.png"
           alt=""
           aria-hidden="true"
-          width={64}
-          height={64}
+          width={280}
           className="block select-none"
+          style={{ height: 'auto' }}
           draggable={false}
         />
         <h2
@@ -253,19 +263,17 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
         >
           What are you deciding?
         </h2>
-        <p
-          className={typo('panelBody', 'text-text-light text-center max-w-md')}
-          data-testid="first-use-guidance"
-        >
-          Describe the decision, options, goal and constraints.
-        </p>
-        <div className="w-full max-w-md mt-2">
+        {/* Round-8 UX correction: the guidance copy moved from a standalone
+            <p> below the heading into the textarea's placeholder. Keeps the
+            hero focused — heading outside, full guidance prompt inside the
+            element the user is about to type into. */}
+        <div className="w-full max-w-2xl mt-2">
           <AIInputBar
             ref={inputBarRef}
             variant="welcome"
             onCogClick={onCogClick}
             hideChevron
-            placeholder="Describe your decision…"
+            placeholder="Describe the decision, options, goal and constraints."
             ariaLabel="Describe your decision"
             testId="first-use-input-bar"
             onAfterSend={handleAfterSend}

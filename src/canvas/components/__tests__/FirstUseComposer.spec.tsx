@@ -285,26 +285,30 @@ describe('FirstUseComposer — responsive width (P1.2)', () => {
   })
 })
 
-describe('FirstUseComposer — welcome hero (round-3 UX correction)', () => {
-  it('uses the concise guidance copy and hero min-height', () => {
+describe('FirstUseComposer — welcome hero (round-3 + round-8 UX corrections)', () => {
+  it('uses the concise guidance copy as the textarea placeholder and hero min-height', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
 
-    // Concise copy — reviewer-approved string verbatim.
+    // Round-8: the guidance copy moved from a standalone <p> below the
+    // heading into the textarea's placeholder. The textarea is now the
+    // visual home of the guidance prompt.
     expect(
-      screen.getByText(/Describe the decision, options, goal and constraints\./i),
+      screen.getByPlaceholderText(/Describe the decision, options, goal and constraints\./i),
     ).toBeInTheDocument()
-    // Previous verbose copy must NOT leak through.
+    // The legacy <p data-testid="first-use-guidance"> is gone.
+    expect(screen.queryByTestId('first-use-guidance')).toBeNull()
+    // The previous verbose copy must NOT leak through.
     expect(
       screen.queryByText(/Describe your decision, the options you're weighing/i),
     ).toBeNull()
 
-    // Hero min-height: 460px floor so the welcome surface reads as a
-    // prominent invitation rather than a small utility panel. The cap is
-    // 70vh (max-height) so it never dominates tall screens.
+    // Round-8 hero geometry: panel grown ~50% so the textarea — the most
+    // important element at first load — has significantly more room.
+    // min-height 690px (was 460), max-height 80vh (was 70vh).
     const style = dialog.getAttribute('style') ?? ''
-    expect(style).toMatch(/min-height:\s*460px/i)
-    expect(style).toMatch(/max-height:\s*70vh/i)
+    expect(style).toMatch(/min-height:\s*690px/i)
+    expect(style).toMatch(/max-height:\s*80vh/i)
     expect(style).not.toMatch(/(^|[^-])height:\s*\d+px/i)
   })
 
@@ -329,20 +333,27 @@ describe('FirstUseComposer — welcome hero (round-3 UX correction)', () => {
     )
   })
 
-  it('renders the Olumi logo as decorative imagery above the heading', () => {
+  it('renders the Olumi logo as the dominant decorative element above the heading', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer')
     const img = dialog.querySelector('img[src*="olumi-logo"]') as HTMLImageElement | null
     expect(img).not.toBeNull()
     // Logo is decorative — heading carries the semantic label.
     expect(img?.getAttribute('aria-hidden')).toBe('true')
+    // Round-8: logo is the visually dominant element on the panel.
+    // Asset is a wordmark with ~3:1 natural aspect; we size by width and
+    // let height: auto preserve the aspect.
+    expect(img?.getAttribute('width')).toBe('280')
+    expect(img?.style.height).toBe('auto')
   })
 
-  it('uses the welcome variant of AIInputBar (three visible lines at rest)', () => {
+  it('uses the welcome variant of AIInputBar with a generous rest height for long briefs', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
-    // Welcome variant sets minHeight: 18 * 3 + 16 = 70px.
-    expect(textarea.style.minHeight).toBe('70px')
+    // Round-8: welcome variant minHeight: LINE_HEIGHT_PX (18) * WELCOME_MIN_LINES (14) + 16 = 268px.
+    // The user can be entering a long brief; the textarea must be the
+    // most prominent element on the panel.
+    expect(textarea.style.minHeight).toBe('268px')
   })
 
   it('does NOT render prompt-suggestion chips (explicitly excluded)', () => {

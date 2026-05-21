@@ -51,9 +51,15 @@ export interface AIInputBarProps {
 
 const MAX_LINES = 2
 const LINE_HEIGHT_PX = 18
-/** Welcome hero variant: three visible lines at rest, room to expand to six. */
-const WELCOME_MIN_LINES = 3
-const WELCOME_MAX_LINES = 6
+/**
+ * Welcome hero variant: the textarea is the most important element on the
+ * first-use surface and the user may be entering a long brief (several
+ * paragraphs). Round-8 UX correction enlarges the rest-state significantly
+ * (was 3 lines / 6 max) so the user can see what they've written without
+ * scrolling for typical briefs.
+ */
+const WELCOME_MIN_LINES = 14
+const WELCOME_MAX_LINES = 20
 
 /**
  * AIInputBar — single shared composer used by the persistent strip, the docked
