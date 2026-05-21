@@ -807,8 +807,12 @@ function extractRawBlockType(block: unknown): string | null {
  * Mapping mirrors the existing wrapped-block path (`adaptCEEBlock` review_card
  * branch above) so the bridge surfaces no different defaults than CEE wrapped
  * blocks would today:
- *   - title    ← raw.title                                    (required)
- *   - body     ← raw.body ?? raw.description ?? raw.summary   (required)
+ *   - title    ← raw.title                                          (required)
+ *   - body     ← raw.description ?? raw.body ?? raw.summary         (required)
+ *                (description/body order matches adaptCEEBlock at the
+ *                 useConversation review_card branch; `summary` is the
+ *                 v1.3 Phase 3 extension — only consulted when wrapped-path
+ *                 fields are both absent.)
  *   - variant  ← tone='challenger'→'alert', tone='facilitator'→'info';
  *                else raw.variant when 'alert'/'info'; else 'info'
  *   - tone     ← passthrough when 'challenger'/'facilitator'
@@ -827,10 +831,10 @@ export function adaptPhase3ReviewCard(
   if (!title) return null
 
   const body =
-    typeof raw.body === 'string' && raw.body.length > 0
-      ? raw.body
-      : typeof raw.description === 'string' && raw.description.length > 0
-        ? raw.description
+    typeof raw.description === 'string' && raw.description.length > 0
+      ? raw.description
+      : typeof raw.body === 'string' && raw.body.length > 0
+        ? raw.body
         : typeof raw.summary === 'string' && raw.summary.length > 0
           ? raw.summary
           : ''
@@ -911,7 +915,11 @@ export function selectTopPhase3ReviewCard(
  *   - At least one rawBlock of type 'review_card' must adapt to a usable
  *     ReviewCardBlock (non-empty title + body).
  *   - No review_card is already present in mappedBlocks (defensive dedupe;
- *     mapV5Blocks does not emit review_card today).
+ *     mapV5Blocks does not emit review_card today, so this branch is
+ *     unreachable in practice. If a future V5 schema change makes
+ *     mapV5Blocks emit a legitimately different review_card alongside a
+ *     Phase 3 candidate, refine this check to dedupe by block_id rather
+ *     than by type so both surfaces remain available.).
  *
  * Cap: 1 review_card (top by priority_rank, ties by harvest order).
  *

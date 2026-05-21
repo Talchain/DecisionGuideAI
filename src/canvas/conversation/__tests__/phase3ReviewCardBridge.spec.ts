@@ -115,22 +115,43 @@ describe('adaptPhase3ReviewCard — mapping defaults', () => {
     })
   })
 
-  it('prefers body over description over summary (matches adaptCEEBlock priority)', () => {
+  it('prefers description over body over summary (matches adaptCEEBlock priority)', () => {
+    // Wrapped-path order in adaptCEEBlock is `description ?? body`. The Phase 3
+    // adapter mirrors that, with `summary` consulted only when both are absent
+    // (the v1.3 Phase 3 emit shape uses `summary`, not `body`/`description`).
     const block = adaptPhase3ReviewCard({
       title: 'T',
       body: 'B',
       description: 'D',
       summary: 'S',
     })
-    expect(block?.body).toBe('B')
+    expect(block?.body).toBe('D')
     const block2 = adaptPhase3ReviewCard({
       title: 'T',
-      description: 'D',
+      body: 'B',
       summary: 'S',
     })
-    expect(block2?.body).toBe('D')
+    expect(block2?.body).toBe('B')
     const block3 = adaptPhase3ReviewCard({ title: 'T', summary: 'S' })
     expect(block3?.body).toBe('S')
+  })
+
+  it('parity with adaptCEEBlock: body resolves the same way when both description and body are present', () => {
+    // Lock in the same observable behaviour as the wrapped path, end-to-end:
+    // a CEE block carrying both `description` and `body` must resolve to
+    // `description` in both adapters.
+    const wrapped = adaptCEEBlock({
+      block_type: 'review_card',
+      block_id: 'rc-parity',
+      data: { title: 'T', description: 'D', body: 'B' },
+    })
+    const bridged = adaptPhase3ReviewCard({
+      title: 'T',
+      description: 'D',
+      body: 'B',
+    })
+    expect(wrapped).toMatchObject({ type: 'review_card', title: 'T', body: 'D' })
+    expect(bridged).toMatchObject({ type: 'review_card', title: 'T', body: 'D' })
   })
 
   it('defaults variant to info when no tone or variant emitted', () => {
