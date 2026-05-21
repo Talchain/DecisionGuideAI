@@ -252,6 +252,97 @@ describe('PreAnalysisPanel', () => {
       expect(container.firstChild).toBeNull()
     })
 
+    it('survives the empty → populated transition without a hook-order error (regression)', () => {
+      // Regression guard: before the round-6 fix, `PreAnalysisPanel` early-
+      // returned on the empty-canvas branch BEFORE running ~17 subsequent
+      // hooks. When the canvas later transitioned to having goal/option/
+      // factor nodes, React saw more hooks than the previous render and
+      // threw "Rendered more hooks than during the previous render".
+      //
+      // The fix defers the empty-state `return null` to AFTER all hooks
+      // have executed, so the panel's hook order is stable across renders.
+      //
+      // We assert no console.error fires during the transition — the
+      // hook-order check writes via console.error / a thrown error before
+      // the render commits.
+      const emptyData = createMockData({
+        nodesByKind: {
+          goal: [],
+          decision: [],
+          option: [],
+          factor: [],
+          risk: [],
+          outcome: [],
+        },
+      })
+      const populatedData = createMockData() // defaults: 1 goal + 2 options
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      try {
+        mockUsePreAnalysisData.mockReturnValue(emptyData)
+        const { container, rerender } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+        // Sanity: empty path returned null on first render.
+        expect(container.firstChild).toBeNull()
+
+        // Now flip the data source to populated (simulates a graph_patch
+        // arriving after the user submitted a brief). With the old early-
+        // return placement, this rerender would throw the hook-count error.
+        mockUsePreAnalysisData.mockReturnValue(populatedData)
+        rerender(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+
+        // Panel now renders (populated path).
+        expect(screen.getByTestId('pre-analysis-panel')).toBeInTheDocument()
+
+        // Hook-order errors surface via console.error before the throw.
+        const hookOrderErrors = consoleErrorSpy.mock.calls.filter((args) => {
+          const msg = String(args[0] ?? '')
+          return /Rendered more hooks|Rules of Hooks|change in the order of Hooks/i.test(msg)
+        })
+        expect(hookOrderErrors).toEqual([])
+      } finally {
+        consoleErrorSpy.mockRestore()
+      }
+    })
+
+    it('survives the populated → empty transition without a hook-order error (symmetric regression)', () => {
+      // The hook-count violation was bidirectional: an in-graph render
+      // followed by a render where all goal/option/factor nodes were
+      // removed would also trip (more hooks before, fewer after).
+      const populatedData = createMockData()
+      const emptyData = createMockData({
+        nodesByKind: {
+          goal: [],
+          decision: [],
+          option: [],
+          factor: [],
+          risk: [],
+          outcome: [],
+        },
+      })
+
+      const consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+      try {
+        mockUsePreAnalysisData.mockReturnValue(populatedData)
+        const { container, rerender } = render(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+        expect(screen.getByTestId('pre-analysis-panel')).toBeInTheDocument()
+
+        mockUsePreAnalysisData.mockReturnValue(emptyData)
+        rerender(<PreAnalysisPanel onAnalyse={mockOnAnalyse} />)
+        // Empty path returns null on the second render.
+        expect(container.firstChild).toBeNull()
+
+        const hookOrderErrors = consoleErrorSpy.mock.calls.filter((args) => {
+          const msg = String(args[0] ?? '')
+          return /Rendered more hooks|Rules of Hooks|change in the order of Hooks/i.test(msg)
+        })
+        expect(hookOrderErrors).toEqual([])
+      } finally {
+        consoleErrorSpy.mockRestore()
+      }
+    })
+
     it('renders panel when nodes exist', () => {
       mockUsePreAnalysisData.mockReturnValue(createMockData())
 
