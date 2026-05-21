@@ -1,6 +1,5 @@
 import { memo, useCallback, useEffect, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { typo } from '../../styles/typography'
 import { useCanvasStore } from '../store'
 import { useConversationContext } from '../conversation/ConversationContext'
 import { useFloatingPanelState, canAutoDock } from '../hooks/useFloatingPanelState'
@@ -10,54 +9,28 @@ import { useTransitionReceipt } from '../hooks/useTransitionReceipt'
 import { AIInputBar, type AIInputBarHandle } from './AIInputBar'
 import { registerFloatingFocus } from '../hooks/useFloatingFocus'
 import { measureDockInset, clampPositionToViewport } from './FloatingOlumiPanel'
-import { NodeShape } from '../conversation/primitives/NodeShape'
-import type { NodeType } from '../domain/nodes'
 
 interface FirstUseComposerProps {
   /** Cog popover handler. Receives the cog button element for anchoring. */
   onCogClick: (anchorEl: HTMLElement) => void
 }
 
-/** Hero panel sizing. Width caps so very wide viewports don't dilute the focal
- *  point; height has a generous floor so the hero reads as the primary surface
- *  even at small viewports, and an 80vh cap so it never dominates tall screens.
- *  Round-8 UX correction: panel grown ~50% (640→960 wide, 460→690 tall) so the
- *  textarea — the most important element at first load — gets significantly
- *  more room for the user's brief. */
+/** Hero container sizing — round-11 UX correction.
+ *
+ * The hero surface is now CHROMELESS: no panel background, no border, no
+ * shadow, no ambient drift shapes, no standalone heading. It is just the
+ * Olumi logo above a single-line composer that grows on type. The
+ * surrounding container is invisible — only a positioning context.
+ *
+ * Width still caps so the composer doesn't stretch ungainly wide on
+ * ultra-wide displays; the inner composer has its own narrower max-width
+ * (max-w-2xl) so the readable line length stays tasteful.
+ */
 const PANEL_WIDTH = 960
 const PANEL_MARGIN = 16
-const PANEL_MIN_HEIGHT = 690
 
 /** Reposition margin when post-graph auto-anchoring the floating panel. */
 const REPOSITION_EDGE_MARGIN = 16
-
-/** Six DS v5 node shapes that drift ambient atmosphere behind the hero. */
-const AMBIENT_LAYOUT: ReadonlyArray<{
-  kind: NodeType
-  top: string
-  left: string
-  size: number
-  delay: string
-  duration: string
-}> = [
-  { kind: 'goal',     top: '10%',  left: '8%',  size: 40, delay: '0s',    duration: '18s' },
-  { kind: 'decision', top: '20%',  left: '82%', size: 44, delay: '-3s',   duration: '22s' },
-  { kind: 'option',   top: '70%',  left: '12%', size: 36, delay: '-7s',   duration: '20s' },
-  { kind: 'factor',   top: '78%',  left: '78%', size: 32, delay: '-11s',  duration: '24s' },
-  { kind: 'risk',     top: '45%',  left: '4%',  size: 30, delay: '-5s',   duration: '19s' },
-  { kind: 'outcome',  top: '50%',  left: '88%', size: 34, delay: '-13s',  duration: '21s' },
-]
-
-/** Light-fill colours mirror the legacy EmptyState palette so the hero shapes
- *  read as the same vocabulary used inside the canvas itself. */
-const AMBIENT_FILLS: Record<string, string> = {
-  goal:     'var(--goal-light, #F4DB92)',
-  decision: 'var(--info-light, #BAD7E4)',
-  option:   'var(--option-light, #DDDCF5)',
-  factor:   'var(--factor-light, #EEE6D8)',
-  risk:     'var(--danger-light, #FFB393)',
-  outcome:  'var(--success-light, #B8E2D0)',
-}
 
 /**
  * FirstUseComposer — AI Panel v2 welcome hero.
@@ -77,12 +50,12 @@ const AMBIENT_FILLS: Record<string, string> = {
  * Reset rule: when the graph drops back to zero nodes (canvas reset), the
  * hero re-engages so the experience returns to a familiar starting state.
  *
- * Reduced motion: ambient drift shapes freeze, the auto-reposition fires
- * synchronously without the 300ms slide delay.
+ * Reduced motion: the auto-reposition fires synchronously without the
+ * 300ms slide delay.
  */
 export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: FirstUseComposerProps) {
   const nodeCount = useCanvasStore((s) => s.nodes.length)
-  const { draft, messages } = useConversationContext()
+  const { messages } = useConversationContext()
   const realMessageCount = messages.filter((m) => !m.synthetic).length
 
   const isOpen = useFloatingPanelState((s) => s.isOpen)
@@ -213,149 +186,55 @@ export const FirstUseComposer = memo(function FirstUseComposer({ onCogClick }: F
   if (!shouldRender) return null
   if (typeof document === 'undefined') return null
 
-  // Drift recedes once the user starts typing so the composer becomes the
-  // visual focal point. Reduced-motion users see static faded shapes.
-  const hasDraft = draft.trim().length > 0
-
   return createPortal(
     <div
       role="dialog"
       aria-label="Describe your decision"
       data-testid="first-use-composer"
-      className="fixed bg-panel border border-panel-border rounded-lg shadow-2 flex flex-col overflow-hidden"
+      className="fixed flex flex-col items-center"
       style={{
         zIndex: 300,
         // Responsive width: cap at PANEL_WIDTH on wide viewports, shrink to
-        // viewport - 2*margin on narrow ones so the hero never overflows.
+        // viewport - 2*margin on narrow ones. The container itself is
+        // invisible (no bg, no border, no shadow) — it only provides
+        // positioning context for the logo + composer.
         width: `min(${PANEL_WIDTH}px, calc(100vw - ${PANEL_MARGIN * 2}px))`,
-        // Min-height floor so the hero always reads as a prominent surface.
-        // Cap at 80vh so it doesn't dominate tall screens; content-fit
-        // between floor and cap keeps the layout responsive. Round-8: cap
-        // raised from 70vh → 80vh to keep the larger textarea fully visible
-        // on standard laptop viewports.
-        minHeight: PANEL_MIN_HEIGHT,
-        maxHeight: '80vh',
         // Horizontal centre when there's room; left margin on narrow viewports.
         left: `max(${PANEL_MARGIN}px, calc(50% - ${PANEL_WIDTH / 2}px))`,
-        // Vertical centre. max() floor prevents overflow at very short viewports.
-        top: `max(${PANEL_MARGIN}px, calc(50vh - ${PANEL_MIN_HEIGHT / 2}px))`,
+        // Vertical centre via transform — content height is unknown because
+        // the composer grows on type. translateY(-50%) keeps the centre
+        // stable regardless of how tall the composer becomes.
+        top: '50%',
+        transform: 'translateY(-50%)',
+        gap: 24,
       }}
     >
-      <AmbientDriftShapes settled={hasDraft} reducedMotion={prefersReducedMotion} />
-      <div className="relative z-10 flex flex-col items-center justify-center flex-1 px-10 py-12 gap-4">
-        {/* Olumi logo is the dominant brand element — visibly the largest
-            thing on the panel. Round-8: the logo asset is the wordmark
-            (icon + "Olumi" text) with a ~3:1 natural aspect ratio, so we
-            size by width and let the browser preserve the aspect. 280px
-            wide is wide enough to dominate the 24px heading visually. */}
-        <img
-          src="/olumi-logo.png"
-          alt=""
-          aria-hidden="true"
-          width={280}
-          className="block select-none"
-          style={{ height: 'auto' }}
-          draggable={false}
+      {/* Olumi logo — round-11 UX: just the logo and the textbox on the
+          canvas. The brand wordmark sits above the composer as a quiet
+          identity cue. No heading, no subtitle, no ambient drift — the
+          composer is the focal point. */}
+      <img
+        src="/olumi-logo.png"
+        alt=""
+        aria-hidden="true"
+        width={280}
+        className="block select-none"
+        style={{ height: 'auto' }}
+        draggable={false}
+      />
+      <div className="w-full max-w-2xl">
+        <AIInputBar
+          ref={inputBarRef}
+          variant="welcome"
+          onCogClick={onCogClick}
+          hideChevron
+          placeholder="Describe the decision, options, goal and constraints."
+          ariaLabel="Describe your decision"
+          testId="first-use-input-bar"
+          onAfterSend={handleAfterSend}
         />
-        <h2
-          className={typo('welcomeHeading', 'text-text-body text-center m-0')}
-          data-testid="first-use-heading"
-        >
-          What are you deciding?
-        </h2>
-        {/* Round-8 UX correction: the guidance copy moved from a standalone
-            <p> below the heading into the textarea's placeholder. Keeps the
-            hero focused — heading outside, full guidance prompt inside the
-            element the user is about to type into. */}
-        <div className="w-full max-w-2xl mt-2">
-          <AIInputBar
-            ref={inputBarRef}
-            variant="welcome"
-            onCogClick={onCogClick}
-            hideChevron
-            placeholder="Describe the decision, options, goal and constraints."
-            ariaLabel="Describe your decision"
-            testId="first-use-input-bar"
-            onAfterSend={handleAfterSend}
-          />
-        </div>
       </div>
     </div>,
     document.body,
   )
 })
-
-/**
- * AmbientDriftShapes — six low-opacity DS node shapes drifting subtly behind
- * the hero content. CSS-only animation (no JS loop), settled state when the
- * user starts typing, fully suppressed under prefers-reduced-motion.
- *
- * The shapes act as ambient atmosphere — never interactive, never on top of
- * content, always aria-hidden. Opacity stays low (8-15%) so they read as
- * texture rather than as discrete shapes competing for attention.
- */
-function AmbientDriftShapes({ settled, reducedMotion }: { settled: boolean; reducedMotion: boolean }) {
-  return (
-    <div
-      aria-hidden="true"
-      className={`absolute inset-0 pointer-events-none ${settled ? 'ambient-drift-settled' : ''}`}
-      data-testid="first-use-ambient-shapes"
-    >
-      {AMBIENT_LAYOUT.map(({ kind, top, left, size, delay, duration }) => (
-        <div
-          key={kind}
-          className={reducedMotion ? 'ambient-drift-static' : 'ambient-drift-shape'}
-          style={{
-            position: 'absolute',
-            top,
-            left,
-            width: size,
-            height: size,
-            animationDelay: delay,
-            animationDuration: duration,
-          }}
-          data-shape={kind}
-        >
-          <NodeShape kind={kind} size={size} fill={AMBIENT_FILLS[kind]} />
-        </div>
-      ))}
-      <style>{`
-        @keyframes ambientDrift {
-          0%   { transform: translate(0, 0);       opacity: 0.14; }
-          25%  { transform: translate(6px, -4px);  opacity: 0.18; }
-          50%  { transform: translate(-2px, 6px);  opacity: 0.12; }
-          75%  { transform: translate(-6px, -2px); opacity: 0.16; }
-          100% { transform: translate(0, 0);       opacity: 0.14; }
-        }
-        .ambient-drift-shape {
-          opacity: 0.14;
-          animation-name: ambientDrift;
-          animation-timing-function: ease-in-out;
-          animation-iteration-count: infinite;
-          will-change: transform, opacity;
-        }
-        /* Once the user starts typing, drop opacity further so the composer
-           takes visual priority. Animation continues at the reduced level. */
-        .ambient-drift-settled .ambient-drift-shape {
-          opacity: 0.06;
-        }
-        /* Static fallback for reduced-motion users: faded, no animation. */
-        .ambient-drift-static {
-          opacity: 0.12;
-        }
-        .ambient-drift-settled .ambient-drift-static {
-          opacity: 0.06;
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .ambient-drift-shape {
-            animation: none !important;
-            opacity: 0.12 !important;
-          }
-          .ambient-drift-settled .ambient-drift-shape {
-            opacity: 0.06 !important;
-          }
-        }
-      `}</style>
-    </div>
-  )
-}

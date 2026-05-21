@@ -52,14 +52,15 @@ export interface AIInputBarProps {
 const MAX_LINES = 2
 const LINE_HEIGHT_PX = 18
 /**
- * Welcome hero variant: the textarea is the most important element on the
- * first-use surface and the user may be entering a long brief (several
- * paragraphs). Round-8 UX correction enlarges the rest-state significantly
- * (was 3 lines / 6 max) so the user can see what they've written without
- * scrolling for typical briefs.
+ * Welcome hero variant: round-11 UX correction returns to a Claude-style
+ * single-line composer that grows organically as the user types. The
+ * rest state is one line (inviting), and the textarea expands up to 12
+ * lines before its own scroll engages. This replaces the previous 14-line
+ * minimum, which read as a form/textbox rather than as a conversation
+ * starter.
  */
-const WELCOME_MIN_LINES = 14
-const WELCOME_MAX_LINES = 20
+const WELCOME_MIN_LINES = 1
+const WELCOME_MAX_LINES = 12
 
 /**
  * AIInputBar — single shared composer used by the persistent strip, the docked
@@ -116,8 +117,8 @@ export const AIInputBar = memo(
     )
 
     // Auto-grow up to the variant's max line count, then scroll inside.
-    // Welcome hero gives generous room (3 lines floor, 6 ceiling) so the
-    // composer reads as the primary action surface, not a tiny strip.
+    // Welcome hero starts at 1 line and grows organically as the user
+    // types (Claude-style), capped at 12 lines before internal scroll.
     const minLines = isWelcome ? WELCOME_MIN_LINES : 1
     const maxLines = isWelcome ? WELCOME_MAX_LINES : MAX_LINES
     const minHeightPx = LINE_HEIGHT_PX * minLines + 16

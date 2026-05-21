@@ -271,89 +271,103 @@ describe('FirstUseComposer — reduced motion (gap #3)', () => {
 describe('FirstUseComposer — responsive width (P1.2)', () => {
   it('uses a CSS clamp so the composer never overflows narrow viewports', () => {
     // Render and inspect the inline style. We assert the responsive shape
-    // (min(...) for width, max(...) for left/top) rather than computed
-    // pixels because jsdom does not evaluate CSS clamp() at runtime.
+    // (min(...) for width, max(...) for left, transform-based vertical
+    // centring) rather than computed pixels because jsdom does not
+    // evaluate CSS clamp() at runtime.
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
     const style = dialog.getAttribute('style') ?? ''
     expect(style).toMatch(/width:\s*min\(/i)
     expect(style).toMatch(/calc\(100vw\s*-\s*32px\)/i)
     expect(style).toMatch(/left:\s*max\(/i)
-    expect(style).toMatch(/top:\s*max\(/i)
+    // Round-11: vertical centring switched from `top: max(16px, calc(50vh
+    // - height/2))` (required a known content height) to `top: 50%` +
+    // `transform: translateY(-50%)` because the composer now grows on
+    // type and the container has no fixed min-height.
+    expect(style).toMatch(/top:\s*50%/i)
+    expect(style).toMatch(/translateY\(-50%\)/i)
     // Defensive: no raw px-only width that would have overflowed.
     expect(style).not.toMatch(/width:\s*480px/i)
   })
 })
 
-describe('FirstUseComposer — welcome hero (round-3 + round-8 UX corrections)', () => {
-  it('uses the concise guidance copy as the textarea placeholder and hero min-height', () => {
+describe('FirstUseComposer — welcome hero (round-11 chromeless UX)', () => {
+  it('uses the concise guidance copy as the textarea placeholder and is content-fit (no min-height floor)', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer') as HTMLElement
 
-    // Round-8: the guidance copy moved from a standalone <p> below the
-    // heading into the textarea's placeholder. The textarea is now the
-    // visual home of the guidance prompt.
+    // The guidance copy lives in the textarea's placeholder (round-8) —
+    // the textarea is the visual home of the guidance prompt.
     expect(
       screen.getByPlaceholderText(/Describe the decision, options, goal and constraints\./i),
     ).toBeInTheDocument()
-    // The legacy <p data-testid="first-use-guidance"> is gone.
+    // No legacy standalone guidance <p>.
     expect(screen.queryByTestId('first-use-guidance')).toBeNull()
     // The previous verbose copy must NOT leak through.
     expect(
       screen.queryByText(/Describe your decision, the options you're weighing/i),
     ).toBeNull()
 
-    // Round-8 hero geometry: panel grown ~50% so the textarea — the most
-    // important element at first load — has significantly more room.
-    // min-height 690px (was 460), max-height 80vh (was 70vh).
+    // Round-11 hero geometry: CHROMELESS. The container is a positioning
+    // context with NO min-height floor and NO max-height cap — the
+    // composer grows on type and the container hugs its content (logo +
+    // composer) instead of imposing a fixed panel size.
     const style = dialog.getAttribute('style') ?? ''
-    expect(style).toMatch(/min-height:\s*690px/i)
-    expect(style).toMatch(/max-height:\s*80vh/i)
+    expect(style).not.toMatch(/min-height:/i)
+    expect(style).not.toMatch(/max-height:/i)
     expect(style).not.toMatch(/(^|[^-])height:\s*\d+px/i)
   })
 
-  it('renders the welcome heading "What are you deciding?"', () => {
+  it('is chromeless — no panel background, border, shadow, or ambient drift', () => {
+    // Round-11: the user's feedback was that Claude's first screen looks
+    // better because it has no panel chrome — just a logo and a textbox
+    // floating on the canvas. The dialog wrapper must therefore NOT carry
+    // the bg-panel/border/shadow utilities, and the ambient drift shapes
+    // are gone.
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
-    const heading = screen.getByTestId('first-use-heading')
-    expect(heading).toBeInTheDocument()
-    expect(heading.textContent).toBe('What are you deciding?')
-    expect(heading.tagName).toBe('H2')
+    const dialog = screen.getByTestId('first-use-composer') as HTMLElement
+    const cls = dialog.className
+    expect(cls).not.toMatch(/\bbg-panel\b/)
+    expect(cls).not.toMatch(/\bborder-panel-border\b/)
+    expect(cls).not.toMatch(/\bshadow-2\b/)
+    // No ambient drift shapes container (the function and its testid are gone).
+    expect(screen.queryByTestId('first-use-ambient-shapes')).toBeNull()
   })
 
-  it('renders the six ambient drift shapes behind the hero content', () => {
+  it('does NOT render the legacy "What are you deciding?" heading (round-11 strips chrome)', () => {
+    // Round-11: heading removed so the hero is just logo + composer.
+    // The dialog's aria-label still describes the surface for screen readers.
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
-    const shapeContainer = screen.getByTestId('first-use-ambient-shapes')
-    expect(shapeContainer).toBeInTheDocument()
-    expect(shapeContainer.getAttribute('aria-hidden')).toBe('true')
-    // Six shapes — goal, decision, option, factor, risk, outcome.
-    const kinds = Array.from(shapeContainer.querySelectorAll('[data-shape]'))
-      .map((el) => el.getAttribute('data-shape'))
-    expect(kinds.sort()).toEqual(
-      ['decision', 'factor', 'goal', 'option', 'outcome', 'risk'],
-    )
+    expect(screen.queryByTestId('first-use-heading')).toBeNull()
+    // Defensive: the heading text must not leak through some other element.
+    expect(screen.queryByText('What are you deciding?')).toBeNull()
+    // The dialog still names itself for accessibility.
+    const dialog = screen.getByTestId('first-use-composer')
+    expect(dialog.getAttribute('aria-label')).toBe('Describe your decision')
   })
 
-  it('renders the Olumi logo as the dominant decorative element above the heading', () => {
+  it('renders the Olumi logo above the composer', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const dialog = screen.getByTestId('first-use-composer')
     const img = dialog.querySelector('img[src*="olumi-logo"]') as HTMLImageElement | null
     expect(img).not.toBeNull()
-    // Logo is decorative — heading carries the semantic label.
+    // Logo is decorative — the dialog's aria-label carries the semantic role.
     expect(img?.getAttribute('aria-hidden')).toBe('true')
-    // Round-8: logo is the visually dominant element on the panel.
-    // Asset is a wordmark with ~3:1 natural aspect; we size by width and
-    // let height: auto preserve the aspect.
+    // The wordmark has a ~3:1 natural aspect; we size by width and let
+    // height: auto preserve the aspect.
     expect(img?.getAttribute('width')).toBe('280')
     expect(img?.style.height).toBe('auto')
   })
 
-  it('uses the welcome variant of AIInputBar with a generous rest height for long briefs', () => {
+  it('uses the welcome variant of AIInputBar with a single-line rest height that grows on type', () => {
     render(<FirstUseComposer onCogClick={() => {}} />, { wrapper: Wrapper })
     const textarea = screen.getByTestId('first-use-input-bar-textarea') as HTMLTextAreaElement
-    // Round-8: welcome variant minHeight: LINE_HEIGHT_PX (18) * WELCOME_MIN_LINES (14) + 16 = 268px.
-    // The user can be entering a long brief; the textarea must be the
-    // most prominent element on the panel.
-    expect(textarea.style.minHeight).toBe('268px')
+    // Round-11: welcome variant minHeight: LINE_HEIGHT_PX (18) * WELCOME_MIN_LINES (1) + 16 = 34px.
+    // The composer starts at one line (inviting, Claude-style) and grows
+    // as the user types. The previous 268px floor read as a form/textbox.
+    expect(textarea.style.minHeight).toBe('34px')
+    // Auto-grow ceiling: WELCOME_MAX_LINES (12) * 18 + 16 = 232px.
+    expect(textarea.style.maxHeight).toBe('232px')
   })
 
   it('does NOT render prompt-suggestion chips (explicitly excluded)', () => {
