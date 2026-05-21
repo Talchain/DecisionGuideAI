@@ -60,6 +60,19 @@ export const PHASE3_SIDECAR_BLOCKS_KEY = 'phase3_blocks_from_blocks_array' as co
 export const ORIGINAL_TOP_LEVEL_KEYS_KEY = '__original_top_level_keys__' as const;
 
 /**
+ * Sidecar key carrying the list of action_type alias rewrites applied
+ * before strict validation. Diagnostic-only — lets the debug bundle and
+ * downstream observers see EXACTLY which suggested_actions[] entries had
+ * their `action_type` normalised, so the rewrite is never silent.
+ *
+ * Entries: `Array<{ index: number; from: string; to: string }>`.
+ *
+ * Recorded only when at least one rewrite was applied (consistent with
+ * PHASE3_SIDECAR_BLOCKS_KEY and ORIGINAL_TOP_LEVEL_KEYS_KEY emission rules).
+ */
+export const ACTION_TYPE_ALIASES_APPLIED_KEY = 'action_type_aliases_applied' as const;
+
+/**
  * Whitelist of v1.3 Phase 3 block types tolerated inside `blocks[]`. Any
  * other unknown `type` discriminator inside `blocks[]` still hard-fails the
  * parse so accidental schema drift is detected.
@@ -81,6 +94,42 @@ export const PHASE3_TOLERATED_BLOCK_TYPES: ReadonlySet<Phase3ToleratedBlockType>
   'evidence',
   'exercise',
 ]);
+
+/**
+ * Allowlist of known CEE→schema drift in `suggested_actions[].action_type`.
+ *
+ * The vendored `@talchain/schemas@0.8.1` `ActionType` enum is the SINGULAR
+ * `explain_result`, but CEE V5 chip-generator emits the PLURAL
+ * `explain_results` (per the Phase-2b handler whitelist documented in
+ * `useConversation.ts` ACTION_TO_TURN_TYPE). DGAI's runtime dispatch already
+ * aliases both forms to the same `'explain'` turn type, and CEE's backend
+ * handler accepts both, so this is a lossless meaning-preserving rewrite
+ * applied BEFORE strict schema validation so the parse succeeds.
+ *
+ * Intentionally tiny and explicit. Any future drift requires explicit
+ * entry — broad tolerance is NOT acceptable. Truly unknown action_type
+ * values still fail strict validation.
+ *
+ * Keys are aliases CEE may emit; values are the canonical schema-accepted
+ * forms.
+ */
+const SUGGESTED_ACTION_TYPE_ALIASES: Readonly<Record<string, string>> = {
+  explain_results: 'explain_result',
+} as const;
+
+/**
+ * A single rewrite recorded by normaliseSuggestedActionTypeAliases for the
+ * debug bundle / sidecar. Surfaced verbatim under
+ * ACTION_TYPE_ALIASES_APPLIED_KEY.
+ */
+export interface ActionTypeAliasRewrite {
+  /** Index into the original suggested_actions array. */
+  index: number;
+  /** The non-canonical value CEE emitted. */
+  from: string;
+  /** The canonical value rewritten in place for validation. */
+  to: string;
+}
 
 /**
  * OlumiResponse extended with the additive sidecar. Consumers reading
@@ -205,6 +254,65 @@ function splitBlocksTolerance(blocks: unknown[]): {
   // reviewers diffing two captures.
   const unknownTypes = [...unknownTypeSet].sort();
   return { known, phase3, unknownTypes };
+}
+
+/**
+ * Pre-validation alias normalisation for `suggested_actions[].action_type`.
+ *
+ * Walks the suggested_actions array on `known` (the splitAdditiveExtensions
+ * output, already a shallow clone of the raw response). When an entry's
+ * `action_type` matches an allowlisted alias key in
+ * SUGGESTED_ACTION_TYPE_ALIASES, returns a new `known` object with that one
+ * field rewritten to the canonical form. The original input is NOT mutated;
+ * new shallow clones are constructed only for affected objects.
+ *
+ * Returns the rewrites alongside the (possibly cloned) known surface, so the
+ * caller can stash them on the parser sidecar for diagnostic faithfulness.
+ *
+ * No-op when:
+ *   - known is null/non-object/array, or
+ *   - known.suggested_actions is not an array, or
+ *   - no entry has an action_type that matches an allowlisted alias.
+ *
+ * Strictness is preserved: action_type values OUTSIDE the allowlist pass
+ * through unchanged. The downstream OlumiResponseSchema strict enum then
+ * fails on them, producing schema_mismatch as before.
+ */
+function normaliseSuggestedActionTypeAliases(known: unknown): {
+  known: unknown;
+  rewrites: ActionTypeAliasRewrite[];
+} {
+  if (
+    known === null ||
+    typeof known !== 'object' ||
+    Array.isArray(known) ||
+    !Array.isArray((known as Record<string, unknown>).suggested_actions)
+  ) {
+    return { known, rewrites: [] };
+  }
+  const knownObj = known as Record<string, unknown>;
+  const actions = knownObj.suggested_actions as unknown[];
+  const rewrites: ActionTypeAliasRewrite[] = [];
+  let mutatedAny = false;
+  const nextActions = actions.map((entry, index) => {
+    if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+      return entry;
+    }
+    const obj = entry as Record<string, unknown>;
+    const at = obj.action_type;
+    if (typeof at !== 'string') return entry;
+    const canonical = SUGGESTED_ACTION_TYPE_ALIASES[at];
+    if (canonical === undefined) return entry;
+    if (canonical === at) return entry;
+    mutatedAny = true;
+    rewrites.push({ index, from: at, to: canonical });
+    return { ...obj, action_type: canonical };
+  });
+  if (!mutatedAny) return { known, rewrites: [] };
+  return {
+    known: { ...knownObj, suggested_actions: nextActions },
+    rewrites,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -445,23 +553,41 @@ export async function parseV5Response(res: Response): Promise<V5ParseResult> {
     phase3Blocks = split.phase3
   }
 
+  // Tolerance step 3 (action_type alias drift): the runtime dispatch map
+  // (`ACTION_TO_TURN_TYPE` in useConversation.ts) already aliases known
+  // CEE-side action_type plurals to their canonical schema forms (e.g.
+  // 'explain_results' → 'explain_result'). Apply the same normalisation
+  // pre-validation so the strict schema enum accepts the response. Allowlist
+  // is intentionally tiny; any future drift requires explicit entry. Raw
+  // input is not mutated; rewrites are stashed on the sidecar for the debug
+  // bundle to surface faithfully.
+  const aliasNorm = normaliseSuggestedActionTypeAliases(knownForValidation)
+  knownForValidation = aliasNorm.known
+  const aliasRewrites = aliasNorm.rewrites
+
   const parsed = OlumiResponseSchema.safeParse(knownForValidation)
   if (parsed.success) {
     const hasTopLevelExt = Object.keys(extensions).length > 0
     const hasPhase3 = phase3Blocks.length > 0
-    if (!hasTopLevelExt && !hasPhase3) {
+    const hasAliasRewrites = aliasRewrites.length > 0
+    if (!hasTopLevelExt && !hasPhase3 && !hasAliasRewrites) {
       return { kind: 'response', response: parsed.data }
     }
     // Compose the sidecar payload. Top-level additive keys keep their
     // existing surface. Phase 3 blocks pulled out of blocks[] land under a
     // distinct key so consumers can read them without conflating with
-    // top-level additive keys. The pre-validation top-level keys are
+    // top-level additive keys. action_type alias rewrites land under their
+    // own key so debug bundle consumers see EXACTLY which suggested_actions
+    // entries were normalised. The pre-validation top-level keys are
     // stashed too, so the debug bundle can faithfully report the ORIGINAL
     // CEE root shape (the parsed clone surfaces `__additive__` and drops
     // the demoted top-level extras, so its keys list is misleading).
     const sidecar: Record<string, unknown> = { ...extensions }
     if (hasPhase3) {
       sidecar[PHASE3_SIDECAR_BLOCKS_KEY] = Object.freeze(phase3Blocks.slice())
+    }
+    if (hasAliasRewrites) {
+      sidecar[ACTION_TYPE_ALIASES_APPLIED_KEY] = Object.freeze(aliasRewrites.slice())
     }
     if (raw !== null && typeof raw === 'object' && !Array.isArray(raw)) {
       sidecar[ORIGINAL_TOP_LEVEL_KEYS_KEY] = Object.freeze(
