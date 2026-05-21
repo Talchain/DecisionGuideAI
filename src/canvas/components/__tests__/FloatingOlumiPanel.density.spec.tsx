@@ -156,12 +156,16 @@ describe('floating-density scope', () => {
     }
   })
 
-  it('docked OlumiTabBody does NOT pass compact=true to ConversationPanel', () => {
-    // Density differential at the React-prop level: docked tab keeps
-    // normal density (compact=false), floating uses compact=true.
+  it('docked OlumiTabBody passes compact=true to ConversationPanel (round-7: matches floating typography)', () => {
+    // Round-7 typography unification (brief item 9): docked and floating
+    // Olumi conversation surfaces must share the same panelBody typography
+    // (12px) so the docked text doesn't read as larger than the floating
+    // text. Both now pass `compact=true`. The CSS-level density (via the
+    // `.floating-density` wrapper class) remains floating-only because
+    // the wrapper governs message-bubble spacing/padding, not font-size.
     render(<OlumiTabBody onFloatOut={() => {}} />, { wrapper: Wrapper })
     const cp = document.querySelector('[data-testid="mocked-conversation-panel"]') as HTMLElement
     expect(cp).toBeTruthy()
-    expect(cp.getAttribute('data-compact')).toBe('false')
+    expect(cp.getAttribute('data-compact')).toBe('true')
   })
 })

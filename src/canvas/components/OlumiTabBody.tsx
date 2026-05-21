@@ -77,6 +77,7 @@ export const OlumiTabBody = memo(function OlumiTabBody({ onFloatOut }: OlumiTabB
           onCollapse={handleCollapse}
           onAttach={handleAttach}
           hideComposer
+          compact
         />
       </div>
     </div>
