@@ -136,6 +136,28 @@ export interface ValidatorInputs {
    * `selectedPlotTraceIsUsableLiveEvidence` gate.
    */
   plotResponseSource?: 'top_level' | 'cee_embedded' | 'unavailable'
+  /**
+   * Reviewer R-2 Blocker 2 gate: when the resolver's
+   * `plotResponseSource` is `'cee_embedded'`, the classifier must
+   * ALSO verify that `bundle.payloads.cee_response` was the
+   * SELECTED analysis-producing V5 turn — NOT a legacy / stale /
+   * fallback-legacy capture that happens to carry an
+   * `analysis_result` block.
+   *
+   * The bundle assembler computes this from
+   * `data.cee_capture_provenance` (`'analysis_producing_v5_turn'`
+   * OR `'fallback_v5_turn'` → true; anything else → false).
+   *
+   * `true`  → `classifySource` may emit `'live_v5_cee_embedded'`.
+   * `false` → classifier falls through to non-live source labels
+   *           (`'hydrated_report'` / `'unavailable'`) regardless
+   *           of body shape, preserving live-evidence honesty.
+   *
+   * Optional — defaults to `false` for legacy / sync-path callers
+   * (those callers don't supply embedded evidence either, so the
+   * default doesn't change behaviour for them).
+   */
+  ceeCaptureIsSelectedV5Turn?: boolean
 }
 
 /**

@@ -106,7 +106,7 @@ import {
 } from '../../../lib/scientificValidation'
 import {
   resolveScientificEvidence,
-  type ResolvedEvidence,
+  type EvidenceResolutionReport,
 } from '../../../lib/v5EmbeddedEvidence'
 import {
   ADDITIVE_EXTENSIONS_KEY,
@@ -1169,41 +1169,35 @@ interface DebugBundle {
   scientific_validation?: ScientificValidation
 
   /**
-   * Evidence-resolver output (post-PR #162 follow-up). Maps each
-   * scientific-validation evidence kind to its resolution metadata:
+   * Evidence-resolver output (post-PR #162 follow-up). Per-kind
+   * resolution METADATA — reviewers read:
    *
-   *   evidence_resolution: {
-   *     plot_response: Record | null,
-   *     plot_response_resolution: {
-   *       source: 'top_level' | 'cee_embedded' | 'unavailable',
-   *       path: string | null,
-   *       available: boolean,
-   *       required_upstream_support: string | null,
-   *       notes: string,
-   *     },
-   *     isl_request: ...,
-   *     isl_request_resolution: ...,
-   *     isl_response: ...,
-   *     isl_response_resolution: ...,
-   *   }
+   *   evidence_resolution.plot_request.source
+   *   evidence_resolution.plot_request.path
+   *   evidence_resolution.plot_request.available
+   *   evidence_resolution.plot_request.required_upstream_support
+   *   evidence_resolution.plot_request.notes
+   *
+   *   (same five fields for plot_response, isl_request, isl_response)
    *
    * Source meanings:
-   *   - `'top_level'`    — taken from `bundle.payloads.{plot,isl}_*`
-   *     (dev/local + direct-capture path).
-   *   - `'cee_embedded'` — extracted from `bundle.payloads.cee_response`
-   *     `.blocks[type==='analysis_result'].enrichment` (V5 canonical
-   *     path; the reviewer-facing signal that validators used
-   *     embedded enrichment rather than top-level capture).
-   *   - `'unavailable'`  — neither source carried usable evidence.
+   *   - `'top_level'`    — `bundle.payloads.<kind>` was non-null.
+   *   - `'cee_embedded'` — lifted from somewhere inside
+   *     `bundle.payloads.cee_response`. The exact pathname (e.g.
+   *     `payloads.cee_response.blocks[3].enrichment._meta.payloads.plot_response`
+   *     or `payloads.cee_response.blocks[3].enrichment`) is in `path`.
+   *   - `'unavailable'`  — neither source carried a usable body.
    *
-   * Honesty boundary: this field does NOT mutate `bundle.payloads.*`.
-   * The top-level payloads always reflect raw browser capture; the
-   * resolver result is a separate, additive diagnostic that records
-   * what the validators ACTUALLY saw and why. When `available` is
-   * `false`, `required_upstream_support` documents what would
-   * unlock this evidence kind — never inferred or fabricated.
+   * Honesty boundary: this field carries METADATA ONLY. Resolved
+   * bodies are NOT included here — they flow into the validators
+   * (via `inputs.{plotRequest,plotResponse,islRequest,islResponse}`),
+   * and the raw browser capture stays in `bundle.payloads.*`
+   * untouched. Reviewers can trace each resolved body via the
+   * `path` string. When `available === false`,
+   * `required_upstream_support` documents what would unlock this
+   * evidence kind — never inferred, never fabricated.
    */
-  evidence_resolution?: ResolvedEvidence
+  evidence_resolution?: EvidenceResolutionReport
 
   // Enhancement sections (Debug Panel V2.1)
 
@@ -4031,50 +4025,74 @@ export async function buildDebugBundleAsync(data: DebugData, options: ExportOpti
     // for reviewer transparency.
     const resolvedEvidence = resolveScientificEvidence(
       {
+        plot_request: bundle.payloads.plot_request,
         plot_response: bundle.payloads.plot_response,
         isl_request: bundle.payloads.isl_request,
         isl_response: bundle.payloads.isl_response,
       },
       bundle.payloads.cee_response,
     )
-    bundle.evidence_resolution = resolvedEvidence
+    // `bundle.evidence_resolution` exposes METADATA ONLY (no bodies).
+    // Bodies live in `bundle.payloads.*` (raw browser capture) AND
+    // are routed into validators below. Reviewers can trace each
+    // resolved body via `evidence_resolution.<kind>.path`.
+    bundle.evidence_resolution = resolvedEvidence.resolution
+
+    // Reviewer Blocker 2: gate `'live_v5_cee_embedded'` on a
+    // SELECTED analysis-producing V5 CEE turn — not just on
+    // `bundle.payloads.cee_response` having an `analysis_result`
+    // block with enrichment. A legacy / stale / non-selected CEE
+    // response that happens to carry an analysis_result block
+    // (e.g. an older `/bff/cee/turn` capture, or a fallback that
+    // landed on a non-V5 endpoint) must NOT be labelled live.
+    //
+    // The CEE-side analysis-producing selector (PR #156) records
+    // its provenance in `data.cee_capture_provenance`. We accept:
+    //   - `'analysis_producing_v5_turn'` — selector picked an
+    //     analysis-producing V5 turn.
+    //   - `'fallback_v5_turn'`           — fallback resolved to a
+    //     genuine V5 endpoint (still V5, just discovered via the
+    //     latest-V5 fallback path).
+    // We reject:
+    //   - `'fallback_legacy_cee'`        — fallback landed on a
+    //     non-V5 endpoint (legacy `/bff/cee/turn` etc.).
+    //   - `'none'`                       — no CEE candidate at all.
+    //   - undefined                      — provenance not threaded.
+    const ceeProvenance = data.cee_capture_provenance
+    const ceeIsSelectedV5 =
+      ceeProvenance === 'analysis_producing_v5_turn' ||
+      ceeProvenance === 'fallback_v5_turn'
 
     bundle.scientific_validation = runScientificValidation({
-      plotRequest: bundle.payloads.plot_request,
+      plotRequest: resolvedEvidence.bodies.plot_request,
       // Resolver output: top-level capture when present, else
-      // embedded enrichment from CEE V5 analysis_result block,
-      // else null. Honesty contract preserved — no fabrication.
-      plotResponse: resolvedEvidence.plot_response,
+      // embedded `_meta.payloads` sidecar, else embedded
+      // `analysis_result.enrichment` body, else null.
+      plotResponse: resolvedEvidence.bodies.plot_response,
       ceeRequest: bundle.payloads.cee_request,
       ceeResponse: bundle.payloads.cee_response,
-      islRequest: resolvedEvidence.isl_request,
-      islResponse: resolvedEvidence.isl_response,
+      islRequest: resolvedEvidence.bodies.isl_request,
+      islResponse: resolvedEvidence.bodies.isl_response,
       resultsReport: storeState.results?.report ?? null,
       ceeAnalysisReady: storeState.ceeAnalysisReady ?? null,
       capturePipelineStatus: bundle.capture_pipeline_status ?? null,
-      // PR #156 round-4 (reviewer P0): thread the usability flag so
-      // `classifySource` can't overclaim `live_raw_payloads` from a
-      // failed/non-usable selected PLoT trace whose error body
-      // happens to carry an indicative key.
-      //
-      // Evidence-resolver extension: when the resolver supplied the
-      // body from CEE-embedded enrichment, there is NO PLoT trace
-      // to check (V5 canonical has no direct PLoT call). The
-      // usability is instead verified by the CEE-side
-      // analysis-producing selector that ALREADY confirmed the
-      // turn was usable analysis evidence — passing `true` here
-      // is honest because the upstream gate has already validated
-      // the CEE source.
+      // PR #156 round-4 (reviewer P0): usability gate for top-level
+      // PLoT path. For the `'cee_embedded'` path, the equivalent
+      // usability gate is `ceeIsSelectedV5` (below) — we pass `true`
+      // here so the classifier doesn't double-gate the embedded
+      // path on a PLoT-trace check that doesn't apply when no PLoT
+      // trace exists at all (V5 canonical).
       selectedPlotTraceIsUsableLiveEvidence:
         data.selected_plot_trace_is_usable_live_evidence === true ||
-        resolvedEvidence.plot_response_resolution.source === 'cee_embedded',
-      // Evidence-resolver: tell classifySource that the resolved
-      // PLoT response came from CEE-embedded enrichment so it
-      // can emit the distinct `'live_v5_cee_embedded'` source label.
-      // Informational discriminator only — does NOT change the
-      // live-evidence semantics (both 'live_raw_payloads' and
-      // 'live_v5_cee_embedded' are live raw evidence).
-      plotResponseSource: resolvedEvidence.plot_response_resolution.source,
+        resolvedEvidence.resolution.plot_response.source === 'cee_embedded',
+      // Evidence-resolver: tell `classifySource` whether the
+      // resolved `plotResponse` came from CEE-embedded enrichment
+      // AND whether the captured CEE response was the selected
+      // analysis-producing V5 turn (NOT a legacy / fallback /
+      // stale CEE response). Only when BOTH are true does
+      // `classifySource` emit `'live_v5_cee_embedded'`.
+      plotResponseSource: resolvedEvidence.resolution.plot_response.source,
+      ceeCaptureIsSelectedV5Turn: ceeIsSelectedV5,
     })
   } catch {
     // All four sections are additive — keep partial state on failure.

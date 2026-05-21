@@ -97,10 +97,26 @@ function classifySource(
         // the label is an informational source discriminator.
         // The indicative-keys gate above + the usability gate
         // above STILL apply — no relaxation of honesty here.
+        //
+        // Reviewer R-2 Blocker 2: when source is `'cee_embedded'`,
+        // we ADDITIONALLY require `ceeCaptureIsSelectedV5Turn` to
+        // be `true`. That signal comes from the CEE-side
+        // analysis-producing selector's provenance — only an
+        // `'analysis_producing_v5_turn'` or `'fallback_v5_turn'`
+        // capture qualifies. A legacy / stale / non-selected CEE
+        // response with `analysis_result.enrichment` MUST NOT
+        // be labelled live, regardless of body shape.
         if (inputs.plotResponseSource === 'cee_embedded') {
-          return 'live_v5_cee_embedded'
+          if (inputs.ceeCaptureIsSelectedV5Turn === true) {
+            return 'live_v5_cee_embedded'
+          }
+          // Not a selected V5 turn — fall through to the non-live
+          // labels below. The body had indicative-key shape but
+          // the capture provenance is wrong; we refuse to label
+          // as live evidence.
+        } else {
+          return 'live_raw_payloads'
         }
-        return 'live_raw_payloads'
       }
     }
   }
