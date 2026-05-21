@@ -154,6 +154,34 @@ describe('adaptPhase3ReviewCard — mapping defaults', () => {
     expect(bridged).toMatchObject({ type: 'review_card', title: 'T', body: 'D' })
   })
 
+  it('nullish precedence: empty-string description does NOT fall through to body or summary', () => {
+    // adaptCEEBlock uses `dataObj.description ?? dataObj.body ?? ''`, which
+    // only falls through on null/undefined. An empty-string `description` is
+    // SELECTED (and produces an empty body string in the wrapped path).
+    // The bridge mirrors that selection and then refuses to render an empty
+    // card — strict parity on which field is selected, no silent fallthrough
+    // to body/summary content the wrapped path would have suppressed.
+    expect(
+      adaptPhase3ReviewCard({ title: 'T', description: '', body: 'B' }),
+    ).toBeNull()
+    expect(
+      adaptPhase3ReviewCard({ title: 'T', description: '', summary: 'S' }),
+    ).toBeNull()
+    expect(
+      adaptPhase3ReviewCard({ title: 'T', description: '', body: 'B', summary: 'S' }),
+    ).toBeNull()
+    // Sanity check: when description is undefined (not present), body IS
+    // selected — that's the wrapped-path's nullish fallthrough behaviour.
+    expect(
+      adaptPhase3ReviewCard({ title: 'T', body: 'B' }),
+    ).toMatchObject({ body: 'B' })
+    // Empty-string body with a later summary likewise refuses, because
+    // body is selected (empty) before summary can be considered.
+    expect(
+      adaptPhase3ReviewCard({ title: 'T', body: '', summary: 'S' }),
+    ).toBeNull()
+  })
+
   it('defaults variant to info when no tone or variant emitted', () => {
     const block = adaptPhase3ReviewCard({ title: 'T', summary: 'S' })
     expect(block?.variant).toBe('info')

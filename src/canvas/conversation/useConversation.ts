@@ -830,14 +830,17 @@ export function adaptPhase3ReviewCard(
       : ''
   if (!title) return null
 
-  const body =
-    typeof raw.description === 'string' && raw.description.length > 0
-      ? raw.description
-      : typeof raw.body === 'string' && raw.body.length > 0
-        ? raw.body
-        : typeof raw.summary === 'string' && raw.summary.length > 0
-          ? raw.summary
-          : ''
+  // Nullish-coalescing selection — matches the wrapped-block path's
+  // `dataObj.description ?? dataObj.body ?? ''` precedence (only falls
+  // through on null/undefined, NOT on empty string). The bridge then
+  // refuses the card when the selected field is empty, so an empty-string
+  // `description` rejects the card rather than silently surfacing a `body`
+  // or `summary` that the wrapped path would have suppressed.
+  const descriptionField =
+    typeof raw.description === 'string' ? raw.description : undefined
+  const bodyField = typeof raw.body === 'string' ? raw.body : undefined
+  const summaryField = typeof raw.summary === 'string' ? raw.summary : undefined
+  const body = descriptionField ?? bodyField ?? summaryField ?? ''
   if (!body) return null
 
   const tone =
