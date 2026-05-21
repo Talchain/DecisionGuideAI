@@ -12,6 +12,7 @@ import {
   COLLISION_GAP,
   CANVAS_MARGIN,
   TIER_BY_KIND,
+  ANALYSIS_PANEL_WIDTH,
 } from './nodeLayoutConstants'
 
 export interface CanvasSize {
@@ -26,6 +27,18 @@ interface LayoutOptions {
   spacing?: number
   layerSpacing?: number
   preserveLocked?: boolean
+  /**
+   * When `true`, subtract `ANALYSIS_PANEL_WIDTH` from `canvasSize.width`
+   * before computing `availableWidth`. Reflects the first-load state where
+   * the analysis panel (OutputsDock) is reliably open and the user has not
+   * yet had a chance to move or close it. After first load this flag MUST be
+   * left unset (or `false`) so subsequent auto-arranges remain panel-agnostic.
+   *
+   * Set to `true` only at the two first-load entry points:
+   *   - `applyDraftResult` (fresh CEE draft → graph)
+   *   - `useInitialLayoutGuard` (stacked persisted graph → first auto-arrange)
+   */
+  isFirstLoad?: boolean
 }
 
 /**
@@ -53,7 +66,8 @@ export async function layoutGraph(
     direction = 'DOWN',
     spacing = 60,
     layerSpacing,
-    preserveLocked = true
+    preserveLocked = true,
+    isFirstLoad = false,
   } = options
 
   const effectiveNodeSpacing = Math.max(20, spacing)
@@ -85,7 +99,23 @@ export async function layoutGraph(
   }
   const maxTierCount = Math.max(...tierCounts.values())
 
-  const availableWidth = canvasSize.width * 0.85
+  // First-load only: subtract the analysis panel's fixed width before
+  // computing availableWidth so the freshly laid-out graph fits inside the
+  // visible canvas (the panel is open by default and the user hasn't yet had
+  // a chance to move it). After first load, this flag is `false` and the
+  // layout uses the full canvas — auto-arrange ignores any panel because the
+  // user may have moved or closed it.
+  //
+  // The Math.max floor keeps `effectiveCanvasWidth` non-negative on
+  // degenerately narrow viewports (e.g. canvasSize.width ≤ ANALYSIS_PANEL_WIDTH);
+  // it does NOT guarantee that `availableWidth` (= effective × 0.85) stays
+  // above a single ELK box width. Downstream branches (min-width fallback +
+  // nodesPerRow clamped to ≥ 1) handle the resulting narrow availableWidth
+  // gracefully by splitting one-node-per-row.
+  const effectiveCanvasWidth = isFirstLoad
+    ? Math.max(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X, canvasSize.width - ANALYSIS_PANEL_WIDTH)
+    : canvasSize.width
+  const availableWidth = effectiveCanvasWidth * 0.85
   const isDownLayout = direction === 'DOWN'
 
   let elkBoxW: number

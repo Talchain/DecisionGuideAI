@@ -246,11 +246,18 @@ describe('normaliseTierRows — direct fixture (I.2)', () => {
       } as Node
     })
 
+    // Use a wider canvas so the 5-factor tier fits in max-width branch even
+    // with NODE_LAYOUT_MIN_W=200 (raised from 140). At 200, 5 factors need
+    // unclamped ≥ 224 → availableWidth ≥ 1240 → canvasSize.width ≥ 1459.
+    // 1500 leaves margin. The test's purpose is to verify intra-tier Y
+    // normalisation when ELK introduces Y noise — that requires the tier
+    // to be a single row.
+    const WIDE_CANVAS_5_FACTOR: CanvasSize = { width: 1500, height: 750 }
     const result = await layoutGraph(
       nodesWithHeights,
       fixture.edges as Edge[],
       {},
-      STD_CANVAS,
+      WIDE_CANVAS_5_FACTOR,
     )
 
     const optionYs = result.nodes
@@ -528,9 +535,9 @@ describe('constants contract', () => {
     expect(LAYOUT_BOX_MIN_W).toBe(NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X)
   })
 
-  it('NODE_CARD_MAX_W is 320, NODE_LAYOUT_MIN_W is 140', () => {
+  it('NODE_CARD_MAX_W is 320, NODE_LAYOUT_MIN_W is 200', () => {
     expect(NODE_CARD_MAX_W).toBe(320)
-    expect(NODE_LAYOUT_MIN_W).toBe(140)
+    expect(NODE_LAYOUT_MIN_W).toBe(200)
   })
 
   it('COLLISION_GAP < expected node-node gap', () => {
