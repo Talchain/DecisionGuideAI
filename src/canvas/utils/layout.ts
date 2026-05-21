@@ -85,7 +85,33 @@ export async function layoutGraph(
   }
   const maxTierCount = Math.max(...tierCounts.values())
 
-  const availableWidth = canvasSize.width * 0.85
+  // Panel-aware visible canvas. OutputsDock is a position:fixed overlay so
+  // canvasSize.width (the .react-flow container) does not shrink when the dock
+  // is mounted. Query the dock and the canvas container and use their bounding
+  // rects to compute the visible canvas right boundary in canvas-local coords
+  // (dockLeft − rfLeft). This naturally captures both the dock's width and its
+  // `right` margin (the rect's `.left` already reflects them), avoiding the
+  // off-by-12 error of `canvasSize.width − dockWidth`.
+  //
+  // SSR-guarded; in jsdom tests without both elements mocked, querySelector
+  // returns null for at least one → fallback to canvasSize.width → behaviour
+  // identical to the pre-change pipeline.
+  const MIN_BOX_W = NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X
+  let visibleCanvasWidth = canvasSize.width
+  if (typeof document !== 'undefined') {
+    const dockEl = document.querySelector('[data-testid="outputs-dock"]')
+    const rfEl = document.querySelector('.react-flow')
+    if (dockEl && rfEl) {
+      const dockLeft = dockEl.getBoundingClientRect().left
+      const rfLeft = rfEl.getBoundingClientRect().left
+      const computed = dockLeft - rfLeft
+      if (computed > 0) visibleCanvasWidth = computed
+    }
+  }
+  visibleCanvasWidth = Math.max(MIN_BOX_W, visibleCanvasWidth)
+
+  const availableWidth = Math.max(MIN_BOX_W, visibleCanvasWidth * 0.85)
+
   const isDownLayout = direction === 'DOWN'
 
   let elkBoxW: number
@@ -94,8 +120,30 @@ export async function layoutGraph(
 
   if (isDownLayout && maxTierCount > 1) {
     const unclampedElkBoxW = Math.floor((availableWidth - (maxTierCount - 1) * MIN_GAP) / maxTierCount)
+    // Visible right edge of the rightmost node after centreRowsOnSpine +
+    // applyGlobalTranslation. The widest tier's leftmost lands at
+    // CANVAS_MARGIN, the rightmost is (N−1) strides further, and the
+    // rightmost node's visible right edge is NODE_CARD_MAX_W beyond its left.
+    //
+    // Derived directly from placement geometry — does NOT rely on the
+    // incidental equality CANVAS_MARGIN === LAYOUT_PADDING_X (= 24 today).
+    // A future tweak to either constant keeps this formula correct because
+    // it mirrors what the layout actually produces.
+    const maxSingleVisibleRowEnd =
+      CANVAS_MARGIN
+      + (maxTierCount - 1) * (NODE_CARD_MAX_W + LAYOUT_PADDING_X + effectiveNodeSpacing)
+      + NODE_CARD_MAX_W
 
-    if (unclampedElkBoxW >= NODE_LAYOUT_MIN_W + LAYOUT_PADDING_X) {
+    // Max-single fires only if BOTH:
+    //   1. Per-box min-width threshold passes (existing — keeps ELK from
+    //      receiving degenerate sub-min per-box widths).
+    //   2. The rendered row's visible right edge fits within the visible
+    //      canvas (new — stops the row spanning behind the OutputsDock at
+    //      typical laptop viewports). Compared against `visibleCanvasWidth`
+    //      (raw, no 0.85 factor) because we're asking whether the row
+    //      actually fits visibly, not whether ELK can place the boxes with
+    //      margin.
+    if (unclampedElkBoxW >= MIN_BOX_W && maxSingleVisibleRowEnd <= visibleCanvasWidth) {
       elkBoxW = NODE_CARD_MAX_W + LAYOUT_PADDING_X
       gap = effectiveNodeSpacing
     } else {
