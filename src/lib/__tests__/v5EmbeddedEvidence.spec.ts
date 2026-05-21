@@ -708,4 +708,39 @@ describe('resolveScientificEvidence — parse-error wrapper (PR #169)', () => {
     )
     expect(r.bodies.plot_response).toEqual(first)
   })
+
+  // PR #169 reviewer round-1 follow-up #1 — pin the intentionally
+  // structural test in `findAnalysisResultBlock`. The fallback does
+  // NOT require `kind === 'parse_error'`; it walks `ceeResponse.raw.blocks[*]`
+  // whenever the unwrapped `.blocks` is absent. This is forward-compat
+  // with potential CEE wrapper-shape evolution. The live-evidence
+  // honesty contract is still owned by the downstream provenance gate
+  // (R-2 Blocker 2) in `scientificValidation/index.ts`, so accepting a
+  // non-parse_error wrapper here cannot mislabel as live by itself.
+  it('resolves raw wrapper structurally even when kind !== parse_error (forward-compat)', () => {
+    const r = resolveScientificEvidence(EMPTY_TOP_LEVEL, {
+      // Anything other than 'parse_error' — including completely
+      // unknown wrapper shapes — must still resolve via raw.blocks.
+      kind: 'something_else_unknown',
+      raw: {
+        blocks: [
+          {
+            type: 'analysis_result',
+            enrichment: {
+              factor_sensitivity: [{ factor_id: 'fwd-f1' }],
+              robustness: { level: 'low' },
+            },
+          },
+        ],
+      },
+    })
+    expect(r.resolution.plot_response.source).toBe('cee_embedded')
+    expect(r.resolution.plot_response.path).toBe(
+      'payloads.cee_response.raw.blocks[0].enrichment',
+    )
+    expect(r.bodies.plot_response).toEqual({
+      factor_sensitivity: [{ factor_id: 'fwd-f1' }],
+      robustness: { level: 'low' },
+    })
+  })
 })
